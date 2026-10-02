@@ -1,9 +1,11 @@
 import com.android.build.api.dsl.KotlinMultiplatformAndroidLibraryTarget
+import com.android.build.api.withAndroid
 import dev.whyoleg.cryptography.gradle.CryptographyExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.plugins.ExtensionAware
 import org.gradle.kotlin.dsl.configure
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
@@ -39,7 +41,32 @@ class KmpLibraryConventionPlugin : Plugin<Project> {
                 iosSimulatorArm64()
                 @OptIn(ExperimentalWasmDsl::class) wasmJs { browser { testTask { enabled = false } } }
 
-                applyDefaultHierarchyTemplate()
+                @OptIn(ExperimentalKotlinGradlePluginApi::class)
+                applyDefaultHierarchyTemplate {
+                    common {
+                        group("commonJvm") {
+                            withJvm()
+                            @Suppress("UnstableApiUsage") withAndroid()
+                        }
+                        group("web") {
+                            withJs()
+                            withWasmJs()
+                        }
+                        // group("native") rather than withNative(), so the shared nativeMain/iosMain (not just
+                        // the per-target leaves) depend on these and can see their declarations.
+                        group("nonWeb") {
+                            @Suppress("UnstableApiUsage") withAndroid()
+                            group("native")
+                            withJvm()
+                        }
+                        group("nonAndroid") {
+                            group("native")
+                            withJvm()
+                            withJs()
+                            withWasmJs()
+                        }
+                    }
+                }
 
                 sourceSets.getByName("commonTest").dependencies {
                     implementation(kotlin("test"))
