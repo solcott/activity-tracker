@@ -1,0 +1,46 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.activity",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A recorded or manually entered athletic activity. Records are public: never include private locations; privacy zones must be trimmed from polyline/track before writing.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["sport", "startedAt", "elapsedTime", "createdAt"],
+        "properties": {
+          "sport": {
+            "type": "string",
+            "maxLength": 64,
+            "knownValues": ["run", "ride", "walk", "hike", "swim", "ski", "other"]
+          },
+          "title": { "type": "string", "maxLength": 1000, "maxGraphemes": 100 },
+          "description": { "type": "string", "maxLength": 10000, "maxGraphemes": 1000 },
+          "startedAt": { "type": "string", "format": "datetime" },
+          "elapsedTime": { "type": "integer", "minimum": 0, "description": "Wall-clock duration in seconds." },
+          "movingTime": { "type": "integer", "minimum": 0, "description": "Seconds spent moving." },
+          "distance": { "type": "integer", "minimum": 0, "description": "Meters." },
+          "elevationGain": { "type": "integer", "minimum": 0, "description": "Meters." },
+          "avgSpeed": { "type": "integer", "minimum": 0, "description": "Millimeters per second (lexicons have no floats)." },
+          "maxSpeed": { "type": "integer", "minimum": 0, "description": "Millimeters per second." },
+          "avgHeartRate": { "type": "integer", "minimum": 0, "maximum": 300 },
+          "maxHeartRate": { "type": "integer", "minimum": 0, "maximum": 300 },
+          "polyline": {
+            "type": "string",
+            "maxLength": 50000,
+            "description": "Simplified route as a Google encoded polyline (precision 5), for feed/map previews."
+          },
+          "track": {
+            "type": "blob",
+            "accept": ["application/gpx+xml"],
+            "maxSize": 10000000,
+            "description": "Full-resolution GPS track as GPX."
+          },
+          "device": { "type": "string", "maxLength": 256 },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

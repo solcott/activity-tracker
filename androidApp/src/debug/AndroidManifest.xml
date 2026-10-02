@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The local docker stack is plain HTTP. Use `adb reverse tcp:2582 tcp:2582` (and 2583, 8081) so
+     the emulator's localhost reaches it. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:usesCleartextTraffic="true" />
+</manifest>

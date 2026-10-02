@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "./gradlew",
+      "runtimeArgs": [":webApp:wasmJsBrowserDevelopmentRun", "--continuous"],
+      "port": 8080,
+      "autoPort": true
+    },
+    {
+      "name": "appview",
+      "runtimeExecutable": "./gradlew",
+      "runtimeArgs": [":server:appview:run"],
+      "port": 8081
+    }
+  ]
+}

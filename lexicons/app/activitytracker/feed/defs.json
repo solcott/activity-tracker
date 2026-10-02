@@ -1,0 +1,37 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.defs",
+  "defs": {
+    "activityView": {
+      "type": "object",
+      "required": ["uri", "cid", "author", "record", "kudosCount", "commentCount", "indexedAt"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "author": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
+        "record": { "type": "ref", "ref": "app.activitytracker.feed.activity" },
+        "kudosCount": { "type": "integer" },
+        "commentCount": { "type": "integer" },
+        "indexedAt": { "type": "string", "format": "datetime" },
+        "viewer": { "type": "ref", "ref": "#viewerState" }
+      }
+    },
+    "viewerState": {
+      "type": "object",
+      "properties": {
+        "kudos": { "type": "string", "format": "at-uri", "description": "URI of the viewer's kudos record, if any." }
+      }
+    },
+    "commentView": {
+      "type": "object",
+      "required": ["uri", "cid", "author", "text", "createdAt"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "author": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "datetime" }
+      }
+    }
+  }
+}

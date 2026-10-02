@@ -1,0 +1,97 @@
+package io.github.solcott.activitytracker.app.auth
+
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
+import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.data.auth.AuthRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+/** Opens the platform's browser for OAuth. The redirect comes back via [AuthCoordinator.handleRedirect]. */
+fun interface AuthBrowser {
+    fun open(url: String)
+}
+
+/**
+ * Drives OAuth sign-in across the browser round-trip. Platform entry points (Android deep link, iOS ASWebAuthenticationSession callback,
+ * web page load with `?code=`) call [handleRedirect].
+ */
+@SingleIn(AppScope::class)
+@Inject
+class AuthCoordinator(
+    private val auth: AuthRepository,
+    private val browser: AuthBrowser,
+) {
+    sealed interface Status {
+        data object Idle : Status
+
+        data object Starting : Status
+
+        data object WaitingForBrowser : Status
+
+        data object Completing : Status
+
+        data class Failed(val message: String) : Status
+    }
+
+    private val _status = MutableStateFlow<Status>(Status.Idle)
+    val status: StateFlow<Status> = _status.asStateFlow()
+
+    suspend fun signIn(handle: String) {
+        _status.value = Status.Starting
+        runSuspendCatching {
+            browser.open(auth.beginSignIn(handle))
+            _status.value = Status.WaitingForBrowser
+        }
+            .onFailure { _status.value = Status.Failed(it.message ?: "Could not start sign-in") }
+    }
+
+    suspend fun handleRedirect(params: Map<String, String>) {
+        _status.value = Status.Completing
+        runSuspendCatching {
+            auth.completeSignIn(params)
+            _status.value = Status.Idle
+        }
+            .onFailure { _status.value = Status.Failed(it.message ?: "Sign-in failed") }
+    }
+
+    fun cancelled() {
+        _status.value = Status.Idle
+    }
+}
+
+/** Parses the query string of an OAuth redirect URI. */
+fun parseRedirectParams(url: String): Map<String, String> =
+    url.substringAfter('?', "")
+        .substringBefore('#')
+        .split('&')
+        .filter { '=' in it }
+        .associate {
+            val (k, v) = it.split('=', limit = 2)
+            k.decodeUrlComponent() to v.decodeUrlComponent()
+        }
+
+private fun String.decodeUrlComponent(): String {
+    val bytes = ArrayList<Byte>(length)
+    var i = 0
+    while (i < length) {
+        when (val c = this[i]) {
+            '%' -> {
+                bytes += substring(i + 1, i + 3).toInt(16).toByte()
+                i += 2
+            }
+
+            '+' -> {
+                bytes += ' '.code.toByte()
+            }
+
+            else -> {
+                c.toString().encodeToByteArray().forEach { bytes += it }
+            }
+        }
+        i++
+    }
+    return bytes.toByteArray().decodeToString()
+}

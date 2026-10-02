@@ -1,0 +1,135 @@
+[versions]
+# Toolchain. Circuit 0.39 requires Kotlin 2.4.20 / Compose Multiplatform 1.12.x; Metro 1.4.5 supports this Kotlin.
+kotlin = "2.4.20"
+agp = "9.4.1"
+ksp = "2.3.12"
+composeMultiplatform = "1.12.1"
+metro = "1.4.5"
+detekt = "2.0.0-alpha.6"
+composeRules = "0.6.7"
+ktfmt = "0.27.0"
+sortDependencies = "0.21.0"
+
+android-compileSdk = "37"
+android-minSdk = "26"
+android-targetSdk = "36"
+
+circuit = "0.39.0"
+coroutines = "1.11.0"
+serialization = "1.11.0"
+ktor = "3.6.0"
+room = "3.0.3"
+sqlite = "2.7.1"
+cryptography = "0.6.0"
+material3 = "1.12.0-alpha03"
+materialIcons = "1.7.3"
+kotlinxBrowser = "0.5.0"
+
+androidx-activity = "1.13.0"
+androidx-browser = "1.10.0"
+androidx-core = "1.19.1"
+playServicesLocation = "21.4.0"
+
+# Server
+exposed = "1.5.0"
+flyway = "13.8.1"
+postgresql = "42.7.13"
+hikari = "7.1.0"
+logback = "1.6.5"
+bouncycastle = "1.86"
+h2 = "2.5.252"
+
+turbine = "1.2.1"
+junit = "4.13.2"
+
+[libraries]
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+kotlinx-browser = { module = "org.jetbrains.kotlinx:kotlinx-browser", version.ref = "kotlinxBrowser" }
+
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-client-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktor" }
+ktor-client-websockets = { module = "io.ktor:ktor-client-websockets", version.ref = "ktor" }
+ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
+ktor-client-engine-defaults = { module = "io.ktor:ktor-client-engine-defaults", version.ref = "ktor" }
+ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
+ktor-serialization-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+
+ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
+ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
+ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor" }
+ktor-server-cors = { module = "io.ktor:ktor-server-cors", version.ref = "ktor" }
+ktor-server-status-pages = { module = "io.ktor:ktor-server-status-pages", version.ref = "ktor" }
+ktor-server-call-logging = { module = "io.ktor:ktor-server-call-logging", version.ref = "ktor" }
+ktor-server-config-yaml = { module = "io.ktor:ktor-server-config-yaml", version.ref = "ktor" }
+ktor-server-websockets = { module = "io.ktor:ktor-server-websockets", version.ref = "ktor" }
+ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
+
+circuit-foundation = { module = "com.slack.circuit:circuit-foundation", version.ref = "circuit" }
+circuit-runtime = { module = "com.slack.circuit:circuit-runtime", version.ref = "circuit" }
+circuit-serialization = { module = "com.slack.circuit:circuit-serialization", version.ref = "circuit" }
+circuit-codegen-annotations = { module = "com.slack.circuit:circuit-codegen-annotations", version.ref = "circuit" }
+circuit-test = { module = "com.slack.circuit:circuit-test", version.ref = "circuit" }
+
+compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "composeMultiplatform" }
+compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "composeMultiplatform" }
+compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMultiplatform" }
+compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "material3" }
+compose-material-icons-core = { module = "org.jetbrains.compose.material:material-icons-core", version.ref = "materialIcons" }
+
+room-runtime = { module = "androidx.room3:room3-runtime", version.ref = "room" }
+room-compiler = { module = "androidx.room3:room3-compiler", version.ref = "room" }
+sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
+sqlite-web = { module = "androidx.sqlite:sqlite-web", version.ref = "sqlite" }
+
+cryptography-core = { module = "dev.whyoleg.cryptography:cryptography-core", version.ref = "cryptography" }
+cryptography-provider-optimal = { module = "dev.whyoleg.cryptography:cryptography-provider-optimal", version.ref = "cryptography" }
+
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
+androidx-browser = { module = "androidx.browser:browser", version.ref = "androidx-browser" }
+androidx-core = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }
+play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServicesLocation" }
+
+exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }
+exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "exposed" }
+exposed-kotlin-datetime = { module = "org.jetbrains.exposed:exposed-kotlin-datetime", version.ref = "exposed" }
+flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
+flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
+logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+bouncycastle = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+h2 = { module = "com.h2database:h2", version.ref = "h2" }
+
+turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
+junit = { module = "junit:junit", version.ref = "junit" }
+
+compose-rules-detekt = { module = "io.nlopez.compose.rules:detekt", version.ref = "composeRules" }
+
+# Plugin artifacts for build-logic.
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+compose-compiler-gradle-plugin = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin" }
+compose-gradle-plugin = { module = "org.jetbrains.compose:compose-gradle-plugin", version.ref = "composeMultiplatform" }
+android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
+ksp-gradle-plugin = { module = "com.google.devtools.ksp:symbol-processing-gradle-plugin", version.ref = "ksp" }
+metro-gradle-plugin = { module = "dev.zacsweers.metro:gradle-plugin", version.ref = "metro" }
+room-gradle-plugin = { module = "androidx.room3:room3-gradle-plugin", version.ref = "room" }
+cryptography-gradle-plugin = { module = "dev.whyoleg.cryptography:cryptography-gradle-plugin", version.ref = "cryptography" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+metro = { id = "dev.zacsweers.metro", version.ref = "metro" }
+room = { id = "androidx.room3", version.ref = "room" }
+detekt = { id = "dev.detekt", version.ref = "detekt" }
+ktfmt = { id = "com.ncorti.ktfmt.gradle", version.ref = "ktfmt" }
+sort-dependencies = { id = "com.squareup.sort-dependencies", version.ref = "sortDependencies" }

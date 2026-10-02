@@ -1,0 +1,24 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:ActivityDetailScreen.kt:@CircuitInject(ActivityDetailScreen::class, SessionScope::class) @Composable fun ActivityDetailPresenter: ActivityDetailState</ID>
+    <ID>MagicNumber:AuthCoordinator.kt:16</ID>
+    <ID>MagicNumber:AuthCoordinator.kt:3</ID>
+    <ID>MagicNumber:Format.kt:Format$10</ID>
+    <ID>MagicNumber:Format.kt:Format$100</ID>
+    <ID>MagicNumber:Format.kt:Format$60</ID>
+    <ID>ModifierMissing:RecordScreen.kt:@Composable fun SportPicker</ID>
+    <ID>ModifierMissing:Theme.kt:@Composable fun AppTheme</ID>
+    <ID>ModifierWithoutDefault:ActivityDetailScreen.kt:modifier: Modifier</ID>
+    <ID>MutableStateAutoboxing:ActivityDetailScreen.kt:mutableStateOf(0)</ID>
+    <ID>MutableStateAutoboxing:FeedScreen.kt:mutableStateOf(0)</ID>
+    <ID>MutableStateAutoboxing:ProfileScreen.kt:mutableStateOf(0)</ID>
+    <ID>TooGenericExceptionCaught:ActivityDetailScreen.kt:e: Exception</ID>
+    <ID>TooGenericExceptionCaught:AuthCoordinator.kt:AuthCoordinator$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:FeedScreen.kt:e: Exception</ID>
+    <ID>TooGenericExceptionCaught:ManualActivityScreen.kt:e: Exception</ID>
+    <ID>TooGenericExceptionCaught:ProfileScreen.kt:e: Exception</ID>
+    <ID>TooGenericExceptionCaught:RecordScreen.kt:e: Exception</ID>
+  </CurrentIssues>
+</SmellBaseline>

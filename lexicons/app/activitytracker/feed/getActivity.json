@@ -1,0 +1,29 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.getActivity",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "A single activity with its comments, oldest comment first.",
+      "parameters": {
+        "type": "params",
+        "required": ["uri"],
+        "properties": {
+          "uri": { "type": "string", "format": "at-uri" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["activity", "comments"],
+          "properties": {
+            "activity": { "type": "ref", "ref": "app.activitytracker.feed.defs#activityView" },
+            "comments": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#commentView" } }
+          }
+        }
+      },
+      "errors": [{ "name": "NotFound" }]
+    }
+  }
+}

@@ -1,0 +1,183 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "302aac801a19f2652fceffd3e3f2da30",
+    "entities": [
+      {
+        "tableName": "key_value",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`key` TEXT NOT NULL, `value` TEXT NOT NULL, PRIMARY KEY(`key`))",
+        "fields": [
+          {
+            "fieldPath": "key",
+            "columnName": "key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "value",
+            "columnName": "value",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "key"
+          ]
+        }
+      },
+      {
+        "tableName": "pending_auth",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`state` TEXT NOT NULL, `json` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`state`))",
+        "fields": [
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "json",
+            "columnName": "json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "state"
+          ]
+        }
+      },
+      {
+        "tableName": "feed_item",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`feedKey` TEXT NOT NULL, `uri` TEXT NOT NULL, `position` INTEGER NOT NULL, `json` TEXT NOT NULL, PRIMARY KEY(`feedKey`, `uri`))",
+        "fields": [
+          {
+            "fieldPath": "feedKey",
+            "columnName": "feedKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uri",
+            "columnName": "uri",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "position",
+            "columnName": "position",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "json",
+            "columnName": "json",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "feedKey",
+            "uri"
+          ]
+        }
+      },
+      {
+        "tableName": "outbox",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `did` TEXT NOT NULL, `operation` TEXT NOT NULL, `collection` TEXT NOT NULL, `rkey` TEXT NOT NULL, `recordJson` TEXT, `blob` BLOB, `blobMimeType` TEXT, `blobField` TEXT, `attempts` INTEGER NOT NULL, `lastError` TEXT, `createdAt` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "did",
+            "columnName": "did",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operation",
+            "columnName": "operation",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "collection",
+            "columnName": "collection",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rkey",
+            "columnName": "rkey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recordJson",
+            "columnName": "recordJson",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "blob",
+            "columnName": "blob",
+            "affinity": "BLOB"
+          },
+          {
+            "fieldPath": "blobMimeType",
+            "columnName": "blobMimeType",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "blobField",
+            "columnName": "blobField",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "attempts",
+            "columnName": "attempts",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastError",
+            "columnName": "lastError",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '302aac801a19f2652fceffd3e3f2da30')"
+    ]
+  }
+}

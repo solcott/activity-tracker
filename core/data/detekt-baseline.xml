@@ -1,0 +1,12 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ForbiddenComment:RoomOAuthStore.kt:RoomOAuthStore$* Persists OAuth state in Room. * * TODO: wrap tokens + DPoP key with platform secure storage (Android Keystore / iOS Keychain).</ID>
+    <ID>MagicNumber:ActivityDraft.kt:ActivityDraft$1000</ID>
+    <ID>MatchingDeclarationName:DatabaseBindings.wasmJs.kt:DatabaseBindings</ID>
+    <ID>MatchingDeclarationName:Scopes.kt:SessionScope</ID>
+    <ID>MaxLineLength:ActivityRepositoryTest.kt:ActivityRepositoryTest$"""{"blob":{"${'$'}type":"blob","ref":{"${'$'}link":"bafyblob"},"mimeType":"application/gpx+xml","size":10}}"""</ID>
+    <ID>TooGenericExceptionCaught:OutboxProcessor.kt:OutboxProcessor$e: Exception</ID>
+  </CurrentIssues>
+</SmellBaseline>

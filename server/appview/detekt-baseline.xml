@@ -1,0 +1,28 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:ServiceAuthVerifier.kt:ServiceAuthVerifier$suspend fun verify: Did</ID>
+    <ID>LongMethod:AppViewTest.kt:AppViewTest$@Test fun timelineShowsFollowedActivitiesWithCounts</ID>
+    <ID>LongMethod:Indexer.kt:Indexer$private fun JdbcTransaction.upsert</ID>
+    <ID>LoopWithTooManyJumpStatements:JetstreamConsumer.kt:JetstreamConsumer$for</ID>
+    <ID>MagicNumber:Application.kt:401</ID>
+    <ID>MagicNumber:Application.kt:500</ID>
+    <ID>MagicNumber:Indexer.kt:Indexer$10_000</ID>
+    <ID>MagicNumber:Indexer.kt:Indexer$16</ID>
+    <ID>MagicNumber:Indexer.kt:Indexer$2560</ID>
+    <ID>MagicNumber:Indexer.kt:Indexer$64</ID>
+    <ID>MagicNumber:Indexer.kt:Indexer$640</ID>
+    <ID>MagicNumber:ServiceAuthVerifier.kt:ServiceAuthVerifier$3</ID>
+    <ID>MagicNumber:ServiceAuthVerifier.kt:ServiceAuthVerifier$64</ID>
+    <ID>MatchingDeclarationName:TestKeys.kt:TestAccountKey</ID>
+    <ID>MaxLineLength:AppViewTest.kt:AppViewTest$"""{"sport":"run","startedAt":"2026-09-30T10:00:00Z","elapsedTime":1800,"createdAt":"2026-09-30T10:31:00Z","distance":5000}"""</ID>
+    <ID>MaxLineLength:AppViewTest.kt:AppViewTest$"""{"subject":{"uri":"$activityUri","cid":"bafy3kbob1"},"text":"Nice!","createdAt":"2026-09-30T11:01:00Z"}"""</ID>
+    <ID>ReturnCount:Indexer.kt:Indexer$private suspend fun commit</ID>
+    <ID>ReturnCount:ServiceAuthVerifier.kt:ServiceAuthVerifier$private suspend fun signingKey: SigningKey?</ID>
+    <ID>SwallowedException:Routes.kt:e: Exception</ID>
+    <ID>ThrowsCount:ServiceAuthVerifier.kt:ServiceAuthVerifier$suspend fun verify: Did</ID>
+    <ID>TooGenericExceptionCaught:JetstreamConsumer.kt:JetstreamConsumer$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Routes.kt:e: Exception</ID>
+  </CurrentIssues>
+</SmellBaseline>

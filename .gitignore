@@ -1,0 +1,23 @@
+*.iml
+.gradle/
+.kotlin/
+build/
+/local.properties
+local.properties
+.idea/
+.DS_Store
+captures/
+.externalNativeBuild
+.cxx
+kotlin-js-store/
+node_modules/
+
+# iOS
+iosApp/build/
+xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+
+# Local stack secrets
+docker/.env
+docker/data/

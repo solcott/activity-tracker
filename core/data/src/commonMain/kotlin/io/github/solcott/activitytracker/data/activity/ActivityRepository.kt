@@ -1,0 +1,134 @@
+package io.github.solcott.activitytracker.data.activity
+
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
+import io.github.solcott.activitytracker.data.db.AppDatabase
+import io.github.solcott.activitytracker.data.db.OutboxEntity
+import io.github.solcott.activitytracker.data.di.SessionClients
+import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.Tid
+import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.CommentRecord
+import io.github.solcott.activitytracker.lexicon.app.KudosRecord
+import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
+import io.github.solcott.activitytracker.location.Gpx
+import kotlin.time.Clock
+import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.KSerializer
+
+/**
+ * Writes the signed-in athlete's records. Everything goes through the outbox so writes survive offline periods and app restarts; the
+ * AppView picks them up from the firehose afterwards.
+ */
+@SingleIn(SessionScope::class)
+@Inject
+class ActivityRepository(
+    private val db: AppDatabase,
+    private val clients: SessionClients,
+    private val outbox: OutboxProcessor,
+    private val feed: FeedRepository,
+    private val clock: Clock,
+) {
+    val pendingWrites: Flow<Int> = db.outbox().count(clients.did.value)
+
+    suspend fun publish(draft: ActivityDraft): AtUri {
+        val rkey = Tid.next(clock)
+        enqueue(
+            collection = Nsid.FEED_ACTIVITY,
+            rkey = rkey,
+            serializer = ActivityRecord.serializer(),
+            record = draft.toRecord(clock.now()),
+            blob = draft.gpx,
+            blobMimeType = Gpx.MIME_TYPE,
+            blobField = "track",
+        )
+        return AtUri.of(clients.did, Nsid.FEED_ACTIVITY, rkey)
+    }
+
+    suspend fun giveKudos(activity: ActivityView) {
+        if (activity.viewer?.kudos != null) return
+        val rkey = Tid.next(clock)
+        feed.updateCached(activity.uri) {
+            it.copy(
+                kudosCount = it.kudosCount + 1,
+                viewer = it.viewer?.copy(kudos = AtUri.of(clients.did, Nsid.FEED_KUDOS, rkey)),
+            )
+        }
+        enqueue(
+            Nsid.FEED_KUDOS,
+            rkey,
+            KudosRecord.serializer(),
+            KudosRecord(StrongRef(activity.uri, activity.cid), clock.now()),
+        )
+    }
+
+    suspend fun removeKudos(activity: ActivityView) {
+        val kudos = activity.viewer?.kudos ?: return
+        feed.updateCached(activity.uri) {
+            it.copy(
+                kudosCount = (it.kudosCount - 1).coerceAtLeast(0),
+                viewer = it.viewer?.copy(kudos = null),
+            )
+        }
+        db.outbox()
+            .insert(
+                outboxEntity(
+                    OutboxProcessor.OP_DELETE,
+                    Nsid.FEED_KUDOS,
+                    requireNotNull(kudos.rkey),
+                    null,
+                )
+            )
+        outbox.drain()
+    }
+
+    suspend fun comment(activity: ActivityView, text: String) {
+        feed.updateCached(activity.uri) { it.copy(commentCount = it.commentCount + 1) }
+        enqueue(
+            Nsid.FEED_COMMENT,
+            Tid.next(clock),
+            CommentRecord.serializer(),
+            CommentRecord(StrongRef(activity.uri, activity.cid), text.trim(), clock.now()),
+        )
+    }
+
+    /** Retries anything left in the outbox (e.g. on app start or reconnect). */
+    suspend fun sync(): Int = outbox.drain()
+
+    private suspend fun <T> enqueue(
+        collection: String,
+        rkey: String,
+        serializer: KSerializer<T>,
+        record: T,
+        blob: ByteArray? = null,
+        blobMimeType: String? = null,
+        blobField: String? = null,
+    ) {
+        val json = AtJson.encodeToString(serializer, record)
+        db.outbox()
+            .insert(
+                outboxEntity(OutboxProcessor.OP_PUT, collection, rkey, json)
+                    .copy(
+                        blob = blob,
+                        blobMimeType = blob?.let { blobMimeType },
+                        blobField = blob?.let { blobField },
+                    )
+            )
+        outbox.drain()
+    }
+
+    private fun outboxEntity(operation: String, collection: String, rkey: String, json: String?) =
+        OutboxEntity(
+            did = clients.did.value,
+            operation = operation,
+            collection = collection,
+            rkey = rkey,
+            recordJson = json,
+            createdAt = clock.now().toEpochMilliseconds(),
+        )
+}

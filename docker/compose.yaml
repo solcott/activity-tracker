@@ -1,0 +1,170 @@
+# Local ATProto network for development: PLC directory, PDS, relay, Jetstream, and the AppView's
+# Postgres.
+#
+#   cp docker/.env.example docker/.env
+#   docker compose -f docker/compose.yaml up -d
+#   docker/scripts/create-account.sh alice
+#
+# Host ports: PLC 2582, PDS 2583, relay 2470, Jetstream 6008, AppView Postgres 5433.
+# The PDS only serves plain HTTP when PDS_HOSTNAME=localhost, so its public URL is
+# http://localhost:2583. The relay and Jetstream share the PDS container's network namespace so
+# that "localhost:2583" (what DID documents say) reaches the PDS from inside Docker too.
+#
+# Data flow: PDS firehose -> relay (indigo) -> Jetstream -> AppView. Jetstream needs a relay: it
+# bootstraps from listHosts/listRepos, then tails the relay's subscribeRepos.
+
+name: activity-tracker
+
+services:
+  plc-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: plc
+      POSTGRES_PASSWORD: plc
+      POSTGRES_DB: plc
+    volumes:
+      - plc-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U plc"]
+      interval: 2s
+      retries: 30
+
+  plc:
+    build:
+      context: https://github.com/bluesky-social/did-method-plc.git#main
+      dockerfile: packages/server/Dockerfile
+    environment:
+      PORT: "2582"
+      ENABLE_MIGRATIONS: "true"
+      DB_CREDS_JSON: '{"username":"plc","password":"plc","host":"plc-db","port":"5432","database":"plc"}'
+      DB_MIGRATE_CREDS_JSON: '{"username":"plc","password":"plc","host":"plc-db","port":"5432","database":"plc"}'
+    ports:
+      - "2582:2582"
+    depends_on:
+      plc-db:
+        condition: service_healthy
+
+  pds:
+    image: ghcr.io/bluesky-social/pds:0.4
+    env_file: .env
+    environment:
+      PDS_HOSTNAME: localhost
+      PDS_PORT: "2583"
+      PDS_DEV_MODE: "true"
+      PDS_DID_PLC_URL: http://plc:2582
+      PDS_SERVICE_HANDLE_DOMAINS: .test
+      PDS_INVITE_REQUIRED: "false"
+      PDS_DATA_DIRECTORY: /pds
+      PDS_BLOBSTORE_DISK_LOCATION: /pds/blocks
+      PDS_CRAWLERS: ""
+      LOG_ENABLED: "true"
+    volumes:
+      - pds-data:/pds
+    ports:
+      - "2583:2583"
+      # The relay and Jetstream run inside this container's network namespace, so their ports are
+      # published here.
+      - "2470:2470"
+      - "6008:6008"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:2583/xrpc/_health"]
+      interval: 2s
+      retries: 30
+    depends_on:
+      - plc
+
+  relay:
+    build:
+      context: .
+      dockerfile: relay.Dockerfile
+    network_mode: "service:pds"
+    environment:
+      RELAY_API_BIND: ":2470"
+      RELAY_PLC_HOST: http://plc:2582
+      RELAY_ADMIN_PASSWORD: ${RELAY_ADMIN_PASSWORD:-local-dev-relay-admin}
+      # Our PDS is plain HTTP on localhost.
+      RELAY_ALLOW_INSECURE_HOSTS: "true"
+    volumes:
+      # Default sqlite DB and firehose persist dir both live under /data/relay.
+      - relay-data:/data/relay
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:2470/xrpc/_health"]
+      interval: 2s
+      retries: 30
+    depends_on:
+      pds:
+        condition: service_healthy
+
+  # Public requestCrawl never accepts localhost hosts, so register the PDS through the admin API.
+  # Idempotent; runs on every `up`.
+  relay-crawl:
+    image: curlimages/curl:8.16.0
+    network_mode: "service:pds"
+    command:
+      - -fsS
+      - -u
+      - admin:${RELAY_ADMIN_PASSWORD:-local-dev-relay-admin}
+      - -H
+      - "Content-Type: application/json"
+      - -d
+      - '{"hostname":"localhost:2583"}'
+      - http://localhost:2470/admin/pds/requestCrawl
+    depends_on:
+      relay:
+        condition: service_healthy
+
+  jetstream:
+    build:
+      context: .
+      dockerfile: jetstream.Dockerfile
+    network_mode: "service:pds"
+    environment:
+      JETSTREAM_ADDR: ":6008"
+      JETSTREAM_RELAY_URL: http://localhost:2470
+      JETSTREAM_PLC_URL: http://plc:2582
+      JETSTREAM_DATA_DIR: /data
+    volumes:
+      - jetstream-data:/data
+    restart: unless-stopped
+    depends_on:
+      relay-crawl:
+        condition: service_completed_successfully
+
+  appview-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: appview
+      POSTGRES_PASSWORD: appview
+      POSTGRES_DB: appview
+    ports:
+      - "5433:5432"
+    volumes:
+      - appview-db:/var/lib/postgresql/data
+
+  # Normally run with `./gradlew :server:appview:run`; `--profile appview` runs it in Docker instead.
+  appview:
+    profiles: ["appview"]
+    build:
+      context: ..
+      dockerfile: docker/appview.Dockerfile
+    # Only talks to PLC, the PDS (handle resolution) and Jetstream, so it can use the default
+    # network. Stop `./gradlew :server:appview:run` first: both bind host port 8081.
+    ports:
+      - "8081:8081"
+    environment:
+      APPVIEW_PORT: "8081"
+      DATABASE_URL: jdbc:postgresql://appview-db:5432/appview
+      JETSTREAM_URL: ws://pds:6008/xrpc/network.bsky.jetstream.subscribeEvents
+      PLC_URL: http://plc:2582
+      HANDLE_RESOLVER_URL: http://pds:2583
+    depends_on:
+      - appview-db
+      - jetstream
+
+volumes:
+  plc-db:
+  pds-data:
+  relay-data:
+  jetstream-data:
+  appview-db:

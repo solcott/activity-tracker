@@ -1,0 +1,25 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.actor.profile",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "Athlete profile. Exactly one per repo.",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "properties": {
+          "displayName": { "type": "string", "maxLength": 640, "maxGraphemes": 64 },
+          "description": { "type": "string", "maxLength": 2560, "maxGraphemes": 256 },
+          "units": { "type": "string", "knownValues": ["metric", "imperial"] },
+          "sports": {
+            "type": "array",
+            "maxLength": 16,
+            "items": { "type": "string", "maxLength": 64 }
+          },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}
