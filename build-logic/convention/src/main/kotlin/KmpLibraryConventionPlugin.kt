@@ -28,7 +28,7 @@ class KmpLibraryConventionPlugin : Plugin<Project> {
             extensions.configure<CryptographyExtension> { configureSwiftLinkerOpts.set(true) }
 
             extensions.configure<KotlinMultiplatformExtension> {
-                jvmToolchain(17)
+                amazonJdkToolchain(target)
                 (this as ExtensionAware).extensions.configure<KotlinMultiplatformAndroidLibraryTarget>("android") {
                     namespace = derivedNamespace
                     compileSdk = libs.version("android-compileSdk").toInt()
@@ -36,7 +36,8 @@ class KmpLibraryConventionPlugin : Plugin<Project> {
                     compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
                     withHostTest {}
                 }
-                jvm { compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } }
+                // Only Android needs 17; the JVM target (tests and code shared with the AppView) runs on the toolchain JDK.
+                jvm { compilerOptions { jvmTarget.set(JvmTarget.fromTarget(libs.version("jdk"))) } }
                 iosArm64()
                 iosSimulatorArm64()
                 // Libraries only need a wasm test environment, and wasm tests are disabled repo-wide. Node rather

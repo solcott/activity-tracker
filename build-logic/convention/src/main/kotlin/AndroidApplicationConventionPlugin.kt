@@ -6,7 +6,10 @@ import org.gradle.kotlin.dsl.configure
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 
-/** Android application setup matching [KmpLibraryConventionPlugin]: SDK levels from the version catalog and JVM 17. */
+/**
+ * Android application setup matching [KmpLibraryConventionPlugin]: SDK levels from the version catalog, the Amazon JDK toolchain and JVM 17
+ * bytecode.
+ */
 class AndroidApplicationConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {
@@ -27,7 +30,7 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
 
             // AGP 9's built-in Kotlin registers the `kotlin` extension.
             extensions.configure<KotlinAndroidProjectExtension> {
-                jvmToolchain(17)
+                amazonJdkToolchain(target)
                 compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
             }
         }

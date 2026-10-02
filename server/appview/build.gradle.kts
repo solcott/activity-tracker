@@ -22,7 +22,10 @@ tasks.named<JavaExec>(ApplicationPlugin.TASK_RUN_NAME) {
 }
 
 kotlin {
-    jvmToolchain { languageVersion.set(JavaLanguageVersion.of(25)) }
+    jvmToolchain {
+        languageVersion.set(JavaLanguageVersion.of(libs.versions.jdk.get().toInt()))
+        vendor.set(JvmVendorSpec.AMAZON)
+    }
     compilerOptions { freeCompilerArgs.addAll("-opt-in=kotlin.time.ExperimentalTime") }
 }
 

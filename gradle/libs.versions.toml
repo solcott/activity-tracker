@@ -1,6 +1,9 @@
 [versions]
 # Toolchain. Circuit 0.39 requires Kotlin 2.4.20 / Compose Multiplatform 1.12.x; Metro 1.4.5 supports this Kotlin.
 kotlin = "2.4.20"
+# JDK used for every compile/test/run toolchain (Amazon Corretto, provisioned via foojay).
+#noinspection UnusedVersionCatalogEntry
+jdk = "25"
 agp = "9.4.1"
 ksp = "2.3.12"
 composeMultiplatform = "1.12.1"
