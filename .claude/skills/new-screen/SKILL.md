@@ -1,0 +1,74 @@
+---
+name: new-screen
+description: Scaffold a new Circuit screen in composeApp (Screen, State, Event, presenter, UI, navigation entry and a presenter test) following this repo's Metro + Circuit conventions. Use when the user asks to add a screen, page or view to the app.
+argument-hint: <ScreenName> [session|app] [feature-package]
+---
+
+# New Circuit screen
+
+Arguments: `$ARGUMENTS`. Defaults: scope `session` (signed-in), and a feature package named after the screen. Use `app` scope only for screens shown while signed out.
+
+## 1. Read before writing
+
+Read one existing screen that resembles the new one: `profile/ProfileScreen.kt` (loads data plus a list), `record/ManualActivityScreen.kt` (a form that writes), or `login/LoginScreen.kt` (`AppScope`, class presenter). Copy its imports and layout idioms rather than inventing new ones. Look at `ui/` for shared components (`ActivityCard`, `Format.kt` unit formatting) before writing new ones.
+
+## 2. Write `composeApp/src/commonMain/kotlin/io/github/solcott/activitytracker/app/<pkg>/<Name>Screen.kt`
+
+One file, in this order:
+
+```kotlin
+/** One-line purpose; document non-obvious args (e.g. "[actor] is a DID or handle"). */
+@CircuitSerializable(SessionScope::class) data class FooScreen(val uri: String) : Screen   // or data object if no args
+
+data class FooState(
+    // plain immutable values only; null/empty for "not loaded"
+    val error: String?,
+    val eventSink: (FooEvent) -> Unit,
+) : CircuitUiState
+
+sealed interface FooEvent {
+    data object Back : FooEvent
+}
+
+@CircuitInject(FooScreen::class, SessionScope::class)
+@Composable
+fun FooPresenter(screen: FooScreen, navigator: Navigator, /* injected repositories */): FooState {
+    // remember/collectAsState for state; LaunchedEffect + runSuspendCatching for loads;
+    // rememberCoroutineScope().launch { runSuspendCatching { ... } } for event-driven work
+    return FooState(error) { event ->
+        when (event) {
+            FooEvent.Back -> navigator.pop()
+        }
+    }
+}
+
+@CircuitInject(FooScreen::class, SessionScope::class)
+@Composable
+fun FooUi(state: FooState, modifier: Modifier = Modifier) { /* Scaffold + TopAppBar like siblings */ }
+```
+
+Constraints:
+- Use the **same scope** in all three annotations. A mismatch compiles and then crashes when navigation state is saved.
+- Screen args are serializable primitives (an AT-URI string, a DID or handle), never `ActivityView` or other view models.
+- Don't use a presenter class with `@AssistedInject`. Use a plain `@Inject` class only if it needs neither `screen` nor `navigator`.
+- Inject repositories from `core/data` (`FeedRepository`, `ActivityRepository`, `ProfileRepository`, `AuthRepository`). Never call XRPC or Room directly from a presenter. If the screen needs new data, add a repository method first, and if that needs a new AppView query, use the `lexicon-change` skill.
+- Writes go through `ActivityRepository` (outbox) and update the UI optimistically. Don't wait for the AppView.
+- `runSuspendCatching`, not `runCatching`.
+- No `remember` of mutable collections in State. Every field of `FooState` must be stable/immutable.
+
+## 3. Wire navigation
+
+Add an event to the screen that leads here, and handle it in that screen's presenter with `navigator.goTo(FooScreen(...))`. There is no route table to register; Metro generates the factories and the serializer registration.
+
+## 4. Test
+
+Add `composeApp/src/jvmTest/kotlin/io/github/solcott/activitytracker/app/FooPresenterTest.kt`, modelled on `LoginPresenterTest`. Call the presenter with `Presenter.test {}` from `circuit-test`, using a `FakeNavigator` when navigation matters, a `inMemoryDatabase()` and a Ktor `MockEngine` for the AppView. Cover the initial state, one success path, and one failure that surfaces `error`.
+
+## 5. Verify
+
+Use the `gradle-runner` agent:
+1. `:composeApp:compileKotlinJvm`. Metro/Circuit codegen errors (wrong scope, missing binding) appear here.
+2. `:composeApp:jvmTest --tests "*.FooPresenterTest"`. Confirm a non-zero test count.
+3. `format`, then `:composeApp:detekt`. The Compose rules flag modifier ordering and unstable params.
+
+If the user wants to see the screen, launch the web preview (`.claude/launch.json` → `web`) against the local stack (the `local-stack` skill) and navigate to it.
