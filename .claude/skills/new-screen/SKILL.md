@@ -1,6 +1,6 @@
 ---
 name: new-screen
-description: Scaffold a new Circuit screen in composeApp (Screen, State, Event, presenter, UI, navigation entry and a presenter test) following this repo's Metro + Circuit conventions. Use when the user asks to add a screen, page or view to the app.
+description: Scaffold a new Circuit screen across :app-screens, :app-presenters and composeApp (Screen, State, Event, presenter, UI, navigation entry and a presenter test) following this repo's Metro + Circuit conventions. Use when the user asks to add a screen, page or view to the app.
 argument-hint: <ScreenName> [session|app] [feature-package]
 ---
 
@@ -10,13 +10,22 @@ Arguments: `$ARGUMENTS`. Defaults: scope `session` (signed-in), and a feature pa
 
 ## 1. Read before writing
 
-Read one existing screen that resembles the new one: `profile/ProfileScreen.kt` (loads data plus a list), `record/ManualActivityScreen.kt` (a form that writes), or `login/LoginScreen.kt` (`AppScope`, class presenter). Copy its imports and layout idioms rather than inventing new ones. Look at `ui/` for shared components (`ActivityCard`, `Format.kt` unit formatting) before writing new ones.
+Read one existing screen (all three of its files) that resembles the new one: `profile/Profile*` (loads data plus a list), `record/ManualActivity*` (a form that writes), or `login/Login*` (`AppScope`, class presenter). Copy its imports and layout idioms rather than inventing new ones. Look at `composeApp/.../app/ui/` for shared components (`ActivityCard`, `Format.kt` unit formatting) before writing new ones.
 
-## 2. Write `composeApp/src/commonMain/kotlin/io/github/solcott/activitytracker/app/<pkg>/<Name>Screen.kt`
+## 2. Write three files in the same feature package `io.github.solcott.activitytracker.app.<pkg>`
 
-One file, in this order:
+Prefix each path with `src/commonMain/kotlin/io/github/solcott/activitytracker/app/<pkg>/`:
+
+| Module | File | Holds |
+|---|---|---|
+| `app/screens` | `<Name>Screen.kt` | `@CircuitSerializable` Screen, State, Event |
+| `app/presenters` | `<Name>Presenter.kt` | the `@CircuitInject` presenter |
+| `composeApp` | `<Name>Ui.kt` | the `@CircuitInject` UI and its private composables |
+
+The presenter module has no foundation, ui or material3, so keep every UI import in `<Name>Ui.kt`. The UI never imports the presenter.
 
 ```kotlin
+// app/screens/.../<Name>Screen.kt
 /** One-line purpose; document non-obvious args (e.g. "[actor] is a DID or handle"). */
 @CircuitSerializable(SessionScope::class) data class FooScreen(val uri: String) : Screen   // or data object if no args
 
@@ -30,6 +39,7 @@ sealed interface FooEvent {
     data object Back : FooEvent
 }
 
+// app/presenters/.../<Name>Presenter.kt
 @CircuitInject(FooScreen::class, SessionScope::class)
 @Composable
 fun FooPresenter(screen: FooScreen, navigator: Navigator, /* injected repositories */): FooState {
@@ -42,6 +52,7 @@ fun FooPresenter(screen: FooScreen, navigator: Navigator, /* injected repositori
     }
 }
 
+// composeApp/.../<Name>Ui.kt
 @CircuitInject(FooScreen::class, SessionScope::class)
 @Composable
 fun FooUi(state: FooState, modifier: Modifier = Modifier) { /* Scaffold + TopAppBar like siblings */ }
@@ -62,13 +73,13 @@ Add an event to the screen that leads here, and handle it in that screen's prese
 
 ## 4. Test
 
-Add `composeApp/src/jvmTest/kotlin/io/github/solcott/activitytracker/app/FooPresenterTest.kt`, modelled on `LoginPresenterTest`. Call the presenter with `Presenter.test {}` from `circuit-test`, using a `FakeNavigator` when navigation matters, a `inMemoryDatabase()` and a Ktor `MockEngine` for the AppView. Cover the initial state, one success path, and one failure that surfaces `error`.
+Add `app/presenters/src/jvmTest/kotlin/io/github/solcott/activitytracker/app/FooPresenterTest.kt`, modelled on `LoginPresenterTest`. Call the presenter with `Presenter.test {}` from `circuit-test`, using a `FakeNavigator` when navigation matters, a `inMemoryDatabase()` and a Ktor `MockEngine` for the AppView. Cover the initial state, one success path, and one failure that surfaces `error`.
 
 ## 5. Verify
 
 Use the `gradle-runner` agent:
-1. `:composeApp:compileKotlinJvm`. Metro/Circuit codegen errors (wrong scope, missing binding) appear here.
-2. `:composeApp:jvmTest --tests "*.FooPresenterTest"`. Confirm a non-zero test count.
-3. `format`, then `:composeApp:detekt`. The Compose rules flag modifier ordering and unstable params.
+1. `:app-presenters:compileKotlinJvm :composeApp:compileKotlinJvm`. Metro/Circuit codegen errors (wrong scope, missing binding) appear here.
+2. `:app-presenters:jvmTest --tests "*.FooPresenterTest"`. Confirm a non-zero test count.
+3. `format`, then `:app-screens:detekt :app-presenters:detekt :composeApp:detekt`. The Compose rules flag modifier ordering and unstable params.
 
 If the user wants to see the screen, launch the web preview (`.claude/launch.json` → `web`) against the local stack (the `local-stack` skill) and navigate to it.

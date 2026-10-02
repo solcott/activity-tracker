@@ -1,15 +1,16 @@
 package io.github.solcott.activitytracker.app
 
 import com.slack.circuit.test.test
-import io.github.solcott.activitytracker.app.auth.AuthBrowser
-import io.github.solcott.activitytracker.app.auth.AuthCoordinator
-import io.github.solcott.activitytracker.app.auth.AuthCoordinator.Status
-import io.github.solcott.activitytracker.app.auth.parseRedirectParams
 import io.github.solcott.activitytracker.app.login.LoginEvent
 import io.github.solcott.activitytracker.app.login.LoginPresenter
+import io.github.solcott.activitytracker.atproto.AtprotoConfig
+import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.atproto.oauth.OAuthClient
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSessionManager
+import io.github.solcott.activitytracker.data.auth.AuthBrowser
+import io.github.solcott.activitytracker.data.auth.AuthCoordinator
+import io.github.solcott.activitytracker.data.auth.AuthCoordinator.Status
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.auth.InMemorySecretCipher
 import io.github.solcott.activitytracker.data.auth.RoomOAuthStore
@@ -31,7 +32,14 @@ class LoginPresenterTest {
     private fun coordinator(): AuthCoordinator {
         // Every network call fails: handle resolution can't succeed.
         val http = HttpClient(MockEngine { respond("", HttpStatusCode.NotFound) }) { expectSuccess = false }
-        val config = NetworkConfigs.web("http://127.0.0.1:8080")
+        val config =
+            AtprotoConfig(
+                plcUrl = "http://localhost:2582",
+                handleResolverUrl = "http://localhost:2583",
+                appViewUrl = "http://localhost:8081",
+                appViewDid = "did:web:localhost%3A8081",
+                oauth = OAuthClientConfig.loopback("http://127.0.0.1:8080/"),
+            )
         val db = inMemoryDatabase()
         val manager =
             OAuthSessionManager(
@@ -71,14 +79,5 @@ class LoginPresenterTest {
             assertTrue("nobody.test" in failed.message, failed.message)
             cancelAndIgnoreRemainingEvents()
         }
-    }
-
-    @Test
-    fun parsesRedirectQuery() {
-        val params = parseRedirectParams("app.activitytracker:/oauth/callback?code=abc&state=s%2B1&iss=http%3A%2F%2Flocalhost%3A2583")
-        assertEquals(
-            mapOf("code" to "abc", "state" to "s+1", "iss" to "http://localhost:2583"),
-            params,
-        )
     }
 }

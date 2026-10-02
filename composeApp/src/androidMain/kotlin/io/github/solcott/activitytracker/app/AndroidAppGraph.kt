@@ -10,9 +10,9 @@ import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.createGraphFactory
-import io.github.solcott.activitytracker.app.auth.AuthBrowser
 import io.github.solcott.activitytracker.app.di.AppGraph
 import io.github.solcott.activitytracker.atproto.AtprotoConfig
+import io.github.solcott.activitytracker.data.auth.AuthBrowser
 
 @DependencyGraph(AppScope::class)
 interface AndroidAppGraph : AppGraph {

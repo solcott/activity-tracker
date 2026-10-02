@@ -7,7 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
 import io.github.solcott.activitytracker.app.App
-import io.github.solcott.activitytracker.app.auth.parseRedirectParams
+import io.github.solcott.activitytracker.data.auth.parseRedirectParams
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {

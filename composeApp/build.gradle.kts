@@ -25,6 +25,9 @@ kotlin {
     sourceSets {
         commonMain { kotlin.srcDir(generateNativeNetworkConfig) }
         commonMain.dependencies {
+            // Only so the platform Metro graphs here aggregate the presenter factories. UI code never imports from it.
+            implementation(projects.appPresenters)
+            implementation(projects.appScreens)
             implementation(projects.coreData)
             implementation(libs.circuit.foundation)
             implementation(libs.circuit.runtime)
@@ -36,9 +39,5 @@ kotlin {
             implementation(libs.androidx.browser)
         }
         wasmJsMain.dependencies { implementation(libs.kotlinx.browser) }
-        commonTest.dependencies {
-            implementation(libs.circuit.test)
-            implementation(libs.ktor.client.mock)
-        }
     }
 }

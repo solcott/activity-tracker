@@ -8,9 +8,9 @@ import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.createGraph
 import io.github.solcott.activitytracker.app.App
 import io.github.solcott.activitytracker.app.NetworkConfigs
-import io.github.solcott.activitytracker.app.auth.parseRedirectParams
 import io.github.solcott.activitytracker.app.di.AppGraph
 import io.github.solcott.activitytracker.atproto.AtprotoConfig
+import io.github.solcott.activitytracker.data.auth.parseRedirectParams
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.MainScope

@@ -1,6 +1,6 @@
 package io.github.solcott.activitytracker.app.di
 
-import io.github.solcott.activitytracker.app.auth.AuthCoordinator
+import io.github.solcott.activitytracker.data.auth.AuthCoordinator
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 
 /**

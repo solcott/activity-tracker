@@ -25,5 +25,6 @@ androidComponents {
 
 dependencies {
     implementation(projects.composeApp)
+    implementation(projects.coreData)
     implementation(libs.androidx.activity.compose)
 }

@@ -57,7 +57,9 @@ Then rebuild the apps. Quick tunnels get a new hostname each run, so update the 
 | `core/atproto` | XRPC client, identity resolution, OAuth (PAR/PKCE/DPoP), service auth |
 | `core/data` | Room 3 cache + outbox, repositories, Metro bindings |
 | `core/location` | GPS trackers per platform, recording engine, polyline/GPX |
-| `composeApp` | Shared Circuit screens/presenters, Metro scopes, platform actuals |
+| `app/screens` | Circuit contracts: each feature's `Screen`, `State` and `Event` |
+| `app/presenters` | Circuit presenters (Compose runtime only, no UI) |
+| `composeApp` | Circuit UIs, shared components, Metro graphs and scopes, platform actuals |
 | `androidApp`, `iosApp`, `webApp` | Thin platform shells (entry points, graph roots) |
 | `web/sqlite-worker` | SQLite-WASM Web Worker backing Room on the web |
 | `server/appview` | Ktor AppView: Jetstream indexer, XRPC queries, did:web |

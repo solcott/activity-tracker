@@ -31,7 +31,7 @@ esac
 
 # Ozone (or any atproto SDK) has no wasmJs target. Client code uses the hand-written XRPC layer in core/atproto.
 case "$rel" in
-  core/* | composeApp/* | webApp/* | androidApp/* | web/* | iosApp/*)
+  core/* | app/* | composeApp/* | webApp/* | androidApp/* | web/* | iosApp/*)
     if grep -qiE 'sh\.christian\.ozone|libs\.ozone|ozone-' <<<"$text"; then
       decide deny "No Ozone or other atproto SDK in client code: Ozone has no wasmJs target. Use the hand-written XRPC layer in core/atproto."
     fi

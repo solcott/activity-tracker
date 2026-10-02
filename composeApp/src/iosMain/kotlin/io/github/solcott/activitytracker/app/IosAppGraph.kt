@@ -8,11 +8,11 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.Provider
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.createGraph
-import io.github.solcott.activitytracker.app.auth.AuthBrowser
-import io.github.solcott.activitytracker.app.auth.AuthCoordinator
-import io.github.solcott.activitytracker.app.auth.parseRedirectParams
 import io.github.solcott.activitytracker.app.di.AppGraph
 import io.github.solcott.activitytracker.atproto.AtprotoConfig
+import io.github.solcott.activitytracker.data.auth.AuthBrowser
+import io.github.solcott.activitytracker.data.auth.AuthCoordinator
+import io.github.solcott.activitytracker.data.auth.parseRedirectParams
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import platform.AuthenticationServices.ASPresentationAnchor

@@ -36,6 +36,8 @@ Wasm tests are disabled. Client modules also have a `jvm()` target so tests (Roo
 
 **Writes go through the outbox.** `ActivityRepository` enqueues each write into a Room outbox with a client-generated TID rkey. `OutboxProcessor` drains it with idempotent `putRecord`s. The UI updates optimistically, and the AppView catches up via Jetstream.
 
+**Screens span three modules.** `app/screens` (`:app-screens`) holds each feature's `Screen`, `State` and `Event`. `app/presenters` (`:app-presenters`) holds the presenters and has only the Compose runtime, no UI. `composeApp` holds the UIs. Presenters and UIs both depend on the contracts and never on each other. `composeApp` and `webApp` list `:app-presenters` only so their Metro graphs aggregate its factories.
+
 **DI (Metro) and scopes.** `AppScope` holds app-wide singletons (HTTP, OAuth, Room, `ActivityRecorder`, `AuthCoordinator`). `SessionScope` is one signed-in account: a `SessionGraph` graph extension created with the `OAuthSession` and dropped on sign-out. `App.kt` renders `LoginScreen` on `AppCircuit` when signed out and a `key(did)` `SessionGraph`'s `SessionCircuit` when signed in. Platform pieces (DB builder, `LocationTracker`, `AuthBrowser`) are contributed from each module's platform source sets.
 
 **Hard rule:** no Ozone or other atproto SDK in client code. Ozone has no wasmJs target. The XRPC layer is hand-written on Ktor in `core/atproto`. A hook enforces this.

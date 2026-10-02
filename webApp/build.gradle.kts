@@ -20,9 +20,11 @@ kotlin {
 
     sourceSets {
         wasmJsMain.dependencies {
-            implementation(projects.composeApp)
             // The graph is generated here, so every module that contributes bindings must be on the
             // classpath.
+            implementation(projects.appPresenters)
+            implementation(projects.appScreens)
+            implementation(projects.composeApp)
             implementation(projects.coreData)
             implementation(libs.compose.runtime)
             implementation(libs.compose.ui)

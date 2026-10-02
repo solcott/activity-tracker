@@ -3,7 +3,6 @@ paths:
   - "core/data/**"
   - "core/atproto/**"
   - "web/sqlite-worker/**"
-  - "composeApp/src/**/auth/**"
 ---
 
 # Client data layer and OAuth

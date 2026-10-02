@@ -10,7 +10,7 @@ You run Gradle tasks in this repo and report the outcome in a few lines. The cal
 
 ## Repo facts (don't rediscover them)
 
-Project paths are flat: `:core-lexicon`, `:core-atproto`, `:core-data`, `:core-location`, `:composeApp`, `:androidApp`, `:webApp`, `:web-sqlite-worker`, `:server-appview`. `build-logic` is an included build, so run its tasks with `-p build-logic`.
+Project paths are flat: `:core-lexicon`, `:core-atproto`, `:core-data`, `:core-location`, `:app-screens`, `:app-presenters`, `:composeApp`, `:androidApp`, `:webApp`, `:web-sqlite-worker`, `:server-appview`. `build-logic` is an included build, so run its tasks with `-p build-logic`.
 
 | Intent | Task |
 |---|---|
