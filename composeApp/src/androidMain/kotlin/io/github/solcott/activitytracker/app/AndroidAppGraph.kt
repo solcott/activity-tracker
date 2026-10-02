@@ -4,26 +4,23 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
-import io.github.solcott.activitytracker.app.auth.AuthBrowser
-import io.github.solcott.activitytracker.app.di.AppGraph
-import io.github.solcott.activitytracker.atproto.AtprotoConfig
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.createGraphFactory
+import io.github.solcott.activitytracker.app.auth.AuthBrowser
+import io.github.solcott.activitytracker.app.di.AppGraph
+import io.github.solcott.activitytracker.atproto.AtprotoConfig
 
 @DependencyGraph(AppScope::class)
 interface AndroidAppGraph : AppGraph {
-    @Provides
-    fun atprotoConfig(): AtprotoConfig = NetworkConfigs.native()
+    @Provides fun atprotoConfig(): AtprotoConfig = NetworkConfigs.native()
 
     @DependencyGraph.Factory
     fun interface Factory {
-        fun create(
-            @Provides context: Context,
-        ): AndroidAppGraph
+        fun create(@Provides context: Context): AndroidAppGraph
     }
 }
 

@@ -11,7 +11,5 @@ actual fun rememberLocationPermissionRequest(onResult: (granted: Boolean) -> Uni
         rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
             onResult(grants[Manifest.permission.ACCESS_FINE_LOCATION] == true)
         }
-    return {
-        launcher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
-    }
+    return { launcher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) }
 }

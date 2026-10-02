@@ -3,7 +3,7 @@
   <ManuallySuppressedIssues/>
   <CurrentIssues>
     <ID>CyclomaticComplexMethod:ActivityRecorder.kt:ActivityRecorder$internal fun onSample</ID>
-    <ID>ForbiddenComment:AndroidLocationTracker.kt:AndroidLocationTracker$* Fused location updates while the app is in the foreground. * TODO: move collection into a foreground service so recording continues with the screen off.</ID>
+    <ID>ForbiddenComment:AndroidLocationTracker.kt:AndroidLocationTracker$* Fused location updates while the app is in the foreground. * * TODO: move collection into a foreground service so recording continues with the screen off.</ID>
     <ID>MagicNumber:TrackMath.kt:TrackMath$0x20</ID>
     <ID>MagicNumber:TrackMath.kt:TrackMath$180.0</ID>
     <ID>MagicNumber:TrackMath.kt:TrackMath$1e5</ID>

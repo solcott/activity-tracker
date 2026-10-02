@@ -3,9 +3,4 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-kotlin {
-    sourceSets {
-        commonMain.dependencies { api(libs.kotlinx.serialization.json) }
-        commonTest.dependencies { implementation(kotlin("test")) }
-    }
-}
+kotlin { sourceSets { commonMain.dependencies { api(libs.kotlinx.serialization.json) } } }

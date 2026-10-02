@@ -26,9 +26,7 @@ kotlin {
         }
         wasmJsMain.dependencies { implementation(libs.kotlinx.browser) }
         commonTest.dependencies {
-            implementation(kotlin("test"))
             implementation(libs.circuit.test)
-            implementation(libs.kotlinx.coroutines.test)
             implementation(libs.ktor.client.mock)
         }
     }

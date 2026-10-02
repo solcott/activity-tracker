@@ -17,8 +17,7 @@ object DatabaseBindings {
     @Provides
     @SingleIn(AppScope::class)
     fun database(context: Context): AppDatabase =
-        Room
-            .databaseBuilder<AppDatabase>(context, context.getDatabasePath(DATABASE_NAME).absolutePath)
+        Room.databaseBuilder<AppDatabase>(context, context.getDatabasePath(DATABASE_NAME).absolutePath)
             .setDriver(BundledSQLiteDriver())
             .setQueryCoroutineContext(Dispatchers.IO)
             .build()

@@ -17,6 +17,7 @@ class KmpLibraryConventionPlugin : Plugin<Project> {
         with(target) {
             pluginManager.apply("org.jetbrains.kotlin.multiplatform")
             pluginManager.apply("com.android.kotlin.multiplatform.library")
+            pluginManager.apply("activitytracker.quality")
 
             // cryptography-kotlin's CryptoKit provider is Swift. This adds linker options for the
             // *selected* Xcode's Swift libraries so iOS test executables link; Xcode app builds
@@ -25,6 +26,7 @@ class KmpLibraryConventionPlugin : Plugin<Project> {
             extensions.configure<CryptographyExtension> { configureSwiftLinkerOpts.set(true) }
 
             extensions.configure<KotlinMultiplatformExtension> {
+                jvmToolchain(17)
                 (this as ExtensionAware).extensions.configure<KotlinMultiplatformAndroidLibraryTarget>("android") {
                     namespace = derivedNamespace
                     compileSdk = libs.version("android-compileSdk").toInt()
@@ -38,6 +40,11 @@ class KmpLibraryConventionPlugin : Plugin<Project> {
                 @OptIn(ExperimentalWasmDsl::class) wasmJs { browser { testTask { enabled = false } } }
 
                 applyDefaultHierarchyTemplate()
+
+                sourceSets.getByName("commonTest").dependencies {
+                    implementation(kotlin("test"))
+                    implementation(libs.findLibrary("kotlinx-coroutines-test").get())
+                }
 
                 compilerOptions {
                     freeCompilerArgs.addAll(

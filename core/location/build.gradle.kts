@@ -10,9 +10,5 @@ kotlin {
             implementation(libs.androidx.core)
             implementation(libs.play.services.location)
         }
-        commonTest.dependencies {
-            implementation(kotlin("test"))
-            implementation(libs.kotlinx.coroutines.test)
-        }
     }
 }

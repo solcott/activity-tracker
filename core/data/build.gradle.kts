@@ -13,17 +13,16 @@ kotlin {
             api(projects.core.location)
             api(libs.room.runtime)
         }
-        val nonWebMain = create("nonWebMain") {
-            dependsOn(commonMain.get())
-            dependencies { implementation(libs.sqlite.bundled) }
-        }
+        val nonWebMain =
+            create("nonWebMain") {
+                dependsOn(commonMain.get())
+                dependencies { implementation(libs.sqlite.bundled) }
+            }
         androidMain.get().dependsOn(nonWebMain)
         iosMain.get().dependsOn(nonWebMain)
         jvmMain.get().dependsOn(nonWebMain)
         wasmJsMain.dependencies { implementation(projects.web.sqliteWorker) }
         commonTest.dependencies {
-            implementation(kotlin("test"))
-            implementation(libs.kotlinx.coroutines.test)
             implementation(libs.ktor.client.mock)
             implementation(libs.turbine)
         }

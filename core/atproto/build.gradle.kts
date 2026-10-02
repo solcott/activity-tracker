@@ -17,10 +17,6 @@ kotlin {
             implementation(libs.ktor.client.logging)
             implementation(libs.ktor.serialization.json)
         }
-        commonTest.dependencies {
-            implementation(kotlin("test"))
-            implementation(libs.kotlinx.coroutines.test)
-            implementation(libs.ktor.client.mock)
-        }
+        commonTest.dependencies { implementation(libs.ktor.client.mock) }
     }
 }

@@ -14,6 +14,9 @@ dependencies {
     compileOnly(libs.compose.gradle.plugin)
     compileOnly(libs.android.gradle.plugin)
     implementation(libs.cryptography.gradle.plugin)
+    implementation(libs.detekt.gradle.plugin)
+    implementation(libs.ktfmt.gradle.plugin)
+    implementation(libs.sort.dependencies.gradle.plugin)
 }
 
 gradlePlugin {
@@ -25,6 +28,14 @@ gradlePlugin {
         register("kmpCompose") {
             id = "activitytracker.kmp.compose"
             implementationClass = "KmpComposeConventionPlugin"
+        }
+        register("ktfmt") {
+            id = "activitytracker.ktfmt"
+            implementationClass = "KtfmtConventionPlugin"
+        }
+        register("quality") {
+            id = "activitytracker.quality"
+            implementationClass = "QualityConventionPlugin"
         }
     }
 }

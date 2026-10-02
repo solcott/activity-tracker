@@ -117,6 +117,9 @@ android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref
 ksp-gradle-plugin = { module = "com.google.devtools.ksp:symbol-processing-gradle-plugin", version.ref = "ksp" }
 metro-gradle-plugin = { module = "dev.zacsweers.metro:gradle-plugin", version.ref = "metro" }
 room-gradle-plugin = { module = "androidx.room3:room3-gradle-plugin", version.ref = "room" }
+detekt-gradle-plugin = { module = "dev.detekt:detekt-gradle-plugin", version.ref = "detekt" }
+ktfmt-gradle-plugin = { module = "com.ncorti.ktfmt.gradle:plugin", version.ref = "ktfmt" }
+sort-dependencies-gradle-plugin = { module = "com.squareup:sort-dependencies-gradle-plugin", version.ref = "sortDependencies" }
 cryptography-gradle-plugin = { module = "dev.whyoleg.cryptography:cryptography-gradle-plugin", version.ref = "cryptography" }
 
 [plugins]

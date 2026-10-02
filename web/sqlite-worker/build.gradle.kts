@@ -1,6 +1,9 @@
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
-plugins { alias(libs.plugins.kotlin.multiplatform) }
+plugins {
+    alias(libs.plugins.kotlin.multiplatform)
+    id("activitytracker.quality")
+}
 
 // Web Worker implementing Room's WebWorkerSQLiteDriver protocol on top of SQLite WASM + OPFS.
 kotlin {

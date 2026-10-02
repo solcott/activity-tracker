@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
     application
+    id("activitytracker.quality")
 }
 
 application { mainClass.set("io.github.solcott.activitytracker.appview.ApplicationKt") }
@@ -13,7 +14,6 @@ kotlin {
 
 dependencies {
     implementation(projects.core.atproto)
-    implementation(projects.core.lexicon)
     implementation(libs.bouncycastle)
     implementation(libs.exposed.core)
     implementation(libs.exposed.jdbc)

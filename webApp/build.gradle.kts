@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.metro)
+    id("activitytracker.quality")
 }
 
 // Web application shell (the wasmJs counterpart of :androidApp / iosApp): owns the Metro graph,
