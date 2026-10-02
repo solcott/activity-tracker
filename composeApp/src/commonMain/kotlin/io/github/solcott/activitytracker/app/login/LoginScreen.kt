@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
@@ -67,7 +68,7 @@ class LoginPresenter(private val coordinator: AuthCoordinator) : Presenter<Login
         return LoginState(handle, status) { event ->
             when (event) {
                 is LoginEvent.HandleChanged -> handle = event.handle.trim()
-                LoginEvent.Submit -> if (handle.isNotBlank()) scope.launch { coordinator.signIn(handle) }
+                LoginEvent.Submit -> if (handle.isNotBlank()) scope.launch { coordinator.signIn(handle.lowercase()) }
                 LoginEvent.Cancel -> coordinator.cancelled()
             }
         }
@@ -93,7 +94,13 @@ fun LoginUi(state: LoginState, modifier: Modifier = Modifier) {
             label = { Text("Handle (e.g. alice.test)") },
             singleLine = true,
             enabled = !state.busy,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
+            keyboardOptions =
+                KeyboardOptions(
+                    capitalization = KeyboardCapitalization.None,
+                    autoCorrectEnabled = false,
+                    keyboardType = KeyboardType.Uri,
+                    imeAction = ImeAction.Go,
+                ),
             keyboardActions = KeyboardActions(onGo = { state.eventSink(LoginEvent.Submit) }),
             modifier = Modifier.fillMaxWidth(),
         )

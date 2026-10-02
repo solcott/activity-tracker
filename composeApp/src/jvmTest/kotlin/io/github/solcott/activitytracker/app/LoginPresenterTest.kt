@@ -60,6 +60,20 @@ class LoginPresenterTest {
     }
 
     @Test
+    fun submitLowercasesHandle() = runTest {
+        LoginPresenter(coordinator()).test {
+            awaitItem().eventSink(LoginEvent.HandleChanged("Nobody.Test"))
+            awaitItem().eventSink(LoginEvent.Submit)
+
+            var state = awaitItem()
+            while (state.status !is Status.Failed) state = awaitItem()
+            val failed = assertIs<Status.Failed>(state.status)
+            assertTrue("nobody.test" in failed.message, failed.message)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun parsesRedirectQuery() {
         val params = parseRedirectParams("app.activitytracker:/oauth/callback?code=abc&state=s%2B1&iss=http%3A%2F%2Flocalhost%3A2583")
         assertEquals(
