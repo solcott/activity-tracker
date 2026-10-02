@@ -16,7 +16,10 @@ kotlin {
         val nonWebMain =
             create("nonWebMain") {
                 dependsOn(commonMain.get())
-                dependencies { implementation(libs.sqlite.bundled) }
+                dependencies {
+                    implementation(libs.cryptography.core)
+                    implementation(libs.sqlite.bundled)
+                }
             }
         androidMain.get().dependsOn(nonWebMain)
         iosMain.get().dependsOn(nonWebMain)

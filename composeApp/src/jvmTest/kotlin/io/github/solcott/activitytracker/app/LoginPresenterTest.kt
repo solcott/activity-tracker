@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.atproto.oauth.OAuthClient
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSessionManager
 import io.github.solcott.activitytracker.data.auth.AuthRepository
+import io.github.solcott.activitytracker.data.auth.InMemorySecretCipher
 import io.github.solcott.activitytracker.data.auth.RoomOAuthStore
 import io.github.solcott.activitytracker.data.db.inMemoryDatabase
 import io.ktor.client.HttpClient
@@ -35,7 +36,7 @@ class LoginPresenterTest {
         val manager =
             OAuthSessionManager(
                 OAuthClient(http, IdentityResolver(http, config), config.oauth),
-                RoomOAuthStore(db, Clock.System),
+                RoomOAuthStore(db, Clock.System, InMemorySecretCipher()),
             )
         return AuthCoordinator(AuthRepository(manager, db, http), AuthBrowser { opened += it })
     }

@@ -9,21 +9,27 @@ import io.github.solcott.activitytracker.atproto.oauth.PendingAuthorization
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.KeyValueEntity
 import io.github.solcott.activitytracker.data.db.PendingAuthEntity
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 
 /**
- * Persists OAuth state in Room.
+ * Persists OAuth state in Room, encrypted with [cipher] because it holds tokens, the DPoP private key, and the PKCE verifier.
  *
- * TODO: wrap tokens + DPoP key with platform secure storage (Android Keystore / iOS Keychain).
+ * A value that can't be decrypted (the platform key was lost, e.g. after a backup restore or cleared site data) reads as absent, so the
+ * user is simply signed out.
  */
 @ContributesBinding(AppScope::class)
 @Inject
-class RoomOAuthStore(private val db: AppDatabase, private val clock: Clock) : OAuthStore {
-    override suspend fun loadSession(): OAuthSession? =
-        db.keyValue().get(SESSION_KEY)?.let { runCatching { OAuthSession.decode(it) }.getOrNull() }
+class RoomOAuthStore(
+    private val db: AppDatabase,
+    private val clock: Clock,
+    private val cipher: SecretCipher,
+) : OAuthStore {
+    override suspend fun loadSession(): OAuthSession? = db.keyValue().get(SESSION_KEY)?.let { decryptOrNull(it, OAuthSession::decode) }
 
-    override suspend fun saveSession(session: OAuthSession) = db.keyValue().put(KeyValueEntity(SESSION_KEY, session.encode()))
+    override suspend fun saveSession(session: OAuthSession) =
+        db.keyValue().put(KeyValueEntity(SESSION_KEY, cipher.encrypt(session.encode())))
 
     override suspend fun clearSession() = db.keyValue().delete(SESSION_KEY)
 
@@ -32,16 +38,26 @@ class RoomOAuthStore(private val db: AppDatabase, private val clock: Clock) : OA
             .put(
                 PendingAuthEntity(
                     pending.state,
-                    pending.encode(),
+                    cipher.encrypt(pending.encode()),
                     clock.now().toEpochMilliseconds(),
                 )
             )
 
     override suspend fun loadPending(state: String): PendingAuthorization? =
-        db.pendingAuth().get(state)?.let { PendingAuthorization.decode(it.json) }
+        db.pendingAuth().get(state)?.let { decryptOrNull(it.json, PendingAuthorization::decode) }
 
     override suspend fun clearPending(state: String) =
         db.pendingAuth().delete(state, olderThan = (clock.now() - 30.minutes).toEpochMilliseconds())
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun <T> decryptOrNull(value: String, decode: (String) -> T): T? =
+        try {
+            decode(cipher.decrypt(value))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        }
 
     private companion object {
         const val SESSION_KEY = "oauth_session"

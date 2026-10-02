@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.atproto.oauth.OAuthSessionManager
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
+import io.github.solcott.activitytracker.data.auth.InMemorySecretCipher
 import io.github.solcott.activitytracker.data.auth.RoomOAuthStore
 import io.github.solcott.activitytracker.data.db.inMemoryDatabase
 import io.github.solcott.activitytracker.data.di.SessionClients
@@ -78,7 +79,7 @@ class ActivityRepositoryTest {
     @Test
     fun publishUploadsTrackThenWritesRecordAndRetriesAfterFailure() = runTest {
         val db = inMemoryDatabase()
-        val store = RoomOAuthStore(db, Clock.System)
+        val store = RoomOAuthStore(db, Clock.System, InMemorySecretCipher())
         val session =
             OAuthSession(
                 did = did,
