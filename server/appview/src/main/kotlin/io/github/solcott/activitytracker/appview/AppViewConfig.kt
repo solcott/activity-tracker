@@ -1,6 +1,6 @@
 package io.github.solcott.activitytracker.appview
 
-/** Environment-driven config. Defaults match `docker/compose.yaml` so `./gradlew :server:appview:run` just works. */
+/** Environment-driven config. Defaults match `docker/compose.yaml` so `./gradlew :server-appview:run` just works. */
 data class AppViewConfig(
     val port: Int,
     /** Public base URL (what PDSes and native OAuth clients reach). */

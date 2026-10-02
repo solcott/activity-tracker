@@ -15,7 +15,7 @@ Requires JDK 25, Docker, Android SDK (for Android), Xcode (for iOS).
 cp docker/.env.example docker/.env
 docker compose -f docker/compose.yaml up -d      # PLC :2582, PDS :2583, relay :2470, Jetstream :6008, Postgres :5433
 docker/scripts/create-account.sh alice          # creates alice.test (password in docker/.env)
-./gradlew :server:appview:run                    # AppView on :8081
+./gradlew :server-appview:run                    # AppView on :8081
 ./gradlew :webApp:wasmJsBrowserDevelopmentRun       # web app on http://127.0.0.1:8080
 ```
 
@@ -35,7 +35,7 @@ scheme `com.trycloudflare.<name>`, the Android manifest, the AppView's `APPVIEW_
 brew install cloudflared
 cloudflared tunnel --url http://localhost:8081   # prints https://<name>.trycloudflare.com
 echo "activitytracker.appviewPublicUrl=https://<name>.trycloudflare.com" >> local.properties
-./gradlew :server:appview:run                    # restart so it serves the new URL
+./gradlew :server-appview:run                    # restart so it serves the new URL
 ```
 
 Then rebuild the apps. Quick tunnels get a new hostname each run, so update the property each time

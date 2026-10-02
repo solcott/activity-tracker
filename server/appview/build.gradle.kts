@@ -27,7 +27,7 @@ kotlin {
 }
 
 dependencies {
-    implementation(projects.core.atproto)
+    implementation(projects.coreAtproto)
     implementation(libs.bouncycastle)
     implementation(libs.exposed.core)
     implementation(libs.exposed.jdbc)

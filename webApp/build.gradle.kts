@@ -34,7 +34,7 @@ kotlin {
             implementation(projects.composeApp)
             // The graph is generated here, so every module that contributes bindings must be on the
             // classpath.
-            implementation(projects.core.data)
+            implementation(projects.coreData)
             implementation(libs.compose.runtime)
             implementation(libs.compose.ui)
             implementation(libs.kotlinx.browser)

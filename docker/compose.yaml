@@ -142,14 +142,14 @@ services:
     volumes:
       - appview-db:/var/lib/postgresql/data
 
-  # Normally run with `./gradlew :server:appview:run`; `--profile appview` runs it in Docker instead.
+  # Normally run with `./gradlew :server-appview:run`; `--profile appview` runs it in Docker instead.
   appview:
     profiles: ["appview"]
     build:
       context: ..
       dockerfile: docker/appview.Dockerfile
     # Only talks to PLC, the PDS (handle resolution) and Jetstream, so it can use the default
-    # network. Stop `./gradlew :server:appview:run` first: both bind host port 8081.
+    # network. Stop `./gradlew :server-appview:run` first: both bind host port 8081.
     ports:
       - "8081:8081"
     environment:

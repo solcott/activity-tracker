@@ -12,13 +12,13 @@ A Kotlin Multiplatform, Strava-style athlete activity tracker backed by ATProtoc
 ./gradlew check                                   # all tests on all targets + Android lint + ktfmt + detekt + sorted deps
 ./gradlew ktfmtFormat sortDependencies            # format Kotlin/scripts (ktfmt kotlinlang style) and sort dependency blocks
 ./gradlew detektBaseline                          # regenerate each module's detekt-baseline.xml (config: config/detekt/detekt.yml)
-./gradlew :core:atproto:jvmTest --tests "*.OAuthFlowTest"   # single test: fastest on the jvm target
-./gradlew :core:lexicon:iosSimulatorArm64Test     # iOS tests run on the simulator
-./gradlew :server:appview:test                    # AppView tests (H2 in PostgreSQL mode, no Docker needed)
+./gradlew :core-atproto:jvmTest --tests "*.OAuthFlowTest"   # single test: fastest on the jvm target
+./gradlew :core-lexicon:iosSimulatorArm64Test     # iOS tests run on the simulator
+./gradlew :server-appview:test                    # AppView tests (H2 in PostgreSQL mode, no Docker needed)
 
 ./gradlew :webApp:wasmJsBrowserDevelopmentRun     # web app; PORT env overrides 8080
 ./gradlew :androidApp:installDebug
-./gradlew :server:appview:run                     # AppView on :8081; defaults target the docker stack
+./gradlew :server-appview:run                     # AppView on :8081; defaults target the docker stack
 docker compose -f docker/compose.yaml up -d       # local PLC/PDS/relay/Jetstream/Postgres
 docker/scripts/create-account.sh alice            # alice.test on the local PDS
 ```

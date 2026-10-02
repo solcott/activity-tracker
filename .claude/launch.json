@@ -11,7 +11,7 @@
     {
       "name": "appview",
       "runtimeExecutable": "./gradlew",
-      "runtimeArgs": [":server:appview:run"],
+      "runtimeArgs": [":server-appview:run"],
       "port": 8081
     }
   ]

@@ -9,8 +9,8 @@ plugins {
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            api(projects.core.atproto)
-            api(projects.core.location)
+            api(projects.coreAtproto)
+            api(projects.coreLocation)
             api(libs.room.runtime)
         }
         nonWebMain {
@@ -19,7 +19,7 @@ kotlin {
                 implementation(libs.sqlite.bundled)
             }
         }
-        wasmJsMain.dependencies { implementation(projects.web.sqliteWorker) }
+        wasmJsMain.dependencies { implementation(projects.webSqliteWorker) }
         commonTest.dependencies {
             implementation(libs.ktor.client.mock)
             implementation(libs.turbine)

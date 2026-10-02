@@ -25,7 +25,7 @@ kotlin {
     sourceSets {
         commonMain { kotlin.srcDir(generateNativeNetworkConfig) }
         commonMain.dependencies {
-            implementation(projects.core.data)
+            implementation(projects.coreData)
             implementation(libs.circuit.foundation)
             implementation(libs.circuit.runtime)
             implementation(libs.circuit.serialization)

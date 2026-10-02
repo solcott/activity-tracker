@@ -6,7 +6,7 @@ plugins {
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            api(projects.core.lexicon)
+            api(projects.coreLexicon)
             api(libs.kotlinx.coroutines.core)
             api(libs.ktor.client.core)
 
