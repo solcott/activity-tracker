@@ -24,6 +24,10 @@ dependencies {
 
 gradlePlugin {
     plugins {
+        register("androidApplication") {
+            id = "activitytracker.android.application"
+            implementationClass = "AndroidApplicationConventionPlugin"
+        }
         register("kmpLibrary") {
             id = "activitytracker.kmp.library"
             implementationClass = "KmpLibraryConventionPlugin"

@@ -1,25 +1,16 @@
 plugins {
-    alias(libs.plugins.android.application)
+    id("activitytracker.android.application")
     alias(libs.plugins.kotlin.compose)
     id("activitytracker.native.oauth")
-    id("activitytracker.quality")
 }
 
 android {
     namespace = "io.github.solcott.activitytracker.android"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
         applicationId = "io.github.solcott.activitytracker"
-        minSdk = libs.versions.android.minSdk.get().toInt()
-        targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "0.1.0"
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
     }
 
     buildFeatures { compose = true }
@@ -30,11 +21,6 @@ androidComponents {
         // Derived from activitytracker.appviewPublicUrl, like NetworkConfigs.NATIVE_REDIRECT_SCHEME and the AppView's.
         variant.manifestPlaceholders.put("oauthRedirectScheme", nativeOAuth.redirectScheme)
     }
-}
-
-kotlin {
-    jvmToolchain(17)
-    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
 }
 
 dependencies {
