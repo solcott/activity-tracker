@@ -39,7 +39,10 @@ class KmpLibraryConventionPlugin : Plugin<Project> {
                 jvm { compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } }
                 iosArm64()
                 iosSimulatorArm64()
-                @OptIn(ExperimentalWasmDsl::class) wasmJs { browser { testTask { enabled = false } } }
+                // Libraries only need a wasm test environment, and wasm tests are disabled repo-wide. Node rather
+                // than browser keeps Compose's browser-test bundling check (it hooks *BrowserTest tasks, and fails
+                // for modules without an executable) out of the graph; the app bundles in :webApp's browser target.
+                @OptIn(ExperimentalWasmDsl::class) wasmJs { nodejs { testTask { enabled = false } } }
 
                 @OptIn(ExperimentalKotlinGradlePluginApi::class)
                 applyDefaultHierarchyTemplate {

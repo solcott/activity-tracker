@@ -19,10 +19,5 @@ class KmpComposeConventionPlugin : Plugin<Project> {
                     implementation(libs.findLibrary("compose-material3").get())
                 }
             }
-
-            // Library modules have no wasmJs executable (that's :webApp) and wasm tests are
-            // disabled
-            // repo-wide, so the Compose UI-test bundling check doesn't apply.
-            tasks.matching { it.name == "checkComposeUiTestConfigurationForWasmJs" }.configureEach { enabled = false }
         }
 }
