@@ -10,9 +10,13 @@ composeRules = "0.6.7"
 ktfmt = "0.27.0"
 sortDependencies = "0.21.0"
 
+#noinspection UnusedVersionCatalogEntry
 android-compileSdk = "37"
+
+#noinspection UnusedVersionCatalogEntry
 android-minSdk = "26"
-android-targetSdk = "36"
+#noinspection UnusedVersionCatalogEntry
+android-targetSdk = "37"
 
 circuit = "0.39.0"
 coroutines = "1.11.0"
@@ -32,7 +36,7 @@ playServicesLocation = "21.4.0"
 
 # Server
 exposed = "1.5.0"
-flyway = "13.8.1"
+flyway = "13.9.0"
 postgresql = "42.7.13"
 hikari = "7.1.0"
 logback = "1.6.5"
@@ -115,7 +119,6 @@ compose-compiler-gradle-plugin = { module = "org.jetbrains.kotlin:compose-compil
 compose-gradle-plugin = { module = "org.jetbrains.compose:compose-gradle-plugin", version.ref = "composeMultiplatform" }
 android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 ksp-gradle-plugin = { module = "com.google.devtools.ksp:symbol-processing-gradle-plugin", version.ref = "ksp" }
-metro-gradle-plugin = { module = "dev.zacsweers.metro:gradle-plugin", version.ref = "metro" }
 room-gradle-plugin = { module = "androidx.room3:room3-gradle-plugin", version.ref = "room" }
 detekt-gradle-plugin = { module = "dev.detekt:detekt-gradle-plugin", version.ref = "detekt" }
 ktfmt-gradle-plugin = { module = "com.ncorti.ktfmt.gradle:plugin", version.ref = "ktfmt" }
