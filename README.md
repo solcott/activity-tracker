@@ -41,6 +41,9 @@ echo "activitytracker.appviewPublicUrl=https://<name>.trycloudflare.com" >> loca
 Then rebuild the apps. Quick tunnels get a new hostname each run, so update the property each time
 (or pass `-Pactivitytracker.appviewPublicUrl=...`).
 
+With a tunnel set, the AppView's DID is the tunnel host. `:server-appview:run` also sets
+`APPVIEW_EXTRA_AUDIENCES=did:web:localhost%3A8081` so the web app keeps working against the same AppView.
+
 - **Android** (emulator, or a device over USB/wireless adb): run `adb reverse tcp:2582 tcp:2582` (and 2583,
   8081) so the device's `localhost` reaches the stack. Repeat after the emulator/device reconnects.
 - **iOS Simulator** shares the Mac's network, so it needs nothing extra.

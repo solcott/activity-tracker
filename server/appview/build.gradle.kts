@@ -8,7 +8,9 @@ plugins {
 application { mainClass.set("io.github.solcott.activitytracker.appview.ApplicationKt") }
 
 // Local-stack defaults; real env vars win. APPVIEW_PUBLIC_URL defaults to the tunnel URL the native apps were built with, so the AppView
-// serves matching OAuth client metadata. Resolved at execution so neither the env nor the property is read during configuration.
+// serves matching OAuth client metadata. That makes the tunnel host its DID, so the web app (which addresses the AppView as
+// did:web:localhost:<port>) is also accepted via APPVIEW_EXTRA_AUDIENCES. Resolved at execution so neither the env nor the property is
+// read during configuration.
 tasks.named<JavaExec>(ApplicationPlugin.TASK_RUN_NAME) {
     val configuredPublicUrl = nativeOAuth.configuredAppviewPublicUrl
     workingDir = rootDir
@@ -16,6 +18,9 @@ tasks.named<JavaExec>(ApplicationPlugin.TASK_RUN_NAME) {
         with(this as JavaExec) {
             if ("APPVIEW_PORT" !in environment) environment("APPVIEW_PORT", "8081")
             if ("APPVIEW_PUBLIC_URL" !in environment) configuredPublicUrl.orNull?.let { environment("APPVIEW_PUBLIC_URL", it) }
+            if ("APPVIEW_PUBLIC_URL" in environment && "APPVIEW_EXTRA_AUDIENCES" !in environment) {
+                environment("APPVIEW_EXTRA_AUDIENCES", "did:web:localhost%3A${environment["APPVIEW_PORT"]}")
+            }
         }
     }
 }

@@ -7,6 +7,11 @@ data class AppViewConfig(
     val publicUrl: String,
     /** `did:web` of this service; the `aud` of accepted service-auth tokens. */
     val serviceDid: String,
+    /**
+     * Other DIDs accepted as service-auth `aud`, from comma-separated `APPVIEW_EXTRA_AUDIENCES`. Local dev only: with a tunnel, native apps
+     * address [serviceDid] while the web app on the same AppView still addresses `did:web:localhost%3A8081`.
+     */
+    val extraAudiences: Set<String>,
     val databaseUrl: String,
     val databaseUser: String,
     val databasePassword: String,
@@ -26,6 +31,7 @@ data class AppViewConfig(
                 port = port,
                 publicUrl = publicUrl.trimEnd('/'),
                 serviceDid = env["APPVIEW_DID"] ?: "did:web:${host.replace(":", "%3A")}",
+                extraAudiences = env["APPVIEW_EXTRA_AUDIENCES"].orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet(),
                 databaseUrl = env["DATABASE_URL"] ?: "jdbc:postgresql://localhost:5433/appview",
                 databaseUser = env["DATABASE_USER"] ?: "appview",
                 databasePassword = env["DATABASE_PASSWORD"] ?: "appview",

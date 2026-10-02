@@ -33,6 +33,7 @@ fun main() {
     val config = AppViewConfig.fromEnv()
     val log = LoggerFactory.getLogger("AppView")
     log.info("Starting AppView {} at {}", config.serviceDid, config.publicUrl)
+    if (config.extraAudiences.isNotEmpty()) log.info("Also accepting service auth for {}", config.extraAudiences)
 
     val db = DatabaseFactory.connect(config.databaseUrl, config.databaseUser, config.databasePassword)
     val http =
@@ -41,7 +42,7 @@ fun main() {
             install(WebSockets)
         }
     val identity = IdentityResolver(http, config.plcUrl, config.handleResolverUrl)
-    val verifier = ServiceAuthVerifier(config.serviceDid, identity)
+    val verifier = ServiceAuthVerifier(config.serviceDid, identity, config.extraAudiences)
 
     embeddedServer(Netty, port = config.port) {
             appView(config, db, verifier)

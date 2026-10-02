@@ -16,17 +16,21 @@ import org.bouncycastle.crypto.signers.ECDSASigner
 
 /**
  * Verifies inter-service auth JWTs: issued by the user's PDS via `getServiceAuth` (direct calls) or attached by the PDS when proxying
- * (`atproto-proxy`). Returns the authenticated user's DID.
+ * (`atproto-proxy`). Returns the authenticated user's DID. Tokens must be addressed to [serviceDid] or one of [extraAudiences].
  */
 class ServiceAuthVerifier(
-    private val serviceDid: String,
+    serviceDid: String,
     private val keys: suspend (Did) -> String?,
     private val clock: Clock = Clock.System,
+    extraAudiences: Set<String> = emptySet(),
 ) {
     constructor(
         serviceDid: String,
         resolver: IdentityResolver,
-    ) : this(serviceDid, { did -> resolver.resolveDid(did).signingKey })
+        extraAudiences: Set<String> = emptySet(),
+    ) : this(serviceDid, { did -> resolver.resolveDid(did).signingKey }, extraAudiences = extraAudiences)
+
+    private val audiences = (extraAudiences + serviceDid).flatMap { listOf(it, "$it#activity_appview") }.toSet()
 
     private val keyCache = ConcurrentHashMap<Did, SigningKey>()
 
@@ -42,7 +46,7 @@ class ServiceAuthVerifier(
         }
             .getOrElse { throw AuthException("Bad iss") }
         val aud = payload.string("aud")
-        if (aud != serviceDid && aud != "$serviceDid#activity_appview") throw AuthException("Wrong audience")
+        if (aud !in audiences) throw AuthException("Wrong audience")
         val exp = payload["exp"]?.jsonPrimitive?.longOrNull ?: throw AuthException("Missing exp")
         if (exp < clock.now().epochSeconds) throw AuthException("Token expired")
         payload.string("lxm")?.let { if (it != nsid) throw AuthException("Token not valid for $nsid") }
