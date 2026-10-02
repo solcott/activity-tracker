@@ -2,7 +2,17 @@ plugins {
     id("activitytracker.kmp.compose")
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.metro)
+    id("activitytracker.native.oauth")
 }
+
+val generateNativeNetworkConfig =
+    tasks.register<GenerateNativeNetworkConfig>("generateNativeNetworkConfig") {
+        description = "Generate native network config for Kotlin/Native"
+        packageName = "io.github.solcott.activitytracker.app"
+        appviewPublicUrl = nativeOAuth.appviewPublicUrl
+        redirectScheme = nativeOAuth.redirectScheme
+        outputDir = layout.buildDirectory.dir("generated/nativeNetworkConfig/kotlin")
+    }
 
 kotlin {
     listOf(iosArm64(), iosSimulatorArm64()).forEach {
@@ -13,6 +23,7 @@ kotlin {
     }
 
     sourceSets {
+        commonMain { kotlin.srcDir(generateNativeNetworkConfig) }
         commonMain.dependencies {
             implementation(projects.core.data)
             implementation(libs.circuit.foundation)

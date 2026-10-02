@@ -2,10 +2,24 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
     application
+    id("activitytracker.native.oauth")
     id("activitytracker.quality")
 }
 
 application { mainClass.set("io.github.solcott.activitytracker.appview.ApplicationKt") }
+
+// Local-stack defaults; real env vars win. APPVIEW_PUBLIC_URL defaults to the tunnel URL the native apps were built with, so the AppView
+// serves matching OAuth client metadata. Resolved at execution so neither the env nor the property is read during configuration.
+tasks.named<JavaExec>(ApplicationPlugin.TASK_RUN_NAME) {
+    val configuredPublicUrl = nativeOAuth.configuredAppviewPublicUrl
+    workingDir = rootDir
+    doFirst {
+        with(this as JavaExec) {
+            if ("APPVIEW_PORT" !in environment) environment("APPVIEW_PORT", "8081")
+            if ("APPVIEW_PUBLIC_URL" !in environment) configuredPublicUrl.orNull?.let { environment("APPVIEW_PUBLIC_URL", it) }
+        }
+    }
+}
 
 kotlin {
     jvmToolchain { languageVersion.set(JavaLanguageVersion.of(25)) }
@@ -36,10 +50,4 @@ dependencies {
     testImplementation(libs.h2)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.ktor.server.test.host)
-}
-
-tasks.named<JavaExec>("run") {
-    // Local-stack defaults; override with real env vars in other environments.
-    environment("APPVIEW_PORT", System.getenv("APPVIEW_PORT") ?: "8081")
-    workingDir = rootDir
 }

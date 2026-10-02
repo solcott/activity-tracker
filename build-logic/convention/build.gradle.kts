@@ -37,5 +37,9 @@ gradlePlugin {
             id = "activitytracker.quality"
             implementationClass = "QualityConventionPlugin"
         }
+        register("nativeOAuth") {
+            id = "activitytracker.native.oauth"
+            implementationClass = "NativeOAuthConventionPlugin"
+        }
     }
 }

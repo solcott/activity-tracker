@@ -27,12 +27,26 @@ live tip on first run, so records written before it first connects are not index
 Sign in on the web app with `alice.test`. The web target uses the ATProto *loopback* OAuth client,
 so it needs no hosted client metadata.
 
-**Native (Android/iOS) sign-in** needs publicly fetchable OAuth client metadata: expose the AppView
-through an HTTPS tunnel, set `APPVIEW_PUBLIC_URL` (and `OAUTH_REDIRECT_SCHEME`, the reverse of the
-tunnel host) on the AppView, and update `NetworkConfigs.NATIVE_APPVIEW_PUBLIC_URL` /
-`NATIVE_REDIRECT_SCHEME` plus the Android `oauthRedirectScheme` manifest placeholder to match.
-On the Android emulator run `adb reverse tcp:2582 tcp:2582` (and 2583, 8081) so `localhost` reaches
-the stack.
+**Native (Android/iOS) sign-in** needs OAuth client metadata the PDS can fetch over HTTPS, so expose
+the AppView through a tunnel. The tunnel URL is set once and everything else (client ID, the redirect
+scheme `com.trycloudflare.<name>`, the Android manifest, the AppView's `APPVIEW_PUBLIC_URL`) derives from it:
+
+```bash
+brew install cloudflared
+cloudflared tunnel --url http://localhost:8081   # prints https://<name>.trycloudflare.com
+echo "activitytracker.appviewPublicUrl=https://<name>.trycloudflare.com" >> local.properties
+./gradlew :server:appview:run                    # restart so it serves the new URL
+```
+
+Then rebuild the apps. Quick tunnels get a new hostname each run, so update the property each time
+(or pass `-Pactivitytracker.appviewPublicUrl=...`).
+
+- **Android** (emulator, or a device over USB/wireless adb): run `adb reverse tcp:2582 tcp:2582` (and 2583,
+  8081) so the device's `localhost` reaches the stack. Repeat after the emulator/device reconnects.
+- **iOS Simulator** shares the Mac's network, so it needs nothing extra.
+- **Physical iPhone** is not supported against the local stack: the PDS identifies itself as
+  `http://localhost:2583` (in DID docs and as the OAuth issuer), which a phone can't reach, and iOS has
+  no `adb reverse`. That needs a config against public services instead.
 
 ## Layout
 

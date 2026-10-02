@@ -13,12 +13,12 @@ object NetworkConfigs {
     const val APPVIEW_URL = "http://localhost:8081"
 
     /**
-     * Native OAuth needs publicly fetchable client metadata, so native builds must use an HTTPS tunnel to the AppView (set
-     * `APPVIEW_PUBLIC_URL` on the AppView to the same value). The redirect scheme is the reverse of that host (see
-     * `OAUTH_REDIRECT_SCHEME`), mirrored in the Android manifest and iOS Info.plist.
+     * Native OAuth needs publicly fetchable HTTPS client metadata, so native builds use a tunnel to the AppView, set once as
+     * `activitytracker.appviewPublicUrl` in `local.properties` (defaults to [APPVIEW_URL], which the PDS rejects). The redirect scheme is
+     * the reverse of that host; the Android manifest and the AppView's `run` task derive theirs from the same property.
      */
-    const val NATIVE_APPVIEW_PUBLIC_URL = APPVIEW_URL
-    const val NATIVE_REDIRECT_SCHEME = "app.activitytracker"
+    const val NATIVE_APPVIEW_PUBLIC_URL = GeneratedNativeNetworkConfig.APPVIEW_PUBLIC_URL
+    const val NATIVE_REDIRECT_SCHEME = GeneratedNativeNetworkConfig.REDIRECT_SCHEME
 
     /**
      * [origin] is the page origin. The OAuth loopback client only accepts 127.0.0.1 redirects, so the dev server binds there (see

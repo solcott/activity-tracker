@@ -54,7 +54,7 @@ Lexicon rules that shape the code:
 **OAuth.** `core/atproto/oauth` is a full ATProto OAuth public client: handle → DID → PDS → authorization server, then PAR + PKCE + DPoP with nonce retry, then refresh.
 - Pending authorizations are persisted before the browser opens, because the web redirect unloads the page. Platforms feed the redirect back to `AuthCoordinator.handleRedirect`: Android through the `MainActivity` intent filter, iOS through the `ASWebAuthenticationSession` callback, and web through URL params in `webApp`'s `main.kt`.
 - Web uses the loopback client ID. Loopback redirects must use `127.0.0.1`, so the web app redirects from `localhost`.
-- Native uses AppView-hosted `/oauth/client-metadata.json`, which needs an HTTPS tunnel in dev. See README.
+- Native uses AppView-hosted `/oauth/client-metadata.json`, which needs an HTTPS tunnel in dev. Its URL is the single `activitytracker.appviewPublicUrl` property (`local.properties`); the `activitytracker.native.oauth` convention plugin derives the redirect scheme from it for `composeApp` (generated `GeneratedNativeNetworkConfig`), the Android manifest, and the AppView `run` task. Physical iPhones can't reach the localhost PDS. See README.
 
 ## Gotchas
 

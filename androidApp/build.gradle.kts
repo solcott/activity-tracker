@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    id("activitytracker.native.oauth")
     id("activitytracker.quality")
 }
 
@@ -14,8 +15,6 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "0.1.0"
-        // Must equal NetworkConfigs.NATIVE_REDIRECT_SCHEME and the AppView's OAUTH_REDIRECT_SCHEME.
-        manifestPlaceholders["oauthRedirectScheme"] = "app.activitytracker"
     }
 
     compileOptions {
@@ -24,6 +23,13 @@ android {
     }
 
     buildFeatures { compose = true }
+}
+
+androidComponents {
+    onVariants { variant ->
+        // Derived from activitytracker.appviewPublicUrl, like NetworkConfigs.NATIVE_REDIRECT_SCHEME and the AppView's.
+        variant.manifestPlaceholders.put("oauthRedirectScheme", nativeOAuth.redirectScheme)
+    }
 }
 
 kotlin {
