@@ -16,4 +16,4 @@ plugins {
 
 tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) { dependsOn(gradle.includedBuild("build-logic").task(":convention:ktfmtCheck")) }
 
-tasks.named("ktfmtFormat") { dependsOn(gradle.includedBuild("build-logic").task(":convention:ktfmtFormat")) }
+tasks.named(FORMAT_TASK_NAME) { dependsOn(gradle.includedBuild("build-logic").task(":convention:ktfmtFormat")) }

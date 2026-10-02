@@ -1,9 +1,8 @@
 plugins {
-    alias(libs.plugins.kotlin.jvm)
+    id("activitytracker.kotlin.jvm")
     alias(libs.plugins.kotlin.serialization)
     application
     id("activitytracker.native.oauth")
-    id("activitytracker.quality")
 }
 
 application { mainClass.set("io.github.solcott.activitytracker.appview.ApplicationKt") }
@@ -19,14 +18,6 @@ tasks.named<JavaExec>(ApplicationPlugin.TASK_RUN_NAME) {
             if ("APPVIEW_PUBLIC_URL" !in environment) configuredPublicUrl.orNull?.let { environment("APPVIEW_PUBLIC_URL", it) }
         }
     }
-}
-
-kotlin {
-    jvmToolchain {
-        languageVersion.set(JavaLanguageVersion.of(libs.versions.jdk.get().toInt()))
-        vendor.set(JvmVendorSpec.AMAZON)
-    }
-    compilerOptions { freeCompilerArgs.addAll("-opt-in=kotlin.time.ExperimentalTime") }
 }
 
 dependencies {

@@ -17,6 +17,7 @@ import org.gradle.api.tasks.TaskAction
  */
 class NativeOAuthConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
+        // `isolated` is incubating (Isolated Projects); it reads the root dir without touching the root Project. Re-check on upgrades.
         @Suppress("UnstableApiUsage")
         val localProperties =
             target.providers.fileContents(target.isolated.rootProject.projectDirectory.file("local.properties")).asText.map { text ->

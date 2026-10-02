@@ -32,6 +32,14 @@ gradlePlugin {
             id = "activitytracker.kmp.library"
             implementationClass = "KmpLibraryConventionPlugin"
         }
+        register("kmpWeb") {
+            id = "activitytracker.kmp.web"
+            implementationClass = "KmpWebConventionPlugin"
+        }
+        register("kotlinJvm") {
+            id = "activitytracker.kotlin.jvm"
+            implementationClass = "KotlinJvmConventionPlugin"
+        }
         register("kmpCompose") {
             id = "activitytracker.kmp.compose"
             implementationClass = "KmpComposeConventionPlugin"

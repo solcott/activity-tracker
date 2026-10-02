@@ -6,6 +6,8 @@ import org.gradle.jvm.toolchain.JvmVendorSpec
 import org.gradle.kotlin.dsl.getByType
 import org.jetbrains.kotlin.gradle.dsl.KotlinBaseExtension
 
+internal const val OPT_IN_EXPERIMENTAL_TIME = "-opt-in=kotlin.time.ExperimentalTime"
+
 internal val Project.libs: VersionCatalog
     get() = extensions.getByType<VersionCatalogsExtension>().named("libs")
 

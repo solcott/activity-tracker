@@ -2,11 +2,10 @@ import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 
 plugins {
-    alias(libs.plugins.kotlin.multiplatform)
+    id("activitytracker.kmp.web")
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.metro)
-    id("activitytracker.quality")
 }
 
 // Web application shell (the wasmJs counterpart of :androidApp / iosApp): owns the Metro graph,
@@ -14,6 +13,9 @@ plugins {
 kotlin {
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
+        // Resolved out here because KGP keeps the webpack lambda on the test task: `providers` (or a script-level val)
+        // referenced inside it captures the script object and breaks the configuration cache.
+        val devServerPort = providers.environmentVariable("PORT").map { it.toInt() }.orElse(8080)
         outputModuleName.set("webApp")
         browser {
             commonWebpackConfig {
@@ -22,7 +24,7 @@ kotlin {
                     (devServer ?: KotlinWebpackConfig.DevServer()).apply {
                         // The OAuth loopback redirect is derived from the page origin, so any port
                         // works.
-                        port = System.getenv("PORT")?.toIntOrNull() ?: 8080
+                        port = devServerPort.get()
                     }
             }
         }

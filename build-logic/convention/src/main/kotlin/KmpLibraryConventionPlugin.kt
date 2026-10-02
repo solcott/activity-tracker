@@ -45,6 +45,8 @@ class KmpLibraryConventionPlugin : Plugin<Project> {
                 // for modules without an executable) out of the graph; the app bundles in :webApp's browser target.
                 @OptIn(ExperimentalWasmDsl::class) wasmJs { nodejs { testTask { enabled = false } } }
 
+                // Experimental KGP/AGP APIs (re-check on upgrades): the hierarchy-template DSL is the only way to declare the
+                // custom intermediate source sets below, and withAndroid() is how AGP's KMP library target joins a group.
                 @OptIn(ExperimentalKotlinGradlePluginApi::class)
                 applyDefaultHierarchyTemplate {
                     common {
@@ -80,7 +82,7 @@ class KmpLibraryConventionPlugin : Plugin<Project> {
                 compilerOptions {
                     freeCompilerArgs.addAll(
                         "-Xexpect-actual-classes",
-                        "-opt-in=kotlin.time.ExperimentalTime",
+                        OPT_IN_EXPERIMENTAL_TIME,
                         "-opt-in=kotlin.uuid.ExperimentalUuidApi",
                     )
                 }
