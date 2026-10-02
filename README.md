@@ -66,5 +66,4 @@ Then rebuild the apps. Quick tunnels get a new hostname each run, so update the 
 ## Known gaps
 
 - Android records only while in the foreground (no foreground service yet).
-- OAuth tokens and the DPoP key are stored in Room, not platform secure storage.
 - Route maps are a Canvas polyline placeholder.
