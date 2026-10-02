@@ -17,6 +17,9 @@ dependencies {
     implementation(libs.detekt.gradle.plugin)
     implementation(libs.ktfmt.gradle.plugin)
     implementation(libs.sort.dependencies.gradle.plugin)
+
+    // java-gradle-plugin (via kotlin-dsl) already adds gradleTestKit() to the test classpath.
+    testImplementation(kotlin("test-junit"))
 }
 
 gradlePlugin {
