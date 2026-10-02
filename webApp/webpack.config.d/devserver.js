@@ -3,6 +3,9 @@
 ;(function (config) {
   config.devServer = config.devServer || {}
   config.devServer.host = '127.0.0.1'
+  // Read here, when webpack runs, rather than in Gradle at configuration time. The OAuth loopback
+  // redirect is derived from the page origin, so any port works; webpack defaults to 8080.
+  if (process.env.PORT) config.devServer.port = Number(process.env.PORT)
   config.devServer.historyApiFallback = true
   config.devServer.headers = [
     { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },

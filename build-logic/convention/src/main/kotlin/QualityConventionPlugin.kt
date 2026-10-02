@@ -20,8 +20,7 @@ class QualityConventionPlugin : Plugin<Project> {
                 source.setFrom(fileTree("src") { include("**/*.kt") })
                 buildUponDefaultConfig.set(true)
                 // `isolated` is incubating (Isolated Projects); re-check on Gradle upgrades.
-                @Suppress("UnstableApiUsage")
-                config.setFrom(isolated.rootProject.projectDirectory.file("config/detekt/detekt.yml"))
+                @Suppress("UnstableApiUsage") config.setFrom(isolated.rootProject.projectDirectory.file("config/detekt/detekt.yml"))
                 baseline.set(layout.projectDirectory.file("detekt-baseline.xml"))
                 parallel.set(true)
             }

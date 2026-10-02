@@ -16,6 +16,7 @@ class KmpWebConventionPlugin : Plugin<Project> {
             extensions.configure<KotlinMultiplatformExtension> {
                 // wasmJs is still @ExperimentalWasmDsl in KGP; re-check on Kotlin upgrades.
                 @OptIn(ExperimentalWasmDsl::class) wasmJs { browser() }
+                sourceSets.getByName("wasmJsMain").dependencies { implementation(libs.findLibrary("kotlinx-browser").get()) }
             }
         }
     }

@@ -4,8 +4,7 @@ plugins { id("activitytracker.kmp.web") }
 
 // Web Worker implementing Room's WebWorkerSQLiteDriver protocol on top of SQLite WASM + OPFS.
 kotlin {
-    @OptIn(ExperimentalWasmDsl::class)
-    wasmJs { useEsModules() }
+    @OptIn(ExperimentalWasmDsl::class) wasmJs { useEsModules() }
 
     sourceSets {
         wasmJsMain.dependencies {
@@ -13,7 +12,6 @@ kotlin {
             val sqliteWasmWorker = npm("sqlite-wasm-worker", layout.projectDirectory.dir("worker").asFile)
 
             api(libs.sqlite.web)
-            implementation(libs.kotlinx.browser)
             implementation(sqliteWasmWorker)
         }
     }
