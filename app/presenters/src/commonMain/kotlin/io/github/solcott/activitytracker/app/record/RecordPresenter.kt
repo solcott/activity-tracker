@@ -11,6 +11,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
@@ -38,7 +39,7 @@ fun RecordPresenter(
     var title by rememberSaveable { mutableStateOf("") }
     var hasPermission by remember { mutableStateOf(tracker.hasPermission()) }
     var saving by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<UiError?>(null) }
     var now by remember { mutableStateOf(clock.now()) }
     val scope = rememberCoroutineScope()
 
@@ -107,7 +108,7 @@ fun RecordPresenter(
                         )
                         navigator.pop()
                     }
-                        .onFailure { e -> error = e.message }
+                        .onFailure { e -> error = UiError.of(UiError.Kind.SaveActivity, e) }
                         .also { saving = false }
                 }
             }

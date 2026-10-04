@@ -10,6 +10,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
@@ -30,7 +31,7 @@ fun FollowListPresenter(
     var accounts by remember { mutableStateOf<ImmutableList<ProfileViewBasic>>(persistentListOf()) }
     var cursor by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<UiError?>(null) }
     var loadKey by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
 
@@ -44,7 +45,16 @@ fun FollowListPresenter(
                 cursor = page.cursor
                 error = null
             }
-            .onFailure { error = it.message ?: "Couldn't load ${screen.kind.name.lowercase()}" }
+            .onFailure {
+                error =
+                    UiError.of(
+                        when (screen.kind) {
+                            FollowListKind.Followers -> UiError.Kind.LoadFollowers
+                            FollowListKind.Following -> UiError.Kind.LoadFollowing
+                        },
+                        it,
+                    )
+            }
         isLoading = false
     }
 

@@ -77,7 +77,7 @@ class LoginPresenterTest {
             var state = awaitItem()
             while (state.status !is Status.Failed) state = awaitItem()
             val failed = assertIs<Status.Failed>(state.status)
-            assertTrue("nobody.test" in failed.message, failed.message)
+            assertTrue("nobody.test" in failed.detail.orEmpty(), failed.detail)
             cancelAndIgnoreRemainingEvents()
         }
     }

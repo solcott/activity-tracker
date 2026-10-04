@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 
 /** Log an activity without GPS (also handy for testing on web and simulators). */
@@ -16,7 +17,7 @@ data class ManualActivityState(
     val distanceKm: String,
     val durationMinutes: String,
     val saving: Boolean,
-    val error: String?,
+    val error: UiError?,
     val eventSink: (ManualActivityEvent) -> Unit,
 ) : CircuitUiState {
     val valid: Boolean

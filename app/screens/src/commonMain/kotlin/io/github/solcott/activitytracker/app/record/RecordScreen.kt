@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.location.RecordingState
 import kotlin.time.Duration
@@ -21,7 +22,7 @@ data class RecordState(
     val title: String,
     val hasPermission: Boolean,
     val saving: Boolean,
-    val error: String?,
+    val error: UiError?,
     val eventSink: (RecordEvent) -> Unit,
 ) : CircuitUiState
 

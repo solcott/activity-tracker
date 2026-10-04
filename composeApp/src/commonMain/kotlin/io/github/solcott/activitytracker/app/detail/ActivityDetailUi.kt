@@ -34,8 +34,28 @@ import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.RoutePreview
 import io.github.solcott.activitytracker.app.ui.Stat
 import io.github.solcott.activitytracker.app.ui.StatsRow
+import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.app.ui.handleLabel
+import io.github.solcott.activitytracker.app.ui.sportLabel
+import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.action_back
+import io.github.solcott.activitytracker.composeApp.resources.action_retry
+import io.github.solcott.activitytracker.composeApp.resources.detail_comment_placeholder
+import io.github.solcott.activitytracker.composeApp.resources.detail_give_kudos
+import io.github.solcott.activitytracker.composeApp.resources.detail_hide_kudos
+import io.github.solcott.activitytracker.composeApp.resources.detail_kudos_given
+import io.github.solcott.activitytracker.composeApp.resources.detail_no_kudos
+import io.github.solcott.activitytracker.composeApp.resources.detail_send_comment
+import io.github.solcott.activitytracker.composeApp.resources.detail_show_kudos
+import io.github.solcott.activitytracker.composeApp.resources.detail_title
+import io.github.solcott.activitytracker.composeApp.resources.kudos_count
+import io.github.solcott.activitytracker.composeApp.resources.stat_distance
+import io.github.solcott.activitytracker.composeApp.resources.stat_elevation
+import io.github.solcott.activitytracker.composeApp.resources.stat_moving_time
 import io.github.solcott.activitytracker.data.di.SessionScope
 import kotlinx.collections.immutable.persistentListOf
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 
 @CircuitInject(ActivityDetailScreen::class, SessionScope::class)
 @Composable
@@ -44,10 +64,10 @@ fun ActivityDetailUi(state: ActivityDetailState, modifier: Modifier = Modifier) 
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("Activity") },
+                title = { Text(stringResource(Res.string.detail_title)) },
                 navigationIcon = {
                     IconButton(onClick = { state.eventSink(ActivityDetailEvent.Back) }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
                     }
                 },
             )
@@ -65,8 +85,8 @@ fun ActivityDetailUi(state: ActivityDetailState, modifier: Modifier = Modifier) 
 
             is ActivityDetailState.Error -> {
                 Column(Modifier.padding(padding).padding(16.dp)) {
-                    Text(state.message, color = MaterialTheme.colorScheme.error)
-                    TextButton(onClick = { state.eventSink(ActivityDetailEvent.Retry) }) { Text("Retry") }
+                    Text(errorText(state.error), color = MaterialTheme.colorScheme.error)
+                    TextButton(onClick = { state.eventSink(ActivityDetailEvent.Retry) }) { Text(stringResource(Res.string.action_retry)) }
                 }
             }
 
@@ -89,15 +109,15 @@ private fun LoadedContent(state: ActivityDetailState.Loaded, modifier: Modifier 
             TextButton(onClick = { state.eventSink(ActivityDetailEvent.OpenAuthor) }) {
                 Text(state.activity.author.displayName ?: state.activity.author.handle.value)
             }
-            Text(record.title ?: record.sport, style = MaterialTheme.typography.headlineSmall)
+            Text(record.title ?: sportLabel(record.sport), style = MaterialTheme.typography.headlineSmall)
             record.description?.let { Text(it) }
         }
         item {
             StatsRow(
                 persistentListOf(
-                    Stat("Distance", Format.distance(record.distance?.toDouble())),
-                    Stat("Moving time", Format.duration(record.movingTime ?: record.elapsedTime)),
-                    Stat("Elevation", Format.elevation(record.elevationGain?.toDouble())),
+                    Stat(stringResource(Res.string.stat_distance), Format.distance(record.distance?.toDouble())),
+                    Stat(stringResource(Res.string.stat_moving_time), Format.duration(record.movingTime ?: record.elapsedTime)),
+                    Stat(stringResource(Res.string.stat_elevation), Format.elevation(record.elevationGain?.toDouble())),
                 )
             )
         }
@@ -108,7 +128,7 @@ private fun LoadedContent(state: ActivityDetailState.Loaded, modifier: Modifier 
                 // Hiding stays available if the last kudos goes away while the list is open.
                 if (state.activity.kudosCount > 0 || state.kudosList != null) {
                     TextButton(onClick = { state.eventSink(ActivityDetailEvent.ToggleKudosList) }) {
-                        Text(if (state.kudosList != null) "Hide kudos" else "Show kudos")
+                        Text(stringResource(if (state.kudosList != null) Res.string.detail_hide_kudos else Res.string.detail_show_kudos))
                     }
                 }
             }
@@ -129,10 +149,12 @@ private fun LoadedContent(state: ActivityDetailState.Loaded, modifier: Modifier 
                 OutlinedTextField(
                     value = state.draftComment,
                     onValueChange = { state.eventSink(ActivityDetailEvent.DraftChanged(it)) },
-                    placeholder = { Text("Add a comment") },
+                    placeholder = { Text(stringResource(Res.string.detail_comment_placeholder)) },
                     modifier = Modifier.weight(1f),
                 )
-                IconButton(onClick = { state.eventSink(ActivityDetailEvent.SendComment) }) { Icon(Icons.AutoMirrored.Filled.Send, "Send") }
+                IconButton(onClick = { state.eventSink(ActivityDetailEvent.SendComment) }) {
+                    Icon(Icons.AutoMirrored.Filled.Send, stringResource(Res.string.detail_send_comment))
+                }
             }
         }
     }
@@ -142,11 +164,16 @@ private fun LoadedContent(state: ActivityDetailState.Loaded, modifier: Modifier 
 private fun KudosButton(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
     val count = state.activity.kudosCount
     if (state.isOwn) {
-        Text("$count kudos", modifier.padding(vertical = 12.dp))
+        Text(pluralStringResource(Res.plurals.kudos_count, count.toInt(), count), modifier.padding(vertical = 12.dp))
     } else {
         Box(modifier) {
             TextButton(onClick = { state.eventSink(ActivityDetailEvent.ToggleKudos) }) {
-                Text(if (state.activity.viewer?.kudos != null) "Kudos given ($count)" else "Give kudos ($count)")
+                Text(
+                    stringResource(
+                        if (state.activity.viewer?.kudos != null) Res.string.detail_kudos_given else Res.string.detail_give_kudos,
+                        count,
+                    )
+                )
             }
         }
     }
@@ -161,11 +188,11 @@ private fun LazyListScope.kudosList(list: KudosList, eventSink: (ActivityDetailE
         }
 
         error != null -> {
-            item { Text(error, color = MaterialTheme.colorScheme.error) }
+            item { Text(errorText(error), color = MaterialTheme.colorScheme.error) }
         }
 
         list.athletes.isEmpty() -> {
-            item { Text("No kudos yet.", style = MaterialTheme.typography.bodyMedium) }
+            item { Text(stringResource(Res.string.detail_no_kudos), style = MaterialTheme.typography.bodyMedium) }
         }
 
         else -> {
@@ -174,7 +201,7 @@ private fun LazyListScope.kudosList(list: KudosList, eventSink: (ActivityDetailE
                     Modifier.fillMaxWidth().clickable { eventSink(ActivityDetailEvent.OpenProfile(athlete.did)) }.padding(vertical = 4.dp)
                 ) {
                     Text(athlete.displayName ?: athlete.handle.value, style = MaterialTheme.typography.titleSmall)
-                    Text("@${athlete.handle.value}", style = MaterialTheme.typography.bodySmall)
+                    Text(handleLabel(athlete.handle.value), style = MaterialTheme.typography.bodySmall)
                 }
             }
         }

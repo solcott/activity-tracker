@@ -7,7 +7,7 @@
 
     <application
         android:name=".ActivityTrackerApplication"
-        android:label="Activity Tracker"
+        android:label="@string/app_name"
         android:theme="@style/Theme.ActivityTracker">
         <activity
             android:name=".MainActivity"

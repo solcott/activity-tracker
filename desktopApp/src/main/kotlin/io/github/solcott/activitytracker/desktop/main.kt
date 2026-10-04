@@ -12,10 +12,13 @@ import io.github.solcott.activitytracker.app.App
 import io.github.solcott.activitytracker.app.NetworkConfigs
 import io.github.solcott.activitytracker.app.di.AppGraph
 import io.github.solcott.activitytracker.atproto.AtprotoConfig
+import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.app_name
 import io.github.solcott.activitytracker.data.auth.AuthBrowser
 import io.github.solcott.activitytracker.data.di.DesktopAppDirs
 import java.awt.Desktop
 import java.net.URI
+import org.jetbrains.compose.resources.stringResource
 
 fun main() {
     val port = System.getProperty("activitytracker.oauthPort")?.toInt() ?: NetworkConfigs.DESKTOP_OAUTH_PORT
@@ -24,7 +27,7 @@ fun main() {
 
     application {
         Window(
-            title = "Activity Tracker",
+            title = stringResource(Res.string.app_name),
             onCloseRequest = {
                 redirects.stop()
                 exitApplication()

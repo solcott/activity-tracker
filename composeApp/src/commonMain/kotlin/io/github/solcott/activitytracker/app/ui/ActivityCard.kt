@@ -19,9 +19,19 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.activity_card_counts
+import io.github.solcott.activitytracker.composeApp.resources.comments_count
+import io.github.solcott.activitytracker.composeApp.resources.kudos_content_description
+import io.github.solcott.activitytracker.composeApp.resources.kudos_count
+import io.github.solcott.activitytracker.composeApp.resources.stat_distance
+import io.github.solcott.activitytracker.composeApp.resources.stat_pace
+import io.github.solcott.activitytracker.composeApp.resources.stat_time
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun ActivityCard(
@@ -41,14 +51,17 @@ fun ActivityCard(
                 modifier = Modifier.clickable(onClick = onAuthorClick),
             )
             Text(
-                record.title ?: record.sport.replaceFirstChar { it.uppercase() },
+                record.title ?: sportLabel(record.sport),
                 style = MaterialTheme.typography.titleMedium,
             )
             StatsRow(
                 persistentListOf(
-                    Stat("Distance", Format.distance(record.distance?.toDouble())),
-                    Stat("Time", Format.duration(record.movingTime ?: record.elapsedTime)),
-                    Stat("Pace", Format.pace(record.distance?.toDouble(), record.movingTime ?: record.elapsedTime)),
+                    Stat(stringResource(Res.string.stat_distance), Format.distance(record.distance?.toDouble())),
+                    Stat(stringResource(Res.string.stat_time), Format.duration(record.movingTime ?: record.elapsedTime)),
+                    Stat(
+                        stringResource(Res.string.stat_pace),
+                        Format.pace(record.distance?.toDouble(), record.movingTime ?: record.elapsedTime),
+                    ),
                 )
             )
             record.polyline?.let { RoutePreview(it) }
@@ -57,12 +70,16 @@ fun ActivityCard(
                     IconButton(onClick = onKudos) {
                         Icon(
                             if (activity.viewer?.kudos != null) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
-                            contentDescription = "Kudos",
+                            contentDescription = stringResource(Res.string.kudos_content_description),
                         )
                     }
                 }
                 Text(
-                    "${activity.kudosCount} kudos · ${activity.commentCount} comments",
+                    stringResource(
+                        Res.string.activity_card_counts,
+                        pluralStringResource(Res.plurals.kudos_count, activity.kudosCount.toInt(), activity.kudosCount),
+                        pluralStringResource(Res.plurals.comments_count, activity.commentCount.toInt(), activity.commentCount),
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }

@@ -9,6 +9,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
@@ -30,7 +31,7 @@ fun ManualActivityPresenter(
     var distance by rememberSaveable { mutableStateOf("") }
     var duration by rememberSaveable { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<UiError?>(null) }
     val scope = rememberCoroutineScope()
 
     return ManualActivityState(sport, title, distance, duration, saving, error) { event ->
@@ -74,7 +75,7 @@ fun ManualActivityPresenter(
                         )
                         navigator.pop()
                     }
-                        .onFailure { e -> error = e.message }
+                        .onFailure { e -> error = UiError.of(UiError.Kind.SaveActivity, e) }
                         .also { saving = false }
                 }
             }

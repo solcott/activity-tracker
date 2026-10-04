@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shared -->
+    <string name="app_name">Activity Tracker</string>
+    <string name="action_back">Back</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="handle_format">@%1$s</string>
+
+    <!-- Errors (shown when the failure has no message of its own) -->
+    <string name="error_load_feed">Couldn't load your feed</string>
+    <string name="error_load_activity">Couldn't load activity</string>
+    <string name="error_load_kudos">Couldn't load kudos</string>
+    <string name="error_load_profile">Couldn't load profile</string>
+    <string name="error_load_followers">Couldn't load followers</string>
+    <string name="error_load_following">Couldn't load following</string>
+    <string name="error_save_activity">Couldn't save activity</string>
+    <string name="error_sign_in_start">Couldn't start sign-in</string>
+    <string name="error_sign_in_complete">Sign-in failed</string>
+
+    <!-- Stats and units -->
+    <string name="stat_distance">Distance</string>
+    <string name="stat_time">Time</string>
+    <string name="stat_moving_time">Moving time</string>
+    <string name="stat_pace">Pace</string>
+    <string name="stat_elevation">Elevation</string>
+    <string name="value_missing">–</string>
+    <string name="unit_distance_km">%1$s km</string>
+    <string name="unit_pace_per_km">%1$s /km</string>
+    <string name="unit_elevation_m">%1$s m</string>
+
+    <!-- Sports (open enum: unknown values fall back to the raw token) -->
+    <string name="sport_run">Run</string>
+    <string name="sport_ride">Ride</string>
+    <string name="sport_walk">Walk</string>
+    <string name="sport_hike">Hike</string>
+    <string name="sport_swim">Swim</string>
+    <string name="sport_ski">Ski</string>
+    <string name="sport_other">Other</string>
+
+    <!-- Activity card -->
+    <string name="kudos_content_description">Kudos</string>
+    <plurals name="kudos_count">
+        <item quantity="one">%1$d kudos</item>
+        <item quantity="other">%1$d kudos</item>
+    </plurals>
+    <plurals name="comments_count">
+        <item quantity="one">%1$d comment</item>
+        <item quantity="other">%1$d comments</item>
+    </plurals>
+    <string name="activity_card_counts">%1$s · %2$s</string>
+
+    <!-- Login -->
+    <string name="login_intro">Sign in with your ATProto account. Your activities are stored in your own repository.</string>
+    <string name="login_handle_label">Handle (e.g. alice.test)</string>
+    <string name="login_waiting_for_browser">Continue in your browser…</string>
+    <string name="login_sign_in">Sign in</string>
+
+    <!-- Feed -->
+    <string name="feed_title">Feed</string>
+    <string name="feed_refresh">Refresh</string>
+    <string name="feed_add_manual">Add manual activity</string>
+    <string name="feed_my_profile">My profile</string>
+    <string name="feed_record">Record</string>
+    <plurals name="feed_pending_writes">
+        <item quantity="one">Uploading %1$d change…</item>
+        <item quantity="other">Uploading %1$d changes…</item>
+    </plurals>
+    <string name="feed_empty_can_record">No activities yet. Record one or follow other athletes.</string>
+    <string name="feed_empty_manual_only">No activities yet. Add one manually or follow other athletes.</string>
+
+    <!-- Activity detail -->
+    <string name="detail_title">Activity</string>
+    <string name="detail_show_kudos">Show kudos</string>
+    <string name="detail_hide_kudos">Hide kudos</string>
+    <string name="detail_kudos_given">Kudos given (%1$d)</string>
+    <string name="detail_give_kudos">Give kudos (%1$d)</string>
+    <string name="detail_no_kudos">No kudos yet.</string>
+    <string name="detail_comment_placeholder">Add a comment</string>
+    <string name="detail_send_comment">Send</string>
+
+    <!-- Profile -->
+    <string name="profile_title">Profile</string>
+    <string name="profile_sign_out">Sign out</string>
+    <plurals name="profile_activities_count">
+        <item quantity="one">%1$d activity</item>
+        <item quantity="other">%1$d activities</item>
+    </plurals>
+    <plurals name="profile_followers_count">
+        <item quantity="one">%1$d follower</item>
+        <item quantity="other">%1$d followers</item>
+    </plurals>
+    <string name="profile_following_count">%1$d following</string>
+    <string name="profile_follow">Follow</string>
+    <string name="profile_following">Following</string>
+
+    <!-- Follow list -->
+    <string name="follow_list_followers">Followers</string>
+    <string name="follow_list_following">Following</string>
+    <string name="follow_list_no_followers">No followers yet.</string>
+    <string name="follow_list_no_following">Not following anyone yet.</string>
+
+    <!-- Record / manual entry -->
+    <string name="record_title">Record</string>
+    <string name="record_start">Start</string>
+    <string name="record_pause">Pause</string>
+    <string name="record_resume">Resume</string>
+    <string name="record_finish">Finish &amp; save</string>
+    <string name="record_discard">Discard</string>
+    <string name="field_title">Title</string>
+    <string name="manual_title">Add activity</string>
+    <string name="manual_distance_label">Distance (km)</string>
+    <string name="manual_duration_label">Duration (minutes)</string>
+    <string name="action_save">Save</string>
+    <string name="action_saving">Saving…</string>
+</resources>

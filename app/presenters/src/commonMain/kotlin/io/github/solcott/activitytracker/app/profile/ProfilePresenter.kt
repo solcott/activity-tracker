@@ -11,6 +11,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
@@ -35,7 +36,7 @@ fun ProfilePresenter(
     auth: AuthRepository,
 ): ProfileState {
     var profile by remember { mutableStateOf<ProfileView?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<UiError?>(null) }
     var loadKey by remember { mutableIntStateOf(0) }
     val did = profile?.did?.value ?: screen.actor
     val items by remember(did) { feed.authorActivities(did).map { it.toImmutableList() } }.collectAsState(persistentListOf())
@@ -47,7 +48,7 @@ fun ProfilePresenter(
             feed.refreshAuthor(screen.actor)
         }
             .onSuccess { error = null }
-            .onFailure { error = it.message ?: "Couldn't load profile" }
+            .onFailure { error = UiError.of(UiError.Kind.LoadProfile, it) }
     }
 
     val isSelf = did == profiles.did.value

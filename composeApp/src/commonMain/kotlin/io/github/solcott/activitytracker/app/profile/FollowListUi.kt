@@ -32,8 +32,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.app.ui.handleLabel
+import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.action_back
+import io.github.solcott.activitytracker.composeApp.resources.action_retry
+import io.github.solcott.activitytracker.composeApp.resources.follow_list_followers
+import io.github.solcott.activitytracker.composeApp.resources.follow_list_following
+import io.github.solcott.activitytracker.composeApp.resources.follow_list_no_followers
+import io.github.solcott.activitytracker.composeApp.resources.follow_list_no_following
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
 
 @CircuitInject(FollowListScreen::class, SessionScope::class)
 @Composable
@@ -56,12 +67,14 @@ fun FollowListUi(state: FollowListState, modifier: Modifier = Modifier) {
             TopAppBar(
                 title = {
                     Column {
-                        Text(state.kind.title)
-                        state.subject?.let { Text("@${it.handle.value}", style = MaterialTheme.typography.bodySmall) }
+                        Text(stringResource(state.kind.title))
+                        state.subject?.let { Text(handleLabel(it.handle.value), style = MaterialTheme.typography.bodySmall) }
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = { state.eventSink(FollowListEvent.Back) }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                    IconButton(onClick = { state.eventSink(FollowListEvent.Back) }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
+                    }
                 },
             )
         },
@@ -85,30 +98,32 @@ private fun LazyListScope.footer(state: FollowListState) {
     state.error?.let { message ->
         item {
             Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(message, color = MaterialTheme.colorScheme.error)
-                TextButton(onClick = { state.eventSink(FollowListEvent.Retry) }) { Text("Retry") }
+                Text(errorText(message), color = MaterialTheme.colorScheme.error)
+                TextButton(onClick = { state.eventSink(FollowListEvent.Retry) }) { Text(stringResource(Res.string.action_retry)) }
             }
         }
     }
     if (state.isLoading) {
         item { Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
     } else if (state.accounts.isEmpty() && state.error == null) {
-        item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Text(state.kind.emptyText) } }
+        item {
+            Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Text(stringResource(state.kind.emptyText)) }
+        }
     }
 }
 
-private val FollowListKind.title
+private val FollowListKind.title: StringResource
     get() =
         when (this) {
-            FollowListKind.Followers -> "Followers"
-            FollowListKind.Following -> "Following"
+            FollowListKind.Followers -> Res.string.follow_list_followers
+            FollowListKind.Following -> Res.string.follow_list_following
         }
 
-private val FollowListKind.emptyText
+private val FollowListKind.emptyText: StringResource
     get() =
         when (this) {
-            FollowListKind.Followers -> "No followers yet."
-            FollowListKind.Following -> "Not following anyone yet."
+            FollowListKind.Followers -> Res.string.follow_list_no_followers
+            FollowListKind.Following -> Res.string.follow_list_no_following
         }
 
 @Composable
@@ -118,6 +133,6 @@ private fun AccountRow(account: ProfileViewBasic, onClick: () -> Unit, modifier:
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Text(account.displayName ?: account.handle.value, style = MaterialTheme.typography.titleMedium)
-        Text("@${account.handle.value}", style = MaterialTheme.typography.bodySmall)
+        Text(handleLabel(account.handle.value), style = MaterialTheme.typography.bodySmall)
     }
 }

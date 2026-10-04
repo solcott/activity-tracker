@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launcher label; in-app text lives in composeApp's composeResources. -->
+    <string name="app_name">Activity Tracker</string>
+</resources>

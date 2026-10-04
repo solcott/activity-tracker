@@ -11,6 +11,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
@@ -40,7 +41,7 @@ fun ActivityDetailPresenter(
 ): ActivityDetailState {
     var activity by remember { mutableStateOf<ActivityView?>(null) }
     var comments by remember { mutableStateOf<ImmutableList<CommentView>>(persistentListOf()) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<UiError?>(null) }
     var draft by remember { mutableStateOf("") }
     var loadKey by remember { mutableIntStateOf(0) }
     var showKudos by remember { mutableStateOf(false) }
@@ -55,7 +56,7 @@ fun ActivityDetailPresenter(
             activity = output.activity
             comments = output.comments.toImmutableList()
         }
-            .onFailure { error = it.message ?: "Couldn't load activity" }
+            .onFailure { error = UiError.of(UiError.Kind.LoadActivity, it) }
     }
 
     val sink: (ActivityDetailEvent) -> Unit = { event ->
@@ -108,7 +109,7 @@ fun ActivityDetailPresenter(
 
 private fun detailState(
     activity: ActivityView?,
-    error: String?,
+    error: UiError?,
     sink: (ActivityDetailEvent) -> Unit,
     loaded: (ActivityView) -> ActivityDetailState.Loaded,
 ): ActivityDetailState =
@@ -133,14 +134,14 @@ private fun rememberKudosList(
     var athletes by remember { mutableStateOf(emptyList<ProfileViewBasic>()) }
     // Starts (and goes back to) loading while hidden, so the first frame after showing doesn't flash an empty list.
     var loading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<UiError?>(null) }
     var me by remember { mutableStateOf<ProfileViewBasic?>(null) }
 
     LaunchedEffect(show) {
         loading = true
         error = null
         if (!show) return@LaunchedEffect
-        runSuspendCatching { athletes = feed.kudos(uri) }.onFailure { error = it.message ?: "Couldn't load kudos" }
+        runSuspendCatching { athletes = feed.kudos(uri) }.onFailure { error = UiError.of(UiError.Kind.LoadKudos, it) }
         loading = false
     }
 

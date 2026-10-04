@@ -10,11 +10,14 @@ import io.github.solcott.activitytracker.app.App
 import io.github.solcott.activitytracker.app.NetworkConfigs
 import io.github.solcott.activitytracker.app.di.AppGraph
 import io.github.solcott.activitytracker.atproto.AtprotoConfig
+import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.app_name
 import io.github.solcott.activitytracker.data.auth.parseRedirectParams
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.getString
 
 @OptIn(ExperimentalComposeUiApi::class, ExperimentalWasmJsInterop::class)
 fun main() {
@@ -32,6 +35,8 @@ fun main() {
         MainScope().launch { graph.authCoordinator.handleRedirect(params) }
     }
 
+    // index.html's <title> only covers loading; the shared string takes over once the app starts.
+    MainScope().launch { document.title = getString(Res.string.app_name) }
     ComposeViewport(document.body!!) { App(graph) }
 }
 

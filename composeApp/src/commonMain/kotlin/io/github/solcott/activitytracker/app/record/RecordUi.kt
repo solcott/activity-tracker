@@ -28,10 +28,25 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.Stat
 import io.github.solcott.activitytracker.app.ui.StatsRow
+import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.app.ui.sportLabel
+import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.action_back
+import io.github.solcott.activitytracker.composeApp.resources.field_title
+import io.github.solcott.activitytracker.composeApp.resources.record_discard
+import io.github.solcott.activitytracker.composeApp.resources.record_finish
+import io.github.solcott.activitytracker.composeApp.resources.record_pause
+import io.github.solcott.activitytracker.composeApp.resources.record_resume
+import io.github.solcott.activitytracker.composeApp.resources.record_start
+import io.github.solcott.activitytracker.composeApp.resources.record_title
+import io.github.solcott.activitytracker.composeApp.resources.stat_distance
+import io.github.solcott.activitytracker.composeApp.resources.stat_elevation
+import io.github.solcott.activitytracker.composeApp.resources.stat_pace
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.location.RecordingState
 import kotlinx.collections.immutable.persistentListOf
+import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @CircuitInject(RecordScreen::class, SessionScope::class)
@@ -42,9 +57,11 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("Record") },
+                title = { Text(stringResource(Res.string.record_title)) },
                 navigationIcon = {
-                    IconButton(onClick = { state.eventSink(RecordEvent.Back) }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                    IconButton(onClick = { state.eventSink(RecordEvent.Back) }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
+                    }
                 },
             )
         },
@@ -61,18 +78,18 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
             Text(Format.duration(state.elapsed), style = MaterialTheme.typography.displayLarge)
             StatsRow(
                 persistentListOf(
-                    Stat("Distance", Format.distance(state.distanceMeters)),
-                    Stat("Pace", Format.pace(state.distanceMeters, state.movingSeconds)),
-                    Stat("Elevation", Format.elevation(state.elevationGainMeters)),
+                    Stat(stringResource(Res.string.stat_distance), Format.distance(state.distanceMeters)),
+                    Stat(stringResource(Res.string.stat_pace), Format.pace(state.distanceMeters, state.movingSeconds)),
+                    Stat(stringResource(Res.string.stat_elevation), Format.elevation(state.elevationGainMeters)),
                 )
             )
             OutlinedTextField(
                 value = state.title,
                 onValueChange = { state.eventSink(RecordEvent.TitleChanged(it)) },
-                label = { Text("Title") },
+                label = { Text(stringResource(Res.string.field_title)) },
                 modifier = Modifier.fillMaxWidth(),
             )
-            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 when (state.status) {
                     RecordingState.Status.Idle -> {
@@ -86,18 +103,20 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
                             },
                             enabled = !state.saving,
                         ) {
-                            Text("Start")
+                            Text(stringResource(Res.string.record_start))
                         }
                     }
 
                     RecordingState.Status.Recording -> {
-                        Button(onClick = { state.eventSink(RecordEvent.Pause) }) { Text("Pause") }
+                        Button(onClick = { state.eventSink(RecordEvent.Pause) }) { Text(stringResource(Res.string.record_pause)) }
                     }
 
                     RecordingState.Status.Paused -> {
-                        Button(onClick = { state.eventSink(RecordEvent.Resume) }) { Text("Resume") }
-                        Button(onClick = { state.eventSink(RecordEvent.Finish) }) { Text("Finish & save") }
-                        OutlinedButton(onClick = { state.eventSink(RecordEvent.Discard) }) { Text("Discard") }
+                        Button(onClick = { state.eventSink(RecordEvent.Resume) }) { Text(stringResource(Res.string.record_resume)) }
+                        Button(onClick = { state.eventSink(RecordEvent.Finish) }) { Text(stringResource(Res.string.record_finish)) }
+                        OutlinedButton(onClick = { state.eventSink(RecordEvent.Discard) }) {
+                            Text(stringResource(Res.string.record_discard))
+                        }
                     }
                 }
             }
@@ -113,7 +132,7 @@ fun SportPicker(selected: String, onSelect: (String) -> Unit, modifier: Modifier
                 selected = sport == selected,
                 onClick = { onSelect(sport) },
                 enabled = enabled,
-                label = { Text(sport.replaceFirstChar { it.uppercase() }) },
+                label = { Text(sportLabel(sport)) },
             )
         }
     }

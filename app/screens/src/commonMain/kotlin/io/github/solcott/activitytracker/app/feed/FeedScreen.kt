@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import kotlinx.collections.immutable.ImmutableList
@@ -14,7 +15,7 @@ import kotlinx.collections.immutable.ImmutableList
 data class FeedState(
     val activities: ImmutableList<ActivityView>,
     val refreshing: Boolean,
-    val error: String?,
+    val error: UiError?,
     val pendingWrites: Int,
     /** The signed-in athlete, so the UI can leave kudos off their own activities. */
     val viewerDid: String,

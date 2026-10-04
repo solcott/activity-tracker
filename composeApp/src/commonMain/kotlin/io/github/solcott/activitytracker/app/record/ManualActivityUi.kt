@@ -21,7 +21,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.action_back
+import io.github.solcott.activitytracker.composeApp.resources.action_save
+import io.github.solcott.activitytracker.composeApp.resources.action_saving
+import io.github.solcott.activitytracker.composeApp.resources.field_title
+import io.github.solcott.activitytracker.composeApp.resources.manual_distance_label
+import io.github.solcott.activitytracker.composeApp.resources.manual_duration_label
+import io.github.solcott.activitytracker.composeApp.resources.manual_title
 import io.github.solcott.activitytracker.data.di.SessionScope
+import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @CircuitInject(ManualActivityScreen::class, SessionScope::class)
@@ -31,10 +41,10 @@ fun ManualActivityUi(state: ManualActivityState, modifier: Modifier = Modifier) 
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("Add activity") },
+                title = { Text(stringResource(Res.string.manual_title)) },
                 navigationIcon = {
                     IconButton(onClick = { state.eventSink(ManualActivityEvent.Back) }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
                     }
                 },
             )
@@ -48,29 +58,29 @@ fun ManualActivityUi(state: ManualActivityState, modifier: Modifier = Modifier) 
             OutlinedTextField(
                 state.title,
                 { state.eventSink(ManualActivityEvent.TitleChanged(it)) },
-                label = { Text("Title") },
+                label = { Text(stringResource(Res.string.field_title)) },
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 state.distanceKm,
                 { state.eventSink(ManualActivityEvent.DistanceChanged(it)) },
-                label = { Text("Distance (km)") },
+                label = { Text(stringResource(Res.string.manual_distance_label)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 state.durationMinutes,
                 { state.eventSink(ManualActivityEvent.DurationChanged(it)) },
-                label = { Text("Duration (minutes)") },
+                label = { Text(stringResource(Res.string.manual_duration_label)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
-            state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
             Button(
                 onClick = { state.eventSink(ManualActivityEvent.Save) },
                 enabled = state.valid && !state.saving,
             ) {
-                Text(if (state.saving) "Saving…" else "Save")
+                Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
             }
         }
     }

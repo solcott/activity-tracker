@@ -23,7 +23,17 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import dev.zacsweers.metro.AppScope
+import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.action_cancel
+import io.github.solcott.activitytracker.composeApp.resources.app_name
+import io.github.solcott.activitytracker.composeApp.resources.error_sign_in_complete
+import io.github.solcott.activitytracker.composeApp.resources.error_sign_in_start
+import io.github.solcott.activitytracker.composeApp.resources.login_handle_label
+import io.github.solcott.activitytracker.composeApp.resources.login_intro
+import io.github.solcott.activitytracker.composeApp.resources.login_sign_in
+import io.github.solcott.activitytracker.composeApp.resources.login_waiting_for_browser
 import io.github.solcott.activitytracker.data.auth.AuthCoordinator.Status
+import org.jetbrains.compose.resources.stringResource
 
 @CircuitInject(LoginScreen::class, AppScope::class)
 @Composable
@@ -33,15 +43,15 @@ fun LoginUi(state: LoginState, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Activity Tracker", style = MaterialTheme.typography.headlineMedium)
+        Text(stringResource(Res.string.app_name), style = MaterialTheme.typography.headlineMedium)
         Text(
-            "Sign in with your ATProto account. Your activities are stored in your own repository.",
+            stringResource(Res.string.login_intro),
             style = MaterialTheme.typography.bodyMedium,
         )
         OutlinedTextField(
             value = state.handle,
             onValueChange = { state.eventSink(LoginEvent.HandleChanged(it)) },
-            label = { Text("Handle (e.g. alice.test)") },
+            label = { Text(stringResource(Res.string.login_handle_label)) },
             singleLine = true,
             enabled = !state.busy,
             keyboardOptions =
@@ -56,12 +66,12 @@ fun LoginUi(state: LoginState, modifier: Modifier = Modifier) {
         )
         when (val status = state.status) {
             is Status.Failed -> {
-                Text(status.message, color = MaterialTheme.colorScheme.error)
+                Text(failedText(status), color = MaterialTheme.colorScheme.error)
             }
 
             Status.WaitingForBrowser -> {
-                Text("Continue in your browser…")
-                TextButton(onClick = { state.eventSink(LoginEvent.Cancel) }) { Text("Cancel") }
+                Text(stringResource(Res.string.login_waiting_for_browser))
+                TextButton(onClick = { state.eventSink(LoginEvent.Cancel) }) { Text(stringResource(Res.string.action_cancel)) }
             }
 
             else -> Unit
@@ -73,8 +83,18 @@ fun LoginUi(state: LoginState, modifier: Modifier = Modifier) {
                 onClick = { state.eventSink(LoginEvent.Submit) },
                 enabled = state.handle.isNotBlank(),
             ) {
-                Text("Sign in")
+                Text(stringResource(Res.string.login_sign_in))
             }
         }
     }
 }
+
+@Composable
+private fun failedText(status: Status.Failed): String =
+    status.detail
+        ?: stringResource(
+            when (status.stage) {
+                Status.Stage.Start -> Res.string.error_sign_in_start
+                Status.Stage.Complete -> Res.string.error_sign_in_complete
+            }
+        )

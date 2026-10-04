@@ -1,0 +1,2 @@
+/* Home-screen name. In-app text lives in composeApp's composeResources; keep this in step with its app_name. */
+"CFBundleDisplayName" = "Activity Tracker";

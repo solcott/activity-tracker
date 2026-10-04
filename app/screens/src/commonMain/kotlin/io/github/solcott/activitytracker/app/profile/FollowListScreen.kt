@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
@@ -30,7 +31,7 @@ data class FollowListState(
     val accounts: ImmutableList<ProfileViewBasic>,
     val isLoading: Boolean,
     val canLoadMore: Boolean,
-    val error: String?,
+    val error: UiError?,
     val eventSink: (FollowListEvent) -> Unit,
 ) : CircuitUiState
 

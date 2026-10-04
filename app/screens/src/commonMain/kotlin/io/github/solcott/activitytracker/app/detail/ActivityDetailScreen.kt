@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
@@ -19,7 +20,7 @@ sealed interface ActivityDetailState : CircuitUiState {
 
     @Immutable data class Loading(override val eventSink: (ActivityDetailEvent) -> Unit) : ActivityDetailState
 
-    @Immutable data class Error(val message: String, override val eventSink: (ActivityDetailEvent) -> Unit) : ActivityDetailState
+    @Immutable data class Error(val error: UiError, override val eventSink: (ActivityDetailEvent) -> Unit) : ActivityDetailState
 
     @Immutable
     data class Loaded(
@@ -38,7 +39,7 @@ sealed interface ActivityDetailState : CircuitUiState {
 data class KudosList(
     val athletes: ImmutableList<ProfileViewBasic>,
     val isLoading: Boolean,
-    val error: String?,
+    val error: UiError?,
 )
 
 sealed interface ActivityDetailEvent {

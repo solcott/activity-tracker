@@ -11,6 +11,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.record.ManualActivityScreen
@@ -38,7 +39,7 @@ fun FeedPresenter(
     val items by remember(feed) { feed.timeline().map { it.toImmutableList() } }.collectAsState(persistentListOf())
     val pending by activities.pendingWrites.collectAsState(0)
     var refreshing by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<UiError?>(null) }
     var refreshKey by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
 
@@ -50,7 +51,7 @@ fun FeedPresenter(
                 feed.refreshTimeline()
             }
                 .exceptionOrNull()
-                ?.let { it.message ?: "Couldn't load your feed" }
+                ?.let { UiError.of(UiError.Kind.LoadFeed, it) }
         refreshing = false
     }
 

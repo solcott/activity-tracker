@@ -14,6 +14,7 @@ dependencies {
     implementation(projects.composeApp)
     implementation(projects.coreData)
     implementation(compose.desktop.currentOs)
+    implementation(libs.compose.components.resources)
     implementation(libs.compose.runtime)
     implementation(libs.compose.ui)
     implementation(libs.kotlinx.coroutines.swing)

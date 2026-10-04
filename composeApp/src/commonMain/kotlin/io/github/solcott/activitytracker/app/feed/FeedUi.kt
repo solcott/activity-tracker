@@ -26,7 +26,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.ActivityCard
+import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.feed_add_manual
+import io.github.solcott.activitytracker.composeApp.resources.feed_empty_can_record
+import io.github.solcott.activitytracker.composeApp.resources.feed_empty_manual_only
+import io.github.solcott.activitytracker.composeApp.resources.feed_my_profile
+import io.github.solcott.activitytracker.composeApp.resources.feed_pending_writes
+import io.github.solcott.activitytracker.composeApp.resources.feed_record
+import io.github.solcott.activitytracker.composeApp.resources.feed_refresh
+import io.github.solcott.activitytracker.composeApp.resources.feed_title
 import io.github.solcott.activitytracker.data.di.SessionScope
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 
 @CircuitInject(FeedScreen::class, SessionScope::class)
 @Composable
@@ -35,11 +47,17 @@ fun FeedUi(state: FeedState, modifier: Modifier = Modifier) {
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("Feed") },
+                title = { Text(stringResource(Res.string.feed_title)) },
                 actions = {
-                    IconButton(onClick = { state.eventSink(FeedEvent.Refresh) }) { Icon(Icons.Default.Refresh, "Refresh") }
-                    IconButton(onClick = { state.eventSink(FeedEvent.AddManual) }) { Icon(Icons.Default.Edit, "Add manual activity") }
-                    IconButton(onClick = { state.eventSink(FeedEvent.OpenMyProfile) }) { Icon(Icons.Default.Person, "My profile") }
+                    IconButton(onClick = { state.eventSink(FeedEvent.Refresh) }) {
+                        Icon(Icons.Default.Refresh, stringResource(Res.string.feed_refresh))
+                    }
+                    IconButton(onClick = { state.eventSink(FeedEvent.AddManual) }) {
+                        Icon(Icons.Default.Edit, stringResource(Res.string.feed_add_manual))
+                    }
+                    IconButton(onClick = { state.eventSink(FeedEvent.OpenMyProfile) }) {
+                        Icon(Icons.Default.Person, stringResource(Res.string.feed_my_profile))
+                    }
                 },
             )
         },
@@ -48,7 +66,7 @@ fun FeedUi(state: FeedState, modifier: Modifier = Modifier) {
                 ExtendedFloatingActionButton(
                     onClick = { state.eventSink(FeedEvent.Record) },
                     icon = { Icon(Icons.Default.Add, null) },
-                    text = { Text("Record") },
+                    text = { Text(stringResource(Res.string.feed_record)) },
                 )
             }
         },
@@ -66,12 +84,12 @@ fun FeedUi(state: FeedState, modifier: Modifier = Modifier) {
                 if (state.pendingWrites > 0) {
                     item {
                         Text(
-                            "Uploading ${state.pendingWrites} change(s)…",
+                            pluralStringResource(Res.plurals.feed_pending_writes, state.pendingWrites, state.pendingWrites),
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
                 }
-                state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
+                state.error?.let { item { Text(errorText(it), color = MaterialTheme.colorScheme.error) } }
                 items(state.activities, key = { it.uri.value }) { activity ->
                     ActivityCard(
                         activity = activity,
@@ -90,8 +108,7 @@ fun FeedUi(state: FeedState, modifier: Modifier = Modifier) {
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                if (state.canRecord) "No activities yet. Record one or follow other athletes."
-                                else "No activities yet. Add one manually or follow other athletes."
+                                stringResource(if (state.canRecord) Res.string.feed_empty_can_record else Res.string.feed_empty_manual_only)
                             )
                         }
                     }

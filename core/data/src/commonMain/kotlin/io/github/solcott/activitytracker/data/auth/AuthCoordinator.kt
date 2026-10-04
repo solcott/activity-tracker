@@ -35,7 +35,16 @@ class AuthCoordinator(
 
         data object Completing : Status
 
-        data class Failed(val message: String) : Status
+        /** [detail] is the failure's own message, if it had one; the UI falls back to text for [stage]. */
+        data class Failed(val stage: Stage, val detail: String?) : Status
+
+        enum class Stage {
+            /** Resolving the handle and opening the browser. */
+            Start,
+
+            /** Exchanging the redirect for tokens. */
+            Complete,
+        }
     }
 
     private val log = logger.withTag("AuthCoordinator")
@@ -51,7 +60,7 @@ class AuthCoordinator(
         }
             .onFailure {
                 log.w(it) { "Could not start sign-in" }
-                status.value = Status.Failed(it.message ?: "Could not start sign-in")
+                status.value = Status.Failed(Status.Stage.Start, it.message)
             }
     }
 
@@ -63,7 +72,7 @@ class AuthCoordinator(
         }
             .onFailure {
                 log.w(it) { "Sign-in failed" }
-                status.value = Status.Failed(it.message ?: "Sign-in failed")
+                status.value = Status.Failed(Status.Stage.Complete, it.message)
             }
     }
 

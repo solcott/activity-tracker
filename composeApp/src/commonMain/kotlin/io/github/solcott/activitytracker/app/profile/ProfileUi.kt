@@ -24,7 +24,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.ActivityCard
+import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.app.ui.handleLabel
+import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.action_back
+import io.github.solcott.activitytracker.composeApp.resources.profile_activities_count
+import io.github.solcott.activitytracker.composeApp.resources.profile_follow
+import io.github.solcott.activitytracker.composeApp.resources.profile_followers_count
+import io.github.solcott.activitytracker.composeApp.resources.profile_following
+import io.github.solcott.activitytracker.composeApp.resources.profile_following_count
+import io.github.solcott.activitytracker.composeApp.resources.profile_sign_out
+import io.github.solcott.activitytracker.composeApp.resources.profile_title
 import io.github.solcott.activitytracker.data.di.SessionScope
+import org.jetbrains.compose.resources.PluralStringResource
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 
 @CircuitInject(ProfileScreen::class, SessionScope::class)
 @Composable
@@ -34,13 +48,17 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(profile?.displayName ?: profile?.handle?.value ?: "Profile") },
+                title = { Text(profile?.displayName ?: profile?.handle?.value ?: stringResource(Res.string.profile_title)) },
                 navigationIcon = {
-                    IconButton(onClick = { state.eventSink(ProfileEvent.Back) }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                    IconButton(onClick = { state.eventSink(ProfileEvent.Back) }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
+                    }
                 },
                 actions = {
                     if (state.isSelf) {
-                        TextButton(onClick = { state.eventSink(ProfileEvent.SignOut) }) { Text("Sign out") }
+                        TextButton(onClick = { state.eventSink(ProfileEvent.SignOut) }) {
+                            Text(stringResource(Res.string.profile_sign_out))
+                        }
                     }
                 },
             )
@@ -51,25 +69,38 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            state.error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
+            state.error?.let { item { Text(errorText(it), color = MaterialTheme.colorScheme.error) } }
             profile?.let { p ->
                 item {
-                    Text("@${p.handle.value}", style = MaterialTheme.typography.bodyMedium)
+                    Text(handleLabel(p.handle.value), style = MaterialTheme.typography.bodyMedium)
                     p.description?.let { Text(it) }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("${p.activitiesCount ?: 0} activities", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            countLabel(Res.plurals.profile_activities_count, p.activitiesCount),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                         TextButton(onClick = { state.eventSink(ProfileEvent.OpenFollowers) }) {
-                            Text("${p.followersCount ?: 0} followers", style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                countLabel(Res.plurals.profile_followers_count, p.followersCount),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
                         }
                         TextButton(onClick = { state.eventSink(ProfileEvent.OpenFollowing) }) {
-                            Text("${p.followsCount ?: 0} following", style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                stringResource(Res.string.profile_following_count, p.followsCount ?: 0),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
                         }
                     }
                     if (!state.isSelf) {
                         if (p.viewer?.following == null) {
-                            Button(onClick = { state.eventSink(ProfileEvent.ToggleFollow) }) { Text("Follow") }
+                            Button(onClick = { state.eventSink(ProfileEvent.ToggleFollow) }) {
+                                Text(stringResource(Res.string.profile_follow))
+                            }
                         } else {
-                            OutlinedButton(onClick = { state.eventSink(ProfileEvent.ToggleFollow) }) { Text("Following") }
+                            OutlinedButton(onClick = { state.eventSink(ProfileEvent.ToggleFollow) }) {
+                                Text(stringResource(Res.string.profile_following))
+                            }
                         }
                     }
                 }
@@ -84,4 +115,11 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
             }
         }
     }
+}
+
+/** A profile count, treating a missing count as zero. */
+@Composable
+private fun countLabel(resource: PluralStringResource, count: Long?): String {
+    val n = count ?: 0
+    return pluralStringResource(resource, n.toInt(), n)
 }

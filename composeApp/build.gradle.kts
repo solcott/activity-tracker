@@ -14,6 +14,9 @@ val generateNativeNetworkConfig =
         outputDir = layout.buildDirectory.dir("generated/nativeNetworkConfig/kotlin")
     }
 
+// Public so the platform shells (desktopApp's window title) can read the shared strings.
+compose.resources { publicResClass = true }
+
 kotlin {
     listOf(iosArm64(), iosSimulatorArm64()).forEach {
         it.binaries.framework {
