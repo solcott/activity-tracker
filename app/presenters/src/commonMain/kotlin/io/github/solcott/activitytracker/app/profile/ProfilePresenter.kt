@@ -59,15 +59,7 @@ fun ProfilePresenter(
             }
 
             is ProfileEvent.ToggleKudos -> {
-                scope.launch {
-                    runSuspendCatching {
-                        if (event.activity.viewer?.kudos == null) {
-                            activities.giveKudos(event.activity)
-                        } else {
-                            activities.removeKudos(event.activity)
-                        }
-                    }
-                }
+                scope.launch { runSuspendCatching { activities.toggleKudos(event.activity) } }
             }
 
             ProfileEvent.ToggleFollow -> {

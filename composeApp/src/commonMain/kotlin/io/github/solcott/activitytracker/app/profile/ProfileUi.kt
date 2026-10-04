@@ -79,7 +79,7 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
                     activity = activity,
                     onClick = { state.eventSink(ProfileEvent.Open(activity)) },
                     onAuthorClick = {},
-                    onKudos = { state.eventSink(ProfileEvent.ToggleKudos(activity)) },
+                    onKudos = { state.eventSink(ProfileEvent.ToggleKudos(activity)) }.takeUnless { state.isSelf },
                 )
             }
         }

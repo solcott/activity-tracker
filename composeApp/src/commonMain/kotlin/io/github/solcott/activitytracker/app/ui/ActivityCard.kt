@@ -25,7 +25,8 @@ fun ActivityCard(
     activity: ActivityView,
     onClick: () -> Unit,
     onAuthorClick: () -> Unit,
-    onKudos: () -> Unit,
+    /** Null hides the kudos button, e.g. on the viewer's own activities. */
+    onKudos: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val record = activity.record
@@ -51,11 +52,13 @@ fun ActivityCard(
             )
             record.polyline?.let { RoutePreview(it) }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onKudos) {
-                    Icon(
-                        if (activity.viewer?.kudos != null) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
-                        contentDescription = "Kudos",
-                    )
+                if (onKudos != null) {
+                    IconButton(onClick = onKudos) {
+                        Icon(
+                            if (activity.viewer?.kudos != null) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
+                            contentDescription = "Kudos",
+                        )
+                    }
                 }
                 Text(
                     "${activity.kudosCount} kudos · ${activity.commentCount} comments",

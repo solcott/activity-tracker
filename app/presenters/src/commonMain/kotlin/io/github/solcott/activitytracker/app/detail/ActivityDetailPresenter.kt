@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
@@ -27,12 +28,14 @@ fun ActivityDetailPresenter(
     navigator: Navigator,
     feed: FeedRepository,
     activities: ActivityRepository,
+    profiles: ProfileRepository,
 ): ActivityDetailState {
     var activity by remember { mutableStateOf<ActivityView?>(null) }
     var comments by remember { mutableStateOf(emptyList<CommentView>()) }
     var error by remember { mutableStateOf<String?>(null) }
     var draft by remember { mutableStateOf("") }
     var loadKey by remember { mutableIntStateOf(0) }
+    var kudosInFlight by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(loadKey) {
@@ -65,11 +68,14 @@ fun ActivityDetailPresenter(
             }
 
             ActivityDetailEvent.ToggleKudos -> {
-                current?.let {
-                    activity = it.withKudosToggled()
+                // Ignore taps until the reload brings back the real viewer state; the optimistic copy only moves the count.
+                if (current != null && !kudosInFlight) {
+                    kudosInFlight = true
+                    activity = current.withKudosToggled()
                     scope.launch {
-                        runSuspendCatching { activities.toggleKudos(it) }
+                        runSuspendCatching { activities.toggleKudos(current) }
                         loadKey++
+                        kudosInFlight = false
                     }
                 }
             }
@@ -84,7 +90,7 @@ fun ActivityDetailPresenter(
         }
     }
 
-    return detailState(activity, comments, error, draft, sink)
+    return detailState(activity, comments, error, draft, activity?.author?.did == profiles.did, sink)
 }
 
 private fun detailState(
@@ -92,19 +98,14 @@ private fun detailState(
     comments: List<CommentView>,
     error: String?,
     draft: String,
+    isOwn: Boolean,
     sink: (ActivityDetailEvent) -> Unit,
 ): ActivityDetailState =
     when {
-        activity != null -> ActivityDetailState.Loaded(activity, comments, draft, sink)
+        activity != null -> ActivityDetailState.Loaded(activity, comments, draft, isOwn, sink)
         error != null -> ActivityDetailState.Error(error, sink)
         else -> ActivityDetailState.Loading(sink)
     }
 
-private val ActivityView.hasKudos: Boolean
-    get() = viewer?.kudos != null
-
 /** Optimistic count; the reload after the write brings back the real viewer state. */
-private fun ActivityView.withKudosToggled(): ActivityView = copy(kudosCount = kudosCount + if (hasKudos) -1 else 1)
-
-private suspend fun ActivityRepository.toggleKudos(activity: ActivityView) =
-    if (activity.hasKudos) removeKudos(activity) else giveKudos(activity)
+private fun ActivityView.withKudosToggled(): ActivityView = copy(kudosCount = kudosCount + if (viewer?.kudos != null) -1 else 1)

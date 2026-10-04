@@ -96,14 +96,18 @@ private fun LoadedContent(state: ActivityDetailState.Loaded, modifier: Modifier 
         record.polyline?.let { item { RoutePreview(it, height = 240.dp) } }
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { state.eventSink(ActivityDetailEvent.ToggleKudos) }) {
-                    Text(
-                        if (state.activity.viewer?.kudos != null) {
-                            "Kudos given (${state.activity.kudosCount})"
-                        } else {
-                            "Give kudos (${state.activity.kudosCount})"
-                        }
-                    )
+                if (state.isOwn) {
+                    Text("${state.activity.kudosCount} kudos", Modifier.padding(vertical = 12.dp))
+                } else {
+                    TextButton(onClick = { state.eventSink(ActivityDetailEvent.ToggleKudos) }) {
+                        Text(
+                            if (state.activity.viewer?.kudos != null) {
+                                "Kudos given (${state.activity.kudosCount})"
+                            } else {
+                                "Give kudos (${state.activity.kudosCount})"
+                            }
+                        )
+                    }
                 }
             }
             HorizontalDivider()

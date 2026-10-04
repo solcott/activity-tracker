@@ -49,7 +49,7 @@ fun FeedPresenter(
         refreshing = false
     }
 
-    return FeedState(items, refreshing, error, pending) { event ->
+    return FeedState(items, refreshing, error, pending, profiles.did.value) { event ->
         when (event) {
             FeedEvent.Refresh -> {
                 refreshKey++
@@ -64,15 +64,7 @@ fun FeedPresenter(
             }
 
             is FeedEvent.ToggleKudos -> {
-                scope.launch {
-                    runSuspendCatching {
-                        if (event.activity.viewer?.kudos == null) {
-                            activities.giveKudos(event.activity)
-                        } else {
-                            activities.removeKudos(event.activity)
-                        }
-                    }
-                }
+                scope.launch { runSuspendCatching { activities.toggleKudos(event.activity) } }
             }
 
             FeedEvent.Record -> {

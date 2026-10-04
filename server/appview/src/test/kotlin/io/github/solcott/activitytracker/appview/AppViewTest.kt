@@ -144,6 +144,19 @@ class AppViewTest {
         )
     }
 
+    @Test
+    fun kudosCountAthletesAndIgnoreSelfKudos() = testApplication {
+        application { appView(config, db, verifier) }
+        val activityUri = seedBobsRunWithAlicesFollowKudosAndComment()
+        val kudos = """{"subject":{"uri":"$activityUri","cid":"bafy3kbob1"},"createdAt":"2026-09-30T11:05:00Z"}"""
+        // A second kudos record from Alice, and Bob kudos-ing his own run: both written by other clients, neither counts.
+        commit(alice, Nsid.FEED_KUDOS, "3kk2", kudos)
+        commit(bob, Nsid.FEED_KUDOS, "3kk3", kudos)
+
+        val detail = client.get("/xrpc/${GetActivity.method.nsid}?uri=$activityUri")
+        assertEquals(1, AtJson.decodeFromString(GetActivity.Output.serializer(), detail.bodyAsText()).activity.kudosCount)
+    }
+
     private fun follow(author: String, subject: String, rkey: String) =
         commit(author, Nsid.GRAPH_FOLLOW, rkey, """{"subject":"$subject","createdAt":"2026-09-30T09:00:00Z"}""")
 

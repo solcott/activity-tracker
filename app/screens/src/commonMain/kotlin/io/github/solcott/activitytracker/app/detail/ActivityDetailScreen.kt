@@ -20,6 +20,8 @@ sealed interface ActivityDetailState : CircuitUiState {
         val activity: ActivityView,
         val comments: List<CommentView>,
         val draftComment: String,
+        /** The activity is the signed-in athlete's own, so it can't take kudos. */
+        val isOwn: Boolean,
         override val eventSink: (ActivityDetailEvent) -> Unit,
     ) : ActivityDetailState
 }

@@ -29,6 +29,7 @@ import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
+import org.jetbrains.exposed.v1.core.countDistinct
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -128,7 +129,7 @@ class Views(private val db: Database) {
         if (rows.isEmpty()) return emptyList()
         val uris = rows.map { it[Activities.uri] }
         val authors = basicProfiles(rows.map { it[Activities.authorDid] })
-        val kudosCounts = countBySubject(Kudos, Kudos.subjectUri, Kudos.uri, uris)
+        val kudosCounts = countBySubject(Kudos, Kudos.subjectUri, Kudos.authorDid, uris, distinct = true)
         val commentCounts = countBySubject(Comments, Comments.subjectUri, Comments.uri, uris)
         val viewerKudos =
             viewer
@@ -159,8 +160,10 @@ class Views(private val db: Database) {
         subject: Column<String>,
         key: Column<String>,
         uris: List<String>,
+        distinct: Boolean = false,
     ): Map<String, Long> {
-        val count = key.count()
+        // Distinct keys let kudos count athletes rather than records, since repos may hold duplicates.
+        val count = if (distinct) key.countDistinct() else key.count()
         return table.select(subject, count).where { subject inList uris }.groupBy(subject).associate { it[subject] to it[count] }
     }
 }

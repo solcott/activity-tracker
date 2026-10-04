@@ -97,6 +97,7 @@ class Indexer(
 
             Nsid.FEED_KUDOS -> {
                 val record = AtJson.decodeFromJsonElement(KudosRecord.serializer(), json)
+                require(record.subject.uri.authority != author.value) { "kudos on own activity" }
                 Kudos.upsert {
                     it[Kudos.uri] = uri.value
                     it[authorDid] = author.value

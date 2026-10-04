@@ -20,9 +20,15 @@ import io.github.solcott.activitytracker.data.db.inMemoryDatabase
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
+import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -37,6 +43,8 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -45,6 +53,7 @@ class ActivityRepositoryTest {
     private val did = Did("did:plc:alice")
     private var failWrites = false
     private val putBodies = mutableListOf<String>()
+    private val deleteBodies = mutableListOf<String>()
     private val logs = TestLogWriter(Severity.Verbose)
     private val logger = Logger(loggerConfigInit(logs))
 
@@ -73,6 +82,11 @@ class ActivityRepositoryTest {
                         }
                     }
 
+                    "/xrpc/com.atproto.repo.deleteRecord" -> {
+                        deleteBodies += (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+                        respond("{}", headers = json)
+                    }
+
                     else -> {
                         respond("", HttpStatusCode.NotFound)
                     }
@@ -82,8 +96,7 @@ class ActivityRepositoryTest {
             expectSuccess = false
         }
 
-    @Test
-    fun publishUploadsTrackThenWritesRecordAndRetriesAfterFailure() = runTest {
+    private suspend fun repository(): ActivityRepository {
         val db = inMemoryDatabase()
         val store = RoomOAuthStore(db, Clock.System, InMemorySecretCipher(), logger)
         val session =
@@ -116,7 +129,30 @@ class ActivityRepositoryTest {
                 .apply { restore() }
         val clients = SessionClients(session, http, manager, config, Clock.System)
         val outbox = OutboxProcessor(db, clients, logger)
-        val repo = ActivityRepository(db, clients, outbox, FeedRepository(db, clients, logger), Clock.System)
+        return ActivityRepository(db, clients, outbox, FeedRepository(db, clients, logger), Clock.System)
+    }
+
+    private fun activityBy(author: Did) =
+        ActivityView(
+            uri = AtUri.of(author, Nsid.FEED_ACTIVITY, "3kact1"),
+            cid = Cid("bafyact"),
+            author = ProfileViewBasic(author, Handle("someone.test")),
+            record =
+                ActivityRecord(
+                    sport = "run",
+                    startedAt = Instant.parse("2026-09-30T07:00:00Z"),
+                    elapsedTime = 1800,
+                    createdAt = Instant.parse("2026-09-30T07:31:00Z"),
+                ),
+            kudosCount = 0,
+            commentCount = 0,
+            indexedAt = Instant.parse("2026-09-30T07:32:00Z"),
+            viewer = ActivityViewerState(),
+        )
+
+    @Test
+    fun publishUploadsTrackThenWritesRecordAndRetriesAfterFailure() = runTest {
+        val repo = repository()
 
         val draft =
             ActivityDraft(
@@ -145,5 +181,31 @@ class ActivityRepositoryTest {
         assertEquals(Nsid.FEED_ACTIVITY, record["\$type"]?.jsonPrimitive?.content)
         assertEquals("5012", record["distance"]?.jsonPrimitive?.content)
         assertTrue("bafyblob" in record["track"].toString())
+    }
+
+    @Test
+    fun rapidKudosTapsOnAStaleSnapshotNeverWriteTwoKudos() = runTest {
+        val repo = repository()
+        // Every tap carries the same snapshot, taken before the first kudos landed.
+        val stale = activityBy(Did("did:plc:bob"))
+
+        listOf(launch { repo.toggleKudos(stale) }, launch { repo.toggleKudos(stale) }).joinAll()
+        repo.toggleKudos(stale)
+
+        assertEquals(2, putBodies.size)
+        assertEquals(1, deleteBodies.size)
+        val rkeys = putBodies.map { AtJson.parseToJsonElement(it).jsonObject["rkey"]?.jsonPrimitive?.content }
+        assertEquals(rkeys.first(), AtJson.parseToJsonElement(deleteBodies.single()).jsonObject["rkey"]?.jsonPrimitive?.content)
+        assertTrue(putBodies.all { Nsid.FEED_KUDOS in it })
+    }
+
+    @Test
+    fun ownActivitiesCannotGetKudos() = runTest {
+        val repo = repository()
+
+        repo.toggleKudos(activityBy(did))
+
+        assertTrue(putBodies.isEmpty())
+        assertEquals(0, repo.pendingWrites.first())
     }
 }

@@ -75,7 +75,10 @@ fun FeedUi(state: FeedState, modifier: Modifier = Modifier) {
                         activity = activity,
                         onClick = { state.eventSink(FeedEvent.Open(activity)) },
                         onAuthorClick = { state.eventSink(FeedEvent.OpenAuthor(activity)) },
-                        onKudos = { state.eventSink(FeedEvent.ToggleKudos(activity)) },
+                        onKudos =
+                            { state.eventSink(FeedEvent.ToggleKudos(activity)) }.takeUnless {
+                                activity.author.did.value == state.viewerDid
+                            },
                     )
                 }
                 if (state.activities.isEmpty() && !state.refreshing) {

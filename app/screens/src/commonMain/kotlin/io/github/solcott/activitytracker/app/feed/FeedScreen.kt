@@ -13,6 +13,8 @@ data class FeedState(
     val refreshing: Boolean,
     val error: String?,
     val pendingWrites: Int,
+    /** The signed-in athlete, so the UI can leave kudos off their own activities. */
+    val viewerDid: String,
     val eventSink: (FeedEvent) -> Unit,
 ) : CircuitUiState
 
