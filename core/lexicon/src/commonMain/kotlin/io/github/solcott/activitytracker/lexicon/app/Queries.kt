@@ -35,6 +35,22 @@ object GetProfile {
     val method = XrpcQuery(Nsid.ACTOR_GET_PROFILE, Params.serializer(), ProfileView.serializer())
 }
 
+object GetFollowers {
+    @Serializable data class Params(val actor: String, val limit: Int? = null, val cursor: String? = null)
+
+    @Serializable data class Output(val subject: ProfileViewBasic, val followers: List<ProfileViewBasic>, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.GRAPH_GET_FOLLOWERS, Params.serializer(), Output.serializer())
+}
+
+object GetFollows {
+    @Serializable data class Params(val actor: String, val limit: Int? = null, val cursor: String? = null)
+
+    @Serializable data class Output(val subject: ProfileViewBasic, val follows: List<ProfileViewBasic>, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.GRAPH_GET_FOLLOWS, Params.serializer(), Output.serializer())
+}
+
 /** Page size bounds shared by every paginated query. */
 object Paging {
     const val DEFAULT_LIMIT = 30

@@ -20,11 +20,10 @@ import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
-import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewerState
-import io.github.solcott.activitytracker.lexicon.isDid
 import io.ktor.http.HttpStatusCode
 import kotlin.time.Instant
+import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -32,8 +31,6 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
-import org.jetbrains.exposed.v1.core.less
-import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.select
@@ -109,11 +106,6 @@ class Views(private val db: Database) {
         )
     }
 
-    private fun JdbcTransaction.resolveActor(actor: String): String? {
-        val condition = if (actor.isDid()) Actors.did eq actor else Actors.handle eq actor.lowercase()
-        return Actors.select(Actors.did).where(condition).firstOrNull()?.get(Actors.did)
-    }
-
     /** Keyset pagination on (sort_at, uri) descending; cursor is `"<sortAt>::<uri>"`. */
     private fun JdbcTransaction.activityPage(
         filter: Op<Boolean>,
@@ -122,27 +114,14 @@ class Views(private val db: Database) {
         viewer: Did?,
     ): Pair<List<ActivityView>, String?> {
         val pageSize = Paging.clamp(limit)
-        val after = cursor?.let(::parseCursor)
-        val condition =
-            if (after == null) {
-                filter
-            } else {
-                filter and
-                    ((Activities.sortAt less after.first) or ((Activities.sortAt eq after.first) and (Activities.uri less after.second)))
-            }
         val rows =
             Activities.selectAll()
-                .where(condition)
+                .where { filter and keysetBefore(Activities.sortAt, Activities.uri, cursor) }
                 .orderBy(Activities.sortAt to SortOrder.DESC, Activities.uri to SortOrder.DESC)
                 .limit(pageSize)
                 .toList()
         val next = rows.takeIf { it.size == pageSize }?.last()?.let { "${it[Activities.sortAt]}::${it[Activities.uri]}" }
         return hydrate(rows, viewer) to next
-    }
-
-    private fun parseCursor(cursor: String): Pair<Long, String>? {
-        val (sortAt, uri) = cursor.split("::", limit = 2).takeIf { it.size == 2 } ?: return null
-        return sortAt.toLongOrNull()?.let { it to uri }
     }
 
     private fun JdbcTransaction.hydrate(rows: List<ResultRow>, viewer: Did?): List<ActivityView> {
@@ -177,25 +156,13 @@ class Views(private val db: Database) {
 
     private fun countBySubject(
         table: org.jetbrains.exposed.v1.core.Table,
-        subject: org.jetbrains.exposed.v1.core.Column<String>,
-        key: org.jetbrains.exposed.v1.core.Column<String>,
+        subject: Column<String>,
+        key: Column<String>,
         uris: List<String>,
     ): Map<String, Long> {
         val count = key.count()
         return table.select(subject, count).where { subject inList uris }.groupBy(subject).associate { it[subject] to it[count] }
     }
-
-    private fun basicProfiles(dids: Collection<String>): Map<String, ProfileViewBasic> =
-        Actors.selectAll()
-            .where { Actors.did inList dids.distinct() }
-            .associate {
-                it[Actors.did] to
-                    ProfileViewBasic(
-                        Did(it[Actors.did]),
-                        Handle(it[Actors.handle]),
-                        it[Actors.displayName],
-                    )
-            }
 }
 
 class XrpcError(val status: Int, val error: String, override val message: String, override val cause: Throwable? = null) :

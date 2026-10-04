@@ -8,6 +8,8 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.Tid
 import io.github.solcott.activitytracker.lexicon.app.FollowRecord
+import io.github.solcott.activitytracker.lexicon.app.GetFollowers
+import io.github.solcott.activitytracker.lexicon.app.GetFollows
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
@@ -25,6 +27,14 @@ class ProfileRepository(
         get() = clients.did
 
     suspend fun profile(actor: String): ProfileView = clients.appView.query(GetProfile.method, GetProfile.Params(actor))
+
+    /** One page of athletes following [actor] (a DID or handle). */
+    suspend fun followers(actor: String, cursor: String? = null): GetFollowers.Output =
+        clients.appView.query(GetFollowers.method, GetFollowers.Params(actor, cursor = cursor))
+
+    /** One page of athletes [actor] (a DID or handle) follows. */
+    suspend fun follows(actor: String, cursor: String? = null): GetFollows.Output =
+        clients.appView.query(GetFollows.method, GetFollows.Params(actor, cursor = cursor))
 
     suspend fun saveProfile(record: ProfileRecord) {
         clients.pds.procedure(

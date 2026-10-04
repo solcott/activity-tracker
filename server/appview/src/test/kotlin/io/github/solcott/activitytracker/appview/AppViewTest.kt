@@ -8,6 +8,8 @@ import io.github.solcott.activitytracker.appview.index.JetstreamEvent
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
+import io.github.solcott.activitytracker.lexicon.app.GetFollowers
+import io.github.solcott.activitytracker.lexicon.app.GetFollows
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.ktor.client.request.get
@@ -15,6 +17,7 @@ import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.encodeURLParameter
 import io.ktor.server.testing.testApplication
 import java.util.UUID
 import kotlin.test.Test
@@ -31,6 +34,7 @@ class AppViewTest {
     private val service = "did:web:localhost%3A8081"
     private val alice = "did:plc:alice"
     private val bob = "did:plc:bob"
+    private val carol = "did:plc:carol"
     private val keys = mapOf(alice to TestAccountKey(), bob to TestAccountKey())
 
     private val db: Database =
@@ -138,6 +142,54 @@ class AppViewTest {
             0,
             AtJson.decodeFromString(GetActivity.Output.serializer(), after.bodyAsText()).activity.kudosCount,
         )
+    }
+
+    private fun follow(author: String, subject: String, rkey: String) =
+        commit(author, Nsid.GRAPH_FOLLOW, rkey, """{"subject":"$subject","createdAt":"2026-09-30T09:00:00Z"}""")
+
+    @Test
+    fun listsFollowersAndFollowsWithPagination() = testApplication {
+        application { appView(config, db, verifier) }
+        follow(alice, bob, "3kf1")
+        follow(carol, bob, "3kf2")
+        follow(bob, alice, "3kf3")
+        commit(bob, Nsid.ACTOR_PROFILE, "self", """{"displayName":"Bob"}""")
+
+        suspend fun followers(query: String): GetFollowers.Output {
+            val response = client.get("/xrpc/${GetFollowers.method.nsid}?$query")
+            assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+            return AtJson.decodeFromString(GetFollowers.Output.serializer(), response.bodyAsText())
+        }
+
+        val all = followers("actor=bob.test")
+        assertEquals("Bob", all.subject.displayName)
+        assertEquals(setOf(alice, carol), all.followers.map { it.did.value }.toSet())
+        assertEquals("carol.test", all.followers.single { it.did.value == carol }.handle.value)
+
+        // limit=1 walks every follower through the cursor, without repeats.
+        val paged = mutableListOf<String>()
+        var cursor: String? = null
+        do {
+            val page = followers("actor=$bob&limit=1" + (cursor?.let { "&cursor=${it.encodeURLParameter()}" } ?: ""))
+            paged += page.followers.map { it.did.value }
+            cursor = page.cursor
+        } while (cursor != null)
+        assertEquals(setOf(alice, carol), paged.toSet())
+        assertEquals(2, paged.size)
+
+        val follows = client.get("/xrpc/${GetFollows.method.nsid}?actor=bob.test")
+        assertEquals(
+            listOf(alice),
+            AtJson.decodeFromString(GetFollows.Output.serializer(), follows.bodyAsText()).follows.map { it.did.value },
+        )
+
+        // Unfollowing removes the row.
+        commit(carol, Nsid.GRAPH_FOLLOW, "3kf2", "", op = "delete")
+        assertEquals(listOf(alice), followers("actor=bob.test").followers.map { it.did.value })
+
+        val unknown = client.get("/xrpc/${GetFollowers.method.nsid}?actor=nobody.test")
+        assertEquals(HttpStatusCode.BadRequest, unknown.status)
+        assertEquals(true, unknown.bodyAsText().contains("ActorNotFound"))
     }
 
     @Test

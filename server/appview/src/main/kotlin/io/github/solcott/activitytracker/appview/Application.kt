@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview
 
 import co.touchlab.kermit.Logger
+import io.github.solcott.activitytracker.appview.api.GraphViews
 import io.github.solcott.activitytracker.appview.api.Views
 import io.github.solcott.activitytracker.appview.api.XrpcError
 import io.github.solcott.activitytracker.appview.api.respondXrpcError
@@ -80,6 +81,6 @@ fun Application.appView(config: AppViewConfig, db: Database, verifier: ServiceAu
     }
     routing {
         wellKnownRoutes(config)
-        xrpcRoutes(Views(db), verifier)
+        xrpcRoutes(Views(db), GraphViews(db), verifier)
     }
 }

@@ -85,6 +85,14 @@ fun ProfilePresenter(
                 }
             }
 
+            ProfileEvent.OpenFollowers -> {
+                navigator.goTo(FollowListScreen(did, FollowListKind.Followers))
+            }
+
+            ProfileEvent.OpenFollowing -> {
+                navigator.goTo(FollowListScreen(did, FollowListKind.Following))
+            }
+
             // Dropping the session tears down the SessionGraph and returns to LoginScreen.
             ProfileEvent.SignOut -> {
                 scope.launch { auth.signOut() }

@@ -11,6 +11,8 @@ import io.github.solcott.activitytracker.lexicon.XrpcParams
 import io.github.solcott.activitytracker.lexicon.XrpcQuery
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
+import io.github.solcott.activitytracker.lexicon.app.GetFollowers
+import io.github.solcott.activitytracker.lexicon.app.GetFollows
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.ktor.http.ContentType
@@ -27,13 +29,15 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 
-fun Route.xrpcRoutes(views: Views, verifier: ServiceAuthVerifier) {
+fun Route.xrpcRoutes(views: Views, graph: GraphViews, verifier: ServiceAuthVerifier) {
     xrpcQuery(GetTimeline.method, verifier) { params, viewer ->
         views.timeline(viewer ?: throw AuthException("Authentication required"), params)
     }
     xrpcQuery(GetAuthorActivities.method, verifier) { params, viewer -> views.authorActivities(viewer, params) }
     xrpcQuery(GetActivity.method, verifier) { params, viewer -> views.activity(viewer, params) }
     xrpcQuery(GetProfile.method, verifier) { params, viewer -> views.profile(viewer, params.actor) }
+    xrpcQuery(GetFollowers.method, verifier) { params, _ -> graph.followers(params) }
+    xrpcQuery(GetFollows.method, verifier) { params, _ -> graph.follows(params) }
 }
 
 /** Serves a typed query. Auth is optional here; handlers that need a viewer throw [AuthException]. */

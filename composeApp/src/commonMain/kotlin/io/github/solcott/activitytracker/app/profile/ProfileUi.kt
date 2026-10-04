@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.profile
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
@@ -54,10 +56,15 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
                 item {
                     Text("@${p.handle.value}", style = MaterialTheme.typography.bodyMedium)
                     p.description?.let { Text(it) }
-                    Text(
-                        "${p.activitiesCount ?: 0} activities · ${p.followersCount ?: 0} followers · ${p.followsCount ?: 0} following",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("${p.activitiesCount ?: 0} activities", style = MaterialTheme.typography.bodySmall)
+                        TextButton(onClick = { state.eventSink(ProfileEvent.OpenFollowers) }) {
+                            Text("${p.followersCount ?: 0} followers", style = MaterialTheme.typography.bodySmall)
+                        }
+                        TextButton(onClick = { state.eventSink(ProfileEvent.OpenFollowing) }) {
+                            Text("${p.followsCount ?: 0} following", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
                     if (!state.isSelf) {
                         if (p.viewer?.following == null) {
                             Button(onClick = { state.eventSink(ProfileEvent.ToggleFollow) }) { Text("Follow") }

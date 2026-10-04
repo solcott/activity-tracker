@@ -23,6 +23,10 @@ sealed interface ProfileEvent {
 
     data object ToggleFollow : ProfileEvent
 
+    data object OpenFollowers : ProfileEvent
+
+    data object OpenFollowing : ProfileEvent
+
     data object SignOut : ProfileEvent
 
     data class Open(val activity: ActivityView) : ProfileEvent
