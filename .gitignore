@@ -18,6 +18,7 @@ xcuserdata/
 *.xcworkspace/xcuserdata/
 DerivedData/
 
-# Local stack secrets
+# Local stack secrets, and scripts/dev.sh logs
 docker/.env
 docker/data/
+.dev/

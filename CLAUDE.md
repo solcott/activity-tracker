@@ -20,6 +20,8 @@ A Kotlin Multiplatform, Strava-style athlete activity tracker backed by ATProtoc
 ./gradlew :webApp:wasmJsBrowserDevelopmentRun     # web app; PORT env overrides 8080
 ./gradlew :androidApp:installDebug
 ./gradlew :server-appview:run                     # AppView on :8081; defaults target the docker stack
+scripts/dev.sh [--seed alice]                     # whole local env: Docker, tunnel, local.properties, AppView, adb reverse (idempotent)
+scripts/dev.sh status | down
 docker compose -f docker/compose.yaml up -d       # local PLC/PDS/relay/Jetstream/Postgres
 docker/scripts/create-account.sh alice            # alice.test on the local PDS
 ```

@@ -9,7 +9,20 @@ AppView indexes them from the firehose and serves feeds.
 
 ## Local development
 
-Requires JDK 25, Docker, Android SDK (for Android), Xcode (for iOS).
+Requires JDK 25, Docker, Android SDK (for Android), Xcode (for iOS), and `cloudflared` for native sign-in
+(`brew install cloudflared`).
+
+```bash
+scripts/dev.sh --seed alice     # Docker stack, tunnel, local.properties, AppView, adb reverse, alice.test
+scripts/dev.sh status           # what's running, and whether the tunnel URL, AppView and local.properties agree
+scripts/dev.sh down             # stop the AppView, the tunnel and the containers (data is kept)
+```
+
+`scripts/dev.sh` is safe to re-run: it checks each piece and only starts, restarts or rewrites what is
+missing or stale. When the tunnel URL changes it rewrites `local.properties`, restarts the AppView and
+reinstalls the Android debug app on connected devices (`--android` forces the reinstall, `--no-android`
+and `--no-tunnel` skip those steps). The AppView and tunnel run in the background with logs in `.dev/`.
+The steps below are what it automates.
 
 ```bash
 cp docker/.env.example docker/.env
