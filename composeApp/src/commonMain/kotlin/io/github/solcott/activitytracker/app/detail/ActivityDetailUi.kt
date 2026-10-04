@@ -52,8 +52,10 @@ import io.github.solcott.activitytracker.composeApp.resources.kudos_count
 import io.github.solcott.activitytracker.composeApp.resources.stat_distance
 import io.github.solcott.activitytracker.composeApp.resources.stat_elevation
 import io.github.solcott.activitytracker.composeApp.resources.stat_moving_time
+import io.github.solcott.activitytracker.composeApp.resources.stat_temperature
 import io.github.solcott.activitytracker.data.di.SessionScope
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -120,6 +122,11 @@ private fun LoadedContent(state: ActivityDetailState.Loaded, modifier: Modifier 
                     Stat(stringResource(Res.string.stat_elevation), Format.elevation(record.elevationGain?.toDouble())),
                 )
             )
+        }
+        item {
+            val rate = Format.rateStat(record.sport, record.distance?.toDouble(), record.movingTime ?: record.elapsedTime)
+            val temperature = record.avgTemperature?.let { Stat(stringResource(Res.string.stat_temperature), Format.temperature(it)) }
+            StatsRow(listOfNotNull(rate, temperature).toImmutableList())
         }
         record.polyline?.let { item { RoutePreview(it, height = 240.dp) } }
         item {

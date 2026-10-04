@@ -41,7 +41,6 @@ import io.github.solcott.activitytracker.composeApp.resources.record_start
 import io.github.solcott.activitytracker.composeApp.resources.record_title
 import io.github.solcott.activitytracker.composeApp.resources.stat_distance
 import io.github.solcott.activitytracker.composeApp.resources.stat_elevation
-import io.github.solcott.activitytracker.composeApp.resources.stat_pace
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.location.RecordingState
@@ -79,7 +78,7 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
             StatsRow(
                 persistentListOf(
                     Stat(stringResource(Res.string.stat_distance), Format.distance(state.distanceMeters)),
-                    Stat(stringResource(Res.string.stat_pace), Format.pace(state.distanceMeters, state.movingSeconds)),
+                    Format.rateStat(state.sport, state.distanceMeters, state.movingSeconds),
                     Stat(stringResource(Res.string.stat_elevation), Format.elevation(state.elevationGainMeters)),
                 )
             )

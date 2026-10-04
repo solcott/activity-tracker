@@ -31,7 +31,7 @@ sealed interface ProfileEvent {
 
     data object OpenFollowing : ProfileEvent
 
-    data object SignOut : ProfileEvent
+    data object OpenSettings : ProfileEvent
 
     data class Open(val activity: ActivityView) : ProfileEvent
 

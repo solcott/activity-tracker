@@ -25,7 +25,6 @@ import io.github.solcott.activitytracker.composeApp.resources.comments_count
 import io.github.solcott.activitytracker.composeApp.resources.kudos_content_description
 import io.github.solcott.activitytracker.composeApp.resources.kudos_count
 import io.github.solcott.activitytracker.composeApp.resources.stat_distance
-import io.github.solcott.activitytracker.composeApp.resources.stat_pace
 import io.github.solcott.activitytracker.composeApp.resources.stat_time
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import kotlinx.collections.immutable.ImmutableList
@@ -58,10 +57,7 @@ fun ActivityCard(
                 persistentListOf(
                     Stat(stringResource(Res.string.stat_distance), Format.distance(record.distance?.toDouble())),
                     Stat(stringResource(Res.string.stat_time), Format.duration(record.movingTime ?: record.elapsedTime)),
-                    Stat(
-                        stringResource(Res.string.stat_pace),
-                        Format.pace(record.distance?.toDouble(), record.movingTime ?: record.elapsedTime),
-                    ),
+                    Format.rateStat(record.sport, record.distance?.toDouble(), record.movingTime ?: record.elapsedTime),
                 )
             )
             record.polyline?.let { RoutePreview(it) }

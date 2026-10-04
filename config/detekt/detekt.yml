@@ -35,6 +35,8 @@ Compose:
     active: true
   CompositionLocalAllowlist:
     active: true
+    # The unit preference is ambient like the theme: every stat formatter reads it, so threading it through each State would add noise.
+    allowedCompositionLocals: LocalUnitSystem
   # Composable params take ImmutableList, not List; composeStabilityCheck catches the rest from the compiler reports.
   UnstableCollections:
     active: true

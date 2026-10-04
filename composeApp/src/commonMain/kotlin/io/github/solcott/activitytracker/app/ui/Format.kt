@@ -1,20 +1,42 @@
 package io.github.solcott.activitytracker.app.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.stat_pace
+import io.github.solcott.activitytracker.composeApp.resources.stat_speed
 import io.github.solcott.activitytracker.composeApp.resources.unit_distance_km
+import io.github.solcott.activitytracker.composeApp.resources.unit_distance_mi
+import io.github.solcott.activitytracker.composeApp.resources.unit_elevation_ft
 import io.github.solcott.activitytracker.composeApp.resources.unit_elevation_m
 import io.github.solcott.activitytracker.composeApp.resources.unit_pace_per_km
+import io.github.solcott.activitytracker.composeApp.resources.unit_pace_per_mi
+import io.github.solcott.activitytracker.composeApp.resources.unit_speed_kmh
+import io.github.solcott.activitytracker.composeApp.resources.unit_speed_mph
+import io.github.solcott.activitytracker.composeApp.resources.unit_temperature_c
+import io.github.solcott.activitytracker.composeApp.resources.unit_temperature_f
 import io.github.solcott.activitytracker.composeApp.resources.value_missing
+import io.github.solcott.activitytracker.data.units.UnitConversions
+import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.lexicon.app.Sport
+import kotlin.math.abs
+import kotlin.math.pow
 import kotlin.math.roundToLong
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import org.jetbrains.compose.resources.stringResource
 
-/** Display formatting for stats. Values with units read their templates from Compose resources, so those are composable. */
+/** The signed-in athlete's unit preference; `App` provides it from `UnitsRepository`. */
+val LocalUnitSystem = staticCompositionLocalOf { UnitSystem.Metric }
+
+/**
+ * Display formatting for stats. Inputs are the SI values records store; output follows [LocalUnitSystem]. Values with units read their
+ * templates from Compose resources, so those are composable.
+ */
 object Format {
-    private const val METERS_PER_KM = 1000.0
-    private const val HUNDREDTHS_PER_KM = 100
+    private const val DISTANCE_DECIMALS = 2
+    private const val SPEED_DECIMALS = 1
+    private const val DECIMAL_BASE = 10.0
 
     /** Below this, pace is noise from GPS jitter. */
     private const val MIN_PACE_DISTANCE_M = 10
@@ -22,9 +44,12 @@ object Format {
     @Composable
     fun distance(meters: Double?): String {
         if (meters == null) return stringResource(Res.string.value_missing)
-        val hundredths = (meters / METERS_PER_KM * HUNDREDTHS_PER_KM).roundToLong()
-        val fraction = (hundredths % HUNDREDTHS_PER_KM).toString().padStart(2, '0')
-        return stringResource(Res.string.unit_distance_km, "${hundredths / HUNDREDTHS_PER_KM}.$fraction")
+        val units = LocalUnitSystem.current
+        val value = fixed(UnitConversions.toDistanceUnit(meters, units), DISTANCE_DECIMALS)
+        return when (units) {
+            UnitSystem.Metric -> stringResource(Res.string.unit_distance_km, value)
+            UnitSystem.Imperial -> stringResource(Res.string.unit_distance_mi, value)
+        }
     }
 
     fun duration(duration: Duration): String {
@@ -39,15 +64,70 @@ object Format {
 
     fun duration(seconds: Long): String = duration(seconds.seconds)
 
-    /** Minutes per kilometer. */
+    /** Minutes per kilometer, or per mile. */
     @Composable
     fun pace(meters: Double?, seconds: Long?): String {
         if (meters == null || seconds == null || meters < MIN_PACE_DISTANCE_M) return stringResource(Res.string.value_missing)
-        val secPerKm = (seconds / (meters / METERS_PER_KM)).roundToLong()
-        return stringResource(Res.string.unit_pace_per_km, duration(secPerKm))
+        val units = LocalUnitSystem.current
+        val perUnit = duration((seconds / UnitConversions.toDistanceUnit(meters, units)).roundToLong())
+        return when (units) {
+            UnitSystem.Metric -> stringResource(Res.string.unit_pace_per_km, perUnit)
+            UnitSystem.Imperial -> stringResource(Res.string.unit_pace_per_mi, perUnit)
+        }
     }
 
+    /** km/h, or mph. */
     @Composable
-    fun elevation(meters: Double?): String =
-        meters?.let { stringResource(Res.string.unit_elevation_m, it.roundToLong()) } ?: stringResource(Res.string.value_missing)
+    fun speed(mmPerSecond: Long?): String {
+        if (mmPerSecond == null) return stringResource(Res.string.value_missing)
+        val units = LocalUnitSystem.current
+        val value = fixed(UnitConversions.toSpeedUnit(mmPerSecond, units), SPEED_DECIMALS)
+        return when (units) {
+            UnitSystem.Metric -> stringResource(Res.string.unit_speed_kmh, value)
+            UnitSystem.Imperial -> stringResource(Res.string.unit_speed_mph, value)
+        }
+    }
+
+    /** Rides read as speed, everything else as pace. */
+    @Composable
+    fun rateStat(sport: String, meters: Double?, seconds: Long?): Stat =
+        if (sport == Sport.RIDE) {
+            Stat(stringResource(Res.string.stat_speed), speed(UnitConversions.averageSpeed(meters, seconds)))
+        } else {
+            Stat(stringResource(Res.string.stat_pace), pace(meters, seconds))
+        }
+
+    /** Meters, or feet. */
+    @Composable
+    fun elevation(meters: Double?): String {
+        if (meters == null) return stringResource(Res.string.value_missing)
+        val units = LocalUnitSystem.current
+        val value = UnitConversions.toElevationUnit(meters, units).roundToLong()
+        return when (units) {
+            UnitSystem.Metric -> stringResource(Res.string.unit_elevation_m, value)
+            UnitSystem.Imperial -> stringResource(Res.string.unit_elevation_ft, value)
+        }
+    }
+
+    /** A record temperature (tenths of °C), in whole °C or °F. */
+    @Composable
+    fun temperature(tenthsCelsius: Long?): String {
+        if (tenthsCelsius == null) return stringResource(Res.string.value_missing)
+        val units = LocalUnitSystem.current
+        val value = UnitConversions.toTemperatureUnit(tenthsCelsius, units).roundToLong()
+        return when (units) {
+            UnitSystem.Metric -> stringResource(Res.string.unit_temperature_c, value)
+            UnitSystem.Imperial -> stringResource(Res.string.unit_temperature_f, value)
+        }
+    }
+
+    /** [value] with exactly [decimals] fraction digits; common code has no `String.format`. */
+    private fun fixed(value: Double, decimals: Int): String {
+        val scale = DECIMAL_BASE.pow(decimals).toLong()
+        val scaled = (value * scale).roundToLong()
+        val sign = if (scaled < 0) "-" else ""
+        val whole = abs(scaled) / scale
+        val fraction = (abs(scaled) % scale).toString().padStart(decimals, '0')
+        return "$sign$whole.$fraction"
+    }
 }

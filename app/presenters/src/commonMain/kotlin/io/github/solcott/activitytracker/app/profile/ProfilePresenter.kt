@@ -13,9 +13,9 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.settings.SettingsScreen
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
-import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
@@ -33,7 +33,6 @@ fun ProfilePresenter(
     profiles: ProfileRepository,
     feed: FeedRepository,
     activities: ActivityRepository,
-    auth: AuthRepository,
 ): ProfileState {
     var profile by remember { mutableStateOf<ProfileView?>(null) }
     var error by remember { mutableStateOf<UiError?>(null) }
@@ -89,9 +88,8 @@ fun ProfilePresenter(
                 navigator.goTo(FollowListScreen(did, FollowListKind.Following))
             }
 
-            // Dropping the session tears down the SessionGraph and returns to LoginScreen.
-            ProfileEvent.SignOut -> {
-                scope.launch { auth.signOut() }
+            ProfileEvent.OpenSettings -> {
+                navigator.goTo(SettingsScreen)
             }
         }
     }

@@ -26,6 +26,7 @@
           "maxSpeed": { "type": "integer", "minimum": 0, "description": "Millimeters per second." },
           "avgHeartRate": { "type": "integer", "minimum": 0, "maximum": 300 },
           "maxHeartRate": { "type": "integer", "minimum": 0, "maximum": 300 },
+          "avgTemperature": { "type": "integer", "description": "Tenths of a degree Celsius (lexicons have no floats). May be negative." },
           "polyline": {
             "type": "string",
             "maxLength": 50000,

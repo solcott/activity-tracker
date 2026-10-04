@@ -45,6 +45,8 @@ data class ActivityRecord(
     val maxSpeed: Long? = null,
     val avgHeartRate: Int? = null,
     val maxHeartRate: Int? = null,
+    /** Tenths of a degree Celsius; may be negative. */
+    val avgTemperature: Long? = null,
     /** Simplified Google encoded polyline (precision 5). */
     val polyline: String? = null,
     /** Full GPX track blob. */

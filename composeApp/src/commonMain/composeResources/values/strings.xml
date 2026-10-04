@@ -17,6 +17,7 @@
     <string name="error_save_activity">Couldn't save activity</string>
     <string name="error_sign_in_start">Couldn't start sign-in</string>
     <string name="error_sign_in_complete">Sign-in failed</string>
+    <string name="error_save_settings">Couldn't save settings</string>
 
     <!-- Stats and units -->
     <string name="stat_distance">Distance</string>
@@ -24,10 +25,19 @@
     <string name="stat_moving_time">Moving time</string>
     <string name="stat_pace">Pace</string>
     <string name="stat_elevation">Elevation</string>
+    <string name="stat_speed">Speed</string>
+    <string name="stat_temperature">Temperature</string>
     <string name="value_missing">–</string>
     <string name="unit_distance_km">%1$s km</string>
     <string name="unit_pace_per_km">%1$s /km</string>
     <string name="unit_elevation_m">%1$s m</string>
+    <string name="unit_distance_mi">%1$s mi</string>
+    <string name="unit_pace_per_mi">%1$s /mi</string>
+    <string name="unit_elevation_ft">%1$s ft</string>
+    <string name="unit_speed_kmh">%1$s km/h</string>
+    <string name="unit_speed_mph">%1$s mph</string>
+    <string name="unit_temperature_c">%1$s °C</string>
+    <string name="unit_temperature_f">%1$s °F</string>
 
     <!-- Sports (open enum: unknown values fall back to the raw token) -->
     <string name="sport_run">Run</string>
@@ -82,6 +92,14 @@
     <!-- Profile -->
     <string name="profile_title">Profile</string>
     <string name="profile_sign_out">Sign out</string>
+    <string name="profile_settings">Settings</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_units_heading">Units</string>
+    <string name="settings_units_metric_example">Kilometers, meters, °C</string>
+    <string name="settings_units_imperial_example">Miles, feet, °F</string>
+    <string name="settings_saving">Saving…</string>
     <plurals name="profile_activities_count">
         <item quantity="one">%1$d activity</item>
         <item quantity="other">%1$d activities</item>
@@ -109,7 +127,12 @@
     <string name="record_discard">Discard</string>
     <string name="field_title">Title</string>
     <string name="manual_title">Add activity</string>
-    <string name="manual_distance_label">Distance (km)</string>
+    <string name="manual_distance_label_km">Distance (km)</string>
+    <string name="manual_distance_label_mi">Distance (mi)</string>
+    <string name="manual_temperature_label_c">Temperature (°C)</string>
+    <string name="manual_temperature_label_f">Temperature (°F)</string>
+    <string name="units_metric">Metric</string>
+    <string name="units_imperial">Imperial</string>
     <string name="manual_duration_label">Duration (minutes)</string>
     <string name="action_save">Save</string>
     <string name="action_saving">Saving…</string>

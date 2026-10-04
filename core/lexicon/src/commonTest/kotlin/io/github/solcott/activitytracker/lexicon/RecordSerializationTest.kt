@@ -41,6 +41,14 @@ class RecordSerializationTest {
     }
 
     @Test
+    fun negativeTemperatureRoundTrips() {
+        val cold = record.copy(avgTemperature = -55)
+        val json = AtJson.encodeToString(ActivityRecord.serializer(), cold)
+        assertTrue("\"avgTemperature\":-55" in json)
+        assertEquals(cold, AtJson.decodeFromString(ActivityRecord.serializer(), json))
+    }
+
+    @Test
     fun paramsRoundTripThroughQueryString() {
         val params = GetTimeline.Params(limit = 25, cursor = "abc")
         val encoded = XrpcParams.encode(GetTimeline.Params.serializer(), params)

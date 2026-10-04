@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.data.profile
 
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -14,6 +15,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.atproto.DeleteRecord
+import io.github.solcott.activitytracker.lexicon.atproto.GetRecord
 import io.github.solcott.activitytracker.lexicon.atproto.PutRecord
 import kotlin.time.Clock
 
@@ -35,6 +37,18 @@ class ProfileRepository(
     /** One page of athletes [actor] (a DID or handle) follows. */
     suspend fun follows(actor: String, cursor: String? = null): GetFollows.Output =
         clients.appView.query(GetFollows.method, GetFollows.Params(actor, cursor = cursor))
+
+    /** The signed-in athlete's own profile record, read from their PDS (not the AppView, which may lag); null if they have none. */
+    suspend fun ownProfileRecord(): ProfileRecord? {
+        val output =
+            try {
+                clients.pds.query(GetRecord.method, GetRecord.Params(clients.did.value, Nsid.ACTOR_PROFILE, ProfileRecord.RKEY))
+            } catch (e: XrpcException) {
+                if (e.error == RECORD_NOT_FOUND) return null
+                throw e
+            }
+        return AtJson.decodeFromJsonElement(ProfileRecord.serializer(), output.value)
+    }
 
     suspend fun saveProfile(record: ProfileRecord) {
         clients.pds.procedure(
@@ -71,5 +85,9 @@ class ProfileRepository(
             DeleteRecord.method,
             DeleteRecord.Input(clients.did, Nsid.GRAPH_FOLLOW, rkey),
         )
+    }
+
+    private companion object {
+        const val RECORD_NOT_FOUND = "RecordNotFound"
     }
 }

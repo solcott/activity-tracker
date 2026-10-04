@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,7 +34,7 @@ import io.github.solcott.activitytracker.composeApp.resources.profile_follow
 import io.github.solcott.activitytracker.composeApp.resources.profile_followers_count
 import io.github.solcott.activitytracker.composeApp.resources.profile_following
 import io.github.solcott.activitytracker.composeApp.resources.profile_following_count
-import io.github.solcott.activitytracker.composeApp.resources.profile_sign_out
+import io.github.solcott.activitytracker.composeApp.resources.profile_settings
 import io.github.solcott.activitytracker.composeApp.resources.profile_title
 import io.github.solcott.activitytracker.data.di.SessionScope
 import org.jetbrains.compose.resources.PluralStringResource
@@ -56,8 +57,8 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
                 },
                 actions = {
                     if (state.isSelf) {
-                        TextButton(onClick = { state.eventSink(ProfileEvent.SignOut) }) {
-                            Text(stringResource(Res.string.profile_sign_out))
+                        IconButton(onClick = { state.eventSink(ProfileEvent.OpenSettings) }) {
+                            Icon(Icons.Filled.Settings, stringResource(Res.string.profile_settings))
                         }
                     }
                 },

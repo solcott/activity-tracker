@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -17,6 +18,7 @@ import io.github.solcott.activitytracker.app.di.AppGraph
 import io.github.solcott.activitytracker.app.feed.FeedScreen
 import io.github.solcott.activitytracker.app.login.LoginScreen
 import io.github.solcott.activitytracker.app.ui.AppTheme
+import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 
 /**
  * Root: signed out → [LoginScreen] on the app-scoped Circuit; signed in → a fresh `SessionGraph` (keyed by DID) whose Circuit hosts the
@@ -39,10 +41,14 @@ fun App(graph: AppGraph, onRootPop: () -> Unit = {}) {
         } else {
             key(current.did) {
                 val sessionGraph = remember { graph.createSessionGraph(current) }
-                CircuitCompositionLocals(sessionGraph.sessionCircuit.circuit) {
-                    val backStack = rememberSaveableBackStack(root = FeedScreen)
-                    val navigator = rememberCircuitNavigator(backStack = backStack, onRootPop = { onRootPop() })
-                    NavigableCircuitContent(navigator = navigator, backStack = backStack)
+                LaunchedEffect(Unit) { sessionGraph.unitsRepository.refresh() }
+                val units by sessionGraph.unitsRepository.units.collectAsState()
+                CompositionLocalProvider(LocalUnitSystem provides units) {
+                    CircuitCompositionLocals(sessionGraph.sessionCircuit.circuit) {
+                        val backStack = rememberSaveableBackStack(root = FeedScreen)
+                        val navigator = rememberCircuitNavigator(backStack = backStack, onRootPop = { onRootPop() })
+                        NavigableCircuitContent(navigator = navigator, backStack = backStack)
+                    }
                 }
             }
         }

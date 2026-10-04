@@ -75,9 +75,10 @@ class AppViewTest {
             bob,
             Nsid.FEED_ACTIVITY,
             "3kbob1",
-            """{"sport":"run","startedAt":"2026-09-30T10:00:00Z","elapsedTime":1800,"createdAt":"2026-09-30T10:31:00Z","distance":5000}""",
+            """{"sport":"run","startedAt":"2026-09-30T10:00:00Z","elapsedTime":1800,"createdAt":"2026-09-30T10:31:00Z",""" +
+                """"distance":5000,"avgTemperature":-55}""",
         )
-        commit(bob, Nsid.ACTOR_PROFILE, "self", """{"displayName":"Bob"}""")
+        commit(bob, Nsid.ACTOR_PROFILE, "self", """{"displayName":"Bob","units":"imperial"}""")
         commit(
             alice,
             Nsid.GRAPH_FOLLOW,
@@ -130,11 +131,13 @@ class AppViewTest {
         val detail = client.get("/xrpc/${GetActivity.method.nsid}?uri=$activityUri")
         val output = AtJson.decodeFromString(GetActivity.Output.serializer(), detail.bodyAsText())
         assertEquals("Nice!", output.comments.single().text)
+        assertEquals(-55L, output.activity.record.avgTemperature)
 
         val profile = client.get("/xrpc/${GetProfile.method.nsid}?actor=bob.test")
         val view = AtJson.decodeFromString(GetProfile.method.output, profile.bodyAsText())
         assertEquals(1, view.activitiesCount)
         assertEquals(1, view.followersCount)
+        assertEquals("imperial", view.units)
 
         // Deleting the kudos record removes it from counts.
         commit(alice, Nsid.FEED_KUDOS, "3kk1", "", op = "delete")

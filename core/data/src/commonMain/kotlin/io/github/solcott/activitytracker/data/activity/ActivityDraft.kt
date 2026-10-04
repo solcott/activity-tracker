@@ -19,6 +19,7 @@ data class ActivityDraft(
     val distanceMeters: Double? = null,
     val elevationGainMeters: Double? = null,
     val maxSpeedMps: Double? = null,
+    val avgTemperatureCelsius: Double? = null,
     val polyline: String? = null,
     val gpx: ByteArray? = null,
 ) {
@@ -38,6 +39,7 @@ data class ActivityDraft(
                     if (seconds > 0) (d / seconds * MM_PER_M).roundToLong() else null
                 },
             maxSpeed = maxSpeedMps?.let { (it * MM_PER_M).roundToLong() },
+            avgTemperature = avgTemperatureCelsius?.let { (it * TENTHS_PER_DEGREE).roundToLong() },
             polyline = polyline,
             createdAt = createdAt,
         )
@@ -55,6 +57,7 @@ data class ActivityDraft(
                 distanceMeters == other.distanceMeters &&
                 elevationGainMeters == other.elevationGainMeters &&
                 maxSpeedMps == other.maxSpeedMps &&
+                avgTemperatureCelsius == other.avgTemperatureCelsius &&
                 polyline == other.polyline &&
                 gpx.contentEquals(other.gpx)
 
@@ -68,6 +71,7 @@ data class ActivityDraft(
         result = 31 * result + (distanceMeters?.hashCode() ?: 0)
         result = 31 * result + (elevationGainMeters?.hashCode() ?: 0)
         result = 31 * result + (maxSpeedMps?.hashCode() ?: 0)
+        result = 31 * result + (avgTemperatureCelsius?.hashCode() ?: 0)
         result = 31 * result + (polyline?.hashCode() ?: 0)
         result = 31 * result + gpx.contentHashCode()
         return result
@@ -76,6 +80,9 @@ data class ActivityDraft(
     companion object {
         /** Lexicon speeds are integer mm/s. */
         private const val MM_PER_M = 1000
+
+        /** Lexicon temperatures are integer tenths of a degree Celsius. */
+        private const val TENTHS_PER_DEGREE = 10
 
         fun fromRecording(
             result: RecordingResult,

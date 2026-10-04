@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_followi
 import io.github.solcott.activitytracker.composeApp.resources.error_load_kudos
 import io.github.solcott.activitytracker.composeApp.resources.error_load_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_save_activity
+import io.github.solcott.activitytracker.composeApp.resources.error_save_settings
 import io.github.solcott.activitytracker.composeApp.resources.handle_format
 import io.github.solcott.activitytracker.composeApp.resources.sport_hike
 import io.github.solcott.activitytracker.composeApp.resources.sport_other
@@ -51,5 +52,6 @@ fun errorText(error: UiError): String =
                 UiError.Kind.LoadFollowers -> Res.string.error_load_followers
                 UiError.Kind.LoadFollowing -> Res.string.error_load_following
                 UiError.Kind.SaveActivity -> Res.string.error_save_activity
+                UiError.Kind.SaveSettings -> Res.string.error_save_settings
             }
         )
