@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetFollowers
 import io.github.solcott.activitytracker.lexicon.app.GetFollows
+import io.github.solcott.activitytracker.lexicon.app.GetKudos
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.ktor.client.request.get
@@ -155,6 +156,47 @@ class AppViewTest {
 
         val detail = client.get("/xrpc/${GetActivity.method.nsid}?uri=$activityUri")
         assertEquals(1, AtJson.decodeFromString(GetActivity.Output.serializer(), detail.bodyAsText()).activity.kudosCount)
+    }
+
+    @Test
+    fun listsKudosAthletesOnce() = testApplication {
+        application { appView(config, db, verifier) }
+        val activityUri = seedBobsRunWithAlicesFollowKudosAndComment()
+        val kudos = """{"subject":{"uri":"$activityUri","cid":"bafy3kbob1"},"createdAt":"2026-09-30T11:05:00Z"}"""
+        commit(alice, Nsid.FEED_KUDOS, "3kk2", kudos)
+        commit(carol, Nsid.FEED_KUDOS, "3kk3", kudos)
+        commit(bob, Nsid.FEED_KUDOS, "3kk4", kudos)
+
+        suspend fun list(query: String): GetKudos.Output {
+            val response = client.get("/xrpc/${GetKudos.method.nsid}?$query")
+            assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+            return AtJson.decodeFromString(GetKudos.Output.serializer(), response.bodyAsText())
+        }
+
+        val all = list("uri=${activityUri.encodeURLParameter()}")
+        assertEquals(activityUri, all.uri.value)
+        // Alice's duplicate is listed once and Bob's self-kudos isn't indexed.
+        assertEquals(setOf(alice, carol), all.kudos.map { it.did.value }.toSet())
+        assertEquals(2, all.kudos.size)
+        assertEquals("carol.test", all.kudos.single { it.did.value == carol }.handle.value)
+
+        // limit=1 walks every athlete through the cursor exactly once, despite Alice's duplicate.
+        val paged = mutableListOf<String>()
+        var cursor: String? = null
+        do {
+            val page =
+                list("uri=${activityUri.encodeURLParameter()}&limit=1" + (cursor?.let { "&cursor=${it.encodeURLParameter()}" } ?: ""))
+            paged += page.kudos.map { it.did.value }
+            cursor = page.cursor
+        } while (cursor != null)
+        assertEquals(listOf(alice, carol).sorted(), paged.sorted())
+
+        commit(carol, Nsid.FEED_KUDOS, "3kk3", "", op = "delete")
+        assertEquals(listOf(alice), list("uri=${activityUri.encodeURLParameter()}").kudos.map { it.did.value })
+
+        val missing = client.get("/xrpc/${GetKudos.method.nsid}?uri=${"at://$bob/${Nsid.FEED_ACTIVITY}/nope".encodeURLParameter()}")
+        assertEquals(HttpStatusCode.BadRequest, missing.status)
+        assertEquals(true, missing.bodyAsText().contains("NotFound"))
     }
 
     private fun follow(author: String, subject: String, rkey: String) =

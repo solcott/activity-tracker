@@ -12,7 +12,10 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
+import io.github.solcott.activitytracker.lexicon.app.GetKudos
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
+import io.github.solcott.activitytracker.lexicon.app.Paging
+import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -48,6 +51,13 @@ class FeedRepository(
         updateCached(uri) { activity }
         return output.copy(activity = activity)
     }
+
+    /**
+     * The first [Paging.MAX_LIMIT] athletes who gave kudos on [uri], straight from the AppView, so it lags the viewer's own toggles (see
+     * [LocalKudos]).
+     */
+    suspend fun kudos(uri: AtUri): List<ProfileViewBasic> =
+        clients.appView.query(GetKudos.method, GetKudos.Params(uri, limit = Paging.MAX_LIMIT)).kudos
 
     /** Optimistically rewrites every cached copy of [uri]. */
     suspend fun updateCached(uri: AtUri, transform: (ActivityView) -> ActivityView) {

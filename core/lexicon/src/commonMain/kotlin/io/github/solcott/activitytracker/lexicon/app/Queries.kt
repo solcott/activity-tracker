@@ -29,6 +29,14 @@ object GetActivity {
     val method = XrpcQuery(Nsid.FEED_GET_ACTIVITY, Params.serializer(), Output.serializer())
 }
 
+object GetKudos {
+    @Serializable data class Params(val uri: AtUri, val limit: Int? = null, val cursor: String? = null)
+
+    @Serializable data class Output(val uri: AtUri, val kudos: List<ProfileViewBasic>, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.FEED_GET_KUDOS, Params.serializer(), Output.serializer())
+}
+
 object GetProfile {
     @Serializable data class Params(val actor: String)
 

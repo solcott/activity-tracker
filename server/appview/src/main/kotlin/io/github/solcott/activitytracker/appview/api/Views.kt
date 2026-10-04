@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
+import io.github.solcott.activitytracker.lexicon.app.GetKudos
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
@@ -32,6 +33,9 @@ import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.countDistinct
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.core.max
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.select
@@ -80,6 +84,34 @@ class Views(private val db: Database) {
                     )
                 },
         )
+    }
+
+    /**
+     * Athletes who gave kudos on an activity, each once (a repo may hold duplicate kudos records), most recent kudos first. Keyset
+     * pagination over authors on (latest indexed_at, author_did) descending; cursor is `"<indexedAt>::<authorDid>"`.
+     */
+    suspend fun kudos(params: GetKudos.Params): GetKudos.Output = db.tx {
+        val uri = params.uri.value
+        if (Activities.select(Activities.uri).where { Activities.uri eq uri }.empty()) {
+            throw XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "Activity not found")
+        }
+        val pageSize = Paging.clamp(params.limit)
+        val latest = Kudos.indexedAt.max()
+        val after =
+            params.cursor?.let(::parseCursor)?.let { (sortValue, did) ->
+                (latest less sortValue) or ((latest eq sortValue) and (Kudos.authorDid less did))
+            } ?: Op.TRUE
+        val rows =
+            Kudos.select(Kudos.authorDid, latest)
+                .where { Kudos.subjectUri eq uri }
+                .groupBy(Kudos.authorDid)
+                .having { after }
+                .orderBy(latest to SortOrder.DESC, Kudos.authorDid to SortOrder.DESC)
+                .limit(pageSize)
+                .toList()
+        val next = rows.takeIf { it.size == pageSize }?.last()?.let { "${it[latest]}::${it[Kudos.authorDid]}" }
+        val profiles = basicProfiles(rows.map { it[Kudos.authorDid] })
+        GetKudos.Output(params.uri, rows.mapNotNull { profiles[it[Kudos.authorDid]] }, next)
     }
 
     suspend fun profile(viewer: Did?, actor: String): ProfileView = db.tx {

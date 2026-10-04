@@ -1,12 +1,16 @@
 package io.github.solcott.activitytracker.app.detail
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -96,22 +100,17 @@ private fun LoadedContent(state: ActivityDetailState.Loaded, modifier: Modifier 
         record.polyline?.let { item { RoutePreview(it, height = 240.dp) } }
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (state.isOwn) {
-                    Text("${state.activity.kudosCount} kudos", Modifier.padding(vertical = 12.dp))
-                } else {
-                    TextButton(onClick = { state.eventSink(ActivityDetailEvent.ToggleKudos) }) {
-                        Text(
-                            if (state.activity.viewer?.kudos != null) {
-                                "Kudos given (${state.activity.kudosCount})"
-                            } else {
-                                "Give kudos (${state.activity.kudosCount})"
-                            }
-                        )
+                KudosButton(state, Modifier.weight(1f))
+                // Hiding stays available if the last kudos goes away while the list is open.
+                if (state.activity.kudosCount > 0 || state.kudosList != null) {
+                    TextButton(onClick = { state.eventSink(ActivityDetailEvent.ToggleKudosList) }) {
+                        Text(if (state.kudosList != null) "Hide kudos" else "Show kudos")
                     }
                 }
             }
-            HorizontalDivider()
         }
+        state.kudosList?.let { kudosList(it, state.eventSink) }
+        item { HorizontalDivider() }
         items(state.comments, key = { it.uri.value }) { comment ->
             Column {
                 Text(
@@ -130,6 +129,49 @@ private fun LoadedContent(state: ActivityDetailState.Loaded, modifier: Modifier 
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(onClick = { state.eventSink(ActivityDetailEvent.SendComment) }) { Icon(Icons.AutoMirrored.Filled.Send, "Send") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun KudosButton(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
+    val count = state.activity.kudosCount
+    if (state.isOwn) {
+        Text("$count kudos", modifier.padding(vertical = 12.dp))
+    } else {
+        Box(modifier) {
+            TextButton(onClick = { state.eventSink(ActivityDetailEvent.ToggleKudos) }) {
+                Text(if (state.activity.viewer?.kudos != null) "Kudos given ($count)" else "Give kudos ($count)")
+            }
+        }
+    }
+}
+
+/** Who gave kudos, under the kudos row: a spinner, an error, the empty state, or one tappable row per athlete. */
+private fun LazyListScope.kudosList(list: KudosList, eventSink: (ActivityDetailEvent) -> Unit) {
+    val error = list.error
+    when {
+        list.isLoading -> {
+            item { Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+        }
+
+        error != null -> {
+            item { Text(error, color = MaterialTheme.colorScheme.error) }
+        }
+
+        list.athletes.isEmpty() -> {
+            item { Text("No kudos yet.", style = MaterialTheme.typography.bodyMedium) }
+        }
+
+        else -> {
+            items(list.athletes, key = { "kudos:${it.did.value}" }) { athlete ->
+                Column(
+                    Modifier.fillMaxWidth().clickable { eventSink(ActivityDetailEvent.OpenProfile(athlete.did)) }.padding(vertical = 4.dp)
+                ) {
+                    Text(athlete.displayName ?: athlete.handle.value, style = MaterialTheme.typography.titleSmall)
+                    Text("@${athlete.handle.value}", style = MaterialTheme.typography.bodySmall)
+                }
             }
         }
     }

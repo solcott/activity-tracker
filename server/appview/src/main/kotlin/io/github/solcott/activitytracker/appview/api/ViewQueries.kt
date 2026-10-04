@@ -29,7 +29,8 @@ internal fun keysetBefore(sort: Column<Long>, uri: Column<String>, cursor: Strin
     return (sort less sortValue) or ((sort eq sortValue) and (uri less uriValue))
 }
 
-private fun parseCursor(cursor: String): Pair<Long, String>? {
+/** Splits a `"<sort>::<key>"` cursor; null when it is malformed. */
+internal fun parseCursor(cursor: String): Pair<Long, String>? {
     val (sortAt, uri) = cursor.split("::", limit = 2).takeIf { it.size == 2 } ?: return null
     return sortAt.toLongOrNull()?.let { it to uri }
 }
