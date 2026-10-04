@@ -12,7 +12,6 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -26,15 +25,15 @@ class OAuthSessionManager(
     private val clock: Clock = Clock.System,
     logger: Logger = Logger,
 ) {
-    private val _session = MutableStateFlow<OAuthSession?>(null)
-    val session: StateFlow<OAuthSession?> = _session.asStateFlow()
+    val session: StateFlow<OAuthSession?>
+        field = MutableStateFlow<OAuthSession?>(null)
 
     private val log = logger.withTag("OAuthSessionManager")
     private val mutex = Mutex()
     private val proofs = DpopProofs(clock)
     private var cachedKey: Pair<DpopKey.Serialized, DpopKey>? = null
 
-    suspend fun restore(): OAuthSession? = store.loadSession().also { _session.value = it }
+    suspend fun restore(): OAuthSession? = store.loadSession().also { session.value = it }
 
     /** Returns the URL to open in a browser. */
     suspend fun beginSignIn(identifier: String): String {
@@ -50,7 +49,7 @@ class OAuthSessionManager(
         try {
             val session = client.completeAuthorization(pending, callback)
             store.saveSession(session)
-            _session.value = session
+            this.session.value = session
             return session
         } finally {
             store.clearPending(state)
@@ -58,15 +57,15 @@ class OAuthSessionManager(
     }
 
     suspend fun signOut() {
-        val current = _session.value ?: return
+        val current = session.value ?: return
         client.revoke(current)
         store.clearSession()
-        _session.value = null
+        session.value = null
     }
 
     /** The current session, refreshed if it expires within a minute. */
     suspend fun freshSession(forceRefresh: Boolean = false): OAuthSession = mutex.withLock {
-        val current = _session.value ?: throw OAuthException("Not signed in")
+        val current = session.value ?: throw OAuthException("Not signed in")
         val expiring = current.expiresAt?.let { it - 60.seconds < clock.now() } ?: false
         if (!forceRefresh && !expiring) return current
         val refreshed =
@@ -76,19 +75,19 @@ class OAuthSessionManager(
                 // Refresh token rejected: the session is dead.
                 log.w(e) { "Token refresh failed; signing out" }
                 store.clearSession()
-                _session.value = null
+                session.value = null
                 throw e
             }
         store.saveSession(refreshed)
-        _session.value = refreshed
+        session.value = refreshed
         refreshed
     }
 
     private suspend fun updatePdsNonce(nonce: String) = mutex.withLock {
-        val current = _session.value ?: return@withLock
+        val current = session.value ?: return@withLock
         if (current.pdsNonce == nonce) return@withLock
         val updated = current.copy(pdsNonce = nonce)
-        _session.value = updated
+        session.value = updated
         store.saveSession(updated)
     }
 

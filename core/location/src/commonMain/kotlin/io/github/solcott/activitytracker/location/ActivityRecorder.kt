@@ -14,7 +14,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -53,8 +52,8 @@ class ActivityRecorder(
     private val clock: Clock,
     dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
-    private val _state = MutableStateFlow(RecordingState())
-    val state: StateFlow<RecordingState> = _state.asStateFlow()
+    val state: StateFlow<RecordingState>
+        field = MutableStateFlow(RecordingState())
 
     /** Recording outlives any screen, so it runs in the recorder's own scope. */
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
@@ -62,9 +61,9 @@ class ActivityRecorder(
     private var lastAltitude: Double? = null
 
     fun start() {
-        if (_state.value.status != RecordingState.Status.Idle) return
+        if (state.value.status != RecordingState.Status.Idle) return
         val now = clock.now()
-        _state.value =
+        state.value =
             RecordingState(
                 status = RecordingState.Status.Recording,
                 startedAt = now,
@@ -74,7 +73,7 @@ class ActivityRecorder(
         job = scope.launch { tracker.updates().collect(::onSample) }
     }
 
-    fun pause() = _state.update {
+    fun pause() = state.update {
         if (it.status != RecordingState.Status.Recording) return@update it
         val now = clock.now()
         it.copy(
@@ -84,7 +83,7 @@ class ActivityRecorder(
         )
     }
 
-    fun resume() = _state.update {
+    fun resume() = state.update {
         if (it.status != RecordingState.Status.Paused) {
             it
         } else {
@@ -93,19 +92,19 @@ class ActivityRecorder(
     }
 
     fun stop(): RecordingResult? {
-        val current = _state.value
+        val current = state.value
         if (current.status == RecordingState.Status.Idle) return null
         job?.cancel()
         job = null
         val now = clock.now()
-        _state.value = RecordingState()
+        state.value = RecordingState()
         return RecordingResult(
             current.copy(activeBeforeSegment = current.elapsed(now), segmentStartedAt = null),
             now,
         )
     }
 
-    internal fun onSample(sample: LocationSample) = _state.update { state ->
+    internal fun onSample(sample: LocationSample) = state.update { state ->
         if (state.status != RecordingState.Status.Recording) return@update state
         if ((sample.accuracy ?: 0.0) > MAX_ACCURACY_M) return@update state
         val previous = state.samples.lastOrNull()

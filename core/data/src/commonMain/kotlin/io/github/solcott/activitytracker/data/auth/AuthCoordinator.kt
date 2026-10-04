@@ -7,7 +7,6 @@ import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 
 /** Opens the platform's browser for OAuth. The redirect comes back via [AuthCoordinator.handleRedirect]. */
 fun interface AuthBrowser {
@@ -39,35 +38,35 @@ class AuthCoordinator(
 
     private val log = logger.withTag("AuthCoordinator")
 
-    private val _status = MutableStateFlow<Status>(Status.Idle)
-    val status: StateFlow<Status> = _status.asStateFlow()
+    val status: StateFlow<Status>
+        field = MutableStateFlow<Status>(Status.Idle)
 
     suspend fun signIn(handle: String) {
-        _status.value = Status.Starting
+        status.value = Status.Starting
         runSuspendCatching {
             browser.open(auth.beginSignIn(handle))
-            _status.value = Status.WaitingForBrowser
+            status.value = Status.WaitingForBrowser
         }
             .onFailure {
                 log.w(it) { "Could not start sign-in" }
-                _status.value = Status.Failed(it.message ?: "Could not start sign-in")
+                status.value = Status.Failed(it.message ?: "Could not start sign-in")
             }
     }
 
     suspend fun handleRedirect(params: Map<String, String>) {
-        _status.value = Status.Completing
+        status.value = Status.Completing
         runSuspendCatching {
             auth.completeSignIn(params)
-            _status.value = Status.Idle
+            status.value = Status.Idle
         }
             .onFailure {
                 log.w(it) { "Sign-in failed" }
-                _status.value = Status.Failed(it.message ?: "Sign-in failed")
+                status.value = Status.Failed(it.message ?: "Sign-in failed")
             }
     }
 
     fun cancelled() {
-        _status.value = Status.Idle
+        status.value = Status.Idle
     }
 }
 

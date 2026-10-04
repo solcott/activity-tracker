@@ -61,4 +61,4 @@ Skills: `new-screen` (scaffold a Circuit screen), `lexicon-change` (add or chang
 
 Agents: `gradle-runner` (run Gradle tasks and return a verdict, not a log) and `lexicon-auditor` (read-only cross-layer consistency check after a lexicon change).
 
-Hooks (`.claude/settings.json`, scripts in `.claude/hooks/`) block hand edits to generated files, ask before editing a committed migration, block Ozone in client code, and remind you which counterparts to update after a lexicon-layer edit.
+Hooks (`.claude/settings.json`, scripts in `.claude/hooks/`) block hand edits to generated files, ask before editing a committed migration, block Ozone in client code, block `private val _x` backing properties in favour of Kotlin explicit backing fields (`val x: StateFlow<T>` + `field = MutableStateFlow(...)`), and remind you which counterparts to update after a lexicon-layer edit.

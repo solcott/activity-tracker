@@ -37,4 +37,16 @@ case "$rel" in
     fi
     ;;
 esac
+
+# Kotlin 2.4 explicit backing fields replace the `private val _x = Mutable…` + `val x = _x.asStateFlow()` pair.
+case "$rel" in
+  *.kt)
+    if grep -qE 'private[[:space:]]+(val|var)[[:space:]]+_[A-Za-z0-9]+[^=]*=[[:space:]]*(Mutable|mutable)' <<<"$text"; then
+      decide deny "Use an explicit backing field instead of a private _underscore property: \`val x: StateFlow<T>\` followed by \`field = MutableStateFlow(...)\` on the next line (works for List/MutableList etc. too). Inside the class, \`x\` smart-casts to the mutable type."
+    fi
+    if grep -qE '\.as(State|Shared)Flow\(\)' <<<"$text"; then
+      decide ask "asStateFlow()/asSharedFlow() usually means a backing-property pair. Prefer an explicit backing field (\`val x: StateFlow<T>\` + \`field = MutableStateFlow(...)\`). Approve only if the mutable flow lives in another object."
+    fi
+    ;;
+esac
 exit 0
