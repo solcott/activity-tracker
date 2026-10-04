@@ -33,6 +33,6 @@ jwt=$(echo "$session" | sed -E 's/.*"accessJwt":"([^"]+)".*/\1/')
 
 post "$pds/xrpc/com.atproto.repo.putRecord" -H "Authorization: Bearer $jwt" \
   -d "{\"repo\":\"$did\",\"collection\":\"app.activitytracker.actor.profile\",\"rkey\":\"self\",\"validate\":false,
-       \"record\":{\"\$type\":\"app.activitytracker.actor.profile\",\"displayName\":\"$name\",\"units\":\"metric\"}}" >/dev/null
+       \"record\":{\"\$type\":\"app.activitytracker.actor.profile\",\"displayName\":\"$name\"}}" >/dev/null
 
 echo "Created $handle ($did). Sign in with handle '$handle' and TEST_ACCOUNT_PASSWORD from docker/.env."
