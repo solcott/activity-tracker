@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.data.auth.RoomOAuthStore
 import io.github.solcott.activitytracker.data.db.inMemoryDatabase
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.feed.LocalKudos
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -129,7 +130,8 @@ class ActivityRepositoryTest {
                 .apply { restore() }
         val clients = SessionClients(session, http, manager, config, Clock.System)
         val outbox = OutboxProcessor(db, clients, logger)
-        return ActivityRepository(db, clients, outbox, FeedRepository(db, clients, logger), Clock.System)
+        val localKudos = LocalKudos()
+        return ActivityRepository(db, clients, outbox, FeedRepository(db, clients, localKudos, logger), localKudos, Clock.System)
     }
 
     private fun activityBy(author: Did) =

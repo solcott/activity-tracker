@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.data.db.OutboxEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.feed.LocalKudos
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -34,14 +35,12 @@ class ActivityRepository(
     private val clients: SessionClients,
     private val outbox: OutboxProcessor,
     private val feed: FeedRepository,
+    private val localKudos: LocalKudos,
     private val clock: Clock,
 ) {
     val pendingWrites: Flow<Int> = db.outbox().count(clients.did.value)
 
     private val kudosMutex = Mutex()
-
-    /** Subject URI -> the viewer's kudos URI (null once removed), for every kudos toggled this session. */
-    private val kudosState = mutableMapOf<String, AtUri?>()
 
     suspend fun publish(draft: ActivityDraft): AtUri {
         val rkey = Tid.next(clock)
@@ -62,8 +61,7 @@ class ActivityRepository(
     suspend fun toggleKudos(activity: ActivityView) {
         if (activity.author.did == clients.did) return
         kudosMutex.withLock {
-            val key = activity.uri.value
-            val current = if (key in kudosState) kudosState[key] else activity.viewer?.kudos
+            val current = localKudos.current(activity)
             if (current == null) {
                 val rkey = Tid.next(clock)
                 val kudos = AtUri.of(clients.did, Nsid.FEED_KUDOS, rkey)
@@ -74,13 +72,13 @@ class ActivityRepository(
                     KudosRecord.serializer(),
                     KudosRecord(StrongRef(activity.uri, activity.cid), clock.now()),
                 )
-                kudosState[key] = kudos
+                localKudos.set(activity.uri, kudos)
             } else {
                 feed.updateCached(activity.uri) {
                     it.copy(kudosCount = (it.kudosCount - 1).coerceAtLeast(0), viewer = it.viewer?.copy(kudos = null))
                 }
                 db.outbox().insert(outboxEntity(OutboxProcessor.OP_DELETE, Nsid.FEED_KUDOS, requireNotNull(current.rkey), null))
-                kudosState[key] = null
+                localKudos.set(activity.uri, null)
             }
         }
         outbox.drain()

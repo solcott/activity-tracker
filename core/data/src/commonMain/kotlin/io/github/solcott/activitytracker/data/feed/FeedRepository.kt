@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.map
 class FeedRepository(
     private val db: AppDatabase,
     private val clients: SessionClients,
+    private val localKudos: LocalKudos,
     logger: Logger,
 ) {
     private val log = logger.withTag("FeedRepository")
@@ -41,8 +42,12 @@ class FeedRepository(
         db.feed().replace(authorKey(did), output.activities.toEntities(authorKey(did)))
     }
 
-    suspend fun activity(uri: AtUri): GetActivity.Output =
-        clients.appView.query(GetActivity.method, GetActivity.Params(uri)).also { output -> updateCached(uri) { output.activity } }
+    suspend fun activity(uri: AtUri): GetActivity.Output {
+        val output = clients.appView.query(GetActivity.method, GetActivity.Params(uri))
+        val activity = localKudos.applyTo(output.activity)
+        updateCached(uri) { activity }
+        return output.copy(activity = activity)
+    }
 
     /** Optimistically rewrites every cached copy of [uri]. */
     suspend fun updateCached(uri: AtUri, transform: (ActivityView) -> ActivityView) {
@@ -66,12 +71,13 @@ class FeedRepository(
             }
         }
 
+    // AppView reads lag the viewer's own kudos toggles until Jetstream catches up, so local ones win.
     private fun List<ActivityView>.toEntities(key: String) = mapIndexed { index, view ->
         FeedItemEntity(
             key,
             view.uri.value,
             index,
-            AtJson.encodeToString(ActivityView.serializer(), view),
+            AtJson.encodeToString(ActivityView.serializer(), localKudos.applyTo(view)),
         )
     }
 

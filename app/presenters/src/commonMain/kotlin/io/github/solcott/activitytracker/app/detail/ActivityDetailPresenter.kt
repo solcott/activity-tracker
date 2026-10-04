@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.detail
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -15,6 +16,8 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.feed.LocalKudos
+import io.github.solcott.activitytracker.data.feed.withKudosOverrides
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
@@ -29,14 +32,16 @@ fun ActivityDetailPresenter(
     feed: FeedRepository,
     activities: ActivityRepository,
     profiles: ProfileRepository,
+    localKudos: LocalKudos,
 ): ActivityDetailState {
     var activity by remember { mutableStateOf<ActivityView?>(null) }
     var comments by remember { mutableStateOf(emptyList<CommentView>()) }
     var error by remember { mutableStateOf<String?>(null) }
     var draft by remember { mutableStateOf("") }
     var loadKey by remember { mutableIntStateOf(0) }
-    var kudosInFlight by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    // The viewer's own kudos toggles, laid over the loaded activity: the AppView only reflects them once Jetstream catches up.
+    val kudosOverrides by localKudos.overrides.collectAsState()
 
     LaunchedEffect(loadKey) {
         error = null
@@ -68,16 +73,7 @@ fun ActivityDetailPresenter(
             }
 
             ActivityDetailEvent.ToggleKudos -> {
-                // Ignore taps until the reload brings back the real viewer state; the optimistic copy only moves the count.
-                if (current != null && !kudosInFlight) {
-                    kudosInFlight = true
-                    activity = current.withKudosToggled()
-                    scope.launch {
-                        runSuspendCatching { activities.toggleKudos(current) }
-                        loadKey++
-                        kudosInFlight = false
-                    }
-                }
+                current?.let { scope.launch { runSuspendCatching { activities.toggleKudos(it) } } }
             }
 
             ActivityDetailEvent.SendComment -> {
@@ -90,7 +86,7 @@ fun ActivityDetailPresenter(
         }
     }
 
-    return detailState(activity, comments, error, draft, activity?.author?.did == profiles.did, sink)
+    return detailState(activity?.withKudosOverrides(kudosOverrides), comments, error, draft, activity?.author?.did == profiles.did, sink)
 }
 
 private fun detailState(
@@ -106,6 +102,3 @@ private fun detailState(
         error != null -> ActivityDetailState.Error(error, sink)
         else -> ActivityDetailState.Loading(sink)
     }
-
-/** Optimistic count; the reload after the write brings back the real viewer state. */
-private fun ActivityView.withKudosToggled(): ActivityView = copy(kudosCount = kudosCount + if (viewer?.kudos != null) -1 else 1)
