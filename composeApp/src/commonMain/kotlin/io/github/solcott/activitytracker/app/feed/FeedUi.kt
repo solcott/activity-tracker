@@ -44,11 +44,13 @@ fun FeedUi(state: FeedState, modifier: Modifier = Modifier) {
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { state.eventSink(FeedEvent.Record) },
-                icon = { Icon(Icons.Default.Add, null) },
-                text = { Text("Record") },
-            )
+            if (state.canRecord) {
+                ExtendedFloatingActionButton(
+                    onClick = { state.eventSink(FeedEvent.Record) },
+                    icon = { Icon(Icons.Default.Add, null) },
+                    text = { Text("Record") },
+                )
+            }
         },
     ) { padding ->
         PullToRefreshBox(
@@ -87,7 +89,10 @@ fun FeedUi(state: FeedState, modifier: Modifier = Modifier) {
                             Modifier.fillMaxSize().padding(32.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text("No activities yet. Record one or follow other athletes.")
+                            Text(
+                                if (state.canRecord) "No activities yet. Record one or follow other athletes."
+                                else "No activities yet. Add one manually or follow other athletes."
+                            )
                         }
                     }
                 }

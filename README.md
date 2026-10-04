@@ -4,7 +4,7 @@ A Strava-style athlete activity tracker built on the [AT Protocol](https://atpro
 kudos, comments, follows and profiles are records in each athlete's own repository (their PDS); an
 AppView indexes them from the firehose and serves feeds.
 
-- **Clients:** Android, iOS, Web (Kotlin/Wasm). Compose Multiplatform + Circuit + Metro + Ktor + Room 3.
+- **Clients:** Android, iOS, Web (Kotlin/Wasm), Desktop (JVM, mainly a hot-reload dev target). GPS recording is phone-only. Compose Multiplatform + Circuit + Metro + Ktor + Room 3.
 - **Backend:** Ktor AppView (Postgres) fed by Jetstream. A local PLC + PDS + relay + Jetstream run in Docker.
 
 ## Local development
@@ -30,6 +30,7 @@ docker compose -f docker/compose.yaml up -d      # PLC :2582, PDS :2583, relay :
 docker/scripts/create-account.sh alice          # creates alice.test (password in docker/.env)
 ./gradlew :server-appview:run                    # AppView on :8081
 ./gradlew :webApp:wasmJsBrowserDevelopmentRun       # web app on http://127.0.0.1:8080
+./gradlew :desktopApp:hotRun --auto                  # desktop app with Compose Hot Reload
 ```
 
 The first `up` builds PLC, the relay and Jetstream from source, which takes a few minutes. The relay
@@ -37,8 +38,8 @@ and Jetstream are pinned and carry one-line patches that let them reach a plain-
 (see `docker/relay.Dockerfile` and `docker/jetstream.Dockerfile`). The AppView starts at Jetstream's
 live tip on first run, so records written before it first connects are not indexed.
 
-Sign in on the web app with `alice.test`. The web target uses the ATProto *loopback* OAuth client,
-so it needs no hosted client metadata.
+Sign in on the web or desktop app with `alice.test`. Both use the ATProto *loopback* OAuth client,
+so they need no hosted client metadata. The desktop app catches the redirect on `127.0.0.1:8091`.
 
 **Native (Android/iOS) sign-in** needs OAuth client metadata the PDS can fetch over HTTPS, so expose
 the AppView through a tunnel. The tunnel URL is set once and everything else (client ID, the redirect
@@ -76,7 +77,7 @@ With a tunnel set, the AppView's DID is the tunnel host. `:server-appview:run` a
 | `app/screens` | Circuit contracts: each feature's `Screen`, `State` and `Event` |
 | `app/presenters` | Circuit presenters (Compose runtime only, no UI) |
 | `composeApp` | Circuit UIs, shared components, Metro graphs and scopes, platform actuals |
-| `androidApp`, `iosApp`, `webApp` | Thin platform shells (entry points, graph roots) |
+| `androidApp`, `iosApp`, `webApp`, `desktopApp` | Thin platform shells (entry points, graph roots) |
 | `web/sqlite-worker` | SQLite-WASM Web Worker backing Room on the web |
 | `server/appview` | Ktor AppView: Jetstream indexer, XRPC queries, did:web |
 | `docker/` | Local ATProto network |

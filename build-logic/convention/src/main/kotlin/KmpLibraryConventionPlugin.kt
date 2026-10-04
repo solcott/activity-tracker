@@ -71,6 +71,12 @@ class KmpLibraryConventionPlugin : Plugin<Project> {
                             withJs()
                             withWasmJs()
                         }
+                        // Desktop and web: no GPS recording, only manual entry.
+                        group("nonMobile") {
+                            withJvm()
+                            withJs()
+                            withWasmJs()
+                        }
                     }
                 }
 

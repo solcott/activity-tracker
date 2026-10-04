@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-A Kotlin Multiplatform, Strava-style athlete activity tracker backed by ATProtocol. Clients target Android, iOS, and Web (wasmJs) and share a Compose Multiplatform UI. The backend is our own AppView (Ktor + Postgres). User data lives in each user's PDS. See README.md for local setup.
+A Kotlin Multiplatform, Strava-style athlete activity tracker backed by ATProtocol. Clients target Android, iOS, Web (wasmJs) and Desktop (JVM) and share a Compose Multiplatform UI. GPS recording is phone-only: desktop and web offer manual entry only. The backend is our own AppView (Ktor + Postgres). User data lives in each user's PDS. See README.md for local setup.
 
 ## Commands
 
@@ -19,6 +19,7 @@ A Kotlin Multiplatform, Strava-style athlete activity tracker backed by ATProtoc
 ./gradlew -p build-logic :convention:test         # convention plugin TestKit tests
 
 ./gradlew :webApp:wasmJsBrowserDevelopmentRun     # web app; PORT env overrides 8080
+./gradlew :desktopApp:hotRun --auto               # desktop app with Compose Hot Reload (reloads on save); :desktopApp:run without
 ./gradlew :androidApp:installDebug
 ./gradlew :server-appview:run                     # AppView on :8081; defaults target the docker stack
 scripts/dev.sh [--seed alice]                     # whole local env: Docker, tunnel, local.properties, AppView, adb reverse (idempotent)
@@ -41,7 +42,7 @@ Wasm tests are disabled. Client modules also have a `jvm()` target so tests (Roo
 
 **Screens span three modules.** `app/screens` (`:app-screens`) holds each feature's `Screen`, `State` and `Event`. `app/presenters` (`:app-presenters`) holds the presenters and has only the Compose runtime, no UI. `composeApp` holds the UIs. Presenters and UIs both depend on the contracts and never on each other. `composeApp` and `webApp` list `:app-presenters` only so their Metro graphs aggregate its factories.
 
-**DI (Metro) and scopes.** `AppScope` holds app-wide singletons (HTTP, OAuth, Room, `ActivityRecorder`, `AuthCoordinator`). `SessionScope` is one signed-in account: a `SessionGraph` graph extension created with the `OAuthSession` and dropped on sign-out. `App.kt` renders `LoginScreen` on `AppCircuit` when signed out and a `key(did)` `SessionGraph`'s `SessionCircuit` when signed in. Platform pieces (DB builder, `LocationTracker`, `AuthBrowser`) are contributed from each module's platform source sets.
+**DI (Metro) and scopes.** `AppScope` holds app-wide singletons (HTTP, OAuth, Room, `ActivityRecorder`, `AuthCoordinator`). `SessionScope` is one signed-in account: a `SessionGraph` graph extension created with the `OAuthSession` and dropped on sign-out. `App.kt` renders `LoginScreen` on `AppCircuit` when signed out and a `key(did)` `SessionGraph`'s `SessionCircuit` when signed in. Platform pieces (DB builder, `LocationTracker`, `AuthBrowser`) are contributed from each module's platform source sets. Desktop and web bind `UnsupportedLocationTracker` (`nonMobileMain`), whose `isSupported = false` hides Record in the feed.
 
 **Hard rule:** no Ozone or other atproto SDK in client code. Ozone has no wasmJs target. The XRPC layer is hand-written on Ktor in `core/atproto`. A hook enforces this.
 
@@ -57,9 +58,10 @@ Area rules in `.claude/rules/` load when you work on matching paths:
 | `data-and-auth.md` | Room 3, outbox, XRPC client, OAuth flow and native client config |
 | `build-logic.md` | Convention plugins, quality tooling, toolchain, TestKit |
 | `docker.md` | Local PDS → relay → Jetstream stack, pinned and patched images |
+| `hot-reload.md` | Desktop app, Compose Hot Reload, its MCP server (screenshots, semantic tree, clicks) for verifying UI |
 
 Skills: `new-screen` (scaffold a Circuit screen), `lexicon-change` (add or change a record or query across every layer), `local-stack` (bring up, seed, smoke-test and debug the Docker network).
 
 Agents: `gradle-runner` (run Gradle tasks and return a verdict, not a log) and `lexicon-auditor` (read-only cross-layer consistency check after a lexicon change).
 
-Hooks (`.claude/settings.json`, scripts in `.claude/hooks/`) block hand edits to generated files, ask before editing a committed migration, block Ozone in client code, block `private val _x` backing properties in favour of Kotlin explicit backing fields (`val x: StateFlow<T>` + `field = MutableStateFlow(...)`), and remind you which counterparts to update after a lexicon-layer edit.
+Hooks (`.claude/settings.json`, scripts in `.claude/hooks/`) block hand edits to generated files, ask before editing a committed migration, block Ozone in client code, warn when Gradle runs alongside a `hotRun --auto` build, block `private val _x` backing properties in favour of Kotlin explicit backing fields (`val x: StateFlow<T>` + `field = MutableStateFlow(...)`), and remind you which counterparts to update after a lexicon-layer edit.

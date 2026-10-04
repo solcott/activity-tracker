@@ -26,6 +26,13 @@ object NetworkConfigs {
      */
     fun web(origin: String): AtprotoConfig = config(APPVIEW_URL, OAuthClientConfig.loopback("$origin/"))
 
+    /** Port of the desktop app's OAuth loopback listener (the web dev server has 8080, the AppView 8081). */
+    const val DESKTOP_OAUTH_PORT = 8091
+
+    /** Desktop uses the loopback client like web, with the redirect caught by a listener on [port], so it needs no tunnel. */
+    fun desktop(port: Int = DESKTOP_OAUTH_PORT): AtprotoConfig =
+        config(APPVIEW_URL, OAuthClientConfig.loopback("http://127.0.0.1:$port/callback"))
+
     fun native(): AtprotoConfig =
         config(
             NATIVE_APPVIEW_PUBLIC_URL,

@@ -17,6 +17,10 @@ data class LocationSample(
 
 /** Platform GPS. Collecting [updates] starts location updates; cancelling stops them. */
 interface LocationTracker {
+    /** Whether this platform can record GPS activities at all. False on desktop and web, which only take manual entries. */
+    val isSupported: Boolean
+        get() = true
+
     /** Whether location permission is currently granted. Requesting it is the UI's job. */
     fun hasPermission(): Boolean
 
