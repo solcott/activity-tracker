@@ -51,7 +51,11 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
             Modifier.padding(padding).padding(16.dp).fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            SportPicker(state.sport, enabled = state.status == RecordingState.Status.Idle) { state.eventSink(RecordEvent.SportChanged(it)) }
+            SportPicker(
+                state.sport,
+                { state.eventSink(RecordEvent.SportChanged(it)) },
+                enabled = state.status == RecordingState.Status.Idle,
+            )
             Text(Format.duration(state.elapsed), style = MaterialTheme.typography.displayLarge)
             StatsRow(
                 "Distance" to Format.distance(state.distanceMeters),
@@ -98,8 +102,8 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun SportPicker(selected: String, enabled: Boolean = true, onSelect: (String) -> Unit) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+fun SportPicker(selected: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = modifier) {
         items(Sport.all) { sport ->
             FilterChip(
                 selected = sport == selected,

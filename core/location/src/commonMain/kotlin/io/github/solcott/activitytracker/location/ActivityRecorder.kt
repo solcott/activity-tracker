@@ -3,9 +3,11 @@ package io.github.solcott.activitytracker.location
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import kotlin.math.abs
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Instant
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -49,12 +51,13 @@ data class RecordingResult(val state: RecordingState, val endedAt: Instant)
 class ActivityRecorder(
     private val tracker: LocationTracker,
     private val clock: Clock,
+    dispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     private val _state = MutableStateFlow(RecordingState())
     val state: StateFlow<RecordingState> = _state.asStateFlow()
 
     /** Recording outlives any screen, so it runs in the recorder's own scope. */
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private var job: Job? = null
     private var lastAltitude: Double? = null
 
@@ -109,25 +112,23 @@ class ActivityRecorder(
         val step = previous?.let { TrackMath.distanceMeters(it, sample) } ?: 0.0
         val seconds = previous?.let { (sample.time - it.time).inWholeSeconds } ?: 0
         val speed = sample.speed ?: if (seconds > 0) step / seconds else 0.0
-        var gain = state.elevationGainMeters
-        sample.altitude?.let { alt ->
-            val base = lastAltitude
-            if (base == null) {
-                lastAltitude = alt
-            } else if (alt - base > ELEVATION_HYSTERESIS_M) {
-                gain += alt - base
-                lastAltitude = alt
-            } else if (base - alt > ELEVATION_HYSTERESIS_M) {
-                lastAltitude = alt
-            }
-        }
         state.copy(
             samples = state.samples + sample,
             distanceMeters = state.distanceMeters + step,
             movingSeconds = state.movingSeconds + if (speed > MOVING_SPEED_MPS) seconds else 0,
-            elevationGainMeters = gain,
+            elevationGainMeters = state.elevationGainMeters + (sample.altitude?.let(::climbTo) ?: 0.0),
             maxSpeedMps = maxOf(state.maxSpeedMps, speed),
         )
+    }
+
+    /**
+     * Returns the climb since the last accepted altitude. Altitude only moves once it changes by more than the hysteresis, so GPS jitter
+     * doesn't accumulate as gain.
+     */
+    private fun climbTo(altitude: Double): Double {
+        val base = lastAltitude
+        if (base == null || abs(altitude - base) > ELEVATION_HYSTERESIS_M) lastAltitude = altitude
+        return if (base != null && altitude - base > ELEVATION_HYSTERESIS_M) altitude - base else 0.0
     }
 
     private companion object {

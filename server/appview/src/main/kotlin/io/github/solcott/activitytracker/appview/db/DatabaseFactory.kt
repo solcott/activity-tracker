@@ -3,11 +3,10 @@ package io.github.solcott.activitytracker.appview.db
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
-import kotlinx.coroutines.Dispatchers
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
-import org.jetbrains.exposed.v1.jdbc.transactions.experimental.newSuspendedTransaction
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 object DatabaseFactory {
     fun connect(url: String, user: String, password: String): Database {
@@ -29,4 +28,4 @@ object DatabaseFactory {
     }
 }
 
-suspend fun <T> Database.tx(block: JdbcTransaction.() -> T): T = newSuspendedTransaction(Dispatchers.IO, this) { block() }
+suspend fun <T> Database.tx(block: JdbcTransaction.() -> T): T = suspendTransaction(this) { block() }

@@ -1,7 +1,10 @@
 # Overrides on top of detekt's default config (buildUponDefaultConfig = true).
-# Existing findings live in each module's detekt-baseline.xml; regenerate with ./gradlew detektBaseline.
+# Any findings that can't be fixed live in that module's detekt-baseline.xml; regenerate with ./gradlew detektBaseline.
 
 naming:
+  MatchingDeclarationName:
+    # Platform-suffixed actual files (Foo.wasmJs.kt); the default list predates the wasm and web targets.
+    multiplatformTargets: ['ios', 'android', 'js', 'jvm', 'native', 'wasmJs', 'web', 'apple']
   FunctionNaming:
     ignoreAnnotated: ['Composable']
   TopLevelPropertyNaming:
@@ -27,7 +30,7 @@ Compose:
   ComposableNaming:
     active: true
     # Circuit presenter functions are PascalCase by convention.
-    allowedComposableFunctionNames: '.*Presenter'
+    ignoreAnnotated: ['CircuitInject', 'SubCircuitInject']
   ModifierMissing:
     active: true
   CompositionLocalAllowlist:

@@ -11,6 +11,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
+import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -19,6 +20,7 @@ import io.github.solcott.activitytracker.location.ActivityRecorder
 import io.github.solcott.activitytracker.location.LocationTracker
 import io.github.solcott.activitytracker.location.RecordingState
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -43,7 +45,7 @@ fun RecordPresenter(
     LaunchedEffect(recording.status) {
         while (recording.status == RecordingState.Status.Recording) {
             now = clock.now()
-            delay(1_000)
+            delay(1_000.milliseconds)
         }
     }
 
@@ -94,7 +96,7 @@ fun RecordPresenter(
                 val result = recorder.stop() ?: return@RecordState
                 saving = true
                 scope.launch {
-                    try {
+                    runSuspendCatching {
                         activities.publish(
                             ActivityDraft.fromRecording(
                                 result,
@@ -104,11 +106,9 @@ fun RecordPresenter(
                             )
                         )
                         navigator.pop()
-                    } catch (e: Exception) {
-                        error = e.message
-                    } finally {
-                        saving = false
                     }
+                        .onFailure { e -> error = e.message }
+                        .also { saving = false }
                 }
             }
 

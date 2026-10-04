@@ -65,11 +65,10 @@ fun ActivityDetailPresenter(
             }
 
             ActivityDetailEvent.ToggleKudos -> {
-                if (current != null) {
-                    val liked = current.viewer?.kudos != null
-                    activity = current.copy(kudosCount = current.kudosCount + if (liked) -1 else 1)
+                current?.let {
+                    activity = it.withKudosToggled()
                     scope.launch {
-                        runSuspendCatching { if (liked) activities.removeKudos(current) else activities.giveKudos(current) }
+                        runSuspendCatching { activities.toggleKudos(it) }
                         loadKey++
                     }
                 }
@@ -85,10 +84,27 @@ fun ActivityDetailPresenter(
         }
     }
 
-    val loaded = activity
-    return when {
-        loaded != null -> ActivityDetailState.Loaded(loaded, comments, draft, sink)
-        error != null -> ActivityDetailState.Error(error!!, sink)
+    return detailState(activity, comments, error, draft, sink)
+}
+
+private fun detailState(
+    activity: ActivityView?,
+    comments: List<CommentView>,
+    error: String?,
+    draft: String,
+    sink: (ActivityDetailEvent) -> Unit,
+): ActivityDetailState =
+    when {
+        activity != null -> ActivityDetailState.Loaded(activity, comments, draft, sink)
+        error != null -> ActivityDetailState.Error(error, sink)
         else -> ActivityDetailState.Loading(sink)
     }
-}
+
+private val ActivityView.hasKudos: Boolean
+    get() = viewer?.kudos != null
+
+/** Optimistic count; the reload after the write brings back the real viewer state. */
+private fun ActivityView.withKudosToggled(): ActivityView = copy(kudosCount = kudosCount + if (hasKudos) -1 else 1)
+
+private suspend fun ActivityRepository.toggleKudos(activity: ActivityView) =
+    if (activity.hasKudos) removeKudos(activity) else giveKudos(activity)

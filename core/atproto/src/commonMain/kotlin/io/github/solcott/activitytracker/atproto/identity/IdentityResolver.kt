@@ -52,34 +52,30 @@ class IdentityResolver(
         return ResolvedIdentity(did, handle, pds.trimEnd('/'), doc)
     }
 
-    suspend fun resolveHandle(handle: Handle): Did {
-        handleResolverUrl?.let { url ->
-            runSuspendCatching {
-                val did = XrpcClient(http, url).query(ResolveHandle.method, ResolveHandle.Params(handle.value)).did
-                return did
-            }
-        }
-        resolveHandleDns(handle)?.let {
-            return it
-        }
-        resolveHandleWellKnown(handle)?.let {
-            return it
-        }
-        throw IdentityException("Could not resolve handle ${handle.value}")
-    }
+    suspend fun resolveHandle(handle: Handle): Did =
+        resolveHandleXrpc(handle)
+            ?: resolveHandleDns(handle)
+            ?: resolveHandleWellKnown(handle)
+            ?: throw IdentityException("Could not resolve handle ${handle.value}")
 
     suspend fun resolveDid(did: Did): DidDocument {
-        val url =
-            when (did.method) {
-                "plc" -> "${plcUrl.trimEnd('/')}/${did.value}"
-                "web" -> didWebUrl(did)
-                else -> throw IdentityException("Unsupported DID method: ${did.method}")
-            }
-        val response = http.get(url)
+        val response = http.get(didDocumentUrl(did))
         if (!response.status.isSuccess()) throw IdentityException("DID resolution failed for $did: ${response.status}")
         val doc = AtJson.decodeFromString(DidDocument.serializer(), response.bodyAsText())
         if (doc.id != did.value) throw IdentityException("DID document id mismatch for $did")
         return doc
+    }
+
+    private fun didDocumentUrl(did: Did): String =
+        when (did.method) {
+            "plc" -> "${plcUrl.trimEnd('/')}/${did.value}"
+            "web" -> didWebUrl(did)
+            else -> throw IdentityException("Unsupported DID method: ${did.method}")
+        }
+
+    private suspend fun resolveHandleXrpc(handle: Handle): Did? {
+        val url = handleResolverUrl ?: return null
+        return runSuspendCatching { XrpcClient(http, url).query(ResolveHandle.method, ResolveHandle.Params(handle.value)).did }.getOrNull()
     }
 
     private suspend fun resolveHandleDns(handle: Handle): Did? = runSuspendCatching {

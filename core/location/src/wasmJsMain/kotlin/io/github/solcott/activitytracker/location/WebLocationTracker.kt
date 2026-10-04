@@ -35,9 +35,10 @@ class WebLocationTracker : LocationTracker {
     }
 }
 
+@OptIn(ExperimentalWasmJsInterop::class)
 private fun watchPosition(
-    onPosition: (Double, Double, Double, Double, Double, Double) -> Unit,
-    onError: (String) -> Unit,
+    @Suppress("unused") onPosition: (Double, Double, Double, Double, Double, Double) -> Unit,
+    @Suppress("unused") onError: (String) -> Unit,
 ): Int =
     js(
         """navigator.geolocation.watchPosition(
@@ -46,4 +47,5 @@ private fun watchPosition(
         { enableHighAccuracy: true })"""
     )
 
-private fun clearWatch(id: Int): Unit = js("navigator.geolocation.clearWatch(id)")
+@OptIn(ExperimentalWasmJsInterop::class)
+private fun clearWatch(@Suppress("unused") id: Int): Unit = js("navigator.geolocation.clearWatch(id)")

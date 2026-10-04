@@ -23,6 +23,7 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewerState
 import io.github.solcott.activitytracker.lexicon.isDid
+import io.ktor.http.HttpStatusCode
 import kotlin.time.Instant
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -51,7 +52,8 @@ class Views(private val db: Database) {
         viewer: Did?,
         params: GetAuthorActivities.Params,
     ): GetAuthorActivities.Output = db.tx {
-        val did = resolveActor(params.actor) ?: throw XrpcError(400, "ActorNotFound", "Unknown actor ${params.actor}")
+        val did =
+            resolveActor(params.actor) ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
         val (views, cursor) = activityPage(Activities.authorDid eq did, params.limit, params.cursor, viewer)
         GetAuthorActivities.Output(views, cursor)
     }
@@ -59,12 +61,12 @@ class Views(private val db: Database) {
     suspend fun activity(viewer: Did?, params: GetActivity.Params): GetActivity.Output = db.tx {
         val row =
             Activities.selectAll().where { Activities.uri eq params.uri.value }.singleOrNull()
-                ?: throw XrpcError(400, "NotFound", "Activity not found")
+                ?: throw XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "Activity not found")
         val comments =
             Comments.selectAll()
                 .where { Comments.subjectUri eq params.uri.value }
                 .orderBy(Comments.createdAt to SortOrder.ASC)
-                .limit(500)
+                .limit(HttpStatusCode.InternalServerError.value)
                 .toList()
         val authors = basicProfiles(comments.map { it[Comments.authorDid] })
         GetActivity.Output(
@@ -83,7 +85,7 @@ class Views(private val db: Database) {
     }
 
     suspend fun profile(viewer: Did?, actor: String): ProfileView = db.tx {
-        val did = resolveActor(actor) ?: throw XrpcError(400, "ProfileNotFound", "Unknown actor $actor")
+        val did = resolveActor(actor) ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ProfileNotFound", "Unknown actor $actor")
         val row = Actors.selectAll().where { Actors.did eq did }.single()
         ProfileView(
             did = Did(row[Actors.did]),
@@ -196,4 +198,5 @@ class Views(private val db: Database) {
             }
 }
 
-class XrpcError(val status: Int, val error: String, override val message: String) : Exception(message)
+class XrpcError(val status: Int, val error: String, override val message: String, override val cause: Throwable? = null) :
+    Exception(message, cause)

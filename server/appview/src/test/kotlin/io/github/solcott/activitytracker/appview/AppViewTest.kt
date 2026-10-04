@@ -63,9 +63,8 @@ class AppViewTest {
         )
     }
 
-    @Test
-    fun timelineShowsFollowedActivitiesWithCounts() = testApplication {
-        application { appView(config, db, verifier) }
+    /** Bob posts a run that Alice follows, gives kudos to and comments on, plus one garbage record. Returns the run's URI. */
+    private fun seedBobsRunWithAlicesFollowKudosAndComment(): String {
         val activityUri = "at://$bob/${Nsid.FEED_ACTIVITY}/3kbob1"
         commit(
             bob,
@@ -94,6 +93,13 @@ class AppViewTest {
         )
         // Garbage records are ignored rather than failing the stream.
         commit(alice, Nsid.FEED_ACTIVITY, "3kbad", """{"sport":"run"}""")
+        return activityUri
+    }
+
+    @Test
+    fun timelineShowsFollowedActivitiesWithCounts() = testApplication {
+        application { appView(config, db, verifier) }
+        val activityUri = seedBobsRunWithAlicesFollowKudosAndComment()
 
         val nsid = GetTimeline.method.nsid
         val unauthenticated = client.get("/xrpc/$nsid")

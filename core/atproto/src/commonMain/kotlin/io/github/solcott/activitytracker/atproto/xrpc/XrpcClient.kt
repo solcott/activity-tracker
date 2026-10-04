@@ -105,10 +105,13 @@ private fun URLBuilder.takeFrom(other: URLBuilder) {
     pathSegments = other.pathSegments
 }
 
+/** Caps how much of a non-JSON error body ends up in an exception message. */
+private const val MAX_ERROR_BODY_CHARS = 500
+
 internal suspend fun HttpResponse.toXrpcException(): XrpcException {
     val text = runSuspendCatching { bodyAsText() }.getOrDefault("")
     val body = runCatching { AtJson.decodeFromString(XrpcErrorBody.serializer(), text) }.getOrNull()
-    return XrpcException(status.value, body?.error ?: "HttpError", body?.message ?: text.take(500))
+    return XrpcException(status.value, body?.error ?: "HttpError", body?.message ?: text.take(MAX_ERROR_BODY_CHARS))
 }
 
 class XrpcException(val status: Int, val error: String, override val message: String?) : Exception("XRPC $status $error: $message")

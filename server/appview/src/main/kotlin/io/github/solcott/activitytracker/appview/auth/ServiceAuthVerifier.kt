@@ -36,53 +36,52 @@ class ServiceAuthVerifier(
 
     suspend fun verify(token: String, nsid: String): Did {
         val parts = token.split('.')
-        if (parts.size != 3) throw AuthException("Malformed JWT")
-        val header = decodeJson(parts[0])
-        val payload = decodeJson(parts[1])
+        if (parts.size != JWT_PARTS) throw AuthException("Malformed JWT")
+        val (header, payload) = parts.take(2).map(::decodeJson)
+        val did = issuer(payload, nsid)
+        val signature = runCatching { Base64.getUrlDecoder().decode(parts[2]) }.getOrElse { throw AuthException("Bad signature") }
+        verifySigned(did, header.string("alg"), "${parts[0]}.${parts[1]}".toByteArray(), signature)
+        return did
+    }
 
-        val iss = payload.string("iss") ?: throw AuthException("Missing iss")
-        val did = runCatching {
-            Did(iss.substringBefore('#'))
-        }
-            .getOrElse { throw AuthException("Bad iss") }
-        val aud = payload.string("aud")
-        if (aud !in audiences) throw AuthException("Wrong audience")
-        val exp = payload["exp"]?.jsonPrimitive?.longOrNull ?: throw AuthException("Missing exp")
-        if (exp < clock.now().epochSeconds) throw AuthException("Token expired")
-        payload.string("lxm")?.let { if (it != nsid) throw AuthException("Token not valid for $nsid") }
+    /** Checks the claims and returns the issuing account. */
+    private fun issuer(payload: JsonObject, nsid: String): Did {
+        val iss = payload.string("iss")
+        val did = iss?.let { runCatching { Did(it.substringBefore('#')) }.getOrNull() }
+        val exp = payload["exp"]?.jsonPrimitive?.longOrNull
+        val lxm = payload.string("lxm")
+        val failure =
+            when {
+                iss == null -> "Missing iss"
+                did == null -> "Bad iss"
+                payload.string("aud") !in audiences -> "Wrong audience"
+                exp == null -> "Missing exp"
+                exp < clock.now().epochSeconds -> "Token expired"
+                lxm != null && lxm != nsid -> "Token not valid for $nsid"
+                else -> return did
+            }
+        throw AuthException(failure)
+    }
 
-        val signingInput = "${parts[0]}.${parts[1]}".toByteArray()
-        val signature = runCatching {
-            Base64.getUrlDecoder().decode(parts[2])
-        }
-            .getOrElse { throw AuthException("Bad signature") }
-        val alg = header.string("alg")
-
+    private suspend fun verifySigned(did: Did, alg: String?, data: ByteArray, signature: ByteArray) {
         // Retry once with a freshly resolved key in case the account rotated its signing key.
         for (fresh in listOf(false, true)) {
-            val key = signingKey(did, fresh) ?: throw AuthException("No signing key for $did")
-            if (alg != key.curve.jwtAlg) {
-                if (fresh) throw AuthException("Algorithm $alg does not match key")
-                continue
-            }
-            if (verifySignature(key, signingInput, signature)) return did
+            val key = signingKey(did, fresh)
+            if (alg == key.curve.jwtAlg && verifySignature(key, data, signature)) return
+            if (fresh && alg != key.curve.jwtAlg) throw AuthException("Algorithm $alg does not match key")
         }
         throw AuthException("Invalid signature")
     }
 
-    private suspend fun signingKey(did: Did, fresh: Boolean): SigningKey? {
-        if (!fresh)
-            keyCache[did]?.let {
-                return it
-            }
-        val multibase = keys(did) ?: return null
-        return Multikey.decode(multibase).also { keyCache[did] = it }
-    }
+    private suspend fun signingKey(did: Did, fresh: Boolean): SigningKey =
+        keyCache[did]?.takeUnless { fresh }
+            ?: keys(did)?.let(Multikey::decode)?.also { keyCache[did] = it }
+            ?: throw AuthException("No signing key for $did")
 
     private fun verifySignature(key: SigningKey, data: ByteArray, signature: ByteArray): Boolean {
-        if (signature.size != 64) return false
-        val r = BigInteger(1, signature.copyOfRange(0, 32))
-        val s = BigInteger(1, signature.copyOfRange(32, 64))
+        if (signature.size != SIGNATURE_BYTES) return false
+        val r = BigInteger(1, signature.copyOfRange(0, SIGNATURE_BYTES / 2))
+        val s = BigInteger(1, signature.copyOfRange(SIGNATURE_BYTES / 2, SIGNATURE_BYTES))
         val digest = MessageDigest.getInstance("SHA-256").digest(data)
         return ECDSASigner().apply { init(false, key.params) }.verifySignature(digest, r, s)
     }
@@ -93,6 +92,13 @@ class ServiceAuthVerifier(
         .getOrElse { throw AuthException("Malformed JWT") }
 
     private fun JsonObject.string(key: String) = this[key]?.jsonPrimitive?.content
+
+    private companion object {
+        const val JWT_PARTS = 3
+
+        /** Compact (r || s) ECDSA signature: two 32-byte integers. */
+        const val SIGNATURE_BYTES = 64
+    }
 }
 
 class AuthException(message: String) : Exception(message)

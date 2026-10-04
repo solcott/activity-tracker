@@ -13,7 +13,7 @@ import androidx.compose.ui.graphics.Color
 private val Orange = Color(0xFFFC5200)
 
 @Composable
-fun AppTheme(content: @Composable () -> Unit) {
+fun AppTheme(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val colors =
         if (isSystemInDarkTheme()) {
             darkColorScheme(primary = Orange, secondary = Orange)
@@ -22,6 +22,6 @@ fun AppTheme(content: @Composable () -> Unit) {
         }
     MaterialTheme(colorScheme = colors) {
         // Paints the themed background and sets content colors for screens without a Scaffold.
-        Surface(Modifier.fillMaxSize(), content = content)
+        Surface(modifier.fillMaxSize(), content = content)
     }
 }

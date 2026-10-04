@@ -1,9 +1,0 @@
-<?xml version="1.0" ?>
-<SmellBaseline>
-  <ManuallySuppressedIssues/>
-  <CurrentIssues>
-    <ID>CyclomaticComplexMethod:ActivityDetailPresenter.kt:@CircuitInject(ActivityDetailScreen::class, SessionScope::class) @Composable fun ActivityDetailPresenter: ActivityDetailState</ID>
-    <ID>TooGenericExceptionCaught:ManualActivityPresenter.kt:e: Exception</ID>
-    <ID>TooGenericExceptionCaught:RecordPresenter.kt:e: Exception</ID>
-  </CurrentIssues>
-</SmellBaseline>

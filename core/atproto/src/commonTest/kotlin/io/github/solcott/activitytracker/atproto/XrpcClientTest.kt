@@ -37,7 +37,7 @@ class XrpcClientTest {
             )
         }
         val e = assertFailsWith<XrpcException> { client.query(GetTimeline.method, GetTimeline.Params()) }
-        assertEquals(401, e.status)
+        assertEquals(HttpStatusCode.Unauthorized.value, e.status)
         assertEquals("AuthRequired", e.error)
     }
 }

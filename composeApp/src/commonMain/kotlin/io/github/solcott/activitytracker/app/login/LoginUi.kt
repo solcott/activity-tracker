@@ -64,9 +64,7 @@ fun LoginUi(state: LoginState, modifier: Modifier = Modifier) {
                 TextButton(onClick = { state.eventSink(LoginEvent.Cancel) }) { Text("Cancel") }
             }
 
-            else -> {
-                Unit
-            }
+            else -> Unit
         }
         if (state.busy) {
             CircularProgressIndicator()

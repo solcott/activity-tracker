@@ -9,6 +9,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
+import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -58,7 +59,7 @@ fun ManualActivityPresenter(
                 val minutes = duration.toDoubleOrNull() ?: return@ManualActivityState
                 saving = true
                 scope.launch {
-                    try {
+                    runSuspendCatching {
                         val elapsed = (minutes * 60).toLong()
                         activities.publish(
                             ActivityDraft(
@@ -72,11 +73,9 @@ fun ManualActivityPresenter(
                             )
                         )
                         navigator.pop()
-                    } catch (e: Exception) {
-                        error = e.message
-                    } finally {
-                        saving = false
                     }
+                        .onFailure { e -> error = e.message }
+                        .also { saving = false }
                 }
             }
         }

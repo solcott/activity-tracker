@@ -6,6 +6,7 @@ import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -115,7 +116,7 @@ class OAuthSessionManager(
 
             override suspend fun shouldRetry(response: HttpResponse): Boolean {
                 response.dpopNonce()?.let { updatePdsNonce(it) }
-                if (response.status.value != 401) return false
+                if (response.status.value != HttpStatusCode.Unauthorized.value) return false
                 val challenge = response.headers[HttpHeaders.WWWAuthenticate].orEmpty()
                 return when {
                     "use_dpop_nonce" in challenge -> {

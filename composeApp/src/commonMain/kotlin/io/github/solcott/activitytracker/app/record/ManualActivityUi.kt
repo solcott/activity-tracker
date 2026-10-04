@@ -44,7 +44,7 @@ fun ManualActivityUi(state: ManualActivityState, modifier: Modifier = Modifier) 
             Modifier.padding(padding).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SportPicker(state.sport) { state.eventSink(ManualActivityEvent.SportChanged(it)) }
+            SportPicker(state.sport, { state.eventSink(ManualActivityEvent.SportChanged(it)) })
             OutlinedTextField(
                 state.title,
                 { state.eventSink(ManualActivityEvent.TitleChanged(it)) },

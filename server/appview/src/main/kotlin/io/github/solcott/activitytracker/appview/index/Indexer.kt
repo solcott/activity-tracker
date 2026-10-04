@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.lexicon.app.FollowRecord
 import io.github.solcott.activitytracker.lexicon.app.KudosRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import kotlin.time.Clock
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonObject
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -58,22 +59,26 @@ class Indexer(
     private suspend fun commit(author: Did, commit: JetstreamEvent.Commit) {
         if (commit.collection !in Nsid.indexedCollections) return
         val uri = AtUri.of(author, commit.collection, commit.rkey)
-        if (commit.operation == "delete") {
-            db.tx { delete(commit.collection, uri) }
-            return
+        val record = commit.record
+        val cid = commit.cid
+        when {
+            commit.operation == "delete" -> db.tx { delete(commit.collection, uri) }
+            record != null && cid != null -> index(author, commit.collection, uri, cid, record)
         }
-        val record = commit.record ?: return
-        val cid = commit.cid ?: return
+    }
+
+    private suspend fun index(author: Did, collection: String, uri: AtUri, cid: String, record: JsonObject) {
         val handle = handles.handleFor(author)
         try {
             db.tx {
                 ensureActor(author, handle)
-                upsert(commit.collection, author, uri, cid, record)
+                upsert(collection, author, uri, cid, record)
             }
+        } catch (e: SerializationException) {
+            // Before IllegalArgumentException, which SerializationException extends.
+            log.debug("Skipping undecodable {} record {}: {}", collection, uri, e.message)
         } catch (e: IllegalArgumentException) {
-            log.debug("Skipping invalid {} record {}: {}", commit.collection, uri, e.message)
-        } catch (e: kotlinx.serialization.SerializationException) {
-            log.debug("Skipping undecodable {} record {}: {}", commit.collection, uri, e.message)
+            log.debug("Skipping invalid {} record {}: {}", collection, uri, e.message)
         }
     }
 
@@ -87,17 +92,7 @@ class Indexer(
         val now = clock.now().toEpochMilliseconds()
         when (collection) {
             Nsid.FEED_ACTIVITY -> {
-                val record = AtJson.decodeFromJsonElement(ActivityRecord.serializer(), json)
-                Activities.upsert {
-                    it[Activities.uri] = uri.value
-                    it[Activities.cid] = cid
-                    it[authorDid] = author.value
-                    it[Activities.record] = AtJson.encodeToString(ActivityRecord.serializer(), record)
-                    it[sport] = record.sport.take(64)
-                    it[startedAt] = record.startedAt.toEpochMilliseconds()
-                    it[sortAt] = minOf(record.createdAt.toEpochMilliseconds(), now)
-                    it[indexedAt] = now
-                }
+                upsertActivity(AtJson.decodeFromJsonElement(ActivityRecord.serializer(), json), author, uri, cid, now)
             }
 
             Nsid.FEED_KUDOS -> {
@@ -119,7 +114,7 @@ class Indexer(
                     it[Comments.cid] = cid
                     it[authorDid] = author.value
                     it[subjectUri] = record.subject.uri.value
-                    it[text] = record.text.take(10_000)
+                    it[text] = record.text.take(MAX_COMMENT_LENGTH)
                     it[createdAt] = record.createdAt.toEpochMilliseconds()
                     it[indexedAt] = now
                 }
@@ -137,15 +132,31 @@ class Indexer(
             }
 
             Nsid.ACTOR_PROFILE -> {
-                if (uri.rkey != ProfileRecord.RKEY) return
-                val record = AtJson.decodeFromJsonElement(ProfileRecord.serializer(), json)
-                Actors.update({ Actors.did eq author.value }) {
-                    it[displayName] = record.displayName?.take(640)
-                    it[description] = record.description?.take(2560)
-                    it[units] = record.units?.take(16)
-                    it[indexedAt] = now
-                }
+                if (uri.rkey == ProfileRecord.RKEY)
+                    updateProfile(AtJson.decodeFromJsonElement(ProfileRecord.serializer(), json), author, now)
             }
+        }
+    }
+
+    private fun JdbcTransaction.upsertActivity(record: ActivityRecord, author: Did, uri: AtUri, cid: String, now: Long) {
+        Activities.upsert {
+            it[Activities.uri] = uri.value
+            it[Activities.cid] = cid
+            it[authorDid] = author.value
+            it[Activities.record] = AtJson.encodeToString(ActivityRecord.serializer(), record)
+            it[sport] = record.sport.take(MAX_SPORT_LENGTH)
+            it[startedAt] = record.startedAt.toEpochMilliseconds()
+            it[sortAt] = minOf(record.createdAt.toEpochMilliseconds(), now)
+            it[indexedAt] = now
+        }
+    }
+
+    private fun JdbcTransaction.updateProfile(record: ProfileRecord, author: Did, now: Long) {
+        Actors.update({ Actors.did eq author.value }) {
+            it[displayName] = record.displayName?.take(MAX_DISPLAY_NAME_LENGTH)
+            it[description] = record.description?.take(MAX_DESCRIPTION_LENGTH)
+            it[units] = record.units?.take(MAX_UNITS_LENGTH)
+            it[indexedAt] = now
         }
     }
 
@@ -196,5 +207,14 @@ class Indexer(
         Comments.deleteWhere { authorDid eq did.value }
         Follows.deleteWhere { authorDid eq did.value }
         Actors.deleteWhere { Actors.did eq did.value }
+    }
+
+    // Records are untrusted, so free text is clamped to the lexicon maxLength (or the column size) before it's stored.
+    private companion object {
+        const val MAX_SPORT_LENGTH = 64
+        const val MAX_COMMENT_LENGTH = 10_000
+        const val MAX_DISPLAY_NAME_LENGTH = 640
+        const val MAX_DESCRIPTION_LENGTH = 2560
+        const val MAX_UNITS_LENGTH = 16
     }
 }

@@ -35,14 +35,48 @@ data class ActivityDraft(
             avgSpeed =
                 distanceMeters?.let { d ->
                     val seconds = movingSeconds ?: elapsed.inWholeSeconds
-                    if (seconds > 0) (d / seconds * 1000).roundToLong() else null
+                    if (seconds > 0) (d / seconds * MM_PER_M).roundToLong() else null
                 },
-            maxSpeed = maxSpeedMps?.let { (it * 1000).roundToLong() },
+            maxSpeed = maxSpeedMps?.let { (it * MM_PER_M).roundToLong() },
             polyline = polyline,
             createdAt = createdAt,
         )
 
+    // Generated equals/hashCode compare arrays by identity; compare gpx by content instead.
+    override fun equals(other: Any?): Boolean =
+        this === other ||
+            other is ActivityDraft &&
+                sport == other.sport &&
+                title == other.title &&
+                description == other.description &&
+                startedAt == other.startedAt &&
+                elapsed == other.elapsed &&
+                movingSeconds == other.movingSeconds &&
+                distanceMeters == other.distanceMeters &&
+                elevationGainMeters == other.elevationGainMeters &&
+                maxSpeedMps == other.maxSpeedMps &&
+                polyline == other.polyline &&
+                gpx.contentEquals(other.gpx)
+
+    override fun hashCode(): Int {
+        var result = sport.hashCode()
+        result = 31 * result + (title?.hashCode() ?: 0)
+        result = 31 * result + (description?.hashCode() ?: 0)
+        result = 31 * result + startedAt.hashCode()
+        result = 31 * result + elapsed.hashCode()
+        result = 31 * result + (movingSeconds?.hashCode() ?: 0)
+        result = 31 * result + (distanceMeters?.hashCode() ?: 0)
+        result = 31 * result + (elevationGainMeters?.hashCode() ?: 0)
+        result = 31 * result + (maxSpeedMps?.hashCode() ?: 0)
+        result = 31 * result + (polyline?.hashCode() ?: 0)
+        result = 31 * result + gpx.contentHashCode()
+        return result
+    }
+
     companion object {
+        /** Lexicon speeds are integer mm/s. */
+        private const val MM_PER_M = 1000
+
         fun fromRecording(
             result: RecordingResult,
             sport: String,

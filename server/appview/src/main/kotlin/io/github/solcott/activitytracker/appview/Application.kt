@@ -17,6 +17,7 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
+import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
@@ -66,10 +67,12 @@ fun Application.appView(config: AppViewConfig, db: Database, verifier: ServiceAu
     }
     install(StatusPages) {
         exception<XrpcError> { call, e -> call.respondXrpcError(e.status, e.error, e.message) }
-        exception<AuthException> { call, e -> call.respondXrpcError(401, "AuthenticationRequired", e.message) }
+        exception<AuthException> { call, e ->
+            call.respondXrpcError(HttpStatusCode.Unauthorized.value, "AuthenticationRequired", e.message)
+        }
         exception<Throwable> { call, e ->
             LoggerFactory.getLogger("AppView").error("Unhandled error", e)
-            call.respondXrpcError(500, "InternalServerError", null)
+            call.respondXrpcError(HttpStatusCode.InternalServerError.value, "InternalServerError", null)
         }
     }
     routing {

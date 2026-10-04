@@ -52,8 +52,7 @@ class JetstreamConsumer(
             var processed = 0
             var lastUs = cursor ?: 0L
             for (frame in incoming) {
-                if (frame !is Frame.Text) continue
-                val event = decode(frame.readText()) ?: continue
+                val event = (frame as? Frame.Text)?.let { decode(it.readText()) } ?: continue
                 indexer.handle(event)
                 lastUs = event.witnessedAtUs
                 if (++processed % CURSOR_SAVE_INTERVAL == 0) saveCursor(lastUs)

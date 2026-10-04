@@ -39,6 +39,10 @@ data class OAuthClientConfig(
     }
 }
 
+private const val HEX_RADIX = 16
+private const val NIBBLE_BITS = 4
+private const val NIBBLE_MASK = 0xF
+
 internal fun String.encodeUriComponent(): String = buildString {
     for (byte in this@encodeUriComponent.encodeToByteArray()) {
         val c = byte.toInt().toChar()
@@ -46,8 +50,8 @@ internal fun String.encodeUriComponent(): String = buildString {
             append(c)
         } else {
             append('%')
-            append(((byte.toInt() shr 4) and 0xF).toString(16).uppercase())
-            append((byte.toInt() and 0xF).toString(16).uppercase())
+            append(((byte.toInt() shr NIBBLE_BITS) and NIBBLE_MASK).toString(HEX_RADIX).uppercase())
+            append((byte.toInt() and NIBBLE_MASK).toString(HEX_RADIX).uppercase())
         }
     }
 }

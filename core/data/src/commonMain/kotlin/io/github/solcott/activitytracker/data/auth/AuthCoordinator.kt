@@ -72,14 +72,17 @@ fun parseRedirectParams(url: String): Map<String, String> =
             k.decodeUrlComponent() to v.decodeUrlComponent()
         }
 
+private const val HEX_RADIX = 16
+private const val PERCENT_HEX_DIGITS = 2
+
 private fun String.decodeUrlComponent(): String {
     val bytes = ArrayList<Byte>(length)
     var i = 0
     while (i < length) {
         when (val c = this[i]) {
             '%' -> {
-                bytes += substring(i + 1, i + 3).toInt(16).toByte()
-                i += 2
+                bytes += substring(i + 1, i + 1 + PERCENT_HEX_DIGITS).toInt(HEX_RADIX).toByte()
+                i += PERCENT_HEX_DIGITS
             }
 
             '+' -> {

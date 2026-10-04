@@ -12,7 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -32,7 +31,6 @@ import io.github.solcott.activitytracker.app.ui.RoutePreview
 import io.github.solcott.activitytracker.app.ui.StatsRow
 import io.github.solcott.activitytracker.data.di.SessionScope
 
-@OptIn(ExperimentalMaterial3Api::class)
 @CircuitInject(ActivityDetailScreen::class, SessionScope::class)
 @Composable
 fun ActivityDetailUi(state: ActivityDetailState, modifier: Modifier = Modifier) {
@@ -74,7 +72,7 @@ fun ActivityDetailUi(state: ActivityDetailState, modifier: Modifier = Modifier) 
 }
 
 @Composable
-private fun LoadedContent(state: ActivityDetailState.Loaded, modifier: Modifier) {
+private fun LoadedContent(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
     val record = state.activity.record
     LazyColumn(
         modifier.fillMaxSize(),

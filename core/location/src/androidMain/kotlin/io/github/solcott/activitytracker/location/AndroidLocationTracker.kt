@@ -19,11 +19,8 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 
-/**
- * Fused location updates while the app is in the foreground.
- *
- * TODO: move collection into a foreground service so recording continues with the screen off.
- */
+/** Fused location updates while the app is in the foreground. */
+// Limitation: collection should move into a foreground service so recording continues with the screen off.
 @ContributesBinding(AppScope::class)
 @Inject
 class AndroidLocationTracker(private val context: Context) : LocationTracker {

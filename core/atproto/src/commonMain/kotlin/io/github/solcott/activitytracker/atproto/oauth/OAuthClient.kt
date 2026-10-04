@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.atproto.crypto.randomToken
 import io.github.solcott.activitytracker.atproto.crypto.sha256
 import io.github.solcott.activitytracker.atproto.encodeUriComponent
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
+import io.github.solcott.activitytracker.atproto.identity.ResolvedIdentity
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
@@ -80,11 +81,7 @@ class OAuthClient(
         pending: PendingAuthorization,
         callback: Map<String, String>,
     ): OAuthSession {
-        callback["error"]?.let { throw OAuthException("Authorization failed: $it ${callback["error_description"].orEmpty()}") }
-        if (callback["state"] != pending.state) throw OAuthException("State mismatch")
-        if (callback["iss"] != null && callback["iss"] != pending.issuer) throw OAuthException("Issuer mismatch")
-        val code = callback["code"] ?: throw OAuthException("Missing authorization code")
-
+        val code = authorizationCode(pending, callback)
         val key = DpopKey.restore(pending.dpopKey)
         val params = Parameters.build {
             append("grant_type", "authorization_code")
@@ -102,21 +99,11 @@ class OAuthClient(
                 TokenResponse.serializer(),
             )
 
-        // The token's `sub` must be an account whose PDS delegates to this same authorization
-        // server;
-        // otherwise a malicious server could mint tokens for someone else's DID.
-        val sub = Did(token.sub)
-        if (pending.expectedDid != null && pending.expectedDid != sub) {
-            throw OAuthException("Signed in as unexpected account $sub")
-        }
-        val account = identity.resolve(sub.value)
-        if (authorizationServerFor(account.pdsUrl).issuer != pending.issuer) {
-            throw OAuthException("Authorization server is not authoritative for $sub")
-        }
         if ("atproto" !in token.scope.split(' ')) throw OAuthException("Token is missing the atproto scope")
+        val account = verifiedAccount(pending, Did(token.sub))
 
         return OAuthSession(
-            did = sub,
+            did = account.did,
             handle = account.handle,
             pdsUrl = account.pdsUrl,
             issuer = pending.issuer,
@@ -129,6 +116,33 @@ class OAuthClient(
             dpopKey = pending.dpopKey,
             authServerNonce = nonce,
         )
+    }
+
+    /** Validates the redirect's query params against [pending] and returns the authorization code. */
+    private fun authorizationCode(pending: PendingAuthorization, callback: Map<String, String>): String {
+        val code = callback["code"]
+        val failure =
+            when {
+                "error" in callback -> "Authorization failed: ${callback["error"]} ${callback["error_description"].orEmpty()}"
+                callback["state"] != pending.state -> "State mismatch"
+                callback["iss"] != null && callback["iss"] != pending.issuer -> "Issuer mismatch"
+                code == null -> "Missing authorization code"
+                else -> return code
+            }
+        throw OAuthException(failure)
+    }
+
+    /**
+     * The token's `sub` must be an account whose PDS delegates to this same authorization server; otherwise a malicious server could mint
+     * tokens for someone else's DID.
+     */
+    private suspend fun verifiedAccount(pending: PendingAuthorization, sub: Did): ResolvedIdentity {
+        if (pending.expectedDid != null && pending.expectedDid != sub) throw OAuthException("Signed in as unexpected account $sub")
+        val account = identity.resolve(sub.value)
+        if (authorizationServerFor(account.pdsUrl).issuer != pending.issuer) {
+            throw OAuthException("Authorization server is not authoritative for $sub")
+        }
+        return account
     }
 
     suspend fun refresh(session: OAuthSession): OAuthSession {
@@ -171,6 +185,8 @@ class OAuthClient(
         }
     }
 
+    // False positive: detekt's type resolution runs without the serialization compiler plugin, so it can't see that getJson suspends.
+    @Suppress("RedundantSuspendModifier")
     private suspend fun authorizationServerFor(pdsUrl: String): AuthorizationServerMetadata {
         val resource =
             getJson(
@@ -213,14 +229,14 @@ class OAuthClient(
             }
                 .getOrNull()
             if (error?.error == "use_dpop_nonce" && attempt == 0) return@repeat
-            throw OAuthException(
-                "POST $url failed: ${response.status} ${error?.error ?: body.take(
-                    300
-                )} ${error?.description.orEmpty()}"
-            )
+            val reason = error?.error ?: body.take(MAX_ERROR_BODY_CHARS)
+            throw OAuthException("POST $url failed: ${response.status} $reason ${error?.description.orEmpty()}")
         }
         throw OAuthException("POST $url failed: DPoP nonce not accepted")
     }
 }
+
+/** Caps how much of a non-JSON error body ends up in an exception message. */
+private const val MAX_ERROR_BODY_CHARS = 300
 
 internal fun HttpResponse.dpopNonce(): String? = headers["DPoP-Nonce"]

@@ -1,7 +1,11 @@
 import com.squareup.sort.SortDependenciesTask
+import dev.detekt.gradle.Detekt
+import dev.detekt.gradle.DetektCreateBaselineTask
 import dev.detekt.gradle.extensions.DetektExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.file.FileTreeElement
+import org.gradle.api.specs.Spec
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.withType
 
@@ -25,6 +29,20 @@ class QualityConventionPlugin : Plugin<Project> {
                 parallel.set(true)
             }
             dependencies.add("detektPlugins", libs.findLibrary("compose-rules-detekt").get())
+
+            // The per-source-set and type-resolution tasks analyze every Kotlin source dir, which
+            // includes generated ones (KSP output). A pattern can't match those: each generated dir is
+            // itself a source root, so excluded paths are matched on the absolute file instead.
+            val buildDir = layout.buildDirectory
+            val generated = Spec<FileTreeElement> { it.file.startsWith(buildDir.get().asFile) }
+            tasks.withType<Detekt>().configureEach { exclude(generated) }
+            tasks.withType<DetektCreateBaselineTask>().configureEach { exclude(generated) }
+
+            tasks.register("detektAll") {
+                group = "verification"
+                description = "Runs every detekt task in this module, with and without type resolution."
+                dependsOn(tasks.withType<Detekt>().matching { it.name != "detektDevJvm" })
+            }
         }
     }
 }

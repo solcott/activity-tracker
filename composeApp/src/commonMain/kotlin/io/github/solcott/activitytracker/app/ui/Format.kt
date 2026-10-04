@@ -5,10 +5,17 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 object Format {
+    private const val METERS_PER_KM = 1000.0
+    private const val HUNDREDTHS_PER_KM = 100
+
+    /** Below this, pace is noise from GPS jitter. */
+    private const val MIN_PACE_DISTANCE_M = 10
+
     fun distance(meters: Double?): String {
         if (meters == null) return "–"
-        val hundredths = (meters / 10).roundToLong()
-        return "${hundredths / 100}.${(hundredths % 100).toString().padStart(2, '0')} km"
+        val hundredths = (meters / METERS_PER_KM * HUNDREDTHS_PER_KM).roundToLong()
+        val fraction = (hundredths % HUNDREDTHS_PER_KM).toString().padStart(2, '0')
+        return "${hundredths / HUNDREDTHS_PER_KM}.$fraction km"
     }
 
     fun duration(duration: Duration): String {
@@ -25,9 +32,9 @@ object Format {
 
     /** Minutes per kilometer. */
     fun pace(meters: Double?, seconds: Long?): String {
-        if (meters == null || seconds == null || meters < 10) return "–"
-        val secPerKm = (seconds / (meters / 1000)).roundToLong()
-        return "${secPerKm / 60}:${(secPerKm % 60).toString().padStart(2, '0')} /km"
+        if (meters == null || seconds == null || meters < MIN_PACE_DISTANCE_M) return "–"
+        val secPerKm = (seconds / (meters / METERS_PER_KM)).roundToLong()
+        return "${duration(secPerKm)} /km"
     }
 
     fun elevation(meters: Double?): String = meters?.let { "${it.roundToLong()} m" } ?: "–"

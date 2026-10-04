@@ -10,6 +10,14 @@ import kotlin.math.sqrt
 
 object TrackMath {
     private const val EARTH_RADIUS_M = 6_371_000.0
+    private const val DEGREES_PER_HALF_TURN = 180.0
+
+    // Google encoded polyline format: 5 decimal digits, 5-bit chunks offset by '?' (63), 0x20 = "more chunks follow".
+    private const val POLYLINE_SCALE = 1e5
+    private const val CHUNK_BITS = 5
+    private const val CHUNK_MASK = 0x1f
+    private const val CONTINUATION_BIT = 0x20
+    private const val ASCII_OFFSET = 63
 
     fun distanceMeters(a: LocationSample, b: LocationSample): Double {
         val dLat = (b.latitude - a.latitude).toRadians()
@@ -26,7 +34,7 @@ object TrackMath {
         points: List<LocationSample>,
         toleranceMeters: Double = 5.0,
     ): List<LocationSample> {
-        if (points.size < 3) return points
+        if (points.size <= 2) return points
         val keep =
             BooleanArray(points.size).also {
                 it[0] = true
@@ -75,8 +83,8 @@ object TrackMath {
         var lastLat = 0L
         var lastLon = 0L
         for (p in points) {
-            val lat = (p.latitude * 1e5).roundToLong()
-            val lon = (p.longitude * 1e5).roundToLong()
+            val lat = (p.latitude * POLYLINE_SCALE).roundToLong()
+            val lon = (p.longitude * POLYLINE_SCALE).roundToLong()
             encodeValue(lat - lastLat)
             encodeValue(lon - lastLon)
             lastLat = lat
@@ -94,29 +102,29 @@ object TrackMath {
             var shift = 0
             var value = 0L
             while (true) {
-                val b = encoded[index++].code - 63
-                value = value or ((b and 0x1f).toLong() shl shift)
-                shift += 5
-                if (b < 0x20) break
+                val b = encoded[index++].code - ASCII_OFFSET
+                value = value or ((b and CHUNK_MASK).toLong() shl shift)
+                shift += CHUNK_BITS
+                if (b < CONTINUATION_BIT) break
             }
             return if (value and 1L != 0L) (value shr 1).inv() else value shr 1
         }
         while (index < encoded.length) {
             lat += next()
             lon += next()
-            result += lat / 1e5 to lon / 1e5
+            result += lat / POLYLINE_SCALE to lon / POLYLINE_SCALE
         }
         return result
     }
 
     private fun StringBuilder.encodeValue(value: Long) {
         var v = if (value < 0) (value shl 1).inv() else value shl 1
-        while (v >= 0x20) {
-            append(((0x20 or (v and 0x1f).toInt()) + 63).toChar())
-            v = v shr 5
+        while (v >= CONTINUATION_BIT) {
+            append(((CONTINUATION_BIT or (v and CHUNK_MASK.toLong()).toInt()) + ASCII_OFFSET).toChar())
+            v = v shr CHUNK_BITS
         }
-        append((v + 63).toInt().toChar())
+        append((v + ASCII_OFFSET).toInt().toChar())
     }
 
-    private fun Double.toRadians() = this * kotlin.math.PI / 180.0
+    private fun Double.toRadians() = this * kotlin.math.PI / DEGREES_PER_HALF_TURN
 }

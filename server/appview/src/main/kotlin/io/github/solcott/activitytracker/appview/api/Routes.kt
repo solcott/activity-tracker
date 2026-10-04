@@ -43,11 +43,11 @@ private fun <P, O> Route.xrpcQuery(
     handler: suspend (params: P, viewer: Did?) -> O,
 ) {
     get("/xrpc/${method.nsid}") {
-        val params =
-            try {
-                XrpcParams.decode(method.params, call.request.queryParameters.toMap())
-            } catch (e: Exception) {
-                throw XrpcError(400, "InvalidRequest", e.message ?: "Invalid parameters")
+        val params = runCatching {
+            XrpcParams.decode(method.params, call.request.queryParameters.toMap())
+        }
+            .getOrElse { e ->
+                throw XrpcError(HttpStatusCode.BadRequest.value, "InvalidRequest", e.message ?: "Invalid parameters", cause = e)
             }
         val viewer = call.viewer(verifier, method.nsid)
         call.respondText(

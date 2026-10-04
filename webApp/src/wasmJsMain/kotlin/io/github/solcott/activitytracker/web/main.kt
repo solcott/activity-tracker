@@ -16,12 +16,7 @@ import kotlinx.browser.window
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 
-@DependencyGraph(AppScope::class)
-interface WebAppGraph : AppGraph {
-    @Provides fun atprotoConfig(): AtprotoConfig = NetworkConfigs.web(window.location.origin)
-}
-
-@OptIn(ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalWasmJsInterop::class)
 fun main() {
     // The OAuth loopback client only allows 127.0.0.1 redirect URIs.
     if (window.location.hostname == "localhost") {
@@ -38,4 +33,9 @@ fun main() {
     }
 
     ComposeViewport(document.body!!) { App(graph) }
+}
+
+@DependencyGraph(AppScope::class)
+interface WebAppGraph : AppGraph {
+    @Provides fun atprotoConfig(): AtprotoConfig = NetworkConfigs.web(window.location.origin)
 }

@@ -8,6 +8,8 @@ ktfmt {
     maxWidth.set(140)
 }
 
+val testPluginClasspath: Configuration by configurations.creating
+
 dependencies {
     compileOnly(libs.kotlin.gradle.plugin)
     compileOnly(libs.compose.compiler.gradle.plugin)
@@ -20,7 +22,12 @@ dependencies {
 
     // java-gradle-plugin (via kotlin-dsl) already adds gradleTestKit() to the test classpath.
     testImplementation(kotlin("test-junit"))
+
+    testPluginClasspath(libs.kotlin.gradle.plugin)
 }
+
+// KGP is compileOnly (each build supplies its own), but TestKit fixtures need it to apply the convention plugins.
+tasks.pluginUnderTestMetadata { pluginClasspath.from(testPluginClasspath) }
 
 gradlePlugin {
     plugins {

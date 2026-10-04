@@ -12,6 +12,7 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 import kotlin.io.encoding.Base64
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -21,11 +22,11 @@ import kotlinx.coroutines.withContext
 @ContributesBinding(AppScope::class)
 @SingleIn(AppScope::class)
 @Inject
-class KeystoreSecretCipher : SecretCipher {
+class KeystoreSecretCipher(val ioDispatcher: CoroutineDispatcher = Dispatchers.IO) : SecretCipher {
     private val mutex = Mutex()
     private var key: SecretKey? = null
 
-    private suspend fun key(): SecretKey = mutex.withLock { key ?: withContext(Dispatchers.IO) { loadOrCreateKey() }.also { key = it } }
+    private suspend fun key(): SecretKey = mutex.withLock { key ?: withContext(ioDispatcher) { loadOrCreateKey() }.also { key = it } }
 
     override suspend fun encrypt(plaintext: String): String {
         val cipher = Cipher.getInstance(TRANSFORMATION).apply { init(Cipher.ENCRYPT_MODE, key()) }

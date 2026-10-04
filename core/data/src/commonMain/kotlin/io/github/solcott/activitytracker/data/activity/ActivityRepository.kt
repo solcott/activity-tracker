@@ -43,9 +43,7 @@ class ActivityRepository(
             rkey = rkey,
             serializer = ActivityRecord.serializer(),
             record = draft.toRecord(clock.now()),
-            blob = draft.gpx,
-            blobMimeType = Gpx.MIME_TYPE,
-            blobField = "track",
+            blob = draft.gpx?.let { PendingBlob(it, Gpx.MIME_TYPE, field = "track") },
         )
         return AtUri.of(clients.did, Nsid.FEED_ACTIVITY, rkey)
     }
@@ -105,18 +103,16 @@ class ActivityRepository(
         rkey: String,
         serializer: KSerializer<T>,
         record: T,
-        blob: ByteArray? = null,
-        blobMimeType: String? = null,
-        blobField: String? = null,
+        blob: PendingBlob? = null,
     ) {
         val json = AtJson.encodeToString(serializer, record)
         db.outbox()
             .insert(
                 outboxEntity(OutboxProcessor.OP_PUT, collection, rkey, json)
                     .copy(
-                        blob = blob,
-                        blobMimeType = blob?.let { blobMimeType },
-                        blobField = blob?.let { blobField },
+                        blob = blob?.bytes,
+                        blobMimeType = blob?.mimeType,
+                        blobField = blob?.field,
                     )
             )
         outbox.drain()
@@ -131,4 +127,27 @@ class ActivityRepository(
             recordJson = json,
             createdAt = clock.now().toEpochMilliseconds(),
         )
+}
+
+/** A blob uploaded before the record; its ref is written into the record's [field]. */
+private data class PendingBlob(val bytes: ByteArray, val mimeType: String, val field: String) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other == null || this::class != other::class) return false
+
+        other as PendingBlob
+
+        if (!bytes.contentEquals(other.bytes)) return false
+        if (mimeType != other.mimeType) return false
+        if (field != other.field) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = bytes.contentHashCode()
+        result = 31 * result + mimeType.hashCode()
+        result = 31 * result + field.hashCode()
+        return result
+    }
 }
