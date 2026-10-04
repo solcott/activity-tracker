@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data.auth
 
+import co.touchlab.kermit.Logger
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
@@ -25,7 +26,10 @@ class RoomOAuthStore(
     private val db: AppDatabase,
     private val clock: Clock,
     private val cipher: SecretCipher,
+    logger: Logger,
 ) : OAuthStore {
+    private val log = logger.withTag("RoomOAuthStore")
+
     override suspend fun loadSession(): OAuthSession? = db.keyValue().get(SESSION_KEY)?.let { decryptOrNull(it, OAuthSession::decode) }
 
     override suspend fun saveSession(session: OAuthSession) =
@@ -55,7 +59,8 @@ class RoomOAuthStore(
             decode(cipher.decrypt(value))
         } catch (e: CancellationException) {
             throw e
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            log.w(e) { "Discarding unreadable stored OAuth state" }
             null
         }
 

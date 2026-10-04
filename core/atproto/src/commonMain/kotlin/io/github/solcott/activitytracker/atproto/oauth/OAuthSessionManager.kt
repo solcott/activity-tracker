@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.atproto.oauth
 
+import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.atproto.crypto.DpopKey
 import io.github.solcott.activitytracker.atproto.xrpc.RequestAuthenticator
 import io.ktor.client.request.HttpRequestBuilder
@@ -23,10 +24,12 @@ class OAuthSessionManager(
     private val client: OAuthClient,
     private val store: OAuthStore,
     private val clock: Clock = Clock.System,
+    logger: Logger = Logger,
 ) {
     private val _session = MutableStateFlow<OAuthSession?>(null)
     val session: StateFlow<OAuthSession?> = _session.asStateFlow()
 
+    private val log = logger.withTag("OAuthSessionManager")
     private val mutex = Mutex()
     private val proofs = DpopProofs(clock)
     private var cachedKey: Pair<DpopKey.Serialized, DpopKey>? = null
@@ -71,6 +74,7 @@ class OAuthSessionManager(
                 client.refresh(current)
             } catch (e: OAuthException) {
                 // Refresh token rejected: the session is dead.
+                log.w(e) { "Token refresh failed; signing out" }
                 store.clearSession()
                 _session.value = null
                 throw e

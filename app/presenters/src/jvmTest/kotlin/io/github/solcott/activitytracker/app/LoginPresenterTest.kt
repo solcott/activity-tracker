@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app
 
+import co.touchlab.kermit.Logger
 import com.slack.circuit.test.test
 import io.github.solcott.activitytracker.app.login.LoginEvent
 import io.github.solcott.activitytracker.app.login.LoginPresenter
@@ -44,9 +45,9 @@ class LoginPresenterTest {
         val manager =
             OAuthSessionManager(
                 OAuthClient(http, IdentityResolver(http, config), config.oauth),
-                RoomOAuthStore(db, Clock.System, InMemorySecretCipher()),
+                RoomOAuthStore(db, Clock.System, InMemorySecretCipher(), Logger),
             )
-        return AuthCoordinator(AuthRepository(manager, db, http), AuthBrowser { opened += it })
+        return AuthCoordinator(AuthRepository(manager, db, http), AuthBrowser { opened += it }, Logger)
     }
 
     @Test

@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data.auth
 
+import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.atproto.crypto.DpopKey
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSession
 import io.github.solcott.activitytracker.atproto.oauth.PendingAuthorization
@@ -16,7 +17,7 @@ import kotlinx.coroutines.test.runTest
 
 class RoomOAuthStoreTest {
     private val db = inMemoryDatabase()
-    private val store = RoomOAuthStore(db, Clock.System, InMemorySecretCipher())
+    private val store = RoomOAuthStore(db, Clock.System, InMemorySecretCipher(), Logger)
 
     private suspend fun session() =
         OAuthSession(
@@ -69,7 +70,7 @@ class RoomOAuthStoreTest {
         store.saveSession(session())
         store.savePending(pending())
 
-        val otherKey = RoomOAuthStore(db, Clock.System, InMemorySecretCipher())
+        val otherKey = RoomOAuthStore(db, Clock.System, InMemorySecretCipher(), Logger)
         assertNull(otherKey.loadSession())
         assertNull(otherKey.loadPending("state-1"))
     }

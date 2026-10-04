@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data.activity
 
+import co.touchlab.kermit.Logger
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -22,7 +23,9 @@ import kotlinx.serialization.json.jsonObject
 class OutboxProcessor(
     private val db: AppDatabase,
     private val clients: SessionClients,
+    logger: Logger,
 ) {
+    private val log = logger.withTag("OutboxProcessor")
     private val mutex = Mutex()
 
     /** Returns the number of writes still pending. */
@@ -34,6 +37,7 @@ class OutboxProcessor(
                 db.outbox().delete(item.id)
             }
                 .onFailure { e ->
+                    log.w(e) { "Outbox write ${item.id} failed; ${pending.size - index} pending" }
                     db.outbox().markFailed(item.id, e.message ?: e::class.simpleName.orEmpty())
                     return pending.size - index
                 }

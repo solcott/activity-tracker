@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.appview
 
+import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.appview.api.Views
 import io.github.solcott.activitytracker.appview.api.XrpcError
 import io.github.solcott.activitytracker.appview.api.respondXrpcError
@@ -31,6 +32,8 @@ import org.jetbrains.exposed.v1.jdbc.Database
 import org.slf4j.LoggerFactory
 
 fun main() {
+    // Shared KMP modules (core-atproto) log through Kermit; send that to Logback with everything else.
+    Logger.setLogWriters(Slf4jLogWriter())
     val config = AppViewConfig.fromEnv()
     val log = LoggerFactory.getLogger("AppView")
     log.info("Starting AppView {} at {}", config.serviceDid, config.publicUrl)

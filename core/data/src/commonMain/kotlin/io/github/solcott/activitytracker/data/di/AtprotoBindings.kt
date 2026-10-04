@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data.di
 
+import co.touchlab.kermit.Logger
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.BindingContainer
 import dev.zacsweers.metro.ContributesTo
@@ -19,6 +20,9 @@ import kotlin.time.Clock
 object AtprotoBindings {
     @Provides fun clock(): Clock = Clock.System
 
+    /** Kermit's global logger; its default writer goes to Logcat, OSLog or the browser console. Tests pass their own. */
+    @Provides fun logger(): Logger = Logger
+
     @Provides
     @SingleIn(AppScope::class)
     fun identityResolver(http: HttpClient, config: AtprotoConfig): IdentityResolver = IdentityResolver(http, config)
@@ -34,8 +38,8 @@ object AtprotoBindings {
 
     @Provides
     @SingleIn(AppScope::class)
-    fun sessionManager(client: OAuthClient, store: OAuthStore, clock: Clock): OAuthSessionManager =
-        OAuthSessionManager(client, store, clock)
+    fun sessionManager(client: OAuthClient, store: OAuthStore, clock: Clock, logger: Logger): OAuthSessionManager =
+        OAuthSessionManager(client, store, clock, logger)
 }
 
 /** Subdirectory of the platform cache dir that holds the persistent HttpCache. */

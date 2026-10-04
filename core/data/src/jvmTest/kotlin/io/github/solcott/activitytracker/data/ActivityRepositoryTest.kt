@@ -1,5 +1,9 @@
 package io.github.solcott.activitytracker.data
 
+import co.touchlab.kermit.Logger
+import co.touchlab.kermit.Severity
+import co.touchlab.kermit.TestLogWriter
+import co.touchlab.kermit.loggerConfigInit
 import io.github.solcott.activitytracker.atproto.AtprotoConfig
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.atproto.crypto.DpopKey
@@ -41,6 +45,8 @@ class ActivityRepositoryTest {
     private val did = Did("did:plc:alice")
     private var failWrites = false
     private val putBodies = mutableListOf<String>()
+    private val logs = TestLogWriter(Severity.Verbose)
+    private val logger = Logger(loggerConfigInit(logs))
 
     private val http =
         HttpClient(
@@ -79,7 +85,7 @@ class ActivityRepositoryTest {
     @Test
     fun publishUploadsTrackThenWritesRecordAndRetriesAfterFailure() = runTest {
         val db = inMemoryDatabase()
-        val store = RoomOAuthStore(db, Clock.System, InMemorySecretCipher())
+        val store = RoomOAuthStore(db, Clock.System, InMemorySecretCipher(), logger)
         val session =
             OAuthSession(
                 did = did,
@@ -109,8 +115,8 @@ class ActivityRepositoryTest {
                 )
                 .apply { restore() }
         val clients = SessionClients(session, http, manager, config, Clock.System)
-        val outbox = OutboxProcessor(db, clients)
-        val repo = ActivityRepository(db, clients, outbox, FeedRepository(db, clients), Clock.System)
+        val outbox = OutboxProcessor(db, clients, logger)
+        val repo = ActivityRepository(db, clients, outbox, FeedRepository(db, clients, logger), Clock.System)
 
         val draft =
             ActivityDraft(
@@ -126,6 +132,8 @@ class ActivityRepositoryTest {
         failWrites = true
         val uri = repo.publish(draft)
         assertEquals(1, repo.pendingWrites.first())
+        logs.assertCount(1)
+        logs.assertLast { severity == Severity.Warn && tag == "OutboxProcessor" && "1 pending" in message }
 
         failWrites = false
         assertEquals(0, repo.sync())

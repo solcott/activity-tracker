@@ -1,8 +1,14 @@
 package io.github.solcott.activitytracker.atproto
 
+import co.touchlab.kermit.Logger
+import co.touchlab.kermit.Severity
+import co.touchlab.kermit.TestLogWriter
+import co.touchlab.kermit.loggerConfigInit
 import io.github.solcott.activitytracker.atproto.crypto.Base64Url
+import io.github.solcott.activitytracker.atproto.crypto.DpopKey
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.atproto.oauth.OAuthClient
+import io.github.solcott.activitytracker.atproto.oauth.OAuthException
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSession
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSessionManager
 import io.github.solcott.activitytracker.atproto.oauth.OAuthStore
@@ -10,6 +16,7 @@ import io.github.solcott.activitytracker.atproto.oauth.PendingAuthorization
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcClient
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.atproto.DescribeRepo
 import io.ktor.client.request.HttpRequestData
 import io.ktor.http.HttpStatusCode
@@ -17,7 +24,9 @@ import io.ktor.http.content.OutgoingContent
 import io.ktor.http.parseQueryString
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonObject
@@ -90,7 +99,8 @@ class OAuthFlowTest {
             IdentityResolver(network.client, "http://plc.test", "http://pds.test"),
             config,
         )
-    private val manager = OAuthSessionManager(oauth, store)
+    private val logs = TestLogWriter(Severity.Verbose)
+    private val manager = OAuthSessionManager(oauth, store, logger = Logger(loggerConfigInit(logs)))
 
     @Test
     fun fullSignInThenAuthenticatedPdsCall() = runTest {
@@ -122,6 +132,31 @@ class OAuthFlowTest {
         assertEquals("DPoP at1", retried.headers["Authorization"])
         assertEquals("p1", retried.dpopClaim("nonce"))
         assertNotNull(retried.dpopClaim("ath"))
+    }
+
+    @Test
+    fun rejectedRefreshSignsOutAndLogs() = runTest {
+        store.session =
+            OAuthSession(
+                did = Did(did),
+                handle = Handle("alice.test"),
+                pdsUrl = "http://pds.test",
+                issuer = "http://pds.test",
+                tokenEndpoint = "http://pds.test/oauth/token",
+                accessToken = "at",
+                refreshToken = null,
+                expiresAt = null,
+                scope = "atproto",
+                dpopKey = DpopKey.generate().serialize(),
+            )
+        manager.restore()
+
+        assertFailsWith<OAuthException> { manager.freshSession(forceRefresh = true) }
+
+        assertNull(store.session)
+        assertNull(manager.session.value)
+        logs.assertCount(1)
+        logs.assertLast { severity == Severity.Warn && tag == "OAuthSessionManager" && throwable is OAuthException }
     }
 
     private fun HttpRequestData.dpopClaim(name: String): String? {

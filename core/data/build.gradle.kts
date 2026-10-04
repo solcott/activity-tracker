@@ -12,6 +12,8 @@ kotlin {
             api(projects.coreAtproto)
             api(projects.coreLocation)
             api(libs.room.runtime)
+
+            implementation(libs.kermit)
         }
         nonWebMain {
             dependencies {
@@ -21,6 +23,7 @@ kotlin {
         }
         wasmJsMain.dependencies { implementation(projects.webSqliteWorker) }
         commonTest.dependencies {
+            implementation(libs.kermit.test)
             implementation(libs.ktor.client.mock)
             implementation(libs.turbine)
         }

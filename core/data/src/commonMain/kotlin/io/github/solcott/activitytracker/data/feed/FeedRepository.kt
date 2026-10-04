@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data.feed
 
+import co.touchlab.kermit.Logger
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.data.db.AppDatabase
@@ -21,7 +22,10 @@ import kotlinx.coroutines.flow.map
 class FeedRepository(
     private val db: AppDatabase,
     private val clients: SessionClients,
+    logger: Logger,
 ) {
+    private val log = logger.withTag("FeedRepository")
+
     fun timeline(): Flow<List<ActivityView>> = observe(TIMELINE)
 
     fun authorActivities(did: String): Flow<List<ActivityView>> = observe(authorKey(did))
@@ -55,7 +59,11 @@ class FeedRepository(
 
     private fun observe(key: String): Flow<List<ActivityView>> =
         db.feed().observe(key).map { items ->
-            items.mapNotNull { runCatching { AtJson.decodeFromString(ActivityView.serializer(), it.json) }.getOrNull() }
+            items.mapNotNull { item ->
+                runCatching { AtJson.decodeFromString(ActivityView.serializer(), item.json) }
+                    .onFailure { log.w(it) { "Skipping undecodable cached activity ${item.uri}" } }
+                    .getOrNull()
+            }
         }
 
     private fun List<ActivityView>.toEntities(key: String) = mapIndexed { index, view ->

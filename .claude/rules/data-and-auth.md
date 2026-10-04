@@ -16,6 +16,8 @@ paths:
 
 **XRPC** is hand-written on Ktor in `core/atproto`. No Ozone or other atproto SDK, because Ozone has no wasmJs target. Call the AppView with `clients.appView.query(X.method, X.Params(...))`. Authentication is a service-auth JWT that the PDS mints via `com.atproto.server.getServiceAuth` (`ServiceAuthAuthenticator`).
 
+**Logging.** Shared and client code logs with Kermit, never `println`. Take a Kermit `Logger` in the constructor (Metro provides it in `AtprotoBindings`) and keep `logger.withTag("ClassName")`; don't call the global `Logger` directly. Use the lambda overloads. Tests pass `Logger(loggerConfigInit(TestLogWriter(...)))` from `kermit-test`. `createHttpClient(logger)` installs HTTP logging only when given a logger. Never log tokens, DPoP keys, or record contents. The AppView logs with SLF4J; its `Slf4jLogWriter` routes Kermit output from `core-atproto` into Logback.
+
 **OAuth** (`core/atproto/oauth`) is a full ATProto public client: handle → DID → PDS → authorization server, then PAR + PKCE + DPoP with nonce retry, then refresh.
 - Pending authorizations are persisted *before* the browser opens, because the web redirect unloads the page. Redirects come back to `AuthCoordinator.handleRedirect`: from the `MainActivity` intent filter on Android, the `ASWebAuthenticationSession` callback on iOS, and URL params in `webApp`'s `main.kt` on the web.
 - Web uses the loopback client ID. Loopback redirects must use `127.0.0.1`, so the web app redirects from `localhost`.

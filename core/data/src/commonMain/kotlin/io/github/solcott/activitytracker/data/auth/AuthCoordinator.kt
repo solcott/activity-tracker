@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data.auth
 
+import co.touchlab.kermit.Logger
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -22,6 +23,7 @@ fun interface AuthBrowser {
 class AuthCoordinator(
     private val auth: AuthRepository,
     private val browser: AuthBrowser,
+    logger: Logger,
 ) {
     sealed interface Status {
         data object Idle : Status
@@ -35,6 +37,8 @@ class AuthCoordinator(
         data class Failed(val message: String) : Status
     }
 
+    private val log = logger.withTag("AuthCoordinator")
+
     private val _status = MutableStateFlow<Status>(Status.Idle)
     val status: StateFlow<Status> = _status.asStateFlow()
 
@@ -44,7 +48,10 @@ class AuthCoordinator(
             browser.open(auth.beginSignIn(handle))
             _status.value = Status.WaitingForBrowser
         }
-            .onFailure { _status.value = Status.Failed(it.message ?: "Could not start sign-in") }
+            .onFailure {
+                log.w(it) { "Could not start sign-in" }
+                _status.value = Status.Failed(it.message ?: "Could not start sign-in")
+            }
     }
 
     suspend fun handleRedirect(params: Map<String, String>) {
@@ -53,7 +60,10 @@ class AuthCoordinator(
             auth.completeSignIn(params)
             _status.value = Status.Idle
         }
-            .onFailure { _status.value = Status.Failed(it.message ?: "Sign-in failed") }
+            .onFailure {
+                log.w(it) { "Sign-in failed" }
+                _status.value = Status.Failed(it.message ?: "Sign-in failed")
+            }
     }
 
     fun cancelled() {
