@@ -15,10 +15,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 @Composable
 fun ActivityCard(
@@ -42,13 +45,11 @@ fun ActivityCard(
                 style = MaterialTheme.typography.titleMedium,
             )
             StatsRow(
-                "Distance" to Format.distance(record.distance?.toDouble()),
-                "Time" to Format.duration(record.movingTime ?: record.elapsedTime),
-                "Pace" to
-                    Format.pace(
-                        record.distance?.toDouble(),
-                        record.movingTime ?: record.elapsedTime,
-                    ),
+                persistentListOf(
+                    Stat("Distance", Format.distance(record.distance?.toDouble())),
+                    Stat("Time", Format.duration(record.movingTime ?: record.elapsedTime)),
+                    Stat("Pace", Format.pace(record.distance?.toDouble(), record.movingTime ?: record.elapsedTime)),
+                )
             )
             record.polyline?.let { RoutePreview(it) }
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -69,8 +70,11 @@ fun ActivityCard(
     }
 }
 
+/** One labelled figure in a [StatsRow]. */
+@Immutable data class Stat(val label: String, val value: String)
+
 @Composable
-fun StatsRow(vararg stats: Pair<String, String>, modifier: Modifier = Modifier) {
+fun StatsRow(stats: ImmutableList<Stat>, modifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         stats.forEach { (label, value) ->
             Column {

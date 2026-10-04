@@ -20,6 +20,9 @@ import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 @CircuitInject(FeedScreen::class, SessionScope::class)
@@ -30,7 +33,7 @@ fun FeedPresenter(
     activities: ActivityRepository,
     profiles: ProfileRepository,
 ): FeedState {
-    val items by feed.timeline().collectAsState(emptyList())
+    val items by remember(feed) { feed.timeline().map { it.toImmutableList() } }.collectAsState(persistentListOf())
     val pending by activities.pendingWrites.collectAsState(0)
     var refreshing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }

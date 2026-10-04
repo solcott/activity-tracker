@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.record
 
+import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
@@ -8,6 +9,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 /** Log an activity without GPS (also handy for testing on web and simulators). */
 @CircuitSerializable(SessionScope::class) data object ManualActivityScreen : Screen
 
+@Immutable
 data class ManualActivityState(
     val sport: String,
     val title: String,

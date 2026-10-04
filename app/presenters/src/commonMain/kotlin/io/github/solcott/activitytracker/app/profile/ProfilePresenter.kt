@@ -19,6 +19,9 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 @CircuitInject(ProfileScreen::class, SessionScope::class)
@@ -35,7 +38,7 @@ fun ProfilePresenter(
     var error by remember { mutableStateOf<String?>(null) }
     var loadKey by remember { mutableIntStateOf(0) }
     val did = profile?.did?.value ?: screen.actor
-    val items by remember(did) { feed.authorActivities(did) }.collectAsState(emptyList())
+    val items by remember(did) { feed.authorActivities(did).map { it.toImmutableList() } }.collectAsState(persistentListOf())
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(loadKey) {

@@ -29,8 +29,10 @@ The presenter module has no foundation, ui or material3, so keep every UI import
 /** One-line purpose; document non-obvious args (e.g. "[actor] is a DID or handle"). */
 @CircuitSerializable(SessionScope::class) data class FooScreen(val uri: String) : Screen   // or data object if no args
 
+@Immutable
 data class FooState(
-    // plain immutable values only; null/empty for "not loaded"
+    // plain immutable values only; null/empty for "not loaded". Collections are ImmutableList, never List.
+    val items: ImmutableList<ActivityView>,
     val error: String?,
     val eventSink: (FooEvent) -> Unit,
 ) : CircuitUiState
@@ -45,7 +47,8 @@ sealed interface FooEvent {
 fun FooPresenter(screen: FooScreen, navigator: Navigator, /* injected repositories */): FooState {
     // remember/collectAsState for state; LaunchedEffect + runSuspendCatching for loads;
     // rememberCoroutineScope().launch { runSuspendCatching { ... } } for event-driven work
-    return FooState(error) { event ->
+    // Convert lists once where they're loaded: flow.map { it.toImmutableList() }, or list.toImmutableList()
+    return FooState(items, error) { event ->
         when (event) {
             FooEvent.Back -> navigator.pop()
         }
@@ -65,7 +68,7 @@ Constraints:
 - Inject repositories from `core/data` (`FeedRepository`, `ActivityRepository`, `ProfileRepository`, `AuthRepository`). Never call XRPC or Room directly from a presenter. If the screen needs new data, add a repository method first, and if that needs a new AppView query, use the `lexicon-change` skill.
 - Writes go through `ActivityRepository` (outbox) and update the UI optimistically. Don't wait for the AppView.
 - `runSuspendCatching`, not `runCatching`.
-- No `remember` of mutable collections in State. Every field of `FooState` must be stable/immutable.
+- No `remember` of mutable collections in State. Every field of `FooState` must be statically stable: `@Immutable` on the State, `ImmutableList` (kotlinx-collections-immutable) instead of `List`, and `@Immutable` on any model from a non-Compose module that a UI shows. `./gradlew :app-screens:composeStabilityCheck` fails otherwise.
 
 ## 3. Wire navigation
 

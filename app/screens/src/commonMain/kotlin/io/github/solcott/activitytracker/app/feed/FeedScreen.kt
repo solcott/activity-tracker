@@ -1,15 +1,18 @@
 package io.github.solcott.activitytracker.app.feed
 
+import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import kotlinx.collections.immutable.ImmutableList
 
 @CircuitSerializable(SessionScope::class) data object FeedScreen : Screen
 
+@Immutable
 data class FeedState(
-    val activities: List<ActivityView>,
+    val activities: ImmutableList<ActivityView>,
     val refreshing: Boolean,
     val error: String?,
     val pendingWrites: Int,

@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.lexicon.app
 
+import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
@@ -22,6 +23,7 @@ object Sport {
 }
 
 /** `app.activitytracker.feed.activity`. Units are integers because lexicons have no floats. */
+@Immutable
 @Serializable
 data class ActivityRecord(
     val sport: String,

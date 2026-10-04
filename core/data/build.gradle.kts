@@ -13,6 +13,7 @@ kotlin {
             api(projects.coreLocation)
             api(libs.room.runtime)
 
+            implementation(libs.compose.runtime.annotation)
             implementation(libs.kermit)
         }
         nonWebMain {

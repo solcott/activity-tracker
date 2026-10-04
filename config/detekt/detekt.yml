@@ -35,3 +35,6 @@ Compose:
     active: true
   CompositionLocalAllowlist:
     active: true
+  # Composable params take ImmutableList, not List; composeStabilityCheck catches the rest from the compiler reports.
+  UnstableCollections:
+    active: true

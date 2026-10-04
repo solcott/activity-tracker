@@ -1,8 +1,10 @@
 package io.github.solcott.activitytracker.lexicon
 
+import androidx.compose.runtime.Immutable
 import kotlin.jvm.JvmInline
 import kotlinx.serialization.Serializable
 
+@Immutable
 @Serializable
 @JvmInline
 value class Did(val value: String) {
@@ -16,12 +18,14 @@ value class Did(val value: String) {
     override fun toString(): String = value
 }
 
+@Immutable
 @Serializable
 @JvmInline
 value class Handle(val value: String) {
     override fun toString(): String = value
 }
 
+@Immutable
 @Serializable
 @JvmInline
 value class Cid(val value: String) {
@@ -29,6 +33,7 @@ value class Cid(val value: String) {
 }
 
 /** `at://<authority>/<collection>/<rkey>` */
+@Immutable
 @Serializable
 @JvmInline
 value class AtUri(val value: String) {

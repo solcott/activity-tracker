@@ -32,6 +32,9 @@ material3 = "1.12.0-alpha03"
 materialIcons = "1.7.3"
 kotlinxBrowser = "0.5.0"
 kermit = "2.2.0"
+kotlinxCollectionsImmutable = "0.5.2"
+# androidx artifact that Compose Multiplatform's runtime already resolves to; @Immutable/@Stable for modules without Compose.
+composeRuntimeAnnotation = "1.12.1"
 
 androidx-activity = "1.13.0"
 androidx-browser = "1.10.0"
@@ -55,6 +58,7 @@ kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-c
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinxCollectionsImmutable" }
 kotlinx-browser = { module = "org.jetbrains.kotlinx:kotlinx-browser", version.ref = "kotlinxBrowser" }
 
 kermit = { module = "co.touchlab:kermit", version.ref = "kermit" }
@@ -88,6 +92,7 @@ circuit-codegen-annotations = { module = "com.slack.circuit:circuit-codegen-anno
 circuit-test = { module = "com.slack.circuit:circuit-test", version.ref = "circuit" }
 
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "composeMultiplatform" }
+compose-runtime-annotation = { module = "androidx.compose.runtime:runtime-annotation", version.ref = "composeRuntimeAnnotation" }
 compose-runtime-saveable = { module = "org.jetbrains.compose.runtime:runtime-saveable", version.ref = "composeMultiplatform" }
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "composeMultiplatform" }
 compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMultiplatform" }

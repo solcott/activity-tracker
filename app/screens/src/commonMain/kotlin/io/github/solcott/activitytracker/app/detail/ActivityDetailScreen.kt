@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.detail
 
+import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
@@ -8,19 +9,22 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import kotlinx.collections.immutable.ImmutableList
 
 @CircuitSerializable(SessionScope::class) data class ActivityDetailScreen(val uri: String) : Screen
 
+@Immutable
 sealed interface ActivityDetailState : CircuitUiState {
     val eventSink: (ActivityDetailEvent) -> Unit
 
-    data class Loading(override val eventSink: (ActivityDetailEvent) -> Unit) : ActivityDetailState
+    @Immutable data class Loading(override val eventSink: (ActivityDetailEvent) -> Unit) : ActivityDetailState
 
-    data class Error(val message: String, override val eventSink: (ActivityDetailEvent) -> Unit) : ActivityDetailState
+    @Immutable data class Error(val message: String, override val eventSink: (ActivityDetailEvent) -> Unit) : ActivityDetailState
 
+    @Immutable
     data class Loaded(
         val activity: ActivityView,
-        val comments: List<CommentView>,
+        val comments: ImmutableList<CommentView>,
         val draftComment: String,
         /** The activity is the signed-in athlete's own, so it can't take kudos. */
         val isOwn: Boolean,
@@ -30,8 +34,9 @@ sealed interface ActivityDetailState : CircuitUiState {
     ) : ActivityDetailState
 }
 
+@Immutable
 data class KudosList(
-    val athletes: List<ProfileViewBasic>,
+    val athletes: ImmutableList<ProfileViewBasic>,
     val isLoading: Boolean,
     val error: String?,
 )

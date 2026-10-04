@@ -11,6 +11,7 @@ A Kotlin Multiplatform, Strava-style athlete activity tracker backed by ATProtoc
 ```bash
 ./gradlew check                                   # all tests on all targets + Android lint + ktfmt + detekt + sorted deps
 ./gradlew format                                  # format Kotlin/scripts (ktfmt kotlinlang style) and sort dependency blocks
+./gradlew composeStabilityCheck                   # fail on unstable Compose params (and State fields in :app-screens); reports in build/compose/reports
 ./gradlew detektBaseline                          # regenerate each module's detekt-baseline.xml (config: config/detekt/detekt.yml)
 ./gradlew :core-atproto:jvmTest --tests "*.OAuthFlowTest"   # single test: fastest on the jvm target
 ./gradlew :core-lexicon:iosSimulatorArm64Test     # iOS tests run on the simulator

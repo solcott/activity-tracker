@@ -23,6 +23,9 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 
 @CircuitInject(ActivityDetailScreen::class, SessionScope::class)
@@ -36,7 +39,7 @@ fun ActivityDetailPresenter(
     localKudos: LocalKudos,
 ): ActivityDetailState {
     var activity by remember { mutableStateOf<ActivityView?>(null) }
-    var comments by remember { mutableStateOf(emptyList<CommentView>()) }
+    var comments by remember { mutableStateOf<ImmutableList<CommentView>>(persistentListOf()) }
     var error by remember { mutableStateOf<String?>(null) }
     var draft by remember { mutableStateOf("") }
     var loadKey by remember { mutableIntStateOf(0) }
@@ -50,7 +53,7 @@ fun ActivityDetailPresenter(
         runSuspendCatching {
             val output = feed.activity(AtUri(screen.uri))
             activity = output.activity
-            comments = output.comments
+            comments = output.comments.toImmutableList()
         }
             .onFailure { error = it.message ?: "Couldn't load activity" }
     }
@@ -157,5 +160,5 @@ private fun rememberKudosList(
             viewerListed -> athletes
             else -> listOfNotNull(me) + athletes
         }
-    return KudosList(merged, loading, error)
+    return KudosList(merged.toImmutableList(), loading, error)
 }

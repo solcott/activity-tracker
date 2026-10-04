@@ -9,7 +9,10 @@ import org.gradle.api.specs.Spec
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.withType
 
-/** Formatting and static analysis for every module: ktfmt, sort-dependencies, and detekt with the Compose rules. */
+/**
+ * Formatting and static analysis for every module: ktfmt, sort-dependencies, detekt with the Compose rules, and (in modules that apply the
+ * Compose compiler) the Compose stability check.
+ */
 class QualityConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {
@@ -43,6 +46,8 @@ class QualityConventionPlugin : Plugin<Project> {
                 description = "Runs every detekt task in this module, with and without type resolution."
                 dependsOn(tasks.withType<Detekt>().matching { it.name != "detektDevJvm" })
             }
+
+            pluginManager.withPlugin("org.jetbrains.kotlin.plugin.compose") { configureComposeStability() }
         }
     }
 }

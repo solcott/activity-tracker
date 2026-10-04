@@ -26,10 +26,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.Format
+import io.github.solcott.activitytracker.app.ui.Stat
 import io.github.solcott.activitytracker.app.ui.StatsRow
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.location.RecordingState
+import kotlinx.collections.immutable.persistentListOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @CircuitInject(RecordScreen::class, SessionScope::class)
@@ -58,9 +60,11 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
             )
             Text(Format.duration(state.elapsed), style = MaterialTheme.typography.displayLarge)
             StatsRow(
-                "Distance" to Format.distance(state.distanceMeters),
-                "Pace" to Format.pace(state.distanceMeters, state.movingSeconds),
-                "Elevation" to Format.elevation(state.elevationGainMeters),
+                persistentListOf(
+                    Stat("Distance", Format.distance(state.distanceMeters)),
+                    Stat("Pace", Format.pace(state.distanceMeters, state.movingSeconds)),
+                    Stat("Elevation", Format.elevation(state.elevationGainMeters)),
+                )
             )
             OutlinedTextField(
                 value = state.title,

@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data.auth
 
+import androidx.compose.runtime.Immutable
 import co.touchlab.kermit.Logger
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -24,6 +25,7 @@ class AuthCoordinator(
     private val browser: AuthBrowser,
     logger: Logger,
 ) {
+    @Immutable
     sealed interface Status {
         data object Idle : Status
 

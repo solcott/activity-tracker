@@ -32,8 +32,10 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.RoutePreview
+import io.github.solcott.activitytracker.app.ui.Stat
 import io.github.solcott.activitytracker.app.ui.StatsRow
 import io.github.solcott.activitytracker.data.di.SessionScope
+import kotlinx.collections.immutable.persistentListOf
 
 @CircuitInject(ActivityDetailScreen::class, SessionScope::class)
 @Composable
@@ -92,9 +94,11 @@ private fun LoadedContent(state: ActivityDetailState.Loaded, modifier: Modifier 
         }
         item {
             StatsRow(
-                "Distance" to Format.distance(record.distance?.toDouble()),
-                "Moving time" to Format.duration(record.movingTime ?: record.elapsedTime),
-                "Elevation" to Format.elevation(record.elevationGain?.toDouble()),
+                persistentListOf(
+                    Stat("Distance", Format.distance(record.distance?.toDouble())),
+                    Stat("Moving time", Format.duration(record.movingTime ?: record.elapsedTime)),
+                    Stat("Elevation", Format.elevation(record.elevationGain?.toDouble())),
+                )
             )
         }
         record.polyline?.let { item { RoutePreview(it, height = 240.dp) } }

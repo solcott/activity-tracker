@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.record
 
+import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
@@ -9,6 +10,7 @@ import kotlin.time.Duration
 
 @CircuitSerializable(SessionScope::class) data object RecordScreen : Screen
 
+@Immutable
 data class RecordState(
     val status: RecordingState.Status,
     val elapsed: Duration,

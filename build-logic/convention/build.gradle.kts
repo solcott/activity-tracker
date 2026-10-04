@@ -23,10 +23,12 @@ dependencies {
     // java-gradle-plugin (via kotlin-dsl) already adds gradleTestKit() to the test classpath.
     testImplementation(kotlin("test-junit"))
 
+    testPluginClasspath(libs.compose.compiler.gradle.plugin)
     testPluginClasspath(libs.kotlin.gradle.plugin)
 }
 
-// KGP is compileOnly (each build supplies its own), but TestKit fixtures need it to apply the convention plugins.
+// KGP and the Compose compiler plugin are compileOnly (each build supplies its own), but TestKit fixtures need them to apply the
+// convention plugins.
 tasks.pluginUnderTestMetadata { pluginClasspath.from(testPluginClasspath) }
 
 gradlePlugin {

@@ -5,6 +5,9 @@ plugins {
     alias(libs.plugins.metro)
 }
 
+// State contracts are what the UIs take as params, so every field must be statically stable.
+composeStability { strictClasses.set(true) }
+
 // Circuit contracts: each feature's Screen, State and Event. Presenters (:app-presenters) and UIs (:composeApp) both depend on this
 // module and never on each other.
 kotlin {
@@ -13,6 +16,7 @@ kotlin {
             api(projects.coreData)
             api(libs.circuit.runtime)
             api(libs.circuit.serialization)
+            api(libs.kotlinx.collections.immutable)
             implementation(libs.compose.runtime)
         }
     }

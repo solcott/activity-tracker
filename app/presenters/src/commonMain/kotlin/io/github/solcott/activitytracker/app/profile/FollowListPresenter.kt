@@ -14,6 +14,9 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 
 @CircuitInject(FollowListScreen::class, SessionScope::class)
@@ -24,7 +27,7 @@ fun FollowListPresenter(
     profiles: ProfileRepository,
 ): FollowListState {
     var subject by remember { mutableStateOf<ProfileViewBasic?>(null) }
-    var accounts by remember { mutableStateOf(emptyList<ProfileViewBasic>()) }
+    var accounts by remember { mutableStateOf<ImmutableList<ProfileViewBasic>>(persistentListOf()) }
     var cursor by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -37,7 +40,7 @@ fun FollowListPresenter(
             .onSuccess { page ->
                 subject = page.subject
                 // A follow can be re-indexed between pages and move; keep the first occurrence.
-                accounts = if (after == null) page.accounts else (accounts + page.accounts).distinctBy { it.did }
+                accounts = (if (after == null) page.accounts else (accounts + page.accounts).distinctBy { it.did }).toImmutableList()
                 cursor = page.cursor
                 error = null
             }
