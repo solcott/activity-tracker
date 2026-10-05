@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data.sport
 
+import io.github.solcott.activitytracker.activityfile.DecodedActivityMapper
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
@@ -58,6 +59,28 @@ class SportCatalogTest {
         }
     }
 
+    @Test
+    fun coversEveryStravaSportTypeAndImportsIt() {
+        assertEquals(55, STRAVA_SPORT_TYPES.size)
+        STRAVA_SPORT_TYPES.forEach { (name, type) ->
+            assertTrue(SportCatalog.isKnown(type), "Strava's $name → $type isn't in the catalog")
+            assertEquals(type, DecodedActivityMapper.activityType(name), "a GPX of Strava type $name")
+        }
+    }
+
+    @Test fun coversEveryAppleWorkoutType() = assertCovers("Apple", APPLE_WORKOUT_TYPES, expected = 84)
+
+    @Test fun coversEveryHealthConnectExerciseType() = assertCovers("Health Connect", HEALTH_CONNECT_EXERCISE_TYPES, expected = 61)
+
+    private fun assertCovers(provider: String, types: Map<String, ActivityType>, expected: Int) {
+        assertEquals(expected, types.size, "$provider's type count")
+        types.forEach { (name, type) ->
+            assertTrue(SportCatalog.isKnown(type), "$provider's $name → $type isn't in the catalog")
+            val generic = name.equals("other", ignoreCase = true) || name == "OTHER_WORKOUT"
+            if (type.sport == Sport.OTHER) assertTrue(generic || name in NOT_YET_MODELED, "$provider's $name maps to other")
+        }
+    }
+
     private companion object {
         /**
          * Every activity profile in Garmin's "Activity Profile Options on Garmin Wearables" FAQ, spelled as Garmin does, and the type it
@@ -92,7 +115,7 @@ class SportCatalogTest {
                 "Climb Indoor" to ActivityType(Sport.CLIMB, SubSport.INDOOR),
                 "Cricket" to ActivityType(Sport.CRICKET),
                 "Cyclocross" to ActivityType(Sport.RIDE, SubSport.CYCLOCROSS),
-                "Dance Fitness" to ActivityType(Sport.DANCE),
+                "Dance Fitness" to ActivityType(Sport.DANCE, SubSport.CARDIO),
                 "Disc Golf" to ActivityType(Sport.DISC_GOLF),
                 "eBike" to ActivityType(Sport.RIDE, SubSport.E_BIKE),
                 "Elliptical" to ActivityType(Sport.ELLIPTICAL),

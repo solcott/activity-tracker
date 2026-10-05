@@ -9,7 +9,10 @@ import kotlin.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/** Known values of [ActivityRecord.sport]; the field is an open string. Tokens follow Garmin's activity profiles. */
+/**
+ * Known values of [ActivityRecord.sport]; the field is an open string. Tokens follow Garmin's activity profiles, plus what Apple Health,
+ * Health Connect and Strava track that Garmin doesn't.
+ */
 object Sport {
     // Running, cycling, swimming, multisport
     const val RUN = "run"
@@ -33,6 +36,8 @@ object Sport {
     const val FISH = "fish"
     const val ADVENTURE_RACE = "adventureRace"
     const val EXPEDITION = "expedition"
+    const val WHEELCHAIR = "wheelchair"
+    const val SKATEBOARD = "skateboard"
 
     // Winter sports. SKI is alpine (downhill) skiing.
     const val SKI = "ski"
@@ -44,6 +49,7 @@ object Sport {
     // Water sports
     const val ROW = "row"
     const val KAYAK = "kayak"
+    const val CANOE = "canoe"
     const val SUP = "sup"
     const val SURF = "surf"
     const val KITEBOARD = "kiteboard"
@@ -73,6 +79,8 @@ object Sport {
     const val JUMP_ROPE = "jumpRope"
     const val BOXING = "boxing"
     const val MMA = "mma"
+    const val WRESTLING = "wrestling"
+    const val FENCING = "fencing"
     const val DANCE = "dance"
     const val GYMNASTICS = "gymnastics"
 
@@ -89,6 +97,8 @@ object Sport {
     const val RUGBY = "rugby"
     const val CRICKET = "cricket"
     const val ULTIMATE = "ultimate"
+    const val HANDBALL = "handball"
+    const val WATER_POLO = "waterPolo"
 
     // Racket sports
     const val TENNIS = "tennis"
@@ -163,6 +173,21 @@ object SubSport {
     const val APNEA = "apnea"
     const val APNEA_HUNT = "apneaHunt"
     const val POOL_APNEA = "poolApnea"
+
+    const val WALK_PACE = "walkPace"
+    const val RUN_PACE = "runPace"
+    const val NORDIC = "nordic"
+    const val ROLLER = "roller"
+
+    const val FUNCTIONAL = "functional"
+    const val CROSSFIT = "crossfit"
+    const val CALISTHENICS = "calisthenics"
+    const val BOOTCAMP = "bootcamp"
+    const val CIRCUIT = "circuit"
+    const val CARDIO = "cardio"
+    const val SOCIAL = "social"
+
+    const val PARAGLIDING = "paragliding"
 }
 
 /** `app.activitytracker.feed.activity`. Units are integers because lexicons have no floats. */

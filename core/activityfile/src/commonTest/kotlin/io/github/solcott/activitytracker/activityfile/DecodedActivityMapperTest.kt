@@ -154,6 +154,9 @@ class DecodedActivityMapperTest {
         assertType(ActivityType(Sport.SWIM, SubSport.OPEN_WATER), "swimming", "openWater")
         assertType(ActivityType(Sport.ROW), "rowing")
         assertType(ActivityType(Sport.ROW, SubSport.INDOOR), "fitness_equipment", "indoor_rowing")
+        assertType(ActivityType(Sport.WHEELCHAIR, SubSport.RUN_PACE), "WHEELCHAIR_PUSH_RUN")
+        assertType(ActivityType(Sport.WHEELCHAIR, SubSport.WALK_PACE), "wheelchairPushWalk")
+        assertType(ActivityType(Sport.FLYING, SubSport.PARAGLIDING), "paragliding")
         assertType(ActivityType(Sport.OTHER), null)
         assertType(ActivityType(Sport.OTHER), "training")
         assertType(ActivityType(Sport.OTHER), "some_future_sport")
@@ -174,6 +177,9 @@ class DecodedActivityMapperTest {
         assertType(ActivityType(Sport.RUN, SubSport.VIRTUAL), "running", "virtual_activity")
         assertType(ActivityType(Sport.RUN, SubSport.TREADMILL), "training", "treadmill")
         assertType(ActivityType(Sport.WALK, SubSport.TREADMILL), "walking", "treadmill")
+        assertType(ActivityType(Sport.WALK, SubSport.NORDIC), "walking", "nordic_walking")
+        assertType(ActivityType(Sport.XC_SKI, SubSport.ROLLER), "cross_country_skiing", "roller_skiing")
+        assertType(ActivityType(Sport.ROW, SubSport.VIRTUAL), "rowing", "virtual_activity")
         assertType(ActivityType(Sport.STRENGTH), "training", "strength_training")
         assertType(ActivityType(Sport.YOGA), "training", "yoga")
         assertType(ActivityType(Sport.STAIR_STEPPER), "fitness_equipment", "stair_climbing")
@@ -194,6 +200,8 @@ class DecodedActivityMapperTest {
         assertEquals(ActivityType(Sport.RUN, SubSport.TRAIL), DecodedActivityMapper.activityType("TrailRun"))
         assertEquals(ActivityType(Sport.STRENGTH), DecodedActivityMapper.activityType("WeightTraining"))
         assertEquals(ActivityType(Sport.SUP), DecodedActivityMapper.activityType("StandUpPaddling"))
+        assertEquals(ActivityType(Sport.CANOE), DecodedActivityMapper.activityType("Canoeing"))
+        assertEquals(ActivityType(Sport.STRENGTH, SubSport.CROSSFIT), DecodedActivityMapper.activityType("Crossfit"))
         assertEquals(ActivityType(Sport.RIDE), DecodedActivityMapper.activityType("Biking"), "TCX")
     }
 

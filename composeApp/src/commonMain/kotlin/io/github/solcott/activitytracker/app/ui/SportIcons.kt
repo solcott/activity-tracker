@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.accessibility_new
+import io.github.solcott.activitytracker.composeApp.resources.accessible
 import io.github.solcott.activitytracker.composeApp.resources.accessible_forward
 import io.github.solcott.activitytracker.composeApp.resources.air
 import io.github.solcott.activitytracker.composeApp.resources.album
@@ -43,6 +44,7 @@ import io.github.solcott.activitytracker.composeApp.resources.rowing
 import io.github.solcott.activitytracker.composeApp.resources.sailing
 import io.github.solcott.activitytracker.composeApp.resources.scuba_diving
 import io.github.solcott.activitytracker.composeApp.resources.self_improvement
+import io.github.solcott.activitytracker.composeApp.resources.skateboarding
 import io.github.solcott.activitytracker.composeApp.resources.snowboarding
 import io.github.solcott.activitytracker.composeApp.resources.snowmobile
 import io.github.solcott.activitytracker.composeApp.resources.snowshoeing
@@ -55,7 +57,9 @@ import io.github.solcott.activitytracker.composeApp.resources.sports_esports
 import io.github.solcott.activitytracker.composeApp.resources.sports_football
 import io.github.solcott.activitytracker.composeApp.resources.sports_golf
 import io.github.solcott.activitytracker.composeApp.resources.sports_gymnastics
+import io.github.solcott.activitytracker.composeApp.resources.sports_handball
 import io.github.solcott.activitytracker.composeApp.resources.sports_hockey
+import io.github.solcott.activitytracker.composeApp.resources.sports_kabaddi
 import io.github.solcott.activitytracker.composeApp.resources.sports_martial_arts
 import io.github.solcott.activitytracker.composeApp.resources.sports_mma
 import io.github.solcott.activitytracker.composeApp.resources.sports_motorsports
@@ -67,6 +71,7 @@ import io.github.solcott.activitytracker.composeApp.resources.sports_volleyball
 import io.github.solcott.activitytracker.composeApp.resources.stairs
 import io.github.solcott.activitytracker.composeApp.resources.stairs_2
 import io.github.solcott.activitytracker.composeApp.resources.surfing
+import io.github.solcott.activitytracker.composeApp.resources.swords
 import io.github.solcott.activitytracker.composeApp.resources.target
 import io.github.solcott.activitytracker.composeApp.resources.two_wheeler
 import io.github.solcott.activitytracker.composeApp.resources.waves
@@ -102,6 +107,8 @@ internal val SPORT_ICONS: Map<String, DrawableResource> =
         Sport.FISH to Res.drawable.phishing,
         Sport.ADVENTURE_RACE to Res.drawable.explore,
         Sport.EXPEDITION to Res.drawable.camping,
+        Sport.WHEELCHAIR to Res.drawable.accessible,
+        Sport.SKATEBOARD to Res.drawable.skateboarding,
         Sport.SKI to Res.drawable.downhill_skiing,
         Sport.SNOWBOARD to Res.drawable.snowboarding,
         Sport.XC_SKI to Res.drawable.nordic_walking,
@@ -109,6 +116,7 @@ internal val SPORT_ICONS: Map<String, DrawableResource> =
         Sport.ICE_SKATE to Res.drawable.ice_skating,
         Sport.ROW to Res.drawable.rowing,
         Sport.KAYAK to Res.drawable.kayaking,
+        Sport.CANOE to Res.drawable.kayaking,
         Sport.SUP to Res.drawable.surfing,
         Sport.SURF to Res.drawable.surfing,
         Sport.KITEBOARD to Res.drawable.kitesurfing,
@@ -134,6 +142,8 @@ internal val SPORT_ICONS: Map<String, DrawableResource> =
         Sport.JUMP_ROPE to Res.drawable.exercise,
         Sport.BOXING to Res.drawable.sports_mma,
         Sport.MMA to Res.drawable.sports_martial_arts,
+        Sport.WRESTLING to Res.drawable.sports_kabaddi,
+        Sport.FENCING to Res.drawable.swords,
         Sport.DANCE to Res.drawable.music_note,
         Sport.GYMNASTICS to Res.drawable.sports_gymnastics,
         Sport.SOCCER to Res.drawable.sports_soccer,
@@ -148,6 +158,8 @@ internal val SPORT_ICONS: Map<String, DrawableResource> =
         Sport.RUGBY to Res.drawable.sports_rugby,
         Sport.CRICKET to Res.drawable.sports_cricket,
         Sport.ULTIMATE to Res.drawable.album,
+        Sport.HANDBALL to Res.drawable.sports_handball,
+        Sport.WATER_POLO to Res.drawable.pool,
         Sport.TENNIS to Res.drawable.sports_tennis,
         Sport.PICKLEBALL to Res.drawable.sports_tennis,
         Sport.PADEL to Res.drawable.sports_tennis,
@@ -175,6 +187,9 @@ private val SUB_SPORT_ICONS: Map<ActivityType, DrawableResource> =
         ActivityType(Sport.RIDE, SubSport.E_BIKE) to Res.drawable.electric_bike,
         ActivityType(Sport.RIDE, SubSport.E_MOUNTAIN) to Res.drawable.electric_bike,
         ActivityType(Sport.SWIM, SubSport.OPEN_WATER) to Res.drawable.waves,
+        ActivityType(Sport.WALK, SubSport.NORDIC) to Res.drawable.nordic_walking,
+        ActivityType(Sport.WHEELCHAIR, SubSport.RUN_PACE) to Res.drawable.accessible_forward,
+        ActivityType(Sport.FLYING, SubSport.PARAGLIDING) to Res.drawable.paragliding,
     )
 
 /** The icon for [type]: its sub-sport's, else its sport's, else a generic one for a sport another client added. */

@@ -64,6 +64,8 @@
     <string name="sport_fish">Fish</string>
     <string name="sport_adventureRace">Adventure Race</string>
     <string name="sport_expedition">Expedition</string>
+    <string name="sport_wheelchair">Wheelchair</string>
+    <string name="sport_skateboard">Skateboard</string>
     <string name="sport_ski">Ski</string>
     <string name="sport_snowboard">Snowboard</string>
     <string name="sport_xcSki">Cross-Country Ski</string>
@@ -71,6 +73,7 @@
     <string name="sport_iceSkate">Ice Skate</string>
     <string name="sport_row">Row</string>
     <string name="sport_kayak">Kayak</string>
+    <string name="sport_canoe">Canoe</string>
     <string name="sport_sup">Stand Up Paddle</string>
     <string name="sport_surf">Surf</string>
     <string name="sport_kiteboard">Kiteboard</string>
@@ -96,7 +99,9 @@
     <string name="sport_jumpRope">Jump Rope</string>
     <string name="sport_boxing">Boxing</string>
     <string name="sport_mma">Mixed Martial Arts</string>
-    <string name="sport_dance">Dance Fitness</string>
+    <string name="sport_wrestling">Wrestling</string>
+    <string name="sport_fencing">Fencing</string>
+    <string name="sport_dance">Dance</string>
     <string name="sport_gymnastics">Gymnastics</string>
     <string name="sport_soccer">Soccer</string>
     <string name="sport_americanFootball">American Football</string>
@@ -110,6 +115,8 @@
     <string name="sport_rugby">Rugby</string>
     <string name="sport_cricket">Cricket</string>
     <string name="sport_ultimate">Ultimate</string>
+    <string name="sport_handball">Handball</string>
+    <string name="sport_waterPolo">Water Polo</string>
     <string name="sport_tennis">Tennis</string>
     <string name="sport_pickleball">Pickleball</string>
     <string name="sport_padel">Padel</string>
@@ -159,14 +166,19 @@
     <string name="sub_sport_multisport_mixed">Mixed Session</string>
     <string name="sub_sport_walk_indoor">Indoor Walk</string>
     <string name="sub_sport_walk_treadmill">Treadmill Walk</string>
+    <string name="sub_sport_walk_nordic">Nordic Walk</string>
+    <string name="sub_sport_wheelchair_walkPace">Wheelchair Walk Pace</string>
+    <string name="sub_sport_wheelchair_runPace">Wheelchair Run Pace</string>
     <string name="sub_sport_climb_bouldering">Bouldering</string>
     <string name="sub_sport_climb_indoor">Indoor Climb</string>
     <string name="sub_sport_ski_backcountry">Backcountry Ski</string>
     <string name="sub_sport_snowboard_backcountry">Backcountry Snowboard</string>
     <string name="sub_sport_xcSki_classic">Classic Cross-Country Ski</string>
     <string name="sub_sport_xcSki_skate">Skate Ski</string>
+    <string name="sub_sport_xcSki_roller">Roller Ski</string>
     <string name="sub_sport_xcSki_indoor">Indoor Cross-Country Ski</string>
     <string name="sub_sport_row_indoor">Indoor Row</string>
+    <string name="sub_sport_row_virtual">Virtual Row</string>
     <string name="sub_sport_sail_race">Sail Race</string>
     <string name="sub_sport_sail_expedition">Sail Expedition</string>
     <string name="sub_sport_dive_singleGas">Single-Gas Dive</string>
@@ -176,6 +188,14 @@
     <string name="sub_sport_dive_apnea">Apnea Dive</string>
     <string name="sub_sport_dive_apneaHunt">Apnea Hunt</string>
     <string name="sub_sport_dive_poolApnea">Pool Apnea</string>
+    <string name="sub_sport_strength_functional">Functional Strength</string>
+    <string name="sub_sport_strength_crossfit">CrossFit</string>
+    <string name="sub_sport_strength_calisthenics">Calisthenics</string>
+    <string name="sub_sport_hiit_bootcamp">Bootcamp</string>
+    <string name="sub_sport_hiit_circuit">Circuit Training</string>
+    <string name="sub_sport_dance_cardio">Dance Fitness</string>
+    <string name="sub_sport_dance_social">Social Dance</string>
+    <string name="sub_sport_flying_paragliding">Paraglide</string>
 
     <!-- Sport picker -->
     <string name="sport_picker_label">Sport</string>

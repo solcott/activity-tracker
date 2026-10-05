@@ -54,8 +54,9 @@ data class SportInfo(
 @Immutable data class CategoryTypes(val category: SportCategory, val types: List<ActivityType>)
 
 /**
- * The known activity types, modeled on Garmin's activity profiles. Sport and sub-sport tokens are open strings in the lexicon, so a type
- * this catalog doesn't know (from another client) still displays, falling back to [RateKind.Pace] like the original sports did.
+ * The known activity types, modeled on Garmin's activity profiles and extended with what Apple Health, Health Connect and Strava track.
+ * Sport and sub-sport tokens are open strings in the lexicon, so a type this catalog doesn't know (from another client) still displays,
+ * falling back to [RateKind.Pace] like the original sports did.
  */
 object SportCatalog {
     val sports: List<SportInfo> = buildList {
@@ -65,6 +66,9 @@ object SportCatalog {
 
         fun withSubs(category: SportCategory, rate: RateKind, sport: String, vararg subSports: SubSportInfo) =
             add(SportInfo(sport, category, rate, subSports.toList()))
+
+        fun gym(sport: String, vararg subSports: SubSportInfo) =
+            add(SportInfo(sport, SportCategory.Gym, RateKind.None, subSports.toList(), indoor = true))
 
         withSubs(
             SportCategory.Running,
@@ -113,10 +117,12 @@ object SportCatalog {
             Sport.WALK,
             sub(SubSport.INDOOR, indoor = true),
             sub(SubSport.TREADMILL, indoor = true),
+            sub(SubSport.NORDIC),
         )
+        withSubs(SportCategory.Outdoor, RateKind.Pace, Sport.WHEELCHAIR, sub(SubSport.WALK_PACE), sub(SubSport.RUN_PACE))
         plain(SportCategory.Outdoor, RateKind.Pace, Sport.HIKE, Sport.RUCKING, Sport.MOUNTAINEERING)
         withSubs(SportCategory.Outdoor, RateKind.None, Sport.CLIMB, sub(SubSport.BOULDERING), sub(SubSport.INDOOR, indoor = true))
-        plain(SportCategory.Outdoor, RateKind.Speed, Sport.INLINE_SKATE, Sport.HORSEBACK)
+        plain(SportCategory.Outdoor, RateKind.Speed, Sport.INLINE_SKATE, Sport.SKATEBOARD, Sport.HORSEBACK)
         plain(SportCategory.Outdoor, RateKind.None, Sport.GOLF, Sport.DISC_GOLF, Sport.ARCHERY, Sport.HUNT, Sport.FISH)
         plain(SportCategory.Outdoor, RateKind.Pace, Sport.ADVENTURE_RACE)
         plain(SportCategory.Outdoor, RateKind.Speed, Sport.EXPEDITION)
@@ -129,13 +135,20 @@ object SportCatalog {
             Sport.XC_SKI,
             sub(SubSport.CLASSIC),
             sub(SubSport.SKATE),
+            sub(SubSport.ROLLER),
             sub(SubSport.INDOOR, indoor = true),
         )
         plain(SportCategory.WinterSports, RateKind.Pace, Sport.SNOWSHOE)
         plain(SportCategory.WinterSports, RateKind.Speed, Sport.ICE_SKATE)
 
-        withSubs(SportCategory.WaterSports, RateKind.Speed, Sport.ROW, sub(SubSport.INDOOR, indoor = true))
-        plain(SportCategory.WaterSports, RateKind.Speed, Sport.KAYAK, Sport.SUP)
+        withSubs(
+            SportCategory.WaterSports,
+            RateKind.Speed,
+            Sport.ROW,
+            sub(SubSport.INDOOR, indoor = true),
+            sub(SubSport.VIRTUAL, indoor = true),
+        )
+        plain(SportCategory.WaterSports, RateKind.Speed, Sport.KAYAK, Sport.CANOE, Sport.SUP)
         plain(SportCategory.WaterSports, RateKind.None, Sport.SURF)
         plain(SportCategory.WaterSports, RateKind.Speed, Sport.KITEBOARD, Sport.WINDSURF)
         withSubs(SportCategory.WaterSports, RateKind.Speed, Sport.SAIL, sub(SubSport.RACE), sub(SubSport.EXPEDITION))
@@ -161,12 +174,12 @@ object SportCatalog {
             )
         )
 
+        gym(Sport.STRENGTH, sub(SubSport.FUNCTIONAL), sub(SubSport.CROSSFIT), sub(SubSport.CALISTHENICS))
+        gym(Sport.CARDIO)
+        gym(Sport.HIIT, sub(SubSport.BOOTCAMP), sub(SubSport.CIRCUIT))
         plain(
             SportCategory.Gym,
             RateKind.None,
-            Sport.STRENGTH,
-            Sport.CARDIO,
-            Sport.HIIT,
             Sport.YOGA,
             Sport.PILATES,
             Sport.MOBILITY,
@@ -176,10 +189,12 @@ object SportCatalog {
             Sport.JUMP_ROPE,
             Sport.BOXING,
             Sport.MMA,
-            Sport.DANCE,
-            Sport.GYMNASTICS,
+            Sport.WRESTLING,
+            Sport.FENCING,
             indoor = true,
         )
+        gym(Sport.DANCE, sub(SubSport.CARDIO), sub(SubSport.SOCIAL))
+        gym(Sport.GYMNASTICS)
 
         plain(
             SportCategory.TeamSports,
@@ -196,6 +211,8 @@ object SportCatalog {
             Sport.RUGBY,
             Sport.CRICKET,
             Sport.ULTIMATE,
+            Sport.HANDBALL,
+            Sport.WATER_POLO,
         )
         plain(
             SportCategory.RacketSports,
@@ -212,7 +229,8 @@ object SportCatalog {
         plain(SportCategory.Motorsports, RateKind.Speed, Sport.MOTORCYCLE, Sport.MOTOCROSS, Sport.ATV, Sport.SNOWMOBILE, Sport.OVERLAND)
 
         plain(SportCategory.Other, RateKind.None, Sport.MEDITATION, Sport.BREATHWORK, Sport.GAMING, indoor = true)
-        plain(SportCategory.Other, RateKind.Speed, Sport.FLYING, Sport.SKYDIVE)
+        withSubs(SportCategory.Other, RateKind.Speed, Sport.FLYING, sub(SubSport.PARAGLIDING))
+        plain(SportCategory.Other, RateKind.Speed, Sport.SKYDIVE)
         plain(SportCategory.Other, RateKind.Pace, Sport.OTHER)
     }
 
@@ -226,11 +244,12 @@ object SportCatalog {
                     ActivityType(Sport.RIDE, SubSport.INDOOR),
                     ActivityType(Sport.WALK, SubSport.INDOOR),
                     ActivityType(Sport.ROW, SubSport.INDOOR),
+                    ActivityType(Sport.ROW, SubSport.VIRTUAL),
                     ActivityType(Sport.XC_SKI, SubSport.INDOOR),
                     ActivityType(Sport.CLIMB, SubSport.INDOOR),
                     ActivityType(Sport.CLIMB, SubSport.BOULDERING),
                 ),
-            SportCategory.Running to listOf(ActivityType(Sport.WALK)),
+            SportCategory.Running to listOf(ActivityType(Sport.WALK), ActivityType(Sport.WHEELCHAIR, SubSport.RUN_PACE)),
             SportCategory.Diving to listOf(ActivityType(Sport.SNORKEL)),
         )
 
