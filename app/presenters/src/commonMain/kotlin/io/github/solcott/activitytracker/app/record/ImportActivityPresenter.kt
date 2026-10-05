@@ -10,7 +10,9 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.activityfile.ActivityFileReader
+import io.github.solcott.activitytracker.activityfile.DepthPoint
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
+import io.github.solcott.activitytracker.activityfile.ImportedDive
 import io.github.solcott.activitytracker.activityfile.UnsupportedActivityFileException
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -20,6 +22,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 
 @CircuitInject(ImportActivityScreen::class, SessionScope::class)
@@ -104,4 +107,32 @@ private fun ImportedActivity.toPreview(fileName: String) =
         maxHeartRate = maxHeartRate,
         device = device,
         polyline = ActivityDraft.polylineOf(samples),
+        dive = dive?.toPreview(),
     )
+
+private fun ImportedDive.toPreview() =
+    DivePreview(
+        maxDepthMeters = maxDepthMeters,
+        avgDepthMeters = avgDepthMeters,
+        minWaterTempCelsius = minWaterTempCelsius,
+        diveNumber = diveNumber,
+        surfaceIntervalMinutes = surfaceIntervalMinutes,
+        gradientFactorLow = gradientFactorLow,
+        gradientFactorHigh = gradientFactorHigh,
+        startCns = startCns,
+        endCns = endCns,
+        gases = gases.map { DiveGasPreview(it.oxygenPercent, it.heliumPercent) }.toImmutableList(),
+        closedCircuit = closedCircuit,
+        profile = profile.thinned().map { DepthPreviewPoint(it.seconds, it.depthMeters) }.toImmutableList(),
+    )
+
+/** About this many points draw a smooth profile; a two-hour dive logs 720. */
+private const val MAX_PROFILE_POINTS = 300
+
+/** Every nth point, keeping the last so the profile ends at the surface. */
+private fun List<DepthPoint>.thinned(): List<DepthPoint> {
+    if (size <= MAX_PROFILE_POINTS) return this
+    val step = (size + MAX_PROFILE_POINTS - 1) / MAX_PROFILE_POINTS
+    val kept = filterIndexed { i, _ -> i % step == 0 }
+    return if (kept.last() == last()) kept else kept + last()
+}

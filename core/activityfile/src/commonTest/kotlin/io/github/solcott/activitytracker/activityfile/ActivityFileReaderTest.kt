@@ -84,6 +84,30 @@ class ActivityFileReaderTest {
     }
 
     @Test
+    fun picksShearwaterDivesByContent() = runTest {
+        val activity = reader.read(ShearwaterFixtures.dive().encodeToByteArray())
+        assertEquals(Sport.DIVE, activity.type.sport)
+        assertEquals("Shearwater Peregrine TX", activity.device)
+        assertFailsWith<ActivityFileException> { reader.read("""<dive version="3"/>""".encodeToByteArray()) }
+    }
+
+    @Test
+    fun readsUtf16WithAByteOrderMark() = runTest {
+        val xml = ShearwaterFixtures.dive()
+        fun utf16(bigEndian: Boolean): ByteArray {
+            val bom = if (bigEndian) byteArrayOf(-2, -1) else byteArrayOf(-1, -2)
+            return bom +
+                xml.flatMap { c ->
+                    val high = (c.code shr 8).toByte()
+                    val low = c.code.toByte()
+                    if (bigEndian) listOf(high, low) else listOf(low, high)
+                }
+        }
+        assertEquals(Sport.DIVE, reader.read(utf16(bigEndian = false)).type.sport)
+        assertEquals(Sport.DIVE, reader.read(utf16(bigEndian = true)).type.sport)
+    }
+
+    @Test
     fun rejectsOtherFiles() = runTest {
         assertFailsWith<UnsupportedActivityFileException> { reader.read("hello".encodeToByteArray()) }
         assertFailsWith<UnsupportedActivityFileException> { reader.read("<html><body/></html>".encodeToByteArray()) }

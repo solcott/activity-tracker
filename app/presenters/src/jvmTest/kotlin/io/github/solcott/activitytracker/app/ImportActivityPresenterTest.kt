@@ -5,15 +5,20 @@ import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.activityfile.ActivityFileException
 import io.github.solcott.activitytracker.activityfile.ActivityFileReader
 import io.github.solcott.activitytracker.activityfile.DecodedActivity
+import io.github.solcott.activitytracker.activityfile.DecodedDive
 import io.github.solcott.activitytracker.activityfile.DecodedSample
 import io.github.solcott.activitytracker.activityfile.DecodedSource
 import io.github.solcott.activitytracker.activityfile.DecodedSummary
+import io.github.solcott.activitytracker.activityfile.DiveGas
 import io.github.solcott.activitytracker.activityfile.FitDecoder
+import io.github.solcott.activitytracker.app.record.DepthPreviewPoint
+import io.github.solcott.activitytracker.app.record.DiveGasPreview
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.SubSport
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -90,6 +95,7 @@ class ImportActivityPresenterTest {
             assertEquals(152, preview.avgHeartRate)
             assertEquals("Garmin fenix7", preview.device)
             assertNotNull(preview.polyline)
+            assertNull(preview.dive)
             assertEquals(ActivityType(Sport.RUN), read.type)
 
             read.eventSink(ImportActivityEvent.TitleChanged("Lunch loop"))
@@ -105,6 +111,68 @@ class ImportActivityPresenterTest {
         assertEquals(152, record.getValue("avgHeartRate").jsonPrimitive.int)
         assertEquals("Garmin fenix7", record.getValue("device").jsonPrimitive.content)
         assertTrue("track" in record, "the GPS track is uploaded as a GPX blob")
+    }
+
+    @Test
+    fun aDiveShowsItsDepthsAndGases() = runTest {
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ImportActivityScreen)
+        // Two hours at 10 s intervals: more points than the profile draws.
+        val records =
+            (0L..720L).map { i ->
+                DecodedSample(
+                    (start + (i * 10).seconds).toEpochMilliseconds(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    18.0,
+                    if (i == 720L) 0.0 else 30.0,
+                )
+            }
+        val dive =
+            DecodedActivity(
+                fileId = DecodedSource(null, null, "Shearwater Perdix", null),
+                sessions =
+                    listOf(
+                        DecodedSummary(
+                            "diving",
+                            "multi_gas_diving",
+                            start.toEpochMilliseconds(),
+                            7200.0,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                        )
+                    ),
+                laps = emptyList(),
+                records = records,
+                dive = DecodedDive(31.0, 42, 90, 30, 70, 2, 25, listOf(DiveGas(21, 35), DiveGas(50, 0)), closedCircuit = false),
+            )
+        presenterTestOf({ ImportActivityPresenter(navigator, repos.activities, ActivityFileReader { dive }, repos.recentTypes) }) {
+            awaitItem().eventSink(ImportActivityEvent.FilePicked("dive.fit", bytes))
+            val read = awaitUntil { it.preview != null }
+            assertEquals(ActivityType(Sport.DIVE, SubSport.MULTI_GAS), read.type)
+            val preview = assertNotNull(read.preview?.dive)
+            assertEquals(31.0, preview.maxDepthMeters)
+            assertEquals(listOf(DiveGasPreview(21, 35), DiveGasPreview(50, 0)), preview.gases)
+            assertEquals(42, preview.diveNumber)
+            assertTrue(preview.profile.size <= 300, "thinned to ${preview.profile.size}")
+            assertEquals(DepthPreviewPoint(7200, 0.0), preview.profile.last(), "still ends at the surface")
+            assertNull(read.preview?.polyline)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test

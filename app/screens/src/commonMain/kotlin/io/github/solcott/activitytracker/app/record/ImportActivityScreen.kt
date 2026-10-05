@@ -11,7 +11,7 @@ import kotlin.time.Duration
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.io.bytestring.ByteString
 
-/** Import an activity from a FIT, GPX or TCX file (optionally gzipped) that a device or app recorded. */
+/** Import an activity from a FIT, GPX, TCX or Shearwater dive file (optionally gzipped) that a device or app recorded. */
 @CircuitSerializable(SessionScope::class) data object ImportActivityScreen : Screen
 
 @Immutable
@@ -43,7 +43,35 @@ data class ImportPreview(
     val device: String?,
     /** Null for indoor activities. */
     val polyline: String?,
+    /** Null unless a dive computer recorded the file. */
+    val dive: DivePreview?,
 )
+
+/** A dive's own data, in SI units. Shown on the import screen only; records don't carry it yet. */
+@Immutable
+data class DivePreview(
+    val maxDepthMeters: Double?,
+    val avgDepthMeters: Double?,
+    val minWaterTempCelsius: Double?,
+    /** The dive computer's own count. */
+    val diveNumber: Int?,
+    val surfaceIntervalMinutes: Int?,
+    val gradientFactorLow: Int?,
+    val gradientFactorHigh: Int?,
+    /** Central nervous system oxygen toxicity, in percent of the limit. */
+    val startCns: Int?,
+    val endCns: Int?,
+    /** In order of first use. */
+    val gases: ImmutableList<DiveGasPreview>,
+    val closedCircuit: Boolean,
+    /** Depth over time, thinned for drawing. */
+    val profile: ImmutableList<DepthPreviewPoint>,
+)
+
+/** Whole percents; air is 21/0. */
+@Immutable data class DiveGasPreview(val oxygenPercent: Int, val heliumPercent: Int)
+
+@Immutable data class DepthPreviewPoint(val seconds: Long, val depthMeters: Double)
 
 sealed interface ImportActivityEvent {
     /** The athlete picked a file. [name] is shown in the preview; the format comes from the content. */

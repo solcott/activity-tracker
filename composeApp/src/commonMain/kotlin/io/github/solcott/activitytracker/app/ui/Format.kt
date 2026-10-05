@@ -42,6 +42,7 @@ object Format {
     private const val DISTANCE_DECIMALS = 2
     private const val SPEED_DECIMALS = 1
     private const val WEIGHT_DECIMALS = 1
+    private const val DEPTH_DECIMALS = 1
 
     /** Below this, pace is noise from GPS jitter. */
     private const val MIN_PACE_DISTANCE_M = 10
@@ -129,6 +130,18 @@ object Format {
         if (meters == null) return stringResource(Res.string.value_missing)
         val units = LocalUnitSystem.current
         val value = UnitConversions.toElevationUnit(meters, units).roundToLong()
+        return when (units) {
+            UnitSystem.Metric -> stringResource(Res.string.unit_elevation_m, value)
+            UnitSystem.Imperial -> stringResource(Res.string.unit_elevation_ft, value)
+        }
+    }
+
+    /** A dive depth in meters, or feet, to one decimal. */
+    @Composable
+    fun depth(meters: Double?): String {
+        if (meters == null) return stringResource(Res.string.value_missing)
+        val units = LocalUnitSystem.current
+        val value = formatDecimal(UnitConversions.toElevationUnit(meters, units), DEPTH_DECIMALS)
         return when (units) {
             UnitSystem.Metric -> stringResource(Res.string.unit_elevation_m, value)
             UnitSystem.Imperial -> stringResource(Res.string.unit_elevation_ft, value)

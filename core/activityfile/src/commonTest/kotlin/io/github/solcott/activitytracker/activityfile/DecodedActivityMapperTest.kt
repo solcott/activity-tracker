@@ -225,6 +225,25 @@ class DecodedActivityMapperTest {
     }
 
     @Test
+    fun diveDepthsComeFromTheProfile() {
+        fun depth(sec: Long, meters: Double) =
+            DecodedSample((start + sec.seconds).toEpochMilliseconds(), null, null, null, null, null, null, null, null, 20.0, meters)
+        // A minute at the surface either side of the dive must not pull the average toward zero.
+        val records = listOf(depth(0, 0.0), depth(60, 0.0), depth(120, 10.0), depth(180, 10.0), depth(240, 0.0), depth(300, 0.0))
+        val header = DecodedDive(null, null, null, null, null, null, null, listOf(DiveGas(21, 0)), closedCircuit = false)
+        val dive = DecodedActivityMapper.map(DecodedActivity(null, listOf(summary("diving")), emptyList(), records, header)).dive!!
+
+        assertEquals(10.0, dive.maxDepthMeters, "the deepest sample, with no header value")
+        assertEquals(20.0 / 3, dive.avgDepthMeters!!, 1e-9)
+        assertEquals(listOf(0L, 60L, 120L, 180L, 240L, 300L), dive.profile.map { it.seconds })
+    }
+
+    @Test
+    fun onlyDivesHaveDiveData() {
+        assertEquals(null, DecodedActivityMapper.map(DecodedActivity(fileId(), listOf(summary()), emptyList(), listOf(record(0)))).dive)
+    }
+
+    @Test
     fun semicircles() {
         assertEquals(180.0, FitUnits.semicirclesToDegrees(Int.MAX_VALUE), 1e-6)
         assertEquals(-90.0, FitUnits.semicirclesToDegrees(Int.MIN_VALUE / 2), 1e-9)

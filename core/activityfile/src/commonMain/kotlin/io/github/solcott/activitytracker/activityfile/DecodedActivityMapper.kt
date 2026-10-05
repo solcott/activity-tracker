@@ -27,12 +27,7 @@ object DecodedActivityMapper {
         val sessions = fit.sessions.ifEmpty { fit.laps }
         if (sessions.isEmpty() && records.isEmpty()) activityFileError("No activity data in file")
 
-        val first = sessions.firstOrNull()
-        val startedAtMillis =
-            first?.startTimeMillis
-                ?: records.firstOrNull()?.timestampMillis
-                ?: fit.fileId?.timeCreatedMillis
-                ?: activityFileError("No start time in file")
+        val startedAtMillis = startedAtMillis(fit, sessions, records)
         val samples = records.toSamples()
 
         return ImportedActivity(
@@ -48,8 +43,36 @@ object DecodedActivityMapper {
             avgTemperatureCelsius = avgTemperature(sessions, records),
             device = fit.fileId?.let { device(it.manufacturer, it.product) },
             samples = samples,
+            dive = fit.dive?.let { dive(it, records, startedAtMillis) },
         )
     }
+
+    /** [records] are sorted and all have a timestamp. */
+    private fun dive(dive: DecodedDive, records: List<DecodedSample>, startedAtMillis: Long): ImportedDive {
+        val profile = records.mapNotNull { r ->
+            r.depthMeters?.let { DepthPoint((r.timestampMillis!! - startedAtMillis).milliseconds.inWholeSeconds, it) }
+        }
+        return ImportedDive(
+            maxDepthMeters = dive.maxDepthMeters ?: profile.maxOfOrNull { it.depthMeters },
+            avgDepthMeters = profile.averageDepth(),
+            minWaterTempCelsius = records.mapNotNull { it.temperatureCelsius }.minOrNull(),
+            diveNumber = dive.diveNumber,
+            surfaceIntervalMinutes = dive.surfaceIntervalMinutes,
+            gradientFactorLow = dive.gradientFactorLow,
+            gradientFactorHigh = dive.gradientFactorHigh,
+            startCns = dive.startCns,
+            endCns = dive.endCns,
+            gases = dive.gases,
+            closedCircuit = dive.closedCircuit,
+            profile = profile,
+        )
+    }
+
+    private fun startedAtMillis(fit: DecodedActivity, sessions: List<DecodedSummary>, records: List<DecodedSample>): Long =
+        sessions.firstOrNull()?.startTimeMillis
+            ?: records.firstOrNull()?.timestampMillis
+            ?: fit.fileId?.timeCreatedMillis
+            ?: activityFileError("No start time in file")
 
     private fun avgTemperature(sessions: List<DecodedSummary>, records: List<DecodedSample>): Double? =
         sessions.weightedAverage { it.avgTemperatureCelsius }
@@ -394,6 +417,23 @@ private fun List<LocationSample>.movingSeconds(): Double? = takeIf {
     ?.sum()
 
 private const val MILLIS_PER_SECOND = 1000.0
+
+/**
+ * Mean depth while under water, each sample weighted by the time to the next one, so the surface time a computer logs before and after the
+ * dive doesn't pull it toward zero. Null with nothing below the surface.
+ */
+private fun List<DepthPoint>.averageDepth(): Double? {
+    var area = 0.0
+    var seconds = 0L
+    zipWithNext { a, b ->
+        val dt = b.seconds - a.seconds
+        if (dt > 0 && (a.depthMeters > 0 || b.depthMeters > 0)) {
+            area += (a.depthMeters + b.depthMeters) / 2 * dt
+            seconds += dt
+        }
+    }
+    return if (seconds > 0) area / seconds else null
+}
 
 private fun List<Double>.climb(): Double? {
     if (isEmpty()) return null

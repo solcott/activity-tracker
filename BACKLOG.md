@@ -38,8 +38,9 @@ The activity detail screen shows the route on a MapLibre map (`ActivityMap`) on 
 
 ## Keep more of what activity files hold
 
-FIT, GPX and TCX import (optionally gzipped) works on every client (`:core-activityfile`, `ImportActivityScreen`). Next:
+FIT, GPX, TCX and Shearwater dive XML import (optionally gzipped) works on every client (`:core-activityfile`, `ImportActivityScreen`). Next:
 
+- **Dive data.** `ImportedDive` (max and average depth, gases, GF, CNS, surface interval, depth profile) shows on the import screen, but the activity lexicon has no dive fields, so a published dive keeps only its time, water temperature and sub-sport. Add the summary fields with the `lexicon-change` skill and show them on activity cards. The profile is a stream (see below). FIT files from Garmin Descent watches carry the same data (`dive_summary`, record depth) and could fill `DecodedDive` too.
 - **Power, cadence and laps.** `DecodedActivity` already decodes them from all three formats, but the activity lexicon has no fields for them, so they're dropped. Add them with the `lexicon-change` skill.
 - **Streams.** Per-sample HR, power and elevation for charts and a coloured map line need a home that isn't a public record (see privacy zones above). The AppView can already parse activity files (`:core-activityfile` is on its classpath), so a private upload procedure like `actor.putPrivateDetails` is one option.
 - **Bulk import.** Strava's account export is a zip of gzipped files plus `activities.csv` with titles. Reading the zip and importing many activities at once would reuse `ActivityFileReader`.

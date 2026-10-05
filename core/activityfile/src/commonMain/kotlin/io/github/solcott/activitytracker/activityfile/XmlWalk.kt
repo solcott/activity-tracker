@@ -95,8 +95,9 @@ internal class SampleBuilder(var latitude: Double? = null, var longitude: Double
     var speed: Double? = null
     var distance: Double? = null
     var temperature: Double? = null
+    var depth: Double? = null
 
-    fun build() = DecodedSample(time, latitude, longitude, altitude, heartRate, cadence, power, speed, distance, temperature)
+    fun build() = DecodedSample(time, latitude, longitude, altitude, heartRate, cadence, power, speed, distance, temperature, depth)
 }
 
 internal fun String.toIntValue(): Int? = toDoubleOrNull()?.toInt()

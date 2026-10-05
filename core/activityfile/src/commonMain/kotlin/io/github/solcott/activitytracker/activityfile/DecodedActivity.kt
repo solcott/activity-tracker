@@ -10,6 +10,8 @@ data class DecodedActivity(
     val sessions: List<DecodedSummary>,
     val laps: List<DecodedSummary>,
     val records: List<DecodedSample>,
+    /** Dive computer header values; null unless the file is a dive log. */
+    val dive: DecodedDive? = null,
 )
 
 data class DecodedSource(
@@ -51,7 +53,31 @@ data class DecodedSample(
     val speedMps: Double?,
     val distanceMeters: Double?,
     val temperatureCelsius: Double?,
+    /** Depth below the surface, for dives. */
+    val depthMeters: Double? = null,
 )
+
+/** A dive log's header, in SI units. */
+data class DecodedDive(
+    val maxDepthMeters: Double?,
+    /** The dive computer's own count. */
+    val diveNumber: Int?,
+    /** Time at the surface since the previous dive. */
+    val surfaceIntervalMinutes: Int?,
+    /** Bühlmann gradient factors, in percent. */
+    val gradientFactorLow: Int?,
+    val gradientFactorHigh: Int?,
+    /** Central nervous system oxygen toxicity, in percent of the limit. */
+    val startCns: Int?,
+    val endCns: Int?,
+    /** Each gas breathed, in order of first use. */
+    val gases: List<DiveGas>,
+    /** Breathed from a closed-circuit rebreather for at least part of the dive. */
+    val closedCircuit: Boolean,
+)
+
+/** A breathing gas, as whole percents. Air is 21/0. */
+data class DiveGas(val oxygenPercent: Int, val heliumPercent: Int)
 
 object FitUnits {
     /** FIT stores positions as semicircles: 2^31 semicircles = 180°. */
