@@ -157,6 +157,10 @@ class DecodedActivityMapperTest {
         assertType(ActivityType(Sport.WHEELCHAIR, SubSport.RUN_PACE), "WHEELCHAIR_PUSH_RUN")
         assertType(ActivityType(Sport.WHEELCHAIR, SubSport.WALK_PACE), "wheelchairPushWalk")
         assertType(ActivityType(Sport.FLYING, SubSport.PARAGLIDING), "paragliding")
+        assertType(ActivityType(Sport.SOCCER, SubSport.FUTSAL), "futsal")
+        assertType(ActivityType(Sport.AUSTRALIAN_FOOTBALL), "FOOTBALL_AUSTRALIAN")
+        assertType(ActivityType(Sport.MOBILITY, SubSport.STRETCHING), "training", "stretching")
+        assertType(ActivityType(Sport.RECOVERY, SubSport.COLD_PLUNGE), "coldPlunge")
         assertType(ActivityType(Sport.OTHER), null)
         assertType(ActivityType(Sport.OTHER), "training")
         assertType(ActivityType(Sport.OTHER), "some_future_sport")
@@ -202,6 +206,7 @@ class DecodedActivityMapperTest {
         assertEquals(ActivityType(Sport.SUP), DecodedActivityMapper.activityType("StandUpPaddling"))
         assertEquals(ActivityType(Sport.CANOE), DecodedActivityMapper.activityType("Canoeing"))
         assertEquals(ActivityType(Sport.STRENGTH, SubSport.CROSSFIT), DecodedActivityMapper.activityType("Crossfit"))
+        assertEquals(ActivityType(Sport.RIDE, SubSport.VELOMOBILE), DecodedActivityMapper.activityType("Velomobile"))
         assertEquals(ActivityType(Sport.RIDE), DecodedActivityMapper.activityType("Biking"), "TCX")
     }
 

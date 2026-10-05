@@ -20,6 +20,7 @@ object Sport {
     const val HANDCYCLE = "handcycle"
     const val SWIM = "swim"
     const val MULTISPORT = "multisport"
+    const val WATER_FITNESS = "waterFitness"
 
     // Outdoor
     const val WALK = "walk"
@@ -38,6 +39,9 @@ object Sport {
     const val EXPEDITION = "expedition"
     const val WHEELCHAIR = "wheelchair"
     const val SKATEBOARD = "skateboard"
+    const val KICK_SCOOTER = "kickScooter"
+    const val ORIENTEERING = "orienteering"
+    const val PARKOUR = "parkour"
 
     // Winter sports. SKI is alpine (downhill) skiing.
     const val SKI = "ski"
@@ -45,6 +49,7 @@ object Sport {
     const val XC_SKI = "xcSki"
     const val SNOWSHOE = "snowshoe"
     const val ICE_SKATE = "iceSkate"
+    const val CURLING = "curling"
 
     // Water sports
     const val ROW = "row"
@@ -81,8 +86,10 @@ object Sport {
     const val MMA = "mma"
     const val WRESTLING = "wrestling"
     const val FENCING = "fencing"
+    const val TAI_CHI = "taiChi"
     const val DANCE = "dance"
     const val GYMNASTICS = "gymnastics"
+    const val RECOVERY = "recovery"
 
     // Team sports
     const val SOCCER = "soccer"
@@ -99,6 +106,9 @@ object Sport {
     const val ULTIMATE = "ultimate"
     const val HANDBALL = "handball"
     const val WATER_POLO = "waterPolo"
+    const val AUSTRALIAN_FOOTBALL = "australianFootball"
+    const val ROLLER_HOCKEY = "rollerHockey"
+    const val FLOORBALL = "floorball"
 
     // Racket sports
     const val TENNIS = "tennis"
@@ -123,6 +133,10 @@ object Sport {
     const val FLYING = "flying"
     const val SKYDIVE = "skydive"
     const val GAMING = "gaming"
+    const val BOWLING = "bowling"
+    const val PLAY = "play"
+    const val YARD_WORK = "yardWork"
+    const val HOUSEWORK = "housework"
     const val OTHER = "other"
 }
 
@@ -188,6 +202,20 @@ object SubSport {
     const val SOCIAL = "social"
 
     const val PARAGLIDING = "paragliding"
+
+    const val VELOMOBILE = "velomobile"
+    const val DOG = "dog"
+    const val STROLLER = "stroller"
+    const val FUTSAL = "futsal"
+    const val BEACH = "beach"
+    const val KICKBOXING = "kickboxing"
+    const val BARRE = "barre"
+    const val STEP = "step"
+    const val CORE = "core"
+    const val STRETCHING = "stretching"
+    const val COOLDOWN = "cooldown"
+    const val SAUNA = "sauna"
+    const val COLD_PLUNGE = "coldPlunge"
 }
 
 /** `app.activitytracker.feed.activity`. Units are integers because lexicons have no floats. */
