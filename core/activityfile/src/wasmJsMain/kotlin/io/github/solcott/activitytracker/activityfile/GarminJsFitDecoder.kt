@@ -9,17 +9,17 @@ import kotlin.math.roundToInt
 @ContributesBinding(AppScope::class)
 @Inject
 class GarminJsFitDecoder : FitDecoder {
-    override fun decode(bytes: ByteArray): FitActivity {
-        val decoder = Decoder(Stream(bytes.toArrayBuffer()))
+    override fun decode(bytes: ByteArray): DecodedActivity {
+        val decoder = Decoder(Stream(bufferOf(bytes.toUint8Array())))
         if (!decoder.isFIT()) activityFileError("Not a FIT file")
         if (!decoder.checkIntegrity()) activityFileError("FIT file is corrupt or truncated")
         val result = decoder.read()
         if (result.errors.length > 0) activityFileError("Couldn't read FIT file: ${jsString(result.errors[0]!!)}")
         val messages = result.messages
-        return FitActivity(
+        return DecodedActivity(
             fileId =
                 messages.fileIdMesgs?.toList()?.firstOrNull()?.let {
-                    FitFileId(
+                    DecodedSource(
                         type = it.type?.let(::jsString),
                         manufacturer = it.manufacturer?.let(::jsString),
                         product = (it.garminProduct ?: it.product)?.let(::jsString) ?: it.productName,
@@ -30,7 +30,7 @@ class GarminJsFitDecoder : FitDecoder {
             laps = messages.lapMesgs?.toList().orEmpty().map { it.toSummary() },
             records =
                 messages.recordMesgs?.toList().orEmpty().map {
-                    FitRecord(
+                    DecodedSample(
                         timestampMillis = it.timestamp?.let(::dateMillis),
                         latitude = number(it.positionLat)?.let { s -> FitUnits.semicirclesToDegrees(s.toInt()) },
                         longitude = number(it.positionLong)?.let { s -> FitUnits.semicirclesToDegrees(s.toInt()) },
@@ -47,7 +47,7 @@ class GarminJsFitDecoder : FitDecoder {
     }
 
     private fun JsSummaryMesg.toSummary() =
-        FitSummary(
+        DecodedSummary(
             sport = sport?.let(::jsString),
             subSport = subSport?.let(::jsString),
             startTimeMillis = startTime?.let(::dateMillis),
@@ -65,20 +65,6 @@ class GarminJsFitDecoder : FitDecoder {
         )
 
     private fun <T : JsAny> JsArray<T>.toList(): List<T> = (0 until length).mapNotNull { get(it) }
-
-    private fun ByteArray.toArrayBuffer(): JsAny {
-        val array = newUint8Array(size)
-        forEachIndexed { i, b -> setByte(array, i, b) }
-        return bufferOf(array)
-    }
-}
-
-@Suppress("UnusedParameter") // Used by the JS body.
-private fun newUint8Array(size: Int): JsAny = js("new Uint8Array(size)")
-
-@Suppress("UnusedParameter") // Used by the JS body. A negative byte wraps into 0..255 on assignment to a Uint8Array.
-private fun setByte(array: JsAny, index: Int, value: Byte) {
-    js("array[index] = value")
 }
 
 @Suppress("UnusedParameter") // Used by the JS body.

@@ -8,7 +8,7 @@ import com.garmin.fit.Fit
 import com.garmin.fit.Manufacturer
 import com.garmin.fit.SessionMesg
 import com.garmin.fit.Sport as FitSport
-import io.github.solcott.activitytracker.activityfile.FitActivityMapper
+import io.github.solcott.activitytracker.activityfile.DecodedActivityMapper
 import io.github.solcott.activitytracker.activityfile.GarminJavaFitDecoder
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import java.time.Instant
@@ -41,7 +41,7 @@ class ActivityFileTest {
                 close()
             }
 
-        val activity = FitActivityMapper.map(GarminJavaFitDecoder().decode(bytes))
+        val activity = DecodedActivityMapper.map(GarminJavaFitDecoder().decode(bytes))
 
         assertEquals(Sport.RIDE, activity.sport)
         assertEquals(30_000.0, activity.distanceMeters)

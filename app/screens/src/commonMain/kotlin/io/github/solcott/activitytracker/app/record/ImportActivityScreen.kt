@@ -9,7 +9,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import kotlin.time.Duration
 import kotlinx.io.bytestring.ByteString
 
-/** Import an activity from a file a device recorded. FIT only for now; GPX and TCX are next. */
+/** Import an activity from a FIT, GPX or TCX file (optionally gzipped) that a device or app recorded. */
 @CircuitSerializable(SessionScope::class) data object ImportActivityScreen : Screen
 
 @Immutable
@@ -42,7 +42,7 @@ data class ImportPreview(
 )
 
 sealed interface ImportActivityEvent {
-    /** The athlete picked a file. [name] carries the extension the format is chosen by. */
+    /** The athlete picked a file. [name] is shown in the preview; the format comes from the content. */
     data class FilePicked(val name: String, val bytes: ByteString) : ImportActivityEvent
 
     data class SportChanged(val value: String) : ImportActivityEvent

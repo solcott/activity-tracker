@@ -9,25 +9,23 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
-import io.github.solcott.activitytracker.activityfile.FitActivityMapper
-import io.github.solcott.activitytracker.activityfile.FitDecoder
+import io.github.solcott.activitytracker.activityfile.ActivityFileReader
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
+import io.github.solcott.activitytracker.activityfile.UnsupportedActivityFileException
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.Sport
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @CircuitInject(ImportActivityScreen::class, SessionScope::class)
 @Composable
 fun ImportActivityPresenter(
     navigator: Navigator,
     activities: ActivityRepository,
-    fitDecoder: FitDecoder,
+    reader: ActivityFileReader,
 ): ImportActivityState {
     // The parsed file isn't saveable; after process death the athlete picks it again.
     var imported by remember { mutableStateOf<Pair<String, ImportedActivity>?>(null) }
@@ -45,21 +43,20 @@ fun ImportActivityPresenter(
             is ImportActivityEvent.FilePicked -> {
                 // Drop the previous file first, so a failed pick can't leave its preview (and Save) behind.
                 imported = null
-                if (!event.name.endsWith(".fit", ignoreCase = true)) {
-                    error = UiError(UiError.Kind.UnsupportedActivityFile, null)
-                    return@ImportActivityState
-                }
                 reading = true
                 error = null
                 scope.launch {
-                    runSuspendCatching {
-                        withContext(Dispatchers.Default) { FitActivityMapper.map(fitDecoder.decode(event.bytes.toByteArray())) }
-                    }
+                    // The format comes from the file's content, not its name.
+                    runSuspendCatching { reader.read(event.bytes.toByteArray()) }
                         .onSuccess {
                             imported = event.name to it
                             sport = it.sport
                         }
-                        .onFailure { e -> error = UiError.of(UiError.Kind.ReadActivityFile, e) }
+                        .onFailure { e ->
+                            error =
+                                if (e is UnsupportedActivityFileException) UiError(UiError.Kind.UnsupportedActivityFile, null)
+                                else UiError.of(UiError.Kind.ReadActivityFile, e)
+                        }
                     reading = false
                 }
             }

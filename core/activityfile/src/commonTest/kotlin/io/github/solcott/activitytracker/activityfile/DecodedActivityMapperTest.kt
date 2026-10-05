@@ -4,13 +4,12 @@ import io.github.solcott.activitytracker.lexicon.app.Sport
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
-class FitActivityMapperTest {
+class DecodedActivityMapperTest {
     private val start = Instant.parse("2026-09-20T07:00:00Z")
 
     private fun summary(
@@ -25,7 +24,7 @@ class FitActivityMapperTest {
         maxSpeed: Double? = 4.2,
         temperature: Double? = 12.0,
     ) =
-        FitSummary(
+        DecodedSummary(
             sport,
             subSport,
             start.toEpochMilliseconds(),
@@ -49,13 +48,13 @@ class FitActivityMapperTest {
         alt: Double? = null,
         hr: Int? = null,
         distance: Double? = null,
-    ) = FitRecord((start + sec.seconds).toEpochMilliseconds(), lat, lon, alt, hr, null, null, null, distance, null)
+    ) = DecodedSample((start + sec.seconds).toEpochMilliseconds(), lat, lon, alt, hr, null, null, null, distance, null)
 
-    private fun fileId(type: String? = "activity") = FitFileId(type, "garmin", "fenix7", start.toEpochMilliseconds())
+    private fun fileId(type: String? = "activity") = DecodedSource(type, "garmin", "fenix7", start.toEpochMilliseconds())
 
     @Test
     fun sessionTotalsWin() {
-        val activity = FitActivityMapper.map(FitActivity(fileId(), listOf(summary()), emptyList(), listOf(record(0), record(10))))
+        val activity = DecodedActivityMapper.map(DecodedActivity(fileId(), listOf(summary()), emptyList(), listOf(record(0), record(10))))
 
         assertEquals(Sport.RUN, activity.sport)
         assertEquals(start, activity.startedAt)
@@ -79,12 +78,12 @@ class FitActivityMapperTest {
                 record(60, alt = 101.0, hr = 140, distance = 200.0), // inside the hysteresis: no climb yet
                 record(120, alt = 110.0, hr = 160, distance = 400.0),
             )
-        val activity = FitActivityMapper.map(FitActivity(fileId(), emptyList(), emptyList(), records.reversed()))
+        val activity = DecodedActivityMapper.map(DecodedActivity(fileId(), emptyList(), emptyList(), records.reversed()))
 
         assertEquals(Sport.OTHER, activity.sport)
         assertEquals(start, activity.startedAt)
         assertEquals(2.minutes, activity.elapsed)
-        assertNull(activity.movingSeconds)
+        assertEquals(120L, activity.movingSeconds, "computed from the samples, which keep moving at about 11 m/s")
         assertEquals(400.0, activity.distanceMeters)
         assertEquals(10.0, activity.elevationGainMeters)
         assertEquals(140, activity.avgHeartRate)
@@ -95,8 +94,8 @@ class FitActivityMapperTest {
     @Test
     fun indoorActivityHasNoSamples() {
         val activity =
-            FitActivityMapper.map(
-                FitActivity(
+            DecodedActivityMapper.map(
+                DecodedActivity(
                     fileId(),
                     listOf(summary(sport = "training", subSport = "indoor_cycling")),
                     emptyList(),
@@ -110,8 +109,8 @@ class FitActivityMapperTest {
     @Test
     fun multipleSessionsAddUp() {
         val activity =
-            FitActivityMapper.map(
-                FitActivity(
+            DecodedActivityMapper.map(
+                DecodedActivity(
                     fileId(),
                     listOf(summary(avgHr = 140, timer = 1000.0), summary(sport = "cycling", avgHr = 160, timer = 3000.0)),
                     emptyList(),
@@ -126,27 +125,29 @@ class FitActivityMapperTest {
 
     @Test
     fun mapsSportNamesInEverySdksSpelling() {
-        assertEquals(Sport.RIDE, FitActivityMapper.sport("E_BIKING"))
-        assertEquals(Sport.RIDE, FitActivityMapper.sport("eBiking"))
-        assertEquals(Sport.SKI, FitActivityMapper.sport("CROSS_COUNTRY_SKIING"))
-        assertEquals(Sport.SKI, FitActivityMapper.sport("crossCountrySkiing"))
-        assertEquals(Sport.HIKE, FitActivityMapper.sport("hiking"))
-        assertEquals(Sport.SWIM, FitActivityMapper.sport("SWIMMING"))
-        assertEquals(Sport.RUN, FitActivityMapper.sport("training", "treadmill"))
-        assertEquals(Sport.OTHER, FitActivityMapper.sport("rowing"))
-        assertEquals(Sport.OTHER, FitActivityMapper.sport(null))
+        assertEquals(Sport.RIDE, DecodedActivityMapper.sport("E_BIKING"))
+        assertEquals(Sport.RIDE, DecodedActivityMapper.sport("eBiking"))
+        assertEquals(Sport.SKI, DecodedActivityMapper.sport("CROSS_COUNTRY_SKIING"))
+        assertEquals(Sport.SKI, DecodedActivityMapper.sport("crossCountrySkiing"))
+        assertEquals(Sport.HIKE, DecodedActivityMapper.sport("hiking"))
+        assertEquals(Sport.SWIM, DecodedActivityMapper.sport("SWIMMING"))
+        assertEquals(Sport.RUN, DecodedActivityMapper.sport("training", "treadmill"))
+        assertEquals(Sport.OTHER, DecodedActivityMapper.sport("rowing"))
+        assertEquals(Sport.OTHER, DecodedActivityMapper.sport(null))
     }
 
     @Test
     fun rejectsOtherFileTypes() {
         assertFailsWith<ActivityFileException> {
-            FitActivityMapper.map(FitActivity(fileId(type = "COURSE"), listOf(summary()), emptyList(), emptyList()))
+            DecodedActivityMapper.map(DecodedActivity(fileId(type = "COURSE"), listOf(summary()), emptyList(), emptyList()))
         }
     }
 
     @Test
     fun rejectsFilesWithNoActivityData() {
-        assertFailsWith<ActivityFileException> { FitActivityMapper.map(FitActivity(fileId(), emptyList(), emptyList(), emptyList())) }
+        assertFailsWith<ActivityFileException> {
+            DecodedActivityMapper.map(DecodedActivity(fileId(), emptyList(), emptyList(), emptyList()))
+        }
     }
 
     @Test

@@ -19,23 +19,23 @@ import java.io.ByteArrayInputStream
 @ContributesBinding(AppScope::class)
 @Inject
 class GarminJavaFitDecoder : FitDecoder {
-    override fun decode(bytes: ByteArray): FitActivity {
+    override fun decode(bytes: ByteArray): DecodedActivity {
         // A Decode keeps its position between calls, so each check gets a fresh one.
         if (!Decode().isFileFit(ByteArrayInputStream(bytes))) activityFileError("Not a FIT file")
         if (!Decode().checkFileIntegrity(ByteArrayInputStream(bytes))) activityFileError("FIT file is corrupt or truncated")
 
         val decode = Decode()
 
-        var fileId: FitFileId? = null
-        val sessions = mutableListOf<FitSummary>()
-        val laps = mutableListOf<FitSummary>()
-        val records = mutableListOf<FitRecord>()
+        var fileId: DecodedSource? = null
+        val sessions = mutableListOf<DecodedSummary>()
+        val laps = mutableListOf<DecodedSummary>()
+        val records = mutableListOf<DecodedSample>()
         val broadcaster = MesgBroadcaster(decode)
         broadcaster.addListener { m: FileIdMesg ->
             // A file has one file_id; keep the first if a tool wrote more.
             if (fileId == null) {
                 fileId =
-                    FitFileId(
+                    DecodedSource(
                         type = m.type?.name,
                         manufacturer = m.manufacturer?.let(Manufacturer::getStringFromValue),
                         product =
@@ -49,7 +49,7 @@ class GarminJavaFitDecoder : FitDecoder {
         broadcaster.addListener { m: LapMesg -> laps += m.toSummary() }
         broadcaster.addListener { m: RecordMesg ->
             records +=
-                FitRecord(
+                DecodedSample(
                     timestampMillis = m.timestamp?.millis(),
                     latitude = m.positionLat?.let(FitUnits::semicirclesToDegrees),
                     longitude = m.positionLong?.let(FitUnits::semicirclesToDegrees),
@@ -67,13 +67,13 @@ class GarminJavaFitDecoder : FitDecoder {
         } catch (e: FitRuntimeException) {
             activityFileError("Couldn't read FIT file: ${e.message}", e)
         }
-        return FitActivity(fileId, sessions, laps, records)
+        return DecodedActivity(fileId, sessions, laps, records)
     }
 
     private fun DateTime.millis(): Long = instant.toEpochMilli()
 
     private fun SessionMesg.toSummary() =
-        FitSummary(
+        DecodedSummary(
             sport = sport?.name,
             subSport = subSport?.name,
             startTimeMillis = startTime?.millis(),
@@ -91,7 +91,7 @@ class GarminJavaFitDecoder : FitDecoder {
         )
 
     private fun LapMesg.toSummary() =
-        FitSummary(
+        DecodedSummary(
             sport = sport?.name,
             subSport = subSport?.name,
             startTimeMillis = startTime?.millis(),

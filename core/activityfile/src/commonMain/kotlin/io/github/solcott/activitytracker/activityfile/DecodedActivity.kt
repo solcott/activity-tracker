@@ -3,16 +3,16 @@ package io.github.solcott.activitytracker.activityfile
 /**
  * The FIT messages an import needs, already scaled to SI units by the SDK (positions in degrees, see [FitUnits]). Times are epoch
  * milliseconds and enum values are the SDK's names, in whatever case the SDK spells them ("RUNNING", "running", "eBiking"):
- * [FitActivityMapper] normalizes both.
+ * [DecodedActivityMapper] normalizes both.
  */
-data class FitActivity(
-    val fileId: FitFileId?,
-    val sessions: List<FitSummary>,
-    val laps: List<FitSummary>,
-    val records: List<FitRecord>,
+data class DecodedActivity(
+    val fileId: DecodedSource?,
+    val sessions: List<DecodedSummary>,
+    val laps: List<DecodedSummary>,
+    val records: List<DecodedSample>,
 )
 
-data class FitFileId(
+data class DecodedSource(
     /** File type; an activity file is "activity". */
     val type: String?,
     val manufacturer: String?,
@@ -21,7 +21,7 @@ data class FitFileId(
 )
 
 /** A session or lap message. */
-data class FitSummary(
+data class DecodedSummary(
     val sport: String?,
     val subSport: String?,
     val startTimeMillis: Long?,
@@ -40,7 +40,7 @@ data class FitSummary(
 )
 
 /** One sample of the activity's record stream. */
-data class FitRecord(
+data class DecodedSample(
     val timestampMillis: Long?,
     val latitude: Double?,
     val longitude: Double?,

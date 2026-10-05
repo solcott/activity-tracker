@@ -3,9 +3,9 @@ import FITSwiftSDK
 import Foundation
 
 /// The iOS FitDecoder: Kotlin/Native can't call Garmin's Swift FIT SDK, so this side translates its messages into the shared
-/// FitActivity DTO and FitActivityMapper (Kotlin) does the rest, as on every other platform.
+/// DecodedActivity DTO and DecodedActivityMapper (Kotlin) does the rest, as on every other platform.
 final class SwiftFitDecoder: FitDecoder {
-    func decode(bytes: KotlinByteArray) throws -> FitActivity {
+    func decode(bytes: KotlinByteArray) throws -> DecodedActivity {
         let input = Self.data(from: bytes)
 
         let decoder = FITSwiftSDK.Decoder(stream: FITSwiftSDK.InputStream(data: input))
@@ -24,7 +24,7 @@ final class SwiftFitDecoder: FitDecoder {
         }
         let messages = listener.fitMessages
 
-        return FitActivity(
+        return DecodedActivity(
             fileId: messages.fileIdMesgs.first.map(Self.fileId),
             sessions: messages.sessionMesgs.map(Self.summary),
             laps: messages.lapMesgs.map(Self.summary),
@@ -36,7 +36,7 @@ final class SwiftFitDecoder: FitDecoder {
         Data((0..<bytes.size).map { UInt8(bitPattern: bytes.get(index: $0)) })
     }
 
-    private static func fileId(_ m: FileIdMesg) -> FitFileId {
+    private static func fileId(_ m: FileIdMesg) -> DecodedSource {
         let manufacturer = m.getManufacturer()
         let product: String? =
             if manufacturer == .garmin, let garmin = try? m.getGarminProduct() {
@@ -44,7 +44,7 @@ final class SwiftFitDecoder: FitDecoder {
             } else {
                 m.getProductName() ?? m.getProduct().map { String($0) }
             }
-        return FitFileId(
+        return DecodedSource(
             type: m.getType().map { String(describing: $0) },
             manufacturer: manufacturer.map { String(describing: $0) },
             product: product,
@@ -52,8 +52,8 @@ final class SwiftFitDecoder: FitDecoder {
         )
     }
 
-    private static func summary(_ m: SessionMesg) -> FitSummary {
-        FitSummary(
+    private static func summary(_ m: SessionMesg) -> DecodedSummary {
+        DecodedSummary(
             sport: m.getSport().map { String(describing: $0) },
             subSport: m.getSubSport().map { String(describing: $0) },
             startTimeMillis: m.getStartTime().map { KotlinLong(value: millis($0)) },
@@ -71,8 +71,8 @@ final class SwiftFitDecoder: FitDecoder {
         )
     }
 
-    private static func summary(_ m: LapMesg) -> FitSummary {
-        FitSummary(
+    private static func summary(_ m: LapMesg) -> DecodedSummary {
+        DecodedSummary(
             sport: m.getSport().map { String(describing: $0) },
             subSport: m.getSubSport().map { String(describing: $0) },
             startTimeMillis: m.getStartTime().map { KotlinLong(value: millis($0)) },
@@ -90,8 +90,8 @@ final class SwiftFitDecoder: FitDecoder {
         )
     }
 
-    private static func record(_ m: RecordMesg) -> FitRecord {
-        FitRecord(
+    private static func record(_ m: RecordMesg) -> DecodedSample {
+        DecodedSample(
             timestampMillis: m.getTimestamp().map { KotlinLong(value: millis($0)) },
             latitude: double(m.getPositionLat().map { FitUnits.shared.semicirclesToDegrees(semicircles: $0) }),
             longitude: double(m.getPositionLong().map { FitUnits.shared.semicirclesToDegrees(semicircles: $0) }),

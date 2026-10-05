@@ -39,6 +39,7 @@ maplibreCompose = "0.19.0"
 filekit = "0.16.0"
 # Garmin FIT SDK: the Java artifact (Maven) and the JS package (npm) share this version.
 garminFit = "21.217.0"
+xmlutil = "1.0.2"
 # androidx artifact that Compose Multiplatform's runtime already resolves to; @Immutable/@Stable for modules without Compose.
 composeRuntimeAnnotation = "1.12.1"
 
@@ -113,6 +114,7 @@ maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version.r
 maplibre-compose-runtime-opengl-android = { module = "org.maplibre.compose:maplibre-compose-runtime-opengl-android", version.ref = "maplibreCompose" }
 filekit-dialogs-compose = { module = "io.github.vinceglb:filekit-dialogs-compose", version.ref = "filekit" }
 garmin-fit = { module = "com.garmin:fit", version.ref = "garminFit" }
+xmlutil-core = { module = "io.github.pdvrieze.xmlutil:core", version.ref = "xmlutil" }
 
 room-runtime = { module = "androidx.room3:room3-runtime", version.ref = "room" }
 room-compiler = { module = "androidx.room3:room3-compiler", version.ref = "room" }

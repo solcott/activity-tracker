@@ -16,7 +16,7 @@
     <string name="error_load_following">Couldn't load following</string>
     <string name="error_save_activity">Couldn't save activity</string>
     <string name="error_read_activity_file">Couldn't read that file</string>
-    <string name="error_unsupported_activity_file">Only FIT files can be imported for now</string>
+    <string name="error_unsupported_activity_file">That isn't a FIT, GPX or TCX file</string>
     <string name="error_sign_in_start">Couldn't start sign-in</string>
     <string name="error_sign_in_complete">Sign-in failed</string>
     <string name="error_save_settings">Couldn't save settings</string>
@@ -174,7 +174,7 @@
     <string name="field_title">Title</string>
     <string name="manual_title">Add activity</string>
     <string name="import_title">Import activity</string>
-    <string name="import_hint">Import a .fit file from a Garmin, Wahoo, COROS or other device.</string>
+    <string name="import_hint">Import a FIT, GPX or TCX file (gzipped is fine) from a watch, bike computer or app.</string>
     <string name="import_pick">Choose file</string>
     <string name="import_pick_another">Choose another file</string>
     <string name="import_reading">Reading file…</string>

@@ -25,7 +25,7 @@ class GarminJavaFitDecoderTest {
         assertEquals(-122.3, first.longitude!!, 1e-6)
         assertEquals(120, first.heartRate)
 
-        val activity = FitActivityMapper.map(fit)
+        val activity = DecodedActivityMapper.map(fit)
         assertEquals(Sport.RUN, activity.sport)
         assertEquals(start, activity.startedAt)
         assertEquals(1000.0, activity.distanceMeters!!, 0.01)
@@ -41,7 +41,7 @@ class GarminJavaFitDecoderTest {
         assertTrue(fit.records.all { it.latitude == null })
         assertEquals(200, fit.records.first().powerWatts)
 
-        val activity = FitActivityMapper.map(fit)
+        val activity = DecodedActivityMapper.map(fit)
         assertEquals(Sport.RIDE, activity.sport)
         assertTrue(activity.samples.isEmpty())
     }
