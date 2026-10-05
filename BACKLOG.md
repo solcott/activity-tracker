@@ -11,3 +11,12 @@ Follows in this app (`app.activitytracker.graph.follow`) are separate from Blues
 - **AppView query.** For example `app.activitytracker.graph.getSuggestedFollows`, or a batch `actor.getProfiles`. It takes the candidate DIDs, caps how many it accepts, keeps the ones the AppView knows, and excludes accounts the viewer already follows here.
 - **Open questions.** Where suggestions appear: the empty feed, the user's own profile, or a screen of their own. Whether to filter to "has posted an activity" or "has an `actor.profile`".
 - **Privacy.** Bluesky follows are already public. Store nothing new beyond the follows the user chooses to create.
+
+## Move private profile details to an atproto Space
+
+Profile details an athlete marks Mutuals or Only me (location, birthdate, gender, weight) live in the AppView's `actor_private_details` table, because repo records are public. atproto Spaces (permissioned repos on the athlete's own PDS) are the native home for that data, but in the August 2026 alpha they have had no security audit, their APIs and schemas may break, and the hosted sandbox will be wiped. Revisit when Spaces reaches a stable release.
+
+- **Target.** One space per athlete, with the athlete as its authority, holding a details record. The AppView (or each client) reads it as a member instead of storing a copy.
+- **Mutuals.** A space grants access by membership, not by a rule over the follow graph. Decide whether to keep the space's member list in sync with the athlete's mutuals, or to keep enforcing visibility in the AppView and use the space only for storage.
+- **Migration.** Have clients copy their own rows into their space, switch reads over, then drop `actor_private_details` in a new migration. Public details stay in `actor.profile`.
+- **Hard rule still applies.** Client code can't use an atproto SDK, so the Spaces XRPC calls are hand-written in `core/atproto`.

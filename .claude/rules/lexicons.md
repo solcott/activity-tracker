@@ -15,6 +15,6 @@ paths:
 - **`$type` on every record.** Models declare `@SerialName("\$type") val type: String = Nsid.X`. `AtJson` sets `encodeDefaults = true` so the default is written. Serialize lexicon data only with `AtJson`, never a bare `Json`.
 - **Optional lexicon fields are nullable with a `null` default.** `AtJson` drops nulls and ignores unknown keys, so old and new clients interoperate. Never make an existing optional field required: records already in repos lack it.
 - **Open enums are strings.** Known values go in a constants object (like `Sport`), not a Kotlin `enum`, because unknown values from other clients must still decode.
-- **All repo records are public.** Never put private data in a record.
+- **All repo records are public.** Never put private data in a record. A profile detail the athlete hasn't made public goes to the AppView private store through `actor.putPrivateDetails`, never into `actor.profile`.
 - **NSIDs live only in `Nsid`.** `Nsid.NAMESPACE` is a placeholder. The lexicon `id` fields, the `lexicons/app/activitytracker/` path and `docker/scripts/create-account.sh` repeat it, so a rename touches all of them. Add every indexed record collection to `Nsid.indexedCollections`, which is the Jetstream `wantedCollections` filter. A collection missing from it is never indexed.
 - **Queries** are an `object` holding `Params`/`Output` and a `val method = XrpcQuery(...)` in `lexicon/app/Queries.kt`. Paginated queries take `limit`/`cursor` and clamp with `Paging.clamp`.

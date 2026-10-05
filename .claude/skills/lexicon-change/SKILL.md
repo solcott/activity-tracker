@@ -13,7 +13,7 @@ Lexicon JSON is the source of truth, and everything else is hand-mirrored. Work 
 ## 0. Decide the shape (confirm with the user if ambiguous)
 
 - **Record or query?** Data an athlete *owns and writes* is a record in their repo. Data *computed across repos* (counts, feeds, viewer state) is a view returned by an AppView query. Never put aggregates in records.
-- **Public?** Every record is public. If the field is private (health data the user didn't opt to publish, precise home location, contact info), stop and raise it with the user.
+- **Public?** Every record is public. If the field is private (health data the user didn't opt to publish, precise home location, contact info), stop and raise it with the user. Non-public profile details already have a home (the AppView private store via `actor.putPrivateDetails`, see the `appview.md` rule); anything else private needs a decision.
 - **Compatibility.** New fields on existing records must be optional, because records already in repos lack them. Never rename or retype a published field. Add a new one and deprecate the old in its `description`.
 - **Units.** Integers only: meters, mm/s, seconds, bpm. Name the unit in the `description`.
 - **Open enums** use `knownValues`, not `enum`.
