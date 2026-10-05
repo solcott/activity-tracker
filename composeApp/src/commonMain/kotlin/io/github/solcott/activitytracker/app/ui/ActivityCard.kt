@@ -44,11 +44,15 @@ fun ActivityCard(
     val record = activity.record
     Card(modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                activity.author.displayName ?: activity.author.handle.value,
-                style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.clickable(onClick = onAuthorClick),
-            )
+            val author = activity.author.displayName ?: activity.author.handle.value
+            Row(
+                Modifier.clickable(onClick = onAuthorClick),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Avatar(activity.author.avatar, author, 32.dp)
+                Text(author, style = MaterialTheme.typography.labelLarge)
+            }
             Text(
                 record.title ?: sportLabel(record.sport),
                 style = MaterialTheme.typography.titleMedium,

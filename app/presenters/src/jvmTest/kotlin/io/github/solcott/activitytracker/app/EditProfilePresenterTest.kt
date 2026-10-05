@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app
 import app.cash.turbine.ReceiveTurbine
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
+import io.github.solcott.activitytracker.app.profile.AvatarImage
 import io.github.solcott.activitytracker.app.profile.EditProfileEvent
 import io.github.solcott.activitytracker.app.profile.EditProfilePresenter
 import io.github.solcott.activitytracker.app.profile.EditProfileScreen
@@ -16,6 +17,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
+import kotlinx.io.bytestring.ByteString
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
@@ -106,6 +108,27 @@ class EditProfilePresenterTest {
         val hidden = fixture.privateDetailsPuts.last()
         assertEquals(68_039L, hidden["details"]?.jsonObject?.get("weight")?.jsonPrimitive?.long)
         assertEquals(Visibility.MUTUALS, hidden["visibility"]?.jsonObject?.get("weight")?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun pickedAvatarShowsThenUploadsOnSave() = runTest {
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(EditProfileScreen)
+        presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units) }) {
+            val loaded = awaitUntil { it.loaded }
+            assertNull(loaded.avatar)
+            val jpeg = ByteString(1, 2, 3)
+            loaded.eventSink(EditProfileEvent.AvatarPicked(jpeg))
+            val picked = awaitItem()
+            assertEquals(AvatarImage.Picked(jpeg), picked.avatar)
+            picked.eventSink(EditProfileEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(
+            "bafkavatar",
+            fixture.putRecords.single()["avatar"]?.jsonObject?.get("ref")?.jsonObject?.get("\$link")?.jsonPrimitive?.content,
+        )
     }
 
     @Test

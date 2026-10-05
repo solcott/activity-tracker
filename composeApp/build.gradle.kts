@@ -35,7 +35,10 @@ kotlin {
             implementation(libs.circuit.foundation)
             implementation(libs.circuit.runtime)
             implementation(libs.circuit.serialization)
+            implementation(libs.coil.compose)
+            implementation(libs.coil.network.ktor3)
             implementation(libs.compose.material.icons.core)
+            implementation(libs.filekit.dialogs.compose)
         }
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)

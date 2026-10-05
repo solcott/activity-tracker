@@ -17,6 +17,7 @@ kotlin {
             api(libs.circuit.runtime)
             api(libs.circuit.serialization)
             api(libs.kotlinx.collections.immutable)
+            api(libs.kotlinx.io.bytestring)
             implementation(libs.compose.runtime)
         }
     }

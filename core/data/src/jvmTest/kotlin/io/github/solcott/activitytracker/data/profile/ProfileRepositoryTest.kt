@@ -67,6 +67,18 @@ class ProfileRepositoryTest {
                         respond("""{"uri":"at://$did/x/self","cid":"bafyrec"}""", headers = json)
                     }
 
+                    "/xrpc/com.atproto.repo.uploadBlob" -> {
+                        writes += "blob" to request.headers["Content-Type"].orEmpty()
+                        respond(
+                            """{"blob":{"${'$'}type":"blob","ref":{"${'$'}link":"bafkavatar"},"mimeType":"image/jpeg","size":3}}""",
+                            headers = json,
+                        )
+                    }
+
+                    "/xrpc/${Nsid.ACTOR_GET_PROFILE}" -> {
+                        respond("""{"did":"$did","handle":"alice.test"}""", headers = json)
+                    }
+
                     "/xrpc/com.atproto.server.getServiceAuth" -> {
                         respond("""{"token":"service-jwt"}""", headers = json)
                     }
@@ -174,5 +186,22 @@ class ProfileRepositoryTest {
         val own = repository().ownProfile()
         assertEquals(ProfileDetails(), own.details)
         assertEquals(DetailsVisibility(Visibility.SELF, Visibility.SELF, Visibility.SELF, Visibility.SELF), own.visibility)
+    }
+
+    @Test
+    fun newAvatarIsUploadedBeforeTheRecordAndShownAtOnce() = runTest {
+        val repo = repository()
+        repo.save(ProfileEdit("Alice", "", ProfileDetails(), DetailsVisibility(), AvatarEdit.Replace(byteArrayOf(1, 2, 3), "image/jpeg")))
+
+        assertEquals(listOf("private", "blob", "record"), writes.map { it.first })
+        assertEquals("bafkavatar", record?.avatar?.ref?.link)
+        // The AppView hasn't indexed it yet, so the profile shows the blob straight from the PDS.
+        assertEquals(
+            "http://pds.test/xrpc/com.atproto.sync.getBlob?did=did%3Aplc%3Aalice&cid=bafkavatar",
+            repo.profile(did.value).avatar,
+        )
+
+        repo.save(ProfileEdit("Alice", "", ProfileDetails(), DetailsVisibility(), AvatarEdit.Remove))
+        assertNull(record?.avatar)
     }
 }

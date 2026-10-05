@@ -70,6 +70,13 @@ class SessionTestFixture {
                         }
                     }
 
+                    "/xrpc/com.atproto.repo.uploadBlob" -> {
+                        respond(
+                            """{"blob":{"${'$'}type":"blob","ref":{"${'$'}link":"bafkavatar"},"mimeType":"image/jpeg","size":3}}""",
+                            headers = json,
+                        )
+                    }
+
                     "/xrpc/com.atproto.server.getServiceAuth" -> {
                         respond("""{"token":"service-jwt"}""", headers = json)
                     }

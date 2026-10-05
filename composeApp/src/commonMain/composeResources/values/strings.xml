@@ -125,6 +125,8 @@
     <string name="edit_profile_display_name">Display name</string>
     <string name="edit_profile_description">Bio</string>
     <string name="edit_profile_length">%1$d/%2$d</string>
+    <string name="edit_profile_photo_change">Change photo</string>
+    <string name="edit_profile_photo_remove">Remove photo</string>
     <string name="edit_profile_details_heading">Details</string>
     <string name="edit_profile_details_help">Choose who can see each detail. Mutuals are people you follow who also follow you.</string>
     <string name="edit_profile_location_heading">Location</string>

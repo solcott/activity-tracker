@@ -13,6 +13,8 @@ data class OwnProfile(
     val displayName: String?,
     val description: String?,
     val avatar: BlobRef?,
+    /** Where [avatar] can be loaded from: the blob on the athlete's own PDS. */
+    val avatarUrl: String?,
     val details: ProfileDetails,
     val visibility: DetailsVisibility,
 )

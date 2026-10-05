@@ -103,7 +103,15 @@ class ProfileRepository(
             details = group.copy(source, details)
             visibility = group.withVisibility(visibility, shownTo)
         }
-        return OwnProfile(record?.displayName, record?.description, record?.avatar, details, visibility)
+        val avatar = record?.avatar
+        return OwnProfile(
+            record?.displayName,
+            record?.description,
+            avatar,
+            avatar?.let { blobUrl(clients.pdsUrl, did, it.ref.link) },
+            details,
+            visibility,
+        )
     }
 
     /** Replaces the profile record whole. Read it first ([ownProfileRecord]) so fields this save doesn't change survive. */

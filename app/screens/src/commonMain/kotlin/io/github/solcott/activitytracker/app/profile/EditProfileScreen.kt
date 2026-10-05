@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.WeightConversions
 import io.github.solcott.activitytracker.lexicon.app.DetailsVisibility
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.io.bytestring.ByteString
 
 /** Edit the signed-in athlete's profile, and who may see each detail. */
 @CircuitSerializable(SessionScope::class) data object EditProfileScreen : Screen
@@ -19,6 +20,8 @@ import kotlinx.collections.immutable.ImmutableList
 data class EditProfileState(
     val displayName: String,
     val description: String,
+    /** The picture to show: a newly picked one, the saved one, or none. */
+    val avatar: AvatarImage?,
     /** City or town. */
     val locality: String,
     /** State, province or similar. */
@@ -62,7 +65,22 @@ data class EditProfileState(
     }
 }
 
+/** A profile picture for the edit screen to show. */
+@Immutable
+sealed interface AvatarImage {
+    /** The saved picture, by URL. */
+    data class Saved(val url: String) : AvatarImage
+
+    /** A picture picked on this screen and not yet saved. */
+    data class Picked(val jpeg: ByteString) : AvatarImage
+}
+
 sealed interface EditProfileEvent {
+    /** [jpeg] is already downscaled and compressed to fit the lexicon's 1 MB limit. */
+    data class AvatarPicked(val jpeg: ByteString) : EditProfileEvent
+
+    data object RemoveAvatar : EditProfileEvent
+
     data class DisplayNameChanged(val value: String) : EditProfileEvent
 
     data class DescriptionChanged(val value: String) : EditProfileEvent

@@ -10,6 +10,7 @@ object CalendarDate {
     private val pattern = Regex("""(\d{4})-(\d{2})-(\d{2})""")
     private const val MILLIS_PER_DAY = 86_400_000L
     private const val SECONDS_PER_DAY = 86_400L
+    private const val YEAR_DIGITS = 4
 
     // Howard Hinnant's days_from_civil / civil_from_days, on a calendar of 400-year eras starting in March.
     private const val DAYS_PER_ERA = 146_097L
@@ -27,7 +28,7 @@ object CalendarDate {
 
     fun fromEpochDay(epochDay: Long): String {
         val (y, m, d) = civilFromDays(epochDay)
-        return "${y.toString().padStart(4, '0')}-${m.toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}"
+        return "${y.toString().padStart(YEAR_DIGITS, '0')}-${m.toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}"
     }
 
     fun fromPickerMillis(utcMillis: Long): String = fromEpochDay(utcMillis.floorDiv(MILLIS_PER_DAY))
@@ -39,9 +40,9 @@ object CalendarDate {
 
     /** Whole years from [birthDate] to [now] (in UTC); null for an invalid or future date. */
     fun age(birthDate: String, now: Instant): Int? {
-        toEpochDay(birthDate) ?: return null
         val today = today(now)
-        if (today < birthDate) return null
+        // `YYYY-MM-DD` strings compare in date order.
+        if (toEpochDay(birthDate) == null || today < birthDate) return null
         val (by, bmd) = birthDate.split('-', limit = 2)
         val (ty, tmd) = today.split('-', limit = 2)
         return ty.toInt() - by.toInt() - if (tmd < bmd) 1 else 0

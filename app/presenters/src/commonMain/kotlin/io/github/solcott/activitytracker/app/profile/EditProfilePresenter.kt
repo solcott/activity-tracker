@@ -14,6 +14,7 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.profile.AvatarEdit
 import io.github.solcott.activitytracker.data.profile.DetailGroup
 import io.github.solcott.activitytracker.data.profile.OwnProfile
 import io.github.solcott.activitytracker.data.profile.ProfileEdit
@@ -34,6 +35,8 @@ fun EditProfilePresenter(navigator: Navigator, profiles: ProfileRepository, unit
     val form = rememberForm(unitsRepository.units.value)
     // As loaded: which details were public, for the warning when one is hidden.
     var own by remember { mutableStateOf<OwnProfile?>(null) }
+    var picked by remember { mutableStateOf<AvatarImage.Picked?>(null) }
+    var avatarRemoved by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<UiError?>(null) }
     val scope = rememberCoroutineScope()
@@ -49,21 +52,12 @@ fun EditProfilePresenter(navigator: Navigator, profiles: ProfileRepository, unit
 
     val details = form.details()
     val visibility = form.visibility()
-    val nowHidden =
-        own?.let { loaded ->
-                DetailGroup.entries.filter { group ->
-                    group.visibility(loaded.visibility) == Visibility.PUBLIC &&
-                        group.isSet(loaded.details) &&
-                        group.isSet(details) &&
-                        group.visibility(visibility) != Visibility.PUBLIC
-                }
-            }
-            .orEmpty()
-            .toImmutableList()
+    val nowHidden = own?.let { nowHidden(it, details, visibility) }.orEmpty().toImmutableList()
 
     return EditProfileState(
         displayName = form.displayName.value,
         description = form.description.value,
+        avatar = picked ?: own?.avatarUrl?.takeUnless { avatarRemoved }?.let(AvatarImage::Saved),
         locality = form.locality.value,
         region = form.region.value,
         country = form.country.value,
@@ -82,11 +76,22 @@ fun EditProfilePresenter(navigator: Navigator, profiles: ProfileRepository, unit
                 navigator.pop()
             }
 
+            is EditProfileEvent.AvatarPicked -> {
+                picked = AvatarImage.Picked(event.jpeg)
+                avatarRemoved = false
+            }
+
+            EditProfileEvent.RemoveAvatar -> {
+                picked = null
+                avatarRemoved = true
+            }
+
             EditProfileEvent.Save -> {
                 if (own != null && !saving) {
                     saving = true
                     error = null
-                    val edit = ProfileEdit(form.displayName.value, form.description.value, details, visibility)
+                    val edit =
+                        ProfileEdit(form.displayName.value, form.description.value, details, visibility, avatarEdit(picked, avatarRemoved))
                     scope.launch {
                         runSuspendCatching { profiles.save(edit) }
                             .onSuccess { navigator.pop() }
@@ -133,7 +138,7 @@ private class Form(
         filled.value = true
     }
 
-    /** Applies a field edit; [EditProfileEvent.Save] and [EditProfileEvent.Back] are the presenter's. */
+    /** Applies a field edit. Saving, leaving and the avatar are the presenter's. */
     fun update(event: EditProfileEvent) {
         when (event) {
             is EditProfileEvent.DisplayNameChanged -> displayName.value = event.value
@@ -146,7 +151,9 @@ private class Form(
             is EditProfileEvent.WeightChanged -> weight.value = event.value
             is EditProfileEvent.VisibilityChanged -> visibilities.getValue(event.group).value = event.visibility
             EditProfileEvent.Save,
-            EditProfileEvent.Back -> Unit
+            EditProfileEvent.Back,
+            EditProfileEvent.RemoveAvatar,
+            is EditProfileEvent.AvatarPicked -> Unit
         }
     }
 
@@ -181,3 +188,22 @@ private fun rememberForm(units: UnitSystem): Form {
         units = savedUnits,
     )
 }
+
+/** Details that were public as [loaded] and are still set, but no longer public: anyone may already have copied them. */
+private fun nowHidden(loaded: OwnProfile, details: ProfileDetails, visibility: DetailsVisibility): List<DetailGroup> =
+    DetailGroup.entries.filter { group ->
+        group.visibility(loaded.visibility) == Visibility.PUBLIC &&
+            group.isSet(loaded.details) &&
+            group.isSet(details) &&
+            group.visibility(visibility) != Visibility.PUBLIC
+    }
+
+private fun avatarEdit(picked: AvatarImage.Picked?, removed: Boolean): AvatarEdit =
+    when {
+        picked != null -> AvatarEdit.Replace(picked.jpeg.toByteArray(), AVATAR_MIME_TYPE)
+        removed -> AvatarEdit.Remove
+        else -> AvatarEdit.Keep
+    }
+
+/** The edit screen sends avatars already compressed to JPEG. */
+private const val AVATAR_MIME_TYPE = "image/jpeg"

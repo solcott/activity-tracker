@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.ActivityCard
+import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.countryName
 import io.github.solcott.activitytracker.app.ui.errorText
@@ -85,7 +86,10 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
             item(key = HEADER_KEY) {
                 state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
                 profile?.let { p ->
-                    Text(handleLabel(p.handle.value), style = MaterialTheme.typography.bodyMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Avatar(p.avatar, p.displayName ?: p.handle.value, 72.dp)
+                        Text(handleLabel(p.handle.value), style = MaterialTheme.typography.bodyMedium)
+                    }
                     p.description?.let { Text(it) }
                     p.details?.let { ProfileDetailsText(it) }
                     Row(verticalAlignment = Alignment.CenterVertically) {

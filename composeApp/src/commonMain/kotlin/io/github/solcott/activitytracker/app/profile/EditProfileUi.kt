@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -36,17 +37,24 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.ui.Avatar
+import io.github.solcott.activitytracker.app.ui.AvatarFrame
 import io.github.solcott.activitytracker.app.ui.Countries
 import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.countryName
 import io.github.solcott.activitytracker.app.ui.detailGroupLabel
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.genderLabel
+import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_back
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
@@ -67,6 +75,8 @@ import io.github.solcott.activitytracker.composeApp.resources.edit_profile_lengt
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_locality
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_not_set
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_now_hidden
+import io.github.solcott.activitytracker.composeApp.resources.edit_profile_photo_change
+import io.github.solcott.activitytracker.composeApp.resources.edit_profile_photo_remove
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_region
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_title
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_weight_kg
@@ -78,7 +88,12 @@ import io.github.solcott.activitytracker.data.profile.DetailGroup
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.WeightConversions
 import io.github.solcott.activitytracker.lexicon.app.Gender
+import io.github.vinceglb.filekit.dialogs.FileKitType
+import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
+import io.github.vinceglb.filekit.readBytes
 import kotlin.time.Clock
+import kotlinx.coroutines.launch
+import kotlinx.io.bytestring.ByteString
 import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -102,6 +117,7 @@ fun EditProfileUi(state: EditProfileState, modifier: Modifier = Modifier) {
             Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            AvatarRow(state)
             LimitedTextField(
                 value = state.displayName,
                 onValueChange = { state.eventSink(EditProfileEvent.DisplayNameChanged(it)) },
@@ -184,6 +200,45 @@ fun EditProfileUi(state: EditProfileState, modifier: Modifier = Modifier) {
         }
     }
 }
+
+/** The profile picture, with buttons to pick a new one (downscaled and compressed here) or remove it. */
+@Composable
+private fun AvatarRow(state: EditProfileState, modifier: Modifier = Modifier) {
+    val scope = rememberCoroutineScope()
+    val pick =
+        rememberFilePickerLauncher(type = FileKitType.Image) { file ->
+            file ?: return@rememberFilePickerLauncher
+            scope.launch {
+                runSuspendCatching { compressAvatar(file.readBytes(), AVATAR_MAX_PIXELS, AVATAR_JPEG_QUALITY) }
+                    .onSuccess { state.eventSink(EditProfileEvent.AvatarPicked(ByteString(it))) }
+            }
+        }
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        val name = state.displayName
+        when (val avatar = state.avatar) {
+            is AvatarImage.Saved -> Avatar(avatar.url, name, AVATAR_SIZE)
+            is AvatarImage.Picked ->
+                AvatarFrame(name, AVATAR_SIZE) {
+                    val bytes = remember(avatar) { avatar.jpeg.toByteArray() }
+                    AsyncImage(bytes, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                }
+            null -> Avatar(null, name, AVATAR_SIZE)
+        }
+        Column {
+            TextButton(onClick = { pick.launch() }, enabled = state.loaded) { Text(stringResource(Res.string.edit_profile_photo_change)) }
+            if (state.avatar != null) {
+                TextButton(onClick = { state.eventSink(EditProfileEvent.RemoveAvatar) }, enabled = state.loaded) {
+                    Text(stringResource(Res.string.edit_profile_photo_remove))
+                }
+            }
+        }
+    }
+}
+
+/** Avatars are shown small, so 512 px JPEGs stay well under the lexicon's 1 MB limit. */
+private const val AVATAR_MAX_PIXELS = 512
+private const val AVATAR_JPEG_QUALITY = 85
+private val AVATAR_SIZE = 72.dp
 
 /** One detail's fields, headed by its name and followed by who may see it. */
 @Composable
