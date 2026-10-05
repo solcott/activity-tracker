@@ -1,7 +1,11 @@
 package io.github.solcott.activitytracker.lexicon.app
 
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.NoOutput
+import io.github.solcott.activitytracker.lexicon.NoParams
+import io.github.solcott.activitytracker.lexicon.NoParamsSerializer
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.XrpcProcedure
 import io.github.solcott.activitytracker.lexicon.XrpcQuery
 import kotlinx.serialization.Serializable
 
@@ -41,6 +45,22 @@ object GetProfile {
     @Serializable data class Params(val actor: String)
 
     val method = XrpcQuery(Nsid.ACTOR_GET_PROFILE, Params.serializer(), ProfileView.serializer())
+}
+
+/** The caller's own non-public profile details. Requires auth. */
+object GetPrivateDetails {
+    @Serializable data class Output(val details: ProfileDetails, val visibility: DetailsVisibility)
+
+    val method: XrpcQuery<NoParams, Output> = XrpcQuery(Nsid.ACTOR_GET_PRIVATE_DETAILS, NoParamsSerializer, Output.serializer())
+}
+
+/** Replaces the caller's non-public profile details. Every detail sent needs a mutuals or self visibility. Requires auth. */
+object PutPrivateDetails {
+    @Serializable data class Input(val details: ProfileDetails, val visibility: DetailsVisibility)
+
+    const val INVALID_VISIBILITY = "InvalidVisibility"
+
+    val method = XrpcProcedure(Nsid.ACTOR_PUT_PRIVATE_DETAILS, Input.serializer(), NoOutput.serializer())
 }
 
 object GetFollowers {

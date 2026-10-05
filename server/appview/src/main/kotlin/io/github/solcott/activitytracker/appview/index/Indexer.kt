@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.appview.index
 
+import io.github.solcott.activitytracker.appview.ProfileDetailRules
 import io.github.solcott.activitytracker.appview.db.Activities
+import io.github.solcott.activitytracker.appview.db.ActorPrivateDetails
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.Follows
@@ -153,10 +155,20 @@ class Indexer(
     }
 
     private fun JdbcTransaction.updateProfile(record: ProfileRecord, author: Did, now: Long) {
+        val avatar = ProfileDetailRules.avatarCid(record.avatar)
+        val details = ProfileDetailRules.sanitize(record.details)
         Actors.update({ Actors.did eq author.value }) {
             it[displayName] = record.displayName?.take(MAX_DISPLAY_NAME_LENGTH)
             it[description] = record.description?.take(MAX_DESCRIPTION_LENGTH)
             it[units] = record.units?.take(MAX_UNITS_LENGTH)
+            it[avatarCid] = avatar
+            it[avatarMime] = record.avatar?.mimeType?.takeIf { avatar != null }
+            it[locality] = details?.location?.locality
+            it[region] = details?.location?.region
+            it[country] = details?.location?.country
+            it[birthDate] = details?.birthDate
+            it[gender] = details?.gender
+            it[weightGrams] = details?.weight
             it[indexedAt] = now
         }
     }
@@ -184,6 +196,14 @@ class Indexer(
                     it[displayName] = null
                     it[description] = null
                     it[units] = null
+                    it[avatarCid] = null
+                    it[avatarMime] = null
+                    it[locality] = null
+                    it[region] = null
+                    it[country] = null
+                    it[birthDate] = null
+                    it[gender] = null
+                    it[weightGrams] = null
                 }
             }
         }
@@ -207,6 +227,7 @@ class Indexer(
         Kudos.deleteWhere { authorDid eq did.value }
         Comments.deleteWhere { authorDid eq did.value }
         Follows.deleteWhere { authorDid eq did.value }
+        ActorPrivateDetails.deleteWhere { ActorPrivateDetails.did eq did.value }
         Actors.deleteWhere { Actors.did eq did.value }
     }
 

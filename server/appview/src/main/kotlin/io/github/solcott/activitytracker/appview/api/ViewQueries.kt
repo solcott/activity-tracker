@@ -35,7 +35,7 @@ internal fun parseCursor(cursor: String): Pair<Long, String>? {
     return sortAt.toLongOrNull()?.let { it to uri }
 }
 
-internal fun JdbcTransaction.basicProfiles(dids: Collection<String>): Map<String, ProfileViewBasic> =
+internal fun JdbcTransaction.basicProfiles(dids: Collection<String>, avatars: AvatarUrls): Map<String, ProfileViewBasic> =
     Actors.selectAll()
         .where { Actors.did inList dids.distinct() }
         .associate {
@@ -44,5 +44,6 @@ internal fun JdbcTransaction.basicProfiles(dids: Collection<String>): Map<String
                     Did(it[Actors.did]),
                     Handle(it[Actors.handle]),
                     it[Actors.displayName],
+                    avatars.url(it[Actors.did], it[Actors.avatarCid]),
                 )
         }

@@ -2,7 +2,11 @@ package io.github.solcott.activitytracker.lexicon
 
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
+import io.github.solcott.activitytracker.lexicon.app.Location
+import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
+import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -76,5 +80,22 @@ class RecordSerializationTest {
         assertEquals("did:plc:abc", uri.authority)
         assertEquals(Nsid.FEED_ACTIVITY, uri.collection)
         assertEquals("3k2", uri.rkey)
+    }
+
+    @Test
+    fun profileDetailsAndAvatarRoundTrip() {
+        val profile =
+            ProfileRecord(
+                displayName = "Alice",
+                avatar = BlobRef(ref = BlobRef.Link("bafkavatar"), mimeType = "image/jpeg", size = 1234),
+                details = ProfileDetails(location = Location(locality = "Portland", country = "US"), weight = 61_500),
+            )
+        val json = AtJson.encodeToJsonElement(ProfileRecord.serializer(), profile).jsonObject
+        assertEquals("blob", json["avatar"]?.jsonObject?.get("\$type")?.jsonPrimitive?.content)
+        val details = json.getValue("details").jsonObject
+        assertEquals("61500", details["weight"]?.jsonPrimitive?.content)
+        assertFalse("birthDate" in details)
+        assertFalse("region" in details.getValue("location").jsonObject)
+        assertEquals(profile, AtJson.decodeFromJsonElement(ProfileRecord.serializer(), json))
     }
 }

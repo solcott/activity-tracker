@@ -77,10 +77,13 @@ data class FollowRecord(
     @SerialName("\$type") val type: String = Nsid.GRAPH_FOLLOW,
 )
 
+/** `app.activitytracker.actor.profile`. Records are public, so [details] holds only the details the athlete made public. */
 @Serializable
 data class ProfileRecord(
     val displayName: String? = null,
     val description: String? = null,
+    val avatar: BlobRef? = null,
+    val details: ProfileDetails? = null,
     val units: String? = null,
     val sports: List<String> = emptyList(),
     val createdAt: Instant? = null,
@@ -90,3 +93,59 @@ data class ProfileRecord(
         const val RKEY = "self"
     }
 }
+
+/** `app.activitytracker.actor.defs#location` */
+@Immutable
+@Serializable
+data class Location(
+    /** City or town. */
+    val locality: String? = null,
+    /** State, province or similar. */
+    val region: String? = null,
+    /** ISO 3166-1 alpha-2 code, upper case. */
+    val country: String? = null,
+)
+
+/** `app.activitytracker.actor.defs#details`. Who sees each one is set by a [DetailsVisibility]. */
+@Immutable
+@Serializable
+data class ProfileDetails(
+    val location: Location? = null,
+    /** Calendar date as `YYYY-MM-DD`. */
+    val birthDate: String? = null,
+    /** A [Gender] value, or the athlete's own description. */
+    val gender: String? = null,
+    /** Grams (lexicons have no floats). */
+    val weight: Long? = null,
+)
+
+/** Known values of [ProfileDetails.gender]; the field is an open string. */
+object Gender {
+    const val FEMALE = "female"
+    const val MALE = "male"
+    const val NON_BINARY = "nonBinary"
+
+    val all = listOf(FEMALE, MALE, NON_BINARY)
+}
+
+/** Known values of `app.activitytracker.actor.defs#visibility`; the field is an open string. */
+object Visibility {
+    /** Anyone, so the detail goes in the public profile record. */
+    const val PUBLIC = "public"
+
+    /** Accounts the athlete follows that also follow the athlete. */
+    const val MUTUALS = "mutuals"
+
+    /** Only the athlete. */
+    const val SELF = "self"
+}
+
+/** `app.activitytracker.actor.defs#detailsVisibility`: a [Visibility] value per detail group. */
+@Immutable
+@Serializable
+data class DetailsVisibility(
+    val location: String? = null,
+    val birthDate: String? = null,
+    val gender: String? = null,
+    val weight: String? = null,
+)

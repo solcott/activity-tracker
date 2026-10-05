@@ -42,7 +42,7 @@ import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 
 /** Read side: turns indexed rows into lexicon views. */
-class Views(private val db: Database) {
+class Views(private val db: Database, private val avatars: AvatarUrls) {
     suspend fun timeline(viewer: Did, params: GetTimeline.Params): GetTimeline.Output = db.tx {
         val authors =
             Follows.select(Follows.subjectDid).where { Follows.authorDid eq viewer.value }.map { it[Follows.subjectDid] } + viewer.value
@@ -70,7 +70,7 @@ class Views(private val db: Database) {
                 .orderBy(Comments.createdAt to SortOrder.ASC)
                 .limit(HttpStatusCode.InternalServerError.value)
                 .toList()
-        val authors = basicProfiles(comments.map { it[Comments.authorDid] })
+        val authors = basicProfiles(comments.map { it[Comments.authorDid] }, avatars)
         GetActivity.Output(
             activity = hydrate(listOf(row), viewer).single(),
             comments =
@@ -110,7 +110,7 @@ class Views(private val db: Database) {
                 .limit(pageSize)
                 .toList()
         val next = rows.takeIf { it.size == pageSize }?.last()?.let { "${it[latest]}::${it[Kudos.authorDid]}" }
-        val profiles = basicProfiles(rows.map { it[Kudos.authorDid] })
+        val profiles = basicProfiles(rows.map { it[Kudos.authorDid] }, avatars)
         GetKudos.Output(params.uri, rows.mapNotNull { profiles[it[Kudos.authorDid]] }, next)
     }
 
@@ -122,6 +122,8 @@ class Views(private val db: Database) {
             handle = Handle(row[Actors.handle]),
             displayName = row[Actors.displayName],
             description = row[Actors.description],
+            avatar = avatars.url(did, row[Actors.avatarCid]),
+            details = visibleDetails(row, viewer),
             units = row[Actors.units],
             activitiesCount = Activities.selectAll().where { Activities.authorDid eq did }.count(),
             followersCount = Follows.selectAll().where { Follows.subjectDid eq did }.count(),
@@ -160,7 +162,7 @@ class Views(private val db: Database) {
     private fun JdbcTransaction.hydrate(rows: List<ResultRow>, viewer: Did?): List<ActivityView> {
         if (rows.isEmpty()) return emptyList()
         val uris = rows.map { it[Activities.uri] }
-        val authors = basicProfiles(rows.map { it[Activities.authorDid] })
+        val authors = basicProfiles(rows.map { it[Activities.authorDid] }, avatars)
         val kudosCounts = countBySubject(Kudos, Kudos.subjectUri, Kudos.authorDid, uris, distinct = true)
         val commentCounts = countBySubject(Comments, Comments.subjectUri, Comments.uri, uris)
         val viewerKudos =

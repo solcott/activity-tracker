@@ -1,0 +1,22 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.actor.putPrivateDetails",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Replaces the caller's non-public profile details, which the AppView stores (repo records are public). Every detail sent must have a mutuals or self visibility; omit a detail to clear it.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["details", "visibility"],
+          "properties": {
+            "details": { "type": "ref", "ref": "app.activitytracker.actor.defs#details" },
+            "visibility": { "type": "ref", "ref": "app.activitytracker.actor.defs#detailsVisibility" }
+          }
+        }
+      },
+      "errors": [{ "name": "InvalidVisibility" }]
+    }
+  }
+}

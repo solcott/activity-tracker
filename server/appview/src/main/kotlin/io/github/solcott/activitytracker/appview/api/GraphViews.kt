@@ -16,7 +16,7 @@ import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.select
 
 /** Read side of the social graph: who follows an actor and whom they follow. */
-class GraphViews(private val db: Database) {
+class GraphViews(private val db: Database, private val avatars: AvatarUrls) {
     suspend fun followers(params: GetFollowers.Params): GetFollowers.Output = db.tx {
         val subject = resolveSubject(params.actor)
         val (accounts, cursor) = followPage(Follows.subjectDid, Follows.authorDid, subject.did.value, params.limit, params.cursor)
@@ -31,7 +31,7 @@ class GraphViews(private val db: Database) {
 
     private fun JdbcTransaction.resolveSubject(actor: String): ProfileViewBasic {
         val did = resolveActor(actor) ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor $actor")
-        return basicProfiles(listOf(did)).getValue(did)
+        return basicProfiles(listOf(did), avatars).getValue(did)
     }
 
     /**
@@ -53,7 +53,7 @@ class GraphViews(private val db: Database) {
                 .limit(pageSize)
                 .toList()
         val next = rows.takeIf { it.size == pageSize }?.last()?.let { "${it[Follows.indexedAt]}::${it[Follows.uri]}" }
-        val profiles = basicProfiles(rows.map { it[other] })
+        val profiles = basicProfiles(rows.map { it[other] }, avatars)
         // An account can be followed more than once (duplicate records); list it once.
         return rows.mapNotNull { profiles[it[other]] }.distinctBy { it.did } to next
     }

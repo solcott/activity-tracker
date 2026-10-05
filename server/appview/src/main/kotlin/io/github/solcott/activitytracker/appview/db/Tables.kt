@@ -8,7 +8,32 @@ object Actors : Table("actors") {
     val displayName = text("display_name").nullable()
     val description = text("description").nullable()
     val units = varchar("units", 16).nullable()
+    val avatarCid = varchar("avatar_cid", 255).nullable()
+    val avatarMime = varchar("avatar_mime", 64).nullable()
+    val locality = text("locality").nullable()
+    val region = text("region").nullable()
+    val country = varchar("country", 2).nullable()
+    val birthDate = varchar("birth_date", 10).nullable()
+    val gender = text("gender").nullable()
+    val weightGrams = long("weight_g").nullable()
     val indexedAt = long("indexed_at")
+    override val primaryKey = PrimaryKey(did)
+}
+
+/** Mutuals-only and private profile details, written by `actor.putPrivateDetails` rather than indexed. */
+object ActorPrivateDetails : Table("actor_private_details") {
+    val did = varchar("did", 255)
+    val locality = text("locality").nullable()
+    val region = text("region").nullable()
+    val country = varchar("country", 2).nullable()
+    val birthDate = varchar("birth_date", 10).nullable()
+    val gender = text("gender").nullable()
+    val weightGrams = long("weight_g").nullable()
+    val locationVisibility = varchar("location_visibility", 16).nullable()
+    val birthDateVisibility = varchar("birth_date_visibility", 16).nullable()
+    val genderVisibility = varchar("gender_visibility", 16).nullable()
+    val weightVisibility = varchar("weight_visibility", 16).nullable()
+    val updatedAt = long("updated_at")
     override val primaryKey = PrimaryKey(did)
 }
 

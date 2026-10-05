@@ -1,9 +1,14 @@
 package io.github.solcott.activitytracker.appview
 
 import co.touchlab.kermit.Logger
+import io.github.solcott.activitytracker.appview.api.AvatarUrls
 import io.github.solcott.activitytracker.appview.api.GraphViews
+import io.github.solcott.activitytracker.appview.api.PdsLookup
+import io.github.solcott.activitytracker.appview.api.PrivateDetails
+import io.github.solcott.activitytracker.appview.api.ResolvingPdsLookup
 import io.github.solcott.activitytracker.appview.api.Views
 import io.github.solcott.activitytracker.appview.api.XrpcError
+import io.github.solcott.activitytracker.appview.api.avatarRoutes
 import io.github.solcott.activitytracker.appview.api.respondXrpcError
 import io.github.solcott.activitytracker.appview.api.wellKnownRoutes
 import io.github.solcott.activitytracker.appview.api.xrpcRoutes
@@ -50,7 +55,7 @@ fun main() {
     val verifier = ServiceAuthVerifier(config.serviceDid, identity, config.extraAudiences)
 
     embeddedServer(Netty, port = config.port) {
-            appView(config, db, verifier)
+            appView(config, db, verifier, ResolvingPdsLookup(identity))
             config.jetstreamUrl?.let { url ->
                 val indexer = Indexer(db, ResolvingHandleLookup(identity))
                 launch { JetstreamConsumer(http, url, db, indexer).run() }
@@ -59,12 +64,18 @@ fun main() {
         .start(wait = true)
 }
 
-fun Application.appView(config: AppViewConfig, db: Database, verifier: ServiceAuthVerifier) {
+fun Application.appView(
+    config: AppViewConfig,
+    db: Database,
+    verifier: ServiceAuthVerifier,
+    pds: PdsLookup = PdsLookup { null },
+) {
     install(CallLogging)
     install(CORS) {
         // The web client calls the AppView directly from the browser.
         anyHost()
         allowMethod(HttpMethod.Get)
+        allowMethod(HttpMethod.Post)
         allowHeader(HttpHeaders.Authorization)
         allowHeader(HttpHeaders.ContentType)
         allowHeader("atproto-proxy")
@@ -81,6 +92,8 @@ fun Application.appView(config: AppViewConfig, db: Database, verifier: ServiceAu
     }
     routing {
         wellKnownRoutes(config)
-        xrpcRoutes(Views(db), GraphViews(db), verifier)
+        val avatars = AvatarUrls(config.publicUrl)
+        xrpcRoutes(Views(db, avatars), GraphViews(db, avatars), PrivateDetails(db), verifier)
+        avatarRoutes(db, pds)
     }
 }

@@ -15,6 +15,8 @@ data class ProfileViewBasic(
     val did: Did,
     val handle: Handle,
     val displayName: String? = null,
+    /** URL of the athlete's profile picture. */
+    val avatar: String? = null,
 )
 
 /** `app.activitytracker.actor.defs#profileView` */
@@ -25,6 +27,10 @@ data class ProfileView(
     val handle: Handle,
     val displayName: String? = null,
     val description: String? = null,
+    /** URL of the athlete's profile picture. */
+    val avatar: String? = null,
+    /** Only the details this viewer may see. */
+    val details: ProfileDetails? = null,
     val units: String? = null,
     val activitiesCount: Long? = null,
     val followersCount: Long? = null,

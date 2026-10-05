@@ -8,7 +8,8 @@
       "properties": {
         "did": { "type": "string", "format": "did" },
         "handle": { "type": "string", "format": "handle" },
-        "displayName": { "type": "string", "maxLength": 640, "maxGraphemes": 64 }
+        "displayName": { "type": "string", "maxLength": 640, "maxGraphemes": 64 },
+        "avatar": { "type": "string", "format": "uri", "description": "URL of the athlete's profile picture." }
       }
     },
     "profileView": {
@@ -19,6 +20,12 @@
         "handle": { "type": "string", "format": "handle" },
         "displayName": { "type": "string", "maxLength": 640, "maxGraphemes": 64 },
         "description": { "type": "string", "maxLength": 2560, "maxGraphemes": 256 },
+        "avatar": { "type": "string", "format": "uri", "description": "URL of the athlete's profile picture." },
+        "details": {
+          "type": "ref",
+          "ref": "#details",
+          "description": "Only the details this viewer may see: public ones, plus mutuals-only ones for a mutual and everything for the athlete themselves."
+        },
         "units": { "type": "string", "knownValues": ["metric", "imperial"] },
         "activitiesCount": { "type": "integer" },
         "followersCount": { "type": "integer" },
@@ -30,6 +37,45 @@
       "type": "object",
       "properties": {
         "following": { "type": "string", "format": "at-uri", "description": "URI of the viewer's follow record, if any." }
+      }
+    },
+    "location": {
+      "type": "object",
+      "properties": {
+        "locality": { "type": "string", "maxLength": 640, "maxGraphemes": 64, "description": "City or town." },
+        "region": { "type": "string", "maxLength": 640, "maxGraphemes": 64, "description": "State, province or similar." },
+        "country": { "type": "string", "minLength": 2, "maxLength": 2, "description": "ISO 3166-1 alpha-2 code, upper case." }
+      }
+    },
+    "details": {
+      "type": "object",
+      "description": "Optional athlete details. Each is stored in the public profile record only when the athlete makes it public; otherwise it lives in the AppView's private store (see putPrivateDetails).",
+      "properties": {
+        "location": { "type": "ref", "ref": "#location" },
+        "birthDate": { "type": "string", "minLength": 10, "maxLength": 10, "description": "Calendar date as YYYY-MM-DD." },
+        "gender": {
+          "type": "string",
+          "maxLength": 640,
+          "maxGraphemes": 64,
+          "knownValues": ["female", "male", "nonBinary"],
+          "description": "A known value, or the athlete's own description."
+        },
+        "weight": { "type": "integer", "minimum": 1, "maximum": 500000, "description": "Grams (lexicons have no floats)." }
+      }
+    },
+    "visibility": {
+      "type": "string",
+      "knownValues": ["public", "mutuals", "self"],
+      "description": "Who may see a detail: anyone, accounts the athlete and the viewer both follow, or only the athlete."
+    },
+    "detailsVisibility": {
+      "type": "object",
+      "description": "Visibility of each detail group in #details.",
+      "properties": {
+        "location": { "type": "ref", "ref": "#visibility" },
+        "birthDate": { "type": "ref", "ref": "#visibility" },
+        "gender": { "type": "ref", "ref": "#visibility" },
+        "weight": { "type": "ref", "ref": "#visibility" }
       }
     }
   }

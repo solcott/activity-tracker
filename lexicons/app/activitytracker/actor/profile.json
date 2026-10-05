@@ -11,6 +11,17 @@
         "properties": {
           "displayName": { "type": "string", "maxLength": 640, "maxGraphemes": 64 },
           "description": { "type": "string", "maxLength": 2560, "maxGraphemes": 256 },
+          "avatar": {
+            "type": "blob",
+            "accept": ["image/png", "image/jpeg"],
+            "maxSize": 1000000,
+            "description": "Profile picture. Always public, like every blob."
+          },
+          "details": {
+            "type": "ref",
+            "ref": "app.activitytracker.actor.defs#details",
+            "description": "Only the details the athlete made public. Records are public, so never put a mutuals-only or private detail here."
+          },
           "units": { "type": "string", "knownValues": ["metric", "imperial"] },
           "sports": {
             "type": "array",
