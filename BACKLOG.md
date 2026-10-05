@@ -20,3 +20,14 @@ Profile details an athlete marks Mutuals or Only me (location, birthdate, gender
 - **Mutuals.** A space grants access by membership, not by a rule over the follow graph. Decide whether to keep the space's member list in sync with the athlete's mutuals, or to keep enforcing visibility in the AppView and use the space only for storage.
 - **Migration.** Have clients copy their own rows into their space, switch reads over, then drop `actor_private_details` in a new migration. Public details stay in `actor.profile`.
 - **Hard rule still applies.** Client code can't use an atproto SDK, so the Spaces XRPC calls are hand-written in `core/atproto`.
+
+## Show activities on real maps
+
+`RoutePreview` draws the record's encoded polyline on a blank Canvas. GPX, TCX and FIT import will make real maps more pressing. The stack below is decided; build it when import starts.
+
+- **Renderer.** MapLibre Compose (`org.maplibre.compose`) supports Android, iOS, wasmJs and Desktop JVM from shared code. Every target is still alpha or beta, so wrap it in one `composeApp` composable (e.g. `ActivityMap`) to contain API churn. Keep `RoutePreview` as the loading and error fallback. Draw the track as a GeoJSON line layer, so it can later be coloured by speed, HR or elevation.
+- **Tiles.** Use OpenFreeMap (no key, no limits) by default and in dev. Use MapTiler Outdoor/Topo or Stadia Outdoors for a trail and contour style. Self-hosted Protomaps PMTiles on S3 or R2 behind a CDN is the cost-control option. Keep the style URL in config so providers can change without a release.
+- **Avoid.** Google Maps SDK (no wasmJs or desktop target, Google tiles only, billed per load). Mapbox v2+ (proprietary licence, billed per active user). `tile.openstreetmap.org` (its usage policy forbids app traffic). MapKit (iOS only).
+- **Feed vs detail.** Use the interactive map only on the activity detail screen. Feed cards stay static. Near term that's the Canvas polyline. Later, the AppView renders a PNG per activity at index time, using a provider's Static Maps API or self-hosted tileserver-gl, and serves it from an `app.activitytracker.*` endpoint.
+- **Attribution.** Every OSM-based provider requires "© OpenStreetMap contributors" plus the provider's own credit to be visible. Keep MapLibre's attribution control on.
+- **Privacy zones.** Repo records are public, and imported files carry exact start and end points, often a home address. Trim the polyline around the athlete's privacy zones before `putRecord`. Never put the full-resolution track in a record.
