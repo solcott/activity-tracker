@@ -30,6 +30,7 @@ import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_back
 import io.github.solcott.activitytracker.composeApp.resources.profile_activities_count
+import io.github.solcott.activitytracker.composeApp.resources.profile_edit
 import io.github.solcott.activitytracker.composeApp.resources.profile_follow
 import io.github.solcott.activitytracker.composeApp.resources.profile_followers_count
 import io.github.solcott.activitytracker.composeApp.resources.profile_following
@@ -70,9 +71,11 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            state.error?.let { item { Text(errorText(it), color = MaterialTheme.colorScheme.error) } }
-            profile?.let { p ->
-                item {
+            // Always present, even before the profile loads: the activities can show first (from the local cache), and an item
+            // inserted above the first visible one is scrolled out of view to keep that item in place.
+            item(key = HEADER_KEY) {
+                state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+                profile?.let { p ->
                     Text(handleLabel(p.handle.value), style = MaterialTheme.typography.bodyMedium)
                     p.description?.let { Text(it) }
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -93,7 +96,11 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
                             )
                         }
                     }
-                    if (!state.isSelf) {
+                    if (state.isSelf) {
+                        OutlinedButton(onClick = { state.eventSink(ProfileEvent.EditProfile) }) {
+                            Text(stringResource(Res.string.profile_edit))
+                        }
+                    } else {
                         if (p.viewer?.following == null) {
                             Button(onClick = { state.eventSink(ProfileEvent.ToggleFollow) }) {
                                 Text(stringResource(Res.string.profile_follow))
@@ -124,3 +131,5 @@ private fun countLabel(resource: PluralStringResource, count: Long?): String {
     val n = count ?: 0
     return pluralStringResource(resource, n.toInt(), n)
 }
+
+private const val HEADER_KEY = "header"

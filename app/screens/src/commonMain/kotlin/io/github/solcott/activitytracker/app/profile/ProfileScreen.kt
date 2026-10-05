@@ -33,6 +33,8 @@ sealed interface ProfileEvent {
 
     data object OpenSettings : ProfileEvent
 
+    data object EditProfile : ProfileEvent
+
     data class Open(val activity: ActivityView) : ProfileEvent
 
     data class ToggleKudos(val activity: ActivityView) : ProfileEvent

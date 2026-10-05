@@ -28,7 +28,30 @@ class ProfileRepository(
     val did
         get() = clients.did
 
-    suspend fun profile(actor: String): ProfileView = clients.appView.query(GetProfile.method, GetProfile.Params(actor))
+    /**
+     * The signed-in athlete's last saved profile record, until the AppView shows it. [profile] lays its display name and bio over the
+     * AppView's view of the athlete so an edit shows at once.
+     */
+    private var pendingOwnProfile: ProfileRecord? = null
+
+    suspend fun profile(actor: String): ProfileView {
+        val view: ProfileView = clients.appView.query(GetProfile.method, GetProfile.Params(actor))
+        val pending = pendingOwnProfile
+        return when {
+            view.did != did || pending == null -> {
+                view
+            }
+
+            view.displayName == pending.displayName && view.description == pending.description -> {
+                pendingOwnProfile = null
+                view
+            }
+
+            else -> {
+                view.copy(displayName = pending.displayName, description = pending.description)
+            }
+        }
+    }
 
     /** One page of athletes following [actor] (a DID or handle). */
     suspend fun followers(actor: String, cursor: String? = null): GetFollowers.Output =
@@ -59,6 +82,21 @@ class ProfileRepository(
                 rkey = ProfileRecord.RKEY,
                 record = AtJson.encodeToJsonElement(ProfileRecord.serializer(), record),
             ),
+        )
+        pendingOwnProfile = record
+    }
+
+    /**
+     * Sets the display name and bio on the signed-in athlete's profile record; a blank value clears that field. Reads the record first
+     * because `putRecord` replaces it whole, and the other fields (units, sports) must survive.
+     */
+    suspend fun saveDetails(displayName: String, description: String) {
+        val record = ownProfileRecord() ?: ProfileRecord(createdAt = clock.now())
+        saveProfile(
+            record.copy(
+                displayName = displayName.trim().ifEmpty { null },
+                description = description.trim().ifEmpty { null },
+            )
         )
     }
 

@@ -18,6 +18,7 @@
     <string name="error_sign_in_start">Couldn't start sign-in</string>
     <string name="error_sign_in_complete">Sign-in failed</string>
     <string name="error_save_settings">Couldn't save settings</string>
+    <string name="error_save_profile">Couldn't save profile</string>
 
     <!-- Stats and units -->
     <string name="stat_distance">Distance</string>
@@ -111,6 +112,13 @@
     <string name="profile_following_count">%1$d following</string>
     <string name="profile_follow">Follow</string>
     <string name="profile_following">Following</string>
+    <string name="profile_edit">Edit profile</string>
+
+    <!-- Edit profile -->
+    <string name="edit_profile_title">Edit profile</string>
+    <string name="edit_profile_display_name">Display name</string>
+    <string name="edit_profile_description">Bio</string>
+    <string name="edit_profile_length">%1$d/%2$d</string>
 
     <!-- Follow list -->
     <string name="follow_list_followers">Followers</string>

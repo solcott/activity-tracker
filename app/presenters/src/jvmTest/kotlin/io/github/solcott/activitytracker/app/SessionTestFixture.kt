@@ -34,10 +34,16 @@ import kotlin.time.Duration.Companion.hours
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 
-/** A signed-in session for Alice against a fake PDS that has no profile record and records every `putRecord`. */
+/**
+ * A signed-in session for Alice against a fake PDS that records every `putRecord`, and a fake AppView that serves her profile as indexed
+ * before any of those writes.
+ */
 class SessionTestFixture {
     val did = Did("did:plc:alice")
     var failWrites = false
+
+    /** Alice's profile record as JSON, both in her repo and as the AppView indexed it; null for none. */
+    var profileRecord: String? = null
     private val putBodies = mutableListOf<String>()
 
     /** The `record` of each successful `putRecord`, in order. */
@@ -50,7 +56,28 @@ class SessionTestFixture {
                 val json = headersOf("Content-Type", "application/json")
                 when (request.url.encodedPath) {
                     "/xrpc/com.atproto.repo.getRecord" -> {
-                        respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, json)
+                        val record = profileRecord
+                        if (record == null) {
+                            respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, json)
+                        } else {
+                            respond("""{"uri":"at://$did/app.activitytracker.actor.profile/self","value":$record}""", headers = json)
+                        }
+                    }
+
+                    "/xrpc/com.atproto.server.getServiceAuth" -> {
+                        respond("""{"token":"service-jwt"}""", headers = json)
+                    }
+
+                    "/xrpc/app.activitytracker.actor.getProfile" -> {
+                        val view = AtJson.parseToJsonElement(profileRecord ?: "{}").jsonObject
+                        val fields =
+                            listOfNotNull(
+                                """"did":"$did"""",
+                                """"handle":"alice.test"""",
+                                view["displayName"]?.let { """"displayName":$it""" },
+                                view["description"]?.let { """"description":$it""" },
+                            )
+                        respond(fields.joinToString(",", "{", "}"), headers = json)
                     }
 
                     "/xrpc/com.atproto.repo.putRecord" -> {
@@ -71,7 +98,12 @@ class SessionTestFixture {
             expectSuccess = false
         }
 
-    class Repos(val activities: ActivityRepository, val units: UnitsRepository, val auth: AuthRepository)
+    class Repos(
+        val activities: ActivityRepository,
+        val profiles: ProfileRepository,
+        val units: UnitsRepository,
+        val auth: AuthRepository,
+    )
 
     suspend fun repos(defaultUnits: UnitSystem = UnitSystem.Metric): Repos {
         val db = inMemoryDatabase()
@@ -103,7 +135,8 @@ class SessionTestFixture {
         val localKudos = LocalKudos()
         val feed = FeedRepository(db, clients, localKudos, Logger)
         val activities = ActivityRepository(db, clients, OutboxProcessor(db, clients, Logger), feed, localKudos, Clock.System)
-        val units = UnitsRepository(ProfileRepository(clients, Clock.System), Clock.System, Logger, defaultUnits)
-        return Repos(activities, units, AuthRepository(manager, db, http))
+        val profiles = ProfileRepository(clients, Clock.System)
+        val units = UnitsRepository(profiles, Clock.System, Logger, defaultUnits)
+        return Repos(activities, profiles, units, AuthRepository(manager, db, http))
     }
 }

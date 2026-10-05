@@ -17,6 +17,7 @@ data class UiError(val kind: Kind, val detail: String?) {
         LoadFollowing,
         SaveActivity,
         SaveSettings,
+        SaveProfile,
     }
 
     companion object {

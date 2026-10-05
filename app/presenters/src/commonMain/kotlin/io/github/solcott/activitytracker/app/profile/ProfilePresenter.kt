@@ -91,6 +91,10 @@ fun ProfilePresenter(
             ProfileEvent.OpenSettings -> {
                 navigator.goTo(SettingsScreen)
             }
+
+            ProfileEvent.EditProfile -> {
+                navigator.goTo(EditProfileScreen)
+            }
         }
     }
 }
