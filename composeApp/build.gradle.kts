@@ -22,6 +22,8 @@ kotlin {
         it.binaries.framework {
             baseName = "ComposeApp"
             isStatic = true
+            // So iosApp's SwiftFitDecoder sees FitDecoder and its DTOs under their own names.
+            export(projects.coreActivityfile)
         }
     }
 
@@ -49,9 +51,9 @@ kotlin {
         // MapLibre Compose has no wasmJs target yet (maplibre/maplibre-compose#209, needs CMP 1.13), so the web app keeps the Canvas
         // RoutePreview (see ActivityMap and BACKLOG.md).
         // Desktop's native runtime is picked per OS in :desktopApp.
-        nonWebMain.dependencies {
-            implementation(libs.maplibre.compose)
-        }
+        nonWebMain.dependencies { implementation(libs.maplibre.compose) }
+        // api so the framework can export it (see the framework block above).
+        iosMain.dependencies { api(projects.coreActivityfile) }
         wasmJsMain.dependencies { implementation(libs.kotlinx.browser) }
     }
 }

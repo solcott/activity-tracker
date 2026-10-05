@@ -41,6 +41,7 @@ listOf(
         "core/lexicon",
         "core/atproto",
         "core/location",
+        "core/activityfile",
         "core/data",
         "app/screens",
         "app/presenters",

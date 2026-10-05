@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
@@ -31,6 +32,7 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.feed_add_manual
 import io.github.solcott.activitytracker.composeApp.resources.feed_empty_can_record
 import io.github.solcott.activitytracker.composeApp.resources.feed_empty_manual_only
+import io.github.solcott.activitytracker.composeApp.resources.feed_import
 import io.github.solcott.activitytracker.composeApp.resources.feed_my_profile
 import io.github.solcott.activitytracker.composeApp.resources.feed_pending_writes
 import io.github.solcott.activitytracker.composeApp.resources.feed_record
@@ -54,6 +56,9 @@ fun FeedUi(state: FeedState, modifier: Modifier = Modifier) {
                     }
                     IconButton(onClick = { state.eventSink(FeedEvent.AddManual) }) {
                         Icon(Icons.Default.Edit, stringResource(Res.string.feed_add_manual))
+                    }
+                    IconButton(onClick = { state.eventSink(FeedEvent.Import) }) {
+                        Icon(Icons.Default.AddCircle, stringResource(Res.string.feed_import))
                     }
                     IconButton(onClick = { state.eventSink(FeedEvent.OpenMyProfile) }) {
                         Icon(Icons.Default.Person, stringResource(Res.string.feed_my_profile))

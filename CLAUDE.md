@@ -44,6 +44,8 @@ Wasm tests are disabled. Client modules also have a `jvm()` target so tests (Roo
 
 **DI (Metro) and scopes.** `AppScope` holds app-wide singletons (HTTP, OAuth, Room, `ActivityRecorder`, `AuthCoordinator`). `SessionScope` is one signed-in account: a `SessionGraph` graph extension created with the `OAuthSession` and dropped on sign-out. `App.kt` renders `LoginScreen` on `AppCircuit` when signed out and a `key(did)` `SessionGraph`'s `SessionCircuit` when signed in. Platform pieces (DB builder, `LocationTracker`, `AuthBrowser`) are contributed from each module's platform source sets. Desktop and web bind `UnsupportedLocationTracker` (`nonMobileMain`), whose `isSupported = false` hides Record in the feed.
 
+**Activity files.** `core/activityfile` (`:core-activityfile`) reads FIT files into an `ImportedActivity`, which `ActivityDraft.fromImport` publishes like a recording (GPX track blob). Each platform decodes with Garmin's own SDK behind the `FitDecoder` interface: the Java SDK on Android, desktop and the AppView (`commonJvmMain`), the npm JS SDK on web (`@JsModule` externals), and the Swift SDK on iOS. Kotlin/Native can't call Swift, so `iosApp/iosApp/SwiftFitDecoder.swift` implements the interface and `ContentView` passes it into `IosAppGraph.Factory`. The decoders only translate messages; `FitActivityMapper` (common) interprets them.
+
 **Hard rule:** no Ozone or other atproto SDK in client code. Ozone has no wasmJs target. The XRPC layer is hand-written on Ktor in `core/atproto`. A hook enforces this.
 
 ## Where the details live

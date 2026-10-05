@@ -7,7 +7,8 @@ import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.Provider
 import dev.zacsweers.metro.Provides
-import dev.zacsweers.metro.createGraph
+import dev.zacsweers.metro.createGraphFactory
+import io.github.solcott.activitytracker.activityfile.FitDecoder
 import io.github.solcott.activitytracker.app.di.AppGraph
 import io.github.solcott.activitytracker.atproto.AtprotoConfig
 import io.github.solcott.activitytracker.data.auth.AuthBrowser
@@ -28,12 +29,22 @@ import platform.darwin.NSObject
 @DependencyGraph(AppScope::class)
 interface IosAppGraph : AppGraph {
     @Provides fun atprotoConfig(): AtprotoConfig = NetworkConfigs.native()
+
+    @DependencyGraph.Factory
+    fun interface Factory {
+        /** [fitDecoder] is `SwiftFitDecoder`, implemented in iosApp with Garmin's Swift FIT SDK. */
+        fun create(@Provides fitDecoder: FitDecoder): IosAppGraph
+    }
 }
 
-private val graph: IosAppGraph by lazy { createGraph<IosAppGraph>() }
+private var graph: IosAppGraph? = null
 
-/** Entry point used by `iosApp/iosApp/ContentView.swift`. */
-@Suppress("FunctionName", "unused") fun MainViewController(): UIViewController = ComposeUIViewController { App(graph) }
+/** Entry point used by `iosApp/iosApp/ContentView.swift`. The graph is created once, by the first call. */
+@Suppress("FunctionName", "unused")
+fun MainViewController(fitDecoder: FitDecoder): UIViewController {
+    val appGraph = graph ?: createGraphFactory<IosAppGraph.Factory>().create(fitDecoder).also { graph = it }
+    return ComposeUIViewController { App(appGraph) }
+}
 
 /** OAuth via ASWebAuthenticationSession, which hands the redirect URL straight back to us. */
 @ContributesBinding(AppScope::class)

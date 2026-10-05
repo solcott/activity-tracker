@@ -14,6 +14,7 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
+import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.record.ManualActivityScreen
 import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -79,6 +80,10 @@ fun FeedPresenter(
 
             FeedEvent.AddManual -> {
                 navigator.goTo(ManualActivityScreen)
+            }
+
+            FeedEvent.Import -> {
+                navigator.goTo(ImportActivityScreen)
             }
 
             FeedEvent.OpenMyProfile -> {

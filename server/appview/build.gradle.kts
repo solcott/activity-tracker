@@ -26,6 +26,8 @@ tasks.named<JavaExec>(ApplicationPlugin.TASK_RUN_NAME) {
 }
 
 dependencies {
+    // Not used by a route yet: keeps the FIT parser proven on the server classpath for when the AppView reads activity files.
+    implementation(projects.coreActivityfile)
     implementation(projects.coreAtproto)
     implementation(libs.bouncycastle)
     implementation(libs.exposed.core)
@@ -47,6 +49,7 @@ dependencies {
     implementation(libs.postgresql)
 
     testImplementation(kotlin("test"))
+    testImplementation(libs.garmin.fit)
     testImplementation(libs.h2)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.ktor.server.test.host)

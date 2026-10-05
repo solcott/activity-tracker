@@ -1,14 +1,16 @@
 package io.github.solcott.activitytracker.data.activity
 
+import io.github.solcott.activitytracker.activityfile.ImportedActivity
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.location.Gpx
+import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.RecordingResult
 import io.github.solcott.activitytracker.location.TrackMath
 import kotlin.math.roundToLong
 import kotlin.time.Duration
 import kotlin.time.Instant
 
-/** An activity ready to publish, from a GPS recording or manual entry. */
+/** An activity ready to publish, from a GPS recording, an imported file or manual entry. */
 data class ActivityDraft(
     val sport: String,
     val title: String?,
@@ -20,6 +22,10 @@ data class ActivityDraft(
     val elevationGainMeters: Double? = null,
     val maxSpeedMps: Double? = null,
     val avgTemperatureCelsius: Double? = null,
+    val avgHeartRate: Int? = null,
+    val maxHeartRate: Int? = null,
+    /** Recording device, e.g. "Garmin fenix7". */
+    val device: String? = null,
     val polyline: String? = null,
     val gpx: ByteArray? = null,
 ) {
@@ -40,42 +46,36 @@ data class ActivityDraft(
                 },
             maxSpeed = maxSpeedMps?.let { (it * MM_PER_M).roundToLong() },
             avgTemperature = avgTemperatureCelsius?.let { (it * TENTHS_PER_DEGREE).roundToLong() },
+            avgHeartRate = avgHeartRate,
+            maxHeartRate = maxHeartRate,
             polyline = polyline,
+            device = device,
             createdAt = createdAt,
         )
 
     // Generated equals/hashCode compare arrays by identity; compare gpx by content instead.
-    override fun equals(other: Any?): Boolean =
-        this === other ||
-            other is ActivityDraft &&
-                sport == other.sport &&
-                title == other.title &&
-                description == other.description &&
-                startedAt == other.startedAt &&
-                elapsed == other.elapsed &&
-                movingSeconds == other.movingSeconds &&
-                distanceMeters == other.distanceMeters &&
-                elevationGainMeters == other.elevationGainMeters &&
-                maxSpeedMps == other.maxSpeedMps &&
-                avgTemperatureCelsius == other.avgTemperatureCelsius &&
-                polyline == other.polyline &&
-                gpx.contentEquals(other.gpx)
+    private fun fieldsExceptGpx(): List<Any?> =
+        listOf(
+            sport,
+            title,
+            description,
+            startedAt,
+            elapsed,
+            movingSeconds,
+            distanceMeters,
+            elevationGainMeters,
+            maxSpeedMps,
+            avgTemperatureCelsius,
+            avgHeartRate,
+            maxHeartRate,
+            device,
+            polyline,
+        )
 
-    override fun hashCode(): Int {
-        var result = sport.hashCode()
-        result = 31 * result + (title?.hashCode() ?: 0)
-        result = 31 * result + (description?.hashCode() ?: 0)
-        result = 31 * result + startedAt.hashCode()
-        result = 31 * result + elapsed.hashCode()
-        result = 31 * result + (movingSeconds?.hashCode() ?: 0)
-        result = 31 * result + (distanceMeters?.hashCode() ?: 0)
-        result = 31 * result + (elevationGainMeters?.hashCode() ?: 0)
-        result = 31 * result + (maxSpeedMps?.hashCode() ?: 0)
-        result = 31 * result + (avgTemperatureCelsius?.hashCode() ?: 0)
-        result = 31 * result + (polyline?.hashCode() ?: 0)
-        result = 31 * result + gpx.contentHashCode()
-        return result
-    }
+    override fun equals(other: Any?): Boolean =
+        this === other || other is ActivityDraft && fieldsExceptGpx() == other.fieldsExceptGpx() && gpx.contentEquals(other.gpx)
+
+    override fun hashCode(): Int = 31 * fieldsExceptGpx().hashCode() + gpx.contentHashCode()
 
     companion object {
         /** Lexicon speeds are integer mm/s. */
@@ -102,19 +102,40 @@ data class ActivityDraft(
                 distanceMeters = state.distanceMeters,
                 elevationGainMeters = state.elevationGainMeters,
                 maxSpeedMps = state.maxSpeedMps,
-                polyline = samples.takeIf { it.size >= 2 }?.let { TrackMath.encodePolyline(TrackMath.simplify(it)) },
-                gpx =
-                    samples
-                        .takeIf { it.isNotEmpty() }
-                        ?.let {
-                            Gpx.write(
-                                    title ?: sport,
-                                    sport,
-                                    it,
-                                )
-                                .encodeToByteArray()
-                        },
+                polyline = polylineOf(samples),
+                gpx = gpxOf(samples, title, sport),
             )
         }
+
+        /** An activity read from a FIT (and later GPX or TCX) file. Its track is published as GPX, like a recorded one. */
+        fun fromImport(
+            imported: ImportedActivity,
+            sport: String,
+            title: String?,
+        ): ActivityDraft =
+            ActivityDraft(
+                sport = sport,
+                title = title,
+                description = null,
+                startedAt = imported.startedAt,
+                elapsed = imported.elapsed,
+                movingSeconds = imported.movingSeconds,
+                distanceMeters = imported.distanceMeters,
+                elevationGainMeters = imported.elevationGainMeters,
+                maxSpeedMps = imported.maxSpeedMps,
+                avgTemperatureCelsius = imported.avgTemperatureCelsius,
+                avgHeartRate = imported.avgHeartRate,
+                maxHeartRate = imported.maxHeartRate,
+                device = imported.device,
+                polyline = polylineOf(imported.samples),
+                gpx = gpxOf(imported.samples, title, sport),
+            )
+
+        /** The feed polyline for a track: simplified, then encoded. Null below two points. */
+        fun polylineOf(samples: List<LocationSample>): String? =
+            samples.takeIf { it.size >= 2 }?.let { TrackMath.encodePolyline(TrackMath.simplify(it)) }
+
+        private fun gpxOf(samples: List<LocationSample>, title: String?, sport: String): ByteArray? =
+            samples.takeIf { it.isNotEmpty() }?.let { Gpx.write(title ?: sport, sport, it).encodeToByteArray() }
     }
 }

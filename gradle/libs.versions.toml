@@ -36,6 +36,9 @@ kermit = "2.2.0"
 kotlinxCollectionsImmutable = "0.5.2"
 kotlinxIo = "0.9.1"
 maplibreCompose = "0.19.0"
+filekit = "0.16.0"
+# Garmin FIT SDK: the Java artifact (Maven) and the JS package (npm) share this version.
+garminFit = "21.217.0"
 # androidx artifact that Compose Multiplatform's runtime already resolves to; @Immutable/@Stable for modules without Compose.
 composeRuntimeAnnotation = "1.12.1"
 
@@ -46,7 +49,6 @@ playServicesLocation = "21.4.0"
 
 # Server
 exposed = "1.5.0"
-filekit = "0.16.0"
 flyway = "13.9.0"
 postgresql = "42.7.13"
 hikari = "7.1.0"
@@ -109,6 +111,8 @@ compose-material3 = { module = "org.jetbrains.compose.material3:material3", vers
 compose-material-icons-core = { module = "org.jetbrains.compose.material:material-icons-core", version.ref = "materialIcons" }
 maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version.ref = "maplibreCompose" }
 maplibre-compose-runtime-opengl-android = { module = "org.maplibre.compose:maplibre-compose-runtime-opengl-android", version.ref = "maplibreCompose" }
+filekit-dialogs-compose = { module = "io.github.vinceglb:filekit-dialogs-compose", version.ref = "filekit" }
+garmin-fit = { module = "com.garmin:fit", version.ref = "garminFit" }
 
 room-runtime = { module = "androidx.room3:room3-runtime", version.ref = "room" }
 room-compiler = { module = "androidx.room3:room3-compiler", version.ref = "room" }
@@ -126,7 +130,6 @@ play-services-location = { module = "com.google.android.gms:play-services-locati
 exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }
 exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "exposed" }
 exposed-kotlin-datetime = { module = "org.jetbrains.exposed:exposed-kotlin-datetime", version.ref = "exposed" }
-filekit-dialogs-compose = { module = "io.github.vinceglb:filekit-dialogs-compose", version.ref = "filekit" }
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
 flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }

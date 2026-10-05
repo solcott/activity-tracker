@@ -15,6 +15,8 @@
     <string name="error_load_followers">Couldn't load followers</string>
     <string name="error_load_following">Couldn't load following</string>
     <string name="error_save_activity">Couldn't save activity</string>
+    <string name="error_read_activity_file">Couldn't read that file</string>
+    <string name="error_unsupported_activity_file">Only FIT files can be imported for now</string>
     <string name="error_sign_in_start">Couldn't start sign-in</string>
     <string name="error_sign_in_complete">Sign-in failed</string>
     <string name="error_save_settings">Couldn't save settings</string>
@@ -71,6 +73,7 @@
     <string name="feed_title">Feed</string>
     <string name="feed_refresh">Refresh</string>
     <string name="feed_add_manual">Add manual activity</string>
+    <string name="feed_import">Import activity file</string>
     <string name="feed_my_profile">My profile</string>
     <string name="feed_record">Record</string>
     <plurals name="feed_pending_writes">
@@ -170,6 +173,14 @@
     <string name="record_discard">Discard</string>
     <string name="field_title">Title</string>
     <string name="manual_title">Add activity</string>
+    <string name="import_title">Import activity</string>
+    <string name="import_hint">Import a .fit file from a Garmin, Wahoo, COROS or other device.</string>
+    <string name="import_pick">Choose file</string>
+    <string name="import_pick_another">Choose another file</string>
+    <string name="import_reading">Reading file…</string>
+    <string name="import_recorded_with">Recorded with %1$s</string>
+    <string name="stat_heart_rate">Avg heart rate</string>
+    <string name="unit_bpm">%1$s bpm</string>
     <string name="manual_distance_label_km">Distance (km)</string>
     <string name="manual_distance_label_mi">Distance (mi)</string>
     <string name="manual_temperature_label_c">Temperature (°C)</string>

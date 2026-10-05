@@ -9,6 +9,7 @@ plugins {
 kotlin {
     sourceSets {
         commonMain.dependencies {
+            api(projects.coreActivityfile)
             api(projects.coreAtproto)
             api(projects.coreLocation)
             api(libs.room.runtime)

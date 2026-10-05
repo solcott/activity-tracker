@@ -13,9 +13,11 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_followe
 import io.github.solcott.activitytracker.composeApp.resources.error_load_following
 import io.github.solcott.activitytracker.composeApp.resources.error_load_kudos
 import io.github.solcott.activitytracker.composeApp.resources.error_load_profile
+import io.github.solcott.activitytracker.composeApp.resources.error_read_activity_file
 import io.github.solcott.activitytracker.composeApp.resources.error_save_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_save_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_save_settings
+import io.github.solcott.activitytracker.composeApp.resources.error_unsupported_activity_file
 import io.github.solcott.activitytracker.composeApp.resources.gender_female
 import io.github.solcott.activitytracker.composeApp.resources.gender_male
 import io.github.solcott.activitytracker.composeApp.resources.gender_non_binary
@@ -62,6 +64,8 @@ fun errorText(error: UiError): String =
                 UiError.Kind.LoadFollowers -> Res.string.error_load_followers
                 UiError.Kind.LoadFollowing -> Res.string.error_load_following
                 UiError.Kind.SaveActivity -> Res.string.error_save_activity
+                UiError.Kind.ReadActivityFile -> Res.string.error_read_activity_file
+                UiError.Kind.UnsupportedActivityFile -> Res.string.error_unsupported_activity_file
                 UiError.Kind.SaveSettings -> Res.string.error_save_settings
                 UiError.Kind.SaveProfile -> Res.string.error_save_profile
             }

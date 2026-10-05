@@ -35,3 +35,12 @@ The activity detail screen shows the route on a MapLibre map (`ActivityMap`) on 
 - **Feed vs detail.** Use the interactive map only on the activity detail screen. Feed cards stay static. Near term that's the Canvas polyline. Later, the AppView renders a PNG per activity at index time, using a provider's Static Maps API or self-hosted tileserver-gl, and serves it from an `app.activitytracker.*` endpoint.
 - **Attribution.** Every OSM-based provider requires "© OpenStreetMap contributors" plus the provider's own credit to be visible. Keep MapLibre's attribution control on.
 - **Privacy zones.** Repo records are public, and imported files carry exact start and end points, often a home address. Trim the polyline around the athlete's privacy zones before `putRecord`. Never put the full-resolution track in a record.
+
+## Import GPX and TCX, and keep more of what FIT files hold
+
+FIT import works on every client (`:core-activityfile`, `ImportActivityScreen`). Next:
+
+- **GPX and TCX.** Both are XML, so parse them in `commonMain` (no platform SDK needed) into the same `ImportedActivity`, and widen the extension check in `ImportActivityPresenter`. TCX carries laps and heart rate; GPX heart rate lives in Garmin's `TrackPointExtension`.
+- **Power, cadence and laps.** `FitActivity` already decodes them, but the activity lexicon has no fields for them, so they're dropped. Add them with the `lexicon-change` skill.
+- **Streams.** Per-sample HR, power and elevation for charts and a coloured map line need a home that isn't a public record (see privacy zones above). The AppView can already parse FIT (`GarminJavaFitDecoder` is on its classpath), so a private upload procedure like `actor.putPrivateDetails` is one option.
+- **Track blob MIME type.** The local PDS stores the GPX `track` blob as `application/xml`, not the lexicon's `application/gpx+xml`. Check whether a stricter PDS rejects it.
