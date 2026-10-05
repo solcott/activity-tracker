@@ -54,10 +54,12 @@ fun ActivityCard(
                 Avatar(activity.author.avatar, author, 32.dp)
                 Text(author, style = MaterialTheme.typography.labelLarge)
             }
-            Text(
-                record.title ?: activityTypeLabel(record.activityType),
-                style = MaterialTheme.typography.titleMedium,
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                val typeLabel = activityTypeLabel(record.activityType)
+                // Untitled cards already show the type as their title, so the icon only needs describing when there's a title.
+                ActivityTypeIcon(record.activityType, contentDescription = typeLabel.takeIf { record.title != null })
+                Text(record.title ?: typeLabel, style = MaterialTheme.typography.titleMedium)
+            }
             StatsRow(
                 listOfNotNull(
                         Stat(stringResource(Res.string.stat_distance), Format.distance(record.distance?.toDouble())),

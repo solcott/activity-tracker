@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.sportCategoryLabel
 import io.github.solcott.activitytracker.app.ui.sportLabel
@@ -71,6 +74,7 @@ fun ActivityTypePicker(
                 readOnly = true,
                 enabled = enabled,
                 label = { Text(stringResource(Res.string.sport_picker_label)) },
+                leadingIcon = { ActivityTypeIcon(selected) },
                 trailingIcon = { Icon(Icons.Default.ArrowDropDown, null) },
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -151,7 +155,12 @@ private fun ActivityTypeSheet(
                 Text(stringResource(Res.string.sport_picker_quick), style = MaterialTheme.typography.labelLarge)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     quick.forEach { type ->
-                        FilterChip(selected = type == selected, onClick = { choose(type) }, label = { Text(activityTypeLabel(type)) })
+                        FilterChip(
+                            selected = type == selected,
+                            onClick = { choose(type) },
+                            label = { Text(activityTypeLabel(type)) },
+                            leadingIcon = { ActivityTypeIcon(type, Modifier.size(FilterChipDefaults.IconSize)) },
+                        )
                     }
                 }
             }
@@ -172,9 +181,8 @@ private fun ActivityTypeSheet(
                     // A sub-sport sits under its sport, unless it's a shortcut listed without it (Indoor Ride under Gym).
                     val nested = type.subSport != null && ActivityType(type.sport) in types
                     ListItem(
-                        headlineContent = {
-                            Text(labels[type] ?: activityTypeLabel(type), Modifier.padding(start = if (nested) 24.dp else 0.dp))
-                        },
+                        headlineContent = { Text(labels[type] ?: activityTypeLabel(type)) },
+                        leadingContent = { ActivityTypeIcon(type, Modifier.padding(start = if (nested) 24.dp else 0.dp)) },
                         trailingContent = if (type == selected) ({ Icon(Icons.Default.Check, null) }) else null,
                         modifier = Modifier.clickable { choose(type) },
                     )
