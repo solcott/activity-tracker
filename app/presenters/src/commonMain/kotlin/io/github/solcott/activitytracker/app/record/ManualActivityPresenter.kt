@@ -14,9 +14,11 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.data.units.UnitConversions
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.data.units.parseDecimal
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
@@ -28,9 +30,10 @@ fun ManualActivityPresenter(
     navigator: Navigator,
     activities: ActivityRepository,
     unitsRepository: UnitsRepository,
+    recentTypes: RecentActivityTypes,
     clock: Clock,
 ): ManualActivityState {
-    var sport by rememberSaveable { mutableStateOf(Sport.RUN) }
+    var type by rememberSaveable(stateSaver = ActivityTypeSaver) { mutableStateOf(ActivityType(Sport.RUN)) }
     var title by rememberSaveable { mutableStateOf("") }
     var distance by rememberSaveable { mutableStateOf("") }
     var duration by rememberSaveable { mutableStateOf("") }
@@ -39,11 +42,12 @@ fun ManualActivityPresenter(
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<UiError?>(null) }
     val scope = rememberCoroutineScope()
+    val quickTypes = quickActivityTypes(recentTypes)
 
-    return ManualActivityState(sport, title, distance, duration, temperature, units, saving, error) { event ->
+    return ManualActivityState(type, quickTypes, title, distance, duration, temperature, units, saving, error) { event ->
         when (event) {
-            is ManualActivityEvent.SportChanged -> {
-                sport = event.value
+            is ManualActivityEvent.TypeChanged -> {
+                type = event.value
             }
 
             is ManualActivityEvent.TitleChanged -> {
@@ -78,7 +82,7 @@ fun ManualActivityPresenter(
                         val elapsed = (minutes * 60).toLong()
                         activities.publish(
                             ActivityDraft(
-                                sport = sport,
+                                type = type,
                                 title = title.ifBlank { null },
                                 description = null,
                                 startedAt = clock.now() - minutes.minutes,

@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.data.activity
 
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.location.Gpx
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.RecordingResult
@@ -12,7 +13,7 @@ import kotlin.time.Instant
 
 /** An activity ready to publish, from a GPS recording, an imported file or manual entry. */
 data class ActivityDraft(
-    val sport: String,
+    val type: ActivityType,
     val title: String?,
     val description: String?,
     val startedAt: Instant,
@@ -31,7 +32,8 @@ data class ActivityDraft(
 ) {
     fun toRecord(createdAt: Instant): ActivityRecord =
         ActivityRecord(
-            sport = sport,
+            sport = type.sport,
+            subSport = type.subSport,
             title = title?.takeIf { it.isNotBlank() },
             description = description?.takeIf { it.isNotBlank() },
             startedAt = startedAt,
@@ -56,7 +58,7 @@ data class ActivityDraft(
     // Generated equals/hashCode compare arrays by identity; compare gpx by content instead.
     private fun fieldsExceptGpx(): List<Any?> =
         listOf(
-            sport,
+            type,
             title,
             description,
             startedAt,
@@ -86,14 +88,14 @@ data class ActivityDraft(
 
         fun fromRecording(
             result: RecordingResult,
-            sport: String,
+            type: ActivityType,
             title: String?,
             description: String?,
         ): ActivityDraft {
             val state = result.state
             val samples = state.samples
             return ActivityDraft(
-                sport = sport,
+                type = type,
                 title = title,
                 description = description,
                 startedAt = state.startedAt ?: result.endedAt,
@@ -103,18 +105,18 @@ data class ActivityDraft(
                 elevationGainMeters = state.elevationGainMeters,
                 maxSpeedMps = state.maxSpeedMps,
                 polyline = polylineOf(samples),
-                gpx = gpxOf(samples, title, sport),
+                gpx = gpxOf(samples, title, type.sport),
             )
         }
 
         /** An activity read from a FIT (and later GPX or TCX) file. Its track is published as GPX, like a recorded one. */
         fun fromImport(
             imported: ImportedActivity,
-            sport: String,
+            type: ActivityType,
             title: String?,
         ): ActivityDraft =
             ActivityDraft(
-                sport = sport,
+                type = type,
                 title = title,
                 description = null,
                 startedAt = imported.startedAt,
@@ -128,7 +130,7 @@ data class ActivityDraft(
                 maxHeartRate = imported.maxHeartRate,
                 device = imported.device,
                 polyline = polylineOf(imported.samples),
-                gpx = gpxOf(imported.samples, title, sport),
+                gpx = gpxOf(imported.samples, title, type.sport),
             )
 
         /** The feed polyline for a track: simplified, then encoded. Null below two points. */

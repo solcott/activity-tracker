@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app.ui
 import androidx.compose.runtime.Composable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.allStringResources
 import io.github.solcott.activitytracker.composeApp.resources.detail_birth_date
 import io.github.solcott.activitytracker.composeApp.resources.detail_gender
 import io.github.solcott.activitytracker.composeApp.resources.detail_location
@@ -22,31 +23,25 @@ import io.github.solcott.activitytracker.composeApp.resources.gender_female
 import io.github.solcott.activitytracker.composeApp.resources.gender_male
 import io.github.solcott.activitytracker.composeApp.resources.gender_non_binary
 import io.github.solcott.activitytracker.composeApp.resources.handle_format
-import io.github.solcott.activitytracker.composeApp.resources.sport_hike
-import io.github.solcott.activitytracker.composeApp.resources.sport_other
-import io.github.solcott.activitytracker.composeApp.resources.sport_ride
-import io.github.solcott.activitytracker.composeApp.resources.sport_run
-import io.github.solcott.activitytracker.composeApp.resources.sport_ski
-import io.github.solcott.activitytracker.composeApp.resources.sport_swim
-import io.github.solcott.activitytracker.composeApp.resources.sport_walk
 import io.github.solcott.activitytracker.data.profile.DetailGroup
+import io.github.solcott.activitytracker.data.sport.SportCategory
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Gender
-import io.github.solcott.activitytracker.lexicon.app.Sport
 import org.jetbrains.compose.resources.stringResource
 
 /** Display name for a sport token. The lexicon's sport is an open enum, so unknown tokens show capitalized as-is. */
 @Composable
 fun sportLabel(sport: String): String =
-    when (sport) {
-        Sport.RUN -> stringResource(Res.string.sport_run)
-        Sport.RIDE -> stringResource(Res.string.sport_ride)
-        Sport.WALK -> stringResource(Res.string.sport_walk)
-        Sport.HIKE -> stringResource(Res.string.sport_hike)
-        Sport.SWIM -> stringResource(Res.string.sport_swim)
-        Sport.SKI -> stringResource(Res.string.sport_ski)
-        Sport.OTHER -> stringResource(Res.string.sport_other)
-        else -> sport.replaceFirstChar { it.uppercase() }
-    }
+    Res.allStringResources["sport_$sport"]?.let { stringResource(it) } ?: sport.replaceFirstChar { it.uppercase() }
+
+/** The sub-sport's own name ("Mountain Bike Ride"), or the sport's when the type is generic or its sub-sport is unknown. */
+@Composable
+fun activityTypeLabel(type: ActivityType): String =
+    type.subSport?.let { Res.allStringResources["sub_sport_${type.sport}_$it"] }?.let { stringResource(it) } ?: sportLabel(type.sport)
+
+/** The name of a sport picker group. */
+@Composable
+fun sportCategoryLabel(category: SportCategory): String = stringResource(Res.allStringResources.getValue("sport_category_${category.name}"))
 
 /** An account handle with its `@` prefix. */
 @Composable fun handleLabel(handle: String): String = stringResource(Res.string.handle_format, handle)

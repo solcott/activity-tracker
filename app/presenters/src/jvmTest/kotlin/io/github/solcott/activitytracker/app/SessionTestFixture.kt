@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalKudos
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -117,15 +118,17 @@ class SessionTestFixture {
         val profiles: ProfileRepository,
         val units: UnitsRepository,
         val auth: AuthRepository,
+        val recentTypes: RecentActivityTypes,
     )
 
     suspend fun repos(defaultUnits: UnitSystem = UnitSystem.Metric): Repos {
         val (db, manager, clients) = signedInTestSession(http, did = did)
         val localKudos = LocalKudos()
         val feed = FeedRepository(db, clients, localKudos, Logger)
-        val activities = ActivityRepository(db, clients, OutboxProcessor(db, clients, Logger), feed, localKudos, Clock.System)
+        val recentTypes = RecentActivityTypes(db, clients, feed)
+        val activities = ActivityRepository(db, clients, OutboxProcessor(db, clients, Logger), feed, localKudos, recentTypes, Clock.System)
         val profiles = ProfileRepository(clients, Clock.System)
         val units = UnitsRepository(profiles, Clock.System, Logger, defaultUnits)
-        return Repos(activities, profiles, units, AuthRepository(manager, db, http))
+        return Repos(activities, profiles, units, AuthRepository(manager, db, http), recentTypes)
     }
 }

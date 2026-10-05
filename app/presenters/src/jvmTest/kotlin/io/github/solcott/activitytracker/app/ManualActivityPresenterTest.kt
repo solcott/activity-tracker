@@ -5,7 +5,11 @@ import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.record.ManualActivityEvent
 import io.github.solcott.activitytracker.app.record.ManualActivityPresenter
 import io.github.solcott.activitytracker.app.record.ManualActivityScreen
+import io.github.solcott.activitytracker.data.sport.SportCatalog
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.SubSport
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -21,7 +25,7 @@ class ManualActivityPresenterTest {
     fun imperialEntryIsStoredInSiUnits() = runTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Imperial)
         val navigator = FakeNavigator(ManualActivityScreen)
-        presenterTestOf({ ManualActivityPresenter(navigator, repos.activities, repos.units, Clock.System) }) {
+        presenterTestOf({ ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, Clock.System) }) {
             val initial = awaitItem()
             assertEquals(UnitSystem.Imperial, initial.units)
 
@@ -42,7 +46,7 @@ class ManualActivityPresenterTest {
     fun switchingUnitsChangesHowEntriesAreRead() = runTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Imperial)
         val navigator = FakeNavigator(ManualActivityScreen)
-        presenterTestOf({ ManualActivityPresenter(navigator, repos.activities, repos.units, Clock.System) }) {
+        presenterTestOf({ ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, Clock.System) }) {
             awaitItem().eventSink(ManualActivityEvent.UnitsChanged(UnitSystem.Metric))
             val metric = awaitItem()
             assertEquals(UnitSystem.Metric, metric.units)
@@ -63,7 +67,7 @@ class ManualActivityPresenterTest {
     fun acceptsACommaAsTheDecimalSeparator() = runTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
         val navigator = FakeNavigator(ManualActivityScreen)
-        presenterTestOf({ ManualActivityPresenter(navigator, repos.activities, repos.units, Clock.System) }) {
+        presenterTestOf({ ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, Clock.System) }) {
             awaitItem().eventSink(ManualActivityEvent.DistanceChanged("5,2"))
             awaitItem().eventSink(ManualActivityEvent.DurationChanged("30,5"))
             val filled = awaitItem()
@@ -78,5 +82,35 @@ class ManualActivityPresenterTest {
         assertEquals(5200L, record.getValue("distance").jsonPrimitive.long)
         assertEquals(1830L, record.getValue("movingTime").jsonPrimitive.long) // 30.5 min
         assertEquals(-25L, record.getValue("avgTemperature").jsonPrimitive.long)
+    }
+
+    @Test
+    fun savesTheChosenTypeAndOffersItFirstNextTime() = runTest {
+        val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
+        val navigator = FakeNavigator(ManualActivityScreen)
+        val gravel = ActivityType(Sport.RIDE, SubSport.GRAVEL)
+        presenterTestOf({ ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, Clock.System) }) {
+            val initial = awaitUntil { it.quickTypes.isNotEmpty() }
+            assertEquals(SportCatalog.common, initial.quickTypes, "nothing tracked yet")
+            assertEquals(ActivityType(Sport.RUN), initial.type)
+
+            initial.eventSink(ManualActivityEvent.TypeChanged(gravel))
+            awaitUntil { it.type == gravel }.eventSink(ManualActivityEvent.DurationChanged("90"))
+            awaitUntil { it.valid }.eventSink(ManualActivityEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val record = fixture.putRecords.single()
+        assertEquals(Sport.RIDE, record.getValue("sport").jsonPrimitive.content)
+        assertEquals(SubSport.GRAVEL, record.getValue("subSport").jsonPrimitive.content)
+
+        presenterTestOf({
+            ManualActivityPresenter(FakeNavigator(ManualActivityScreen), repos.activities, repos.units, repos.recentTypes, Clock.System)
+        }) {
+            val next = awaitUntil { it.quickTypes.firstOrNull() == gravel }
+            assertEquals(listOf(gravel) + SportCatalog.common, next.quickTypes)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }

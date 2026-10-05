@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalKudos
+import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -36,6 +37,7 @@ class ActivityRepository(
     private val outbox: OutboxProcessor,
     private val feed: FeedRepository,
     private val localKudos: LocalKudos,
+    private val recentTypes: RecentActivityTypes,
     private val clock: Clock,
 ) {
     val pendingWrites: Flow<Int> = db.outbox().count(clients.did.value)
@@ -51,6 +53,7 @@ class ActivityRepository(
             record = draft.toRecord(clock.now()),
             blob = draft.gpx?.let { PendingBlob(it, Gpx.MIME_TYPE, field = "track") },
         )
+        recentTypes.remember(draft.type)
         return AtUri.of(clients.did, Nsid.FEED_ACTIVITY, rkey)
     }
 

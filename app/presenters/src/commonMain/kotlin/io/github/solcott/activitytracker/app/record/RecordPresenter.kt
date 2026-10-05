@@ -16,6 +16,8 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.location.ActivityRecorder
 import io.github.solcott.activitytracker.location.LocationTracker
@@ -32,16 +34,19 @@ fun RecordPresenter(
     recorder: ActivityRecorder,
     tracker: LocationTracker,
     activities: ActivityRepository,
+    recentTypes: RecentActivityTypes,
     clock: Clock,
 ): RecordState {
     val recording by recorder.state.collectAsState()
-    var sport by rememberSaveable { mutableStateOf(Sport.RUN) }
+    var type by rememberSaveable(stateSaver = ActivityTypeSaver) { mutableStateOf(ActivityType(Sport.RUN)) }
     var title by rememberSaveable { mutableStateOf("") }
     var hasPermission by remember { mutableStateOf(tracker.hasPermission()) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<UiError?>(null) }
     var now by remember { mutableStateOf(clock.now()) }
     val scope = rememberCoroutineScope()
+    // GPS recording: indoor types are for manual entry and import.
+    val quickTypes = quickActivityTypes(recentTypes, outdoorOnly = true)
 
     LaunchedEffect(recording.status) {
         while (recording.status == RecordingState.Status.Recording) {
@@ -56,15 +61,16 @@ fun RecordPresenter(
         distanceMeters = recording.distanceMeters,
         movingSeconds = recording.movingSeconds,
         elevationGainMeters = recording.elevationGainMeters,
-        sport = sport,
+        type = type,
+        quickTypes = quickTypes,
         title = title,
         hasPermission = hasPermission,
         saving = saving,
         error = error,
     ) { event ->
         when (event) {
-            is RecordEvent.SportChanged -> {
-                sport = event.sport
+            is RecordEvent.TypeChanged -> {
+                type = event.type
             }
 
             is RecordEvent.TitleChanged -> {
@@ -101,7 +107,7 @@ fun RecordPresenter(
                         activities.publish(
                             ActivityDraft.fromRecording(
                                 result,
-                                sport,
+                                type,
                                 title.ifBlank { null },
                                 null,
                             )

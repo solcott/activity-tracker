@@ -8,13 +8,17 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.parseDecimal
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import kotlinx.collections.immutable.ImmutableList
 
 /** Log an activity without GPS (also handy for testing on web and simulators). */
 @CircuitSerializable(SessionScope::class) data object ManualActivityScreen : Screen
 
 @Immutable
 data class ManualActivityState(
-    val sport: String,
+    val type: ActivityType,
+    /** Recently tracked types, then the common ones, for the picker's quick row. */
+    val quickTypes: ImmutableList<ActivityType>,
     val title: String,
     /** In kilometers or miles, per [units]. */
     val distance: String,
@@ -32,7 +36,7 @@ data class ManualActivityState(
 }
 
 sealed interface ManualActivityEvent {
-    data class SportChanged(val value: String) : ManualActivityEvent
+    data class TypeChanged(val value: ActivityType) : ManualActivityEvent
 
     data class TitleChanged(val value: String) : ManualActivityEvent
 

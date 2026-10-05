@@ -17,6 +17,8 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import kotlinx.coroutines.launch
 
@@ -26,10 +28,11 @@ fun ImportActivityPresenter(
     navigator: Navigator,
     activities: ActivityRepository,
     reader: ActivityFileReader,
+    recentTypes: RecentActivityTypes,
 ): ImportActivityState {
     // The parsed file isn't saveable; after process death the athlete picks it again.
     var imported by remember { mutableStateOf<Pair<String, ImportedActivity>?>(null) }
-    var sport by rememberSaveable { mutableStateOf(Sport.OTHER) }
+    var type by rememberSaveable(stateSaver = ActivityTypeSaver) { mutableStateOf(ActivityType(Sport.OTHER)) }
     var title by rememberSaveable { mutableStateOf("") }
     var reading by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
@@ -37,8 +40,9 @@ fun ImportActivityPresenter(
     val scope = rememberCoroutineScope()
 
     val preview = remember(imported) { imported?.let { (name, activity) -> activity.toPreview(name) } }
+    val quickTypes = quickActivityTypes(recentTypes)
 
-    return ImportActivityState(reading, preview, sport, title, saving, error) { event ->
+    return ImportActivityState(reading, preview, type, quickTypes, title, saving, error) { event ->
         when (event) {
             is ImportActivityEvent.FilePicked -> {
                 // Drop the previous file first, so a failed pick can't leave its preview (and Save) behind.
@@ -50,7 +54,7 @@ fun ImportActivityPresenter(
                     runSuspendCatching { reader.read(event.bytes.toByteArray()) }
                         .onSuccess {
                             imported = event.name to it
-                            sport = it.sport
+                            type = it.type
                         }
                         .onFailure { e ->
                             error =
@@ -61,8 +65,8 @@ fun ImportActivityPresenter(
                 }
             }
 
-            is ImportActivityEvent.SportChanged -> {
-                sport = event.value
+            is ImportActivityEvent.TypeChanged -> {
+                type = event.value
             }
 
             is ImportActivityEvent.TitleChanged -> {
@@ -78,7 +82,7 @@ fun ImportActivityPresenter(
                 saving = true
                 scope.launch {
                     runSuspendCatching {
-                        activities.publish(ActivityDraft.fromImport(activity, sport, title.ifBlank { null }))
+                        activities.publish(ActivityDraft.fromImport(activity, type, title.ifBlank { null }))
                         navigator.pop()
                     }
                         .onFailure { e -> error = UiError.of(UiError.Kind.SaveActivity, e) }

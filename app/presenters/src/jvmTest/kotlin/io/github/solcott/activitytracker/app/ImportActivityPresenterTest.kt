@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.activityfile.FitDecoder
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -77,7 +78,7 @@ class ImportActivityPresenterTest {
     fun readsAFitFileAndPublishesIt() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen)
-        presenterTestOf({ ImportActivityPresenter(navigator, repos.activities, ActivityFileReader { run }) }) {
+        presenterTestOf({ ImportActivityPresenter(navigator, repos.activities, ActivityFileReader { run }, repos.recentTypes) }) {
             val initial = awaitItem()
             assertNull(initial.preview)
 
@@ -89,7 +90,7 @@ class ImportActivityPresenterTest {
             assertEquals(152, preview.avgHeartRate)
             assertEquals("Garmin fenix7", preview.device)
             assertNotNull(preview.polyline)
-            assertEquals(Sport.RUN, read.sport)
+            assertEquals(ActivityType(Sport.RUN), read.type)
 
             read.eventSink(ImportActivityEvent.TitleChanged("Lunch loop"))
             awaitUntil { it.title == "Lunch loop" }.eventSink(ImportActivityEvent.Save)
@@ -111,7 +112,7 @@ class ImportActivityPresenterTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen)
         val decoder = FitDecoder { throw ActivityFileException("FIT file is corrupt or truncated") }
-        presenterTestOf({ ImportActivityPresenter(navigator, repos.activities, ActivityFileReader(decoder)) }) {
+        presenterTestOf({ ImportActivityPresenter(navigator, repos.activities, ActivityFileReader(decoder), repos.recentTypes) }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("broken.fit", bytes))
             val failed = awaitUntil { it.error != null && !it.reading }
             assertEquals(UiError(UiError.Kind.ReadActivityFile, "FIT file is corrupt or truncated"), failed.error)
@@ -127,7 +128,7 @@ class ImportActivityPresenterTest {
         val navigator = FakeNavigator(ImportActivityScreen)
         var fail = false
         val decoder = FitDecoder { if (fail) throw ActivityFileException("FIT file is corrupt or truncated") else run }
-        presenterTestOf({ ImportActivityPresenter(navigator, repos.activities, ActivityFileReader(decoder)) }) {
+        presenterTestOf({ ImportActivityPresenter(navigator, repos.activities, ActivityFileReader(decoder), repos.recentTypes) }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("good.fit", bytes))
             val read = awaitUntil { it.preview != null }
 
@@ -148,10 +149,12 @@ class ImportActivityPresenterTest {
                 <trkpt lat="47.6" lon="-122.3"><time>2026-09-20T07:00:00Z</time></trkpt>
                 <trkpt lat="47.61" lon="-122.3"><time>2026-09-20T07:05:00Z</time></trkpt>
             </trkseg></trk></gpx>"""
-        presenterTestOf({ ImportActivityPresenter(navigator, repos.activities, ActivityFileReader { error("not FIT") }) }) {
+        presenterTestOf({
+            ImportActivityPresenter(navigator, repos.activities, ActivityFileReader { error("not FIT") }, repos.recentTypes)
+        }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("export.dat", ByteString(gpx.encodeToByteArray())))
             val read = awaitUntil { it.preview != null }
-            assertEquals(Sport.RIDE, read.sport)
+            assertEquals(ActivityType(Sport.RIDE), read.type)
             assertEquals(1112.0, read.preview!!.distanceMeters!!, 1.0)
             cancelAndIgnoreRemainingEvents()
         }
@@ -161,7 +164,9 @@ class ImportActivityPresenterTest {
     fun otherFilesAreNotSupported() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen)
-        presenterTestOf({ ImportActivityPresenter(navigator, repos.activities, ActivityFileReader { error("not called") }) }) {
+        presenterTestOf({
+            ImportActivityPresenter(navigator, repos.activities, ActivityFileReader { error("not called") }, repos.recentTypes)
+        }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("notes.txt", ByteString("just some notes".encodeToByteArray())))
             assertEquals(UiError(UiError.Kind.UnsupportedActivityFile, null), awaitUntil { it.error != null }.error)
             cancelAndIgnoreRemainingEvents()

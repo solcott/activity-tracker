@@ -9,6 +9,8 @@ import io.github.solcott.activitytracker.composeApp.resources.unit_distance_km
 import io.github.solcott.activitytracker.composeApp.resources.unit_distance_mi
 import io.github.solcott.activitytracker.composeApp.resources.unit_elevation_ft
 import io.github.solcott.activitytracker.composeApp.resources.unit_elevation_m
+import io.github.solcott.activitytracker.composeApp.resources.unit_pace_per_100m
+import io.github.solcott.activitytracker.composeApp.resources.unit_pace_per_100yd
 import io.github.solcott.activitytracker.composeApp.resources.unit_pace_per_km
 import io.github.solcott.activitytracker.composeApp.resources.unit_pace_per_mi
 import io.github.solcott.activitytracker.composeApp.resources.unit_speed_kmh
@@ -18,11 +20,12 @@ import io.github.solcott.activitytracker.composeApp.resources.unit_temperature_f
 import io.github.solcott.activitytracker.composeApp.resources.unit_weight_kg
 import io.github.solcott.activitytracker.composeApp.resources.unit_weight_lb
 import io.github.solcott.activitytracker.composeApp.resources.value_missing
+import io.github.solcott.activitytracker.data.sport.RateKind
+import io.github.solcott.activitytracker.data.sport.SportCatalog
 import io.github.solcott.activitytracker.data.units.UnitConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.WeightConversions
 import io.github.solcott.activitytracker.data.units.formatDecimal
-import io.github.solcott.activitytracker.lexicon.app.Sport
 import kotlin.math.roundToLong
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -42,6 +45,9 @@ object Format {
 
     /** Below this, pace is noise from GPS jitter. */
     private const val MIN_PACE_DISTANCE_M = 10
+
+    private const val SWIM_PACE_METERS = 100.0
+    private const val SWIM_PACE_YARDS = 100.0
 
     @Composable
     fun distance(meters: Double?): String {
@@ -90,13 +96,31 @@ object Format {
         }
     }
 
-    /** Rides read as speed, everything else as pace. */
+    /** Minutes per 100 meters, or per 100 yards. */
     @Composable
-    fun rateStat(sport: String, meters: Double?, seconds: Long?): Stat =
-        if (sport == Sport.RIDE) {
-            Stat(stringResource(Res.string.stat_speed), speed(UnitConversions.averageSpeed(meters, seconds)))
-        } else {
-            Stat(stringResource(Res.string.stat_pace), pace(meters, seconds))
+    fun swimPace(meters: Double?, seconds: Long?): String {
+        if (meters == null || seconds == null || meters < MIN_PACE_DISTANCE_M) return stringResource(Res.string.value_missing)
+        val units = LocalUnitSystem.current
+        val metersPerUnit =
+            when (units) {
+                UnitSystem.Metric -> SWIM_PACE_METERS
+                UnitSystem.Imperial -> SWIM_PACE_YARDS * UnitConversions.METERS_PER_YARD
+            }
+        val perUnit = duration((seconds / (meters / metersPerUnit)).roundToLong())
+        return when (units) {
+            UnitSystem.Metric -> stringResource(Res.string.unit_pace_per_100m, perUnit)
+            UnitSystem.Imperial -> stringResource(Res.string.unit_pace_per_100yd, perUnit)
+        }
+    }
+
+    /** The sport's average rate (speed, pace or swim pace), or null for sports where distance means little, like yoga or tennis. */
+    @Composable
+    fun rateStat(sport: String, meters: Double?, seconds: Long?): Stat? =
+        when (SportCatalog.rate(sport)) {
+            RateKind.Speed -> Stat(stringResource(Res.string.stat_speed), speed(UnitConversions.averageSpeed(meters, seconds)))
+            RateKind.Pace -> Stat(stringResource(Res.string.stat_pace), pace(meters, seconds))
+            RateKind.SwimPace -> Stat(stringResource(Res.string.stat_pace), swimPace(meters, seconds))
+            RateKind.None -> null
         }
 
     /** Meters, or feet. */

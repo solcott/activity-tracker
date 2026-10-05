@@ -56,7 +56,7 @@ class TcxParserTest {
         assertEquals(0.0, point.distanceMeters, "a track point's distance, not the lap's")
 
         val activity = DecodedActivityMapper.map(decoded)
-        assertEquals(Sport.RIDE, activity.sport)
+        assertEquals(Sport.RIDE, activity.type.sport)
         assertEquals(Instant.parse("2026-09-20T07:00:00Z"), activity.startedAt)
         assertEquals(20.minutes, activity.elapsed, "from the samples: TCX laps hold timer time only")
         assertEquals(900L, activity.movingSeconds)

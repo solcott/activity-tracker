@@ -1,6 +1,9 @@
 package io.github.solcott.activitytracker.data.activity
 
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -16,7 +19,7 @@ class ActivityDraftTest {
 
     private fun imported(samples: List<LocationSample>) =
         ImportedActivity(
-            sport = "run",
+            type = ActivityType(Sport.RUN),
             startedAt = start,
             elapsed = 30.minutes,
             movingSeconds = 1700,
@@ -34,10 +37,16 @@ class ActivityDraftTest {
 
     @Test
     fun importBecomesARecordInLexiconUnits() {
-        val draft = ActivityDraft.fromImport(imported(listOf(sample(0), sample(30), sample(60))), sport = "ride", title = "Imported")
+        val draft =
+            ActivityDraft.fromImport(
+                imported(listOf(sample(0), sample(30), sample(60))),
+                type = ActivityType(Sport.RIDE, SubSport.GRAVEL),
+                title = "Imported",
+            )
         val record = draft.toRecord(createdAt = start + 1.minutes)
 
-        assertEquals("ride", record.sport, "the athlete's choice wins over the file's")
+        assertEquals(Sport.RIDE, record.sport, "the athlete's choice wins over the file's")
+        assertEquals(SubSport.GRAVEL, record.subSport)
         assertEquals("Imported", record.title)
         assertEquals(start, record.startedAt)
         assertEquals(1800L, record.elapsedTime)
@@ -56,7 +65,7 @@ class ActivityDraftTest {
 
     @Test
     fun indoorImportHasNoTrack() {
-        val draft = ActivityDraft.fromImport(imported(emptyList()), sport = "ride", title = null)
+        val draft = ActivityDraft.fromImport(imported(emptyList()), type = ActivityType(Sport.RIDE, SubSport.INDOOR), title = null)
         assertNull(draft.polyline)
         assertNull(draft.gpx)
     }

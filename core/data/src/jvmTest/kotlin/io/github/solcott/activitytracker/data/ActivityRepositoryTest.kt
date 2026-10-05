@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalKudos
+import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -17,9 +18,12 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -90,7 +94,8 @@ class ActivityRepositoryTest {
         val (db, _, clients) = signedInTestSession(http, did = did, logger = logger)
         val outbox = OutboxProcessor(db, clients, logger)
         val localKudos = LocalKudos()
-        return ActivityRepository(db, clients, outbox, FeedRepository(db, clients, localKudos, logger), localKudos, Clock.System)
+        val feed = FeedRepository(db, clients, localKudos, logger)
+        return ActivityRepository(db, clients, outbox, feed, localKudos, RecentActivityTypes(db, clients, feed), Clock.System)
     }
 
     private fun activityBy(author: Did) =
@@ -117,7 +122,7 @@ class ActivityRepositoryTest {
 
         val draft =
             ActivityDraft(
-                sport = "run",
+                type = ActivityType(Sport.RUN, SubSport.TRAIL),
                 title = "Morning run",
                 description = null,
                 startedAt = Instant.parse("2026-09-30T07:00:00Z"),
@@ -141,6 +146,7 @@ class ActivityRepositoryTest {
         val record = put["record"]!!.jsonObject
         assertEquals(Nsid.FEED_ACTIVITY, record["\$type"]?.jsonPrimitive?.content)
         assertEquals("5012", record["distance"]?.jsonPrimitive?.content)
+        assertEquals(SubSport.TRAIL, record["subSport"]?.jsonPrimitive?.content)
         assertTrue("bafyblob" in record["track"].toString())
     }
 

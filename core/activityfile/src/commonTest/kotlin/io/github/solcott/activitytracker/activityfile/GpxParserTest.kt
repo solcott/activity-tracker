@@ -42,7 +42,7 @@ class GpxParserTest {
         assertEquals(12.0, first.temperatureCelsius)
 
         val activity = DecodedActivityMapper.map(decoded)
-        assertEquals(Sport.RUN, activity.sport)
+        assertEquals(Sport.RUN, activity.type.sport)
         assertEquals(Instant.parse("2026-09-20T07:00:00Z"), activity.startedAt, "starts at the first point, not metadata time")
         assertEquals(500.4, activity.distanceMeters!!, 1.0)
         assertEquals(150L, activity.movingSeconds)
@@ -81,7 +81,7 @@ class GpxParserTest {
 
         assertEquals(22.minutes + 30.seconds, activity.elapsed)
         assertEquals(300L, activity.movingSeconds, "17.5 minutes stopped between segments drop out")
-        assertEquals(Sport.OTHER, activity.sport, "no <type>")
+        assertEquals(Sport.OTHER, activity.type.sport, "no <type>")
     }
 
     @Test

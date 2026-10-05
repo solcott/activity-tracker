@@ -148,6 +148,7 @@ class Indexer(
             it[authorDid] = author.value
             it[Activities.record] = AtJson.encodeToString(ActivityRecord.serializer(), record)
             it[sport] = record.sport.take(MAX_SPORT_LENGTH)
+            it[subSport] = record.subSport?.take(MAX_SPORT_LENGTH)
             it[startedAt] = record.startedAt.toEpochMilliseconds()
             it[sortAt] = minOf(record.createdAt.toEpochMilliseconds(), now)
             it[indexedAt] = now

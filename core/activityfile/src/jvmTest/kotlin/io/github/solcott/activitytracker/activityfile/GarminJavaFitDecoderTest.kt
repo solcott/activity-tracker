@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.activityfile
 
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.SubSport
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -26,7 +28,7 @@ class GarminJavaFitDecoderTest {
         assertEquals(120, first.heartRate)
 
         val activity = DecodedActivityMapper.map(fit)
-        assertEquals(Sport.RUN, activity.sport)
+        assertEquals(Sport.RUN, activity.type.sport)
         assertEquals(start, activity.startedAt)
         assertEquals(1000.0, activity.distanceMeters!!, 0.01)
         assertEquals(155, activity.avgHeartRate)
@@ -42,7 +44,7 @@ class GarminJavaFitDecoderTest {
         assertEquals(200, fit.records.first().powerWatts)
 
         val activity = DecodedActivityMapper.map(fit)
-        assertEquals(Sport.RIDE, activity.sport)
+        assertEquals(ActivityType(Sport.RIDE, SubSport.INDOOR), activity.type, "the Java SDK's INDOOR_CYCLING sub-sport")
         assertTrue(activity.samples.isEmpty())
     }
 

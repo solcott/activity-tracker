@@ -52,6 +52,8 @@ data class KeyValueEntity(
 interface KeyValueDao {
     @Query("SELECT value FROM key_value WHERE `key` = :key") suspend fun get(key: String): String?
 
+    @Query("SELECT value FROM key_value WHERE `key` = :key") fun observe(key: String): Flow<String?>
+
     @Upsert suspend fun put(entity: KeyValueEntity)
 
     @Query("DELETE FROM key_value WHERE `key` = :key") suspend fun delete(key: String)

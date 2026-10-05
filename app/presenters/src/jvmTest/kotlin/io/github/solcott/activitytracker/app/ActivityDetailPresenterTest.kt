@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalKudos
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -80,7 +81,16 @@ class ActivityDetailPresenterTest {
     private suspend fun repos(): Repos {
         val (db, _, clients) = signedInTestSession(http, did = alice)
         val feed = FeedRepository(db, clients, localKudos, Logger)
-        val activities = ActivityRepository(db, clients, OutboxProcessor(db, clients, Logger), feed, localKudos, Clock.System)
+        val activities =
+            ActivityRepository(
+                db,
+                clients,
+                OutboxProcessor(db, clients, Logger),
+                feed,
+                localKudos,
+                RecentActivityTypes(db, clients, feed),
+                Clock.System,
+            )
         return Repos(feed, activities, ProfileRepository(clients, Clock.System))
     }
 

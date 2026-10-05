@@ -120,7 +120,12 @@ private fun PreviewForm(state: ImportActivityState, preview: ImportPreview, modi
             )
         )
         preview.polyline?.let { ActivityMap(it) }
-        SportPicker(state.sport, { state.eventSink(ImportActivityEvent.SportChanged(it)) }, enabled = !state.saving)
+        ActivityTypePicker(
+            state.type,
+            state.quickTypes,
+            { state.eventSink(ImportActivityEvent.TypeChanged(it)) },
+            enabled = !state.saving,
+        )
         OutlinedTextField(
             state.title,
             { state.eventSink(ImportActivityEvent.TitleChanged(it)) },

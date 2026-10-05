@@ -6,13 +6,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,7 +26,6 @@ import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.Stat
 import io.github.solcott.activitytracker.app.ui.StatsRow
 import io.github.solcott.activitytracker.app.ui.errorText
-import io.github.solcott.activitytracker.app.ui.sportLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_back
 import io.github.solcott.activitytracker.composeApp.resources.field_title
@@ -42,9 +38,8 @@ import io.github.solcott.activitytracker.composeApp.resources.record_title
 import io.github.solcott.activitytracker.composeApp.resources.stat_distance
 import io.github.solcott.activitytracker.composeApp.resources.stat_elevation
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.location.RecordingState
-import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,18 +64,21 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
             Modifier.padding(padding).padding(16.dp).fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            SportPicker(
-                state.sport,
-                { state.eventSink(RecordEvent.SportChanged(it)) },
+            ActivityTypePicker(
+                state.type,
+                state.quickTypes,
+                { state.eventSink(RecordEvent.TypeChanged(it)) },
                 enabled = state.status == RecordingState.Status.Idle,
+                outdoorOnly = true,
             )
             Text(Format.duration(state.elapsed), style = MaterialTheme.typography.displayLarge)
             StatsRow(
-                persistentListOf(
-                    Stat(stringResource(Res.string.stat_distance), Format.distance(state.distanceMeters)),
-                    Format.rateStat(state.sport, state.distanceMeters, state.movingSeconds),
-                    Stat(stringResource(Res.string.stat_elevation), Format.elevation(state.elevationGainMeters)),
-                )
+                listOfNotNull(
+                        Stat(stringResource(Res.string.stat_distance), Format.distance(state.distanceMeters)),
+                        Format.rateStat(state.type.sport, state.distanceMeters, state.movingSeconds),
+                        Stat(stringResource(Res.string.stat_elevation), Format.elevation(state.elevationGainMeters)),
+                    )
+                    .toImmutableList()
             )
             OutlinedTextField(
                 value = state.title,
@@ -119,20 +117,6 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-fun SportPicker(selected: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = modifier) {
-        items(Sport.all) { sport ->
-            FilterChip(
-                selected = sport == selected,
-                onClick = { onSelect(sport) },
-                enabled = enabled,
-                label = { Text(sportLabel(sport)) },
-            )
         }
     }
 }

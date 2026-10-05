@@ -27,8 +27,9 @@ import io.github.solcott.activitytracker.composeApp.resources.kudos_count
 import io.github.solcott.activitytracker.composeApp.resources.stat_distance
 import io.github.solcott.activitytracker.composeApp.resources.stat_time
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.activityType
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -54,15 +55,16 @@ fun ActivityCard(
                 Text(author, style = MaterialTheme.typography.labelLarge)
             }
             Text(
-                record.title ?: sportLabel(record.sport),
+                record.title ?: activityTypeLabel(record.activityType),
                 style = MaterialTheme.typography.titleMedium,
             )
             StatsRow(
-                persistentListOf(
-                    Stat(stringResource(Res.string.stat_distance), Format.distance(record.distance?.toDouble())),
-                    Stat(stringResource(Res.string.stat_time), Format.duration(record.movingTime ?: record.elapsedTime)),
-                    Format.rateStat(record.sport, record.distance?.toDouble(), record.movingTime ?: record.elapsedTime),
-                )
+                listOfNotNull(
+                        Stat(stringResource(Res.string.stat_distance), Format.distance(record.distance?.toDouble())),
+                        Stat(stringResource(Res.string.stat_time), Format.duration(record.movingTime ?: record.elapsedTime)),
+                        Format.rateStat(record.sport, record.distance?.toDouble(), record.movingTime ?: record.elapsedTime),
+                    )
+                    .toImmutableList()
             )
             record.polyline?.let { RoutePreview(it) }
             Row(verticalAlignment = Alignment.CenterVertically) {

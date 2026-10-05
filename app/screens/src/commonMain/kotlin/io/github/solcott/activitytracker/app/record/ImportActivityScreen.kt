@@ -6,7 +6,9 @@ import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import kotlin.time.Duration
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.io.bytestring.ByteString
 
 /** Import an activity from a FIT, GPX or TCX file (optionally gzipped) that a device or app recorded. */
@@ -18,8 +20,10 @@ data class ImportActivityState(
     val reading: Boolean,
     /** What the file holds, once read. */
     val preview: ImportPreview?,
-    /** Starts as the file's sport; the athlete can correct it. */
-    val sport: String,
+    /** Starts as the file's type; the athlete can correct it. */
+    val type: ActivityType,
+    /** Recently tracked types, then the common ones, for the picker's quick row. */
+    val quickTypes: ImmutableList<ActivityType>,
     val title: String,
     val saving: Boolean,
     val error: UiError?,
@@ -45,7 +49,7 @@ sealed interface ImportActivityEvent {
     /** The athlete picked a file. [name] is shown in the preview; the format comes from the content. */
     data class FilePicked(val name: String, val bytes: ByteString) : ImportActivityEvent
 
-    data class SportChanged(val value: String) : ImportActivityEvent
+    data class TypeChanged(val value: ActivityType) : ImportActivityEvent
 
     data class TitleChanged(val value: String) : ImportActivityEvent
 

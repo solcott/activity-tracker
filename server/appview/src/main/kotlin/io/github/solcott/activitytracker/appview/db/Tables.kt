@@ -43,6 +43,7 @@ object Activities : Table("activities") {
     val authorDid = varchar("author_did", 255)
     val record = text("record")
     val sport = varchar("sport", 64)
+    val subSport = varchar("sub_sport", 64).nullable()
     val startedAt = long("started_at")
     val sortAt = long("sort_at")
     val indexedAt = long("indexed_at")

@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview
 
 import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
+import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
 import io.github.solcott.activitytracker.appview.index.HandleLookup
 import io.github.solcott.activitytracker.appview.index.Indexer
@@ -29,6 +30,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import org.h2.jdbcx.JdbcDataSource
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /** Index events the way Jetstream delivers them, then read them back through the XRPC API. */
 class AppViewTest {
@@ -76,7 +79,7 @@ class AppViewTest {
             Nsid.FEED_ACTIVITY,
             "3kbob1",
             """{"sport":"run","startedAt":"2026-09-30T10:00:00Z","elapsedTime":1800,"createdAt":"2026-09-30T10:31:00Z",""" +
-                """"distance":5000,"avgTemperature":-55}""",
+                """"distance":5000,"avgTemperature":-55,"subSport":"trail"}""",
         )
         commit(bob, Nsid.ACTOR_PROFILE, "self", """{"displayName":"Bob","units":"imperial"}""")
         commit(
@@ -132,6 +135,8 @@ class AppViewTest {
         val output = AtJson.decodeFromString(GetActivity.Output.serializer(), detail.bodyAsText())
         assertEquals("Nice!", output.comments.single().text)
         assertEquals(-55L, output.activity.record.avgTemperature)
+        assertEquals("trail", output.activity.record.subSport)
+        assertEquals("trail", transaction(db) { Activities.selectAll().single()[Activities.subSport] })
 
         val profile = client.get("/xrpc/${GetProfile.method.nsid}?actor=bob.test")
         val view = AtJson.decodeFromString(GetProfile.method.output, profile.bodyAsText())

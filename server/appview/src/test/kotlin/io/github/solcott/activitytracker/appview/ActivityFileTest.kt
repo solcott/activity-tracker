@@ -43,7 +43,7 @@ class ActivityFileTest {
 
         val activity = DecodedActivityMapper.map(GarminJavaFitDecoder().decode(bytes))
 
-        assertEquals(Sport.RIDE, activity.sport)
+        assertEquals(Sport.RIDE, activity.type.sport)
         assertEquals(30_000.0, activity.distanceMeters)
         assertEquals("Garmin", activity.device)
     }

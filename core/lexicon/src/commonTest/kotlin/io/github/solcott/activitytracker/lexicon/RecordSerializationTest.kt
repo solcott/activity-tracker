@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -42,6 +43,15 @@ class RecordSerializationTest {
             """
                 .trimIndent()
         assertEquals(record, AtJson.decodeFromString(ActivityRecord.serializer(), json))
+    }
+
+    @Test
+    fun subSportRoundTripsAndOlderRecordsLackIt() {
+        val mtb = record.copy(sport = Sport.RIDE, subSport = SubSport.MOUNTAIN)
+        val json = AtJson.encodeToString(ActivityRecord.serializer(), mtb)
+        assertTrue("\"subSport\":\"mountain\"" in json)
+        assertEquals(mtb, AtJson.decodeFromString(ActivityRecord.serializer(), json))
+        assertFalse("subSport" in AtJson.encodeToString(ActivityRecord.serializer(), record))
     }
 
     @Test

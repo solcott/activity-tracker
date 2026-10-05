@@ -7,6 +7,7 @@ object UnitConversions {
     const val METERS_PER_KM = 1000.0
     const val METERS_PER_MILE = 1609.344
     const val METERS_PER_FOOT = 0.3048
+    const val METERS_PER_YARD = 0.9144
 
     /** Record speeds are mm/s; record temperatures are tenths of °C. */
     private const val MM_PER_M = 1000.0

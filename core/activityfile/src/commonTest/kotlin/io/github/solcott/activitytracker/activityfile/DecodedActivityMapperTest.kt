@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.activityfile
 
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.SubSport
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -56,7 +58,7 @@ class DecodedActivityMapperTest {
     fun sessionTotalsWin() {
         val activity = DecodedActivityMapper.map(DecodedActivity(fileId(), listOf(summary()), emptyList(), listOf(record(0), record(10))))
 
-        assertEquals(Sport.RUN, activity.sport)
+        assertEquals(ActivityType(Sport.RUN), activity.type)
         assertEquals(start, activity.startedAt)
         assertEquals(30.minutes, activity.elapsed)
         assertEquals(1700L, activity.movingSeconds)
@@ -80,7 +82,7 @@ class DecodedActivityMapperTest {
             )
         val activity = DecodedActivityMapper.map(DecodedActivity(fileId(), emptyList(), emptyList(), records.reversed()))
 
-        assertEquals(Sport.OTHER, activity.sport)
+        assertEquals(ActivityType(Sport.OTHER), activity.type)
         assertEquals(start, activity.startedAt)
         assertEquals(2.minutes, activity.elapsed)
         assertEquals(120L, activity.movingSeconds, "computed from the samples, which keep moving at about 11 m/s")
@@ -102,7 +104,7 @@ class DecodedActivityMapperTest {
                     listOf(record(0, lat = null, lon = null)),
                 )
             )
-        assertEquals(Sport.RIDE, activity.sport)
+        assertEquals(ActivityType(Sport.RIDE, SubSport.INDOOR), activity.type)
         assertTrue(activity.samples.isEmpty())
     }
 
@@ -117,23 +119,82 @@ class DecodedActivityMapperTest {
                     emptyList(),
                 )
             )
-        assertEquals(Sport.RUN, activity.sport)
+        assertEquals(ActivityType(Sport.MULTISPORT, SubSport.DUATHLON), activity.type, "a run and a ride")
         assertEquals(10_000.0, activity.distanceMeters)
         assertEquals(4000L, activity.movingSeconds)
         assertEquals(155, activity.avgHeartRate)
     }
 
     @Test
+    fun triathlonSkipsTransitions() {
+        val legs = listOf("swimming", "transition", "cycling", "transition", "running").map { summary(sport = it) }
+        val activity = DecodedActivityMapper.map(DecodedActivity(fileId(), legs, emptyList(), emptyList()))
+        assertEquals(ActivityType(Sport.MULTISPORT, SubSport.TRIATHLON), activity.type)
+    }
+
+    @Test
+    fun sessionsOfOneSportStayThatSport() {
+        val laps = listOf(summary(sport = "cycling", subSport = "mountain"), summary(sport = "cycling", subSport = "mountain"))
+        val activity = DecodedActivityMapper.map(DecodedActivity(fileId(), laps, emptyList(), emptyList()))
+        assertEquals(ActivityType(Sport.RIDE, SubSport.MOUNTAIN), activity.type)
+    }
+
+    @Test
     fun mapsSportNamesInEverySdksSpelling() {
-        assertEquals(Sport.RIDE, DecodedActivityMapper.sport("E_BIKING"))
-        assertEquals(Sport.RIDE, DecodedActivityMapper.sport("eBiking"))
-        assertEquals(Sport.SKI, DecodedActivityMapper.sport("CROSS_COUNTRY_SKIING"))
-        assertEquals(Sport.SKI, DecodedActivityMapper.sport("crossCountrySkiing"))
-        assertEquals(Sport.HIKE, DecodedActivityMapper.sport("hiking"))
-        assertEquals(Sport.SWIM, DecodedActivityMapper.sport("SWIMMING"))
-        assertEquals(Sport.RUN, DecodedActivityMapper.sport("training", "treadmill"))
-        assertEquals(Sport.OTHER, DecodedActivityMapper.sport("rowing"))
-        assertEquals(Sport.OTHER, DecodedActivityMapper.sport(null))
+        fun assertType(expected: ActivityType, sport: String?, subSport: String? = null) =
+            assertEquals(expected, DecodedActivityMapper.activityType(sport, subSport), "$sport / $subSport")
+
+        assertType(ActivityType(Sport.RIDE, SubSport.E_BIKE), "E_BIKING")
+        assertType(ActivityType(Sport.RIDE, SubSport.E_BIKE), "eBiking")
+        assertType(ActivityType(Sport.RIDE, SubSport.E_MOUNTAIN), "E_BIKING", "E_BIKE_MOUNTAIN")
+        assertType(ActivityType(Sport.XC_SKI), "CROSS_COUNTRY_SKIING")
+        assertType(ActivityType(Sport.XC_SKI, SubSport.SKATE), "crossCountrySkiing", "skateSkiing")
+        assertType(ActivityType(Sport.HIKE), "hiking")
+        assertType(ActivityType(Sport.SWIM, SubSport.POOL), "SWIMMING", "LAP_SWIMMING")
+        assertType(ActivityType(Sport.SWIM, SubSport.OPEN_WATER), "swimming", "openWater")
+        assertType(ActivityType(Sport.ROW), "rowing")
+        assertType(ActivityType(Sport.ROW, SubSport.INDOOR), "fitness_equipment", "indoor_rowing")
+        assertType(ActivityType(Sport.OTHER), null)
+        assertType(ActivityType(Sport.OTHER), "training")
+        assertType(ActivityType(Sport.OTHER), "some_future_sport")
+    }
+
+    @Test
+    fun subSportsRefineTheirSport() {
+        fun assertType(expected: ActivityType, sport: String?, subSport: String?) =
+            assertEquals(expected, DecodedActivityMapper.activityType(sport, subSport), "$sport / $subSport")
+
+        assertType(ActivityType(Sport.RIDE, SubSport.MOUNTAIN), "CYCLING", "MOUNTAIN")
+        assertType(ActivityType(Sport.RIDE, SubSport.GRAVEL), "cycling", "gravelCycling")
+        assertType(ActivityType(Sport.RIDE, SubSport.INDOOR), "cycling", "indoor_cycling")
+        assertType(ActivityType(Sport.RIDE, SubSport.VIRTUAL), "cycling", "virtual_activity")
+        assertType(ActivityType(Sport.RIDE), "cycling", "generic")
+        assertType(ActivityType(Sport.HANDCYCLE, SubSport.INDOOR), "cycling", "indoor_hand_cycling")
+        assertType(ActivityType(Sport.RUN, SubSport.TRAIL), "running", "trail")
+        assertType(ActivityType(Sport.RUN, SubSport.VIRTUAL), "running", "virtual_activity")
+        assertType(ActivityType(Sport.RUN, SubSport.TREADMILL), "training", "treadmill")
+        assertType(ActivityType(Sport.WALK, SubSport.TREADMILL), "walking", "treadmill")
+        assertType(ActivityType(Sport.STRENGTH), "training", "strength_training")
+        assertType(ActivityType(Sport.YOGA), "training", "yoga")
+        assertType(ActivityType(Sport.STAIR_STEPPER), "fitness_equipment", "stair_climbing")
+        assertType(ActivityType(Sport.CLIMB, SubSport.BOULDERING), "rock_climbing", "bouldering")
+        assertType(ActivityType(Sport.SKI, SubSport.BACKCOUNTRY), "alpine_skiing", "backcountry")
+        assertType(ActivityType(Sport.DIVE, SubSport.APNEA), "diving", "apnea_diving")
+        assertType(ActivityType(Sport.FIELD_HOCKEY), "hockey", "field_hockey")
+        assertType(ActivityType(Sport.PICKLEBALL), "racket", "pickleball")
+        assertType(ActivityType(Sport.MOTOCROSS), "motorcycling", "motocross")
+        assertType(ActivityType(Sport.RIDE), "cycling", "treadmill") // a sub-sport that doesn't fit is ignored
+    }
+
+    @Test
+    fun mapsGpxAndStravaTypeNames() {
+        assertEquals(ActivityType(Sport.RIDE, SubSport.MOUNTAIN), DecodedActivityMapper.activityType("MountainBikeRide"))
+        assertEquals(ActivityType(Sport.RIDE, SubSport.GRAVEL), DecodedActivityMapper.activityType("GravelRide"))
+        assertEquals(ActivityType(Sport.RIDE, SubSport.VIRTUAL), DecodedActivityMapper.activityType("VirtualRide"))
+        assertEquals(ActivityType(Sport.RUN, SubSport.TRAIL), DecodedActivityMapper.activityType("TrailRun"))
+        assertEquals(ActivityType(Sport.STRENGTH), DecodedActivityMapper.activityType("WeightTraining"))
+        assertEquals(ActivityType(Sport.SUP), DecodedActivityMapper.activityType("StandUpPaddling"))
+        assertEquals(ActivityType(Sport.RIDE), DecodedActivityMapper.activityType("Biking"), "TCX")
     }
 
     @Test

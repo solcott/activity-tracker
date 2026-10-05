@@ -13,7 +13,14 @@
           "sport": {
             "type": "string",
             "maxLength": 64,
-            "knownValues": ["run", "ride", "walk", "hike", "swim", "ski", "other"]
+            "description": "Activity type, following Garmin's activity profiles.",
+            "knownValues": ["run", "ride", "handcycle", "swim", "multisport", "walk", "hike", "rucking", "mountaineering", "climb", "inlineSkate", "horseback", "golf", "discGolf", "archery", "hunt", "fish", "adventureRace", "expedition", "ski", "snowboard", "xcSki", "snowshoe", "iceSkate", "row", "kayak", "sup", "surf", "kiteboard", "windsurf", "sail", "wakeboard", "wakesurf", "waterSki", "whitewater", "tube", "snorkel", "boat", "dive", "strength", "cardio", "hiit", "yoga", "pilates", "mobility", "elliptical", "stairStepper", "floorClimb", "jumpRope", "boxing", "mma", "dance", "gymnastics", "soccer", "americanFootball", "baseball", "softball", "basketball", "volleyball", "iceHockey", "fieldHockey", "lacrosse", "rugby", "cricket", "ultimate", "tennis", "pickleball", "padel", "badminton", "squash", "racquetball", "tableTennis", "platformTennis", "motorcycle", "motocross", "atv", "snowmobile", "overland", "meditation", "breathwork", "flying", "skydive", "gaming", "other"]
+          },
+          "subSport": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "Refines sport (a mountain-bike ride, a treadmill run). Meaningful only together with sport; absent for the sport's generic form.",
+            "knownValues": ["trail", "treadmill", "track", "indoorTrack", "virtual", "ultra", "obstacle", "road", "mountain", "gravel", "cyclocross", "indoor", "eBike", "eMountain", "commute", "tour", "bmx", "pool", "openWater", "triathlon", "duathlon", "swimrun", "brick", "mixed", "bouldering", "backcountry", "classic", "skate", "race", "expedition", "singleGas", "multiGas", "ccr", "gauge", "apnea", "apneaHunt", "poolApnea"]
           },
           "title": { "type": "string", "maxLength": 1000, "maxGraphemes": 100 },
           "description": { "type": "string", "maxLength": 10000, "maxGraphemes": 1000 },

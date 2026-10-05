@@ -1,13 +1,14 @@
 package io.github.solcott.activitytracker.activityfile
 
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.time.Duration
 import kotlin.time.Instant
 
 /** An activity read from a file, whatever its format. Units match `ActivityDraft`: SI, as Doubles. */
 data class ImportedActivity(
-    /** A lexicon `Sport` value. */
-    val sport: String,
+    /** The file's sport and sub-sport, as lexicon values. */
+    val type: ActivityType,
     val startedAt: Instant,
     val elapsed: Duration,
     val movingSeconds: Long?,

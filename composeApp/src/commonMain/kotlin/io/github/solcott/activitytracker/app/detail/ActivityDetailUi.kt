@@ -34,9 +34,9 @@ import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.Stat
 import io.github.solcott.activitytracker.app.ui.StatsRow
+import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.handleLabel
-import io.github.solcott.activitytracker.app.ui.sportLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_back
 import io.github.solcott.activitytracker.composeApp.resources.action_retry
@@ -54,6 +54,7 @@ import io.github.solcott.activitytracker.composeApp.resources.stat_elevation
 import io.github.solcott.activitytracker.composeApp.resources.stat_moving_time
 import io.github.solcott.activitytracker.composeApp.resources.stat_temperature
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.lexicon.app.activityType
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.pluralStringResource
@@ -111,7 +112,14 @@ private fun LoadedContent(state: ActivityDetailState.Loaded, modifier: Modifier 
             TextButton(onClick = { state.eventSink(ActivityDetailEvent.OpenAuthor) }) {
                 Text(state.activity.author.displayName ?: state.activity.author.handle.value)
             }
-            Text(record.title ?: sportLabel(record.sport), style = MaterialTheme.typography.headlineSmall)
+            Text(record.title ?: activityTypeLabel(record.activityType), style = MaterialTheme.typography.headlineSmall)
+            if (record.title != null) {
+                Text(
+                    activityTypeLabel(record.activityType),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
             record.description?.let { Text(it) }
         }
         item {

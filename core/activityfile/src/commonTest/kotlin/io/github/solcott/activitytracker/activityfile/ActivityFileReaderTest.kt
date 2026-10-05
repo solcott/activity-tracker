@@ -57,21 +57,21 @@ class ActivityFileReaderTest {
         val gpx =
             """<gpx version="1.1"><trk><type>walking</type><trkseg><trkpt lat="47.6" lon="-122.3"><time>2026-09-20T07:00:00Z</time></trkpt>
               </trkseg></trk></gpx>"""
-        assertEquals(Sport.WALK, reader.read(gpx.encodeToByteArray()).sport)
+        assertEquals(Sport.WALK, reader.read(gpx.encodeToByteArray()).type.sport)
 
         val tcx =
             """<?xml version="1.0"?><TrainingCenterDatabase><Activities><Activity Sport="Running"><Id>2026-09-20T07:00:00Z</Id>
               <Lap StartTime="2026-09-20T07:00:00Z"><TotalTimeSeconds>60</TotalTimeSeconds><DistanceMeters>250</DistanceMeters></Lap>
               </Activity></Activities></TrainingCenterDatabase>"""
         val activity = reader.read(tcx.encodeToByteArray())
-        assertEquals(Sport.RUN, activity.sport)
+        assertEquals(Sport.RUN, activity.type.sport)
         assertEquals(250.0, activity.distanceMeters)
     }
 
     @Test
     fun unzipsGzippedFiles() = runTest {
         val activity = reader.read(gzippedGpx)
-        assertEquals(Sport.RUN, activity.sport)
+        assertEquals(Sport.RUN, activity.type.sport)
         assertEquals(start, activity.startedAt)
         assertEquals(111.2, activity.distanceMeters!!, 0.5)
     }
