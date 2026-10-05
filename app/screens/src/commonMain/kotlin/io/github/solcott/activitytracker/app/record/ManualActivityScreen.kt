@@ -7,6 +7,7 @@ import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.data.units.parseDecimal
 
 /** Log an activity without GPS (also handy for testing on web and simulators). */
 @CircuitSerializable(SessionScope::class) data object ManualActivityScreen : Screen
@@ -27,7 +28,7 @@ data class ManualActivityState(
     val eventSink: (ManualActivityEvent) -> Unit,
 ) : CircuitUiState {
     val valid: Boolean
-        get() = (durationMinutes.toDoubleOrNull() ?: 0.0) > 0
+        get() = (parseDecimal(durationMinutes) ?: 0.0) > 0
 }
 
 sealed interface ManualActivityEvent {

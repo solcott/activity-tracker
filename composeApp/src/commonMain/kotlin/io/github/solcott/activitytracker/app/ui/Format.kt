@@ -21,9 +21,8 @@ import io.github.solcott.activitytracker.composeApp.resources.value_missing
 import io.github.solcott.activitytracker.data.units.UnitConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.WeightConversions
+import io.github.solcott.activitytracker.data.units.formatDecimal
 import io.github.solcott.activitytracker.lexicon.app.Sport
-import kotlin.math.abs
-import kotlin.math.pow
 import kotlin.math.roundToLong
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -40,7 +39,6 @@ object Format {
     private const val DISTANCE_DECIMALS = 2
     private const val SPEED_DECIMALS = 1
     private const val WEIGHT_DECIMALS = 1
-    private const val DECIMAL_BASE = 10.0
 
     /** Below this, pace is noise from GPS jitter. */
     private const val MIN_PACE_DISTANCE_M = 10
@@ -49,7 +47,7 @@ object Format {
     fun distance(meters: Double?): String {
         if (meters == null) return stringResource(Res.string.value_missing)
         val units = LocalUnitSystem.current
-        val value = fixed(UnitConversions.toDistanceUnit(meters, units), DISTANCE_DECIMALS)
+        val value = formatDecimal(UnitConversions.toDistanceUnit(meters, units), DISTANCE_DECIMALS)
         return when (units) {
             UnitSystem.Metric -> stringResource(Res.string.unit_distance_km, value)
             UnitSystem.Imperial -> stringResource(Res.string.unit_distance_mi, value)
@@ -85,7 +83,7 @@ object Format {
     fun speed(mmPerSecond: Long?): String {
         if (mmPerSecond == null) return stringResource(Res.string.value_missing)
         val units = LocalUnitSystem.current
-        val value = fixed(UnitConversions.toSpeedUnit(mmPerSecond, units), SPEED_DECIMALS)
+        val value = formatDecimal(UnitConversions.toSpeedUnit(mmPerSecond, units), SPEED_DECIMALS)
         return when (units) {
             UnitSystem.Metric -> stringResource(Res.string.unit_speed_kmh, value)
             UnitSystem.Imperial -> stringResource(Res.string.unit_speed_mph, value)
@@ -129,20 +127,10 @@ object Format {
     @Composable
     fun weight(grams: Long): String {
         val units = LocalUnitSystem.current
-        val value = fixed(WeightConversions.toWeightUnit(grams, units), WEIGHT_DECIMALS)
+        val value = formatDecimal(WeightConversions.toWeightUnit(grams, units), WEIGHT_DECIMALS)
         return when (units) {
             UnitSystem.Metric -> stringResource(Res.string.unit_weight_kg, value)
             UnitSystem.Imperial -> stringResource(Res.string.unit_weight_lb, value)
         }
-    }
-
-    /** [value] with exactly [decimals] fraction digits; common code has no `String.format`. */
-    private fun fixed(value: Double, decimals: Int): String {
-        val scale = DECIMAL_BASE.pow(decimals).toLong()
-        val scaled = (value * scale).roundToLong()
-        val sign = if (scaled < 0) "-" else ""
-        val whole = abs(scaled) / scale
-        val fraction = (abs(scaled) % scale).toString().padStart(decimals, '0')
-        return "$sign$whole.$fraction"
     }
 }

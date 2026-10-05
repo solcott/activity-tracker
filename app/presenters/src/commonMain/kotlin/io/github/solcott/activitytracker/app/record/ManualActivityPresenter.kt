@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitConversions
 import io.github.solcott.activitytracker.data.units.UnitsRepository
+import io.github.solcott.activitytracker.data.units.parseDecimal
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
@@ -70,7 +71,7 @@ fun ManualActivityPresenter(
             }
 
             ManualActivityEvent.Save -> {
-                val minutes = duration.toDoubleOrNull() ?: return@ManualActivityState
+                val minutes = parseDecimal(duration) ?: return@ManualActivityState
                 saving = true
                 scope.launch {
                     runSuspendCatching {
@@ -83,9 +84,8 @@ fun ManualActivityPresenter(
                                 startedAt = clock.now() - minutes.minutes,
                                 elapsed = minutes.minutes,
                                 movingSeconds = elapsed,
-                                distanceMeters = distance.toDoubleOrNull()?.let { UnitConversions.fromDistanceUnit(it, units) },
-                                avgTemperatureCelsius =
-                                    temperature.toDoubleOrNull()?.let { UnitConversions.fromTemperatureUnit(it, units) },
+                                distanceMeters = parseDecimal(distance)?.let { UnitConversions.fromDistanceUnit(it, units) },
+                                avgTemperatureCelsius = parseDecimal(temperature)?.let { UnitConversions.fromTemperatureUnit(it, units) },
                             )
                         )
                         navigator.pop()
