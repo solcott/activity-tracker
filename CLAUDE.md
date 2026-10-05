@@ -28,7 +28,7 @@ docker compose -f docker/compose.yaml up -d       # local PLC/PDS/relay/Jetstrea
 docker/scripts/create-account.sh alice            # alice.test on the local PDS
 ```
 
-iOS: open `iosApp/iosApp.xcodeproj`, or run `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`. Its build phase runs `:composeApp:embedAndSignAppleFrameworkForXcode`.
+iOS: open `iosApp/iosApp.xcodeproj`, or run `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGN_IDENTITY=- build`. The ad-hoc signature ("Sign to Run Locally") needs no team, and the app needs it: an unsigned build (`CODE_SIGNING_ALLOWED=NO`) can't use the Keychain, so sign-in fails with `-34018`. Its build phase runs `:composeApp:embedAndSignAppleFrameworkForXcode`.
 
 Wasm tests are disabled. Client modules also have a `jvm()` target so tests (Room in-memory, Ktor `MockEngine`, `circuit-test`) run on the JVM.
 

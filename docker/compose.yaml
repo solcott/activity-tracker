@@ -45,7 +45,9 @@ services:
         condition: service_healthy
 
   pds:
-    image: ghcr.io/bluesky-social/pds:0.4
+    build:
+      context: .
+      dockerfile: pds.Dockerfile
     env_file: .env
     environment:
       PDS_HOSTNAME: localhost
