@@ -23,9 +23,13 @@ Profile details an athlete marks Mutuals or Only me (location, birthdate, gender
 
 ## Show activities on real maps
 
-`RoutePreview` draws the record's encoded polyline on a blank Canvas. GPX, TCX and FIT import will make real maps more pressing. The stack below is decided; build it when import starts.
+The activity detail screen shows the route on a MapLibre map (`ActivityMap`) on Android, iOS and desktop. Web still draws the Canvas `RoutePreview`. What's left:
 
-- **Renderer.** MapLibre Compose (`org.maplibre.compose`) supports Android, iOS, wasmJs and Desktop JVM from shared code. Every target is still alpha or beta, so wrap it in one `composeApp` composable (e.g. `ActivityMap`) to contain API churn. Keep `RoutePreview` as the loading and error fallback. Draw the track as a GeoJSON line layer, so it can later be coloured by speed, HR or elevation.
+- **Web map (blocked upstream).** MapLibre Compose 0.19.0 has no wasmJs target, only Kotlin/JS. Adding one is [maplibre/maplibre-compose#209](https://github.com/maplibre/maplibre-compose/issues/209), labelled `blocked-upstream`: it needs Compose Multiplatform 1.13, which has the API for compositing a WebGL map into Compose UI. That works in CMP 1.13 prereleases (maplibre-compose PR #1081). Once a MapLibre Compose release ships wasmJs, and we're on CMP 1.13:
+  - Move `libs.maplibre.compose` from `nonWebMain` to `commonMain` in `composeApp`.
+  - Merge `ActivityMap.nonWeb.kt` into `commonMain` and delete the wasmJs actual.
+  - Follow the release's web setup steps in `:webApp` (e.g. `installMapLibreCompose()` before `ComposeViewport`).
+- **Renderer notes.** Every MapLibre Compose target is still alpha or beta, so MapLibre's API stays inside `ActivityMap`. Keep `RoutePreview` as the fallback. The track is a GeoJSON line layer, so it can later be coloured by speed, HR or elevation. The map's pan and zoom are off inside the detail list; a tap-to-open full-screen map would be the interactive one.
 - **Tiles.** Use OpenFreeMap (no key, no limits) by default and in dev. Use MapTiler Outdoor/Topo or Stadia Outdoors for a trail and contour style. Self-hosted Protomaps PMTiles on S3 or R2 behind a CDN is the cost-control option. Keep the style URL in config so providers can change without a release.
 - **Avoid.** Google Maps SDK (no wasmJs or desktop target, Google tiles only, billed per load). Mapbox v2+ (proprietary licence, billed per active user). `tile.openstreetmap.org` (its usage policy forbids app traffic). MapKit (iOS only).
 - **Feed vs detail.** Use the interactive map only on the activity detail screen. Feed cards stay static. Near term that's the Canvas polyline. Later, the AppView renders a PNG per activity at index time, using a provider's Static Maps API or self-hosted tileserver-gl, and serves it from an `app.activitytracker.*` endpoint.

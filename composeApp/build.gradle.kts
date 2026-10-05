@@ -43,6 +43,14 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)
             implementation(libs.androidx.browser)
+            // OpenGL rather than Vulkan: wider device and emulator support.
+            runtimeOnly(libs.maplibre.compose.runtime.opengl.android)
+        }
+        // MapLibre Compose has no wasmJs target yet (maplibre/maplibre-compose#209, needs CMP 1.13), so the web app keeps the Canvas
+        // RoutePreview (see ActivityMap and BACKLOG.md).
+        // Desktop's native runtime is picked per OS in :desktopApp.
+        nonWebMain.dependencies {
+            implementation(libs.maplibre.compose)
         }
         wasmJsMain.dependencies { implementation(libs.kotlinx.browser) }
     }

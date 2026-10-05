@@ -19,6 +19,8 @@ import io.github.solcott.activitytracker.data.di.DesktopAppDirs
 import java.awt.Desktop
 import java.net.URI
 import org.jetbrains.compose.resources.stringResource
+import org.maplibre.compose.desktop.ProvideMapPresentationHost
+import org.maplibre.compose.desktop.rememberAwtComposeMapPresentationHost
 
 fun main() {
     val port = System.getProperty("activitytracker.oauthPort")?.toInt() ?: NetworkConfigs.DESKTOP_OAUTH_PORT
@@ -34,7 +36,8 @@ fun main() {
             },
         ) {
             redirects.window = window
-            App(graph)
+            // MapLibre draws into this window's graphics context.
+            ProvideMapPresentationHost(host = rememberAwtComposeMapPresentationHost(window)) { App(graph) }
         }
     }
 }

@@ -30,8 +30,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.Format
-import io.github.solcott.activitytracker.app.ui.RoutePreview
 import io.github.solcott.activitytracker.app.ui.Stat
 import io.github.solcott.activitytracker.app.ui.StatsRow
 import io.github.solcott.activitytracker.app.ui.errorText
@@ -128,7 +128,7 @@ private fun LoadedContent(state: ActivityDetailState.Loaded, modifier: Modifier 
             val temperature = record.avgTemperature?.let { Stat(stringResource(Res.string.stat_temperature), Format.temperature(it)) }
             StatsRow(listOfNotNull(rate, temperature).toImmutableList())
         }
-        record.polyline?.let { item { RoutePreview(it, height = 240.dp) } }
+        record.polyline?.let { item { ActivityMap(it) } }
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 KudosButton(state, Modifier.weight(1f))
