@@ -1,0 +1,53 @@
+package io.github.solcott.activitytracker.data.profile
+
+import io.github.solcott.activitytracker.lexicon.app.DetailsVisibility
+import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
+
+/** The profile details that each have their own visibility: one per field of [ProfileDetails] and [DetailsVisibility]. */
+enum class DetailGroup {
+    Location,
+    BirthDate,
+    Gender,
+    Weight;
+
+    fun isSet(details: ProfileDetails): Boolean =
+        when (this) {
+            Location -> details.location != null
+            BirthDate -> details.birthDate != null
+            Gender -> details.gender != null
+            Weight -> details.weight != null
+        }
+
+    /** [into] with this group's value taken from [from]. */
+    fun copy(from: ProfileDetails, into: ProfileDetails): ProfileDetails =
+        when (this) {
+            Location -> into.copy(location = from.location)
+            BirthDate -> into.copy(birthDate = from.birthDate)
+            Gender -> into.copy(gender = from.gender)
+            Weight -> into.copy(weight = from.weight)
+        }
+
+    fun visibility(visibility: DetailsVisibility): String? =
+        when (this) {
+            Location -> visibility.location
+            BirthDate -> visibility.birthDate
+            Gender -> visibility.gender
+            Weight -> visibility.weight
+        }
+
+    fun withVisibility(visibility: DetailsVisibility, value: String?): DetailsVisibility =
+        when (this) {
+            Location -> visibility.copy(location = value)
+            BirthDate -> visibility.copy(birthDate = value)
+            Gender -> visibility.copy(gender = value)
+            Weight -> visibility.copy(weight = value)
+        }
+}
+
+/** Only the [groups] of these details. */
+fun ProfileDetails.only(groups: Collection<DetailGroup>): ProfileDetails =
+    groups.fold(ProfileDetails()) { acc, group -> group.copy(this, acc) }
+
+/** Only the [groups] of this visibility. */
+fun DetailsVisibility.only(groups: Collection<DetailGroup>): DetailsVisibility =
+    groups.fold(DetailsVisibility()) { acc, group -> group.withVisibility(acc, group.visibility(this)) }

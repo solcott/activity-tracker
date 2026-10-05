@@ -43,16 +43,12 @@ fun interface PdsLookup {
 class ResolvingPdsLookup(private val resolver: IdentityResolver, private val clock: Clock = Clock.System) : PdsLookup {
     private val cache = ConcurrentHashMap<Did, Pair<String, Instant>>()
 
-    override suspend fun pdsFor(did: Did): String? {
-        cache[did]
-            ?.takeIf { (_, at) -> clock.now() - at < TTL }
-            ?.let {
-                return it.first
-            }
-        val pds = runSuspendCatching { resolver.resolveDid(did).pdsEndpoint }.getOrNull()?.trimEnd('/') ?: return null
-        cache[did] = pds to clock.now()
-        return pds
-    }
+    override suspend fun pdsFor(did: Did): String? =
+        cache[did]?.takeIf { (_, at) -> clock.now() - at < TTL }?.first
+            ?: runSuspendCatching { resolver.resolveDid(did).pdsEndpoint }
+                .getOrNull()
+                ?.trimEnd('/')
+                ?.also { cache[did] = it to clock.now() }
 
     private companion object {
         val TTL = 1.hours

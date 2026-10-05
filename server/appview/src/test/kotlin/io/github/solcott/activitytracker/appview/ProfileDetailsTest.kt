@@ -104,7 +104,8 @@ class ProfileDetailsTest {
             alice,
             Nsid.ACTOR_PROFILE,
             "self",
-            """{"displayName":"Alice","avatar":{"${'$'}type":"blob","ref":{"${'$'}link":"bafkavatar"},"mimeType":"image/jpeg","size":2048},""" +
+            """{"displayName":"Alice",""" +
+                """"avatar":{"${'$'}type":"blob","ref":{"${'$'}link":"bafkavatar"},"mimeType":"image/jpeg","size":2048},""" +
                 """"details":{"location":{"locality":"Portland","country":"US"},"weight":12}}""",
         )
         val response =

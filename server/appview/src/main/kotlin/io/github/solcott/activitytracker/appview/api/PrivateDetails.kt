@@ -41,7 +41,7 @@ class PrivateDetails(private val db: Database, private val clock: Clock = Clock.
         }
         val location = details.location?.takeUnless { it == Location() }
         db.tx {
-            if (location == null && details.birthDate == null && details.gender == null && details.weight == null) {
+            if (details.copy(location = location) == ProfileDetails()) {
                 ActorPrivateDetails.deleteWhere { did eq author.value }
                 return@tx
             }
