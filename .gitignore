@@ -9,7 +9,6 @@ local.properties
 captures/
 .externalNativeBuild
 .cxx
-kotlin-js-store/
 node_modules/
 
 # iOS
