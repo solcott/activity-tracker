@@ -18,19 +18,22 @@ import kotlin.time.Clock
 @SingleIn(SessionScope::class)
 @Inject
 class SessionClients(
-    session: OAuthSession,
+    private val session: OAuthSession,
     http: HttpClient,
-    sessionManager: OAuthSessionManager,
+    private val sessionManager: OAuthSessionManager,
     config: AtprotoConfig,
     clock: Clock,
 ) {
     val did: Did = session.did
 
+    /** The account's PDS base URL. Follows the live session so a PDS migration picked up on refresh is respected. */
+    val pdsUrl: String
+        get() = sessionManager.session.value?.pdsUrl ?: session.pdsUrl
+
     val pds: XrpcClient =
         XrpcClient(
             http = http,
-            // Follows the live session so a PDS migration picked up on refresh is respected.
-            serviceUrl = { sessionManager.session.value?.pdsUrl ?: session.pdsUrl },
+            serviceUrl = { pdsUrl },
             authenticator = sessionManager.pdsAuthenticator,
         )
 

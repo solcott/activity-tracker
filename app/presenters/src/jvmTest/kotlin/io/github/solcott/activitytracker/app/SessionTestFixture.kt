@@ -46,6 +46,12 @@ class SessionTestFixture {
     var profileRecord: String? = null
     private val putBodies = mutableListOf<String>()
 
+    private val privateBodies = mutableListOf<String>()
+
+    /** The input of each successful `putPrivateDetails`, in order. */
+    val privateDetailsPuts: List<JsonObject>
+        get() = privateBodies.map { AtJson.parseToJsonElement(it).jsonObject }
+
     /** The `record` of each successful `putRecord`, in order. */
     val putRecords: List<JsonObject>
         get() = putBodies.map { AtJson.parseToJsonElement(it).jsonObject.getValue("record").jsonObject }
@@ -66,6 +72,19 @@ class SessionTestFixture {
 
                     "/xrpc/com.atproto.server.getServiceAuth" -> {
                         respond("""{"token":"service-jwt"}""", headers = json)
+                    }
+
+                    "/xrpc/app.activitytracker.actor.getPrivateDetails" -> {
+                        respond("""{"details":{},"visibility":{}}""", headers = json)
+                    }
+
+                    "/xrpc/app.activitytracker.actor.putPrivateDetails" -> {
+                        if (failWrites) {
+                            respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
+                        } else {
+                            privateBodies += (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+                            respond("{}", headers = json)
+                        }
                     }
 
                     "/xrpc/app.activitytracker.actor.getProfile" -> {

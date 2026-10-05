@@ -46,4 +46,11 @@ class UnitConversionsTest {
         assertEquals(UnitSystem.Metric, UnitSystem.defaultFor("GB"))
         assertEquals(UnitSystem.Metric, UnitSystem.defaultFor(null))
     }
+
+    @Test
+    fun weightIsStoredInGrams() {
+        assertEquals(68_039L, WeightConversions.fromWeightUnit(150.0, UnitSystem.Imperial))
+        assertEquals(61_500L, WeightConversions.fromWeightUnit(61.5, UnitSystem.Metric))
+        assertEquals(150.0, WeightConversions.toWeightUnit(68_039, UnitSystem.Imperial), 1e-3)
+    }
 }
