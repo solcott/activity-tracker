@@ -54,6 +54,7 @@ import io.github.solcott.activitytracker.app.ui.countryName
 import io.github.solcott.activitytracker.app.ui.detailGroupLabel
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.genderLabel
+import io.github.solcott.activitytracker.app.ui.stripDiacritics
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_back
@@ -269,11 +270,19 @@ private fun CountryField(
     enabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val countries = remember { Countries.codes.map { it to countryName(it) }.sortedBy { it.second } }
+    val countries = remember { Countries.codes.map { CountryOption(it, countryName(it)) }.sortedBy { it.name } }
     val selectedName = if (code.isEmpty()) "" else countryName(code)
     var query by remember(code) { mutableStateOf(selectedName) }
     var expanded by remember { mutableStateOf(false) }
-    val matches = if (query == selectedName) countries else countries.filter { it.second.contains(query.trim(), ignoreCase = true) }
+    val matches =
+        if (query == selectedName) {
+            countries
+        } else {
+            val key = searchKey(query.trim())
+            // A typed code ("us") puts its country above the names that merely contain it (Australia, Belarus…).
+            val (byCode, byName) = countries.partition { it.code.equals(key, ignoreCase = true) }
+            byCode + byName.filter { it.key.contains(key) }
+        }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it && enabled }, modifier = modifier) {
         OutlinedTextField(
             query,
@@ -314,6 +323,12 @@ private fun CountryField(
         }
     }
 }
+
+/** A country in [CountryField]'s menu. [key] is [name] as the search matches it, folded once rather than per keystroke. */
+private data class CountryOption(val code: String, val name: String, val key: String = searchKey(name))
+
+/** Folds case and accents, so "cote" finds "Côte d'Ivoire". */
+private fun searchKey(text: String): String = stripDiacritics(text).lowercase()
 
 /** A past date from Material's date picker, shown as `YYYY-MM-DD`. [date] is empty when unset. */
 @OptIn(ExperimentalMaterial3Api::class)
