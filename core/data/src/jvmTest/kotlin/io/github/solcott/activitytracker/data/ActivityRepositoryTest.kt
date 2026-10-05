@@ -4,20 +4,10 @@ import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
 import co.touchlab.kermit.TestLogWriter
 import co.touchlab.kermit.loggerConfigInit
-import io.github.solcott.activitytracker.atproto.AtprotoConfig
-import io.github.solcott.activitytracker.atproto.OAuthClientConfig
-import io.github.solcott.activitytracker.atproto.crypto.DpopKey
-import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
-import io.github.solcott.activitytracker.atproto.oauth.OAuthClient
-import io.github.solcott.activitytracker.atproto.oauth.OAuthSession
-import io.github.solcott.activitytracker.atproto.oauth.OAuthSessionManager
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
-import io.github.solcott.activitytracker.data.auth.InMemorySecretCipher
-import io.github.solcott.activitytracker.data.auth.RoomOAuthStore
-import io.github.solcott.activitytracker.data.db.inMemoryDatabase
-import io.github.solcott.activitytracker.data.di.SessionClients
+import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalKudos
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -40,7 +30,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlinx.coroutines.flow.first
@@ -98,37 +87,7 @@ class ActivityRepositoryTest {
         }
 
     private suspend fun repository(): ActivityRepository {
-        val db = inMemoryDatabase()
-        val store = RoomOAuthStore(db, Clock.System, InMemorySecretCipher(), logger)
-        val session =
-            OAuthSession(
-                did = did,
-                handle = Handle("alice.test"),
-                pdsUrl = "http://pds.test",
-                issuer = "http://pds.test",
-                tokenEndpoint = "http://pds.test/oauth/token",
-                accessToken = "at",
-                refreshToken = "rt",
-                expiresAt = Clock.System.now() + 1.hours,
-                scope = "atproto",
-                dpopKey = DpopKey.generate().serialize(),
-            )
-        store.saveSession(session)
-        val config =
-            AtprotoConfig(
-                "http://plc.test",
-                null,
-                "http://appview.test",
-                "did:web:appview.test",
-                OAuthClientConfig.loopback("http://127.0.0.1/"),
-            )
-        val manager =
-            OAuthSessionManager(
-                    OAuthClient(http, IdentityResolver(http, config), config.oauth),
-                    store,
-                )
-                .apply { restore() }
-        val clients = SessionClients(session, http, manager, config, Clock.System)
+        val (db, _, clients) = signedInTestSession(http, did = did, logger = logger)
         val outbox = OutboxProcessor(db, clients, logger)
         val localKudos = LocalKudos()
         return ActivityRepository(db, clients, outbox, FeedRepository(db, clients, localKudos, logger), localKudos, Clock.System)

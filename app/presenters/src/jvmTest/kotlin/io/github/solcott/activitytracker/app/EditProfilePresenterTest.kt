@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app
 
-import app.cash.turbine.ReceiveTurbine
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.profile.AvatarImage
@@ -139,11 +138,5 @@ class EditProfilePresenterTest {
             assertFalse(awaitItem().valid)
             cancelAndIgnoreRemainingEvents()
         }
-    }
-
-    private suspend fun ReceiveTurbine<EditProfileState>.awaitUntil(predicate: (EditProfileState) -> Boolean): EditProfileState {
-        var state = awaitItem()
-        while (!predicate(state)) state = awaitItem()
-        return state
     }
 }

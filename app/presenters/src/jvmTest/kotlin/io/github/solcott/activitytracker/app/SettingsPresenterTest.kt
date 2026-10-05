@@ -5,7 +5,6 @@ import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.settings.SettingsEvent
 import io.github.solcott.activitytracker.app.settings.SettingsPresenter
 import io.github.solcott.activitytracker.app.settings.SettingsScreen
-import io.github.solcott.activitytracker.app.settings.SettingsState
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -54,11 +53,5 @@ class SettingsPresenterTest {
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
         }
-    }
-
-    private suspend fun app.cash.turbine.ReceiveTurbine<SettingsState>.awaitUntil(predicate: (SettingsState) -> Boolean): SettingsState {
-        var state = awaitItem()
-        while (!predicate(state)) state = awaitItem()
-        return state
     }
 }
