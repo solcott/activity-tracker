@@ -6,22 +6,48 @@ import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.profile.DetailGroup
+import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.data.units.WeightConversions
+import io.github.solcott.activitytracker.lexicon.app.DetailsVisibility
+import kotlinx.collections.immutable.ImmutableList
 
-/** Edit the signed-in athlete's display name and bio. */
+/** Edit the signed-in athlete's profile, and who may see each detail. */
 @CircuitSerializable(SessionScope::class) data object EditProfileScreen : Screen
 
 @Immutable
 data class EditProfileState(
     val displayName: String,
     val description: String,
-    /** False until the current profile record has been read, so a save can't blank fields the athlete never saw. */
+    /** City or town. */
+    val locality: String,
+    /** State, province or similar. */
+    val region: String,
+    /** ISO 3166-1 alpha-2 code, or empty. */
+    val country: String,
+    /** `YYYY-MM-DD`, or empty. */
+    val birthDate: String,
+    /** A `Gender` value, the athlete's own description, or empty. */
+    val gender: String,
+    /** As typed, in kg or lb per [units]. */
+    val weight: String,
+    val units: UnitSystem,
+    /** Who may see each detail; set for every group. */
+    val visibility: DetailsVisibility,
+    /** Details that were public when the screen opened and are now set to be hidden. Anyone may already have copied them. */
+    val nowHidden: ImmutableList<DetailGroup>,
+    /** False until the current profile has been read, so a save can't blank fields the athlete never saw. */
     val loaded: Boolean,
     val saving: Boolean,
     val error: UiError?,
     val eventSink: (EditProfileEvent) -> Unit,
 ) : CircuitUiState {
     val valid: Boolean
-        get() = displayName.length <= DISPLAY_NAME_MAX_LENGTH && description.length <= DESCRIPTION_MAX_LENGTH
+        get() =
+            displayName.length <= DISPLAY_NAME_MAX_LENGTH &&
+                description.length <= DESCRIPTION_MAX_LENGTH &&
+                listOf(locality, region, gender).all { it.length <= DETAIL_MAX_LENGTH } &&
+                WeightConversions.isValidInputText(weight, units)
 
     companion object {
         /**
@@ -30,6 +56,9 @@ data class EditProfileState(
          */
         const val DISPLAY_NAME_MAX_LENGTH = 64
         const val DESCRIPTION_MAX_LENGTH = 256
+
+        /** Locality, region and a self-described gender. */
+        const val DETAIL_MAX_LENGTH = 64
     }
 }
 
@@ -37,6 +66,23 @@ sealed interface EditProfileEvent {
     data class DisplayNameChanged(val value: String) : EditProfileEvent
 
     data class DescriptionChanged(val value: String) : EditProfileEvent
+
+    data class LocalityChanged(val value: String) : EditProfileEvent
+
+    data class RegionChanged(val value: String) : EditProfileEvent
+
+    /** An ISO 3166-1 alpha-2 code, or empty for none. */
+    data class CountryChanged(val value: String) : EditProfileEvent
+
+    /** `YYYY-MM-DD`, or empty for none. */
+    data class BirthDateChanged(val value: String) : EditProfileEvent
+
+    data class GenderChanged(val value: String) : EditProfileEvent
+
+    data class WeightChanged(val value: String) : EditProfileEvent
+
+    /** [visibility] is a `Visibility` value. */
+    data class VisibilityChanged(val group: DetailGroup, val visibility: String) : EditProfileEvent
 
     data object Save : EditProfileEvent
 

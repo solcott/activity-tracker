@@ -15,9 +15,12 @@ import io.github.solcott.activitytracker.composeApp.resources.unit_speed_kmh
 import io.github.solcott.activitytracker.composeApp.resources.unit_speed_mph
 import io.github.solcott.activitytracker.composeApp.resources.unit_temperature_c
 import io.github.solcott.activitytracker.composeApp.resources.unit_temperature_f
+import io.github.solcott.activitytracker.composeApp.resources.unit_weight_kg
+import io.github.solcott.activitytracker.composeApp.resources.unit_weight_lb
 import io.github.solcott.activitytracker.composeApp.resources.value_missing
 import io.github.solcott.activitytracker.data.units.UnitConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.data.units.WeightConversions
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import kotlin.math.abs
 import kotlin.math.pow
@@ -36,6 +39,7 @@ val LocalUnitSystem = staticCompositionLocalOf { UnitSystem.Metric }
 object Format {
     private const val DISTANCE_DECIMALS = 2
     private const val SPEED_DECIMALS = 1
+    private const val WEIGHT_DECIMALS = 1
     private const val DECIMAL_BASE = 10.0
 
     /** Below this, pace is noise from GPS jitter. */
@@ -118,6 +122,17 @@ object Format {
         return when (units) {
             UnitSystem.Metric -> stringResource(Res.string.unit_temperature_c, value)
             UnitSystem.Imperial -> stringResource(Res.string.unit_temperature_f, value)
+        }
+    }
+
+    /** A profile weight (grams) in kg or lb, to one decimal. */
+    @Composable
+    fun weight(grams: Long): String {
+        val units = LocalUnitSystem.current
+        val value = fixed(WeightConversions.toWeightUnit(grams, units), WEIGHT_DECIMALS)
+        return when (units) {
+            UnitSystem.Metric -> stringResource(Res.string.unit_weight_kg, value)
+            UnitSystem.Imperial -> stringResource(Res.string.unit_weight_lb, value)
         }
     }
 

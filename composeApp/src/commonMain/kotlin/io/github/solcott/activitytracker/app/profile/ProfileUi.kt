@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.profile
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,16 +21,21 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.ActivityCard
+import io.github.solcott.activitytracker.app.ui.Format
+import io.github.solcott.activitytracker.app.ui.countryName
 import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.app.ui.genderLabel
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_back
 import io.github.solcott.activitytracker.composeApp.resources.profile_activities_count
+import io.github.solcott.activitytracker.composeApp.resources.profile_age
 import io.github.solcott.activitytracker.composeApp.resources.profile_edit
 import io.github.solcott.activitytracker.composeApp.resources.profile_follow
 import io.github.solcott.activitytracker.composeApp.resources.profile_followers_count
@@ -38,6 +44,9 @@ import io.github.solcott.activitytracker.composeApp.resources.profile_following_
 import io.github.solcott.activitytracker.composeApp.resources.profile_settings
 import io.github.solcott.activitytracker.composeApp.resources.profile_title
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.profile.CalendarDate
+import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
+import kotlin.time.Clock
 import org.jetbrains.compose.resources.PluralStringResource
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -78,6 +87,7 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
                 profile?.let { p ->
                     Text(handleLabel(p.handle.value), style = MaterialTheme.typography.bodyMedium)
                     p.description?.let { Text(it) }
+                    p.details?.let { ProfileDetailsText(it) }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             countLabel(Res.plurals.profile_activities_count, p.activitiesCount),
@@ -133,3 +143,21 @@ private fun countLabel(resource: PluralStringResource, count: Long?): String {
 }
 
 private const val HEADER_KEY = "header"
+
+/** The details this viewer may see: a location line, then age, gender and weight. */
+@Composable
+private fun ProfileDetailsText(details: ProfileDetails, modifier: Modifier = Modifier) {
+    val now = remember { Clock.System.now() }
+    val location = details.location?.let { listOfNotNull(it.locality, it.region, it.country?.let(::countryName)).joinToString(", ") }
+    val age = details.birthDate?.let { CalendarDate.age(it, now) }
+    val facts =
+        listOfNotNull(
+            age?.let { pluralStringResource(Res.plurals.profile_age, it, it) },
+            details.gender?.let { genderLabel(it) },
+            details.weight?.let { Format.weight(it) },
+        )
+    Column(modifier) {
+        location?.takeIf { it.isNotEmpty() }?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+        if (facts.isNotEmpty()) Text(facts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium)
+    }
+}

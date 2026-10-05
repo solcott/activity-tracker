@@ -3,6 +3,10 @@ package io.github.solcott.activitytracker.app.ui
 import androidx.compose.runtime.Composable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.detail_birth_date
+import io.github.solcott.activitytracker.composeApp.resources.detail_gender
+import io.github.solcott.activitytracker.composeApp.resources.detail_location
+import io.github.solcott.activitytracker.composeApp.resources.detail_weight
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_load_feed
 import io.github.solcott.activitytracker.composeApp.resources.error_load_followers
@@ -12,6 +16,9 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_save_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_save_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_save_settings
+import io.github.solcott.activitytracker.composeApp.resources.gender_female
+import io.github.solcott.activitytracker.composeApp.resources.gender_male
+import io.github.solcott.activitytracker.composeApp.resources.gender_non_binary
 import io.github.solcott.activitytracker.composeApp.resources.handle_format
 import io.github.solcott.activitytracker.composeApp.resources.sport_hike
 import io.github.solcott.activitytracker.composeApp.resources.sport_other
@@ -20,6 +27,8 @@ import io.github.solcott.activitytracker.composeApp.resources.sport_run
 import io.github.solcott.activitytracker.composeApp.resources.sport_ski
 import io.github.solcott.activitytracker.composeApp.resources.sport_swim
 import io.github.solcott.activitytracker.composeApp.resources.sport_walk
+import io.github.solcott.activitytracker.data.profile.DetailGroup
+import io.github.solcott.activitytracker.lexicon.app.Gender
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import org.jetbrains.compose.resources.stringResource
 
@@ -57,3 +66,25 @@ fun errorText(error: UiError): String =
                 UiError.Kind.SaveProfile -> Res.string.error_save_profile
             }
         )
+
+/** A known [Gender] value's label, or the athlete's own description as written. */
+@Composable
+fun genderLabel(gender: String): String =
+    when (gender) {
+        Gender.FEMALE -> stringResource(Res.string.gender_female)
+        Gender.MALE -> stringResource(Res.string.gender_male)
+        Gender.NON_BINARY -> stringResource(Res.string.gender_non_binary)
+        else -> gender
+    }
+
+/** The name of a profile detail group. */
+@Composable
+fun detailGroupLabel(group: DetailGroup): String =
+    stringResource(
+        when (group) {
+            DetailGroup.Location -> Res.string.detail_location
+            DetailGroup.BirthDate -> Res.string.detail_birth_date
+            DetailGroup.Gender -> Res.string.detail_gender
+            DetailGroup.Weight -> Res.string.detail_weight
+        }
+    )

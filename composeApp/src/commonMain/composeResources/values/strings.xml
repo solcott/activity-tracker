@@ -113,12 +113,45 @@
     <string name="profile_follow">Follow</string>
     <string name="profile_following">Following</string>
     <string name="profile_edit">Edit profile</string>
+    <plurals name="profile_age">
+        <item quantity="one">%1$d year old</item>
+        <item quantity="other">%1$d years old</item>
+    </plurals>
+    <string name="unit_weight_kg">%1$s kg</string>
+    <string name="unit_weight_lb">%1$s lb</string>
 
     <!-- Edit profile -->
     <string name="edit_profile_title">Edit profile</string>
     <string name="edit_profile_display_name">Display name</string>
     <string name="edit_profile_description">Bio</string>
     <string name="edit_profile_length">%1$d/%2$d</string>
+    <string name="edit_profile_details_heading">Details</string>
+    <string name="edit_profile_details_help">Choose who can see each detail. Mutuals are people you follow who also follow you.</string>
+    <string name="edit_profile_location_heading">Location</string>
+    <string name="edit_profile_locality">City</string>
+    <string name="edit_profile_region">State or province</string>
+    <string name="edit_profile_country">Country</string>
+    <string name="edit_profile_birth_date">Birthdate</string>
+    <string name="edit_profile_birth_date_choose">Choose birthdate</string>
+    <string name="edit_profile_gender">Gender</string>
+    <string name="edit_profile_gender_describe">How you describe your gender</string>
+    <string name="edit_profile_weight_kg">Weight (kg)</string>
+    <string name="edit_profile_weight_lb">Weight (lb)</string>
+    <string name="edit_profile_clear">Clear</string>
+    <string name="edit_profile_not_set">Not set</string>
+    <string name="edit_profile_now_hidden">%1$s was public. Hiding it removes it from your profile, but anyone may already have a copy.</string>
+    <string name="detail_location">Location</string>
+    <string name="detail_birth_date">Birthdate</string>
+    <string name="detail_gender">Gender</string>
+    <string name="detail_weight">Weight</string>
+    <string name="gender_female">Female</string>
+    <string name="gender_male">Male</string>
+    <string name="gender_non_binary">Non-binary</string>
+    <string name="gender_self_describe">Self-describe</string>
+    <string name="visibility_public">Public</string>
+    <string name="visibility_mutuals">Mutuals</string>
+    <string name="visibility_self">Only me</string>
+    <string name="action_ok">OK</string>
 
     <!-- Follow list -->
     <string name="follow_list_followers">Followers</string>
