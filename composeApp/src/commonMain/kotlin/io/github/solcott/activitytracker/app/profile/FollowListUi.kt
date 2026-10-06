@@ -1,7 +1,5 @@
 package io.github.solcott.activitytracker.app.profile
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -32,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.ui.AccountRow
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -42,7 +41,6 @@ import io.github.solcott.activitytracker.composeApp.resources.follow_list_follow
 import io.github.solcott.activitytracker.composeApp.resources.follow_list_no_followers
 import io.github.solcott.activitytracker.composeApp.resources.follow_list_no_following
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -125,14 +123,3 @@ private val FollowListKind.emptyText: StringResource
             FollowListKind.Followers -> Res.string.follow_list_no_followers
             FollowListKind.Following -> Res.string.follow_list_no_following
         }
-
-@Composable
-private fun AccountRow(account: ProfileViewBasic, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Column(
-        modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        Text(account.displayName ?: account.handle.value, style = MaterialTheme.typography.titleMedium)
-        Text(handleLabel(account.handle.value), style = MaterialTheme.typography.bodySmall)
-    }
-}
