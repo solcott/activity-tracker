@@ -404,6 +404,7 @@
     <string name="dive_tank_numbered">Tank %1$s: %2$s → %3$s</string>
     <string name="dive_site">Dive site %1$s, %2$s</string>
     <string name="unit_hours_minutes">%1$s h %2$s min</string>
+    <string name="unit_days_hours">%1$s d %2$s h</string>
     <string name="stat_heart_rate">Avg heart rate</string>
     <string name="unit_bpm">%1$s bpm</string>
     <string name="manual_distance_label_km">Distance (km)</string>

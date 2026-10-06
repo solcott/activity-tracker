@@ -69,6 +69,7 @@ import io.github.solcott.activitytracker.composeApp.resources.stat_max_depth
 import io.github.solcott.activitytracker.composeApp.resources.stat_time
 import io.github.solcott.activitytracker.composeApp.resources.stat_water_temp
 import io.github.solcott.activitytracker.composeApp.resources.unit_bpm
+import io.github.solcott.activitytracker.composeApp.resources.unit_days_hours
 import io.github.solcott.activitytracker.composeApp.resources.unit_hours_minutes
 import io.github.solcott.activitytracker.composeApp.resources.value_missing
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -193,7 +194,7 @@ private fun DiveDetails(dive: DivePreview, elapsedSeconds: Long, modifier: Modif
             listOfNotNull(
                 dive.diveNumber?.let { stringResource(Res.string.dive_number, it) },
                 dive.bottomTimeSeconds?.let { stringResource(Res.string.dive_bottom_time, Format.duration(it)) },
-                dive.surfaceIntervalMinutes?.let { stringResource(Res.string.dive_surface_interval, hoursMinutes(it)) },
+                dive.surfaceIntervalMinutes?.let { stringResource(Res.string.dive_surface_interval, surfaceInterval(it)) },
             )
         if (counts.isNotEmpty()) Text(counts.joinToString(" · "))
         val deco =
@@ -245,12 +246,19 @@ private fun gasName(gas: DiveGasPreview): String =
         else -> stringResource(Res.string.dive_gas_nitrox, gas.oxygenPercent)
     }
 
-/** "5 h 55 min": a surface interval reads badly as a clock time. */
+/**
+ * "5 h 55 min" within a day, as a clock time reads badly; "11 d 22 h" beyond, where minutes are noise. FIT logs count the interval since
+ * the last dive however long ago it was.
+ */
 @Composable
-private fun hoursMinutes(minutes: Int): String =
-    stringResource(Res.string.unit_hours_minutes, minutes / MINUTES_PER_HOUR, minutes % MINUTES_PER_HOUR)
+private fun surfaceInterval(minutes: Int): String {
+    val hours = minutes / MINUTES_PER_HOUR
+    return if (hours < HOURS_PER_DAY) stringResource(Res.string.unit_hours_minutes, hours, minutes % MINUTES_PER_HOUR)
+    else stringResource(Res.string.unit_days_hours, hours / HOURS_PER_DAY, hours % HOURS_PER_DAY)
+}
 
 private const val MINUTES_PER_HOUR = 60
+private const val HOURS_PER_DAY = 24
 
 /** About 10 m: enough to find the site, no more. */
 private const val COORDINATE_DECIMALS = 4
