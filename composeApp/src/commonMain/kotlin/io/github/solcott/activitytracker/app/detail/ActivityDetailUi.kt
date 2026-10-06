@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -87,21 +88,21 @@ fun ActivityDetailUi(state: ActivityDetailState, modifier: Modifier = Modifier) 
             }
 
             is ActivityDetailState.Loaded -> {
-                LoadedContent(state, Modifier.padding(padding))
+                LoadedContent(state, padding)
             }
         }
     }
 }
 
 @Composable
-private fun LoadedContent(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
+private fun LoadedContent(state: ActivityDetailState.Loaded, contentPadding: PaddingValues, modifier: Modifier = Modifier) {
     val record = state.activity.record
     val listState = rememberLazyListState()
-    ReadableList(listState, modifier.fillMaxSize()) { side ->
+    ReadableList(listState, modifier.fillMaxSize(), contentPadding) { listPadding ->
         LazyColumn(
             Modifier.fillMaxSize(),
             state = listState,
-            contentPadding = PaddingValues(horizontal = side, vertical = 16.dp),
+            contentPadding = listPadding + PaddingValues(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {

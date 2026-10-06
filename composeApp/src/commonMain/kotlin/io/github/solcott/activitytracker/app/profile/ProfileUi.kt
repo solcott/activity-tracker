@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -77,11 +78,11 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
         },
     ) { padding ->
         val listState = rememberLazyListState()
-        ReadableList(listState, Modifier.padding(padding).fillMaxSize()) { side ->
+        ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
             LazyColumn(
                 Modifier.fillMaxSize(),
                 state = listState,
-                contentPadding = PaddingValues(horizontal = side, vertical = 16.dp),
+                contentPadding = listPadding + PaddingValues(vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 // Always present, even before the profile loads: the activities can show first (from the local cache), and an item

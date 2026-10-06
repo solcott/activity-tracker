@@ -111,9 +111,9 @@ fun EditProfileUi(state: EditProfileState, modifier: Modifier = Modifier) {
         topBar = { AppTopBar(title = stringResource(Res.string.edit_profile_title), onBack = { state.eventSink(EditProfileEvent.Back) }) },
     ) { padding ->
         val scroll = rememberScrollState()
-        ScrollbarBox(scroll, Modifier.padding(padding)) {
+        ScrollbarBox(scroll, contentPadding = padding) {
             Column(
-                Modifier.verticalScroll(scroll).readableWidth().padding(16.dp),
+                Modifier.verticalScroll(scroll).padding(padding).readableWidth().padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 AvatarRow(state)

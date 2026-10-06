@@ -45,7 +45,7 @@ fun ManualActivityUi(state: ManualActivityState, modifier: Modifier = Modifier) 
         topBar = { AppTopBar(title = stringResource(Res.string.manual_title), onBack = { state.eventSink(ManualActivityEvent.Back) }) },
     ) { padding ->
         Column(
-            Modifier.padding(padding).verticalScroll(rememberScrollState()).readableWidth().padding(16.dp),
+            Modifier.verticalScroll(rememberScrollState()).padding(padding).readableWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             ActivityTypePicker(state.type, state.quickTypes, { state.eventSink(ManualActivityEvent.TypeChanged(it)) })

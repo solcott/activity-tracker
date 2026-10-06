@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
@@ -74,11 +75,11 @@ fun AthleteSearchUi(state: AthleteSearchState, modifier: Modifier = Modifier) {
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             SearchField(state.query, Modifier.readableWidth().padding(horizontal = 16.dp, vertical = 8.dp))
-            ReadableList(listState, Modifier.fillMaxSize(), minSidePadding = 0.dp) { side ->
+            ReadableList(listState, Modifier.fillMaxSize(), minSidePadding = 0.dp) { listPadding ->
                 LazyColumn(
                     Modifier.fillMaxSize(),
                     state = listState,
-                    contentPadding = PaddingValues(start = side, end = side, bottom = 8.dp),
+                    contentPadding = listPadding + PaddingValues(bottom = 8.dp),
                 ) {
                     items(state.results, key = { it.did.value }) { account ->
                         AccountRow(account, onClick = { state.eventSink(AthleteSearchEvent.Open(account.did)) })

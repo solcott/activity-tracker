@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -81,27 +82,27 @@ fun FeedUi(state: FeedState, modifier: Modifier = Modifier) {
             }
         },
     ) { padding ->
-        val contentModifier = Modifier.padding(padding).fillMaxSize()
         if (platform.isMobile) {
             AppPullToRefresh(
                 isRefreshing = state.refreshing,
                 onRefresh = { state.eventSink(FeedEvent.Refresh) },
-                modifier = contentModifier,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = padding,
             ) {
-                Timeline(state, listState)
+                Timeline(state, listState, padding)
             }
         } else {
-            Box(contentModifier) { Timeline(state, listState) }
+            Timeline(state, listState, padding)
         }
     }
 }
 
 @Composable
-private fun Timeline(state: FeedState, listState: LazyListState, modifier: Modifier = Modifier) {
-    ReadableList(listState, modifier.fillMaxSize()) { side ->
+private fun Timeline(state: FeedState, listState: LazyListState, contentPadding: PaddingValues, modifier: Modifier = Modifier) {
+    ReadableList(listState, modifier.fillMaxSize(), contentPadding) { listPadding ->
         LazyColumn(
             state = listState,
-            contentPadding = PaddingValues(horizontal = side, vertical = 16.dp),
+            contentPadding = listPadding + PaddingValues(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxSize(),
         ) {

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
@@ -65,11 +66,11 @@ fun FollowListUi(state: FollowListState, modifier: Modifier = Modifier) {
             )
         },
     ) { padding ->
-        ReadableList(listState, Modifier.padding(padding).fillMaxSize(), minSidePadding = 0.dp) { side ->
+        ReadableList(listState, Modifier.fillMaxSize(), padding, minSidePadding = 0.dp) { listPadding ->
             LazyColumn(
                 Modifier.fillMaxSize(),
                 state = listState,
-                contentPadding = PaddingValues(horizontal = side, vertical = 8.dp),
+                contentPadding = listPadding + PaddingValues(vertical = 8.dp),
             ) {
                 items(state.accounts, key = { it.did.value }) { account ->
                     AccountRow(account, onClick = { state.eventSink(FollowListEvent.Open(account.did)) })

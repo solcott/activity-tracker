@@ -3,8 +3,11 @@ package io.github.solcott.activitytracker.app.ui.adaptive
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyListState
@@ -24,23 +27,38 @@ fun Modifier.readableWidth(max: Dp = ReadableMaxWidth): Modifier =
     fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = max)
 
 /**
- * Hosts a full-width list whose items sit in a centred [ReadableMaxWidth] column: [content] gets the side padding to use as its
- * `contentPadding`, so the margins still scroll the list. On desktop and web a scrollbar runs down the right edge.
+ * Hosts a full-width list whose items sit in a centred [ReadableMaxWidth] column. [content] gets the padding to use as its
+ * `contentPadding`: [contentPadding] (a `Scaffold`'s, so the list starts below the bars but scrolls under them) plus the side margins, so
+ * the margins still scroll the list. On desktop and web a scrollbar runs down the right edge, clear of the bars.
  */
 @Composable
-fun ReadableList(state: LazyListState, modifier: Modifier = Modifier, minSidePadding: Dp = 16.dp, content: @Composable (side: Dp) -> Unit) {
+fun ReadableList(
+    state: LazyListState,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
+    minSidePadding: Dp = 16.dp,
+    content: @Composable (contentPadding: PaddingValues) -> Unit,
+) {
     BoxWithConstraints(modifier) {
-        content(maxOf(minSidePadding, (maxWidth - ReadableMaxWidth) / 2))
-        AppVerticalScrollbar(state, Modifier.align(Alignment.CenterEnd).fillMaxHeight())
+        content(contentPadding + PaddingValues(horizontal = maxOf(minSidePadding, (maxWidth - ReadableMaxWidth) / 2)))
+        AppVerticalScrollbar(state, Modifier.align(Alignment.CenterEnd).padding(contentPadding).fillMaxHeight())
     }
 }
 
-/** A column scrolled by [state], with a scrollbar on desktop and web. */
+/**
+ * A column scrolled by [state], with a scrollbar on desktop and web. Pad the scrolled column by [contentPadding] (a `Scaffold`'s) inside
+ * its `verticalScroll`, so it scrolls under the bars; the scrollbar stays clear of them.
+ */
 @Composable
-fun ScrollbarBox(state: ScrollState, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun ScrollbarBox(
+    state: ScrollState,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
+    content: @Composable () -> Unit,
+) {
     Box(modifier) {
         content()
-        AppVerticalScrollbar(state, Modifier.align(Alignment.CenterEnd).fillMaxHeight())
+        AppVerticalScrollbar(state, Modifier.align(Alignment.CenterEnd).padding(contentPadding).fillMaxHeight())
     }
 }
 
