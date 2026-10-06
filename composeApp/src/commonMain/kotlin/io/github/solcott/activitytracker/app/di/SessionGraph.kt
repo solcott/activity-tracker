@@ -5,6 +5,7 @@ import dev.zacsweers.metro.Provides
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSession
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.profile.ProfileSetup
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 
 /** Everything that requires a signed-in account. Created per sign-in, dropped on sign-out. */
@@ -13,6 +14,7 @@ interface SessionGraph {
     val sessionCircuit: SessionCircuit
     val activityRepository: ActivityRepository
     val unitsRepository: UnitsRepository
+    val profileSetup: ProfileSetup
 
     @GraphExtension.Factory
     interface Factory {

@@ -42,6 +42,8 @@ fun App(graph: AppGraph, onRootPop: () -> Unit = {}) {
             key(current.did) {
                 val sessionGraph = remember { graph.createSessionGraph(current) }
                 LaunchedEffect(Unit) { sessionGraph.unitsRepository.refresh() }
+                // So the AppView knows this athlete (and others can find them) before they post anything.
+                LaunchedEffect(Unit) { sessionGraph.profileSetup.ensureProfile() }
                 val units by sessionGraph.unitsRepository.units.collectAsState()
                 CompositionLocalProvider(LocalUnitSystem provides units) {
                     CircuitCompositionLocals(sessionGraph.sessionCircuit.circuit) {
