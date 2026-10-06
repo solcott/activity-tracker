@@ -18,7 +18,45 @@ data class DecodedActivity(
     val localStart: LocalDateTime? = null,
     /** The activity's name, when the file carries one (GPX `trk/name`, which Strava and Garmin Connect exports fill). */
     val title: String? = null,
+    /** Each `device_info` message, in file order: devices usually write one at the start and another at the end. */
+    val sensors: List<DecodedSensor> = emptyList(),
+    /** Electronic shifting's front and rear gear change events, in file order. */
+    val gearChanges: List<DecodedGearChange> = emptyList(),
+    /** Each jump a mountain bike ride logged. */
+    val jumps: List<DecodedJump> = emptyList(),
 )
+
+/**
+ * A FIT `device_info`: the recording device itself, its built-in sensors, or a paired one. Enum values are the SDK's names; [deviceType] is
+ * the one the SDK resolved for [sourceType] (an ANT+, Bluetooth or local device type).
+ */
+data class DecodedSensor(
+    val deviceIndex: Int?,
+    /** "antplus", "bluetooth_low_energy", "local", ... */
+    val sourceType: String?,
+    val deviceType: String?,
+    val manufacturer: String?,
+    /** The SDK's name for a Garmin product, else the device's own product name, else the product number. */
+    val product: String?,
+    /** "new", "good", "ok", "low", "critical" or "charging". */
+    val batteryStatus: String?,
+    val batteryLevelPercent: Int?,
+)
+
+/**
+ * A front or rear gear change, with the gears it changed to: their numbers as the derailleur reports them (rear gear 1 is the largest cog),
+ * and their teeth as the device's bike profile has them, which may not match the bike.
+ */
+data class DecodedGearChange(
+    val timestampMillis: Long?,
+    val rear: Boolean,
+    val frontGear: Int?,
+    val frontTeeth: Int?,
+    val rearGear: Int?,
+    val rearTeeth: Int?,
+)
+
+data class DecodedJump(val hangTimeSeconds: Double?, val distanceMeters: Double?)
 
 data class DecodedSource(
     /** File type; an activity file is "activity". */
@@ -45,6 +83,22 @@ data class DecodedSummary(
     val avgPowerWatts: Int?,
     val avgCadence: Int?,
     val avgTemperatureCelsius: Double?,
+    val maxPowerWatts: Int? = null,
+    val normalizedPowerWatts: Int? = null,
+    val maxCadence: Int? = null,
+    val totalDescentMeters: Double? = null,
+    val totalWorkJoules: Double? = null,
+    /** The athlete's FTP when the device recorded it; intensity factor and TSS are relative to it. */
+    val thresholdPowerWatts: Int? = null,
+    val intensityFactor: Double? = null,
+    val trainingStressScore: Double? = null,
+    val frontShiftCount: Int? = null,
+    val rearShiftCount: Int? = null,
+    val jumpCount: Int? = null,
+    /** Garmin's trail difficulty score. */
+    val totalGrit: Double? = null,
+    /** Garmin's score for how smoothly the trail was ridden; lower is smoother. */
+    val avgFlow: Double? = null,
 )
 
 /** One sample of the activity's record stream. */

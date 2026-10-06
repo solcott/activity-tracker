@@ -34,6 +34,18 @@ data class ImportedActivity(
     val localStart: LocalDateTime? = null,
     /** The name the file gave the activity ("Morning Ride"); null when it has none. */
     val title: String? = null,
+    val elevationLossMeters: Double? = null,
+    /** Revolutions (or strides) per minute; the average leaves out time spent coasting at zero. */
+    val avgCadence: Int? = null,
+    val maxCadence: Int? = null,
+    /** Null without a power meter. */
+    val power: ImportedPower? = null,
+    /** Null without electronic shifting. */
+    val shifting: ImportedShifting? = null,
+    /** Garmin's mountain bike dynamics; null when the device didn't record them. */
+    val mtb: ImportedMtb? = null,
+    /** The sensors paired with the recording device, in the order the file lists them. */
+    val sensors: List<ImportedSensor> = emptyList(),
 ) {
     /** This activity with [localStart] read in [zone], every time moved together. Unchanged if the file's times had a zone. */
     fun inZone(zone: TimeZone): ImportedActivity {
@@ -72,3 +84,52 @@ data class ImportedDive(
 )
 
 data class DepthPoint(val seconds: Long, val depthMeters: Double)
+
+data class ImportedPower(
+    val avgWatts: Int?,
+    val maxWatts: Int?,
+    /** What the effort cost the body, weighting surges over steady riding: 30 s rolling averages, then their 4th-power mean. */
+    val normalizedWatts: Int?,
+    val workJoules: Double?,
+    /** The athlete's FTP as the device had it; [intensityFactor] and [trainingStressScore] are relative to it. */
+    val ftpWatts: Int?,
+    /** Normalized power over FTP. */
+    val intensityFactor: Double?,
+    val trainingStressScore: Double?,
+)
+
+data class ImportedShifting(
+    val frontShifts: Int?,
+    val rearShifts: Int?,
+    /** Chainrings used, in teeth as the device's bike profile has them, largest first. */
+    val chainrings: List<Int>,
+    /** Cogs used, in teeth as the device's bike profile has them, smallest first. */
+    val cogs: List<Int>,
+    /** Time in each rear gear, from each shift to the next, by gear number (1 is the largest cog). */
+    val timeInGears: List<GearTime>,
+)
+
+/**
+ * [gear] is the derailleur's. [teeth] come from the device's gearing setup, which is often a default (a 39T ring and 10–26T cassette on a
+ * 10–52T mountain bike), so the screens use [gear].
+ */
+data class GearTime(val gear: Int, val teeth: Int?, val seconds: Long)
+
+data class ImportedMtb(
+    val jumps: Int?,
+    val longestHangTimeSeconds: Double?,
+    val longestJumpMeters: Double?,
+    /** Garmin's trail difficulty score. */
+    val grit: Double?,
+    /** Garmin's score for how smoothly the trail was ridden; lower is smoother. */
+    val flow: Double?,
+)
+
+/** A sensor paired with the recording device. [model] is null when only its maker can name it (a bare product number). */
+data class ImportedSensor(
+    val kind: SensorKind,
+    val manufacturer: String?,
+    val model: String?,
+    val battery: SensorBattery?,
+    val batteryPercent: Int?,
+)

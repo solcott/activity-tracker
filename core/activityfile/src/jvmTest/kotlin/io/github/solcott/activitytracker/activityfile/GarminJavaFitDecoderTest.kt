@@ -32,7 +32,7 @@ class GarminJavaFitDecoderTest {
         assertEquals(start, activity.startedAt)
         assertEquals(1000.0, activity.distanceMeters!!, 0.01)
         assertEquals(155, activity.avgHeartRate)
-        assertEquals("Garmin fenix7", activity.device)
+        assertEquals("Garmin Fenix 7", activity.device)
         assertEquals(FitFixtures.RUN_POINTS, activity.samples.size)
     }
 

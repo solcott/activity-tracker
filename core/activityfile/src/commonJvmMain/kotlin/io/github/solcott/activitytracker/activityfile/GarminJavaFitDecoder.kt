@@ -1,7 +1,11 @@
 package io.github.solcott.activitytracker.activityfile
 
+import com.garmin.fit.AntplusDeviceType
+import com.garmin.fit.BatteryStatus
+import com.garmin.fit.BleDeviceType
 import com.garmin.fit.DateTime
 import com.garmin.fit.Decode
+import com.garmin.fit.DeviceInfoMesg
 import com.garmin.fit.DiveGasMesg
 import com.garmin.fit.DiveSettingsMesg
 import com.garmin.fit.DiveSummaryMesg
@@ -10,12 +14,15 @@ import com.garmin.fit.EventMesg
 import com.garmin.fit.FileIdMesg
 import com.garmin.fit.FitRuntimeException
 import com.garmin.fit.GarminProduct
+import com.garmin.fit.JumpMesg
 import com.garmin.fit.LapMesg
+import com.garmin.fit.LocalDeviceType
 import com.garmin.fit.Manufacturer
 import com.garmin.fit.MesgBroadcaster
 import com.garmin.fit.MesgNum
 import com.garmin.fit.RecordMesg
 import com.garmin.fit.SessionMesg
+import com.garmin.fit.SourceType
 import com.garmin.fit.TankSummaryMesg
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
@@ -40,6 +47,7 @@ class GarminJavaFitDecoder : FitDecoder {
         var firstSession: SessionMesg? = null
         val broadcaster = MesgBroadcaster(decode)
         val dive = DiveListeners(broadcaster)
+        val ride = RideListeners(broadcaster)
         broadcaster.addListener { m: FileIdMesg ->
             // A file has one file_id; keep the first if a tool wrote more.
             if (fileId == null) {
@@ -47,9 +55,7 @@ class GarminJavaFitDecoder : FitDecoder {
                     DecodedSource(
                         type = m.type?.name,
                         manufacturer = m.manufacturer?.let(Manufacturer::getStringFromValue),
-                        product =
-                            if (m.manufacturer == Manufacturer.GARMIN) m.garminProduct?.let(GarminProduct::getStringFromValue)
-                            else m.productName ?: m.product?.toString(),
+                        product = productName(m.manufacturer, m.garminProduct, m.productName, m.product),
                         timeCreatedMillis = m.timeCreated?.millis(),
                     )
             }
@@ -65,7 +71,16 @@ class GarminJavaFitDecoder : FitDecoder {
         } catch (e: FitRuntimeException) {
             activityFileError("Couldn't read FIT file: ${e.message}", e)
         }
-        return DecodedActivity(fileId, sessions, laps, records, dive.interpret(firstSession))
+        return DecodedActivity(
+            fileId = fileId,
+            sessions = sessions,
+            laps = laps,
+            records = records,
+            dive = dive.interpret(firstSession),
+            sensors = ride.sensors,
+            gearChanges = ride.gearChanges,
+            jumps = ride.jumps,
+        )
     }
 
     private fun RecordMesg.toSample() =
@@ -101,6 +116,19 @@ class GarminJavaFitDecoder : FitDecoder {
             avgPowerWatts = avgPower,
             avgCadence = avgCadence?.toInt(),
             avgTemperatureCelsius = avgTemperature?.toDouble(),
+            maxPowerWatts = maxPower,
+            normalizedPowerWatts = normalizedPower,
+            maxCadence = maxCadence?.toInt(),
+            totalDescentMeters = totalDescent?.toDouble(),
+            totalWorkJoules = totalWork?.toDouble(),
+            thresholdPowerWatts = thresholdPower,
+            intensityFactor = intensityFactor?.toDouble(),
+            trainingStressScore = trainingStressScore?.toDouble(),
+            frontShiftCount = frontGearShiftCount,
+            rearShiftCount = rearGearShiftCount,
+            jumpCount = jumpCount,
+            totalGrit = totalGrit?.toDouble(),
+            avgFlow = avgFlow?.toDouble(),
         )
 
     private fun LapMesg.toSummary() =
@@ -119,8 +147,65 @@ class GarminJavaFitDecoder : FitDecoder {
             avgPowerWatts = avgPower,
             avgCadence = avgCadence?.toInt(),
             avgTemperatureCelsius = avgTemperature?.toDouble(),
+            maxPowerWatts = maxPower,
+            normalizedPowerWatts = normalizedPower,
+            maxCadence = maxCadence?.toInt(),
+            totalDescentMeters = totalDescent?.toDouble(),
+            totalWorkJoules = totalWork?.toDouble(),
+            frontShiftCount = frontGearShiftCount,
+            rearShiftCount = rearGearShiftCount,
+            jumpCount = jumpCount,
+            totalGrit = totalGrit?.toDouble(),
+            avgFlow = avgFlow?.toDouble(),
         )
 }
+
+/** Collects a ride's sensors, gear changes and jumps as the decoder reads them. */
+private class RideListeners(broadcaster: MesgBroadcaster) {
+    val sensors = mutableListOf<DecodedSensor>()
+    val gearChanges = mutableListOf<DecodedGearChange>()
+    val jumps = mutableListOf<DecodedJump>()
+
+    init {
+        broadcaster.addListener { m: DeviceInfoMesg -> sensors += m.toSensor() }
+        broadcaster.addListener { m: EventMesg ->
+            val rear = m.event == Event.REAR_GEAR_CHANGE
+            if (rear || m.event == Event.FRONT_GEAR_CHANGE) {
+                gearChanges +=
+                    DecodedGearChange(
+                        timestampMillis = m.timestamp?.instant?.toEpochMilli(),
+                        rear = rear,
+                        frontGear = m.frontGearNum?.toInt(),
+                        frontTeeth = m.frontGear?.toInt(),
+                        rearGear = m.rearGearNum?.toInt(),
+                        rearTeeth = m.rearGear?.toInt(),
+                    )
+            }
+        }
+        broadcaster.addListener { m: JumpMesg -> jumps += DecodedJump(m.hangTime?.toDouble(), m.distance?.toDouble()) }
+    }
+
+    private fun DeviceInfoMesg.toSensor() =
+        DecodedSensor(
+            deviceIndex = deviceIndex?.toInt(),
+            sourceType = sourceType?.name,
+            deviceType =
+                when (sourceType) {
+                    SourceType.ANTPLUS -> antplusDeviceType?.let(AntplusDeviceType::getStringFromValue)
+                    SourceType.BLUETOOTH_LOW_ENERGY -> bleDeviceType?.let(BleDeviceType::getStringFromValue)
+                    SourceType.LOCAL -> localDeviceType?.let(LocalDeviceType::getStringFromValue)
+                    else -> null
+                }?.ifEmpty { null },
+            manufacturer = manufacturer?.let(Manufacturer::getStringFromValue)?.ifEmpty { null },
+            product = productName(manufacturer, garminProduct, productName, product)?.ifEmpty { null },
+            batteryStatus = batteryStatus?.let(BatteryStatus::getStringFromValue)?.ifEmpty { null },
+            batteryLevelPercent = batteryLevel?.toInt(),
+        )
+}
+
+/** The SDK's name for a Garmin product, else the device's own product name, else the product number. */
+internal fun productName(manufacturer: Int?, garminProduct: Int?, productName: String?, product: Int?): String? =
+    if (manufacturer == Manufacturer.GARMIN) garminProduct?.let(GarminProduct::getStringFromValue) else productName ?: product?.toString()
 
 /** Collects a dive log's dive messages as the decoder reads them, for [FitDives] to interpret. */
 private class DiveListeners(broadcaster: MesgBroadcaster) {

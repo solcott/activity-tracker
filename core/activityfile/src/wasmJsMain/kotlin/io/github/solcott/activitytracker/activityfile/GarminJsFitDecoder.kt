@@ -46,8 +46,34 @@ class GarminJsFitDecoder : FitDecoder {
                     )
                 },
             dive = dive(messages, sessions.firstOrNull()),
+            sensors = messages.deviceInfoMesgs?.toList().orEmpty().map { it.toSensor() },
+            gearChanges =
+                messages.eventMesgs?.toList().orEmpty().mapNotNull { e ->
+                    val event = e.event?.let(::jsString)
+                    if (event != "rearGearChange" && event != "frontGearChange") return@mapNotNull null
+                    DecodedGearChange(
+                        timestampMillis = e.timestamp?.let(::dateMillis),
+                        rear = event == "rearGearChange",
+                        frontGear = number(e.frontGearNum)?.roundToInt(),
+                        frontTeeth = number(e.frontGear)?.roundToInt(),
+                        rearGear = number(e.rearGearNum)?.roundToInt(),
+                        rearTeeth = number(e.rearGear)?.roundToInt(),
+                    )
+                },
+            jumps = messages.jumpMesgs?.toList().orEmpty().map { DecodedJump(number(it.hangTime), number(it.distance)) },
         )
     }
+
+    private fun JsDeviceInfoMesg.toSensor() =
+        DecodedSensor(
+            deviceIndex = number(deviceIndex)?.roundToInt(),
+            sourceType = sourceType?.let(::jsString),
+            deviceType = (antplusDeviceType ?: bleDeviceType ?: localDeviceType)?.let(::jsString),
+            manufacturer = manufacturer?.let(::jsString),
+            product = garminProduct?.let(::jsString) ?: productName ?: product?.let(::jsString),
+            batteryStatus = batteryStatus?.let(::jsString),
+            batteryLevelPercent = number(batteryLevel)?.roundToInt(),
+        )
 
     private fun dive(messages: FitMessages, session: JsSummaryMesg?): DecodedDive? {
         val settings = messages.diveSettingsMesgs?.toList()?.firstOrNull()
@@ -124,6 +150,19 @@ class GarminJsFitDecoder : FitDecoder {
             avgPowerWatts = number(avgPower)?.roundToInt(),
             avgCadence = number(avgCadence)?.roundToInt(),
             avgTemperatureCelsius = number(avgTemperature),
+            maxPowerWatts = number(maxPower)?.roundToInt(),
+            normalizedPowerWatts = number(normalizedPower)?.roundToInt(),
+            maxCadence = number(maxCadence)?.roundToInt(),
+            totalDescentMeters = number(totalDescent),
+            totalWorkJoules = number(totalWork),
+            thresholdPowerWatts = number(thresholdPower)?.roundToInt(),
+            intensityFactor = number(intensityFactor),
+            trainingStressScore = number(trainingStressScore),
+            frontShiftCount = number(frontGearShiftCount)?.roundToInt(),
+            rearShiftCount = number(rearGearShiftCount)?.roundToInt(),
+            jumpCount = number(jumpCount)?.roundToInt(),
+            totalGrit = number(totalGrit),
+            avgFlow = number(avgFlow),
         )
 
     private fun <T : JsAny> JsArray<T>.toList(): List<T> = (0 until length).mapNotNull { get(it) }

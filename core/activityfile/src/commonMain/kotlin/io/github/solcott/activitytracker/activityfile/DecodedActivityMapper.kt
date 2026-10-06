@@ -29,11 +29,13 @@ object DecodedActivityMapper {
 
         val startedAtMillis = startedAtMillis(fit, sessions, records)
         val samples = records.toSamples()
+        val elapsed = elapsed(sessions, records)
+        val (avgCadence, maxCadence) = RideMetrics.cadence(sessions, records)
 
         return ImportedActivity(
             type = activityType(sessions).forGasesBreathed(fit.dive),
             startedAt = Instant.fromEpochMilliseconds(startedAtMillis),
-            elapsed = elapsed(sessions, records),
+            elapsed = elapsed,
             movingSeconds = (sessions.total { it.totalTimerSeconds } ?: samples.movingSeconds())?.roundToLong(),
             distanceMeters = distanceMeters(sessions, records, samples, isDive = fit.dive != null),
             elevationGainMeters = sessions.total { it.totalAscentMeters } ?: records.mapNotNull { it.altitudeMeters }.climb(),
@@ -41,11 +43,23 @@ object DecodedActivityMapper {
             avgHeartRate = sessions.weightedAverage { it.avgHeartRate?.toDouble() }?.roundToInt() ?: records.averageOf { it.heartRate },
             maxHeartRate = sessions.mapNotNull { it.maxHeartRate }.maxOrNull() ?: records.mapNotNull { it.heartRate }.maxOrNull(),
             avgTemperatureCelsius = avgTemperature(sessions, records),
-            device = fit.fileId?.let { device(it.manufacturer, it.product) },
+            device = fit.fileId?.let { DeviceNames.device(it.manufacturer, it.product) },
             samples = samples,
             dive = fit.dive?.let { dive(it, records, startedAtMillis) },
             localStart = fit.localStart,
             title = fit.title?.trim()?.ifEmpty { null },
+            elevationLossMeters = RideMetrics.descentMeters(sessions, records),
+            avgCadence = avgCadence,
+            maxCadence = maxCadence,
+            power = RideMetrics.power(sessions, records),
+            shifting =
+                RideMetrics.shifting(
+                    sessions,
+                    fit.gearChanges,
+                    endMillis = records.lastOrNull()?.timestampMillis ?: (startedAtMillis + elapsed.inWholeMilliseconds),
+                ),
+            mtb = RideMetrics.mtb(sessions, fit.jumps),
+            sensors = FitSensors.interpret(fit.sensors),
         )
     }
 
@@ -397,18 +411,6 @@ object DecodedActivityMapper {
             "indoorskiing" to type(Sport.XC_SKI, SubSport.INDOOR),
         )
 
-    /**
-     * "garmin" + "fenix7" → "Garmin fenix7"; FIT names are snake_case in Java, camelCase in JS. A display name with spaces (TCX's
-     * "Forerunner 965") is kept as written.
-     */
-    private fun device(manufacturer: String?, product: String?): String? =
-        listOfNotNull(
-                manufacturer?.takeUnless { it.fitKey() in setOf("unknown", "invalid") }?.humanize()?.replaceFirstChar { it.uppercase() },
-                product?.humanize(),
-            )
-            .joinToString(" ")
-            .ifBlank { null }
-
     private fun List<DecodedSample>.toSamples(): List<LocationSample> = mapNotNull { r ->
         val lat = r.latitude ?: return@mapNotNull null
         val lon = r.longitude ?: return@mapNotNull null
@@ -465,7 +467,7 @@ private fun List<DepthPoint>.averageDepth(): Double? {
     return if (seconds > 0) area / seconds else null
 }
 
-private fun List<Double>.climb(): Double? {
+internal fun List<Double>.climb(): Double? {
     if (isEmpty()) return null
     var base = first()
     var gain = 0.0
@@ -479,11 +481,11 @@ private fun List<Double>.climb(): Double? {
 }
 
 /** Null unless at least one session has the value. */
-private inline fun List<DecodedSummary>.total(value: (DecodedSummary) -> Double?): Double? =
+internal inline fun List<DecodedSummary>.total(value: (DecodedSummary) -> Double?): Double? =
     mapNotNull(value).takeIf { it.isNotEmpty() }?.sum()
 
 /** Average across sessions, weighted by timer time (falling back to equal weights). */
-private inline fun List<DecodedSummary>.weightedAverage(value: (DecodedSummary) -> Double?): Double? {
+internal inline fun List<DecodedSummary>.weightedAverage(value: (DecodedSummary) -> Double?): Double? {
     val pairs = mapNotNull { s -> value(s)?.let { it to (s.totalTimerSeconds ?: 1.0) } }
     val weight = pairs.sumOf { it.second }
     return if (pairs.isEmpty() || weight <= 0) null else pairs.sumOf { it.first * it.second } / weight
@@ -496,7 +498,3 @@ private inline fun <T : Any> List<DecodedSample>.lastNotNullOf(value: (DecodedSa
 
 /** A FIT name in any SDK's spelling ("SINGLE_GAS_DIVING", "singleGasDiving") as one key: "singlegasdiving". */
 internal fun String.fitKey() = filter { it.isLetterOrDigit() }.lowercase()
-
-private fun String.humanize() =
-    if (' ' in trim()) trim()
-    else replace('_', ' ').replace(Regex("(?<=[a-z])(?=[A-Z])"), " ").lowercase().takeUnless { it.isBlank() || it == "unknown" }

@@ -28,7 +28,7 @@ class TcxParserTest {
                   <Trackpoint><Time>2026-09-20T07:10:00.000Z</Time><Position><LatitudeDegrees>47.645</LatitudeDegrees><LongitudeDegrees>-122.3</LongitudeDegrees></Position>
                     <AltitudeMeters>30.0</AltitudeMeters><DistanceMeters>5000.0</DistanceMeters><HeartRateBpm><Value>150</Value></HeartRateBpm></Trackpoint>
                 </Track>
-                <Extensions><ns3:LX><ns3:AvgSpeed>8.3</ns3:AvgSpeed><ns3:AvgWatts>205</ns3:AvgWatts></ns3:LX></Extensions>
+                <Extensions><ns3:LX><ns3:AvgSpeed>8.3</ns3:AvgSpeed><ns3:AvgWatts>205</ns3:AvgWatts><ns3:MaxWatts>610</ns3:MaxWatts><ns3:MaxBikeCadence>110</ns3:MaxBikeCadence></ns3:LX></Extensions>
               </Lap>
               <Lap StartTime="2026-09-20T07:15:00.000Z">
                 <TotalTimeSeconds>300.0</TotalTimeSeconds><DistanceMeters>2500.0</DistanceMeters><MaximumSpeed>10.0</MaximumSpeed>
@@ -49,6 +49,9 @@ class TcxParserTest {
         val decoded = TcxParser.parse(ride.removePrefix("﻿"))
         assertEquals(2, decoded.laps.size)
         assertEquals(205, decoded.laps.first().avgPowerWatts)
+        assertEquals(610, decoded.laps.first().maxPowerWatts)
+        assertEquals(110, decoded.laps.first().maxCadence)
+        assertEquals(85, decoded.laps.first().avgCadence)
         val point = decoded.records.first()
         assertEquals(200, point.powerWatts)
         assertEquals(8.0, point.speedMps)
@@ -75,5 +78,13 @@ class TcxParserTest {
               <Track><Trackpoint><Time>2026-09-20T07:00:00Z</Time></Trackpoint></Track></Course></Courses></TrainingCenterDatabase>"""
         val e = assertFailsWith<ActivityFileException> { TcxParser.parse(course) }
         assertTrue("course" in e.message.orEmpty())
+    }
+
+    @Test
+    fun aLapCadenceThatIsTheMaxIsNotTheAverage() {
+        // Garmin Connect's export writes each lap's max cadence as its <Cadence>.
+        val decoded = TcxParser.parse(ride.removePrefix("﻿").replace("<Cadence>85</Cadence>", "<Cadence>110</Cadence>"))
+        assertEquals(null, decoded.laps.first().avgCadence)
+        assertEquals(80, DecodedActivityMapper.map(decoded).avgCadence, "from the samples instead")
     }
 }

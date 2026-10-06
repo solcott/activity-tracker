@@ -2,8 +2,8 @@ package io.github.solcott.activitytracker.activityfile
 
 /**
  * Reads the first activity of a Garmin TCX file. Each `Lap` becomes a summary (its `TotalTimeSeconds` is timer time, so moving time) and
- * each `Trackpoint` a sample, including the `TPX` speed and power extensions. TCX has no ascent total, so climb is computed from the
- * samples. The device is `Creator/Name` ("Forerunner 965").
+ * each `Trackpoint` a sample, including the `TPX` speed and power extensions (and the lap's `LX` power and cadence). TCX has no ascent
+ * total, so climb is computed from the samples. The device is `Creator/Name` ("Forerunner 965").
  */
 internal object TcxParser {
     fun parse(xml: String): DecodedActivity {
@@ -94,6 +94,8 @@ internal object TcxParser {
         var maxHeartRate: Int? = null
         var avgPower: Int? = null
         var avgCadence: Int? = null
+        var maxPower: Int? = null
+        var maxCadence: Int? = null
 
         fun read(name: String, parent: String?, text: String) {
             when {
@@ -105,6 +107,8 @@ internal object TcxParser {
                 name == "Cadence" && parent == "Lap" -> avgCadence = text.toIntValue()
                 name == "AvgSpeed" -> avgSpeed = text.toDoubleOrNull()
                 name == "AvgWatts" -> avgPower = text.toIntValue()
+                name == "MaxWatts" -> maxPower = text.toIntValue()
+                name == "MaxBikeCadence" -> maxCadence = text.toIntValue()
             }
         }
 
@@ -123,8 +127,11 @@ internal object TcxParser {
                 avgHeartRate = avgHeartRate,
                 maxHeartRate = maxHeartRate,
                 avgPowerWatts = avgPower,
-                avgCadence = avgCadence,
+                // Garmin Connect's export writes the lap's max cadence here, so the samples give a truer average.
+                avgCadence = avgCadence?.takeUnless { it == maxCadence },
                 avgTemperatureCelsius = null,
+                maxPowerWatts = maxPower,
+                maxCadence = maxCadence,
             )
     }
 }

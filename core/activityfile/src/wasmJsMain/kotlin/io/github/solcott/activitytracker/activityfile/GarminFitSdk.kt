@@ -29,6 +29,8 @@ internal external interface FitMessages : JsAny {
     val diveGasMesgs: JsArray<JsDiveGasMesg>?
     val eventMesgs: JsArray<JsEventMesg>?
     val tankSummaryMesgs: JsArray<JsTankSummaryMesg>?
+    val deviceInfoMesgs: JsArray<JsDeviceInfoMesg>?
+    val jumpMesgs: JsArray<JsJumpMesg>?
 }
 
 // Everything is typed JsAny? and converted in GarminJsFitDecoder: an absent field is undefined, which a Double? property reads as NaN
@@ -59,6 +61,20 @@ internal external interface JsSummaryMesg : JsAny {
     val avgPower: JsAny?
     val avgCadence: JsAny?
     val avgTemperature: JsAny?
+    val maxPower: JsAny?
+    val normalizedPower: JsAny?
+    val maxCadence: JsAny?
+    val totalDescent: JsAny?
+    val totalWork: JsAny?
+    val frontGearShiftCount: JsAny?
+    val rearGearShiftCount: JsAny?
+    val jumpCount: JsAny?
+    val totalGrit: JsAny?
+    val avgFlow: JsAny?
+    // Session only: the FTP that intensity factor and TSS are relative to.
+    val thresholdPower: JsAny?
+    val intensityFactor: JsAny?
+    val trainingStressScore: JsAny?
     // Session only: where a dive went in and came out, and its own dive fields.
     val startPositionLat: JsAny?
     val startPositionLong: JsAny?
@@ -114,8 +130,34 @@ internal external interface JsDiveGasMesg : JsAny {
 }
 
 internal external interface JsEventMesg : JsAny {
+    val timestamp: JsAny?
     val event: JsAny?
     val data: JsAny?
+    // Gear change events, expanded from data by the SDK: the gear changed to, by number and in teeth.
+    val frontGearNum: JsAny?
+    val frontGear: JsAny?
+    val rearGearNum: JsAny?
+    val rearGear: JsAny?
+}
+
+/** The SDK resolves device_type into the subfield for the source: antplusDeviceType, bleDeviceType or localDeviceType. */
+internal external interface JsDeviceInfoMesg : JsAny {
+    val deviceIndex: JsAny?
+    val sourceType: JsAny?
+    val antplusDeviceType: JsAny?
+    val bleDeviceType: JsAny?
+    val localDeviceType: JsAny?
+    val manufacturer: JsAny?
+    val garminProduct: JsAny?
+    val product: JsAny?
+    val productName: String?
+    val batteryStatus: JsAny?
+    val batteryLevel: JsAny?
+}
+
+internal external interface JsJumpMesg : JsAny {
+    val hangTime: JsAny?
+    val distance: JsAny?
 }
 
 internal external interface JsTankSummaryMesg : JsAny {

@@ -31,8 +31,53 @@ final class SwiftFitDecoder: FitDecoder {
             records: messages.recordMesgs.map(Self.record),
             dive: Self.dive(messages),
             // FIT times are UTC.
-            localStart: nil
+            localStart: nil,
+            title: nil,
+            sensors: messages.deviceInfoMesgs.map(Self.sensor),
+            gearChanges: messages.eventMesgs.compactMap(Self.gearChange),
+            jumps: messages.jumpMesgs.map { m in
+                DecodedJump(hangTimeSeconds: Self.double(m.getHangTime().map(Double.init)), distanceMeters: Self.double(m.getDistance().map(Double.init)))
+            }
         )
+    }
+
+    private static func sensor(_ m: DeviceInfoMesg) -> DecodedSensor {
+        let source = m.getSourceType()
+        let deviceType: String? =
+            switch source {
+            case .antplus: (try? m.getAntplusDeviceType()).map { String(describing: $0) }
+            case .bluetoothLowEnergy: (try? m.getBleDeviceType()).map { String(describing: $0) }
+            case .local: (try? m.getLocalDeviceType()).map { String(describing: $0) }
+            default: nil
+            }
+        return DecodedSensor(
+            deviceIndex: int(m.getDeviceIndex().map(Int32.init)),
+            sourceType: source.map { String(describing: $0) },
+            deviceType: deviceType,
+            manufacturer: m.getManufacturer().map { String(describing: $0) },
+            product: product(m.getManufacturer(), garmin: try? m.getGarminProduct(), name: m.getProductName(), number: m.getProduct()),
+            batteryStatus: m.getBatteryStatus().map { String(describing: $0) },
+            batteryLevelPercent: int(m.getBatteryLevel().map(Int32.init))
+        )
+    }
+
+    private static func gearChange(_ m: EventMesg) -> DecodedGearChange? {
+        let event = m.getEvent()
+        guard event == .rearGearChange || event == .frontGearChange else { return nil }
+        return DecodedGearChange(
+            timestampMillis: m.getTimestamp().map { KotlinLong(value: millis($0)) },
+            rear: event == .rearGearChange,
+            frontGear: int(m.getFrontGearNum().map(Int32.init)),
+            frontTeeth: int(m.getFrontGear().map(Int32.init)),
+            rearGear: int(m.getRearGearNum().map(Int32.init)),
+            rearTeeth: int(m.getRearGear().map(Int32.init))
+        )
+    }
+
+    /// The SDK's name for a Garmin product, else the device's own product name, else the product number.
+    private static func product(_ manufacturer: Manufacturer?, garmin: GarminProduct?, name: String?, number: UInt16?) -> String? {
+        if manufacturer == .garmin { return garmin.map { String(describing: $0) } }
+        return name ?? number.map { String($0) }
     }
 
     /// The dive messages as they are; FitDives (Kotlin) interprets them, as for the Java and JS decoders.
@@ -104,16 +149,10 @@ final class SwiftFitDecoder: FitDecoder {
 
     private static func fileId(_ m: FileIdMesg) -> DecodedSource {
         let manufacturer = m.getManufacturer()
-        let product: String? =
-            if manufacturer == .garmin, let garmin = try? m.getGarminProduct() {
-                String(describing: garmin)
-            } else {
-                m.getProductName() ?? m.getProduct().map { String($0) }
-            }
         return DecodedSource(
             type: m.getType().map { String(describing: $0) },
             manufacturer: manufacturer.map { String(describing: $0) },
-            product: product,
+            product: product(manufacturer, garmin: try? m.getGarminProduct(), name: m.getProductName(), number: m.getProduct()),
             timeCreatedMillis: m.getTimeCreated().map { KotlinLong(value: millis($0)) }
         )
     }
@@ -133,7 +172,20 @@ final class SwiftFitDecoder: FitDecoder {
             maxHeartRate: int(m.getMaxHeartRate().map(Int32.init)),
             avgPowerWatts: int(m.getAvgPower().map(Int32.init)),
             avgCadence: int(m.getAvgCadence().map(Int32.init)),
-            avgTemperatureCelsius: double(m.getAvgTemperature().map(Double.init))
+            avgTemperatureCelsius: double(m.getAvgTemperature().map(Double.init)),
+            maxPowerWatts: int(m.getMaxPower().map(Int32.init)),
+            normalizedPowerWatts: int(m.getNormalizedPower().map(Int32.init)),
+            maxCadence: int(m.getMaxCadence().map(Int32.init)),
+            totalDescentMeters: double(m.getTotalDescent().map(Double.init)),
+            totalWorkJoules: double(m.getTotalWork().map(Double.init)),
+            thresholdPowerWatts: int(m.getThresholdPower().map(Int32.init)),
+            intensityFactor: double(m.getIntensityFactor()),
+            trainingStressScore: double(m.getTrainingStressScore()),
+            frontShiftCount: int(m.getFrontGearShiftCount().map(Int32.init)),
+            rearShiftCount: int(m.getRearGearShiftCount().map(Int32.init)),
+            jumpCount: int(m.getJumpCount().map(Int32.init)),
+            totalGrit: double(m.getTotalGrit().map(Double.init)),
+            avgFlow: double(m.getAvgFlow().map(Double.init))
         )
     }
 
@@ -152,7 +204,20 @@ final class SwiftFitDecoder: FitDecoder {
             maxHeartRate: int(m.getMaxHeartRate().map(Int32.init)),
             avgPowerWatts: int(m.getAvgPower().map(Int32.init)),
             avgCadence: int(m.getAvgCadence().map(Int32.init)),
-            avgTemperatureCelsius: double(m.getAvgTemperature().map(Double.init))
+            avgTemperatureCelsius: double(m.getAvgTemperature().map(Double.init)),
+            maxPowerWatts: int(m.getMaxPower().map(Int32.init)),
+            normalizedPowerWatts: int(m.getNormalizedPower().map(Int32.init)),
+            maxCadence: int(m.getMaxCadence().map(Int32.init)),
+            totalDescentMeters: double(m.getTotalDescent().map(Double.init)),
+            totalWorkJoules: double(m.getTotalWork().map(Double.init)),
+            thresholdPowerWatts: nil,
+            intensityFactor: nil,
+            trainingStressScore: nil,
+            frontShiftCount: int(m.getFrontGearShiftCount().map(Int32.init)),
+            rearShiftCount: int(m.getRearGearShiftCount().map(Int32.init)),
+            jumpCount: int(m.getJumpCount().map(Int32.init)),
+            totalGrit: double(m.getTotalGrit().map(Double.init)),
+            avgFlow: double(m.getAvgFlow().map(Double.init))
         )
     }
 

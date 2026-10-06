@@ -68,7 +68,7 @@ class DecodedActivityMapperTest {
         assertEquals(175, activity.maxHeartRate)
         assertEquals(4.2, activity.maxSpeedMps)
         assertEquals(12.0, activity.avgTemperatureCelsius)
-        assertEquals("Garmin fenix7", activity.device)
+        assertEquals("Garmin Fenix 7", activity.device)
         assertEquals(2, activity.samples.size)
     }
 
