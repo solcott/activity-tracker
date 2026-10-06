@@ -59,7 +59,7 @@ fun FooPresenter(screen: FooScreen, navigator: Navigator, /* injected repositori
 // composeApp/.../<Name>Ui.kt
 @CircuitInject(FooScreen::class, SessionScope::class)
 @Composable
-fun FooUi(state: FooState, modifier: Modifier = Modifier) { /* Scaffold + TopAppBar like siblings */ }
+fun FooUi(state: FooState, modifier: Modifier = Modifier) { /* Scaffold + AppTopBar(title, onBack = ...) and ui/adaptive components, like siblings */ }
 ```
 
 Constraints:
