@@ -18,6 +18,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_read_activit
 import io.github.solcott.activitytracker.composeApp.resources.error_save_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_save_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_save_settings
+import io.github.solcott.activitytracker.composeApp.resources.error_search_athletes
 import io.github.solcott.activitytracker.composeApp.resources.error_unsupported_activity_file
 import io.github.solcott.activitytracker.composeApp.resources.gender_female
 import io.github.solcott.activitytracker.composeApp.resources.gender_male
@@ -58,6 +59,7 @@ fun errorText(error: UiError): String =
                 UiError.Kind.LoadProfile -> Res.string.error_load_profile
                 UiError.Kind.LoadFollowers -> Res.string.error_load_followers
                 UiError.Kind.LoadFollowing -> Res.string.error_load_following
+                UiError.Kind.SearchAthletes -> Res.string.error_search_athletes
                 UiError.Kind.SaveActivity -> Res.string.error_save_activity
                 UiError.Kind.ReadActivityFile -> Res.string.error_read_activity_file
                 UiError.Kind.UnsupportedActivityFile -> Res.string.error_unsupported_activity_file

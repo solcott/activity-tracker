@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,6 +38,7 @@ import io.github.solcott.activitytracker.composeApp.resources.feed_my_profile
 import io.github.solcott.activitytracker.composeApp.resources.feed_pending_writes
 import io.github.solcott.activitytracker.composeApp.resources.feed_record
 import io.github.solcott.activitytracker.composeApp.resources.feed_refresh
+import io.github.solcott.activitytracker.composeApp.resources.feed_search
 import io.github.solcott.activitytracker.composeApp.resources.feed_title
 import io.github.solcott.activitytracker.data.di.SessionScope
 import org.jetbrains.compose.resources.pluralStringResource
@@ -51,6 +53,9 @@ fun FeedUi(state: FeedState, modifier: Modifier = Modifier) {
             TopAppBar(
                 title = { Text(stringResource(Res.string.feed_title)) },
                 actions = {
+                    IconButton(onClick = { state.eventSink(FeedEvent.Search) }) {
+                        Icon(Icons.Default.Search, stringResource(Res.string.feed_search))
+                    }
                     IconButton(onClick = { state.eventSink(FeedEvent.Refresh) }) {
                         Icon(Icons.Default.Refresh, stringResource(Res.string.feed_refresh))
                     }

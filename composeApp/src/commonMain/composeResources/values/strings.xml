@@ -14,6 +14,7 @@
     <string name="error_load_profile">Couldn't load profile</string>
     <string name="error_load_followers">Couldn't load followers</string>
     <string name="error_load_following">Couldn't load following</string>
+    <string name="error_search_athletes">Couldn't search athletes</string>
     <string name="error_save_activity">Couldn't save activity</string>
     <string name="error_read_activity_file">Couldn't read that file</string>
     <string name="error_unsupported_activity_file">That isn't a FIT, GPX, TCX or Shearwater dive file</string>
@@ -274,6 +275,7 @@
     <string name="feed_add_manual">Add manual activity</string>
     <string name="feed_import">Import activity file</string>
     <string name="feed_my_profile">My profile</string>
+    <string name="feed_search">Find athletes</string>
     <string name="feed_record">Record</string>
     <plurals name="feed_pending_writes">
         <item quantity="one">Uploading %1$d change…</item>
@@ -362,6 +364,13 @@
     <string name="follow_list_following">Following</string>
     <string name="follow_list_no_followers">No followers yet.</string>
     <string name="follow_list_no_following">Not following anyone yet.</string>
+
+    <!-- Athlete search -->
+    <string name="search_title">Find athletes</string>
+    <string name="search_label">Name or @handle</string>
+    <string name="search_clear">Clear search</string>
+    <string name="search_prompt">Find athletes who use this app by name, @handle or DID.</string>
+    <string name="search_no_results">No athletes match “%1$s”.</string>
 
     <!-- Record / manual entry -->
     <string name="record_title">Record</string>

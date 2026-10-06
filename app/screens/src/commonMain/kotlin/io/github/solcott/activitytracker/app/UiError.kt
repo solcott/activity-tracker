@@ -15,6 +15,7 @@ data class UiError(val kind: Kind, val detail: String?) {
         LoadProfile,
         LoadFollowers,
         LoadFollowing,
+        SearchAthletes,
         SaveActivity,
         ReadActivityFile,
         UnsupportedActivityFile,
