@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.ActivityMap
@@ -27,6 +28,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
+import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -94,9 +96,16 @@ fun ImportActivityUi(state: ImportActivityState, modifier: Modifier = Modifier) 
                     .onSuccess { state.eventSink(ImportActivityEvent.FilePicked(file.name, ByteString(it))) }
             }
         }
+    val scrollBehavior = rememberAppTopBarScrollBehavior()
     AppScaffold(
-        modifier = modifier,
-        topBar = { AppTopBar(title = stringResource(Res.string.import_title), onBack = { state.eventSink(ImportActivityEvent.Back) }) },
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            AppTopBar(
+                title = stringResource(Res.string.import_title),
+                onBack = { state.eventSink(ImportActivityEvent.Back) },
+                scrollBehavior = scrollBehavior,
+            )
+        },
     ) { padding ->
         val scroll = rememberScrollState()
         ScrollbarBox(scroll, contentPadding = padding) {

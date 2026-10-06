@@ -33,6 +33,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
@@ -57,6 +58,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
+import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.countryName
 import io.github.solcott.activitytracker.app.ui.detailGroupLabel
 import io.github.solcott.activitytracker.app.ui.errorText
@@ -106,9 +108,16 @@ import org.jetbrains.compose.resources.stringResource
 @CircuitInject(EditProfileScreen::class, SessionScope::class)
 @Composable
 fun EditProfileUi(state: EditProfileState, modifier: Modifier = Modifier) {
+    val scrollBehavior = rememberAppTopBarScrollBehavior()
     AppScaffold(
-        modifier = modifier,
-        topBar = { AppTopBar(title = stringResource(Res.string.edit_profile_title), onBack = { state.eventSink(EditProfileEvent.Back) }) },
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            AppTopBar(
+                title = stringResource(Res.string.edit_profile_title),
+                onBack = { state.eventSink(EditProfileEvent.Back) },
+                scrollBehavior = scrollBehavior,
+            )
+        },
     ) { padding ->
         val scroll = rememberScrollState()
         ScrollbarBox(scroll, contentPadding = padding) {

@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.ActivityMap
@@ -37,6 +38,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
+import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -64,9 +66,16 @@ import org.jetbrains.compose.resources.stringResource
 @CircuitInject(ActivityDetailScreen::class, SessionScope::class)
 @Composable
 fun ActivityDetailUi(state: ActivityDetailState, modifier: Modifier = Modifier) {
+    val scrollBehavior = rememberAppTopBarScrollBehavior()
     AppScaffold(
-        modifier = modifier,
-        topBar = { AppTopBar(title = stringResource(Res.string.detail_title), onBack = { state.eventSink(ActivityDetailEvent.Back) }) },
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            AppTopBar(
+                title = stringResource(Res.string.detail_title),
+                onBack = { state.eventSink(ActivityDetailEvent.Back) },
+                scrollBehavior = scrollBehavior,
+            )
+        },
     ) { padding ->
         when (state) {
             is ActivityDetailState.Loading -> {

@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -43,6 +44,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
+import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_retry
@@ -69,9 +71,16 @@ fun AthleteSearchUi(state: AthleteSearchState, modifier: Modifier = Modifier) {
         if (atEnd && state.canLoadMore && !state.isLoading) state.eventSink(AthleteSearchEvent.LoadMore)
     }
 
+    val scrollBehavior = rememberAppTopBarScrollBehavior()
     AppScaffold(
-        modifier = modifier,
-        topBar = { AppTopBar(title = stringResource(Res.string.search_title), onBack = { state.eventSink(AthleteSearchEvent.Back) }) },
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            AppTopBar(
+                title = stringResource(Res.string.search_title),
+                onBack = { state.eventSink(AthleteSearchEvent.Back) },
+                scrollBehavior = scrollBehavior,
+            )
+        },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             SearchField(state.query, Modifier.readableWidth().padding(horizontal = 16.dp, vertical = 8.dp))

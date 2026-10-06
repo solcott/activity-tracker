@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.ActivityCard
@@ -33,6 +34,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
+import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.countryName
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.genderLabel
@@ -59,12 +61,14 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
     val profile = state.profile
+    val scrollBehavior = rememberAppTopBarScrollBehavior()
     AppScaffold(
-        modifier = modifier,
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             AppTopBar(
                 title = profile?.displayName ?: profile?.handle?.value ?: stringResource(Res.string.profile_title),
                 onBack = { state.eventSink(ProfileEvent.Back) },
+                scrollBehavior = scrollBehavior,
                 actions = {
                     if (state.isSelf) {
                         AppIconButton(

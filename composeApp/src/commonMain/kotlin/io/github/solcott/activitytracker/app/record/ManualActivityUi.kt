@@ -12,6 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
@@ -21,6 +22,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
+import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_save
@@ -40,9 +42,16 @@ import org.jetbrains.compose.resources.stringResource
 @CircuitInject(ManualActivityScreen::class, SessionScope::class)
 @Composable
 fun ManualActivityUi(state: ManualActivityState, modifier: Modifier = Modifier) {
+    val scrollBehavior = rememberAppTopBarScrollBehavior()
     AppScaffold(
-        modifier = modifier,
-        topBar = { AppTopBar(title = stringResource(Res.string.manual_title), onBack = { state.eventSink(ManualActivityEvent.Back) }) },
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            AppTopBar(
+                title = stringResource(Res.string.manual_title),
+                onBack = { state.eventSink(ManualActivityEvent.Back) },
+                scrollBehavior = scrollBehavior,
+            )
+        },
     ) { padding ->
         Column(
             Modifier.verticalScroll(rememberScrollState()).padding(padding).readableWidth().padding(16.dp),

@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.AccountRow
@@ -29,6 +30,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
+import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -56,13 +58,15 @@ fun FollowListUi(state: FollowListState, modifier: Modifier = Modifier) {
         if (atEnd && state.canLoadMore && !state.isLoading) state.eventSink(FollowListEvent.LoadMore)
     }
 
+    val scrollBehavior = rememberAppTopBarScrollBehavior()
     AppScaffold(
-        modifier = modifier,
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             AppTopBar(
                 title = stringResource(state.kind.title),
                 subtitle = state.subject?.let { handleLabel(it.handle.value) },
                 onBack = { state.eventSink(FollowListEvent.Back) },
+                scrollBehavior = scrollBehavior,
             )
         },
     ) { padding ->

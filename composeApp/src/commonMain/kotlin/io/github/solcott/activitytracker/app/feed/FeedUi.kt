@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.ActivityCard
@@ -32,6 +33,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
+import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.app.ui.theme.UiPlatform
@@ -59,11 +61,13 @@ import org.jetbrains.compose.resources.stringResource
 fun FeedUi(state: FeedState, modifier: Modifier = Modifier) {
     val platform = LocalUiPlatform.current
     val listState = rememberLazyListState()
+    val scrollBehavior = rememberAppTopBarScrollBehavior()
     AppScaffold(
         modifier = modifier,
         topBar = {
             AppTopBar(
                 title = stringResource(Res.string.feed_title),
+                scrollBehavior = scrollBehavior,
                 actions = {
                     if (platform.hasPointer) {
                         AppIconButton(AppIcon.Refresh, stringResource(Res.string.feed_refresh), { state.eventSink(FeedEvent.Refresh) })
@@ -82,6 +86,8 @@ fun FeedUi(state: FeedState, modifier: Modifier = Modifier) {
             }
         },
     ) { padding ->
+        // On the list, inside pull to refresh, so a pull at the top expands a collapsed title before it refreshes.
+        val timelineModifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
         if (platform.isMobile) {
             AppPullToRefresh(
                 isRefreshing = state.refreshing,
@@ -89,10 +95,10 @@ fun FeedUi(state: FeedState, modifier: Modifier = Modifier) {
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = padding,
             ) {
-                Timeline(state, listState, padding)
+                Timeline(state, listState, padding, timelineModifier)
             }
         } else {
-            Timeline(state, listState, padding)
+            Timeline(state, listState, padding, timelineModifier)
         }
     }
 }

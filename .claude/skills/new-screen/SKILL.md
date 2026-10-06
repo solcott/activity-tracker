@@ -59,7 +59,7 @@ fun FooPresenter(screen: FooScreen, navigator: Navigator, /* injected repositori
 // composeApp/.../<Name>Ui.kt
 @CircuitInject(FooScreen::class, SessionScope::class)
 @Composable
-fun FooUi(state: FooState, modifier: Modifier = Modifier) { /* AppScaffold + AppTopBar(title, onBack = ...) and ui/adaptive components, like siblings; its padding goes to the list as content padding */ }
+fun FooUi(state: FooState, modifier: Modifier = Modifier) { /* AppScaffold + AppTopBar(title, onBack = ...) and ui/adaptive components, like siblings; its padding goes to the list as content padding; a scrolling screen adds rememberAppTopBarScrollBehavior() */ }
 ```
 
 Constraints:
