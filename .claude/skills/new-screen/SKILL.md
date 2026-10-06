@@ -46,7 +46,8 @@ sealed interface FooEvent {
 @Composable
 fun FooPresenter(screen: FooScreen, navigator: Navigator, /* injected repositories */): FooState {
     // remember/collectAsState for state; LaunchedEffect + runSuspendCatching for loads;
-    // rememberCoroutineScope().launch { runSuspendCatching { ... } } for event-driven work
+    // val flights = rememberSingleFlight(); flights.launch(FooEvent.Save) { runSuspendCatching { ... } } for event-driven work
+    // (a repeat tap is dropped while it runs; saving = flights.isRunning(FooEvent.Save)), never rememberCoroutineScope()
     // Convert lists once where they're loaded: flow.map { it.toImmutableList() }, or list.toImmutableList()
     return FooState(items, error) { event ->
         when (event) {

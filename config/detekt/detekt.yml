@@ -53,3 +53,6 @@ activitytracker:
   # Text fields take a TextFieldState, not value + onValueChange.
   UseTextFieldState:
     active: true
+  # Presenters launch event work through rememberSingleFlight(), so a double tap can't run it twice.
+  UseSingleFlight:
+    active: true

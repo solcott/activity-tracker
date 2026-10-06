@@ -17,7 +17,7 @@ A Kotlin Multiplatform, Strava-style athlete activity tracker backed by ATProtoc
 ./gradlew :core-lexicon:iosSimulatorArm64Test     # iOS tests run on the simulator
 ./gradlew :server-appview:test                    # AppView tests (H2 in PostgreSQL mode, no Docker needed)
 ./gradlew -p build-logic :convention:test         # convention plugin TestKit tests
-./gradlew :detekt-rules:test                      # the repo's own detekt rules (UseTextFieldState)
+./gradlew :detekt-rules:test                      # the repo's own detekt rules (UseTextFieldState, UseSingleFlight)
 
 ./gradlew :webApp:wasmJsBrowserDevelopmentRun     # web app; PORT env overrides 8080
 ./gradlew :desktopApp:hotRun --auto               # desktop app with Compose Hot Reload (reloads on save); :desktopApp:run without
