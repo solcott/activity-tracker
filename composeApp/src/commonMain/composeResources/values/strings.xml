@@ -389,6 +389,11 @@
     <string name="manual_title">Add activity</string>
     <string name="import_title">Import activity</string>
     <string name="import_hint">Import a FIT, GPX, TCX or Shearwater dive (.xml) file (gzipped is fine) from a watch, bike computer, dive computer or app.</string>
+    <!-- A title for an imported activity without one: the type's label, as in "Morning Mountain Bike Ride". -->
+    <string name="default_title_morning">Morning %1$s</string>
+    <string name="default_title_afternoon">Afternoon %1$s</string>
+    <string name="default_title_evening">Evening %1$s</string>
+    <string name="default_title_night">Night %1$s</string>
     <string name="import_pick">Choose file</string>
     <string name="import_pick_another">Choose another file</string>
     <string name="import_reading">Reading file…</string>

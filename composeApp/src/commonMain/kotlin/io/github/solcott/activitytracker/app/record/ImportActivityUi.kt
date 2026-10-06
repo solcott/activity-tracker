@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.app.ui.DiveFormat
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.Stat
 import io.github.solcott.activitytracker.app.ui.StatsRow
+import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
@@ -34,6 +35,10 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_save
 import io.github.solcott.activitytracker.composeApp.resources.action_saving
+import io.github.solcott.activitytracker.composeApp.resources.default_title_afternoon
+import io.github.solcott.activitytracker.composeApp.resources.default_title_evening
+import io.github.solcott.activitytracker.composeApp.resources.default_title_morning
+import io.github.solcott.activitytracker.composeApp.resources.default_title_night
 import io.github.solcott.activitytracker.composeApp.resources.dive_bottom_time
 import io.github.solcott.activitytracker.composeApp.resources.dive_closed_circuit
 import io.github.solcott.activitytracker.composeApp.resources.dive_cns
@@ -160,16 +165,31 @@ private fun PreviewForm(state: ImportActivityState, preview: ImportPreview, modi
             { state.eventSink(ImportActivityEvent.TypeChanged(it)) },
             enabled = !state.saving,
         )
+        val defaultTitle = state.defaultTitle?.let { defaultTitleLabel(it) }
         AppTextField(
             state.title,
             label = stringResource(Res.string.field_title),
+            placeholder = defaultTitle,
             modifier = Modifier.fillMaxWidth(),
         )
-        AppButton(onClick = { state.eventSink(ImportActivityEvent.Save) }, enabled = !state.saving && !state.reading) {
+        AppButton(onClick = { state.eventSink(ImportActivityEvent.Save(defaultTitle)) }, enabled = !state.saving && !state.reading) {
             Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
         }
     }
 }
+
+/** "Morning Mountain Bike Ride". */
+@Composable
+private fun defaultTitleLabel(title: DefaultTitle): String =
+    stringResource(
+        when (title.partOfDay) {
+            PartOfDay.Morning -> Res.string.default_title_morning
+            PartOfDay.Afternoon -> Res.string.default_title_afternoon
+            PartOfDay.Evening -> Res.string.default_title_evening
+            PartOfDay.Night -> Res.string.default_title_night
+        },
+        activityTypeLabel(title.type),
+    )
 
 @Composable
 private fun DiveDetails(dive: DivePreview, elapsedSeconds: Long, modifier: Modifier = Modifier) {

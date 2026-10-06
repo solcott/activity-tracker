@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.app.record
 
+import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +37,7 @@ import kotlinx.datetime.format
 import kotlinx.datetime.format.char
 import kotlinx.datetime.offsetAt
 import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 
 @CircuitInject(ImportActivityScreen::class, SessionScope::class)
 @Composable
@@ -48,11 +51,13 @@ fun ImportActivityPresenter(
     var imported by remember { mutableStateOf<Pair<String, ImportedActivity>?>(null) }
     var type by rememberSaveable(stateSaver = ActivityTypeSaver) { mutableStateOf(ActivityType(Sport.OTHER)) }
     val title = rememberTextFieldState()
+    // The title the last file filled in, so a file without one clears it but not what the athlete typed.
+    var fileTitle by remember { mutableStateOf<String?>(null) }
     // Where a zone-less file's clock was; null for this device's zone.
     var zoneId by rememberSaveable { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<UiError?>(null) }
     val flights = rememberSingleFlight()
-    val saving = flights.isRunning(ImportActivityEvent.Save)
+    val saving = flights.isRunning(ImportActivityEvent.Save::class)
     val reading = flights.isRunning(ImportActivityEvent.FilePicked::class)
 
     val zone = remember(zoneId) { zoneId?.let(TimeZone::of) ?: TimeZones.device() }
@@ -61,8 +66,10 @@ fun ImportActivityPresenter(
     // Keyed on the zone too: a zone with the same offset leaves the activity as it was.
     val preview = remember(placed, zones, zone) { placed?.let { (name, activity) -> activity.toPreview(name, zone, zones) } }
     val quickTypes = quickActivityTypes(recentTypes)
+    val defaultTitle =
+        placed?.second?.takeIf { it.title == null }?.let { DefaultTitle(partOfDay(it.startedAt.toLocalDateTime(zone).hour), type) }
 
-    return ImportActivityState(reading, preview, type, quickTypes, title, saving, error) { event ->
+    return ImportActivityState(reading, preview, type, quickTypes, title, defaultTitle, saving, error) { event ->
         when (event) {
             is ImportActivityEvent.FilePicked -> {
                 // Drop the previous file first, so a failed pick can't leave its preview (and Save) behind.
@@ -76,6 +83,12 @@ fun ImportActivityPresenter(
                         .onSuccess {
                             imported = event.name to it
                             type = it.type
+                            val named = it.title
+                            when {
+                                named != null -> title.setTextAndPlaceCursorAtEnd(named)
+                                fileTitle != null && title.text.toString() == fileTitle -> title.clearText()
+                            }
+                            fileTitle = named
                         }
                         .onFailure { e ->
                             error =
@@ -97,11 +110,12 @@ fun ImportActivityPresenter(
                 navigator.pop()
             }
 
-            ImportActivityEvent.Save -> {
+            is ImportActivityEvent.Save -> {
                 val activity = placed?.second ?: return@ImportActivityState
-                flights.launch(ImportActivityEvent.Save) {
+                flights.launch(ImportActivityEvent.Save::class) {
                     runSuspendCatching {
-                        activities.publish(ActivityDraft.fromImport(activity, type, title.text.toString().ifBlank { null }))
+                        val text = title.text.toString().ifBlank { event.defaultTitle?.ifBlank { null } }
+                        activities.publish(ActivityDraft.fromImport(activity, type, text))
                         navigator.pop()
                     }
                         .onFailure { e -> error = UiError.of(UiError.Kind.SaveActivity, e) }
@@ -110,6 +124,15 @@ fun ImportActivityPresenter(
         }
     }
 }
+
+@Suppress("MagicNumber") // Hours of the day.
+private fun partOfDay(hour: Int) =
+    when (hour) {
+        in 5..11 -> PartOfDay.Morning
+        in 12..16 -> PartOfDay.Afternoon
+        in 17..20 -> PartOfDay.Evening
+        else -> PartOfDay.Night
+    }
 
 private fun ImportedActivity.toPreview(fileName: String, zone: TimeZone, zones: ImmutableList<TimeZoneOption>?) =
     ImportPreview(

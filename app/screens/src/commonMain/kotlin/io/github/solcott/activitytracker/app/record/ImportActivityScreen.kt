@@ -25,11 +25,25 @@ data class ImportActivityState(
     val type: ActivityType,
     /** Recently tracked types, then the common ones, for the picker's quick row. */
     val quickTypes: ImmutableList<ActivityType>,
+    /** Starts as the file's own title, if it has one. */
     val title: TextFieldState,
+    /** What a blank [title] saves as, when the file has no title of its own; follows [type] and the clock's zone. */
+    val defaultTitle: DefaultTitle?,
     val saving: Boolean,
     val error: UiError?,
     val eventSink: (ImportActivityEvent) -> Unit,
 ) : CircuitUiState
+
+/** A title in Strava's style, "Morning Mountain Bike Ride": when the activity started, then its type. The UI words it. */
+@Immutable data class DefaultTitle(val partOfDay: PartOfDay, val type: ActivityType)
+
+/** Morning is 5:00 to noon, afternoon to 17:00, evening to 21:00, and night the rest, on the clock where the activity happened. */
+enum class PartOfDay {
+    Morning,
+    Afternoon,
+    Evening,
+    Night,
+}
 
 /** The read file's summary, in SI units like the records it becomes. */
 @Immutable
@@ -117,7 +131,8 @@ sealed interface ImportActivityEvent {
     /** Where a zone-less file's clock was ([ImportClock]); a [TimeZoneOption.id]. */
     data class TimeZoneChanged(val id: String) : ImportActivityEvent
 
-    data object Save : ImportActivityEvent
+    /** [defaultTitle] is [ImportActivityState.defaultTitle] in words, saved when the title is blank. */
+    data class Save(val defaultTitle: String?) : ImportActivityEvent
 
     data object Back : ImportActivityEvent
 }

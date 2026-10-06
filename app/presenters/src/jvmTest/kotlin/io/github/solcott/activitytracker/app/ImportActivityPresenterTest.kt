@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.activityfile.DivePosition
 import io.github.solcott.activitytracker.activityfile.DiveTank
 import io.github.solcott.activitytracker.activityfile.FitDecoder
 import io.github.solcott.activitytracker.activityfile.TimeZones
+import io.github.solcott.activitytracker.app.record.DefaultTitle
 import io.github.solcott.activitytracker.app.record.DepthPreviewPoint
 import io.github.solcott.activitytracker.app.record.DiveGasPreview
 import io.github.solcott.activitytracker.app.record.DiveSitePreview
@@ -22,6 +23,7 @@ import io.github.solcott.activitytracker.app.record.DiveTankPreview
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
+import io.github.solcott.activitytracker.app.record.PartOfDay
 import io.github.solcott.activitytracker.app.record.TimeZoneOption
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -108,7 +110,7 @@ class ImportActivityPresenterTest {
             assertEquals(ActivityType(Sport.RUN), read.type)
 
             read.title.setTextAndPlaceCursorAtEnd("Lunch loop")
-            read.eventSink(ImportActivityEvent.Save)
+            read.eventSink(ImportActivityEvent.Save(defaultTitle = "Morning Run"))
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
         }
@@ -231,12 +233,51 @@ class ImportActivityPresenterTest {
             read.eventSink(ImportActivityEvent.TimeZoneChanged("America/Cancun"))
             val placed = awaitUntil { it.preview?.clock?.zone?.id == "America/Cancun" }
             assertEquals(TimeZoneOption("America/Cancun", "UTC-05:00"), placed.preview?.clock?.zone)
-            placed.eventSink(ImportActivityEvent.Save)
+            assertEquals(DefaultTitle(PartOfDay.Morning, placed.type), placed.defaultTitle, "7 AM where the dive was")
+
+            placed.eventSink(ImportActivityEvent.TimeZoneChanged("Asia/Tokyo"))
+            val tokyo = awaitUntil { it.preview?.clock?.zone?.id == "Asia/Tokyo" }
+            assertEquals(PartOfDay.Morning, tokyo.defaultTitle?.partOfDay, "the clock read 7 AM in any zone")
+
+            tokyo.eventSink(ImportActivityEvent.TimeZoneChanged("America/Cancun"))
+            awaitUntil { it.preview?.clock?.zone?.id == "America/Cancun" }.eventSink(ImportActivityEvent.Save("Morning Dive"))
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
         }
 
-        assertEquals("2026-09-20T12:00:00Z", fixture.putRecords.single().getValue("startedAt").jsonPrimitive.content)
+        val record = fixture.putRecords.single()
+        assertEquals("2026-09-20T12:00:00Z", record.getValue("startedAt").jsonPrimitive.content)
+        assertEquals("Morning Dive", record.getValue("title").jsonPrimitive.content, "a blank title saves the default")
+    }
+
+    @Test
+    fun theFilesOwnTitleFillsTheField() = runTest {
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ImportActivityScreen)
+        var file = run.copy(title = "Lake loop")
+        presenterTestOf({ ImportActivityPresenter(navigator, repos.activities, ActivityFileReader { file }, repos.recentTypes) }) {
+            awaitItem().eventSink(ImportActivityEvent.FilePicked("Lake.gpx", bytes))
+            val titled = awaitUntil { it.preview != null }
+            assertEquals("Lake loop", titled.title.text.toString())
+            assertNull(titled.defaultTitle, "the file named it")
+
+            // A file without a title clears the last one's, so it can't be saved under the wrong name...
+            file = run
+            titled.eventSink(ImportActivityEvent.FilePicked("Run.fit", bytes))
+            val untitled = awaitUntil { it.preview?.fileName == "Run.fit" }
+            assertEquals("", untitled.title.text.toString())
+            assertEquals(ActivityType(Sport.RUN), untitled.defaultTitle?.type)
+
+            // ...but keeps what the athlete typed.
+            untitled.title.setTextAndPlaceCursorAtEnd("Tempo")
+            untitled.eventSink(ImportActivityEvent.FilePicked("Again.fit", bytes))
+            val again = awaitUntil { it.preview?.fileName == "Again.fit" }
+            assertEquals("Tempo", again.title.text.toString())
+
+            again.eventSink(ImportActivityEvent.TypeChanged(ActivityType(Sport.RIDE, SubSport.MOUNTAIN)))
+            assertEquals(ActivityType(Sport.RIDE, SubSport.MOUNTAIN), awaitUntil { it.type.sport == Sport.RIDE }.defaultTitle?.type)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
