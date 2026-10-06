@@ -6,18 +6,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -29,10 +20,16 @@ import io.github.solcott.activitytracker.app.ui.DiveFormat
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.Stat
 import io.github.solcott.activitytracker.app.ui.StatsRow
+import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
+import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
+import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
+import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_back
 import io.github.solcott.activitytracker.composeApp.resources.action_save
 import io.github.solcott.activitytracker.composeApp.resources.action_saving
 import io.github.solcott.activitytracker.composeApp.resources.dive_bottom_time
@@ -99,32 +96,26 @@ fun ImportActivityUi(state: ImportActivityState, modifier: Modifier = Modifier) 
         }
     Scaffold(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.import_title)) },
-                navigationIcon = {
-                    IconButton(onClick = { state.eventSink(ImportActivityEvent.Back) }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
-                    }
-                },
-            )
-        },
+        topBar = { AppTopBar(title = stringResource(Res.string.import_title), onBack = { state.eventSink(ImportActivityEvent.Back) }) },
     ) { padding ->
-        Column(
-            Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            val preview = state.preview
-            if (preview == null) Text(stringResource(Res.string.import_hint))
-            OutlinedButton(onClick = { pick.launch() }, enabled = !state.reading && !state.saving) {
-                Text(stringResource(if (preview == null) Res.string.import_pick else Res.string.import_pick_another))
+        val scroll = rememberScrollState()
+        ScrollbarBox(scroll, Modifier.padding(padding)) {
+            Column(
+                Modifier.verticalScroll(scroll).readableWidth().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                val preview = state.preview
+                if (preview == null) Text(stringResource(Res.string.import_hint))
+                AppSecondaryButton(onClick = { pick.launch() }, enabled = !state.reading && !state.saving) {
+                    Text(stringResource(if (preview == null) Res.string.import_pick else Res.string.import_pick_another))
+                }
+                if (state.reading) {
+                    AppProgressIndicator()
+                    Text(stringResource(Res.string.import_reading))
+                }
+                state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+                if (preview != null) PreviewForm(state, preview)
             }
-            if (state.reading) {
-                CircularProgressIndicator()
-                Text(stringResource(Res.string.import_reading))
-            }
-            state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
-            if (preview != null) PreviewForm(state, preview)
         }
     }
 }
@@ -160,12 +151,12 @@ private fun PreviewForm(state: ImportActivityState, preview: ImportPreview, modi
             { state.eventSink(ImportActivityEvent.TypeChanged(it)) },
             enabled = !state.saving,
         )
-        OutlinedTextField(
+        AppTextField(
             state.title,
-            label = { Text(stringResource(Res.string.field_title)) },
+            label = stringResource(Res.string.field_title),
             modifier = Modifier.fillMaxWidth(),
         )
-        Button(onClick = { state.eventSink(ImportActivityEvent.Save) }, enabled = !state.saving && !state.reading) {
+        AppButton(onClick = { state.eventSink(ImportActivityEvent.Save) }, enabled = !state.saving && !state.reading) {
             Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
         }
     }

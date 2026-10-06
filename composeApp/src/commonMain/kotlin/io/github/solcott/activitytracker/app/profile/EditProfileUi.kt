@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.app.profile
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -15,29 +17,14 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material3.Button
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,14 +35,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.mohamedrejeb.calf.ui.datepicker.DateBounds
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.AvatarFrame
 import io.github.solcott.activitytracker.app.ui.Countries
 import io.github.solcott.activitytracker.app.ui.VisibilityPicker
+import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppDatePickerDialog
+import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
+import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
+import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
+import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.countryName
 import io.github.solcott.activitytracker.app.ui.detailGroupLabel
 import io.github.solcott.activitytracker.app.ui.errorText
@@ -64,9 +65,6 @@ import io.github.solcott.activitytracker.app.ui.rememberReadOnlyTextFieldState
 import io.github.solcott.activitytracker.app.ui.stripDiacritics
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_back
-import io.github.solcott.activitytracker.composeApp.resources.action_cancel
-import io.github.solcott.activitytracker.composeApp.resources.action_ok
 import io.github.solcott.activitytracker.composeApp.resources.action_save
 import io.github.solcott.activitytracker.composeApp.resources.action_saving
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_birth_date
@@ -100,105 +98,96 @@ import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.readBytes
 import kotlin.time.Clock
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import kotlinx.io.bytestring.ByteString
 import org.jetbrains.compose.resources.stringResource
 
-@OptIn(ExperimentalMaterial3Api::class)
 @CircuitInject(EditProfileScreen::class, SessionScope::class)
 @Composable
 fun EditProfileUi(state: EditProfileState, modifier: Modifier = Modifier) {
     Scaffold(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.edit_profile_title)) },
-                navigationIcon = {
-                    IconButton(onClick = { state.eventSink(EditProfileEvent.Back) }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
-                    }
-                },
-            )
-        },
+        topBar = { AppTopBar(title = stringResource(Res.string.edit_profile_title), onBack = { state.eventSink(EditProfileEvent.Back) }) },
     ) { padding ->
-        Column(
-            Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            AvatarRow(state)
-            LimitedTextField(
-                state.displayName,
-                label = stringResource(Res.string.edit_profile_display_name),
-                maxLength = EditProfileState.DISPLAY_NAME_MAX_LENGTH,
-                enabled = state.loaded,
-                singleLine = true,
-            )
-            LimitedTextField(
-                state.description,
-                label = stringResource(Res.string.edit_profile_description),
-                maxLength = EditProfileState.DESCRIPTION_MAX_LENGTH,
-                enabled = state.loaded,
-                singleLine = false,
-            )
-            HorizontalDivider()
-            Text(stringResource(Res.string.edit_profile_details_heading), style = MaterialTheme.typography.titleMedium)
-            Text(stringResource(Res.string.edit_profile_details_help), style = MaterialTheme.typography.bodySmall)
-            DetailSection(DetailGroup.Location, state) {
+        val scroll = rememberScrollState()
+        ScrollbarBox(scroll, Modifier.padding(padding)) {
+            Column(
+                Modifier.verticalScroll(scroll).readableWidth().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                AvatarRow(state)
                 LimitedTextField(
-                    state.locality,
-                    label = stringResource(Res.string.edit_profile_locality),
-                    maxLength = EditProfileState.DETAIL_MAX_LENGTH,
+                    state.displayName,
+                    label = stringResource(Res.string.edit_profile_display_name),
+                    maxLength = EditProfileState.DISPLAY_NAME_MAX_LENGTH,
                     enabled = state.loaded,
                     singleLine = true,
                 )
                 LimitedTextField(
-                    state.region,
-                    label = stringResource(Res.string.edit_profile_region),
-                    maxLength = EditProfileState.DETAIL_MAX_LENGTH,
+                    state.description,
+                    label = stringResource(Res.string.edit_profile_description),
+                    maxLength = EditProfileState.DESCRIPTION_MAX_LENGTH,
                     enabled = state.loaded,
-                    singleLine = true,
+                    singleLine = false,
                 )
-                CountryField(state.country, { state.eventSink(EditProfileEvent.CountryChanged(it)) }, enabled = state.loaded)
-            }
-            DetailSection(DetailGroup.BirthDate, state) {
-                BirthDateField(state.birthDate, { state.eventSink(EditProfileEvent.BirthDateChanged(it)) }, enabled = state.loaded)
-            }
-            DetailSection(DetailGroup.Gender, state) {
-                GenderField(state.gender, { state.eventSink(EditProfileEvent.GenderChanged(it)) }, enabled = state.loaded)
-            }
-            DetailSection(DetailGroup.Weight, state) {
-                OutlinedTextField(
-                    state.weight,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = state.loaded,
-                    label = {
-                        Text(
+                HorizontalDivider()
+                Text(stringResource(Res.string.edit_profile_details_heading), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(Res.string.edit_profile_details_help), style = MaterialTheme.typography.bodySmall)
+                DetailSection(DetailGroup.Location, state) {
+                    LimitedTextField(
+                        state.locality,
+                        label = stringResource(Res.string.edit_profile_locality),
+                        maxLength = EditProfileState.DETAIL_MAX_LENGTH,
+                        enabled = state.loaded,
+                        singleLine = true,
+                    )
+                    LimitedTextField(
+                        state.region,
+                        label = stringResource(Res.string.edit_profile_region),
+                        maxLength = EditProfileState.DETAIL_MAX_LENGTH,
+                        enabled = state.loaded,
+                        singleLine = true,
+                    )
+                    CountryField(state.country, { state.eventSink(EditProfileEvent.CountryChanged(it)) }, enabled = state.loaded)
+                }
+                DetailSection(DetailGroup.BirthDate, state) {
+                    BirthDateField(state.birthDate, { state.eventSink(EditProfileEvent.BirthDateChanged(it)) }, enabled = state.loaded)
+                }
+                DetailSection(DetailGroup.Gender, state) {
+                    GenderField(state.gender, { state.eventSink(EditProfileEvent.GenderChanged(it)) }, enabled = state.loaded)
+                }
+                DetailSection(DetailGroup.Weight, state) {
+                    AppTextField(
+                        state.weight,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = state.loaded,
+                        label =
                             stringResource(
                                 when (state.units) {
                                     UnitSystem.Metric -> Res.string.edit_profile_weight_kg
                                     UnitSystem.Imperial -> Res.string.edit_profile_weight_lb
                                 }
-                            )
-                        )
-                    },
-                    isError = !WeightConversions.isValidInputText(state.weight.text.toString(), state.units),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    lineLimits = TextFieldLineLimits.SingleLine,
-                )
-            }
-            state.nowHidden.forEach { group ->
-                Text(
-                    stringResource(Res.string.edit_profile_now_hidden, detailGroupLabel(group)),
-                    color = MaterialTheme.colorScheme.tertiary,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-            state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
-            Button(
-                onClick = { state.eventSink(EditProfileEvent.Save) },
-                enabled = state.loaded && state.valid && !state.saving,
-            ) {
-                Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
+                            ),
+                        isError = !WeightConversions.isValidInputText(state.weight.text.toString(), state.units),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        lineLimits = TextFieldLineLimits.SingleLine,
+                    )
+                }
+                state.nowHidden.forEach { group ->
+                    Text(
+                        stringResource(Res.string.edit_profile_now_hidden, detailGroupLabel(group)),
+                        color = MaterialTheme.colorScheme.tertiary,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+                AppButton(
+                    onClick = { state.eventSink(EditProfileEvent.Save) },
+                    enabled = state.loaded && state.valid && !state.saving,
+                ) {
+                    Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
+                }
             }
         }
     }
@@ -228,9 +217,11 @@ private fun AvatarRow(state: EditProfileState, modifier: Modifier = Modifier) {
             null -> Avatar(null, name, AVATAR_SIZE)
         }
         Column {
-            TextButton(onClick = { pick.launch() }, enabled = state.loaded) { Text(stringResource(Res.string.edit_profile_photo_change)) }
+            AppTextButton(onClick = { pick.launch() }, enabled = state.loaded) {
+                Text(stringResource(Res.string.edit_profile_photo_change))
+            }
             if (state.avatar != null) {
-                TextButton(onClick = { state.eventSink(EditProfileEvent.RemoveAvatar) }, enabled = state.loaded) {
+                AppTextButton(onClick = { state.eventSink(EditProfileEvent.RemoveAvatar) }, enabled = state.loaded) {
                     Text(stringResource(Res.string.edit_profile_photo_remove))
                 }
             }
@@ -289,12 +280,12 @@ private fun CountryField(
             byCode + byName.filter { it.key.contains(key) }
         }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it && enabled }, modifier = modifier) {
-        OutlinedTextField(
+        AppTextField(
             query,
             modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, enabled).fillMaxWidth(),
             enabled = enabled,
-            label = { Text(stringResource(Res.string.edit_profile_country)) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            label = stringResource(Res.string.edit_profile_country),
+            trailingIcon = { PlatformIcon(AppIcon.DropDown, null) },
             // Typing opens the menu; setting the text from code doesn't.
             inputTransformation = InputTransformation { expanded = true },
             lineLimits = TextFieldLineLimits.SingleLine,
@@ -343,52 +334,45 @@ private fun BirthDateField(
     modifier: Modifier = Modifier,
 ) {
     var picking by remember { mutableStateOf(false) }
-    OutlinedTextField(
+    AppTextField(
         rememberReadOnlyTextFieldState(date),
         modifier = modifier.fillMaxWidth(),
         enabled = enabled,
         readOnly = true,
-        label = { Text(stringResource(Res.string.edit_profile_birth_date)) },
+        label = stringResource(Res.string.edit_profile_birth_date),
         trailingIcon = {
             Row {
                 if (date.isNotEmpty()) {
-                    IconButton(onClick = { onChange("") }, enabled = enabled) {
-                        Icon(Icons.Filled.Clear, stringResource(Res.string.edit_profile_clear))
-                    }
+                    AppIconButton(
+                        AppIcon.Clear,
+                        stringResource(Res.string.edit_profile_clear),
+                        { onChange("") },
+                        enabled = enabled,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
-                IconButton(onClick = { picking = true }, enabled = enabled) {
-                    Icon(Icons.Filled.DateRange, stringResource(Res.string.edit_profile_birth_date_choose))
-                }
+                AppIconButton(
+                    AppIcon.Calendar,
+                    stringResource(Res.string.edit_profile_birth_date_choose),
+                    { picking = true },
+                    enabled = enabled,
+                )
             }
         },
         lineLimits = TextFieldLineLimits.SingleLine,
     )
     if (picking) {
         val now = remember { Clock.System.now().toEpochMilliseconds() }
-        val pickerState =
-            rememberDatePickerState(
-                initialSelectedDateMillis = CalendarDate.toPickerMillis(date),
-                selectableDates =
-                    object : SelectableDates {
-                        override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis <= now
-                    },
-            )
-        DatePickerDialog(
-            onDismissRequest = { picking = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pickerState.selectedDateMillis?.let { onChange(CalendarDate.fromPickerMillis(it)) }
-                        picking = false
-                    }
-                ) {
-                    Text(stringResource(Res.string.action_ok))
-                }
+        val pastOnly = remember(now) { DateBounds(maxDateMillis = now) }
+        AppDatePickerDialog(
+            initialSelectedDateMillis = CalendarDate.toPickerMillis(date),
+            selectableDates = pastOnly,
+            onConfirm = { millis ->
+                millis?.let { onChange(CalendarDate.fromPickerMillis(it)) }
+                picking = false
             },
-            dismissButton = { TextButton(onClick = { picking = false }) { Text(stringResource(Res.string.action_cancel)) } },
-        ) {
-            DatePicker(pickerState)
-        }
+            onDismiss = { picking = false },
+        )
     }
 }
 
@@ -418,29 +402,30 @@ private fun GenderField(
         expanded = false
     }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it && enabled }) {
-            OutlinedTextField(
+        val notSet = stringResource(Res.string.edit_profile_not_set)
+        val describeLabel = stringResource(Res.string.gender_self_describe)
+        val knownLabels = Gender.all.associateWith { genderLabel(it) }
+        val items = buildList {
+            add(AppMenuItem(notSet, checked = gender.isEmpty() && !selfDescribe) { choose("", describe = false) })
+            knownLabels.forEach { (known, label) ->
+                add(AppMenuItem(label, checked = gender == known && !selfDescribe) { choose(known, describe = false) })
+            }
+            add(AppMenuItem(describeLabel, checked = selfDescribe) { choose(if (gender in Gender.all) "" else gender, describe = true) })
+        }
+            .toImmutableList()
+        Box {
+            AppTextField(
                 rememberReadOnlyTextFieldState(shown),
-                modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled).fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 enabled = enabled,
                 readOnly = true,
-                label = { Text(stringResource(Res.string.edit_profile_gender)) },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                label = stringResource(Res.string.edit_profile_gender),
+                trailingIcon = { PlatformIcon(AppIcon.DropDown, null) },
                 lineLimits = TextFieldLineLimits.SingleLine,
             )
-            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(Res.string.edit_profile_not_set)) },
-                    onClick = { choose("", describe = false) },
-                )
-                Gender.all.forEach { known ->
-                    DropdownMenuItem(text = { Text(genderLabel(known)) }, onClick = { choose(known, describe = false) })
-                }
-                DropdownMenuItem(
-                    text = { Text(stringResource(Res.string.gender_self_describe)) },
-                    onClick = { choose(if (gender in Gender.all) "" else gender, describe = true) },
-                )
-            }
+            // A read-only field doesn't report clicks, so a transparent layer on top opens the menu.
+            Box(Modifier.matchParentSize().clickable(enabled = enabled, role = Role.DropdownList) { expanded = true })
+            AppMenu(expanded = expanded, onDismiss = { expanded = false }, items = items)
         }
         if (selfDescribe) {
             LimitedTextField(
@@ -465,12 +450,12 @@ private fun LimitedTextField(
     modifier: Modifier = Modifier,
 ) {
     val length = state.text.length
-    OutlinedTextField(
+    AppTextField(
         state,
         modifier = modifier.fillMaxWidth(),
         enabled = enabled,
-        label = { Text(label) },
-        supportingText = { Text(stringResource(Res.string.edit_profile_length, length, maxLength)) },
+        label = label,
+        supportingText = stringResource(Res.string.edit_profile_length, length, maxLength),
         isError = length > maxLength,
         lineLimits = if (singleLine) TextFieldLineLimits.SingleLine else TextFieldLineLimits.MultiLine(minHeightInLines = 3),
     )

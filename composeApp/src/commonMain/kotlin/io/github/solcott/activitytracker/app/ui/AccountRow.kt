@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 
 /** One athlete in a list: avatar, display name (or handle when there's none) and handle. */
@@ -19,7 +20,7 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 fun AccountRow(account: ProfileViewBasic, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val name = account.displayName ?: account.handle.value
     Row(
-        modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier.fillMaxWidth().clickable(onClick = onClick).handCursor().padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -14,21 +14,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,10 +28,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
+import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
+import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
+import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
+import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
 import io.github.solcott.activitytracker.app.ui.rememberReadOnlyTextFieldState
 import io.github.solcott.activitytracker.app.ui.sportCategoryLabel
 import io.github.solcott.activitytracker.app.ui.sportLabel
@@ -71,13 +70,13 @@ fun ActivityTypePicker(
     var sheetOpen by rememberSaveable { mutableStateOf(false) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box {
-            OutlinedTextField(
+            AppTextField(
                 rememberReadOnlyTextFieldState(activityTypeLabel(selected)),
                 readOnly = true,
                 enabled = enabled,
-                label = { Text(stringResource(Res.string.sport_picker_label)) },
+                label = stringResource(Res.string.sport_picker_label),
                 leadingIcon = { ActivityTypeIcon(selected) },
-                trailingIcon = { Icon(Icons.Default.ArrowDropDown, null) },
+                trailingIcon = { PlatformIcon(AppIcon.DropDown, null) },
                 modifier = Modifier.fillMaxWidth(),
             )
             // A read-only field doesn't report clicks, so a transparent layer on top opens the sheet.
@@ -119,7 +118,7 @@ private fun ActivityTypeSheet(
     onSelect: (ActivityType) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val sheetState = rememberBottomSheetState(SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
+    val sheetState = rememberAppSheetState()
     val scope = rememberCoroutineScope()
     val query = rememberTextFieldState()
     val choose: (ActivityType) -> Unit = { type ->
@@ -142,12 +141,12 @@ private fun ActivityTypeSheet(
             .map { group -> group.category to group.types.filter { offered(it) && matches(it) } }
             .filter { it.second.isNotEmpty() }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    AppBottomSheet(onDismiss = onDismiss, sheetState = sheetState) {
         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedTextField(
+            AppTextField(
                 query,
-                placeholder = { Text(stringResource(Res.string.sport_picker_search)) },
-                leadingIcon = { Icon(Icons.Default.Search, null) },
+                placeholder = stringResource(Res.string.sport_picker_search),
+                leadingIcon = { PlatformIcon(AppIcon.Search, null) },
                 lineLimits = TextFieldLineLimits.SingleLine,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -184,8 +183,11 @@ private fun ActivityTypeSheet(
                     ListItem(
                         headlineContent = { Text(labels[type] ?: activityTypeLabel(type)) },
                         leadingContent = { ActivityTypeIcon(type, Modifier.padding(start = if (nested) 24.dp else 0.dp)) },
-                        trailingContent = if (type == selected) ({ Icon(Icons.Default.Check, null) }) else null,
-                        modifier = Modifier.clickable { choose(type) },
+                        trailingContent =
+                            if (type == selected) ({ PlatformIcon(AppIcon.Check, null, tint = MaterialTheme.colorScheme.primary) })
+                            else null,
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable { choose(type) }.handCursor(),
                     )
                 }
             }

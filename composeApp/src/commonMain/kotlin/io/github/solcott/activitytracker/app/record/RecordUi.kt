@@ -6,18 +6,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -25,9 +17,13 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.Stat
 import io.github.solcott.activitytracker.app.ui.StatsRow
+import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
+import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_back
 import io.github.solcott.activitytracker.composeApp.resources.field_title
 import io.github.solcott.activitytracker.composeApp.resources.record_discard
 import io.github.solcott.activitytracker.composeApp.resources.record_finish
@@ -49,19 +45,10 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
     val requestPermission = rememberLocationPermissionRequest { state.eventSink(RecordEvent.PermissionResult(it)) }
     Scaffold(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.record_title)) },
-                navigationIcon = {
-                    IconButton(onClick = { state.eventSink(RecordEvent.Back) }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
-                    }
-                },
-            )
-        },
+        topBar = { AppTopBar(title = stringResource(Res.string.record_title), onBack = { state.eventSink(RecordEvent.Back) }) },
     ) { padding ->
         Column(
-            Modifier.padding(padding).padding(16.dp).fillMaxSize(),
+            Modifier.padding(padding).readableWidth().padding(16.dp).fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             ActivityTypePicker(
@@ -80,16 +67,16 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
                     )
                     .toImmutableList()
             )
-            OutlinedTextField(
+            AppTextField(
                 state = state.title,
-                label = { Text(stringResource(Res.string.field_title)) },
+                label = stringResource(Res.string.field_title),
                 modifier = Modifier.fillMaxWidth(),
             )
             state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 when (state.status) {
                     RecordingState.Status.Idle -> {
-                        Button(
+                        AppButton(
                             onClick = {
                                 if (state.hasPermission) {
                                     state.eventSink(RecordEvent.Start)
@@ -104,13 +91,13 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
                     }
 
                     RecordingState.Status.Recording -> {
-                        Button(onClick = { state.eventSink(RecordEvent.Pause) }) { Text(stringResource(Res.string.record_pause)) }
+                        AppButton(onClick = { state.eventSink(RecordEvent.Pause) }) { Text(stringResource(Res.string.record_pause)) }
                     }
 
                     RecordingState.Status.Paused -> {
-                        Button(onClick = { state.eventSink(RecordEvent.Resume) }) { Text(stringResource(Res.string.record_resume)) }
-                        Button(onClick = { state.eventSink(RecordEvent.Finish) }) { Text(stringResource(Res.string.record_finish)) }
-                        OutlinedButton(onClick = { state.eventSink(RecordEvent.Discard) }) {
+                        AppButton(onClick = { state.eventSink(RecordEvent.Resume) }) { Text(stringResource(Res.string.record_resume)) }
+                        AppButton(onClick = { state.eventSink(RecordEvent.Finish) }) { Text(stringResource(Res.string.record_finish)) }
+                        AppSecondaryButton(onClick = { state.eventSink(RecordEvent.Discard) }) {
                             Text(stringResource(Res.string.record_discard))
                         }
                     }

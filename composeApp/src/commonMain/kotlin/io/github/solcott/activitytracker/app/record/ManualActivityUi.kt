@@ -4,27 +4,25 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.UnitSystemPicker
+import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
+import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_back
 import io.github.solcott.activitytracker.composeApp.resources.action_save
 import io.github.solcott.activitytracker.composeApp.resources.action_saving
 import io.github.solcott.activitytracker.composeApp.resources.field_title
@@ -44,67 +42,52 @@ import org.jetbrains.compose.resources.stringResource
 fun ManualActivityUi(state: ManualActivityState, modifier: Modifier = Modifier) {
     Scaffold(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.manual_title)) },
-                navigationIcon = {
-                    IconButton(onClick = { state.eventSink(ManualActivityEvent.Back) }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
-                    }
-                },
-            )
-        },
+        topBar = { AppTopBar(title = stringResource(Res.string.manual_title), onBack = { state.eventSink(ManualActivityEvent.Back) }) },
     ) { padding ->
         Column(
-            Modifier.padding(padding).padding(16.dp),
+            Modifier.padding(padding).verticalScroll(rememberScrollState()).readableWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             ActivityTypePicker(state.type, state.quickTypes, { state.eventSink(ManualActivityEvent.TypeChanged(it)) })
-            OutlinedTextField(
+            AppTextField(
                 state.title,
-                label = { Text(stringResource(Res.string.field_title)) },
+                label = stringResource(Res.string.field_title),
                 modifier = Modifier.fillMaxWidth(),
             )
             UnitSystemPicker(state.units, { state.eventSink(ManualActivityEvent.UnitsChanged(it)) }, Modifier.fillMaxWidth())
-            OutlinedTextField(
+            AppTextField(
                 state.distance,
-                label = {
-                    Text(
-                        stringResource(
-                            when (state.units) {
-                                UnitSystem.Metric -> Res.string.manual_distance_label_km
-                                UnitSystem.Imperial -> Res.string.manual_distance_label_mi
-                            }
-                        )
-                    )
-                },
+                label =
+                    stringResource(
+                        when (state.units) {
+                            UnitSystem.Metric -> Res.string.manual_distance_label_km
+                            UnitSystem.Imperial -> Res.string.manual_distance_label_mi
+                        }
+                    ),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
-            OutlinedTextField(
+            AppTextField(
                 state.durationMinutes,
-                label = { Text(stringResource(Res.string.manual_duration_label)) },
+                label = stringResource(Res.string.manual_duration_label),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
-            OutlinedTextField(
+            AppTextField(
                 state.temperature,
-                label = {
-                    Text(
-                        stringResource(
-                            when (state.units) {
-                                UnitSystem.Metric -> Res.string.manual_temperature_label_c
-                                UnitSystem.Imperial -> Res.string.manual_temperature_label_f
-                            }
-                        )
-                    )
-                },
+                label =
+                    stringResource(
+                        when (state.units) {
+                            UnitSystem.Metric -> Res.string.manual_temperature_label_c
+                            UnitSystem.Imperial -> Res.string.manual_temperature_label_f
+                        }
+                    ),
                 // Not Decimal: some numeric keyboards have no minus key.
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                 modifier = Modifier.fillMaxWidth(),
             )
             state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
-            Button(
+            AppButton(
                 onClick = { state.eventSink(ManualActivityEvent.Save) },
                 enabled = state.valid && !state.saving,
             ) {

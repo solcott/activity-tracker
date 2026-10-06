@@ -5,6 +5,7 @@
     <string name="action_back">Back</string>
     <string name="action_retry">Retry</string>
     <string name="action_cancel">Cancel</string>
+    <string name="action_done">Done</string>
     <string name="handle_format">@%1$s</string>
 
     <!-- Errors (shown when the failure has no message of its own) -->
@@ -270,13 +271,17 @@
     <string name="login_waiting_for_browser">Continue in your browser…</string>
     <string name="login_sign_in">Sign in</string>
 
+    <!-- Top-level navigation (tabs, rail, sidebar) -->
+    <string name="nav_feed">Feed</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_you">You</string>
+
     <!-- Feed -->
     <string name="feed_title">Feed</string>
+    <string name="feed_add">Add activity</string>
     <string name="feed_refresh">Refresh</string>
     <string name="feed_add_manual">Add manual activity</string>
     <string name="feed_import">Import activity file</string>
-    <string name="feed_my_profile">My profile</string>
-    <string name="feed_search">Find athletes</string>
     <string name="feed_record">Record</string>
     <plurals name="feed_pending_writes">
         <item quantity="one">Uploading %1$d change…</item>

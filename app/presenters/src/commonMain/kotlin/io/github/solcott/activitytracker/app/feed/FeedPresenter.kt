@@ -17,7 +17,6 @@ import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.record.ManualActivityScreen
 import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
-import io.github.solcott.activitytracker.app.search.AthleteSearchScreen
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -84,14 +83,6 @@ fun FeedPresenter(
 
             FeedEvent.Import -> {
                 navigator.goTo(ImportActivityScreen)
-            }
-
-            FeedEvent.OpenMyProfile -> {
-                navigator.goTo(ProfileScreen(profiles.did.value))
-            }
-
-            FeedEvent.Search -> {
-                navigator.goTo(AthleteSearchScreen)
             }
         }
     }

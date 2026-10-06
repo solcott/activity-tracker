@@ -6,19 +6,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ThumbUp
-import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.Card
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
+import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.activity_card_counts
 import io.github.solcott.activitytracker.composeApp.resources.comments_count
@@ -43,11 +42,11 @@ fun ActivityCard(
     modifier: Modifier = Modifier,
 ) {
     val record = activity.record
-    Card(modifier.fillMaxWidth().clickable(onClick = onClick)) {
+    Card(modifier.fillMaxWidth().clickable(onClick = onClick).handCursor()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             val author = activity.author.displayName ?: activity.author.handle.value
             Row(
-                Modifier.clickable(onClick = onAuthorClick),
+                Modifier.clickable(onClick = onAuthorClick).handCursor(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -71,12 +70,14 @@ fun ActivityCard(
             record.polyline?.let { RoutePreview(it) }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (onKudos != null) {
-                    IconButton(onClick = onKudos) {
-                        Icon(
-                            if (activity.viewer?.kudos != null) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
-                            contentDescription = stringResource(Res.string.kudos_content_description),
-                        )
-                    }
+                    val given = activity.viewer?.kudos != null
+                    AppIconButton(
+                        AppIcon.Kudos,
+                        contentDescription = stringResource(Res.string.kudos_content_description),
+                        onClick = onKudos,
+                        filled = given,
+                        tint = if (given) MaterialTheme.colorScheme.tertiary else Color.Unspecified,
+                    )
                 }
                 Text(
                     stringResource(

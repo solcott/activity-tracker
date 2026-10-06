@@ -38,8 +38,4 @@ sealed interface FeedEvent {
     data object AddManual : FeedEvent
 
     data object Import : FeedEvent
-
-    data object OpenMyProfile : FeedEvent
-
-    data object Search : FeedEvent
 }

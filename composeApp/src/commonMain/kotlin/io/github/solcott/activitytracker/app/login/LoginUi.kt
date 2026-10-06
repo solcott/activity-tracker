@@ -8,12 +8,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,6 +19,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import dev.zacsweers.metro.AppScope
+import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
+import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.app_name
@@ -39,18 +40,22 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun LoginUi(state: LoginState, modifier: Modifier = Modifier) {
     Column(
-        modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),
+        modifier.fillMaxSize().safeDrawingPadding().readableWidth(LOGIN_MAX_WIDTH).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(stringResource(Res.string.app_name), style = MaterialTheme.typography.headlineMedium)
+        Text(
+            stringResource(Res.string.app_name),
+            style = MaterialTheme.typography.headlineLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
         Text(
             stringResource(Res.string.login_intro),
             style = MaterialTheme.typography.bodyMedium,
         )
-        OutlinedTextField(
+        AppTextField(
             state = state.handle,
-            label = { Text(stringResource(Res.string.login_handle_label)) },
+            label = stringResource(Res.string.login_handle_label),
             lineLimits = TextFieldLineLimits.SingleLine,
             enabled = !state.busy,
             keyboardOptions =
@@ -70,15 +75,15 @@ fun LoginUi(state: LoginState, modifier: Modifier = Modifier) {
 
             Status.WaitingForBrowser -> {
                 Text(stringResource(Res.string.login_waiting_for_browser))
-                TextButton(onClick = { state.eventSink(LoginEvent.Cancel) }) { Text(stringResource(Res.string.action_cancel)) }
+                AppTextButton(onClick = { state.eventSink(LoginEvent.Cancel) }) { Text(stringResource(Res.string.action_cancel)) }
             }
 
             else -> Unit
         }
         if (state.busy) {
-            CircularProgressIndicator()
+            AppProgressIndicator()
         } else {
-            Button(
+            AppButton(
                 onClick = { state.eventSink(LoginEvent.Submit) },
                 enabled = state.handle.text.isNotBlank(),
             ) {
@@ -87,6 +92,9 @@ fun LoginUi(state: LoginState, modifier: Modifier = Modifier) {
         }
     }
 }
+
+/** A phone-width form, centred, on desktop and web. */
+private val LOGIN_MAX_WIDTH = 420.dp
 
 @Composable
 private fun failedText(status: Status.Failed): String =

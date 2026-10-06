@@ -9,23 +9,29 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import com.slack.circuit.backstack.SaveableBackStack
 import com.slack.circuit.backstack.rememberSaveableBackStack
 import com.slack.circuit.foundation.CircuitCompositionLocals
 import com.slack.circuit.foundation.CircuitContent
 import com.slack.circuit.foundation.NavigableCircuitContent
+import com.slack.circuit.foundation.navstack.ProvidedValues
 import com.slack.circuit.foundation.rememberCircuitNavigator
+import com.slack.circuitx.gesturenavigation.GestureNavigationDecorationFactory
 import io.github.solcott.activitytracker.app.di.AppGraph
 import io.github.solcott.activitytracker.app.feed.FeedScreen
 import io.github.solcott.activitytracker.app.login.LoginScreen
-import io.github.solcott.activitytracker.app.ui.theme.AppTheme
+import io.github.solcott.activitytracker.app.nav.AppShell
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
+import io.github.solcott.activitytracker.app.ui.adaptive.LocalIsNavRoot
+import io.github.solcott.activitytracker.app.ui.theme.AppTheme
 
 /**
  * Root: signed out → [LoginScreen] on the app-scoped Circuit; signed in → a fresh `SessionGraph` (keyed by DID) whose Circuit hosts the
  * navigable signed-in screens.
  */
 @Composable
-fun App(graph: AppGraph, onRootPop: () -> Unit = {}) {
+fun App(graph: AppGraph, modifier: Modifier = Modifier, onRootPop: () -> Unit = {}) {
     var restored by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         graph.authRepository.restore()
@@ -33,7 +39,7 @@ fun App(graph: AppGraph, onRootPop: () -> Unit = {}) {
     }
     val session by graph.authRepository.session.collectAsState()
 
-    AppTheme {
+    AppTheme(modifier) {
         if (!restored) return@AppTheme
         val current = session
         if (current == null) {
@@ -49,10 +55,26 @@ fun App(graph: AppGraph, onRootPop: () -> Unit = {}) {
                     CircuitCompositionLocals(sessionGraph.sessionCircuit.circuit) {
                         val backStack = rememberSaveableBackStack(root = FeedScreen)
                         val navigator = rememberCircuitNavigator(backStack = backStack, onRootPop = { onRootPop() })
-                        NavigableCircuitContent(navigator = navigator, backStack = backStack)
+                        AppShell(backStack, navigator, viewerDid = current.did.value) { contentModifier ->
+                            NavigableCircuitContent(
+                                navigator = navigator,
+                                navStack = backStack,
+                                modifier = contentModifier,
+                                providedValues = rootFlags(backStack),
+                                // iOS's edge swipe back and Android's predictive back; the default transition elsewhere.
+                                decoratorFactory = remember { GestureNavigationDecorationFactory() },
+                            )
+                        }
                     }
                 }
             }
         }
     }
+}
+
+/** Tells each screen whether it's the root of the stack ([LocalIsNavRoot]), which drops its back button. */
+@Composable
+private fun rootFlags(backStack: SaveableBackStack): Map<SaveableBackStack.Record, ProvidedValues> {
+    val root = backStack.rootRecord
+    return backStack.associateWith { record -> ProvidedValues { listOf(LocalIsNavRoot provides (record == root)) } }
 }

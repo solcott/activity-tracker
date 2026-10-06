@@ -39,8 +39,8 @@ Compose:
   CompositionLocalAllowlist:
     active: true
     # The unit preference is ambient like the theme: every stat formatter reads it, so threading it through each State would add noise.
-    # LocalUiPlatform is part of the theme.
-    allowedCompositionLocals: LocalUnitSystem,LocalUiPlatform
+    # LocalUiPlatform is part of the theme, and LocalIsNavRoot is navigation state App provides to every screen's top bar.
+    allowedCompositionLocals: LocalUnitSystem,LocalUiPlatform,LocalIsNavRoot
   # Composable params take ImmutableList, not List; composeStabilityCheck catches the rest from the compiler reports.
   UnstableCollections:
     active: true

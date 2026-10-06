@@ -14,20 +14,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -43,9 +33,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.AccountRow
+import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
+import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
+import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_back
 import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.search_clear
 import io.github.solcott.activitytracker.composeApp.resources.search_label
@@ -72,28 +70,22 @@ fun AthleteSearchUi(state: AthleteSearchState, modifier: Modifier = Modifier) {
 
     Scaffold(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(Res.string.search_title)) },
-                navigationIcon = {
-                    IconButton(onClick = { state.eventSink(AthleteSearchEvent.Back) }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
-                    }
-                },
-            )
-        },
+        topBar = { AppTopBar(title = stringResource(Res.string.search_title), onBack = { state.eventSink(AthleteSearchEvent.Back) }) },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
-            SearchField(
-                state.query,
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            )
-            LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 8.dp)) {
-                items(state.results, key = { it.did.value }) { account ->
-                    AccountRow(account, onClick = { state.eventSink(AthleteSearchEvent.Open(account.did)) })
-                    HorizontalDivider()
+            SearchField(state.query, Modifier.readableWidth().padding(horizontal = 16.dp, vertical = 8.dp))
+            ReadableList(listState, Modifier.fillMaxSize(), minSidePadding = 0.dp) { side ->
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    state = listState,
+                    contentPadding = PaddingValues(start = side, end = side, bottom = 8.dp),
+                ) {
+                    items(state.results, key = { it.did.value }) { account ->
+                        AccountRow(account, onClick = { state.eventSink(AthleteSearchEvent.Open(account.did)) })
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                    footer(state)
                 }
-                footer(state)
             }
         }
     }
@@ -105,14 +97,19 @@ private fun SearchField(query: TextFieldState, modifier: Modifier = Modifier) {
     val keyboard = LocalSoftwareKeyboardController.current
     // Open ready to type, unless coming back to a search already made.
     LaunchedEffect(Unit) { if (query.text.isEmpty()) focus.requestFocus() }
-    OutlinedTextField(
+    AppTextField(
         query,
         modifier = modifier.focusRequester(focus),
-        label = { Text(stringResource(Res.string.search_label)) },
-        leadingIcon = { Icon(Icons.Default.Search, null) },
+        placeholder = stringResource(Res.string.search_label),
+        leadingIcon = { PlatformIcon(AppIcon.Search, null) },
         trailingIcon = {
             if (query.text.isNotEmpty()) {
-                IconButton(onClick = { query.clearText() }) { Icon(Icons.Default.Clear, stringResource(Res.string.search_clear)) }
+                AppIconButton(
+                    AppIcon.Clear,
+                    stringResource(Res.string.search_clear),
+                    onClick = { query.clearText() },
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         },
         lineLimits = TextFieldLineLimits.SingleLine,
@@ -129,13 +126,13 @@ private fun LazyListScope.footer(state: AthleteSearchState) {
             item {
                 Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(errorText(error), color = MaterialTheme.colorScheme.error)
-                    TextButton(onClick = { state.eventSink(AthleteSearchEvent.Retry) }) { Text(stringResource(Res.string.action_retry)) }
+                    AppTextButton(onClick = { state.eventSink(AthleteSearchEvent.Retry) }) { Text(stringResource(Res.string.action_retry)) }
                 }
             }
         }
 
         state.isLoading -> {
-            item { Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+            item { Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { AppProgressIndicator() } }
         }
 
         state.query.text.isBlank() -> {

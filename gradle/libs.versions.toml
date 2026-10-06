@@ -22,6 +22,8 @@ android-minSdk = "26"
 android-targetSdk = "37"
 
 circuit = "0.39.0"
+# Adaptive (UIKit on iOS, Material elsewhere) dialogs, sheets, pickers, menus and the tab bar. Pinned to our Kotlin/CMP pair.
+calf = "0.14.0"
 coil = "3.6.3"
 kotlinxCoroutines = "1.11.0"
 kotlinxSerialization = "1.11.0"
@@ -103,6 +105,9 @@ circuit-runtime-presenter = { module = "com.slack.circuit:circuit-runtime-presen
 circuit-serialization = { module = "com.slack.circuit:circuit-serialization", version.ref = "circuit" }
 circuit-codegen-annotations = { module = "com.slack.circuit:circuit-codegen-annotations", version.ref = "circuit" }
 circuit-test = { module = "com.slack.circuit:circuit-test", version.ref = "circuit" }
+circuitx-gesture-navigation = { module = "com.slack.circuit:circuitx-gesture-navigation", version.ref = "circuit" }
+calf-ui = { module = "com.mohamedrejeb.calf:calf-ui", version.ref = "calf" }
+calf-cupertino-icons = { module = "com.mohamedrejeb.calf:calf-cupertino-icons", version.ref = "calf" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
 

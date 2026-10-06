@@ -14,9 +14,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,6 +24,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
+import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.import_time_zone
 import io.github.solcott.activitytracker.composeApp.resources.import_time_zone_notice
@@ -61,12 +62,12 @@ private fun TimeZoneField(clock: ImportClock, onPick: (String) -> Unit, enabled:
             zones.filter { key in it.key }
         }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it && enabled }, modifier = modifier) {
-        OutlinedTextField(
+        AppTextField(
             query,
             modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, enabled).fillMaxWidth(),
             enabled = enabled,
-            label = { Text(stringResource(Res.string.import_time_zone)) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            label = stringResource(Res.string.import_time_zone),
+            trailingIcon = { PlatformIcon(AppIcon.DropDown, null) },
             // Typing opens the menu; setting the text from code doesn't.
             inputTransformation = InputTransformation { expanded = true },
             lineLimits = TextFieldLineLimits.SingleLine,

@@ -10,17 +10,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -31,10 +24,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.AccountRow
+import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
+import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_back
 import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.follow_list_followers
 import io.github.solcott.activitytracker.composeApp.resources.follow_list_following
@@ -62,31 +58,25 @@ fun FollowListUi(state: FollowListState, modifier: Modifier = Modifier) {
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(stringResource(state.kind.title))
-                        state.subject?.let { Text(handleLabel(it.handle.value), style = MaterialTheme.typography.bodySmall) }
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = { state.eventSink(FollowListEvent.Back) }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.action_back))
-                    }
-                },
+            AppTopBar(
+                title = stringResource(state.kind.title),
+                subtitle = state.subject?.let { handleLabel(it.handle.value) },
+                onBack = { state.eventSink(FollowListEvent.Back) },
             )
         },
     ) { padding ->
-        LazyColumn(
-            Modifier.padding(padding).fillMaxSize(),
-            state = listState,
-            contentPadding = PaddingValues(vertical = 8.dp),
-        ) {
-            items(state.accounts, key = { it.did.value }) { account ->
-                AccountRow(account, onClick = { state.eventSink(FollowListEvent.Open(account.did)) })
-                HorizontalDivider()
+        ReadableList(listState, Modifier.padding(padding).fillMaxSize(), minSidePadding = 0.dp) { side ->
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                state = listState,
+                contentPadding = PaddingValues(horizontal = side, vertical = 8.dp),
+            ) {
+                items(state.accounts, key = { it.did.value }) { account ->
+                    AccountRow(account, onClick = { state.eventSink(FollowListEvent.Open(account.did)) })
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
+                footer(state)
             }
-            footer(state)
         }
     }
 }
@@ -97,12 +87,12 @@ private fun LazyListScope.footer(state: FollowListState) {
         item {
             Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(errorText(message), color = MaterialTheme.colorScheme.error)
-                TextButton(onClick = { state.eventSink(FollowListEvent.Retry) }) { Text(stringResource(Res.string.action_retry)) }
+                AppTextButton(onClick = { state.eventSink(FollowListEvent.Retry) }) { Text(stringResource(Res.string.action_retry)) }
             }
         }
     }
     if (state.isLoading) {
-        item { Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+        item { Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { AppProgressIndicator() } }
     } else if (state.accounts.isEmpty() && state.error == null) {
         item {
             Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Text(stringResource(state.kind.emptyText)) }
