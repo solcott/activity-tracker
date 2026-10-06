@@ -7,9 +7,11 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.DetailsVisibility
 import io.github.solcott.activitytracker.lexicon.app.GetPrivateDetails
 import io.github.solcott.activitytracker.lexicon.app.Location
+import io.github.solcott.activitytracker.lexicon.app.PowerZoneModel
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.PutPrivateDetails
+import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -119,7 +121,10 @@ class ProfileRepositoryTest {
 
         val own = repo.ownProfile()
         assertEquals(ProfileDetails(location = portland, birthDate = "1990-04-01", weight = 61_500), own.details)
-        assertEquals(DetailsVisibility(Visibility.PUBLIC, Visibility.SELF, Visibility.SELF, Visibility.MUTUALS), own.visibility)
+        assertEquals(
+            DetailsVisibility(Visibility.PUBLIC, Visibility.SELF, Visibility.SELF, Visibility.MUTUALS, Visibility.SELF),
+            own.visibility,
+        )
     }
 
     @Test
@@ -149,7 +154,10 @@ class ProfileRepositoryTest {
     fun unsetDetailsDefaultToOnlyMe() = runTest {
         val own = repository().ownProfile()
         assertEquals(ProfileDetails(), own.details)
-        assertEquals(DetailsVisibility(Visibility.SELF, Visibility.SELF, Visibility.SELF, Visibility.SELF), own.visibility)
+        assertEquals(
+            DetailsVisibility(Visibility.SELF, Visibility.SELF, Visibility.SELF, Visibility.SELF, Visibility.SELF),
+            own.visibility,
+        )
     }
 
     @Test
@@ -167,5 +175,28 @@ class ProfileRepositoryTest {
 
         repo.save(ProfileEdit("Alice", "", ProfileDetails(), DetailsVisibility(), AvatarEdit.Remove))
         assertNull(record?.avatar)
+    }
+
+    @Test
+    fun trainingAndProfileEditsKeepEachOthersDetails() = runTest {
+        record = ProfileRecord(displayName = "Alice", details = ProfileDetails(location = portland))
+        hidden = PutPrivateDetails.Input(ProfileDetails(weight = 61_500), DetailsVisibility(weight = Visibility.MUTUALS))
+        val repo = repository()
+        val training = TrainingDetails(functionalThresholdPower = 231, powerZoneModel = PowerZoneModel.COGGAN_6)
+
+        repo.saveTraining(training, Visibility.SELF)
+        assertEquals(ProfileDetails(weight = 61_500, training = training), hidden.details)
+        assertEquals(DetailsVisibility(weight = Visibility.MUTUALS, training = Visibility.SELF), hidden.visibility)
+        assertEquals(ProfileRecord(displayName = "Alice", details = ProfileDetails(location = portland)), record)
+
+        // The edit-profile screen doesn't send training, and saving it keeps the thresholds.
+        repo.save(ProfileEdit("Alice", "", ProfileDetails(gender = "female"), DetailsVisibility(gender = Visibility.SELF)))
+        assertEquals(ProfileDetails(gender = "female", training = training), hidden.details)
+        assertNull(record?.details)
+
+        // Made public, training moves into the record.
+        repo.saveTraining(training, Visibility.PUBLIC)
+        assertEquals(training, record?.details?.training)
+        assertEquals(ProfileDetails(gender = "female"), hidden.details)
     }
 }

@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.composeApp.resources.allStringResources
 import io.github.solcott.activitytracker.composeApp.resources.detail_birth_date
 import io.github.solcott.activitytracker.composeApp.resources.detail_gender
 import io.github.solcott.activitytracker.composeApp.resources.detail_location
+import io.github.solcott.activitytracker.composeApp.resources.detail_training
 import io.github.solcott.activitytracker.composeApp.resources.detail_weight
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_load_feed
@@ -101,3 +102,4 @@ fun detailGroupLabel(group: DetailGroup): String =
             DetailGroup.Weight -> Res.string.detail_weight
         }
     )
+            DetailGroup.Training -> Res.string.detail_training

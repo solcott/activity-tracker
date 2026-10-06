@@ -19,13 +19,17 @@ data class OwnProfile(
     val visibility: DetailsVisibility,
 )
 
-/** A save from the edit-profile screen. Blank text clears a field; a [DetailGroup] that isn't set in [details] is cleared. */
+/**
+ * A profile save. Blank text clears a field; a group in [groups] that isn't set in [details] is cleared, and groups outside [groups] keep
+ * their current values.
+ */
 data class ProfileEdit(
     val displayName: String,
     val description: String,
     val details: ProfileDetails,
     val visibility: DetailsVisibility,
     val avatar: AvatarEdit = AvatarEdit.Keep,
+    val groups: Set<DetailGroup> = DetailGroup.profile,
 )
 
 sealed interface AvatarEdit {

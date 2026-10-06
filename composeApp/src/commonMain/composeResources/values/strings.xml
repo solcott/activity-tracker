@@ -407,6 +407,7 @@
     <string name="stat_water_temp">Water temp</string>
     <string name="dive_profile">Depth profile</string>
     <string name="dive_open_circuit">Open circuit</string>
+    <string name="detail_training">Thresholds and zones</string>
     <string name="dive_closed_circuit">Closed circuit</string>
     <string name="dive_gas_air">Air</string>
     <string name="dive_gas_oxygen">Oxygen</string>

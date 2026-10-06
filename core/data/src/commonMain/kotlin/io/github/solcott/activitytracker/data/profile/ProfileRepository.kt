@@ -92,20 +92,7 @@ class ProfileRepository(
      */
     suspend fun ownProfile(): OwnProfile {
         val record = ownProfileRecord()
-        val hidden = clients.appView.query(GetPrivateDetails.method, NoParams)
-        val public = record?.details ?: ProfileDetails()
-        var details = ProfileDetails()
-        var visibility = DetailsVisibility()
-        for (group in DetailGroup.entries) {
-            val (source, shownTo) =
-                when {
-                    group.isSet(public) -> public to Visibility.PUBLIC
-                    group.isSet(hidden.details) -> hidden.details to (group.visibility(hidden.visibility) ?: Visibility.SELF)
-                    else -> ProfileDetails() to Visibility.SELF
-                }
-            details = group.copy(source, details)
-            visibility = group.withVisibility(visibility, shownTo)
-        }
+        val (details, visibility) = ownDetails(record, clients.appView.query(GetPrivateDetails.method, NoParams))
         val avatar = record?.avatar
         return OwnProfile(
             record?.displayName,
@@ -129,15 +116,27 @@ class ProfileRepository(
      * as public, which it was or is about to be) rather than losing it.
      */
     suspend fun save(edit: ProfileEdit) {
-        val record = ownProfileRecord() ?: ProfileRecord(createdAt = clock.now())
+        val existing = ownProfileRecord()
+        val record = existing ?: ProfileRecord(createdAt = clock.now())
+        // putPrivateDetails replaces every private detail, so the groups this edit doesn't own keep their current values.
+        val kept = DetailGroup.entries - edit.groups
+        val (allDetails, allVisibility) =
+            if (kept.isEmpty()) {
+                edit.details to edit.visibility
+            } else {
+                val (current, currentVisibility) = ownDetails(existing, clients.appView.query(GetPrivateDetails.method, NoParams))
+                kept.fold(edit.details.only(edit.groups) to edit.visibility.only(edit.groups)) { (details, visibility), group ->
+                    group.copy(current, details) to group.withVisibility(visibility, group.visibility(currentVisibility))
+                }
+            }
         val (publicGroups, privateGroups) =
-            DetailGroup.entries.filter { it.isSet(edit.details) }.partition { it.visibility(edit.visibility) == Visibility.PUBLIC }
-        val hiddenDetails = edit.details.only(privateGroups)
-        val hiddenVisibility = edit.visibility.only(privateGroups)
+            DetailGroup.entries.filter { it.isSet(allDetails) }.partition { it.visibility(allVisibility) == Visibility.PUBLIC }
+        val hiddenDetails = allDetails.only(privateGroups)
+        val hiddenVisibility = allVisibility.only(privateGroups)
         // A detail going public stays in the private store (as Only me) until the record holds it.
         val goingPublic = publicGroups.filterNot { it.isSet(record.details ?: ProfileDetails()) }
         putPrivateDetails(
-            hiddenDetails.let { d -> goingPublic.fold(d) { acc, group -> group.copy(edit.details, acc) } },
+            hiddenDetails.let { d -> goingPublic.fold(d) { acc, group -> group.copy(allDetails, acc) } },
             goingPublic.fold(hiddenVisibility) { acc, group -> group.withVisibility(acc, Visibility.SELF) },
         )
         val avatar =
@@ -151,11 +150,11 @@ class ProfileRepository(
                 displayName = edit.displayName.trim().ifEmpty { null },
                 description = edit.description.trim().ifEmpty { null },
                 avatar = avatar,
-                details = edit.details.only(publicGroups).takeUnless { it == ProfileDetails() },
+                details = allDetails.only(publicGroups).takeUnless { it == ProfileDetails() },
             )
         putProfileRecord(saved)
         if (goingPublic.isNotEmpty()) putPrivateDetails(hiddenDetails, hiddenVisibility)
-        pendingOwnProfile = Pending(saved, edit.details)
+        pendingOwnProfile = Pending(saved, allDetails)
     }
 
     private suspend fun putProfileRecord(record: ProfileRecord) {
@@ -220,3 +219,24 @@ private fun blobUrl(pdsUrl: String, did: Did, cid: String): String =
             parameters.append("cid", cid)
         }
         .buildString()
+
+/**
+ * Every detail the athlete has set, from their [record] and the AppView's [hidden] copy, and an effective visibility for each group (see
+ * [OwnProfile]).
+ */
+private fun ownDetails(record: ProfileRecord?, hidden: GetPrivateDetails.Output): Pair<ProfileDetails, DetailsVisibility> {
+    val public = record?.details ?: ProfileDetails()
+    var details = ProfileDetails()
+    var visibility = DetailsVisibility()
+    for (group in DetailGroup.entries) {
+        val (source, shownTo) =
+            when {
+                group.isSet(public) -> public to Visibility.PUBLIC
+                group.isSet(hidden.details) -> hidden.details to (group.visibility(hidden.visibility) ?: Visibility.SELF)
+                else -> ProfileDetails() to Visibility.SELF
+            }
+        details = group.copy(source, details)
+        visibility = group.withVisibility(visibility, shownTo)
+    }
+    return details to visibility
+}

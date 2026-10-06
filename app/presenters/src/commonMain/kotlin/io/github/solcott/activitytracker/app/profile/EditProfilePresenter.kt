@@ -173,7 +173,7 @@ private class Form(
         )
 
     fun visibility(): DetailsVisibility =
-        DetailGroup.entries.fold(DetailsVisibility()) { acc, group -> group.withVisibility(acc, visibilities.getValue(group).value) }
+        DetailGroup.profile.fold(DetailsVisibility()) { acc, group -> group.withVisibility(acc, visibilities.getValue(group).value) }
 }
 
 @Composable
@@ -188,7 +188,7 @@ private fun rememberForm(units: UnitSystem): Form {
         birthDate = rememberSaveable { mutableStateOf("") },
         gender = rememberTextFieldState(),
         weight = rememberTextFieldState(),
-        visibilities = DetailGroup.entries.associateWith { group -> rememberSaveable(group.name) { mutableStateOf(Visibility.SELF) } },
+        visibilities = DetailGroup.profile.associateWith { group -> rememberSaveable(group.name) { mutableStateOf(Visibility.SELF) } },
         filled = rememberSaveable { mutableStateOf(false) },
         units = savedUnits,
     )
@@ -196,7 +196,7 @@ private fun rememberForm(units: UnitSystem): Form {
 
 /** Details that were public as [loaded] and are still set, but no longer public: anyone may already have copied them. */
 private fun nowHidden(loaded: OwnProfile, details: ProfileDetails, visibility: DetailsVisibility): List<DetailGroup> =
-    DetailGroup.entries.filter { group ->
+    DetailGroup.profile.filter { group ->
         group.visibility(loaded.visibility) == Visibility.PUBLIC &&
             group.isSet(loaded.details) &&
             group.isSet(details) &&
