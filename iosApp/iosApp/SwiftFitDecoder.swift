@@ -29,9 +29,72 @@ final class SwiftFitDecoder: FitDecoder {
             sessions: messages.sessionMesgs.map(Self.summary),
             laps: messages.lapMesgs.map(Self.summary),
             records: messages.recordMesgs.map(Self.record),
-            // Like the Java and JS decoders, FIT dive data isn't read yet, and FIT times are UTC.
-            dive: nil,
+            dive: Self.dive(messages),
+            // FIT times are UTC.
             localStart: nil
+        )
+    }
+
+    /// The dive messages as they are; FitDives (Kotlin) interprets them, as for the Java and JS decoders.
+    private static func dive(_ messages: FitMessages) -> DecodedDive? {
+        let session = messages.sessionMesgs.first
+        let settings = messages.diveSettingsMesgs.first
+        let diveMessages = FitDiveMessages(
+            summaries: messages.diveSummaryMesgs.map { m in
+                FitDiveSummary(
+                    referenceMesg: m.getReferenceMesg().map { String(describing: $0) },
+                    avgDepthMeters: double(m.getAvgDepth()),
+                    maxDepthMeters: double(m.getMaxDepth()),
+                    surfaceIntervalSeconds: double(m.getSurfaceInterval().map(Double.init)),
+                    diveNumber: int(m.getDiveNumber().map(Int32.init(truncatingIfNeeded:))),
+                    bottomTimeSeconds: double(m.getBottomTime()),
+                    startCns: int(m.getStartCns().map(Int32.init)),
+                    endCns: int(m.getEndCns().map(Int32.init)),
+                    oxygenToxicityOtu: int(m.getO2Toxicity().map(Int32.init)),
+                    avgRmv: double(m.getAvgRmv()),
+                    avgVolumeSac: double(m.getAvgVolumeSac()),
+                    avgPressureSac: double(m.getAvgPressureSac())
+                )
+            },
+            gradientFactorLow: int(settings?.getGfLow().map(Int32.init)),
+            gradientFactorHigh: int(settings?.getGfHigh().map(Int32.init)),
+            gases: messages.diveGasMesgs.map { m in
+                FitDiveGas(
+                    index: int(m.getMessageIndex().map(Int32.init)),
+                    oxygenPercent: int(m.getOxygenContent().map(Int32.init)),
+                    heliumPercent: int(m.getHeliumContent().map(Int32.init)),
+                    status: m.getStatus().map { String(describing: $0) },
+                    mode: m.getMode().map { String(describing: $0) }
+                )
+            },
+            gasSwitches: messages.eventMesgs.compactMap { m in
+                m.getEvent() == .diveGasSwitched ? m.getData().map { KotlinInt(value: Int32(truncatingIfNeeded: $0)) } : nil
+            },
+            tanks: messages.tankSummaryMesgs.map { m in
+                FitTankSummary(
+                    startPressureBar: double(m.getStartPressure()),
+                    endPressureBar: double(m.getEndPressure()),
+                    volumeUsedLiters: double(m.getVolumeUsed())
+                )
+            },
+            entry: position(session?.getStartPositionLat(), session?.getStartPositionLong()),
+            exit: position(session?.getEndPositionLat(), session?.getEndPositionLong()),
+            sessionMaxDepthMeters: double(session?.getMaxDepth()),
+            sessionAvgDepthMeters: double(session?.getAvgDepth()),
+            sessionDiveNumber: int(session?.getDiveNumber().map(Int32.init(truncatingIfNeeded:)))
+        )
+        return FitDives.shared.interpret(
+            messages: diveMessages,
+            sport: session?.getSport().map { String(describing: $0) },
+            subSport: session?.getSubSport().map { String(describing: $0) }
+        )
+    }
+
+    private static func position(_ lat: Int32?, _ lon: Int32?) -> DivePosition? {
+        guard let lat, let lon else { return nil }
+        return DivePosition(
+            latitude: FitUnits.shared.semicirclesToDegrees(semicircles: lat),
+            longitude: FitUnits.shared.semicirclesToDegrees(semicircles: lon)
         )
     }
 
@@ -105,7 +168,7 @@ final class SwiftFitDecoder: FitDecoder {
             speedMps: double(m.getEnhancedSpeed() ?? m.getSpeed()),
             distanceMeters: double(m.getDistance()),
             temperatureCelsius: double(m.getTemperature().map(Double.init)),
-            depthMeters: nil
+            depthMeters: double(m.getDepth())
         )
     }
 

@@ -44,7 +44,7 @@ data class ImportedActivity(
 /** A dive's depths, gases and decompression state, in SI units. */
 data class ImportedDive(
     val maxDepthMeters: Double?,
-    /** Time-weighted over the samples below the surface. */
+    /** The dive computer's, else time-weighted over the samples below the surface. */
     val avgDepthMeters: Double?,
     /** The coldest water, usually at depth. */
     val minWaterTempCelsius: Double?,
@@ -60,6 +60,13 @@ data class ImportedDive(
     val closedCircuit: Boolean,
     /** Depth over time, from the start of the dive. */
     val profile: List<DepthPoint>,
+    val bottomTimeSeconds: Double? = null,
+    val oxygenToxicityOtu: Int? = null,
+    val rmvLitersPerMinute: Double? = null,
+    val sacBarPerMinute: Double? = null,
+    val tanks: List<DiveTank> = emptyList(),
+    val entry: DivePosition? = null,
+    val exit: DivePosition? = null,
 )
 
 data class DepthPoint(val seconds: Long, val depthMeters: Double)

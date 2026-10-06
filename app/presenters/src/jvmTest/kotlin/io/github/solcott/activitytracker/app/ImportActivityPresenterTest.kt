@@ -10,10 +10,14 @@ import io.github.solcott.activitytracker.activityfile.DecodedSample
 import io.github.solcott.activitytracker.activityfile.DecodedSource
 import io.github.solcott.activitytracker.activityfile.DecodedSummary
 import io.github.solcott.activitytracker.activityfile.DiveGas
+import io.github.solcott.activitytracker.activityfile.DivePosition
+import io.github.solcott.activitytracker.activityfile.DiveTank
 import io.github.solcott.activitytracker.activityfile.FitDecoder
 import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.app.record.DepthPreviewPoint
 import io.github.solcott.activitytracker.app.record.DiveGasPreview
+import io.github.solcott.activitytracker.app.record.DiveSitePreview
+import io.github.solcott.activitytracker.app.record.DiveTankPreview
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
@@ -117,11 +121,8 @@ class ImportActivityPresenterTest {
         assertTrue("track" in record, "the GPS track is uploaded as a GPX blob")
     }
 
-    @Test
-    fun aDiveShowsItsDepthsAndGases() = runTest {
-        val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
-        // Two hours at 10 s intervals: more points than the profile draws.
+    /** A Shearwater-style dive log, two hours at 10 s intervals: more points than the profile draws. */
+    private fun diveLog(): DecodedActivity {
         val records =
             (0L..720L).map { i ->
                 DecodedSample(
@@ -138,32 +139,54 @@ class ImportActivityPresenterTest {
                     if (i == 720L) 0.0 else 30.0,
                 )
             }
-        val dive =
-            DecodedActivity(
-                fileId = DecodedSource(null, null, "Shearwater Perdix", null),
-                sessions =
-                    listOf(
-                        DecodedSummary(
-                            "diving",
-                            "multi_gas_diving",
-                            start.toEpochMilliseconds(),
-                            7200.0,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                        )
-                    ),
-                laps = emptyList(),
-                records = records,
-                dive = DecodedDive(31.0, 42, 90, 30, 70, 2, 25, listOf(DiveGas(21, 35), DiveGas(50, 0)), closedCircuit = false),
-            )
+        return DecodedActivity(
+            fileId = DecodedSource(null, null, "Shearwater Perdix", null),
+            sessions =
+                listOf(
+                    DecodedSummary(
+                        "diving",
+                        "multi_gas_diving",
+                        start.toEpochMilliseconds(),
+                        7200.0,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                    )
+                ),
+            laps = emptyList(),
+            records = records,
+            dive =
+                DecodedDive(
+                    31.0,
+                    42,
+                    90,
+                    30,
+                    70,
+                    2,
+                    25,
+                    listOf(DiveGas(21, 35), DiveGas(50, 0)),
+                    closedCircuit = false,
+                    bottomTimeSeconds = 2400.4,
+                    oxygenToxicityOtu = 40,
+                    sacBarPerMinute = 1.5,
+                    tanks = listOf(DiveTank(210.0, 60.0, null)),
+                    exit = DivePosition(13.87, -61.08),
+                ),
+        )
+    }
+
+    @Test
+    fun aDiveShowsItsDepthsAndGases() = runTest {
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ImportActivityScreen)
+        val dive = diveLog()
         presenterTestOf({ ImportActivityPresenter(navigator, repos.activities, ActivityFileReader { dive }, repos.recentTypes) }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("dive.fit", bytes))
             val read = awaitUntil { it.preview != null }
@@ -172,6 +195,11 @@ class ImportActivityPresenterTest {
             assertEquals(31.0, preview.maxDepthMeters)
             assertEquals(listOf(DiveGasPreview(21, 35), DiveGasPreview(50, 0)), preview.gases)
             assertEquals(42, preview.diveNumber)
+            assertEquals(2400L, preview.bottomTimeSeconds)
+            assertEquals(40, preview.oxygenToxicityOtu)
+            assertEquals(1.5, preview.sacBarPerMinute)
+            assertEquals(listOf(DiveTankPreview(210.0, 60.0)), preview.tanks)
+            assertEquals(DiveSitePreview(13.87, -61.08), preview.site, "the exit, with no entry")
             assertTrue(preview.profile.size <= 300, "thinned to ${preview.profile.size}")
             assertEquals(DepthPreviewPoint(7200, 0.0), preview.profile.last(), "still ends at the surface")
             assertNull(read.preview?.polyline)

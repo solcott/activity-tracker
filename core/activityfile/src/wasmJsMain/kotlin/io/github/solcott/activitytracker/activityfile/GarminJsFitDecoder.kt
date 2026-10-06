@@ -16,6 +16,7 @@ class GarminJsFitDecoder : FitDecoder {
         val result = decoder.read()
         if (result.errors.length > 0) activityFileError("Couldn't read FIT file: ${jsString(result.errors[0]!!)}")
         val messages = result.messages
+        val sessions = messages.sessionMesgs?.toList().orEmpty()
         return DecodedActivity(
             fileId =
                 messages.fileIdMesgs?.toList()?.firstOrNull()?.let {
@@ -26,7 +27,7 @@ class GarminJsFitDecoder : FitDecoder {
                         timeCreatedMillis = it.timeCreated?.let(::dateMillis),
                     )
                 },
-            sessions = messages.sessionMesgs?.toList().orEmpty().map { it.toSummary() },
+            sessions = sessions.map { it.toSummary() },
             laps = messages.lapMesgs?.toList().orEmpty().map { it.toSummary() },
             records =
                 messages.recordMesgs?.toList().orEmpty().map {
@@ -41,9 +42,70 @@ class GarminJsFitDecoder : FitDecoder {
                         speedMps = number(it.enhancedSpeed) ?: number(it.speed),
                         distanceMeters = number(it.distance),
                         temperatureCelsius = number(it.temperature),
+                        depthMeters = number(it.depth),
                     )
                 },
+            dive = dive(messages, sessions.firstOrNull()),
         )
+    }
+
+    private fun dive(messages: FitMessages, session: JsSummaryMesg?): DecodedDive? {
+        val settings = messages.diveSettingsMesgs?.toList()?.firstOrNull()
+        return FitDives.interpret(
+            FitDiveMessages(
+                summaries =
+                    messages.diveSummaryMesgs?.toList().orEmpty().map {
+                        FitDiveSummary(
+                            referenceMesg = it.referenceMesg?.let(::jsString),
+                            avgDepthMeters = number(it.avgDepth),
+                            maxDepthMeters = number(it.maxDepth),
+                            surfaceIntervalSeconds = number(it.surfaceInterval),
+                            diveNumber = number(it.diveNumber)?.roundToInt(),
+                            bottomTimeSeconds = number(it.bottomTime),
+                            startCns = number(it.startCns)?.roundToInt(),
+                            endCns = number(it.endCns)?.roundToInt(),
+                            oxygenToxicityOtu = number(it.o2Toxicity)?.roundToInt(),
+                            avgRmv = number(it.avgRmv),
+                            avgVolumeSac = number(it.avgVolumeSac),
+                            avgPressureSac = number(it.avgPressureSac),
+                        )
+                    },
+                gradientFactorLow = number(settings?.gfLow)?.roundToInt(),
+                gradientFactorHigh = number(settings?.gfHigh)?.roundToInt(),
+                gases =
+                    messages.diveGasMesgs?.toList().orEmpty().map {
+                        FitDiveGas(
+                            index = number(it.messageIndex)?.roundToInt(),
+                            oxygenPercent = number(it.oxygenContent)?.roundToInt(),
+                            heliumPercent = number(it.heliumContent)?.roundToInt(),
+                            status = it.status?.let(::jsString),
+                            mode = it.mode?.let(::jsString),
+                        )
+                    },
+                gasSwitches =
+                    messages.eventMesgs?.toList().orEmpty().mapNotNull { e ->
+                        number(e.data)?.roundToInt()?.takeIf { e.event?.let(::jsString) == "diveGasSwitched" }
+                    },
+                tanks =
+                    messages.tankSummaryMesgs?.toList().orEmpty().map {
+                        FitTankSummary(number(it.startPressure), number(it.endPressure), number(it.volumeUsed))
+                    },
+                entry = position(session?.startPositionLat, session?.startPositionLong),
+                exit = position(session?.endPositionLat, session?.endPositionLong),
+                sessionMaxDepthMeters = number(session?.maxDepth),
+                sessionAvgDepthMeters = number(session?.avgDepth),
+                sessionDiveNumber = number(session?.diveNumber)?.roundToInt(),
+            ),
+            sport = session?.sport?.let(::jsString),
+            subSport = session?.subSport?.let(::jsString),
+        )
+    }
+
+    private fun position(lat: JsAny?, lon: JsAny?): DivePosition? {
+        val latitude = number(lat)
+        val longitude = number(lon)
+        return if (latitude == null || longitude == null) null
+        else DivePosition(FitUnits.semicirclesToDegrees(latitude.toInt()), FitUnits.semicirclesToDegrees(longitude.toInt()))
     }
 
     private fun JsSummaryMesg.toSummary() =

@@ -31,11 +31,11 @@ object DecodedActivityMapper {
         val samples = records.toSamples()
 
         return ImportedActivity(
-            type = activityType(sessions),
+            type = activityType(sessions).forGasesBreathed(fit.dive),
             startedAt = Instant.fromEpochMilliseconds(startedAtMillis),
             elapsed = elapsed(sessions, records),
             movingSeconds = (sessions.total { it.totalTimerSeconds } ?: samples.movingSeconds())?.roundToLong(),
-            distanceMeters = distanceMeters(sessions, records, samples),
+            distanceMeters = distanceMeters(sessions, records, samples, isDive = fit.dive != null),
             elevationGainMeters = sessions.total { it.totalAscentMeters } ?: records.mapNotNull { it.altitudeMeters }.climb(),
             maxSpeedMps = sessions.mapNotNull { it.maxSpeedMps }.maxOrNull() ?: records.mapNotNull { it.speedMps }.maxOrNull(),
             avgHeartRate = sessions.weightedAverage { it.avgHeartRate?.toDouble() }?.roundToInt() ?: records.averageOf { it.heartRate },
@@ -55,7 +55,7 @@ object DecodedActivityMapper {
         }
         return ImportedDive(
             maxDepthMeters = dive.maxDepthMeters ?: profile.maxOfOrNull { it.depthMeters },
-            avgDepthMeters = profile.averageDepth(),
+            avgDepthMeters = dive.avgDepthMeters ?: profile.averageDepth(),
             minWaterTempCelsius = records.mapNotNull { it.temperatureCelsius }.minOrNull(),
             diveNumber = dive.diveNumber,
             surfaceIntervalMinutes = dive.surfaceIntervalMinutes,
@@ -66,6 +66,13 @@ object DecodedActivityMapper {
             gases = dive.gases,
             closedCircuit = dive.closedCircuit,
             profile = profile,
+            bottomTimeSeconds = dive.bottomTimeSeconds,
+            oxygenToxicityOtu = dive.oxygenToxicityOtu,
+            rmvLitersPerMinute = dive.rmvLitersPerMinute,
+            sacBarPerMinute = dive.sacBarPerMinute,
+            tanks = dive.tanks,
+            entry = dive.entry,
+            exit = dive.exit,
         )
     }
 
@@ -86,10 +93,17 @@ object DecodedActivityMapper {
         return sessions.total { it.totalElapsedSeconds }?.seconds ?: (last - first).milliseconds
     }
 
-    private fun distanceMeters(sessions: List<DecodedSummary>, records: List<DecodedSample>, samples: List<LocationSample>): Double? =
-        sessions.total { it.totalDistanceMeters }
-            ?: records.lastNotNullOf { it.distanceMeters }
-            ?: samples.zipWithNext(TrackMath::distanceMeters).sum().takeIf { samples.size >= 2 }
+    /** Dive computers log a distance of 0: they don't track one under water. */
+    private fun distanceMeters(
+        sessions: List<DecodedSummary>,
+        records: List<DecodedSample>,
+        samples: List<LocationSample>,
+        isDive: Boolean,
+    ): Double? =
+        (sessions.total { it.totalDistanceMeters }
+                ?: records.lastNotNullOf { it.distanceMeters }
+                ?: samples.zipWithNext(TrackMath::distanceMeters).sum().takeIf { samples.size >= 2 })
+            ?.takeUnless { isDive && it == 0.0 }
 
     /**
      * Maps a sport name in any format's spelling (FIT enum, TCX `Sport`, GPX `type` including Strava's names) and a FIT sub-sport to an
@@ -401,6 +415,20 @@ object DecodedActivityMapper {
     }
 }
 
+/**
+ * Single- or multi-gas by the gases breathed: Garmin's sub-sport is the watch's dive mode, so an air dive in its Multi-Gas mode would
+ * otherwise import as multi-gas. Other dive types (CCR, gauge, apnea) keep the device's.
+ */
+private fun ActivityType.forGasesBreathed(dive: DecodedDive?): ActivityType {
+    val gases = dive?.gases?.size ?: 0
+    return when {
+        subSport != SubSport.SINGLE_GAS && subSport != SubSport.MULTI_GAS -> this
+        gases > 1 -> copy(subSport = SubSport.MULTI_GAS)
+        gases == 1 -> copy(subSport = SubSport.SINGLE_GAS)
+        else -> this
+    }
+}
+
 /** Same as the recorder's: altitude only counts as climb once it moves more than this, so sensor noise doesn't add up. */
 private const val ELEVATION_HYSTERESIS_M = 3.0
 
@@ -465,7 +493,8 @@ private inline fun List<DecodedSample>.averageOf(value: (DecodedSample) -> Int?)
 
 private inline fun <T : Any> List<DecodedSample>.lastNotNullOf(value: (DecodedSample) -> T?): T? = asReversed().firstNotNullOfOrNull(value)
 
-private fun String.fitKey() = filter { it.isLetterOrDigit() }.lowercase()
+/** A FIT name in any SDK's spelling ("SINGLE_GAS_DIVING", "singleGasDiving") as one key: "singlegasdiving". */
+internal fun String.fitKey() = filter { it.isLetterOrDigit() }.lowercase()
 
 private fun String.humanize() =
     if (' ' in trim()) trim()

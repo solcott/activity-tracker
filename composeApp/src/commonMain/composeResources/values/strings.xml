@@ -43,6 +43,12 @@
     <string name="unit_speed_mph">%1$s mph</string>
     <string name="unit_temperature_c">%1$s °C</string>
     <string name="unit_temperature_f">%1$s °F</string>
+    <string name="unit_pressure_bar">%1$s bar</string>
+    <string name="unit_pressure_psi">%1$s psi</string>
+    <string name="unit_pressure_rate_bar">%1$s bar/min</string>
+    <string name="unit_pressure_rate_psi">%1$s psi/min</string>
+    <string name="unit_gas_rate_l">%1$s L/min</string>
+    <string name="unit_gas_rate_cuft">%1$s cu ft/min</string>
 
     <!-- Sports, keyed sport_<token> (looked up by name; unknown tokens fall back to the raw token) -->
     <string name="sport_run">Run</string>
@@ -390,6 +396,13 @@
     <string name="dive_surface_interval">Surface interval %1$s</string>
     <string name="dive_gradient_factors">GF %1$s/%2$s</string>
     <string name="dive_cns">CNS %1$s% → %2$s%</string>
+    <string name="dive_otu">%1$s OTU</string>
+    <string name="dive_bottom_time">Bottom time %1$s</string>
+    <string name="dive_rmv">RMV %1$s</string>
+    <string name="dive_sac">SAC %1$s</string>
+    <string name="dive_tank">Tank %1$s → %2$s</string>
+    <string name="dive_tank_numbered">Tank %1$s: %2$s → %3$s</string>
+    <string name="dive_site">Dive site %1$s, %2$s</string>
     <string name="unit_hours_minutes">%1$s h %2$s min</string>
     <string name="stat_heart_rate">Avg heart rate</string>
     <string name="unit_bpm">%1$s bpm</string>

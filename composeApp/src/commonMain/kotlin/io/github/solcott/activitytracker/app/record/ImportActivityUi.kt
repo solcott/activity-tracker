@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.DepthProfile
+import io.github.solcott.activitytracker.app.ui.DiveFormat
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.Stat
 import io.github.solcott.activitytracker.app.ui.StatsRow
@@ -34,6 +35,7 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_back
 import io.github.solcott.activitytracker.composeApp.resources.action_save
 import io.github.solcott.activitytracker.composeApp.resources.action_saving
+import io.github.solcott.activitytracker.composeApp.resources.dive_bottom_time
 import io.github.solcott.activitytracker.composeApp.resources.dive_closed_circuit
 import io.github.solcott.activitytracker.composeApp.resources.dive_cns
 import io.github.solcott.activitytracker.composeApp.resources.dive_gas_air
@@ -43,8 +45,14 @@ import io.github.solcott.activitytracker.composeApp.resources.dive_gas_trimix
 import io.github.solcott.activitytracker.composeApp.resources.dive_gradient_factors
 import io.github.solcott.activitytracker.composeApp.resources.dive_number
 import io.github.solcott.activitytracker.composeApp.resources.dive_open_circuit
+import io.github.solcott.activitytracker.composeApp.resources.dive_otu
 import io.github.solcott.activitytracker.composeApp.resources.dive_profile
+import io.github.solcott.activitytracker.composeApp.resources.dive_rmv
+import io.github.solcott.activitytracker.composeApp.resources.dive_sac
+import io.github.solcott.activitytracker.composeApp.resources.dive_site
 import io.github.solcott.activitytracker.composeApp.resources.dive_surface_interval
+import io.github.solcott.activitytracker.composeApp.resources.dive_tank
+import io.github.solcott.activitytracker.composeApp.resources.dive_tank_numbered
 import io.github.solcott.activitytracker.composeApp.resources.field_title
 import io.github.solcott.activitytracker.composeApp.resources.import_hint
 import io.github.solcott.activitytracker.composeApp.resources.import_pick
@@ -64,6 +72,7 @@ import io.github.solcott.activitytracker.composeApp.resources.unit_bpm
 import io.github.solcott.activitytracker.composeApp.resources.unit_hours_minutes
 import io.github.solcott.activitytracker.composeApp.resources.value_missing
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.units.formatDecimal
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.name
@@ -183,6 +192,7 @@ private fun DiveDetails(dive: DivePreview, elapsedSeconds: Long, modifier: Modif
         val counts =
             listOfNotNull(
                 dive.diveNumber?.let { stringResource(Res.string.dive_number, it) },
+                dive.bottomTimeSeconds?.let { stringResource(Res.string.dive_bottom_time, Format.duration(it)) },
                 dive.surfaceIntervalMinutes?.let { stringResource(Res.string.dive_surface_interval, hoursMinutes(it)) },
             )
         if (counts.isNotEmpty()) Text(counts.joinToString(" · "))
@@ -193,9 +203,37 @@ private fun DiveDetails(dive: DivePreview, elapsedSeconds: Long, modifier: Modif
                 } else null,
                 if (dive.startCns != null && dive.endCns != null) stringResource(Res.string.dive_cns, dive.startCns!!, dive.endCns!!)
                 else null,
+                dive.oxygenToxicityOtu?.let { stringResource(Res.string.dive_otu, it) },
             )
         if (deco.isNotEmpty()) Text(deco.joinToString(" · "))
+        DiveAir(dive)
+        dive.site?.let {
+            Text(
+                stringResource(
+                    Res.string.dive_site,
+                    formatDecimal(it.latitude, COORDINATE_DECIMALS),
+                    formatDecimal(it.longitude, COORDINATE_DECIMALS),
+                )
+            )
+        }
     }
+}
+
+/** Each tank's pressures, then air consumption: by volume when the tank's size was set, else by pressure. */
+@Composable
+private fun DiveAir(dive: DivePreview) {
+    val tanks =
+        dive.tanks.mapIndexed { i, tank ->
+            val start = DiveFormat.pressure(tank.startPressureBar)
+            val end = DiveFormat.pressure(tank.endPressureBar)
+            if (dive.tanks.size == 1) stringResource(Res.string.dive_tank, start, end)
+            else stringResource(Res.string.dive_tank_numbered, i + 1, start, end)
+        }
+    val consumption =
+        dive.rmvLitersPerMinute?.let { stringResource(Res.string.dive_rmv, DiveFormat.gasRate(it)) }
+            ?: dive.sacBarPerMinute?.let { stringResource(Res.string.dive_sac, DiveFormat.pressureRate(it)) }
+    val air = tanks + listOfNotNull(consumption)
+    if (air.isNotEmpty()) Text(air.joinToString(" · "))
 }
 
 @Composable
@@ -214,7 +252,11 @@ private fun hoursMinutes(minutes: Int): String =
 
 private const val MINUTES_PER_HOUR = 60
 
+/** About 10 m: enough to find the site, no more. */
+private const val COORDINATE_DECIMALS = 4
+
 /** The formatter takes tenths of a degree Celsius, like records. */
 private const val TENTHS_PER_DEGREE = 10
 private const val AIR_O2 = 21
-private const val PURE_O2 = 100
+/** Mixes this rich are oxygen; Garmin logs it as 99%. */
+private const val PURE_O2 = 99

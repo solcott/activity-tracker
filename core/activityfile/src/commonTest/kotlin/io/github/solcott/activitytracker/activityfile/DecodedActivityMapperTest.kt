@@ -239,6 +239,22 @@ class DecodedActivityMapperTest {
     }
 
     @Test
+    fun aDiveComputersOwnFiguresWin() {
+        val records = listOf(record(0).copy(depthMeters = 0.0), record(1).copy(depthMeters = 10.0), record(2).copy(depthMeters = 0.0))
+        val header = DecodedDive(18.0, null, null, null, null, null, null, listOf(DiveGas(21, 0)), false, avgDepthMeters = 12.0)
+        val activity =
+            DecodedActivityMapper.map(
+                DecodedActivity(null, listOf(summary("DIVING", "MULTI_GAS_DIVING", distance = 0.0)), emptyList(), records, header)
+            )
+
+        val dive = activity.dive!!
+        assertEquals(12.0, dive.avgDepthMeters, "the computer's average over the profile's")
+        assertEquals(18.0, dive.maxDepthMeters)
+        assertEquals(null, activity.distanceMeters, "a dive computer's 0 m is no distance")
+        assertEquals(ActivityType(Sport.DIVE, SubSport.SINGLE_GAS), activity.type, "one gas breathed, whatever the watch's dive mode")
+    }
+
+    @Test
     fun onlyDivesHaveDiveData() {
         assertEquals(null, DecodedActivityMapper.map(DecodedActivity(fileId(), listOf(summary()), emptyList(), listOf(record(0)))).dive)
     }

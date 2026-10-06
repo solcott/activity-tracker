@@ -23,6 +23,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import kotlin.math.roundToLong
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -174,6 +175,12 @@ private fun ImportedDive.toPreview() =
         gases = gases.map { DiveGasPreview(it.oxygenPercent, it.heliumPercent) }.toImmutableList(),
         closedCircuit = closedCircuit,
         profile = profile.thinned().map { DepthPreviewPoint(it.seconds, it.depthMeters) }.toImmutableList(),
+        bottomTimeSeconds = bottomTimeSeconds?.roundToLong(),
+        oxygenToxicityOtu = oxygenToxicityOtu,
+        rmvLitersPerMinute = rmvLitersPerMinute,
+        sacBarPerMinute = sacBarPerMinute,
+        tanks = tanks.map { DiveTankPreview(it.startPressureBar, it.endPressureBar) }.toImmutableList(),
+        site = (entry ?: exit)?.let { DiveSitePreview(it.latitude, it.longitude) },
     )
 
 /** About this many points draw a smooth profile; a two-hour dive logs 720. */

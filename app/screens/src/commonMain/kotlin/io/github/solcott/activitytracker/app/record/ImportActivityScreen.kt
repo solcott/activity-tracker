@@ -84,10 +84,26 @@ data class DivePreview(
     val closedCircuit: Boolean,
     /** Depth over time, thinned for drawing. */
     val profile: ImmutableList<DepthPreviewPoint>,
+    /** Time from leaving the surface to the start of the final ascent. */
+    val bottomTimeSeconds: Long?,
+    /** Whole-body oxygen exposure, in oxygen toxicity units. */
+    val oxygenToxicityOtu: Int?,
+    /** Air consumption by volume; needs the tank's size. */
+    val rmvLitersPerMinute: Double?,
+    /** Air consumption by tank pressure, for when the tank's size isn't known. */
+    val sacBarPerMinute: Double?,
+    val tanks: ImmutableList<DiveTankPreview>,
+    /** Where the diver went in, or else came out: the dive site. */
+    val site: DiveSitePreview?,
 )
 
 /** Whole percents; air is 21/0. */
 @Immutable data class DiveGasPreview(val oxygenPercent: Int, val heliumPercent: Int)
+
+/** Pressures in bar. */
+@Immutable data class DiveTankPreview(val startPressureBar: Double?, val endPressureBar: Double?)
+
+@Immutable data class DiveSitePreview(val latitude: Double, val longitude: Double)
 
 @Immutable data class DepthPreviewPoint(val seconds: Long, val depthMeters: Double)
 

@@ -78,7 +78,27 @@ data class DecodedDive(
     val gases: List<DiveGas>,
     /** Breathed from a closed-circuit rebreather for at least part of the dive. */
     val closedCircuit: Boolean,
+    /** The dive computer's own average; null to compute it from the depth profile. */
+    val avgDepthMeters: Double? = null,
+    /** Time from leaving the surface to the start of the final ascent. */
+    val bottomTimeSeconds: Double? = null,
+    /** Whole-body oxygen exposure, in oxygen toxicity units. */
+    val oxygenToxicityOtu: Int? = null,
+    /** Air consumption by volume (respiratory minute volume), which needs the tank's size. */
+    val rmvLitersPerMinute: Double? = null,
+    /** Air consumption by tank pressure, adjusted to the surface. */
+    val sacBarPerMinute: Double? = null,
+    /** One per tank a pressure transmitter was on. */
+    val tanks: List<DiveTank> = emptyList(),
+    /** Where the diver went in and came out, if the computer had a GPS fix at the surface. */
+    val entry: DivePosition? = null,
+    val exit: DivePosition? = null,
 )
+
+/** A tank's pressures, in bar (the diving convention), and the gas used, in liters at the surface when the tank's size was set. */
+data class DiveTank(val startPressureBar: Double?, val endPressureBar: Double?, val volumeUsedLiters: Double?)
+
+data class DivePosition(val latitude: Double, val longitude: Double)
 
 /** A breathing gas, as whole percents. Air is 21/0. */
 data class DiveGas(val oxygenPercent: Int, val heliumPercent: Int)
