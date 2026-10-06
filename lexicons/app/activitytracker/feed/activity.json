@@ -46,8 +46,28 @@
             "description": "Full-resolution GPS track as GPX."
           },
           "device": { "type": "string", "maxLength": 256 },
+          "sensors": {
+            "type": "array",
+            "maxLength": 16,
+            "items": { "type": "ref", "ref": "#sensor" },
+            "description": "Sensors paired with the recording device. Make and model only: never serial numbers or battery state."
+          },
           "createdAt": { "type": "string", "format": "datetime" }
         }
+      }
+    },
+    "sensor": {
+      "type": "object",
+      "description": "A sensor paired with the recording device, such as a heart rate strap or a power meter.",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "maxLength": 64,
+          "knownValues": ["heartRate", "power", "speedCadence", "speed", "cadence", "shifting", "radar", "light", "trainer", "footpod", "other"]
+        },
+        "manufacturer": { "type": "string", "maxLength": 128, "description": "Its maker, e.g. \"Garmin\"." },
+        "model": { "type": "string", "maxLength": 128, "description": "Its model, e.g. \"HRM 200\"; absent when only its maker can name it." }
       }
     }
   }

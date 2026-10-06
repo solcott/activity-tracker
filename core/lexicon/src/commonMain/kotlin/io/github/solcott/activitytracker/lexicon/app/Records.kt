@@ -251,8 +251,41 @@ data class ActivityRecord(
     val device: String? = null,
     /** A [SubSport] value refining [sport]; null for the sport's generic form. */
     val subSport: String? = null,
+    /** Sensors paired with [device]: make and model only, never serial numbers or battery state. At most [ActivitySensor.MAX]. */
+    val sensors: List<ActivitySensor>? = null,
     @SerialName("\$type") val type: String = Nsid.FEED_ACTIVITY,
 )
+
+/** `app.activitytracker.feed.activity#sensor`: a sensor paired with the recording device. */
+@Serializable
+data class ActivitySensor(
+    /** A [SensorType] value. */
+    val kind: String,
+    /** "Garmin". */
+    val manufacturer: String? = null,
+    /** "HRM 200"; null when only its maker can name it. */
+    val model: String? = null,
+) {
+    companion object {
+        /** The lexicon's `maxLength` for an activity's sensors. */
+        const val MAX = 16
+    }
+}
+
+/** Known values of [ActivitySensor.kind], an open string. */
+object SensorType {
+    const val HEART_RATE = "heartRate"
+    const val POWER = "power"
+    const val SPEED_CADENCE = "speedCadence"
+    const val SPEED = "speed"
+    const val CADENCE = "cadence"
+    const val SHIFTING = "shifting"
+    const val RADAR = "radar"
+    const val LIGHT = "light"
+    const val TRAINER = "trainer"
+    const val FOOTPOD = "footpod"
+    const val OTHER = "other"
+}
 
 @Serializable
 data class KudosRecord(

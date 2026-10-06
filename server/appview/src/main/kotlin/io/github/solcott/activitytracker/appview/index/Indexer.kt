@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowRecord
 import io.github.solcott.activitytracker.lexicon.app.KudosRecord
@@ -146,7 +147,8 @@ class Indexer(
             it[Activities.uri] = uri.value
             it[Activities.cid] = cid
             it[authorDid] = author.value
-            it[Activities.record] = AtJson.encodeToString(ActivityRecord.serializer(), record)
+            it[Activities.record] =
+                AtJson.encodeToString(ActivityRecord.serializer(), record.copy(sensors = boundedSensors(record.sensors)))
             it[sport] = record.sport.take(MAX_SPORT_LENGTH)
             it[subSport] = record.subSport?.take(MAX_SPORT_LENGTH)
             it[startedAt] = record.startedAt.toEpochMilliseconds()
@@ -154,6 +156,19 @@ class Indexer(
             it[indexedAt] = now
         }
     }
+
+    /** Records are untrusted: hold the sensors to the lexicon's limits before serving them. */
+    private fun boundedSensors(sensors: List<ActivitySensor>?): List<ActivitySensor>? =
+        sensors
+            ?.take(ActivitySensor.MAX)
+            ?.map {
+                ActivitySensor(
+                    kind = it.kind.take(MAX_SENSOR_KIND_LENGTH),
+                    manufacturer = it.manufacturer?.take(MAX_SENSOR_NAME_LENGTH),
+                    model = it.model?.take(MAX_SENSOR_NAME_LENGTH),
+                )
+            }
+            ?.ifEmpty { null }
 
     private fun JdbcTransaction.updateProfile(record: ProfileRecord, author: Did, now: Long) {
         val avatar = ProfileDetailRules.avatarCid(record.avatar)
@@ -239,5 +254,7 @@ class Indexer(
         const val MAX_DISPLAY_NAME_LENGTH = 640
         const val MAX_DESCRIPTION_LENGTH = 2560
         const val MAX_UNITS_LENGTH = 16
+        const val MAX_SENSOR_KIND_LENGTH = 64
+        const val MAX_SENSOR_NAME_LENGTH = 128
     }
 }

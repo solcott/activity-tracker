@@ -1,10 +1,12 @@
 package io.github.solcott.activitytracker.lexicon
 
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
+import io.github.solcott.activitytracker.lexicon.app.SensorType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
@@ -52,6 +54,19 @@ class RecordSerializationTest {
         assertTrue("\"subSport\":\"mountain\"" in json)
         assertEquals(mtb, AtJson.decodeFromString(ActivityRecord.serializer(), json))
         assertFalse("subSport" in AtJson.encodeToString(ActivityRecord.serializer(), record))
+    }
+
+    @Test
+    fun sensorsRoundTripAndOlderRecordsLackThem() {
+        val ride =
+            record.copy(
+                sport = Sport.RIDE,
+                sensors = listOf(ActivitySensor(SensorType.HEART_RATE, "Garmin", "HRM 200"), ActivitySensor(SensorType.POWER, "SRAM")),
+            )
+        val json = AtJson.encodeToString(ActivityRecord.serializer(), ride)
+        assertTrue("""{"kind":"power","manufacturer":"SRAM"}""" in json, "a missing model is omitted: $json")
+        assertEquals(ride, AtJson.decodeFromString(ActivityRecord.serializer(), json))
+        assertFalse("sensors" in AtJson.encodeToString(ActivityRecord.serializer(), record))
     }
 
     @Test

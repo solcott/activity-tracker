@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetFollowers
 import io.github.solcott.activitytracker.lexicon.app.GetFollows
@@ -14,6 +15,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetKudos
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.SearchActors
+import io.github.solcott.activitytracker.lexicon.app.SensorType
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
@@ -151,6 +153,27 @@ class AppViewTest {
             0,
             AtJson.decodeFromString(GetActivity.Output.serializer(), after.bodyAsText()).activity.kudosCount,
         )
+    }
+
+    @Test
+    fun servesARidesSensorsHeldToTheLexiconsLimits() = testApplication {
+        application { appView(config, db, verifier) }
+        val uri = "at://$bob/${Nsid.FEED_ACTIVITY}/3kride"
+        val many = (1..20).joinToString(",") { """{"kind":"light","manufacturer":"Acme"}""" }
+        commit(
+            bob,
+            Nsid.FEED_ACTIVITY,
+            "3kride",
+            """{"sport":"ride","startedAt":"2026-09-30T10:00:00Z","elapsedTime":1800,"createdAt":"2026-09-30T10:31:00Z",""" +
+                """"sensors":[{"kind":"heartRate","manufacturer":"Garmin","model":"HRM 200"},""" +
+                """{"kind":"power","manufacturer":"SRAM","model":"${"x".repeat(500)}"},$many]}""",
+        )
+
+        val detail = client.get("/xrpc/${GetActivity.method.nsid}?uri=$uri")
+        val sensors = AtJson.decodeFromString(GetActivity.Output.serializer(), detail.bodyAsText()).activity.record.sensors!!
+        assertEquals(ActivitySensor.MAX, sensors.size)
+        assertEquals(ActivitySensor(SensorType.HEART_RATE, "Garmin", "HRM 200"), sensors.first())
+        assertEquals(128, sensors[1].model?.length, "an overlong model is clamped")
     }
 
     @Test
