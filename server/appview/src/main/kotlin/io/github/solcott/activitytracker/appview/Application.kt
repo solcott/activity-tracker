@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview
 
 import co.touchlab.kermit.Logger
+import io.github.solcott.activitytracker.appview.api.ActorSearch
 import io.github.solcott.activitytracker.appview.api.AvatarUrls
 import io.github.solcott.activitytracker.appview.api.GraphViews
 import io.github.solcott.activitytracker.appview.api.PdsLookup
@@ -93,7 +94,7 @@ fun Application.appView(
     routing {
         wellKnownRoutes(config)
         val avatars = AvatarUrls(config.publicUrl)
-        xrpcRoutes(Views(db, avatars), GraphViews(db, avatars), PrivateDetails(db), verifier)
+        xrpcRoutes(Views(db, avatars), GraphViews(db, avatars), ActorSearch(db, avatars), PrivateDetails(db), verifier)
         avatarRoutes(db, pds)
     }
 }

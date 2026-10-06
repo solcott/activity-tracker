@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetPrivateDetails
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.PutPrivateDetails
+import io.github.solcott.activitytracker.lexicon.app.SearchActors
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -39,26 +40,30 @@ import kotlinx.serialization.json.putJsonObject
 fun Route.xrpcRoutes(
     views: Views,
     graph: GraphViews,
+    search: ActorSearch,
     privateDetails: PrivateDetails,
     verifier: ServiceAuthVerifier,
 ) {
-    xrpcQuery(GetTimeline.method, verifier) { params, viewer ->
-        views.timeline(viewer ?: throw AuthException("Authentication required"), params)
-    }
+    xrpcQuery(GetTimeline.method, verifier) { params, viewer -> views.timeline(requireViewer(viewer), params) }
     xrpcQuery(GetAuthorActivities.method, verifier) { params, viewer -> views.authorActivities(viewer, params) }
     xrpcQuery(GetActivity.method, verifier) { params, viewer -> views.activity(viewer, params) }
     xrpcQuery(GetKudos.method, verifier) { params, _ -> views.kudos(params) }
     xrpcQuery(GetProfile.method, verifier) { params, viewer -> views.profile(viewer, params.actor) }
+    xrpcQuery(SearchActors.method, verifier) { params, viewer ->
+        requireViewer(viewer)
+        search.search(params)
+    }
     xrpcQuery(GetFollowers.method, verifier) { params, _ -> graph.followers(params) }
     xrpcQuery(GetFollows.method, verifier) { params, _ -> graph.follows(params) }
-    xrpcQuery(GetPrivateDetails.method, verifier) { _, viewer ->
-        privateDetails.get(viewer ?: throw AuthException("Authentication required"))
-    }
+    xrpcQuery(GetPrivateDetails.method, verifier) { _, viewer -> privateDetails.get(requireViewer(viewer)) }
     xrpcProcedure(PutPrivateDetails.method, verifier) { input, viewer ->
         privateDetails.put(viewer, input)
         NoOutput
     }
 }
+
+/** The authenticated caller, for queries that need one. */
+private fun requireViewer(viewer: Did?): Did = viewer ?: throw AuthException("Authentication required")
 
 /** Serves a typed query. Auth is optional here; handlers that need a viewer throw [AuthException]. */
 private fun <P, O> Route.xrpcQuery(

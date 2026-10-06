@@ -11,6 +11,7 @@ object Nsid {
     const val ACTOR_GET_PROFILE = "$NAMESPACE.actor.getProfile"
     const val ACTOR_GET_PRIVATE_DETAILS = "$NAMESPACE.actor.getPrivateDetails"
     const val ACTOR_PUT_PRIVATE_DETAILS = "$NAMESPACE.actor.putPrivateDetails"
+    const val ACTOR_SEARCH_ACTORS = "$NAMESPACE.actor.searchActors"
 
     const val FEED_ACTIVITY = "$NAMESPACE.feed.activity"
     const val FEED_KUDOS = "$NAMESPACE.feed.kudos"

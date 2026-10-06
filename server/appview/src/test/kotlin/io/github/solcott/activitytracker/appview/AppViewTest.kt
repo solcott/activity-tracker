@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.appview
 import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
-import io.github.solcott.activitytracker.appview.index.HandleLookup
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -14,6 +13,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetFollows
 import io.github.solcott.activitytracker.lexicon.app.GetKudos
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
+import io.github.solcott.activitytracker.lexicon.app.SearchActors
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
@@ -47,7 +47,7 @@ class AppViewTest {
             DatabaseFactory.migrate(this)
             Database.connect(this)
         }
-    private val indexer = Indexer(db, HandleLookup { did -> did.value.substringAfterLast(':') + ".test" })
+    private val indexer = Indexer(db, { did -> did.value.substringAfterLast(':') + ".test" })
     private val config = AppViewConfig.fromEnv(emptyMap())
     private val verifier = ServiceAuthVerifier(service, keys = { keys[it.value]?.multibase })
 
@@ -253,6 +253,53 @@ class AppViewTest {
         val unknown = client.get("/xrpc/${GetFollowers.method.nsid}?actor=nobody.test")
         assertEquals(HttpStatusCode.BadRequest, unknown.status)
         assertEquals(true, unknown.bodyAsText().contains("ActorNotFound"))
+    }
+
+    @Test
+    fun searchFindsOnlyThisAppsAthletesBestMatchFirst() = testApplication {
+        application { appView(config, db, verifier) }
+        val malia = "did:plc:malia"
+        follow(alice, bob, "3kf1")
+        commit(bob, Nsid.ACTOR_PROFILE, "self", """{"displayName":"Bob Alvarez"}""")
+        commit(carol, Nsid.ACTOR_PROFILE, "self", """{"displayName":"Carol Smith"}""")
+        commit(malia, Nsid.ACTOR_PROFILE, "self", """{"displayName":"Malia"}""")
+        // Dave is only the subject of a follow: an atproto account that has never used this app.
+        follow(alice, "did:plc:dave", "3kf2")
+
+        val nsid = SearchActors.method.nsid
+        val token = keys.getValue(alice).serviceJwt(alice, service, nsid)
+
+        suspend fun search(query: String): SearchActors.Output {
+            val response = client.get("/xrpc/$nsid?$query") { header(HttpHeaders.Authorization, "Bearer $token") }
+            assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+            return AtJson.decodeFromString(SearchActors.Output.serializer(), response.bodyAsText())
+        }
+
+        suspend fun handles(q: String) = search("q=${q.encodeURLParameter()}").actors.map { it.handle.value }
+
+        assertEquals(HttpStatusCode.Unauthorized, client.get("/xrpc/$nsid?q=bob").status)
+
+        // A handle prefix, then a word in a display name, then a match anywhere.
+        assertEquals(listOf("alice.test", "bob.test", "malia.test"), handles("al"))
+        assertEquals(listOf("alice.test"), handles(" @ALICE.test "))
+        assertEquals(listOf("carol.test"), handles("smith"))
+        assertEquals(listOf("carol.test"), handles(carol))
+        assertEquals("Bob Alvarez", search("q=bob").actors.single().displayName)
+        assertEquals(emptyList(), handles("dave"))
+        // LIKE wildcards in the query match only themselves.
+        assertEquals(emptyList(), handles("%"))
+        assertEquals(emptyList(), handles("a_i"))
+        assertEquals(emptyList(), handles("  "))
+
+        // limit=1 walks every match through the cursor in rank order.
+        val paged = mutableListOf<String>()
+        var cursor: String? = null
+        do {
+            val page = search("q=al&limit=1" + (cursor?.let { "&cursor=${it.encodeURLParameter()}" } ?: ""))
+            paged += page.actors.map { it.handle.value }
+            cursor = page.cursor
+        } while (cursor != null)
+        assertEquals(listOf("alice.test", "bob.test", "malia.test"), paged)
     }
 
     @Test

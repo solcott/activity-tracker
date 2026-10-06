@@ -79,6 +79,18 @@ object GetFollows {
     val method = XrpcQuery(Nsid.GRAPH_GET_FOLLOWS, Params.serializer(), Output.serializer())
 }
 
+/** Athletes of this app matching [Params.q] by handle, display name or DID, best matches first. Requires auth. */
+object SearchActors {
+    @Serializable data class Params(val q: String, val limit: Int? = null, val cursor: String? = null)
+
+    @Serializable data class Output(val actors: List<ProfileViewBasic>, val cursor: String? = null)
+
+    /** The lexicon's `maxLength` for [Params.q]. */
+    const val MAX_QUERY_LENGTH = 100
+
+    val method = XrpcQuery(Nsid.ACTOR_SEARCH_ACTORS, Params.serializer(), Output.serializer())
+}
+
 /** Page size bounds shared by every paginated query. */
 object Paging {
     const val DEFAULT_LIMIT = 30
