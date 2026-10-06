@@ -57,3 +57,6 @@ activitytracker:
   # Presenters launch event work through rememberSingleFlight(), so a double tap can't run it twice.
   UseSingleFlight:
     active: true
+  # Screens use app.ui.adaptive's components (AppTopBar, AppButton…), which follow each platform, not the Material widgets they wrap.
+  UseAdaptiveComponents:
+    active: true

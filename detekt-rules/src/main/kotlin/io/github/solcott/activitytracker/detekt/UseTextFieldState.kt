@@ -10,8 +10,9 @@ import org.jetbrains.kotlin.psi.KtCallExpression
  * Text fields take a `TextFieldState`, not the `value` + `onValueChange` overloads (`String` or `TextFieldValue`). The state is
  * `rememberTextFieldState()`: in the presenter, held in the screen's `State`, when the presenter needs the text, otherwise in the UI.
  *
- * Plain analysis, without types: a call to one of the foundation or Material 3 text fields is flagged when it names `value` or
- * `onValueChange`, or passes a second positional argument that isn't a modifier (the state overloads take only the state positionally).
+ * Plain analysis, without types: a call to one of the foundation or Material 3 text fields (or the app's `AppTextField`) is flagged when it
+ * names `value` or `onValueChange`, or passes a second positional argument that isn't a modifier (the state overloads take only the state
+ * positionally).
  */
 class UseTextFieldState(config: Config) : Rule(config, "Text fields take a TextFieldState, not value and onValueChange.") {
     override fun visitCallExpression(expression: KtCallExpression) {
@@ -35,7 +36,7 @@ class UseTextFieldState(config: Config) : Rule(config, "Text fields take a TextF
     }
 
     private companion object {
-        val TEXT_FIELDS = setOf("TextField", "OutlinedTextField", "BasicTextField")
+        val TEXT_FIELDS = setOf("TextField", "OutlinedTextField", "BasicTextField", "AppTextField")
         val VALUE_PARAMS = setOf("value", "onValueChange")
     }
 }
