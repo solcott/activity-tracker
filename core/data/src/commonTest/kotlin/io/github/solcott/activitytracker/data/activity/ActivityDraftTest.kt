@@ -1,7 +1,12 @@
 package io.github.solcott.activitytracker.data.activity
 
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
+import io.github.solcott.activitytracker.activityfile.ImportedSensor
+import io.github.solcott.activitytracker.activityfile.SensorBattery
+import io.github.solcott.activitytracker.activityfile.SensorKind
+import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.SensorType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.location.LocationSample
@@ -68,5 +73,24 @@ class ActivityDraftTest {
         val draft = ActivityDraft.fromImport(imported(emptyList()), type = ActivityType(Sport.RIDE, SubSport.INDOOR), title = null)
         assertNull(draft.polyline)
         assertNull(draft.gpx)
+    }
+
+    @Test
+    fun sensorsArePublishedWithoutTheirBattery() {
+        val ride =
+            imported(emptyList())
+                .copy(
+                    sensors =
+                        listOf(
+                            ImportedSensor(SensorKind.HeartRate, "Garmin", "HRM 200", SensorBattery.Good, 80),
+                            ImportedSensor(SensorKind.Power, "SRAM", null, SensorBattery.Low, null),
+                        )
+                )
+        val record = ActivityDraft.fromImport(ride, type = ActivityType(Sport.RIDE), title = null).toRecord(createdAt = start)
+        assertEquals(
+            listOf(ActivitySensor(SensorType.HEART_RATE, "Garmin", "HRM 200"), ActivitySensor(SensorType.POWER, "SRAM", null)),
+            record.sensors,
+        )
+        assertNull(ActivityDraft.fromImport(imported(emptyList()), ActivityType(Sport.RUN), null).toRecord(start).sensors)
     }
 }

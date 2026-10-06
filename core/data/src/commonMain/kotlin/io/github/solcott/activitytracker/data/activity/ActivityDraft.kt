@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.data.activity
 
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.location.Gpx
 import io.github.solcott.activitytracker.location.LocationSample
@@ -27,6 +28,8 @@ data class ActivityDraft(
     val maxHeartRate: Int? = null,
     /** Recording device, e.g. "Garmin fenix7". */
     val device: String? = null,
+    /** Paired with [device]; public, so make and model only. */
+    val sensors: List<ActivitySensor> = emptyList(),
     val polyline: String? = null,
     val gpx: ByteArray? = null,
 ) {
@@ -52,6 +55,7 @@ data class ActivityDraft(
             maxHeartRate = maxHeartRate,
             polyline = polyline,
             device = device,
+            sensors = sensors.take(ActivitySensor.MAX).ifEmpty { null },
             createdAt = createdAt,
         )
 
@@ -71,6 +75,7 @@ data class ActivityDraft(
             avgHeartRate,
             maxHeartRate,
             device,
+            sensors,
             polyline,
         )
 
@@ -129,6 +134,7 @@ data class ActivityDraft(
                 avgHeartRate = imported.avgHeartRate,
                 maxHeartRate = imported.maxHeartRate,
                 device = imported.device,
+                sensors = imported.sensors.map { ActivitySensor(it.kind.token, it.manufacturer, it.model) },
                 polyline = polylineOf(imported.samples),
                 gpx = gpxOf(imported.samples, title, type.sport),
             )
