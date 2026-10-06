@@ -23,7 +23,6 @@ import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -51,6 +50,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
+import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
@@ -106,7 +106,7 @@ import org.jetbrains.compose.resources.stringResource
 @CircuitInject(EditProfileScreen::class, SessionScope::class)
 @Composable
 fun EditProfileUi(state: EditProfileState, modifier: Modifier = Modifier) {
-    Scaffold(
+    AppScaffold(
         modifier = modifier,
         topBar = { AppTopBar(title = stringResource(Res.string.edit_profile_title), onBack = { state.eventSink(EditProfileEvent.Back) }) },
     ) { padding ->

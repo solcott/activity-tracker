@@ -26,9 +26,16 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.movableContentOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.mohamedrejeb.calf.ui.ExperimentalCalfUiApi
 import com.mohamedrejeb.calf.ui.navigation.AdaptiveNavigationBar
@@ -38,6 +45,7 @@ import com.mohamedrejeb.calf.ui.uikit.UIKitImage
 import com.slack.circuit.backstack.SaveableBackStack
 import com.slack.circuit.runtime.Navigator
 import com.slack.circuit.runtime.popUntil
+import io.github.solcott.activitytracker.app.ui.adaptive.LocalFloatingBottomBarHeight
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
@@ -86,6 +94,21 @@ fun AppShell(
             }
         when (style) {
             null -> screens(Modifier.fillMaxSize())
+            NavigationStyle.Bar if platform == UiPlatform.Ios -> {
+                // UIKit's tab bar floats over the screens: they run to the bottom edge and scroll under its glass, padding their content
+                // clear of it (AppScaffold). Calf lays out a placeholder the size of the native bar, which gives its height.
+                var barHeight by remember { mutableStateOf(0.dp) }
+                val density = LocalDensity.current
+                Box(Modifier.fillMaxSize()) {
+                    CompositionLocalProvider(LocalFloatingBottomBarHeight provides barHeight) {
+                        // The bar's height includes the home indicator, so screens mustn't pad for that too.
+                        screens(Modifier.fillMaxSize().consumeWindowInsets(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)))
+                    }
+                    Box(Modifier.align(Alignment.BottomCenter).onSizeChanged { barHeight = with(density) { it.height.toDp() } }) {
+                        NavigationBar(current, select)
+                    }
+                }
+            }
             NavigationStyle.Bar ->
                 Column(Modifier.fillMaxSize()) {
                     // The bar pads itself clear of the home indicator / gesture area, so screens above it mustn't.

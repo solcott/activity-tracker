@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
@@ -22,6 +21,7 @@ import io.github.solcott.activitytracker.app.ui.Stat
 import io.github.solcott.activitytracker.app.ui.StatsRow
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
+import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
@@ -94,7 +94,7 @@ fun ImportActivityUi(state: ImportActivityState, modifier: Modifier = Modifier) 
                     .onSuccess { state.eventSink(ImportActivityEvent.FilePicked(file.name, ByteString(it))) }
             }
         }
-    Scaffold(
+    AppScaffold(
         modifier = modifier,
         topBar = { AppTopBar(title = stringResource(Res.string.import_title), onBack = { state.eventSink(ImportActivityEvent.Back) }) },
     ) { padding ->

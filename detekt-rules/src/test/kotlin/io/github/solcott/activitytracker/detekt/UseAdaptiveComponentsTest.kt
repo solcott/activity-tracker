@@ -16,6 +16,7 @@ class UseAdaptiveComponentsTest {
             package io.github.solcott.activitytracker.app.feed
 
             fun FeedUi() {
+                Scaffold(topBar = {}) {}
                 TopAppBar(title = { Text("Feed") })
                 Button(onClick = {}) { Text("Save") }
                 OutlinedTextField(state)
@@ -23,7 +24,7 @@ class UseAdaptiveComponentsTest {
             }
             """
                 .trimIndent()
-        assertEquals(4, rule.lint(compileContentForTest(code)).size)
+        assertEquals(5, rule.lint(compileContentForTest(code)).size)
     }
 
     @Test
@@ -33,6 +34,7 @@ class UseAdaptiveComponentsTest {
             package io.github.solcott.activitytracker.app.feed
 
             fun FeedUi() {
+                AppScaffold(topBar = {}) {}
                 AppTopBar(title = "Feed")
                 AppButton(onClick = {}) { Text("Save") }
                 AppTextField(state)

@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -33,6 +32,7 @@ import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
+import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
@@ -64,7 +64,7 @@ import org.jetbrains.compose.resources.stringResource
 @CircuitInject(ActivityDetailScreen::class, SessionScope::class)
 @Composable
 fun ActivityDetailUi(state: ActivityDetailState, modifier: Modifier = Modifier) {
-    Scaffold(
+    AppScaffold(
         modifier = modifier,
         topBar = { AppTopBar(title = stringResource(Res.string.detail_title), onBack = { state.eventSink(ActivityDetailEvent.Back) }) },
     ) { padding ->

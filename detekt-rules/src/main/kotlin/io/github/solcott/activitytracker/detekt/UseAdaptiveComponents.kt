@@ -7,8 +7,9 @@ import dev.detekt.api.Rule
 import org.jetbrains.kotlin.psi.KtCallExpression
 
 /**
- * Screens use the app's adaptive components (`app.ui.adaptive`: `AppTopBar`, `AppButton`, `AppTextField`, `AppBottomSheet`…), which follow
- * each platform's conventions, rather than the Material 3 widgets they wrap, which look like Android everywhere.
+ * Screens use the app's adaptive components (`app.ui.adaptive`: `AppScaffold`, `AppTopBar`, `AppButton`, `AppTextField`,
+ * `AppBottomSheet`…), which follow each platform's conventions, rather than the Material 3 widgets they wrap, which look like Android
+ * everywhere.
  *
  * Plain analysis, without types: a call to one of the wrapped Material names is flagged anywhere outside the `ui.adaptive` package.
  */
@@ -32,6 +33,7 @@ class UseAdaptiveComponents(config: Config) :
         const val ADAPTIVE_PACKAGE = ".ui.adaptive"
         val REPLACEMENTS =
             mapOf(
+                "Scaffold" to "AppScaffold",
                 "TopAppBar" to "AppTopBar",
                 "CenterAlignedTopAppBar" to "AppTopBar",
                 "MediumTopAppBar" to "AppTopBar",
