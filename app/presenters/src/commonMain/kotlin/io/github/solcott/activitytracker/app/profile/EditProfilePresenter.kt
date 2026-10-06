@@ -9,12 +9,12 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.AvatarEdit
@@ -30,7 +30,6 @@ import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.launch
 
 @CircuitInject(EditProfileScreen::class, SessionScope::class)
 @Composable
@@ -40,9 +39,9 @@ fun EditProfilePresenter(navigator: Navigator, profiles: ProfileRepository, unit
     var own by remember { mutableStateOf<OwnProfile?>(null) }
     var picked by remember { mutableStateOf<AvatarImage.Picked?>(null) }
     var avatarRemoved by remember { mutableStateOf(false) }
-    var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<UiError?>(null) }
-    val scope = rememberCoroutineScope()
+    val flights = rememberSingleFlight()
+    val saving = flights.isRunning(EditProfileEvent.Save)
 
     LaunchedEffect(Unit) {
         runSuspendCatching { profiles.ownProfile() }
@@ -91,7 +90,6 @@ fun EditProfilePresenter(navigator: Navigator, profiles: ProfileRepository, unit
 
             EditProfileEvent.Save -> {
                 if (own != null && !saving) {
-                    saving = true
                     error = null
                     val edit =
                         ProfileEdit(
@@ -101,11 +99,10 @@ fun EditProfilePresenter(navigator: Navigator, profiles: ProfileRepository, unit
                             form.visibility(),
                             avatarEdit(picked, avatarRemoved),
                         )
-                    scope.launch {
+                    flights.launch(EditProfileEvent.Save) {
                         runSuspendCatching { profiles.save(edit) }
                             .onSuccess { navigator.pop() }
                             .onFailure { error = UiError.of(UiError.Kind.SaveProfile, it) }
-                        saving = false
                     }
                 }
             }

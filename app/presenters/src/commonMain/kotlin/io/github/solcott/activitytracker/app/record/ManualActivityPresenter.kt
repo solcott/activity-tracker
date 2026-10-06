@@ -5,12 +5,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
@@ -23,7 +23,6 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
-import kotlinx.coroutines.launch
 
 @CircuitInject(ManualActivityScreen::class, SessionScope::class)
 @Composable
@@ -40,9 +39,9 @@ fun ManualActivityPresenter(
     val duration = rememberTextFieldState()
     val temperature = rememberTextFieldState()
     var units by rememberSaveable { mutableStateOf(unitsRepository.units.value) }
-    var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<UiError?>(null) }
-    val scope = rememberCoroutineScope()
+    val flights = rememberSingleFlight()
+    val saving = flights.isRunning(ManualActivityEvent.Save)
     val quickTypes = quickActivityTypes(recentTypes)
 
     return ManualActivityState(type, quickTypes, title, distance, duration, temperature, units, saving, error) { event ->
@@ -61,8 +60,7 @@ fun ManualActivityPresenter(
 
             ManualActivityEvent.Save -> {
                 val minutes = parseDecimal(duration.text.toString()) ?: return@ManualActivityState
-                saving = true
-                scope.launch {
+                flights.launch(ManualActivityEvent.Save) {
                     runSuspendCatching {
                         val elapsed = (minutes * 60).toLong()
                         activities.publish(
@@ -82,7 +80,6 @@ fun ManualActivityPresenter(
                         navigator.pop()
                     }
                         .onFailure { e -> error = UiError.of(UiError.Kind.SaveActivity, e) }
-                        .also { saving = false }
                 }
             }
         }

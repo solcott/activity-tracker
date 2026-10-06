@@ -5,7 +5,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
@@ -17,6 +16,7 @@ import io.github.solcott.activitytracker.activityfile.ImportedDive
 import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.activityfile.UnsupportedActivityFileException
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
@@ -28,7 +28,6 @@ import kotlin.math.roundToLong
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -51,10 +50,10 @@ fun ImportActivityPresenter(
     val title = rememberTextFieldState()
     // Where a zone-less file's clock was; null for this device's zone.
     var zoneId by rememberSaveable { mutableStateOf<String?>(null) }
-    var reading by remember { mutableStateOf(false) }
-    var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<UiError?>(null) }
-    val scope = rememberCoroutineScope()
+    val flights = rememberSingleFlight()
+    val saving = flights.isRunning(ImportActivityEvent.Save)
+    val reading = flights.isRunning(ImportActivityEvent.FilePicked::class)
 
     val zone = remember(zoneId) { zoneId?.let(TimeZone::of) ?: TimeZones.device() }
     val placed = remember(imported, zone) { imported?.let { (name, activity) -> name to activity.inZone(zone) } }
@@ -69,9 +68,9 @@ fun ImportActivityPresenter(
                 // Drop the previous file first, so a failed pick can't leave its preview (and Save) behind.
                 imported = null
                 zoneId = null
-                reading = true
                 error = null
-                scope.launch {
+                // A newer pick replaces one still being read.
+                flights.launchLatest(ImportActivityEvent.FilePicked::class) {
                     // The format comes from the file's content, not its name.
                     runSuspendCatching { reader.read(event.bytes.toByteArray()) }
                         .onSuccess {
@@ -83,7 +82,6 @@ fun ImportActivityPresenter(
                                 if (e is UnsupportedActivityFileException) UiError(UiError.Kind.UnsupportedActivityFile, null)
                                 else UiError.of(UiError.Kind.ReadActivityFile, e)
                         }
-                    reading = false
                 }
             }
 
@@ -101,14 +99,12 @@ fun ImportActivityPresenter(
 
             ImportActivityEvent.Save -> {
                 val activity = placed?.second ?: return@ImportActivityState
-                saving = true
-                scope.launch {
+                flights.launch(ImportActivityEvent.Save) {
                     runSuspendCatching {
                         activities.publish(ActivityDraft.fromImport(activity, type, title.text.toString().ifBlank { null }))
                         navigator.pop()
                     }
                         .onFailure { e -> error = UiError.of(UiError.Kind.SaveActivity, e) }
-                        .also { saving = false }
                 }
             }
         }

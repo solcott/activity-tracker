@@ -5,25 +5,24 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitsRepository
-import kotlinx.coroutines.launch
 
 @CircuitInject(SettingsScreen::class, SessionScope::class)
 @Composable
 fun SettingsPresenter(navigator: Navigator, unitsRepository: UnitsRepository, auth: AuthRepository): SettingsState {
     // UnitsRepository updates optimistically, so the choice shows at once and reverts if the save fails.
     val units by unitsRepository.units.collectAsState()
-    var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<UiError?>(null) }
-    val scope = rememberCoroutineScope()
+    val flights = rememberSingleFlight()
+    val saving = flights.isRunning(SettingsEvent.UnitsChanged::class)
 
     return SettingsState(units, saving, error) { event ->
         when (event) {
@@ -33,19 +32,17 @@ fun SettingsPresenter(navigator: Navigator, unitsRepository: UnitsRepository, au
 
             is SettingsEvent.UnitsChanged -> {
                 if (event.units != units && !saving) {
-                    saving = true
                     error = null
-                    scope.launch {
+                    flights.launch(SettingsEvent.UnitsChanged::class) {
                         runSuspendCatching { unitsRepository.set(event.units) }
                             .onFailure { e -> error = UiError.of(UiError.Kind.SaveSettings, e) }
-                        saving = false
                     }
                 }
             }
 
             // Dropping the session tears down the SessionGraph and returns to LoginScreen.
             SettingsEvent.SignOut -> {
-                scope.launch { auth.signOut() }
+                flights.launch(SettingsEvent.SignOut) { auth.signOut() }
             }
         }
     }

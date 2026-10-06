@@ -6,11 +6,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
@@ -18,7 +18,6 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.launch
 
 @CircuitInject(FollowListScreen::class, SessionScope::class)
 @Composable
@@ -33,7 +32,7 @@ fun FollowListPresenter(
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<UiError?>(null) }
     var loadKey by remember { mutableIntStateOf(0) }
-    val scope = rememberCoroutineScope()
+    val flights = rememberSingleFlight()
 
     // Callers set isLoading before launching, so a second LoadMore can't start the same page twice.
     suspend fun load(after: String?) {
@@ -80,7 +79,7 @@ fun FollowListPresenter(
                 val after = cursor
                 if (!isLoading && after != null && error == null) {
                     isLoading = true
-                    scope.launch { load(after) }
+                    flights.launch(FollowListEvent.LoadMore) { load(after) }
                 }
             }
 

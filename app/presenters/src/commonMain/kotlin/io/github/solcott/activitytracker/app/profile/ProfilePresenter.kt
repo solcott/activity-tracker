@@ -6,12 +6,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.settings.SettingsScreen
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
@@ -22,7 +22,6 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 
 @CircuitInject(ProfileScreen::class, SessionScope::class)
 @Composable
@@ -35,10 +34,9 @@ fun ProfilePresenter(
 ): ProfileState {
     var profile by remember { mutableStateOf<ProfileView?>(null) }
     var error by remember { mutableStateOf<UiError?>(null) }
-    var followPending by remember { mutableStateOf(false) }
     val did = profile?.did?.value ?: screen.actor
     val items by remember(did) { feed.authorActivities(did).map { it.toImmutableList() } }.collectAsState(persistentListOf())
-    val scope = rememberCoroutineScope()
+    val flights = rememberSingleFlight()
 
     LaunchedEffect(screen.actor) {
         runSuspendCatching {
@@ -50,7 +48,7 @@ fun ProfilePresenter(
     }
 
     val isSelf = did == profiles.did.value
-    return ProfileState(profile, items, isSelf, followPending, error) { event ->
+    return ProfileState(profile, items, isSelf, flights.isRunning(ProfileEvent.ToggleFollow), error) { event ->
         when (event) {
             ProfileEvent.Back -> {
                 navigator.pop()
@@ -61,14 +59,13 @@ fun ProfilePresenter(
             }
 
             is ProfileEvent.ToggleKudos -> {
-                scope.launch { runSuspendCatching { activities.toggleKudos(event.activity) } }
+                flights.launch(event.activity.uri) { runSuspendCatching { activities.toggleKudos(event.activity) } }
             }
 
             ProfileEvent.ToggleFollow -> {
                 val current = profile
-                if (current != null && !followPending) {
-                    followPending = true
-                    scope.launch {
+                if (current != null) {
+                    flights.launch(ProfileEvent.ToggleFollow) {
                         runSuspendCatching {
                             if (current.viewer?.following == null) profiles.follow(current) else profiles.unfollow(current)
                         }
@@ -77,7 +74,6 @@ fun ProfilePresenter(
                                 error = null
                             }
                             .onFailure { error = UiError.of(UiError.Kind.UpdateFollow, it) }
-                        followPending = false
                     }
                 }
             }

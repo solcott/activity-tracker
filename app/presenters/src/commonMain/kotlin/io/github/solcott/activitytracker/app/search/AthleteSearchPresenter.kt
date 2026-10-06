@@ -7,12 +7,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
+import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.AthleteSearchRepository
@@ -23,7 +23,6 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /** How long typing must pause before a search runs, so each keystroke isn't a request. */
 internal val SEARCH_DEBOUNCE = 300.milliseconds
@@ -40,7 +39,7 @@ fun AthleteSearchPresenter(navigator: Navigator, athletes: AthleteSearchReposito
     var error by remember { mutableStateOf<UiError?>(null) }
     var retryKey by remember { mutableIntStateOf(0) }
     var nextPage by remember { mutableStateOf<Job?>(null) }
-    val scope = rememberCoroutineScope()
+    val flights = rememberSingleFlight()
     val trimmed = query.text.trim().toString()
 
     LaunchedEffect(trimmed, retryKey) {
@@ -89,20 +88,21 @@ fun AthleteSearchPresenter(navigator: Navigator, athletes: AthleteSearchReposito
                 // A failed page clears the cursor, so there is no LoadMore after an error.
                 if (!isLoading && after != null && searched != null) {
                     isLoading = true
-                    nextPage = scope.launch {
-                        runSuspendCatching { athletes.search(searched, after) }
-                            .onSuccess { page ->
-                                // Offset paging can repeat an athlete when the index changes between pages.
-                                results = (results + page.actors).distinctBy { it.did }.toImmutableList()
-                                cursor = page.cursor
-                            }
-                            .onFailure {
-                                // Retry starts over from the first page.
-                                cursor = null
-                                error = UiError.of(UiError.Kind.SearchAthletes, it)
-                            }
-                        isLoading = false
-                    }
+                    nextPage =
+                        flights.launch(AthleteSearchEvent.LoadMore) {
+                            runSuspendCatching { athletes.search(searched, after) }
+                                .onSuccess { page ->
+                                    // Offset paging can repeat an athlete when the index changes between pages.
+                                    results = (results + page.actors).distinctBy { it.did }.toImmutableList()
+                                    cursor = page.cursor
+                                }
+                                .onFailure {
+                                    // Retry starts over from the first page.
+                                    cursor = null
+                                    error = UiError.of(UiError.Kind.SearchAthletes, it)
+                                }
+                            isLoading = false
+                        }
                 }
             }
 

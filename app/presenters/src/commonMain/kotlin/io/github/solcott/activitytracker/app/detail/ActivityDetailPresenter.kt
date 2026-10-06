@@ -9,12 +9,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
+import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -29,7 +29,6 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.launch
 
 @CircuitInject(ActivityDetailScreen::class, SessionScope::class)
 @Composable
@@ -47,7 +46,7 @@ fun ActivityDetailPresenter(
     val draft = rememberTextFieldState()
     var loadKey by remember { mutableIntStateOf(0) }
     var showKudos by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    val flights = rememberSingleFlight()
     // The viewer's own kudos toggles, laid over the loaded activity: the AppView only reflects them once Jetstream catches up.
     val kudosOverrides by localKudos.overrides.collectAsState()
 
@@ -85,14 +84,15 @@ fun ActivityDetailPresenter(
             }
 
             ActivityDetailEvent.ToggleKudos -> {
-                current?.let { scope.launch { runSuspendCatching { activities.toggleKudos(it) } } }
+                current?.let { flights.launch(it.uri) { runSuspendCatching { activities.toggleKudos(it) } } }
             }
 
             ActivityDetailEvent.SendComment -> {
                 val text = draft.text.toString()
-                if (current != null && text.isNotBlank()) {
+                // Checked before clearing the draft, so a dropped repeat can't lose what was typed.
+                if (current != null && text.isNotBlank() && !flights.isRunning(ActivityDetailEvent.SendComment)) {
                     draft.clearText()
-                    scope.launch { runSuspendCatching { activities.comment(current, text) } }
+                    flights.launch(ActivityDetailEvent.SendComment) { runSuspendCatching { activities.comment(current, text) } }
                 }
             }
         }
