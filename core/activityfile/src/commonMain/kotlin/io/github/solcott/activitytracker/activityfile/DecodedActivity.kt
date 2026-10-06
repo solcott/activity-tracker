@@ -16,6 +16,8 @@ data class DecodedActivity(
     val dive: DecodedDive? = null,
     /** The start as the device's clock read it, set only when the file's times have no zone (Shearwater logs). */
     val localStart: LocalDateTime? = null,
+    /** The activity's name, when the file carries one (GPX `trk/name`, which Strava and Garmin Connect exports fill). */
+    val title: String? = null,
 )
 
 data class DecodedSource(

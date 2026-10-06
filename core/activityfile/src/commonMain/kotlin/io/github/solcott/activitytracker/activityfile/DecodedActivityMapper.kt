@@ -45,6 +45,7 @@ object DecodedActivityMapper {
             samples = samples,
             dive = fit.dive?.let { dive(it, records, startedAtMillis) },
             localStart = fit.localStart,
+            title = fit.title?.trim()?.ifEmpty { null },
         )
     }
 

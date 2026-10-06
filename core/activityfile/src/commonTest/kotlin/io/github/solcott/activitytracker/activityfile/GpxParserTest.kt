@@ -49,6 +49,19 @@ class GpxParserTest {
         assertEquals(10.0, activity.elevationGainMeters)
         assertEquals(140, activity.avgHeartRate)
         assertEquals(160, activity.maxHeartRate)
+        assertEquals("Morning Run", activity.title)
+    }
+
+    @Test
+    fun theTitleFallsBackToTheMetadataName() {
+        fun gpx(metadata: String, track: String) =
+            """<gpx version="1.1"><metadata>$metadata</metadata><trk>$track<trkseg>
+              <trkpt lat="47.6" lon="-122.3"><name>Waypoint</name><time>2026-09-20T07:00:00Z</time></trkpt>
+            </trkseg></trk></gpx>"""
+
+        assertEquals("Lake loop", GpxParser.parse(gpx("<name>Lake loop</name>", "")).title)
+        assertEquals("Track", GpxParser.parse(gpx("<name>Lake loop</name>", "<name>Track</name>")).title)
+        assertNull(DecodedActivityMapper.map(GpxParser.parse(gpx("", "<name>  </name>"))).title, "a blank name is no title")
     }
 
     @Test

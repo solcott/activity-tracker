@@ -32,6 +32,8 @@ data class ImportedActivity(
      * [startedAt] reads it in this device's zone, which is wrong for a dive logged elsewhere: [inZone] reads it in the right one.
      */
     val localStart: LocalDateTime? = null,
+    /** The name the file gave the activity ("Morning Ride"); null when it has none. */
+    val title: String? = null,
 ) {
     /** This activity with [localStart] read in [zone], every time moved together. Unchanged if the file's times had a zone. */
     fun inZone(zone: TimeZone): ImportedActivity {
