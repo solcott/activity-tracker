@@ -81,6 +81,7 @@ With a tunnel set, the AppView's DID is the tunnel host. `:server-appview:run` a
 | `web/sqlite-worker` | SQLite-WASM Web Worker backing Room on the web |
 | `server/appview` | Ktor AppView: Jetstream indexer, XRPC queries, did:web |
 | `docker/` | Local ATProto network |
+| `detekt-rules` | The repo's own detekt rules, run by every module's detekt |
 
 ## Known gaps
 

@@ -40,3 +40,13 @@ Compose:
   # Composable params take ImmutableList, not List; composeStabilityCheck catches the rest from the compiler reports.
   UnstableCollections:
     active: true
+
+config:
+  # :detekt-rules's own detekt run doesn't load that module's rules, so it can't validate their config.
+  excludes: ['activitytracker.*']
+
+# The repo's own rules, from :detekt-rules.
+activitytracker:
+  # Text fields take a TextFieldState, not value + onValueChange.
+  UseTextFieldState:
+    active: true

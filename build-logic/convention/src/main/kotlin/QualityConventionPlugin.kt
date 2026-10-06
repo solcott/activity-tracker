@@ -32,6 +32,8 @@ class QualityConventionPlugin : Plugin<Project> {
                 parallel.set(true)
             }
             dependencies.add("detektPlugins", libs.findLibrary("compose-rules-detekt").get())
+            // The repo's own rules (UseTextFieldState). Not in that module itself, which detekt then analyzes with only the stock rules.
+            if (path != DETEKT_RULES_PATH) dependencies.add("detektPlugins", project(DETEKT_RULES_PATH))
 
             // The per-source-set and type-resolution tasks analyze every Kotlin source dir, which
             // includes generated ones (KSP output). A pattern can't match those: each generated dir is
@@ -51,3 +53,5 @@ class QualityConventionPlugin : Plugin<Project> {
         }
     }
 }
+
+private const val DETEKT_RULES_PATH = ":detekt-rules"

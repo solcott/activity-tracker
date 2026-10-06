@@ -34,7 +34,7 @@ rootProject.name = "activity-tracker"
 
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
-include(":composeApp", ":androidApp", ":webApp", ":desktopApp")
+include(":composeApp", ":androidApp", ":webApp", ":desktopApp", ":detekt-rules")
 
 // Flat names (core/data -> :core-data) so Gradle doesn't synthesize empty :core, :app, :web and :server parent projects.
 listOf(
