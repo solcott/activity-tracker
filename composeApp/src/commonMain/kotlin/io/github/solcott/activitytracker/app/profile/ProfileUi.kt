@@ -4,14 +4,19 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -115,15 +120,11 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
                             Text(stringResource(Res.string.profile_edit))
                         }
                     } else {
-                        if (p.viewer?.following == null) {
-                            Button(onClick = { state.eventSink(ProfileEvent.ToggleFollow) }) {
-                                Text(stringResource(Res.string.profile_follow))
-                            }
-                        } else {
-                            OutlinedButton(onClick = { state.eventSink(ProfileEvent.ToggleFollow) }) {
-                                Text(stringResource(Res.string.profile_following))
-                            }
-                        }
+                        FollowButton(
+                            following = p.viewer?.following != null,
+                            pending = state.followPending,
+                            onClick = { state.eventSink(ProfileEvent.ToggleFollow) },
+                        )
                     }
                 }
             }
@@ -136,6 +137,23 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
                 )
             }
         }
+    }
+}
+
+/** Follow, or Following when [following]. While [pending] it's disabled and shows a spinner, so a second tap can't follow twice. */
+@Composable
+private fun FollowButton(following: Boolean, pending: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val content: @Composable RowScope.() -> Unit = {
+        if (pending) {
+            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+            Spacer(Modifier.width(8.dp))
+        }
+        Text(stringResource(if (following) Res.string.profile_following else Res.string.profile_follow))
+    }
+    if (following) {
+        OutlinedButton(onClick, modifier, enabled = !pending, content = content)
+    } else {
+        Button(onClick, modifier, enabled = !pending, content = content)
     }
 }
 

@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.NoParams
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -45,8 +46,10 @@ class ProfileRepository(
 
     private var pendingOwnProfile: Pending? = null
 
+    private val pendingFollows = PendingFollows()
+
     suspend fun profile(actor: String): ProfileView {
-        val view: ProfileView = clients.appView.query(GetProfile.method, GetProfile.Params(actor))
+        val view = pendingFollows.applyTo(clients.appView.query(GetProfile.method, GetProfile.Params(actor)))
         val pending = pendingOwnProfile
         if (view.did != did || pending == null) return view
         val avatarCid = pending.record.avatar?.ref?.link
@@ -171,14 +174,16 @@ class ProfileRepository(
         clients.appView.procedure(PutPrivateDetails.method, PutPrivateDetails.Input(details, visibility))
     }
 
-    suspend fun follow(profile: ProfileView) {
-        if (profile.viewer?.following != null) return
+    /** Follows [profile]'s athlete, and returns [profile] as it now stands (following, one more follower). */
+    suspend fun follow(profile: ProfileView): ProfileView {
+        if (profile.viewer?.following != null) return profile
+        val rkey = Tid.next(clock)
         clients.pds.procedure(
             PutRecord.method,
             PutRecord.Input(
                 repo = clients.did,
                 collection = Nsid.GRAPH_FOLLOW,
-                rkey = Tid.next(clock),
+                rkey = rkey,
                 record =
                     AtJson.encodeToJsonElement(
                         FollowRecord.serializer(),
@@ -186,14 +191,19 @@ class ProfileRepository(
                     ),
             ),
         )
+        pendingFollows.wrote(profile.did, AtUri("at://${clients.did.value}/${Nsid.GRAPH_FOLLOW}/$rkey"))
+        return pendingFollows.applyTo(profile)
     }
 
-    suspend fun unfollow(profile: ProfileView) {
-        val rkey = profile.viewer?.following?.rkey ?: return
+    /** Unfollows [profile]'s athlete, and returns [profile] as it now stands (not following, one fewer follower). */
+    suspend fun unfollow(profile: ProfileView): ProfileView {
+        val rkey = profile.viewer?.following?.rkey ?: return profile
         clients.pds.procedure(
             DeleteRecord.method,
             DeleteRecord.Input(clients.did, Nsid.GRAPH_FOLLOW, rkey),
         )
+        pendingFollows.wrote(profile.did, null)
+        return pendingFollows.applyTo(profile)
     }
 
     private companion object {

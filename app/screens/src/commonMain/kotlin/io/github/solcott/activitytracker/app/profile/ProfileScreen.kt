@@ -18,6 +18,8 @@ data class ProfileState(
     val profile: ProfileView?,
     val activities: ImmutableList<ActivityView>,
     val isSelf: Boolean,
+    /** A follow or unfollow is on its way to the PDS; the button ignores taps until it lands. */
+    val followPending: Boolean,
     val error: UiError?,
     val eventSink: (ProfileEvent) -> Unit,
 ) : CircuitUiState

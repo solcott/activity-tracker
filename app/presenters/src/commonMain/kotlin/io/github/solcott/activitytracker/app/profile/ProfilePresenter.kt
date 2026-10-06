@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -36,12 +35,12 @@ fun ProfilePresenter(
 ): ProfileState {
     var profile by remember { mutableStateOf<ProfileView?>(null) }
     var error by remember { mutableStateOf<UiError?>(null) }
-    var loadKey by remember { mutableIntStateOf(0) }
+    var followPending by remember { mutableStateOf(false) }
     val did = profile?.did?.value ?: screen.actor
     val items by remember(did) { feed.authorActivities(did).map { it.toImmutableList() } }.collectAsState(persistentListOf())
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(loadKey) {
+    LaunchedEffect(screen.actor) {
         runSuspendCatching {
             profile = profiles.profile(screen.actor)
             feed.refreshAuthor(screen.actor)
@@ -51,7 +50,7 @@ fun ProfilePresenter(
     }
 
     val isSelf = did == profiles.did.value
-    return ProfileState(profile, items, isSelf, error) { event ->
+    return ProfileState(profile, items, isSelf, followPending, error) { event ->
         when (event) {
             ProfileEvent.Back -> {
                 navigator.pop()
@@ -66,16 +65,19 @@ fun ProfilePresenter(
             }
 
             ProfileEvent.ToggleFollow -> {
-                profile?.let { current ->
+                val current = profile
+                if (current != null && !followPending) {
+                    followPending = true
                     scope.launch {
                         runSuspendCatching {
-                            if (current.viewer?.following == null) {
-                                profiles.follow(current)
-                            } else {
-                                profiles.unfollow(current)
-                            }
+                            if (current.viewer?.following == null) profiles.follow(current) else profiles.unfollow(current)
                         }
-                        loadKey++
+                            .onSuccess {
+                                profile = it
+                                error = null
+                            }
+                            .onFailure { error = UiError.of(UiError.Kind.UpdateFollow, it) }
+                        followPending = false
                     }
                 }
             }

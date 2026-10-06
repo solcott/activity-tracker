@@ -12,6 +12,7 @@
     <string name="error_load_activity">Couldn't load activity</string>
     <string name="error_load_kudos">Couldn't load kudos</string>
     <string name="error_load_profile">Couldn't load profile</string>
+    <string name="error_update_follow">Couldn't update follow</string>
     <string name="error_load_followers">Couldn't load followers</string>
     <string name="error_load_following">Couldn't load following</string>
     <string name="error_search_athletes">Couldn't search athletes</string>
