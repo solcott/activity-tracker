@@ -4,9 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Activity Tracker</title>
-    <style>html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }</style>
+    <!-- The brand surfaces (ui/theme/Color.kt), so the page, browser chrome and loading screen match the app in either scheme. -->
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#F5FBF9" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0E1514" media="(prefers-color-scheme: dark)">
+    <style>
+        :root { --surface: #F5FBF9; --primary: #00796B; --track: #DAE5E1; }
+        @media (prefers-color-scheme: dark) {
+            :root { --surface: #0E1514; --primary: #4FD8C4; --track: #3F4947; }
+        }
+        html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: var(--surface); }
+        /* Shown until the app starts; web/main.kt removes it. */
+        #loading {
+            position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+        }
+        #loading::after {
+            content: ""; width: 36px; height: 36px; border-radius: 50%;
+            border: 4px solid var(--track); border-top-color: var(--primary);
+            animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) { #loading::after { animation-duration: 3s; } }
+    </style>
 </head>
 <body>
+<div id="loading" role="progressbar" aria-label="Loading"></div>
 <script type="application/javascript" src="webApp.js"></script>
 </body>
 </html>

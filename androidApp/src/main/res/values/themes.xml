@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.ActivityTracker" parent="android:Theme.Material.NoActionBar" />
+    <!-- The window behind Compose (and the launch splash) in the brand surface, so there's no flash of another colour at start-up.
+         Compose draws everything else from ui/theme. -->
+    <style name="Theme.ActivityTracker" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/brand_surface</item>
+    </style>
 </resources>

@@ -38,6 +38,8 @@ fun main() {
     // index.html's <title> only covers loading; the shared string takes over once the app starts.
     MainScope().launch { document.title = getString(Res.string.app_name) }
     ComposeViewport(document.body!!) { App(graph) }
+    // index.html's spinner covers the wasm download; the app draws from here.
+    document.getElementById("loading")?.remove()
 }
 
 @DependencyGraph(AppScope::class)
