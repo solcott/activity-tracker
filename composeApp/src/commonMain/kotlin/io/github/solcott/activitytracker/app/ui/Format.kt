@@ -136,7 +136,7 @@ object Format {
         }
     }
 
-    /** A dive depth in meters, or feet, to one decimal. */
+    /** A dive depth, or another short length like a jump, in meters, or feet, to one decimal. */
     @Composable
     fun depth(meters: Double?): String {
         if (meters == null) return stringResource(Res.string.value_missing)

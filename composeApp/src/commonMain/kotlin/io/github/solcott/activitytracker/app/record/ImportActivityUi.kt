@@ -159,6 +159,7 @@ private fun PreviewForm(state: ImportActivityState, preview: ImportPreview, modi
             )
         }
         preview.polyline?.let { ActivityMap(it) }
+        if (dive == null) RideDetails(preview)
         ActivityTypePicker(
             state.type,
             state.quickTypes,

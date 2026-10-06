@@ -41,6 +41,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.handleLabel
+import io.github.solcott.activitytracker.app.ui.sensorLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.detail_comment_placeholder
@@ -49,14 +50,17 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_hide_kudos
 import io.github.solcott.activitytracker.composeApp.resources.detail_kudos_given
 import io.github.solcott.activitytracker.composeApp.resources.detail_no_kudos
 import io.github.solcott.activitytracker.composeApp.resources.detail_send_comment
+import io.github.solcott.activitytracker.composeApp.resources.detail_sensors
 import io.github.solcott.activitytracker.composeApp.resources.detail_show_kudos
 import io.github.solcott.activitytracker.composeApp.resources.detail_title
+import io.github.solcott.activitytracker.composeApp.resources.import_recorded_with
 import io.github.solcott.activitytracker.composeApp.resources.kudos_count
 import io.github.solcott.activitytracker.composeApp.resources.stat_distance
 import io.github.solcott.activitytracker.composeApp.resources.stat_elevation
 import io.github.solcott.activitytracker.composeApp.resources.stat_moving_time
 import io.github.solcott.activitytracker.composeApp.resources.stat_temperature
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.activityType
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -146,6 +150,7 @@ private fun LoadedContent(state: ActivityDetailState.Loaded, contentPadding: Pad
                 StatsRow(listOfNotNull(rate, temperature).toImmutableList())
             }
             record.polyline?.let { item { ActivityMap(it) } }
+            item { RecordedWith(record) }
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     KudosButton(state, Modifier.weight(1f))
@@ -232,6 +237,18 @@ private fun LazyListScope.kudosList(list: KudosList, eventSink: (ActivityDetailE
                     Text(handleLabel(athlete.handle.value), style = MaterialTheme.typography.bodySmall)
                 }
             }
+        }
+    }
+}
+
+/** The recording device and the sensors paired with it; nothing for an activity entered by hand. */
+@Composable
+private fun RecordedWith(record: ActivityRecord, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        record.device?.let { Text(stringResource(Res.string.import_recorded_with, it), style = MaterialTheme.typography.bodySmall) }
+        val sensors = record.sensors.orEmpty().map { sensorLabel(it.kind, it.manufacturer, it.model) }
+        if (sensors.isNotEmpty()) {
+            Text(stringResource(Res.string.detail_sensors, sensors.joinToString(", ")), style = MaterialTheme.typography.bodySmall)
         }
     }
 }

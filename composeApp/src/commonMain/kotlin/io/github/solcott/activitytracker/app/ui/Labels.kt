@@ -41,6 +41,16 @@ fun sportLabel(sport: String): String =
 fun activityTypeLabel(type: ActivityType): String =
     type.subSport?.let { Res.allStringResources["sub_sport_${type.sport}_$it"] }?.let { stringResource(it) } ?: sportLabel(type.sport)
 
+/** What a sensor is ("Power meter"), by its lexicon kind; an open enum, so an unknown kind is just a sensor. */
+@Composable
+fun sensorTypeLabel(kind: String): String =
+    stringResource(Res.allStringResources["sensor_$kind"] ?: Res.allStringResources.getValue("sensor_other"))
+
+/** "Power meter · SRAM", "Heart rate monitor · Garmin HRM 200". */
+@Composable
+fun sensorLabel(kind: String, manufacturer: String?, model: String?): String =
+    listOfNotNull(sensorTypeLabel(kind), listOfNotNull(manufacturer, model).joinToString(" ").ifEmpty { null }).joinToString(" · ")
+
 /** The name of a sport picker group. */
 @Composable
 fun sportCategoryLabel(category: SportCategory): String = stringResource(Res.allStringResources.getValue("sport_category_${category.name}"))

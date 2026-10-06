@@ -7,23 +7,33 @@ import io.github.solcott.activitytracker.activityfile.ActivityFileException
 import io.github.solcott.activitytracker.activityfile.ActivityFileReader
 import io.github.solcott.activitytracker.activityfile.DecodedActivity
 import io.github.solcott.activitytracker.activityfile.DecodedDive
+import io.github.solcott.activitytracker.activityfile.DecodedGearChange
+import io.github.solcott.activitytracker.activityfile.DecodedJump
 import io.github.solcott.activitytracker.activityfile.DecodedSample
+import io.github.solcott.activitytracker.activityfile.DecodedSensor
 import io.github.solcott.activitytracker.activityfile.DecodedSource
 import io.github.solcott.activitytracker.activityfile.DecodedSummary
 import io.github.solcott.activitytracker.activityfile.DiveGas
 import io.github.solcott.activitytracker.activityfile.DivePosition
 import io.github.solcott.activitytracker.activityfile.DiveTank
 import io.github.solcott.activitytracker.activityfile.FitDecoder
+import io.github.solcott.activitytracker.activityfile.SensorBattery
+import io.github.solcott.activitytracker.activityfile.SensorKind
 import io.github.solcott.activitytracker.activityfile.TimeZones
+import io.github.solcott.activitytracker.app.record.CadencePreview
 import io.github.solcott.activitytracker.app.record.DefaultTitle
 import io.github.solcott.activitytracker.app.record.DepthPreviewPoint
 import io.github.solcott.activitytracker.app.record.DiveGasPreview
 import io.github.solcott.activitytracker.app.record.DiveSitePreview
 import io.github.solcott.activitytracker.app.record.DiveTankPreview
+import io.github.solcott.activitytracker.app.record.GearTimePreview
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
+import io.github.solcott.activitytracker.app.record.MtbPreview
 import io.github.solcott.activitytracker.app.record.PartOfDay
+import io.github.solcott.activitytracker.app.record.PowerPreview
+import io.github.solcott.activitytracker.app.record.SensorPreview
 import io.github.solcott.activitytracker.app.record.TimeZoneOption
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -103,7 +113,7 @@ class ImportActivityPresenterTest {
             assertEquals("Morning_Run.FIT", preview.fileName)
             assertEquals(5000.0, preview.distanceMeters)
             assertEquals(152, preview.avgHeartRate)
-            assertEquals("Garmin fenix7", preview.device)
+            assertEquals("Garmin Fenix 7", preview.device)
             assertNotNull(preview.polyline)
             assertNull(preview.dive)
             assertNull(preview.clock, "a FIT file's times are UTC")
@@ -120,7 +130,7 @@ class ImportActivityPresenterTest {
         assertEquals(5000L, record.getValue("distance").jsonPrimitive.long)
         assertEquals(1750L, record.getValue("movingTime").jsonPrimitive.long)
         assertEquals(152, record.getValue("avgHeartRate").jsonPrimitive.int)
-        assertEquals("Garmin fenix7", record.getValue("device").jsonPrimitive.content)
+        assertEquals("Garmin Fenix 7", record.getValue("device").jsonPrimitive.content)
         assertTrue("track" in record, "the GPS track is uploaded as a GPX blob")
     }
 
@@ -206,6 +216,98 @@ class ImportActivityPresenterTest {
             assertTrue(preview.profile.size <= 300, "thinned to ${preview.profile.size}")
             assertEquals(DepthPreviewPoint(7200, 0.0), preview.profile.last(), "still ends at the surface")
             assertNull(read.preview?.polyline)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** An MTB ride from an Edge: the session's power totals, two rear shifts, a jump and its sensors. */
+    private fun mtbRide(): DecodedActivity {
+        val millis = { sec: Long -> (start + sec.seconds).toEpochMilliseconds() }
+        return DecodedActivity(
+            fileId = DecodedSource("activity", "garmin", "edge840", millis(0)),
+            sessions =
+                listOf(
+                    DecodedSummary(
+                        "cycling",
+                        "mountain",
+                        millis(0),
+                        600.0,
+                        600.0,
+                        3000.0,
+                        80.0,
+                        null,
+                        null,
+                        140,
+                        170,
+                        avgPowerWatts = 180,
+                        avgCadence = 75,
+                        avgTemperatureCelsius = null,
+                        maxPowerWatts = 640,
+                        normalizedPowerWatts = 205,
+                        maxCadence = 115,
+                        totalDescentMeters = 82.0,
+                        totalWorkJoules = 108_400.0,
+                        thresholdPowerWatts = 250,
+                        intensityFactor = 0.82,
+                        trainingStressScore = 11.2,
+                        rearShiftCount = 2,
+                        jumpCount = 1,
+                        totalGrit = 9.5,
+                        avgFlow = 3.1,
+                    )
+                ),
+            laps = emptyList(),
+            records = (0L..10L).map { i -> DecodedSample(millis(i * 60), null, null, null, null, 80, 180, null, null, null) },
+            sensors =
+                listOf(
+                    DecodedSensor(0, "local", null, "garmin", "edge840", null, null),
+                    DecodedSensor(1, "antplus", "bikePower", "sram", "1052", "low", null),
+                    DecodedSensor(2, "bluetooth_low_energy", "heartRate", "garmin", "hrm200", "good", 80),
+                ),
+            gearChanges = listOf(DecodedGearChange(millis(0), true, 1, 32, 3, 42), DecodedGearChange(millis(120), true, 1, 32, 4, 36)),
+            jumps = listOf(DecodedJump(0.6, 4.0)),
+        )
+    }
+
+    @Test
+    fun aRideShowsItsPowerShiftingTrailAndSensors() = runTest {
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ImportActivityScreen)
+        val ride = mtbRide()
+        presenterTestOf({ ImportActivityPresenter(navigator, repos.activities, ActivityFileReader { ride }, repos.recentTypes) }) {
+            awaitItem().eventSink(ImportActivityEvent.FilePicked("ride.fit", bytes))
+            val preview = assertNotNull(awaitUntil { it.preview != null }.preview)
+            assertEquals("Garmin Edge 840", preview.device)
+            assertEquals(82.0, preview.elevationLossMeters)
+            assertEquals(CadencePreview(75, 115), preview.cadence)
+            assertEquals(PowerPreview(180, 640, 205, 108L, 250, 0.82, 11.2), preview.power)
+            val shifting = assertNotNull(preview.shifting)
+            assertEquals(2, shifting.rearShifts)
+            assertEquals(listOf(GearTimePreview(3, 120), GearTimePreview(4, 480)), shifting.gears)
+            assertEquals(MtbPreview(1, 0.6, 4.0, 9.5, 3.1), preview.mtb)
+            assertEquals(
+                listOf(
+                    SensorPreview(SensorKind.Power, "SRAM", null, SensorBattery.Low, null),
+                    SensorPreview(SensorKind.HeartRate, "Garmin", "HRM 200", SensorBattery.Good, 80),
+                ),
+                preview.sensors,
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aRunHasNoPedallingCadence() = runTest {
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ImportActivityScreen)
+        val stepping = run.copy(records = run.records.map { it.copy(cadence = 85) })
+        presenterTestOf({ ImportActivityPresenter(navigator, repos.activities, ActivityFileReader { stepping }, repos.recentTypes) }) {
+            awaitItem().eventSink(ImportActivityEvent.FilePicked("run.fit", bytes))
+            val preview = assertNotNull(awaitUntil { it.preview != null }.preview)
+            assertNull(preview.cadence, "a run's cadence is strides, not revolutions")
+            assertNull(preview.power)
+            assertNull(preview.shifting)
+            assertTrue(preview.sensors.isEmpty())
             cancelAndIgnoreRemainingEvents()
         }
     }

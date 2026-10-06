@@ -15,6 +15,8 @@ import io.github.solcott.activitytracker.activityfile.ActivityFileReader
 import io.github.solcott.activitytracker.activityfile.DepthPoint
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
 import io.github.solcott.activitytracker.activityfile.ImportedDive
+import io.github.solcott.activitytracker.activityfile.ImportedPower
+import io.github.solcott.activitytracker.activityfile.ImportedShifting
 import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.activityfile.UnsupportedActivityFileException
 import io.github.solcott.activitytracker.app.UiError
@@ -146,6 +148,14 @@ private fun ImportedActivity.toPreview(fileName: String, zone: TimeZone, zones: 
         device = device,
         polyline = ActivityDraft.polylineOf(samples),
         dive = dive?.toPreview(),
+        elevationLossMeters = elevationLossMeters,
+        // A run's cadence is strides, not revolutions.
+        cadence =
+            if (type.sport in PEDALLED && (avgCadence != null || maxCadence != null)) CadencePreview(avgCadence, maxCadence) else null,
+        power = power?.toPreview(),
+        shifting = shifting?.toPreview(),
+        mtb = mtb?.let { MtbPreview(it.jumps, it.longestHangTimeSeconds, it.longestJumpMeters, it.grit, it.flow) },
+        sensors = sensors.map { SensorPreview(it.kind, it.manufacturer, it.model, it.battery, it.batteryPercent) }.toImmutableList(),
         clock =
             localStart?.let { start ->
                 ImportClock(
@@ -176,6 +186,28 @@ private val LOCAL_START = LocalDateTime.Format {
     char(':')
     minute()
 }
+
+private val PEDALLED = setOf(Sport.RIDE, Sport.HANDCYCLE)
+
+private const val JOULES_PER_KILOJOULE = 1000
+
+private fun ImportedPower.toPreview() =
+    PowerPreview(
+        avgWatts = avgWatts,
+        maxWatts = maxWatts,
+        normalizedWatts = normalizedWatts,
+        workKilojoules = workJoules?.let { (it / JOULES_PER_KILOJOULE).roundToLong() },
+        ftpWatts = ftpWatts,
+        intensityFactor = intensityFactor,
+        trainingStressScore = trainingStressScore,
+    )
+
+private fun ImportedShifting.toPreview() =
+    ShiftingPreview(
+        frontShifts = frontShifts,
+        rearShifts = rearShifts,
+        gears = timeInGears.map { GearTimePreview(it.gear, it.seconds) }.toImmutableList(),
+    )
 
 private fun ImportedDive.toPreview() =
     DivePreview(
