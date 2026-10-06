@@ -17,7 +17,7 @@ import com.slack.circuit.foundation.rememberCircuitNavigator
 import io.github.solcott.activitytracker.app.di.AppGraph
 import io.github.solcott.activitytracker.app.feed.FeedScreen
 import io.github.solcott.activitytracker.app.login.LoginScreen
-import io.github.solcott.activitytracker.app.ui.AppTheme
+import io.github.solcott.activitytracker.app.ui.theme.AppTheme
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 
 /**
