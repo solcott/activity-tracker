@@ -1,8 +1,6 @@
 package io.github.solcott.activitytracker.app.profile
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -35,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -44,12 +41,12 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.AvatarFrame
 import io.github.solcott.activitytracker.app.ui.Countries
+import io.github.solcott.activitytracker.app.ui.MenuField
 import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppDatePickerDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
-import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
@@ -394,7 +391,6 @@ private fun GenderField(
     enabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    var expanded by remember { mutableStateOf(false) }
     // Kept until a known value is chosen, so clearing the description doesn't hide its field.
     var choseSelfDescribe by remember { mutableStateOf(false) }
     val gender = state.text.toString()
@@ -408,7 +404,6 @@ private fun GenderField(
     fun choose(value: String, describe: Boolean) {
         choseSelfDescribe = describe
         onPick(value)
-        expanded = false
     }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         val notSet = stringResource(Res.string.edit_profile_not_set)
@@ -422,20 +417,7 @@ private fun GenderField(
             add(AppMenuItem(describeLabel, checked = selfDescribe) { choose(if (gender in Gender.all) "" else gender, describe = true) })
         }
             .toImmutableList()
-        Box {
-            AppTextField(
-                rememberReadOnlyTextFieldState(shown),
-                modifier = Modifier.fillMaxWidth(),
-                enabled = enabled,
-                readOnly = true,
-                label = stringResource(Res.string.edit_profile_gender),
-                trailingIcon = { PlatformIcon(AppIcon.DropDown, null) },
-                lineLimits = TextFieldLineLimits.SingleLine,
-            )
-            // A read-only field doesn't report clicks, so a transparent layer on top opens the menu.
-            Box(Modifier.matchParentSize().clickable(enabled = enabled, role = Role.DropdownList) { expanded = true })
-            AppMenu(expanded = expanded, onDismiss = { expanded = false }, items = items)
-        }
+        MenuField(shown, stringResource(Res.string.edit_profile_gender), items, Modifier.fillMaxWidth(), enabled = enabled)
         if (selfDescribe) {
             LimitedTextField(
                 state,
