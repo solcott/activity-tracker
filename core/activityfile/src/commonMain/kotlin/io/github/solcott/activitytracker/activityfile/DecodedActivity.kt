@@ -1,5 +1,7 @@
 package io.github.solcott.activitytracker.activityfile
 
+import kotlinx.datetime.LocalDateTime
+
 /**
  * The FIT messages an import needs, already scaled to SI units by the SDK (positions in degrees, see [FitUnits]). Times are epoch
  * milliseconds and enum values are the SDK's names, in whatever case the SDK spells them ("RUNNING", "running", "eBiking"):
@@ -12,6 +14,8 @@ data class DecodedActivity(
     val records: List<DecodedSample>,
     /** Dive computer header values; null unless the file is a dive log. */
     val dive: DecodedDive? = null,
+    /** The start as the device's clock read it, set only when the file's times have no zone (Shearwater logs). */
+    val localStart: LocalDateTime? = null,
 )
 
 data class DecodedSource(

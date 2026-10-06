@@ -124,6 +124,9 @@ private fun PreviewForm(state: ImportActivityState, preview: ImportPreview, modi
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(preview.fileName, style = MaterialTheme.typography.titleMedium)
         preview.device?.let { Text(stringResource(Res.string.import_recorded_with, it), style = MaterialTheme.typography.bodySmall) }
+        preview.clock?.let { clock ->
+            TimeZoneNotice(clock, { state.eventSink(ImportActivityEvent.TimeZoneChanged(it)) }, enabled = !state.saving)
+        }
         val dive = preview.dive
         if (dive != null) {
             DiveDetails(dive, preview.elapsed.inWholeSeconds)

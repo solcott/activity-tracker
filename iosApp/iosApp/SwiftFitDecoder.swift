@@ -28,7 +28,10 @@ final class SwiftFitDecoder: FitDecoder {
             fileId: messages.fileIdMesgs.first.map(Self.fileId),
             sessions: messages.sessionMesgs.map(Self.summary),
             laps: messages.lapMesgs.map(Self.summary),
-            records: messages.recordMesgs.map(Self.record)
+            records: messages.recordMesgs.map(Self.record),
+            // Like the Java and JS decoders, FIT dive data isn't read yet, and FIT times are UTC.
+            dive: nil,
+            localStart: nil
         )
     }
 
@@ -101,7 +104,8 @@ final class SwiftFitDecoder: FitDecoder {
             powerWatts: int(m.getPower().map(Int32.init)),
             speedMps: double(m.getEnhancedSpeed() ?? m.getSpeed()),
             distanceMeters: double(m.getDistance()),
-            temperatureCelsius: double(m.getTemperature().map(Double.init))
+            temperatureCelsius: double(m.getTemperature().map(Double.init)),
+            depthMeters: nil
         )
     }
 

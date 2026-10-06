@@ -45,7 +45,25 @@ data class ImportPreview(
     val polyline: String?,
     /** Null unless a dive computer recorded the file. */
     val dive: DivePreview?,
+    /** Null unless the file's times have no zone, so the athlete has to say where it happened. */
+    val clock: ImportClock?,
 )
+
+/**
+ * A file whose clock has no zone (dive computers keep local time). It's read in this device's zone until the athlete picks the one they
+ * were in; otherwise a dive logged on a trip saves at the wrong hour.
+ */
+@Immutable
+data class ImportClock(
+    /** The device's clock at the start, as written ("2024-10-16 17:30"). The same in every zone; only the moment it means moves. */
+    val localStart: String,
+    val zone: TimeZoneOption,
+    /** Every zone the athlete can pick, by id. */
+    val zones: ImmutableList<TimeZoneOption>,
+)
+
+/** A region zone ("America/Cancun") and its offset from UTC ("UTC-05:00") when the activity started. */
+@Immutable data class TimeZoneOption(val id: String, val offset: String)
 
 /** A dive's own data, in SI units. Shown on the import screen only; records don't carry it yet. */
 @Immutable
@@ -80,6 +98,9 @@ sealed interface ImportActivityEvent {
     data class TypeChanged(val value: ActivityType) : ImportActivityEvent
 
     data class TitleChanged(val value: String) : ImportActivityEvent
+
+    /** Where a zone-less file's clock was ([ImportClock]); a [TimeZoneOption.id]. */
+    data class TimeZoneChanged(val id: String) : ImportActivityEvent
 
     data object Save : ImportActivityEvent
 

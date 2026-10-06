@@ -10,16 +10,22 @@ import kotlinx.datetime.toInstant
  * `diveLogRecord` every 10 seconds (depth, water temperature, gas). With `imperialUnits` set, depths are feet and temperatures °F.
  *
  * Times are the dive computer's wall clock with no zone, so they're read in [timeZone], the importing device's by default. A dive imported
- * after flying home lands at the wrong hour, but no better guess is in the file.
+ * after flying home would land at the wrong hour, so the clock's start goes along as [DecodedActivity.localStart] for the athlete to place
+ * with [ImportedActivity.inZone].
  */
 internal object ShearwaterXmlParser {
-    fun parse(xml: String, timeZone: TimeZone = TimeZone.currentSystemDefault()): DecodedActivity {
+    fun parse(xml: String, timeZone: TimeZone = TimeZones.device()): DecodedActivity {
         val state = State()
         walkXml(xml, onStart = { path, _ -> state.start(path) }, onEnd = state::end)
         if (!state.sawDiveLog) activityFileError("No dive in this Shearwater file")
 
         val header = Header(state.header)
-        val start = header["startDate"]?.let { parseLocalTime(it, timeZone) } ?: activityFileError("No start time in this Shearwater file")
+        val startText = header["startDate"].orEmpty()
+        val localStart = parseLocal(startText)
+        val start =
+            localStart?.toInstant(timeZone)?.toEpochMilliseconds()
+                ?: parseXmlTime(startText)
+                ?: activityFileError("No start time in this Shearwater file")
         val end = header["endDate"]?.let { parseLocalTime(it, timeZone) }
         val elapsedSeconds = header.double("maxTime")?.takeIf { it > 0 } ?: end?.let { (it - start) / MILLIS_PER_SECOND }?.takeIf { it > 0 }
         val dive = dive(header, state.records)
@@ -38,6 +44,7 @@ internal object ShearwaterXmlParser {
                         .build()
                 },
             dive = dive,
+            localStart = localStart,
         )
     }
 
@@ -155,10 +162,13 @@ internal object ShearwaterXmlParser {
      * Shearwater Cloud writes dates in US form ("10/16/2024 5:30:57 PM"). Also takes 24-hour and day-first dates (a first number over 12
      * must be the day) and ISO 8601, with or without a zone. Epoch millis, or null if unparseable.
      */
-    fun parseLocalTime(text: String, timeZone: TimeZone): Long? {
+    fun parseLocalTime(text: String, timeZone: TimeZone): Long? =
+        parseLocal(text)?.toInstant(timeZone)?.toEpochMilliseconds() ?: parseXmlTime(text.trim())
+
+    /** A zone-less date as written; null for one with a zone, or none at all. */
+    private fun parseLocal(text: String): LocalDateTime? {
         val value = text.trim()
-        val local = SLASHED.matchEntire(value)?.let(::slashed) ?: ISO_LOCAL.matchEntire(value)?.let(::isoLocal)
-        return if (local != null) local.toInstant(timeZone).toEpochMilliseconds() else parseXmlTime(value)
+        return SLASHED.matchEntire(value)?.let(::slashed) ?: ISO_LOCAL.matchEntire(value)?.let(::isoLocal)
     }
 
     private fun slashed(match: MatchResult): LocalDateTime? {

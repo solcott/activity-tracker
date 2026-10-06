@@ -35,6 +35,8 @@ kotlinxBrowser = "0.5.0"
 kermit = "2.2.0"
 kotlinxCollectionsImmutable = "0.5.2"
 kotlinxDatetime = "0.8.0"
+# kotlinx-datetime's zone rules on web (npm). 2.22 is the last that accepts the @js-joda/core 3.x kotlinx-datetime pulls in.
+jsJodaTimezone = "2.22.0"
 kotlinxIo = "0.9.1"
 maplibreCompose = "0.19.0"
 filekit = "0.16.0"

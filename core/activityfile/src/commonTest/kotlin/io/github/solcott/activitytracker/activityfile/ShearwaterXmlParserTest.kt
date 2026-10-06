@@ -8,10 +8,14 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
+import kotlin.test.assertSame
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.datetime.FixedOffsetTimeZone
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
 import kotlinx.datetime.UtcOffset
 
 class ShearwaterXmlParserTest {
@@ -44,6 +48,34 @@ class ShearwaterXmlParserTest {
         assertEquals(1 to 10, dive.startCns to dive.endCns)
         assertEquals(listOf(0L, 10L, 20L, 30L), dive.profile.map { it.seconds })
         assertEquals(21.702, dive.profile[2].depthMeters, 0.001, "71.2 ft")
+    }
+
+    @Test
+    fun keepsTheClockForTheAthleteToPlace() {
+        val activity = read(dive())
+        assertEquals(LocalDateTime(2024, 10, 16, 17, 30, 57), activity.localStart)
+
+        // Logged in Cozumel (UTC-5), imported back home at UTC-6: the same 5:30 PM is an hour earlier.
+        val cozumel = activity.inZone(TimeZone.of("America/Cancun"))
+        assertEquals(Instant.parse("2024-10-16T22:30:57Z"), cozumel.startedAt)
+        assertEquals(activity.elapsed, cozumel.elapsed)
+        assertSame(activity, activity.inZone(zone), "already there")
+    }
+
+    @Test
+    fun aZonedStartNeedsNoPlacing() {
+        val activity = read(dive(startDate = "2024-10-16T23:30:57Z"))
+        assertEquals(Instant.parse("2024-10-16T23:30:57Z"), activity.startedAt)
+        assertEquals(null, activity.localStart)
+        assertSame(activity, activity.inZone(TimeZone.UTC))
+    }
+
+    @Test
+    fun zonesAreRegionsAndUtc() {
+        assertTrue("America/Cancun" in TimeZones.ids)
+        assertTrue("UTC" in TimeZones.ids)
+        assertTrue(TimeZones.ids.none { it == "US/Central" || it.startsWith("Etc/") })
+        assertEquals(TimeZones.ids.sorted(), TimeZones.ids)
     }
 
     @Test

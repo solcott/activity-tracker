@@ -44,6 +44,7 @@ object DecodedActivityMapper {
             device = fit.fileId?.let { device(it.manufacturer, it.product) },
             samples = samples,
             dive = fit.dive?.let { dive(it, records, startedAtMillis) },
+            localStart = fit.localStart,
         )
     }
 

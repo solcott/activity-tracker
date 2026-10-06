@@ -11,11 +11,13 @@ import io.github.solcott.activitytracker.activityfile.DecodedSource
 import io.github.solcott.activitytracker.activityfile.DecodedSummary
 import io.github.solcott.activitytracker.activityfile.DiveGas
 import io.github.solcott.activitytracker.activityfile.FitDecoder
+import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.app.record.DepthPreviewPoint
 import io.github.solcott.activitytracker.app.record.DiveGasPreview
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
+import io.github.solcott.activitytracker.app.record.TimeZoneOption
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
@@ -27,6 +29,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.LocalDateTime
 import kotlinx.io.bytestring.ByteString
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
@@ -96,6 +99,7 @@ class ImportActivityPresenterTest {
             assertEquals("Garmin fenix7", preview.device)
             assertNotNull(preview.polyline)
             assertNull(preview.dive)
+            assertNull(preview.clock, "a FIT file's times are UTC")
             assertEquals(ActivityType(Sport.RUN), read.type)
 
             read.eventSink(ImportActivityEvent.TitleChanged("Lunch loop"))
@@ -173,6 +177,37 @@ class ImportActivityPresenterTest {
             assertNull(read.preview?.polyline)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun aZonelessClockIsPlacedInThePickedZone() = runTest {
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ImportActivityScreen)
+        // As a dive computer logs it: 7 AM local, which the parser read as if this device were on UTC.
+        val dive =
+            run.copy(
+                fileId = DecodedSource(null, null, "Shearwater Petrel", null),
+                sessions = run.sessions.map { it.copy(sport = "diving", subSport = "single_gas_diving") },
+                records = emptyList(),
+                localStart = LocalDateTime(2026, 9, 20, 7, 0),
+            )
+        presenterTestOf({ ImportActivityPresenter(navigator, repos.activities, ActivityFileReader { dive }, repos.recentTypes) }) {
+            awaitItem().eventSink(ImportActivityEvent.FilePicked("Petrel.xml", bytes))
+            val read = awaitUntil { it.preview != null }
+            val clock = assertNotNull(read.preview?.clock)
+            assertEquals("2026-09-20 07:00", clock.localStart)
+            assertEquals(TimeZones.device().id, clock.zone.id, "starts in this device's zone")
+            assertTrue(TimeZoneOption("America/New_York", "UTC-04:00") in clock.zones, "daylight saving on the day")
+
+            read.eventSink(ImportActivityEvent.TimeZoneChanged("America/Cancun"))
+            val placed = awaitUntil { it.preview?.clock?.zone?.id == "America/Cancun" }
+            assertEquals(TimeZoneOption("America/Cancun", "UTC-05:00"), placed.preview?.clock?.zone)
+            placed.eventSink(ImportActivityEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertEquals("2026-09-20T12:00:00Z", fixture.putRecords.single().getValue("startedAt").jsonPrimitive.content)
     }
 
     @Test
