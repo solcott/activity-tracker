@@ -11,6 +11,9 @@ naming:
     constantPattern: '[A-Z][A-Za-z0-9_]*'
 
 complexity:
+  CyclomaticComplexMethod:
+    # A when that maps each enum entry to one value (UiError.Kind -> its string) adds no real branching.
+    ignoreSimpleWhenEntries: true
   LongParameterList:
     ignoreAnnotated: ['Composable']
   LongMethod:
