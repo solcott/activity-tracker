@@ -1,7 +1,9 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
+import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
@@ -38,14 +40,40 @@ internal object ProfileDetailRules {
                 birthDate = details.birthDate?.takeIf(::isDate),
                 gender = details.gender?.take(MAX_TEXT_LENGTH),
                 weight = details.weight?.takeIf { it in 1..MAX_WEIGHT_GRAMS },
+                training = sanitize(details.training),
             )
             .takeUnless { it == ProfileDetails() }
     }
 
-    /** True when [sanitize] would change nothing, apart from dropping an empty location. */
+    private fun sanitize(training: TrainingDetails?): TrainingDetails? {
+        training ?: return null
+        val heartRate = TrainingDetails.MIN_HEART_RATE..TrainingDetails.MAX_HEART_RATE
+        return TrainingDetails(
+                functionalThresholdPower = training.functionalThresholdPower?.takeIf { it in 1..TrainingDetails.MAX_FTP },
+                maxHeartRate = training.maxHeartRate?.takeIf { it in heartRate },
+                thresholdHeartRate = training.thresholdHeartRate?.takeIf { it in heartRate },
+                restingHeartRate = training.restingHeartRate?.takeIf { it in heartRate },
+                heartRateZoneModel = training.heartRateZoneModel?.takeIf { it.length <= TrainingDetails.MAX_MODEL_LENGTH },
+                powerZoneModel = training.powerZoneModel?.takeIf { it.length <= TrainingDetails.MAX_MODEL_LENGTH },
+            )
+            .takeUnless { it == TrainingDetails() }
+    }
+
+    /** True when [sanitize] would change nothing, apart from dropping an empty location or training. */
     fun isValid(details: ProfileDetails): Boolean =
         sanitize(details) ==
-            details.copy(location = details.location?.takeUnless { it == Location() }).takeUnless { it == ProfileDetails() }
+            details
+                .copy(
+                    location = details.location?.takeUnless { it == Location() },
+                    training = details.training?.takeUnless { it == TrainingDetails() },
+                )
+                .takeUnless { it == ProfileDetails() }
+
+    /** [training] as the JSON stored in a `training` column, or null to store nothing. */
+    fun encodeTraining(training: TrainingDetails?): String? = training?.let { AtJson.encodeToString(TrainingDetails.serializer(), it) }
+
+    /** A `training` column's JSON, written by [encodeTraining]. */
+    fun decodeTraining(json: String?): TrainingDetails? = json?.let { AtJson.decodeFromString(TrainingDetails.serializer(), it) }
 
     /** The avatar's CID when the blob is an accepted image type and size, and its CID is safe to put in a URL path. */
     fun avatarCid(avatar: BlobRef?): String? =

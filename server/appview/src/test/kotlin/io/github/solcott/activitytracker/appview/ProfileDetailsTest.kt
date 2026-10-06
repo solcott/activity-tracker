@@ -11,10 +11,13 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.DetailsVisibility
 import io.github.solcott.activitytracker.lexicon.app.GetPrivateDetails
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
+import io.github.solcott.activitytracker.lexicon.app.HeartRateZoneModel
 import io.github.solcott.activitytracker.lexicon.app.Location
+import io.github.solcott.activitytracker.lexicon.app.PowerZoneModel
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.PutPrivateDetails
+import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
@@ -189,6 +192,48 @@ class ProfileDetailsTest {
         assertEquals(ProfileDetails(birthDate = "1990-04-01", weight = 61_500), own(alice).details)
         assertEquals(Visibility.MUTUALS, own(alice).visibility.weight)
         assertEquals(ProfileDetails(), own(bob).details)
+    }
+
+    @Test
+    fun trainingIsStoredAndShownByVisibility() = testApplication {
+        seedAlice()
+        val training =
+            TrainingDetails(
+                functionalThresholdPower = 231,
+                thresholdHeartRate = 168,
+                heartRateZoneModel = HeartRateZoneModel.FRIEL_CYCLING,
+            )
+        val tooFast =
+            client.putPrivate(
+                alice,
+                PutPrivateDetails.Input(
+                    ProfileDetails(training = training.copy(maxHeartRate = 400)),
+                    DetailsVisibility(training = Visibility.SELF),
+                ),
+            )
+        assertEquals(HttpStatusCode.BadRequest, tooFast.status)
+        val saved =
+            client.putPrivate(
+                alice,
+                PutPrivateDetails.Input(ProfileDetails(training = training), DetailsVisibility(training = Visibility.MUTUALS)),
+            )
+        assertEquals(HttpStatusCode.OK, saved.status, saved.bodyAsText())
+        follow(alice, carol)
+        follow(carol, alice)
+        assertEquals(training, client.profile(viewer = carol).details?.training)
+        assertNull(client.profile(viewer = bob).details?.training)
+
+        // A public copy in the record is indexed and shown to everyone; an out-of-range value in it is dropped.
+        commit(
+            alice,
+            Nsid.ACTOR_PROFILE,
+            "self",
+            """{"details":{"training":{"functionalThresholdPower":250,"maxHeartRate":999,"powerZoneModel":"coggan7"}}}""",
+        )
+        assertEquals(
+            TrainingDetails(functionalThresholdPower = 250, powerZoneModel = PowerZoneModel.COGGAN_7),
+            client.profile(viewer = null).details?.training,
+        )
     }
 
     @Test

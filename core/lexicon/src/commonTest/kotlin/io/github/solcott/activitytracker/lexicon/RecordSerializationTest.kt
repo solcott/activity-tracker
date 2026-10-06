@@ -3,12 +3,14 @@ package io.github.solcott.activitytracker.lexicon
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
+import io.github.solcott.activitytracker.lexicon.app.HeartRateZoneModel
 import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.SensorType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
+import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -113,7 +115,12 @@ class RecordSerializationTest {
             ProfileRecord(
                 displayName = "Alice",
                 avatar = BlobRef(ref = BlobRef.Link("bafkavatar"), mimeType = "image/jpeg", size = 1234),
-                details = ProfileDetails(location = Location(locality = "Portland", country = "US"), weight = 61_500),
+                details =
+                    ProfileDetails(
+                        location = Location(locality = "Portland", country = "US"),
+                        weight = 61_500,
+                        training = TrainingDetails(functionalThresholdPower = 231, heartRateZoneModel = HeartRateZoneModel.COGGAN),
+                    ),
             )
         val json = AtJson.encodeToJsonElement(ProfileRecord.serializer(), profile).jsonObject
         assertEquals("blob", json["avatar"]?.jsonObject?.get("\$type")?.jsonPrimitive?.content)
@@ -121,6 +128,9 @@ class RecordSerializationTest {
         assertEquals("61500", details["weight"]?.jsonPrimitive?.content)
         assertFalse("birthDate" in details)
         assertFalse("region" in details.getValue("location").jsonObject)
+        val training = details.getValue("training").jsonObject
+        assertEquals("231", training["functionalThresholdPower"]?.jsonPrimitive?.content)
+        assertFalse("maxHeartRate" in training)
         assertEquals(profile, AtJson.decodeFromJsonElement(ProfileRecord.serializer(), json))
     }
 }

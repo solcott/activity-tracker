@@ -185,6 +185,7 @@ class Indexer(
             it[birthDate] = details?.birthDate
             it[gender] = details?.gender
             it[weightGrams] = details?.weight
+            it[training] = ProfileDetailRules.encodeTraining(details?.training)
             it[indexedAt] = now
         }
     }
@@ -220,6 +221,7 @@ class Indexer(
                     it[birthDate] = null
                     it[gender] = null
                     it[weightGrams] = null
+                    it[training] = null
                 }
             }
         }

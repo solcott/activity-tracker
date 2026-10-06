@@ -60,7 +60,30 @@
           "knownValues": ["female", "male", "nonBinary"],
           "description": "A known value, or the athlete's own description."
         },
-        "weight": { "type": "integer", "minimum": 1, "maximum": 500000, "description": "Grams (lexicons have no floats)." }
+        "weight": { "type": "integer", "minimum": 1, "maximum": 500000, "description": "Grams (lexicons have no floats)." },
+        "training": { "type": "ref", "ref": "#training" }
+      }
+    },
+    "training": {
+      "type": "object",
+      "description": "The athlete's training thresholds, and the models their heart rate and power zones are derived from.",
+      "properties": {
+        "functionalThresholdPower": { "type": "integer", "minimum": 1, "maximum": 2500, "description": "Cycling FTP in watts." },
+        "maxHeartRate": { "type": "integer", "minimum": 20, "maximum": 250, "description": "Beats per minute." },
+        "thresholdHeartRate": { "type": "integer", "minimum": 20, "maximum": 250, "description": "Lactate threshold heart rate, beats per minute." },
+        "restingHeartRate": { "type": "integer", "minimum": 20, "maximum": 250, "description": "Beats per minute." },
+        "heartRateZoneModel": {
+          "type": "string",
+          "maxLength": 64,
+          "knownValues": ["frielRunning", "frielCycling", "cogganHeartRate", "percentMaxHeartRate", "heartRateReserve"],
+          "description": "How heart rate zones are derived from the thresholds."
+        },
+        "powerZoneModel": {
+          "type": "string",
+          "maxLength": 64,
+          "knownValues": ["coggan6", "coggan7"],
+          "description": "How power zones are derived from functionalThresholdPower."
+        }
       }
     },
     "visibility": {
@@ -75,7 +98,8 @@
         "location": { "type": "ref", "ref": "#visibility" },
         "birthDate": { "type": "ref", "ref": "#visibility" },
         "gender": { "type": "ref", "ref": "#visibility" },
-        "weight": { "type": "ref", "ref": "#visibility" }
+        "weight": { "type": "ref", "ref": "#visibility" },
+        "training": { "type": "ref", "ref": "#visibility" }
       }
     }
   }

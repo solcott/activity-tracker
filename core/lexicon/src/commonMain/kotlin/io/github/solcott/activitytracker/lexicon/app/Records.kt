@@ -349,7 +349,48 @@ data class ProfileDetails(
     val gender: String? = null,
     /** Grams (lexicons have no floats). */
     val weight: Long? = null,
+    val training: TrainingDetails? = null,
 )
+
+/** `app.activitytracker.actor.defs#training`: the athlete's thresholds, and the models their zones are derived from. */
+@Immutable
+@Serializable
+data class TrainingDetails(
+    /** Cycling FTP in watts. */
+    val functionalThresholdPower: Long? = null,
+    /** Beats per minute. */
+    val maxHeartRate: Long? = null,
+    /** Lactate threshold heart rate, beats per minute. */
+    val thresholdHeartRate: Long? = null,
+    /** Beats per minute. */
+    val restingHeartRate: Long? = null,
+    /** A [HeartRateZoneModel] value. */
+    val heartRateZoneModel: String? = null,
+    /** A [PowerZoneModel] value. */
+    val powerZoneModel: String? = null,
+) {
+    companion object {
+        const val MAX_FTP = 2500L
+        const val MIN_HEART_RATE = 20L
+        const val MAX_HEART_RATE = 250L
+        const val MAX_MODEL_LENGTH = 64
+    }
+}
+
+/** Known values of [TrainingDetails.heartRateZoneModel]; the field is an open string. */
+object HeartRateZoneModel {
+    const val FRIEL_RUNNING = "frielRunning"
+    const val FRIEL_CYCLING = "frielCycling"
+    const val COGGAN = "cogganHeartRate"
+    const val PERCENT_MAX = "percentMaxHeartRate"
+    const val RESERVE = "heartRateReserve"
+}
+
+/** Known values of [TrainingDetails.powerZoneModel]; the field is an open string. */
+object PowerZoneModel {
+    const val COGGAN_6 = "coggan6"
+    const val COGGAN_7 = "coggan7"
+}
 
 /** Known values of [ProfileDetails.gender]; the field is an open string. */
 object Gender {
@@ -380,4 +421,5 @@ data class DetailsVisibility(
     val birthDate: String? = null,
     val gender: String? = null,
     val weight: String? = null,
+    val training: String? = null,
 )

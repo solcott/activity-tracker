@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetPrivateDetails
 import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.PutPrivateDetails
+import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.http.HttpStatusCode
 import kotlin.time.Clock
@@ -36,12 +37,14 @@ class PrivateDetails(private val db: Database, private val clock: Clock = Clock.
         requirePrivate(details.birthDate, visibility.birthDate, "birthDate")
         requirePrivate(details.gender, visibility.gender, "gender")
         requirePrivate(details.weight, visibility.weight, "weight")
+        requirePrivate(details.training, visibility.training, "training")
         if (!ProfileDetailRules.isValid(details)) {
             throw XrpcError(HttpStatusCode.BadRequest.value, "InvalidRequest", "Details break the lexicon's constraints")
         }
         val location = details.location?.takeUnless { it == Location() }
+        val training = details.training?.takeUnless { it == TrainingDetails() }
         db.tx {
-            if (details.copy(location = location) == ProfileDetails()) {
+            if (details.copy(location = location, training = training) == ProfileDetails()) {
                 ActorPrivateDetails.deleteWhere { did eq author.value }
                 return@tx
             }
@@ -53,10 +56,12 @@ class PrivateDetails(private val db: Database, private val clock: Clock = Clock.
                 it[birthDate] = details.birthDate
                 it[gender] = details.gender
                 it[weightGrams] = details.weight
+                it[ActorPrivateDetails.training] = ProfileDetailRules.encodeTraining(training)
                 it[locationVisibility] = visibility.location.takeIf { location != null }
                 it[birthDateVisibility] = visibility.birthDate.takeIf { details.birthDate != null }
                 it[genderVisibility] = visibility.gender.takeIf { details.gender != null }
                 it[weightVisibility] = visibility.weight.takeIf { details.weight != null }
+                it[trainingVisibility] = visibility.training.takeIf { training != null }
                 it[updatedAt] = clock.now().toEpochMilliseconds()
             }
         }
@@ -72,6 +77,7 @@ class PrivateDetails(private val db: Database, private val clock: Clock = Clock.
                     birthDate = row?.get(ActorPrivateDetails.birthDateVisibility),
                     gender = row?.get(ActorPrivateDetails.genderVisibility),
                     weight = row?.get(ActorPrivateDetails.weightVisibility),
+                    training = row?.get(ActorPrivateDetails.trainingVisibility),
                 ),
         )
     }
@@ -99,6 +105,7 @@ internal fun JdbcTransaction.visibleDetails(actor: ResultRow, viewer: Did?): Pro
             birthDate = actor[Actors.birthDate],
             gender = actor[Actors.gender],
             weight = actor[Actors.weightGrams],
+            training = ProfileDetailRules.decodeTraining(actor[Actors.training]),
         )
     val private = ActorPrivateDetails.selectAll().where { ActorPrivateDetails.did eq did }.singleOrNull()
     val merged =
@@ -114,6 +121,7 @@ internal fun JdbcTransaction.visibleDetails(actor: ResultRow, viewer: Did?): Pro
                 birthDate = public.birthDate ?: hidden.birthDate?.takeIf { visible(private[ActorPrivateDetails.birthDateVisibility]) },
                 gender = public.gender ?: hidden.gender?.takeIf { visible(private[ActorPrivateDetails.genderVisibility]) },
                 weight = public.weight ?: hidden.weight?.takeIf { visible(private[ActorPrivateDetails.weightVisibility]) },
+                training = public.training ?: hidden.training?.takeIf { visible(private[ActorPrivateDetails.trainingVisibility]) },
             )
         }
     return merged.takeUnless { it == ProfileDetails() }
@@ -125,6 +133,7 @@ private fun privateDetails(row: ResultRow) =
         birthDate = row[ActorPrivateDetails.birthDate],
         gender = row[ActorPrivateDetails.gender],
         weight = row[ActorPrivateDetails.weightGrams],
+        training = ProfileDetailRules.decodeTraining(row[ActorPrivateDetails.training]),
     )
 
 private fun location(locality: String?, region: String?, country: String?): Location? =
