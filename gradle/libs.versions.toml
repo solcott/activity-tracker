@@ -25,6 +25,8 @@ circuit = "0.39.0"
 # Adaptive (UIKit on iOS, Material elsewhere) dialogs, sheets, pickers, menus and the tab bar. Pinned to our Kotlin/CMP pair.
 calf = "0.14.0"
 coil = "3.6.3"
+# Backdrop blur for the Compose-drawn iOS navigation bar (Compose can only blur its own content, not what's behind it).
+haze = "2.0.1"
 kotlinxCoroutines = "1.11.0"
 kotlinxSerialization = "1.11.0"
 ktor = "3.6.0"
@@ -108,6 +110,8 @@ circuit-test = { module = "com.slack.circuit:circuit-test", version.ref = "circu
 circuitx-gesture-navigation = { module = "com.slack.circuit:circuitx-gesture-navigation", version.ref = "circuit" }
 calf-ui = { module = "com.mohamedrejeb.calf:calf-ui", version.ref = "calf" }
 calf-cupertino-icons = { module = "com.mohamedrejeb.calf:calf-cupertino-icons", version.ref = "calf" }
+haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
+haze-blur = { module = "dev.chrisbanes.haze:haze-blur", version.ref = "haze" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
 

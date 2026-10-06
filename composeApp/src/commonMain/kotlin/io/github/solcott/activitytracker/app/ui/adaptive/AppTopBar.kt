@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.ui.adaptive
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,9 +23,14 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.TopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
@@ -33,6 +39,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.HazeInput
+import dev.chrisbanes.haze.HazeProgressive
+import dev.chrisbanes.haze.blur.HazeBlurStyle
+import dev.chrisbanes.haze.blur.HazeColorEffect
+import dev.chrisbanes.haze.blur.hazeBlur
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.app.ui.theme.UiPlatform
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -107,10 +118,21 @@ private fun IosNavigationBar(
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
+    // Like UIKit's scroll-edge appearance, the bar is clear (the screen's own background) at rest and its effect fades in once content
+    // scrolls under it: iOS 26's soft edge effect, or before that a material and hairline.
+    val scrolled by remember(scrollState) { derivedStateOf { (scrollState?.contentOffset ?: 0f) < 0f } }
+    val material by animateFloatAsState(if (scrolled) 1f else 0f, label = "barMaterial")
+    val backdrop = LocalBarBackdrop.current
     Column(
         modifier
             .fillMaxWidth()
-            .background(colors.surface)
+            .then(
+                if (backdrop == null) {
+                    Modifier.background(colors.surface)
+                } else {
+                    Modifier.hazeBlur(HazeInput.Sources(backdrop), barMaterial(colors.surface, material, edgeEffect = usesLiquidGlass))
+                }
+            )
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
     ) {
         CenteredBar(
@@ -143,12 +165,36 @@ private fun IosNavigationBar(
                 subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant) }
             }
         }
-        // Like UIKit's scroll-edge appearance, the hairline shows only once content has scrolled under the bar.
         HorizontalDivider(
-            Modifier.graphicsLayer { alpha = scrollState?.let { (-it.contentOffset / HAIRLINE_FADE.toPx()).coerceIn(0f, 1f) } ?: 0f },
+            Modifier.graphicsLayer { alpha = if (usesLiquidGlass) 0f else material },
             thickness = HAIRLINE,
             color = colors.outlineVariant,
         )
+    }
+}
+
+/**
+ * UIKit's bar background over content scrolled under it, faded in by [alpha]. With [edgeEffect] it's iOS 26's soft scroll edge effect: the
+ * content blurs and washes into the bar's [color] behind the title and buttons, fading to untouched at the bar's bottom edge. Otherwise
+ * it's the earlier bar material: a uniform blur, mostly opaque in [color], so titles stay legible over busy content.
+ */
+private fun barMaterial(color: Color, alpha: Float, edgeEffect: Boolean): HazeBlurStyle = HazeBlurStyle {
+    blurRadius(BAR_BLUR)
+    alpha(alpha)
+    if (edgeEffect) {
+        // Full strength behind the title and buttons, fading out over the bar's last stretch.
+        progressive(
+            HazeProgressive.verticalGradient(
+                easing = { ((it - EDGE_FADE_START) / (1f - EDGE_FADE_START)).coerceIn(0f, 1f) },
+                startIntensity = 1f,
+                endIntensity = 0f,
+            )
+        )
+        val tint = color.copy(alpha = BAR_TINT_ALPHA)
+        colorEffects(listOf(HazeColorEffect.tint(Brush.verticalGradient(0f to tint, EDGE_FADE_START to tint, 1f to Color.Transparent))))
+    } else {
+        backgroundColor(color)
+        colorEffects(listOf(HazeColorEffect.tint(color.copy(alpha = BAR_TINT_ALPHA))))
     }
 }
 
@@ -210,5 +256,7 @@ private const val TITLE = "title"
 private const val TRAILING = "trailing"
 private val IOS_BAR_HEIGHT = 44.dp
 private val HAIRLINE = 0.5.dp
-private val HAIRLINE_FADE = 8.dp
+private val BAR_BLUR = 24.dp
+private const val BAR_TINT_ALPHA = 0.8f
+private const val EDGE_FADE_START = 0.7f
 private const val INLINE_TITLE_FADE_START = 0.8f

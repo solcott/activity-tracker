@@ -48,6 +48,8 @@ kotlin {
             implementation(libs.coil.network.ktor3)
             implementation(libs.compose.material.icons.core)
             implementation(libs.filekit.dialogs.compose)
+            implementation(libs.haze)
+            implementation(libs.haze.blur)
         }
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)
