@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.record
 
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,10 +35,10 @@ fun ManualActivityPresenter(
     clock: Clock,
 ): ManualActivityState {
     var type by rememberSaveable(stateSaver = ActivityTypeSaver) { mutableStateOf(ActivityType(Sport.RUN)) }
-    var title by rememberSaveable { mutableStateOf("") }
-    var distance by rememberSaveable { mutableStateOf("") }
-    var duration by rememberSaveable { mutableStateOf("") }
-    var temperature by rememberSaveable { mutableStateOf("") }
+    val title = rememberTextFieldState()
+    val distance = rememberTextFieldState()
+    val duration = rememberTextFieldState()
+    val temperature = rememberTextFieldState()
     var units by rememberSaveable { mutableStateOf(unitsRepository.units.value) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<UiError?>(null) }
@@ -50,22 +51,6 @@ fun ManualActivityPresenter(
                 type = event.value
             }
 
-            is ManualActivityEvent.TitleChanged -> {
-                title = event.value
-            }
-
-            is ManualActivityEvent.DistanceChanged -> {
-                distance = event.value
-            }
-
-            is ManualActivityEvent.DurationChanged -> {
-                duration = event.value
-            }
-
-            is ManualActivityEvent.TemperatureChanged -> {
-                temperature = event.value
-            }
-
             is ManualActivityEvent.UnitsChanged -> {
                 units = event.value
             }
@@ -75,7 +60,7 @@ fun ManualActivityPresenter(
             }
 
             ManualActivityEvent.Save -> {
-                val minutes = parseDecimal(duration) ?: return@ManualActivityState
+                val minutes = parseDecimal(duration.text.toString()) ?: return@ManualActivityState
                 saving = true
                 scope.launch {
                     runSuspendCatching {
@@ -83,13 +68,15 @@ fun ManualActivityPresenter(
                         activities.publish(
                             ActivityDraft(
                                 type = type,
-                                title = title.ifBlank { null },
+                                title = title.text.toString().ifBlank { null },
                                 description = null,
                                 startedAt = clock.now() - minutes.minutes,
                                 elapsed = minutes.minutes,
                                 movingSeconds = elapsed,
-                                distanceMeters = parseDecimal(distance)?.let { UnitConversions.fromDistanceUnit(it, units) },
-                                avgTemperatureCelsius = parseDecimal(temperature)?.let { UnitConversions.fromTemperatureUnit(it, units) },
+                                distanceMeters =
+                                    parseDecimal(distance.text.toString())?.let { UnitConversions.fromDistanceUnit(it, units) },
+                                avgTemperatureCelsius =
+                                    parseDecimal(temperature.text.toString())?.let { UnitConversions.fromTemperatureUnit(it, units) },
                             )
                         )
                         navigator.pop()

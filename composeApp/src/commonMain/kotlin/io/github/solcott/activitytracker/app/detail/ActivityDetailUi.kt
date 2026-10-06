@@ -167,8 +167,7 @@ private fun LoadedContent(state: ActivityDetailState.Loaded, modifier: Modifier 
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
-                    value = state.draftComment,
-                    onValueChange = { state.eventSink(ActivityDetailEvent.DraftChanged(it)) },
+                    state = state.draftComment,
                     placeholder = { Text(stringResource(Res.string.detail_comment_placeholder)) },
                     modifier = Modifier.weight(1f),
                 )

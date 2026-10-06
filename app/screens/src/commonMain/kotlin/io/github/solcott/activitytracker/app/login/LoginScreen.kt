@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.login
 
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
@@ -11,7 +12,7 @@ import io.github.solcott.activitytracker.data.auth.AuthCoordinator.Status
 
 @Immutable
 data class LoginState(
-    val handle: String,
+    val handle: TextFieldState,
     val status: Status,
     val eventSink: (LoginEvent) -> Unit,
 ) : CircuitUiState {
@@ -20,8 +21,6 @@ data class LoginState(
 }
 
 sealed interface LoginEvent {
-    data class HandleChanged(val handle: String) : LoginEvent
-
     data object Submit : LoginEvent
 
     data object Cancel : LoginEvent

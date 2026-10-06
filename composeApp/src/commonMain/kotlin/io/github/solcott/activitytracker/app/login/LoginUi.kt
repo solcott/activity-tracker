@@ -6,8 +6,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -49,10 +49,9 @@ fun LoginUi(state: LoginState, modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.bodyMedium,
         )
         OutlinedTextField(
-            value = state.handle,
-            onValueChange = { state.eventSink(LoginEvent.HandleChanged(it)) },
+            state = state.handle,
             label = { Text(stringResource(Res.string.login_handle_label)) },
-            singleLine = true,
+            lineLimits = TextFieldLineLimits.SingleLine,
             enabled = !state.busy,
             keyboardOptions =
                 KeyboardOptions(
@@ -61,7 +60,7 @@ fun LoginUi(state: LoginState, modifier: Modifier = Modifier) {
                     keyboardType = KeyboardType.Uri,
                     imeAction = ImeAction.Go,
                 ),
-            keyboardActions = KeyboardActions(onGo = { state.eventSink(LoginEvent.Submit) }),
+            onKeyboardAction = { state.eventSink(LoginEvent.Submit) },
             modifier = Modifier.fillMaxWidth(),
         )
         when (val status = state.status) {
@@ -81,7 +80,7 @@ fun LoginUi(state: LoginState, modifier: Modifier = Modifier) {
         } else {
             Button(
                 onClick = { state.eventSink(LoginEvent.Submit) },
-                enabled = state.handle.isNotBlank(),
+                enabled = state.handle.text.isNotBlank(),
             ) {
                 Text(stringResource(Res.string.login_sign_in))
             }

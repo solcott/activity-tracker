@@ -1,5 +1,7 @@
 package io.github.solcott.activitytracker.app
 
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.profile.AvatarImage
@@ -31,12 +33,12 @@ class EditProfilePresenterTest {
         val navigator = FakeNavigator(EditProfileScreen)
         presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units) }) {
             val loaded = awaitUntil { it.loaded }
-            assertEquals("Alice", loaded.displayName)
-            assertEquals("Runner", loaded.description)
+            assertEquals("Alice", loaded.displayName.text.toString())
+            assertEquals("Runner", loaded.description.text.toString())
 
-            loaded.eventSink(EditProfileEvent.DisplayNameChanged(" Alice A. "))
-            awaitItem().eventSink(EditProfileEvent.DescriptionChanged(""))
-            awaitItem().eventSink(EditProfileEvent.Save)
+            loaded.displayName.setTextAndPlaceCursorAtEnd(" Alice A. ")
+            loaded.description.clearText()
+            loaded.eventSink(EditProfileEvent.Save)
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
         }
@@ -59,13 +61,13 @@ class EditProfilePresenterTest {
         val navigator = FakeNavigator(EditProfileScreen)
         presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units) }) {
             val loaded = awaitUntil { it.loaded }
-            assertEquals("", loaded.displayName)
+            assertEquals("", loaded.displayName.text.toString())
 
-            loaded.eventSink(EditProfileEvent.DisplayNameChanged("Alice"))
-            awaitItem().eventSink(EditProfileEvent.Save)
+            loaded.displayName.setTextAndPlaceCursorAtEnd("Alice")
+            loaded.eventSink(EditProfileEvent.Save)
             val failed = awaitUntil { it.error != null && !it.saving }
             assertEquals(UiError.Kind.SaveProfile, failed.error?.kind)
-            assertEquals("Alice", failed.displayName)
+            assertEquals("Alice", failed.displayName.text.toString())
             cancelAndIgnoreRemainingEvents()
         }
         navigator.assertPopIsEmpty()
@@ -75,11 +77,11 @@ class EditProfilePresenterTest {
     fun overLongNameIsInvalid() = runTest {
         val repos = fixture.repos()
         presenterTestOf({ EditProfilePresenter(FakeNavigator(EditProfileScreen), repos.profiles, repos.units) }) {
-            awaitUntil { it.loaded }.eventSink(EditProfileEvent.DisplayNameChanged("a".repeat(EditProfileState.DISPLAY_NAME_MAX_LENGTH)))
-            val atLimit = awaitItem()
-            assertTrue(atLimit.valid)
-            atLimit.eventSink(EditProfileEvent.DisplayNameChanged("a".repeat(EditProfileState.DISPLAY_NAME_MAX_LENGTH + 1)))
-            assertFalse(awaitItem().valid)
+            val loaded = awaitUntil { it.loaded }
+            loaded.displayName.setTextAndPlaceCursorAtEnd("a".repeat(EditProfileState.DISPLAY_NAME_MAX_LENGTH))
+            assertTrue(loaded.valid)
+            loaded.displayName.setTextAndPlaceCursorAtEnd("a".repeat(EditProfileState.DISPLAY_NAME_MAX_LENGTH + 1))
+            assertFalse(loaded.valid)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -92,11 +94,11 @@ class EditProfilePresenterTest {
             val loaded = awaitUntil { it.loaded }
             assertEquals(Visibility.SELF, loaded.visibility.weight, "unset details default to Only me")
 
-            loaded.eventSink(EditProfileEvent.WeightChanged("150"))
-            awaitItem().eventSink(EditProfileEvent.VisibilityChanged(DetailGroup.Weight, Visibility.MUTUALS))
-            awaitItem().eventSink(EditProfileEvent.LocalityChanged("Portland"))
-            awaitItem().eventSink(EditProfileEvent.VisibilityChanged(DetailGroup.Location, Visibility.PUBLIC))
-            awaitItem().eventSink(EditProfileEvent.Save)
+            loaded.weight.setTextAndPlaceCursorAtEnd("150")
+            loaded.eventSink(EditProfileEvent.VisibilityChanged(DetailGroup.Weight, Visibility.MUTUALS))
+            loaded.locality.setTextAndPlaceCursorAtEnd("Portland")
+            loaded.eventSink(EditProfileEvent.VisibilityChanged(DetailGroup.Location, Visibility.PUBLIC))
+            loaded.eventSink(EditProfileEvent.Save)
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
         }
@@ -134,8 +136,9 @@ class EditProfilePresenterTest {
     fun invalidWeightBlocksSaving() = runTest {
         val repos = fixture.repos()
         presenterTestOf({ EditProfilePresenter(FakeNavigator(EditProfileScreen), repos.profiles, repos.units) }) {
-            awaitUntil { it.loaded }.eventSink(EditProfileEvent.WeightChanged("heavy"))
-            assertFalse(awaitItem().valid)
+            val loaded = awaitUntil { it.loaded }
+            loaded.weight.setTextAndPlaceCursorAtEnd("heavy")
+            assertFalse(loaded.valid)
             cancelAndIgnoreRemainingEvents()
         }
     }

@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.detail
 
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
@@ -26,7 +27,7 @@ sealed interface ActivityDetailState : CircuitUiState {
     data class Loaded(
         val activity: ActivityView,
         val comments: ImmutableList<CommentView>,
-        val draftComment: String,
+        val draftComment: TextFieldState,
         /** The activity is the signed-in athlete's own, so it can't take kudos. */
         val isOwn: Boolean,
         /** Who gave kudos, once the viewer has shown the list; null while it's hidden. */
@@ -55,8 +56,6 @@ sealed interface ActivityDetailEvent {
     data object ToggleKudosList : ActivityDetailEvent
 
     data class OpenProfile(val did: Did) : ActivityDetailEvent
-
-    data class DraftChanged(val text: String) : ActivityDetailEvent
 
     data object SendComment : ActivityDetailEvent
 }

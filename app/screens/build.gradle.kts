@@ -16,6 +16,8 @@ kotlin {
             api(projects.coreData)
             api(libs.circuit.runtime)
             api(libs.circuit.serialization)
+            // Only for TextFieldState: a State holds its text fields' state, which the presenter owns.
+            api(libs.compose.foundation)
             api(libs.kotlinx.collections.immutable)
             api(libs.kotlinx.io.bytestring)
             implementation(libs.compose.runtime)

@@ -81,8 +81,7 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
                     .toImmutableList()
             )
             OutlinedTextField(
-                value = state.title,
-                onValueChange = { state.eventSink(RecordEvent.TitleChanged(it)) },
+                state = state.title,
                 label = { Text(stringResource(Res.string.field_title)) },
                 modifier = Modifier.fillMaxWidth(),
             )

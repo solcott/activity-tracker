@@ -22,7 +22,7 @@ Prefix each path with `src/commonMain/kotlin/io/github/solcott/activitytracker/a
 | `app/presenters` | `<Name>Presenter.kt` | the `@CircuitInject` presenter |
 | `composeApp` | `<Name>Ui.kt` | the `@CircuitInject` UI and its private composables |
 
-The presenter module has no foundation, ui or material3, so keep every UI import in `<Name>Ui.kt`. The UI never imports the presenter.
+The presenter module has no ui or material3 (foundation only for `TextFieldState`), so keep every UI import in `<Name>Ui.kt`. The UI never imports the presenter. A text field the presenter reads is a `TextFieldState` in State from `rememberTextFieldState()` in the presenter, not a `String` plus a changed event (see compose-screens.md).
 
 ```kotlin
 // app/screens/.../<Name>Screen.kt

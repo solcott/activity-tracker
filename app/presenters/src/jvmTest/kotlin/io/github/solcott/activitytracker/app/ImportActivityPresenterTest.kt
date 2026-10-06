@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app
 
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.activityfile.ActivityFileException
@@ -106,8 +107,8 @@ class ImportActivityPresenterTest {
             assertNull(preview.clock, "a FIT file's times are UTC")
             assertEquals(ActivityType(Sport.RUN), read.type)
 
-            read.eventSink(ImportActivityEvent.TitleChanged("Lunch loop"))
-            awaitUntil { it.title == "Lunch loop" }.eventSink(ImportActivityEvent.Save)
+            read.title.setTextAndPlaceCursorAtEnd("Lunch loop")
+            read.eventSink(ImportActivityEvent.Save)
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
         }

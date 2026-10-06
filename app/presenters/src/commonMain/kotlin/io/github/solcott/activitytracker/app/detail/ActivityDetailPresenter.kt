@@ -1,5 +1,7 @@
 package io.github.solcott.activitytracker.app.detail
 
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -42,7 +44,7 @@ fun ActivityDetailPresenter(
     var activity by remember { mutableStateOf<ActivityView?>(null) }
     var comments by remember { mutableStateOf<ImmutableList<CommentView>>(persistentListOf()) }
     var error by remember { mutableStateOf<UiError?>(null) }
-    var draft by remember { mutableStateOf("") }
+    val draft = rememberTextFieldState()
     var loadKey by remember { mutableIntStateOf(0) }
     var showKudos by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -82,18 +84,14 @@ fun ActivityDetailPresenter(
                 navigator.goTo(ProfileScreen(event.did.value))
             }
 
-            is ActivityDetailEvent.DraftChanged -> {
-                draft = event.text
-            }
-
             ActivityDetailEvent.ToggleKudos -> {
                 current?.let { scope.launch { runSuspendCatching { activities.toggleKudos(it) } } }
             }
 
             ActivityDetailEvent.SendComment -> {
-                if (current != null && draft.isNotBlank()) {
-                    val text = draft
-                    draft = ""
+                val text = draft.text.toString()
+                if (current != null && text.isNotBlank()) {
+                    draft.clearText()
                     scope.launch { runSuspendCatching { activities.comment(current, text) } }
                 }
             }

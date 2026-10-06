@@ -1,5 +1,8 @@
 package io.github.solcott.activitytracker.app.profile
 
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -55,15 +58,15 @@ fun EditProfilePresenter(navigator: Navigator, profiles: ProfileRepository, unit
     val nowHidden = own?.let { nowHidden(it, details, visibility) }.orEmpty().toImmutableList()
 
     return EditProfileState(
-        displayName = form.displayName.value,
-        description = form.description.value,
+        displayName = form.displayName,
+        description = form.description,
         avatar = picked ?: own?.avatarUrl?.takeUnless { avatarRemoved }?.let(AvatarImage::Saved),
-        locality = form.locality.value,
-        region = form.region.value,
+        locality = form.locality,
+        region = form.region,
         country = form.country.value,
         birthDate = form.birthDate.value,
-        gender = form.gender.value,
-        weight = form.weight.value,
+        gender = form.gender,
+        weight = form.weight,
         units = form.units,
         visibility = visibility,
         nowHidden = nowHidden,
@@ -91,7 +94,13 @@ fun EditProfilePresenter(navigator: Navigator, profiles: ProfileRepository, unit
                     saving = true
                     error = null
                     val edit =
-                        ProfileEdit(form.displayName.value, form.description.value, details, visibility, avatarEdit(picked, avatarRemoved))
+                        ProfileEdit(
+                            form.displayName.text.toString(),
+                            form.description.text.toString(),
+                            form.details(),
+                            form.visibility(),
+                            avatarEdit(picked, avatarRemoved),
+                        )
                     scope.launch {
                         runSuspendCatching { profiles.save(edit) }
                             .onSuccess { navigator.pop() }
@@ -110,14 +119,14 @@ fun EditProfilePresenter(navigator: Navigator, profiles: ProfileRepository, unit
 
 /** The edit form's fields, saved across configuration changes. Weight is text in [units], as typed. */
 private class Form(
-    val displayName: MutableState<String>,
-    val description: MutableState<String>,
-    val locality: MutableState<String>,
-    val region: MutableState<String>,
+    val displayName: TextFieldState,
+    val description: TextFieldState,
+    val locality: TextFieldState,
+    val region: TextFieldState,
     val country: MutableState<String>,
     val birthDate: MutableState<String>,
-    val gender: MutableState<String>,
-    val weight: MutableState<String>,
+    val gender: TextFieldState,
+    val weight: TextFieldState,
     val visibilities: Map<DetailGroup, MutableState<String>>,
     /** True once loaded, so a configuration change keeps what the athlete typed instead of reloading it. */
     val filled: MutableState<Boolean>,
@@ -126,29 +135,24 @@ private class Form(
     fun fillOnce(profile: OwnProfile) {
         if (filled.value) return
         val loaded = profile.details
-        displayName.value = profile.displayName.orEmpty()
-        description.value = profile.description.orEmpty()
-        locality.value = loaded.location?.locality.orEmpty()
-        region.value = loaded.location?.region.orEmpty()
+        displayName.setTextAndPlaceCursorAtEnd(profile.displayName.orEmpty())
+        description.setTextAndPlaceCursorAtEnd(profile.description.orEmpty())
+        locality.setTextAndPlaceCursorAtEnd(loaded.location?.locality.orEmpty())
+        region.setTextAndPlaceCursorAtEnd(loaded.location?.region.orEmpty())
         country.value = loaded.location?.country.orEmpty()
         birthDate.value = loaded.birthDate.orEmpty()
-        gender.value = loaded.gender.orEmpty()
-        weight.value = loaded.weight?.let { WeightConversions.toInputText(it, units) }.orEmpty()
+        gender.setTextAndPlaceCursorAtEnd(loaded.gender.orEmpty())
+        weight.setTextAndPlaceCursorAtEnd(loaded.weight?.let { WeightConversions.toInputText(it, units) }.orEmpty())
         visibilities.forEach { (group, state) -> state.value = group.visibility(profile.visibility) ?: Visibility.SELF }
         filled.value = true
     }
 
-    /** Applies a field edit. Saving, leaving and the avatar are the presenter's. */
+    /** Applies a picked value. Typed fields edit their [TextFieldState]s; saving, leaving and the avatar are the presenter's. */
     fun update(event: EditProfileEvent) {
         when (event) {
-            is EditProfileEvent.DisplayNameChanged -> displayName.value = event.value
-            is EditProfileEvent.DescriptionChanged -> description.value = event.value
-            is EditProfileEvent.LocalityChanged -> locality.value = event.value
-            is EditProfileEvent.RegionChanged -> region.value = event.value
             is EditProfileEvent.CountryChanged -> country.value = event.value
             is EditProfileEvent.BirthDateChanged -> birthDate.value = event.value
-            is EditProfileEvent.GenderChanged -> gender.value = event.value
-            is EditProfileEvent.WeightChanged -> weight.value = event.value
+            is EditProfileEvent.GenderChanged -> gender.setTextAndPlaceCursorAtEnd(event.value)
             is EditProfileEvent.VisibilityChanged -> visibilities.getValue(event.group).value = event.visibility
             EditProfileEvent.Save,
             EditProfileEvent.Back,
@@ -160,11 +164,15 @@ private class Form(
     fun details(): ProfileDetails =
         ProfileDetails(
             location =
-                Location(locality.value.trim().ifEmpty { null }, region.value.trim().ifEmpty { null }, country.value.ifEmpty { null })
+                Location(
+                        locality.text.trim().ifEmpty { null }?.toString(),
+                        region.text.trim().ifEmpty { null }?.toString(),
+                        country.value.ifEmpty { null },
+                    )
                     .takeUnless { it == Location() },
             birthDate = birthDate.value.ifEmpty { null },
-            gender = gender.value.trim().ifEmpty { null },
-            weight = WeightConversions.fromInputText(weight.value, units),
+            gender = gender.text.trim().ifEmpty { null }?.toString(),
+            weight = WeightConversions.fromInputText(weight.text.toString(), units),
         )
 
     fun visibility(): DetailsVisibility =
@@ -175,14 +183,14 @@ private class Form(
 private fun rememberForm(units: UnitSystem): Form {
     val savedUnits by rememberSaveable { mutableStateOf(units) }
     return Form(
-        displayName = rememberSaveable { mutableStateOf("") },
-        description = rememberSaveable { mutableStateOf("") },
-        locality = rememberSaveable { mutableStateOf("") },
-        region = rememberSaveable { mutableStateOf("") },
+        displayName = rememberTextFieldState(),
+        description = rememberTextFieldState(),
+        locality = rememberTextFieldState(),
+        region = rememberTextFieldState(),
         country = rememberSaveable { mutableStateOf("") },
         birthDate = rememberSaveable { mutableStateOf("") },
-        gender = rememberSaveable { mutableStateOf("") },
-        weight = rememberSaveable { mutableStateOf("") },
+        gender = rememberTextFieldState(),
+        weight = rememberTextFieldState(),
         visibilities = DetailGroup.entries.associateWith { group -> rememberSaveable(group.name) { mutableStateOf(Visibility.SELF) } },
         filled = rememberSaveable { mutableStateOf(false) },
         units = savedUnits,

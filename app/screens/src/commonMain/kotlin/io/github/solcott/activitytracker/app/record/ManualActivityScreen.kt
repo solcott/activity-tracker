@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.record
 
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
@@ -19,12 +20,12 @@ data class ManualActivityState(
     val type: ActivityType,
     /** Recently tracked types, then the common ones, for the picker's quick row. */
     val quickTypes: ImmutableList<ActivityType>,
-    val title: String,
+    val title: TextFieldState,
     /** In kilometers or miles, per [units]. */
-    val distance: String,
-    val durationMinutes: String,
+    val distance: TextFieldState,
+    val durationMinutes: TextFieldState,
     /** In °C or °F, per [units]. Optional. */
-    val temperature: String,
+    val temperature: TextFieldState,
     /** Units for this form's entries; starts at the athlete's preference. */
     val units: UnitSystem,
     val saving: Boolean,
@@ -32,19 +33,11 @@ data class ManualActivityState(
     val eventSink: (ManualActivityEvent) -> Unit,
 ) : CircuitUiState {
     val valid: Boolean
-        get() = (parseDecimal(durationMinutes) ?: 0.0) > 0
+        get() = (parseDecimal(durationMinutes.text.toString()) ?: 0.0) > 0
 }
 
 sealed interface ManualActivityEvent {
     data class TypeChanged(val value: ActivityType) : ManualActivityEvent
-
-    data class TitleChanged(val value: String) : ManualActivityEvent
-
-    data class DistanceChanged(val value: String) : ManualActivityEvent
-
-    data class DurationChanged(val value: String) : ManualActivityEvent
-
-    data class TemperatureChanged(val value: String) : ManualActivityEvent
 
     data class UnitsChanged(val value: UnitSystem) : ManualActivityEvent
 

@@ -9,6 +9,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.InputTransformation
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -34,6 +39,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +60,7 @@ import io.github.solcott.activitytracker.app.ui.countryName
 import io.github.solcott.activitytracker.app.ui.detailGroupLabel
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.genderLabel
+import io.github.solcott.activitytracker.app.ui.rememberReadOnlyTextFieldState
 import io.github.solcott.activitytracker.app.ui.stripDiacritics
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -120,16 +127,14 @@ fun EditProfileUi(state: EditProfileState, modifier: Modifier = Modifier) {
         ) {
             AvatarRow(state)
             LimitedTextField(
-                value = state.displayName,
-                onValueChange = { state.eventSink(EditProfileEvent.DisplayNameChanged(it)) },
+                state.displayName,
                 label = stringResource(Res.string.edit_profile_display_name),
                 maxLength = EditProfileState.DISPLAY_NAME_MAX_LENGTH,
                 enabled = state.loaded,
                 singleLine = true,
             )
             LimitedTextField(
-                value = state.description,
-                onValueChange = { state.eventSink(EditProfileEvent.DescriptionChanged(it)) },
+                state.description,
                 label = stringResource(Res.string.edit_profile_description),
                 maxLength = EditProfileState.DESCRIPTION_MAX_LENGTH,
                 enabled = state.loaded,
@@ -140,16 +145,14 @@ fun EditProfileUi(state: EditProfileState, modifier: Modifier = Modifier) {
             Text(stringResource(Res.string.edit_profile_details_help), style = MaterialTheme.typography.bodySmall)
             DetailSection(DetailGroup.Location, state) {
                 LimitedTextField(
-                    value = state.locality,
-                    onValueChange = { state.eventSink(EditProfileEvent.LocalityChanged(it)) },
+                    state.locality,
                     label = stringResource(Res.string.edit_profile_locality),
                     maxLength = EditProfileState.DETAIL_MAX_LENGTH,
                     enabled = state.loaded,
                     singleLine = true,
                 )
                 LimitedTextField(
-                    value = state.region,
-                    onValueChange = { state.eventSink(EditProfileEvent.RegionChanged(it)) },
+                    state.region,
                     label = stringResource(Res.string.edit_profile_region),
                     maxLength = EditProfileState.DETAIL_MAX_LENGTH,
                     enabled = state.loaded,
@@ -166,7 +169,6 @@ fun EditProfileUi(state: EditProfileState, modifier: Modifier = Modifier) {
             DetailSection(DetailGroup.Weight, state) {
                 OutlinedTextField(
                     state.weight,
-                    { state.eventSink(EditProfileEvent.WeightChanged(it)) },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = state.loaded,
                     label = {
@@ -179,9 +181,9 @@ fun EditProfileUi(state: EditProfileState, modifier: Modifier = Modifier) {
                             )
                         )
                     },
-                    isError = !WeightConversions.isValidInputText(state.weight, state.units),
+                    isError = !WeightConversions.isValidInputText(state.weight.text.toString(), state.units),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
+                    lineLimits = TextFieldLineLimits.SingleLine,
                 )
             }
             state.nowHidden.forEach { group ->
@@ -215,7 +217,7 @@ private fun AvatarRow(state: EditProfileState, modifier: Modifier = Modifier) {
             }
         }
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        val name = state.displayName
+        val name = state.displayName.text.toString()
         when (val avatar = state.avatar) {
             is AvatarImage.Saved -> Avatar(avatar.url, name, AVATAR_SIZE)
             is AvatarImage.Picked ->
@@ -272,13 +274,16 @@ private fun CountryField(
 ) {
     val countries = remember { Countries.codes.map { CountryOption(it, countryName(it)) }.sortedBy { it.name } }
     val selectedName = if (code.isEmpty()) "" else countryName(code)
-    var query by remember(code) { mutableStateOf(selectedName) }
+    val query = rememberTextFieldState(selectedName)
+    // The name shows once the profile has loaded, and again after a pick.
+    LaunchedEffect(selectedName) { query.setTextAndPlaceCursorAtEnd(selectedName) }
     var expanded by remember { mutableStateOf(false) }
+    val typed = query.text.toString()
     val matches =
-        if (query == selectedName) {
+        if (typed == selectedName) {
             countries
         } else {
-            val key = searchKey(query.trim())
+            val key = searchKey(typed.trim())
             // A typed code ("us") puts its country above the names that merely contain it (Australia, Belarus…).
             val (byCode, byName) = countries.partition { it.code.equals(key, ignoreCase = true) }
             byCode + byName.filter { it.key.contains(key) }
@@ -286,21 +291,19 @@ private fun CountryField(
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it && enabled }, modifier = modifier) {
         OutlinedTextField(
             query,
-            {
-                query = it
-                expanded = true
-            },
             modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, enabled).fillMaxWidth(),
             enabled = enabled,
             label = { Text(stringResource(Res.string.edit_profile_country)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            singleLine = true,
+            // Typing opens the menu; setting the text from code doesn't.
+            inputTransformation = InputTransformation { expanded = true },
+            lineLimits = TextFieldLineLimits.SingleLine,
         )
         ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = {
                 expanded = false
-                query = selectedName
+                query.setTextAndPlaceCursorAtEnd(selectedName)
             },
         ) {
             DropdownMenuItem(
@@ -315,7 +318,7 @@ private fun CountryField(
                     text = { Text(name) },
                     onClick = {
                         onSelect(countryCode)
-                        query = name
+                        query.setTextAndPlaceCursorAtEnd(name)
                         expanded = false
                     },
                 )
@@ -341,8 +344,7 @@ private fun BirthDateField(
 ) {
     var picking by remember { mutableStateOf(false) }
     OutlinedTextField(
-        date,
-        {},
+        rememberReadOnlyTextFieldState(date),
         modifier = modifier.fillMaxWidth(),
         enabled = enabled,
         readOnly = true,
@@ -359,7 +361,7 @@ private fun BirthDateField(
                 }
             }
         },
-        singleLine = true,
+        lineLimits = TextFieldLineLimits.SingleLine,
     )
     if (picking) {
         val now = remember { Clock.System.now().toEpochMilliseconds() }
@@ -394,14 +396,15 @@ private fun BirthDateField(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GenderField(
-    gender: String,
-    onChange: (String) -> Unit,
+    state: TextFieldState,
+    onPick: (String) -> Unit,
     enabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
     // Kept until a known value is chosen, so clearing the description doesn't hide its field.
     var choseSelfDescribe by remember { mutableStateOf(false) }
+    val gender = state.text.toString()
     val selfDescribe = choseSelfDescribe || (gender.isNotEmpty() && gender !in Gender.all)
     val shown =
         when {
@@ -411,20 +414,19 @@ private fun GenderField(
         }
     fun choose(value: String, describe: Boolean) {
         choseSelfDescribe = describe
-        onChange(value)
+        onPick(value)
         expanded = false
     }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it && enabled }) {
             OutlinedTextField(
-                shown,
-                {},
+                rememberReadOnlyTextFieldState(shown),
                 modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled).fillMaxWidth(),
                 enabled = enabled,
                 readOnly = true,
                 label = { Text(stringResource(Res.string.edit_profile_gender)) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                singleLine = true,
+                lineLimits = TextFieldLineLimits.SingleLine,
             )
             ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 DropdownMenuItem(
@@ -442,8 +444,7 @@ private fun GenderField(
         }
         if (selfDescribe) {
             LimitedTextField(
-                value = gender,
-                onValueChange = onChange,
+                state,
                 label = stringResource(Res.string.edit_profile_gender_describe),
                 maxLength = EditProfileState.DETAIL_MAX_LENGTH,
                 enabled = enabled,
@@ -456,23 +457,21 @@ private fun GenderField(
 /** A text field with a length counter that turns to an error past [maxLength]. */
 @Composable
 private fun LimitedTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
+    state: TextFieldState,
     label: String,
     maxLength: Int,
     enabled: Boolean,
     singleLine: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val length = state.text.length
     OutlinedTextField(
-        value,
-        onValueChange,
+        state,
         modifier = modifier.fillMaxWidth(),
         enabled = enabled,
         label = { Text(label) },
-        supportingText = { Text(stringResource(Res.string.edit_profile_length, value.length, maxLength)) },
-        isError = value.length > maxLength,
-        singleLine = singleLine,
-        minLines = if (singleLine) 1 else 3,
+        supportingText = { Text(stringResource(Res.string.edit_profile_length, length, maxLength)) },
+        isError = length > maxLength,
+        lineLimits = if (singleLine) TextFieldLineLimits.SingleLine else TextFieldLineLimits.MultiLine(minHeightInLines = 3),
     )
 }

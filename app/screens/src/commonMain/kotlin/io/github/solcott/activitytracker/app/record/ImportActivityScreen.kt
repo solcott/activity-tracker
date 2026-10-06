@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.record
 
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
@@ -24,7 +25,7 @@ data class ImportActivityState(
     val type: ActivityType,
     /** Recently tracked types, then the common ones, for the picker's quick row. */
     val quickTypes: ImmutableList<ActivityType>,
-    val title: String,
+    val title: TextFieldState,
     val saving: Boolean,
     val error: UiError?,
     val eventSink: (ImportActivityEvent) -> Unit,
@@ -112,8 +113,6 @@ sealed interface ImportActivityEvent {
     data class FilePicked(val name: String, val bytes: ByteString) : ImportActivityEvent
 
     data class TypeChanged(val value: ActivityType) : ImportActivityEvent
-
-    data class TitleChanged(val value: String) : ImportActivityEvent
 
     /** Where a zone-less file's clock was ([ImportClock]); a [TimeZoneOption.id]. */
     data class TimeZoneChanged(val id: String) : ImportActivityEvent

@@ -4,6 +4,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.input.InputTransformation
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -15,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,33 +49,33 @@ fun TimeZoneNotice(clock: ImportClock, onPick: (String) -> Unit, enabled: Boolea
 private fun TimeZoneField(clock: ImportClock, onPick: (String) -> Unit, enabled: Boolean, modifier: Modifier = Modifier) {
     val selected = zoneLabel(clock.zone)
     val zones = remember(clock.zones) { clock.zones.map(::ZoneEntry) }
-    var query by remember(selected) { mutableStateOf(selected) }
+    val query = rememberTextFieldState(selected)
+    LaunchedEffect(selected) { query.setTextAndPlaceCursorAtEnd(selected) }
     var expanded by remember { mutableStateOf(false) }
+    val typed = query.text.toString()
     val matches =
-        if (query == selected) {
+        if (typed == selected) {
             zones
         } else {
-            val key = searchKey(query.trim())
+            val key = searchKey(typed.trim())
             zones.filter { key in it.key }
         }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it && enabled }, modifier = modifier) {
         OutlinedTextField(
             query,
-            {
-                query = it
-                expanded = true
-            },
             modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, enabled).fillMaxWidth(),
             enabled = enabled,
             label = { Text(stringResource(Res.string.import_time_zone)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            singleLine = true,
+            // Typing opens the menu; setting the text from code doesn't.
+            inputTransformation = InputTransformation { expanded = true },
+            lineLimits = TextFieldLineLimits.SingleLine,
         )
         ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = {
                 expanded = false
-                query = selected
+                query.setTextAndPlaceCursorAtEnd(selected)
             },
         ) {
             matches.forEach { (zone) ->
@@ -79,7 +84,7 @@ private fun TimeZoneField(clock: ImportClock, onPick: (String) -> Unit, enabled:
                     text = { Text(label) },
                     onClick = {
                         onPick(zone.id)
-                        query = label
+                        query.setTextAndPlaceCursorAtEnd(label)
                         expanded = false
                     },
                 )

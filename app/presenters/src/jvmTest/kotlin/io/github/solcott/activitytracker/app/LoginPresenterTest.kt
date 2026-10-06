@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app
 
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import co.touchlab.kermit.Logger
 import com.slack.circuit.test.test
 import io.github.solcott.activitytracker.app.login.LoginEvent
@@ -54,11 +55,10 @@ class LoginPresenterTest {
     fun unresolvableHandleSurfacesError() = runTest {
         LoginPresenter(coordinator()).test {
             val initial = awaitItem()
-            assertEquals("", initial.handle)
-            initial.eventSink(LoginEvent.HandleChanged(" nobody.test "))
-            val typed = awaitItem()
-            assertEquals("nobody.test", typed.handle)
-            typed.eventSink(LoginEvent.Submit)
+            assertEquals("", initial.handle.text.toString())
+            // Surrounding spaces are trimmed on submit.
+            initial.handle.setTextAndPlaceCursorAtEnd(" nobody.test ")
+            initial.eventSink(LoginEvent.Submit)
 
             var state = awaitItem()
             while (state.status !is Status.Failed) state = awaitItem()
@@ -71,8 +71,9 @@ class LoginPresenterTest {
     @Test
     fun submitLowercasesHandle() = runTest {
         LoginPresenter(coordinator()).test {
-            awaitItem().eventSink(LoginEvent.HandleChanged("Nobody.Test"))
-            awaitItem().eventSink(LoginEvent.Submit)
+            val initial = awaitItem()
+            initial.handle.setTextAndPlaceCursorAtEnd("Nobody.Test")
+            initial.eventSink(LoginEvent.Submit)
 
             var state = awaitItem()
             while (state.status !is Status.Failed) state = awaitItem()

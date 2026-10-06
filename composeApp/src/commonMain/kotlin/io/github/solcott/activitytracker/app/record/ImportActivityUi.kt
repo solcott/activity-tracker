@@ -162,7 +162,6 @@ private fun PreviewForm(state: ImportActivityState, preview: ImportPreview, modi
         )
         OutlinedTextField(
             state.title,
-            { state.eventSink(ImportActivityEvent.TitleChanged(it)) },
             label = { Text(stringResource(Res.string.field_title)) },
             modifier = Modifier.fillMaxWidth(),
         )

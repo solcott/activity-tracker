@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.record
 
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -39,7 +40,7 @@ fun RecordPresenter(
 ): RecordState {
     val recording by recorder.state.collectAsState()
     var type by rememberSaveable(stateSaver = ActivityTypeSaver) { mutableStateOf(ActivityType(Sport.RUN)) }
-    var title by rememberSaveable { mutableStateOf("") }
+    val title = rememberTextFieldState()
     var hasPermission by remember { mutableStateOf(tracker.hasPermission()) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<UiError?>(null) }
@@ -73,10 +74,6 @@ fun RecordPresenter(
                 type = event.type
             }
 
-            is RecordEvent.TitleChanged -> {
-                title = event.title
-            }
-
             is RecordEvent.PermissionResult -> {
                 hasPermission = event.granted
                 if (event.granted) recorder.start()
@@ -108,7 +105,7 @@ fun RecordPresenter(
                             ActivityDraft.fromRecording(
                                 result,
                                 type,
-                                title.ifBlank { null },
+                                title.text.toString().ifBlank { null },
                                 null,
                             )
                         )

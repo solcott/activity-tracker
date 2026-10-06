@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app
 
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.record.ManualActivityEvent
@@ -29,10 +30,10 @@ class ManualActivityPresenterTest {
             val initial = awaitItem()
             assertEquals(UnitSystem.Imperial, initial.units)
 
-            initial.eventSink(ManualActivityEvent.DistanceChanged("3.1"))
-            awaitItem().eventSink(ManualActivityEvent.DurationChanged("30"))
-            awaitItem().eventSink(ManualActivityEvent.TemperatureChanged("50"))
-            awaitItem().eventSink(ManualActivityEvent.Save)
+            initial.distance.setTextAndPlaceCursorAtEnd("3.1")
+            initial.durationMinutes.setTextAndPlaceCursorAtEnd("30")
+            initial.temperature.setTextAndPlaceCursorAtEnd("50")
+            initial.eventSink(ManualActivityEvent.Save)
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
         }
@@ -50,10 +51,10 @@ class ManualActivityPresenterTest {
             awaitItem().eventSink(ManualActivityEvent.UnitsChanged(UnitSystem.Metric))
             val metric = awaitItem()
             assertEquals(UnitSystem.Metric, metric.units)
-            metric.eventSink(ManualActivityEvent.DistanceChanged("5"))
-            awaitItem().eventSink(ManualActivityEvent.DurationChanged("25"))
-            awaitItem().eventSink(ManualActivityEvent.TemperatureChanged("-5.5"))
-            awaitItem().eventSink(ManualActivityEvent.Save)
+            metric.distance.setTextAndPlaceCursorAtEnd("5")
+            metric.durationMinutes.setTextAndPlaceCursorAtEnd("25")
+            metric.temperature.setTextAndPlaceCursorAtEnd("-5.5")
+            metric.eventSink(ManualActivityEvent.Save)
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
         }
@@ -68,12 +69,12 @@ class ManualActivityPresenterTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
         val navigator = FakeNavigator(ManualActivityScreen)
         presenterTestOf({ ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, Clock.System) }) {
-            awaitItem().eventSink(ManualActivityEvent.DistanceChanged("5,2"))
-            awaitItem().eventSink(ManualActivityEvent.DurationChanged("30,5"))
-            val filled = awaitItem()
-            assertTrue(filled.valid)
-            filled.eventSink(ManualActivityEvent.TemperatureChanged("-2,5"))
-            awaitItem().eventSink(ManualActivityEvent.Save)
+            val form = awaitItem()
+            form.distance.setTextAndPlaceCursorAtEnd("5,2")
+            form.durationMinutes.setTextAndPlaceCursorAtEnd("30,5")
+            assertTrue(form.valid)
+            form.temperature.setTextAndPlaceCursorAtEnd("-2,5")
+            form.eventSink(ManualActivityEvent.Save)
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
         }
@@ -95,8 +96,9 @@ class ManualActivityPresenterTest {
             assertEquals(ActivityType(Sport.RUN), initial.type)
 
             initial.eventSink(ManualActivityEvent.TypeChanged(gravel))
-            awaitUntil { it.type == gravel }.eventSink(ManualActivityEvent.DurationChanged("90"))
-            awaitUntil { it.valid }.eventSink(ManualActivityEvent.Save)
+            val chosen = awaitUntil { it.type == gravel }
+            chosen.durationMinutes.setTextAndPlaceCursorAtEnd("90")
+            chosen.eventSink(ManualActivityEvent.Save)
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
         }

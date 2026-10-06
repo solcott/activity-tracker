@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.record
 
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
@@ -23,7 +24,7 @@ data class RecordState(
     val type: ActivityType,
     /** Recently tracked types, then the common ones, for the picker's quick row. */
     val quickTypes: ImmutableList<ActivityType>,
-    val title: String,
+    val title: TextFieldState,
     val hasPermission: Boolean,
     val saving: Boolean,
     val error: UiError?,
@@ -32,8 +33,6 @@ data class RecordState(
 
 sealed interface RecordEvent {
     data class TypeChanged(val type: ActivityType) : RecordEvent
-
-    data class TitleChanged(val title: String) : RecordEvent
 
     data class PermissionResult(val granted: Boolean) : RecordEvent
 

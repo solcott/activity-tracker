@@ -62,14 +62,12 @@ fun ManualActivityUi(state: ManualActivityState, modifier: Modifier = Modifier) 
             ActivityTypePicker(state.type, state.quickTypes, { state.eventSink(ManualActivityEvent.TypeChanged(it)) })
             OutlinedTextField(
                 state.title,
-                { state.eventSink(ManualActivityEvent.TitleChanged(it)) },
                 label = { Text(stringResource(Res.string.field_title)) },
                 modifier = Modifier.fillMaxWidth(),
             )
             UnitSystemPicker(state.units, { state.eventSink(ManualActivityEvent.UnitsChanged(it)) }, Modifier.fillMaxWidth())
             OutlinedTextField(
                 state.distance,
-                { state.eventSink(ManualActivityEvent.DistanceChanged(it)) },
                 label = {
                     Text(
                         stringResource(
@@ -85,14 +83,12 @@ fun ManualActivityUi(state: ManualActivityState, modifier: Modifier = Modifier) 
             )
             OutlinedTextField(
                 state.durationMinutes,
-                { state.eventSink(ManualActivityEvent.DurationChanged(it)) },
                 label = { Text(stringResource(Res.string.manual_duration_label)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 state.temperature,
-                { state.eventSink(ManualActivityEvent.TemperatureChanged(it)) },
                 label = {
                     Text(
                         stringResource(

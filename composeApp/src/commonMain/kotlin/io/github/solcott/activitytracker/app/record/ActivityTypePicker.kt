@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
@@ -38,6 +40,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
+import io.github.solcott.activitytracker.app.ui.rememberReadOnlyTextFieldState
 import io.github.solcott.activitytracker.app.ui.sportCategoryLabel
 import io.github.solcott.activitytracker.app.ui.sportLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -69,8 +72,7 @@ fun ActivityTypePicker(
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box {
             OutlinedTextField(
-                value = activityTypeLabel(selected),
-                onValueChange = {},
+                rememberReadOnlyTextFieldState(activityTypeLabel(selected)),
                 readOnly = true,
                 enabled = enabled,
                 label = { Text(stringResource(Res.string.sport_picker_label)) },
@@ -119,7 +121,7 @@ private fun ActivityTypeSheet(
 ) {
     val sheetState = rememberBottomSheetState(SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
     val scope = rememberCoroutineScope()
-    var query by rememberSaveable { mutableStateOf("") }
+    val query = rememberTextFieldState()
     val choose: (ActivityType) -> Unit = { type ->
         onSelect(type)
         scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
@@ -128,7 +130,7 @@ private fun ActivityTypeSheet(
     val offered = { type: ActivityType -> !(outdoorOnly && SportCatalog.isIndoor(type)) }
     // Labels are resources, so search filters here rather than in the presenter. Tokens match too ("mtb" doesn't, "mountain" does).
     val labels = SportCatalog.categories.flatMap { it.types }.distinct().associateWith { activityTypeLabel(it) }
-    val needle = query.trim()
+    val needle = query.text.trim().toString()
     val matches = { type: ActivityType ->
         needle.isEmpty() ||
             listOfNotNull(labels[type], labels[ActivityType(type.sport)], type.sport, type.subSport).any {
@@ -143,11 +145,10 @@ private fun ActivityTypeSheet(
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
+                query,
                 placeholder = { Text(stringResource(Res.string.sport_picker_search)) },
                 leadingIcon = { Icon(Icons.Default.Search, null) },
-                singleLine = true,
+                lineLimits = TextFieldLineLimits.SingleLine,
                 modifier = Modifier.fillMaxWidth(),
             )
             val quick = quickTypes.filter(offered)

@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.record
 
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,7 +48,7 @@ fun ImportActivityPresenter(
     // The parsed file isn't saveable; after process death the athlete picks it again.
     var imported by remember { mutableStateOf<Pair<String, ImportedActivity>?>(null) }
     var type by rememberSaveable(stateSaver = ActivityTypeSaver) { mutableStateOf(ActivityType(Sport.OTHER)) }
-    var title by rememberSaveable { mutableStateOf("") }
+    val title = rememberTextFieldState()
     // Where a zone-less file's clock was; null for this device's zone.
     var zoneId by rememberSaveable { mutableStateOf<String?>(null) }
     var reading by remember { mutableStateOf(false) }
@@ -90,10 +91,6 @@ fun ImportActivityPresenter(
                 type = event.value
             }
 
-            is ImportActivityEvent.TitleChanged -> {
-                title = event.value
-            }
-
             is ImportActivityEvent.TimeZoneChanged -> {
                 zoneId = event.id
             }
@@ -107,7 +104,7 @@ fun ImportActivityPresenter(
                 saving = true
                 scope.launch {
                     runSuspendCatching {
-                        activities.publish(ActivityDraft.fromImport(activity, type, title.ifBlank { null }))
+                        activities.publish(ActivityDraft.fromImport(activity, type, title.text.toString().ifBlank { null }))
                         navigator.pop()
                     }
                         .onFailure { e -> error = UiError.of(UiError.Kind.SaveActivity, e) }

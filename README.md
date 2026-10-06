@@ -75,7 +75,7 @@ With a tunnel set, the AppView's DID is the tunnel host. `:server-appview:run` a
 | `core/data` | Room 3 cache + outbox, repositories, Metro bindings |
 | `core/location` | GPS trackers per platform, recording engine, polyline/GPX |
 | `app/screens` | Circuit contracts: each feature's `Screen`, `State` and `Event` |
-| `app/presenters` | Circuit presenters (Compose runtime only, no UI) |
+| `app/presenters` | Circuit presenters (Compose runtime, no UI) |
 | `composeApp` | Circuit UIs, shared components, Metro graphs and scopes, platform actuals |
 | `androidApp`, `iosApp`, `webApp`, `desktopApp` | Thin platform shells (entry points, graph roots) |
 | `web/sqlite-worker` | SQLite-WASM Web Worker backing Room on the web |

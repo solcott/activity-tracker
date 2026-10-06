@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.profile
 
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
@@ -18,22 +19,22 @@ import kotlinx.io.bytestring.ByteString
 
 @Immutable
 data class EditProfileState(
-    val displayName: String,
-    val description: String,
+    val displayName: TextFieldState,
+    val description: TextFieldState,
     /** The picture to show: a newly picked one, the saved one, or none. */
     val avatar: AvatarImage?,
     /** City or town. */
-    val locality: String,
+    val locality: TextFieldState,
     /** State, province or similar. */
-    val region: String,
+    val region: TextFieldState,
     /** ISO 3166-1 alpha-2 code, or empty. */
     val country: String,
     /** `YYYY-MM-DD`, or empty. */
     val birthDate: String,
-    /** A `Gender` value, the athlete's own description, or empty. */
-    val gender: String,
+    /** A `Gender` value, the athlete's own description, or empty. A known value is picked with [EditProfileEvent.GenderChanged]. */
+    val gender: TextFieldState,
     /** As typed, in kg or lb per [units]. */
-    val weight: String,
+    val weight: TextFieldState,
     val units: UnitSystem,
     /** Who may see each detail; set for every group. */
     val visibility: DetailsVisibility,
@@ -47,10 +48,10 @@ data class EditProfileState(
 ) : CircuitUiState {
     val valid: Boolean
         get() =
-            displayName.length <= DISPLAY_NAME_MAX_LENGTH &&
-                description.length <= DESCRIPTION_MAX_LENGTH &&
-                listOf(locality, region, gender).all { it.length <= DETAIL_MAX_LENGTH } &&
-                WeightConversions.isValidInputText(weight, units)
+            displayName.text.length <= DISPLAY_NAME_MAX_LENGTH &&
+                description.text.length <= DESCRIPTION_MAX_LENGTH &&
+                listOf(locality, region, gender).all { it.text.length <= DETAIL_MAX_LENGTH } &&
+                WeightConversions.isValidInputText(weight.text.toString(), units)
 
     companion object {
         /**
@@ -81,23 +82,14 @@ sealed interface EditProfileEvent {
 
     data object RemoveAvatar : EditProfileEvent
 
-    data class DisplayNameChanged(val value: String) : EditProfileEvent
-
-    data class DescriptionChanged(val value: String) : EditProfileEvent
-
-    data class LocalityChanged(val value: String) : EditProfileEvent
-
-    data class RegionChanged(val value: String) : EditProfileEvent
-
     /** An ISO 3166-1 alpha-2 code, or empty for none. */
     data class CountryChanged(val value: String) : EditProfileEvent
 
     /** `YYYY-MM-DD`, or empty for none. */
     data class BirthDateChanged(val value: String) : EditProfileEvent
 
+    /** Picked from the menu: a `Gender` value, or empty for none. A self-description is typed into [EditProfileState.gender]. */
     data class GenderChanged(val value: String) : EditProfileEvent
-
-    data class WeightChanged(val value: String) : EditProfileEvent
 
     /** [visibility] is a `Visibility` value. */
     data class VisibilityChanged(val group: DetailGroup, val visibility: String) : EditProfileEvent

@@ -4,7 +4,8 @@ plugins {
     alias(libs.plugins.metro)
 }
 
-// Circuit presenters. Compose runtime only: no foundation, ui or material3, so presenters can't reach for UI code.
+// Circuit presenters. Compose runtime, and foundation (through :app-screens) only for TextFieldState. No material3, and no UI code: no
+// layouts, modifiers or composables that emit.
 kotlin {
     sourceSets {
         commonMain.dependencies {
