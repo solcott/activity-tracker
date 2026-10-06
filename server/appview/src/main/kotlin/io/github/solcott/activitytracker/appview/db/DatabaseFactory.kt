@@ -23,8 +23,10 @@ object DatabaseFactory {
         return Database.connect(dataSource)
     }
 
+    /** Runs the portable migrations, plus `db/vendor/<database>` (e.g. `postgresql`) for SQL only that database can run. */
     fun migrate(dataSource: DataSource) {
-        Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate()
+        val vendor = dataSource.connection.use { it.metaData.databaseProductName.lowercase() }
+        Flyway.configure().dataSource(dataSource).locations("classpath:db/migration", "classpath:db/vendor/$vendor").load().migrate()
     }
 }
 

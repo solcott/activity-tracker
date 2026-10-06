@@ -45,3 +45,10 @@ FIT, GPX, TCX and Shearwater dive XML import (optionally gzipped) works on every
 - **Streams.** Per-sample HR, power and elevation for charts and a coloured map line need a home that isn't a public record (see privacy zones above). The AppView can already parse activity files (`:core-activityfile` is on its classpath), so a private upload procedure like `actor.putPrivateDetails` is one option.
 - **Bulk import.** Strava's account export is a zip of gzipped files plus `activities.csv` with titles. Reading the zip and importing many activities at once would reuse `ActivityFileReader`.
 - **Track blob MIME type.** The local PDS stores the GPX `track` blob as `application/xml`, not the lexicon's `application/gpx+xml`. Check whether a stricter PDS rejects it.
+
+## Before deploying anywhere shared (QA, staging, prod)
+
+Checks that only matter once the AppView runs on a database other than the local Docker one.
+
+- **Search needs `pg_trgm`.** The PostgreSQL-only migration `db/vendor/postgresql/V6__actor_search_trigram_indexes.sql` runs `CREATE EXTENSION IF NOT EXISTS pg_trgm`. Since PostgreSQL 13 it's a trusted extension, so a role that owns the database (or has `CREATE` on it) can create it. That's untested, though: the local `appview` role is a superuser. Check the role on each target, or have an admin create the extension first so the migration's `IF NOT EXISTS` skips it. If it fails, Flyway stops and the AppView doesn't start.
+- **Check the search plan at realistic size.** Once `actors` has a realistic number of rows, run `EXPLAIN ANALYZE` on `actor.searchActors`. Trigram indexes serve queries of three or more characters. A one- or two-character query scans `actors`, and deep pages cost more because paging is by offset. If that's too slow, require three characters, or match only handle and name prefixes for shorter queries.
