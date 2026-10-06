@@ -22,6 +22,7 @@ data class UiError(val kind: Kind, val detail: String?) {
         UnsupportedActivityFile,
         SaveSettings,
         SaveProfile,
+        SaveZones,
     }
 
     companion object {

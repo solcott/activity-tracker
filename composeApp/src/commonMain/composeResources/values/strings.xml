@@ -24,6 +24,7 @@
     <string name="error_sign_in_complete">Sign-in failed</string>
     <string name="error_save_settings">Couldn't save settings</string>
     <string name="error_save_profile">Couldn't save profile</string>
+    <string name="error_save_zones">Couldn't save zones</string>
 
     <!-- Stats and units -->
     <string name="stat_distance">Distance</string>
@@ -311,6 +312,56 @@
     <string name="settings_units_metric_example">Kilometers, meters, °C</string>
     <string name="settings_units_imperial_example">Miles, feet, °F</string>
     <string name="settings_saving">Saving…</string>
+    <string name="settings_zones">Heart rate &amp; power zones</string>
+
+    <!-- Zones -->
+    <string name="zones_title">Zones</string>
+    <string name="zones_thresholds_heading">Thresholds</string>
+    <string name="zones_thresholds_help">Your zones are worked out from these. Choose who can see them.</string>
+    <string name="zones_threshold_heart_rate">Threshold heart rate (bpm)</string>
+    <string name="zones_max_heart_rate">Max heart rate (bpm)</string>
+    <string name="zones_resting_heart_rate">Resting heart rate (bpm)</string>
+    <string name="zones_ftp">Cycling FTP (W)</string>
+    <string name="zones_heart_rate_heading">Heart rate zones</string>
+    <string name="zones_power_heading">Power zones</string>
+    <string name="zones_model">Model</string>
+    <string name="zones_needs_threshold_heart_rate">Enter your threshold heart rate to see these zones.</string>
+    <string name="zones_needs_max_heart_rate">Enter your max heart rate to see these zones.</string>
+    <string name="zones_needs_reserve">Enter your max and resting heart rate, with resting below max, to see these zones.</string>
+    <string name="zones_needs_ftp">Enter your FTP to see these zones.</string>
+    <string name="zones_range">%1$d–%2$d</string>
+    <string name="zones_range_open">%1$d+</string>
+    <string name="zones_label">Zone %1$s</string>
+    <string name="zones_unit_bpm">bpm</string>
+    <string name="zones_unit_watts">W</string>
+    <string name="zones_basis_threshold_heart_rate">Lactate threshold</string>
+    <string name="zones_basis_max_heart_rate">Max heart rate</string>
+    <string name="zones_basis_reserve">Max and resting heart rate</string>
+    <string name="zones_basis_ftp">Threshold power</string>
+    <string name="zone_model_frielRunning">Joe Friel Running (7)</string>
+    <string name="zone_model_frielCycling">Joe Friel Cycling (7)</string>
+    <string name="zone_model_cogganHeartRate">Andy Coggan (5)</string>
+    <string name="zone_model_percentMaxHeartRate">% of max heart rate (5)</string>
+    <string name="zone_model_heartRateReserve">Karvonen heart-rate reserve (5)</string>
+    <string name="zone_model_coggan6">Andy Coggan (6)</string>
+    <string name="zone_model_coggan7">Andy Coggan (7)</string>
+    <string name="zone_name_recovery">Recovery</string>
+    <string name="zone_name_aerobic">Aerobic</string>
+    <string name="zone_name_tempo">Tempo</string>
+    <string name="zone_name_sub_threshold">Subthreshold</string>
+    <string name="zone_name_super_threshold">Superthreshold</string>
+    <string name="zone_name_aerobic_capacity">Aerobic capacity</string>
+    <string name="zone_name_anaerobic_capacity">Anaerobic capacity</string>
+    <string name="zone_name_active_recovery">Active recovery</string>
+    <string name="zone_name_endurance">Endurance</string>
+    <string name="zone_name_threshold">Threshold</string>
+    <string name="zone_name_vo2_max">VO₂ max</string>
+    <string name="zone_name_neuromuscular">Neuromuscular</string>
+    <string name="zone_name_very_light">Very light</string>
+    <string name="zone_name_light">Light</string>
+    <string name="zone_name_moderate">Moderate</string>
+    <string name="zone_name_hard">Hard</string>
+    <string name="zone_name_maximum">Maximum</string>
     <plurals name="profile_activities_count">
         <item quantity="one">%1$d activity</item>
         <item quantity="other">%1$d activities</item>
@@ -356,6 +407,7 @@
     <string name="detail_birth_date">Birthdate</string>
     <string name="detail_gender">Gender</string>
     <string name="detail_weight">Weight</string>
+    <string name="detail_training">Thresholds and zones</string>
     <string name="gender_female">Female</string>
     <string name="gender_male">Male</string>
     <string name="gender_non_binary">Non-binary</string>
@@ -407,7 +459,6 @@
     <string name="stat_water_temp">Water temp</string>
     <string name="dive_profile">Depth profile</string>
     <string name="dive_open_circuit">Open circuit</string>
-    <string name="detail_training">Thresholds and zones</string>
     <string name="dive_closed_circuit">Closed circuit</string>
     <string name="dive_gas_air">Air</string>
     <string name="dive_gas_oxygen">Oxygen</string>

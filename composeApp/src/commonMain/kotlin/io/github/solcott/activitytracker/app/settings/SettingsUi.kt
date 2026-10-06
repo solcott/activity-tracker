@@ -25,6 +25,7 @@ import io.github.solcott.activitytracker.composeApp.resources.settings_title
 import io.github.solcott.activitytracker.composeApp.resources.settings_units_heading
 import io.github.solcott.activitytracker.composeApp.resources.settings_units_imperial_example
 import io.github.solcott.activitytracker.composeApp.resources.settings_units_metric_example
+import io.github.solcott.activitytracker.composeApp.resources.settings_zones
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import org.jetbrains.compose.resources.stringResource
@@ -62,6 +63,8 @@ fun SettingsUi(state: SettingsState, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.bodySmall,
             )
             state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+            HorizontalDivider()
+            AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.OpenZones) }) { Text(stringResource(Res.string.settings_zones)) }
             HorizontalDivider()
             AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.SignOut) }) { Text(stringResource(Res.string.profile_sign_out)) }
         }

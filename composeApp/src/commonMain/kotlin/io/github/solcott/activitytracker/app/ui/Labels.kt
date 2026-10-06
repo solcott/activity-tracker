@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_read_activit
 import io.github.solcott.activitytracker.composeApp.resources.error_save_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_save_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_save_settings
+import io.github.solcott.activitytracker.composeApp.resources.error_save_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_search_athletes
 import io.github.solcott.activitytracker.composeApp.resources.error_unsupported_activity_file
 import io.github.solcott.activitytracker.composeApp.resources.error_update_follow
@@ -78,6 +79,7 @@ fun errorText(error: UiError): String =
                 UiError.Kind.UnsupportedActivityFile -> Res.string.error_unsupported_activity_file
                 UiError.Kind.SaveSettings -> Res.string.error_save_settings
                 UiError.Kind.SaveProfile -> Res.string.error_save_profile
+                UiError.Kind.SaveZones -> Res.string.error_save_zones
             }
         )
 
@@ -100,6 +102,6 @@ fun detailGroupLabel(group: DetailGroup): String =
             DetailGroup.BirthDate -> Res.string.detail_birth_date
             DetailGroup.Gender -> Res.string.detail_gender
             DetailGroup.Weight -> Res.string.detail_weight
+            DetailGroup.Training -> Res.string.detail_training
         }
     )
-            DetailGroup.Training -> Res.string.detail_training

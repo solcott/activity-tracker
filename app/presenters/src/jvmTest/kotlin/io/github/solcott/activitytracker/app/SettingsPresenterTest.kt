@@ -5,6 +5,7 @@ import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.settings.SettingsEvent
 import io.github.solcott.activitytracker.app.settings.SettingsPresenter
 import io.github.solcott.activitytracker.app.settings.SettingsScreen
+import io.github.solcott.activitytracker.app.settings.ZonesScreen
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -51,6 +52,17 @@ class SettingsPresenterTest {
         presenterTestOf({ SettingsPresenter(navigator, repos.units, repos.auth) }) {
             awaitItem().eventSink(SettingsEvent.Back)
             navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun zonesOpenTheZonesScreen() = runTest {
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(SettingsScreen)
+        presenterTestOf({ SettingsPresenter(navigator, repos.units, repos.auth) }) {
+            awaitItem().eventSink(SettingsEvent.OpenZones)
+            assertEquals(ZonesScreen, navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
         }
     }

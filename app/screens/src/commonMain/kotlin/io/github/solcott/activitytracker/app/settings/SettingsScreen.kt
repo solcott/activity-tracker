@@ -24,5 +24,7 @@ sealed interface SettingsEvent {
 
     data class UnitsChanged(val units: UnitSystem) : SettingsEvent
 
+    data object OpenZones : SettingsEvent
+
     data object SignOut : SettingsEvent
 }

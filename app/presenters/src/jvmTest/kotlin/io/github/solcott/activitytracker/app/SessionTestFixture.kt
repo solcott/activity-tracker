@@ -33,6 +33,9 @@ class SessionTestFixture {
 
     /** Alice's profile record as JSON, both in her repo and as the AppView indexed it; null for none. */
     var profileRecord: String? = null
+
+    /** What the AppView's `getPrivateDetails` returns, as JSON. */
+    var privateDetails: String = """{"details":{},"visibility":{}}"""
     private val putBodies = mutableListOf<String>()
 
     private val privateBodies = mutableListOf<String>()
@@ -71,7 +74,7 @@ class SessionTestFixture {
                     }
 
                     "/xrpc/app.activitytracker.actor.getPrivateDetails" -> {
-                        respond("""{"details":{},"visibility":{}}""", headers = json)
+                        respond(privateDetails, headers = json)
                     }
 
                     "/xrpc/app.activitytracker.actor.putPrivateDetails" -> {

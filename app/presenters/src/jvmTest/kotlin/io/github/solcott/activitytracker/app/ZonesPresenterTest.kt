@@ -1,0 +1,112 @@
+package io.github.solcott.activitytracker.app
+
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import com.slack.circuit.test.FakeNavigator
+import com.slack.circuit.test.presenterTestOf
+import io.github.solcott.activitytracker.app.settings.ZonesEvent
+import io.github.solcott.activitytracker.app.settings.ZonesPresenter
+import io.github.solcott.activitytracker.app.settings.ZonesScreen
+import io.github.solcott.activitytracker.data.training.ZoneModels
+import io.github.solcott.activitytracker.lexicon.app.HeartRateZoneModel
+import io.github.solcott.activitytracker.lexicon.app.PowerZoneModel
+import io.github.solcott.activitytracker.lexicon.app.Visibility
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
+
+class ZonesPresenterTest {
+    private val fixture = SessionTestFixture()
+
+    @Test
+    fun loadsSavedThresholdsAndShowsTheirZones() = runTest {
+        fixture.privateDetails =
+            """{"details":{"weight":61500,"training":{"thresholdHeartRate":168,"functionalThresholdPower":231,""" +
+                """"heartRateZoneModel":"frielRunning"}},"visibility":{"weight":"mutuals","training":"mutuals"}}"""
+        val repos = fixture.repos()
+        presenterTestOf({ ZonesPresenter(FakeNavigator(ZonesScreen), repos.profiles) }) {
+            val loaded = awaitUntil { it.loaded }
+            assertEquals("168", loaded.thresholdHeartRate.text.toString())
+            assertEquals("", loaded.maxHeartRate.text.toString())
+            assertEquals(Visibility.MUTUALS, loaded.visibility)
+            assertEquals(ZoneModels.frielRunning, loaded.heartRateModel)
+            assertEquals(7, loaded.heartRateZones?.size)
+            assertEquals(ZoneModels.defaultPower, loaded.powerModel, "an unpicked model shows the default")
+            assertEquals(280, loaded.powerZones?.last()?.low)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun zonesFollowTypingAndTheModel() = runTest {
+        val repos = fixture.repos()
+        presenterTestOf({ ZonesPresenter(FakeNavigator(ZonesScreen), repos.profiles) }) {
+            val loaded = awaitUntil { it.loaded }
+            assertEquals(Visibility.SELF, loaded.visibility, "unset thresholds default to Only me")
+            assertNull(loaded.heartRateZones)
+            assertNull(loaded.powerZones)
+
+            loaded.maxHeartRate.setTextAndPlaceCursorAtEnd("190")
+            loaded.eventSink(ZonesEvent.HeartRateModelChanged(HeartRateZoneModel.PERCENT_MAX))
+            val byMax = awaitUntil { it.heartRateZones != null }
+            assertEquals(171, byMax.heartRateZones?.last()?.low)
+
+            byMax.eventSink(ZonesEvent.HeartRateModelChanged(HeartRateZoneModel.RESERVE))
+            awaitUntil { it.heartRateModel == ZoneModels.heartRateReserve && it.heartRateZones == null }
+            byMax.restingHeartRate.setTextAndPlaceCursorAtEnd("55")
+            assertEquals(177, awaitUntil { it.heartRateZones != null }.heartRateZones?.last()?.low)
+
+            byMax.maxHeartRate.setTextAndPlaceCursorAtEnd("999")
+            assertFalse(awaitUntil { it.heartRateZones == null }.valid)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun savingSendsThresholdsAndKeepsOtherDetails() = runTest {
+        fixture.privateDetails = """{"details":{"weight":61500},"visibility":{"weight":"mutuals"}}"""
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ZonesScreen)
+        presenterTestOf({ ZonesPresenter(navigator, repos.profiles) }) {
+            val loaded = awaitUntil { it.loaded }
+            loaded.functionalThresholdPower.setTextAndPlaceCursorAtEnd("231")
+            loaded.thresholdHeartRate.setTextAndPlaceCursorAtEnd("168")
+            loaded.thresholdHeartRate.clearText()
+            loaded.eventSink(ZonesEvent.PowerModelChanged(PowerZoneModel.COGGAN_7))
+            loaded.eventSink(ZonesEvent.VisibilityChanged(Visibility.MUTUALS))
+            awaitUntil { it.visibility == Visibility.MUTUALS }.eventSink(ZonesEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        val sent = fixture.privateDetailsPuts.single()
+        val details = sent.getValue("details").jsonObject
+        assertEquals(61_500L, details["weight"]?.jsonPrimitive?.long)
+        val training = details.getValue("training").jsonObject
+        assertEquals(231L, training["functionalThresholdPower"]?.jsonPrimitive?.long)
+        assertEquals(PowerZoneModel.COGGAN_7, training["powerZoneModel"]?.jsonPrimitive?.content)
+        assertNull(training["thresholdHeartRate"], "a cleared threshold is left out")
+        assertEquals(Visibility.MUTUALS, sent.getValue("visibility").jsonObject["training"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun failedSaveStaysAndShowsError() = runTest {
+        fixture.failWrites = true
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ZonesScreen)
+        presenterTestOf({ ZonesPresenter(navigator, repos.profiles) }) {
+            val loaded = awaitUntil { it.loaded }
+            loaded.functionalThresholdPower.setTextAndPlaceCursorAtEnd("231")
+            loaded.eventSink(ZonesEvent.Save)
+            val failed = awaitUntil { it.error != null && !it.saving }
+            assertEquals(UiError.Kind.SaveZones, failed.error?.kind)
+            assertEquals("231", failed.functionalThresholdPower.text.toString())
+            cancelAndIgnoreRemainingEvents()
+        }
+        navigator.assertPopIsEmpty()
+    }
+}
