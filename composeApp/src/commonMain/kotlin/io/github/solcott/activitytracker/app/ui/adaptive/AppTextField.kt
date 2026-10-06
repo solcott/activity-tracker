@@ -15,6 +15,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TextFieldLabelPosition
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,7 +25,8 @@ import io.github.solcott.activitytracker.app.ui.theme.UiPlatform
 
 /**
  * A text field over a [TextFieldState]. Material platforms get an outlined field with a floating [label]. iOS gets a filled, rounded field
- * without an outline, with its [label] as a caption above.
+ * without an outline, with its [label] as a caption above. A [placeholder] always shows in an empty field: with a [label], Material's
+ * floats above it.
  */
 @Composable
 fun AppTextField(
@@ -97,6 +99,7 @@ fun AppTextField(
             readOnly = readOnly,
             isError = isError,
             label = label?.let { { Text(it) } },
+            labelPosition = TextFieldLabelPosition.Attached(alwaysMinimize = placeholder != null),
             placeholder = placeholder?.let { { Text(it) } },
             supportingText = supportingText?.let { { Text(it) } },
             leadingIcon = leadingIcon,
