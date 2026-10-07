@@ -4,6 +4,8 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.SportTraining
+import io.github.solcott.activitytracker.lexicon.app.Threshold
+import io.github.solcott.activitytracker.lexicon.app.ThresholdEntry
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.TrainingSetAt
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
@@ -69,9 +71,27 @@ internal object ProfileDetailRules {
                         .distinctBy { it.sport }
                         .take(TrainingDetails.MAX_SPORTS)
                         .map(::sanitize),
+                history =
+                    training.history
+                        .filter(::isValid)
+                        .sortedWith(compareBy(nullsFirst()) { it.setAt })
+                        .takeLast(TrainingDetails.MAX_HISTORY)
+                        .map(::sanitize),
             )
             .takeUnless { it == TrainingDetails() }
     }
+
+    private fun isValid(entry: ThresholdEntry): Boolean =
+        entry.threshold.isNotEmpty() &&
+            entry.threshold.length <= TrainingDetails.MAX_MODEL_LENGTH &&
+            entry.value in thresholdRange(entry.threshold) &&
+            entry.sport.let { it == null || it.isNotEmpty() && it.length <= TrainingDetails.MAX_MODEL_LENGTH }
+
+    private fun sanitize(entry: ThresholdEntry): ThresholdEntry =
+        entry.copy(
+            source = entry.source?.takeIf { it.length <= TrainingDetails.MAX_MODEL_LENGTH },
+            device = entry.device?.take(MAX_TEXT_LENGTH),
+        )
 
     private fun sanitize(sport: SportTraining): SportTraining {
         val heartRate = TrainingDetails.MIN_HEART_RATE..TrainingDetails.MAX_HEART_RATE
@@ -123,3 +143,14 @@ internal object ProfileDetailRules {
 
     private const val DATE_LENGTH = 10
 }
+
+/** The values a threshold's own field allows; the lexicon's wider range for one this AppView doesn't know. */
+private fun thresholdRange(threshold: String): LongRange =
+    when (threshold) {
+        Threshold.FUNCTIONAL_THRESHOLD_POWER -> 1..TrainingDetails.MAX_FTP
+        Threshold.MAX_HEART_RATE,
+        Threshold.THRESHOLD_HEART_RATE,
+        Threshold.RESTING_HEART_RATE -> TrainingDetails.MIN_HEART_RATE..TrainingDetails.MAX_HEART_RATE
+        Threshold.THRESHOLD_SPEED -> TrainingDetails.MIN_THRESHOLD_SPEED..TrainingDetails.MAX_THRESHOLD_SPEED
+        else -> 1..ThresholdEntry.MAX_VALUE
+    }

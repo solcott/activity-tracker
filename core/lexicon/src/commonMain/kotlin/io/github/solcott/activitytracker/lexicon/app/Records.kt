@@ -384,6 +384,10 @@ data class TrainingDetails(
     val setAt: TrainingSetAt? = null,
     /** Per-sport overrides of the values above, at most one per sport. */
     val sports: List<SportTraining> = emptyList(),
+    /**
+     * Every value the thresholds (the defaults' and each sport's) have had. The newest for a threshold is its value unless since cleared.
+     */
+    val history: List<ThresholdEntry> = emptyList(),
 ) {
     companion object {
         const val MAX_FTP = 2500L
@@ -396,6 +400,9 @@ data class TrainingDetails(
 
         /** The lexicon's `maxLength` of [sports]. */
         const val MAX_SPORTS = 16
+
+        /** The lexicon's `maxLength` of [history]. */
+        const val MAX_HISTORY = 500
 
         /** Millimeters per second. */
         const val MIN_THRESHOLD_SPEED = 100L
@@ -446,14 +453,60 @@ data class TrainingSetAt(
     val thresholdSpeed: Instant? = null,
 )
 
-/** Known values of [TrainingDetails.autoUpdate]: the thresholds, named as their fields. */
+/**
+ * `app.activitytracker.actor.defs#thresholdEntry`: a value a threshold took, when it took effect and where it came from. [sport] is the
+ * override that took it, or null for the defaults.
+ */
+@Immutable
+@Serializable
+data class ThresholdEntry(
+    /** A [Threshold] value. */
+    val threshold: String,
+    /** In the threshold's unit: watts, beats per minute, or millimeters per second for [Threshold.THRESHOLD_SPEED]. */
+    val value: Long,
+    /** When it took effect; null when unknown, for a value saved before history was kept. */
+    val setAt: Instant? = null,
+    /** A [Sport] value, or null for the defaults. */
+    val sport: String? = null,
+    /** A [ThresholdSource] value, or null when unknown. */
+    val source: String? = null,
+    /** The recording device, for a value from [ThresholdSource.DEVICE]. */
+    val device: String? = null,
+) {
+    companion object {
+        /** The lexicon's `maximum` of [value]. */
+        const val MAX_VALUE = 10_000L
+    }
+}
+
+/** Known values of [TrainingDetails.autoUpdate] and [ThresholdEntry.threshold]: the thresholds, named as their fields. */
 object Threshold {
     const val FUNCTIONAL_THRESHOLD_POWER = "functionalThresholdPower"
     const val MAX_HEART_RATE = "maxHeartRate"
     const val THRESHOLD_HEART_RATE = "thresholdHeartRate"
     const val RESTING_HEART_RATE = "restingHeartRate"
 
+    /** Per sport only, and never read from a device, so it isn't in [all]. */
+    const val THRESHOLD_SPEED = "thresholdSpeed"
+
+    /** The thresholds the defaults have, which imports may update. */
     val all = listOf(FUNCTIONAL_THRESHOLD_POWER, MAX_HEART_RATE, THRESHOLD_HEART_RATE, RESTING_HEART_RATE)
+}
+
+/** Known values of [ThresholdEntry.source]; the field is an open string. */
+object ThresholdSource {
+    /** Entered by the athlete. */
+    const val MANUAL = "manual"
+
+    /** Read from the recording device's settings in an imported activity. */
+    const val DEVICE = "device"
+    const val GARMIN = "garmin"
+    const val TRAINER_ROAD = "trainerRoad"
+    const val TRAINING_PEAKS = "trainingPeaks"
+    const val INTERVALS_ICU = "intervalsIcu"
+    const val ZWIFT = "zwift"
+    const val WAHOO = "wahoo"
+    const val STRAVA = "strava"
 }
 
 /** Known values of [TrainingDetails.heartRateZoneModel]; the field is an open string. */

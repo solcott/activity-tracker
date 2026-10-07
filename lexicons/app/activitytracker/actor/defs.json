@@ -101,6 +101,49 @@
           "maxLength": 16,
           "items": { "type": "ref", "ref": "#sportTraining" },
           "description": "Per-sport overrides, at most one per sport. The fields above are the defaults: an activity of a sport listed here uses that entry's values where it sets them, and the defaults otherwise."
+        },
+        "history": {
+          "type": "array",
+          "maxLength": 500,
+          "items": { "type": "ref", "ref": "#thresholdEntry" },
+          "description": "Every value the thresholds (the defaults' and each sport's) have had, kept for the athlete to look back on. The newest entry for a threshold is its current value, unless the athlete has cleared it since. Shares the training's visibility."
+        }
+      }
+    },
+    "thresholdEntry": {
+      "type": "object",
+      "description": "A value a threshold took, when it took effect and where it came from.",
+      "required": ["threshold", "value"],
+      "properties": {
+        "threshold": {
+          "type": "string",
+          "maxLength": 64,
+          "knownValues": ["functionalThresholdPower", "maxHeartRate", "thresholdHeartRate", "restingHeartRate", "thresholdSpeed"],
+          "description": "The threshold, named as its field in #training or #sportTraining."
+        },
+        "sport": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "The sport whose override (#sportTraining) took the value, or absent for the defaults."
+        },
+        "value": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "description": "In the threshold's own unit and range, as its field in #training or #sportTraining has them: watts, beats per minute, or millimeters per second for thresholdSpeed."
+        },
+        "setAt": { "type": "string", "format": "datetime", "description": "When the value took effect: when the athlete set it, or the start of the activity it was read from. Absent when unknown, for a value saved before history was kept." },
+        "source": {
+          "type": "string",
+          "maxLength": 64,
+          "knownValues": ["manual", "device", "garmin", "trainerRoad", "trainingPeaks", "intervalsIcu", "zwift", "wahoo", "strava"],
+          "description": "Where the value came from: entered by the athlete, read from a recording device's settings in an imported activity, or synced from a service. Absent when unknown."
+        },
+        "device": {
+          "type": "string",
+          "maxLength": 640,
+          "maxGraphemes": 64,
+          "description": "The recording device, such as 'Garmin Edge 840', for a value from a device."
         }
       }
     },

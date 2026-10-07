@@ -13,6 +13,8 @@ import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SportTraining
 import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.lexicon.app.Threshold
+import io.github.solcott.activitytracker.lexicon.app.ThresholdEntry
+import io.github.solcott.activitytracker.lexicon.app.ThresholdSource
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.TrainingSetAt
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
@@ -160,5 +162,39 @@ class RecordSerializationTest {
         assertFalse("thresholdHeartRate" in run)
         assertEquals("2026-10-02T07:00:00Z", run.getValue("setAt").jsonObject["thresholdSpeed"]?.jsonPrimitive?.content)
         assertEquals(profile, AtJson.decodeFromJsonElement(ProfileRecord.serializer(), json))
+    }
+
+    @Test
+    fun thresholdHistoryRoundTrips() {
+        val training =
+            TrainingDetails(
+                history =
+                    listOf(
+                        ThresholdEntry(
+                            threshold = Threshold.FUNCTIONAL_THRESHOLD_POWER,
+                            value = 231,
+                            setAt = Instant.parse("2026-10-01T07:00:00Z"),
+                            source = ThresholdSource.DEVICE,
+                            device = "Garmin Edge 840",
+                        ),
+                        ThresholdEntry(
+                            threshold = Threshold.THRESHOLD_SPEED,
+                            value = 3271,
+                            setAt = Instant.parse("2026-10-02T07:00:00Z"),
+                            sport = Sport.RUN,
+                        ),
+                    )
+            )
+        val json = AtJson.encodeToJsonElement(TrainingDetails.serializer(), training).jsonObject
+        val (ftp, pace) = json.getValue("history").jsonArray.map { it.jsonObject }
+        assertEquals("functionalThresholdPower", ftp["threshold"]?.jsonPrimitive?.content)
+        assertEquals("2026-10-01T07:00:00Z", ftp["setAt"]?.jsonPrimitive?.content)
+        assertEquals("device", ftp["source"]?.jsonPrimitive?.content)
+        assertEquals("Garmin Edge 840", ftp["device"]?.jsonPrimitive?.content)
+        assertFalse("sport" in ftp)
+        assertEquals("run", pace["sport"]?.jsonPrimitive?.content)
+        assertFalse("source" in pace)
+        assertFalse("device" in pace)
+        assertEquals(training, AtJson.decodeFromJsonElement(TrainingDetails.serializer(), json))
     }
 }

@@ -21,6 +21,8 @@ import io.github.solcott.activitytracker.lexicon.app.SpeedZoneModel
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SportTraining
 import io.github.solcott.activitytracker.lexicon.app.Threshold
+import io.github.solcott.activitytracker.lexicon.app.ThresholdEntry
+import io.github.solcott.activitytracker.lexicon.app.ThresholdSource
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.TrainingSetAt
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -322,6 +324,42 @@ class ProfileDetailsTest {
         commit(alice, Nsid.ACTOR_PROFILE, "self", """{"details":{"training":{"sports":$sports}}}""")
         assertEquals(
             TrainingDetails(sports = listOf(SportTraining(sport = Sport.RUN, thresholdSpeed = 3271), SportTraining(sport = Sport.SWIM))),
+            client.profile(viewer = null).details?.training,
+        )
+    }
+
+    @Test
+    fun thresholdHistoryIsValidatedAndSanitized() = testApplication {
+        seedAlice()
+        val at = Instant.parse("2026-10-01T07:00:00Z")
+        val ftp = ThresholdEntry(Threshold.FUNCTIONAL_THRESHOLD_POWER, 250, at, source = ThresholdSource.DEVICE, device = "Edge 840")
+        val pace = ThresholdEntry(Threshold.THRESHOLD_SPEED, 3271, at, sport = Sport.RUN, source = ThresholdSource.TRAINER_ROAD)
+        val training = TrainingDetails(functionalThresholdPower = 250, history = listOf(ftp, pace))
+        val saved =
+            client.putPrivate(
+                alice,
+                PutPrivateDetails.Input(ProfileDetails(training = training), DetailsVisibility(training = Visibility.SELF)),
+            )
+        assertEquals(HttpStatusCode.OK, saved.status, saved.bodyAsText())
+        assertEquals(training, client.profile(viewer = alice).details?.training)
+        val rejected =
+            client.putPrivate(
+                alice,
+                PutPrivateDetails.Input(
+                    ProfileDetails(training = training.copy(history = listOf(ftp.copy(value = 0)))),
+                    DetailsVisibility(training = Visibility.SELF),
+                ),
+            )
+        assertEquals(HttpStatusCode.BadRequest, rejected.status)
+
+        // In a public record, an out-of-range value is dropped and a long device name truncated.
+        val device = "x".repeat(700)
+        val history =
+            """[{"threshold":"maxHeartRate","value":190,"setAt":"2026-10-01T07:00:00Z","device":"$device"},""" +
+                """{"threshold":"maxHeartRate","value":99999,"setAt":"2026-10-02T07:00:00Z"}]"""
+        commit(alice, Nsid.ACTOR_PROFILE, "self", """{"details":{"training":{"history":$history}}}""")
+        assertEquals(
+            TrainingDetails(history = listOf(ThresholdEntry(Threshold.MAX_HEART_RATE, 190, at, device = device.take(640)))),
             client.profile(viewer = null).details?.training,
         )
     }
