@@ -38,6 +38,7 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_edit
 import io.github.solcott.activitytracker.composeApp.resources.zones_add_sport
 import io.github.solcott.activitytracker.composeApp.resources.zones_heart_rate_heading
+import io.github.solcott.activitytracker.composeApp.resources.zones_history
 import io.github.solcott.activitytracker.composeApp.resources.zones_overview_default
 import io.github.solcott.activitytracker.composeApp.resources.zones_overview_default_help
 import io.github.solcott.activitytracker.composeApp.resources.zones_overview_from_default
@@ -99,6 +100,12 @@ fun TrainingZonesUi(state: TrainingZonesState, modifier: Modifier = Modifier) {
                 } else {
                     if (state.hasZones) {
                         VisibilitySection(state)
+                        HorizontalDivider()
+                    }
+                    if (state.hasHistory) {
+                        AppSecondaryButton(onClick = { state.eventSink(TrainingZonesEvent.History) }) {
+                            Text(stringResource(Res.string.zones_history))
+                        }
                         HorizontalDivider()
                     }
                     ZoneSummarySection(defaults, onEdit = { state.eventSink(TrainingZonesEvent.EditDefaults) })

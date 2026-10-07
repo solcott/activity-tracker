@@ -33,6 +33,8 @@ data class TrainingZonesState(
     val visibility: String,
     /** Whether any threshold or zone model is saved: visibility only sticks to saved details. */
     val hasZones: Boolean,
+    /** Whether any threshold has a value, so there's history to show. */
+    val hasHistory: Boolean,
     val savingVisibility: Boolean,
     val error: UiError?,
     val eventSink: (TrainingZonesEvent) -> Unit,
@@ -61,6 +63,9 @@ sealed interface TrainingZonesEvent {
     data object Back : TrainingZonesEvent
 
     data object EditDefaults : TrainingZonesEvent
+
+    /** Show every value the thresholds have had ([ThresholdHistoryScreen]). */
+    data object History : TrainingZonesEvent
 
     /** Saves [visibility], a `Visibility` value, for all the thresholds and zones. */
     data class VisibilityChanged(val visibility: String) : TrainingZonesEvent

@@ -18,6 +18,7 @@ import io.github.solcott.activitytracker.data.profile.OwnProfile
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.profile.updateTraining
 import io.github.solcott.activitytracker.data.training.SportZones
+import io.github.solcott.activitytracker.data.training.TrainingHistory
 import io.github.solcott.activitytracker.data.training.ZoneModels
 import io.github.solcott.activitytracker.data.training.Zones
 import io.github.solcott.activitytracker.data.training.forSport
@@ -58,12 +59,14 @@ fun TrainingZonesPresenter(navigator: Navigator, profiles: ProfileRepository, un
             if (profile == null) persistentListOf() else SportZones.overridable.filter { training.override(it) == null }.toImmutableList(),
         visibility = pickedVisibility ?: savedVisibility,
         hasZones = training != TrainingDetails(),
+        hasHistory = TrainingHistory.backfilled(training).history.isNotEmpty(),
         savingVisibility = savingVisibility,
         error = error,
     ) { event ->
         when (event) {
             TrainingZonesEvent.Back -> navigator.pop()
             TrainingZonesEvent.EditDefaults -> navigator.goTo(ZonesScreen)
+            TrainingZonesEvent.History -> navigator.goTo(ThresholdHistoryScreen)
             is TrainingZonesEvent.VisibilityChanged ->
                 if (profile != null && !savingVisibility && event.visibility != savedVisibility) {
                     error = null

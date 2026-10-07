@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
@@ -47,6 +48,7 @@ enum class AppIcon(
     Clear(Icons.Filled.Clear, CupertinoIcons.xmarkCircleFill, "xmark.circle.fill"),
     Calendar(Icons.Filled.DateRange, CupertinoIcons.calendar, "calendar"),
     Check(Icons.Filled.Check, CupertinoIcons.checkmark, "checkmark"),
+    Delete(Icons.Filled.Delete, CupertinoIcons.trash, "trash"),
     DropDown(Icons.Filled.ArrowDropDown, CupertinoIcons.chevronUpChevronDown, "chevron.up.chevron.down"),
     Kudos(
         Icons.Outlined.ThumbUp,
