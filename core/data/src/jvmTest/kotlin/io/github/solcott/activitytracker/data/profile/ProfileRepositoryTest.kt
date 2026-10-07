@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.data.profile
 
+import io.github.solcott.activitytracker.activityfile.DeviceThresholds
 import io.github.solcott.activitytracker.data.di.signedInTestSession
+import io.github.solcott.activitytracker.data.training.ThresholdChange
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -11,7 +13,9 @@ import io.github.solcott.activitytracker.lexicon.app.PowerZoneModel
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.PutPrivateDetails
+import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
+import io.github.solcott.activitytracker.lexicon.app.TrainingSetAt
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -23,6 +27,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonObject
 
@@ -198,5 +203,33 @@ class ProfileRepositoryTest {
         repo.saveTraining(training, Visibility.PUBLIC)
         assertEquals(training, record?.details?.training)
         assertEquals(ProfileDetails(gender = "female"), hidden.details)
+    }
+
+    @Test
+    fun deviceThresholdsUpdateOnlyChosenValuesAndKeepTheVisibility() = runTest {
+        val setOn = Instant.parse("2026-09-01T00:00:00Z")
+        val start = Instant.parse("2026-10-02T07:00:00Z")
+        val training =
+            TrainingDetails(
+                functionalThresholdPower = 231,
+                maxHeartRate = 190,
+                autoUpdate = listOf(Threshold.FUNCTIONAL_THRESHOLD_POWER),
+                setAt = TrainingSetAt(functionalThresholdPower = setOn),
+            )
+        hidden = PutPrivateDetails.Input(ProfileDetails(training = training), DetailsVisibility(training = Visibility.MUTUALS))
+        val repo = repository()
+        val device = DeviceThresholds(maxHeartRate = 185, functionalThresholdPower = 240)
+
+        val changes = repo.applyDeviceThresholds(device, start)
+        assertEquals(listOf(ThresholdChange(Threshold.FUNCTIONAL_THRESHOLD_POWER, 231, 240)), changes)
+        assertEquals(
+            training.copy(functionalThresholdPower = 240, setAt = TrainingSetAt(functionalThresholdPower = start)),
+            hidden.details.training,
+        )
+        assertEquals(Visibility.MUTUALS, hidden.visibility.training)
+
+        writes.clear()
+        assertEquals(emptyList(), repo.applyDeviceThresholds(device, start))
+        assertEquals(emptyList(), writes, "nothing to change writes nothing")
     }
 }
