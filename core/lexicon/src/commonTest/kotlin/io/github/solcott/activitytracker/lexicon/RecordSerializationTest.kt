@@ -10,7 +10,9 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.SensorType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
+import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
+import io.github.solcott.activitytracker.lexicon.app.TrainingSetAt
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -119,7 +121,13 @@ class RecordSerializationTest {
                     ProfileDetails(
                         location = Location(locality = "Portland", country = "US"),
                         weight = 61_500,
-                        training = TrainingDetails(functionalThresholdPower = 231, heartRateZoneModel = HeartRateZoneModel.COGGAN),
+                        training =
+                            TrainingDetails(
+                                functionalThresholdPower = 231,
+                                heartRateZoneModel = HeartRateZoneModel.COGGAN,
+                                autoUpdate = listOf(Threshold.FUNCTIONAL_THRESHOLD_POWER),
+                                setAt = TrainingSetAt(functionalThresholdPower = Instant.parse("2026-10-01T07:00:00Z")),
+                            ),
                     ),
             )
         val json = AtJson.encodeToJsonElement(ProfileRecord.serializer(), profile).jsonObject
@@ -131,6 +139,7 @@ class RecordSerializationTest {
         val training = details.getValue("training").jsonObject
         assertEquals("231", training["functionalThresholdPower"]?.jsonPrimitive?.content)
         assertFalse("maxHeartRate" in training)
+        assertEquals("2026-10-01T07:00:00Z", training.getValue("setAt").jsonObject["functionalThresholdPower"]?.jsonPrimitive?.content)
         assertEquals(profile, AtJson.decodeFromJsonElement(ProfileRecord.serializer(), json))
     }
 }

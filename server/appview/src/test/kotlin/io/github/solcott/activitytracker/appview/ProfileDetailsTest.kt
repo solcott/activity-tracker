@@ -17,7 +17,9 @@ import io.github.solcott.activitytracker.lexicon.app.PowerZoneModel
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.PutPrivateDetails
+import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
+import io.github.solcott.activitytracker.lexicon.app.TrainingSetAt
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
@@ -36,6 +38,7 @@ import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.time.Instant
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.jsonObject
 import org.h2.jdbcx.JdbcDataSource
@@ -222,6 +225,29 @@ class ProfileDetailsTest {
         follow(carol, alice)
         assertEquals(training, client.profile(viewer = carol).details?.training)
         assertNull(client.profile(viewer = bob).details?.training)
+
+        // Auto-update choices and when each value was set round-trip; a repeated choice is dropped from a record.
+        val auto =
+            training.copy(
+                autoUpdate = listOf(Threshold.MAX_HEART_RATE, Threshold.FUNCTIONAL_THRESHOLD_POWER),
+                setAt = TrainingSetAt(maxHeartRate = Instant.parse("2026-10-01T07:00:00Z")),
+            )
+        val withAuto =
+            client.putPrivate(
+                alice,
+                PutPrivateDetails.Input(ProfileDetails(training = auto), DetailsVisibility(training = Visibility.SELF)),
+            )
+        assertEquals(HttpStatusCode.OK, withAuto.status, withAuto.bodyAsText())
+        assertEquals(auto, client.profile(viewer = alice).details?.training)
+        val repeated =
+            client.putPrivate(
+                alice,
+                PutPrivateDetails.Input(
+                    ProfileDetails(training = auto.copy(autoUpdate = listOf(Threshold.MAX_HEART_RATE, Threshold.MAX_HEART_RATE))),
+                    DetailsVisibility(training = Visibility.SELF),
+                ),
+            )
+        assertEquals(HttpStatusCode.BadRequest, repeated.status)
 
         // A public copy in the record is indexed and shown to everyone; an out-of-range value in it is dropped.
         commit(

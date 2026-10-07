@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
+import io.github.solcott.activitytracker.lexicon.app.TrainingSetAt
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
@@ -55,6 +56,12 @@ internal object ProfileDetailRules {
                 restingHeartRate = training.restingHeartRate?.takeIf { it in heartRate },
                 heartRateZoneModel = training.heartRateZoneModel?.takeIf { it.length <= TrainingDetails.MAX_MODEL_LENGTH },
                 powerZoneModel = training.powerZoneModel?.takeIf { it.length <= TrainingDetails.MAX_MODEL_LENGTH },
+                autoUpdate =
+                    training.autoUpdate
+                        .filter { it.length <= TrainingDetails.MAX_MODEL_LENGTH }
+                        .distinct()
+                        .take(TrainingDetails.MAX_AUTO_UPDATE),
+                setAt = training.setAt?.takeUnless { it == TrainingSetAt() },
             )
             .takeUnless { it == TrainingDetails() }
     }

@@ -368,13 +368,43 @@ data class TrainingDetails(
     val heartRateZoneModel: String? = null,
     /** A [PowerZoneModel] value. */
     val powerZoneModel: String? = null,
+    /** [Threshold] values that imported activities may update from the recording device's settings. */
+    val autoUpdate: List<String> = emptyList(),
+    /** When each threshold took effect. */
+    val setAt: TrainingSetAt? = null,
 ) {
     companion object {
         const val MAX_FTP = 2500L
         const val MIN_HEART_RATE = 20L
         const val MAX_HEART_RATE = 250L
         const val MAX_MODEL_LENGTH = 64
+
+        /** The lexicon's `maxLength` of [autoUpdate]. */
+        const val MAX_AUTO_UPDATE = 4
     }
+}
+
+/**
+ * `app.activitytracker.actor.defs#trainingSetAt`: when each threshold took effect, set by the athlete or read from an activity that started
+ * then. An import only updates a threshold from an activity that started later.
+ */
+@Immutable
+@Serializable
+data class TrainingSetAt(
+    val functionalThresholdPower: Instant? = null,
+    val maxHeartRate: Instant? = null,
+    val thresholdHeartRate: Instant? = null,
+    val restingHeartRate: Instant? = null,
+)
+
+/** Known values of [TrainingDetails.autoUpdate]: the thresholds, named as their fields. */
+object Threshold {
+    const val FUNCTIONAL_THRESHOLD_POWER = "functionalThresholdPower"
+    const val MAX_HEART_RATE = "maxHeartRate"
+    const val THRESHOLD_HEART_RATE = "thresholdHeartRate"
+    const val RESTING_HEART_RATE = "restingHeartRate"
+
+    val all = listOf(FUNCTIONAL_THRESHOLD_POWER, MAX_HEART_RATE, THRESHOLD_HEART_RATE, RESTING_HEART_RATE)
 }
 
 /** Known values of [TrainingDetails.heartRateZoneModel]; the field is an open string. */

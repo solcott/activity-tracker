@@ -61,7 +61,7 @@
           "description": "A known value, or the athlete's own description."
         },
         "weight": { "type": "integer", "minimum": 1, "maximum": 500000, "description": "Grams (lexicons have no floats)." },
-        "training": { "type": "ref", "ref": "#training" }
+        "training": { "type": "ref", "ref": "#training", "description": "Training thresholds and zone models." }
       }
     },
     "training": {
@@ -83,7 +83,28 @@
           "maxLength": 64,
           "knownValues": ["coggan6", "coggan7"],
           "description": "How power zones are derived from functionalThresholdPower."
-        }
+        },
+        "autoUpdate": {
+          "type": "array",
+          "maxLength": 4,
+          "items": {
+            "type": "string",
+            "maxLength": 64,
+            "knownValues": ["functionalThresholdPower", "maxHeartRate", "thresholdHeartRate", "restingHeartRate"]
+          },
+          "description": "The thresholds that imported activities may update from the recording device's settings."
+        },
+        "setAt": { "type": "ref", "ref": "#trainingSetAt", "description": "When each threshold took effect." }
+      }
+    },
+    "trainingSetAt": {
+      "type": "object",
+      "description": "When each threshold took effect: when the athlete set it, or the start of the activity it was read from. An import only updates a threshold from an activity that started later.",
+      "properties": {
+        "functionalThresholdPower": { "type": "string", "format": "datetime" },
+        "maxHeartRate": { "type": "string", "format": "datetime" },
+        "thresholdHeartRate": { "type": "string", "format": "datetime" },
+        "restingHeartRate": { "type": "string", "format": "datetime" }
       }
     },
     "visibility": {
