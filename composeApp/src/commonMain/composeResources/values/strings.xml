@@ -322,6 +322,8 @@
     <string name="zones_max_heart_rate">Max heart rate (bpm)</string>
     <string name="zones_resting_heart_rate">Resting heart rate (bpm)</string>
     <string name="zones_ftp">Cycling FTP (W)</string>
+    <string name="zones_auto_update">Update from imported activities</string>
+    <string name="zones_auto_update_help">Updates use your device's settings when it recorded the activity, and only from activities newer than the value.</string>
     <string name="zones_heart_rate_heading">Heart rate zones</string>
     <string name="zones_power_heading">Power zones</string>
     <string name="zones_model">Model</string>

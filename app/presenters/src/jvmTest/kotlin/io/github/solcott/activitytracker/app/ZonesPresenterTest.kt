@@ -10,18 +10,27 @@ import io.github.solcott.activitytracker.app.settings.ZonesScreen
 import io.github.solcott.activitytracker.data.training.ZoneModels
 import io.github.solcott.activitytracker.lexicon.app.HeartRateZoneModel
 import io.github.solcott.activitytracker.lexicon.app.PowerZoneModel
+import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 
 class ZonesPresenterTest {
     private val fixture = SessionTestFixture()
+    private val now = Instant.parse("2026-10-06T12:00:00Z")
+    private val clock =
+        object : Clock {
+            override fun now() = this@ZonesPresenterTest.now
+        }
 
     @Test
     fun loadsSavedThresholdsAndShowsTheirZones() = runTest {
@@ -29,7 +38,7 @@ class ZonesPresenterTest {
             """{"details":{"weight":61500,"training":{"thresholdHeartRate":168,"functionalThresholdPower":231,""" +
                 """"heartRateZoneModel":"frielRunning"}},"visibility":{"weight":"mutuals","training":"mutuals"}}"""
         val repos = fixture.repos()
-        presenterTestOf({ ZonesPresenter(FakeNavigator(ZonesScreen), repos.profiles) }) {
+        presenterTestOf({ ZonesPresenter(FakeNavigator(ZonesScreen), repos.profiles, clock) }) {
             val loaded = awaitUntil { it.loaded }
             assertEquals("168", loaded.thresholdHeartRate.text.toString())
             assertEquals("", loaded.maxHeartRate.text.toString())
@@ -45,7 +54,7 @@ class ZonesPresenterTest {
     @Test
     fun zonesFollowTypingAndTheModel() = runTest {
         val repos = fixture.repos()
-        presenterTestOf({ ZonesPresenter(FakeNavigator(ZonesScreen), repos.profiles) }) {
+        presenterTestOf({ ZonesPresenter(FakeNavigator(ZonesScreen), repos.profiles, clock) }) {
             val loaded = awaitUntil { it.loaded }
             assertEquals(Visibility.SELF, loaded.visibility, "unset thresholds default to Only me")
             assertNull(loaded.heartRateZones)
@@ -72,7 +81,7 @@ class ZonesPresenterTest {
         fixture.privateDetails = """{"details":{"weight":61500},"visibility":{"weight":"mutuals"}}"""
         val repos = fixture.repos()
         val navigator = FakeNavigator(ZonesScreen)
-        presenterTestOf({ ZonesPresenter(navigator, repos.profiles) }) {
+        presenterTestOf({ ZonesPresenter(navigator, repos.profiles, clock) }) {
             val loaded = awaitUntil { it.loaded }
             loaded.functionalThresholdPower.setTextAndPlaceCursorAtEnd("231")
             loaded.thresholdHeartRate.setTextAndPlaceCursorAtEnd("168")
@@ -98,7 +107,7 @@ class ZonesPresenterTest {
         fixture.failWrites = true
         val repos = fixture.repos()
         val navigator = FakeNavigator(ZonesScreen)
-        presenterTestOf({ ZonesPresenter(navigator, repos.profiles) }) {
+        presenterTestOf({ ZonesPresenter(navigator, repos.profiles, clock) }) {
             val loaded = awaitUntil { it.loaded }
             loaded.functionalThresholdPower.setTextAndPlaceCursorAtEnd("231")
             loaded.eventSink(ZonesEvent.Save)
@@ -108,5 +117,33 @@ class ZonesPresenterTest {
             cancelAndIgnoreRemainingEvents()
         }
         navigator.assertPopIsEmpty()
+    }
+
+    @Test
+    fun autoUpdateChoicesLoadAndSaveAndOnlyEditedValuesGetANewTime() = runTest {
+        val setOn = "2026-09-01T00:00:00Z"
+        fixture.privateDetails =
+            """{"details":{"training":{"maxHeartRate":190,"functionalThresholdPower":231,"autoUpdate":["maxHeartRate"],""" +
+                """"setAt":{"maxHeartRate":"$setOn","functionalThresholdPower":"$setOn"}}},"visibility":{"training":"self"}}"""
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ZonesScreen)
+        presenterTestOf({ ZonesPresenter(navigator, repos.profiles, clock) }) {
+            val loaded = awaitUntil { it.loaded }
+            assertEquals(setOf(Threshold.MAX_HEART_RATE), loaded.autoUpdate)
+            loaded.eventSink(ZonesEvent.AutoUpdateChanged(Threshold.FUNCTIONAL_THRESHOLD_POWER, true))
+            loaded.eventSink(ZonesEvent.AutoUpdateChanged(Threshold.MAX_HEART_RATE, false))
+            loaded.functionalThresholdPower.setTextAndPlaceCursorAtEnd("240")
+            awaitUntil { it.autoUpdate == setOf(Threshold.FUNCTIONAL_THRESHOLD_POWER) }.eventSink(ZonesEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        val training = fixture.privateDetailsPuts.single().getValue("details").jsonObject.getValue("training").jsonObject
+        assertEquals(
+            listOf(Threshold.FUNCTIONAL_THRESHOLD_POWER),
+            training.getValue("autoUpdate").jsonArray.map { it.jsonPrimitive.content },
+        )
+        val setAt = training.getValue("setAt").jsonObject
+        assertEquals(now.toString(), setAt["functionalThresholdPower"]?.jsonPrimitive?.content, "an edited value is set now")
+        assertEquals(setOn, setAt["maxHeartRate"]?.jsonPrimitive?.content, "an untouched value keeps its time")
     }
 }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.TextFieldState
@@ -18,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
@@ -26,6 +28,7 @@ import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
+import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
@@ -53,6 +56,8 @@ import io.github.solcott.activitytracker.composeApp.resources.zone_name_tempo
 import io.github.solcott.activitytracker.composeApp.resources.zone_name_threshold
 import io.github.solcott.activitytracker.composeApp.resources.zone_name_very_light
 import io.github.solcott.activitytracker.composeApp.resources.zone_name_vo2_max
+import io.github.solcott.activitytracker.composeApp.resources.zones_auto_update
+import io.github.solcott.activitytracker.composeApp.resources.zones_auto_update_help
 import io.github.solcott.activitytracker.composeApp.resources.zones_basis_ftp
 import io.github.solcott.activitytracker.composeApp.resources.zones_basis_max_heart_rate
 import io.github.solcott.activitytracker.composeApp.resources.zones_basis_reserve
@@ -82,6 +87,7 @@ import io.github.solcott.activitytracker.data.training.Zone
 import io.github.solcott.activitytracker.data.training.ZoneBasis
 import io.github.solcott.activitytracker.data.training.ZoneModel
 import io.github.solcott.activitytracker.data.training.ZoneName
+import io.github.solcott.activitytracker.lexicon.app.Threshold
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.StringResource
@@ -109,18 +115,11 @@ fun ZonesUi(state: ZonesState, modifier: Modifier = Modifier) {
             ) {
                 Text(stringResource(Res.string.zones_thresholds_heading), style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(Res.string.zones_thresholds_help), style = MaterialTheme.typography.bodySmall)
-                HeartRateField(state.thresholdHeartRate, stringResource(Res.string.zones_threshold_heart_rate), state.loaded)
-                HeartRateField(state.maxHeartRate, stringResource(Res.string.zones_max_heart_rate), state.loaded)
-                HeartRateField(state.restingHeartRate, stringResource(Res.string.zones_resting_heart_rate), state.loaded)
-                AppTextField(
-                    state.functionalThresholdPower,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = state.loaded,
-                    label = stringResource(Res.string.zones_ftp),
-                    isError = !ThresholdInput.isValidPower(state.functionalThresholdPower.text.toString()),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    lineLimits = TextFieldLineLimits.SingleLine,
-                )
+                ThresholdField(state, state.thresholdHeartRate, Threshold.THRESHOLD_HEART_RATE, Res.string.zones_threshold_heart_rate)
+                ThresholdField(state, state.maxHeartRate, Threshold.MAX_HEART_RATE, Res.string.zones_max_heart_rate)
+                ThresholdField(state, state.restingHeartRate, Threshold.RESTING_HEART_RATE, Res.string.zones_resting_heart_rate)
+                ThresholdField(state, state.functionalThresholdPower, Threshold.FUNCTIONAL_THRESHOLD_POWER, Res.string.zones_ftp)
+                Text(stringResource(Res.string.zones_auto_update_help), style = MaterialTheme.typography.bodySmall)
                 VisibilityPicker(
                     state.visibility,
                     { state.eventSink(ZonesEvent.VisibilityChanged(it)) },
@@ -159,17 +158,41 @@ fun ZonesUi(state: ZonesState, modifier: Modifier = Modifier) {
     }
 }
 
+/** A threshold's field, and whether imported activities may update it. [threshold] is a [Threshold] value. */
 @Composable
-private fun HeartRateField(state: TextFieldState, label: String, enabled: Boolean, modifier: Modifier = Modifier) {
-    AppTextField(
-        state,
-        modifier = modifier.fillMaxWidth(),
-        enabled = enabled,
-        label = label,
-        isError = !ThresholdInput.isValidHeartRate(state.text.toString()),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        lineLimits = TextFieldLineLimits.SingleLine,
-    )
+private fun ThresholdField(
+    state: ZonesState,
+    field: TextFieldState,
+    threshold: String,
+    label: StringResource,
+    modifier: Modifier = Modifier,
+) {
+    val text = field.text.toString()
+    val valid =
+        if (threshold == Threshold.FUNCTIONAL_THRESHOLD_POWER) ThresholdInput.isValidPower(text) else ThresholdInput.isValidHeartRate(text)
+    Column(modifier) {
+        AppTextField(
+            field,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = state.loaded,
+            label = stringResource(label),
+            isError = !valid,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            lineLimits = TextFieldLineLimits.SingleLine,
+        )
+        val checked = threshold in state.autoUpdate
+        Row(
+            Modifier.fillMaxWidth()
+                .toggleable(checked, enabled = state.loaded, role = Role.Switch) {
+                    state.eventSink(ZonesEvent.AutoUpdateChanged(threshold, it))
+                }
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(Res.string.zones_auto_update), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            AppSwitch(checked, onCheckedChange = null, enabled = state.loaded)
+        }
+    }
 }
 
 /** A zone model picker, and the zones it gives (read-only), or what's missing to work them out. */

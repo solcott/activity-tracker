@@ -22,17 +22,24 @@ import io.github.solcott.activitytracker.data.profile.OwnProfile
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.profile.saveTraining
 import io.github.solcott.activitytracker.data.training.ThresholdInput
+import io.github.solcott.activitytracker.data.training.ThresholdUpdates
 import io.github.solcott.activitytracker.data.training.ZoneModels
 import io.github.solcott.activitytracker.data.training.Zones
+import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 
 @CircuitInject(ZonesScreen::class, SessionScope::class)
 @Composable
-fun ZonesPresenter(navigator: Navigator, profiles: ProfileRepository): ZonesState {
+fun ZonesPresenter(navigator: Navigator, profiles: ProfileRepository, clock: Clock): ZonesState {
     val form = rememberForm()
-    var loaded by remember { mutableStateOf(false) }
+    // As saved, for each value's setAt: reloaded with the screen, so a configuration change doesn't lose it.
+    var saved by remember { mutableStateOf<TrainingDetails?>(null) }
+    val loaded = saved != null
     var error by remember { mutableStateOf<UiError?>(null) }
     val flights = rememberSingleFlight()
     val saving = flights.isRunning(ZonesEvent.Save)
@@ -41,7 +48,7 @@ fun ZonesPresenter(navigator: Navigator, profiles: ProfileRepository): ZonesStat
         runSuspendCatching { profiles.ownProfile() }
             .onSuccess {
                 form.fillOnce(it)
-                loaded = true
+                saved = it.details.training ?: TrainingDetails()
             }
             .onFailure { error = UiError.of(UiError.Kind.LoadProfile, it) }
     }
@@ -63,6 +70,7 @@ fun ZonesPresenter(navigator: Navigator, profiles: ProfileRepository): ZonesStat
         powerModels = ZoneModels.power.toImmutableList(),
         powerZones = Zones.compute(powerModel, training)?.toImmutableList(),
         visibility = form.visibility.value,
+        autoUpdate = form.autoUpdate.value.toImmutableSet(),
         loaded = loaded,
         saving = saving,
         error = error,
@@ -84,13 +92,19 @@ fun ZonesPresenter(navigator: Navigator, profiles: ProfileRepository): ZonesStat
                 form.visibility.value = event.visibility
             }
 
+            is ZonesEvent.AutoUpdateChanged -> {
+                val others = form.autoUpdate.value - event.threshold
+                form.autoUpdate.value = if (event.enabled) others + event.threshold else others
+            }
+
             ZonesEvent.Save -> {
-                if (loaded && !saving) {
+                val before = saved
+                if (before != null && !saving) {
                     error = null
-                    val saved = form.training().takeUnless { it == TrainingDetails() }
+                    val edited = form.training().settingTimes(before, clock.now()).takeUnless { it == TrainingDetails() }
                     val visibility = form.visibility.value
                     flights.launch(ZonesEvent.Save) {
-                        runSuspendCatching { profiles.saveTraining(saved, visibility) }
+                        runSuspendCatching { profiles.saveTraining(edited, visibility) }
                             .onSuccess { navigator.pop() }
                             .onFailure { error = UiError.of(UiError.Kind.SaveZones, it) }
                     }
@@ -109,6 +123,8 @@ private class Form(
     val heartRateModel: MutableState<String>,
     val powerModel: MutableState<String>,
     val visibility: MutableState<String>,
+    /** The `Threshold` values imports may update. A list, so it saves in a Bundle. */
+    val autoUpdate: MutableState<List<String>>,
     /** True once loaded, so a configuration change keeps what the athlete typed instead of reloading it. */
     val filled: MutableState<Boolean>,
 ) {
@@ -122,6 +138,7 @@ private class Form(
         heartRateModel.value = saved.heartRateZoneModel.orEmpty()
         powerModel.value = saved.powerZoneModel.orEmpty()
         visibility.value = DetailGroup.Training.visibility(profile.visibility) ?: Visibility.SELF
+        autoUpdate.value = saved.autoUpdate.distinct()
         filled.value = true
     }
 
@@ -134,8 +151,18 @@ private class Form(
             restingHeartRate = ThresholdInput.heartRate(restingHeartRate.text.toString()),
             heartRateZoneModel = heartRateModel.value.ifEmpty { null },
             powerZoneModel = powerModel.value.ifEmpty { null },
+            autoUpdate = Threshold.all.filter { it in autoUpdate.value } + autoUpdate.value.filterNot { it in Threshold.all },
         )
 }
+
+/** This with the times each threshold was set carried over from [before], and [now] for each one the athlete changed. */
+private fun TrainingDetails.settingTimes(before: TrainingDetails, now: Instant): TrainingDetails =
+    copy(
+        setAt =
+            Threshold.all
+                .filter { ThresholdUpdates.value(this, it) != ThresholdUpdates.value(before, it) }
+                .fold(before.setAt) { setAt, threshold -> ThresholdUpdates.markSet(setAt, threshold, now) }
+    )
 
 @Composable
 private fun rememberForm(): Form =
@@ -147,5 +174,6 @@ private fun rememberForm(): Form =
         heartRateModel = rememberSaveable { mutableStateOf("") },
         powerModel = rememberSaveable { mutableStateOf("") },
         visibility = rememberSaveable { mutableStateOf(Visibility.SELF) },
+        autoUpdate = rememberSaveable { mutableStateOf(emptyList()) },
         filled = rememberSaveable { mutableStateOf(false) },
     )
