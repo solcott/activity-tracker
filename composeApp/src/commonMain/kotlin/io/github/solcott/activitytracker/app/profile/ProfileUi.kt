@@ -25,6 +25,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.ActivityCard
 import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.Format
+import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
@@ -49,9 +50,14 @@ import io.github.solcott.activitytracker.composeApp.resources.profile_following
 import io.github.solcott.activitytracker.composeApp.resources.profile_following_count
 import io.github.solcott.activitytracker.composeApp.resources.profile_settings
 import io.github.solcott.activitytracker.composeApp.resources.profile_title
+import io.github.solcott.activitytracker.composeApp.resources.unit_height_cm
+import io.github.solcott.activitytracker.composeApp.resources.unit_height_ft_in
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.CalendarDate
+import io.github.solcott.activitytracker.data.units.HeightConversions
+import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
+import kotlin.math.roundToLong
 import kotlin.time.Clock
 import org.jetbrains.compose.resources.PluralStringResource
 import org.jetbrains.compose.resources.pluralStringResource
@@ -170,7 +176,7 @@ private fun countLabel(resource: PluralStringResource, count: Long?): String {
 
 private const val HEADER_KEY = "header"
 
-/** The details this viewer may see: a location line, then age, gender and weight. */
+/** The details this viewer may see: a location line, then age, gender, height and weight. */
 @Composable
 private fun ProfileDetailsText(details: ProfileDetails, modifier: Modifier = Modifier) {
     val now = remember { Clock.System.now() }
@@ -180,6 +186,7 @@ private fun ProfileDetailsText(details: ProfileDetails, modifier: Modifier = Mod
         listOfNotNull(
             age?.let { pluralStringResource(Res.plurals.profile_age, it, it) },
             details.gender?.let { genderLabel(it) },
+            details.height?.let { heightText(it) },
             details.weight?.let { Format.weight(it) },
         )
     Column(modifier) {
@@ -187,3 +194,14 @@ private fun ProfileDetailsText(details: ProfileDetails, modifier: Modifier = Mod
         if (facts.isNotEmpty()) Text(facts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium)
     }
 }
+
+/** A profile height (millimeters) in whole cm, or feet and inches like `5′ 11″`. */
+@Composable
+private fun heightText(mm: Long): String =
+    when (LocalUnitSystem.current) {
+        UnitSystem.Metric -> stringResource(Res.string.unit_height_cm, HeightConversions.toCentimeters(mm).roundToLong())
+        UnitSystem.Imperial -> {
+            val (feet, inches) = HeightConversions.toFeetInches(mm)
+            stringResource(Res.string.unit_height_ft_in, feet, inches)
+        }
+    }

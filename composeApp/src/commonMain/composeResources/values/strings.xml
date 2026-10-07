@@ -426,6 +426,8 @@
     </plurals>
     <string name="unit_weight_kg">%1$s kg</string>
     <string name="unit_weight_lb">%1$s lb</string>
+    <string name="unit_height_cm">%1$s cm</string>
+    <string name="unit_height_ft_in">%1$s′ %2$s″</string>
 
     <!-- Edit profile -->
     <string name="edit_profile_title">Edit profile</string>
@@ -435,7 +437,7 @@
     <string name="edit_profile_photo_change">Change photo</string>
     <string name="edit_profile_photo_remove">Remove photo</string>
     <string name="edit_profile_details_heading">Details</string>
-    <string name="edit_profile_details_help">Choose who can see each detail. Mutuals are people you follow who also follow you.</string>
+    <string name="edit_profile_details_help">Each section has its own setting for who can see it, which covers every field in that section. Mutuals are people you follow who also follow you.</string>
     <string name="edit_profile_location_heading">Location</string>
     <string name="edit_profile_locality">City</string>
     <string name="edit_profile_region">State or province</string>
@@ -446,13 +448,16 @@
     <string name="edit_profile_gender_describe">How you describe your gender</string>
     <string name="edit_profile_weight_kg">Weight (kg)</string>
     <string name="edit_profile_weight_lb">Weight (lb)</string>
+    <string name="edit_profile_height_cm">Height (cm)</string>
+    <string name="edit_profile_height_ft">Height (ft)</string>
+    <string name="edit_profile_height_in">(in)</string>
     <string name="edit_profile_clear">Clear</string>
     <string name="edit_profile_not_set">Not set</string>
-    <string name="edit_profile_now_hidden">%1$s was public. Hiding it removes it from your profile, but anyone may already have a copy.</string>
+    <string name="edit_profile_now_hidden">%1$s: public until now. Hiding removes it from your profile, but anyone may already have a copy.</string>
     <string name="detail_location">Location</string>
     <string name="detail_birth_date">Birthdate</string>
     <string name="detail_gender">Gender</string>
-    <string name="detail_weight">Weight</string>
+    <string name="detail_body">Height and weight</string>
     <string name="detail_training">Thresholds and zones</string>
     <string name="gender_female">Female</string>
     <string name="gender_male">Male</string>
@@ -461,6 +466,10 @@
     <string name="visibility_public">Public</string>
     <string name="visibility_mutuals">Mutuals</string>
     <string name="visibility_self">Only me</string>
+    <string name="visibility_scope_location">Who can see your city, state and country</string>
+    <string name="visibility_scope_birth_date">Who can see your birthdate</string>
+    <string name="visibility_scope_gender">Who can see your gender</string>
+    <string name="visibility_scope_body">Who can see your height and weight</string>
     <string name="action_ok">OK</string>
 
     <!-- Follow list -->

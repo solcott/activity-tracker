@@ -8,6 +8,7 @@ import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.DetailGroup
+import io.github.solcott.activitytracker.data.units.HeightConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.WeightConversions
 import io.github.solcott.activitytracker.lexicon.app.DetailsVisibility
@@ -35,6 +36,10 @@ data class EditProfileState(
     val gender: TextFieldState,
     /** As typed, in kg or lb per [units]. */
     val weight: TextFieldState,
+    /** As typed: cm, or whole feet for imperial (with [heightInches]). */
+    val height: TextFieldState,
+    /** As typed, the inches past [height]'s feet; only used for imperial. */
+    val heightInches: TextFieldState,
     val units: UnitSystem,
     /** Who may see each detail; set for every group. */
     val visibility: DetailsVisibility,
@@ -51,7 +56,16 @@ data class EditProfileState(
             displayName.text.length <= DISPLAY_NAME_MAX_LENGTH &&
                 description.text.length <= DESCRIPTION_MAX_LENGTH &&
                 listOf(locality, region, gender).all { it.text.length <= DETAIL_MAX_LENGTH } &&
-                WeightConversions.isValidInputText(weight.text.toString(), units)
+                WeightConversions.isValidInputText(weight.text.toString(), units) &&
+                heightValid
+
+    /** Whether [height] (and, for imperial, [heightInches]) is blank or a height the lexicon allows. */
+    val heightValid: Boolean
+        get() =
+            when (units) {
+                UnitSystem.Metric -> HeightConversions.isValidCentimetersText(height.text.toString())
+                UnitSystem.Imperial -> HeightConversions.isValidFeetInchesText(height.text.toString(), heightInches.text.toString())
+            }
 
     companion object {
         /**

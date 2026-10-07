@@ -22,6 +22,7 @@ import io.github.solcott.activitytracker.data.profile.DetailGroup
 import io.github.solcott.activitytracker.data.profile.OwnProfile
 import io.github.solcott.activitytracker.data.profile.ProfileEdit
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.units.HeightConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.data.units.WeightConversions
@@ -66,6 +67,8 @@ fun EditProfilePresenter(navigator: Navigator, profiles: ProfileRepository, unit
         birthDate = form.birthDate.value,
         gender = form.gender,
         weight = form.weight,
+        height = form.height,
+        heightInches = form.heightInches,
         units = form.units,
         visibility = visibility,
         nowHidden = nowHidden,
@@ -114,7 +117,7 @@ fun EditProfilePresenter(navigator: Navigator, profiles: ProfileRepository, unit
     }
 }
 
-/** The edit form's fields, saved across configuration changes. Weight is text in [units], as typed. */
+/** The edit form's fields, saved across configuration changes. Weight and height are text in [units], as typed. */
 private class Form(
     val displayName: TextFieldState,
     val description: TextFieldState,
@@ -124,6 +127,10 @@ private class Form(
     val birthDate: MutableState<String>,
     val gender: TextFieldState,
     val weight: TextFieldState,
+    /** cm, or feet for imperial. */
+    val height: TextFieldState,
+    /** Inches past [height]'s feet, for imperial. */
+    val heightInches: TextFieldState,
     val visibilities: Map<DetailGroup, MutableState<String>>,
     /** True once loaded, so a configuration change keeps what the athlete typed instead of reloading it. */
     val filled: MutableState<Boolean>,
@@ -140,9 +147,27 @@ private class Form(
         birthDate.value = loaded.birthDate.orEmpty()
         gender.setTextAndPlaceCursorAtEnd(loaded.gender.orEmpty())
         weight.setTextAndPlaceCursorAtEnd(loaded.weight?.let { WeightConversions.toInputText(it, units) }.orEmpty())
+        fillHeight(loaded.height)
         visibilities.forEach { (group, state) -> state.value = group.visibility(profile.visibility) ?: Visibility.SELF }
         filled.value = true
     }
+
+    private fun fillHeight(mm: Long?) {
+        when (units) {
+            UnitSystem.Metric -> height.setTextAndPlaceCursorAtEnd(mm?.let(HeightConversions::toCentimetersText).orEmpty())
+            UnitSystem.Imperial -> {
+                val feetInches = mm?.let(HeightConversions::toFeetInches)
+                height.setTextAndPlaceCursorAtEnd(feetInches?.feet?.toString().orEmpty())
+                heightInches.setTextAndPlaceCursorAtEnd(feetInches?.inches?.toString().orEmpty())
+            }
+        }
+    }
+
+    private fun heightMm(): Long? =
+        when (units) {
+            UnitSystem.Metric -> HeightConversions.fromCentimetersText(height.text.toString())
+            UnitSystem.Imperial -> HeightConversions.fromFeetInchesText(height.text.toString(), heightInches.text.toString())
+        }
 
     /** Applies a picked value. Typed fields edit their [TextFieldState]s; saving, leaving and the avatar are the presenter's. */
     fun update(event: EditProfileEvent) {
@@ -170,6 +195,7 @@ private class Form(
             birthDate = birthDate.value.ifEmpty { null },
             gender = gender.text.trim().ifEmpty { null }?.toString(),
             weight = WeightConversions.fromInputText(weight.text.toString(), units),
+            height = heightMm(),
         )
 
     fun visibility(): DetailsVisibility =
@@ -188,6 +214,8 @@ private fun rememberForm(units: UnitSystem): Form {
         birthDate = rememberSaveable { mutableStateOf("") },
         gender = rememberTextFieldState(),
         weight = rememberTextFieldState(),
+        height = rememberTextFieldState(),
+        heightInches = rememberTextFieldState(),
         visibilities = DetailGroup.profile.associateWith { group -> rememberSaveable(group.name) { mutableStateOf(Visibility.SELF) } },
         filled = rememberSaveable { mutableStateOf(false) },
         units = savedUnits,

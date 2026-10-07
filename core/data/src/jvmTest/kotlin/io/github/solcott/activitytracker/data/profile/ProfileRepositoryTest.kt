@@ -133,6 +133,22 @@ class ProfileRepositoryTest {
     }
 
     @Test
+    fun heightGoesWhereWeightGoes() = runTest {
+        record = ProfileRecord()
+        val repo = repository()
+        val body = ProfileDetails(weight = 61_500, height = 1_680)
+        repo.save(ProfileEdit("", "", body, DetailsVisibility(weight = Visibility.MUTUALS)))
+        assertEquals(body, hidden.details)
+        assertEquals(DetailsVisibility(weight = Visibility.MUTUALS), hidden.visibility)
+        assertEquals(null, record!!.details)
+
+        // Height alone is still the body group, so it can be made public with no weight.
+        repo.save(ProfileEdit("", "", ProfileDetails(height = 1_680), DetailsVisibility(weight = Visibility.PUBLIC)))
+        assertEquals(ProfileDetails(height = 1_680), record!!.details)
+        assertEquals(ProfileDetails(), hidden.details)
+    }
+
+    @Test
     fun goingPrivateWritesThePrivateStoreBeforeClearingTheRecord() = runTest {
         record = ProfileRecord(details = ProfileDetails(weight = 61_500))
         val repo = repository()

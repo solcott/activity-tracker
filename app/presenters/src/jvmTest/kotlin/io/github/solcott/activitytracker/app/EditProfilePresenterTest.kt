@@ -95,7 +95,7 @@ class EditProfilePresenterTest {
             assertEquals(Visibility.SELF, loaded.visibility.weight, "unset details default to Only me")
 
             loaded.weight.setTextAndPlaceCursorAtEnd("150")
-            loaded.eventSink(EditProfileEvent.VisibilityChanged(DetailGroup.Weight, Visibility.MUTUALS))
+            loaded.eventSink(EditProfileEvent.VisibilityChanged(DetailGroup.Body, Visibility.MUTUALS))
             loaded.locality.setTextAndPlaceCursorAtEnd("Portland")
             loaded.eventSink(EditProfileEvent.VisibilityChanged(DetailGroup.Location, Visibility.PUBLIC))
             loaded.eventSink(EditProfileEvent.Save)
@@ -109,6 +109,51 @@ class EditProfilePresenterTest {
         val hidden = fixture.privateDetailsPuts.last()
         assertEquals(68_039L, hidden["details"]?.jsonObject?.get("weight")?.jsonPrimitive?.long)
         assertEquals(Visibility.MUTUALS, hidden["visibility"]?.jsonObject?.get("weight")?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun heightIsEnteredInFeetAndInchesAndDefaultsToOnlyMe() = runTest {
+        fixture.privateDetails = """{"details":{"height":1803},"visibility":{}}"""
+        val repos = fixture.repos(defaultUnits = UnitSystem.Imperial)
+        val navigator = FakeNavigator(EditProfileScreen)
+        presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units) }) {
+            val loaded = awaitUntil { it.loaded }
+            assertEquals("5", loaded.height.text.toString())
+            assertEquals("11", loaded.heightInches.text.toString())
+            assertEquals(Visibility.SELF, loaded.visibility.weight)
+
+            loaded.heightInches.setTextAndPlaceCursorAtEnd("13")
+            assertTrue(loaded.valid, "13 in past 5 ft is still a height")
+            loaded.height.setTextAndPlaceCursorAtEnd("tall")
+            assertFalse(loaded.valid)
+            loaded.height.setTextAndPlaceCursorAtEnd("6")
+            loaded.heightInches.clearText()
+            loaded.eventSink(EditProfileEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        assertNull(fixture.putRecords.single()["details"], "an Only me height never goes in the public record")
+        val hidden = fixture.privateDetailsPuts.last()
+        assertEquals(1_829L, hidden["details"]?.jsonObject?.get("height")?.jsonPrimitive?.long)
+        assertEquals(Visibility.SELF, hidden["visibility"]?.jsonObject?.get("weight")?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun heightIsEnteredInCentimeters() = runTest {
+        val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
+        val navigator = FakeNavigator(EditProfileScreen)
+        presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units) }) {
+            val loaded = awaitUntil { it.loaded }
+            loaded.height.setTextAndPlaceCursorAtEnd("400")
+            assertFalse(loaded.valid)
+            loaded.height.setTextAndPlaceCursorAtEnd("168")
+            loaded.eventSink(EditProfileEvent.VisibilityChanged(DetailGroup.Body, Visibility.PUBLIC))
+            loaded.eventSink(EditProfileEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(1_680L, fixture.putRecords.single()["details"]?.jsonObject?.get("height")?.jsonPrimitive?.long)
     }
 
     @Test

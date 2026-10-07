@@ -5,10 +5,10 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.allStringResources
 import io.github.solcott.activitytracker.composeApp.resources.detail_birth_date
+import io.github.solcott.activitytracker.composeApp.resources.detail_body
 import io.github.solcott.activitytracker.composeApp.resources.detail_gender
 import io.github.solcott.activitytracker.composeApp.resources.detail_location
 import io.github.solcott.activitytracker.composeApp.resources.detail_training
-import io.github.solcott.activitytracker.composeApp.resources.detail_weight
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_load_feed
 import io.github.solcott.activitytracker.composeApp.resources.error_load_followers
@@ -27,6 +27,11 @@ import io.github.solcott.activitytracker.composeApp.resources.gender_female
 import io.github.solcott.activitytracker.composeApp.resources.gender_male
 import io.github.solcott.activitytracker.composeApp.resources.gender_non_binary
 import io.github.solcott.activitytracker.composeApp.resources.handle_format
+import io.github.solcott.activitytracker.composeApp.resources.visibility_scope_birth_date
+import io.github.solcott.activitytracker.composeApp.resources.visibility_scope_body
+import io.github.solcott.activitytracker.composeApp.resources.visibility_scope_gender
+import io.github.solcott.activitytracker.composeApp.resources.visibility_scope_location
+import io.github.solcott.activitytracker.composeApp.resources.zones_visibility_heading
 import io.github.solcott.activitytracker.data.profile.DetailGroup
 import io.github.solcott.activitytracker.data.sport.SportCategory
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
@@ -101,7 +106,20 @@ fun detailGroupLabel(group: DetailGroup): String =
             DetailGroup.Location -> Res.string.detail_location
             DetailGroup.BirthDate -> Res.string.detail_birth_date
             DetailGroup.Gender -> Res.string.detail_gender
-            DetailGroup.Weight -> Res.string.detail_weight
+            DetailGroup.Body -> Res.string.detail_body
             DetailGroup.Training -> Res.string.detail_training
+        }
+    )
+
+/** What a profile detail group's visibility covers, as the heading of its picker: every field in the group. */
+@Composable
+fun visibilityScopeLabel(group: DetailGroup): String =
+    stringResource(
+        when (group) {
+            DetailGroup.Location -> Res.string.visibility_scope_location
+            DetailGroup.BirthDate -> Res.string.visibility_scope_birth_date
+            DetailGroup.Gender -> Res.string.visibility_scope_gender
+            DetailGroup.Body -> Res.string.visibility_scope_body
+            DetailGroup.Training -> Res.string.zones_visibility_heading
         }
     )

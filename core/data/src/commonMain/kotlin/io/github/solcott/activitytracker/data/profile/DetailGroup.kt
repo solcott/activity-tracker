@@ -3,17 +3,22 @@ package io.github.solcott.activitytracker.data.profile
 import io.github.solcott.activitytracker.lexicon.app.DetailsVisibility
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 
-/** The profile details that each have their own visibility: one per field of [ProfileDetails] and [DetailsVisibility]. */
+/**
+ * The profile details that each have their own visibility: one per field of [DetailsVisibility]. A group can hold several fields of
+ * [ProfileDetails], which share its visibility.
+ */
 enum class DetailGroup {
+    /** Locality, region and country. */
     Location,
     BirthDate,
     Gender,
-    Weight,
+    /** Weight and height, under [DetailsVisibility.weight]. */
+    Body,
     Training;
 
     companion object {
         /** The groups the edit-profile screen edits. Training thresholds have a screen of their own. */
-        val profile: Set<DetailGroup> = setOf(Location, BirthDate, Gender, Weight)
+        val profile: Set<DetailGroup> = setOf(Location, BirthDate, Gender, Body)
     }
 
     fun isSet(details: ProfileDetails): Boolean =
@@ -21,7 +26,7 @@ enum class DetailGroup {
             Location -> details.location != null
             BirthDate -> details.birthDate != null
             Gender -> details.gender != null
-            Weight -> details.weight != null
+            Body -> details.weight != null || details.height != null
             Training -> details.training != null
         }
 
@@ -31,7 +36,7 @@ enum class DetailGroup {
             Location -> into.copy(location = from.location)
             BirthDate -> into.copy(birthDate = from.birthDate)
             Gender -> into.copy(gender = from.gender)
-            Weight -> into.copy(weight = from.weight)
+            Body -> into.copy(weight = from.weight, height = from.height)
             Training -> into.copy(training = from.training)
         }
 
@@ -40,7 +45,7 @@ enum class DetailGroup {
             Location -> visibility.location
             BirthDate -> visibility.birthDate
             Gender -> visibility.gender
-            Weight -> visibility.weight
+            Body -> visibility.weight
             Training -> visibility.training
         }
 
@@ -49,7 +54,7 @@ enum class DetailGroup {
             Location -> visibility.copy(location = value)
             BirthDate -> visibility.copy(birthDate = value)
             Gender -> visibility.copy(gender = value)
-            Weight -> visibility.copy(weight = value)
+            Body -> visibility.copy(weight = value)
             Training -> visibility.copy(training = value)
         }
 }

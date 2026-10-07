@@ -62,6 +62,7 @@ import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.genderLabel
 import io.github.solcott.activitytracker.app.ui.rememberReadOnlyTextFieldState
 import io.github.solcott.activitytracker.app.ui.stripDiacritics
+import io.github.solcott.activitytracker.app.ui.visibilityScopeLabel
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_save
@@ -76,6 +77,9 @@ import io.github.solcott.activitytracker.composeApp.resources.edit_profile_detai
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_display_name
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_gender
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_gender_describe
+import io.github.solcott.activitytracker.composeApp.resources.edit_profile_height_cm
+import io.github.solcott.activitytracker.composeApp.resources.edit_profile_height_ft
+import io.github.solcott.activitytracker.composeApp.resources.edit_profile_height_in
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_length
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_locality
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_not_set
@@ -163,7 +167,8 @@ fun EditProfileUi(state: EditProfileState, modifier: Modifier = Modifier) {
                 DetailSection(DetailGroup.Gender, state) {
                     GenderField(state.gender, { state.eventSink(EditProfileEvent.GenderChanged(it)) }, enabled = state.loaded)
                 }
-                DetailSection(DetailGroup.Weight, state) {
+                DetailSection(DetailGroup.Body, state) {
+                    HeightFields(state)
                     AppTextField(
                         state.weight,
                         modifier = Modifier.fillMaxWidth(),
@@ -240,7 +245,7 @@ private const val AVATAR_MAX_PIXELS = 512
 private const val AVATAR_JPEG_QUALITY = 85
 private val AVATAR_SIZE = 72.dp
 
-/** One detail's fields, headed by its name and followed by who may see it. */
+/** One detail group's fields, headed by its name and followed by who may see all of them. */
 @Composable
 private fun DetailSection(
     group: DetailGroup,
@@ -251,12 +256,54 @@ private fun DetailSection(
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(detailGroupLabel(group), style = MaterialTheme.typography.titleSmall)
         content()
+        // Named for every field it covers, so it doesn't read as belonging to the last field above it.
+        Text(visibilityScopeLabel(group), style = MaterialTheme.typography.labelMedium)
         VisibilityPicker(
             group.visibility(state.visibility),
             { state.eventSink(EditProfileEvent.VisibilityChanged(group, it)) },
             Modifier.fillMaxWidth(),
             enabled = state.loaded,
         )
+    }
+}
+
+/** Height in cm, or in feet and inches side by side for imperial. */
+@Composable
+private fun HeightFields(state: EditProfileState, modifier: Modifier = Modifier) {
+    val isError = !state.heightValid
+    val keyboard = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+    when (state.units) {
+        UnitSystem.Metric ->
+            AppTextField(
+                state.height,
+                modifier = modifier.fillMaxWidth(),
+                enabled = state.loaded,
+                label = stringResource(Res.string.edit_profile_height_cm),
+                isError = isError,
+                keyboardOptions = keyboard,
+                lineLimits = TextFieldLineLimits.SingleLine,
+            )
+        UnitSystem.Imperial ->
+            Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AppTextField(
+                    state.height,
+                    modifier = Modifier.weight(1f),
+                    enabled = state.loaded,
+                    label = stringResource(Res.string.edit_profile_height_ft),
+                    isError = isError,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    lineLimits = TextFieldLineLimits.SingleLine,
+                )
+                AppTextField(
+                    state.heightInches,
+                    modifier = Modifier.weight(1f),
+                    enabled = state.loaded,
+                    label = stringResource(Res.string.edit_profile_height_in),
+                    isError = isError,
+                    keyboardOptions = keyboard,
+                    lineLimits = TextFieldLineLimits.SingleLine,
+                )
+            }
     }
 }
 
