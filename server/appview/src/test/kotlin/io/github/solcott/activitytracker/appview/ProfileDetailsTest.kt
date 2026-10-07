@@ -106,7 +106,7 @@ class ProfileDetailsTest {
         }
     }
 
-    /** Alice: public city and avatar in her record; weight for mutuals and birthdate for herself in the AppView. */
+    /** Alice: public city and avatar in her record; weight and height for mutuals and birthdate for herself in the AppView. */
     private suspend fun ApplicationTestBuilder.seedAlice() {
         application { appView(config, db, verifier, pds) }
         commit(
@@ -121,7 +121,7 @@ class ProfileDetailsTest {
             client.putPrivate(
                 alice,
                 PutPrivateDetails.Input(
-                    ProfileDetails(birthDate = "1990-04-01", weight = 61_500),
+                    ProfileDetails(birthDate = "1990-04-01", weight = 61_500, height = 1_680),
                     DetailsVisibility(birthDate = Visibility.SELF, weight = Visibility.MUTUALS),
                 ),
             )
@@ -145,8 +145,11 @@ class ProfileDetailsTest {
         val publicOnly = ProfileDetails(location = Location(locality = "Portland", country = "US"))
         assertEquals(publicOnly, client.profile(viewer = null).details)
         assertEquals(publicOnly, client.profile(viewer = bob).details)
-        assertEquals(publicOnly.copy(weight = 61_500), client.profile(viewer = carol).details)
-        assertEquals(publicOnly.copy(weight = 61_500, birthDate = "1990-04-01"), client.profile(viewer = alice).details)
+        assertEquals(publicOnly.copy(weight = 61_500, height = 1_680), client.profile(viewer = carol).details)
+        assertEquals(
+            publicOnly.copy(weight = 61_500, height = 1_680, birthDate = "1990-04-01"),
+            client.profile(viewer = alice).details,
+        )
     }
 
     @Test
@@ -195,9 +198,32 @@ class ProfileDetailsTest {
                 GetPrivateDetails.Output.serializer(),
                 client.get("/xrpc/$nsid") { header(HttpHeaders.Authorization, auth(did, nsid)) }.bodyAsText(),
             )
-        assertEquals(ProfileDetails(birthDate = "1990-04-01", weight = 61_500), own(alice).details)
+        assertEquals(ProfileDetails(birthDate = "1990-04-01", weight = 61_500, height = 1_680), own(alice).details)
         assertEquals(Visibility.MUTUALS, own(alice).visibility.weight)
         assertEquals(ProfileDetails(), own(bob).details)
+    }
+
+    @Test
+    fun heightSharesWeightsVisibility() = testApplication {
+        seedAlice()
+        // Height alone still needs the weight group's non-public visibility, and is kept within the lexicon's range.
+        suspend fun put(details: ProfileDetails, visibility: String?) =
+            client.putPrivate(alice, PutPrivateDetails.Input(details, DetailsVisibility(weight = visibility)))
+        assertEquals(HttpStatusCode.BadRequest, put(ProfileDetails(height = 1_680), Visibility.PUBLIC).status)
+        assertEquals(HttpStatusCode.BadRequest, put(ProfileDetails(height = 1_680), null).status)
+        assertEquals(HttpStatusCode.BadRequest, put(ProfileDetails(height = 5_000), Visibility.SELF).status)
+        val saved = put(ProfileDetails(height = 1_680), Visibility.MUTUALS)
+        assertEquals(HttpStatusCode.OK, saved.status, saved.bodyAsText())
+        follow(alice, carol)
+        follow(carol, alice)
+        assertEquals(1_680, client.profile(viewer = carol).details?.height)
+        assertNull(client.profile(viewer = bob).details?.height)
+
+        // A public height in the record is shown to everyone; an out-of-range one is dropped.
+        commit(alice, Nsid.ACTOR_PROFILE, "self", """{"details":{"height":1700}}""")
+        assertEquals(1_700, client.profile(viewer = null).details?.height)
+        commit(alice, Nsid.ACTOR_PROFILE, "self", """{"details":{"height":9000}}""")
+        assertNull(client.profile(viewer = bob).details?.height)
     }
 
     @Test

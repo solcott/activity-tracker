@@ -349,8 +349,18 @@ data class ProfileDetails(
     val gender: String? = null,
     /** Grams (lexicons have no floats). */
     val weight: Long? = null,
+    /** Millimeters (lexicons have no floats). Shares [DetailsVisibility.weight] with [weight]. */
+    val height: Long? = null,
     val training: TrainingDetails? = null,
-)
+) {
+    companion object {
+        /** The lexicon's maximum [weight]. */
+        const val MAX_WEIGHT_GRAMS = 500_000L
+
+        /** The lexicon's maximum [height]. */
+        const val MAX_HEIGHT_MM = 3_000L
+    }
+}
 
 /** `app.activitytracker.actor.defs#training`: the athlete's thresholds, and the models their zones are derived from. */
 @Immutable
@@ -492,9 +502,11 @@ object Visibility {
 @Immutable
 @Serializable
 data class DetailsVisibility(
+    /** The whole [Location]: locality, region and country. */
     val location: String? = null,
     val birthDate: String? = null,
     val gender: String? = null,
+    /** [ProfileDetails.weight] and [ProfileDetails.height] together. */
     val weight: String? = null,
     val training: String? = null,
 )

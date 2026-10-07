@@ -36,7 +36,7 @@ class PrivateDetails(private val db: Database, private val clock: Clock = Clock.
         requirePrivate(details.location, visibility.location, "location")
         requirePrivate(details.birthDate, visibility.birthDate, "birthDate")
         requirePrivate(details.gender, visibility.gender, "gender")
-        requirePrivate(details.weight, visibility.weight, "weight")
+        requirePrivate(details.weight ?: details.height, visibility.weight, "weight and height")
         requirePrivate(details.training, visibility.training, "training")
         if (!ProfileDetailRules.isValid(details)) {
             throw XrpcError(HttpStatusCode.BadRequest.value, "InvalidRequest", "Details break the lexicon's constraints")
@@ -56,11 +56,12 @@ class PrivateDetails(private val db: Database, private val clock: Clock = Clock.
                 it[birthDate] = details.birthDate
                 it[gender] = details.gender
                 it[weightGrams] = details.weight
+                it[heightMm] = details.height
                 it[ActorPrivateDetails.training] = ProfileDetailRules.encodeTraining(training)
                 it[locationVisibility] = visibility.location.takeIf { location != null }
                 it[birthDateVisibility] = visibility.birthDate.takeIf { details.birthDate != null }
                 it[genderVisibility] = visibility.gender.takeIf { details.gender != null }
-                it[weightVisibility] = visibility.weight.takeIf { details.weight != null }
+                it[weightVisibility] = visibility.weight.takeIf { details.weight != null || details.height != null }
                 it[trainingVisibility] = visibility.training.takeIf { training != null }
                 it[updatedAt] = clock.now().toEpochMilliseconds()
             }
@@ -105,6 +106,7 @@ internal fun JdbcTransaction.visibleDetails(actor: ResultRow, viewer: Did?): Pro
             birthDate = actor[Actors.birthDate],
             gender = actor[Actors.gender],
             weight = actor[Actors.weightGrams],
+            height = actor[Actors.heightMm],
             training = ProfileDetailRules.decodeTraining(actor[Actors.training]),
         )
     val private = ActorPrivateDetails.selectAll().where { ActorPrivateDetails.did eq did }.singleOrNull()
@@ -121,6 +123,7 @@ internal fun JdbcTransaction.visibleDetails(actor: ResultRow, viewer: Did?): Pro
                 birthDate = public.birthDate ?: hidden.birthDate?.takeIf { visible(private[ActorPrivateDetails.birthDateVisibility]) },
                 gender = public.gender ?: hidden.gender?.takeIf { visible(private[ActorPrivateDetails.genderVisibility]) },
                 weight = public.weight ?: hidden.weight?.takeIf { visible(private[ActorPrivateDetails.weightVisibility]) },
+                height = public.height ?: hidden.height?.takeIf { visible(private[ActorPrivateDetails.weightVisibility]) },
                 training = public.training ?: hidden.training?.takeIf { visible(private[ActorPrivateDetails.trainingVisibility]) },
             )
         }
@@ -133,6 +136,7 @@ private fun privateDetails(row: ResultRow) =
         birthDate = row[ActorPrivateDetails.birthDate],
         gender = row[ActorPrivateDetails.gender],
         weight = row[ActorPrivateDetails.weightGrams],
+        height = row[ActorPrivateDetails.heightMm],
         training = ProfileDetailRules.decodeTraining(row[ActorPrivateDetails.training]),
     )
 

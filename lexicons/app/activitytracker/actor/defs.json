@@ -61,6 +61,7 @@
           "description": "A known value, or the athlete's own description."
         },
         "weight": { "type": "integer", "minimum": 1, "maximum": 500000, "description": "Grams (lexicons have no floats)." },
+        "height": { "type": "integer", "minimum": 1, "maximum": 3000, "description": "Millimeters (lexicons have no floats)." },
         "training": { "type": "ref", "ref": "#training", "description": "Training thresholds and zone models." }
       }
     },
@@ -152,12 +153,12 @@
     },
     "detailsVisibility": {
       "type": "object",
-      "description": "Visibility of each detail group in #details.",
+      "description": "Visibility of each detail group in #details. A group can cover several details, which share its visibility.",
       "properties": {
-        "location": { "type": "ref", "ref": "#visibility" },
+        "location": { "type": "ref", "ref": "#visibility", "description": "The whole location: locality, region and country." },
         "birthDate": { "type": "ref", "ref": "#visibility" },
         "gender": { "type": "ref", "ref": "#visibility" },
-        "weight": { "type": "ref", "ref": "#visibility" },
+        "weight": { "type": "ref", "ref": "#visibility", "description": "Weight and height together." },
         "training": { "type": "ref", "ref": "#visibility" }
       }
     }

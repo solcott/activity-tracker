@@ -124,6 +124,7 @@ class RecordSerializationTest {
                     ProfileDetails(
                         location = Location(locality = "Portland", country = "US"),
                         weight = 61_500,
+                        height = 1_750,
                         training =
                             TrainingDetails(
                                 functionalThresholdPower = 231,
@@ -146,6 +147,7 @@ class RecordSerializationTest {
         assertEquals("blob", json["avatar"]?.jsonObject?.get("\$type")?.jsonPrimitive?.content)
         val details = json.getValue("details").jsonObject
         assertEquals("61500", details["weight"]?.jsonPrimitive?.content)
+        assertEquals("1750", details["height"]?.jsonPrimitive?.content)
         assertFalse("birthDate" in details)
         assertFalse("region" in details.getValue("location").jsonObject)
         val training = details.getValue("training").jsonObject

@@ -14,7 +14,7 @@ Follows in this app (`app.activitytracker.graph.follow`) are separate from Blues
 
 ## Move private profile details to an atproto Space
 
-Profile details an athlete marks Mutuals or Only me (location, birthdate, gender, weight) live in the AppView's `actor_private_details` table, because repo records are public. atproto Spaces (permissioned repos on the athlete's own PDS) are the native home for that data, but in the August 2026 alpha they have had no security audit, their APIs and schemas may break, and the hosted sandbox will be wiped. Revisit when Spaces reaches a stable release.
+Profile details an athlete marks Mutuals or Only me (location, birthdate, gender, weight and height) live in the AppView's `actor_private_details` table, because repo records are public. atproto Spaces (permissioned repos on the athlete's own PDS) are the native home for that data, but in the August 2026 alpha they have had no security audit, their APIs and schemas may break, and the hosted sandbox will be wiped. Revisit when Spaces reaches a stable release.
 
 - **Target.** One space per athlete, with the athlete as its authority, holding a details record. The AppView (or each client) reads it as a member instead of storing a copy.
 - **Mutuals.** A space grants access by membership, not by a rule over the follow graph. Decide whether to keep the space's member list in sync with the athlete's mutuals, or to keep enforcing visibility in the AppView and use the space only for storage.

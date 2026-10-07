@@ -16,6 +16,7 @@ object Actors : Table("actors") {
     val birthDate = varchar("birth_date", 10).nullable()
     val gender = text("gender").nullable()
     val weightGrams = long("weight_g").nullable()
+    val heightMm = long("height_mm").nullable()
     /** `actor.defs#training` as JSON. */
     val training = text("training").nullable()
     val indexedAt = long("indexed_at")
@@ -31,11 +32,13 @@ object ActorPrivateDetails : Table("actor_private_details") {
     val birthDate = varchar("birth_date", 10).nullable()
     val gender = text("gender").nullable()
     val weightGrams = long("weight_g").nullable()
+    val heightMm = long("height_mm").nullable()
     /** `actor.defs#training` as JSON. */
     val training = text("training").nullable()
     val locationVisibility = varchar("location_visibility", 16).nullable()
     val birthDateVisibility = varchar("birth_date_visibility", 16).nullable()
     val genderVisibility = varchar("gender_visibility", 16).nullable()
+    /** Covers weight and height together. */
     val weightVisibility = varchar("weight_visibility", 16).nullable()
     val trainingVisibility = varchar("training_visibility", 16).nullable()
     val updatedAt = long("updated_at")

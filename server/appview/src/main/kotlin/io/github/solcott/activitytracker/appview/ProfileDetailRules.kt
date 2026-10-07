@@ -17,7 +17,6 @@ import java.time.format.DateTimeParseException
 internal object ProfileDetailRules {
     /** The lexicon `maxLength` of free-text details. */
     const val MAX_TEXT_LENGTH = 640
-    const val MAX_WEIGHT_GRAMS = 500_000L
     const val MAX_AVATAR_BYTES = 1_000_000L
     val AVATAR_TYPES = setOf("image/png", "image/jpeg")
 
@@ -41,7 +40,8 @@ internal object ProfileDetailRules {
                 location = location,
                 birthDate = details.birthDate?.takeIf(::isDate),
                 gender = details.gender?.take(MAX_TEXT_LENGTH),
-                weight = details.weight?.takeIf { it in 1..MAX_WEIGHT_GRAMS },
+                weight = details.weight?.takeIf { it in 1..ProfileDetails.MAX_WEIGHT_GRAMS },
+                height = details.height?.takeIf { it in 1..ProfileDetails.MAX_HEIGHT_MM },
                 training = sanitize(details.training),
             )
             .takeUnless { it == ProfileDetails() }
