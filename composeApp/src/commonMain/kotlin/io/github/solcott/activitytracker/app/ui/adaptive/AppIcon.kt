@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.ui.adaptive
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddCircle
@@ -48,6 +49,7 @@ enum class AppIcon(
     Clear(Icons.Filled.Clear, CupertinoIcons.xmarkCircleFill, "xmark.circle.fill"),
     Calendar(Icons.Filled.DateRange, CupertinoIcons.calendar, "calendar"),
     Check(Icons.Filled.Check, CupertinoIcons.checkmark, "checkmark"),
+    Chevron(Icons.AutoMirrored.Filled.KeyboardArrowRight, CupertinoIcons.chevronForward, "chevron.forward"),
     Delete(Icons.Filled.Delete, CupertinoIcons.trash, "trash"),
     DropDown(Icons.Filled.ArrowDropDown, CupertinoIcons.chevronUpChevronDown, "chevron.up.chevron.down"),
     Kudos(

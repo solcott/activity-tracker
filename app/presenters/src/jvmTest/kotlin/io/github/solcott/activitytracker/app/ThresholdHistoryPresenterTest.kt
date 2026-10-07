@@ -5,12 +5,18 @@ import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.settings.ThresholdHistoryEvent
 import io.github.solcott.activitytracker.app.settings.ThresholdHistoryPresenter
 import io.github.solcott.activitytracker.app.settings.ThresholdHistoryScreen
+import io.github.solcott.activitytracker.app.settings.ThresholdHistoryState
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.ThresholdSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -19,6 +25,10 @@ import kotlinx.serialization.json.long
 
 class ThresholdHistoryPresenterTest {
     private val fixture = SessionTestFixture()
+    private val clock =
+        object : Clock {
+            override fun now() = Instant.parse("2026-10-07T12:00:00Z")
+        }
 
     private val training =
         """{"functionalThresholdPower":260,"maxHeartRate":190,""" +
@@ -30,29 +40,70 @@ class ThresholdHistoryPresenterTest {
             """"source":"device","device":"Edge 840"},""" +
             """{"threshold":"thresholdSpeed","sport":"run","value":3200,"setAt":"2026-09-02T07:00:00Z","source":"trainerRoad"}]}"""
 
+    private val ftp = Threshold.FUNCTIONAL_THRESHOLD_POWER
+
+    private fun ThresholdHistoryState.section(sport: String?, threshold: String) =
+        groups!!.single { it.sport == sport }.thresholds.single { it.threshold == threshold }
+
     @Test
-    fun showsEachThresholdsHistoryNewestFirst() = runTest {
+    fun groupsTheDefaultsThenEachSportWithCharts() = runTest {
         fixture.privateDetails = """{"details":{"training":$training},"visibility":{"training":"self"}}"""
         val repos = fixture.repos()
-        presenterTestOf({ ThresholdHistoryPresenter(FakeNavigator(ThresholdHistoryScreen), repos.profiles, repos.units) }) {
-            val sections = awaitUntil { it.sections != null }.sections!!
-            // Max heart rate had no history: it's added as of when it was set. The defaults come before the run's.
-            assertEquals(
-                listOf(
-                    Threshold.MAX_HEART_RATE to null,
-                    Threshold.FUNCTIONAL_THRESHOLD_POWER to null,
-                    Threshold.THRESHOLD_SPEED to Sport.RUN,
-                ),
-                sections.map { it.threshold to it.sport },
-            )
-            val ftp = sections[1].rows
-            assertEquals(listOf(260L, 250L), ftp.map { it.entry.value })
-            assertEquals(listOf(true, false), ftp.map { it.current })
-            assertEquals("Edge 840", ftp.first().entry.device)
-            assertNull(sections[0].rows.single().entry.source)
+        presenterTestOf({ ThresholdHistoryPresenter(FakeNavigator(ThresholdHistoryScreen), repos.profiles, repos.units, clock) }) {
+            val loaded = awaitUntil { it.groups != null }
+            val groups = loaded.groups!!
+            assertEquals(listOf(null, Sport.RUN), groups.map { it.sport })
+            assertEquals(listOf(true, false), groups.map { it.expanded }, "the defaults start expanded")
+            // Max heart rate had no history: it's added as of when it was set.
+            assertEquals(listOf(Threshold.MAX_HEART_RATE, ftp), groups[0].thresholds.map { it.threshold })
+
+            val power = loaded.section(null, ftp)
+            assertEquals(listOf(260L, 250L), power.rows.map { it.entry.value })
+            assertEquals(listOf(true, false), power.rows.map { it.current })
+            assertEquals("Edge 840", power.newest.entry.device)
+            val chart = assertNotNull(power.chart)
+            assertEquals(listOf(250L, 260L), chart.points.map { it.value })
+            assertEquals(listOf(0f, 1f), chart.points.map { it.y })
+            assertEquals(0f, chart.points.first().x)
+            assertTrue(chart.points.last().x < 1f, "the line runs on to today")
+            assertEquals(listOf(false, true), chart.points.map { it.current })
+            assertEquals(250L, power.change?.from)
+            assertEquals(9, power.change?.since?.month)
+
+            val maxHeartRate = loaded.section(null, Threshold.MAX_HEART_RATE)
+            assertNull(maxHeartRate.chart, "one value has nothing to chart")
+            assertNull(maxHeartRate.change)
+            assertNull(maxHeartRate.newest.entry.source)
+
             // The run's pace is now 3271, which no entry has.
-            assertEquals(listOf(false), sections[2].rows.map { it.current })
-            assertEquals(ThresholdSource.TRAINER_ROAD, sections[2].rows.single().entry.source)
+            val pace = loaded.section(Sport.RUN, Threshold.THRESHOLD_SPEED)
+            assertEquals(listOf(false), pace.rows.map { it.current })
+            assertEquals(ThresholdSource.TRAINER_ROAD, pace.newest.entry.source)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun groupsAndLongHistoriesExpandAndCollapse() = runTest {
+        val ftps = (1..5).joinToString(",") { """{"threshold":"$ftp","value":${200 + it},"setAt":"2026-0$it-01T07:00:00Z"}""" }
+        fixture.privateDetails =
+            """{"details":{"training":{"functionalThresholdPower":205,"sports":[{"sport":"ride","maxHeartRate":190}],""" +
+                """"history":[$ftps]}},"visibility":{"training":"self"}}"""
+        val repos = fixture.repos()
+        presenterTestOf({ ThresholdHistoryPresenter(FakeNavigator(ThresholdHistoryScreen), repos.profiles, repos.units, clock) }) {
+            val loaded = awaitUntil { it.groups != null }
+            val power = loaded.section(null, ftp)
+            assertEquals(3, power.shownRows.size)
+            assertTrue(power.canShowAll)
+            loaded.eventSink(ThresholdHistoryEvent.ToggleShowAll(ftp, null))
+            assertEquals(5, awaitUntil { it.section(null, ftp).showingAll }.section(null, ftp).shownRows.size)
+
+            loaded.eventSink(ThresholdHistoryEvent.ToggleGroup(Sport.RIDE))
+            assertTrue(awaitUntil { s -> s.groups!!.all { it.expanded } }.anyExpanded)
+            loaded.eventSink(ThresholdHistoryEvent.ToggleAll)
+            assertFalse(awaitUntil { s -> s.groups!!.none { it.expanded } }.anyExpanded)
+            loaded.eventSink(ThresholdHistoryEvent.ToggleAll)
+            awaitUntil { s -> s.groups!!.all { it.expanded } }
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -61,26 +112,18 @@ class ThresholdHistoryPresenterTest {
     fun removingTheCurrentValuePutsBackThePreviousOne() = runTest {
         fixture.privateDetails = """{"details":{"training":$training},"visibility":{"training":"self"}}"""
         val repos = fixture.repos()
-        presenterTestOf({ ThresholdHistoryPresenter(FakeNavigator(ThresholdHistoryScreen), repos.profiles, repos.units) }) {
-            val loaded = awaitUntil { it.sections != null }
-            val current = loaded.sections!!.first { it.threshold == Threshold.FUNCTIONAL_THRESHOLD_POWER }.rows.first().entry
+        presenterTestOf({ ThresholdHistoryPresenter(FakeNavigator(ThresholdHistoryScreen), repos.profiles, repos.units, clock) }) {
+            val loaded = awaitUntil { it.groups != null }
+            val current = loaded.section(null, ftp).newest.entry
             loaded.eventSink(ThresholdHistoryEvent.Remove(current))
             loaded.eventSink(ThresholdHistoryEvent.Remove(current))
-            val after = awaitUntil {
-                it.removing == null && it.sections!!.first { s -> s.threshold == Threshold.FUNCTIONAL_THRESHOLD_POWER }.rows.size == 1
-            }
-            assertEquals(
-                listOf(true),
-                after.sections!!.first { it.threshold == Threshold.FUNCTIONAL_THRESHOLD_POWER }.rows.map { it.current },
-            )
+            val after = awaitUntil { it.removing == null && it.section(null, ftp).rows.size == 1 }
+            assertEquals(listOf(true), after.section(null, ftp).rows.map { it.current })
             cancelAndIgnoreRemainingEvents()
         }
         val sent = fixture.privateDetailsPuts.single().getValue("details").jsonObject.getValue("training").jsonObject
         assertEquals(250L, sent["functionalThresholdPower"]?.jsonPrimitive?.long)
-        assertEquals(
-            "2026-09-01T07:00:00Z",
-            sent.getValue("setAt").jsonObject["functionalThresholdPower"]?.jsonPrimitive?.content,
-        )
+        assertEquals("2026-09-01T07:00:00Z", sent.getValue("setAt").jsonObject["functionalThresholdPower"]?.jsonPrimitive?.content)
         assertEquals(3, sent.getValue("history").jsonArray.size, "two FTPs less one, the pace, and max heart rate added")
     }
 }

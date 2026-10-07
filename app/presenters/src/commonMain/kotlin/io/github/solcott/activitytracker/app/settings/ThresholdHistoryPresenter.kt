@@ -6,6 +6,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
@@ -24,6 +25,8 @@ import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.ThresholdEntry
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
+import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -34,12 +37,16 @@ fun ThresholdHistoryPresenter(
     navigator: Navigator,
     profiles: ProfileRepository,
     units: UnitsRepository,
+    clock: Clock,
 ): ThresholdHistoryState {
     val timeZone = remember { TimeZones.device() }
     val unitSystem = units.units.collectAsState().value
     var training by remember { mutableStateOf<TrainingDetails?>(null) }
     var error by remember { mutableStateOf<UiError?>(null) }
     var removing by remember { mutableStateOf<ThresholdEntry?>(null) }
+    // Group ids (a sport, or DEFAULTS) and section ids; lists, so they save in a Bundle. The defaults start expanded.
+    var expanded by rememberSaveable { mutableStateOf(listOf(DEFAULTS)) }
+    var showingAll by rememberSaveable { mutableStateOf(emptyList<String>()) }
     val flights = rememberSingleFlight()
 
     LaunchedEffect(Unit) {
@@ -48,14 +55,26 @@ fun ThresholdHistoryPresenter(
             .onFailure { error = UiError.of(UiError.Kind.LoadProfile, it) }
     }
 
-    return ThresholdHistoryState(
-        sections = training?.let { sections(it, unitSystem, timeZone).toImmutableList() },
-        removing = removing,
-        error = error,
-    ) { event ->
+    val view = HistoryView(unitSystem, timeZone, clock.now(), expanded.toSet(), showingAll.toSet())
+    val groups = training?.let { view.groups(it).toImmutableList() }
+    return ThresholdHistoryState(groups = groups, removing = removing, error = error) { event ->
         when (event) {
             ThresholdHistoryEvent.Back -> {
                 navigator.pop()
+            }
+
+            is ThresholdHistoryEvent.ToggleGroup -> {
+                expanded = expanded.toggled(groupId(event.sport))
+            }
+
+            ThresholdHistoryEvent.ToggleAll -> {
+                // From the state now, not this composition's groups: an older event sink may send it.
+                val all = training?.history.orEmpty().map { groupId(it.sport) }.distinct()
+                expanded = if (expanded.any { it in all }) emptyList() else all
+            }
+
+            is ThresholdHistoryEvent.ToggleShowAll -> {
+                showingAll = showingAll.toggled(sectionId(event.sport, event.threshold))
             }
 
             is ThresholdHistoryEvent.Remove -> {
@@ -75,6 +94,15 @@ fun ThresholdHistoryPresenter(
     }
 }
 
+/** The id of the defaults' group; sports' are their tokens. */
+private const val DEFAULTS = ""
+
+private fun groupId(sport: String?) = sport ?: DEFAULTS
+
+private fun sectionId(sport: String?, threshold: String) = "${groupId(sport)}/$threshold"
+
+private fun List<String>.toggled(id: String) = if (id in this) this - id else this + id
+
 /** The order thresholds show in: as on the zones overview. */
 private val order =
     listOf(
@@ -85,37 +113,81 @@ private val order =
         Threshold.FUNCTIONAL_THRESHOLD_POWER,
     )
 
-/**
- * A section per threshold with history: the defaults', then each sport's in saved order, then sports with history and no override left.
- * Thresholds this client doesn't know go after the known ones.
- */
-private fun sections(training: TrainingDetails, units: UnitSystem, timeZone: TimeZone): List<ThresholdHistorySection> {
-    val sportOrder = listOf(null) + training.sports.map { it.sport }
-    val keys =
-        training.history
+/** Builds the groups as they look now: in [units] and [timeZone], charted up to [now], with [expanded] groups and [showingAll] sections. */
+private class HistoryView(
+    val units: UnitSystem,
+    val timeZone: TimeZone,
+    val now: Instant,
+    val expanded: Set<String>,
+    val showingAll: Set<String>,
+) {
+    /**
+     * A group for the defaults, then each sport in saved order, then sports with history and no override left, each holding a section per
+     * threshold with history. Thresholds this client doesn't know go after the known ones.
+     */
+    fun groups(training: TrainingDetails): List<ThresholdHistoryGroup> {
+        val sportOrder = listOf(null) + training.sports.map { it.sport }
+        return training.history
             .map { it.key }
             .distinct()
-            .sortedWith(
-                compareBy(
-                    { sportOrder.indexOf(it.sport).takeIf { i -> i >= 0 } ?: sportOrder.size },
-                    { it.sport },
-                    { order.indexOf(it.threshold).takeIf { i -> i >= 0 } ?: order.size },
-                    { it.threshold },
+            .groupBy { it.sport }
+            .entries
+            .sortedWith(compareBy({ sportOrder.indexOf(it.key).takeIf { i -> i >= 0 } ?: sportOrder.size }, { it.key }))
+            .map { (sport, keys) ->
+                ThresholdHistoryGroup(
+                    sport = sport,
+                    expanded = groupId(sport) in expanded,
+                    thresholds =
+                        keys
+                            .sortedWith(compareBy({ order.indexOf(it.threshold).takeIf { i -> i >= 0 } ?: order.size }, { it.threshold }))
+                            .map { section(training, it) }
+                            .toImmutableList(),
                 )
-            )
-    return keys.map { key ->
+            }
+    }
+
+    private fun section(training: TrainingDetails, key: TrainingHistory.Key): ThresholdHistorySection {
         val entries = TrainingHistory.entries(training.history, key)
-        val value = TrainingHistory.value(training, key)
+        val newest = entries.first()
         // Only the newest entry can be current, and only while the threshold still has its value.
-        val current = entries.first().takeIf { it.value == value }
-        ThresholdHistorySection(
+        val current = newest.takeIf { it.value == TrainingHistory.value(training, key) }
+        val dated = entries.filter { it.setAt != null }.reversed()
+        val first = dated.firstOrNull()
+        return ThresholdHistorySection(
             threshold = key.threshold,
             sport = key.sport,
             paceUnit = SportZones.paceUnit(key.sport, units),
-            rows =
-                entries
-                    .map { ThresholdHistoryRow(it, it.setAt?.toLocalDateTime(timeZone)?.date?.toString(), current = it == current) }
-                    .toImmutableList(),
+            rows = entries.map { ThresholdHistoryRow(it, it.setAt?.let(::date), current = it == current) }.toImmutableList(),
+            showingAll = sectionId(key.sport, key.threshold) in showingAll,
+            chart = chart(dated, current),
+            undatedCount = entries.size - dated.size,
+            change =
+                first?.takeIf { it != newest && newest.setAt != null }?.let { ThresholdTrend(it.value, newest.value, date(it.setAt!!)) },
         )
     }
+
+    /** [dated] (oldest first) placed from the first to [now]; null with fewer than two. */
+    private fun chart(dated: List<ThresholdEntry>, current: ThresholdEntry?): ThresholdChart? {
+        if (dated.size < 2) return null
+        val start = dated.first().setAt!!
+        val span = (now - start).inWholeMilliseconds.coerceAtLeast(1).toFloat()
+        val lowest = dated.minOf { it.value }
+        val highest = dated.maxOf { it.value }
+        val range = (highest - lowest).toFloat()
+        val points = dated.map {
+            ChartPoint(
+                x = ((it.setAt!! - start).inWholeMilliseconds / span).coerceIn(0f, 1f),
+                y = if (range == 0f) FLAT else (it.value - lowest) / range,
+                value = it.value,
+                current = it == current,
+            )
+        }
+        return ThresholdChart(points.toImmutableList(), date(start), lowest, highest)
+    }
+
+    private fun date(at: Instant): HistoryDate =
+        at.toLocalDateTime(timeZone).date.let { HistoryDate(it.year, it.month.ordinal + 1, it.day) }
 }
+
+/** Where a chart that never changed draws its line: midway up. */
+private const val FLAT = 0.5f
