@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.appview
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
+import io.github.solcott.activitytracker.lexicon.app.SportTraining
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.TrainingSetAt
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
@@ -62,8 +63,31 @@ internal object ProfileDetailRules {
                         .distinct()
                         .take(TrainingDetails.MAX_AUTO_UPDATE),
                 setAt = training.setAt?.takeUnless { it == TrainingSetAt() },
+                sports =
+                    training.sports
+                        .filter { it.sport.isNotEmpty() && it.sport.length <= TrainingDetails.MAX_MODEL_LENGTH }
+                        .distinctBy { it.sport }
+                        .take(TrainingDetails.MAX_SPORTS)
+                        .map(::sanitize),
             )
             .takeUnless { it == TrainingDetails() }
+    }
+
+    private fun sanitize(sport: SportTraining): SportTraining {
+        val heartRate = TrainingDetails.MIN_HEART_RATE..TrainingDetails.MAX_HEART_RATE
+        fun String?.model() = this?.takeIf { it.length <= TrainingDetails.MAX_MODEL_LENGTH }
+        return SportTraining(
+            sport = sport.sport,
+            functionalThresholdPower = sport.functionalThresholdPower?.takeIf { it in 1..TrainingDetails.MAX_FTP },
+            maxHeartRate = sport.maxHeartRate?.takeIf { it in heartRate },
+            thresholdHeartRate = sport.thresholdHeartRate?.takeIf { it in heartRate },
+            thresholdSpeed =
+                sport.thresholdSpeed?.takeIf { it in TrainingDetails.MIN_THRESHOLD_SPEED..TrainingDetails.MAX_THRESHOLD_SPEED },
+            heartRateZoneModel = sport.heartRateZoneModel.model(),
+            powerZoneModel = sport.powerZoneModel.model(),
+            speedZoneModel = sport.speedZoneModel.model(),
+            setAt = sport.setAt?.takeUnless { it == TrainingSetAt() },
+        )
     }
 
     /** True when [sanitize] would change nothing, apart from dropping an empty location or training. */

@@ -372,6 +372,8 @@ data class TrainingDetails(
     val autoUpdate: List<String> = emptyList(),
     /** When each threshold took effect. */
     val setAt: TrainingSetAt? = null,
+    /** Per-sport overrides of the values above, at most one per sport. */
+    val sports: List<SportTraining> = emptyList(),
 ) {
     companion object {
         const val MAX_FTP = 2500L
@@ -381,8 +383,44 @@ data class TrainingDetails(
 
         /** The lexicon's `maxLength` of [autoUpdate]. */
         const val MAX_AUTO_UPDATE = 4
+
+        /** The lexicon's `maxLength` of [sports]. */
+        const val MAX_SPORTS = 16
+
+        /** Millimeters per second. */
+        const val MIN_THRESHOLD_SPEED = 100L
+
+        /** Millimeters per second. */
+        const val MAX_THRESHOLD_SPEED = 10_000L
     }
 }
+
+/**
+ * `app.activitytracker.actor.defs#sportTraining`: thresholds and zone models for one sport, overriding [TrainingDetails]' defaults where
+ * set. Resting heart rate isn't per sport.
+ */
+@Immutable
+@Serializable
+data class SportTraining(
+    /** A [Sport] value. */
+    val sport: String,
+    /** Threshold power for this sport, watts. */
+    val functionalThresholdPower: Long? = null,
+    /** Beats per minute. */
+    val maxHeartRate: Long? = null,
+    /** Lactate threshold heart rate, beats per minute. */
+    val thresholdHeartRate: Long? = null,
+    /** Threshold speed, millimeters per second (lexicons have no floats). */
+    val thresholdSpeed: Long? = null,
+    /** A [HeartRateZoneModel] value. */
+    val heartRateZoneModel: String? = null,
+    /** A [PowerZoneModel] value. */
+    val powerZoneModel: String? = null,
+    /** A [SpeedZoneModel] value. */
+    val speedZoneModel: String? = null,
+    /** When each of this sport's thresholds took effect. */
+    val setAt: TrainingSetAt? = null,
+)
 
 /**
  * `app.activitytracker.actor.defs#trainingSetAt`: when each threshold took effect, set by the athlete or read from an activity that started
@@ -395,6 +433,7 @@ data class TrainingSetAt(
     val maxHeartRate: Instant? = null,
     val thresholdHeartRate: Instant? = null,
     val restingHeartRate: Instant? = null,
+    val thresholdSpeed: Instant? = null,
 )
 
 /** Known values of [TrainingDetails.autoUpdate]: the thresholds, named as their fields. */
@@ -420,6 +459,12 @@ object HeartRateZoneModel {
 object PowerZoneModel {
     const val COGGAN_6 = "coggan6"
     const val COGGAN_7 = "coggan7"
+}
+
+/** Known values of [SportTraining.speedZoneModel]; the field is an open string. */
+object SpeedZoneModel {
+    const val FRIEL_RUNNING = "frielRunning"
+    const val FRIEL_SWIMMING = "frielSwimming"
 }
 
 /** Known values of [ProfileDetails.gender]; the field is an open string. */

@@ -8,7 +8,9 @@ import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.SensorType
+import io.github.solcott.activitytracker.lexicon.app.SpeedZoneModel
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.SportTraining
 import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
@@ -19,6 +21,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Instant
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -127,6 +130,15 @@ class RecordSerializationTest {
                                 heartRateZoneModel = HeartRateZoneModel.COGGAN,
                                 autoUpdate = listOf(Threshold.FUNCTIONAL_THRESHOLD_POWER),
                                 setAt = TrainingSetAt(functionalThresholdPower = Instant.parse("2026-10-01T07:00:00Z")),
+                                sports =
+                                    listOf(
+                                        SportTraining(
+                                            sport = Sport.RUN,
+                                            thresholdSpeed = 3271,
+                                            speedZoneModel = SpeedZoneModel.FRIEL_RUNNING,
+                                            setAt = TrainingSetAt(thresholdSpeed = Instant.parse("2026-10-02T07:00:00Z")),
+                                        )
+                                    ),
                             ),
                     ),
             )
@@ -140,6 +152,11 @@ class RecordSerializationTest {
         assertEquals("231", training["functionalThresholdPower"]?.jsonPrimitive?.content)
         assertFalse("maxHeartRate" in training)
         assertEquals("2026-10-01T07:00:00Z", training.getValue("setAt").jsonObject["functionalThresholdPower"]?.jsonPrimitive?.content)
+        val run = training.getValue("sports").jsonArray.single().jsonObject
+        assertEquals("run", run["sport"]?.jsonPrimitive?.content)
+        assertEquals("3271", run["thresholdSpeed"]?.jsonPrimitive?.content)
+        assertFalse("thresholdHeartRate" in run)
+        assertEquals("2026-10-02T07:00:00Z", run.getValue("setAt").jsonObject["thresholdSpeed"]?.jsonPrimitive?.content)
         assertEquals(profile, AtJson.decodeFromJsonElement(ProfileRecord.serializer(), json))
     }
 }

@@ -94,7 +94,44 @@
           },
           "description": "The thresholds that imported activities may update from the recording device's settings."
         },
-        "setAt": { "type": "ref", "ref": "#trainingSetAt", "description": "When each threshold took effect." }
+        "setAt": { "type": "ref", "ref": "#trainingSetAt", "description": "When each threshold took effect." },
+        "sports": {
+          "type": "array",
+          "maxLength": 16,
+          "items": { "type": "ref", "ref": "#sportTraining" },
+          "description": "Per-sport overrides, at most one per sport. The fields above are the defaults: an activity of a sport listed here uses that entry's values where it sets them, and the defaults otherwise."
+        }
+      }
+    },
+    "sportTraining": {
+      "type": "object",
+      "description": "Thresholds and zone models for one sport, overriding the defaults in #training. Resting heart rate is not per sport.",
+      "required": ["sport"],
+      "properties": {
+        "sport": {
+          "type": "string",
+          "maxLength": 64,
+          "knownValues": ["run", "ride", "swim", "row", "xcSki", "walk", "hike"],
+          "description": "The sport of an app.activitytracker.feed.activity record."
+        },
+        "functionalThresholdPower": { "type": "integer", "minimum": 1, "maximum": 2500, "description": "Threshold power for this sport, in watts." },
+        "maxHeartRate": { "type": "integer", "minimum": 20, "maximum": 250, "description": "Beats per minute." },
+        "thresholdHeartRate": { "type": "integer", "minimum": 20, "maximum": 250, "description": "Lactate threshold heart rate, beats per minute." },
+        "thresholdSpeed": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 10000,
+          "description": "Threshold speed, millimeters per second (lexicons have no floats). Clients show it as a pace."
+        },
+        "heartRateZoneModel": { "type": "string", "maxLength": 64, "knownValues": ["frielRunning", "frielCycling", "cogganHeartRate", "percentMaxHeartRate", "heartRateReserve"] },
+        "powerZoneModel": { "type": "string", "maxLength": 64, "knownValues": ["coggan6", "coggan7"] },
+        "speedZoneModel": {
+          "type": "string",
+          "maxLength": 64,
+          "knownValues": ["frielRunning", "frielSwimming"],
+          "description": "How speed zones are derived from thresholdSpeed."
+        },
+        "setAt": { "type": "ref", "ref": "#trainingSetAt", "description": "When each of this sport's thresholds took effect." }
       }
     },
     "trainingSetAt": {
@@ -104,7 +141,8 @@
         "functionalThresholdPower": { "type": "string", "format": "datetime" },
         "maxHeartRate": { "type": "string", "format": "datetime" },
         "thresholdHeartRate": { "type": "string", "format": "datetime" },
-        "restingHeartRate": { "type": "string", "format": "datetime" }
+        "restingHeartRate": { "type": "string", "format": "datetime" },
+        "thresholdSpeed": { "type": "string", "format": "datetime" }
       }
     },
     "visibility": {

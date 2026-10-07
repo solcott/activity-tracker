@@ -17,6 +17,9 @@ import io.github.solcott.activitytracker.lexicon.app.PowerZoneModel
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.PutPrivateDetails
+import io.github.solcott.activitytracker.lexicon.app.SpeedZoneModel
+import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.SportTraining
 import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.TrainingSetAt
@@ -258,6 +261,41 @@ class ProfileDetailsTest {
         )
         assertEquals(
             TrainingDetails(functionalThresholdPower = 250, powerZoneModel = PowerZoneModel.COGGAN_7),
+            client.profile(viewer = null).details?.training,
+        )
+    }
+
+    @Test
+    fun sportOverridesAreValidatedAndSanitized() = testApplication {
+        seedAlice()
+        // Per-sport overrides round-trip; a second entry for one sport, or an out-of-range threshold speed, is rejected.
+        val run = SportTraining(sport = Sport.RUN, thresholdSpeed = 3271, speedZoneModel = SpeedZoneModel.FRIEL_RUNNING)
+        val training =
+            TrainingDetails(thresholdHeartRate = 165, sports = listOf(run, SportTraining(sport = Sport.SWIM, thresholdHeartRate = 150)))
+        val saved =
+            client.putPrivate(
+                alice,
+                PutPrivateDetails.Input(ProfileDetails(training = training), DetailsVisibility(training = Visibility.SELF)),
+            )
+        assertEquals(HttpStatusCode.OK, saved.status, saved.bodyAsText())
+        assertEquals(training, client.profile(viewer = alice).details?.training)
+        for (bad in listOf(listOf(run, run.copy(thresholdSpeed = 3000)), listOf(run.copy(thresholdSpeed = 50_000)))) {
+            val rejected =
+                client.putPrivate(
+                    alice,
+                    PutPrivateDetails.Input(
+                        ProfileDetails(training = training.copy(sports = bad)),
+                        DetailsVisibility(training = Visibility.SELF),
+                    ),
+                )
+            assertEquals(HttpStatusCode.BadRequest, rejected.status)
+        }
+
+        // In a public record, a repeated sport and an out-of-range speed are dropped.
+        val sports = """[{"sport":"run","thresholdSpeed":3271},{"sport":"run","thresholdSpeed":1},{"sport":"swim","thresholdSpeed":5}]"""
+        commit(alice, Nsid.ACTOR_PROFILE, "self", """{"details":{"training":{"sports":$sports}}}""")
+        assertEquals(
+            TrainingDetails(sports = listOf(SportTraining(sport = Sport.RUN, thresholdSpeed = 3271), SportTraining(sport = Sport.SWIM))),
             client.profile(viewer = null).details?.training,
         )
     }
