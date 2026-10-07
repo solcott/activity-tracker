@@ -3,6 +3,8 @@ package io.github.solcott.activitytracker.data.training
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.lexicon.app.HeartRateZoneModel
 import io.github.solcott.activitytracker.lexicon.app.PowerZoneModel
+import io.github.solcott.activitytracker.lexicon.app.SpeedZoneModel
+import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 
 /** The threshold a [ZoneModel] scales: zones are percentages of it. */
@@ -14,6 +16,12 @@ enum class ZoneBasis {
     /** Heart-rate reserve (Karvonen): resting heart rate plus a percentage of max minus resting. */
     HeartRateReserve,
     FunctionalThresholdPower,
+
+    /**
+     * Threshold pace, for speed zones. A zone's percentage is of threshold *pace* (time per distance), so 129 starts a zone at the speed of
+     * a pace 29% slower than threshold.
+     */
+    ThresholdPace,
 }
 
 /** What a zone is called. The UI owns the words. */
@@ -43,7 +51,7 @@ enum class ZoneName {
 /** A way of deriving zones from a threshold. [token] is what `actor.defs#training` stores. The first zone starts at 0. */
 @Immutable data class ZoneModel(val token: String, val basis: ZoneBasis, val zones: List<ZoneStart>)
 
-/** One computed zone, in bpm or watts. [high] is null for the last, open-ended zone. */
+/** One computed zone, in bpm, watts or mm/s. [high] is null for the last, open-ended zone. */
 @Immutable data class Zone(val label: String, val name: ZoneName, val low: Int, val high: Int?)
 
 /** The zone models athletes can pick, from published formulas. Add a model here and give its name a string in the UI. */
@@ -132,6 +140,23 @@ object ZoneModels {
             zones(*(cogganPowerStarts + (ZoneName.Neuromuscular to 151)).toTypedArray()),
         )
 
+    // Friel's pace zones, as TrainingPeaks offers them for running and swimming: each zone starts at a percentage of threshold pace.
+    private val frielPaceStarts =
+        zones(
+            ZoneName.Recovery to 0,
+            ZoneName.Aerobic to 129,
+            ZoneName.Tempo to 114,
+            ZoneName.SubThreshold to 106,
+            ZoneName.SuperThreshold to 100,
+            ZoneName.AerobicCapacity to 97,
+            ZoneName.AnaerobicCapacity to 90,
+            labels = frielLabels,
+        )
+
+    val frielRunningPace = ZoneModel(SpeedZoneModel.FRIEL_RUNNING, ZoneBasis.ThresholdPace, frielPaceStarts)
+
+    val frielSwimmingPace = ZoneModel(SpeedZoneModel.FRIEL_SWIMMING, ZoneBasis.ThresholdPace, frielPaceStarts)
+
     val heartRate: List<ZoneModel> = listOf(frielRunning, frielCycling, cogganHeartRate, percentMaxHeartRate, heartRateReserve)
 
     val power: List<ZoneModel> = listOf(cogganPower6, cogganPower7)
@@ -140,11 +165,19 @@ object ZoneModels {
 
     val defaultPower: ZoneModel = cogganPower6
 
+    val speed: List<ZoneModel> = listOf(frielRunningPace, frielSwimmingPace)
+
+    /** The speed model a sport uses until one is picked. */
+    fun defaultSpeed(sport: String?): ZoneModel = if (sport == Sport.SWIM) frielSwimmingPace else frielRunningPace
+
     /** The heart rate model stored as [token], or the default when it's unset or one this client doesn't know. */
     fun heartRate(token: String?): ZoneModel = heartRate.find { it.token == token } ?: defaultHeartRate
 
     /** The power model stored as [token], or the default when it's unset or one this client doesn't know. */
     fun power(token: String?): ZoneModel = power.find { it.token == token } ?: defaultPower
+
+    /** The speed model stored as [token], or [sport]'s default when it's unset or one this client doesn't know. */
+    fun speed(token: String?, sport: String?): ZoneModel = speed.find { it.token == token } ?: defaultSpeed(sport)
 }
 
 /** Computes zones from thresholds. */
@@ -152,18 +185,31 @@ object Zones {
     private const val PERCENT = 100
     private const val HALF = 50
 
+    /** [model]'s zones for [training]'s defaults. */
+    fun compute(model: ZoneModel, training: TrainingDetails): List<Zone>? = compute(model, training.forSport(null))
+
     /**
-     * [model]'s zones for [training], in whole bpm or watts: each zone starts at its percentage of the basis, rounded, and ends one below
-     * the next. Null when the thresholds the model needs are missing, or resting heart rate isn't below max for heart-rate reserve.
+     * [model]'s zones for [training], in whole bpm, watts or mm/s: each zone starts at its percentage of the basis, rounded, and ends one
+     * below the next. Null when the thresholds the model needs are missing, or resting heart rate isn't below max for heart-rate reserve.
      */
-    fun compute(model: ZoneModel, training: TrainingDetails): List<Zone>? {
-        val (offset, range) = scale(model.basis, training) ?: return null
-        val lows = model.zones.mapIndexed { i, start -> if (i == 0) 0 else (offset + (range * start.percent + HALF) / PERCENT).toInt() }
+    fun compute(model: ZoneModel, training: EffectiveTraining): List<Zone>? {
+        val lows = (if (model.basis == ZoneBasis.ThresholdPace) paceLows(model, training) else scaledLows(model, training)) ?: return null
         return model.zones.mapIndexed { i, start -> Zone(start.label, start.name, lows[i], lows.getOrNull(i + 1)?.minus(1)) }
     }
 
+    private fun scaledLows(model: ZoneModel, training: EffectiveTraining): List<Int>? {
+        val (offset, range) = scale(model.basis, training) ?: return null
+        return model.zones.mapIndexed { i, start -> if (i == 0) 0 else (offset + (range * start.percent + HALF) / PERCENT).toInt() }
+    }
+
+    /** A slower pace is a lower speed: the speed at p% of threshold pace is threshold speed * 100 / p. */
+    private fun paceLows(model: ZoneModel, training: EffectiveTraining): List<Int>? {
+        val threshold = training.thresholdSpeed ?: return null
+        return model.zones.mapIndexed { i, start -> if (i == 0) 0 else ((threshold * PERCENT + start.percent / 2) / start.percent).toInt() }
+    }
+
     /** What 0% and 100% of [basis] are, as (offset, range); null when [training] lacks what it needs. */
-    private fun scale(basis: ZoneBasis, training: TrainingDetails): Pair<Long, Long>? =
+    private fun scale(basis: ZoneBasis, training: EffectiveTraining): Pair<Long, Long>? =
         when (basis) {
             ZoneBasis.ThresholdHeartRate -> training.thresholdHeartRate?.let { 0L to it }
             ZoneBasis.MaxHeartRate -> training.maxHeartRate?.let { 0L to it }
@@ -173,10 +219,11 @@ object Zones {
                 val resting = training.restingHeartRate
                 if (max != null && resting != null && resting < max) resting to max - resting else null
             }
+            ZoneBasis.ThresholdPace -> null
         }
 }
 
-/** Threshold text fields: whole bpm or watts. */
+/** Threshold text fields: whole bpm or watts, or a pace. */
 object ThresholdInput {
     /** Entered heart rate text in bpm; null when blank or outside the lexicon's range. */
     fun heartRate(text: String): Long? =
@@ -188,4 +235,10 @@ object ThresholdInput {
     fun isValidHeartRate(text: String): Boolean = text.isBlank() || heartRate(text) != null
 
     fun isValidPower(text: String): Boolean = text.isBlank() || power(text) != null
+
+    /** Entered pace text per [unit] in mm/s; null when blank, unparseable or outside the lexicon's range. */
+    fun pace(text: String, unit: PaceUnit): Long? =
+        PaceText.parse(text, unit)?.takeIf { it in TrainingDetails.MIN_THRESHOLD_SPEED..TrainingDetails.MAX_THRESHOLD_SPEED }
+
+    fun isValidPace(text: String, unit: PaceUnit): Boolean = text.isBlank() || pace(text, unit) != null
 }

@@ -67,4 +67,38 @@ class ZonesTest {
         assertEquals(true, ThresholdInput.isValidPower(""))
         assertEquals(false, ThresholdInput.isValidHeartRate("abc"))
     }
+
+    @Test
+    fun frielRunningPaceFromThresholdPace() {
+        // 8:12 per mile, as on TrainingPeaks' example; boundaries land within two seconds of theirs.
+        val threshold = PaceText.parse("8:12", PaceUnit.PerMile)
+        assertEquals(3271, threshold)
+        val zones = Zones.compute(ZoneModels.frielRunningPace, EffectiveTraining(thresholdSpeed = threshold))
+        assertEquals(
+            listOf(0 to 2535, 2536 to 2868, 2869 to 3085, 3086 to 3270, 3271 to 3371, 3372 to 3633, 3634 to null),
+            ranges(zones),
+        )
+        assertEquals(
+            listOf("10:35", "9:21", "8:41", "8:12", "7:57", "7:23"),
+            zones?.drop(1)?.map { PaceText.format(it.low.toLong(), PaceUnit.PerMile) },
+        )
+    }
+
+    @Test
+    fun frielSwimmingPaceFromThresholdPace() {
+        val threshold = PaceText.parse("1:22", PaceUnit.Per100Yards)
+        val zones = Zones.compute(ZoneModels.frielSwimmingPace, EffectiveTraining(thresholdSpeed = threshold))
+        assertEquals(
+            listOf("1:46", "1:33", "1:27", "1:22", "1:20", "1:14"),
+            zones?.drop(1)?.map { PaceText.format(it.low.toLong(), PaceUnit.Per100Yards) },
+        )
+        assertNull(Zones.compute(ZoneModels.frielSwimmingPace, EffectiveTraining()))
+    }
+
+    @Test
+    fun speedModelsDefaultBySport() {
+        assertEquals(ZoneModels.frielSwimmingPace, ZoneModels.speed(null, "swim"))
+        assertEquals(ZoneModels.frielRunningPace, ZoneModels.speed("someOtherClientsModel", "run"))
+        assertEquals(ZoneModels.frielSwimmingPace, ZoneModels.speed(ZoneModels.frielSwimmingPace.token, "run"))
+    }
 }

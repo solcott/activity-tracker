@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.data.training
 
 import io.github.solcott.activitytracker.activityfile.DeviceThresholds
+import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.SportTraining
 import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.TrainingSetAt
@@ -56,5 +58,45 @@ class ThresholdUpdatesTest {
         assertEquals(TrainingSetAt(functionalThresholdPower = later, thresholdHeartRate = setOn, restingHeartRate = later), updated.setAt)
         // Applied once, the same activity brings nothing more.
         assertEquals(emptyList(), ThresholdUpdates.pending(updated, device, later))
+    }
+
+    @Test
+    fun aSportsOverrideTakesItsDevicesThresholds() {
+        val run = SportTraining(sport = Sport.RUN, thresholdHeartRate = 175, setAt = TrainingSetAt(thresholdHeartRate = setOn))
+        val withRun = current.copy(sports = listOf(run))
+        val runDevice = device.copy(thresholdHeartRate = 178, functionalThresholdPower = 300)
+        val changes = ThresholdUpdates.pending(withRun, runDevice, later, Sport.RUN)
+        // FTP isn't overridden, so it's compared with the default's and goes into the override; resting HR stays a default.
+        assertEquals(
+            listOf(
+                ThresholdChange(Threshold.FUNCTIONAL_THRESHOLD_POWER, 231, 300, Sport.RUN),
+                ThresholdChange(Threshold.THRESHOLD_HEART_RATE, 175, 178, Sport.RUN),
+                ThresholdChange(Threshold.RESTING_HEART_RATE, null, 48),
+            ),
+            changes,
+        )
+        val updated = ThresholdUpdates.apply(withRun, changes, later)
+        assertEquals(231, updated.functionalThresholdPower)
+        assertEquals(170, updated.thresholdHeartRate)
+        assertEquals(48, updated.restingHeartRate)
+        assertEquals(
+            SportTraining(
+                sport = Sport.RUN,
+                functionalThresholdPower = 300,
+                thresholdHeartRate = 178,
+                setAt = TrainingSetAt(functionalThresholdPower = later, thresholdHeartRate = later),
+            ),
+            updated.sports.single(),
+        )
+        assertEquals(emptyList(), ThresholdUpdates.pending(updated, runDevice, later, Sport.RUN))
+    }
+
+    @Test
+    fun aSportWithoutAnOverrideUpdatesTheDefaults() {
+        val withRun = current.copy(sports = listOf(SportTraining(sport = Sport.RUN, thresholdHeartRate = 175)))
+        assertEquals(
+            ThresholdUpdates.pending(current, device, later),
+            ThresholdUpdates.pending(withRun, device, later, Sport.RIDE),
+        )
     }
 }

@@ -27,14 +27,32 @@ suspend fun ProfileRepository.saveTraining(training: TrainingDetails?, visibilit
 }
 
 /**
- * Updates thresholds from an activity that started at [activityStart] and was recorded with [device]'s settings, keeping the training
- * visibility. The changes are worked out again from the saved profile, which another device may have changed since a preview. Returns the
- * changes made; when there are none it writes nothing.
+ * Saves [transform] of the training details as saved now, with [visibility], or the saved visibility when null. It reads them at save time,
+ * so a screen editing the defaults keeps a sport override saved from another screen since it loaded, and the other way round. [transform]
+ * returning null clears them.
  */
-suspend fun ProfileRepository.applyDeviceThresholds(device: DeviceThresholds?, activityStart: Instant): List<ThresholdChange> {
+suspend fun ProfileRepository.updateTraining(visibility: String? = null, transform: (TrainingDetails) -> TrainingDetails? = { it }) {
+    val own = ownProfile()
+    val current = own.details.training ?: TrainingDetails()
+    saveTraining(
+        transform(current)?.takeUnless { it == TrainingDetails() },
+        visibility ?: DetailGroup.Training.visibility(own.visibility) ?: Visibility.SELF,
+    )
+}
+
+/**
+ * Updates thresholds from an activity of [sport] that started at [activityStart] and was recorded with [device]'s settings, keeping the
+ * training visibility. The changes are worked out again from the saved profile, which another device may have changed since a preview.
+ * Returns the changes made; when there are none it writes nothing.
+ */
+suspend fun ProfileRepository.applyDeviceThresholds(
+    device: DeviceThresholds?,
+    activityStart: Instant,
+    sport: String? = null,
+): List<ThresholdChange> {
     val own = ownProfile()
     val current = own.details.training ?: return emptyList()
-    val changes = ThresholdUpdates.pending(current, device, activityStart)
+    val changes = ThresholdUpdates.pending(current, device, activityStart, sport)
     if (changes.isNotEmpty()) {
         saveTraining(
             ThresholdUpdates.apply(current, changes, activityStart),
