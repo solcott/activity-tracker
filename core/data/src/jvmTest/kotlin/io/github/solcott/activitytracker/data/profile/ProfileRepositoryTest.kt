@@ -13,7 +13,11 @@ import io.github.solcott.activitytracker.lexicon.app.PowerZoneModel
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.PutPrivateDetails
+import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.SportTraining
 import io.github.solcott.activitytracker.lexicon.app.Threshold
+import io.github.solcott.activitytracker.lexicon.app.ThresholdEntry
+import io.github.solcott.activitytracker.lexicon.app.ThresholdSource
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.TrainingSetAt
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -97,8 +101,8 @@ class ProfileRepositoryTest {
             expectSuccess = false
         }
 
-    private suspend fun repository(): ProfileRepository {
-        return ProfileRepository(signedInTestSession(http, did = did).clients, Clock.System)
+    private suspend fun repository(clock: Clock = Clock.System): ProfileRepository {
+        return ProfileRepository(signedInTestSession(http, did = did).clients, clock)
     }
 
     private val portland = Location(locality = "Portland", country = "US")
@@ -236,10 +240,26 @@ class ProfileRepositoryTest {
         val repo = repository()
         val device = DeviceThresholds(maxHeartRate = 185, functionalThresholdPower = 240)
 
-        val changes = repo.applyDeviceThresholds(device, start)
+        val changes = repo.applyDeviceThresholds(device, start, deviceName = "Edge 840")
         assertEquals(listOf(ThresholdChange(Threshold.FUNCTIONAL_THRESHOLD_POWER, 231, 240)), changes)
+        // The values saved before history was kept join it (max heart rate undated), then the device's.
         assertEquals(
-            training.copy(functionalThresholdPower = 240, setAt = TrainingSetAt(functionalThresholdPower = start)),
+            training.copy(
+                functionalThresholdPower = 240,
+                setAt = TrainingSetAt(functionalThresholdPower = start),
+                history =
+                    listOf(
+                        ThresholdEntry(Threshold.MAX_HEART_RATE, 190),
+                        ThresholdEntry(Threshold.FUNCTIONAL_THRESHOLD_POWER, 231, setOn),
+                        ThresholdEntry(
+                            Threshold.FUNCTIONAL_THRESHOLD_POWER,
+                            240,
+                            start,
+                            source = ThresholdSource.DEVICE,
+                            device = "Edge 840",
+                        ),
+                    ),
+            ),
             hidden.details.training,
         )
         assertEquals(Visibility.MUTUALS, hidden.visibility.training)
@@ -247,5 +267,64 @@ class ProfileRepositoryTest {
         writes.clear()
         assertEquals(emptyList(), repo.applyDeviceThresholds(device, start))
         assertEquals(emptyList(), writes, "nothing to change writes nothing")
+    }
+
+    @Test
+    fun editsAddToTheHistoryAndRemovingTheCurrentValueRevertsIt() = runTest {
+        hidden = PutPrivateDetails.Input(ProfileDetails(), DetailsVisibility())
+        val now = Instant.parse("2026-10-03T07:00:00Z")
+        val repo =
+            repository(
+                object : Clock {
+                    override fun now() = now
+                }
+            )
+
+        repo.updateTraining(Visibility.SELF) { it.copy(maxHeartRate = 190) }
+        repo.updateTraining { it.copy(maxHeartRate = 192) }
+        val history = hidden.details.training?.history.orEmpty()
+        assertEquals(listOf(190L, 192L), history.map { it.value })
+        assertEquals(setOf(ThresholdSource.MANUAL), history.map { it.source }.toSet())
+        assertEquals(setOf(now), history.map { it.setAt }.toSet())
+
+        repo.removeThresholdEntry(history.last())
+        assertEquals(190, hidden.details.training?.maxHeartRate)
+        repo.removeThresholdEntry(history.first())
+        assertNull(hidden.details.training)
+    }
+
+    @Test
+    fun anEditorThatRebuildsTheTrainingKeepsTheHistory() = runTest {
+        val rideSet = Instant.parse("2026-09-15T07:00:00Z")
+        val ride = ThresholdEntry(Threshold.FUNCTIONAL_THRESHOLD_POWER, 245, rideSet, Sport.RIDE, ThresholdSource.MANUAL)
+        val olderRide = ride.copy(value = 240, setAt = Instant.parse("2026-09-01T07:00:00Z"))
+        // FTP 234 was saved before set times were kept, so it has no date.
+        val training =
+            TrainingDetails(
+                functionalThresholdPower = 234,
+                sports = listOf(SportTraining(Sport.RIDE, functionalThresholdPower = 245)),
+                history = listOf(olderRide, ride),
+            )
+        hidden = PutPrivateDetails.Input(ProfileDetails(training = training), DetailsVisibility(training = Visibility.SELF))
+        val now = Instant.parse("2026-10-07T23:00:00Z")
+        val repo =
+            repository(
+                object : Clock {
+                    override fun now() = now
+                }
+            )
+
+        // As the defaults editor saves: the training from its form, with only the sports carried over.
+        repo.updateTraining { current -> TrainingDetails(functionalThresholdPower = 231, sports = current.sports) }
+
+        assertEquals(
+            listOf(
+                ThresholdEntry(Threshold.FUNCTIONAL_THRESHOLD_POWER, 234),
+                olderRide,
+                ride,
+                ThresholdEntry(Threshold.FUNCTIONAL_THRESHOLD_POWER, 231, now, source = ThresholdSource.MANUAL),
+            ),
+            hidden.details.training?.history,
+        )
     }
 }

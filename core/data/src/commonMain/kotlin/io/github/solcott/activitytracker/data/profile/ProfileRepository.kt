@@ -33,7 +33,7 @@ import kotlin.time.Clock
 @Inject
 class ProfileRepository(
     private val clients: SessionClients,
-    private val clock: Clock,
+    internal val clock: Clock,
 ) {
     val did
         get() = clients.did

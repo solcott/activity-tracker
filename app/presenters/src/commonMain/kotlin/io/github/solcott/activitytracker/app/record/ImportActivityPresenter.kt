@@ -165,7 +165,7 @@ private suspend fun updateThresholds(
     previewed: List<ThresholdChange>,
 ) {
     if (previewed.isEmpty()) return
-    runSuspendCatching { profiles.applyDeviceThresholds(activity.deviceThresholds, activity.startedAt, sport) }
+    runSuspendCatching { profiles.applyDeviceThresholds(activity.deviceThresholds, activity.startedAt, sport, activity.device) }
 }
 
 @Suppress("MagicNumber") // Hours of the day.
