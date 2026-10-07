@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.activityfile.SensorBattery
 import io.github.solcott.activitytracker.activityfile.SensorKind
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.training.ThresholdChange
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import kotlin.time.Duration
 import kotlinx.collections.immutable.ImmutableList
@@ -34,6 +35,8 @@ data class ImportActivityState(
     val defaultTitle: DefaultTitle?,
     val saving: Boolean,
     val error: UiError?,
+    /** Thresholds that saving updates from the recording device's settings, where the athlete lets imports update them. */
+    val thresholdChanges: ImmutableList<ThresholdChange> = persistentListOf(),
     val eventSink: (ImportActivityEvent) -> Unit,
 ) : CircuitUiState
 

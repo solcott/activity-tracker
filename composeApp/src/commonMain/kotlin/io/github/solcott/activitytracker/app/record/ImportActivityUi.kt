@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.record
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -63,6 +64,8 @@ import io.github.solcott.activitytracker.composeApp.resources.import_pick
 import io.github.solcott.activitytracker.composeApp.resources.import_pick_another
 import io.github.solcott.activitytracker.composeApp.resources.import_reading
 import io.github.solcott.activitytracker.composeApp.resources.import_recorded_with
+import io.github.solcott.activitytracker.composeApp.resources.import_threshold_change
+import io.github.solcott.activitytracker.composeApp.resources.import_thresholds_heading
 import io.github.solcott.activitytracker.composeApp.resources.import_title
 import io.github.solcott.activitytracker.composeApp.resources.stat_avg_depth
 import io.github.solcott.activitytracker.composeApp.resources.stat_distance
@@ -72,17 +75,25 @@ import io.github.solcott.activitytracker.composeApp.resources.stat_heart_rate
 import io.github.solcott.activitytracker.composeApp.resources.stat_max_depth
 import io.github.solcott.activitytracker.composeApp.resources.stat_time
 import io.github.solcott.activitytracker.composeApp.resources.stat_water_temp
+import io.github.solcott.activitytracker.composeApp.resources.threshold_ftp
+import io.github.solcott.activitytracker.composeApp.resources.threshold_max_heart_rate
+import io.github.solcott.activitytracker.composeApp.resources.threshold_resting_heart_rate
+import io.github.solcott.activitytracker.composeApp.resources.threshold_threshold_heart_rate
 import io.github.solcott.activitytracker.composeApp.resources.unit_bpm
 import io.github.solcott.activitytracker.composeApp.resources.unit_days_hours
 import io.github.solcott.activitytracker.composeApp.resources.unit_hours_minutes
+import io.github.solcott.activitytracker.composeApp.resources.unit_watts
 import io.github.solcott.activitytracker.composeApp.resources.value_missing
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.training.ThresholdChange
 import io.github.solcott.activitytracker.data.units.formatDecimal
+import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.name
 import io.github.vinceglb.filekit.readBytes
 import kotlin.math.roundToLong
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
 import kotlinx.io.bytestring.ByteString
@@ -173,11 +184,55 @@ private fun PreviewForm(state: ImportActivityState, preview: ImportPreview, modi
             placeholder = defaultTitle,
             modifier = Modifier.fillMaxWidth(),
         )
+        if (state.thresholdChanges.isNotEmpty()) ThresholdChanges(state.thresholdChanges)
         AppButton(onClick = { state.eventSink(ImportActivityEvent.Save(defaultTitle)) }, enabled = !state.saving && !state.reading) {
             Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
         }
     }
 }
+
+/** The thresholds saving updates from the device's settings: "FTP: 231 → 240 W". */
+@Composable
+private fun ThresholdChanges(changes: ImmutableList<ThresholdChange>, modifier: Modifier = Modifier) {
+    Column(
+        modifier.fillMaxWidth().background(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.shapes.medium).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            stringResource(Res.string.import_thresholds_heading),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+        changes.forEach { change ->
+            val from = thresholdValue(change.threshold, change.from)
+            val to = thresholdValue(change.threshold, change.to)
+            Text(
+                stringResource(Res.string.import_threshold_change, thresholdLabel(change.threshold), from, to),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+        }
+    }
+}
+
+/** A threshold's value in watts or bpm, or a dash when it wasn't set. */
+@Composable
+private fun thresholdValue(threshold: String, value: Long?): String =
+    when {
+        value == null -> stringResource(Res.string.value_missing)
+        threshold == Threshold.FUNCTIONAL_THRESHOLD_POWER -> stringResource(Res.string.unit_watts, value.toString())
+        else -> stringResource(Res.string.unit_bpm, value.toString())
+    }
+
+@Composable
+private fun thresholdLabel(threshold: String): String =
+    when (threshold) {
+        Threshold.FUNCTIONAL_THRESHOLD_POWER -> stringResource(Res.string.threshold_ftp)
+        Threshold.MAX_HEART_RATE -> stringResource(Res.string.threshold_max_heart_rate)
+        Threshold.THRESHOLD_HEART_RATE -> stringResource(Res.string.threshold_threshold_heart_rate)
+        Threshold.RESTING_HEART_RATE -> stringResource(Res.string.threshold_resting_heart_rate)
+        else -> threshold
+    }
 
 /** "Morning Mountain Bike Ride". */
 @Composable
