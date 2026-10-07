@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.app.settings.ZonesScreen
 import io.github.solcott.activitytracker.data.training.ZoneModels
 import io.github.solcott.activitytracker.lexicon.app.HeartRateZoneModel
 import io.github.solcott.activitytracker.lexicon.app.PowerZoneModel
+import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
@@ -42,7 +43,6 @@ class ZonesPresenterTest {
             val loaded = awaitUntil { it.loaded }
             assertEquals("168", loaded.thresholdHeartRate.text.toString())
             assertEquals("", loaded.maxHeartRate.text.toString())
-            assertEquals(Visibility.MUTUALS, loaded.visibility)
             assertEquals(ZoneModels.frielRunning, loaded.heartRateModel)
             assertEquals(7, loaded.heartRateZones?.size)
             assertEquals(ZoneModels.defaultPower, loaded.powerModel, "an unpicked model shows the default")
@@ -56,7 +56,6 @@ class ZonesPresenterTest {
         val repos = fixture.repos()
         presenterTestOf({ ZonesPresenter(FakeNavigator(ZonesScreen), repos.profiles, clock) }) {
             val loaded = awaitUntil { it.loaded }
-            assertEquals(Visibility.SELF, loaded.visibility, "unset thresholds default to Only me")
             assertNull(loaded.heartRateZones)
             assertNull(loaded.powerZones)
 
@@ -87,8 +86,7 @@ class ZonesPresenterTest {
             loaded.thresholdHeartRate.setTextAndPlaceCursorAtEnd("168")
             loaded.thresholdHeartRate.clearText()
             loaded.eventSink(ZonesEvent.PowerModelChanged(PowerZoneModel.COGGAN_7))
-            loaded.eventSink(ZonesEvent.VisibilityChanged(Visibility.MUTUALS))
-            awaitUntil { it.visibility == Visibility.MUTUALS }.eventSink(ZonesEvent.Save)
+            awaitUntil { it.powerModel.token == PowerZoneModel.COGGAN_7 }.eventSink(ZonesEvent.Save)
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
         }
@@ -99,7 +97,11 @@ class ZonesPresenterTest {
         assertEquals(231L, training["functionalThresholdPower"]?.jsonPrimitive?.long)
         assertEquals(PowerZoneModel.COGGAN_7, training["powerZoneModel"]?.jsonPrimitive?.content)
         assertNull(training["thresholdHeartRate"], "a cleared threshold is left out")
-        assertEquals(Visibility.MUTUALS, sent.getValue("visibility").jsonObject["training"]?.jsonPrimitive?.content)
+        assertEquals(
+            Visibility.SELF,
+            sent.getValue("visibility").jsonObject["training"]?.jsonPrimitive?.content,
+            "new zones start as Only me",
+        )
     }
 
     @Test
@@ -145,5 +147,31 @@ class ZonesPresenterTest {
         val setAt = training.getValue("setAt").jsonObject
         assertEquals(now.toString(), setAt["functionalThresholdPower"]?.jsonPrimitive?.content, "an edited value is set now")
         assertEquals(setOn, setAt["maxHeartRate"]?.jsonPrimitive?.content, "an untouched value keeps its time")
+    }
+
+    @Test
+    fun savingKeepsSportsSavedElsewhere() = runTest {
+        fixture.privateDetails =
+            """{"details":{"training":{"thresholdHeartRate":165,"sports":[{"sport":"run","thresholdSpeed":3271}]}},""" +
+                """"visibility":{"training":"self"}}"""
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ZonesScreen)
+        presenterTestOf({ ZonesPresenter(navigator, repos.profiles, clock) }) {
+            val loaded = awaitUntil { it.loaded }
+            // Swim gets its own thresholds on its screen while this one is open.
+            fixture.privateDetails =
+                """{"details":{"training":{"thresholdHeartRate":165,"sports":[{"sport":"run","thresholdSpeed":3271},""" +
+                    """{"sport":"swim","thresholdSpeed":1115}]}},"visibility":{"training":"self"}}"""
+            loaded.thresholdHeartRate.setTextAndPlaceCursorAtEnd("170")
+            awaitUntil { it.heartRateZones?.size == 5 && it.thresholdHeartRate.text.toString() == "170" }.eventSink(ZonesEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        val training = fixture.privateDetailsPuts.single().getValue("details").jsonObject.getValue("training").jsonObject
+        assertEquals(170L, training["thresholdHeartRate"]?.jsonPrimitive?.long)
+        assertEquals(
+            listOf(Sport.RUN, Sport.SWIM),
+            training.getValue("sports").jsonArray.map { it.jsonObject.getValue("sport").jsonPrimitive.content },
+        )
     }
 }

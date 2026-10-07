@@ -75,7 +75,7 @@ fun ImportActivityPresenter(
     val zones = remember(imported) { imported?.second?.localStart?.let(::zoneOptions) }
     // Keyed on the zone too: a zone with the same offset leaves the activity as it was.
     val preview = remember(placed, zones, zone) { placed?.let { (name, activity) -> activity.toPreview(name, zone, zones) } }
-    val thresholdChanges = rememberThresholdChanges(profiles, placed?.second)
+    val thresholdChanges = rememberThresholdChanges(profiles, placed?.second, type.sport)
     val quickTypes = quickActivityTypes(recentTypes)
     val defaultTitle =
         placed?.second?.takeIf { it.title == null }?.let { DefaultTitle(partOfDay(it.startedAt.toLocalDateTime(zone).hour), type) }
@@ -127,7 +127,7 @@ fun ImportActivityPresenter(
                     runSuspendCatching {
                         val text = title.text.toString().ifBlank { event.defaultTitle?.ifBlank { null } }
                         activities.publish(ActivityDraft.fromImport(activity, type, text))
-                        updateThresholds(profiles, activity, previewed = thresholdChanges)
+                        updateThresholds(profiles, activity, type.sport, previewed = thresholdChanges)
                         navigator.pop()
                     }
                         .onFailure { e -> error = UiError.of(UiError.Kind.SaveActivity, e) }
@@ -138,15 +138,19 @@ fun ImportActivityPresenter(
 }
 
 /**
- * The thresholds saving [activity] would update from its device's settings. It reads the athlete's thresholds once; without them (offline,
- * say) there's nothing to preview and the import still works.
+ * The thresholds saving [activity] as [sport] would update from its device's settings. It reads the athlete's thresholds once; without them
+ * (offline, say) there's nothing to preview and the import still works.
  */
 @Composable
-private fun rememberThresholdChanges(profiles: ProfileRepository, activity: ImportedActivity?): ImmutableList<ThresholdChange> {
+private fun rememberThresholdChanges(
+    profiles: ProfileRepository,
+    activity: ImportedActivity?,
+    sport: String,
+): ImmutableList<ThresholdChange> {
     var training by remember { mutableStateOf<TrainingDetails?>(null) }
     LaunchedEffect(Unit) { runSuspendCatching { profiles.ownProfile() }.onSuccess { training = it.details.training } }
-    return remember(activity, training) {
-        ThresholdUpdates.pending(training, activity?.deviceThresholds, activity?.startedAt ?: Instant.DISTANT_PAST).toImmutableList()
+    return remember(activity, training, sport) {
+        ThresholdUpdates.pending(training, activity?.deviceThresholds, activity?.startedAt ?: Instant.DISTANT_PAST, sport).toImmutableList()
     }
 }
 
@@ -154,9 +158,14 @@ private fun rememberThresholdChanges(profiles: ProfileRepository, activity: Impo
  * Updates thresholds from a saved [activity], when the athlete was shown changes ([previewed]). The activity is saved either way; a failed
  * update leaves the thresholds for the zones screen.
  */
-private suspend fun updateThresholds(profiles: ProfileRepository, activity: ImportedActivity, previewed: List<ThresholdChange>) {
+private suspend fun updateThresholds(
+    profiles: ProfileRepository,
+    activity: ImportedActivity,
+    sport: String,
+    previewed: List<ThresholdChange>,
+) {
     if (previewed.isEmpty()) return
-    runSuspendCatching { profiles.applyDeviceThresholds(activity.deviceThresholds, activity.startedAt) }
+    runSuspendCatching { profiles.applyDeviceThresholds(activity.deviceThresholds, activity.startedAt, sport) }
 }
 
 @Suppress("MagicNumber") // Hours of the day.

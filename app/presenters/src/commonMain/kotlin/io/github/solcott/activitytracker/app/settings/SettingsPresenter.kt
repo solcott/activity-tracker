@@ -41,7 +41,7 @@ fun SettingsPresenter(navigator: Navigator, unitsRepository: UnitsRepository, au
             }
 
             SettingsEvent.OpenZones -> {
-                navigator.goTo(ZonesScreen)
+                navigator.goTo(TrainingZonesScreen)
             }
 
             // Dropping the session tears down the SessionGraph and returns to LoginScreen.

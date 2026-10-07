@@ -17,17 +17,15 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.data.profile.DetailGroup
 import io.github.solcott.activitytracker.data.profile.OwnProfile
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
-import io.github.solcott.activitytracker.data.profile.saveTraining
+import io.github.solcott.activitytracker.data.profile.updateTraining
 import io.github.solcott.activitytracker.data.training.ThresholdInput
 import io.github.solcott.activitytracker.data.training.ThresholdUpdates
 import io.github.solcott.activitytracker.data.training.ZoneModels
 import io.github.solcott.activitytracker.data.training.Zones
 import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
-import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.collections.immutable.toImmutableList
@@ -69,7 +67,6 @@ fun ZonesPresenter(navigator: Navigator, profiles: ProfileRepository, clock: Clo
         powerModel = powerModel,
         powerModels = ZoneModels.power.toImmutableList(),
         powerZones = Zones.compute(powerModel, training)?.toImmutableList(),
-        visibility = form.visibility.value,
         autoUpdate = form.autoUpdate.value.toImmutableSet(),
         loaded = loaded,
         saving = saving,
@@ -88,10 +85,6 @@ fun ZonesPresenter(navigator: Navigator, profiles: ProfileRepository, clock: Clo
                 form.powerModel.value = event.token
             }
 
-            is ZonesEvent.VisibilityChanged -> {
-                form.visibility.value = event.visibility
-            }
-
             is ZonesEvent.AutoUpdateChanged -> {
                 val others = form.autoUpdate.value - event.threshold
                 form.autoUpdate.value = if (event.enabled) others + event.threshold else others
@@ -101,10 +94,10 @@ fun ZonesPresenter(navigator: Navigator, profiles: ProfileRepository, clock: Clo
                 val before = saved
                 if (before != null && !saving) {
                     error = null
-                    val edited = form.training().settingTimes(before, clock.now()).takeUnless { it == TrainingDetails() }
-                    val visibility = form.visibility.value
+                    val edited = form.training().settingTimes(before, clock.now())
                     flights.launch(ZonesEvent.Save) {
-                        runSuspendCatching { profiles.saveTraining(edited, visibility) }
+                        // The sports as saved now: one may have been edited on its own screen since this one loaded.
+                        runSuspendCatching { profiles.updateTraining { current -> edited.copy(sports = current.sports) } }
                             .onSuccess { navigator.pop() }
                             .onFailure { error = UiError.of(UiError.Kind.SaveZones, it) }
                     }
@@ -122,7 +115,6 @@ private class Form(
     val functionalThresholdPower: TextFieldState,
     val heartRateModel: MutableState<String>,
     val powerModel: MutableState<String>,
-    val visibility: MutableState<String>,
     /** The `Threshold` values imports may update. A list, so it saves in a Bundle. */
     val autoUpdate: MutableState<List<String>>,
     /** True once loaded, so a configuration change keeps what the athlete typed instead of reloading it. */
@@ -137,7 +129,6 @@ private class Form(
         functionalThresholdPower.setTextAndPlaceCursorAtEnd(saved.functionalThresholdPower?.toString().orEmpty())
         heartRateModel.value = saved.heartRateZoneModel.orEmpty()
         powerModel.value = saved.powerZoneModel.orEmpty()
-        visibility.value = DetailGroup.Training.visibility(profile.visibility) ?: Visibility.SELF
         autoUpdate.value = saved.autoUpdate.distinct()
         filled.value = true
     }
@@ -173,7 +164,6 @@ private fun rememberForm(): Form =
         functionalThresholdPower = rememberTextFieldState(),
         heartRateModel = rememberSaveable { mutableStateOf("") },
         powerModel = rememberSaveable { mutableStateOf("") },
-        visibility = rememberSaveable { mutableStateOf(Visibility.SELF) },
         autoUpdate = rememberSaveable { mutableStateOf(emptyList()) },
         filled = rememberSaveable { mutableStateOf(false) },
     )

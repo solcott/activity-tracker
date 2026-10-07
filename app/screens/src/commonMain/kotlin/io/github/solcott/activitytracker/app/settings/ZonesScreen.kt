@@ -13,7 +13,7 @@ import io.github.solcott.activitytracker.data.training.ZoneModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 
-/** The signed-in athlete's training thresholds, and the heart rate and power zones derived from them. */
+/** Edits the signed-in athlete's default training thresholds and the heart rate and power zones derived from them. */
 @CircuitSerializable(SessionScope::class) data object ZonesScreen : Screen
 
 @Immutable
@@ -24,7 +24,7 @@ data class ZonesState(
     val maxHeartRate: TextFieldState,
     /** Bpm as typed. */
     val restingHeartRate: TextFieldState,
-    /** Cycling FTP, watts as typed. */
+    /** Threshold power (FTP), watts as typed. */
     val functionalThresholdPower: TextFieldState,
     val heartRateModel: ZoneModel,
     val heartRateModels: ImmutableList<ZoneModel>,
@@ -34,8 +34,6 @@ data class ZonesState(
     val powerModels: ImmutableList<ZoneModel>,
     /** [powerModel]'s zones, or null while FTP is missing. */
     val powerZones: ImmutableList<Zone>?,
-    /** A `Visibility` value for all the thresholds together. */
-    val visibility: String,
     /** The `Threshold` values imported activities may update from the recording device's settings. */
     val autoUpdate: ImmutableSet<String>,
     /** False until the saved values have been read, so a save can't blank values the athlete never saw. */
@@ -56,8 +54,6 @@ sealed interface ZonesEvent {
     data class HeartRateModelChanged(val token: String) : ZonesEvent
 
     data class PowerModelChanged(val token: String) : ZonesEvent
-
-    data class VisibilityChanged(val visibility: String) : ZonesEvent
 
     /** Whether imports may update [threshold], a `Threshold` value. */
     data class AutoUpdateChanged(val threshold: String, val enabled: Boolean) : ZonesEvent

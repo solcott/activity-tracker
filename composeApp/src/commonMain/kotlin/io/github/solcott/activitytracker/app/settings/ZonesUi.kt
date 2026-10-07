@@ -24,7 +24,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.MenuField
-import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
@@ -62,6 +61,9 @@ import io.github.solcott.activitytracker.composeApp.resources.zones_basis_ftp
 import io.github.solcott.activitytracker.composeApp.resources.zones_basis_max_heart_rate
 import io.github.solcott.activitytracker.composeApp.resources.zones_basis_reserve
 import io.github.solcott.activitytracker.composeApp.resources.zones_basis_threshold_heart_rate
+import io.github.solcott.activitytracker.composeApp.resources.zones_basis_threshold_pace
+import io.github.solcott.activitytracker.composeApp.resources.zones_default_help
+import io.github.solcott.activitytracker.composeApp.resources.zones_default_title
 import io.github.solcott.activitytracker.composeApp.resources.zones_ftp
 import io.github.solcott.activitytracker.composeApp.resources.zones_heart_rate_heading
 import io.github.solcott.activitytracker.composeApp.resources.zones_label
@@ -71,14 +73,13 @@ import io.github.solcott.activitytracker.composeApp.resources.zones_needs_ftp
 import io.github.solcott.activitytracker.composeApp.resources.zones_needs_max_heart_rate
 import io.github.solcott.activitytracker.composeApp.resources.zones_needs_reserve
 import io.github.solcott.activitytracker.composeApp.resources.zones_needs_threshold_heart_rate
+import io.github.solcott.activitytracker.composeApp.resources.zones_needs_threshold_pace
 import io.github.solcott.activitytracker.composeApp.resources.zones_power_heading
 import io.github.solcott.activitytracker.composeApp.resources.zones_range
 import io.github.solcott.activitytracker.composeApp.resources.zones_range_open
 import io.github.solcott.activitytracker.composeApp.resources.zones_resting_heart_rate
 import io.github.solcott.activitytracker.composeApp.resources.zones_threshold_heart_rate
 import io.github.solcott.activitytracker.composeApp.resources.zones_thresholds_heading
-import io.github.solcott.activitytracker.composeApp.resources.zones_thresholds_help
-import io.github.solcott.activitytracker.composeApp.resources.zones_title
 import io.github.solcott.activitytracker.composeApp.resources.zones_unit_bpm
 import io.github.solcott.activitytracker.composeApp.resources.zones_unit_watts
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -101,7 +102,7 @@ fun ZonesUi(state: ZonesState, modifier: Modifier = Modifier) {
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             AppTopBar(
-                title = stringResource(Res.string.zones_title),
+                title = stringResource(Res.string.zones_default_title),
                 onBack = { state.eventSink(ZonesEvent.Back) },
                 scrollBehavior = scrollBehavior,
             )
@@ -113,39 +114,35 @@ fun ZonesUi(state: ZonesState, modifier: Modifier = Modifier) {
                 Modifier.verticalScroll(scroll).padding(padding).readableWidth().padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                Text(stringResource(Res.string.zones_default_help), style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(Res.string.zones_thresholds_heading), style = MaterialTheme.typography.titleMedium)
-                Text(stringResource(Res.string.zones_thresholds_help), style = MaterialTheme.typography.bodySmall)
                 ThresholdField(state, state.thresholdHeartRate, Threshold.THRESHOLD_HEART_RATE, Res.string.zones_threshold_heart_rate)
                 ThresholdField(state, state.maxHeartRate, Threshold.MAX_HEART_RATE, Res.string.zones_max_heart_rate)
                 ThresholdField(state, state.restingHeartRate, Threshold.RESTING_HEART_RATE, Res.string.zones_resting_heart_rate)
                 ThresholdField(state, state.functionalThresholdPower, Threshold.FUNCTIONAL_THRESHOLD_POWER, Res.string.zones_ftp)
                 Text(stringResource(Res.string.zones_auto_update_help), style = MaterialTheme.typography.bodySmall)
-                VisibilityPicker(
-                    state.visibility,
-                    { state.eventSink(ZonesEvent.VisibilityChanged(it)) },
-                    Modifier.fillMaxWidth(),
-                    enabled = state.loaded,
-                )
                 HorizontalDivider()
                 ZoneSection(
                     heading = stringResource(Res.string.zones_heart_rate_heading),
                     model = state.heartRateModel,
                     models = state.heartRateModels,
                     zones = state.heartRateZones,
-                    unit = stringResource(Res.string.zones_unit_bpm),
                     enabled = state.loaded,
                     onPick = { state.eventSink(ZonesEvent.HeartRateModelChanged(it)) },
-                )
+                ) {
+                    numberRange(it, stringResource(Res.string.zones_unit_bpm))
+                }
                 HorizontalDivider()
                 ZoneSection(
                     heading = stringResource(Res.string.zones_power_heading),
                     model = state.powerModel,
                     models = state.powerModels,
                     zones = state.powerZones,
-                    unit = stringResource(Res.string.zones_unit_watts),
                     enabled = state.loaded,
                     onPick = { state.eventSink(ZonesEvent.PowerModelChanged(it)) },
-                )
+                ) {
+                    numberRange(it, stringResource(Res.string.zones_unit_watts))
+                }
                 state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
                 AppButton(
                     onClick = { state.eventSink(ZonesEvent.Save) },
@@ -195,37 +192,57 @@ private fun ThresholdField(
     }
 }
 
-/** A zone model picker, and the zones it gives (read-only), or what's missing to work them out. */
+/**
+ * A zone model picker, and the zones it gives (read-only), or what's missing to work them out. [range] shows a zone's bounds with their
+ * unit.
+ */
 @Composable
-private fun ZoneSection(
+internal fun ZoneSection(
     heading: String,
     model: ZoneModel,
     models: ImmutableList<ZoneModel>,
     zones: ImmutableList<Zone>?,
-    unit: String,
     enabled: Boolean,
     onPick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    range: @Composable (Zone) -> String,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(heading, style = MaterialTheme.typography.titleMedium)
         val items = models.map { AppMenuItem(zoneModelLabel(it), checked = it == model) { onPick(it.token) } }.toImmutableList()
         MenuField(zoneModelLabel(model), stringResource(Res.string.zones_model), items, Modifier.fillMaxWidth(), enabled = enabled)
+        ZoneList(model, zones, range = range)
+    }
+}
+
+/** What [model] is based on, then its [zones] (read-only), or what's missing to work them out. */
+@Composable
+internal fun ZoneList(model: ZoneModel, zones: ImmutableList<Zone>?, modifier: Modifier = Modifier, range: @Composable (Zone) -> String) {
+    Column(modifier) {
         Text(stringResource(basisLabel(model.basis)), style = MaterialTheme.typography.bodySmall)
         if (zones == null) {
             Text(
                 stringResource(missingInput(model.basis)),
+                Modifier.padding(top = 8.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
-            zones.forEach { ZoneRow(it, unit) }
+            zones.forEach { ZoneRow(it, range(it)) }
         }
     }
 }
 
+/** A zone's bpm or watts: "143–150 bpm", or "180+ bpm" for the last. */
 @Composable
-private fun ZoneRow(zone: Zone, unit: String, modifier: Modifier = Modifier) {
+internal fun numberRange(zone: Zone, unit: String): String {
+    val range =
+        zone.high?.let { stringResource(Res.string.zones_range, zone.low, it) } ?: stringResource(Res.string.zones_range_open, zone.low)
+    return "$range $unit"
+}
+
+@Composable
+private fun ZoneRow(zone: Zone, range: String, modifier: Modifier = Modifier) {
     Row(
         modifier.fillMaxWidth().padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -238,9 +255,7 @@ private fun ZoneRow(zone: Zone, unit: String, modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.primary,
         )
         Text(stringResource(zoneName(zone.name)), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        val range =
-            zone.high?.let { stringResource(Res.string.zones_range, zone.low, it) } ?: stringResource(Res.string.zones_range_open, zone.low)
-        Text("$range $unit", style = MaterialTheme.typography.bodyMedium)
+        Text(range, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -248,7 +263,7 @@ private val ZONE_LABEL_WIDTH = 64.dp
 
 /** A model's name, looked up by token as `zone_model_<token>`. */
 @Composable
-private fun zoneModelLabel(model: ZoneModel): String =
+internal fun zoneModelLabel(model: ZoneModel): String =
     Res.allStringResources["zone_model_${model.token}"]?.let { stringResource(it) } ?: model.token
 
 private fun basisLabel(basis: ZoneBasis): StringResource =
@@ -257,6 +272,7 @@ private fun basisLabel(basis: ZoneBasis): StringResource =
         ZoneBasis.MaxHeartRate -> Res.string.zones_basis_max_heart_rate
         ZoneBasis.HeartRateReserve -> Res.string.zones_basis_reserve
         ZoneBasis.FunctionalThresholdPower -> Res.string.zones_basis_ftp
+        ZoneBasis.ThresholdPace -> Res.string.zones_basis_threshold_pace
     }
 
 private fun missingInput(basis: ZoneBasis): StringResource =
@@ -265,6 +281,7 @@ private fun missingInput(basis: ZoneBasis): StringResource =
         ZoneBasis.MaxHeartRate -> Res.string.zones_needs_max_heart_rate
         ZoneBasis.HeartRateReserve -> Res.string.zones_needs_reserve
         ZoneBasis.FunctionalThresholdPower -> Res.string.zones_needs_ftp
+        ZoneBasis.ThresholdPace -> Res.string.zones_needs_threshold_pace
     }
 
 private fun zoneName(name: ZoneName): StringResource =

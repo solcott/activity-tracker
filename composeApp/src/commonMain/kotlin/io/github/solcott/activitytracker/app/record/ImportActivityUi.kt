@@ -32,6 +32,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.app.ui.sportLabel
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_save
@@ -65,6 +66,7 @@ import io.github.solcott.activitytracker.composeApp.resources.import_pick_anothe
 import io.github.solcott.activitytracker.composeApp.resources.import_reading
 import io.github.solcott.activitytracker.composeApp.resources.import_recorded_with
 import io.github.solcott.activitytracker.composeApp.resources.import_threshold_change
+import io.github.solcott.activitytracker.composeApp.resources.import_threshold_change_sport
 import io.github.solcott.activitytracker.composeApp.resources.import_thresholds_heading
 import io.github.solcott.activitytracker.composeApp.resources.import_title
 import io.github.solcott.activitytracker.composeApp.resources.stat_avg_depth
@@ -191,7 +193,7 @@ private fun PreviewForm(state: ImportActivityState, preview: ImportPreview, modi
     }
 }
 
-/** The thresholds saving updates from the device's settings: "FTP: 231 → 240 W". */
+/** The thresholds saving updates from the device's settings: "FTP: 231 → 240 W", or "Run · FTP: …" for a sport's override. */
 @Composable
 private fun ThresholdChanges(changes: ImmutableList<ThresholdChange>, modifier: Modifier = Modifier) {
     Column(
@@ -207,7 +209,9 @@ private fun ThresholdChanges(changes: ImmutableList<ThresholdChange>, modifier: 
             val from = thresholdValue(change.threshold, change.from)
             val to = thresholdValue(change.threshold, change.to)
             Text(
-                stringResource(Res.string.import_threshold_change, thresholdLabel(change.threshold), from, to),
+                change.sport?.let { sport ->
+                    stringResource(Res.string.import_threshold_change_sport, sportLabel(sport), thresholdLabel(change.threshold), from, to)
+                } ?: stringResource(Res.string.import_threshold_change, thresholdLabel(change.threshold), from, to),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
