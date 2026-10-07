@@ -24,6 +24,23 @@ data class DecodedActivity(
     val gearChanges: List<DecodedGearChange> = emptyList(),
     /** Each jump a mountain bike ride logged. */
     val jumps: List<DecodedJump> = emptyList(),
+    /** The athlete's settings on the recording device: FIT `zones_target` and `user_profile`. Null when the file has neither. */
+    val athlete: DecodedAthleteSettings? = null,
+)
+
+/**
+ * The athlete's thresholds as the recording device had them set, as raw values: zero or out of range when unset. FIT `zones_target` holds
+ * the first three and `user_profile` the resting heart rate.
+ */
+data class DecodedAthleteSettings(
+    /** Beats per minute. */
+    val maxHeartRate: Int? = null,
+    /** Lactate threshold heart rate, beats per minute. */
+    val thresholdHeartRate: Int? = null,
+    /** Watts. */
+    val functionalThresholdPower: Int? = null,
+    /** Beats per minute. */
+    val restingHeartRate: Int? = null,
 )
 
 /**

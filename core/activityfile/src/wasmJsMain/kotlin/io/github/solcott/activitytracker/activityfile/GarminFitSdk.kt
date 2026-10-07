@@ -31,6 +31,8 @@ internal external interface FitMessages : JsAny {
     val tankSummaryMesgs: JsArray<JsTankSummaryMesg>?
     val deviceInfoMesgs: JsArray<JsDeviceInfoMesg>?
     val jumpMesgs: JsArray<JsJumpMesg>?
+    val zonesTargetMesgs: JsArray<JsZonesTargetMesg>?
+    val userProfileMesgs: JsArray<JsUserProfileMesg>?
 }
 
 // Everything is typed JsAny? and converted in GarminJsFitDecoder: an absent field is undefined, which a Double? property reads as NaN
@@ -164,4 +166,14 @@ internal external interface JsTankSummaryMesg : JsAny {
     val startPressure: JsAny?
     val endPressure: JsAny?
     val volumeUsed: JsAny?
+}
+
+internal external interface JsZonesTargetMesg : JsAny {
+    val maxHeartRate: JsAny?
+    val thresholdHeartRate: JsAny?
+    val functionalThresholdPower: JsAny?
+}
+
+internal external interface JsUserProfileMesg : JsAny {
+    val restingHeartRate: JsAny?
 }

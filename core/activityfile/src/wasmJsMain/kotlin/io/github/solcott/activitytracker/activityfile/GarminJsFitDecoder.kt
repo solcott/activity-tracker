@@ -61,6 +61,19 @@ class GarminJsFitDecoder : FitDecoder {
                     )
                 },
             jumps = messages.jumpMesgs?.toList().orEmpty().map { DecodedJump(number(it.hangTime), number(it.distance)) },
+            athlete = athleteSettings(messages),
+        )
+    }
+
+    private fun athleteSettings(messages: FitMessages): DecodedAthleteSettings? {
+        val zones = messages.zonesTargetMesgs?.toList()?.firstOrNull()
+        val profile = messages.userProfileMesgs?.toList()?.firstOrNull()
+        if (zones == null && profile == null) return null
+        return DecodedAthleteSettings(
+            maxHeartRate = zones?.let { number(it.maxHeartRate) }?.roundToInt(),
+            thresholdHeartRate = zones?.let { number(it.thresholdHeartRate) }?.roundToInt(),
+            functionalThresholdPower = zones?.let { number(it.functionalThresholdPower) }?.roundToInt(),
+            restingHeartRate = profile?.let { number(it.restingHeartRate) }?.roundToInt(),
         )
     }
 

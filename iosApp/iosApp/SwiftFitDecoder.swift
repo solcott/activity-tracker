@@ -37,7 +37,21 @@ final class SwiftFitDecoder: FitDecoder {
             gearChanges: messages.eventMesgs.compactMap(Self.gearChange),
             jumps: messages.jumpMesgs.map { m in
                 DecodedJump(hangTimeSeconds: Self.double(m.getHangTime().map(Double.init)), distanceMeters: Self.double(m.getDistance().map(Double.init)))
-            }
+            },
+            athlete: Self.athlete(messages)
+        )
+    }
+
+    /// The athlete's settings on the device: zones_target (max HR, LTHR, FTP) and user_profile (resting HR).
+    private static func athlete(_ messages: FitMessages) -> DecodedAthleteSettings? {
+        let zones = messages.zonesTargetMesgs.first
+        let profile = messages.userProfileMesgs.first
+        if zones == nil && profile == nil { return nil }
+        return DecodedAthleteSettings(
+            maxHeartRate: int(zones?.getMaxHeartRate().map(Int32.init)),
+            thresholdHeartRate: int(zones?.getThresholdHeartRate().map(Int32.init)),
+            functionalThresholdPower: int(zones?.getFunctionalThresholdPower().map(Int32.init)),
+            restingHeartRate: int(profile?.getRestingHeartRate().map(Int32.init))
         )
     }
 

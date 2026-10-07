@@ -24,6 +24,8 @@ import com.garmin.fit.RecordMesg
 import com.garmin.fit.SessionMesg
 import com.garmin.fit.SourceType
 import com.garmin.fit.TankSummaryMesg
+import com.garmin.fit.UserProfileMesg
+import com.garmin.fit.ZonesTargetMesg
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
@@ -65,6 +67,10 @@ class GarminJavaFitDecoder : FitDecoder {
             sessions += m.toSummary()
         }
         broadcaster.addListener { m: LapMesg -> laps += m.toSummary() }
+        var zonesTarget: ZonesTargetMesg? = null
+        var userProfile: UserProfileMesg? = null
+        broadcaster.addListener { m: ZonesTargetMesg -> if (zonesTarget == null) zonesTarget = m }
+        broadcaster.addListener { m: UserProfileMesg -> if (userProfile == null) userProfile = m }
         broadcaster.addListener { m: RecordMesg -> records += m.toSample() }
         try {
             decode.read(ByteArrayInputStream(bytes), broadcaster, broadcaster)
@@ -80,8 +86,21 @@ class GarminJavaFitDecoder : FitDecoder {
             sensors = ride.sensors,
             gearChanges = ride.gearChanges,
             jumps = ride.jumps,
+            athlete = athleteSettings(zonesTarget, userProfile),
         )
     }
+
+    private fun athleteSettings(zones: ZonesTargetMesg?, profile: UserProfileMesg?): DecodedAthleteSettings? =
+        if (zones == null && profile == null) {
+            null
+        } else {
+            DecodedAthleteSettings(
+                maxHeartRate = zones?.maxHeartRate?.toInt(),
+                thresholdHeartRate = zones?.thresholdHeartRate?.toInt(),
+                functionalThresholdPower = zones?.functionalThresholdPower,
+                restingHeartRate = profile?.restingHeartRate?.toInt(),
+            )
+        }
 
     private fun RecordMesg.toSample() =
         DecodedSample(

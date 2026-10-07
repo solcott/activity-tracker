@@ -46,6 +46,8 @@ data class ImportedActivity(
     val mtb: ImportedMtb? = null,
     /** The sensors paired with the recording device, in the order the file lists them. */
     val sensors: List<ImportedSensor> = emptyList(),
+    /** The athlete's thresholds as the recording device had them set (FIT only). */
+    val deviceThresholds: DeviceThresholds? = null,
 ) {
     /** This activity with [localStart] read in [zone], every time moved together. Unchanged if the file's times had a zone. */
     fun inZone(zone: TimeZone): ImportedActivity {

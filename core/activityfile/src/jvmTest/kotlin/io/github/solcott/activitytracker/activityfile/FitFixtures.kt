@@ -30,6 +30,8 @@ import com.garmin.fit.SourceType
 import com.garmin.fit.Sport as FitSport
 import com.garmin.fit.SubSport
 import com.garmin.fit.TankSummaryMesg
+import com.garmin.fit.UserProfileMesg
+import com.garmin.fit.ZonesTargetMesg
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.time.Instant
@@ -42,14 +44,25 @@ object FitFixtures {
     private const val SEMICIRCLES_PER_DEGREE = 2_147_483_648.0 / 180.0
 
     /** A 1 km run north from 47.6, -122.3: one point every 30 s, heart rate climbing from 120 to 190 bpm (avg 155). */
-    fun run(start: Instant): ByteArray =
-        encode(start, FitSport.RUNNING, SubSport.GENERIC, distance = 1000f, avgHr = 155, points = RUN_POINTS) { i, record ->
+    fun run(start: Instant, extra: List<Mesg> = emptyList()): ByteArray =
+        encode(start, FitSport.RUNNING, SubSport.GENERIC, distance = 1000f, avgHr = 155, points = RUN_POINTS, extra = extra) { i, record ->
             record.positionLat = ((47.6 + i * 0.0009) * SEMICIRCLES_PER_DEGREE).roundToInt()
             record.positionLong = (-122.3 * SEMICIRCLES_PER_DEGREE).roundToInt()
             record.enhancedAltitude = 50f + i
             record.heartRate = (120 + i * 7).toShort()
             record.distance = i * 100f
         }
+
+    /** The athlete's settings a Garmin watch writes into each activity: `zones_target`, and `user_profile` with resting heart rate. */
+    fun athleteSettings(maxHr: Int, thresholdHr: Int, ftp: Int, restingHr: Int): List<Mesg> =
+        listOf(
+            ZonesTargetMesg().apply {
+                maxHeartRate = maxHr.toShort()
+                thresholdHeartRate = thresholdHr.toShort()
+                functionalThresholdPower = ftp
+            },
+            UserProfileMesg().apply { restingHeartRate = restingHr.toShort() },
+        )
 
     /** A trainer ride: power and cadence, no position. */
     fun indoorRide(start: Instant): ByteArray =
