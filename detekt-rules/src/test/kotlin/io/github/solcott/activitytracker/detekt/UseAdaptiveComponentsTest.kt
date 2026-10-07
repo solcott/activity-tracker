@@ -21,10 +21,11 @@ class UseAdaptiveComponentsTest {
                 Button(onClick = {}) { Text("Save") }
                 OutlinedTextField(state)
                 CircularProgressIndicator()
+                Switch(checked = true, onCheckedChange = {})
             }
             """
                 .trimIndent()
-        assertEquals(5, rule.lint(compileContentForTest(code)).size)
+        assertEquals(6, rule.lint(compileContentForTest(code)).size)
     }
 
     @Test
@@ -38,6 +39,7 @@ class UseAdaptiveComponentsTest {
                 AppTopBar(title = "Feed")
                 AppButton(onClick = {}) { Text("Save") }
                 AppTextField(state)
+                AppSwitch(checked = true, onCheckedChange = {})
                 ExtendedFloatingActionButton(onClick = {}, icon = {}, text = {})
             }
             """

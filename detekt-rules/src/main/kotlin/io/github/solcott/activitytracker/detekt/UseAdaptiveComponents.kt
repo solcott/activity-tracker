@@ -51,6 +51,7 @@ class UseAdaptiveComponents(config: Config) :
                 "DatePickerDialog" to "AppDatePickerDialog",
                 "DropdownMenu" to "AppMenu",
                 "SingleChoiceSegmentedButtonRow" to "AppSegmentedControl",
+                "Switch" to "AppSwitch",
             )
     }
 }
