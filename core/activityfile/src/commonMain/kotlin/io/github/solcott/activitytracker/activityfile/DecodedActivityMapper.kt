@@ -61,6 +61,7 @@ object DecodedActivityMapper {
             mtb = RideMetrics.mtb(sessions, fit.jumps),
             sensors = FitSensors.interpret(fit.sensors),
             deviceThresholds = DeviceThresholds.interpret(fit.athlete, fit.sessions),
+            streams = StreamBuilder.fromRecords(records, startedAtMillis, fit.gearChanges),
         )
     }
 

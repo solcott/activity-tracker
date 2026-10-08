@@ -85,20 +85,11 @@ internal object RideMetrics {
         return millis.entries.sortedBy { it.key }.map { (gear, ms) -> GearTime(gear, teeth[gear], (ms / MILLIS_PER_SECOND).roundToLong()) }
     }
 
-    /**
-     * Power for each second the athlete was recording: a sample holds until the next, but a gap longer than [MAX_HOLD_SECONDS] is a pause
-     * (auto-pause or a dropout), so it counts once.
-     */
-    private fun List<DecodedSample>.powerBySecond(): List<Int> {
-        val samples = mapNotNull { sample -> sample.powerWatts?.let { watts -> sample.timestampMillis?.let { it to watts } } }
-        val seconds = mutableListOf<Int>()
-        samples.forEachIndexed { i, (at, watts) ->
-            val next = samples.getOrNull(i + 1)
-            val gap = next?.let { (nextAt) -> ((nextAt - at) / MILLIS_PER_SECOND).roundToInt() } ?: 1
-            repeat(if (gap in 1..MAX_HOLD_SECONDS) gap else 1) { seconds += watts }
-        }
-        return seconds
-    }
+    /** Power for each second the athlete was recording (see [PerSecond.hold]). */
+    private fun List<DecodedSample>.powerBySecond(): List<Int> =
+        PerSecond.hold(
+            mapNotNull { sample -> sample.powerWatts?.let { watts -> sample.timestampMillis?.let { it / MILLIS_PER_SECOND to watts } } }
+        )
 
     /** Coggan's normalized power: the 4th-power mean of 30 s rolling averages. Null for under 30 s of power. */
     private fun normalizedPower(seconds: List<Int>): Int? {
@@ -121,6 +112,5 @@ internal object RideMetrics {
     private const val NP_WINDOW_SECONDS = 30
     private const val NP_EXPONENT = 4
     private const val QUARTER = 1.0 / NP_EXPONENT
-    private const val MAX_HOLD_SECONDS = 5
     private const val MILLIS_PER_SECOND = 1000.0
 }

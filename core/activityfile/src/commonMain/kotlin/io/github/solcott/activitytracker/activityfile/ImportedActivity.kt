@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.activityfile
 
+import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.time.Duration
@@ -48,6 +49,8 @@ data class ImportedActivity(
     val sensors: List<ImportedSensor> = emptyList(),
     /** The athlete's thresholds as the recording device had them set (FIT only). */
     val deviceThresholds: DeviceThresholds? = null,
+    /** Every sample's channels, indoor ones included, for charts; null when the file has none. Times are relative to [startedAt]. */
+    val streams: ActivityStreamData? = null,
 ) {
     /** This activity with [localStart] read in [zone], every time moved together. Unchanged if the file's times had a zone. */
     fun inZone(zone: TimeZone): ImportedActivity {
