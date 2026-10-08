@@ -52,6 +52,8 @@ enum class AppIcon(
     Chevron(Icons.AutoMirrored.Filled.KeyboardArrowRight, CupertinoIcons.chevronForward, "chevron.forward"),
     Delete(Icons.Filled.Delete, CupertinoIcons.trash, "trash"),
     DropDown(Icons.Filled.ArrowDropDown, CupertinoIcons.chevronUpChevronDown, "chevron.up.chevron.down"),
+    ExpandAll(MaterialIcons.UnfoldMore, CupertinoIcons.rectangleExpandVertical, "rectangle.expand.vertical"),
+    CollapseAll(MaterialIcons.UnfoldLess, CupertinoIcons.rectangleCompressVertical, "rectangle.compress.vertical"),
     Kudos(
         Icons.Outlined.ThumbUp,
         CupertinoIcons.handThumbsup,
