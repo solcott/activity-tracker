@@ -140,6 +140,7 @@ fun SportZonesPresenter(
 }
 
 /** The sport's thresholds as typed and its picked models, saved across configuration changes. A model is a token, or empty to inherit. */
+@Suppress("LongParameterList") // One field per form input.
 private class SportForm(
     val thresholdHeartRate: TextFieldState,
     val maxHeartRate: TextFieldState,

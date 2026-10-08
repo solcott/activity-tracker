@@ -12,6 +12,7 @@ import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
 import kotlin.io.path.exists
 import kotlin.io.path.readBytes
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -22,8 +23,8 @@ import kotlinx.coroutines.withContext
 @ContributesBinding(AppScope::class)
 @SingleIn(AppScope::class)
 @Inject
-class FileKeySecretCipher(dirs: DesktopAppDirs) :
-    SecretCipher by AesGcmSecretCipher({ withContext(Dispatchers.IO) { loadOrCreateKey(dirs.data.resolve(KEY_FILE)) } }) {
+class FileKeySecretCipher(dirs: DesktopAppDirs, ioDispatcher: CoroutineDispatcher = Dispatchers.IO) :
+    SecretCipher by AesGcmSecretCipher({ withContext(ioDispatcher) { loadOrCreateKey(dirs.data.resolve(KEY_FILE)) } }) {
     private companion object {
         const val KEY_FILE = "secret.key"
         const val KEY_BYTES = 32
@@ -31,13 +32,13 @@ class FileKeySecretCipher(dirs: DesktopAppDirs) :
         fun loadOrCreateKey(file: Path): ByteArray {
             if (file.exists()) return file.readBytes()
             val key = CryptographyRandom.nextBytes(KEY_BYTES)
-            val ownerOnly =
+            val created =
                 if ("posix" in FileSystems.getDefault().supportedFileAttributeViews()) {
-                    arrayOf(PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")))
+                    Files.createFile(file, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")))
                 } else {
-                    emptyArray()
+                    Files.createFile(file)
                 }
-            Files.write(Files.createFile(file, *ownerOnly), key)
+            Files.write(created, key)
             return key
         }
     }

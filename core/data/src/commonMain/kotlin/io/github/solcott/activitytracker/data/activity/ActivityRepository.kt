@@ -31,6 +31,7 @@ import kotlinx.serialization.KSerializer
  */
 @SingleIn(SessionScope::class)
 @Inject
+@Suppress("LongParameterList") // Injected collaborators.
 class ActivityRepository(
     private val db: AppDatabase,
     private val clients: SessionClients,

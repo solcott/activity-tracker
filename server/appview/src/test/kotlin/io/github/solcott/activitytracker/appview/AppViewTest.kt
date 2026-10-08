@@ -216,7 +216,7 @@ class AppViewTest {
         var cursor: String? = null
         do {
             val page =
-                list("uri=${activityUri.encodeURLParameter()}&limit=1" + (cursor?.let { "&cursor=${it.encodeURLParameter()}" } ?: ""))
+                list("uri=${activityUri.encodeURLParameter()}&limit=1" + cursor?.let { "&cursor=${it.encodeURLParameter()}" }.orEmpty())
             paged += page.kudos.map { it.did.value }
             cursor = page.cursor
         } while (cursor != null)
@@ -256,7 +256,7 @@ class AppViewTest {
         val paged = mutableListOf<String>()
         var cursor: String? = null
         do {
-            val page = followers("actor=$bob&limit=1" + (cursor?.let { "&cursor=${it.encodeURLParameter()}" } ?: ""))
+            val page = followers("actor=$bob&limit=1" + cursor?.let { "&cursor=${it.encodeURLParameter()}" }.orEmpty())
             paged += page.followers.map { it.did.value }
             cursor = page.cursor
         } while (cursor != null)
@@ -318,7 +318,7 @@ class AppViewTest {
         val paged = mutableListOf<String>()
         var cursor: String? = null
         do {
-            val page = search("q=al&limit=1" + (cursor?.let { "&cursor=${it.encodeURLParameter()}" } ?: ""))
+            val page = search("q=al&limit=1" + cursor?.let { "&cursor=${it.encodeURLParameter()}" }.orEmpty())
             paged += page.actors.map { it.handle.value }
             cursor = page.cursor
         } while (cursor != null)

@@ -74,8 +74,8 @@ fun TrainingZonesPresenter(navigator: Navigator, profiles: ProfileRepository, un
                     flights.launch(VISIBILITY) {
                         runSuspendCatching { profiles.updateTraining(event.visibility) }
                             .onSuccess {
-                                profile = profile?.let {
-                                    it.copy(visibility = DetailGroup.Training.withVisibility(it.visibility, event.visibility))
+                                profile = profile?.let { saved ->
+                                    saved.copy(visibility = DetailGroup.Training.withVisibility(saved.visibility, event.visibility))
                                 }
                             }
                             .onFailure { error = UiError.of(UiError.Kind.SaveZones, it) }

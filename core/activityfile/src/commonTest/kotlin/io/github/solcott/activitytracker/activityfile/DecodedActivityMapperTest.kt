@@ -14,6 +14,7 @@ import kotlin.time.Instant
 class DecodedActivityMapperTest {
     private val start = Instant.parse("2026-09-20T07:00:00Z")
 
+    @Suppress("LongParameterList")
     private fun summary(
         sport: String? = "running",
         subSport: String? = null,
@@ -43,6 +44,7 @@ class DecodedActivityMapperTest {
             temperature,
         )
 
+    @Suppress("LongParameterList")
     private fun record(
         sec: Long,
         lat: Double? = 47.6 + sec * 1e-4,

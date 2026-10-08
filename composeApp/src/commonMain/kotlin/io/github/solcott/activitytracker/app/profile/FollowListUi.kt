@@ -15,7 +15,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -54,7 +54,7 @@ fun FollowListUi(state: FollowListState, modifier: Modifier = Modifier) {
             info.totalItemsCount > 0 && (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 1
         }
     }
-    LaunchedEffect(atEnd, state.canLoadMore, state.isLoading) {
+    SideEffect(atEnd, state.canLoadMore, state.isLoading) {
         if (atEnd && state.canLoadMore && !state.isLoading) state.eventSink(FollowListEvent.LoadMore)
     }
 

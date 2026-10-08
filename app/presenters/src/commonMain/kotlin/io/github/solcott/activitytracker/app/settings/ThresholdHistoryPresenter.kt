@@ -151,8 +151,7 @@ private class HistoryView(
         val newest = entries.first()
         // Only the newest entry can be current, and only while the threshold still has its value.
         val current = newest.takeIf { it.value == TrainingHistory.value(training, key) }
-        val dated = entries.filter { it.setAt != null }.reversed()
-        val first = dated.firstOrNull()
+        val dated = entries.mapNotNull { entry -> entry.setAt?.let { entry to it } }.reversed()
         return ThresholdHistorySection(
             threshold = key.threshold,
             sport = key.sport,
@@ -162,24 +161,27 @@ private class HistoryView(
             chart = chart(dated, current),
             undatedCount = entries.size - dated.size,
             change =
-                first?.takeIf { it != newest && newest.setAt != null }?.let { ThresholdTrend(it.value, newest.value, date(it.setAt!!)) },
+                dated
+                    .firstOrNull()
+                    ?.takeIf { (first) -> first != newest && newest.setAt != null }
+                    ?.let { (first, at) -> ThresholdTrend(first.value, newest.value, date(at)) },
         )
     }
 
-    /** [dated] (oldest first) placed from the first to [now]; null with fewer than two. */
-    private fun chart(dated: List<ThresholdEntry>, current: ThresholdEntry?): ThresholdChart? {
+    /** [dated] entries with their dates (oldest first) placed from the first to [now]; null with fewer than two. */
+    private fun chart(dated: List<Pair<ThresholdEntry, Instant>>, current: ThresholdEntry?): ThresholdChart? {
         if (dated.size < 2) return null
-        val start = dated.first().setAt!!
+        val start = dated.first().second
         val span = (now - start).inWholeMilliseconds.coerceAtLeast(1).toFloat()
-        val lowest = dated.minOf { it.value }
-        val highest = dated.maxOf { it.value }
+        val lowest = dated.minOf { (entry) -> entry.value }
+        val highest = dated.maxOf { (entry) -> entry.value }
         val range = (highest - lowest).toFloat()
-        val points = dated.map {
+        val points = dated.map { (entry, at) ->
             ChartPoint(
-                x = ((it.setAt!! - start).inWholeMilliseconds / span).coerceIn(0f, 1f),
-                y = if (range == 0f) FLAT else (it.value - lowest) / range,
-                value = it.value,
-                current = it == current,
+                x = ((at - start).inWholeMilliseconds / span).coerceIn(0f, 1f),
+                y = if (range == 0f) FLAT else (entry.value - lowest) / range,
+                value = entry.value,
+                current = entry == current,
             )
         }
         return ThresholdChart(points.toImmutableList(), date(start), lowest, highest)

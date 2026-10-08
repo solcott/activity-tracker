@@ -23,7 +23,7 @@ import kotlinx.serialization.builtins.ListSerializer
 @Inject
 class RecentActivityTypes(
     private val db: AppDatabase,
-    private val clients: SessionClients,
+    clients: SessionClients,
     feed: FeedRepository,
 ) {
     private val key = "recentActivityTypes:${clients.did.value}"

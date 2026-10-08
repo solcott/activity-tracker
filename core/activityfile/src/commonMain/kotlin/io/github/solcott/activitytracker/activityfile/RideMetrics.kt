@@ -69,14 +69,17 @@ internal object RideMetrics {
 
     /** Each rear gear holds from its change to the next; the last until [endMillis]. */
     private fun timeInGears(changes: List<DecodedGearChange>, endMillis: Long?): List<GearTime> {
-        val timed = changes.filter { it.rear && it.timestampMillis != null && it.rearGear != null }.sortedBy { it.timestampMillis }
+        val timed =
+            changes
+                .filter { it.rear }
+                .mapNotNull { change -> change.timestampMillis?.let { at -> change.rearGear?.let { Triple(at, it, change.rearTeeth) } } }
+                .sortedBy { (at) -> at }
         val millis = mutableMapOf<Int, Long>()
         val teeth = mutableMapOf<Int, Int>()
-        timed.forEachIndexed { i, change ->
-            val gear = change.rearGear!!
-            change.rearTeeth?.takeIf { it > 0 }?.let { teeth[gear] = it }
-            val until = timed.getOrNull(i + 1)?.timestampMillis ?: endMillis ?: return@forEachIndexed
-            val held = until - change.timestampMillis!!
+        timed.forEachIndexed { i, (at, gear, rearTeeth) ->
+            rearTeeth?.takeIf { it > 0 }?.let { teeth[gear] = it }
+            val until = timed.getOrNull(i + 1)?.first ?: endMillis ?: return@forEachIndexed
+            val held = until - at
             if (held > 0) millis[gear] = (millis[gear] ?: 0L) + held
         }
         return millis.entries.sortedBy { it.key }.map { (gear, ms) -> GearTime(gear, teeth[gear], (ms / MILLIS_PER_SECOND).roundToLong()) }
@@ -87,12 +90,12 @@ internal object RideMetrics {
      * (auto-pause or a dropout), so it counts once.
      */
     private fun List<DecodedSample>.powerBySecond(): List<Int> {
-        val samples = filter { it.powerWatts != null }
+        val samples = mapNotNull { sample -> sample.powerWatts?.let { watts -> sample.timestampMillis?.let { it to watts } } }
         val seconds = mutableListOf<Int>()
-        samples.forEachIndexed { i, sample ->
+        samples.forEachIndexed { i, (at, watts) ->
             val next = samples.getOrNull(i + 1)
-            val gap = next?.let { ((it.timestampMillis!! - sample.timestampMillis!!) / MILLIS_PER_SECOND).roundToInt() } ?: 1
-            repeat(if (gap in 1..MAX_HOLD_SECONDS) gap else 1) { seconds += sample.powerWatts!! }
+            val gap = next?.let { (nextAt) -> ((nextAt - at) / MILLIS_PER_SECOND).roundToInt() } ?: 1
+            repeat(if (gap in 1..MAX_HOLD_SECONDS) gap else 1) { seconds += watts }
         }
         return seconds
     }

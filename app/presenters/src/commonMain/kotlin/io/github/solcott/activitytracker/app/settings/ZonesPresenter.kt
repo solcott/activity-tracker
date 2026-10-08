@@ -108,6 +108,7 @@ fun ZonesPresenter(navigator: Navigator, profiles: ProfileRepository, clock: Clo
 }
 
 /** The thresholds as typed and the picked models, saved across configuration changes. A model is a token, or empty for the default. */
+@Suppress("LongParameterList") // One field per form input.
 private class Form(
     val thresholdHeartRate: TextFieldState,
     val maxHeartRate: TextFieldState,

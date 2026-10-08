@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app.ui.adaptive
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.ui.Modifier
 import com.mohamedrejeb.calf.ui.sheet.AdaptiveBottomSheet
 import com.mohamedrejeb.calf.ui.sheet.AdaptiveSheetState
@@ -16,6 +17,7 @@ fun rememberAppSheetState(halfHeight: Boolean = false): AdaptiveSheetState = rem
 /** A modal sheet: a native `UISheetPresentationController` sheet on iOS, Material's modal bottom sheet elsewhere. Shown while composed. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@NonRestartableComposable
 fun AppBottomSheet(
     onDismiss: () -> Unit,
     sheetState: AdaptiveSheetState,

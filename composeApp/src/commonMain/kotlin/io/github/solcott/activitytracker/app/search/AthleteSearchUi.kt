@@ -19,7 +19,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -67,7 +67,7 @@ fun AthleteSearchUi(state: AthleteSearchState, modifier: Modifier = Modifier) {
             info.totalItemsCount > 0 && (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 1
         }
     }
-    LaunchedEffect(atEnd, state.canLoadMore, state.isLoading) {
+    SideEffect(atEnd, state.canLoadMore, state.isLoading) {
         if (atEnd && state.canLoadMore && !state.isLoading) state.eventSink(AthleteSearchEvent.LoadMore)
     }
 
@@ -106,7 +106,7 @@ private fun SearchField(query: TextFieldState, modifier: Modifier = Modifier) {
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     // Open ready to type, unless coming back to a search already made.
-    LaunchedEffect(Unit) { if (query.text.isEmpty()) focus.requestFocus() }
+    SideEffect(Unit) { if (query.text.isEmpty()) focus.requestFocus() }
     AppTextField(
         query,
         modifier = modifier.focusRequester(focus),

@@ -118,6 +118,7 @@ fun EditProfilePresenter(navigator: Navigator, profiles: ProfileRepository, unit
 }
 
 /** The edit form's fields, saved across configuration changes. Weight and height are text in [units], as typed. */
+@Suppress("LongParameterList") // One field per form input.
 private class Form(
     val displayName: TextFieldState,
     val description: TextFieldState,

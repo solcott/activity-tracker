@@ -278,11 +278,10 @@ private fun DiveDetails(dive: DivePreview, elapsedSeconds: Long, modifier: Modif
         if (counts.isNotEmpty()) Text(counts.joinToString(" · "))
         val deco =
             listOfNotNull(
-                if (dive.gradientFactorLow != null && dive.gradientFactorHigh != null) {
-                    stringResource(Res.string.dive_gradient_factors, dive.gradientFactorLow!!, dive.gradientFactorHigh!!)
-                } else null,
-                if (dive.startCns != null && dive.endCns != null) stringResource(Res.string.dive_cns, dive.startCns!!, dive.endCns!!)
-                else null,
+                dive.gradientFactorLow?.let { low ->
+                    dive.gradientFactorHigh?.let { high -> stringResource(Res.string.dive_gradient_factors, low, high) }
+                },
+                dive.startCns?.let { start -> dive.endCns?.let { end -> stringResource(Res.string.dive_cns, start, end) } },
                 dive.oxygenToxicityOtu?.let { stringResource(Res.string.dive_otu, it) },
             )
         if (deco.isNotEmpty()) Text(deco.joinToString(" · "))

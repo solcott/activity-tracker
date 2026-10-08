@@ -5,6 +5,7 @@ package io.github.solcott.activitytracker.activityfile
  * prolog really does say utf-16 on an ASCII file.
  */
 internal object ShearwaterFixtures {
+    @Suppress("LongParameterList")
     fun dive(
         records: List<String> =
             listOf(record(0, 3.5, 83.0), record(10_000, 30.0, 82.0), record(20_000, 71.2, 82.0), record(30_000, 0.0, 83.0)),
@@ -44,6 +45,7 @@ internal object ShearwaterFixtures {
           </diveLog>
         </dive>"""
 
+    @Suppress("LongParameterList")
     fun record(timeMillis: Long, depth: Double, waterTemp: Double, o2: Double = 0.32, he: Double = 0.0, circuit: String = "OC/BO") =
         """<diveLogRecord>
             <currentTime>$timeMillis</currentTime>

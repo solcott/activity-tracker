@@ -152,6 +152,7 @@ object FitFixtures {
         }
     }
 
+    @Suppress("LongParameterList")
     private fun device(
         timestamp: DateTime,
         index: Int,

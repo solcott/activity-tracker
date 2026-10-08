@@ -11,6 +11,7 @@ import kotlinx.coroutines.withContext
 @Inject
 class ActivityFileReader(private val fitDecoder: FitDecoder) {
     /** Throws [UnsupportedActivityFileException] for other files and [ActivityFileException] for unreadable ones. */
+    @Suppress("InjectDispatcher") // CPU-bound parsing; a constructor param would break the `ActivityFileReader { … }` SAM form tests use.
     suspend fun read(bytes: ByteArray): ImportedActivity =
         withContext(Dispatchers.Default) {
             val plain = if (bytes.isGzip()) gunzip(bytes, MAX_UNZIPPED_BYTES) else bytes

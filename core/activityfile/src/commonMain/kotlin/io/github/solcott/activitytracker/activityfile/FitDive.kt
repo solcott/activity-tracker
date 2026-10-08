@@ -69,7 +69,7 @@ object FitDives {
             gradientFactorHigh = messages.gradientFactorHigh?.takeIf { it > 0 },
             startCns = summary?.startCns,
             endCns = summary?.endCns,
-            gases = gases.map { DiveGas(it.oxygenPercent!!, it.heliumPercent ?: 0) }.distinct(),
+            gases = gases.mapNotNull { gas -> gas.oxygenPercent?.let { DiveGas(it, gas.heliumPercent ?: 0) } }.distinct(),
             closedCircuit = closedCircuit(subSport, gases),
             avgDepthMeters = summary?.avgDepthMeters ?: messages.sessionAvgDepthMeters,
             bottomTimeSeconds = summary?.bottomTimeSeconds,

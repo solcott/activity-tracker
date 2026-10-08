@@ -67,7 +67,8 @@ object DecodedActivityMapper {
     /** [records] are sorted and all have a timestamp. */
     private fun dive(dive: DecodedDive, records: List<DecodedSample>, startedAtMillis: Long): ImportedDive {
         val profile = records.mapNotNull { r ->
-            r.depthMeters?.let { DepthPoint((r.timestampMillis!! - startedAtMillis).milliseconds.inWholeSeconds, it) }
+            val millis = r.timestampMillis ?: return@mapNotNull null
+            r.depthMeters?.let { DepthPoint((millis - startedAtMillis).milliseconds.inWholeSeconds, it) }
         }
         return ImportedDive(
             maxDepthMeters = dive.maxDepthMeters ?: profile.maxOfOrNull { it.depthMeters },
@@ -415,7 +416,8 @@ object DecodedActivityMapper {
     private fun List<DecodedSample>.toSamples(): List<LocationSample> = mapNotNull { r ->
         val lat = r.latitude ?: return@mapNotNull null
         val lon = r.longitude ?: return@mapNotNull null
-        LocationSample(lat, lon, r.altitudeMeters, r.speedMps, accuracy = null, time = Instant.fromEpochMilliseconds(r.timestampMillis!!))
+        val millis = r.timestampMillis ?: return@mapNotNull null
+        LocationSample(lat, lon, r.altitudeMeters, r.speedMps, accuracy = null, time = Instant.fromEpochMilliseconds(millis))
     }
 }
 

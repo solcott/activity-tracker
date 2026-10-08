@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
  * Receives the OAuth redirect for the loopback client (`NetworkConfigs.desktop`), which only allows 127.0.0.1 redirect URIs. The browser
  * lands on `/callback?code=…&state=…`; this hands the params to [AuthCoordinator.handleRedirect] and brings the app back to the front.
  */
-class LoopbackRedirectServer(private val port: Int, private val authCoordinator: AuthCoordinator) {
+class LoopbackRedirectServer(port: Int, authCoordinator: AuthCoordinator) {
     /** Set once the window exists, so a finished sign-in can raise it over the browser. */
     @Volatile var window: Window? = null
 

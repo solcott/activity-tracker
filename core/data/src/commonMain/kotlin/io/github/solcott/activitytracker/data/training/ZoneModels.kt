@@ -56,7 +56,10 @@ enum class ZoneName {
 
 /** The zone models athletes can pick, from published formulas. Add a model here and give its name a string in the UI. */
 object ZoneModels {
-    private fun zones(vararg starts: Pair<ZoneName, Int>, labels: List<String> = starts.indices.map { "${it + 1}" }) =
+    private fun zones(vararg starts: Pair<ZoneName, Int>, labels: List<String> = starts.indices.map { "${it + 1}" }): List<ZoneStart> =
+        zones(starts.asList(), labels)
+
+    private fun zones(starts: List<Pair<ZoneName, Int>>, labels: List<String> = starts.indices.map { "${it + 1}" }): List<ZoneStart> =
         starts.mapIndexed { i, (name, percent) ->
             ZoneStart(labels[i], name, percent)
         }
@@ -131,13 +134,13 @@ object ZoneModels {
             ZoneName.AnaerobicCapacity to 121,
         )
 
-    val cogganPower6 = ZoneModel(PowerZoneModel.COGGAN_6, ZoneBasis.FunctionalThresholdPower, zones(*cogganPowerStarts.toTypedArray()))
+    val cogganPower6 = ZoneModel(PowerZoneModel.COGGAN_6, ZoneBasis.FunctionalThresholdPower, zones(cogganPowerStarts))
 
     val cogganPower7 =
         ZoneModel(
             PowerZoneModel.COGGAN_7,
             ZoneBasis.FunctionalThresholdPower,
-            zones(*(cogganPowerStarts + (ZoneName.Neuromuscular to 151)).toTypedArray()),
+            zones(cogganPowerStarts + (ZoneName.Neuromuscular to 151)),
         )
 
     // Friel's pace zones, as TrainingPeaks offers them for running and swimming: each zone starts at a percentage of threshold pace.

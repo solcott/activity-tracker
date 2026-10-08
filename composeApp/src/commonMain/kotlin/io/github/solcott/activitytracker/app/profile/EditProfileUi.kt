@@ -23,7 +23,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -320,7 +320,7 @@ private fun CountryField(
     val selectedName = if (code.isEmpty()) "" else countryName(code)
     val query = rememberTextFieldState(selectedName)
     // The name shows once the profile has loaded, and again after a pick.
-    LaunchedEffect(selectedName) { query.setTextAndPlaceCursorAtEnd(selectedName) }
+    SideEffect(selectedName) { query.setTextAndPlaceCursorAtEnd(selectedName) }
     var expanded by remember { mutableStateOf(false) }
     val typed = query.text.toString()
     val matches =
