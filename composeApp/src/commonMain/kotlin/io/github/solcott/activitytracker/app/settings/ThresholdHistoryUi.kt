@@ -126,7 +126,7 @@ fun ThresholdHistoryUi(state: ThresholdHistoryState, modifier: Modifier = Modifi
     }
 }
 
-/** What the screen holds, and one button to expand or collapse every group. */
+/** What the screen holds, and one icon button to expand or collapse every group. */
 @Composable
 private fun Intro(state: ThresholdHistoryState, modifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -136,9 +136,11 @@ private fun Intro(state: ThresholdHistoryState, modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        AppTextButton(onClick = { state.eventSink(ThresholdHistoryEvent.ToggleAll) }) {
-            Text(stringResource(if (state.anyExpanded) Res.string.zones_history_collapse_all else Res.string.zones_history_expand_all))
-        }
+        AppIconButton(
+            if (state.anyExpanded) AppIcon.CollapseAll else AppIcon.ExpandAll,
+            stringResource(if (state.anyExpanded) Res.string.zones_history_collapse_all else Res.string.zones_history_expand_all),
+            onClick = { state.eventSink(ThresholdHistoryEvent.ToggleAll) },
+        )
     }
 }
 
