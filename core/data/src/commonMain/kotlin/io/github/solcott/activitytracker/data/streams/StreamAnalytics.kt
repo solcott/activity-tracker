@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.data.streams
 
 import io.github.solcott.activitytracker.activityfile.PerSecond
+import kotlin.math.roundToInt
 
 /** What the activity detail charts show, worked out from an activity's streams (`ActivityStreamData`). */
 object StreamAnalytics {
@@ -63,14 +64,15 @@ object StreamAnalytics {
     }
 
     /**
-     * At most about [max] points for a line chart: the mean of each run of samples, at its first sample's time, so a short spike still
-     * moves the line where every-nth thinning would drop it. Null samples are skipped; a run of only nulls gives no point.
+     * At most about [max] points for a line chart: the mean of each run of samples, at the mean of their times so the line doesn't lead the
+     * time axis, and a short spike still moves the line where every-nth thinning would drop it. Null samples are skipped; a run of only
+     * nulls gives no point.
      */
     fun averaged(time: List<Int>, values: List<Double?>, max: Int = MAX_CHART_POINTS): List<Pair<Int, Double>> {
         val step = ((time.size + max - 1) / max).coerceAtLeast(1)
         return time.indices.chunked(step).mapNotNull { run ->
-            val present = run.mapNotNull { i -> values.getOrNull(i) }
-            if (present.isEmpty()) null else time[run.first()] to present.average()
+            val present = run.mapNotNull { i -> values.getOrNull(i)?.let { time[i] to it } }
+            if (present.isEmpty()) null else present.map { it.first }.average().roundToInt() to present.map { it.second }.average()
         }
     }
 

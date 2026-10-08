@@ -35,9 +35,11 @@ class StreamAnalyticsTest {
     }
 
     @Test
-    fun averagedKeepsSpikesInTheMean() {
-        val points = StreamAnalytics.averaged(time = (0..5).toList(), values = listOf(0.0, 600.0, 0.0, 0.0, null, null), max = 3)
-        assertEquals(listOf(0 to 300.0, 2 to 0.0), points)
+    fun averagedKeepsSpikesInTheMeanAtTheMiddleOfTheRun() {
+        val values = listOf(0.0, 600.0, 0.0, 0.0, null, null, null, null, null)
+        val points = StreamAnalytics.averaged(time = (0..8).toList(), values = values, max = 3)
+        // Each run sits at the mean time of its present samples, not its start, so the line lines up with the time axis.
+        assertEquals(listOf(1 to 200.0, 3 to 0.0), points)
     }
 
     @Test
