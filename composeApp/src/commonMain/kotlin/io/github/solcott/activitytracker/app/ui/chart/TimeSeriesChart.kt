@@ -52,15 +52,16 @@ internal fun TimeSeriesChart(
     val colors = chartColors(FILL_ALPHA)
     val model = remember(points) { CartesianChartModel(LineCartesianLayerModel.build { series(points.map { it.x }, points.map { it.y }) }) }
     // A little headroom (more for labels above the points), and a floor at zero for values that start there, like power or speed.
-    val (minY, maxY) =
+    val yAxis =
         remember(points, pointLabels.isEmpty()) {
             val low = points.minOf { it.y }
             val high = points.maxOf { it.y }
             val pad = ((high - low) * Y_PADDING).coerceAtLeast(1.0)
             val top = if (pointLabels.isEmpty()) pad else (high - low) * LABELLED_Y_PADDING
-            val floor = if (low >= 0 && low - pad < 0) 0.0 else floor(low - pad)
-            floor to ceil(high + top)
+            YAxis.around(if (low >= 0 && low - pad < 0) 0.0 else low - pad, high + top)
         }
+    val minY = yAxis.min
+    val maxY = yAxis.max
     val line =
         LineCartesianLayer.rememberLine(
             fill = remember(colors) { LineCartesianLayer.LineFill.single(Fill(colors.line)) },
@@ -92,7 +93,8 @@ internal fun TimeSeriesChart(
                     valueFormatter = yFormatter,
                     tick = null,
                     guideline = grid,
-                    itemPlacer = remember { VerticalAxis.ItemPlacer.count({ Y_LABELS }) },
+                    // Labels on whole steps, so each gridline is at the value its label shows.
+                    itemPlacer = remember(yAxis.step) { VerticalAxis.ItemPlacer.step({ yAxis.step }) },
                 ),
             bottomAxis =
                 HorizontalAxis.rememberBottom(
@@ -120,6 +122,30 @@ private const val Y_PADDING = 0.08
 private const val LABELLED_Y_PADDING = 0.25
 private const val Y_LABELS = 4
 private const val X_LABELS = 4
+
+/**
+ * A y range from [min] to [max] on whole multiples of [step], a round 1, 2 or 5 times a power of ten (at least 1, since labels are whole
+ * numbers), with at most [Y_LABELS] gaps.
+ */
+private data class YAxis(val min: Double, val max: Double, val step: Double) {
+    companion object {
+        fun around(low: Double, high: Double): YAxis {
+            var magnitude = 1.0
+            while (true) {
+                for (multiple in NICE_STEPS) {
+                    val step = multiple * magnitude
+                    val min = floor(low / step) * step
+                    val max = ceil(high / step) * step
+                    if ((max - min) / step <= Y_LABELS) return YAxis(min, max.coerceAtLeast(min + step), step)
+                }
+                magnitude *= DECADE
+            }
+        }
+
+        private val NICE_STEPS = listOf(1.0, 2.0, 5.0)
+        private const val DECADE = 10
+    }
+}
 
 /** About [X_LABELS] labels across [seconds], on a whole number of minutes or hours. */
 private fun timeStep(seconds: Double): Double =
