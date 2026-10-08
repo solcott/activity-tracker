@@ -88,6 +88,7 @@ class ComposeStabilityCheckTest {
                     """
                         .trimIndent()
                 )
+            addDetektRulesStub()
             resolve("gradle").mkdirs()
             resolve("gradle/libs.versions.toml")
                 .writeText(

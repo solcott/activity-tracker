@@ -21,6 +21,7 @@ class KmpComposeConventionPluginTest {
             File(System.getProperty("activitytracker.versionCatalog")).copyTo(resolve("gradle/libs.versions.toml"))
             resolve("config/detekt").mkdirs()
             resolve("config/detekt/detekt.yml").writeText("")
+            addDetektRulesStub()
             resolve("config/compose").mkdirs()
             resolve("config/compose/stability.conf").writeText("")
             resolve("local.properties").writeText("sdk.dir=${androidSdk()}")
