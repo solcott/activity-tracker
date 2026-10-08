@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.activityfile
 
-import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 
@@ -19,7 +18,7 @@ internal object RideMetrics {
                         ?: seconds.takeIf { it.isNotEmpty() }?.average()?.roundToInt(),
                 maxWatts = sessions.mapNotNull { it.maxPowerWatts }.maxOrNull()?.takeIf { it > 0 } ?: seconds.maxOrNull(),
                 // Normalized power doesn't add up across sessions, so several are worked out from the samples.
-                normalizedWatts = sessions.singleOrNull()?.normalizedPowerWatts?.takeIf { it > 0 } ?: normalizedPower(seconds),
+                normalizedWatts = sessions.singleOrNull()?.normalizedPowerWatts?.takeIf { it > 0 } ?: PerSecond.normalizedPower(seconds),
                 workJoules =
                     sessions.total { it.totalWorkJoules }?.takeIf { it > 0 } ?: seconds.takeIf { it.isNotEmpty() }?.sum()?.toDouble(),
                 ftpWatts = sessions.firstNotNullOfOrNull { it.thresholdPowerWatts }?.takeIf { it > 0 },
@@ -91,26 +90,11 @@ internal object RideMetrics {
             mapNotNull { sample -> sample.powerWatts?.let { watts -> sample.timestampMillis?.let { it / MILLIS_PER_SECOND to watts } } }
         )
 
-    /** Coggan's normalized power: the 4th-power mean of 30 s rolling averages. Null for under 30 s of power. */
-    private fun normalizedPower(seconds: List<Int>): Int? {
-        if (seconds.size < NP_WINDOW_SECONDS) return null
-        var window = seconds.take(NP_WINDOW_SECONDS).sum().toDouble()
-        var sum = (window / NP_WINDOW_SECONDS).pow(NP_EXPONENT)
-        for (i in NP_WINDOW_SECONDS until seconds.size) {
-            window += seconds[i] - seconds[i - NP_WINDOW_SECONDS]
-            sum += (window / NP_WINDOW_SECONDS).pow(NP_EXPONENT)
-        }
-        return (sum / (seconds.size - NP_WINDOW_SECONDS + 1)).pow(QUARTER).roundToInt().takeIf { it > 0 }
-    }
-
     /** Null unless at least one session has the count. */
     private inline fun List<DecodedSummary>.count(value: (DecodedSummary) -> Int?): Int? =
         mapNotNull(value).takeIf { it.isNotEmpty() }?.sum()
 
     private fun List<Int>.averageOrNull(): Int? = takeIf { it.isNotEmpty() }?.average()?.roundToInt()
 
-    private const val NP_WINDOW_SECONDS = 30
-    private const val NP_EXPONENT = 4
-    private const val QUARTER = 1.0 / NP_EXPONENT
     private const val MILLIS_PER_SECOND = 1000.0
 }
