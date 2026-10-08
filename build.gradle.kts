@@ -10,6 +10,8 @@ plugins {
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.metro) apply false
     alias(libs.plugins.room) apply false
+    alias(libs.plugins.detekt) apply false
+    alias(libs.plugins.sort.dependencies) apply false
     // Formats the root scripts. Modules get ktfmt, detekt and sort-dependencies from activitytracker.quality.
     id("activitytracker.ktfmt")
 }
