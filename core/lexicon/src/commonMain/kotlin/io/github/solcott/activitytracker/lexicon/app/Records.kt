@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.lexicon.app
 
 import androidx.compose.runtime.Immutable
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
@@ -255,6 +256,117 @@ data class ActivityRecord(
     val sensors: List<ActivitySensor>? = null,
     @SerialName("\$type") val type: String = Nsid.FEED_ACTIVITY,
 )
+
+/**
+ * `app.activitytracker.feed.activityStreams`: an activity's per-sample data, for charts, under its activity's rkey. Its [data] blob holds
+ * an [ActivityStreamData] as JSON.
+ *
+ * TODO(spaces): records are public, so before going live streams move to a private atproto Space (see BACKLOG.md); until then the AppView
+ *   serves them only to the viewers [visibility] allows.
+ */
+@Serializable
+data class ActivityStreamsRecord(
+    /** The activity's URI; it shares this record's rkey. */
+    val activity: AtUri,
+    /** A [Visibility] value. */
+    val visibility: String,
+    /** [StreamChannel] values: what [data] holds. At most [MAX_CHANNELS]. */
+    val channels: List<String>,
+    val createdAt: Instant,
+    /** Required by the lexicon: null only in the outbox, which uploads the blob and fills it in before `putRecord`. */
+    val data: BlobRef? = null,
+    val heartRateZones: ZoneSnapshot? = null,
+    val powerZones: ZoneSnapshot? = null,
+    @SerialName("\$type") val type: String = Nsid.FEED_ACTIVITY_STREAMS,
+) {
+    companion object {
+        const val MAX_CHANNELS = 16
+        const val MIME_TYPE = "application/json"
+
+        /** The lexicon's `maxSize` for [data]. */
+        const val MAX_DATA_BYTES = 5_000_000L
+    }
+}
+
+/** `app.activitytracker.feed.activityStreams#zoneSnapshot`: the athlete's zones when the activity was published. */
+@Immutable
+@Serializable
+data class ZoneSnapshot(
+    /** A [HeartRateZoneModel] or [PowerZoneModel] value. */
+    val model: String,
+    /** Each zone's lower bound in bpm or watts, lowest zone first; each zone ends where the next begins. At most [MAX_ZONES]. */
+    val lows: List<Int>,
+) {
+    companion object {
+        const val MAX_ZONES = 12
+    }
+}
+
+/**
+ * `app.activitytracker.feed.activityStreams#streamData`: parallel arrays lined up with [time]. A channel the activity lacks is null, and a
+ * missing sample within one is a null element. No positions: the activity's track holds those.
+ */
+@Immutable
+@Serializable
+data class ActivityStreamData(
+    /** Seconds since the activity's `startedAt`. */
+    val time: List<Int>,
+    /** Centimeters from the start. */
+    val distance: List<Int?>? = null,
+    /** Centimeters above sea level. */
+    val altitude: List<Int?>? = null,
+    /** Millimeters per second. */
+    val speed: List<Int?>? = null,
+    /** Beats per minute. */
+    val heartRate: List<Int?>? = null,
+    /** Watts. */
+    val power: List<Int?>? = null,
+    /** Revolutions or steps per minute. */
+    val cadence: List<Int?>? = null,
+    /** Tenths of a degree Celsius. */
+    val temperature: List<Int?>? = null,
+    /** Centimeters below the surface. */
+    val depth: List<Int?>? = null,
+    val gears: List<GearChange>? = null,
+) {
+    /** The [StreamChannel]s this holds. */
+    val channels: List<String>
+        get() =
+            listOfNotNull(
+                StreamChannel.DISTANCE.takeIf { distance != null },
+                StreamChannel.ALTITUDE.takeIf { altitude != null },
+                StreamChannel.SPEED.takeIf { speed != null },
+                StreamChannel.HEART_RATE.takeIf { heartRate != null },
+                StreamChannel.POWER.takeIf { power != null },
+                StreamChannel.CADENCE.takeIf { cadence != null },
+                StreamChannel.TEMPERATURE.takeIf { temperature != null },
+                StreamChannel.DEPTH.takeIf { depth != null },
+                StreamChannel.GEARS.takeIf { gears != null },
+            )
+}
+
+/** `app.activitytracker.feed.activityStreams#gearChange`: a shift, with the gears it shifted to (rear gear 1 is the largest cog). */
+@Immutable
+@Serializable
+data class GearChange(
+    /** Seconds since the activity's `startedAt`. */
+    val time: Int,
+    val front: Int? = null,
+    val rear: Int? = null,
+)
+
+/** Known values of [ActivityStreamsRecord.channels], an open string. */
+object StreamChannel {
+    const val DISTANCE = "distance"
+    const val ALTITUDE = "altitude"
+    const val SPEED = "speed"
+    const val HEART_RATE = "heartRate"
+    const val POWER = "power"
+    const val CADENCE = "cadence"
+    const val TEMPERATURE = "temperature"
+    const val DEPTH = "depth"
+    const val GEARS = "gears"
+}
 
 /** `app.activitytracker.feed.activity#sensor`: a sensor paired with the recording device. */
 @Serializable

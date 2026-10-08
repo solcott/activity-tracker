@@ -1,0 +1,84 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.activityStreams",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "Per-sample data recorded during an activity, for charts. Its rkey is its activity's. TODO(spaces): records are public, so before going live this moves to a private atproto Space; until then the AppView only serves it to the viewers its visibility allows.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["activity", "visibility", "channels", "data", "createdAt"],
+        "properties": {
+          "activity": { "type": "string", "format": "at-uri", "description": "The activity's URI; it shares this record's rkey." },
+          "visibility": {
+            "type": "string",
+            "maxLength": 16,
+            "knownValues": ["public", "mutuals", "self"],
+            "description": "Who may see the streams: anyone, the athlete's mutuals, or only the athlete."
+          },
+          "channels": {
+            "type": "array",
+            "maxLength": 16,
+            "items": {
+              "type": "string",
+              "maxLength": 32,
+              "knownValues": ["distance", "altitude", "speed", "heartRate", "power", "cadence", "temperature", "depth", "gears"]
+            },
+            "description": "The channels #streamData holds, so a client knows which charts exist without fetching it."
+          },
+          "heartRateZones": { "type": "ref", "ref": "#zoneSnapshot" },
+          "powerZones": { "type": "ref", "ref": "#zoneSnapshot" },
+          "data": {
+            "type": "blob",
+            "accept": ["application/json"],
+            "maxSize": 5000000,
+            "description": "A #streamData as JSON."
+          },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    },
+    "zoneSnapshot": {
+      "type": "object",
+      "description": "The athlete's zones when the activity was published, so later threshold changes don't change its time in zone.",
+      "required": ["model", "lows"],
+      "properties": {
+        "model": { "type": "string", "maxLength": 64, "description": "The zone model token, e.g. cogganPower6." },
+        "lows": {
+          "type": "array",
+          "maxLength": 12,
+          "items": { "type": "integer", "minimum": 0 },
+          "description": "Each zone's lower bound in bpm or watts, lowest zone first; each zone ends where the next begins."
+        }
+      }
+    },
+    "streamData": {
+      "type": "object",
+      "description": "The data blob's JSON. Every array lines up with time; a channel the activity lacks is absent, and a missing sample is null (blob contents aren't validated against lexicons). No positions: the activity's track holds those.",
+      "required": ["time"],
+      "properties": {
+        "time": { "type": "array", "items": { "type": "integer" }, "description": "Seconds since the activity's startedAt." },
+        "distance": { "type": "array", "items": { "type": "integer" }, "description": "Centimeters from the start." },
+        "altitude": { "type": "array", "items": { "type": "integer" }, "description": "Centimeters above sea level." },
+        "speed": { "type": "array", "items": { "type": "integer" }, "description": "Millimeters per second." },
+        "heartRate": { "type": "array", "items": { "type": "integer" }, "description": "Beats per minute." },
+        "power": { "type": "array", "items": { "type": "integer" }, "description": "Watts." },
+        "cadence": { "type": "array", "items": { "type": "integer" }, "description": "Revolutions or steps per minute." },
+        "temperature": { "type": "array", "items": { "type": "integer" }, "description": "Tenths of a degree Celsius." },
+        "depth": { "type": "array", "items": { "type": "integer" }, "description": "Centimeters below the surface." },
+        "gears": { "type": "array", "items": { "type": "ref", "ref": "#gearChange" } }
+      }
+    },
+    "gearChange": {
+      "type": "object",
+      "description": "A shift by electronic shifting, with the gears it shifted to as the derailleurs number them (rear gear 1 is the largest cog).",
+      "required": ["time"],
+      "properties": {
+        "time": { "type": "integer", "description": "Seconds since the activity's startedAt." },
+        "front": { "type": "integer", "minimum": 0 },
+        "rear": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

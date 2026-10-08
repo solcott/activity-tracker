@@ -33,6 +33,24 @@ object GetActivity {
     val method = XrpcQuery(Nsid.FEED_GET_ACTIVITY, Params.serializer(), Output.serializer())
 }
 
+/** An activity's streams, if the viewer may see them; zones only if the viewer may also see the athlete's training. */
+object GetActivityStreams {
+    @Serializable data class Params(val uri: AtUri)
+
+    @Serializable
+    data class Output(
+        val uri: AtUri,
+        /** A [Visibility] value. */
+        val visibility: String,
+        val channels: List<String>,
+        val data: ActivityStreamData,
+        val heartRateZones: ZoneSnapshot? = null,
+        val powerZones: ZoneSnapshot? = null,
+    )
+
+    val method = XrpcQuery(Nsid.FEED_GET_ACTIVITY_STREAMS, Params.serializer(), Output.serializer())
+}
+
 object GetKudos {
     @Serializable data class Params(val uri: AtUri, val limit: Int? = null, val cursor: String? = null)
 
