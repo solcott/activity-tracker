@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.training.ThresholdChange
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.time.Duration
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -37,6 +38,8 @@ data class ImportActivityState(
     val error: UiError?,
     /** Thresholds that saving updates from the recording device's settings, where the athlete lets imports update them. */
     val thresholdChanges: ImmutableList<ThresholdChange> = persistentListOf(),
+    /** Who may see the activity's charts: a `Visibility` value. */
+    val chartsVisibility: String = Visibility.PUBLIC,
     val eventSink: (ImportActivityEvent) -> Unit,
 ) : CircuitUiState
 
@@ -79,6 +82,8 @@ data class ImportPreview(
     val mtb: MtbPreview? = null,
     /** The sensors paired with [device]. */
     val sensors: ImmutableList<SensorPreview> = persistentListOf(),
+    /** The file has per-sample data to chart, published with the activity. */
+    val hasStreams: Boolean = false,
 )
 
 /** Revolutions per minute; the average leaves out coasting. */
@@ -198,6 +203,9 @@ sealed interface ImportActivityEvent {
 
     /** [defaultTitle] is [ImportActivityState.defaultTitle] in words, saved when the title is blank. */
     data class Save(val defaultTitle: String?) : ImportActivityEvent
+
+    /** Who may see the activity's charts: a `Visibility` value. */
+    data class ChartsVisibilityChanged(val visibility: String) : ImportActivityEvent
 
     data object Back : ImportActivityEvent
 }

@@ -37,10 +37,16 @@ import io.github.solcott.activitytracker.app.record.PowerPreview
 import io.github.solcott.activitytracker.app.record.SensorPreview
 import io.github.solcott.activitytracker.app.record.TimeZoneOption
 import io.github.solcott.activitytracker.data.training.ThresholdChange
+import io.github.solcott.activitytracker.data.training.ZoneModels
+import io.github.solcott.activitytracker.data.training.Zones
+import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.HeartRateZoneModel
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.lexicon.app.Threshold
+import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -52,6 +58,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
 import kotlinx.io.bytestring.ByteString
 import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
@@ -131,7 +138,8 @@ class ImportActivityPresenterTest {
             cancelAndIgnoreRemainingEvents()
         }
 
-        val record = fixture.putRecords.single()
+        val (record, streams) = fixture.putRecords
+        assertEquals(Nsid.FEED_ACTIVITY_STREAMS, streams.getValue("\$type").jsonPrimitive.content)
         assertEquals("Lunch loop", record.getValue("title").jsonPrimitive.content)
         assertEquals(5000L, record.getValue("distance").jsonPrimitive.long)
         assertEquals(1750L, record.getValue("movingTime").jsonPrimitive.long)
@@ -164,6 +172,35 @@ class ImportActivityPresenterTest {
         assertEquals(188L, training.getValue("maxHeartRate").jsonPrimitive.long)
         assertEquals(231L, training.getValue("functionalThresholdPower").jsonPrimitive.long)
         assertEquals(start.toString(), training.getValue("setAt").jsonObject["maxHeartRate"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun chartsKeepTheChosenVisibilityAndTheZonesAsTheDeviceHadThem() = runTest {
+        fixture.privateDetails =
+            """{"details":{"training":{"maxHeartRate":190,"thresholdHeartRate":170,"autoUpdate":["maxHeartRate"],""" +
+                """"heartRateZoneModel":"percentMaxHeartRate","setAt":{"maxHeartRate":"2020-01-01T00:00:00Z"}}},""" +
+                """"visibility":{"training":"self"}}"""
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ImportActivityScreen)
+        presenterTestOf({
+            ImportActivityPresenter(navigator, repos.activities, ActivityFileReader { withSettings }, repos.recentTypes, repos.profiles)
+        }) {
+            awaitItem().eventSink(ImportActivityEvent.FilePicked("Morning_Run.FIT", bytes))
+            // Threshold changes show once the athlete's training has loaded.
+            val read = awaitUntil { it.preview != null && it.thresholdChanges.isNotEmpty() }
+            assertTrue(read.preview!!.hasStreams)
+            read.eventSink(ImportActivityEvent.ChartsVisibilityChanged(Visibility.MUTUALS))
+            awaitUntil { it.chartsVisibility == Visibility.MUTUALS }.eventSink(ImportActivityEvent.Save(defaultTitle = "Morning Run"))
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        val streams = fixture.putRecords.single { it.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY_STREAMS }
+        assertEquals(Visibility.MUTUALS, streams.getValue("visibility").jsonPrimitive.content)
+        val zones = streams.getValue("heartRateZones").jsonObject
+        assertEquals(HeartRateZoneModel.PERCENT_MAX, zones.getValue("model").jsonPrimitive.content)
+        // Zones from the device's max heart rate (188), not the saved 190.
+        val expected = Zones.compute(ZoneModels.heartRate(HeartRateZoneModel.PERCENT_MAX), TrainingDetails(maxHeartRate = 188))!!
+        assertEquals(expected.map { it.low }, zones.getValue("lows").jsonArray.map { it.jsonPrimitive.int })
     }
 
     @Test
@@ -405,7 +442,7 @@ class ImportActivityPresenterTest {
             cancelAndIgnoreRemainingEvents()
         }
 
-        val record = fixture.putRecords.single()
+        val record = fixture.putRecords.first()
         assertEquals("2026-09-20T12:00:00Z", record.getValue("startedAt").jsonPrimitive.content)
         assertEquals("Morning Dive", record.getValue("title").jsonPrimitive.content, "a blank title saves the default")
     }
