@@ -8,6 +8,7 @@ import org.gradle.api.file.FileTreeElement
 import org.gradle.api.specs.Spec
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.withType
+import org.gradle.language.base.plugins.LifecycleBasePlugin
 
 /**
  * Formatting and static analysis for every module: ktfmt, sort-dependencies, detekt with the Compose rules, and (in modules that apply the
@@ -43,11 +44,14 @@ class QualityConventionPlugin : Plugin<Project> {
             tasks.withType<Detekt>().configureEach { exclude(generated) }
             tasks.withType<DetektCreateBaselineTask>().configureEach { exclude(generated) }
 
-            tasks.register("detektAll") {
-                group = "verification"
-                description = "Runs every detekt task in this module, with and without type resolution."
-                dependsOn(tasks.withType<Detekt>().matching { it.name != "detektDevJvm" })
-            }
+            val detektAll =
+                tasks.register("detektAll") {
+                    group = "verification"
+                    description = "Runs every detekt task in this module, with and without type resolution."
+                    dependsOn(tasks.withType<Detekt>().matching { it.name != "detektDevJvm" })
+                }
+            // Detekt only wires the plain task into check; the type-resolution ones find what it can't (`!!`, unused properties).
+            plugins.withType<LifecycleBasePlugin> { tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) { dependsOn(detektAll) } }
 
             pluginManager.withPlugin("org.jetbrains.kotlin.plugin.compose") { configureComposeStability() }
         }
