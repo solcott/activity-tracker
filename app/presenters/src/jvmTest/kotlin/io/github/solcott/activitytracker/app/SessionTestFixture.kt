@@ -3,6 +3,8 @@ package io.github.solcott.activitytracker.app
 import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
+import io.github.solcott.activitytracker.data.activity.OutboxWriter
+import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -129,7 +131,18 @@ class SessionTestFixture {
         val localKudos = LocalKudos()
         val feed = FeedRepository(db, clients, localKudos, Logger)
         val recentTypes = RecentActivityTypes(db, clients, feed)
-        val activities = ActivityRepository(db, clients, OutboxProcessor(db, clients, Logger), feed, localKudos, recentTypes, Clock.System)
+        val activities =
+            ActivityRepository(
+                db,
+                clients,
+                OutboxProcessor(db, clients, Logger),
+                OutboxWriter(db, clients, Clock.System),
+                PdsActivityStreamsStore(OutboxWriter(db, clients, Clock.System), clients, Clock.System),
+                feed,
+                localKudos,
+                recentTypes,
+                Clock.System,
+            )
         val profiles = ProfileRepository(clients, Clock.System)
         val units = UnitsRepository(profiles, Clock.System, Logger, defaultUnits)
         return Repos(activities, profiles, units, AuthRepository(manager, db, http), recentTypes)

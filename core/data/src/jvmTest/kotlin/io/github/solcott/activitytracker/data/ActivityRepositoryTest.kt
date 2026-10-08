@@ -7,6 +7,8 @@ import co.touchlab.kermit.loggerConfigInit
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
+import io.github.solcott.activitytracker.data.activity.OutboxWriter
+import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalKudos
@@ -18,12 +20,18 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
+import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
+import io.github.solcott.activitytracker.lexicon.app.PowerZoneModel
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.StreamChannel
 import io.github.solcott.activitytracker.lexicon.app.SubSport
+import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -95,7 +103,17 @@ class ActivityRepositoryTest {
         val outbox = OutboxProcessor(db, clients, logger)
         val localKudos = LocalKudos()
         val feed = FeedRepository(db, clients, localKudos, logger)
-        return ActivityRepository(db, clients, outbox, feed, localKudos, RecentActivityTypes(db, clients, feed), Clock.System)
+        return ActivityRepository(
+            db,
+            clients,
+            outbox,
+            OutboxWriter(db, clients, Clock.System),
+            PdsActivityStreamsStore(OutboxWriter(db, clients, Clock.System), clients, Clock.System),
+            feed,
+            localKudos,
+            RecentActivityTypes(db, clients, feed),
+            Clock.System,
+        )
     }
 
     private fun activityBy(author: Did) =
@@ -148,6 +166,52 @@ class ActivityRepositoryTest {
         assertEquals("5012", record["distance"]?.jsonPrimitive?.content)
         assertEquals(SubSport.TRAIL, record["subSport"]?.jsonPrimitive?.content)
         assertTrue("bafyblob" in record["track"].toString())
+    }
+
+    @Test
+    fun publishWritesStreamsUnderTheActivitysRkeyAfterIt() = runTest {
+        val repo = repository()
+        val draft =
+            ActivityDraft(
+                type = ActivityType(Sport.RIDE),
+                title = null,
+                description = null,
+                startedAt = Instant.parse("2026-09-30T07:00:00Z"),
+                elapsed = 30.minutes,
+                streams = ActivityStreamData(time = listOf(0, 1), power = listOf(200, 210)),
+                streamsVisibility = Visibility.MUTUALS,
+                powerZones = ZoneSnapshot(PowerZoneModel.COGGAN_6, listOf(0, 138, 188, 225, 263, 300)),
+            )
+
+        val uri = repo.publish(draft)
+
+        val (activity, streams) = putBodies.map { AtJson.parseToJsonElement(it).jsonObject }
+        assertEquals(Nsid.FEED_ACTIVITY, activity["collection"]?.jsonPrimitive?.content)
+        assertEquals(Nsid.FEED_ACTIVITY_STREAMS, streams["collection"]?.jsonPrimitive?.content)
+        assertEquals(uri.rkey, streams["rkey"]?.jsonPrimitive?.content)
+        val record = AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), streams["record"]!!)
+        assertEquals(uri, record.activity)
+        assertEquals(Visibility.MUTUALS, record.visibility)
+        assertEquals(listOf(StreamChannel.POWER), record.channels)
+        assertEquals("bafyblob", record.data?.ref?.link)
+        assertEquals(draft.powerZones, record.powerZones)
+    }
+
+    @Test
+    fun oversizedStreamsAreHalvedUntilTheyFit() {
+        // Four days at one sample a second.
+        val hours = 60 * 60 * 24 * 4
+        val data =
+            ActivityStreamData(
+                time = List(hours) { it },
+                distance = List(hours) { it * 800 },
+                power = List(hours) { 250 },
+                heartRate = List(hours) { 150 },
+            )
+        val bytes = PdsActivityStreamsStore.encode(data)
+        assertTrue(bytes.size <= ActivityStreamsRecord.MAX_DATA_BYTES)
+        val decoded = AtJson.decodeFromString(ActivityStreamData.serializer(), bytes.decodeToString())
+        assertTrue(decoded.time.size < hours && decoded.power!!.size == decoded.time.size)
     }
 
     @Test

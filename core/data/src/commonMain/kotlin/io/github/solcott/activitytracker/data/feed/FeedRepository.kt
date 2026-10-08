@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.data.feed
 import co.touchlab.kermit.Logger
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.FeedItemEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
@@ -11,6 +12,7 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
+import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetKudos
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
@@ -53,6 +55,17 @@ class FeedRepository(
     }
 
     /**
+     * [uri]'s streams, or null when it has none or the viewer may not see them. Always from the AppView, never the author's PDS, so this
+     * doesn't change when streams move to a private store (see `ActivityStreamsStore`).
+     */
+    suspend fun streams(uri: AtUri): GetActivityStreams.Output? =
+        try {
+            clients.appView.query(GetActivityStreams.method, GetActivityStreams.Params(uri))
+        } catch (e: XrpcException) {
+            if (e.error == NOT_FOUND) null else throw e
+        }
+
+    /**
      * The first [Paging.MAX_LIMIT] athletes who gave kudos on [uri], straight from the AppView, so it lags the viewer's own toggles (see
      * [LocalKudos]).
      */
@@ -92,6 +105,7 @@ class FeedRepository(
     }
 
     private companion object {
+        const val NOT_FOUND = "NotFound"
         const val TIMELINE = "timeline"
 
         fun authorKey(did: String) = "author:$did"

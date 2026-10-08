@@ -10,6 +10,8 @@ import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.profile.ProfileState
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
+import io.github.solcott.activitytracker.data.activity.OutboxWriter
+import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalKudos
@@ -85,6 +87,8 @@ class ProfilePresenterTest {
                 db,
                 clients,
                 OutboxProcessor(db, clients, Logger),
+                OutboxWriter(db, clients, Clock.System),
+                PdsActivityStreamsStore(OutboxWriter(db, clients, Clock.System), clients, Clock.System),
                 feed,
                 localKudos,
                 RecentActivityTypes(db, clients, feed),

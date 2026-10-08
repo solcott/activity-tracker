@@ -3,13 +3,11 @@ package io.github.solcott.activitytracker.data.activity
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.data.db.AppDatabase
-import io.github.solcott.activitytracker.data.db.OutboxEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalKudos
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
-import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.Tid
@@ -33,9 +31,11 @@ import kotlinx.serialization.KSerializer
 @Inject
 @Suppress("LongParameterList") // Injected collaborators.
 class ActivityRepository(
-    private val db: AppDatabase,
+    db: AppDatabase,
     private val clients: SessionClients,
     private val outbox: OutboxProcessor,
+    private val writer: OutboxWriter,
+    private val streams: ActivityStreamsStore,
     private val feed: FeedRepository,
     private val localKudos: LocalKudos,
     private val recentTypes: RecentActivityTypes,
@@ -47,15 +47,24 @@ class ActivityRepository(
 
     suspend fun publish(draft: ActivityDraft): AtUri {
         val rkey = Tid.next(clock)
-        enqueue(
+        val uri = AtUri.of(clients.did, Nsid.FEED_ACTIVITY, rkey)
+        writer.put(
             collection = Nsid.FEED_ACTIVITY,
             rkey = rkey,
             serializer = ActivityRecord.serializer(),
             record = draft.toRecord(clock.now()),
             blob = draft.gpx?.let { PendingBlob(it, Gpx.MIME_TYPE, field = "track") },
         )
+        draft.streams?.let { streams.put(uri, ActivityStreams(it, draft.streamsVisibility, draft.heartRateZones, draft.powerZones)) }
+        outbox.drain()
         recentTypes.remember(draft.type)
-        return AtUri.of(clients.did, Nsid.FEED_ACTIVITY, rkey)
+        return uri
+    }
+
+    /** Changes who may see the signed-in athlete's [activity]'s streams. */
+    suspend fun setStreamsVisibility(activity: AtUri, visibility: String) {
+        streams.setVisibility(activity, visibility)
+        outbox.drain()
     }
 
     /**
@@ -70,7 +79,7 @@ class ActivityRepository(
                 val rkey = Tid.next(clock)
                 val kudos = AtUri.of(clients.did, Nsid.FEED_KUDOS, rkey)
                 feed.updateCached(activity.uri) { it.copy(kudosCount = it.kudosCount + 1, viewer = it.viewer?.copy(kudos = kudos)) }
-                insertPut(
+                writer.put(
                     Nsid.FEED_KUDOS,
                     rkey,
                     KudosRecord.serializer(),
@@ -81,7 +90,7 @@ class ActivityRepository(
                 feed.updateCached(activity.uri) {
                     it.copy(kudosCount = (it.kudosCount - 1).coerceAtLeast(0), viewer = it.viewer?.copy(kudos = null))
                 }
-                db.outbox().insert(outboxEntity(OutboxProcessor.OP_DELETE, Nsid.FEED_KUDOS, requireNotNull(current.rkey), null))
+                writer.delete(Nsid.FEED_KUDOS, requireNotNull(current.rkey))
                 localKudos.set(activity.uri, null)
             }
         }
@@ -108,59 +117,7 @@ class ActivityRepository(
         record: T,
         blob: PendingBlob? = null,
     ) {
-        insertPut(collection, rkey, serializer, record, blob)
+        writer.put(collection, rkey, serializer, record, blob)
         outbox.drain()
-    }
-
-    private suspend fun <T> insertPut(
-        collection: String,
-        rkey: String,
-        serializer: KSerializer<T>,
-        record: T,
-        blob: PendingBlob? = null,
-    ) {
-        val json = AtJson.encodeToString(serializer, record)
-        db.outbox()
-            .insert(
-                outboxEntity(OutboxProcessor.OP_PUT, collection, rkey, json)
-                    .copy(
-                        blob = blob?.bytes,
-                        blobMimeType = blob?.mimeType,
-                        blobField = blob?.field,
-                    )
-            )
-    }
-
-    private fun outboxEntity(operation: String, collection: String, rkey: String, json: String?) =
-        OutboxEntity(
-            did = clients.did.value,
-            operation = operation,
-            collection = collection,
-            rkey = rkey,
-            recordJson = json,
-            createdAt = clock.now().toEpochMilliseconds(),
-        )
-}
-
-/** A blob uploaded before the record; its ref is written into the record's [field]. */
-private data class PendingBlob(val bytes: ByteArray, val mimeType: String, val field: String) {
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other == null || this::class != other::class) return false
-
-        other as PendingBlob
-
-        if (!bytes.contentEquals(other.bytes)) return false
-        if (mimeType != other.mimeType) return false
-        if (field != other.field) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = bytes.contentHashCode()
-        result = 31 * result + mimeType.hashCode()
-        result = 31 * result + field.hashCode()
-        return result
     }
 }

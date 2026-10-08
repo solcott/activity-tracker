@@ -1,9 +1,13 @@
 package io.github.solcott.activitytracker.data.activity
 
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
+import io.github.solcott.activitytracker.activityfile.StreamBuilder
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
+import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import io.github.solcott.activitytracker.location.Gpx
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.RecordingResult
@@ -32,6 +36,13 @@ data class ActivityDraft(
     val sensors: List<ActivitySensor> = emptyList(),
     val polyline: String? = null,
     val gpx: ByteArray? = null,
+    /** Per-sample data for charts, published as the activity's streams record. */
+    val streams: ActivityStreamData? = null,
+    /** Who may see [streams]: a [Visibility] value. */
+    val streamsVisibility: String = Visibility.PUBLIC,
+    /** The athlete's zones for this activity, kept with [streams]. */
+    val heartRateZones: ZoneSnapshot? = null,
+    val powerZones: ZoneSnapshot? = null,
 ) {
     fun toRecord(createdAt: Instant): ActivityRecord =
         ActivityRecord(
@@ -77,6 +88,10 @@ data class ActivityDraft(
             device,
             sensors,
             polyline,
+            streams,
+            streamsVisibility,
+            heartRateZones,
+            powerZones,
         )
 
     override fun equals(other: Any?): Boolean =
@@ -111,6 +126,7 @@ data class ActivityDraft(
                 maxSpeedMps = state.maxSpeedMps,
                 polyline = polylineOf(samples),
                 gpx = gpxOf(samples, title, type.sport),
+                streams = StreamBuilder.fromLocations(samples, state.startedAt ?: result.endedAt),
             )
         }
 
@@ -137,6 +153,7 @@ data class ActivityDraft(
                 sensors = imported.sensors.map { ActivitySensor(it.kind.token, it.manufacturer, it.model) },
                 polyline = polylineOf(imported.samples),
                 gpx = gpxOf(imported.samples, title, type.sport),
+                streams = imported.streams,
             )
 
         /** The feed polyline for a track: simplified, then encoded. Null below two points. */
