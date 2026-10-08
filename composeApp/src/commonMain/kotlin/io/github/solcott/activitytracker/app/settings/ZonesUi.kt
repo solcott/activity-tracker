@@ -284,7 +284,7 @@ private fun missingInput(basis: ZoneBasis): StringResource =
         ZoneBasis.ThresholdPace -> Res.string.zones_needs_threshold_pace
     }
 
-private fun zoneName(name: ZoneName): StringResource =
+internal fun zoneName(name: ZoneName): StringResource =
     when (name) {
         ZoneName.Recovery -> Res.string.zone_name_recovery
         ZoneName.Aerobic -> Res.string.zone_name_aerobic

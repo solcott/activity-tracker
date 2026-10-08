@@ -33,6 +33,12 @@ sealed interface ActivityDetailState : CircuitUiState {
         /** Who gave kudos, once the viewer has shown the list; null while it's hidden. */
         val kudosList: KudosList?,
         override val eventSink: (ActivityDetailEvent) -> Unit,
+        /** Null while loading, and when there are no streams or the viewer may not see them. */
+        val charts: ActivityCharts? = null,
+        /** The viewer's own activity has heart rate or power but no zones, because they hadn't set thresholds. */
+        val chartsMissingZones: Boolean = false,
+        /** The owner is changing who may see the charts. */
+        val savingChartsVisibility: Boolean = false,
     ) : ActivityDetailState
 }
 
@@ -58,4 +64,10 @@ sealed interface ActivityDetailEvent {
     data class OpenProfile(val did: Did) : ActivityDetailEvent
 
     data object SendComment : ActivityDetailEvent
+
+    /** The owner changes who may see the charts: a `Visibility` value. */
+    data class SetChartsVisibility(val visibility: String) : ActivityDetailEvent
+
+    /** Opens the training zones screen, to set the thresholds zone charts need. */
+    data object OpenTrainingZones : ActivityDetailEvent
 }

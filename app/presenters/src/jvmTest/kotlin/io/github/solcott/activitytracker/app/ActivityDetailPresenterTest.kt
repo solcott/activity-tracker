@@ -9,9 +9,12 @@ import io.github.solcott.activitytracker.app.detail.ActivityDetailPresenter
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.detail.ActivityDetailState
 import io.github.solcott.activitytracker.app.detail.KudosList
+import io.github.solcott.activitytracker.app.detail.StreamKind
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
+import io.github.solcott.activitytracker.data.activity.OutboxWriter
+import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalKudos
@@ -27,6 +30,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.time.Clock
 import kotlinx.coroutines.test.runTest
@@ -38,6 +42,7 @@ class ActivityDetailPresenterTest {
     private val carol = """{"did":"did:plc:carol","handle":"carol.test"}"""
     private val staleAlice = """{"did":"did:plc:alice","handle":"alice.test"}"""
     private var kudosFromAppView = listOf(carol)
+    private var streams: String? = null
 
     private val activity =
         """{"uri":"$activityUri","cid":"bafy3kbob1","author":$bob,""" +
@@ -55,6 +60,11 @@ class ActivityDetailPresenterTest {
 
                     "/xrpc/${Nsid.FEED_GET_ACTIVITY}" -> {
                         respond("""{"activity":$activity,"comments":[]}""", headers = json)
+                    }
+
+                    "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" -> {
+                        streams?.let { respond(it, headers = json) }
+                            ?: respond("""{"error":"NotFound","message":"none"}""", HttpStatusCode.NotFound, json)
                     }
 
                     "/xrpc/${Nsid.FEED_GET_KUDOS}" -> {
@@ -86,6 +96,8 @@ class ActivityDetailPresenterTest {
                 db,
                 clients,
                 OutboxProcessor(db, clients, Logger),
+                OutboxWriter(db, clients, Clock.System),
+                PdsActivityStreamsStore(OutboxWriter(db, clients, Clock.System), clients, Clock.System),
                 feed,
                 localKudos,
                 RecentActivityTypes(db, clients, feed),
@@ -142,6 +154,33 @@ class ActivityDetailPresenterTest {
             awaitLoaded().eventSink(ActivityDetailEvent.ToggleKudosList)
             val shown = awaitKudos { it.athletes.isNotEmpty() }
             assertEquals(listOf("carol.test"), shown.kudosList?.athletes?.map { it.handle.value })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun chartsTheStreamsTheViewerMaySee() = runTest {
+        streams =
+            """{"uri":"$activityUri","visibility":"public","channels":["heartRate"],""" +
+                """"data":{"time":[0,1,2,3],"heartRate":[100,150,160,null]},""" +
+                """"heartRateZones":{"model":"cogganHeartRate","lows":[0,138,154,164,176]}}"""
+        val r = repos()
+        presenterTestOf({ ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localKudos) }) {
+            var state = awaitLoaded()
+            while (state.charts == null) state = awaitLoaded()
+            val charts = state.charts!!
+            assertEquals(listOf(StreamKind.HeartRate), charts.lines.map { it.kind })
+            assertEquals(listOf(1, 1, 1, 0, 0), charts.heartRateZones?.map { it.seconds })
+            assertFalse(state.chartsMissingZones)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun noStreamsMeansNoCharts() = runTest {
+        val r = repos()
+        presenterTestOf({ ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localKudos) }) {
+            assertNull(awaitLoaded().charts)
             cancelAndIgnoreRemainingEvents()
         }
     }

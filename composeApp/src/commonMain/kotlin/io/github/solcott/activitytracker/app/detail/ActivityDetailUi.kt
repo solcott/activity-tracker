@@ -150,6 +150,7 @@ private fun LoadedContent(state: ActivityDetailState.Loaded, contentPadding: Pad
                 StatsRow(listOfNotNull(rate, temperature).toImmutableList())
             }
             record.polyline?.let { item { ActivityMap(it) } }
+            activityCharts(state)
             item { RecordedWith(record) }
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {

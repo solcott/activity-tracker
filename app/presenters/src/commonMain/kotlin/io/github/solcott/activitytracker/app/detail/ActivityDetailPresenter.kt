@@ -12,9 +12,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
+import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.settings.TrainingZonesScreen
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -60,6 +62,8 @@ fun ActivityDetailPresenter(
             .onFailure { error = UiError.of(UiError.Kind.LoadActivity, it) }
     }
 
+    val charts = rememberCharts(AtUri(screen.uri), loadKey, feed, activities, flights) { error = it }
+
     val sink: (ActivityDetailEvent) -> Unit = { event ->
         val current = activity
         when (event) {
@@ -87,6 +91,10 @@ fun ActivityDetailPresenter(
                 current?.let { flights.launch(it.uri) { runSuspendCatching { activities.toggleKudos(it) } } }
             }
 
+            is ActivityDetailEvent.SetChartsVisibility -> charts.setVisibility(event.visibility)
+
+            ActivityDetailEvent.OpenTrainingZones -> navigator.goTo(TrainingZonesScreen)
+
             ActivityDetailEvent.SendComment -> {
                 val text = draft.text.toString()
                 // Checked before clearing the draft, so a dropped repeat can't lose what was typed.
@@ -101,9 +109,59 @@ fun ActivityDetailPresenter(
     val shown = activity?.withKudosOverrides(kudosOverrides)
     val kudosList = rememberKudosList(showKudos, AtUri(screen.uri), viewerGave = shown?.viewer?.kudos != null, feed, profiles)
     return detailState(shown, error, sink) {
-        ActivityDetailState.Loaded(it, comments, draft, it.author.did == profiles.did, kudosList, sink)
+        val isOwn = it.author.did == profiles.did
+        ActivityDetailState.Loaded(
+            activity = it,
+            comments = comments,
+            draftComment = draft,
+            isOwn = isOwn,
+            kudosList = kudosList,
+            eventSink = sink,
+            charts = charts.charts,
+            chartsMissingZones = charts.missingZones(isOwn),
+            savingChartsVisibility = charts.saving,
+        )
     }
 }
+
+/** The activity's charts, and the owner's control over who sees them. */
+private class Charts(val charts: ActivityCharts?, val saving: Boolean, val setVisibility: (String) -> Unit) {
+    /** The [own] activity has heart rate or power but no zones to split it into. */
+    fun missingZones(own: Boolean): Boolean = own && charts?.missingZones() == true
+}
+
+/**
+ * [activity]'s charts, reloaded with [loadKey]. They're extra: without streams, or when they fail to load, the activity shows without them.
+ * Changing who sees them reports a failure through [onError].
+ */
+@Composable
+private fun rememberCharts(
+    activity: AtUri,
+    loadKey: Int,
+    feed: FeedRepository,
+    activities: ActivityRepository,
+    flights: SingleFlight,
+    onError: (UiError) -> Unit,
+): Charts {
+    var charts by remember { mutableStateOf<ActivityCharts?>(null) }
+    LaunchedEffect(loadKey) {
+        runSuspendCatching { feed.streams(activity) }.onSuccess { streams -> charts = streams?.let { ChartsBuilder.buildOffMain(it) } }
+    }
+    val key = ActivityDetailEvent.SetChartsVisibility::class
+    return Charts(charts, flights.isRunning(key)) { visibility ->
+        if (charts?.visibility.let { it != null && it != visibility }) {
+            flights.launch(key) {
+                runSuspendCatching { activities.setStreamsVisibility(activity, visibility) }
+                    .fold({ charts = charts?.copy(visibility = visibility) }, { onError(UiError.of(UiError.Kind.SaveActivity, it)) })
+            }
+        }
+    }
+}
+
+/** Heart rate or power without the zones to split it into. */
+private fun ActivityCharts.missingZones(): Boolean =
+    lines.any { it.kind == StreamKind.HeartRate } && heartRateZones == null ||
+        lines.any { it.kind == StreamKind.Power } && powerZones == null
 
 private fun detailState(
     activity: ActivityView?,
