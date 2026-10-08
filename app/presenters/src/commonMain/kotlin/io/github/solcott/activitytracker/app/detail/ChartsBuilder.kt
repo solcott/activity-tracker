@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.detail
 
+import io.github.solcott.activitytracker.activityfile.PerSecond
 import io.github.solcott.activitytracker.data.streams.StreamAnalytics
 import io.github.solcott.activitytracker.data.training.ZoneModel
 import io.github.solcott.activitytracker.data.training.ZoneModels
@@ -24,18 +25,15 @@ internal object ChartsBuilder {
         val data = streams.data
         val time = data.time
         val power = data.power
+        val powerBySecond = power?.let { StreamAnalytics.perSecond(time, it) }.orEmpty()
         return ActivityCharts(
             visibility = streams.visibility,
             durationSeconds = time.lastOrNull() ?: 0,
             lines = lines(data).toImmutableList(),
             heartRateZones = data.heartRate?.let { zoneTimes(time, it, streams.heartRateZones, ZoneModels.heartRate) },
             powerZones = power?.let { zoneTimes(time, it, streams.powerZones, ZoneModels.power) },
-            powerCurve =
-                power
-                    ?.let { StreamAnalytics.meanMax(StreamAnalytics.perSecond(time, it)) }
-                    .orEmpty()
-                    .map { (seconds, watts) -> CurvePoint(seconds, watts) }
-                    .toImmutableList(),
+            normalizedPower = PerSecond.normalizedPower(powerBySecond),
+            powerCurve = StreamAnalytics.meanMax(powerBySecond).map { (seconds, watts) -> CurvePoint(seconds, watts) }.toImmutableList(),
             gears = data.gears.orEmpty().map { GearPoint(it.time, it.front, it.rear) }.toImmutableList(),
         )
     }

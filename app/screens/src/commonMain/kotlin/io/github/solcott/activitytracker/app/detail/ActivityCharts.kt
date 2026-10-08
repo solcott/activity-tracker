@@ -15,6 +15,8 @@ data class ActivityCharts(
     val lines: ImmutableList<LineSeries>,
     val heartRateZones: ImmutableList<ZoneTime>?,
     val powerZones: ImmutableList<ZoneTime>?,
+    /** Coggan's normalized power in watts; null without 30 s of power. */
+    val normalizedPower: Int?,
     /** Best average power over each duration, shortest first; empty without power. */
     val powerCurve: ImmutableList<CurvePoint>,
     /** Each shift, in time order; empty without electronic shifting. */
