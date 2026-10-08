@@ -27,6 +27,8 @@ calf = "0.14.0"
 coil = "3.6.3"
 # Backdrop blur for the Compose-drawn iOS navigation bar (Compose can only blur its own content, not what's behind it).
 haze = "2.0.1"
+# Charts (line/area/column, axes, markers) on every client target.
+vico = "2.5.2"
 kotlinxCoroutines = "1.11.0"
 kotlinxSerialization = "1.11.0"
 ktor = "3.6.0"
@@ -109,6 +111,7 @@ calf-ui = { module = "com.mohamedrejeb.calf:calf-ui", version.ref = "calf" }
 calf-cupertino-icons = { module = "com.mohamedrejeb.calf:calf-cupertino-icons", version.ref = "calf" }
 haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
 haze-blur = { module = "dev.chrisbanes.haze:haze-blur", version.ref = "haze" }
+vico-multiplatform = { module = "com.patrykandpatrick.vico:multiplatform", version.ref = "vico" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
 

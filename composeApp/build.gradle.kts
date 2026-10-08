@@ -50,6 +50,7 @@ kotlin {
             implementation(libs.filekit.dialogs.compose)
             implementation(libs.haze)
             implementation(libs.haze.blur)
+            implementation(libs.vico.multiplatform)
         }
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)
