@@ -20,9 +20,23 @@ import io.github.solcott.activitytracker.app.record.DepthPreviewPoint
 import io.github.solcott.activitytracker.app.ui.chart.StaticChart
 import io.github.solcott.activitytracker.app.ui.chart.WholeRangeXStep
 import io.github.solcott.activitytracker.app.ui.chart.chartColors
+import io.github.solcott.activitytracker.app.ui.chart.rememberScrubController
+import io.github.solcott.activitytracker.app.ui.chart.rememberValueMarker
+import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.chart_marker
+import io.github.solcott.activitytracker.composeApp.resources.unit_elevation_ft
+import io.github.solcott.activitytracker.composeApp.resources.unit_elevation_m
+import io.github.solcott.activitytracker.data.units.UnitConversions
+import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.data.units.formatDecimal
+import kotlin.math.roundToLong
 import kotlinx.collections.immutable.ImmutableList
+import org.jetbrains.compose.resources.stringResource
 
-/** A dive's depth over time: the surface along the top, deeper further down, filled beneath the surface line. */
+/**
+ * A dive's depth over time: the surface along the top, deeper further down, filled beneath the surface line. Hovering, tapping or dragging
+ * reads out the time and depth there.
+ */
 @Composable
 fun DepthProfile(profile: ImmutableList<DepthPreviewPoint>, description: String, modifier: Modifier = Modifier, height: Dp = 160.dp) {
     if (profile.size < 2) return
@@ -51,8 +65,25 @@ fun DepthProfile(profile: ImmutableList<DepthPreviewPoint>, description: String,
             ),
             decorations = remember(surface) { listOf(HorizontalLine(y = { 0.0 }, line = surface)) },
             getXStep = WholeRangeXStep,
+            marker = rememberValueMarker(rememberDepthLabel()),
+            markerController = rememberScrubController(),
         )
     StaticChart(chart, model, description, height, modifier)
 }
 
+/** The marker's text for a point plotted at -depth: the time into the dive and the depth there. */
+@Composable
+private fun rememberDepthLabel(): (Double, Double) -> String {
+    val units = LocalUnitSystem.current
+    val marker = stringResource(Res.string.chart_marker, "%1", "%2")
+    val depth = stringResource(if (units == UnitSystem.Metric) Res.string.unit_elevation_m else Res.string.unit_elevation_ft, "%s")
+    return remember(units, marker, depth) {
+        { x, y ->
+            val value = formatDecimal(UnitConversions.toElevationUnit(-y, units), DEPTH_DECIMALS)
+            marker.replace("%1", Format.duration(x.roundToLong())).replace("%2", depth.replace("%s", value))
+        }
+    }
+}
+
 private const val FILL_ALPHA = 0.2f
+private const val DEPTH_DECIMALS = 1
