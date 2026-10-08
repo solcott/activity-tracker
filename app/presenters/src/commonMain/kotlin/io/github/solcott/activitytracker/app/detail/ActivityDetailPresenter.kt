@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.detail
 
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
@@ -9,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
@@ -29,8 +31,10 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 
 @CircuitInject(ActivityDetailScreen::class, SessionScope::class)
 @Composable
@@ -63,6 +67,10 @@ fun ActivityDetailPresenter(
     }
 
     val charts = rememberCharts(AtUri(screen.uri), loadKey, feed, activities, flights) { error = it }
+    val shown = activity?.withKudosOverrides(kudosOverrides)
+    val isOwn = shown?.author?.did == profiles.did
+    val sections = shown?.let { detailSections(it, charts.charts) } ?: persistentListOf()
+    val expansion = rememberExpansion(sections)
 
     val sink: (ActivityDetailEvent) -> Unit = { event ->
         val current = activity
@@ -95,21 +103,17 @@ fun ActivityDetailPresenter(
 
             ActivityDetailEvent.OpenTrainingZones -> navigator.goTo(TrainingZonesScreen)
 
+            is ActivityDetailEvent.ToggleSection,
+            ActivityDetailEvent.ToggleAll -> expansion.toggle(event)
+
             ActivityDetailEvent.SendComment -> {
-                val text = draft.text.toString()
-                // Checked before clearing the draft, so a dropped repeat can't lose what was typed.
-                if (current != null && text.isNotBlank() && !flights.isRunning(ActivityDetailEvent.SendComment)) {
-                    draft.clearText()
-                    flights.launch(ActivityDetailEvent.SendComment) { runSuspendCatching { activities.comment(current, text) } }
-                }
+                current?.let { sendComment(it, draft, flights, activities) }
             }
         }
     }
 
-    val shown = activity?.withKudosOverrides(kudosOverrides)
     val kudosList = rememberKudosList(showKudos, AtUri(screen.uri), viewerGave = shown?.viewer?.kudos != null, feed, profiles)
     return detailState(shown, error, sink) {
-        val isOwn = it.author.did == profiles.did
         ActivityDetailState.Loaded(
             activity = it,
             comments = comments,
@@ -120,8 +124,60 @@ fun ActivityDetailPresenter(
             charts = charts.charts,
             chartsMissingZones = charts.missingZones(isOwn),
             savingChartsVisibility = charts.saving,
+            sections = sections,
+            expanded = expansion.expanded,
         )
     }
+}
+
+/** Sends [draft] on [activity] and clears it, unless it's blank or a comment is already sending. */
+private fun sendComment(activity: ActivityView, draft: TextFieldState, flights: SingleFlight, activities: ActivityRepository) {
+    val text = draft.text.toString()
+    // Checked before clearing the draft, so a dropped repeat can't lose what was typed.
+    if (text.isNotBlank() && !flights.isRunning(ActivityDetailEvent.SendComment)) {
+        draft.clearText()
+        flights.launch(ActivityDetailEvent.SendComment) { runSuspendCatching { activities.comment(activity, text) } }
+    }
+}
+
+/** Which of the screen's sections show in full, and how [toggle] changes that. */
+private class Expansion(val expanded: ImmutableSet<DetailSection>, val toggle: (ActivityDetailEvent) -> Unit)
+
+/** Every one of [sections] starts collapsed; one toggles alone, or all collapse when any is open and expand when none is. */
+@Composable
+private fun rememberExpansion(sections: ImmutableList<DetailSection>): Expansion {
+    // Names, so they save in a Bundle.
+    var expanded by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    return Expansion(sections.filter { it.name in expanded }.toImmutableSet()) { event ->
+        val all = sections.map { it.name }
+        expanded =
+            when (event) {
+                is ActivityDetailEvent.ToggleSection -> event.section.name.let { if (it in expanded) expanded - it else expanded + it }
+                ActivityDetailEvent.ToggleAll -> if (expanded.any { it in all }) emptyList() else all
+                else -> expanded
+            }
+    }
+}
+
+/** The sections [activity] has data for: one per kind of chart, and the device. */
+internal fun detailSections(activity: ActivityView, charts: ActivityCharts?): ImmutableList<DetailSection> {
+    val kinds = charts?.lines.orEmpty().map { it.kind }.toSet()
+    val record = activity.record
+    return DetailSection.entries
+        .filter { section ->
+            when (section) {
+                DetailSection.HeartRate -> StreamKind.HeartRate in kinds
+                DetailSection.Power -> StreamKind.Power in kinds
+                DetailSection.Speed -> StreamKind.Speed in kinds
+                DetailSection.Cadence -> StreamKind.Cadence in kinds
+                DetailSection.Elevation -> StreamKind.Elevation in kinds || StreamKind.Grade in kinds
+                DetailSection.Temperature -> StreamKind.Temperature in kinds
+                DetailSection.Depth -> StreamKind.Depth in kinds
+                DetailSection.Gears -> charts != null && charts.gears.size >= 2
+                DetailSection.Device -> record.device != null || !record.sensors.isNullOrEmpty()
+            }
+        }
+        .toImmutableList()
 }
 
 /** The activity's charts, and the owner's control over who sees them. */

@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent
 import io.github.solcott.activitytracker.app.detail.ActivityDetailPresenter
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.detail.ActivityDetailState
+import io.github.solcott.activitytracker.app.detail.DetailSection
 import io.github.solcott.activitytracker.app.detail.KudosList
 import io.github.solcott.activitytracker.app.detail.StreamKind
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
@@ -172,6 +173,32 @@ class ActivityDetailPresenterTest {
             assertEquals(listOf(StreamKind.HeartRate), charts.lines.map { it.kind })
             assertEquals(listOf(1, 1, 1, 0, 0), charts.heartRateZones?.map { it.seconds })
             assertFalse(state.chartsMissingZones)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun sectionsStartCollapsedAndToggleOneOrAll() = runTest {
+        streams =
+            """{"uri":"$activityUri","visibility":"public","channels":["heartRate","power"],""" +
+                """"data":{"time":[0,1,2,3],"heartRate":[100,150,160,null],"power":[200,250,300,null]}}"""
+        val r = repos()
+        presenterTestOf({ ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localKudos) }) {
+            var state = awaitLoaded()
+            while (state.charts == null) state = awaitLoaded()
+            assertEquals(listOf(DetailSection.HeartRate, DetailSection.Power), state.sections)
+            assertEquals(emptySet(), state.expanded)
+
+            state.eventSink(ActivityDetailEvent.ToggleSection(DetailSection.HeartRate))
+            state = awaitUntil { (it as? ActivityDetailState.Loaded)?.anyExpanded == true } as ActivityDetailState.Loaded
+            assertEquals(setOf(DetailSection.HeartRate), state.expanded)
+
+            // Something open, so all collapse; then nothing open, so all expand.
+            state.eventSink(ActivityDetailEvent.ToggleAll)
+            state = awaitUntil { (it as? ActivityDetailState.Loaded)?.anyExpanded == false } as ActivityDetailState.Loaded
+            state.eventSink(ActivityDetailEvent.ToggleAll)
+            state = awaitUntil { (it as? ActivityDetailState.Loaded)?.anyExpanded == true } as ActivityDetailState.Loaded
+            assertEquals(state.sections.toSet(), state.expanded)
             cancelAndIgnoreRemainingEvents()
         }
     }

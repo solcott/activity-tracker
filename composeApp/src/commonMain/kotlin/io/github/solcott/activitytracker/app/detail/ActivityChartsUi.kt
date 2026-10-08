@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,6 +22,7 @@ import io.github.solcott.activitytracker.app.ui.chart.ZoneBar
 import io.github.solcott.activitytracker.app.ui.chart.ZoneBars
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.chart_avg_max
+import io.github.solcott.activitytracker.composeApp.resources.chart_avg_np_max
 import io.github.solcott.activitytracker.composeApp.resources.chart_description
 import io.github.solcott.activitytracker.composeApp.resources.chart_gear_value
 import io.github.solcott.activitytracker.composeApp.resources.chart_gears
@@ -36,10 +36,8 @@ import io.github.solcott.activitytracker.composeApp.resources.chart_power_zones
 import io.github.solcott.activitytracker.composeApp.resources.chart_zone_label
 import io.github.solcott.activitytracker.composeApp.resources.chart_zone_range
 import io.github.solcott.activitytracker.composeApp.resources.chart_zone_range_open
-import io.github.solcott.activitytracker.composeApp.resources.charts_heading
 import io.github.solcott.activitytracker.composeApp.resources.charts_missing_zones
 import io.github.solcott.activitytracker.composeApp.resources.charts_set_thresholds
-import io.github.solcott.activitytracker.composeApp.resources.charts_visibility_heading
 import io.github.solcott.activitytracker.composeApp.resources.charts_visibility_help
 import io.github.solcott.activitytracker.composeApp.resources.unit_bpm
 import io.github.solcott.activitytracker.composeApp.resources.unit_duration_hours
@@ -55,45 +53,65 @@ import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
-/** The activity's charts, in Strava's order: each line with its zones after it, then the power curve and gears. */
-internal fun LazyListScope.activityCharts(state: ActivityDetailState.Loaded) {
+/**
+ * [section]'s charts in full: its lines, then zones (or how to get them) after heart rate and power, and the power curve before power
+ * zones. Elevation sits behind the effort lines, as Strava draws it, so effort reads against the climbs.
+ */
+@Composable
+internal fun SectionCharts(section: DetailSection, state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
     val charts = state.charts ?: return
-    item(key = "charts-heading") { Text(stringResource(Res.string.charts_heading), style = MaterialTheme.typography.titleMedium) }
-    if (state.isOwn) {
-        item(key = "charts-visibility") { ChartsVisibility(charts.visibility, state.savingChartsVisibility, state.eventSink) }
-    }
-    if (state.chartsMissingZones) {
-        item(key = "charts-missing-zones") { MissingZones(state.eventSink) }
-    }
-    // Elevation behind the other lines, as Strava draws it, so effort reads against the climbs.
     val elevation = charts.lines.firstOrNull { it.kind == StreamKind.Elevation }
-    for (series in charts.lines) {
-        val behind = elevation?.takeIf { series.kind in OVER_ELEVATION }
-        item(key = "line-${series.kind}") { LineChart(series, charts.durationSeconds, behind) }
-        when (series.kind) {
-            StreamKind.HeartRate -> {
-                charts.heartRateZones?.let { zones ->
-                    item(key = "zones-hr") { Zones(Res.string.chart_heart_rate_zones, zones, Res.string.unit_bpm) }
-                }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(CHART_GAP)) {
+        for (series in charts.lines) {
+            if (sectionOf(series.kind) != section) continue
+            // The section's title already names its own line; grade under elevation needs one.
+            val titled = series.kind.name != section.name
+            val normalized = charts.normalizedPower.takeIf { series.kind == StreamKind.Power }
+            LineChart(series, charts.durationSeconds, elevation?.takeIf { series.kind in OVER_ELEVATION }, titled, normalized)
+        }
+        when (section) {
+            DetailSection.HeartRate -> {
+                val zones = charts.heartRateZones
+                if (zones != null) Zones(Res.string.chart_heart_rate_zones, zones, Res.string.unit_bpm)
+                else if (state.chartsMissingZones) MissingZones(state.eventSink)
             }
 
-            StreamKind.Power -> {
-                if (charts.powerCurve.size >= 2) item(key = "power-curve") { PowerCurve(charts.powerCurve) }
-                charts.powerZones?.let { zones ->
-                    item(key = "zones-power") { Zones(Res.string.chart_power_zones, zones, Res.string.unit_watts) }
-                }
+            DetailSection.Power -> {
+                if (charts.powerCurve.size >= 2) PowerCurve(charts.powerCurve)
+                val zones = charts.powerZones
+                if (zones != null) Zones(Res.string.chart_power_zones, zones, Res.string.unit_watts)
+                else if (state.chartsMissingZones) MissingZones(state.eventSink)
             }
+
+            DetailSection.Gears -> Gears(charts.gears, charts.durationSeconds, elevation)
 
             else -> {}
         }
     }
-    if (charts.gears.size >= 2) item(key = "gears") { Gears(charts.gears, charts.durationSeconds, elevation) }
 }
 
+/** The section each line belongs in. */
+private fun sectionOf(kind: StreamKind): DetailSection =
+    when (kind) {
+        StreamKind.HeartRate -> DetailSection.HeartRate
+        StreamKind.Power -> DetailSection.Power
+        StreamKind.Speed -> DetailSection.Speed
+        StreamKind.Cadence -> DetailSection.Cadence
+        StreamKind.Elevation,
+        StreamKind.Grade -> DetailSection.Elevation
+        StreamKind.Temperature -> DetailSection.Temperature
+        StreamKind.Depth -> DetailSection.Depth
+    }
+
+/** The owner's choice of who may see the charts, under a heading that asks the question. */
 @Composable
-private fun ChartsVisibility(visibility: String, saving: Boolean, eventSink: (ActivityDetailEvent) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(stringResource(Res.string.charts_visibility_heading), style = MaterialTheme.typography.labelLarge)
+internal fun ChartsVisibility(
+    visibility: String,
+    saving: Boolean,
+    eventSink: (ActivityDetailEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(HEADER_GAP)) {
         VisibilityPicker(
             visibility,
             onSelect = { eventSink(ActivityDetailEvent.SetChartsVisibility(it)) },
@@ -123,26 +141,33 @@ private fun MissingZones(eventSink: (ActivityDetailEvent) -> Unit) {
     }
 }
 
+/** A chart's [title], when the section's own doesn't name it, and its [detail] at the end. */
 @Composable
-private fun ChartHeader(title: String, detail: String?) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+private fun ChartHeader(title: String?, detail: String?) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title.orEmpty(), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
         detail?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
 @Composable
-private fun LineChart(series: LineSeries, durationSeconds: Int, elevation: LineSeries?) {
+private fun LineChart(series: LineSeries, durationSeconds: Int, elevation: LineSeries?, titled: Boolean, normalizedPower: Int? = null) {
     val unit = streamUnit(series.kind)
     val title = stringResource(streamTitle(series.kind))
     val average = series.average?.let { unit.text(unit.convert(it)) }
     val max = series.max?.let { unit.text(unit.convert(it)) }
-    val detail = if (average != null && max != null) stringResource(Res.string.chart_avg_max, average, max) else null
+    val detail =
+        when {
+            average == null || max == null -> null
+            normalizedPower != null ->
+                stringResource(Res.string.chart_avg_np_max, average, stringResource(Res.string.unit_watts, normalizedPower), max)
+            else -> stringResource(Res.string.chart_avg_max, average, max)
+        }
     val points = rememberPoints(series)
     val backdrop = elevation?.let { rememberPoints(it) }
     val markerLabel = rememberMarkerLabel(backdrop) { unit.text(it) }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        ChartHeader(title, detail)
+    Column(verticalArrangement = Arrangement.spacedBy(HEADER_GAP)) {
+        if (titled || detail != null) ChartHeader(title.takeIf { titled }, detail)
         TimeSeriesChart(
             points = points,
             xRange = 0.0..durationSeconds.toDouble(),
@@ -173,7 +198,7 @@ private fun Zones(title: StringResource, zones: ImmutableList<ZoneTime>, unit: S
             fraction = zone.seconds.toFloat() / total,
         )
     }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(HEADER_GAP)) {
         ChartHeader(stringResource(title), null)
         ZoneBars(bars.toImmutableList())
     }
@@ -205,7 +230,7 @@ private fun PowerCurve(curve: ImmutableList<CurvePoint>) {
                 .mapIndexed { i, point -> SeriesLabel(log10(point.seconds.toDouble()), point.watts.toDouble(), wattsAt[i].second) }
                 .toImmutableList()
         }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(HEADER_GAP)) {
         ChartHeader(stringResource(Res.string.chart_power_curve), null)
         TimeSeriesChart(
             points = points,
@@ -236,7 +261,7 @@ private fun Gears(gears: ImmutableList<GearPoint>, durationSeconds: Int, elevati
     val gear = stringResource(Res.string.chart_gear_value, "%s")
     val backdrop = elevation?.let { rememberPoints(it) }
     val markerLabel = rememberMarkerLabel(backdrop) { gear.replace("%s", "${it.roundToInt()}") }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(HEADER_GAP)) {
         ChartHeader(stringResource(Res.string.chart_gears), null)
         TimeSeriesChart(
             points = points,
@@ -255,5 +280,7 @@ private fun Gears(gears: ImmutableList<GearPoint>, durationSeconds: Int, elevati
 private val OVER_ELEVATION =
     setOf(StreamKind.HeartRate, StreamKind.Power, StreamKind.Speed, StreamKind.Cadence, StreamKind.Grade, StreamKind.Temperature)
 private val CURVE_STATS = setOf(5, 60, 300, 1200, 3600)
+private val CHART_GAP = 24.dp
+private val HEADER_GAP = 8.dp
 private const val MINUTE = 60
 private const val HOUR = 3600

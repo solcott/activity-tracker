@@ -300,6 +300,29 @@
     <string name="detail_no_kudos">No kudos yet.</string>
     <string name="detail_comment_placeholder">Add a comment</string>
     <string name="detail_send_comment">Send</string>
+    <string name="detail_sections_heading">Details</string>
+    <string name="detail_expand_all">Expand all</string>
+    <string name="detail_collapse_all">Collapse all</string>
+    <string name="detail_section_expanded">Expanded</string>
+    <string name="detail_section_collapsed">Collapsed</string>
+    <string name="detail_section_gears">Gears</string>
+    <string name="detail_section_device">Device</string>
+    <string name="detail_section_comments">Comments</string>
+    <plurals name="detail_comment_count">
+        <item quantity="one">%1$d comment</item>
+        <item quantity="other">%1$d comments</item>
+    </plurals>
+    <string name="detail_avg">Avg</string>
+    <string name="detail_max">Max</string>
+    <string name="detail_best_power">Best %1$s</string>
+    <string name="detail_gain">Gain</string>
+    <string name="detail_highest">Highest</string>
+    <string name="detail_max_grade">Max grade</string>
+    <string name="detail_shifts">Shifts</string>
+    <string name="detail_most_used_gear">Most used</string>
+    <string name="detail_device">Recorded with</string>
+    <string name="detail_device_unknown">Unknown</string>
+    <string name="detail_sensor_count">Sensors</string>
 
     <!-- Profile -->
     <string name="profile_title">Profile</string>
@@ -625,7 +648,6 @@
     <string name="trail_longest_jump">Longest jump %1$s</string>
     <string name="trail_hang_time">Longest hang time %1$s</string>
     <string name="section_sensors">Sensors</string>
-    <string name="detail_sensors">Sensors: %1$s</string>
     <string name="sensor_heartRate">Heart rate monitor</string>
     <string name="sensor_power">Power meter</string>
     <string name="sensor_speedCadence">Speed and cadence sensor</string>
@@ -649,7 +671,6 @@
     <string name="manual_duration_label">Duration (minutes)</string>
     <string name="action_save">Save</string>
     <string name="action_saving">Saving…</string>
-    <string name="charts_heading">Charts</string>
     <string name="charts_visibility_heading">Who can see these charts</string>
     <string name="charts_visibility_help">Your heart rate, power and other per-second data from this activity.</string>
     <string name="charts_missing_zones">Set your thresholds to see time in each zone.</string>
@@ -670,6 +691,7 @@
     <string name="chart_gears">Rear gear</string>
     <string name="chart_gears_help">Rear gear over the ride, 1 being the largest cog.</string>
     <string name="chart_avg_max">Avg %1$s · Max %2$s</string>
+    <string name="chart_avg_np_max">Avg %1$s · Normalized %2$s · Max %3$s</string>
     <string name="chart_marker">%1$s · %2$s</string>
     <string name="chart_marker_elevation">%1$s · %2$s · %3$s</string>
     <string name="chart_gear_value">Gear %1$s</string>
