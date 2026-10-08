@@ -1,6 +1,6 @@
 [versions]
 # Toolchain. Circuit 0.39 requires Kotlin 2.4.20 / Compose Multiplatform 1.12.x; Metro 1.4.5 supports this Kotlin.
-kotlin = "2.4.20"
+kotlin = "2.4.21"
 # JDK used for every compile/test/run toolchain (Amazon Corretto, provisioned via foojay).
 #noinspection UnusedVersionCatalogEntry
 jdk = "25"
@@ -45,8 +45,8 @@ kotlinxIo = "0.9.1"
 maplibreCompose = "0.19.0"
 filekit = "0.16.0"
 # Garmin FIT SDK: the Java artifact (Maven) and the JS package (npm) share this version.
-garminFit = "21.217.0"
-xmlutil = "1.0.2"
+garminFit = "21.218.0"
+xmlutil = "1.0.2.1"
 # androidx artifact that Compose Multiplatform's runtime already resolves to; @Immutable/@Stable for modules without Compose.
 composeRuntimeAnnotation = "1.12.1"
 
@@ -57,8 +57,8 @@ playServicesLocation = "21.4.0"
 
 # Server
 exposed = "1.5.0"
-flyway = "13.9.0"
-postgresql = "42.7.13"
+flyway = "13.10.0"
+postgresql = "42.7.14"
 hikari = "7.1.0"
 logback = "1.6.5"
 bouncycastle = "1.86"
