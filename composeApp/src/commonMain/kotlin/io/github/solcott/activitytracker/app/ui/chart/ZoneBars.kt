@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import kotlinx.collections.immutable.ImmutableList
 
 /**
@@ -31,7 +32,9 @@ internal fun ZoneBars(zones: ImmutableList<ZoneBar>, modifier: Modifier = Modifi
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         zones.asReversed().forEachIndexed { reversed, zone ->
             val color = zoneColor(zones.size - 1 - reversed, zones.size)
-            val percent = "${(zone.fraction * PERCENT).toInt()}%"
+            // Rounded, and never 0% beside a sliver of bar.
+            val rounded = (zone.fraction * PERCENT).roundToInt()
+            val percent = if (rounded == 0 && zone.fraction > 0f) "<1%" else "$rounded%"
             Row(
                 Modifier.fillMaxWidth().clearAndSetSemantics {
                     contentDescription = "${zone.label} ${zone.name}, ${zone.range}: ${zone.time}, $percent"
