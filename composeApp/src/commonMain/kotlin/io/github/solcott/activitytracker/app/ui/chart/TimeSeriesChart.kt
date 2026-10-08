@@ -32,7 +32,8 @@ import kotlinx.collections.immutable.persistentListOf
 /**
  * Values over an activity, filled beneath, with a few y labels from [yLabel] and, when [xLabel] is set, time labels at whole-minute steps
  * across [xRange] (seconds), or exactly at [xLabelsAt] when the x axis isn't time. [average] draws a reference line. [step] holds each
- * value until the next point, for values like gears. [pointLabels] write values above their points.
+ * value until the next point, for values like gears. [pointLabels] write values above their points. Hovering, tapping or dragging across
+ * the chart shows [markerLabel] for the nearest point.
  */
 @Composable
 internal fun TimeSeriesChart(
@@ -41,6 +42,7 @@ internal fun TimeSeriesChart(
     description: String,
     yLabel: (Double) -> String,
     xLabel: ((Double) -> String)?,
+    markerLabel: (x: Double, y: Double) -> String,
     modifier: Modifier = Modifier,
     average: Double? = null,
     step: Boolean = false,
@@ -112,7 +114,9 @@ internal fun TimeSeriesChart(
                 remember(average, averageLine, labelsAbove) {
                     listOfNotNull(average?.let { avg -> HorizontalLine(y = { avg }, line = averageLine) }, labelsAbove)
                 },
+            marker = rememberValueMarker(markerLabel),
             getXStep = { _, _, _ -> xStep },
+            markerController = rememberScrubController(),
         )
     StaticChart(chart, model, description, height, modifier)
 }

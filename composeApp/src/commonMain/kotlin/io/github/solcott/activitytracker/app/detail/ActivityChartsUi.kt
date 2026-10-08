@@ -28,11 +28,13 @@ import io.github.solcott.activitytracker.composeApp.resources.chart_cadence
 import io.github.solcott.activitytracker.composeApp.resources.chart_depth
 import io.github.solcott.activitytracker.composeApp.resources.chart_description
 import io.github.solcott.activitytracker.composeApp.resources.chart_elevation
+import io.github.solcott.activitytracker.composeApp.resources.chart_gear_value
 import io.github.solcott.activitytracker.composeApp.resources.chart_gears
 import io.github.solcott.activitytracker.composeApp.resources.chart_gears_help
 import io.github.solcott.activitytracker.composeApp.resources.chart_grade
 import io.github.solcott.activitytracker.composeApp.resources.chart_heart_rate
 import io.github.solcott.activitytracker.composeApp.resources.chart_heart_rate_zones
+import io.github.solcott.activitytracker.composeApp.resources.chart_marker
 import io.github.solcott.activitytracker.composeApp.resources.chart_power
 import io.github.solcott.activitytracker.composeApp.resources.chart_power_curve
 import io.github.solcott.activitytracker.composeApp.resources.chart_power_curve_help
@@ -153,6 +155,7 @@ private fun LineChart(series: LineSeries, durationSeconds: Int) {
     val average = series.average?.let { unit.text(unit.convert(it)) }
     val max = series.max?.let { unit.text(unit.convert(it)) }
     val detail = if (average != null && max != null) stringResource(Res.string.chart_avg_max, average, max) else null
+    val marker = stringResource(Res.string.chart_marker, "%1", "%2")
     val points =
         remember(series, unit) { series.points.map { SeriesPoint(it.seconds.toDouble(), unit.convert(it.value)) }.toImmutableList() }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -163,6 +166,7 @@ private fun LineChart(series: LineSeries, durationSeconds: Int) {
             description = stringResource(Res.string.chart_description, title, average.orEmpty(), max.orEmpty()),
             yLabel = unit.axis,
             xLabel = { Format.duration(it.roundToLong()) },
+            markerLabel = { x, y -> marker.replace("%1", Format.duration(x.roundToLong())).replace("%2", unit.text(y)) },
             average = series.average?.let(unit.convert),
         )
     }
@@ -207,6 +211,8 @@ private fun PowerCurve(curve: ImmutableList<CurvePoint>) {
             else -> hours.replace("%s", "${s / HOUR}")
         }
     }
+    val marker = stringResource(Res.string.chart_marker, "%1", "%2")
+    val wattsTemplate = stringResource(Res.string.unit_watts, "%s")
     val wattsAt = labelled.map { durationLabel(it.seconds) to stringResource(Res.string.unit_watts, it.watts) }
     val described = wattsAt.map { (duration, w) -> stringResource(Res.string.chart_power_curve_point, duration, w) }
     val pointLabels =
@@ -224,6 +230,11 @@ private fun PowerCurve(curve: ImmutableList<CurvePoint>) {
             yLabel = { "${it.roundToInt()}${watts.trim().let { u -> " $u" }}" },
             // A log axis, so durations sit only where the labelled points are.
             xLabel = { durationLabel(10.0.pow(it).roundToInt()) },
+            markerLabel = { x, y ->
+                marker
+                    .replace("%1", durationLabel(10.0.pow(x).roundToInt()))
+                    .replace("%2", wattsTemplate.replace("%s", "${y.roundToInt()}"))
+            },
             xLabelsAt = pointLabels.map { it.x }.toImmutableList(),
             pointLabels = pointLabels,
         )
@@ -238,6 +249,8 @@ private fun Gears(gears: ImmutableList<GearPoint>, durationSeconds: Int) {
             val shifts = gears.mapNotNull { gear -> gear.rear?.let { SeriesPoint(gear.seconds.toDouble(), it.toDouble()) } }
             (shifts + listOfNotNull(shifts.lastOrNull()?.copy(x = durationSeconds.toDouble()))).toImmutableList()
         }
+    val marker = stringResource(Res.string.chart_marker, "%1", "%2")
+    val gear = stringResource(Res.string.chart_gear_value, "%s")
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         ChartHeader(stringResource(Res.string.chart_gears), null)
         TimeSeriesChart(
@@ -246,6 +259,9 @@ private fun Gears(gears: ImmutableList<GearPoint>, durationSeconds: Int) {
             description = stringResource(Res.string.chart_gears_help),
             yLabel = { "${it.roundToInt()}" },
             xLabel = { Format.duration(it.roundToLong()) },
+            markerLabel = { x, y ->
+                marker.replace("%1", Format.duration(x.roundToLong())).replace("%2", gear.replace("%s", "${y.roundToInt()}"))
+            },
             step = true,
         )
     }
