@@ -143,5 +143,5 @@ private fun privateDetails(row: ResultRow) =
 private fun location(locality: String?, region: String?, country: String?): Location? =
     Location(locality, region, country).takeUnless { it == Location() }
 
-private fun JdbcTransaction.follows(author: String, subject: String): Boolean =
+internal fun JdbcTransaction.follows(author: String, subject: String): Boolean =
     !Follows.select(Follows.uri).where { (Follows.authorDid eq author) and (Follows.subjectDid eq subject) }.limit(1).empty()

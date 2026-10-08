@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.appview.index
 
 import io.github.solcott.activitytracker.appview.ProfileDetailRules
 import io.github.solcott.activitytracker.appview.db.Activities
+import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.appview.db.ActorPrivateDetails
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.Comments
@@ -14,6 +15,7 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
+import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowRecord
 import io.github.solcott.activitytracker.lexicon.app.KudosRecord
@@ -135,6 +137,10 @@ class Indexer(
                 }
             }
 
+            Nsid.FEED_ACTIVITY_STREAMS -> {
+                upsertStreams(AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), json), author, uri, cid, now)
+            }
+
             Nsid.ACTOR_PROFILE -> {
                 if (uri.rkey == ProfileRecord.RKEY)
                     updateProfile(AtJson.decodeFromJsonElement(ProfileRecord.serializer(), json), author, now)
@@ -197,6 +203,11 @@ class Indexer(
                 Activities.deleteWhere { Activities.uri eq uri.value }
             }
 
+            Nsid.FEED_ACTIVITY_STREAMS -> {
+                ActivityStreams.deleteWhere { ActivityStreams.uri eq uri.value }
+                dropOrphanedStreamData()
+            }
+
             Nsid.FEED_KUDOS -> {
                 Kudos.deleteWhere { Kudos.uri eq uri.value }
             }
@@ -244,6 +255,8 @@ class Indexer(
 
     private suspend fun deleteActor(did: Did) = db.tx {
         Activities.deleteWhere { authorDid eq did.value }
+        ActivityStreams.deleteWhere { authorDid eq did.value }
+        dropOrphanedStreamData()
         Kudos.deleteWhere { authorDid eq did.value }
         Comments.deleteWhere { authorDid eq did.value }
         Follows.deleteWhere { authorDid eq did.value }

@@ -93,3 +93,28 @@ object JetstreamCursor : Table("jetstream_cursor") {
     val timeUs = long("time_us")
     override val primaryKey = PrimaryKey(id)
 }
+
+/** `feed.activityStreams` records, which share their activity's rkey. Who may see one is enforced in `ActivityStreamsViews`. */
+object ActivityStreams : Table("activity_streams") {
+    val uri = varchar("uri", 512)
+    val cid = varchar("cid", 255)
+    val authorDid = varchar("author_did", 255)
+    val activityUri = varchar("activity_uri", 512)
+    val visibility = varchar("visibility", 16)
+    /** JSON array of channel tokens. */
+    val channels = text("channels")
+    /** `activityStreams#zoneSnapshot` as JSON. */
+    val heartRateZones = text("heart_rate_zones").nullable()
+    val powerZones = text("power_zones").nullable()
+    val blobCid = varchar("blob_cid", 255)
+    val indexedAt = long("indexed_at")
+    override val primaryKey = PrimaryKey(uri)
+}
+
+/** Decoded `activityStreams#streamData`, cached by the blob's CID. */
+object ActivityStreamData : Table("activity_stream_data") {
+    val blobCid = varchar("blob_cid", 255)
+    val data = text("stream_data")
+    val fetchedAt = long("fetched_at")
+    override val primaryKey = PrimaryKey(blobCid)
+}

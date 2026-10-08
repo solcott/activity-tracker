@@ -1,12 +1,15 @@
 package io.github.solcott.activitytracker.appview
 
 import co.touchlab.kermit.Logger
+import io.github.solcott.activitytracker.appview.api.ActivityStreamsViews
 import io.github.solcott.activitytracker.appview.api.ActorSearch
 import io.github.solcott.activitytracker.appview.api.AvatarUrls
 import io.github.solcott.activitytracker.appview.api.GraphViews
+import io.github.solcott.activitytracker.appview.api.PdsBlobStreamSource
 import io.github.solcott.activitytracker.appview.api.PdsLookup
 import io.github.solcott.activitytracker.appview.api.PrivateDetails
 import io.github.solcott.activitytracker.appview.api.ResolvingPdsLookup
+import io.github.solcott.activitytracker.appview.api.StreamSource
 import io.github.solcott.activitytracker.appview.api.Views
 import io.github.solcott.activitytracker.appview.api.XrpcError
 import io.github.solcott.activitytracker.appview.api.avatarRoutes
@@ -56,7 +59,8 @@ fun main() {
     val verifier = ServiceAuthVerifier(config.serviceDid, identity, config.extraAudiences)
 
     embeddedServer(Netty, port = config.port) {
-            appView(config, db, verifier, ResolvingPdsLookup(identity))
+            val pds = ResolvingPdsLookup(identity)
+            appView(config, db, verifier, pds, PdsBlobStreamSource(http, pds))
             config.jetstreamUrl?.let { url ->
                 val indexer = Indexer(db, ResolvingHandleLookup(identity))
                 launch { JetstreamConsumer(http, url, db, indexer).run() }
@@ -70,6 +74,7 @@ fun Application.appView(
     db: Database,
     verifier: ServiceAuthVerifier,
     pds: PdsLookup = PdsLookup { null },
+    streamSource: StreamSource = StreamSource { _, _ -> null },
 ) {
     install(CallLogging)
     install(CORS) {
@@ -94,7 +99,14 @@ fun Application.appView(
     routing {
         wellKnownRoutes(config)
         val avatars = AvatarUrls(config.publicUrl)
-        xrpcRoutes(Views(db, avatars), GraphViews(db, avatars), ActorSearch(db, avatars), PrivateDetails(db), verifier)
+        xrpcRoutes(
+            Views(db, avatars),
+            GraphViews(db, avatars),
+            ActorSearch(db, avatars),
+            PrivateDetails(db),
+            ActivityStreamsViews(db, streamSource),
+            verifier,
+        )
         avatarRoutes(db, pds)
     }
 }
