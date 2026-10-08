@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app.ui.chart
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.unit.Dp
 import com.patrykandpatrick.vico.multiplatform.cartesian.CartesianDrawingContext
+import com.patrykandpatrick.vico.multiplatform.cartesian.axis.Axis
 import com.patrykandpatrick.vico.multiplatform.cartesian.decoration.Decoration
 import com.patrykandpatrick.vico.multiplatform.common.Position
 import com.patrykandpatrick.vico.multiplatform.common.component.TextComponent
@@ -14,7 +15,7 @@ import com.patrykandpatrick.vico.multiplatform.common.component.TextComponent
 internal data class PointLabels(private val labels: List<PointLabel>, private val gap: Dp) : Decoration {
     override fun drawOverLayers(context: CartesianDrawingContext) {
         with(context) {
-            val yRange = ranges.getYRange(null)
+            val yRange = ranges.getYRange(Axis.Position.Vertical.Start)
             val start = if (isLtr) layerBounds.left else layerBounds.right
             labels.forEach { label ->
                 val offset = (label.x - ranges.minX) / ranges.xStep * layerDimensions.xSpacing + layerDimensions.startPadding - scroll

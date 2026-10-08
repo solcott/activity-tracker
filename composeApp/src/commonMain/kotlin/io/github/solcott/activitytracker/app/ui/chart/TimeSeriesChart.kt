@@ -4,11 +4,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.patrykandpatrick.vico.multiplatform.cartesian.CartesianDrawingContext
 import com.patrykandpatrick.vico.multiplatform.cartesian.CartesianMeasuringContext
+import com.patrykandpatrick.vico.multiplatform.cartesian.axis.Axis
 import com.patrykandpatrick.vico.multiplatform.cartesian.axis.HorizontalAxis
 import com.patrykandpatrick.vico.multiplatform.cartesian.axis.VerticalAxis
 import com.patrykandpatrick.vico.multiplatform.cartesian.data.CartesianChartModel
@@ -20,6 +22,7 @@ import com.patrykandpatrick.vico.multiplatform.cartesian.layer.CartesianLayerDim
 import com.patrykandpatrick.vico.multiplatform.cartesian.layer.LineCartesianLayer
 import com.patrykandpatrick.vico.multiplatform.cartesian.layer.rememberLine
 import com.patrykandpatrick.vico.multiplatform.cartesian.layer.rememberLineCartesianLayer
+import com.patrykandpatrick.vico.multiplatform.cartesian.marker.CartesianMarker
 import com.patrykandpatrick.vico.multiplatform.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.multiplatform.common.Fill
 import com.patrykandpatrick.vico.multiplatform.common.component.rememberLineComponent
@@ -32,8 +35,9 @@ import kotlinx.collections.immutable.persistentListOf
 /**
  * Values over an activity, filled beneath, with a few y labels from [yLabel] and, when [xLabel] is set, time labels at whole-minute steps
  * across [xRange] (seconds), or exactly at [xLabelsAt] when the x axis isn't time. [average] draws a reference line. [step] holds each
- * value until the next point, for values like gears. [pointLabels] write values above their points. Hovering, tapping or dragging across
- * the chart shows [markerLabel] for the nearest point.
+ * value until the next point, for values like gears. [pointLabels] write values above their points. [backdrop] is drawn as a grey
+ * silhouette behind the line on a scale of its own, as Strava draws elevation behind its charts; it has no axis and the marker skips it.
+ * Hovering, tapping or dragging across the chart shows [markerLabel] for the nearest point.
  */
 @Composable
 internal fun TimeSeriesChart(
@@ -48,11 +52,14 @@ internal fun TimeSeriesChart(
     step: Boolean = false,
     xLabelsAt: ImmutableList<Double>? = null,
     pointLabels: ImmutableList<SeriesLabel> = persistentListOf(),
+    backdrop: ImmutableList<SeriesPoint>? = null,
     height: Dp = 140.dp,
 ) {
     if (points.size < 2) return
     val colors = chartColors(FILL_ALPHA)
-    val model = remember(points) { CartesianChartModel(LineCartesianLayerModel.build { series(points.map { it.x }, points.map { it.y }) }) }
+    val behind = backdrop?.takeIf { it.size >= 2 }
+    // Line layers take their models in order, so the backdrop's comes first and draws underneath.
+    val model = remember(points, behind) { CartesianChartModel(listOfNotNull(behind?.let(::lineModel), lineModel(points))) }
     // A little headroom (more for labels above the points), and a floor at zero for values that start there, like power or speed.
     val yAxis =
         remember(points, pointLabels.isEmpty()) {
@@ -81,13 +88,19 @@ internal fun TimeSeriesChart(
     val labelsAbove = remember(pointLabels, label) { PointLabels(pointLabels.map { PointLabel(it.x, it.y, it.text, label) }, gap = 4.dp) }
     val chart =
         rememberCartesianChart(
-            rememberLineCartesianLayer(
-                LineCartesianLayer.LineProvider.series(line),
-                rangeProvider =
-                    remember(minY, maxY, xRange) {
-                        CartesianLayerRangeProvider.fixed(minX = xRange.start, maxX = xRange.endInclusive, minY = minY, maxY = maxY)
-                    },
-            ),
+            *listOfNotNull(
+                    behind?.let { rememberBackdropLayer(it, xRange) },
+                    rememberLineCartesianLayer(
+                        LineCartesianLayer.LineProvider.series(line),
+                        rangeProvider =
+                            remember(minY, maxY, xRange) {
+                                CartesianLayerRangeProvider.fixed(minX = xRange.start, maxX = xRange.endInclusive, minY = minY, maxY = maxY)
+                            },
+                        // Its own scale, apart from the backdrop's.
+                        verticalAxisPosition = Axis.Position.Vertical.Start,
+                    ),
+                )
+                .toTypedArray(),
             startAxis =
                 VerticalAxis.rememberStart(
                     line = null,
@@ -112,7 +125,12 @@ internal fun TimeSeriesChart(
                 ),
             decorations =
                 remember(average, averageLine, labelsAbove) {
-                    listOfNotNull(average?.let { avg -> HorizontalLine(y = { avg }, line = averageLine) }, labelsAbove)
+                    listOfNotNull(
+                        average?.let { avg ->
+                            HorizontalLine(y = { avg }, line = averageLine, verticalAxisPosition = Axis.Position.Vertical.Start)
+                        },
+                        labelsAbove,
+                    )
                 },
             marker = rememberValueMarker(markerLabel),
             getXStep = { _, _, _ -> xStep },
@@ -122,6 +140,46 @@ internal fun TimeSeriesChart(
 }
 
 private const val FILL_ALPHA = 0.18f
+private const val BACKDROP_ALPHA = 0.12f
+private const val BACKDROP_HEIGHT = 0.6
+private const val MIN_BACKDROP_SPAN = 20.0
+
+private fun lineModel(points: List<SeriesPoint>) = LineCartesianLayerModel.build { series(points.map { it.x }, points.map { it.y }) }
+
+/**
+ * [points] as a grey area on the end axis's scale, filling about [BACKDROP_HEIGHT] of the chart from the bottom so the line in front stays
+ * readable. A span of at least [MIN_BACKDROP_SPAN] keeps a flat route flat instead of stretching its noise into hills.
+ */
+@Composable
+private fun rememberBackdropLayer(points: ImmutableList<SeriesPoint>, xRange: ClosedFloatingPointRange<Double>): LineCartesianLayer {
+    val color = MaterialTheme.colorScheme.onSurfaceVariant
+    return remember(points, xRange, color) {
+        val low = points.minOf { it.y }
+        val span = (points.maxOf { it.y } - low).coerceAtLeast(MIN_BACKDROP_SPAN)
+        val line =
+            LineCartesianLayer.Line(
+                fill = LineCartesianLayer.LineFill.single(Fill(Color.Transparent)),
+                stroke = LineCartesianLayer.LineStroke.Continuous(thickness = 0.dp),
+                areaFill = LineCartesianLayer.AreaFill.single(Fill(color.copy(alpha = BACKDROP_ALPHA)), splitY = { low }),
+            )
+        BackdropLayer(
+            line,
+            CartesianLayerRangeProvider.fixed(
+                minX = xRange.start,
+                maxX = xRange.endInclusive,
+                minY = low,
+                maxY = low + span / BACKDROP_HEIGHT,
+            ),
+        )
+    }
+}
+
+/** A line layer on the end axis's scale with no marker targets, so the marker's dot and readout stay on the line in front. */
+private class BackdropLayer(line: LineCartesianLayer.Line, rangeProvider: CartesianLayerRangeProvider) :
+    LineCartesianLayer(LineProvider.series(line), rangeProvider = rangeProvider, verticalAxisPosition = Axis.Position.Vertical.End) {
+    override val markerTargets: Map<Double, List<CartesianMarker.Target>> = emptyMap()
+}
+
 private const val Y_PADDING = 0.08
 private const val LABELLED_Y_PADDING = 0.25
 private const val Y_LABELS = 4
