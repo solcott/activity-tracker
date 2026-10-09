@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.ProfileDetailRules
+import io.github.solcott.activitytracker.appview.db.ActivityMediaBlobs
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
@@ -35,6 +36,15 @@ class AvatarUrls(private val publicUrl: String) {
     }
 }
 
+/** Activity photo URLs in views point at this AppView, which redirects to the blob on the athlete's PDS ([mediaRoutes]). */
+class MediaUrls(private val publicUrl: String) {
+    fun url(did: String, cid: String): String = "$publicUrl$PATH/$did/$cid"
+
+    companion object {
+        const val PATH = "/img/media"
+    }
+}
+
 /** DID → PDS URL, cached for an hour so an account that moves PDS is picked up. */
 fun interface PdsLookup {
     suspend fun pdsFor(did: Did): String?
@@ -59,11 +69,17 @@ class ResolvingPdsLookup(private val resolver: IdentityResolver, private val clo
  * `GET /img/avatar/{did}/{cid}` redirects to `com.atproto.sync.getBlob` on the athlete's PDS. Only the athlete's current avatar is served,
  * so this can't be used to fetch arbitrary blobs. A CID names immutable content, so clients may cache the redirect.
  */
-fun Route.avatarRoutes(db: Database, pds: PdsLookup) {
-    get("${AvatarUrls.PATH}/{did}/{cid}") {
+fun Route.avatarRoutes(db: Database, pds: PdsLookup) =
+    blobRedirect(AvatarUrls.PATH, pds) { did, cid -> db.tx { isCurrentAvatar(did, cid) } }
+
+/** `GET /img/media/{did}/{cid}` redirects like [avatarRoutes], for a photo on one of the athlete's indexed activities. */
+fun Route.mediaRoutes(db: Database, pds: PdsLookup) = blobRedirect(MediaUrls.PATH, pds) { did, cid -> db.tx { isActivityMedia(did, cid) } }
+
+private fun Route.blobRedirect(path: String, pds: PdsLookup, isServed: suspend (did: String, cid: String) -> Boolean) {
+    get("$path/{did}/{cid}") {
         val did = call.parameters["did"]?.takeIf { it.isDid() }
         val cid = call.parameters["cid"]?.takeIf(ProfileDetailRules::isCid)
-        if (did == null || cid == null || !db.tx { isCurrentAvatar(did, cid) }) {
+        if (did == null || cid == null || !isServed(did, cid)) {
             call.respond(HttpStatusCode.NotFound)
             return@get
         }
@@ -87,3 +103,9 @@ fun Route.avatarRoutes(db: Database, pds: PdsLookup) {
 
 private fun JdbcTransaction.isCurrentAvatar(did: String, cid: String): Boolean =
     !Actors.select(Actors.did).where { (Actors.did eq did) and (Actors.avatarCid eq cid) }.empty()
+
+private fun JdbcTransaction.isActivityMedia(did: String, cid: String): Boolean =
+    !ActivityMediaBlobs.select(ActivityMediaBlobs.cid)
+        .where { (ActivityMediaBlobs.authorDid eq did) and (ActivityMediaBlobs.cid eq cid) }
+        .limit(1)
+        .empty()

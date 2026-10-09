@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.appview.api.ActivityStreamsViews
 import io.github.solcott.activitytracker.appview.api.ActorSearch
 import io.github.solcott.activitytracker.appview.api.AvatarUrls
 import io.github.solcott.activitytracker.appview.api.GraphViews
+import io.github.solcott.activitytracker.appview.api.MediaUrls
 import io.github.solcott.activitytracker.appview.api.PdsBlobStreamSource
 import io.github.solcott.activitytracker.appview.api.PdsLookup
 import io.github.solcott.activitytracker.appview.api.PrivateDetails
@@ -13,6 +14,7 @@ import io.github.solcott.activitytracker.appview.api.StreamSource
 import io.github.solcott.activitytracker.appview.api.Views
 import io.github.solcott.activitytracker.appview.api.XrpcError
 import io.github.solcott.activitytracker.appview.api.avatarRoutes
+import io.github.solcott.activitytracker.appview.api.mediaRoutes
 import io.github.solcott.activitytracker.appview.api.respondXrpcError
 import io.github.solcott.activitytracker.appview.api.wellKnownRoutes
 import io.github.solcott.activitytracker.appview.api.xrpcRoutes
@@ -100,7 +102,7 @@ fun Application.appView(
         wellKnownRoutes(config)
         val avatars = AvatarUrls(config.publicUrl)
         xrpcRoutes(
-            Views(db, avatars),
+            Views(db, avatars, MediaUrls(config.publicUrl)),
             GraphViews(db, avatars),
             ActorSearch(db, avatars),
             PrivateDetails(db),
@@ -108,5 +110,6 @@ fun Application.appView(
             verifier,
         )
         avatarRoutes(db, pds)
+        mediaRoutes(db, pds)
     }
 }

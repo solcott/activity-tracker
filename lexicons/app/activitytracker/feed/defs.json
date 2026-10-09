@@ -18,7 +18,21 @@
           "type": "array",
           "items": { "type": "ref", "ref": "#recordingView" },
           "description": "Other recordings of this activity (feed.activity#recordingOf), oldest first; absent when it has none."
+        },
+        "media": {
+          "type": "array",
+          "items": { "type": "union", "refs": ["#imageView"] },
+          "description": "The record's media, with URLs to load them from; absent when it has none."
         }
+      }
+    },
+    "imageView": {
+      "type": "object",
+      "required": ["fullsize"],
+      "properties": {
+        "fullsize": { "type": "string", "format": "uri", "description": "The photo as uploaded." },
+        "alt": { "type": "string" },
+        "aspectRatio": { "type": "ref", "ref": "app.activitytracker.feed.activity#aspectRatio" }
       }
     },
     "recordingView": {

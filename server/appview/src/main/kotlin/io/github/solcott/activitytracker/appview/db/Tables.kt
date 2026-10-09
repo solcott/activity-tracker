@@ -60,6 +60,16 @@ object Activities : Table("activities") {
     override val primaryKey = PrimaryKey(uri)
 }
 
+/** An activity's photos ([io.github.solcott.activitytracker.lexicon.app.ActivityRecord.media]), in order. */
+object ActivityMediaBlobs : Table("activity_media") {
+    val activityUri = varchar("activity_uri", 512)
+    val sortIndex = integer("sort_index")
+    val authorDid = varchar("author_did", 255)
+    val cid = varchar("cid", 255)
+    val mimeType = varchar("mime_type", 64)
+    override val primaryKey = PrimaryKey(activityUri, sortIndex)
+}
+
 object Kudos : Table("kudos") {
     val uri = varchar("uri", 512)
     val authorDid = varchar("author_did", 255)

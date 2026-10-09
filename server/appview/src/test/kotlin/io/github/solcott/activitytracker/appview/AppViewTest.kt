@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.appview.api.PdsLookup
 import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
@@ -9,7 +10,9 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
+import io.github.solcott.activitytracker.lexicon.app.ActivityMediaView
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
+import io.github.solcott.activitytracker.lexicon.app.AspectRatio
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
@@ -274,6 +277,49 @@ class AppViewTest {
         assertEquals(ActivitySensor.MAX, sensors.size)
         assertEquals(ActivitySensor(SensorType.HEART_RATE, "Garmin", "HRM 200"), sensors.first())
         assertEquals(128, sensors[1].model?.length, "an overlong model is clamped")
+    }
+
+    @Test
+    fun servesAnActivitysPhotosThroughRedirectsToThePds() = testApplication {
+        application { appView(config, db, verifier, PdsLookup { "http://pds.test" }) }
+        val uri = "at://$bob/${Nsid.FEED_ACTIVITY}/3kphotos"
+        fun photo(cid: String, mime: String = "image/webp") =
+            $$"""{"$type":"app.activitytracker.feed.activity#image","image":{"$type":"blob","ref":{"$link":"$$cid"},""" +
+                """"mimeType":"$mime","size":1024},"aspectRatio":{"width":4,"height":3}}"""
+        commit(
+            bob,
+            Nsid.FEED_ACTIVITY,
+            "3kphotos",
+            """{"sport":"dive","startedAt":"2026-09-30T10:00:00Z","elapsedTime":2700,"createdAt":"2026-09-30T10:50:00Z",""" +
+                """"dive":{"site":"${"x".repeat(700)}"},"media":[${photo("bafkone")},""" +
+                $$"""{"$type":"app.activitytracker.feed.activity#video","video":{}},$${photo("bafkgif", "image/gif")},""" +
+                """${photo("bafktwo", "image/jpeg")}]}""",
+        )
+
+        val activity =
+            AtJson.decodeFromString(GetActivity.Output.serializer(), client.get("/xrpc/${GetActivity.method.nsid}?uri=$uri").bodyAsText())
+                .activity
+        assertEquals(
+            listOf("${config.publicUrl}/img/media/$bob/bafkone", "${config.publicUrl}/img/media/$bob/bafktwo"),
+            activity.media.orEmpty().map { (it as ActivityMediaView.Image).fullsize },
+            "only photos of an allowed type are served",
+        )
+        assertEquals(AspectRatio(4, 3), (activity.media?.first() as ActivityMediaView.Image).aspectRatio)
+        assertEquals(ActivityDive.MAX_SITE_LENGTH, activity.record.dive?.site?.length, "an overlong site is clamped")
+
+        val noRedirects = createClient { followRedirects = false }
+        val redirect = noRedirects.get("/img/media/$bob/bafkone")
+        assertEquals(HttpStatusCode.Found, redirect.status)
+        assertEquals(
+            "http://pds.test/xrpc/com.atproto.sync.getBlob?did=did%3Aplc%3Abob&cid=bafkone",
+            redirect.headers[HttpHeaders.Location],
+        )
+        // Only a photo an indexed activity of that athlete shows: not another athlete's, nor one the record didn't allow.
+        assertEquals(HttpStatusCode.NotFound, noRedirects.get("/img/media/$alice/bafkone").status)
+        assertEquals(HttpStatusCode.NotFound, noRedirects.get("/img/media/$bob/bafkgif").status)
+
+        commit(bob, Nsid.FEED_ACTIVITY, "3kphotos", "", op = "delete")
+        assertEquals(HttpStatusCode.NotFound, noRedirects.get("/img/media/$bob/bafkone").status)
     }
 
     @Test

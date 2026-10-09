@@ -11,6 +11,8 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
+import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
+import io.github.solcott.activitytracker.lexicon.app.ActivityMediaView
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
@@ -48,7 +50,7 @@ import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 
 /** Read side: turns indexed rows into lexicon views. */
-class Views(private val db: Database, private val avatars: AvatarUrls) {
+class Views(private val db: Database, private val avatars: AvatarUrls, private val mediaUrls: MediaUrls) {
     suspend fun timeline(viewer: Did, params: GetTimeline.Params): GetTimeline.Output = db.tx {
         val authors =
             Follows.select(Follows.subjectDid).where { Follows.authorDid eq viewer.value }.map { it[Follows.subjectDid] } + viewer.value
@@ -211,16 +213,18 @@ class Views(private val db: Database, private val avatars: AvatarUrls) {
 
         return rows.mapNotNull { row ->
             val uri = row[Activities.uri]
+            val record = AtJson.decodeFromString(ActivityRecord.serializer(), row[Activities.record])
             ActivityView(
                 uri = AtUri(uri),
                 cid = Cid(row[Activities.cid]),
                 author = authors[row[Activities.authorDid]] ?: return@mapNotNull null,
-                record = AtJson.decodeFromString(ActivityRecord.serializer(), row[Activities.record]),
+                record = record,
                 kudosCount = kudosCounts[uri] ?: 0,
                 commentCount = commentCounts[uri] ?: 0,
                 indexedAt = Instant.fromEpochMilliseconds(row[Activities.indexedAt]),
                 viewer = viewer?.let { ActivityViewerState(kudos = viewerKudos[uri]?.let(::AtUri)) },
                 recordings = recordings[uri],
+                media = mediaViews(mediaUrls, row[Activities.authorDid], record.media),
             )
         }
     }
@@ -275,3 +279,10 @@ class XrpcError(val status: Int, val error: String, override val message: String
 
 /** A recording's device as `#recordingView` allows it: the record's own is untrusted. */
 private const val MAX_DEVICE_LENGTH = 256
+
+/** The indexer kept only photos it can serve (see `Indexer.boundedPhotos`). */
+private fun mediaViews(urls: MediaUrls, author: String, media: List<ActivityMedia>?): List<ActivityMediaView>? =
+    media
+        ?.filterIsInstance<ActivityMedia.Image>()
+        ?.map { ActivityMediaView.Image(fullsize = urls.url(author, it.image.ref.link), alt = it.alt, aspectRatio = it.aspectRatio) }
+        ?.ifEmpty { null }

@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.appview.index
 
 import io.github.solcott.activitytracker.appview.ProfileDetailRules
 import io.github.solcott.activitytracker.appview.db.Activities
+import io.github.solcott.activitytracker.appview.db.ActivityMediaBlobs
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.appview.db.ActorPrivateDetails
 import io.github.solcott.activitytracker.appview.db.Actors
@@ -15,6 +16,7 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
+import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
@@ -28,6 +30,7 @@ import kotlinx.serialization.json.JsonObject
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
+import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import org.jetbrains.exposed.v1.jdbc.update
@@ -151,6 +154,7 @@ class Indexer(
     }
 
     private fun JdbcTransaction.upsertActivity(record: ActivityRecord, author: Did, uri: AtUri, cid: String, now: Long) {
+        val photos = boundedPhotos(record.media)
         Activities.upsert {
             it[Activities.uri] = uri.value
             it[Activities.cid] = cid
@@ -158,7 +162,7 @@ class Indexer(
             it[Activities.record] =
                 AtJson.encodeToString(
                     ActivityRecord.serializer(),
-                    record.copy(sensors = boundedSensors(record.sensors), dive = boundedDive(record.dive)),
+                    record.copy(sensors = boundedSensors(record.sensors), dive = boundedDive(record.dive), media = photos),
                 )
             it[sport] = record.sport.take(MAX_SPORT_LENGTH)
             it[subSport] = record.subSport?.take(MAX_SPORT_LENGTH)
@@ -171,6 +175,14 @@ class Indexer(
                     ?.takeIf { of -> of.authority == author.value && of.collection == Nsid.FEED_ACTIVITY && of.rkey != null && of != uri }
                     ?.value
                     ?.takeIf { of -> of.length <= MAX_URI_LENGTH }
+        }
+        ActivityMediaBlobs.deleteWhere { activityUri eq uri.value }
+        ActivityMediaBlobs.batchInsert(photos.orEmpty().withIndex()) { (position, photo) ->
+            this[ActivityMediaBlobs.activityUri] = uri.value
+            this[ActivityMediaBlobs.sortIndex] = position
+            this[ActivityMediaBlobs.authorDid] = author.value
+            this[ActivityMediaBlobs.cid] = photo.image.ref.link
+            this[ActivityMediaBlobs.mimeType] = photo.image.mimeType
         }
     }
 
@@ -212,6 +224,7 @@ class Indexer(
         when (collection) {
             Nsid.FEED_ACTIVITY -> {
                 Activities.deleteWhere { Activities.uri eq uri.value }
+                ActivityMediaBlobs.deleteWhere { activityUri eq uri.value }
             }
 
             Nsid.FEED_ACTIVITY_STREAMS -> {
@@ -266,6 +279,7 @@ class Indexer(
 
     private suspend fun deleteActor(did: Did) = db.tx {
         Activities.deleteWhere { authorDid eq did.value }
+        ActivityMediaBlobs.deleteWhere { authorDid eq did.value }
         ActivityStreams.deleteWhere { authorDid eq did.value }
         dropOrphanedStreamData()
         Kudos.deleteWhere { authorDid eq did.value }
@@ -296,4 +310,28 @@ private fun boundedDive(dive: ActivityDive?): ActivityDive? =
                 ActivityDiveGas(it.oxygen.coerceIn(0, ActivityDiveGas.MAX_PERCENT), it.helium.coerceIn(0, ActivityDiveGas.MAX_PERCENT))
             },
         tanks = dive.tanks?.take(ActivityDive.MAX_TANKS),
+        site = dive.site?.take(ActivityDive.MAX_SITE_LENGTH),
     )
+
+/**
+ * Records are untrusted: keep only photos the lexicon allows, with a real CID, and drop media kinds this AppView can't serve (they stay in
+ * the athlete's repo).
+ */
+private fun boundedPhotos(media: List<ActivityMedia>?): List<ActivityMedia.Image>? =
+    media
+        ?.take(ActivityMedia.MAX)
+        ?.filterIsInstance<ActivityMedia.Image>()
+        ?.filter {
+            it.image.mimeType in PHOTO_TYPES &&
+                it.image.size in 1..ActivityMedia.Image.MAX_BYTES &&
+                ProfileDetailRules.isCid(it.image.ref.link)
+        }
+        ?.map { photo ->
+            photo.copy(
+                alt = photo.alt?.take(ActivityMedia.Image.MAX_ALT_LENGTH),
+                aspectRatio = photo.aspectRatio?.takeIf { it.width > 0 && it.height > 0 },
+            )
+        }
+        ?.ifEmpty { null }
+
+private val PHOTO_TYPES = setOf("image/webp", "image/jpeg")

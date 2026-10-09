@@ -54,6 +54,8 @@ data class ActivityView(
     val viewer: ActivityViewerState? = null,
     /** Other recordings of this activity ([ActivityRecord.recordingOf]), oldest first; null when it has none. */
     val recordings: List<RecordingView>? = null,
+    /** [record]'s media, with URLs to load them from; null when it has none. */
+    val media: List<ActivityMediaView>? = null,
 )
 
 @Immutable @Serializable data class ActivityViewerState(val kudos: AtUri? = null)

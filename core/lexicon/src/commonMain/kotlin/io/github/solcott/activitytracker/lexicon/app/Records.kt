@@ -261,7 +261,9 @@ data class ActivityRecord(
      * show the activity once and list this among its [ActivityView.recordings].
      */
     val recordingOf: AtUri? = null,
-    @SerialName("\$type") val type: String = Nsid.FEED_ACTIVITY,
+    /** Photos, in the athlete's order. At most [ActivityMedia.MAX]. */
+    val media: List<ActivityMedia>? = null,
+    @SerialName($$"$type") val type: String = Nsid.FEED_ACTIVITY,
 )
 
 /**
@@ -284,7 +286,7 @@ data class ActivityStreamsRecord(
     val data: BlobRef? = null,
     val heartRateZones: ZoneSnapshot? = null,
     val powerZones: ZoneSnapshot? = null,
-    @SerialName("\$type") val type: String = Nsid.FEED_ACTIVITY_STREAMS,
+    @SerialName($$"$type") val type: String = Nsid.FEED_ACTIVITY_STREAMS,
 ) {
     companion object {
         const val MAX_CHANNELS = 16
@@ -426,11 +428,14 @@ data class ActivityDive(
     val rmv: Long? = null,
     /** One per tank a pressure transmitter was on. At most [MAX_TANKS]. */
     val tanks: List<ActivityDiveTank>? = null,
+    /** The dive site's name, never its coordinates: records are public. At most [MAX_SITE_LENGTH]. */
+    val site: String? = null,
 ) {
     companion object {
         /** The lexicon's `maxLength`s. */
         const val MAX_GASES = 10
         const val MAX_TANKS = 8
+        const val MAX_SITE_LENGTH = 640
     }
 }
 
@@ -472,7 +477,7 @@ object SensorType {
 data class KudosRecord(
     val subject: StrongRef,
     val createdAt: Instant,
-    @SerialName("\$type") val type: String = Nsid.FEED_KUDOS,
+    @SerialName($$"$type") val type: String = Nsid.FEED_KUDOS,
 )
 
 @Serializable
@@ -480,14 +485,14 @@ data class CommentRecord(
     val subject: StrongRef,
     val text: String,
     val createdAt: Instant,
-    @SerialName("\$type") val type: String = Nsid.FEED_COMMENT,
+    @SerialName($$"$type") val type: String = Nsid.FEED_COMMENT,
 )
 
 @Serializable
 data class FollowRecord(
     val subject: Did,
     val createdAt: Instant,
-    @SerialName("\$type") val type: String = Nsid.GRAPH_FOLLOW,
+    @SerialName($$"$type") val type: String = Nsid.GRAPH_FOLLOW,
 )
 
 /** `app.activitytracker.actor.profile`. Records are public, so [details] holds only the details the athlete made public. */
@@ -500,7 +505,7 @@ data class ProfileRecord(
     val units: String? = null,
     val sports: List<String> = emptyList(),
     val createdAt: Instant? = null,
-    @SerialName("\$type") val type: String = Nsid.ACTOR_PROFILE,
+    @SerialName($$"$type") val type: String = Nsid.ACTOR_PROFILE,
 ) {
     companion object {
         const val RKEY = "self"

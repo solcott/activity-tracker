@@ -53,6 +53,12 @@
             "description": "Sensors paired with the recording device. Make and model only: never serial numbers or battery state."
           },
           "dive": { "type": "ref", "ref": "#dive", "description": "The dive computer's summary, for a dive." },
+          "media": {
+            "type": "array",
+            "maxLength": 10,
+            "items": { "type": "union", "refs": ["#image"] },
+            "description": "Photos of the activity, in the order the athlete arranged them. An open union: later clients may add other kinds (such as video), which older ones keep as they are."
+          },
           "recordingOf": {
             "type": "string",
             "format": "at-uri",
@@ -81,7 +87,27 @@
         "otu": { "type": "integer", "minimum": 0, "description": "Whole-body oxygen exposure, in oxygen toxicity units." },
         "sac": { "type": "integer", "minimum": 0, "description": "Air consumption by tank pressure, adjusted to the surface, in millibar per minute." },
         "rmv": { "type": "integer", "minimum": 0, "description": "Air consumption by volume (respiratory minute volume), in milliliters per minute." },
-        "tanks": { "type": "array", "maxLength": 8, "items": { "type": "ref", "ref": "#diveTank" }, "description": "One per tank a pressure transmitter was on." }
+        "tanks": { "type": "array", "maxLength": 8, "items": { "type": "ref", "ref": "#diveTank" }, "description": "One per tank a pressure transmitter was on." },
+        "site": { "type": "string", "maxLength": 640, "maxGraphemes": 64, "description": "The dive site's name. Never its coordinates: records are public." }
+      }
+    },
+    "image": {
+      "type": "object",
+      "description": "A photo, re-encoded by the client (which drops its metadata, location included).",
+      "required": ["image"],
+      "properties": {
+        "image": { "type": "blob", "accept": ["image/webp", "image/jpeg"], "maxSize": 2000000 },
+        "alt": { "type": "string", "maxLength": 3000, "maxGraphemes": 300, "description": "Alt text describing the photo." },
+        "aspectRatio": { "type": "ref", "ref": "#aspectRatio" }
+      }
+    },
+    "aspectRatio": {
+      "type": "object",
+      "description": "Width and height in any unit, for laying out the photo before it loads.",
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
       }
     },
     "diveGas": {
