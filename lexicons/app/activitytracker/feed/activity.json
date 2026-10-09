@@ -52,6 +52,7 @@
             "items": { "type": "ref", "ref": "#sensor" },
             "description": "Sensors paired with the recording device. Make and model only: never serial numbers or battery state."
           },
+          "dive": { "type": "ref", "ref": "#dive", "description": "The dive computer's summary, for a dive." },
           "recordingOf": {
             "type": "string",
             "format": "at-uri",
@@ -59,6 +60,45 @@
           },
           "createdAt": { "type": "string", "format": "datetime" }
         }
+      }
+    },
+    "dive": {
+      "type": "object",
+      "description": "A dive's summary as the dive computer logged it. Every field is optional.",
+      "properties": {
+        "maxDepth": { "type": "integer", "minimum": 0, "description": "Centimeters below the surface." },
+        "avgDepth": { "type": "integer", "minimum": 0, "description": "Centimeters below the surface." },
+        "minTemperature": { "type": "integer", "description": "The coldest water, in tenths of a degree Celsius. May be negative." },
+        "bottomTime": { "type": "integer", "minimum": 0, "description": "Seconds from leaving the surface to the start of the final ascent." },
+        "surfaceInterval": { "type": "integer", "minimum": 0, "description": "Seconds at the surface since the previous dive." },
+        "diveNumber": { "type": "integer", "minimum": 0, "description": "The dive computer's own count." },
+        "closedCircuit": { "type": "boolean", "description": "Breathed from a closed-circuit rebreather for at least part of the dive." },
+        "gases": { "type": "array", "maxLength": 10, "items": { "type": "ref", "ref": "#diveGas" }, "description": "Each gas breathed, in order of first use." },
+        "gradientFactorLow": { "type": "integer", "minimum": 0, "description": "Percent." },
+        "gradientFactorHigh": { "type": "integer", "minimum": 0, "description": "Percent." },
+        "startCns": { "type": "integer", "minimum": 0, "description": "Central nervous system oxygen toxicity at the start, in percent of the limit." },
+        "endCns": { "type": "integer", "minimum": 0, "description": "Central nervous system oxygen toxicity at the end, in percent of the limit." },
+        "otu": { "type": "integer", "minimum": 0, "description": "Whole-body oxygen exposure, in oxygen toxicity units." },
+        "sac": { "type": "integer", "minimum": 0, "description": "Air consumption by tank pressure, adjusted to the surface, in millibar per minute." },
+        "rmv": { "type": "integer", "minimum": 0, "description": "Air consumption by volume (respiratory minute volume), in milliliters per minute." },
+        "tanks": { "type": "array", "maxLength": 8, "items": { "type": "ref", "ref": "#diveTank" }, "description": "One per tank a pressure transmitter was on." }
+      }
+    },
+    "diveGas": {
+      "type": "object",
+      "description": "A breathing gas, in whole percents. Air is 21/0.",
+      "required": ["oxygen", "helium"],
+      "properties": {
+        "oxygen": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "helium": { "type": "integer", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "diveTank": {
+      "type": "object",
+      "properties": {
+        "startPressure": { "type": "integer", "minimum": 0, "description": "Millibar." },
+        "endPressure": { "type": "integer", "minimum": 0, "description": "Millibar." },
+        "volumeUsed": { "type": "integer", "minimum": 0, "description": "Liters of gas used, at the surface." }
       }
     },
     "sensor": {

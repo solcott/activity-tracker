@@ -1,5 +1,8 @@
 package io.github.solcott.activitytracker.lexicon
 
+import io.github.solcott.activitytracker.lexicon.app.ActivityDive
+import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
+import io.github.solcott.activitytracker.lexicon.app.ActivityDiveTank
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
@@ -85,6 +88,26 @@ class RecordSerializationTest {
         assertTrue("""{"kind":"power","manufacturer":"SRAM"}""" in json, "a missing model is omitted: $json")
         assertEquals(ride, AtJson.decodeFromString(ActivityRecord.serializer(), json))
         assertFalse("sensors" in AtJson.encodeToString(ActivityRecord.serializer(), record))
+    }
+
+    @Test
+    fun diveRoundTripsAndOmitsItsNulls() {
+        val dive =
+            record.copy(
+                sport = Sport.DIVE,
+                dive =
+                    ActivityDive(
+                        maxDepth = 3012,
+                        minTemperature = -15,
+                        gases = listOf(ActivityDiveGas(32, 0)),
+                        tanks = listOf(ActivityDiveTank(startPressure = 200_000, endPressure = 60_000)),
+                    ),
+            )
+        val json = AtJson.encodeToString(ActivityRecord.serializer(), dive)
+        assertTrue(""""dive":{"maxDepth":3012,"minTemperature":-15,"gases":[{"oxygen":32,"helium":0}]""" in json, json)
+        assertFalse("avgDepth" in json || "volumeUsed" in json, json)
+        assertEquals(dive, AtJson.decodeFromString(ActivityRecord.serializer(), json))
+        assertFalse("\"dive\"" in AtJson.encodeToString(ActivityRecord.serializer(), record))
     }
 
     @Test

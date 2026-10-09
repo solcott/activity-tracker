@@ -254,6 +254,8 @@ data class ActivityRecord(
     val subSport: String? = null,
     /** Sensors paired with [device]: make and model only, never serial numbers or battery state. At most [ActivitySensor.MAX]. */
     val sensors: List<ActivitySensor>? = null,
+    /** The dive computer's summary, for a dive. */
+    val dive: ActivityDive? = null,
     /**
      * Another recording (a backup dive computer's, say) of the athlete's own activity at this URI, which isn't itself a recording. Feeds
      * show the activity once and list this among its [ActivityView.recordings].
@@ -388,6 +390,68 @@ data class ActivitySensor(
         const val MAX = 16
     }
 }
+
+/** `app.activitytracker.feed.activity#dive`: a dive's summary as the dive computer logged it. */
+@Serializable
+data class ActivityDive(
+    /** Centimeters below the surface. */
+    val maxDepth: Long? = null,
+    /** Centimeters below the surface. */
+    val avgDepth: Long? = null,
+    /** The coldest water, in tenths of a degree Celsius; may be negative. */
+    val minTemperature: Long? = null,
+    /** Seconds from leaving the surface to the start of the final ascent. */
+    val bottomTime: Long? = null,
+    /** Seconds at the surface since the previous dive. */
+    val surfaceInterval: Long? = null,
+    /** The dive computer's own count. */
+    val diveNumber: Int? = null,
+    /** Breathed from a closed-circuit rebreather for at least part of the dive. */
+    val closedCircuit: Boolean? = null,
+    /** Each gas breathed, in order of first use. At most [MAX_GASES]. */
+    val gases: List<ActivityDiveGas>? = null,
+    /** Percent. */
+    val gradientFactorLow: Int? = null,
+    /** Percent. */
+    val gradientFactorHigh: Int? = null,
+    /** Central nervous system oxygen toxicity at the start, in percent of the limit. */
+    val startCns: Int? = null,
+    /** Central nervous system oxygen toxicity at the end, in percent of the limit. */
+    val endCns: Int? = null,
+    /** Whole-body oxygen exposure, in oxygen toxicity units. */
+    val otu: Int? = null,
+    /** Air consumption by tank pressure, adjusted to the surface, in millibar per minute. */
+    val sac: Long? = null,
+    /** Air consumption by volume (respiratory minute volume), in milliliters per minute. */
+    val rmv: Long? = null,
+    /** One per tank a pressure transmitter was on. At most [MAX_TANKS]. */
+    val tanks: List<ActivityDiveTank>? = null,
+) {
+    companion object {
+        /** The lexicon's `maxLength`s. */
+        const val MAX_GASES = 10
+        const val MAX_TANKS = 8
+    }
+}
+
+/** `app.activitytracker.feed.activity#diveGas`: whole percents; air is 21/0. */
+@Serializable
+data class ActivityDiveGas(val oxygen: Int, val helium: Int) {
+    companion object {
+        const val MAX_PERCENT = 100
+    }
+}
+
+/** `app.activitytracker.feed.activity#diveTank`. */
+@Serializable
+data class ActivityDiveTank(
+    /** Millibar. */
+    val startPressure: Long? = null,
+    /** Millibar. */
+    val endPressure: Long? = null,
+    /** Liters of gas used, at the surface. */
+    val volumeUsed: Long? = null,
+)
 
 /** Known values of [ActivitySensor.kind], an open string. */
 object SensorType {

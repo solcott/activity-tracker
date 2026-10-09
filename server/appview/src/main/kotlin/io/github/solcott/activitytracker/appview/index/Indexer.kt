@@ -13,6 +13,8 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityDive
+import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
@@ -154,7 +156,10 @@ class Indexer(
             it[Activities.cid] = cid
             it[authorDid] = author.value
             it[Activities.record] =
-                AtJson.encodeToString(ActivityRecord.serializer(), record.copy(sensors = boundedSensors(record.sensors)))
+                AtJson.encodeToString(
+                    ActivityRecord.serializer(),
+                    record.copy(sensors = boundedSensors(record.sensors), dive = boundedDive(record.dive)),
+                )
             it[sport] = record.sport.take(MAX_SPORT_LENGTH)
             it[subSport] = record.subSport?.take(MAX_SPORT_LENGTH)
             it[startedAt] = record.startedAt.toEpochMilliseconds()
@@ -282,3 +287,13 @@ class Indexer(
         const val MAX_SENSOR_NAME_LENGTH = 128
     }
 }
+
+/** Records are untrusted: hold a dive's lists and gas percents to the lexicon's limits before serving them. */
+private fun boundedDive(dive: ActivityDive?): ActivityDive? =
+    dive?.copy(
+        gases =
+            dive.gases?.take(ActivityDive.MAX_GASES)?.map {
+                ActivityDiveGas(it.oxygen.coerceIn(0, ActivityDiveGas.MAX_PERCENT), it.helium.coerceIn(0, ActivityDiveGas.MAX_PERCENT))
+            },
+        tanks = dive.tanks?.take(ActivityDive.MAX_TANKS),
+    )
