@@ -621,6 +621,15 @@
     <string name="duplicate_action_merge">Merge</string>
     <string name="detail_recordings">Also recorded by</string>
     <string name="detail_recording_unnamed">Another device</string>
+    <!-- A recording whose file named no device, by when it started relative to the activity. -->
+    <plurals name="detail_recording_unnamed_later">
+        <item quantity="one">Another device, started %1$d min later</item>
+        <item quantity="other">Another device, started %1$d min later</item>
+    </plurals>
+    <plurals name="detail_recording_unnamed_earlier">
+        <item quantity="one">Another device, started %1$d min earlier</item>
+        <item quantity="other">Another device, started %1$d min earlier</item>
+    </plurals>
     <string name="detail_recording_of">Another device's recording of an activity</string>
     <string name="detail_open_recorded">See the activity</string>
     <string name="duplicate_action_group">Group</string>

@@ -15,9 +15,15 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.detail_open_recorded
 import io.github.solcott.activitytracker.composeApp.resources.detail_recording_of
 import io.github.solcott.activitytracker.composeApp.resources.detail_recording_unnamed
+import io.github.solcott.activitytracker.composeApp.resources.detail_recording_unnamed_earlier
+import io.github.solcott.activitytracker.composeApp.resources.detail_recording_unnamed_later
 import io.github.solcott.activitytracker.composeApp.resources.detail_recordings
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.RecordingView
+import kotlin.math.abs
+import kotlin.time.Instant
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -35,10 +41,22 @@ internal fun Recordings(activity: ActivityView, onOpen: (AtUri) -> Unit, modifie
             Link(stringResource(Res.string.detail_open_recorded)) { onOpen(recordingOf) }
         } else {
             Text(stringResource(Res.string.detail_recordings), style = MaterialTheme.typography.labelLarge)
-            recordings.forEach { recording ->
-                Link(recording.device ?: stringResource(Res.string.detail_recording_unnamed)) { onOpen(recording.uri) }
-            }
+            recordings.forEach { recording -> Link(recordingName(recording, activity.record.startedAt)) { onOpen(recording.uri) } }
         }
+    }
+}
+
+/** The recording's device; or, for a file that named none, when it started next to [activityStart], to tell such recordings apart. */
+@Composable
+private fun recordingName(recording: RecordingView, activityStart: Instant): String {
+    recording.device?.let {
+        return it
+    }
+    val minutes = (recording.startedAt - activityStart).inWholeMinutes.toInt()
+    return when {
+        minutes > 0 -> pluralStringResource(Res.plurals.detail_recording_unnamed_later, minutes, minutes)
+        minutes < 0 -> pluralStringResource(Res.plurals.detail_recording_unnamed_earlier, abs(minutes), abs(minutes))
+        else -> stringResource(Res.string.detail_recording_unnamed)
     }
 }
 
