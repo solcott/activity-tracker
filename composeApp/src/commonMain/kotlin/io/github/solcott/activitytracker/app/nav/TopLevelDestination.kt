@@ -1,7 +1,9 @@
 package io.github.solcott.activitytracker.app.nav
 
 import com.slack.circuit.runtime.screen.Screen
+import io.github.solcott.activitytracker.app.edit.EditActivityScreen
 import io.github.solcott.activitytracker.app.feed.FeedScreen
+import io.github.solcott.activitytracker.app.media.MediaGalleryScreen
 import io.github.solcott.activitytracker.app.profile.EditProfileScreen
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
@@ -37,7 +39,7 @@ enum class TopLevelDestination(val label: StringResource, val icon: AppIcon) {
          * Whether the tab bar, rail or sidebar shows over [top], the screen on top of the stack. Not over a flow with its own finish
          * (recording, adding or importing an activity, editing the profile), which takes the whole window.
          */
-        fun showsNavigation(top: Screen): Boolean = top !in FullScreenFlows
+        fun showsNavigation(top: Screen): Boolean = top !in FullScreenFlows && top !is EditActivityScreen && top !is MediaGalleryScreen
 
         private val FullScreenFlows = setOf(RecordScreen, ManualActivityScreen, ImportActivityScreen, EditProfileScreen)
     }

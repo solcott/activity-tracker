@@ -21,6 +21,8 @@ import io.github.solcott.activitytracker.activityfile.FitDecoder
 import io.github.solcott.activitytracker.activityfile.SensorBattery
 import io.github.solcott.activitytracker.activityfile.SensorKind
 import io.github.solcott.activitytracker.activityfile.TimeZones
+import io.github.solcott.activitytracker.app.edit.DetailsEvent
+import io.github.solcott.activitytracker.app.edit.PickedPhoto
 import io.github.solcott.activitytracker.app.record.CadencePreview
 import io.github.solcott.activitytracker.app.record.DefaultTitle
 import io.github.solcott.activitytracker.app.record.DepthPreviewPoint
@@ -54,6 +56,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
 import kotlinx.io.bytestring.ByteString
@@ -146,6 +149,31 @@ class ImportActivityPresenterTest {
         assertEquals(152, record.getValue("avgHeartRate").jsonPrimitive.int)
         assertEquals("Garmin Fenix 7", record.getValue("device").jsonPrimitive.content)
         assertTrue("track" in record, "the GPS track is uploaded as a GPX blob")
+    }
+
+    @Test
+    fun aDescriptionAndPhotosPublishWithTheActivity() = runTest {
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ImportActivityScreen)
+        presenterTestOf({
+            ImportActivityPresenter(navigator, repos.activities, ActivityFileReader { run }, repos.recentTypes, repos.profiles, repos.feed)
+        }) {
+            awaitItem().eventSink(ImportActivityEvent.FilePicked("Morning_Run.FIT", bytes))
+            val read = awaitUntil { it.details != null }
+            val details = assertNotNull(read.details)
+            assertNull(details.diveSite, "a run has no dive site")
+            details.description.setTextAndPlaceCursorAtEnd("Easy loop")
+            details.eventSink(DetailsEvent.PhotosPicked(persistentListOf(PickedPhoto(ByteString(1, 2), "image/webp", 4, 3))))
+            awaitUntil { it.details?.media?.size == 1 }.eventSink(ImportActivityEvent.Save(defaultTitle = "Morning Run"))
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val record = fixture.putRecords.first()
+        assertEquals("Easy loop", record.getValue("description").jsonPrimitive.content)
+        val photo = record.getValue("media").jsonArray.single().jsonObject
+        assertEquals("app.activitytracker.feed.activity#image", photo.getValue("\$type").jsonPrimitive.content)
+        assertEquals("4", photo.getValue("aspectRatio").jsonObject.getValue("width").jsonPrimitive.content)
     }
 
     private val withSettings = run.copy(athlete = DecodedAthleteSettings(maxHeartRate = 188, functionalThresholdPower = 240))

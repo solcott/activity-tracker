@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.ui.ActivityDetailsForm
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.DepthProfile
 import io.github.solcott.activitytracker.app.ui.DiveFormat
@@ -27,7 +28,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
@@ -58,7 +58,6 @@ import io.github.solcott.activitytracker.composeApp.resources.dive_site
 import io.github.solcott.activitytracker.composeApp.resources.dive_surface_interval
 import io.github.solcott.activitytracker.composeApp.resources.dive_tank
 import io.github.solcott.activitytracker.composeApp.resources.dive_tank_numbered
-import io.github.solcott.activitytracker.composeApp.resources.field_title
 import io.github.solcott.activitytracker.composeApp.resources.import_hint
 import io.github.solcott.activitytracker.composeApp.resources.import_pick
 import io.github.solcott.activitytracker.composeApp.resources.import_pick_another
@@ -181,12 +180,8 @@ private fun PreviewForm(state: ImportActivityState, preview: ImportPreview, modi
             enabled = !state.saving,
         )
         val defaultTitle = state.defaultTitle?.let { defaultTitleLabel(it) }
-        AppTextField(
-            state.title,
-            label = stringResource(Res.string.field_title),
-            placeholder = defaultTitle,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        // Present whenever a single activity is: the title, description, dive site and photos.
+        state.details?.let { ActivityDetailsForm(state.title, titlePlaceholder = defaultTitle, fields = it, enabled = !state.saving) }
         if (state.thresholdChanges.isNotEmpty()) ThresholdChanges(state.thresholdChanges)
         if (preview.hasStreams) {
             Text(stringResource(Res.string.charts_visibility_heading), style = MaterialTheme.typography.labelLarge)

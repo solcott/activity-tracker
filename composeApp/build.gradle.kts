@@ -51,6 +51,7 @@ kotlin {
             implementation(libs.haze)
             implementation(libs.haze.blur)
             implementation(libs.vico.multiplatform)
+            implementation(libs.zoomimage.compose.coil3)
         }
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)
@@ -65,5 +66,7 @@ kotlin {
         // api so the framework can export it (see the framework block above).
         iosMain.dependencies { api(projects.coreActivityfile) }
         wasmJsMain.dependencies { implementation(libs.kotlinx.browser) }
+        // Skia's native library, for tests that encode images (PhotoCompressionTest).
+        jvmTest.dependencies { implementation(compose.desktop.currentOs) }
     }
 }

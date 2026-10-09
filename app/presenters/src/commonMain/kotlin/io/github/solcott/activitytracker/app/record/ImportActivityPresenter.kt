@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.activityfile.ImportedShifting
 import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.activityfile.UnsupportedActivityFileException
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.edit.rememberDetailsForm
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
@@ -64,6 +65,7 @@ fun ImportActivityPresenter(
     var selection by remember { mutableStateOf(DiveSelection()) }
     var type by rememberSaveable(stateSaver = ActivityTypeSaver) { mutableStateOf(ActivityType(Sport.OTHER)) }
     val title = rememberTextFieldState()
+    val details = rememberDetailsForm()
     // The title the last file filled in, so a file without one clears it but not what the athlete typed.
     var fileTitle by remember { mutableStateOf<String?>(null) }
     // Where a zone-less file's clock was; null for this device's zone.
@@ -113,6 +115,7 @@ fun ImportActivityPresenter(
         chartsVisibility,
         dives,
         own.check,
+        placed?.let { details.fields(isDive = type.sport == Sport.DIVE) },
     ) { event ->
         when (event) {
             is ImportActivityEvent.FilePicked -> {
@@ -136,6 +139,7 @@ fun ImportActivityPresenter(
                                 fileTitle != null && title.text.toString() == fileTitle -> title.clearText()
                             }
                             fileTitle = named
+                            details.seed(description = null, diveSite = first.dive?.siteName.takeIf { read.size == 1 })
                         }
                         .onFailure { e ->
                             error =
@@ -179,7 +183,13 @@ fun ImportActivityPresenter(
                     runSuspendCatching {
                         val text = title.text.toString().ifBlank { event.defaultTitle?.ifBlank { null } }
                         activities.saveSingle(
-                            importDraft(activity, type, text, training, thresholdChanges).copy(streamsVisibility = chartsVisibility),
+                            importDraft(activity, type, text, training, thresholdChanges)
+                                .withDetails(
+                                    description = details.description.text.toString(),
+                                    diveSite = details.diveSite.text.toString().takeIf { type.sport == Sport.DIVE },
+                                    photos = details.newPhotos(),
+                                )
+                                .copy(streamsVisibility = chartsVisibility),
                             into = mergeTarget(matches.firstOrNull(), selection.action(0)),
                             recordingOf = groupTarget(matches.firstOrNull(), selection.action(0)),
                         )

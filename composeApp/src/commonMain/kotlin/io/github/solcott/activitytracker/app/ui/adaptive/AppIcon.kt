@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.ui.adaptive
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
@@ -9,12 +10,14 @@ import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -51,9 +54,13 @@ enum class AppIcon(
     Calendar(Icons.Filled.DateRange, CupertinoIcons.calendar, "calendar"),
     Check(Icons.Filled.Check, CupertinoIcons.checkmark, "checkmark"),
     Chevron(Icons.AutoMirrored.Filled.KeyboardArrowRight, CupertinoIcons.chevronForward, "chevron.forward"),
+    ChevronBack(Icons.AutoMirrored.Filled.KeyboardArrowLeft, CupertinoIcons.chevronBack, "chevron.backward"),
     Delete(Icons.Filled.Delete, CupertinoIcons.trash, "trash"),
     More(Icons.Filled.MoreVert, CupertinoIcons.ellipsisCircle, "ellipsis.circle"),
     Ungroup(MaterialIcons.CallSplit, CupertinoIcons.arrowBranch, "arrow.branch"),
+    Close(Icons.Filled.Close, CupertinoIcons.xmark, "xmark"),
+    Location(Icons.Filled.Place, CupertinoIcons.location, "location"),
+    AddPhoto(Icons.Filled.Add, CupertinoIcons.photoOnRectangle, "photo.badge.plus"),
     DropDown(Icons.Filled.ArrowDropDown, CupertinoIcons.chevronUpChevronDown, "chevron.up.chevron.down"),
     ExpandAll(MaterialIcons.UnfoldMore, CupertinoIcons.rectangleExpandVertical, "rectangle.expand.vertical"),
     CollapseAll(MaterialIcons.UnfoldLess, CupertinoIcons.rectangleCompressVertical, "rectangle.compress.vertical"),

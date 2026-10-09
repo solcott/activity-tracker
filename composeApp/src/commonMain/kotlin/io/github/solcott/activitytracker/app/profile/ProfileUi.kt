@@ -142,6 +142,7 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
                         activity = activity,
                         onClick = { state.eventSink(ProfileEvent.Open(activity)) },
                         onAuthorClick = {},
+                        onOpenMedia = { state.eventSink(ProfileEvent.OpenMedia(activity, it)) },
                         onKudos = { state.eventSink(ProfileEvent.ToggleKudos(activity)) }.takeUnless { state.isSelf },
                     )
                 }

@@ -47,6 +47,8 @@ jsJodaTimezone = "2.22.0"
 kotlinxIo = "0.9.1"
 maplibreCompose = "0.19.0"
 filekit = "0.16.0"
+# ZoomImage: pinch, double-tap, wheel and keyboard zoom for Coil images on every client target (the media gallery).
+zoomimage = "1.7.0"
 # Garmin FIT SDK: the Java artifact (Maven) and the JS package (npm) share this version.
 garminFit = "21.218.0"
 xmlutil = "1.0.2.1"
@@ -127,6 +129,7 @@ compose-material-icons-core = { module = "org.jetbrains.compose.material:materia
 maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version.ref = "maplibreCompose" }
 maplibre-compose-runtime-opengl-android = { module = "org.maplibre.compose:maplibre-compose-runtime-opengl-android", version.ref = "maplibreCompose" }
 filekit-dialogs-compose = { module = "io.github.vinceglb:filekit-dialogs-compose", version.ref = "filekit" }
+zoomimage-compose-coil3 = { module = "io.github.panpf.zoomimage:zoomimage-compose-coil3", version.ref = "zoomimage" }
 garmin-fit = { module = "com.garmin:fit", version.ref = "garminFit" }
 xmlutil-core = { module = "io.github.pdvrieze.xmlutil:core", version.ref = "xmlutil" }
 

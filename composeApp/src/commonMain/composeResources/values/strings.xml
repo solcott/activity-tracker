@@ -642,6 +642,30 @@
         <item quantity="other">Delete all %1$d</item>
     </plurals>
     <string name="delete_activity_only_this">Delete only this one</string>
+    <string name="detail_edit">Edit</string>
+    <string name="edit_activity_title">Edit activity</string>
+    <string name="details_title_label">Title</string>
+    <string name="details_description_label">Description</string>
+    <string name="details_description_placeholder">How did it go?</string>
+    <string name="details_dive_site_label">Dive site</string>
+    <string name="details_photos_heading">Photos</string>
+    <string name="details_add_photos">Add photos</string>
+    <string name="details_preparing_photos">Preparing photos…</string>
+    <string name="details_remove_photo">Remove photo</string>
+    <plurals name="details_photos_count">
+        <item quantity="one">%1$d of %2$d photo</item>
+        <item quantity="other">%1$d of %2$d photos</item>
+    </plurals>
+    <string name="details_photo">Photo</string>
+    <string name="edit_discard_title">Discard your changes?</string>
+    <string name="edit_discard_message">What you changed here won't be saved.</string>
+    <string name="edit_discard">Discard</string>
+    <string name="import_dives_details_hint">To add a description or photos to a dive, open it once it's imported and choose Edit.</string>
+    <string name="media_counter">%1$d / %2$d</string>
+    <string name="media_close">Close</string>
+    <string name="media_previous">Previous photo</string>
+    <string name="media_next">Next photo</string>
+    <string name="media_zoom_hint">Tap to zoom</string>
     <plurals name="detail_recording_unnamed_earlier">
         <item quantity="one">Another device, started %1$d min earlier</item>
         <item quantity="other">Another device, started %1$d min earlier</item>

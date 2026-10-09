@@ -16,6 +16,8 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.edit.EditActivityScreen
+import io.github.solcott.activitytracker.app.media.MediaGalleryScreen
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.settings.TrainingZonesScreen
@@ -68,8 +70,11 @@ fun ActivityDetailPresenter(
             .onFailure { error = UiError.of(UiError.Kind.LoadActivity, it) }
     }
 
+    // An edit shows as soon as it's saved, and stays over the AppView's copy until Jetstream brings it there.
+    val rewrite by remember(screen.uri) { feed.rewrites.observe(AtUri(screen.uri)) }.collectAsState(null)
+
     val charts = rememberCharts(AtUri(screen.uri), loadKey, feed, activities, flights) { error = it }
-    val shown = activity?.withKudosOverrides(kudosOverrides)
+    val shown = activity?.let { a -> rewrite?.let { feed.rewrites.rewritten(a, it) } ?: a }?.withKudosOverrides(kudosOverrides)
     val isOwn = shown?.author?.did == profiles.did
     val sections = shown?.let { detailSections(it, charts.charts) } ?: persistentListOf()
     val expansion = rememberExpansion(sections)
@@ -86,20 +91,15 @@ fun ActivityDetailPresenter(
                 loadKey++
             }
 
-            ActivityDetailEvent.OpenAuthor -> {
-                current?.let { navigator.goTo(ProfileScreen(it.author.did.value)) }
-            }
+            ActivityDetailEvent.OpenAuthor,
+            is ActivityDetailEvent.OpenProfile,
+            is ActivityDetailEvent.OpenActivity,
+            ActivityDetailEvent.OpenTrainingZones,
+            ActivityDetailEvent.Edit,
+            is ActivityDetailEvent.OpenMedia -> navigator.open(event, screen.uri, current)
 
             ActivityDetailEvent.ToggleKudosList -> {
                 showKudos = !showKudos
-            }
-
-            is ActivityDetailEvent.OpenProfile -> {
-                navigator.goTo(ProfileScreen(event.did.value))
-            }
-
-            is ActivityDetailEvent.OpenActivity -> {
-                navigator.goTo(ActivityDetailScreen(event.uri.value))
             }
 
             ActivityDetailEvent.ToggleKudos -> {
@@ -107,8 +107,6 @@ fun ActivityDetailPresenter(
             }
 
             is ActivityDetailEvent.SetChartsVisibility -> charts.setVisibility(event.visibility)
-
-            ActivityDetailEvent.OpenTrainingZones -> navigator.goTo(TrainingZonesScreen)
 
             is ActivityDetailEvent.ToggleSection,
             ActivityDetailEvent.ToggleAll -> expansion.toggle(event)
@@ -350,4 +348,17 @@ private fun rememberKudosList(
             else -> listOfNotNull(me) + athletes
         }
     return KudosList(merged.toImmutableList(), loading, error)
+}
+
+/** Goes where [event] leads from the activity at [uri]; [current] is the activity, once loaded. */
+private fun Navigator.open(event: ActivityDetailEvent, uri: String, current: ActivityView?) {
+    when (event) {
+        ActivityDetailEvent.OpenAuthor -> current?.let { goTo(ProfileScreen(it.author.did.value)) }
+        is ActivityDetailEvent.OpenProfile -> goTo(ProfileScreen(event.did.value))
+        is ActivityDetailEvent.OpenActivity -> goTo(ActivityDetailScreen(event.uri.value))
+        ActivityDetailEvent.OpenTrainingZones -> goTo(TrainingZonesScreen)
+        ActivityDetailEvent.Edit -> goTo(EditActivityScreen(uri))
+        is ActivityDetailEvent.OpenMedia -> goTo(MediaGalleryScreen(uri, event.index))
+        else -> Unit
+    }
 }

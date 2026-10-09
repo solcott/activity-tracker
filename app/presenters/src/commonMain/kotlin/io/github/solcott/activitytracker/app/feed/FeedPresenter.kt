@@ -12,6 +12,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.media.MediaGalleryScreen
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.record.ManualActivityScreen
@@ -63,6 +64,10 @@ fun FeedPresenter(
 
             is FeedEvent.Open -> {
                 navigator.goTo(ActivityDetailScreen(event.activity.uri.value))
+            }
+
+            is FeedEvent.OpenMedia -> {
+                navigator.goTo(MediaGalleryScreen(event.activity.uri.value, event.index))
             }
 
             is FeedEvent.OpenAuthor -> {

@@ -31,6 +31,9 @@ sealed interface FeedEvent {
 
     data class OpenAuthor(val activity: ActivityView) : FeedEvent
 
+    /** Opens [activity]'s media full screen at [index]. */
+    data class OpenMedia(val activity: ActivityView, val index: Int) : FeedEvent
+
     data class ToggleKudos(val activity: ActivityView) : FeedEvent
 
     data object Record : FeedEvent

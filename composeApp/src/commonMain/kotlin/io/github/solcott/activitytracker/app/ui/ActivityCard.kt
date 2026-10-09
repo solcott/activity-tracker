@@ -11,12 +11,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.media.mediaItems
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
+import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.activity_card_counts
@@ -40,6 +44,8 @@ fun ActivityCard(
     onAuthorClick: () -> Unit,
     /** Null hides the kudos button, e.g. on the viewer's own activities. */
     onKudos: (() -> Unit)?,
+    /** Opens the activity's media full screen, at an index. */
+    onOpenMedia: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val record = activity.record
@@ -60,6 +66,10 @@ fun ActivityCard(
                 ActivityTypeIcon(record.activityType, contentDescription = typeLabel.takeIf { record.title != null })
                 Text(record.title ?: typeLabel, style = MaterialTheme.typography.titleMedium)
             }
+            record.dive?.site?.let { DiveSite(it) }
+            record.description?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
             StatsRow(
                 if (record.sport == Sport.DIVE) diveCardStats(record)
                 else
@@ -70,7 +80,12 @@ fun ActivityCard(
                         )
                         .toImmutableList()
             )
-            record.polyline?.let { RoutePreview(it) }
+            MediaRow(
+                remember(activity) { activity.mediaItems() },
+                onOpen = { onOpenMedia(it) },
+                height = 160.dp,
+                map = record.polyline?.let { polyline -> { mapModifier, mapHeight -> RoutePreview(polyline, mapModifier, mapHeight) } },
+            )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (onKudos != null) {
                     val given = activity.viewer?.kudos != null
@@ -107,5 +122,14 @@ fun StatsRow(stats: ImmutableList<Stat>, modifier: Modifier = Modifier) {
                 Text(value, style = MaterialTheme.typography.titleMedium)
             }
         }
+    }
+}
+
+/** A dive's site, by name, with a location pin. */
+@Composable
+fun DiveSite(name: String, modifier: Modifier = Modifier) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+        PlatformIcon(AppIcon.Location, contentDescription = null, size = 16.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

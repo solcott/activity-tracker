@@ -8,6 +8,7 @@ import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.activityfile.SensorBattery
 import io.github.solcott.activitytracker.activityfile.SensorKind
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.edit.ActivityDetailsFields
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.training.ThresholdChange
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
@@ -45,6 +46,8 @@ data class ImportActivityState(
     val dives: DiveBatch? = null,
     /** How the search for dives already in the athlete's log is going; saving waits for it. */
     val duplicateCheck: DuplicateCheck = DuplicateCheck.Done,
+    /** The description, dive site and photos of a single activity; null until a file is read, and for a logbook. */
+    val details: ActivityDetailsFields? = null,
     val eventSink: (ImportActivityEvent) -> Unit,
 ) : CircuitUiState
 

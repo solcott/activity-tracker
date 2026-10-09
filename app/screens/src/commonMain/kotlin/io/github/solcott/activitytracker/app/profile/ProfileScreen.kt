@@ -39,5 +39,8 @@ sealed interface ProfileEvent {
 
     data class Open(val activity: ActivityView) : ProfileEvent
 
+    /** Opens [activity]'s media full screen at [index]. */
+    data class OpenMedia(val activity: ActivityView, val index: Int) : ProfileEvent
+
     data class ToggleKudos(val activity: ActivityView) : ProfileEvent
 }

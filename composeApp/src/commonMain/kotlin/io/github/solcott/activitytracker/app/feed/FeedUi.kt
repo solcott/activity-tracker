@@ -126,6 +126,7 @@ private fun Timeline(state: FeedState, listState: LazyListState, contentPadding:
                     activity = activity,
                     onClick = { state.eventSink(FeedEvent.Open(activity)) },
                     onAuthorClick = { state.eventSink(FeedEvent.OpenAuthor(activity)) },
+                    onOpenMedia = { state.eventSink(FeedEvent.OpenMedia(activity, it)) },
                     onKudos =
                         { state.eventSink(FeedEvent.ToggleKudos(activity)) }.takeUnless { activity.author.did.value == state.viewerDid },
                 )

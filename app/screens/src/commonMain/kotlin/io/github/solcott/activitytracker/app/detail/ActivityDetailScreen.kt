@@ -124,4 +124,10 @@ sealed interface ActivityDetailEvent {
 
     /** The owner splits the two activities of a group apart: see [ActivityManage.canUngroup]. */
     data object Ungroup : ActivityDetailEvent
+
+    /** The owner edits the activity's title, description, dive site and photos. */
+    data object Edit : ActivityDetailEvent
+
+    /** Opens the activity's media full screen at [index]. */
+    data class OpenMedia(val index: Int) : ActivityDetailEvent
 }

@@ -23,6 +23,7 @@ import io.github.solcott.activitytracker.composeApp.resources.action_saving
 import io.github.solcott.activitytracker.composeApp.resources.charts_visibility_heading
 import io.github.solcott.activitytracker.composeApp.resources.dive_number
 import io.github.solcott.activitytracker.composeApp.resources.import_deselect_all
+import io.github.solcott.activitytracker.composeApp.resources.import_dives_details_hint
 import io.github.solcott.activitytracker.composeApp.resources.import_dives_found
 import io.github.solcott.activitytracker.composeApp.resources.import_dives_none
 import io.github.solcott.activitytracker.composeApp.resources.import_dives_save
@@ -45,6 +46,11 @@ internal fun DiveBatchForm(state: ImportActivityState, batch: DiveBatch, modifie
             TimeZoneNotice(clock, { state.eventSink(ImportActivityEvent.TimeZoneChanged(it)) }, enabled = !state.saving)
         }
         DuplicatesBanner(state.duplicateCheck, batch.existingDuplicates, batch.inFileDuplicates)
+        Text(
+            stringResource(Res.string.import_dives_details_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 stringResource(Res.string.import_dives_selected, batch.selectedCount, batch.dives.size),

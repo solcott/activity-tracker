@@ -11,6 +11,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.media.MediaGalleryScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.settings.SettingsScreen
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -56,6 +57,10 @@ fun ProfilePresenter(
 
             is ProfileEvent.Open -> {
                 navigator.goTo(ActivityDetailScreen(event.activity.uri.value))
+            }
+
+            is ProfileEvent.OpenMedia -> {
+                navigator.goTo(MediaGalleryScreen(event.activity.uri.value, event.index))
             }
 
             is ProfileEvent.ToggleKudos -> {

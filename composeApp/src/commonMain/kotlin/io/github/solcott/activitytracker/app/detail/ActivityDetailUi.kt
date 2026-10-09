@@ -15,21 +15,23 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.media.mediaItems
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
+import io.github.solcott.activitytracker.app.ui.DiveSite
 import io.github.solcott.activitytracker.app.ui.Format
+import io.github.solcott.activitytracker.app.ui.MediaRow
 import io.github.solcott.activitytracker.app.ui.Stat
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
@@ -157,10 +159,17 @@ private fun Overview(state: ActivityDetailState.Loaded, modifier: Modifier = Mod
                         )
                     }
                 }
+                record.dive?.site?.let { DiveSite(it, Modifier.padding(top = 2.dp)) }
                 record.description?.let { Text(it, Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium) }
             }
             StatTiles(overviewStats(record, state.charts))
-            record.polyline?.let { ActivityMap(it, Modifier.clip(RoundedCornerShape(12.dp))) }
+            val media = remember(state.activity) { state.activity.mediaItems() }
+            MediaRow(
+                media,
+                onOpen = { state.eventSink(ActivityDetailEvent.OpenMedia(it)) },
+                height = 240.dp,
+                map = record.polyline?.let { polyline -> { mapModifier, mapHeight -> ActivityMap(polyline, mapModifier, mapHeight) } },
+            )
             Recordings(state.activity, onOpen = { state.eventSink(ActivityDetailEvent.OpenActivity(it)) })
             state.manage?.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
             Kudos(state)
