@@ -36,6 +36,9 @@ interface ActivityStreamsStore {
 
     /** Changes who may see [activity]'s streams. Doesn't drain the outbox. */
     suspend fun setVisibility(activity: AtUri, visibility: String)
+
+    /** Queues removing [activity]'s streams, if it has any. Doesn't drain the outbox. */
+    suspend fun delete(activity: AtUri)
 }
 
 /** Writes streams as `feed.activityStreams` records under the activity's rkey, with the data as a JSON blob. */
@@ -76,6 +79,11 @@ class PdsActivityStreamsStore(private val writer: OutboxWriter, private val clie
             ActivityStreamsRecord.serializer(),
             record.copy(visibility = visibility),
         )
+    }
+
+    // Deleting a record that isn't there is a no-op on the PDS, so an activity without streams needs no check first.
+    override suspend fun delete(activity: AtUri) {
+        writer.delete(Nsid.FEED_ACTIVITY_STREAMS, requireNotNull(activity.rkey))
     }
 
     companion object {

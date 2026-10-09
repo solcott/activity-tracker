@@ -95,6 +95,8 @@ interface FeedDao {
 
     @Query("DELETE FROM feed_item WHERE feedKey = :feedKey") suspend fun clear(feedKey: String)
 
+    @Query("DELETE FROM feed_item WHERE uri = :uri") suspend fun deleteByUri(uri: String)
+
     @Transaction
     suspend fun replace(feedKey: String, items: List<FeedItemEntity>) {
         clear(feedKey)

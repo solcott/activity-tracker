@@ -5,6 +5,7 @@ import co.touchlab.kermit.Severity
 import co.touchlab.kermit.TestLogWriter
 import co.touchlab.kermit.loggerConfigInit
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
+import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
@@ -28,13 +29,16 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
+import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.PowerZoneModel
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.RecordingView
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.StreamChannel
 import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
+import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -60,6 +64,12 @@ class ActivityRepositoryTest {
     private val putBodies = mutableListOf<String>()
     private val deleteBodies = mutableListOf<String>()
 
+    /** Every write the PDS took, in order, as "put|delete collection/rkey". */
+    private val writes = mutableListOf<String>()
+
+    /** What the AppView's `getTimeline` serves. */
+    private var timeline: List<ActivityView> = emptyList()
+
     /** What `getRecord` serves for any activity, as JSON. */
     private var storedRecord: String = "{}"
 
@@ -68,6 +78,9 @@ class ActivityRepositoryTest {
 
     /** The session's feed, once [repository] made it. */
     private lateinit var feed: FeedRepository
+
+    /** Deletes and ungroups, once [repository] made it. */
+    private lateinit var manager: ActivityManager
 
     /** What the AppView's `getActivityStreams` serves; null for none. */
     private var storedStreams: GetActivityStreams.Output? = null
@@ -95,6 +108,7 @@ class ActivityRepositoryTest {
                             )
                         } else {
                             putBodies += (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+                            writes += "put " + putBodies.last().target()
                             respond("""{"uri":"at://$did/x/y","cid":"bafyrec"}""", headers = json)
                         }
                     }
@@ -127,8 +141,13 @@ class ActivityRepositoryTest {
                         )
                     }
 
+                    "/xrpc/${Nsid.FEED_GET_TIMELINE}" -> {
+                        respond(AtJson.encodeToString(GetTimeline.Output.serializer(), GetTimeline.Output(timeline)), headers = json)
+                    }
+
                     "/xrpc/com.atproto.repo.deleteRecord" -> {
                         deleteBodies += (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+                        writes += "delete " + deleteBodies.last().target()
                         respond("{}", headers = json)
                     }
 
@@ -146,17 +165,25 @@ class ActivityRepositoryTest {
         val outbox = OutboxProcessor(db, clients, logger)
         val localKudos = LocalKudos()
         feed = FeedRepository(db, clients, localKudos, logger)
+        val writer = OutboxWriter(db, clients, Clock.System)
+        val streams = PdsActivityStreamsStore(writer, clients, Clock.System)
+        manager = ActivityManager(db, clients, outbox, writer, streams, feed)
         return ActivityRepository(
             db,
             clients,
             outbox,
-            OutboxWriter(db, clients, Clock.System),
-            PdsActivityStreamsStore(OutboxWriter(db, clients, Clock.System), clients, Clock.System),
+            writer,
+            streams,
             feed,
             localKudos,
             RecentActivityTypes(db, clients, feed),
             Clock.System,
         )
+    }
+
+    private fun String.target(): String {
+        val body = AtJson.parseToJsonElement(this).jsonObject
+        return "${body["collection"]?.jsonPrimitive?.content}/${body["rkey"]?.jsonPrimitive?.content}"
     }
 
     private fun activityBy(author: Did) =
@@ -386,5 +413,83 @@ class ActivityRepositoryTest {
 
         assertTrue(putBodies.isEmpty())
         assertEquals(0, repo.pendingWrites.first())
+    }
+
+    private fun ownActivity(rkey: String) = activityBy(did).copy(uri = AtUri.of(did, Nsid.FEED_ACTIVITY, rkey))
+
+    private fun recording(rkey: String) = RecordingView(AtUri.of(did, Nsid.FEED_ACTIVITY, rkey), Instant.parse("2026-09-30T07:00:00Z"))
+
+    @Test
+    fun deletingAnActivityDeletesItsStreamsAndKeepsItOutOfTheFeedUntilTheAppViewCatchesUp() = runTest {
+        repository()
+        val activity = ownActivity("3kgone")
+        timeline = listOf(activity, ownActivity("3kkept"))
+        feed.refreshTimeline()
+
+        manager.delete(activity, withRecordings = false)
+
+        assertEquals(listOf("delete ${Nsid.FEED_ACTIVITY}/3kgone", "delete ${Nsid.FEED_ACTIVITY_STREAMS}/3kgone"), writes)
+        assertEquals(listOf("3kkept"), feed.timeline().first().map { it.uri.rkey })
+        feed.refreshTimeline()
+        assertEquals(listOf("3kkept"), feed.timeline().first().map { it.uri.rkey }, "Jetstream hasn't brought the AppView the delete yet")
+    }
+
+    @Test
+    fun deletingAGroupWithItsRecordingsDeletesEveryOne() = runTest {
+        repository()
+
+        manager.delete(ownActivity("3kmain").copy(recordings = listOf(recording("3krec1"), recording("3krec2"))), withRecordings = true)
+
+        assertEquals(
+            listOf("3krec1", "3krec2", "3kmain").flatMap {
+                listOf("delete ${Nsid.FEED_ACTIVITY}/$it", "delete ${Nsid.FEED_ACTIVITY_STREAMS}/$it")
+            },
+            writes,
+        )
+    }
+
+    @Test
+    fun deletingOnlyTheMainActivitySplitsItsRecordingsOffFirst() = runTest {
+        repository()
+        val main = ownActivity("3kmain")
+        storedRecord =
+            AtJson.encodeToString(
+                ActivityRecord.serializer(),
+                existingDive.copy(
+                    recordingOf = main.uri,
+                    track = BlobRef(ref = BlobRef.Link("bafytrack"), mimeType = "application/gpx+xml", size = 10),
+                ),
+            )
+
+        manager.delete(main.copy(recordings = listOf(recording("3krec1"))), withRecordings = false)
+
+        assertEquals(
+            listOf(
+                "put ${Nsid.FEED_ACTIVITY}/3krec1",
+                "delete ${Nsid.FEED_ACTIVITY}/3kmain",
+                "delete ${Nsid.FEED_ACTIVITY_STREAMS}/3kmain",
+            ),
+            writes,
+        )
+        val record =
+            AtJson.decodeFromJsonElement(ActivityRecord.serializer(), AtJson.parseToJsonElement(putBodies.single()).jsonObject["record"]!!)
+        assertEquals(null, record.recordingOf)
+        assertEquals("bafytrack", record.track?.ref?.link, "the recording keeps its track")
+    }
+
+    @Test
+    fun ungroupingDropsTheRecordingFromItsMainActivity() = runTest {
+        repository()
+        val main = ownActivity("3kmain").copy(recordings = listOf(recording("3krec1"), recording("3krec2")))
+        timeline = listOf(main)
+        feed.refreshTimeline()
+        storedRecord = AtJson.encodeToString(ActivityRecord.serializer(), existingDive.copy(recordingOf = main.uri))
+
+        manager.ungroup(recording("3krec1").uri, from = main.uri)
+
+        assertEquals(listOf("put ${Nsid.FEED_ACTIVITY}/3krec1"), writes)
+        assertEquals(listOf("3krec2"), feed.timeline().first().single().recordings?.map { it.uri.rkey })
+        feed.refreshTimeline()
+        assertEquals(listOf("3krec2"), feed.timeline().first().single().recordings?.map { it.uri.rkey }, "until the AppView catches up")
     }
 }

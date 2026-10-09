@@ -88,10 +88,7 @@ class ActivityRepository(
         feed.updateCached(existing.uri) { it.copy(record = merged) }
     }
 
-    private suspend fun currentRecord(rkey: String): ActivityRecord {
-        val output = clients.pds.query(GetRecord.method, GetRecord.Params(clients.did.value, Nsid.FEED_ACTIVITY, rkey))
-        return AtJson.decodeFromJsonElement(ActivityRecord.serializer(), output.value)
-    }
+    private suspend fun currentRecord(rkey: String): ActivityRecord = clients.ownActivityRecord(rkey)
 
     private suspend fun mergeStreams(activity: AtUri, draft: ActivityDraft, imported: ActivityStreamData, offsetSeconds: Int) {
         val have = feed.streams(activity)
@@ -182,4 +179,10 @@ class ActivityRepository(
         writer.put(collection, rkey, serializer, record, blob)
         outbox.drain()
     }
+}
+
+/** The signed-in athlete's activity [rkey] as their PDS has it now, rather than the AppView's copy, which may lag a write. */
+internal suspend fun SessionClients.ownActivityRecord(rkey: String): ActivityRecord {
+    val output = pds.query(GetRecord.method, GetRecord.Params(did.value, Nsid.FEED_ACTIVITY, rkey))
+    return AtJson.decodeFromJsonElement(ActivityRecord.serializer(), output.value)
 }

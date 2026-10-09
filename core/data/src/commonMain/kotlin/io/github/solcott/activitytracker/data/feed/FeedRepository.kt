@@ -39,24 +39,27 @@ class FeedRepository(
     /** Records the athlete rewrote this session, shown over the AppView's until it catches up: write one with [updateCached] too. */
     val rewrites = LocalRewrites()
 
+    /** Activities the athlete deleted and recordings they split off this session, left out until the AppView catches up. */
+    val deletes = LocalDeletes()
+
     fun timeline(): Flow<List<ActivityView>> = observe(TIMELINE)
 
     fun authorActivities(did: String): Flow<List<ActivityView>> = observe(authorKey(did))
 
     suspend fun refreshTimeline() {
         val output = clients.appView.query(GetTimeline.method, GetTimeline.Params())
-        db.feed().replace(TIMELINE, output.activities.toEntities(TIMELINE))
+        db.feed().replace(TIMELINE, deletes.filter(output.activities).toEntities(TIMELINE))
     }
 
     suspend fun refreshAuthor(actor: String) {
         val output = clients.appView.query(GetAuthorActivities.method, GetAuthorActivities.Params(actor))
         val did = output.activities.firstOrNull()?.author?.did?.value ?: actor
-        db.feed().replace(authorKey(did), output.activities.toEntities(authorKey(did)))
+        db.feed().replace(authorKey(did), deletes.filter(output.activities).toEntities(authorKey(did)))
     }
 
     suspend fun activity(uri: AtUri): GetActivity.Output {
         val output = clients.appView.query(GetActivity.method, GetActivity.Params(uri))
-        val activity = localKudos.applyTo(rewrites.applyTo(output.activity))
+        val activity = localKudos.applyTo(deletes.applyTo(rewrites.applyTo(output.activity)))
         updateCached(uri) { activity }
         return output.copy(activity = activity)
     }
