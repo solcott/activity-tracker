@@ -88,19 +88,25 @@ internal fun TimeSeriesChart(
     val labelsAbove = remember(pointLabels, label) { PointLabels(pointLabels.map { PointLabel(it.x, it.y, it.text, label) }, gap = 4.dp) }
     val chart =
         rememberCartesianChart(
-            *listOfNotNull(
-                    behind?.let { rememberBackdropLayer(it, xRange) },
-                    rememberLineCartesianLayer(
-                        LineCartesianLayer.LineProvider.series(line),
-                        rangeProvider =
-                            remember(minY, maxY, xRange) {
-                                CartesianLayerRangeProvider.fixed(minX = xRange.start, maxX = xRange.endInclusive, minY = minY, maxY = maxY)
-                            },
-                        // Its own scale, apart from the backdrop's.
-                        verticalAxisPosition = Axis.Position.Vertical.Start,
-                    ),
-                )
-                .toTypedArray(),
+            layers =
+                listOfNotNull(
+                        behind?.let { rememberBackdropLayer(it, xRange) },
+                        rememberLineCartesianLayer(
+                            LineCartesianLayer.LineProvider.series(line),
+                            rangeProvider =
+                                remember(minY, maxY, xRange) {
+                                    CartesianLayerRangeProvider.fixed(
+                                        minX = xRange.start,
+                                        maxX = xRange.endInclusive,
+                                        minY = minY,
+                                        maxY = maxY,
+                                    )
+                                },
+                            // Its own scale, apart from the backdrop's.
+                            verticalAxisPosition = Axis.Position.Vertical.Start,
+                        ),
+                    )
+                    .toTypedArray(),
             startAxis =
                 VerticalAxis.rememberStart(
                     line = null,
