@@ -52,6 +52,7 @@ class UseAdaptiveComponents(config: Config) :
                 "DropdownMenu" to "AppMenu",
                 "SingleChoiceSegmentedButtonRow" to "AppSegmentedControl",
                 "Switch" to "AppSwitch",
+                "Checkbox" to "AppCheckbox",
             )
     }
 }
