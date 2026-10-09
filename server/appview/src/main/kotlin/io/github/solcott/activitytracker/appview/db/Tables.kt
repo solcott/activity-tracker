@@ -55,6 +55,8 @@ object Activities : Table("activities") {
     val startedAt = long("started_at")
     val sortAt = long("sort_at")
     val indexedAt = long("indexed_at")
+    /** The athlete's own activity this one is another recording of; null for an activity in its own right. */
+    val recordingOf = varchar("recording_of", 512).nullable()
     override val primaryKey = PrimaryKey(uri)
 }
 

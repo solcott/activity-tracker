@@ -18,6 +18,7 @@ object Nsid {
     const val FEED_COMMENT = "$NAMESPACE.feed.comment"
     const val FEED_GET_TIMELINE = "$NAMESPACE.feed.getTimeline"
     const val FEED_GET_AUTHOR_ACTIVITIES = "$NAMESPACE.feed.getAuthorActivities"
+    const val FEED_GET_AUTHOR_ACTIVITIES_BY_START = "$NAMESPACE.feed.getAuthorActivitiesByStart"
     const val FEED_GET_ACTIVITY = "$NAMESPACE.feed.getActivity"
     const val FEED_GET_KUDOS = "$NAMESPACE.feed.getKudos"
     const val FEED_ACTIVITY_STREAMS = "$NAMESPACE.feed.activityStreams"

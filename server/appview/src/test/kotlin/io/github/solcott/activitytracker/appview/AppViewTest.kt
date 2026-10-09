@@ -9,6 +9,8 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
+import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
+import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
 import io.github.solcott.activitytracker.lexicon.app.GetFollowers
 import io.github.solcott.activitytracker.lexicon.app.GetFollows
 import io.github.solcott.activitytracker.lexicon.app.GetKudos
@@ -105,6 +107,102 @@ class AppViewTest {
         // Garbage records are ignored rather than failing the stream.
         commit(alice, Nsid.FEED_ACTIVITY, "3kbad", """{"sport":"run"}""")
         return activityUri
+    }
+
+    @Test
+    fun aRecordingShowsOnlyAmongItsActivitysRecordings() = testApplication {
+        application { appView(config, db, verifier) }
+        fun dive(did: String, rkey: String, startedAt: String, extra: String = "") =
+            commit(
+                did,
+                Nsid.FEED_ACTIVITY,
+                rkey,
+                """{"sport":"dive","startedAt":"$startedAt","elapsedTime":2700,"createdAt":"2026-10-01T00:00:00Z"$extra}""",
+            )
+        val primary = "at://$alice/${Nsid.FEED_ACTIVITY}/3kp"
+        dive(alice, "3kp", "2024-05-12T16:00:00Z", ""","device":"Garmin Descent Mk3"""")
+        dive(alice, "3kr", "2024-05-12T16:01:00Z", ""","device":"Shearwater Perdix","recordingOf":"$primary"""")
+        // A recording of a recording, and a "recording" of someone else's dive, show on their own.
+        dive(alice, "3kc", "2024-05-12T16:02:00Z", ""","recordingOf":"at://$alice/${Nsid.FEED_ACTIVITY}/3kr"""")
+        dive(alice, "3kx", "2024-05-12T18:00:00Z", ""","recordingOf":"at://$bob/${Nsid.FEED_ACTIVITY}/3kb"""")
+        // Its activity not indexed (deleted, say): it shows on its own.
+        dive(alice, "3ko", "2024-05-13T10:00:00Z", ""","recordingOf":"at://$alice/${Nsid.FEED_ACTIVITY}/3kgone"""")
+        // Links the indexer won't honor: to itself, to another collection, too long to store.
+        dive(alice, "3ks", "2024-05-14T10:00:00Z", ""","recordingOf":"at://$alice/${Nsid.FEED_ACTIVITY}/3ks"""")
+        dive(alice, "3kl", "2024-05-15T10:00:00Z", ""","recordingOf":"at://$alice/${Nsid.FEED_KUDOS}/3kp"""")
+        dive(alice, "3kz", "2024-05-16T10:00:00Z", ""","recordingOf":"$primary${"x".repeat(512)}"""")
+        // A recording's device is shown only as long as the view allows.
+        dive(alice, "3kv", "2024-05-12T16:03:00Z", ""","device":"${"d".repeat(300)}","recordingOf":"$primary"""")
+
+        val feed =
+            AtJson.decodeFromString(
+                GetAuthorActivities.Output.serializer(),
+                client.get("/xrpc/${GetAuthorActivities.method.nsid}?actor=$alice").bodyAsText(),
+            )
+        assertEquals(listOf("3kc", "3kl", "3ko", "3kp", "3ks", "3kx", "3kz"), feed.activities.mapNotNull { it.uri.rkey }.sorted())
+        val shown = feed.activities.single { it.uri.rkey == "3kp" }
+        assertEquals(listOf("3kr" to "Shearwater Perdix", "3kv" to "d".repeat(256)), shown.recordings?.map { it.uri.rkey to it.device })
+        assertEquals(null, feed.activities.single { it.uri.rkey == "3kx" }.recordings)
+
+        val recording = client.get("/xrpc/${GetActivity.method.nsid}?uri=at://$alice/${Nsid.FEED_ACTIVITY}/3kr")
+        assertEquals(HttpStatusCode.OK, recording.status, "a recording still opens on its own")
+
+        commit(alice, Nsid.FEED_ACTIVITY, "3kp", "", op = "delete")
+        val orphaned =
+            AtJson.decodeFromString(
+                GetAuthorActivities.Output.serializer(),
+                client.get("/xrpc/${GetAuthorActivities.method.nsid}?actor=$alice").bodyAsText(),
+            )
+        assertEquals(true, orphaned.activities.any { it.uri.rkey == "3kr" }, "with its activity deleted, a recording shows on its own")
+    }
+
+    @Test
+    fun authorActivitiesByStartReadsARangeOldestFirst() = testApplication {
+        application { appView(config, db, verifier) }
+        fun activity(did: String, rkey: String, sport: String, startedAt: String) =
+            commit(
+                did,
+                Nsid.FEED_ACTIVITY,
+                rkey,
+                """{"sport":"$sport","startedAt":"$startedAt","elapsedTime":2700,"createdAt":"2026-10-01T00:00:00Z"}""",
+            )
+        // Posted in one go, long after they happened: the range is on startedAt, not on when they were indexed.
+        activity(alice, "3kd3", "dive", "2024-05-12T20:30:00Z")
+        activity(alice, "3kd1", "dive", "2024-05-12T16:02:00Z")
+        activity(alice, "3kd2", "dive", "2024-05-12T16:02:00Z")
+        activity(alice, "3kr1", "run", "2024-05-12T12:00:00Z")
+        activity(alice, "3kd0", "dive", "2024-05-11T16:00:00Z")
+        activity(alice, "3kd4", "dive", "2024-05-13T00:00:00Z")
+        activity(bob, "3kb1", "dive", "2024-05-12T16:02:00Z")
+
+        val nsid = GetAuthorActivitiesByStart.method.nsid
+        suspend fun page(cursor: String?, sport: String? = "dive", limit: Int = 2): GetAuthorActivitiesByStart.Output {
+            val query =
+                listOfNotNull(
+                    "actor=$alice",
+                    "since=2024-05-12T00:00:00Z",
+                    "until=2024-05-13T00:00:00Z",
+                    "limit=$limit",
+                    sport?.let { "sport=$it" },
+                    cursor?.let { "cursor=${it.encodeURLParameter()}" },
+                )
+            val response = client.get("/xrpc/$nsid?${query.joinToString("&")}")
+            assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+            return AtJson.decodeFromString(GetAuthorActivitiesByStart.Output.serializer(), response.bodyAsText())
+        }
+
+        val first = page(null)
+        val second = page(first.cursor)
+        assertEquals(listOf("3kd1", "3kd2", "3kd3"), (first.activities + second.activities).map { it.uri.rkey })
+        assertEquals(null, second.cursor, "a short page is the last")
+        // One a page splits the two dives that started together: the cursor's uri breaks the tie.
+        val one = page(null, limit = 1)
+        val tied = page(one.cursor, limit = 1)
+        assertEquals(listOf("3kd1", "3kd2"), (one.activities + tied.activities).map { it.uri.rkey })
+        assertEquals(listOf("3kr1", "3kd1"), page(null, sport = null).activities.map { it.uri.rkey }, "every sport without a filter")
+
+        val backwards = client.get("/xrpc/$nsid?actor=$alice&since=2024-05-13T00:00:00Z&until=2024-05-12T00:00:00Z")
+        assertEquals(HttpStatusCode.BadRequest, backwards.status)
     }
 
     @Test

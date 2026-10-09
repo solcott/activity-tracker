@@ -66,6 +66,15 @@ class RecordSerializationTest {
     }
 
     @Test
+    fun recordingOfRoundTripsAndOlderRecordsLackIt() {
+        val recording = record.copy(recordingOf = AtUri("at://did:plc:alice/${Nsid.FEED_ACTIVITY}/3kprimary"))
+        val json = AtJson.encodeToString(ActivityRecord.serializer(), recording)
+        assertTrue("\"recordingOf\":\"at://did:plc:alice/${Nsid.FEED_ACTIVITY}/3kprimary\"" in json, json)
+        assertEquals(recording, AtJson.decodeFromString(ActivityRecord.serializer(), json))
+        assertFalse("recordingOf" in AtJson.encodeToString(ActivityRecord.serializer(), record))
+    }
+
+    @Test
     fun sensorsRoundTripAndOlderRecordsLackThem() {
         val ride =
             record.copy(

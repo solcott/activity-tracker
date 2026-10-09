@@ -13,7 +13,22 @@
         "kudosCount": { "type": "integer" },
         "commentCount": { "type": "integer" },
         "indexedAt": { "type": "string", "format": "datetime" },
-        "viewer": { "type": "ref", "ref": "#viewerState" }
+        "viewer": { "type": "ref", "ref": "#viewerState" },
+        "recordings": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "#recordingView" },
+          "description": "Other recordings of this activity (feed.activity#recordingOf), oldest first; absent when it has none."
+        }
+      }
+    },
+    "recordingView": {
+      "type": "object",
+      "description": "Another device's recording of an activity, which feeds don't show on its own.",
+      "required": ["uri", "startedAt"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "startedAt": { "type": "string", "format": "datetime" },
+        "device": { "type": "string", "maxLength": 256 }
       }
     },
     "viewerState": {

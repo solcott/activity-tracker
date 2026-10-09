@@ -254,6 +254,11 @@ data class ActivityRecord(
     val subSport: String? = null,
     /** Sensors paired with [device]: make and model only, never serial numbers or battery state. At most [ActivitySensor.MAX]. */
     val sensors: List<ActivitySensor>? = null,
+    /**
+     * Another recording (a backup dive computer's, say) of the athlete's own activity at this URI, which isn't itself a recording. Feeds
+     * show the activity once and list this among its [ActivityView.recordings].
+     */
+    val recordingOf: AtUri? = null,
     @SerialName("\$type") val type: String = Nsid.FEED_ACTIVITY,
 )
 

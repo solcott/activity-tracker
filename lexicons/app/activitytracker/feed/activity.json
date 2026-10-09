@@ -52,6 +52,11 @@
             "items": { "type": "ref", "ref": "#sensor" },
             "description": "Sensors paired with the recording device. Make and model only: never serial numbers or battery state."
           },
+          "recordingOf": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "Another recording of the activity at this URI, such as a backup dive computer's: the same athlete's, and not itself a recording. Feeds show the activity once, and its view lists the recordings. A link to anyone else's activity, or to a recording, is ignored."
+          },
           "createdAt": { "type": "string", "format": "datetime" }
         }
       }

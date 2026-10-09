@@ -52,9 +52,14 @@ data class ActivityView(
     val commentCount: Long,
     val indexedAt: Instant,
     val viewer: ActivityViewerState? = null,
+    /** Other recordings of this activity ([ActivityRecord.recordingOf]), oldest first; null when it has none. */
+    val recordings: List<RecordingView>? = null,
 )
 
 @Immutable @Serializable data class ActivityViewerState(val kudos: AtUri? = null)
+
+/** `app.activitytracker.feed.defs#recordingView`: another device's recording of an activity. */
+@Immutable @Serializable data class RecordingView(val uri: AtUri, val startedAt: Instant, val device: String? = null)
 
 /** `app.activitytracker.feed.defs#commentView` */
 @Immutable

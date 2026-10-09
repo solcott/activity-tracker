@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.lexicon.NoParamsSerializer
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.XrpcProcedure
 import io.github.solcott.activitytracker.lexicon.XrpcQuery
+import kotlin.time.Instant
 import kotlinx.serialization.Serializable
 
 object GetTimeline {
@@ -23,6 +24,26 @@ object GetAuthorActivities {
     @Serializable data class Output(val activities: List<ActivityView>, val cursor: String? = null)
 
     val method = XrpcQuery(Nsid.FEED_GET_AUTHOR_ACTIVITIES, Params.serializer(), Output.serializer())
+}
+
+/** An athlete's activities that started in [since, until), oldest first; finds what a file import would duplicate. */
+object GetAuthorActivitiesByStart {
+    @Serializable
+    data class Params(
+        val actor: String,
+        /** Inclusive. */
+        val since: Instant,
+        /** Exclusive. */
+        val until: Instant,
+        /** Only this [Sport]. */
+        val sport: String? = null,
+        val limit: Int? = null,
+        val cursor: String? = null,
+    )
+
+    @Serializable data class Output(val activities: List<ActivityView>, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.FEED_GET_AUTHOR_ACTIVITIES_BY_START, Params.serializer(), Output.serializer())
 }
 
 object GetActivity {

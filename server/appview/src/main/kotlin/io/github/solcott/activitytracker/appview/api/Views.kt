@@ -17,22 +17,28 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
+import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
 import io.github.solcott.activitytracker.lexicon.app.GetKudos
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewerState
+import io.github.solcott.activitytracker.lexicon.app.RecordingView
 import io.ktor.http.HttpStatusCode
 import kotlin.time.Instant
 import org.jetbrains.exposed.v1.core.Column
+import org.jetbrains.exposed.v1.core.NotExists
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.alias
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.countDistinct
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.max
 import org.jetbrains.exposed.v1.core.or
@@ -58,6 +64,33 @@ class Views(private val db: Database, private val avatars: AvatarUrls) {
             resolveActor(params.actor) ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
         val (views, cursor) = activityPage(Activities.authorDid eq did, params.limit, params.cursor, viewer)
         GetAuthorActivities.Output(views, cursor)
+    }
+
+    suspend fun authorActivitiesByStart(
+        viewer: Did?,
+        params: GetAuthorActivitiesByStart.Params,
+    ): GetAuthorActivitiesByStart.Output = db.tx {
+        val did =
+            resolveActor(params.actor) ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
+        val since = params.since.toEpochMilliseconds()
+        val until = params.until.toEpochMilliseconds()
+        if (until <= since) throw XrpcError(HttpStatusCode.BadRequest.value, "InvalidRequest", "until must be after since")
+        val sport = params.sport?.let { Activities.sport eq it } ?: Op.TRUE
+        val pageSize = Paging.clamp(params.limit)
+        val rows =
+            Activities.selectAll()
+                .where {
+                    (Activities.authorDid eq did) and
+                        (Activities.startedAt greaterEq since) and
+                        (Activities.startedAt less until) and
+                        sport and
+                        keysetAfter(Activities.startedAt, Activities.uri, params.cursor)
+                }
+                .orderBy(Activities.startedAt to SortOrder.ASC, Activities.uri to SortOrder.ASC)
+                .limit(pageSize)
+                .toList()
+        val next = rows.takeIf { it.size == pageSize }?.last()?.let { "${it[Activities.startedAt]}::${it[Activities.uri]}" }
+        GetAuthorActivitiesByStart.Output(hydrate(rows, viewer), next)
     }
 
     suspend fun activity(viewer: Did?, params: GetActivity.Params): GetActivity.Output = db.tx {
@@ -151,7 +184,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls) {
         val pageSize = Paging.clamp(limit)
         val rows =
             Activities.selectAll()
-                .where { filter and keysetBefore(Activities.sortAt, Activities.uri, cursor) }
+                .where { filter and shownInFeeds() and keysetBefore(Activities.sortAt, Activities.uri, cursor) }
                 .orderBy(Activities.sortAt to SortOrder.DESC, Activities.uri to SortOrder.DESC)
                 .limit(pageSize)
                 .toList()
@@ -174,6 +207,8 @@ class Views(private val db: Database, private val avatars: AvatarUrls) {
                 }
                 .orEmpty()
 
+        val recordings = recordingsOf(rows.filter { it[Activities.recordingOf] == null }.map { it[Activities.uri] })
+
         return rows.mapNotNull { row ->
             val uri = row[Activities.uri]
             ActivityView(
@@ -185,8 +220,41 @@ class Views(private val db: Database, private val avatars: AvatarUrls) {
                 commentCount = commentCounts[uri] ?: 0,
                 indexedAt = Instant.fromEpochMilliseconds(row[Activities.indexedAt]),
                 viewer = viewer?.let { ActivityViewerState(kudos = viewerKudos[uri]?.let(::AtUri)) },
+                recordings = recordings[uri],
             )
         }
+    }
+
+    /** Each of [primaries]' other recordings, oldest first. */
+    private fun JdbcTransaction.recordingsOf(primaries: List<String>): Map<String, List<RecordingView>> =
+        if (primaries.isEmpty()) {
+            emptyMap()
+        } else {
+            Activities.select(Activities.uri, Activities.recordingOf, Activities.startedAt, Activities.record)
+                .where { Activities.recordingOf inList primaries }
+                .orderBy(Activities.startedAt to SortOrder.ASC, Activities.uri to SortOrder.ASC)
+                .groupBy({ it[Activities.recordingOf].orEmpty() }) {
+                    val record = AtJson.decodeFromString(ActivityRecord.serializer(), it[Activities.record])
+                    RecordingView(
+                        AtUri(it[Activities.uri]),
+                        Instant.fromEpochMilliseconds(it[Activities.startedAt]),
+                        record.device?.take(MAX_DEVICE_LENGTH),
+                    )
+                }
+        }
+
+    /**
+     * Leaves out another recording of an activity that's indexed and is an activity in its own right: the feed shows that one, listing its
+     * recordings. A recording whose activity is gone, or is itself a recording, shows on its own.
+     */
+    private fun shownInFeeds(): Op<Boolean> {
+        val recorded = Activities.alias("recorded")
+        return Activities.recordingOf.isNull() or
+            NotExists(
+                recorded.select(recorded[Activities.uri]).where {
+                    (recorded[Activities.uri] eq Activities.recordingOf) and recorded[Activities.recordingOf].isNull()
+                }
+            )
     }
 
     private fun countBySubject(
@@ -204,3 +272,6 @@ class Views(private val db: Database, private val avatars: AvatarUrls) {
 
 class XrpcError(val status: Int, val error: String, override val message: String, override val cause: Throwable? = null) :
     Exception(message, cause)
+
+/** A recording's device as `#recordingView` allows it: the record's own is untrusted. */
+private const val MAX_DEVICE_LENGTH = 256

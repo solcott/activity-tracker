@@ -160,6 +160,12 @@ class Indexer(
             it[startedAt] = record.startedAt.toEpochMilliseconds()
             it[sortAt] = minOf(record.createdAt.toEpochMilliseconds(), now)
             it[indexedAt] = now
+            // Untrusted: a recording links only to another of its author's activities, and must fit the column.
+            it[recordingOf] =
+                record.recordingOf
+                    ?.takeIf { of -> of.authority == author.value && of.collection == Nsid.FEED_ACTIVITY && of.rkey != null && of != uri }
+                    ?.value
+                    ?.takeIf { of -> of.length <= MAX_URI_LENGTH }
         }
     }
 
@@ -267,6 +273,7 @@ class Indexer(
     // Records are untrusted, so free text is clamped to the lexicon maxLength (or the column size) before it's stored.
     private companion object {
         const val MAX_SPORT_LENGTH = 64
+        private const val MAX_URI_LENGTH = 512
         const val MAX_COMMENT_LENGTH = 10_000
         const val MAX_DISPLAY_NAME_LENGTH = 640
         const val MAX_DESCRIPTION_LENGTH = 2560

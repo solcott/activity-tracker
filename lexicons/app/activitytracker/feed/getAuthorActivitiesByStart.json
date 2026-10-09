@@ -1,0 +1,33 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.getAuthorActivitiesByStart",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "An athlete's activities that started in [since, until), oldest first: by when they happened, not when they were posted. Used to find activities a file import would duplicate.",
+      "parameters": {
+        "type": "params",
+        "required": ["actor", "since", "until"],
+        "properties": {
+          "actor": { "type": "string", "format": "at-identifier" },
+          "since": { "type": "string", "format": "datetime", "description": "Inclusive." },
+          "until": { "type": "string", "format": "datetime", "description": "Exclusive." },
+          "sport": { "type": "string", "description": "Only this sport, a feed.activity#sport value." },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 30 },
+          "cursor": { "type": "string" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["activities"],
+          "properties": {
+            "cursor": { "type": "string" },
+            "activities": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#activityView" } }
+          }
+        }
+      }
+    }
+  }
+}

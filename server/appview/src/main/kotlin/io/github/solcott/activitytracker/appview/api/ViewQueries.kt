@@ -9,6 +9,7 @@ import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.or
@@ -27,6 +28,12 @@ internal fun JdbcTransaction.resolveActor(actor: String): String? {
 internal fun keysetBefore(sort: Column<Long>, uri: Column<String>, cursor: String?): Op<Boolean> {
     val (sortValue, uriValue) = cursor?.let(::parseCursor) ?: return Op.TRUE
     return (sort less sortValue) or ((sort eq sortValue) and (uri less uriValue))
+}
+
+/** The ascending counterpart of [keysetBefore]: rows after the cursor's (sort, uri). */
+internal fun keysetAfter(sort: Column<Long>, uri: Column<String>, cursor: String?): Op<Boolean> {
+    val (sortValue, uriValue) = cursor?.let(::parseCursor) ?: return Op.TRUE
+    return (sort greater sortValue) or ((sort eq sortValue) and (uri greater uriValue))
 }
 
 /** Splits a `"<sort>::<key>"` cursor; null when it is malformed. */
