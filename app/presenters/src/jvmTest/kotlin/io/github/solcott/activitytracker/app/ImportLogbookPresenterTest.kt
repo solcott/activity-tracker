@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
@@ -251,8 +252,8 @@ class ImportLogbookPresenterTest {
             assertEquals(DuplicateAction.entries, duplicate.actions.toList(), "every action for a logged dive")
 
             checked.eventSink(ImportActivityEvent.DuplicateActionChanged(0, DuplicateAction.Merge))
-            val merging = awaitUntil { it.preview?.duplicate?.action == DuplicateAction.Merge }
-            assertTrue(MergeGain.Charts in merging.preview?.duplicate?.mergeGains.orEmpty())
+            // The logged dive has no charts, so it takes the file's once that's known.
+            val merging = awaitUntil { MergeGain.Charts in it.preview?.duplicate?.mergeGains.orEmpty() }
             merging.eventSink(ImportActivityEvent.Save("Morning Dive"))
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
@@ -263,6 +264,37 @@ class ImportLogbookPresenterTest {
         assertEquals(Instant.parse("2026-09-20T10:00:00Z"), merged.startedAt)
         assertNull(merged.device, "the UDDF names no computer, so there's none to add")
         assertEquals(SubSport.SINGLE_GAS, merged.subSport)
+    }
+
+    @Test
+    fun aMergeAddsNoChartsTheLoggedDiveAlreadyHas() = runTest {
+        val repos = fixture.repos()
+        fixture.ownActivities = listOf(loggedDive("2026-09-20T10:00:00Z"))
+        fixture.activityStreams = ActivityStreamData(time = listOf(0, 2400), temperature = listOf(260, 255), depth = listOf(0, 0))
+        presenterTestOf({
+            ImportActivityPresenter(
+                FakeNavigator(ImportActivityScreen),
+                repos.activities,
+                ActivityFileReader { error("not FIT") },
+                repos.recentTypes,
+                repos.profiles,
+                repos.feed,
+            )
+        }) {
+            awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook("10:02")))
+            awaitUntil { it.preview != null }.eventSink(ImportActivityEvent.TimeZoneChanged("UTC"))
+            val checked = awaitUntil { it.preview?.duplicate != null && it.duplicateCheck == DuplicateCheck.Done }
+            // Its charts aren't looked up until the athlete picks Merge.
+            assertTrue(MergeGain.AnyCharts in checked.preview?.duplicate?.mergeGains.orEmpty())
+
+            checked.eventSink(ImportActivityEvent.DuplicateActionChanged(0, DuplicateAction.Merge))
+            val loaded = awaitUntil {
+                val duplicate = it.preview?.duplicate
+                duplicate?.action == DuplicateAction.Merge && MergeGain.AnyCharts !in duplicate.mergeGains
+            }
+            assertTrue(MergeGain.Charts !in loaded.preview?.duplicate?.mergeGains.orEmpty(), "it has depth and temperature already")
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test

@@ -632,7 +632,8 @@
     <string name="merge_gain_water_temperature">water temperature</string>
     <string name="merge_gain_heart_rate">heart rate</string>
     <string name="merge_gain_track">the GPS track</string>
-    <string name="merge_gain_charts">any charts it lacks</string>
+    <string name="merge_gain_charts">the charts it lacks</string>
+    <string name="merge_gain_any_charts">any charts it lacks</string>
     <string name="merge_gains_last">%1$s and %2$s</string>
     <string name="import_recorded_with">Recorded with %1$s</string>
     <string name="import_time_zone_notice">This file logs local time with no time zone, so its start (%1$s) is read in the zone below. If it was recorded somewhere else, pick that zone so it saves at the right time.</string>

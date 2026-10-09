@@ -47,6 +47,20 @@ object ActivityMerge {
         )
     }
 
+    /** Whether [fillMissing] would add any of [other]'s channels to [existing]: all of them when there's no [existing] to fill. */
+    fun addsChannels(existing: ActivityStreamData?, other: ActivityStreamData): Boolean {
+        if (existing == null) return true
+        fun adds(have: List<Int?>?, extra: List<Int?>?) = have == null && extra != null
+        return adds(existing.distance, other.distance) ||
+            adds(existing.altitude, other.altitude) ||
+            adds(existing.speed, other.speed) ||
+            adds(existing.heartRate, other.heartRate) ||
+            adds(existing.power, other.power) ||
+            adds(existing.cadence, other.cadence) ||
+            adds(existing.temperature, other.temperature) ||
+            adds(existing.depth, other.depth)
+    }
+
     /** [data] with its times moved [offsetSeconds] later, for an activity that starts that much earlier; samples before it start go. */
     fun shifted(data: ActivityStreamData, offsetSeconds: Int): ActivityStreamData {
         if (offsetSeconds == 0) return data

@@ -28,6 +28,7 @@ import io.github.solcott.activitytracker.composeApp.resources.import_duplicates_
 import io.github.solcott.activitytracker.composeApp.resources.import_group_explained
 import io.github.solcott.activitytracker.composeApp.resources.import_merge_adds
 import io.github.solcott.activitytracker.composeApp.resources.import_merge_adds_nothing
+import io.github.solcott.activitytracker.composeApp.resources.merge_gain_any_charts
 import io.github.solcott.activitytracker.composeApp.resources.merge_gain_charts
 import io.github.solcott.activitytracker.composeApp.resources.merge_gain_device
 import io.github.solcott.activitytracker.composeApp.resources.merge_gain_heart_rate
@@ -125,7 +126,7 @@ private fun actionLabel(action: DuplicateAction): String =
         DuplicateAction.Group -> stringResource(Res.string.duplicate_action_group)
     }
 
-/** "Merging adds the device, water temperature and any charts it lacks to the logged dive…". */
+/** "Merging adds the device, water temperature and the charts it lacks to the logged dive…". */
 @Composable
 private fun mergeText(gains: ImmutableList<MergeGain>): String {
     if (gains.isEmpty()) return stringResource(Res.string.import_merge_adds_nothing)
@@ -146,5 +147,6 @@ private fun gainName(gain: MergeGain): String =
             MergeGain.HeartRate -> Res.string.merge_gain_heart_rate
             MergeGain.Track -> Res.string.merge_gain_track
             MergeGain.Charts -> Res.string.merge_gain_charts
+            MergeGain.AnyCharts -> Res.string.merge_gain_any_charts
         }
     )

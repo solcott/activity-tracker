@@ -43,15 +43,18 @@ internal data class DiveSelection(val deselected: Set<Int> = emptySet(), val act
 }
 
 /** The file's only activity ([placed] in [zone]), and whether it's a dive already in the athlete's log. */
+@Suppress("LongParameterList") // The preview is everything the screen knows about the file.
 internal fun singlePreview(
     placed: Pair<String, ImportedActivity>?,
     zone: TimeZone,
     zones: ImmutableList<TimeZoneOption>?,
     matches: List<DiveMatch?>,
     selection: DiveSelection,
+    streams: LoggedStreams,
 ): ImportPreview? {
     val (name, activity) = placed ?: return null
-    return activity.toPreview(name, zone, zones).copy(duplicate = duplicateInfo(activity, matches.firstOrNull(), selection.action(0), zone))
+    val duplicate = duplicateInfo(activity, matches.firstOrNull(), selection.action(0), zone, streams)
+    return activity.toPreview(name, zone, zones).copy(duplicate = duplicate)
 }
 
 /** A logbook's [dives], placed in [zone], as the athlete picks from them; null until a logbook ([fileName]) is read. */
@@ -63,6 +66,7 @@ internal fun diveBatch(
     matches: List<DiveMatch?>,
     zone: TimeZone,
     zones: ImmutableList<TimeZoneOption>?,
+    streams: LoggedStreams,
 ): DiveBatch? {
     if (fileName == null || dives == null) return null
     return DiveBatch(
@@ -82,7 +86,7 @@ internal fun diveBatch(
                         diveNumber = dive.dive?.diveNumber,
                         device = dive.device,
                         selected = selection.isSelected(index, match),
-                        duplicate = duplicateInfo(dive, match, selection.action(index), zone),
+                        duplicate = duplicateInfo(dive, match, selection.action(index), zone, streams),
                     )
                 }
                 .toImmutableList(),

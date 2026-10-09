@@ -83,16 +83,21 @@ fun ImportActivityPresenter(
     val own = rememberOwnDives(feed, file?.second)
     // Matched where the athlete placed the clock: a zone change can make or break a duplicate.
     val matches = remember(placed, placedDives, own) { importMatches(placed?.second, placedDives, own) }
+    // The logged dives' charts, once the athlete picks Merge, so the merge note can say whether it adds any.
+    val loggedStreams = rememberLoggedStreams(feed, remember(matches, selection) { mergeTargets(matches, selection) })
     // Keyed on the zone too: a zone with the same offset leaves the activity as it was.
-    val preview = remember(placed, zones, zone, matches, selection) { singlePreview(placed, zone, zones, matches, selection) }
+    val preview =
+        remember(placed, zones, zone, matches, selection, loggedStreams) {
+            singlePreview(placed, zone, zones, matches, selection, loggedStreams)
+        }
     val training = rememberOwnTraining(profiles)
     val thresholdChanges = remember(placed, training, type.sport) { pendingThresholds(training, placed?.second, type.sport) }
     val quickTypes = quickActivityTypes(recentTypes)
     val defaultTitle =
         placed?.second?.takeIf { it.title == null }?.let { DefaultTitle(partOfDay(it.startedAt.toLocalDateTime(zone).hour), type) }
     val dives =
-        remember(logbook, placedDives, selection, matches, zones, zone) {
-            diveBatch(logbook?.first, placedDives, selection, matches, zone, zones)
+        remember(logbook, placedDives, selection, matches, zones, zone, loggedStreams) {
+            diveBatch(logbook?.first, placedDives, selection, matches, zone, zones, loggedStreams)
         }
 
     return ImportActivityState(

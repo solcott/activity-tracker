@@ -8,18 +8,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.data.activity.ActivityMerge
 import io.github.solcott.activitytracker.data.activity.DiveMatch
 import io.github.solcott.activitytracker.data.activity.DiveMatcher
 import io.github.solcott.activitytracker.data.activity.DuplicateOf
 import io.github.solcott.activitytracker.data.activity.OwnActivity
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
-import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import kotlin.time.Duration.Companion.days
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.format
 import kotlinx.datetime.toLocalDateTime
@@ -49,35 +52,74 @@ internal fun rememberOwnDives(feed: FeedRepository, file: ImmutableList<Imported
     return own
 }
 
+/** Logged dives' streams by URI, as far as they've loaded: null for a dive without any. A dive not in the map isn't known yet. */
+internal typealias LoggedStreams = Map<AtUri, ActivityStreamData?>
+
+/** Loads the streams of each logged dive in [targets] once, so a merge into it can say whether it adds charts. */
+@Composable
+internal fun rememberLoggedStreams(feed: FeedRepository, targets: ImmutableSet<AtUri>): LoggedStreams {
+    var loaded by remember { mutableStateOf<LoggedStreams>(emptyMap()) }
+    LaunchedEffect(targets) {
+        // A failure leaves the dive unknown, and the note hedged.
+        for (uri in targets - loaded.keys) runSuspendCatching { feed.streams(uri)?.data }.onSuccess { loaded = loaded + (uri to it) }
+    }
+    return loaded
+}
+
+/** The indexed logged dives the athlete chose to merge into: only those have streams to read (see `ActivityRepository.mergeInto`). */
+internal fun mergeTargets(matches: List<DiveMatch?>, selection: DiveSelection): ImmutableSet<AtUri> =
+    matches.indices
+        .mapNotNull { index -> mergeTarget(matches[index], selection.action(index))?.takeIf { it.cid != null }?.uri }
+        .toImmutableSet()
+
 /** What each of the file's dives ([dives] for a logbook, else [single]) duplicates, among [own] dives and the file's own. */
 internal fun importMatches(single: ImportedActivity?, dives: List<ImportedActivity>?, own: OwnDives): List<DiveMatch?> =
     DiveMatcher.match(dives ?: listOfNotNull(single), own.activities.orEmpty())
 
 /** Why [match] makes [dive] a duplicate, for the screen to warn about. */
-internal fun duplicateInfo(dive: ImportedActivity, match: DiveMatch?, action: DuplicateAction, zone: TimeZone): DuplicateInfo? {
+internal fun duplicateInfo(
+    dive: ImportedActivity,
+    match: DiveMatch?,
+    action: DuplicateAction,
+    zone: TimeZone,
+    streams: LoggedStreams,
+): DuplicateInfo? {
     val of = match?.of ?: return null
-    val existing = (of as? DuplicateOf.Existing)?.activity?.record
+    val logged = (of as? DuplicateOf.Existing)?.activity
+    val existing = logged?.record
     return DuplicateInfo(
         existing = existing?.let { ExistingActivityPreview(it.title, it.startedAt.toLocalDateTime(zone).format(LOCAL_START), it.device) },
         inFileIndex = (of as? DuplicateOf.InFile)?.index,
         hoursApart = match.hoursApart,
         action = action,
         actions = if (existing != null) LOGGED_ACTIONS else IN_FILE_ACTIONS,
-        mergeGains = existing?.let { mergeGains(it, dive) } ?: persistentListOf(),
+        mergeGains = logged?.let { mergeGains(it, dive, streams) } ?: persistentListOf(),
     )
 }
 
-/** What merging [dive] into [existing] would fill in. */
-private fun mergeGains(existing: ActivityRecord, dive: ImportedActivity): ImmutableList<MergeGain> =
-    listOfNotNull(
+/** What merging [dive] into [logged] would fill in. */
+private fun mergeGains(logged: OwnActivity, dive: ImportedActivity, streams: LoggedStreams): ImmutableList<MergeGain> {
+    val existing = logged.record
+    return listOfNotNull(
             MergeGain.Device.takeIf { existing.device == null && dive.device != null },
             MergeGain.SubSport.takeIf { existing.subSport == null && dive.type.subSport != null },
             MergeGain.WaterTemperature.takeIf { existing.avgTemperature == null && dive.avgTemperatureCelsius != null },
             MergeGain.HeartRate.takeIf { existing.avgHeartRate == null && dive.avgHeartRate != null },
             MergeGain.Track.takeIf { existing.track == null && dive.samples.isNotEmpty() },
-            MergeGain.Charts.takeIf { dive.streams != null },
+            chartsGain(logged, dive, streams),
         )
         .toImmutableList()
+}
+
+/** Whether merging [dive] adds charts to [logged]: none to one still in the outbox, whose streams a merge leaves alone. */
+private fun chartsGain(logged: OwnActivity, dive: ImportedActivity, streams: LoggedStreams): MergeGain? {
+    val imported = dive.streams ?: return null
+    return when {
+        logged.cid == null -> null
+        logged.uri !in streams -> MergeGain.AnyCharts
+        else -> MergeGain.Charts.takeIf { ActivityMerge.addsChannels(streams[logged.uri], imported) }
+    }
+}
 
 /** Merging is into a logged dive; a dive twice in the file can be imported once, twice, or as two recordings of it. */
 private val LOGGED_ACTIONS =

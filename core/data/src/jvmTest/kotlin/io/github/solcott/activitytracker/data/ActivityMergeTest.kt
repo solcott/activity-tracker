@@ -6,6 +6,8 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 class ActivityMergeTest {
@@ -45,6 +47,16 @@ class ActivityMergeTest {
         assertEquals(listOf(80, 80, 90, 100, null), merged.heartRate, "nearest sample, none beyond 30 s")
         assertEquals(existing.depth, merged.depth, "never overwrites a channel")
         assertEquals(existing.temperature, merged.temperature)
+    }
+
+    @Test
+    fun addsChannelsOnlyWhenTheActivityLacksOne() {
+        val depth = ActivityStreamData(time = listOf(0, 10), depth = listOf(0, 500))
+        val depthAndTemperature = depth.copy(temperature = listOf(260, 255))
+        assertTrue(ActivityMerge.addsChannels(null, depth), "an activity without streams takes them all")
+        assertTrue(ActivityMerge.addsChannels(depth, depthAndTemperature))
+        assertFalse(ActivityMerge.addsChannels(depthAndTemperature, depth))
+        assertFalse(ActivityMerge.addsChannels(depthAndTemperature, depthAndTemperature))
     }
 
     @Test

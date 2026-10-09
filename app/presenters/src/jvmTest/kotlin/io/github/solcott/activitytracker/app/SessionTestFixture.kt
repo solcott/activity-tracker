@@ -14,10 +14,14 @@ import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -46,6 +50,9 @@ class SessionTestFixture {
 
     /** Alice's activities as the AppView's `getAuthorActivitiesByStart` serves them, whatever the range; null to fail. */
     var ownActivities: List<ActivityView>? = emptyList()
+
+    /** What `getActivityStreams` serves for any activity; null for none. */
+    var activityStreams: ActivityStreamData? = null
 
     /** What `getRecord` serves for any of Alice's activities, as JSON. */
     var activityRecord: String = "{}"
@@ -101,7 +108,14 @@ class SessionTestFixture {
                     }
 
                     "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" -> {
-                        respond("""{"error":"NotFound"}""", HttpStatusCode.BadRequest, json)
+                        val data = activityStreams
+                        if (data == null) {
+                            respond("""{"error":"NotFound"}""", HttpStatusCode.BadRequest, json)
+                        } else {
+                            val uri = AtUri(requireNotNull(request.url.parameters["uri"]))
+                            val output = GetActivityStreams.Output(uri, Visibility.PUBLIC, emptyList(), data)
+                            respond(AtJson.encodeToString(GetActivityStreams.Output.serializer(), output), headers = json)
+                        }
                     }
 
                     "/xrpc/com.atproto.server.getServiceAuth" -> {

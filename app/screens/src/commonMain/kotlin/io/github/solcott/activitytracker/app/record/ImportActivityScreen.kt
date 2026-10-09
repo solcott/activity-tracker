@@ -105,8 +105,10 @@ enum class MergeGain {
     WaterTemperature,
     HeartRate,
     Track,
-    /** Charts (depth, temperature…) the logged dive may lack; only channels it doesn't have are added. */
+    /** Charts (depth, temperature…) the logged dive lacks; only channels it doesn't have are added. */
     Charts,
+    /** The file's charts, for whichever the logged dive lacks: its own charts haven't loaded (or couldn't) to tell. */
+    AnyCharts,
 }
 
 /** Why a dive looks like a duplicate, and what the athlete chose to do with it. Exactly one of [existing] and [inFileIndex] is set. */
