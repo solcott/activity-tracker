@@ -4,9 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -48,13 +51,15 @@ internal fun SectionOverview(section: DetailSection, state: ActivityDetailState.
     when (section) {
         DetailSection.Device -> {
             val record = state.activity.record
-            StatTiles(
-                persistentListOf(
+            // A device's name runs long, so its tile takes what the sensor count leaves, and wraps rather than cut it off.
+            Row(modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(TILE_GAP)) {
+                StatTile(
                     Stat(stringResource(Res.string.detail_device), record.device ?: stringResource(Res.string.detail_device_unknown)),
-                    Stat(stringResource(Res.string.detail_sensor_count), "${record.sensors.orEmpty().size}"),
-                ),
-                modifier,
-            )
+                    Modifier.weight(1f).fillMaxHeight(),
+                    wrap = true,
+                )
+                StatTile(Stat(stringResource(Res.string.detail_sensor_count), "${record.sensors.orEmpty().size}"), Modifier.fillMaxHeight())
+            }
         }
 
         else -> StatTiles(chartOverview(section, state), modifier)
@@ -79,7 +84,7 @@ internal fun StatTiles(stats: ImmutableList<Stat>, modifier: Modifier = Modifier
 }
 
 @Composable
-private fun StatTile(stat: Stat, modifier: Modifier = Modifier) {
+private fun StatTile(stat: Stat, modifier: Modifier = Modifier, wrap: Boolean = false) {
     Column(
         modifier
             .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(12.dp))
@@ -97,7 +102,7 @@ private fun StatTile(stat: Stat, modifier: Modifier = Modifier) {
             stat.value,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
+            maxLines = if (wrap) Int.MAX_VALUE else 1,
             overflow = TextOverflow.Ellipsis,
         )
     }
