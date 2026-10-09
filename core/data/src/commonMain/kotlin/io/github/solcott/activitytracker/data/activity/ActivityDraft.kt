@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.data.activity
 
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
 import io.github.solcott.activitytracker.activityfile.StreamBuilder
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
@@ -43,6 +44,8 @@ data class ActivityDraft(
     /** The athlete's zones for this activity, kept with [streams]. */
     val heartRateZones: ZoneSnapshot? = null,
     val powerZones: ZoneSnapshot? = null,
+    /** The athlete's own activity this is another recording of ([ActivityRecord.recordingOf]). */
+    val recordingOf: AtUri? = null,
 ) {
     fun toRecord(createdAt: Instant): ActivityRecord =
         ActivityRecord(
@@ -67,6 +70,7 @@ data class ActivityDraft(
             polyline = polyline,
             device = device,
             sensors = sensors.take(ActivitySensor.MAX).ifEmpty { null },
+            recordingOf = recordingOf,
             createdAt = createdAt,
         )
 
@@ -92,6 +96,7 @@ data class ActivityDraft(
             streamsVisibility,
             heartRateZones,
             powerZones,
+            recordingOf,
         )
 
     override fun equals(other: Any?): Boolean =

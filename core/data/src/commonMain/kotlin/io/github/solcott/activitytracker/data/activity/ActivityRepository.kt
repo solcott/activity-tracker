@@ -8,13 +8,16 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalKudos
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
+import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.Tid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.KudosRecord
+import io.github.solcott.activitytracker.lexicon.atproto.GetRecord
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.activitytracker.location.Gpx
 import kotlin.time.Clock
@@ -46,6 +49,66 @@ class ActivityRepository(
     private val kudosMutex = Mutex()
 
     suspend fun publish(draft: ActivityDraft): AtUri {
+        val uri = queue(draft)
+        outbox.drain()
+        recentTypes.remember(draft.type)
+        return uri
+    }
+
+    /**
+     * Publishes [drafts] in order, like [publish] but draining the outbox once at the end: a dive logbook can hold hundreds. Every draft is
+     * queued before any is sent, so a failed upload leaves them all in the outbox to retry.
+     */
+    suspend fun publishAll(drafts: List<ActivityDraft>): List<AtUri> {
+        val uris = drafts.map { queue(it) }
+        outbox.drain()
+        drafts.map { it.type }.distinct().forEach { recentTypes.remember(it) }
+        return uris
+    }
+
+    /**
+     * Fills the gaps in the athlete's [existing] activity from [draft], another recording of it ([ActivityMerge]): its summary fields, its
+     * track, and its streams' channels. Doesn't drain the outbox, so a batch can queue several before [publishAll] or [sync] sends them.
+     *
+     * An activity still in the outbox ([OwnActivity.cid] null) gets only its record merged: its streams aren't readable until the AppView
+     * indexes them, and writing ours would replace them.
+     */
+    suspend fun mergeInto(existing: OwnActivity, draft: ActivityDraft) {
+        val rkey = requireNotNull(existing.uri.rkey)
+        val indexed = existing.cid != null
+        val current = if (indexed) currentRecord(rkey) else existing.record
+        val merged = ActivityMerge.fillGaps(current, draft.toRecord(clock.now()))
+        val track = draft.gpx?.takeIf { current.track == null }?.let { PendingBlob(it, Gpx.MIME_TYPE, field = "track") }
+        writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), merged, track)
+        val imported = draft.streams
+        // The draft's stream times count from its own start.
+        val offsetSeconds = (draft.startedAt - current.startedAt).inWholeSeconds.toInt()
+        if (indexed && imported != null) mergeStreams(existing.uri, draft, imported, offsetSeconds)
+        feed.updateCached(existing.uri) { it.copy(record = merged) }
+    }
+
+    private suspend fun currentRecord(rkey: String): ActivityRecord {
+        val output = clients.pds.query(GetRecord.method, GetRecord.Params(clients.did.value, Nsid.FEED_ACTIVITY, rkey))
+        return AtJson.decodeFromJsonElement(ActivityRecord.serializer(), output.value)
+    }
+
+    private suspend fun mergeStreams(activity: AtUri, draft: ActivityDraft, imported: ActivityStreamData, offsetSeconds: Int) {
+        val have = feed.streams(activity)
+        val data =
+            have?.data?.let { ActivityMerge.fillMissing(it, imported, offsetSeconds) } ?: ActivityMerge.shifted(imported, offsetSeconds)
+        if (data == have?.data) return
+        streams.put(
+            activity,
+            ActivityStreams(
+                data,
+                have?.visibility ?: draft.streamsVisibility,
+                have?.heartRateZones ?: draft.heartRateZones,
+                have?.powerZones ?: draft.powerZones,
+            ),
+        )
+    }
+
+    private suspend fun queue(draft: ActivityDraft): AtUri {
         val rkey = Tid.next(clock)
         val uri = AtUri.of(clients.did, Nsid.FEED_ACTIVITY, rkey)
         writer.put(
@@ -56,8 +119,6 @@ class ActivityRepository(
             blob = draft.gpx?.let { PendingBlob(it, Gpx.MIME_TYPE, field = "track") },
         )
         draft.streams?.let { streams.put(uri, ActivityStreams(it, draft.streamsVisibility, draft.heartRateZones, draft.powerZones)) }
-        outbox.drain()
-        recentTypes.remember(draft.type)
         return uri
     }
 

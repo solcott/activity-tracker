@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
+import io.github.solcott.activitytracker.data.activity.OwnActivity
 import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -25,6 +26,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
+import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.PowerZoneModel
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -56,6 +58,12 @@ class ActivityRepositoryTest {
     private var failWrites = false
     private val putBodies = mutableListOf<String>()
     private val deleteBodies = mutableListOf<String>()
+
+    /** What `getRecord` serves for any activity, as JSON. */
+    private var storedRecord: String = "{}"
+
+    /** What the AppView's `getActivityStreams` serves; null for none. */
+    private var storedStreams: GetActivityStreams.Output? = null
     private val logs = TestLogWriter(Severity.Verbose)
     private val logger = Logger(loggerConfigInit(logs))
 
@@ -81,6 +89,26 @@ class ActivityRepositoryTest {
                         } else {
                             putBodies += (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
                             respond("""{"uri":"at://$did/x/y","cid":"bafyrec"}""", headers = json)
+                        }
+                    }
+
+                    "/xrpc/com.atproto.repo.getRecord" -> {
+                        respond(
+                            """{"uri":"at://$did/${Nsid.FEED_ACTIVITY}/3kexisting","cid":"bafyold","value":$storedRecord}""",
+                            headers = json,
+                        )
+                    }
+
+                    "/xrpc/com.atproto.server.getServiceAuth" -> {
+                        respond("""{"token":"service-jwt"}""", headers = json)
+                    }
+
+                    "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" -> {
+                        val streams = storedStreams
+                        if (streams == null) {
+                            respond("""{"error":"NotFound"}""", HttpStatusCode.BadRequest, json)
+                        } else {
+                            respond(AtJson.encodeToString(GetActivityStreams.Output.serializer(), streams), headers = json)
                         }
                     }
 
@@ -166,6 +194,93 @@ class ActivityRepositoryTest {
         assertEquals("5012", record["distance"]?.jsonPrimitive?.content)
         assertEquals(SubSport.TRAIL, record["subSport"]?.jsonPrimitive?.content)
         assertTrue("bafyblob" in record["track"].toString())
+    }
+
+    @Test
+    fun publishAllQueuesEveryDraftBeforeSendingAny() = runTest {
+        val repo = repository()
+        fun dive(hour: Int) =
+            ActivityDraft(
+                type = ActivityType(Sport.DIVE, SubSport.SINGLE_GAS),
+                title = "Dive $hour",
+                description = null,
+                startedAt = Instant.parse("2024-05-12T${hour}:00:00Z"),
+                elapsed = 45.minutes,
+            )
+
+        failWrites = true
+        val uris = repo.publishAll(listOf(dive(10), dive(14), dive(18)))
+        assertEquals(3, uris.distinct().size)
+        assertEquals(3, repo.pendingWrites.first(), "all queued, none lost to the failed upload")
+
+        failWrites = false
+        assertEquals(0, repo.sync())
+        val titles = putBodies.map { AtJson.parseToJsonElement(it).jsonObject["record"]!!.jsonObject["title"]?.jsonPrimitive?.content }
+        assertEquals(listOf("Dive 10", "Dive 14", "Dive 18"), titles)
+        assertEquals(uris.map { it.rkey }, putBodies.map { AtJson.parseToJsonElement(it).jsonObject["rkey"]?.jsonPrimitive?.content })
+    }
+
+    private val existingDive =
+        ActivityRecord(
+            sport = Sport.DIVE,
+            startedAt = Instant.parse("2024-05-12T16:00:00Z"),
+            elapsedTime = 2700,
+            createdAt = Instant.parse("2024-05-13T00:00:00Z"),
+            title = "Blue Hole",
+            description = "Sharks!",
+            subSport = SubSport.SINGLE_GAS,
+            avgTemperature = 245,
+        )
+
+    /** The same dive from a second computer, whose clock started 10 s later. */
+    private val secondComputer =
+        ActivityDraft(
+            type = ActivityType(Sport.DIVE, SubSport.MULTI_GAS),
+            title = "Morning Dive",
+            description = null,
+            startedAt = Instant.parse("2024-05-12T16:00:10Z"),
+            elapsed = 44.minutes,
+            avgTemperatureCelsius = 26.0,
+            device = "Shearwater Perdix",
+            streams = ActivityStreamData(time = listOf(0, 10, 20), temperature = listOf(260, 255, 250), depth = listOf(100, 900, 1800)),
+        )
+
+    @Test
+    fun mergeFillsOnlyTheGapsAndAddsTheStreamsChannelsMissing() = runTest {
+        val repo = repository()
+        val uri = AtUri.of(did, Nsid.FEED_ACTIVITY, "3kexisting")
+        storedRecord = AtJson.encodeToString(ActivityRecord.serializer(), existingDive)
+        storedStreams =
+            GetActivityStreams.Output(
+                uri,
+                Visibility.MUTUALS,
+                listOf(StreamChannel.DEPTH),
+                ActivityStreamData(time = listOf(0, 10, 20, 30), depth = listOf(0, 500, 1000, 1500)),
+            )
+
+        repo.mergeInto(OwnActivity(uri, Cid("bafyold"), existingDive), secondComputer)
+        assertEquals(0, repo.sync())
+
+        val (activity, streams) = putBodies.map { AtJson.parseToJsonElement(it).jsonObject }
+        assertEquals("3kexisting", activity["rkey"]?.jsonPrimitive?.content)
+        val merged = AtJson.decodeFromJsonElement(ActivityRecord.serializer(), activity["record"]!!)
+        assertEquals(existingDive.copy(device = "Shearwater Perdix"), merged, "only the device was missing")
+        assertEquals("3kexisting", streams["rkey"]?.jsonPrimitive?.content)
+        val record = AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), streams["record"]!!)
+        assertEquals(Visibility.MUTUALS, record.visibility, "who may see them stays")
+        assertEquals(listOf(StreamChannel.TEMPERATURE, StreamChannel.DEPTH), record.channels)
+    }
+
+    @Test
+    fun mergeIntoAnActivityStillInTheOutboxLeavesItsStreams() = runTest {
+        val repo = repository()
+        val uri = AtUri.of(did, Nsid.FEED_ACTIVITY, "3kpending")
+
+        repo.mergeInto(OwnActivity(uri, cid = null, existingDive.copy(subSport = null)), secondComputer)
+        repo.sync()
+
+        val record = AtJson.parseToJsonElement(putBodies.single()).jsonObject["record"]!!
+        assertEquals(SubSport.MULTI_GAS, AtJson.decodeFromJsonElement(ActivityRecord.serializer(), record).subSport)
     }
 
     @Test

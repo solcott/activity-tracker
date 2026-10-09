@@ -4,6 +4,8 @@ import co.touchlab.kermit.Logger
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
+import io.github.solcott.activitytracker.data.activity.OwnActivity
+import io.github.solcott.activitytracker.data.activity.pendingActivity
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.FeedItemEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
@@ -14,10 +16,12 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
+import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
 import io.github.solcott.activitytracker.lexicon.app.GetKudos
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import kotlin.time.Instant
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -72,6 +76,35 @@ class FeedRepository(
     suspend fun kudos(uri: AtUri): List<ProfileViewBasic> =
         clients.appView.query(GetKudos.method, GetKudos.Params(uri, limit = Paging.MAX_LIMIT)).kudos
 
+    /**
+     * The signed-in athlete's own activities that started in [since, until), oldest first, optionally of one [sport]: every page the
+     * AppView has, plus any still in the outbox (published moments ago, or offline), which it hasn't seen yet. An import compares its
+     * activities against these to find duplicates.
+     */
+    suspend fun ownActivitiesStartedBetween(since: Instant, until: Instant, sport: String? = null): List<OwnActivity> {
+        val indexed = mutableListOf<OwnActivity>()
+        var cursor: String? = null
+        var pages = 0
+        do {
+            val page =
+                clients.appView.query(
+                    GetAuthorActivitiesByStart.method,
+                    GetAuthorActivitiesByStart.Params(clients.did.value, since, until, sport, Paging.MAX_LIMIT, cursor),
+                )
+            indexed += page.activities.map { OwnActivity(it.uri, it.cid, it.record) }
+            cursor = page.cursor
+        } while (cursor != null && ++pages < MAX_RANGE_PAGES)
+        val known = indexed.mapTo(mutableSetOf()) { it.uri }
+        val pending =
+            db.outbox()
+                .pending(clients.did.value)
+                .mapNotNull { it.pendingActivity(clients.did) }
+                .filter { (uri, _, record) ->
+                    uri !in known && record.startedAt >= since && record.startedAt < until && (sport == null || record.sport == sport)
+                }
+        return (indexed + pending).sortedBy { it.record.startedAt }
+    }
+
     /** Optimistically rewrites every cached copy of [uri]. */
     suspend fun updateCached(uri: AtUri, transform: (ActivityView) -> ActivityView) {
         val items = db.feed().byUri(uri.value)
@@ -107,6 +140,9 @@ class FeedRepository(
     private companion object {
         const val NOT_FOUND = "NotFound"
         const val TIMELINE = "timeline"
+
+        /** 5,000 activities: far more than one import spans, and a bound on a misbehaving cursor. */
+        const val MAX_RANGE_PAGES = 50
 
         fun authorKey(did: String) = "author:$did"
     }
