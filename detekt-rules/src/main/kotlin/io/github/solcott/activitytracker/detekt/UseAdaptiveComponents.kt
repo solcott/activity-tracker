@@ -49,6 +49,8 @@ class UseAdaptiveComponents(config: Config) :
                 "CircularProgressIndicator" to "AppProgressIndicator",
                 "ModalBottomSheet" to "AppBottomSheet",
                 "DatePickerDialog" to "AppDatePickerDialog",
+                "AlertDialog" to "AppAlertDialog",
+                "BasicAlertDialog" to "AppAlertDialog",
                 "DropdownMenu" to "AppMenu",
                 "SingleChoiceSegmentedButtonRow" to "AppSegmentedControl",
                 "Switch" to "AppSwitch",

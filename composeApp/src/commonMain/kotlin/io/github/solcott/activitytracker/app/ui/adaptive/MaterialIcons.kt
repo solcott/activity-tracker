@@ -49,4 +49,28 @@ internal object MaterialIcons {
                 close()
             }
         }
+
+    val CallSplit: ImageVector =
+        materialIcon("Filled.CallSplit") {
+            materialPath {
+                moveTo(14f, 4f)
+                lineToRelative(2.29f, 2.29f)
+                lineToRelative(-2.88f, 2.88f)
+                lineToRelative(1.42f, 1.42f)
+                lineToRelative(2.88f, -2.88f)
+                lineTo(20f, 10f)
+                lineTo(20f, 4f)
+                close()
+                moveTo(10f, 4f)
+                lineTo(4f, 4f)
+                verticalLineToRelative(6f)
+                lineToRelative(2.29f, -2.29f)
+                lineToRelative(4.71f, 4.7f)
+                lineTo(11f, 20f)
+                horizontalLineToRelative(2f)
+                verticalLineToRelative(-8.41f)
+                lineToRelative(-5.29f, -5.3f)
+                close()
+            }
+        }
 }
