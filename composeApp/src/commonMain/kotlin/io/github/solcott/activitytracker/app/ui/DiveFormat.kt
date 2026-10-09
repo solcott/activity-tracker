@@ -2,8 +2,14 @@ package io.github.solcott.activitytracker.app.ui
 
 import androidx.compose.runtime.Composable
 import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.dive_gas_air
+import io.github.solcott.activitytracker.composeApp.resources.dive_gas_nitrox
+import io.github.solcott.activitytracker.composeApp.resources.dive_gas_oxygen
+import io.github.solcott.activitytracker.composeApp.resources.dive_gas_trimix
+import io.github.solcott.activitytracker.composeApp.resources.unit_days_hours
 import io.github.solcott.activitytracker.composeApp.resources.unit_gas_rate_cuft
 import io.github.solcott.activitytracker.composeApp.resources.unit_gas_rate_l
+import io.github.solcott.activitytracker.composeApp.resources.unit_hours_minutes
 import io.github.solcott.activitytracker.composeApp.resources.unit_pressure_bar
 import io.github.solcott.activitytracker.composeApp.resources.unit_pressure_psi
 import io.github.solcott.activitytracker.composeApp.resources.unit_pressure_rate_bar
@@ -15,7 +21,9 @@ import io.github.solcott.activitytracker.data.units.formatDecimal
 import kotlin.math.roundToLong
 import org.jetbrains.compose.resources.stringResource
 
-/** Display formatting for a dive's tank pressures and air consumption, following [LocalUnitSystem] like [Format]. */
+/**
+ * Display formatting for a dive's gases, surface interval, tank pressures and air consumption, following [LocalUnitSystem] like [Format].
+ */
 object DiveFormat {
     private const val RATE_DECIMALS = 1
     private const val CUBIC_FEET_DECIMALS = 2
@@ -53,4 +61,32 @@ object DiveFormat {
             UnitSystem.Imperial -> stringResource(Res.string.unit_gas_rate_cuft, formatDecimal(value, CUBIC_FEET_DECIMALS))
         }
     }
+
+    /** "Air", "EAN32", "Oxygen" or "Tx 18/45". */
+    @Composable
+    fun gasName(oxygenPercent: Int, heliumPercent: Int): String =
+        when {
+            heliumPercent > 0 -> stringResource(Res.string.dive_gas_trimix, oxygenPercent, heliumPercent)
+            oxygenPercent == AIR_O2 -> stringResource(Res.string.dive_gas_air)
+            oxygenPercent >= PURE_O2 -> stringResource(Res.string.dive_gas_oxygen)
+            else -> stringResource(Res.string.dive_gas_nitrox, oxygenPercent)
+        }
+
+    /**
+     * "5 h 55 min" within a day, as a clock time reads badly; "11 d 22 h" beyond, where minutes are noise. FIT logs count the interval
+     * since the last dive however long ago it was.
+     */
+    @Composable
+    fun surfaceInterval(minutes: Int): String {
+        val hours = minutes / MINUTES_PER_HOUR
+        return if (hours < HOURS_PER_DAY) stringResource(Res.string.unit_hours_minutes, hours, minutes % MINUTES_PER_HOUR)
+        else stringResource(Res.string.unit_days_hours, hours / HOURS_PER_DAY, hours % HOURS_PER_DAY)
+    }
+
+    private const val MINUTES_PER_HOUR = 60
+    private const val HOURS_PER_DAY = 24
+    private const val AIR_O2 = 21
+
+    /** Mixes this rich are oxygen; Garmin logs it as 99%. */
+    private const val PURE_O2 = 99
 }

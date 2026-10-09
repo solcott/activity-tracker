@@ -47,10 +47,6 @@ import io.github.solcott.activitytracker.composeApp.resources.default_title_nigh
 import io.github.solcott.activitytracker.composeApp.resources.dive_bottom_time
 import io.github.solcott.activitytracker.composeApp.resources.dive_closed_circuit
 import io.github.solcott.activitytracker.composeApp.resources.dive_cns
-import io.github.solcott.activitytracker.composeApp.resources.dive_gas_air
-import io.github.solcott.activitytracker.composeApp.resources.dive_gas_nitrox
-import io.github.solcott.activitytracker.composeApp.resources.dive_gas_oxygen
-import io.github.solcott.activitytracker.composeApp.resources.dive_gas_trimix
 import io.github.solcott.activitytracker.composeApp.resources.dive_gradient_factors
 import io.github.solcott.activitytracker.composeApp.resources.dive_number
 import io.github.solcott.activitytracker.composeApp.resources.dive_open_circuit
@@ -85,8 +81,6 @@ import io.github.solcott.activitytracker.composeApp.resources.threshold_max_hear
 import io.github.solcott.activitytracker.composeApp.resources.threshold_resting_heart_rate
 import io.github.solcott.activitytracker.composeApp.resources.threshold_threshold_heart_rate
 import io.github.solcott.activitytracker.composeApp.resources.unit_bpm
-import io.github.solcott.activitytracker.composeApp.resources.unit_days_hours
-import io.github.solcott.activitytracker.composeApp.resources.unit_hours_minutes
 import io.github.solcott.activitytracker.composeApp.resources.unit_watts
 import io.github.solcott.activitytracker.composeApp.resources.value_missing
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -287,13 +281,13 @@ private fun DiveDetails(dive: DivePreview, elapsedSeconds: Long, modifier: Modif
         )
         DepthProfile(dive.profile, stringResource(Res.string.dive_profile))
         val circuit = stringResource(if (dive.closedCircuit) Res.string.dive_closed_circuit else Res.string.dive_open_circuit)
-        val gases = dive.gases.map { gasName(it) }
+        val gases = dive.gases.map { DiveFormat.gasName(it.oxygenPercent, it.heliumPercent) }
         Text((listOf(circuit) + gases.joinToString(" → ").ifEmpty { null }).filterNotNull().joinToString(" · "))
         val counts =
             listOfNotNull(
                 dive.diveNumber?.let { stringResource(Res.string.dive_number, it) },
                 dive.bottomTimeSeconds?.let { stringResource(Res.string.dive_bottom_time, Format.duration(it)) },
-                dive.surfaceIntervalMinutes?.let { stringResource(Res.string.dive_surface_interval, surfaceInterval(it)) },
+                dive.surfaceIntervalMinutes?.let { stringResource(Res.string.dive_surface_interval, DiveFormat.surfaceInterval(it)) },
             )
         if (counts.isNotEmpty()) Text(counts.joinToString(" · "))
         val deco =
@@ -335,34 +329,8 @@ private fun DiveAir(dive: DivePreview) {
     if (air.isNotEmpty()) Text(air.joinToString(" · "))
 }
 
-@Composable
-private fun gasName(gas: DiveGasPreview): String =
-    when {
-        gas.heliumPercent > 0 -> stringResource(Res.string.dive_gas_trimix, gas.oxygenPercent, gas.heliumPercent)
-        gas.oxygenPercent == AIR_O2 -> stringResource(Res.string.dive_gas_air)
-        gas.oxygenPercent >= PURE_O2 -> stringResource(Res.string.dive_gas_oxygen)
-        else -> stringResource(Res.string.dive_gas_nitrox, gas.oxygenPercent)
-    }
-
-/**
- * "5 h 55 min" within a day, as a clock time reads badly; "11 d 22 h" beyond, where minutes are noise. FIT logs count the interval since
- * the last dive however long ago it was.
- */
-@Composable
-private fun surfaceInterval(minutes: Int): String {
-    val hours = minutes / MINUTES_PER_HOUR
-    return if (hours < HOURS_PER_DAY) stringResource(Res.string.unit_hours_minutes, hours, minutes % MINUTES_PER_HOUR)
-    else stringResource(Res.string.unit_days_hours, hours / HOURS_PER_DAY, hours % HOURS_PER_DAY)
-}
-
-private const val MINUTES_PER_HOUR = 60
-private const val HOURS_PER_DAY = 24
-
 /** About 10 m: enough to find the site, no more. */
 private const val COORDINATE_DECIMALS = 4
 
 /** The formatter takes tenths of a degree Celsius, like records. */
 private const val TENTHS_PER_DEGREE = 10
-private const val AIR_O2 = 21
-/** Mixes this rich are oxygen; Garmin logs it as 99%. */
-private const val PURE_O2 = 99

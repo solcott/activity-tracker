@@ -653,6 +653,17 @@
     <string name="stat_avg_depth">Avg depth</string>
     <string name="stat_dive_time">Dive time</string>
     <string name="stat_water_temp">Water temp</string>
+    <string name="stat_bottom_time">Bottom time</string>
+    <string name="stat_gas">Gas</string>
+    <string name="stat_gas_ccr">CCR · %1$s</string>
+    <string name="stat_surface_interval">Surface interval</string>
+    <string name="stat_dive_number">Dive #</string>
+    <string name="stat_cns">CNS</string>
+    <string name="stat_cns_value">%1$s% → %2$s%</string>
+    <string name="stat_sac">SAC</string>
+    <string name="stat_rmv">RMV</string>
+    <string name="stat_air_used">Air used</string>
+    <string name="stat_pressure_range">%1$s → %2$s</string>
     <string name="dive_profile">Depth profile</string>
     <string name="dive_open_circuit">Open circuit</string>
     <string name="dive_closed_circuit">Closed circuit</string>

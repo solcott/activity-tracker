@@ -41,6 +41,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
+import io.github.solcott.activitytracker.app.ui.diveOverviewStats
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -63,6 +64,7 @@ import io.github.solcott.activitytracker.composeApp.resources.stat_moving_time
 import io.github.solcott.activitytracker.composeApp.resources.stat_temperature
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.activityType
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -156,7 +158,7 @@ private fun Overview(state: ActivityDetailState.Loaded, modifier: Modifier = Mod
                 }
                 record.description?.let { Text(it, Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium) }
             }
-            StatTiles(overviewStats(record))
+            StatTiles(overviewStats(record, state.charts))
             record.polyline?.let { ActivityMap(it, Modifier.clip(RoundedCornerShape(12.dp))) }
             Recordings(state.activity, onOpen = { state.eventSink(ActivityDetailEvent.OpenActivity(it)) })
             Kudos(state)
@@ -211,7 +213,11 @@ private fun Comments(state: ActivityDetailState.Loaded, modifier: Modifier = Mod
 }
 
 @Composable
-private fun overviewStats(record: ActivityRecord): ImmutableList<Stat> {
+private fun overviewStats(record: ActivityRecord, charts: ActivityCharts?): ImmutableList<Stat> {
+    if (record.sport == Sport.DIVE) {
+        val depth = charts?.lines?.firstOrNull { it.kind == StreamKind.Depth }
+        return diveOverviewStats(record, depth?.max, depth?.average)
+    }
     val time = record.movingTime ?: record.elapsedTime
     return listOfNotNull(
             Stat(stringResource(Res.string.stat_distance), Format.distance(record.distance?.toDouble())),
