@@ -177,6 +177,7 @@ private fun LineChart(series: LineSeries, durationSeconds: Int, elevation: LineS
             markerLabel = markerLabel,
             average = series.average?.let(unit.convert),
             backdrop = backdrop,
+            inverted = series.kind == StreamKind.Depth,
         )
     }
 }

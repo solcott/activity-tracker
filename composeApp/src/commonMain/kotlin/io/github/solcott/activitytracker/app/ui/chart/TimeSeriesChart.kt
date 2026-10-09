@@ -37,7 +37,8 @@ import kotlinx.collections.immutable.persistentListOf
  * across [xRange] (seconds), or exactly at [xLabelsAt] when the x axis isn't time. [average] draws a reference line. [step] holds each
  * value until the next point, for values like gears. [pointLabels] write values above their points. [backdrop] is drawn as a grey
  * silhouette behind the line on a scale of its own, as Strava draws elevation behind its charts; it has no axis and the marker skips it.
- * Hovering, tapping or dragging across the chart shows [markerLabel] for the nearest point.
+ * Hovering, tapping or dragging across the chart shows [markerLabel] for the nearest point. [inverted] puts zero at the top and larger
+ * values further down, filled up to the top, as a dive's depth reads.
  */
 @Composable
 internal fun TimeSeriesChart(
@@ -53,21 +54,26 @@ internal fun TimeSeriesChart(
     xLabelsAt: ImmutableList<Double>? = null,
     pointLabels: ImmutableList<SeriesLabel> = persistentListOf(),
     backdrop: ImmutableList<SeriesPoint>? = null,
+    inverted: Boolean = false,
     height: Dp = 140.dp,
 ) {
     if (points.size < 2) return
     val colors = chartColors(FILL_ALPHA)
     val behind = backdrop?.takeIf { it.size >= 2 }
+    // An inverted chart plots each value below zero; flip turns a plotted y back into the value (0.0 - so the surface isn't "-0").
+    val flip: (Double) -> Double = if (inverted) { y -> 0.0 - y } else { y -> y }
+    val plotted = remember(points, inverted) { if (inverted) points.map { it.copy(y = flip(it.y)) } else points }
     // Line layers take their models in order, so the backdrop's comes first and draws underneath.
-    val model = remember(points, behind) { CartesianChartModel(listOfNotNull(behind?.let(::lineModel), lineModel(points))) }
+    val model = remember(plotted, behind) { CartesianChartModel(listOfNotNull(behind?.let(::lineModel), lineModel(plotted))) }
     // A little headroom (more for labels above the points), and a floor at zero for values that start there, like power or speed.
     val yAxis =
-        remember(points, pointLabels.isEmpty()) {
+        remember(points, pointLabels.isEmpty(), inverted) {
             val low = points.minOf { it.y }
             val high = points.maxOf { it.y }
             val pad = ((high - low) * Y_PADDING).coerceAtLeast(1.0)
             val top = if (pointLabels.isEmpty()) pad else (high - low) * LABELLED_Y_PADDING
-            YAxis.around(if (low >= 0 && low - pad < 0) 0.0 else low - pad, high + top)
+            val axis = YAxis.around(if (low >= 0 && low - pad < 0) 0.0 else low - pad, high + top)
+            if (inverted) YAxis(-axis.max, -axis.min, axis.step) else axis
         }
     val minY = yAxis.min
     val maxY = yAxis.max
@@ -75,14 +81,15 @@ internal fun TimeSeriesChart(
         LineCartesianLayer.rememberLine(
             fill = remember(colors) { LineCartesianLayer.LineFill.single(Fill(colors.line)) },
             stroke = LineCartesianLayer.LineStroke.Continuous(thickness = 1.5.dp, cap = StrokeCap.Round),
-            areaFill = remember(colors, minY) { LineCartesianLayer.AreaFill.single(Fill(colors.area), splitY = { minY }) },
+            areaFill =
+                remember(colors, minY) { LineCartesianLayer.AreaFill.single(Fill(colors.area), splitY = { if (inverted) maxY else minY }) },
             pointConnector = if (step) StepConnector else LineCartesianLayer.PointConnector.Sharp,
         )
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
     val label = rememberTextComponent(labelStyle)
     val grid = rememberLineComponent(Fill(colors.grid), thickness = 1.dp)
     val averageLine = rememberLineComponent(Fill(colors.baseline), thickness = 1.dp)
-    val yFormatter = remember(yLabel) { CartesianValueFormatter { _, value, _ -> yLabel(value) } }
+    val yFormatter = remember(yLabel, inverted) { CartesianValueFormatter { _, value, _ -> yLabel(flip(value)) } }
     val xFormatter = remember(xLabel) { CartesianValueFormatter { _, value, _ -> xLabel?.invoke(value).orEmpty() } }
     val xStep = if (xLabelsAt != null) xRange.endInclusive - xRange.start else timeStep(xRange.endInclusive - xRange.start)
     val labelsAbove = remember(pointLabels, label) { PointLabels(pointLabels.map { PointLabel(it.x, it.y, it.text, label) }, gap = 4.dp) }
@@ -130,15 +137,15 @@ internal fun TimeSeriesChart(
                         },
                 ),
             decorations =
-                remember(average, averageLine, labelsAbove) {
+                remember(average, averageLine, labelsAbove, inverted) {
                     listOfNotNull(
                         average?.let { avg ->
-                            HorizontalLine(y = { avg }, line = averageLine, verticalAxisPosition = Axis.Position.Vertical.Start)
+                            HorizontalLine(y = { flip(avg) }, line = averageLine, verticalAxisPosition = Axis.Position.Vertical.Start)
                         },
                         labelsAbove,
                     )
                 },
-            marker = rememberValueMarker(markerLabel),
+            marker = rememberValueMarker(remember(markerLabel, inverted) { { x, y -> markerLabel(x, flip(y)) } }),
             getXStep = { _, _, _ -> xStep },
             markerController = rememberScrubController(),
         )
