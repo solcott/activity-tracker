@@ -84,6 +84,7 @@ class ActivityRepository(
         // The draft's stream times count from its own start.
         val offsetSeconds = (draft.startedAt - current.startedAt).inWholeSeconds.toInt()
         if (indexed && imported != null) mergeStreams(existing.uri, draft, imported, offsetSeconds)
+        feed.rewrites.set(existing.uri, merged)
         feed.updateCached(existing.uri) { it.copy(record = merged) }
     }
 

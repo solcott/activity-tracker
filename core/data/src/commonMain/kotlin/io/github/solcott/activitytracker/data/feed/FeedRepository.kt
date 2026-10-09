@@ -36,6 +36,9 @@ class FeedRepository(
 ) {
     private val log = logger.withTag("FeedRepository")
 
+    /** Records the athlete rewrote this session, shown over the AppView's until it catches up: write one with [updateCached] too. */
+    val rewrites = LocalRewrites()
+
     fun timeline(): Flow<List<ActivityView>> = observe(TIMELINE)
 
     fun authorActivities(did: String): Flow<List<ActivityView>> = observe(authorKey(did))
@@ -53,7 +56,7 @@ class FeedRepository(
 
     suspend fun activity(uri: AtUri): GetActivity.Output {
         val output = clients.appView.query(GetActivity.method, GetActivity.Params(uri))
-        val activity = localKudos.applyTo(output.activity)
+        val activity = localKudos.applyTo(rewrites.applyTo(output.activity))
         updateCached(uri) { activity }
         return output.copy(activity = activity)
     }
@@ -133,7 +136,7 @@ class FeedRepository(
             key,
             view.uri.value,
             index,
-            AtJson.encodeToString(ActivityView.serializer(), localKudos.applyTo(view)),
+            AtJson.encodeToString(ActivityView.serializer(), localKudos.applyTo(rewrites.applyTo(view))),
         )
     }
 

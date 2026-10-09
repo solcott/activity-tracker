@@ -26,6 +26,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
+import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.PowerZoneModel
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
@@ -61,6 +62,12 @@ class ActivityRepositoryTest {
 
     /** What `getRecord` serves for any activity, as JSON. */
     private var storedRecord: String = "{}"
+
+    /** The record the AppView's `getActivity` serves for any activity. */
+    private var indexedRecord: ActivityRecord? = null
+
+    /** The session's feed, once [repository] made it. */
+    private lateinit var feed: FeedRepository
 
     /** What the AppView's `getActivityStreams` serves; null for none. */
     private var storedStreams: GetActivityStreams.Output? = null
@@ -112,6 +119,14 @@ class ActivityRepositoryTest {
                         }
                     }
 
+                    "/xrpc/${Nsid.FEED_GET_ACTIVITY}" -> {
+                        val view = activityBy(did).copy(record = requireNotNull(indexedRecord))
+                        respond(
+                            AtJson.encodeToString(GetActivity.Output.serializer(), GetActivity.Output(view, emptyList())),
+                            headers = json,
+                        )
+                    }
+
                     "/xrpc/com.atproto.repo.deleteRecord" -> {
                         deleteBodies += (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
                         respond("{}", headers = json)
@@ -130,7 +145,7 @@ class ActivityRepositoryTest {
         val (db, _, clients) = signedInTestSession(http, did = did, logger = logger)
         val outbox = OutboxProcessor(db, clients, logger)
         val localKudos = LocalKudos()
-        val feed = FeedRepository(db, clients, localKudos, logger)
+        feed = FeedRepository(db, clients, localKudos, logger)
         return ActivityRepository(
             db,
             clients,
@@ -269,6 +284,24 @@ class ActivityRepositoryTest {
         val record = AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), streams["record"]!!)
         assertEquals(Visibility.MUTUALS, record.visibility, "who may see them stays")
         assertEquals(listOf(StreamChannel.TEMPERATURE, StreamChannel.DEPTH), record.channels)
+    }
+
+    @Test
+    fun aMergeShowsOverTheAppViewsStaleCopyUntilItCatchesUp() = runTest {
+        val repo = repository()
+        val uri = activityBy(did).uri
+        storedRecord = AtJson.encodeToString(ActivityRecord.serializer(), existingDive)
+        indexedRecord = existingDive
+
+        repo.mergeInto(OwnActivity(uri, Cid("bafyold"), existingDive), secondComputer)
+        val merged = existingDive.copy(device = "Shearwater Perdix")
+        assertEquals(merged, feed.activity(uri).activity.record, "Jetstream hasn't brought the AppView the merge yet")
+
+        indexedRecord = merged
+        assertEquals(merged, feed.activity(uri).activity.record)
+        // Caught up, the AppView's copy is the one shown from now on, whatever later changes it.
+        indexedRecord = existingDive.copy(title = "Renamed elsewhere")
+        assertEquals("Renamed elsewhere", feed.activity(uri).activity.record.title)
     }
 
     @Test
