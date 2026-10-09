@@ -7,6 +7,7 @@ import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
@@ -87,6 +88,9 @@ sealed interface ActivityDetailEvent {
     data object ToggleKudosList : ActivityDetailEvent
 
     data class OpenProfile(val did: Did) : ActivityDetailEvent
+
+    /** Opens another recording of this activity, or the activity this one is a recording of. */
+    data class OpenActivity(val uri: AtUri) : ActivityDetailEvent
 
     data object SendComment : ActivityDetailEvent
 

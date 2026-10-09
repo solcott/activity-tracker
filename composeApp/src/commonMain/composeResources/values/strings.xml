@@ -19,7 +19,7 @@
     <string name="error_search_athletes">Couldn't search athletes</string>
     <string name="error_save_activity">Couldn't save activity</string>
     <string name="error_read_activity_file">Couldn't read that file</string>
-    <string name="error_unsupported_activity_file">That isn't a FIT, GPX, TCX or Shearwater dive file</string>
+    <string name="error_unsupported_activity_file">That isn't a FIT, GPX, TCX, Shearwater, UDDF or Subsurface file</string>
     <string name="error_sign_in_start">Couldn't start sign-in</string>
     <string name="error_sign_in_complete">Sign-in failed</string>
     <string name="error_save_settings">Couldn't save settings</string>
@@ -580,7 +580,7 @@
     <string name="field_title">Title</string>
     <string name="manual_title">Add activity</string>
     <string name="import_title">Import activity</string>
-    <string name="import_hint">Import a FIT, GPX, TCX or Shearwater dive (.xml) file (gzipped is fine) from a watch, bike computer, dive computer or app.</string>
+    <string name="import_hint">Import a FIT, GPX or TCX file, a Shearwater dive (.xml) or a UDDF or Subsurface dive log (gzipped is fine) from a watch, bike computer, dive computer or app.</string>
     <!-- A title for an imported activity without one: the type's label, as in "Morning Mountain Bike Ride". -->
     <string name="default_title_morning">Morning %1$s</string>
     <string name="default_title_afternoon">Afternoon %1$s</string>
@@ -589,6 +589,51 @@
     <string name="import_pick">Choose file</string>
     <string name="import_pick_another">Choose another file</string>
     <string name="import_reading">Reading file…</string>
+    <plurals name="import_dives_found">
+        <item quantity="one">%1$d dive in this logbook</item>
+        <item quantity="other">%1$d dives in this logbook</item>
+    </plurals>
+    <string name="import_dives_selected">%1$d of %2$d selected</string>
+    <string name="import_select_all">Select all</string>
+    <string name="import_deselect_all">Deselect all</string>
+    <plurals name="import_dives_save">
+        <item quantity="one">Import %1$d dive</item>
+        <item quantity="other">Import %1$d dives</item>
+    </plurals>
+    <string name="import_dives_none">Import</string>
+    <string name="import_duplicate_existing">Already in your log: %1$s</string>
+    <string name="import_duplicate_shifted">Same length as one in your log, %2$d h apart (check the time zone): %1$s</string>
+    <string name="import_duplicate_in_file">Same dive as #%1$d in this file</string>
+    <string name="import_duplicate_untitled">Untitled dive</string>
+    <plurals name="import_duplicates_existing">
+        <item quantity="one">%1$d dive is already in your log.</item>
+        <item quantity="other">%1$d dives are already in your log.</item>
+    </plurals>
+    <plurals name="import_duplicates_in_file">
+        <item quantity="one">%1$d appears twice in this file.</item>
+        <item quantity="other">%1$d appear twice in this file.</item>
+    </plurals>
+    <string name="import_duplicates_unchecked">Duplicates start unchecked; pick what to do with each.</string>
+    <string name="import_duplicates_checking">Checking your log for duplicates…</string>
+    <string name="import_duplicates_failed">Couldn't check your log for duplicates. Dives repeated within this file are still flagged.</string>
+    <string name="duplicate_action_ignore">Ignore</string>
+    <string name="duplicate_action_import_anyway">Import anyway</string>
+    <string name="duplicate_action_merge">Merge</string>
+    <string name="detail_recordings">Also recorded by</string>
+    <string name="detail_recording_unnamed">Another device</string>
+    <string name="detail_recording_of">Another device's recording of an activity</string>
+    <string name="detail_open_recorded">See the activity</string>
+    <string name="duplicate_action_group">Group</string>
+    <string name="import_group_explained">Imports it as another recording of that dive: your feed shows the dive once, and its page lists both recordings.</string>
+    <string name="import_merge_adds">Merging adds %1$s to the logged dive and changes nothing it has.</string>
+    <string name="import_merge_adds_nothing">The logged dive already has everything this one would add.</string>
+    <string name="merge_gain_device">the device</string>
+    <string name="merge_gain_sub_sport">the dive type</string>
+    <string name="merge_gain_water_temperature">water temperature</string>
+    <string name="merge_gain_heart_rate">heart rate</string>
+    <string name="merge_gain_track">the GPS track</string>
+    <string name="merge_gain_charts">any charts it lacks</string>
+    <string name="merge_gains_last">%1$s and %2$s</string>
     <string name="import_recorded_with">Recorded with %1$s</string>
     <string name="import_time_zone_notice">This file logs local time with no time zone, so its start (%1$s) is read in the zone below. If it was recorded somewhere else, pick that zone so it saves at the right time.</string>
     <string name="import_time_zone">Time zone</string>

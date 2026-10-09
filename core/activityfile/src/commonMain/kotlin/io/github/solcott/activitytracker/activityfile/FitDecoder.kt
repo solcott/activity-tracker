@@ -18,8 +18,8 @@ fun interface FitDecoder {
 /** The file isn't a readable activity: not FIT, corrupt, truncated, or a FIT file of another type (a course, settings, ...). */
 open class ActivityFileException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
-/** The file is none of the formats we read (FIT, GPX, TCX, or one of those gzipped). */
-class UnsupportedActivityFileException : ActivityFileException("Not a FIT, GPX, TCX or Shearwater file")
+/** The file is none of the formats we read (FIT, GPX, TCX, a dive log, or one of those gzipped). */
+class UnsupportedActivityFileException : ActivityFileException("Not a FIT, GPX, TCX, Shearwater, UDDF or Subsurface file")
 
 /** Throws [ActivityFileException]; decoders and mappers fail through this. */
 internal fun activityFileError(message: String, cause: Throwable? = null): Nothing = throw ActivityFileException(message, cause)

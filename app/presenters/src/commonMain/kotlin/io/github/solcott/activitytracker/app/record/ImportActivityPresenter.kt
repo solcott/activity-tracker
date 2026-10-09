@@ -25,6 +25,7 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.profile.applyDeviceThresholds
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
@@ -38,12 +39,10 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.math.roundToLong
 import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.format
 import kotlinx.datetime.format.char
 import kotlinx.datetime.offsetAt
 import kotlinx.datetime.toInstant
@@ -57,9 +56,12 @@ fun ImportActivityPresenter(
     reader: ActivityFileReader,
     recentTypes: RecentActivityTypes,
     profiles: ProfileRepository,
+    feed: FeedRepository,
 ): ImportActivityState {
-    // The parsed file isn't saveable; after process death the athlete picks it again.
-    var imported by remember { mutableStateOf<Pair<String, ImportedActivity>?>(null) }
+    // The parsed file isn't saveable; after process death the athlete picks it again. A logbook holds many dives.
+    var file by remember { mutableStateOf<Pair<String, ImmutableList<ImportedActivity>>?>(null) }
+    // Which of the file's dives import, and what to do with duplicates.
+    var selection by remember { mutableStateOf(DiveSelection()) }
     var type by rememberSaveable(stateSaver = ActivityTypeSaver) { mutableStateOf(ActivityType(Sport.OTHER)) }
     val title = rememberTextFieldState()
     // The title the last file filled in, so a file without one clears it but not what the athlete typed.
@@ -73,15 +75,25 @@ fun ImportActivityPresenter(
     val reading = flights.isRunning(ImportActivityEvent.FilePicked::class)
 
     val zone = remember(zoneId) { zoneId?.let(TimeZone::of) ?: TimeZones.device() }
+    val imported = singleActivity(file)
+    val logbook = file?.takeIf { it.second.size > 1 }
     val placed = remember(imported, zone) { imported?.let { (name, activity) -> name to activity.inZone(zone) } }
-    val zones = remember(imported) { imported?.second?.localStart?.let(::zoneOptions) }
+    val placedDives = remember(logbook, zone) { logbook?.second?.map { it.inZone(zone) } }
+    val zones = remember(file) { file?.second?.firstNotNullOfOrNull { it.localStart }?.let(::zoneOptions) }
+    val own = rememberOwnDives(feed, file?.second)
+    // Matched where the athlete placed the clock: a zone change can make or break a duplicate.
+    val matches = remember(placed, placedDives, own) { importMatches(placed?.second, placedDives, own) }
     // Keyed on the zone too: a zone with the same offset leaves the activity as it was.
-    val preview = remember(placed, zones, zone) { placed?.let { (name, activity) -> activity.toPreview(name, zone, zones) } }
+    val preview = remember(placed, zones, zone, matches, selection) { singlePreview(placed, zone, zones, matches, selection) }
     val training = rememberOwnTraining(profiles)
     val thresholdChanges = remember(placed, training, type.sport) { pendingThresholds(training, placed?.second, type.sport) }
     val quickTypes = quickActivityTypes(recentTypes)
     val defaultTitle =
         placed?.second?.takeIf { it.title == null }?.let { DefaultTitle(partOfDay(it.startedAt.toLocalDateTime(zone).hour), type) }
+    val dives =
+        remember(logbook, placedDives, selection, matches, zones, zone) {
+            diveBatch(logbook?.first, placedDives, selection, matches, zone, zones)
+        }
 
     return ImportActivityState(
         reading,
@@ -94,21 +106,26 @@ fun ImportActivityPresenter(
         error,
         thresholdChanges,
         chartsVisibility,
+        dives,
+        own.check,
     ) { event ->
         when (event) {
             is ImportActivityEvent.FilePicked -> {
                 // Drop the previous file first, so a failed pick can't leave its preview (and Save) behind.
-                imported = null
+                file = null
+                selection = DiveSelection()
                 zoneId = null
                 error = null
                 // A newer pick replaces one still being read.
                 flights.launchLatest(ImportActivityEvent.FilePicked::class) {
                     // The format comes from the file's content, not its name.
                     runSuspendCatching { reader.read(event.bytes.toByteArray()) }
-                        .onSuccess {
-                            imported = event.name to it
-                            type = it.type
-                            val named = it.title
+                        .onSuccess { read ->
+                            file = event.name to read.toImmutableList()
+                            // A logbook's dives keep their own types and titles; these fields are for a single activity.
+                            val first = read.first()
+                            type = first.type
+                            val named = first.title.takeIf { read.size == 1 }
                             when {
                                 named != null -> title.setTextAndPlaceCursorAtEnd(named)
                                 fileTitle != null && title.text.toString() == fileTitle -> title.clearText()
@@ -137,13 +154,29 @@ fun ImportActivityPresenter(
 
             is ImportActivityEvent.ChartsVisibilityChanged -> chartsVisibility = event.visibility
 
+            is ImportActivityEvent.DiveToggled -> selection = selection.toggled(event.index, matches.getOrNull(event.index))
+
+            is ImportActivityEvent.AllDivesSelected -> selection = selection.all(event.selected, placedDives.orEmpty().size)
+
+            is ImportActivityEvent.DuplicateActionChanged -> selection = selection.withAction(event.index, event.action)
+
+            is ImportActivityEvent.SaveDives ->
+                flights.launch(ImportActivityEvent.Save::class) {
+                    val import = diveImport(placedDives, selection, matches, event.defaultTitles, training, chartsVisibility)
+                    runSuspendCatching { activities.saveDives(import, onPublished = { navigator.pop() }) }
+                        .onFailure { e -> error = UiError.of(UiError.Kind.SaveActivity, e) }
+                }
+
             is ImportActivityEvent.Save -> {
-                val activity = placed?.second ?: return@ImportActivityState
+                // An ignored duplicate stays out.
+                val activity = placed?.second?.takeIf { selection.isSelected(0, matches.firstOrNull()) } ?: return@ImportActivityState
                 flights.launch(ImportActivityEvent.Save::class) {
                     runSuspendCatching {
                         val text = title.text.toString().ifBlank { event.defaultTitle?.ifBlank { null } }
-                        activities.publish(
-                            importDraft(activity, type, text, training, thresholdChanges).copy(streamsVisibility = chartsVisibility)
+                        activities.saveSingle(
+                            importDraft(activity, type, text, training, thresholdChanges).copy(streamsVisibility = chartsVisibility),
+                            into = mergeTarget(matches.firstOrNull(), selection.action(0)),
+                            recordingOf = groupTarget(matches.firstOrNull(), selection.action(0)),
                         )
                         updateThresholds(profiles, activity, type.sport, previewed = thresholdChanges)
                         navigator.pop()
@@ -182,7 +215,7 @@ private suspend fun updateThresholds(
 }
 
 @Suppress("MagicNumber") // Hours of the day.
-private fun partOfDay(hour: Int) =
+internal fun partOfDay(hour: Int) =
     when (hour) {
         in 5..11 -> PartOfDay.Morning
         in 12..16 -> PartOfDay.Afternoon
@@ -190,7 +223,7 @@ private fun partOfDay(hour: Int) =
         else -> PartOfDay.Night
     }
 
-private fun ImportedActivity.toPreview(fileName: String, zone: TimeZone, zones: ImmutableList<TimeZoneOption>?) =
+internal fun ImportedActivity.toPreview(fileName: String, zone: TimeZone, zones: ImmutableList<TimeZoneOption>?) =
     ImportPreview(
         fileName = fileName,
         elapsed = elapsed,
@@ -211,14 +244,7 @@ private fun ImportedActivity.toPreview(fileName: String, zone: TimeZone, zones: 
         mtb = mtb?.let { MtbPreview(it.jumps, it.longestHangTimeSeconds, it.longestJumpMeters, it.grit, it.flow) },
         sensors = sensors.map { SensorPreview(it.kind, it.manufacturer, it.model, it.battery, it.batteryPercent) }.toImmutableList(),
         hasStreams = streams != null,
-        clock =
-            localStart?.let { start ->
-                ImportClock(
-                    start.format(LOCAL_START),
-                    zones?.find { it.id == zone.id } ?: zoneOption(zone, start),
-                    zones ?: persistentListOf(),
-                )
-            },
+        clock = localStart?.let { importClock(it, zone, zones) },
     )
 
 /** Every zone, with the offset in force when the activity started: a zone with daylight saving shows the one that applied. */
@@ -229,12 +255,12 @@ private fun zoneOptions(localStart: LocalDateTime): ImmutableList<TimeZoneOption
     return ids.map { zoneOption(TimeZone.of(it), localStart) }.toImmutableList()
 }
 
-private fun zoneOption(zone: TimeZone, localStart: LocalDateTime): TimeZoneOption {
+internal fun zoneOption(zone: TimeZone, localStart: LocalDateTime): TimeZoneOption {
     val offset = zone.offsetAt(localStart.toInstant(zone))
     return TimeZoneOption(zone.id, if (offset.totalSeconds == 0) "UTC" else "UTC$offset")
 }
 
-private val LOCAL_START = LocalDateTime.Format {
+internal val LOCAL_START = LocalDateTime.Format {
     date(LocalDate.Formats.ISO)
     char(' ')
     hour()

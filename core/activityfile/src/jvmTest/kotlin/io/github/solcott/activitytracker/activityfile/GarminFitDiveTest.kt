@@ -17,7 +17,7 @@ class GarminFitDiveTest {
 
     private suspend fun read(name: String): ImportedActivity {
         val bytes = assertNotNull(javaClass.getResourceAsStream("/dives/$name.fit.gz")).use { it.readBytes() }
-        return reader.read(bytes)
+        return reader.read(bytes).single()
     }
 
     @Test

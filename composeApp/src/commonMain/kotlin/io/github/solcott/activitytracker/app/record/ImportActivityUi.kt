@@ -135,9 +135,11 @@ fun ImportActivityUi(state: ImportActivityState, modifier: Modifier = Modifier) 
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 val preview = state.preview
-                if (preview == null) Text(stringResource(Res.string.import_hint))
+                val dives = state.dives
+                val picked = preview != null || dives != null
+                if (!picked) Text(stringResource(Res.string.import_hint))
                 AppSecondaryButton(onClick = { pick.launch() }, enabled = !state.reading && !state.saving) {
-                    Text(stringResource(if (preview == null) Res.string.import_pick else Res.string.import_pick_another))
+                    Text(stringResource(if (picked) Res.string.import_pick_another else Res.string.import_pick))
                 }
                 if (state.reading) {
                     AppProgressIndicator()
@@ -145,6 +147,7 @@ fun ImportActivityUi(state: ImportActivityState, modifier: Modifier = Modifier) 
                 }
                 state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
                 if (preview != null) PreviewForm(state, preview)
+                if (dives != null) DiveBatchForm(state, dives)
             }
         }
     }
@@ -158,6 +161,7 @@ private fun PreviewForm(state: ImportActivityState, preview: ImportPreview, modi
         preview.clock?.let { clock ->
             TimeZoneNotice(clock, { state.eventSink(ImportActivityEvent.TimeZoneChanged(it)) }, enabled = !state.saving)
         }
+        PreviewDuplicate(state, preview)
         val dive = preview.dive
         if (dive != null) {
             DiveDetails(dive, preview.elapsed.inWholeSeconds)
@@ -203,7 +207,7 @@ private fun PreviewForm(state: ImportActivityState, preview: ImportPreview, modi
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        AppButton(onClick = { state.eventSink(ImportActivityEvent.Save(defaultTitle)) }, enabled = !state.saving && !state.reading) {
+        AppButton(onClick = { state.eventSink(ImportActivityEvent.Save(defaultTitle)) }, enabled = state.canSave(preview)) {
             Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
         }
     }
@@ -256,7 +260,7 @@ private fun thresholdLabel(threshold: String): String =
 
 /** "Morning Mountain Bike Ride". */
 @Composable
-private fun defaultTitleLabel(title: DefaultTitle): String =
+internal fun defaultTitleLabel(title: DefaultTitle): String =
     stringResource(
         when (title.partOfDay) {
             PartOfDay.Morning -> Res.string.default_title_morning

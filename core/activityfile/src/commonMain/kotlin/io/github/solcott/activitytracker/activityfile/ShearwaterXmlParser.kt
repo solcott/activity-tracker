@@ -1,7 +1,5 @@
 package io.github.solcott.activitytracker.activityfile
 
-import kotlin.math.roundToInt
-import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 
@@ -21,7 +19,7 @@ internal object ShearwaterXmlParser {
 
         val header = Header(state.header)
         val startText = header["startDate"].orEmpty()
-        val localStart = parseLocal(startText)
+        val localStart = parseLocalDateTime(startText)
         val start =
             localStart?.toInstant(timeZone)?.toEpochMilliseconds()
                 ?: parseXmlTime(startText)
@@ -30,8 +28,8 @@ internal object ShearwaterXmlParser {
         val elapsedSeconds = header.double("maxTime")?.takeIf { it > 0 } ?: end?.let { (it - start) / MILLIS_PER_SECOND }?.takeIf { it > 0 }
         val dive = dive(header, state.records)
         return DecodedActivity(
-            fileId = source(MODELS.getOrNull(header.int("product") ?: -1)),
-            sessions = listOf(summary(subSport(dive), start, elapsedSeconds)),
+            fileId = DiveLogs.source(MODELS.getOrNull(header.int("product") ?: -1), MANUFACTURER),
+            sessions = listOf(DiveLogs.summary(dive, start, elapsedSeconds)),
             laps = emptyList(),
             records =
                 state.records.map { r ->
@@ -76,33 +74,6 @@ internal object ShearwaterXmlParser {
             closedCircuit = records.any { it.closedCircuit },
         )
 
-    /** FIT's spelling, which the mapper already knows. */
-    private fun subSport(dive: DecodedDive) =
-        when {
-            dive.closedCircuit -> "ccr_diving"
-            dive.gases.size > 1 -> "multi_gas_diving"
-            else -> "single_gas_diving"
-        }
-
-    private fun summary(subSport: String, start: Long, elapsedSeconds: Double?) =
-        DecodedSummary(
-            sport = "diving",
-            subSport = subSport,
-            startTimeMillis = start,
-            totalElapsedSeconds = elapsedSeconds,
-            totalTimerSeconds = null,
-            totalDistanceMeters = null,
-            totalAscentMeters = null,
-            avgSpeedMps = null,
-            maxSpeedMps = null,
-            avgHeartRate = null,
-            maxHeartRate = null,
-            avgPowerWatts = null,
-            avgCadence = null,
-            // The mapper averages the records' water temperatures.
-            avgTemperatureCelsius = null,
-        )
-
     private class State {
         var sawDiveLog = false
         val header = mutableMapOf<String, String>()
@@ -140,10 +111,7 @@ internal object ShearwaterXmlParser {
         var closedCircuit = false
 
         val gas: DiveGas?
-            get() {
-                val o2 = oxygen?.takeIf { it > 0 } ?: return null
-                return DiveGas((o2 * PERCENT).roundToInt(), ((helium ?: 0.0) * PERCENT).roundToInt())
-            }
+            get() = DiveLogs.gasFromFractions(oxygen, helium)
 
         fun read(name: String, text: String) {
             when (name) {
@@ -163,61 +131,7 @@ internal object ShearwaterXmlParser {
      * must be the day) and ISO 8601, with or without a zone. Epoch millis, or null if unparseable.
      */
     fun parseLocalTime(text: String, timeZone: TimeZone): Long? =
-        parseLocal(text)?.toInstant(timeZone)?.toEpochMilliseconds() ?: parseXmlTime(text.trim())
-
-    /** A zone-less date as written; null for one with a zone, or none at all. */
-    private fun parseLocal(text: String): LocalDateTime? {
-        val value = text.trim()
-        return SLASHED.matchEntire(value)?.let(::slashed) ?: ISO_LOCAL.matchEntire(value)?.let(::isoLocal)
-    }
-
-    private fun slashed(match: MatchResult): LocalDateTime? {
-        fun group(name: String) = match.groups[name]?.value?.toInt() ?: 0
-        val first = group("first")
-        val second = group("second")
-        val dayFirst = first > MONTHS
-        val hour = group("hour")
-        val hour24 =
-            when (match.groups["meridiem"]?.value?.uppercase()) {
-                null -> hour
-                "PM" -> hour % HALF_DAY + HALF_DAY
-                else -> hour % HALF_DAY
-            }
-        return localDateTime(
-            group("year"),
-            if (dayFirst) second else first,
-            if (dayFirst) first else second,
-            hour24,
-            group("minute"),
-            group("sec"),
-        )
-    }
-
-    private fun isoLocal(match: MatchResult): LocalDateTime? {
-        fun group(name: String) = match.groups[name]?.value?.toInt() ?: 0
-        return localDateTime(group("year"), group("month"), group("day"), group("hour"), group("minute"), group("sec"))
-    }
-
-    /** Null for an impossible date, like a 13th month. A missing group (seconds) reads as 0. */
-    @Suppress("LongParameterList")
-    private fun localDateTime(year: Int, month: Int, day: Int, hour: Int, minute: Int, second: Int): LocalDateTime? =
-        try {
-            LocalDateTime(year, month, day, hour, minute, second)
-        } catch (_: IllegalArgumentException) {
-            null
-        }
-
-    /**
-     * A known model goes in as one display name with a space, which the mapper keeps as written ("Shearwater Petrel"); it would lowercase a
-     * lone product name. An unknown one leaves just the manufacturer.
-     */
-    private fun source(model: String?) =
-        DecodedSource(
-            type = null,
-            manufacturer = if (model == null) MANUFACTURER else null,
-            product = model?.let { "$MANUFACTURER $it" },
-            timeCreatedMillis = null,
-        )
+        parseLocalDateTime(text)?.toInstant(timeZone)?.toEpochMilliseconds() ?: parseXmlTime(text.trim())
 
     /** Shearwater's model names, indexed by the `product` code libdivecomputer numbers them with. */
     private val MODELS =
@@ -243,15 +157,4 @@ internal object ShearwaterXmlParser {
     private const val FAHRENHEIT_OFFSET = 32.0
     private const val FAHRENHEIT_PER_CELSIUS = 1.8
     private const val MILLIS_PER_SECOND = 1000.0
-    private const val PERCENT = 100
-    private const val MONTHS = 12
-    private const val HALF_DAY = 12
-
-    private val SLASHED =
-        Regex(
-            """(?<first>\d{1,2})/(?<second>\d{1,2})/(?<year>\d{4})\s+""" +
-                """(?<hour>\d{1,2}):(?<minute>\d{2})(?::(?<sec>\d{2}))?\s*(?<meridiem>[AaPp][Mm])?"""
-        )
-    private val ISO_LOCAL =
-        Regex("""(?<year>\d{4})-(?<month>\d{1,2})-(?<day>\d{1,2})[T ](?<hour>\d{1,2}):(?<minute>\d{2})(?::(?<sec>\d{2}))?(?:\.\d+)?""")
 }

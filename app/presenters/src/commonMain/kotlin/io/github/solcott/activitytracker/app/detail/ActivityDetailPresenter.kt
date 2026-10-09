@@ -95,6 +95,10 @@ fun ActivityDetailPresenter(
                 navigator.goTo(ProfileScreen(event.did.value))
             }
 
+            is ActivityDetailEvent.OpenActivity -> {
+                navigator.goTo(ActivityDetailScreen(event.uri.value))
+            }
+
             ActivityDetailEvent.ToggleKudos -> {
                 current?.let { flights.launch(it.uri) { runSuspendCatching { activities.toggleKudos(it) } } }
             }

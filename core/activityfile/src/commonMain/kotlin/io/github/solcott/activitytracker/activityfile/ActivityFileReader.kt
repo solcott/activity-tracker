@@ -5,26 +5,32 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Reads any activity file we support into an [ImportedActivity]: FIT, GPX, TCX or a Shearwater dive log (XML), each optionally gzipped. The
- * format comes from the content, not the file name, since exports and share sheets rename files freely. Runs on [Dispatchers.Default].
+ * Reads any activity file we support into [ImportedActivity]s: FIT, GPX, TCX, a Shearwater dive log (XML), or a UDDF or Subsurface logbook,
+ * each optionally gzipped. The format comes from the content, not the file name, since exports and share sheets rename files freely. Runs
+ * on [Dispatchers.Default].
  */
 @Inject
 class ActivityFileReader(private val fitDecoder: FitDecoder) {
-    /** Throws [UnsupportedActivityFileException] for other files and [ActivityFileException] for unreadable ones. */
+    /**
+     * One activity per file, except a logbook (UDDF, Subsurface), which gives one per dive in the file's order. Throws
+     * [UnsupportedActivityFileException] for other files and [ActivityFileException] for unreadable ones.
+     */
     @Suppress("InjectDispatcher") // CPU-bound parsing; a constructor param would break the `ActivityFileReader { … }` SAM form tests use.
-    suspend fun read(bytes: ByteArray): ImportedActivity =
+    suspend fun read(bytes: ByteArray): List<ImportedActivity> =
         withContext(Dispatchers.Default) {
             val plain = if (bytes.isGzip()) gunzip(bytes, MAX_UNZIPPED_BYTES) else bytes
-            DecodedActivityMapper.map(decode(plain))
+            decode(plain).map(DecodedActivityMapper::map)
         }
 
-    private fun decode(bytes: ByteArray): DecodedActivity {
-        if (bytes.isFit()) return fitDecoder.decode(bytes)
+    private fun decode(bytes: ByteArray): List<DecodedActivity> {
+        if (bytes.isFit()) return listOf(fitDecoder.decode(bytes))
         val xml = decodeText(bytes)
         return when (xmlRootElement(xml)) {
-            "gpx" -> GpxParser.parse(xml)
-            "TrainingCenterDatabase" -> TcxParser.parse(xml)
-            "dive" -> ShearwaterXmlParser.parse(xml)
+            "gpx" -> listOf(GpxParser.parse(xml))
+            "TrainingCenterDatabase" -> listOf(TcxParser.parse(xml))
+            "dive" -> listOf(ShearwaterXmlParser.parse(xml))
+            "uddf" -> UddfParser.parse(xml)
+            "divelog" -> SubsurfaceXmlParser.parse(xml)
             else -> throw UnsupportedActivityFileException()
         }
     }

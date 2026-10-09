@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.activityfile
 
 import kotlin.time.Instant
+import kotlinx.datetime.LocalDateTime
 import nl.adaptivity.xmlutil.EventType
 import nl.adaptivity.xmlutil.XmlException
 import nl.adaptivity.xmlutil.xmlStreaming
@@ -80,6 +81,63 @@ internal fun parseXmlTime(text: String?): Long? {
 }
 
 private val ZONE = Regex("(Z|[+-]\\d{2}:?\\d{2})$", RegexOption.IGNORE_CASE)
+
+/**
+ * A dive computer's zone-less wall clock as written: ISO 8601 ("2024-10-16T17:30:57", or a space for the T), or US slashed ("10/16/2024
+ * 5:30:57 PM", which Shearwater Cloud writes) with 24-hour and day-first variants (a first number over 12 must be the day). Null for a time
+ * with a zone, an impossible date, or none at all.
+ */
+internal fun parseLocalDateTime(text: String): LocalDateTime? {
+    val value = text.trim()
+    return SLASHED.matchEntire(value)?.let(::slashed) ?: ISO_LOCAL.matchEntire(value)?.let(::isoLocal)
+}
+
+private fun slashed(match: MatchResult): LocalDateTime? {
+    fun group(name: String) = match.groups[name]?.value?.toInt() ?: 0
+    val first = group("first")
+    val second = group("second")
+    val dayFirst = first > MONTHS
+    val hour = group("hour")
+    val hour24 =
+        when (match.groups["meridiem"]?.value?.uppercase()) {
+            null -> hour
+            "PM" -> hour % HALF_DAY + HALF_DAY
+            else -> hour % HALF_DAY
+        }
+    return localDateTime(
+        group("year"),
+        if (dayFirst) second else first,
+        if (dayFirst) first else second,
+        hour24,
+        group("minute"),
+        group("sec"),
+    )
+}
+
+private fun isoLocal(match: MatchResult): LocalDateTime? {
+    fun group(name: String) = match.groups[name]?.value?.toInt() ?: 0
+    return localDateTime(group("year"), group("month"), group("day"), group("hour"), group("minute"), group("sec"))
+}
+
+/** Null for an impossible date, like a 13th month. A missing group (seconds) reads as 0. */
+@Suppress("LongParameterList")
+private fun localDateTime(year: Int, month: Int, day: Int, hour: Int, minute: Int, second: Int): LocalDateTime? =
+    try {
+        LocalDateTime(year, month, day, hour, minute, second)
+    } catch (_: IllegalArgumentException) {
+        null
+    }
+
+private const val MONTHS = 12
+private const val HALF_DAY = 12
+
+private val SLASHED =
+    Regex(
+        """(?<first>\d{1,2})/(?<second>\d{1,2})/(?<year>\d{4})\s+""" +
+            """(?<hour>\d{1,2}):(?<minute>\d{2})(?::(?<sec>\d{2}))?\s*(?<meridiem>[AaPp][Mm])?"""
+    )
+private val ISO_LOCAL =
+    Regex("""(?<year>\d{4})-(?<month>\d{1,2})-(?<day>\d{1,2})[T ](?<hour>\d{1,2}):(?<minute>\d{2})(?::(?<sec>\d{2}))?(?:\.\d+)?""")
 
 /** The element's parent in a [walkXml] path. */
 internal val List<String>.parent: String?

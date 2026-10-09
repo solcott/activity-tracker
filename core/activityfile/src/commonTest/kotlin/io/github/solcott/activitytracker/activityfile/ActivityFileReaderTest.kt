@@ -50,27 +50,27 @@ class ActivityFileReaderTest {
 
     private val reader = ActivityFileReader { fitRun }
 
-    @Test fun picksFitByItsSignature() = runTest { assertEquals(200.0, reader.read(fitHeader + ByteArray(4)).distanceMeters) }
+    @Test fun picksFitByItsSignature() = runTest { assertEquals(200.0, reader.read(fitHeader + ByteArray(4)).single().distanceMeters) }
 
     @Test
     fun picksGpxAndTcxByContent() = runTest {
         val gpx =
             """<gpx version="1.1"><trk><type>walking</type><trkseg><trkpt lat="47.6" lon="-122.3"><time>2026-09-20T07:00:00Z</time></trkpt>
               </trkseg></trk></gpx>"""
-        assertEquals(Sport.WALK, reader.read(gpx.encodeToByteArray()).type.sport)
+        assertEquals(Sport.WALK, reader.read(gpx.encodeToByteArray()).single().type.sport)
 
         val tcx =
             """<?xml version="1.0"?><TrainingCenterDatabase><Activities><Activity Sport="Running"><Id>2026-09-20T07:00:00Z</Id>
               <Lap StartTime="2026-09-20T07:00:00Z"><TotalTimeSeconds>60</TotalTimeSeconds><DistanceMeters>250</DistanceMeters></Lap>
               </Activity></Activities></TrainingCenterDatabase>"""
-        val activity = reader.read(tcx.encodeToByteArray())
+        val activity = reader.read(tcx.encodeToByteArray()).single()
         assertEquals(Sport.RUN, activity.type.sport)
         assertEquals(250.0, activity.distanceMeters)
     }
 
     @Test
     fun unzipsGzippedFiles() = runTest {
-        val activity = reader.read(gzippedGpx)
+        val activity = reader.read(gzippedGpx).single()
         assertEquals(Sport.RUN, activity.type.sport)
         assertEquals(start, activity.startedAt)
         assertEquals(111.2, activity.distanceMeters!!, 0.5)
@@ -85,10 +85,16 @@ class ActivityFileReaderTest {
 
     @Test
     fun picksShearwaterDivesByContent() = runTest {
-        val activity = reader.read(ShearwaterFixtures.dive().encodeToByteArray())
+        val activity = reader.read(ShearwaterFixtures.dive().encodeToByteArray()).single()
         assertEquals(Sport.DIVE, activity.type.sport)
         assertEquals("Shearwater Peregrine TX", activity.device)
         assertFailsWith<ActivityFileException> { reader.read("""<dive version="3"/>""".encodeToByteArray()) }
+    }
+
+    @Test
+    fun readsEveryDiveInALogbook() = runTest {
+        assertEquals(listOf(12, 13), reader.read(UddfFixtures.logbook().encodeToByteArray()).map { it.dive?.diveNumber })
+        assertEquals(listOf(41, 42), reader.read(SubsurfaceFixtures.logbook().encodeToByteArray()).map { it.dive?.diveNumber })
     }
 
     @Test
@@ -103,8 +109,8 @@ class ActivityFileReaderTest {
                     if (bigEndian) listOf(high, low) else listOf(low, high)
                 }
         }
-        assertEquals(Sport.DIVE, reader.read(utf16(bigEndian = false)).type.sport)
-        assertEquals(Sport.DIVE, reader.read(utf16(bigEndian = true)).type.sport)
+        assertEquals(Sport.DIVE, reader.read(utf16(bigEndian = false)).single().type.sport)
+        assertEquals(Sport.DIVE, reader.read(utf16(bigEndian = true)).single().type.sport)
     }
 
     @Test

@@ -15,6 +15,9 @@ import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -24,6 +27,7 @@ import io.ktor.http.headersOf
 import kotlin.time.Clock
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * A signed-in session for Alice against a fake PDS that records every `putRecord`, and a fake AppView that serves her profile as indexed
@@ -40,11 +44,21 @@ class SessionTestFixture {
     var privateDetails: String = """{"details":{},"visibility":{}}"""
     private val putBodies = mutableListOf<String>()
 
+    /** Alice's activities as the AppView's `getAuthorActivitiesByStart` serves them, whatever the range; null to fail. */
+    var ownActivities: List<ActivityView>? = emptyList()
+
+    /** What `getRecord` serves for any of Alice's activities, as JSON. */
+    var activityRecord: String = "{}"
+
     private val privateBodies = mutableListOf<String>()
 
     /** The input of each successful `putPrivateDetails`, in order. */
     val privateDetailsPuts: List<JsonObject>
         get() = privateBodies.map { AtJson.parseToJsonElement(it).jsonObject }
+
+    /** The rkey of each successful `putRecord`, in order. */
+    val putRkeys: List<String>
+        get() = putBodies.map { AtJson.parseToJsonElement(it).jsonObject.getValue("rkey").jsonPrimitive.content }
 
     /** The `record` of each successful `putRecord`, in order. */
     val putRecords: List<JsonObject>
@@ -56,7 +70,7 @@ class SessionTestFixture {
                 val json = headersOf("Content-Type", "application/json")
                 when (request.url.encodedPath) {
                     "/xrpc/com.atproto.repo.getRecord" -> {
-                        val record = profileRecord
+                        val record = if (request.url.parameters["collection"] == Nsid.FEED_ACTIVITY) activityRecord else profileRecord
                         if (record == null) {
                             respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, json)
                         } else {
@@ -69,6 +83,25 @@ class SessionTestFixture {
                             """{"blob":{"${'$'}type":"blob","ref":{"${'$'}link":"bafkavatar"},"mimeType":"image/jpeg","size":3}}""",
                             headers = json,
                         )
+                    }
+
+                    "/xrpc/${Nsid.FEED_GET_AUTHOR_ACTIVITIES_BY_START}" -> {
+                        val activities = ownActivities
+                        if (activities == null) {
+                            respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
+                        } else {
+                            respond(
+                                AtJson.encodeToString(
+                                    GetAuthorActivitiesByStart.Output.serializer(),
+                                    GetAuthorActivitiesByStart.Output(activities),
+                                ),
+                                headers = json,
+                            )
+                        }
+                    }
+
+                    "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" -> {
+                        respond("""{"error":"NotFound"}""", HttpStatusCode.BadRequest, json)
                     }
 
                     "/xrpc/com.atproto.server.getServiceAuth" -> {
@@ -124,6 +157,7 @@ class SessionTestFixture {
         val units: UnitsRepository,
         val auth: AuthRepository,
         val recentTypes: RecentActivityTypes,
+        val feed: FeedRepository,
     )
 
     suspend fun repos(defaultUnits: UnitSystem = UnitSystem.Metric): Repos {
@@ -145,6 +179,6 @@ class SessionTestFixture {
             )
         val profiles = ProfileRepository(clients, Clock.System)
         val units = UnitsRepository(profiles, Clock.System, Logger, defaultUnits)
-        return Repos(activities, profiles, units, AuthRepository(manager, db, http), recentTypes)
+        return Repos(activities, profiles, units, AuthRepository(manager, db, http), recentTypes, feed)
     }
 }

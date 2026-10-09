@@ -158,6 +158,7 @@ private fun Overview(state: ActivityDetailState.Loaded, modifier: Modifier = Mod
             }
             StatTiles(overviewStats(record))
             record.polyline?.let { ActivityMap(it, Modifier.clip(RoundedCornerShape(12.dp))) }
+            Recordings(state.activity, onOpen = { state.eventSink(ActivityDetailEvent.OpenActivity(it)) })
             Kudos(state)
             if (state.isOwn) state.charts?.let { ChartSharing(it.visibility, state) }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
