@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.app.detail.DetailSection
 import io.github.solcott.activitytracker.app.detail.KudosList
 import io.github.solcott.activitytracker.app.detail.StreamKind
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
+import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
@@ -87,24 +88,37 @@ class ActivityDetailPresenterTest {
 
     private val localKudos = LocalKudos()
 
-    private class Repos(val feed: FeedRepository, val activities: ActivityRepository, val profiles: ProfileRepository)
+    private class Repos(
+        val feed: FeedRepository,
+        val activities: ActivityRepository,
+        val profiles: ProfileRepository,
+        val manager: ActivityManager,
+    )
 
     private suspend fun repos(): Repos {
         val (db, _, clients) = signedInTestSession(http, did = alice)
         val feed = FeedRepository(db, clients, localKudos, Logger)
+        val outbox = OutboxProcessor(db, clients, Logger)
+        val writer = OutboxWriter(db, clients, Clock.System)
+        val streams = PdsActivityStreamsStore(writer, clients, Clock.System)
         val activities =
             ActivityRepository(
                 db,
                 clients,
-                OutboxProcessor(db, clients, Logger),
-                OutboxWriter(db, clients, Clock.System),
-                PdsActivityStreamsStore(OutboxWriter(db, clients, Clock.System), clients, Clock.System),
+                outbox,
+                writer,
+                streams,
                 feed,
                 localKudos,
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
             )
-        return Repos(feed, activities, ProfileRepository(clients, Clock.System))
+        return Repos(
+            feed,
+            activities,
+            ProfileRepository(clients, Clock.System),
+            ActivityManager(db, clients, outbox, writer, streams, feed),
+        )
     }
 
     private val screen = ActivityDetailScreen(activityUri)
@@ -113,7 +127,7 @@ class ActivityDetailPresenterTest {
     fun showsHidesAndOpensKudosAthletes() = runTest {
         val navigator = FakeNavigator(screen)
         val r = repos()
-        presenterTestOf({ ActivityDetailPresenter(screen, navigator, r.feed, r.activities, r.profiles, localKudos) }) {
+        presenterTestOf({ ActivityDetailPresenter(screen, navigator, r.feed, r.activities, r.profiles, localKudos, r.manager) }) {
             val loaded = awaitLoaded()
             assertNull(loaded.kudosList)
 
@@ -134,7 +148,9 @@ class ActivityDetailPresenterTest {
     @Test
     fun viewersOwnToggleShowsBeforeTheAppViewCatchesUp() = runTest {
         val r = repos()
-        presenterTestOf({ ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localKudos) }) {
+        presenterTestOf({
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localKudos, r.manager)
+        }) {
             awaitLoaded().eventSink(ActivityDetailEvent.ToggleKudosList)
             awaitKudos { it.athletes.isNotEmpty() }
 
@@ -151,7 +167,9 @@ class ActivityDetailPresenterTest {
         kudosFromAppView = listOf(staleAlice, carol)
         val r = repos()
         localKudos.set(AtUri(activityUri), null)
-        presenterTestOf({ ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localKudos) }) {
+        presenterTestOf({
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localKudos, r.manager)
+        }) {
             awaitLoaded().eventSink(ActivityDetailEvent.ToggleKudosList)
             val shown = awaitKudos { it.athletes.isNotEmpty() }
             assertEquals(listOf("carol.test"), shown.kudosList?.athletes?.map { it.handle.value })
@@ -166,7 +184,9 @@ class ActivityDetailPresenterTest {
                 """"data":{"time":[0,1,2,3],"heartRate":[100,150,160,null]},""" +
                 """"heartRateZones":{"model":"cogganHeartRate","lows":[0,138,154,164,176]}}"""
         val r = repos()
-        presenterTestOf({ ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localKudos) }) {
+        presenterTestOf({
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localKudos, r.manager)
+        }) {
             var state = awaitLoaded()
             while (state.charts == null) state = awaitLoaded()
             val charts = state.charts!!
@@ -183,7 +203,9 @@ class ActivityDetailPresenterTest {
             """{"uri":"$activityUri","visibility":"public","channels":["heartRate","power"],""" +
                 """"data":{"time":[0,1,2,3],"heartRate":[100,150,160,null],"power":[200,250,300,null]}}"""
         val r = repos()
-        presenterTestOf({ ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localKudos) }) {
+        presenterTestOf({
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localKudos, r.manager)
+        }) {
             var state = awaitLoaded()
             while (state.charts == null) state = awaitLoaded()
             assertEquals(listOf(DetailSection.HeartRate, DetailSection.Power), state.sections)
@@ -206,7 +228,9 @@ class ActivityDetailPresenterTest {
     @Test
     fun noStreamsMeansNoCharts() = runTest {
         val r = repos()
-        presenterTestOf({ ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localKudos) }) {
+        presenterTestOf({
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localKudos, r.manager)
+        }) {
             assertNull(awaitLoaded().charts)
             cancelAndIgnoreRemainingEvents()
         }

@@ -82,6 +82,7 @@ fun ActivityDetailUi(state: ActivityDetailState, modifier: Modifier = Modifier) 
                 title = stringResource(Res.string.detail_title),
                 onBack = { state.eventSink(ActivityDetailEvent.Back) },
                 scrollBehavior = scrollBehavior,
+                actions = { (state as? ActivityDetailState.Loaded)?.manage?.let { ManageMenu(it, state.eventSink) } },
             )
         },
     ) { padding ->
@@ -161,6 +162,7 @@ private fun Overview(state: ActivityDetailState.Loaded, modifier: Modifier = Mod
             StatTiles(overviewStats(record, state.charts))
             record.polyline?.let { ActivityMap(it, Modifier.clip(RoundedCornerShape(12.dp))) }
             Recordings(state.activity, onOpen = { state.eventSink(ActivityDetailEvent.OpenActivity(it)) })
+            state.manage?.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
             Kudos(state)
             if (state.isOwn) state.charts?.let { ChartSharing(it.visibility, state) }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

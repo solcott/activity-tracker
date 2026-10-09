@@ -25,6 +25,8 @@
     <string name="error_save_settings">Couldn't save settings</string>
     <string name="error_save_profile">Couldn't save profile</string>
     <string name="error_save_zones">Couldn't save zones</string>
+    <string name="error_delete_activity">Couldn't delete activity</string>
+    <string name="error_ungroup_activity">Couldn't ungroup activity</string>
 
     <!-- Stats and units -->
     <string name="stat_distance">Distance</string>
@@ -626,6 +628,20 @@
         <item quantity="one">Another device, started %1$d min later</item>
         <item quantity="other">Another device, started %1$d min later</item>
     </plurals>
+    <string name="detail_more">More</string>
+    <string name="detail_ungroup">Ungroup</string>
+    <string name="detail_delete">Delete</string>
+    <string name="delete_activity_title">Delete this activity?</string>
+    <string name="delete_activity_message">Its kudos and comments go with it. This can't be undone.</string>
+    <plurals name="delete_activity_group_message">
+        <item quantity="one">It was also recorded by another device. Delete that recording too, or keep it as an activity of its own. Kudos and comments go with what's deleted. This can't be undone.</item>
+        <item quantity="other">It was also recorded by %1$d other devices. Delete those recordings too, or keep them as activities of their own. Kudos and comments go with what's deleted. This can't be undone.</item>
+    </plurals>
+    <plurals name="delete_activity_all">
+        <item quantity="one">Delete both</item>
+        <item quantity="other">Delete all %1$d</item>
+    </plurals>
+    <string name="delete_activity_only_this">Delete only this one</string>
     <plurals name="detail_recording_unnamed_earlier">
         <item quantity="one">Another device, started %1$d min earlier</item>
         <item quantity="other">Another device, started %1$d min earlier</item>

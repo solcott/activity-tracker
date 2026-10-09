@@ -47,6 +47,8 @@ sealed interface ActivityDetailState : CircuitUiState {
         val sections: ImmutableList<DetailSection> = persistentListOf(),
         /** The sections showing in full; the rest show an overview. */
         val expanded: ImmutableSet<DetailSection> = persistentSetOf(),
+        /** What the owner can do to the activity; null on someone else's. */
+        val manage: ActivityManage? = null,
     ) : ActivityDetailState {
         val anyExpanded: Boolean
             get() = sections.any { it in expanded }
@@ -67,6 +69,18 @@ enum class DetailSection {
     /** The recording device and its sensors. */
     Device,
 }
+
+/** Deleting or ungrouping the signed-in athlete's own activity. */
+@Immutable
+data class ActivityManage(
+    /** The other recordings of this activity, which deleting it can take too or leave as activities of their own. */
+    val otherRecordings: Int,
+    /** The activity is grouped with exactly one other, its main activity or its one recording, so the two can be split apart. */
+    val canUngroup: Boolean,
+    /** A delete or ungroup is running. */
+    val busy: Boolean,
+    val error: UiError?,
+)
 
 @Immutable
 data class KudosList(
@@ -104,4 +118,10 @@ sealed interface ActivityDetailEvent {
 
     /** Expand every section when none is expanded, else collapse them all. */
     data object ToggleAll : ActivityDetailEvent
+
+    /** The owner deletes the activity, confirmed, and its other recordings too [withRecordings] or else leaves them as activities. */
+    data class Delete(val withRecordings: Boolean) : ActivityDetailEvent
+
+    /** The owner splits the two activities of a group apart: see [ActivityManage.canUngroup]. */
+    data object Ungroup : ActivityDetailEvent
 }

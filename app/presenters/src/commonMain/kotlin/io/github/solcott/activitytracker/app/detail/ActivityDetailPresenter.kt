@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.settings.TrainingZonesScreen
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -45,6 +46,7 @@ fun ActivityDetailPresenter(
     activities: ActivityRepository,
     profiles: ProfileRepository,
     localKudos: LocalKudos,
+    manager: ActivityManager,
 ): ActivityDetailState {
     var activity by remember { mutableStateOf<ActivityView?>(null) }
     var comments by remember { mutableStateOf<ImmutableList<CommentView>>(persistentListOf()) }
@@ -71,6 +73,7 @@ fun ActivityDetailPresenter(
     val isOwn = shown?.author?.did == profiles.did
     val sections = shown?.let { detailSections(it, charts.charts) } ?: persistentListOf()
     val expansion = rememberExpansion(sections)
+    val manage = rememberManage(activity.takeIf { isOwn }, loadKey, feed, manager, navigator, flights) { loadKey++ }
 
     val sink: (ActivityDetailEvent) -> Unit = { event ->
         val current = activity
@@ -113,6 +116,10 @@ fun ActivityDetailPresenter(
             ActivityDetailEvent.SendComment -> {
                 current?.let { sendComment(it, draft, flights, activities) }
             }
+
+            is ActivityDetailEvent.Delete -> manage.delete(event.withRecordings)
+
+            ActivityDetailEvent.Ungroup -> manage.ungroup()
         }
     }
 
@@ -130,8 +137,73 @@ fun ActivityDetailPresenter(
             savingChartsVisibility = charts.saving,
             sections = sections,
             expanded = expansion.expanded,
+            manage = manage.state,
         )
     }
+}
+
+/** The owner's delete and ungroup: [state] is null on someone else's activity. */
+private class Manage(val state: ActivityManage?, val delete: (withRecordings: Boolean) -> Unit, val ungroup: () -> Unit)
+
+/**
+ * Deleting or ungrouping the signed-in athlete's own [activity] (null for someone else's). A recording loads the activity it records, to
+ * tell whether the two are grouped alone. A delete leaves the screen; an ungroup stays and [reload]s it.
+ */
+@Composable
+@Suppress("LongParameterList") // Injected collaborators.
+private fun rememberManage(
+    activity: ActivityView?,
+    loadKey: Int,
+    feed: FeedRepository,
+    manager: ActivityManager,
+    navigator: Navigator,
+    flights: SingleFlight,
+    reload: () -> Unit,
+): Manage {
+    var error by remember { mutableStateOf<UiError?>(null) }
+    val recordingOf = activity?.record?.recordingOf
+    // The main activity's recordings, this one among them; null until loaded, and when it's gone.
+    var siblings by remember(recordingOf) { mutableStateOf<Int?>(null) }
+    LaunchedEffect(recordingOf, loadKey) {
+        if (recordingOf != null) {
+            runSuspendCatching { feed.activity(recordingOf) }.onSuccess { siblings = it.activity.recordings.orEmpty().size }
+        }
+    }
+    val delete = ActivityDetailEvent.Delete::class
+    val ungroup = ActivityDetailEvent.Ungroup
+    activity ?: return Manage(null, {}, {})
+    val recordings = activity.recordings.orEmpty()
+    val state =
+        ActivityManage(
+            otherRecordings = recordings.size,
+            canUngroup = if (recordingOf == null) recordings.size == 1 else siblings == 1,
+            busy = flights.isRunning(delete) || flights.isRunning(ungroup),
+            error = error,
+        )
+    return Manage(
+        state,
+        delete = { withRecordings ->
+            flights.launch(delete) {
+                error = null
+                runSuspendCatching { manager.delete(activity, withRecordings) }
+                    .onSuccess { navigator.pop() }
+                    .onFailure { error = UiError.of(UiError.Kind.DeleteActivity, it) }
+            }
+        },
+        ungroup = {
+            if (state.canUngroup) {
+                flights.launch(ungroup) {
+                    error = null
+                    runSuspendCatching {
+                        if (recordingOf == null) manager.ungroup(recordings.single().uri, from = activity.uri)
+                        else manager.ungroup(activity.uri, from = recordingOf)
+                    }
+                        .onSuccess { reload() }
+                        .onFailure { error = UiError.of(UiError.Kind.UngroupActivity, it) }
+                }
+            }
+        },
+    )
 }
 
 /** Sends [draft] on [activity] and clears it, unless it's blank or a comment is already sending. */

@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_body
 import io.github.solcott.activitytracker.composeApp.resources.detail_gender
 import io.github.solcott.activitytracker.composeApp.resources.detail_location
 import io.github.solcott.activitytracker.composeApp.resources.detail_training
+import io.github.solcott.activitytracker.composeApp.resources.error_delete_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_load_feed
 import io.github.solcott.activitytracker.composeApp.resources.error_load_followers
@@ -21,6 +22,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_save_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_save_settings
 import io.github.solcott.activitytracker.composeApp.resources.error_save_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_search_athletes
+import io.github.solcott.activitytracker.composeApp.resources.error_ungroup_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_unsupported_activity_file
 import io.github.solcott.activitytracker.composeApp.resources.error_update_follow
 import io.github.solcott.activitytracker.composeApp.resources.gender_female
@@ -80,6 +82,8 @@ fun errorText(error: UiError): String =
                 UiError.Kind.LoadFollowing -> Res.string.error_load_following
                 UiError.Kind.SearchAthletes -> Res.string.error_search_athletes
                 UiError.Kind.SaveActivity -> Res.string.error_save_activity
+                UiError.Kind.DeleteActivity -> Res.string.error_delete_activity
+                UiError.Kind.UngroupActivity -> Res.string.error_ungroup_activity
                 UiError.Kind.ReadActivityFile -> Res.string.error_read_activity_file
                 UiError.Kind.UnsupportedActivityFile -> Res.string.error_unsupported_activity_file
                 UiError.Kind.SaveSettings -> Res.string.error_save_settings
