@@ -59,7 +59,7 @@ class DetailsForm internal constructor() {
         when (event) {
             is DetailsEvent.PhotosPicked -> media = (media + event.photos.map(EditMedia::Picked)).take(ActivityMedia.MAX).toPersistentList()
 
-            is DetailsEvent.RemoveMedia -> if (event.index in media.indices) media = media.removeAt(event.index)
+            is DetailsEvent.RemoveMedia -> if (event.index in media.indices) media = media.removingAt(event.index)
         }
     }
 

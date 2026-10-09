@@ -5,7 +5,6 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Inject
-import dev.zacsweers.metro.Provider
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.createGraphFactory
 import io.github.solcott.activitytracker.activityfile.FitDecoder
@@ -49,7 +48,7 @@ fun MainViewController(fitDecoder: FitDecoder): UIViewController {
 /** OAuth via ASWebAuthenticationSession, which hands the redirect URL straight back to us. */
 @ContributesBinding(AppScope::class)
 @Inject
-class IosAuthBrowser(private val coordinator: Provider<AuthCoordinator>) : AuthBrowser {
+class IosAuthBrowser(private val coordinator: () -> AuthCoordinator) : AuthBrowser {
     private val scope = MainScope()
     private var session: ASWebAuthenticationSession? = null
 

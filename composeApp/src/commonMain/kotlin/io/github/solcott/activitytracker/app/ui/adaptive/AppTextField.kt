@@ -99,7 +99,7 @@ fun AppTextField(
             readOnly = readOnly,
             isError = isError,
             label = label?.let { { Text(it) } },
-            labelPosition = TextFieldLabelPosition.Attached(alwaysMinimize = placeholder != null),
+            labelPosition = TextFieldLabelPosition.Cutout(isAlwaysMinimized = placeholder != null),
             placeholder = placeholder?.let { { Text(it) } },
             supportingText = supportingText?.let { { Text(it) } },
             leadingIcon = leadingIcon,
