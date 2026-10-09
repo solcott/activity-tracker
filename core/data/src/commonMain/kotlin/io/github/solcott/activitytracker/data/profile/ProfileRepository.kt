@@ -5,9 +5,9 @@ import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.ownBlobUrl
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
-import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.NoParams
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.Tid
@@ -25,8 +25,6 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.DeleteRecord
 import io.github.solcott.activitytracker.lexicon.atproto.GetRecord
 import io.github.solcott.activitytracker.lexicon.atproto.PutRecord
-import io.ktor.http.URLBuilder
-import io.ktor.http.appendPathSegments
 import kotlin.time.Clock
 
 @SingleIn(SessionScope::class)
@@ -60,7 +58,7 @@ class ProfileRepository(
                 details = if (pending.details == null) view.details else pending.details.takeUnless { it == ProfileDetails() },
                 avatar =
                     if (avatarCid == view.avatar?.substringAfterLast('/')) view.avatar
-                    else avatarCid?.let { blobUrl(clients.pdsUrl, did, it) },
+                    else avatarCid?.let { ownBlobUrl(clients.pdsUrl, did, it) },
             )
         if (shown == view) pendingOwnProfile = null
         return shown
@@ -98,7 +96,7 @@ class ProfileRepository(
             record?.displayName,
             record?.description,
             avatar,
-            avatar?.let { blobUrl(clients.pdsUrl, did, it.ref.link) },
+            avatar?.let { ownBlobUrl(clients.pdsUrl, did, it.ref.link) },
             details,
             visibility,
         )
@@ -209,16 +207,6 @@ class ProfileRepository(
         const val RECORD_NOT_FOUND = "RecordNotFound"
     }
 }
-
-/** A blob on the athlete's own PDS, for showing a new avatar before the AppView has indexed it. */
-private fun blobUrl(pdsUrl: String, did: Did, cid: String): String =
-    URLBuilder(pdsUrl)
-        .apply {
-            appendPathSegments("xrpc", "com.atproto.sync.getBlob")
-            parameters.append("did", did.value)
-            parameters.append("cid", cid)
-        }
-        .buildString()
 
 /**
  * Every detail the athlete has set, from their [record] and the AppView's [hidden] copy, and an effective visibility for each group (see

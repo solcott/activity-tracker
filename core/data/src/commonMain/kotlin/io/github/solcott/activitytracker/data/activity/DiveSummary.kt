@@ -51,6 +51,7 @@ object DiveSummary {
                         )
                     }
                     .ifEmpty { null },
+            site = dive.siteName?.trim()?.take(ActivityDive.MAX_SITE_LENGTH)?.ifEmpty { null },
         )
 
     /** A reading the lexicon holds to zero or more: a depth just above the surface (-0.05 m) is noise, not a rejected record. */
@@ -70,6 +71,7 @@ object DiveSummary {
             bottomTime = existing.bottomTime ?: other.bottomTime,
             surfaceInterval = existing.surfaceInterval ?: other.surfaceInterval,
             diveNumber = existing.diveNumber ?: other.diveNumber,
+            site = existing.site ?: other.site,
         )
 
     private fun fillGasGaps(existing: ActivityDive, other: ActivityDive): ActivityDive =

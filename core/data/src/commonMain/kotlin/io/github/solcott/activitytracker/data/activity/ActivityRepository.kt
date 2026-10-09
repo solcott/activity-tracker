@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.Tid
+import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
@@ -48,8 +49,9 @@ class ActivityRepository(
 
     private val kudosMutex = Mutex()
 
+    /** Publishes [draft]. Its photos upload first, so one with photos needs a connection; one without waits in the outbox if offline. */
     suspend fun publish(draft: ActivityDraft): AtUri {
-        val uri = queue(draft)
+        val uri = queue(draft, draft.photos.map { clients.upload(it) })
         outbox.drain()
         recentTypes.remember(draft.type)
         return uri
@@ -60,7 +62,7 @@ class ActivityRepository(
      * queued before any is sent, so a failed upload leaves them all in the outbox to retry.
      */
     suspend fun publishAll(drafts: List<ActivityDraft>): List<AtUri> {
-        val uris = drafts.map { queue(it) }
+        val uris = drafts.map { queue(it, photos = emptyList()) }
         outbox.drain()
         drafts.map { it.type }.distinct().forEach { recentTypes.remember(it) }
         return uris
@@ -77,7 +79,12 @@ class ActivityRepository(
         val rkey = requireNotNull(existing.uri.rkey)
         val indexed = existing.cid != null
         val current = if (indexed) currentRecord(rkey) else existing.record
-        val merged = ActivityMerge.fillGaps(current, draft.toRecord(clock.now()))
+        val photos = draft.photos.take((ActivityMedia.MAX - current.media.orEmpty().size).coerceAtLeast(0)).map { clients.upload(it) }
+        // The athlete's own words on the import screen fill an empty description; a file's never do.
+        val merged =
+            ActivityMerge.fillGaps(current, draft.toRecord(clock.now(), photos)).let {
+                if (it.description == null) it.copy(description = draft.description?.takeIf(String::isNotBlank)) else it
+            }
         val track = draft.gpx?.takeIf { current.track == null }?.let { PendingBlob(it, Gpx.MIME_TYPE, field = "track") }
         writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), merged, track)
         val imported = draft.streams
@@ -85,7 +92,7 @@ class ActivityRepository(
         val offsetSeconds = (draft.startedAt - current.startedAt).inWholeSeconds.toInt()
         if (indexed && imported != null) mergeStreams(existing.uri, draft, imported, offsetSeconds)
         feed.rewrites.set(existing.uri, merged)
-        feed.updateCached(existing.uri) { it.copy(record = merged) }
+        feed.updateCached(existing.uri) { feed.rewrites.rewritten(it, merged) }
     }
 
     private suspend fun currentRecord(rkey: String): ActivityRecord = clients.ownActivityRecord(rkey)
@@ -106,14 +113,15 @@ class ActivityRepository(
         )
     }
 
-    private suspend fun queue(draft: ActivityDraft): AtUri {
+    /** [photos] are [draft]'s, uploaded. */
+    private suspend fun queue(draft: ActivityDraft, photos: List<ActivityMedia>): AtUri {
         val rkey = Tid.next(clock)
         val uri = AtUri.of(clients.did, Nsid.FEED_ACTIVITY, rkey)
         writer.put(
             collection = Nsid.FEED_ACTIVITY,
             rkey = rkey,
             serializer = ActivityRecord.serializer(),
-            record = draft.toRecord(clock.now()),
+            record = draft.toRecord(clock.now(), photos),
             blob = draft.gpx?.let { PendingBlob(it, Gpx.MIME_TYPE, field = "track") },
         )
         draft.streams?.let { streams.put(uri, ActivityStreams(it, draft.streamsVisibility, draft.heartRateZones, draft.powerZones)) }

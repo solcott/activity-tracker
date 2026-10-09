@@ -62,6 +62,7 @@ internal object SubsurfaceXmlParser {
                     avgDepthMeters = meanDepth,
                     tanks = cylinders.filter { it.startBar != null || it.endBar != null }.map { DiveTank(it.startBar, it.endBar, null) },
                     entry = site?.position,
+                    siteName = site?.name,
                 )
             val elapsed =
                 attribute["duration"]?.let(::seconds)?.takeIf { it > 0 } ?: samples.mapNotNull { it.seconds }.maxOrNull()?.takeIf { it > 0 }

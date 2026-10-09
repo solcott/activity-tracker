@@ -8,12 +8,14 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityDive
+import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 
 /**
- * Deletes the signed-in athlete's activities and splits recordings off their groups, through the outbox like every write. The feed drops
- * what changed at once ([FeedRepository.deletes]), since the AppView serves it as it was until Jetstream catches up.
+ * Edits, deletes and ungroups the signed-in athlete's activities, through the outbox like every write. The feed shows what changed at once
+ * ([FeedRepository.rewrites], [FeedRepository.deletes]), since the AppView serves it as it was until Jetstream catches up.
  */
 @SingleIn(SessionScope::class)
 @Inject
@@ -37,6 +39,38 @@ class ActivityManager(
             recordings.forEach { queueUngroup(it, from = activity.uri) }
         }
         queueDelete(activity.uri, recordingOf = activity.record.recordingOf)
+        outbox.drain()
+    }
+
+    /**
+     * Rewrites [activity]'s title, description, dive site and photos ([edit]), leaving the rest of its record as the PDS has it. New photos
+     * upload first, so this needs a connection; media kinds this client doesn't know stay, after the photos.
+     */
+    suspend fun edit(activity: ActivityView, edit: ActivityEdit) {
+        val rkey = requireNotNull(activity.uri.rkey)
+        val current = clients.ownActivityRecord(rkey)
+        val have = current.media.orEmpty()
+        val photos =
+            edit.media.take(ActivityMedia.MAX).mapNotNull { change ->
+                when (change) {
+                    is MediaEdit.Keep -> have.firstOrNull { it.cid == change.cid }
+                    is MediaEdit.Add -> clients.upload(change.photo)
+                }
+            }
+        val unknown = have.filterIsInstance<ActivityMedia.Unknown>()
+        val record =
+            current.copy(
+                title = edit.title.trim().ifEmpty { null },
+                description = edit.description.trim().ifEmpty { null },
+                dive =
+                    edit.diveSite?.let { site ->
+                        (current.dive ?: ActivityDive()).copy(site = site.trim().take(ActivityDive.MAX_SITE_LENGTH).ifEmpty { null })
+                    } ?: current.dive,
+                media = (photos + unknown).take(ActivityMedia.MAX).ifEmpty { null },
+            )
+        writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), record)
+        feed.rewrites.set(activity.uri, record)
+        feed.updateCached(activity.uri) { feed.rewrites.rewritten(it, record) }
         outbox.drain()
     }
 

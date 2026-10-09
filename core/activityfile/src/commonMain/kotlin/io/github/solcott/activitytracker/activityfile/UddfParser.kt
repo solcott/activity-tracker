@@ -156,6 +156,7 @@ internal object UddfParser {
                                 DiveTank(it.beginPascals?.div(DiveLogs.PASCALS_PER_BAR), it.endPascals?.div(DiveLogs.PASCALS_PER_BAR), null)
                             },
                     entry = site?.position(),
+                    siteName = site?.name,
                 )
             val elapsed = duration?.takeIf { it > 0 } ?: waypoints.mapNotNull { it.seconds }.maxOrNull()?.takeIf { it > 0 }
             return DecodedActivity(

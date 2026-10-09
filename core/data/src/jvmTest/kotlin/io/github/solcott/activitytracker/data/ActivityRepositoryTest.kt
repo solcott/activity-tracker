@@ -1,16 +1,21 @@
 package io.github.solcott.activitytracker.data
 
+import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
 import co.touchlab.kermit.TestLogWriter
 import co.touchlab.kermit.loggerConfigInit
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
+import io.github.solcott.activitytracker.data.activity.ActivityEdit
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
+import io.github.solcott.activitytracker.data.activity.MediaEdit
+import io.github.solcott.activitytracker.data.activity.NewPhoto
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.OwnActivity
 import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
+import io.github.solcott.activitytracker.data.activity.cid
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalKudos
@@ -21,12 +26,15 @@ import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
+import io.github.solcott.activitytracker.lexicon.app.ActivityMediaView
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
+import io.github.solcott.activitytracker.lexicon.app.AspectRatio
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
@@ -58,6 +66,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
+@ExperimentalKermitApi
 class ActivityRepositoryTest {
     private val did = Did("did:plc:alice")
     private var failWrites = false
@@ -93,10 +102,18 @@ class ActivityRepositoryTest {
                 val json = headersOf("Content-Type", "application/json")
                 when (request.url.encodedPath) {
                     "/xrpc/com.atproto.repo.uploadBlob" -> {
-                        respond(
-                            """{"blob":{"${'$'}type":"blob","ref":{"${'$'}link":"bafyblob"},"mimeType":"application/gpx+xml","size":10}}""",
-                            headers = json,
-                        )
+                        val mime = request.body.contentType?.toString() ?: request.headers["Content-Type"].orEmpty()
+                        if (mime.startsWith("image/")) {
+                            writes += "upload $mime"
+                            val link = "bafkphoto${writes.count { it.startsWith("upload") }}"
+                            respond(
+                                $$"""{"blob":{"$type":"blob","ref":{"$link":"$$link"},"mimeType":"$$mime","size":10}}""",
+                                headers = json,
+                            )
+                        } else {
+                            val gpx = """"mimeType":"application/gpx+xml","size":10"""
+                            respond($$"""{"blob":{"$type":"blob","ref":{"$link":"bafyblob"},$$gpx}}""", headers = json)
+                        }
                     }
 
                     "/xrpc/com.atproto.repo.putRecord" -> {
@@ -491,5 +508,96 @@ class ActivityRepositoryTest {
         assertEquals(listOf("3krec2"), feed.timeline().first().single().recordings?.map { it.uri.rkey })
         feed.refreshTimeline()
         assertEquals(listOf("3krec2"), feed.timeline().first().single().recordings?.map { it.uri.rkey }, "until the AppView catches up")
+    }
+
+    private fun photoBlob(cid: String) = BlobRef(ref = BlobRef.Link(cid), mimeType = "image/webp", size = 10)
+
+    private val newPhoto = NewPhoto(byteArrayOf(1, 2, 3), "image/webp", width = 4, height = 3)
+
+    @Test
+    fun editUploadsOnlyNewPhotosAndKeepsTheTrackAndUnknownMedia() = runTest {
+        repository()
+        val video = AtJson.parseToJsonElement($$"""{"$type":"app.activitytracker.feed.activity#video","video":{}}""").jsonObject
+        val track = BlobRef(ref = BlobRef.Link("bafytrack"), mimeType = "application/gpx+xml", size = 10)
+        storedRecord =
+            AtJson.encodeToString(
+                ActivityRecord.serializer(),
+                existingDive.copy(
+                    track = track,
+                    media =
+                        listOf(
+                            ActivityMedia.Image(photoBlob("bafkold1")),
+                            ActivityMedia.Unknown(video),
+                            ActivityMedia.Image(photoBlob("bafkold2")),
+                        ),
+                ),
+            )
+        val activity = ownActivity("3kdive").copy(media = listOf(ActivityMediaView.Image("https://appview/img/media/$did/bafkold2")))
+        timeline = listOf(activity)
+        feed.refreshTimeline()
+
+        manager.edit(
+            activity,
+            ActivityEdit(
+                title = " Blue Hole North ",
+                description = "",
+                diveSite = "Blue Hole",
+                media = listOf(MediaEdit.Keep("bafkold2"), MediaEdit.Add(newPhoto)),
+            ),
+        )
+
+        assertEquals(listOf("upload image/webp", "put ${Nsid.FEED_ACTIVITY}/3kdive"), writes)
+        val record =
+            AtJson.decodeFromJsonElement(
+                ActivityRecord.serializer(),
+                AtJson.parseToJsonElement(putBodies.single()).jsonObject.getValue("record"),
+            )
+        assertEquals("Blue Hole North", record.title)
+        assertEquals(null, record.description)
+        assertEquals("Blue Hole", record.dive?.site)
+        assertEquals(existingDive.dive?.maxDepth, record.dive?.maxDepth)
+        assertEquals(track, record.track)
+        assertEquals(
+            listOf(
+                ActivityMedia.Image(photoBlob("bafkold2")),
+                ActivityMedia.Image(photoBlob("bafkphoto1"), aspectRatio = AspectRatio(4, 3)),
+                ActivityMedia.Unknown(video),
+            ),
+            record.media,
+        )
+
+        // The AppView still serves the old record: the kept photo loads from it, the new one from the PDS.
+        feed.refreshTimeline()
+        val shown = feed.timeline().first().single()
+        assertEquals("Blue Hole North", shown.record.title)
+        val urls = shown.media.orEmpty().map { (it as ActivityMediaView.Image).fullsize }
+        assertEquals("https://appview/img/media/$did/bafkold2", urls[0])
+        assertTrue(urls[1].endsWith("com.atproto.sync.getBlob?did=did%3Aplc%3Aalice&cid=bafkphoto1"), urls[1])
+    }
+
+    @Test
+    fun publishUploadsPhotosBeforeWritingTheRecord() = runTest {
+        val repo = repository()
+        val draft =
+            ActivityDraft(
+                type = ActivityType(Sport.RUN),
+                title = null,
+                description = "Hills",
+                startedAt = Instant.parse("2026-09-30T07:00:00Z"),
+                elapsed = 30.minutes,
+                photos = listOf(newPhoto, newPhoto),
+            )
+
+        repo.publish(draft)
+
+        assertEquals(listOf("upload image/webp", "upload image/webp"), writes.take(2))
+        assertTrue(writes[2].startsWith("put ${Nsid.FEED_ACTIVITY}/"))
+        val record =
+            AtJson.decodeFromJsonElement(
+                ActivityRecord.serializer(),
+                AtJson.parseToJsonElement(putBodies.single()).jsonObject.getValue("record"),
+            )
+        assertEquals("Hills", record.description)
+        assertEquals(listOf("bafkphoto1", "bafkphoto2"), record.media.orEmpty().map { it.cid })
     }
 }

@@ -85,6 +85,8 @@ data class ImportedDive(
     val sacBarPerMinute: Double? = null,
     val tanks: List<DiveTank> = emptyList(),
     val entry: DivePosition? = null,
+    /** The dive site's name, from a logbook that names it. Unlike [entry], it goes into the public record. */
+    val siteName: String? = null,
     val exit: DivePosition? = null,
 )
 

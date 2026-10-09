@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.activityfile.ImportedActivity
 import io.github.solcott.activitytracker.activityfile.StreamBuilder
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
+import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
@@ -49,8 +50,25 @@ data class ActivityDraft(
     val recordingOf: AtUri? = null,
     /** The dive computer's summary, for a dive. */
     val dive: ActivityDive? = null,
+    /** Photos to upload with it, in order. */
+    val photos: List<NewPhoto> = emptyList(),
 ) {
-    fun toRecord(createdAt: Instant): ActivityRecord =
+    /**
+     * This draft with what the athlete wrote about it: [description], [photos], and for a dive its [diveSite] (blank clears the logbook's;
+     * null leaves the dive as it is).
+     */
+    fun withDetails(description: String?, diveSite: String?, photos: List<NewPhoto>): ActivityDraft =
+        copy(
+            description = description,
+            photos = photos,
+            dive =
+                diveSite?.let { site ->
+                    (dive ?: ActivityDive()).copy(site = site.trim().take(ActivityDive.MAX_SITE_LENGTH).ifEmpty { null })
+                } ?: dive,
+        )
+
+    /** The record, holding [media]: [photos] once uploaded. */
+    fun toRecord(createdAt: Instant, media: List<ActivityMedia> = emptyList()): ActivityRecord =
         ActivityRecord(
             sport = type.sport,
             subSport = type.subSport,
@@ -75,6 +93,7 @@ data class ActivityDraft(
             sensors = sensors.take(ActivitySensor.MAX).ifEmpty { null },
             dive = dive,
             recordingOf = recordingOf,
+            media = media.take(ActivityMedia.MAX).ifEmpty { null },
             createdAt = createdAt,
         )
 
@@ -102,6 +121,7 @@ data class ActivityDraft(
             powerZones,
             recordingOf,
             dive,
+            photos,
         )
 
     override fun equals(other: Any?): Boolean =

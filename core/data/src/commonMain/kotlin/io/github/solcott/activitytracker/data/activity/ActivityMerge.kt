@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data.activity
 
+import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import kotlin.math.abs
@@ -25,6 +26,7 @@ object ActivityMerge {
             device = existing.device ?: other.device,
             sensors = existing.sensors ?: other.sensors,
             dive = DiveSummary.fillGaps(existing.dive, other.dive),
+            media = (existing.media.orEmpty() + other.media.orEmpty()).take(ActivityMedia.MAX).ifEmpty { null },
         )
 
     /**

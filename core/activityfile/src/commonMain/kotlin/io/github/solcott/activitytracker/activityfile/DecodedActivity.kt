@@ -165,6 +165,8 @@ data class DecodedDive(
     val tanks: List<DiveTank> = emptyList(),
     /** Where the diver went in and came out, if the computer had a GPS fix at the surface. */
     val entry: DivePosition? = null,
+    /** The dive site's name, from a logbook that names it. */
+    val siteName: String? = null,
     val exit: DivePosition? = null,
 )
 

@@ -90,6 +90,7 @@ object DecodedActivityMapper {
             sacBarPerMinute = dive.sacBarPerMinute,
             tanks = dive.tanks,
             entry = dive.entry,
+            siteName = dive.siteName,
             exit = dive.exit,
         )
     }

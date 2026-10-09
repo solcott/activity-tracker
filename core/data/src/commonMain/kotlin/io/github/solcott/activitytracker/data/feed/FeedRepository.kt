@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.FeedItemEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.ownBlobUrl
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
@@ -37,7 +38,7 @@ class FeedRepository(
     private val log = logger.withTag("FeedRepository")
 
     /** Records the athlete rewrote this session, shown over the AppView's until it catches up: write one with [updateCached] too. */
-    val rewrites = LocalRewrites()
+    val rewrites = LocalRewrites { cid -> ownBlobUrl(clients.pdsUrl, clients.did, cid) }
 
     /** Activities the athlete deleted and recordings they split off this session, left out until the AppView catches up. */
     val deletes = LocalDeletes()
