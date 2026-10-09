@@ -24,6 +24,7 @@ object ActivityMerge {
             polyline = existing.polyline ?: other.polyline,
             device = existing.device ?: other.device,
             sensors = existing.sensors ?: other.sensors,
+            dive = DiveSummary.fillGaps(existing.dive, other.dive),
         )
 
     /**

@@ -31,6 +31,7 @@ import io.github.solcott.activitytracker.composeApp.resources.import_merge_adds_
 import io.github.solcott.activitytracker.composeApp.resources.merge_gain_any_charts
 import io.github.solcott.activitytracker.composeApp.resources.merge_gain_charts
 import io.github.solcott.activitytracker.composeApp.resources.merge_gain_device
+import io.github.solcott.activitytracker.composeApp.resources.merge_gain_dive_details
 import io.github.solcott.activitytracker.composeApp.resources.merge_gain_heart_rate
 import io.github.solcott.activitytracker.composeApp.resources.merge_gain_sub_sport
 import io.github.solcott.activitytracker.composeApp.resources.merge_gain_track
@@ -144,6 +145,7 @@ private fun gainName(gain: MergeGain): String =
             MergeGain.Device -> Res.string.merge_gain_device
             MergeGain.SubSport -> Res.string.merge_gain_sub_sport
             MergeGain.WaterTemperature -> Res.string.merge_gain_water_temperature
+            MergeGain.DiveDetails -> Res.string.merge_gain_dive_details
             MergeGain.HeartRate -> Res.string.merge_gain_heart_rate
             MergeGain.Track -> Res.string.merge_gain_track
             MergeGain.Charts -> Res.string.merge_gain_charts

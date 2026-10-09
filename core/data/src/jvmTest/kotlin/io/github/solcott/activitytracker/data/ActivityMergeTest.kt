@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.data
 
 import io.github.solcott.activitytracker.data.activity.ActivityMerge
+import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -34,6 +35,17 @@ class ActivityMergeTest {
         assertEquals(
             existing.copy(device = "Suunto D5", avgTemperature = 260),
             ActivityMerge.fillGaps(existing.copy(avgTemperature = 260), other),
+        )
+    }
+
+    @Test
+    fun fillsTheDiveSummaryFieldByField() {
+        val existing = ActivityRecord(Sport.DIVE, Instant.parse("2024-05-12T16:00:00Z"), 2700, Instant.parse("2024-05-13T00:00:00Z"))
+        val other = existing.copy(dive = ActivityDive(maxDepth = 3100, avgDepth = 1500, diveNumber = 7))
+        assertEquals(other, ActivityMerge.fillGaps(existing, other))
+        assertEquals(
+            existing.copy(dive = ActivityDive(maxDepth = 3012, avgDepth = 1500, diveNumber = 7)),
+            ActivityMerge.fillGaps(existing.copy(dive = ActivityDive(maxDepth = 3012)), other),
         )
     }
 

@@ -639,6 +639,7 @@
     <string name="merge_gain_device">the device</string>
     <string name="merge_gain_sub_sport">the dive type</string>
     <string name="merge_gain_water_temperature">water temperature</string>
+    <string name="merge_gain_dive_details">the dive computer's summary</string>
     <string name="merge_gain_heart_rate">heart rate</string>
     <string name="merge_gain_track">the GPS track</string>
     <string name="merge_gain_charts">the charts it lacks</string>

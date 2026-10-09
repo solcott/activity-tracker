@@ -104,6 +104,7 @@ private fun mergeGains(logged: OwnActivity, dive: ImportedActivity, streams: Log
             MergeGain.Device.takeIf { existing.device == null && dive.device != null },
             MergeGain.SubSport.takeIf { existing.subSport == null && dive.type.subSport != null },
             MergeGain.WaterTemperature.takeIf { existing.avgTemperature == null && dive.avgTemperatureCelsius != null },
+            MergeGain.DiveDetails.takeIf { existing.dive == null && dive.dive != null },
             MergeGain.HeartRate.takeIf { existing.avgHeartRate == null && dive.avgHeartRate != null },
             MergeGain.Track.takeIf { existing.track == null && dive.samples.isNotEmpty() },
             chartsGain(logged, dive, streams),

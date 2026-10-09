@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.data.activity
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
 import io.github.solcott.activitytracker.activityfile.StreamBuilder
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
@@ -46,6 +47,8 @@ data class ActivityDraft(
     val powerZones: ZoneSnapshot? = null,
     /** The athlete's own activity this is another recording of ([ActivityRecord.recordingOf]). */
     val recordingOf: AtUri? = null,
+    /** The dive computer's summary, for a dive. */
+    val dive: ActivityDive? = null,
 ) {
     fun toRecord(createdAt: Instant): ActivityRecord =
         ActivityRecord(
@@ -70,6 +73,7 @@ data class ActivityDraft(
             polyline = polyline,
             device = device,
             sensors = sensors.take(ActivitySensor.MAX).ifEmpty { null },
+            dive = dive,
             recordingOf = recordingOf,
             createdAt = createdAt,
         )
@@ -97,6 +101,7 @@ data class ActivityDraft(
             heartRateZones,
             powerZones,
             recordingOf,
+            dive,
         )
 
     override fun equals(other: Any?): Boolean =
@@ -159,6 +164,7 @@ data class ActivityDraft(
                 polyline = polylineOf(imported.samples),
                 gpx = gpxOf(imported.samples, title, type.sport),
                 streams = imported.streams,
+                dive = imported.dive?.let(DiveSummary::of),
             )
 
         /** The feed polyline for a track: simplified, then encoded. Null below two points. */

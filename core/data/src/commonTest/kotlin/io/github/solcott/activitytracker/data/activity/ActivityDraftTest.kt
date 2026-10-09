@@ -1,9 +1,15 @@
 package io.github.solcott.activitytracker.data.activity
 
+import io.github.solcott.activitytracker.activityfile.DiveGas
+import io.github.solcott.activitytracker.activityfile.DiveTank
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
+import io.github.solcott.activitytracker.activityfile.ImportedDive
 import io.github.solcott.activitytracker.activityfile.ImportedSensor
 import io.github.solcott.activitytracker.activityfile.SensorBattery
 import io.github.solcott.activitytracker.activityfile.SensorKind
+import io.github.solcott.activitytracker.lexicon.app.ActivityDive
+import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
+import io.github.solcott.activitytracker.lexicon.app.ActivityDiveTank
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.SensorType
@@ -92,5 +98,48 @@ class ActivityDraftTest {
             record.sensors,
         )
         assertNull(ActivityDraft.fromImport(imported(emptyList()), ActivityType(Sport.RUN), null).toRecord(start).sensors)
+    }
+
+    @Test
+    fun importedDiveBecomesTheRecordsSummaryInLexiconUnits() {
+        val dive =
+            ImportedDive(
+                maxDepthMeters = 30.124,
+                avgDepthMeters = 14.5,
+                minWaterTempCelsius = 7.86,
+                diveNumber = 42,
+                surfaceIntervalMinutes = 75,
+                gradientFactorLow = 30,
+                gradientFactorHigh = 70,
+                startCns = 3,
+                endCns = 18,
+                gases = listOf(DiveGas(32, 0), DiveGas(100, 0)),
+                closedCircuit = false,
+                profile = emptyList(),
+                bottomTimeSeconds = 1520.4,
+                sacBarPerMinute = 1.234,
+                rmvLitersPerMinute = 14.8,
+                tanks = listOf(DiveTank(startPressureBar = 210.0, endPressureBar = 62.5, volumeUsedLiters = null)),
+            )
+        val record = ActivityDraft.fromImport(imported(emptyList()).copy(dive = dive), ActivityType(Sport.DIVE), null).toRecord(start)
+        assertEquals(
+            ActivityDive(
+                maxDepth = 3012,
+                avgDepth = 1450,
+                minTemperature = 79,
+                bottomTime = 1520,
+                surfaceInterval = 4500,
+                diveNumber = 42,
+                gases = listOf(ActivityDiveGas(32, 0), ActivityDiveGas(100, 0)),
+                gradientFactorLow = 30,
+                gradientFactorHigh = 70,
+                startCns = 3,
+                endCns = 18,
+                sac = 1234,
+                rmv = 14800,
+                tanks = listOf(ActivityDiveTank(startPressure = 210_000, endPressure = 62_500)),
+            ),
+            record.dive,
+        )
     }
 }

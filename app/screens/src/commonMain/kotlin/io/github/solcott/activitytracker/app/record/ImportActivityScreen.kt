@@ -103,6 +103,8 @@ enum class MergeGain {
     Device,
     SubSport,
     WaterTemperature,
+    /** Depths, gases and the rest of the dive computer's summary. */
+    DiveDetails,
     HeartRate,
     Track,
     /** Charts (depth, temperature…) the logged dive lacks; only channels it doesn't have are added. */
