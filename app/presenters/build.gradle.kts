@@ -7,6 +7,8 @@ plugins {
 // Circuit presenters. Compose runtime, and foundation (through :app-screens) only for TextFieldState. No material3, and no UI code: no
 // layouts, modifiers or composables that emit.
 kotlin {
+    // SubCircuit is experimental. Opted in module-wide so Metro's generated sub-factories compile too.
+    compilerOptions { optIn.add("com.slack.circuit.subcircuit.ExperimentalSubCircuitApi") }
     sourceSets {
         commonMain.dependencies {
             api(projects.appScreens)
@@ -18,6 +20,7 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.circuit.test)
+            implementation(libs.circuitx.subcircuit.test)
             implementation(libs.ktor.client.mock)
         }
     }

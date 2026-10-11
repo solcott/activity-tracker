@@ -17,6 +17,7 @@ import com.slack.circuit.foundation.CircuitContent
 import com.slack.circuit.foundation.NavigableCircuitContent
 import com.slack.circuit.foundation.navstack.ProvidedValues
 import com.slack.circuit.foundation.rememberCircuitNavigator
+import com.slack.circuit.subcircuit.LocalSubCircuit
 import com.slack.circuitx.gesturenavigation.GestureNavigationDecorationFactory
 import io.github.solcott.activitytracker.app.di.AppGraph
 import io.github.solcott.activitytracker.app.feed.FeedScreen
@@ -51,7 +52,7 @@ fun App(graph: AppGraph, modifier: Modifier = Modifier, onRootPop: () -> Unit = 
                 // So the AppView knows this athlete (and others can find them) before they post anything.
                 LaunchedEffect(Unit) { sessionGraph.profileSetup.ensureProfile() }
                 val units by sessionGraph.unitsRepository.units.collectAsState()
-                CompositionLocalProvider(LocalUnitSystem provides units) {
+                CompositionLocalProvider(LocalUnitSystem provides units, LocalSubCircuit provides sessionGraph.subCircuit) {
                     CircuitCompositionLocals(sessionGraph.sessionCircuit.circuit) {
                         val backStack = rememberSaveableBackStack(root = FeedScreen)
                         val navigator = rememberCircuitNavigator(backStack = backStack, onRootPop = { onRootPop() })

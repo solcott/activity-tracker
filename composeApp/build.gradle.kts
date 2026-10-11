@@ -18,6 +18,8 @@ val generateNativeNetworkConfig =
 compose.resources { publicResClass = true }
 
 kotlin {
+    // SubCircuit is experimental. Opted in module-wide so Metro's generated sub-factories compile too.
+    compilerOptions { optIn.add("com.slack.circuit.subcircuit.ExperimentalSubCircuitApi") }
     listOf(iosArm64(), iosSimulatorArm64()).forEach {
         it.binaries.framework {
             baseName = "ComposeApp"
@@ -44,6 +46,7 @@ kotlin {
             implementation(libs.circuit.runtime)
             implementation(libs.circuit.serialization)
             implementation(libs.circuitx.gesture.navigation)
+            implementation(libs.circuitx.subcircuit)
             implementation(libs.coil.compose)
             implementation(libs.coil.network.ktor3)
             implementation(libs.compose.material.icons.core)

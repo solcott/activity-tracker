@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.di
 
+import com.slack.circuit.subcircuit.SubCircuit
 import dev.zacsweers.metro.GraphExtension
 import dev.zacsweers.metro.Provides
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSession
@@ -12,6 +13,7 @@ import io.github.solcott.activitytracker.data.units.UnitsRepository
 @GraphExtension(SessionScope::class)
 interface SessionGraph {
     val sessionCircuit: SessionCircuit
+    val subCircuit: SubCircuit
     val activityRepository: ActivityRepository
     val unitsRepository: UnitsRepository
     val profileSetup: ProfileSetup

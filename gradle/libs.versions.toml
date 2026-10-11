@@ -109,6 +109,8 @@ circuit-serialization = { module = "com.slack.circuit:circuit-serialization", ve
 circuit-codegen-annotations = { module = "com.slack.circuit:circuit-codegen-annotations", version.ref = "circuit" }
 circuit-test = { module = "com.slack.circuit:circuit-test", version.ref = "circuit" }
 circuitx-gesture-navigation = { module = "com.slack.circuit:circuitx-gesture-navigation", version.ref = "circuit" }
+circuitx-subcircuit = { module = "com.slack.circuit:circuitx-subcircuit", version.ref = "circuit" }
+circuitx-subcircuit-test = { module = "com.slack.circuit:circuitx-subcircuit-test", version.ref = "circuit" }
 calf-ui = { module = "com.mohamedrejeb.calf:calf-ui", version.ref = "calf" }
 calf-cupertino-icons = { module = "com.mohamedrejeb.calf:calf-cupertino-icons", version.ref = "calf" }
 haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
