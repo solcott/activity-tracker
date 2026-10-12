@@ -5,11 +5,22 @@ import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
+import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import kotlinx.collections.immutable.ImmutableList
 
 @CircuitSerializable(SessionScope::class) data object FeedScreen : Screen
+
+/** Whose activities the feed shows, picked from its title. Clubs will make this a sealed type, with the presenter listing the viewer's. */
+enum class FeedScope {
+    /** Athletes the viewer follows, plus the viewer's own. */
+    Following,
+
+    /** Only the viewer's own. */
+    Mine,
+}
 
 @Immutable
 data class FeedState(
@@ -21,11 +32,26 @@ data class FeedState(
     val viewerDid: String,
     /** Whether GPS recording is available here (phones only); otherwise only manual entry is offered. */
     val canRecord: Boolean,
+    val scope: FeedScope,
+    /** The scopes the title's menu offers. */
+    val scopes: ImmutableList<FeedScope>,
+    /** What [activities] are narrowed to, as [filterScreen] last reported it. */
+    val filter: FeedFilter,
+    /** The filter control, kept across changes so it keeps its state, and replaced only by [FeedEvent.ClearFilters]. */
+    val filterScreen: FeedFilterScreen,
     val eventSink: (FeedEvent) -> Unit,
 ) : CircuitUiState
 
 sealed interface FeedEvent {
     data object Refresh : FeedEvent
+
+    data class SetScope(val scope: FeedScope) : FeedEvent
+
+    /** The filter control changed the filter. */
+    data class FilterChanged(val filter: FeedFilter) : FeedEvent
+
+    /** Drops the type and date filters from outside the control (the empty feed's Clear), keeping the scope. */
+    data object ClearFilters : FeedEvent
 
     data class Open(val activity: ActivityView) : FeedEvent
 

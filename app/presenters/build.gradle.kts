@@ -13,6 +13,7 @@ kotlin {
         commonMain.dependencies {
             api(projects.appScreens)
             implementation(libs.circuit.codegen.annotations)
+            implementation(libs.circuit.retained)
             implementation(libs.circuit.runtime)
             implementation(libs.circuit.runtime.presenter)
             implementation(libs.compose.runtime)

@@ -15,8 +15,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
+import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
+import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChipIconSize
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
@@ -97,9 +97,9 @@ private fun SubSportChips(selected: ActivityType, onSelect: (ActivityType) -> Un
             .map { ActivityType(selected.sport, it.subSport) }
             .filterNot { outdoorOnly && SportCatalog.isIndoor(it) }
     if (types.isEmpty()) return
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         (listOf(ActivityType(selected.sport)) + types).forEach { type ->
-            FilterChip(
+            AppFilterChip(
                 selected = type == selected,
                 onClick = { onSelect(type) },
                 enabled = enabled,
@@ -153,13 +153,13 @@ private fun ActivityTypeSheet(
             val quick = quickTypes.filter(offered)
             if (needle.isEmpty() && quick.isNotEmpty()) {
                 Text(stringResource(Res.string.sport_picker_quick), style = MaterialTheme.typography.labelLarge)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     quick.forEach { type ->
-                        FilterChip(
+                        AppFilterChip(
                             selected = type == selected,
                             onClick = { choose(type) },
                             label = { Text(activityTypeLabel(type)) },
-                            leadingIcon = { ActivityTypeIcon(type, Modifier.size(FilterChipDefaults.IconSize)) },
+                            leadingIcon = { ActivityTypeIcon(type, Modifier.size(AppFilterChipIconSize)) },
                         )
                     }
                 }

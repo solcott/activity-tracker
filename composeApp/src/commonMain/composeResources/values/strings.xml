@@ -280,7 +280,6 @@
     <string name="nav_you">You</string>
 
     <!-- Feed -->
-    <string name="feed_title">Feed</string>
     <string name="feed_add">Add activity</string>
     <string name="feed_refresh">Refresh</string>
     <string name="feed_add_manual">Add manual activity</string>
@@ -292,6 +291,26 @@
     </plurals>
     <string name="feed_empty_can_record">No activities yet. Record one or follow other athletes.</string>
     <string name="feed_empty_manual_only">No activities yet. Add one manually or follow other athletes.</string>
+    <string name="feed_empty_filtered">No activities match these filters.</string>
+    <string name="feed_filter_following">Following</string>
+    <string name="feed_filter_mine">Mine</string>
+    <string name="feed_filter_all_types">All types</string>
+    <plurals name="feed_filter_types_more">
+        <item quantity="one">%1$s + %2$d more</item>
+        <item quantity="other">%1$s + %2$d more</item>
+    </plurals>
+    <string name="feed_filter_types_title">Activity types</string>
+    <string name="feed_filter_category_some">Some</string>
+    <string name="feed_filter_apply">Apply</string>
+    <string name="feed_filter_any_time">Any time</string>
+    <plurals name="feed_filter_last_days">
+        <item quantity="one">Last day</item>
+        <item quantity="other">Last %1$d days</item>
+    </plurals>
+    <string name="feed_filter_this_year">This year</string>
+    <string name="feed_filter_custom">Custom range…</string>
+    <string name="feed_filter_custom_range">%1$s – %2$s</string>
+    <string name="feed_filter_clear">Clear filters</string>
 
     <!-- Activity detail -->
     <string name="detail_title">Activity</string>

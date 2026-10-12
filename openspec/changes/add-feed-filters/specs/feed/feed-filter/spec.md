@@ -7,7 +7,7 @@ Lets athletes narrow what the feed shows by whose activities they see (Following
 ## ADDED Requirements
 
 ### Requirement: Feed scope
-The feed SHALL offer two scopes. Following shows activities from athletes the viewer follows plus the viewer's own. Mine shows only the viewer's own. The feed SHALL open on Following with no other filter, which matches today's feed.
+The feed SHALL offer two scopes, picked from the feed's title so that more (such as clubs) can join them. Following shows activities from athletes the viewer follows plus the viewer's own. Mine shows only the viewer's own. The feed SHALL open on Following with no other filter, which matches today's feed.
 
 #### Scenario: Default feed
 - **WHEN** the athlete opens the feed
