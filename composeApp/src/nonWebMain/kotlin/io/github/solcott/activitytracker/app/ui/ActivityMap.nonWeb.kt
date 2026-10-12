@@ -68,7 +68,12 @@ actual fun ActivityMap(polyline: String, modifier: Modifier, height: Dp) {
     // Jump straight to the route; cameraForBounds waits until the map has a viewport.
     LaunchedEffect(mapState, bounds) { mapState.setCameraPosition(mapState.cameraForBounds(bounds, CameraFit(fitPadding = FIT_PADDING))) }
     // Static inside the detail list, so a drag scrolls the page instead of panning the map.
-    MaplibreMap(modifier.fillMaxWidth().height(height), state = mapState, interactions = MapInteractions.None)
+    MaplibreMap(
+        modifier.fillMaxWidth().height(height),
+        state = mapState,
+        interactions = MapInteractions.None,
+        overlay = { RouteMapOverlay(mapState) },
+    )
 }
 
 /** A GeoJSON LineString; GeoJSON orders each position longitude first. */
