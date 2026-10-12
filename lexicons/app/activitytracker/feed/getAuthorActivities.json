@@ -11,7 +11,15 @@
         "properties": {
           "actor": { "type": "string", "format": "at-identifier" },
           "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 30 },
-          "cursor": { "type": "string" }
+          "cursor": { "type": "string" },
+          "type": {
+            "type": "array",
+            "maxLength": 20,
+            "items": { "type": "string", "maxLength": 129 },
+            "description": "Only activities of these types (any one matches): a feed.activity sport value, which matches every sub-sport, or 'sport:subSport', which matches exactly. An empty value or one with an empty part or more than one ':' is rejected with InvalidRequest; a well-formed value no activity has matches nothing."
+          },
+          "since": { "type": "string", "format": "datetime", "description": "Only activities that started at or after this. Inclusive." },
+          "until": { "type": "string", "format": "datetime", "description": "Only activities that started before this. Exclusive; must be after since when both are given (InvalidRequest otherwise)." }
         }
       },
       "output": {

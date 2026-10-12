@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.lexicon
 
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.descriptors.StructureKind
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -22,18 +23,24 @@ object XrpcParams {
     }
 
     /**
-     * [arrayKeys] lists params declared as arrays, so a single occurrence still decodes to a list. Values stay strings; [AtJson] is lenient
-     * so numbers and booleans decode from them.
+     * Params that [serializer] declares as lists, plus any extra [arrayKeys], decode to a list even when they occur once. Values stay
+     * strings; [AtJson] is lenient so numbers and booleans decode from them.
      */
     fun <P> decode(
         serializer: KSerializer<P>,
         query: Map<String, List<String>>,
         arrayKeys: Set<String> = emptySet(),
     ): P {
+        val descriptor = serializer.descriptor
+        val listKeys =
+            arrayKeys +
+                (0 until descriptor.elementsCount)
+                    .filter { descriptor.getElementDescriptor(it).kind == StructureKind.LIST }
+                    .map(descriptor::getElementName)
         val obj =
             JsonObject(
                 query.mapValues { (key, values) ->
-                    if (key in arrayKeys || values.size > 1) {
+                    if (key in listKeys || values.size > 1) {
                         JsonArray(values.map(::JsonPrimitive))
                     } else {
                         JsonPrimitive(values.first())

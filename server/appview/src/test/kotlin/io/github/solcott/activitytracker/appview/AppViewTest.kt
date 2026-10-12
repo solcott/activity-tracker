@@ -259,6 +259,79 @@ class AppViewTest {
     }
 
     @Test
+    fun feedsFilterByTypeAndStartTimeOnTheServer() = testApplication {
+        application { appView(config, db, verifier) }
+        fun activity(did: String, rkey: String, type: String, startedAt: String, createdAt: String = startedAt) {
+            val sport = type.substringBefore(':')
+            val subSport = type.substringAfter(':', "").takeIf { it.isNotEmpty() }?.let { ""","subSport":"$it"""" }.orEmpty()
+            commit(
+                did,
+                Nsid.FEED_ACTIVITY,
+                rkey,
+                """{"sport":"$sport","startedAt":"$startedAt","elapsedTime":1800,"createdAt":"$createdAt"$subSport}""",
+            )
+        }
+        follow(alice, bob, "3kf1")
+        activity(alice, "3ka1", "ride", "2026-03-05T08:00:00Z")
+        activity(alice, "3ka2", "run:trail", "2026-03-10T08:00:00Z")
+        activity(bob, "3kb1", "run", "2026-03-15T08:00:00Z")
+        activity(bob, "3kb2", "swim", "2026-02-01T08:00:00Z")
+        // Ridden in March, posted in April: the date filter is on when it started.
+        activity(alice, "3ka3", "ride:gravel", "2026-03-20T08:00:00Z", createdAt = "2026-04-10T08:00:00Z")
+
+        val nsid = GetTimeline.method.nsid
+        suspend fun timeline(query: String = ""): GetTimeline.Output {
+            val response =
+                client.get("/xrpc/$nsid?$query") {
+                    header(HttpHeaders.Authorization, "Bearer ${keys.getValue(alice).serviceJwt(alice, service, nsid)}")
+                }
+            assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+            return AtJson.decodeFromString(GetTimeline.Output.serializer(), response.bodyAsText())
+        }
+        suspend fun rkeys(query: String = "") = timeline(query).activities.map { it.uri.rkey }
+
+        // Newest posted first, the viewer's own included, and unchanged with no filter.
+        assertEquals(listOf("3ka3", "3kb1", "3ka2", "3ka1", "3kb2"), rkeys())
+        assertEquals(rkeys(), rkeys("limit=30"))
+        assertEquals(listOf("3kb1", "3ka2"), rkeys("type=run"), "a sport matches every sub-sport")
+        assertEquals(listOf("3ka2"), rkeys("type=run:trail"), "sport:subSport matches exactly")
+        assertEquals(listOf("3ka3", "3ka2", "3ka1"), rkeys("type=ride&type=run:trail"), "any type matches")
+        assertEquals(emptyList(), rkeys("type=hike"), "an unknown type matches nothing")
+        assertEquals(listOf("3ka3", "3kb1"), rkeys("since=2026-03-12T00:00:00Z"))
+        assertEquals(listOf("3ka3", "3kb1", "3ka2", "3ka1"), rkeys("since=2026-03-01T00:00:00Z&until=2026-04-01T00:00:00Z"))
+        assertEquals(listOf("3ka1"), rkeys("type=ride&since=2026-03-01T00:00:00Z&until=2026-03-15T00:00:00Z"), "type AND date")
+
+        // Every page of a filtered feed stays filtered, with no gaps or repeats.
+        val first = timeline("type=ride&type=run&limit=2")
+        val second = timeline("type=ride&type=run&limit=2&cursor=${first.cursor!!.encodeURLParameter()}")
+        assertEquals(listOf("3ka3", "3kb1", "3ka2", "3ka1"), (first.activities + second.activities).map { it.uri.rkey })
+
+        val author = client.get("/xrpc/${GetAuthorActivities.method.nsid}?actor=$alice&type=ride")
+        assertEquals(
+            listOf("3ka3", "3ka1"),
+            AtJson.decodeFromString(GetAuthorActivities.Output.serializer(), author.bodyAsText()).activities.map { it.uri.rkey },
+        )
+
+        val tooMany = (1..21).joinToString("&") { "type=s$it" }
+        val bad =
+            listOf(
+                tooMany,
+                "type=run:",
+                "type=:trail",
+                "type=a:b:c",
+                "type=",
+                "type=${"x".repeat(130)}",
+                "since=2026-03-02T00:00:00Z&until=2026-03-01T00:00:00Z",
+                "since=2026-03-01T00:00:00Z&until=2026-03-01T00:00:00Z",
+            )
+        for (query in bad) {
+            val response = client.get("/xrpc/${GetAuthorActivities.method.nsid}?actor=$alice&$query")
+            assertEquals(HttpStatusCode.BadRequest, response.status, query)
+            assertEquals(true, "InvalidRequest" in response.bodyAsText(), query)
+        }
+    }
+
+    @Test
     fun servesARidesSensorsHeldToTheLexiconsLimits() = testApplication {
         application { appView(config, db, verifier) }
         val uri = "at://$bob/${Nsid.FEED_ACTIVITY}/3kride"

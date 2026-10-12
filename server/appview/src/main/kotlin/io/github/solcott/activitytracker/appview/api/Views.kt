@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
 import io.github.solcott.activitytracker.lexicon.app.CommentView
+import io.github.solcott.activitytracker.lexicon.app.FeedFilterParams
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
@@ -54,7 +55,8 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
     suspend fun timeline(viewer: Did, params: GetTimeline.Params): GetTimeline.Output = db.tx {
         val authors =
             Follows.select(Follows.subjectDid).where { Follows.authorDid eq viewer.value }.map { it[Follows.subjectDid] } + viewer.value
-        val (views, cursor) = activityPage(Activities.authorDid inList authors, params.limit, params.cursor, viewer)
+        val filter = feedFilter(params.type, params.since, params.until)
+        val (views, cursor) = activityPage((Activities.authorDid inList authors) and filter, params.limit, params.cursor, viewer)
         GetTimeline.Output(views, cursor)
     }
 
@@ -64,7 +66,8 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
     ): GetAuthorActivities.Output = db.tx {
         val did =
             resolveActor(params.actor) ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
-        val (views, cursor) = activityPage(Activities.authorDid eq did, params.limit, params.cursor, viewer)
+        val filter = feedFilter(params.type, params.since, params.until)
+        val (views, cursor) = activityPage((Activities.authorDid eq did) and filter, params.limit, params.cursor, viewer)
         GetAuthorActivities.Output(views, cursor)
     }
 
@@ -286,3 +289,28 @@ private fun mediaViews(urls: MediaUrls, author: String, media: List<ActivityMedi
         ?.filterIsInstance<ActivityMedia.Image>()
         ?.map { ActivityMediaView.Image(fullsize = urls.url(author, it.image.ref.link), alt = it.alt, aspectRatio = it.aspectRatio) }
         ?.ifEmpty { null }
+
+/**
+ * The optional filters `getTimeline` and `getAuthorActivities` share: any of [types] (a sport matches every sub-sport, `sport:subSport`
+ * only that pair), started in [since, until). Untrusted input, so it is capped and validated before any query.
+ */
+private fun feedFilter(types: List<String>?, since: Instant?, until: Instant?): Op<Boolean> {
+    val tokens = types.orEmpty()
+    if (tokens.size > FeedFilterParams.MAX_TYPES) invalidRequest("At most ${FeedFilterParams.MAX_TYPES} types")
+    val typeOps = tokens.map { token ->
+        val parts = token.split(FeedFilterParams.TYPE_SEPARATOR)
+        if (token.length > FeedFilterParams.MAX_TYPE_LENGTH || parts.size > 2 || parts.any { it.isEmpty() }) {
+            invalidRequest("Malformed type: expected 'sport' or 'sport:subSport'")
+        }
+        if (parts.size == 1) Activities.sport eq parts[0] else (Activities.sport eq parts[0]) and (Activities.subSport eq parts[1])
+    }
+    if (since != null && until != null && until <= since) invalidRequest("until must be after since")
+    return listOfNotNull(
+            typeOps.reduceOrNull { a, b -> a or b },
+            since?.let { Activities.startedAt greaterEq it.toEpochMilliseconds() },
+            until?.let { Activities.startedAt less it.toEpochMilliseconds() },
+        )
+        .fold(Op.TRUE) { acc: Op<Boolean>, op -> acc and op }
+}
+
+private fun invalidRequest(message: String): Nothing = throw XrpcError(HttpStatusCode.BadRequest.value, "InvalidRequest", message)

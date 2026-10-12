@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveTank
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
+import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.HeartRateZoneModel
 import io.github.solcott.activitytracker.lexicon.app.Location
@@ -130,6 +131,32 @@ class RecordSerializationTest {
             )
         assertEquals(params, decoded)
         assertTrue(XrpcParams.encode(GetTimeline.Params.serializer(), GetTimeline.Params()).isEmpty())
+    }
+
+    @Test
+    fun filterParamsRoundTripThroughQueryString() {
+        val since = Instant.parse("2026-03-01T07:00:00Z")
+        val until = Instant.parse("2026-04-01T06:00:00Z")
+        val params = GetAuthorActivities.Params("alice.test", type = listOf("ride", "run:trail"), since = since, until = until)
+        val encoded = XrpcParams.encode(GetAuthorActivities.Params.serializer(), params)
+        assertEquals(
+            listOf(
+                "actor" to "alice.test",
+                "type" to "ride",
+                "type" to "run:trail",
+                "since" to "2026-03-01T07:00:00Z",
+                "until" to "2026-04-01T06:00:00Z",
+            ),
+            encoded,
+        )
+        assertEquals(params, XrpcParams.decode(GetAuthorActivities.Params.serializer(), encoded.groupBy({ it.first }, { it.second })))
+    }
+
+    @Test
+    fun singleArrayParamDecodesToList() {
+        val decoded = XrpcParams.decode(GetTimeline.Params.serializer(), mapOf("type" to listOf("ride")))
+        assertEquals(listOf("ride"), decoded.type)
+        assertEquals(null, XrpcParams.decode(GetTimeline.Params.serializer(), emptyMap()).type)
     }
 
     @Test

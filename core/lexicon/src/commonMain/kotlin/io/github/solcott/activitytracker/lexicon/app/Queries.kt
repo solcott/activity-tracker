@@ -10,8 +10,29 @@ import io.github.solcott.activitytracker.lexicon.XrpcQuery
 import kotlin.time.Instant
 import kotlinx.serialization.Serializable
 
+/** The optional feed filters shared by [GetTimeline] and [GetAuthorActivities]. */
+object FeedFilterParams {
+    /** Most `type` values one request may carry. */
+    const val MAX_TYPES = 20
+
+    /** Longest `type` value: a sport and a sub-sport (each up to 64 chars) joined by [TYPE_SEPARATOR]. */
+    const val MAX_TYPE_LENGTH = 129
+
+    const val TYPE_SEPARATOR = ':'
+}
+
 object GetTimeline {
-    @Serializable data class Params(val limit: Int? = null, val cursor: String? = null)
+    @Serializable
+    data class Params(
+        val limit: Int? = null,
+        val cursor: String? = null,
+        /** Only these types, any one matching: a [Sport] (every sub-sport) or `sport:subSport` (exactly). See [FeedFilterParams]. */
+        val type: List<String>? = null,
+        /** Only activities that started at or after this. */
+        val since: Instant? = null,
+        /** Only activities that started before this. */
+        val until: Instant? = null,
+    )
 
     @Serializable data class Output(val activities: List<ActivityView>, val cursor: String? = null)
 
@@ -19,7 +40,18 @@ object GetTimeline {
 }
 
 object GetAuthorActivities {
-    @Serializable data class Params(val actor: String, val limit: Int? = null, val cursor: String? = null)
+    @Serializable
+    data class Params(
+        val actor: String,
+        val limit: Int? = null,
+        val cursor: String? = null,
+        /** As [GetTimeline.Params.type]. */
+        val type: List<String>? = null,
+        /** As [GetTimeline.Params.since]. */
+        val since: Instant? = null,
+        /** As [GetTimeline.Params.until]. */
+        val until: Instant? = null,
+    )
 
     @Serializable data class Output(val activities: List<ActivityView>, val cursor: String? = null)
 
