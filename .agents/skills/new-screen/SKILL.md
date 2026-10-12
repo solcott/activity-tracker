@@ -22,7 +22,7 @@ Prefix each path with `src/commonMain/kotlin/io/github/solcott/activitytracker/a
 | `app/presenters` | `<Name>Presenter.kt` | the `@CircuitInject` presenter |
 | `composeApp` | `<Name>Ui.kt` | the `@CircuitInject` UI and its private composables |
 
-The presenter module has no ui or material3 (foundation only for `TextFieldState`), so keep every UI import in `<Name>Ui.kt`. The UI never imports the presenter. A text field the presenter reads is a `TextFieldState` in State from `rememberTextFieldState()` in the presenter, not a `String` plus a changed event (see compose-screens.md).
+The presenter module has no ui or material3 (foundation only for `TextFieldState`), so keep every UI import in `<Name>Ui.kt`. The UI never imports the presenter. A text field the presenter reads is a `TextFieldState` in State from `rememberTextFieldState()` in the presenter, not a `String` plus a changed event (see `compose-screens.md`).
 
 ```kotlin
 // app/screens/.../<Name>Screen.kt
@@ -81,9 +81,9 @@ Add `app/presenters/src/jvmTest/kotlin/io/github/solcott/activitytracker/app/Foo
 
 ## 5. Verify
 
-Use the `gradle-runner` agent:
-1. `:app-presenters:compileKotlinJvm :composeApp:compileKotlinJvm`. Metro/Circuit codegen errors (wrong scope, missing binding) appear here.
-2. `:app-presenters:jvmTest --tests "*.FooPresenterTest"`. Confirm a non-zero test count.
-3. `format`, then `:app-screens:detekt :app-presenters:detekt :composeApp:detekt`. The Compose rules flag modifier ordering and unstable params.
+Use the `gradle-runner` agent/skill or run directly:
+1. `./gradlew :app-presenters:compileKotlinJvm :composeApp:compileKotlinJvm`. Metro/Circuit codegen errors (wrong scope, missing binding) appear here.
+2. `./gradlew :app-presenters:jvmTest --tests "*.FooPresenterTest"`. Confirm a non-zero test count.
+3. `./gradlew format`, then `./gradlew :app-screens:detekt :app-presenters:detekt :composeApp:detekt`. The Compose rules flag modifier ordering and unstable params.
 
-If the user wants to see the screen, launch the web preview (`.claude/launch.json` → `web`) against the local stack (the `local-stack` skill) and navigate to it.
+If the user wants to see the screen, launch the web preview (in Claude Code the `web` launch config via `preview_start`; elsewhere `./gradlew :webApp:wasmJsBrowserDevelopmentRun --continuous` in the background) against the local stack (the `local-stack` skill) and navigate to it.

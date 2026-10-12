@@ -16,8 +16,8 @@ Prefer `scripts/dev.sh [--seed <name>]` (run it in the background on a cold star
 
 1. `[[ -f docker/.env ]] || cp docker/.env.example docker/.env`
 2. `docker compose -f docker/compose.yaml up -d`. The first run builds PLC, the relay and Jetstream from source and takes minutes, so run it in the background and wait for it rather than polling.
-3. Start the AppView with the `appview` launch config (`preview_start {name: "appview"}`), or `./gradlew :server-appview:run` in the background. **Start it before writing records you want indexed.** On first run it starts at Jetstream's live tip, so earlier records are never indexed.
-4. Web client: the `web` launch config. Sign in from `127.0.0.1`/`localhost` with a `.test` handle.
+3. Start the AppView: in Claude Code use the `appview` launch config (`preview_start {name: "appview"}`); elsewhere run `./gradlew :server-appview:run` as a background command. **Start it before writing records you want indexed.** On first run it starts at Jetstream's live tip, so earlier records are never indexed.
+4. Web client: in Claude Code use the `web` launch config (`preview_start {name: "web"}`); elsewhere run `./gradlew :webApp:wasmJsBrowserDevelopmentRun --continuous` as a background command. Sign in from `127.0.0.1`/`localhost` with a `.test` handle.
 
 ## seed
 

@@ -1,0 +1,41 @@
+{
+  "guard-edits": {
+    "PreToolUse": [
+      {
+        "matcher": "write_to_file|replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f ./hooks/guard-edits.sh ]; then ./hooks/guard-edits.sh; else ./.agents/hooks/guard-edits.sh; fi"
+          }
+        ]
+      }
+    ]
+  },
+  "warn-hotrun-race": {
+    "PreToolUse": [
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f ./hooks/warn-hotrun-race.sh ]; then ./hooks/warn-hotrun-race.sh; else ./.agents/hooks/warn-hotrun-race.sh; fi"
+          }
+        ]
+      }
+    ]
+  },
+  "lexicon-sync-reminder": {
+    "PostToolUse": [
+      {
+        "matcher": "write_to_file|replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f ./hooks/lexicon-sync-reminder.sh ]; then ./hooks/lexicon-sync-reminder.sh; else ./.agents/hooks/lexicon-sync-reminder.sh; fi"
+          }
+        ]
+      }
+    ]
+  }
+}

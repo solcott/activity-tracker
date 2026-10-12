@@ -1,17 +1,36 @@
 #!/usr/bin/env bash
-# PreToolUse (Edit|Write|MultiEdit): guards files that must not be hand-edited, and keeps Ozone out of client code.
+# PreToolUse (write_to_file|replace_file_content|Edit|Write|MultiEdit):
+# Guards files that must not be hand-edited, and keeps Ozone out of client code.
 set -euo pipefail
 
 input=$(cat)
-root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-file=$(jq -r '.tool_input.file_path // empty' <<<"$input")
-[[ -z $file ]] && exit 0
+root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+
+# Support Antigravity (TargetFile) and Claude (file_path)
+file=$(jq -r '.toolCall.args.TargetFile // .tool_input.file_path // empty' <<<"$input")
+# Claude Code rejects a top-level "decision" other than approve/block, so only Antigravity gets one.
+claude=$(jq 'has("tool_input")' <<<"$input")
+allow() { [[ $claude == true ]] || echo '{"decision": "allow"}'; exit 0; }
+[[ -z $file ]] && allow
+
+# Normalize relative path
 rel="${file#"$root"/}"
-# Text being written: Write content, Edit new_string, or every MultiEdit new_string.
-text=$(jq -r '[.tool_input.content, .tool_input.new_string, (.tool_input.edits // [] | .[].new_string)] | map(select(. != null)) | join("\n")' <<<"$input")
+
+# Text being written
+text=$(jq -r '[
+  .toolCall.args.CodeContent,
+  .toolCall.args.ReplacementContent,
+  .tool_input.content,
+  .tool_input.new_string,
+  (.tool_input.edits // [] | .[].new_string)
+] | map(select(. != null)) | join("\n")' <<<"$input")
 
 decide() { # decision, reason
-  jq -n --arg d "$1" --arg r "$2" '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: $d, permissionDecisionReason: $r}}'
+  if [[ $claude == true ]]; then
+    jq -n --arg d "$1" --arg r "$2" '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: $d, permissionDecisionReason: $r}}'
+  else
+    jq -n --arg d "$1" --arg r "$2" '{decision: $d, reason: $r}'
+  fi
   exit 0
 }
 
@@ -38,7 +57,7 @@ case "$rel" in
     ;;
 esac
 
-# Kotlin 2.4 explicit backing fields replace the `private val _x = Mutable…` + `val x = _x.asStateFlow()` pair.
+# Kotlin explicit backing fields replace the `private val _x = Mutable…` + `val x = _x.asStateFlow()` pair.
 case "$rel" in
   *.kt)
     if grep -qE 'private[[:space:]]+(val|var)[[:space:]]+_[A-Za-z0-9]+[^=]*=[[:space:]]*(Mutable|mutable)' <<<"$text"; then
@@ -49,4 +68,5 @@ case "$rel" in
     fi
     ;;
 esac
-exit 0
+
+allow

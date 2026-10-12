@@ -52,8 +52,8 @@ Test in `src/test/.../AppViewTest.kt`: commit Jetstream events through the real 
 
 ## 5. Verify
 
-1. Spawn the `lexicon-auditor` agent with the NSIDs you touched. Fix everything it reports.
-2. Use the `gradle-runner` agent: `:core-lexicon:jvmTest`, `:server-appview:test`, `:core-data:jvmTest`, then `format` and `check` once those pass.
+1. Run the `lexicon-auditor` subagent or skill with the NSIDs you touched. Fix everything it reports.
+2. Verify with the `gradle-runner` agent/skill or execute directly: `./gradlew :core-lexicon:jvmTest :server-appview:test :core-data:jvmTest`, then `./gradlew format` and `./gradlew check` once those pass.
 3. Optional end-to-end: the `local-stack` skill's smoke test, writing one record of the new type with `putRecord` and reading it back from the AppView.
 
 If you renamed `Nsid.NAMESPACE`, also update the `lexicons/app/activitytracker/` path, every JSON `id`, and `docker/scripts/create-account.sh`.
