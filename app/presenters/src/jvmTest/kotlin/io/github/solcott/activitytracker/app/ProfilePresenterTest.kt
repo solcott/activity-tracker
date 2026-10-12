@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import co.touchlab.kermit.Logger
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
+import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
+import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.profile.ProfileEvent
 import io.github.solcott.activitytracker.app.profile.ProfilePresenter
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
@@ -17,8 +19,14 @@ import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalKudos
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
+import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -29,7 +37,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 /** Alice views Bob's profile. The AppView never catches up with her follow, as when Jetstream lags. */
@@ -39,6 +49,7 @@ class ProfilePresenterTest {
 
     /** Holds each `putRecord` until completed, so the test sees the follow in flight. */
     private val putGate = CompletableDeferred<Unit>()
+    private val putStarted = CompletableDeferred<Unit>()
     private var failPut = false
     private var puts = 0
 
@@ -59,8 +70,10 @@ class ProfilePresenterTest {
                         respond("""{"activities":[]}""", headers = json)
                     }
 
-                    "/xrpc/com.atproto.repo.putRecord" -> {
+                    "/xrpc/com.atproto.repo.putRecord",
+                    "/xrpc/com.atproto.repo.deleteRecord" -> {
                         puts++
+                        putStarted.complete(Unit)
                         putGate.await()
                         if (failPut) {
                             respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
@@ -78,11 +91,14 @@ class ProfilePresenterTest {
             expectSuccess = false
         }
 
+    private val navigator = FakeNavigator(ProfileScreen("did:plc:bob"))
+    private lateinit var activities: ActivityRepository
+
     private suspend fun presenter(): @Composable () -> ProfileState {
         val (db, _, clients) = signedInTestSession(http, did = alice)
         val localKudos = LocalKudos()
         val feed = FeedRepository(db, clients, localKudos, Logger)
-        val activities =
+        activities =
             ActivityRepository(
                 db,
                 clients,
@@ -95,9 +111,7 @@ class ProfilePresenterTest {
                 Clock.System,
             )
         val profiles = ProfileRepository(clients, Clock.System)
-        val screen = ProfileScreen("did:plc:bob")
-        val navigator = FakeNavigator(screen)
-        return { ProfilePresenter(screen, navigator, profiles, feed, activities) }
+        return { ProfilePresenter(ProfileScreen("did:plc:bob"), navigator, profiles, feed, activities) }
     }
 
     @Test
@@ -135,4 +149,40 @@ class ProfilePresenterTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    @Test
+    fun kudosIgnoresTapsUntilItLands() = runTest {
+        presenterTestOf(presenter()) {
+            val loaded = awaitUntil { it.profile != null && it.error == null }
+            loaded.eventSink(ProfileEvent.Activity(ActivityListEvent.ToggleKudos(bobsRide)))
+            putStarted.await()
+            loaded.eventSink(ProfileEvent.Activity(ActivityListEvent.ToggleKudos(bobsRide)))
+
+            putGate.complete(Unit)
+            // Room emits off the test scheduler, so this waits on the real drain (bounded by runTest\'s timeout).
+            activities.pendingWrites.first { it == 0 }
+            assertEquals(1, puts)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun tappingAnActivityOpensIt() = runTest {
+        presenterTestOf(presenter()) {
+            awaitItem().eventSink(ProfileEvent.Activity(ActivityListEvent.Open(bobsRide)))
+            assertEquals(ActivityDetailScreen(bobsRide.uri.value), navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    private val bobsRide =
+        ActivityView(
+            uri = AtUri.of(Did("did:plc:bob"), Nsid.FEED_ACTIVITY, "3kride"),
+            cid = Cid("bafy3kride"),
+            author = ProfileViewBasic(Did("did:plc:bob"), Handle("bob.test")),
+            record = ActivityRecord("ride", Instant.parse("2026-03-05T08:00:00Z"), 1800, Instant.parse("2026-03-05T09:00:00Z")),
+            kudosCount = 0,
+            commentCount = 0,
+            indexedAt = Instant.parse("2026-03-05T09:00:00Z"),
+        )
 }

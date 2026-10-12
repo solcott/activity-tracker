@@ -5,6 +5,7 @@ import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -53,14 +54,8 @@ sealed interface FeedEvent {
     /** Drops the type and date filters from outside the control (the empty feed's Clear), keeping the scope. */
     data object ClearFilters : FeedEvent
 
-    data class Open(val activity: ActivityView) : FeedEvent
-
-    data class OpenAuthor(val activity: ActivityView) : FeedEvent
-
-    /** Opens [activity]'s media full screen at [index]. */
-    data class OpenMedia(val activity: ActivityView, val index: Int) : FeedEvent
-
-    data class ToggleKudos(val activity: ActivityView) : FeedEvent
+    /** A tap on one of [FeedState.activities]. */
+    data class Activity(val event: ActivityListEvent) : FeedEvent
 
     data object Record : FeedEvent
 

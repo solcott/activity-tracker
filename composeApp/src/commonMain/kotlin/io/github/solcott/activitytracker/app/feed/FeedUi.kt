@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.MaterialTheme
@@ -30,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.subcircuit.SubCircuitContent
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterOuterEvent
-import io.github.solcott.activitytracker.app.ui.ActivityCard
+import io.github.solcott.activitytracker.app.ui.activityItems
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
@@ -165,16 +164,7 @@ private fun Timeline(state: FeedState, listState: LazyListState, contentPadding:
                 }
             }
             state.error?.let { item { Text(errorText(it), color = MaterialTheme.colorScheme.error) } }
-            items(state.activities, key = { it.uri.value }) { activity ->
-                ActivityCard(
-                    activity = activity,
-                    onClick = { state.eventSink(FeedEvent.Open(activity)) },
-                    onAuthorClick = { state.eventSink(FeedEvent.OpenAuthor(activity)) },
-                    onOpenMedia = { state.eventSink(FeedEvent.OpenMedia(activity, it)) },
-                    onKudos =
-                        { state.eventSink(FeedEvent.ToggleKudos(activity)) }.takeUnless { activity.author.did.value == state.viewerDid },
-                )
-            }
+            activityItems(state.activities, state.viewerDid, authorClickable = true) { state.eventSink(FeedEvent.Activity(it)) }
             if (state.activities.isEmpty() && !state.refreshing) {
                 item {
                     Column(

@@ -41,7 +41,8 @@ import org.jetbrains.compose.resources.stringResource
 fun ActivityCard(
     activity: ActivityView,
     onClick: () -> Unit,
-    onAuthorClick: () -> Unit,
+    /** Null leaves the author unclickable, e.g. on their own profile. */
+    onAuthorClick: (() -> Unit)?,
     /** Null hides the kudos button, e.g. on the viewer's own activities. */
     onKudos: (() -> Unit)?,
     /** Opens the activity's media full screen, at an index. */
@@ -53,7 +54,7 @@ fun ActivityCard(
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             val author = activity.author.displayName ?: activity.author.handle.value
             Row(
-                Modifier.clickable(onClick = onAuthorClick).handCursor(),
+                if (onAuthorClick != null) Modifier.clickable(onClick = onAuthorClick).handCursor() else Modifier,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

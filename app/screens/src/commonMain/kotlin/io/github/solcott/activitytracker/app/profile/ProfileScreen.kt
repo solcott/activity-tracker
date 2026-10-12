@@ -5,6 +5,7 @@ import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
@@ -18,6 +19,8 @@ data class ProfileState(
     val profile: ProfileView?,
     val activities: ImmutableList<ActivityView>,
     val isSelf: Boolean,
+    /** The signed-in athlete, so the UI can leave kudos off their own activities. */
+    val viewerDid: String,
     /** A follow or unfollow is on its way to the PDS; the button ignores taps until it lands. */
     val followPending: Boolean,
     val error: UiError?,
@@ -37,10 +40,6 @@ sealed interface ProfileEvent {
 
     data object EditProfile : ProfileEvent
 
-    data class Open(val activity: ActivityView) : ProfileEvent
-
-    /** Opens [activity]'s media full screen at [index]. */
-    data class OpenMedia(val activity: ActivityView, val index: Int) : ProfileEvent
-
-    data class ToggleKudos(val activity: ActivityView) : ProfileEvent
+    /** A tap on one of [ProfileState.activities]. */
+    data class Activity(val event: ActivityListEvent) : ProfileEvent
 }

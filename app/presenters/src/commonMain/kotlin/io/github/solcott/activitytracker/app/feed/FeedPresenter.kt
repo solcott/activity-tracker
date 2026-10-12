@@ -15,15 +15,12 @@ import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEventSink
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
-import io.github.solcott.activitytracker.app.media.MediaGalleryScreen
-import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.record.ManualActivityScreen
 import io.github.solcott.activitytracker.app.record.RecordScreen
-import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -65,7 +62,7 @@ fun FeedPresenter(
     var error by remember { mutableStateOf<UiError?>(null) }
     var refreshKey by remember { mutableIntStateOf(0) }
     var syncedFor by remember { mutableIntStateOf(-1) }
-    val flights = rememberSingleFlight()
+    val activityEvents = rememberActivityListEventSink(navigator, activities)
 
     LaunchedEffect(refreshKey, mine, query) {
         refreshing = true
@@ -106,20 +103,8 @@ fun FeedPresenter(
                 }
             }
 
-            is FeedEvent.Open -> {
-                navigator.goTo(ActivityDetailScreen(event.activity.uri.value))
-            }
-
-            is FeedEvent.OpenMedia -> {
-                navigator.goTo(MediaGalleryScreen(event.activity.uri.value, event.index))
-            }
-
-            is FeedEvent.OpenAuthor -> {
-                navigator.goTo(ProfileScreen(event.activity.author.did.value))
-            }
-
-            is FeedEvent.ToggleKudos -> {
-                flights.launch(event.activity.uri) { runSuspendCatching { activities.toggleKudos(event.activity) } }
+            is FeedEvent.Activity -> {
+                activityEvents(event.event)
             }
 
             FeedEvent.Record -> {

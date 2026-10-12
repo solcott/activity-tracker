@@ -10,8 +10,7 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
-import io.github.solcott.activitytracker.app.media.MediaGalleryScreen
+import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEventSink
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.settings.SettingsScreen
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -38,6 +37,7 @@ fun ProfilePresenter(
     val did = profile?.did?.value ?: screen.actor
     val items by remember(did) { feed.authorActivities(did).map { it.toImmutableList() } }.collectAsState(persistentListOf())
     val flights = rememberSingleFlight()
+    val activityEvents = rememberActivityListEventSink(navigator, activities)
 
     LaunchedEffect(screen.actor) {
         runSuspendCatching {
@@ -48,23 +48,16 @@ fun ProfilePresenter(
             .onFailure { error = UiError.of(UiError.Kind.LoadProfile, it) }
     }
 
-    val isSelf = did == profiles.did.value
-    return ProfileState(profile, items, isSelf, flights.isRunning(ProfileEvent.ToggleFollow), error) { event ->
+    val viewerDid = profiles.did.value
+    val isSelf = did == viewerDid
+    return ProfileState(profile, items, isSelf, viewerDid, flights.isRunning(ProfileEvent.ToggleFollow), error) { event ->
         when (event) {
             ProfileEvent.Back -> {
                 navigator.pop()
             }
 
-            is ProfileEvent.Open -> {
-                navigator.goTo(ActivityDetailScreen(event.activity.uri.value))
-            }
-
-            is ProfileEvent.OpenMedia -> {
-                navigator.goTo(MediaGalleryScreen(event.activity.uri.value, event.index))
-            }
-
-            is ProfileEvent.ToggleKudos -> {
-                flights.launch(event.activity.uri) { runSuspendCatching { activities.toggleKudos(event.activity) } }
+            is ProfileEvent.Activity -> {
+                activityEvents(event.event)
             }
 
             ProfileEvent.ToggleFollow -> {

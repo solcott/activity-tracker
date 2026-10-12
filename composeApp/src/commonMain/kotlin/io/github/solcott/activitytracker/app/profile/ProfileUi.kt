@@ -7,11 +7,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -22,10 +20,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
-import io.github.solcott.activitytracker.app.ui.ActivityCard
 import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
+import io.github.solcott.activitytracker.app.ui.activityItems
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
@@ -137,15 +135,7 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
                         }
                     }
                 }
-                items(state.activities, key = { it.uri.value }) { activity ->
-                    ActivityCard(
-                        activity = activity,
-                        onClick = { state.eventSink(ProfileEvent.Open(activity)) },
-                        onAuthorClick = {},
-                        onOpenMedia = { state.eventSink(ProfileEvent.OpenMedia(activity, it)) },
-                        onKudos = { state.eventSink(ProfileEvent.ToggleKudos(activity)) }.takeUnless { state.isSelf },
-                    )
-                }
+                activityItems(state.activities, state.viewerDid, authorClickable = false) { state.eventSink(ProfileEvent.Activity(it)) }
             }
         }
     }
