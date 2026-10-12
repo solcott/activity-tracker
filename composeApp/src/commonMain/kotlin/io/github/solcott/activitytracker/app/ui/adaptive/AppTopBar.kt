@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.ui.adaptive
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -28,16 +29,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
@@ -48,6 +49,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeInput
 import dev.chrisbanes.haze.HazeProgressive
@@ -138,11 +140,10 @@ private fun IosNavigationBar(
     val scrolled by remember(scrollState) { derivedStateOf { (scrollState?.contentOffset ?: 0f) < 0f } }
     val material by animateFloatAsState(if (scrolled) 1f else 0f, label = "barMaterial")
     val backdrop = LocalBarBackdrop.current
-    val topBarTitle : @Composable (style: TextStyle) -> Unit = remember {
-        movableContentOf{ style: TextStyle ->
-            TopBarTitle(title, style, titleMenu)
-        }
-    }
+    // At a root, like iOS 26, the large title hands over to the inline one once it's mostly scrolled under the bar: a short timed
+    // cross-fade in which the outgoing title blurs away and the incoming one sharpens, rather than a fade tied to the scroll.
+    val collapsed by remember(scrollState) { derivedStateOf { (scrollState?.collapsedFraction ?: 0f) >= INLINE_TITLE_THRESHOLD } }
+    val inlineTitle by animateFloatAsState(if (!large || collapsed) 1f else 0f, tween(TITLE_SWAP_MILLIS), label = "inlineTitle")
     Column(
         modifier
             .fillMaxWidth()
@@ -158,12 +159,11 @@ private fun IosNavigationBar(
         CenteredBar(
             leading = { onBack?.let { AppIconButton(AppIcon.Back, stringResource(Res.string.action_back), it) } },
             title = {
-                // At a root, the inline title fades in once the large title has scrolled under the bar.
                 Column(
-                    Modifier.graphicsLayer { alpha = if (large) inlineTitleAlpha(scrollState) else 1f },
+                    Modifier.titleSwap(rise = INLINE_TITLE_RISE) { inlineTitle },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    topBarTitle(MaterialTheme.typography.titleMedium)
+                    TopBarTitle(title, MaterialTheme.typography.titleMedium, titleMenu)
                     subtitle?.let {
                         Text(
                             it,
@@ -180,8 +180,8 @@ private fun IosNavigationBar(
             modifier = Modifier.fillMaxWidth().height(IOS_BAR_HEIGHT).padding(horizontal = 4.dp),
         )
         if (large) {
-            Column(Modifier.collapsing(scrollState).padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
-                topBarTitle(MaterialTheme.typography.headlineLarge)
+            Column(Modifier.collapsing(scrollState).padding(start = 16.dp, end = 16.dp, bottom = 8.dp).titleSwap { 1f - inlineTitle }) {
+                TopBarTitle(title, MaterialTheme.typography.headlineLarge, titleMenu)
                 subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant) }
             }
         }
@@ -243,19 +243,27 @@ private fun TopBarTitle(title: String, style: TextStyle, menu: ImmutableList<App
 /** The title menu's chevron, relative to the title's font size. */
 private const val TITLE_CHEVRON_SCALE = 0.7f
 
-/** 0 while the large title shows, rising to 1 over the last part of its collapse. Without a scroll state it never collapses. */
-private fun inlineTitleAlpha(state: TopAppBarState?): Float =
-    state?.let { ((it.collapsedFraction - INLINE_TITLE_FADE_START) / (1f - INLINE_TITLE_FADE_START)).coerceIn(0f, 1f) } ?: 0f
+/**
+ * One side of the title cross-fade, at [shown] (0 to 1, read at draw time): it fades and blurs as it goes, and with a [rise] it settles
+ * that far upward as it comes in.
+ */
+private fun Modifier.titleSwap(rise: Dp = 0.dp, shown: () -> Float): Modifier = graphicsLayer {
+    val gone = 1f - shown()
+    alpha = 1f - gone
+    translationY = gone * rise.toPx()
+    val radius = gone * TITLE_SWAP_BLUR.toPx()
+    renderEffect = if (radius > 0f) BlurEffect(radius, radius, TileMode.Decal) else null
+}
 
 /**
  * Collapses the large title as [state] scrolls: its height shrinks by the scroll behaviour's height offset, which this sets the limit of,
- * and the title slides up under the bar.
+ * and the title slides up into the bar unclipped, where the title cross-fade blurs it away.
  */
 private fun Modifier.collapsing(state: TopAppBarState?): Modifier =
     if (state == null) {
         this
     } else {
-        clipToBounds().layout { measurable, constraints ->
+        layout { measurable, constraints ->
             val placeable = measurable.measure(constraints)
             val limit = -placeable.height.toFloat()
             if (state.heightOffsetLimit != limit) state.heightOffsetLimit = limit
@@ -304,4 +312,8 @@ private val HAIRLINE = 0.5.dp
 private val BAR_BLUR = 24.dp
 private const val BAR_TINT_ALPHA = 0.8f
 private const val EDGE_FADE_START = 0.7f
-private const val INLINE_TITLE_FADE_START = 0.8f
+/** How far the large title has collapsed when the inline one takes over. */
+private const val INLINE_TITLE_THRESHOLD = 0.6f
+private const val TITLE_SWAP_MILLIS = 220
+private val TITLE_SWAP_BLUR = 8.dp
+private val INLINE_TITLE_RISE = 6.dp
