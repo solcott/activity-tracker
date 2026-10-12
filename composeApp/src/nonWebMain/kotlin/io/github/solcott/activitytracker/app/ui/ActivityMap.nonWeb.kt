@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.location.TrackMath
+import org.maplibre.compose.camera.CameraFit
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.LineCap
 import org.maplibre.compose.expressions.value.LineJoin
@@ -65,7 +66,7 @@ actual fun ActivityMap(polyline: String, modifier: Modifier, height: Dp) {
             )
         }
     // Jump straight to the route; cameraForBounds waits until the map has a viewport.
-    LaunchedEffect(mapState, bounds) { mapState.setCameraPosition(mapState.cameraForBounds(bounds, fitPadding = FIT_PADDING)) }
+    LaunchedEffect(mapState, bounds) { mapState.setCameraPosition(mapState.cameraForBounds(bounds, CameraFit(fitPadding = FIT_PADDING))) }
     // Static inside the detail list, so a drag scrolls the page instead of panning the map.
     MaplibreMap(modifier.fillMaxWidth().height(height), state = mapState, interactions = MapInteractions.None)
 }
