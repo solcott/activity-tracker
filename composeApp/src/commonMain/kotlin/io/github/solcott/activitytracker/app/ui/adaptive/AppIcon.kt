@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
@@ -55,6 +56,7 @@ enum class AppIcon(
     Check(Icons.Filled.Check, CupertinoIcons.checkmark, "checkmark"),
     Chevron(Icons.AutoMirrored.Filled.KeyboardArrowRight, CupertinoIcons.chevronForward, "chevron.forward"),
     ChevronBack(Icons.AutoMirrored.Filled.KeyboardArrowLeft, CupertinoIcons.chevronBack, "chevron.backward"),
+    ChevronDown(Icons.Filled.KeyboardArrowDown, CupertinoIcons.chevronDown, "chevron.down"),
     Delete(Icons.Filled.Delete, CupertinoIcons.trash, "trash"),
     More(Icons.Filled.MoreVert, CupertinoIcons.ellipsisCircle, "ellipsis.circle"),
     Ungroup(MaterialIcons.CallSplit, CupertinoIcons.arrowBranch, "arrow.branch"),

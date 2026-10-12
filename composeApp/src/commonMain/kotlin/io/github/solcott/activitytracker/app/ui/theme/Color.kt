@@ -3,6 +3,8 @@ package io.github.solcott.activitytracker.app.ui.theme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 /*
@@ -135,3 +137,21 @@ internal val IosDark: ColorScheme =
         error = Color(0xFFFF453A),
         onError = Color(0xFFFFFFFF),
     )
+
+/**
+ * UIKit system colours with no Material role, for the iOS look of the adaptive components. Read through [LocalIosColors]; [AppTheme]
+ * provides the light or dark set.
+ */
+@Immutable
+data class IosColors(
+    /** `tertiarySystemFill`: translucent, so a control's track or an unselected chip shows on a page and on a sheet alike. */
+    val tertiaryFill: Color,
+    /** A segmented control's raised thumb. */
+    val segmentThumb: Color,
+)
+
+internal val IosLightColors = IosColors(tertiaryFill = Color(0x1F767680), segmentThumb = Color(0xFFFFFFFF))
+
+internal val IosDarkColors = IosColors(tertiaryFill = Color(0x3D767680), segmentThumb = Color(0xFF636366))
+
+val LocalIosColors = staticCompositionLocalOf { IosLightColors }

@@ -41,6 +41,7 @@ fun AppTheme(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
             LocalRippleConfiguration provides if (ios) null else LocalRippleConfiguration.current,
             LocalTonalElevationEnabled provides !ios,
             LocalMinimumInteractiveComponentSize provides if (platform.hasPointer) 40.dp else 48.dp,
+            LocalIosColors provides if (dark) IosDarkColors else IosLightColors,
         ) {
             // Paints the themed background and sets content colors for screens without a Scaffold.
             Surface(modifier.fillMaxSize(), content = content)

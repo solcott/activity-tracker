@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app.ui.adaptive
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -19,11 +18,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.ui.theme.LocalIosColors
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.app.ui.theme.UiPlatform
 import kotlinx.collections.immutable.ImmutableList
@@ -66,10 +65,9 @@ private fun IosSegmentedControl(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    val dark = isSystemInDarkTheme()
-    // UIKit's tertiarySystemFill track and its raised thumb.
-    val track = if (dark) Color(0x3D767680) else Color(0x1F767680)
-    val thumb = if (dark) Color(0xFF636366) else Color.White
+    val iosColors = LocalIosColors.current
+    val track = iosColors.tertiaryFill
+    val thumb = iosColors.segmentThumb
     Row(
         modifier
             .height(IOS_HEIGHT)

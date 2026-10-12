@@ -39,10 +39,10 @@ Compose:
   CompositionLocalAllowlist:
     active: true
     # The unit preference is ambient like the theme: every stat formatter reads it, so threading it through each State would add noise.
-    # LocalUiPlatform is part of the theme, and LocalIsNavRoot is navigation state App provides to every screen's top bar.
+    # LocalUiPlatform and LocalIosColors are part of the theme, and LocalIsNavRoot is navigation state App provides to every screen's top bar.
     # LocalFloatingBottomBarHeight is AppShell's floating iOS tab bar, which every screen's AppScaffold pads for, and LocalBarBackdrop is
     # the content AppScaffold hands its iOS top bar to blur.
-    allowedCompositionLocals: LocalUnitSystem,LocalUiPlatform,LocalIsNavRoot,LocalFloatingBottomBarHeight,LocalBarBackdrop
+    allowedCompositionLocals: LocalUnitSystem,LocalUiPlatform,LocalIosColors,LocalIsNavRoot,LocalFloatingBottomBarHeight,LocalBarBackdrop
   # Composable params take ImmutableList, not List; composeStabilityCheck catches the rest from the compiler reports.
   UnstableCollections:
     active: true

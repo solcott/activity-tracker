@@ -2,6 +2,8 @@ package io.github.solcott.activitytracker.app.ui.adaptive
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -25,7 +28,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.movableContentOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -35,6 +42,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.layoutId
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
@@ -49,6 +59,7 @@ import io.github.solcott.activitytracker.app.ui.theme.UiPlatform
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_back
 import kotlin.math.roundToInt
+import kotlinx.collections.immutable.ImmutableList
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -76,6 +87,8 @@ fun rememberAppTopBarScrollBehavior(): TopAppBarScrollBehavior =
  * [onBack] shows a back button unless this is the root screen ([LocalIsNavRoot]). Put [AppIconButton]s and [AppMenu]s in [actions]. With a
  * [scrollBehavior] ([rememberAppTopBarScrollBehavior]) the bar marks content scrolled under it (Material's scrolled colour, iOS's
  * hairline), and on iOS the large title collapses into the bar.
+ *
+ * With a [titleMenu] the title is a button with a down chevron that opens it, for a screen whose title is a choice (the feed's scope).
  */
 @Composable
 fun AppTopBar(
@@ -84,17 +97,18 @@ fun AppTopBar(
     onBack: (() -> Unit)? = null,
     subtitle: String? = null,
     scrollBehavior: TopAppBarScrollBehavior? = null,
+    titleMenu: ImmutableList<AppMenuItem>? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val root = LocalIsNavRoot.current
     val back = onBack?.takeUnless { root }
     if (LocalUiPlatform.current == UiPlatform.Ios) {
-        IosNavigationBar(title, subtitle, back, large = root, actions, scrollBehavior?.state, modifier)
+        IosNavigationBar(title, subtitle, titleMenu, back, large = root, actions, scrollBehavior?.state, modifier)
     } else {
         TopAppBar(
             title = {
                 Column {
-                    Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    TopBarTitle(title, LocalTextStyle.current, titleMenu)
                     subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 }
             },
@@ -111,6 +125,7 @@ fun AppTopBar(
 private fun IosNavigationBar(
     title: String,
     subtitle: String?,
+    titleMenu: ImmutableList<AppMenuItem>?,
     onBack: (() -> Unit)?,
     large: Boolean,
     actions: @Composable RowScope.() -> Unit,
@@ -123,6 +138,11 @@ private fun IosNavigationBar(
     val scrolled by remember(scrollState) { derivedStateOf { (scrollState?.contentOffset ?: 0f) < 0f } }
     val material by animateFloatAsState(if (scrolled) 1f else 0f, label = "barMaterial")
     val backdrop = LocalBarBackdrop.current
+    val topBarTitle : @Composable (style: TextStyle) -> Unit = remember {
+        movableContentOf{ style: TextStyle ->
+            TopBarTitle(title, style, titleMenu)
+        }
+    }
     Column(
         modifier
             .fillMaxWidth()
@@ -143,7 +163,7 @@ private fun IosNavigationBar(
                     Modifier.graphicsLayer { alpha = if (large) inlineTitleAlpha(scrollState) else 1f },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    topBarTitle(MaterialTheme.typography.titleMedium)
                     subtitle?.let {
                         Text(
                             it,
@@ -161,7 +181,7 @@ private fun IosNavigationBar(
         )
         if (large) {
             Column(Modifier.collapsing(scrollState).padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
-                Text(title, style = MaterialTheme.typography.headlineLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                topBarTitle(MaterialTheme.typography.headlineLarge)
                 subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant) }
             }
         }
@@ -197,6 +217,31 @@ private fun barMaterial(color: Color, alpha: Float, edgeEffect: Boolean): HazeBl
         colorEffects(listOf(HazeColorEffect.tint(color.copy(alpha = BAR_TINT_ALPHA))))
     }
 }
+
+/** The bar's title in [style]; with a [menu], a button that opens it, marked by a down chevron sized to the text. */
+@Composable
+private fun TopBarTitle(title: String, style: TextStyle, menu: ImmutableList<AppMenuItem>?) {
+    if (menu == null) {
+        Text(title, style = style, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        return
+    }
+    var open by rememberSaveable { mutableStateOf(false) }
+    val chevron = with(LocalDensity.current) { style.fontSize.toDp() } * TITLE_CHEVRON_SCALE
+    Box {
+        Row(
+            Modifier.clickable(role = Role.Button) { open = true }.handCursor(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(title, style = style, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            PlatformIcon(AppIcon.ChevronDown, null, size = chevron)
+        }
+        AppMenu(expanded = open, onDismiss = { open = false }, items = menu)
+    }
+}
+
+/** The title menu's chevron, relative to the title's font size. */
+private const val TITLE_CHEVRON_SCALE = 0.7f
 
 /** 0 while the large title shows, rising to 1 over the last part of its collapse. Without a scroll state it never collapses. */
 private fun inlineTitleAlpha(state: TopAppBarState?): Float =
