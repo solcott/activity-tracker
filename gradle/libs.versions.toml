@@ -9,7 +9,7 @@ ksp = "2.3.12"
 composeMultiplatform = "1.12.1"
 metro = "1.4.5"
 detekt = "2.0.0-alpha.6"
-composeRules = "0.6.7"
+composeRules = "0.6.8"
 ktfmt = "0.27.0"
 sortDependencies = "0.21.0"
 
@@ -61,7 +61,7 @@ androidx-core = "1.19.1"
 playServicesLocation = "21.4.0"
 
 # Server
-exposed = "1.5.0"
+exposed = "1.5.1"
 flyway = "13.10.0"
 postgresql = "42.7.14"
 hikari = "7.1.0"
