@@ -18,6 +18,7 @@ A Kotlin Multiplatform, Strava-style athlete activity tracker backed by ATProtoc
 ./gradlew :server-appview:test                    # AppView tests (H2 in PostgreSQL mode, no Docker needed)
 ./gradlew -p build-logic :convention:test         # convention plugin TestKit tests
 ./gradlew :detekt-rules:test                      # the repo's own detekt rules (UseTextFieldState, UseSingleFlight)
+scripts/check-agent-sync.sh                       # Claude Code <-> Antigravity config symlinks, hook and command parity
 
 ./gradlew :webApp:wasmJsBrowserDevelopmentRun     # web app; PORT env overrides 8080
 ./gradlew :desktopApp:hotRun --auto               # desktop app with Compose Hot Reload (reloads on save); :desktopApp:run without
@@ -69,7 +70,7 @@ Use Kotlin explicit backing fields (`val x: StateFlow<T>` + `field = MutableStat
 
 ## Skills & Subagents
 
-Custom skills live in `.agents/skills/`. `.claude/skills/` symlinks the shared ones and keeps its own OpenSpec skills (Claude uses `/opsx:apply`, Antigravity `/opsx-apply`).
+Custom skills live in `.agents/skills/`. `.claude/skills/` symlinks the shared ones and keeps its own OpenSpec skills (Claude uses `/opsx:apply`, Antigravity `/opsx-apply`). Run `scripts/check-agent-sync.sh` after changing either side.
 - `local-stack`: Bring up, seed, smoke-test and troubleshoot the local ATProto network and AppView.
 - `lexicon-change`: Step-by-step checklist for modifying or adding lexicons and synchronizing all layers.
 - `new-screen`: Scaffold a new Circuit screen across `:app-screens`, `:app-presenters`, and `composeApp`.
