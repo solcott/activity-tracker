@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.data.activity.OwnActivity
 import io.github.solcott.activitytracker.data.activity.pendingActivity
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.FeedItemEntity
+import io.github.solcott.activitytracker.data.db.KeyValueEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.ownBlobUrl
@@ -25,6 +26,8 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import kotlin.time.Instant
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
 
 /** AppView reads, cached in Room so feeds render offline and instantly on launch. */
 @SingleIn(SessionScope::class)
@@ -43,19 +46,27 @@ class FeedRepository(
     /** Activities the athlete deleted and recordings they split off this session, left out until the AppView catches up. */
     val deletes = LocalDeletes()
 
-    fun timeline(): Flow<List<ActivityView>> = observe(TIMELINE)
+    fun timeline(filter: ActivityFilter = ActivityFilter.None): Flow<List<ActivityView>> = observe(filter.cacheKey(TIMELINE))
 
-    fun authorActivities(did: String): Flow<List<ActivityView>> = observe(authorKey(did))
+    fun authorActivities(did: String, filter: ActivityFilter = ActivityFilter.None): Flow<List<ActivityView>> =
+        observe(filter.cacheKey(authorKey(did)))
 
-    suspend fun refreshTimeline() {
-        val output = clients.appView.query(GetTimeline.method, GetTimeline.Params())
-        db.feed().replace(TIMELINE, deletes.filter(output.activities).toEntities(TIMELINE))
+    suspend fun refreshTimeline(filter: ActivityFilter = ActivityFilter.None) {
+        val params = GetTimeline.Params(type = filter.typeTokens().ifEmpty { null }, since = filter.since, until = filter.until)
+        val output = clients.appView.query(GetTimeline.method, params)
+        val key = filter.cacheKey(TIMELINE)
+        db.feed().replace(key, deletes.filter(output.activities).toEntities(key))
+        if (filter != ActivityFilter.None) db.trackFilteredFeed(key)
     }
 
-    suspend fun refreshAuthor(actor: String) {
-        val output = clients.appView.query(GetAuthorActivities.method, GetAuthorActivities.Params(actor))
+    suspend fun refreshAuthor(actor: String, filter: ActivityFilter = ActivityFilter.None) {
+        val params =
+            GetAuthorActivities.Params(actor, type = filter.typeTokens().ifEmpty { null }, since = filter.since, until = filter.until)
+        val output = clients.appView.query(GetAuthorActivities.method, params)
         val did = output.activities.firstOrNull()?.author?.did?.value ?: actor
-        db.feed().replace(authorKey(did), deletes.filter(output.activities).toEntities(authorKey(did)))
+        val key = filter.cacheKey(authorKey(did))
+        db.feed().replace(key, deletes.filter(output.activities).toEntities(key))
+        if (filter != ActivityFilter.None) db.trackFilteredFeed(key)
     }
 
     suspend fun activity(uri: AtUri): GetActivity.Output {
@@ -153,4 +164,20 @@ class FeedRepository(
 
         fun authorKey(did: String) = "author:$did"
     }
+}
+
+/** Filtered feed cache keys, most recently refreshed first. */
+private const val FILTERED_FEEDS = "feed.filteredKeys"
+private const val MAX_FILTERED_FEEDS = 10
+private val recentKeys = ListSerializer(String.serializer())
+
+/**
+ * Makes [key] the most recently refreshed filtered feed and drops the cached pages of those beyond the [MAX_FILTERED_FEEDS] most recent, so
+ * trying filters doesn't grow the cache without bound. Unfiltered feeds are never tracked, so never evicted.
+ */
+private suspend fun AppDatabase.trackFilteredFeed(key: String) {
+    val recent = keyValue().get(FILTERED_FEEDS)?.let { AtJson.decodeFromString(recentKeys, it) }.orEmpty()
+    val updated = listOf(key) + (recent - key)
+    updated.drop(MAX_FILTERED_FEEDS).forEach { feed().clear(it) }
+    keyValue().put(KeyValueEntity(FILTERED_FEEDS, AtJson.encodeToString(recentKeys, updated.take(MAX_FILTERED_FEEDS))))
 }
