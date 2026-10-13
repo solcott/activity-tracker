@@ -11,7 +11,7 @@
 #   --seed NAME        create NAME.test if it doesn't exist (repeatable); runs after the AppView is up
 #   --android          always (re)install the Android debug app on connected devices
 #   --no-android       skip adb reverse and the Android install
-#   --no-tunnel        skip cloudflared and local.properties (web-only work)
+#   --no-tunnel        skip cloudflared and local.properties (web-only work; atproto Spaces need the tunnel)
 #   --restart-appview  restart the AppView even if it is healthy and current
 set -euo pipefail
 
@@ -337,6 +337,9 @@ cmd_up() {
   if [[ ${NO_TUNNEL:-0} != 1 ]]; then
     ensure_tunnel
     ensure_local_properties
+  else
+    step "cloudflared tunnel"
+    warn "skipped: the PDS can't reach the AppView's Spaces checkUserAccess without it"
   fi
   ensure_appview
   [[ ${NO_ANDROID:-0} != 1 ]] && ensure_android
@@ -359,7 +362,7 @@ cmd_status() {
   local host
   host=$(running_tunnel_host)
   if [[ -z $host ]]; then
-    warn "not running"
+    warn "not running (the PDS can't reach the AppView's Spaces checkUserAccess without it)"
   elif tunnel_alive "$host"; then
     ok "https://$host"
   else
