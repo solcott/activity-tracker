@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,6 +31,7 @@ import com.slack.circuit.subcircuit.SubUi
 import dev.zacsweers.metro.Inject
 import io.github.solcott.activitytracker.app.ui.QuickTypeChips
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
+import io.github.solcott.activitytracker.app.ui.activityTypeMatcher
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
 import io.github.solcott.activitytracker.app.ui.adaptive.AppDatePickerDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
@@ -38,6 +41,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSheetHeader
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTriStateCheckbox
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
@@ -55,7 +59,9 @@ import io.github.solcott.activitytracker.composeApp.resources.feed_filter_last_d
 import io.github.solcott.activitytracker.composeApp.resources.feed_filter_this_year
 import io.github.solcott.activitytracker.composeApp.resources.feed_filter_types_more
 import io.github.solcott.activitytracker.composeApp.resources.feed_filter_types_title
+import io.github.solcott.activitytracker.composeApp.resources.sport_picker_no_matches
 import io.github.solcott.activitytracker.composeApp.resources.sport_picker_quick
+import io.github.solcott.activitytracker.composeApp.resources.sport_picker_search
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import kotlin.time.Clock
@@ -176,31 +182,56 @@ private fun TypePickerSheet(picker: TypePickerState, eventSink: (FeedFilterEvent
             confirmLabel = stringResource(Res.string.feed_filter_apply),
             onConfirm = { eventSink(FeedFilterEvent.ApplyTypes) },
         )
+        // Search is UI-only, so the query resets each time the sheet opens.
+        val query = rememberTextFieldState()
+        val needle = query.text.trim().toString()
+        val searching = needle.isNotEmpty()
+        val matches = activityTypeMatcher(needle)
+        val groups =
+            picker.categories
+                .map { it.category to it.types.filter(matches).toImmutableList() }
+                .filter { it.second.isNotEmpty() }
+                .toImmutableList()
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(Res.string.sport_picker_quick), style = MaterialTheme.typography.labelLarge)
-            QuickTypeChips(
-                picker.quickTypes,
-                isSelected = { picker.draft.covers(it) },
-                onClick = { eventSink(FeedFilterEvent.ToggleType(it)) },
+            AppTextField(
+                query,
+                placeholder = stringResource(Res.string.sport_picker_search),
+                leadingIcon = { PlatformIcon(AppIcon.Search, null) },
+                lineLimits = TextFieldLineLimits.SingleLine,
+                modifier = Modifier.fillMaxWidth(),
             )
+            if (!searching) {
+                Text(stringResource(Res.string.sport_picker_quick), style = MaterialTheme.typography.labelLarge)
+                QuickTypeChips(
+                    picker.quickTypes,
+                    isSelected = { picker.draft.covers(it) },
+                    onClick = { eventSink(FeedFilterEvent.ToggleType(it)) },
+                )
+            }
+            if (groups.isEmpty()) Text(stringResource(Res.string.sport_picker_no_matches), style = MaterialTheme.typography.bodyMedium)
         }
-        val groups = remember(picker.categories) { picker.categories.map { it.category to it.types }.toImmutableList() }
         var expanded by rememberExpandedSports()
+        // Full height, so the sheet doesn't jump as the search narrows the list.
         LazyColumn(Modifier.fillMaxSize()) {
             sportTypeList(
                 groups,
                 expanded = expanded,
                 onToggleExpanded = { sport -> expanded = if (sport in expanded) expanded - sport else expanded + sport },
                 onClick = { eventSink(FeedFilterEvent.ToggleType(it)) },
-                onCategoryClick = { eventSink(FeedFilterEvent.ToggleCategory(it)) },
+                // A search shows every match, so none hides behind a collapsed sport.
+                expandAll = searching,
+                // While searching, a category would select types the search hides, so its header is plain.
+                onCategoryClick = if (searching) null else { category -> eventSink(FeedFilterEvent.ToggleCategory(category)) },
                 categoryTrailing = { category ->
-                    val state =
-                        when (picker.categories.first { it.category == category }.selection) {
-                            Selection.All -> ToggleableState.On
-                            Selection.Partial -> ToggleableState.Indeterminate
-                            Selection.None -> ToggleableState.Off
-                        }
-                    AppTriStateCheckbox(state, onClick = null)
+                    if (!searching) {
+                        val state =
+                            when (picker.categories.first { it.category == category }.selection) {
+                                Selection.All -> ToggleableState.On
+                                Selection.Partial -> ToggleableState.Indeterminate
+                                Selection.None -> ToggleableState.Off
+                            }
+                        AppTriStateCheckbox(state, onClick = null)
+                    }
                 },
             ) { type ->
                 // A sport with only some of its sub-sports selected shows the mixed mark, as a category does.
