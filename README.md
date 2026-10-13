@@ -33,7 +33,11 @@ docker/scripts/create-account.sh alice          # creates alice.test (password i
 ./gradlew :desktopApp:hotRun --auto                  # desktop app with Compose Hot Reload
 ```
 
-The first `up` builds PLC, the relay and Jetstream from source, which takes a few minutes. The relay
+The first `up` builds PLC, the relay and Jetstream from source, which takes a few minutes. The PDS is
+Bluesky's atproto Spaces alpha, pinned by digest. It is amd64-only, so Apple Silicon runs it under Rosetta.
+Its schemas change without migrations, so bumping it means wiping the volumes
+(`docker compose -f docker/compose.yaml down -v`) and re-seeding. `docker/scripts/spaces-smoke.sh alice`
+checks that it serves Spaces. Spaces' managing-app callouts reach the AppView only through the tunnel below. The relay
 and Jetstream are pinned and carry one-line patches that let them reach a plain-HTTP `localhost` PDS
 (see `docker/relay.Dockerfile` and `docker/jetstream.Dockerfile`). The AppView starts at Jetstream's
 live tip on first run, so records written before it first connects are not indexed.

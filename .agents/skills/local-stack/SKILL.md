@@ -35,7 +35,9 @@ curl -s localhost:8081/xrpc/_health                                   # AppView:
 curl -s 'localhost:8081/xrpc/app.activitytracker.actor.getProfile?actor=alice.test'   # indexed end to end
 ```
 
-The last call returning a profile with the seeded `displayName` proves the whole pipeline. `ProfileNotFound` with everything else healthy means the record was written before the AppView first connected. Seed a fresh account to confirm the live path works.
+The last call returning a profile with the seeded `displayName` proves the whole pipeline.
+
+Spaces: `docker/scripts/spaces-smoke.sh alice` creates (or reuses) a space, writes, reads and deletes a record, and checks that an anonymous read is refused. It exits non-zero and names the failing call. `ProfileNotFound` with everything else healthy means the record was written before the AppView first connected. Seed a fresh account to confirm the live path works.
 
 ## debug: symptom → cause
 
@@ -48,6 +50,9 @@ The last call returning a profile with the seeded `displayName` proves the whole
 | AppView fails at startup with a Flyway checksum or validation error | A committed migration was edited → revert it and add a new `V<n+1>`, or (with the user's OK) drop the `appview-db` volume |
 | AppView returns 401 | Service-auth JWT issue: `aud` must be the AppView DID (`did:web:localhost%3A8081`), and the `lxm` must match the NSID |
 | Native sign-in fails | Tunnel URL changed → update `activitytracker.appviewPublicUrl`, restart the AppView, rebuild the app. On an Android device, run `adb reverse tcp:2582 tcp:2582` (and 2583, 8081) |
+| Spaces `getSpaceCredential` says `UserNotAuthorized` and the AppView log has no `checkUserAccess` | The PDS can't reach the managing app: no tunnel (`--no-tunnel`), or the space names an old tunnel's `did:web` → run `scripts/dev.sh` and recreate the space. A 404 there means the AppView route is missing |
+| OAuth fails with `invalid_scope: Unable to retrieve space declarations` | The PDS can't resolve the `space:` scope's space-type lexicon. It needs `PDS_LEXICON_AUTHORITY_DID` and a published declaration, and a failed lookup stays cached for 5 minutes |
+| PDS exits with `SQLITE_CANTOPEN` | The `/pds` volume isn't writable by `node` → the volume predates `pds.Dockerfile`'s `chown`; wipe it (ask first) |
 | Physical iPhone can't sign in | Unsupported against the local stack (the PDS advertises `localhost`) |
 
 Destructive resets (`down -v`, deleting volumes) wipe every local account and record. Ask the user first.
