@@ -26,7 +26,7 @@ The record picker today is driven by live host state that doesn't fit that model
 - (b) An `enabled` field in the screen. Rejected: changing it would remount the picker and lose its open sheet.
 - (c) Keep `ActivityTypePicker` as a plain composable and extract only the quick-types loading into a shared presenter helper. That helper already exists as `quickActivityTypes`.
 
-Lean (a) with a small `LocalPickerEnabled`, but decide in review.
+**Decided in review: (c).** `ActivityTypePicker` stays a plain composable, taking `enabled` straight from its host. The SubCircuit's only gain was one `quickTypes` field in each of three states. That doesn't pay for a three-module contract plus a new allowlisted `CompositionLocal`. `quickActivityTypes` (`app/presenters/.../record/ActivityTypes.kt`) is already the shared loader, used by Record, Manual, Import and the feed filter. So the code is already at the chosen design, and the change closes without implementation. The screen and Import-reset decisions here record what (a) would have needed.
 
 **Import's type from the file:** the host replaces the screen with `ActivityTypePickerScreen(fileType, ...)` once the file is parsed. This is a legitimate "reset the child", since the athlete hasn't touched the picker yet. The child then reports the type back through its first `SideEffect`, which is harmless.
 
@@ -37,4 +37,4 @@ Lean (a) with a small `LocalPickerEnabled`, but decide in review.
 
 ## Open Questions
 
-- Choose between (a) and (c) for `enabled` in review. Either way, the picker UI stays the same.
+- None. `enabled` was resolved as (c) above.

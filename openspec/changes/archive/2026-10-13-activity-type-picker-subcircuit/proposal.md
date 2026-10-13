@@ -1,6 +1,6 @@
 # Proposal
 
-> Follow-up to `collapsible-sport-list`; do that change first. This is planning only, and implementing it depends on accepting the trade-offs in design.md.
+> Follow-up to `collapsible-sport-list`. **Outcome: not implemented.** Review chose option (c) in design.md: the picker stays a plain composable, and the existing shared `quickActivityTypes` helper already removes the duplication described below.
 
 ## Why
 
