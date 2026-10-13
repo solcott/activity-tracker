@@ -16,9 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
-import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
-import io.github.solcott.activitytracker.app.ui.theme.UiPlatform
 
 /**
  * How much of the screen's bottom a bar floating over the screens covers: iOS's tab bar, which (like UIKit's) lets content scroll under its
@@ -44,7 +41,7 @@ fun AppScaffold(
     floatingActionButton: @Composable () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
 ) {
-    val backdrop = if (LocalUiPlatform.current == UiPlatform.Ios) rememberHazeState() else null
+    val backdrop = rememberBarBackdrop()
     CompositionLocalProvider(LocalBarBackdrop provides backdrop) {
         Scaffold(
             modifier = modifier,
@@ -60,3 +57,6 @@ fun AppScaffold(
         }
     }
 }
+
+/** The [LocalBarBackdrop] for an [AppScaffold]: a fresh Haze state on iOS, where the top bar blurs content under it; null elsewhere. */
+@Composable internal expect fun rememberBarBackdrop(): HazeState?

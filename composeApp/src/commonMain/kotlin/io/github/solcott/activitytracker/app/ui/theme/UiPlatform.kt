@@ -21,5 +21,8 @@ enum class UiPlatform {
 /** This build's platform. */
 internal expect val currentUiPlatform: UiPlatform
 
-/** Read this rather than [currentUiPlatform], so a preview or test can render another platform's UI. */
+/**
+ * Read this rather than [currentUiPlatform], so a preview or test can render another platform's theme and navigation shell. The
+ * `ui/adaptive` wrappers don't read it: they're expect/actual, so each build gets its own platform's controls.
+ */
 val LocalUiPlatform = staticCompositionLocalOf { currentUiPlatform }
