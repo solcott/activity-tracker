@@ -144,14 +144,12 @@ internal val IosDark: ColorScheme =
  */
 @Immutable
 data class IosColors(
-    /** `tertiarySystemFill`: translucent, so a control's track or an unselected chip shows on a page and on a sheet alike. */
-    val tertiaryFill: Color,
-    /** A segmented control's raised thumb. */
-    val segmentThumb: Color,
+    /** `tertiarySystemFill`: translucent, so an unselected chip shows on a page and on a sheet alike. */
+    val tertiaryFill: Color
 )
 
-internal val IosLightColors = IosColors(tertiaryFill = Color(0x1F767680), segmentThumb = Color(0xFFFFFFFF))
+internal val IosLightColors = IosColors(tertiaryFill = Color(0x1F767680))
 
-internal val IosDarkColors = IosColors(tertiaryFill = Color(0x3D767680), segmentThumb = Color(0xFF636366))
+internal val IosDarkColors = IosColors(tertiaryFill = Color(0x3D767680))
 
 val LocalIosColors = staticCompositionLocalOf { IosLightColors }

@@ -7,13 +7,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
-import platform.UIKit.UIColor
 import platform.UIKit.UIImage
 import platform.UIKit.UIImageSymbolConfiguration
 import platform.UIKit.UIImageView
@@ -78,9 +76,6 @@ private fun CheckmarkSymbol(state: ToggleableState, enabled: Boolean, modifier: 
             ),
     )
 }
-
-private fun Color.toUIColor(): UIColor =
-    UIColor.colorWithRed(red.toDouble(), green = green.toDouble(), blue = blue.toDouble(), alpha = alpha.toDouble())
 
 private const val DISABLED_ALPHA = 0.38f
 private const val SYMBOL_POINT_SIZE = 22.0
