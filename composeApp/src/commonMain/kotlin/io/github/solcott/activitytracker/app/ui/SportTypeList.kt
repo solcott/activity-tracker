@@ -16,6 +16,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.listSaver
@@ -31,6 +32,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChipIconSize
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
+import io.github.solcott.activitytracker.app.ui.adaptive.LocalPinnedOverContent
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_collapsed
@@ -63,7 +65,9 @@ fun LazyListScope.sportTypeList(
     trailing: @Composable (ActivityType) -> Unit,
 ) {
     groups.forEach { (category, types) ->
-        stickyHeader(key = category.name) { CategoryHeader(category, onCategoryClick, categoryTrailing) }
+        stickyHeader(key = category.name) {
+            CompositionLocalProvider(LocalPinnedOverContent provides true) { CategoryHeader(category, onCategoryClick, categoryTrailing) }
+        }
         val nested = { type: ActivityType -> type.subSport != null && ActivityType(type.sport) in types }
         val collapsible = types.filter(nested).mapTo(mutableSetOf()) { it.sport }
         val visible = types.filter { !nested(it) || expandAll || it.sport in expanded }
