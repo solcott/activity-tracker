@@ -47,6 +47,7 @@ suspend fun signedInTestSession(http: HttpClient, did: Did = Did("did:plc:alice"
             "did:web:appview.test",
             OAuthClientConfig.loopback("http://127.0.0.1/"),
         )
-    val manager = OAuthSessionManager(OAuthClient(http, IdentityResolver(http, config), config.oauth), store).apply { restore() }
-    return TestSession(db, manager, SessionClients(session, http, manager, config, Clock.System))
+    val identity = IdentityResolver(http, config)
+    val manager = OAuthSessionManager(OAuthClient(http, identity, config.oauth), store).apply { restore() }
+    return TestSession(db, manager, SessionClients(session, http, manager, config, identity, Clock.System))
 }

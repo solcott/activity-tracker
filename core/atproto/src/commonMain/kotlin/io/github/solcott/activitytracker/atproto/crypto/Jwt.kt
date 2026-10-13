@@ -10,3 +10,9 @@ internal suspend fun signJwt(header: JsonObject, payload: JsonObject, key: DpopK
     val signature = key.sign(signingInput.encodeToByteArray())
     return "$signingInput.${signature.base64Url()}"
 }
+
+/** The payload of a compact JWS, decoded but not verified: for reading claims of a token another party verifies. */
+internal fun jwtPayload(token: String): JsonObject {
+    val payload = token.split('.').getOrNull(1) ?: throw IllegalArgumentException("Not a compact JWS")
+    return AtJson.decodeFromString(JsonObject.serializer(), Base64Url.decode(payload).decodeToString())
+}

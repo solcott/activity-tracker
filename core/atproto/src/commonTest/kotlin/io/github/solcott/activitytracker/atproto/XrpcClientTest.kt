@@ -2,8 +2,16 @@ package io.github.solcott.activitytracker.atproto
 
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcClient
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
+import io.github.solcott.activitytracker.lexicon.Cid
+import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
+import io.github.solcott.activitytracker.lexicon.atproto.Space
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -40,4 +48,28 @@ class XrpcClientTest {
         assertEquals(HttpStatusCode.Unauthorized.value, e.status)
         assertEquals("AuthRequired", e.error)
     }
+
+    @Test
+    fun queryBytesReturnsBodyAndContentType() = runTest {
+        val bytes = byteArrayOf(0, 1, 2, -1)
+        network.on("appview.test/xrpc/com.atproto.space.getBlob") {
+            respond(bytes, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/octet-stream"))
+        }
+        val output = client.queryBytes(Space.GetBlob.method, blobParams)
+        assertEquals(bytes.toList(), output.bytes.toList())
+        assertEquals("application/octet-stream", output.contentType)
+        assertEquals("bafkblob", network.requests.single().url.parameters["cid"])
+    }
+
+    @Test
+    fun queryBytesErrorsSurfaceXrpcErrorBody() = runTest {
+        network.on("appview.test/xrpc/com.atproto.space.getBlob") {
+            respondJson("""{"error":"BlobNotFound","message":"no such blob"}""", HttpStatusCode.BadRequest)
+        }
+        val e = assertFailsWith<XrpcException> { client.queryBytes(Space.GetBlob.method, blobParams) }
+        assertEquals("BlobNotFound", e.error)
+    }
+
+    private val blobParams =
+        Space.GetBlob.Params(SpaceUri.of(Did("did:plc:alice"), Nsid.SPACE_ATHLETE, "self"), Did("did:plc:alice"), Cid("bafkblob"))
 }

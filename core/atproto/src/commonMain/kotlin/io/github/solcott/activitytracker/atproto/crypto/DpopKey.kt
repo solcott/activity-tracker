@@ -12,7 +12,7 @@ import kotlinx.serialization.json.put
 
 /**
  * ES256 (P-256) key used to bind OAuth tokens via DPoP. It is generated per sign-in and persisted with the session ([Serialized]) so tokens
- * stay usable across app restarts and web redirects.
+ * stay usable across app restarts and web redirects. Spaces signs requests with a separate, in-memory instance ([didKey]).
  */
 class DpopKey
 private constructor(
@@ -27,6 +27,9 @@ private constructor(
         put("x", publicRaw.copyOfRange(1, 33).base64Url())
         put("y", publicRaw.copyOfRange(33, 65).base64Url())
     }
+
+    /** Public key as a P-256 `did:key`, which atproto Spaces uses to name the key a request is signed with. */
+    val didKey: String by lazy { p256DidKey(publicRaw) }
 
     suspend fun sign(data: ByteArray): ByteArray = privateKey.signatureGenerator(SHA256, ECDSA.SignatureFormat.RAW).generateSignature(data)
 

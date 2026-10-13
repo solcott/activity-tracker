@@ -14,6 +14,7 @@ import io.ktor.client.request.header
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsBytes
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -46,6 +47,15 @@ class XrpcClient(
                 XrpcParams.encode(method.params, params).forEach { (k, v) -> url.parameters.append(k, v) }
             }
         return decode(response, method.output)
+    }
+
+    /** A query whose output is raw bytes (a blob), not JSON. */
+    suspend fun <P> queryBytes(method: XrpcQuery<P, *>, params: P): XrpcBytes {
+        val response =
+            execute(method.nsid, HttpMethod.Get) {
+                XrpcParams.encode(method.params, params).forEach { (k, v) -> url.parameters.append(k, v) }
+            }
+        return XrpcBytes(response.bodyAsBytes(), response.headers[HttpHeaders.ContentType])
     }
 
     suspend fun <I, O> procedure(method: XrpcProcedure<I, O>, input: I): O {
@@ -113,6 +123,9 @@ internal suspend fun HttpResponse.toXrpcException(): XrpcException {
     val body = runCatching { AtJson.decodeFromString(XrpcErrorBody.serializer(), text) }.getOrNull()
     return XrpcException(status.value, body?.error ?: "HttpError", body?.message ?: text.take(MAX_ERROR_BODY_CHARS))
 }
+
+/** The output of [XrpcClient.queryBytes]. */
+class XrpcBytes(val bytes: ByteArray, val contentType: String?)
 
 class XrpcException(val status: Int, val error: String, override val message: String?) : Exception("XRPC $status $error: $message")
 

@@ -3,8 +3,11 @@ package io.github.solcott.activitytracker.data.di
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.AtprotoConfig
+import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSession
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSessionManager
+import io.github.solcott.activitytracker.atproto.space.SpaceClient
+import io.github.solcott.activitytracker.atproto.space.SpaceCredentials
 import io.github.solcott.activitytracker.atproto.xrpc.ServiceAuthAuthenticator
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcClient
 import io.github.solcott.activitytracker.lexicon.Did
@@ -13,7 +16,8 @@ import kotlin.time.Clock
 
 /**
  * XRPC clients for the signed-in account: [pds] writes to the user's repo with DPoP-bound tokens; [appView] reads aggregated views,
- * authenticated by service-auth JWTs minted by that PDS.
+ * authenticated by service-auth JWTs minted by that PDS; [spaces] reads and writes atproto spaces. The Spaces binding key and credentials
+ * live only as long as this session.
  */
 @SingleIn(SessionScope::class)
 @Inject
@@ -22,6 +26,7 @@ class SessionClients(
     http: HttpClient,
     private val sessionManager: OAuthSessionManager,
     config: AtprotoConfig,
+    identity: IdentityResolver,
     clock: Clock,
 ) {
     val did: Did = session.did
@@ -42,5 +47,13 @@ class SessionClients(
             http = http,
             serviceUrl = config.appViewUrl,
             authenticator = ServiceAuthAuthenticator({ pds }, config.appViewDid, clock),
+        )
+
+    val spaces: SpaceClient =
+        SpaceClient(
+            did = did,
+            pds = pds,
+            credentials = SpaceCredentials(pds, http, identity, clock = clock),
+            http = http,
         )
 }
