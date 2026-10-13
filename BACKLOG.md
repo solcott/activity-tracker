@@ -17,7 +17,7 @@ Follows in this app (`app.activitytracker.graph.follow`) are separate from Blues
 Profile details an athlete marks Mutuals or Only me (location, birthdate, gender, weight and height) live in the AppView's `actor_private_details` table, because repo records are public. atproto Spaces (permissioned repos on the athlete's own PDS) are the native home for that data, but in the August 2026 alpha they have had no security audit, their APIs and schemas may break, and the hosted sandbox will be wiped. Revisit when Spaces reaches a stable release.
 
 - **Target.** One space per athlete, with the athlete as its authority, holding a details record. The AppView (or each client) reads it as a member instead of storing a copy.
-- **Mutuals.** A space grants access by membership, not by a rule over the follow graph. Decide whether to keep the space's member list in sync with the athlete's mutuals, or to keep enforcing visibility in the AppView and use the space only for storage.
+- **Mutuals.** Decided: one `app.activitytracker.space.athlete` space per tier (skeys `AthleteSpace.PUBLIC`, `MUTUALS`, `SELF`) with the AppView as managing app for reads. The athlete's PDS asks the AppView's `checkUserAccess` (`api/SpaceAccess.kt`), which applies the same mutuals rule as `visibleDetails`, so no member list needs syncing.
 - **Migration.** Have clients copy their own rows into their space, switch reads over, then drop `actor_private_details` in a new migration. Public details stay in `actor.profile`.
 - **Hard rule still applies.** Client code can't use an atproto SDK, so the Spaces XRPC calls are hand-written in `core/atproto`.
 
@@ -69,7 +69,7 @@ Each sport can override the default thresholds (`actor.defs#sportTraining`, `Spo
 Activity streams (`app.activitytracker.feed.activityStreams`, under their activity's rkey) are public records on the athlete's PDS with a public JSON blob, even when the athlete picks Mutuals or Only me. The AppView's `feed.getActivityStreams` enforces that visibility, and strips the zone snapshots (which reveal FTP and threshold heart rate) unless the viewer may see the athlete's training, but anyone reading the repo with `getRecord`, `sync.getBlob` or the firehose sees everything. That's acceptable only while this runs on the local dev stack. Move them before anything shared, alongside the private profile details (see above).
 
 - **Client seam.** `ActivityStreamsStore` (`core/data/.../activity`) is the only writer; bind a Spaces implementation in place of `PdsActivityStreamsStore`. Clients read streams only through `FeedRepository.streams` → `feed.getActivityStreams`, so reads don't change.
-- **AppView seam.** `StreamSource` (`api/ActivityStreamsViews.kt`) is the only reader of the data; replace `PdsBlobStreamSource` with one that reads the space as a member. Visibility can stay enforced in `ActivityStreamsViews`, or follow space membership (the same Mutuals question as the profile details).
+- **AppView seam.** `StreamSource` (`api/ActivityStreamsViews.kt`) is the only reader of the data; replace `PdsBlobStreamSource` with one that reads the space as a member. Access then follows the stream's tier space, which `checkUserAccess` decides as for profile details (see Mutuals above).
 - **Migration.** Have clients copy each of their streams into their space and delete the public records and blobs, then drop `activity_streams.blob_cid` and the `activity_stream_data` cache in a new migration.
 
 ## Videos on activities

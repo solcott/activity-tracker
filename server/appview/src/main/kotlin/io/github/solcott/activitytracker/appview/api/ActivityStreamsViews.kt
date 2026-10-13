@@ -116,7 +116,7 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
         val isSelf = viewer?.value == author
         return when (row[ActivityStreams.visibility]) {
             Visibility.PUBLIC -> true
-            Visibility.MUTUALS -> isSelf || viewer != null && follows(viewer.value, author) && follows(author, viewer.value)
+            Visibility.MUTUALS -> isSelf || viewer != null && isMutual(viewer.value, author)
             else -> isSelf
         }
     }

@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.appview.api.PdsBlobStreamSource
 import io.github.solcott.activitytracker.appview.api.PdsLookup
 import io.github.solcott.activitytracker.appview.api.PrivateDetails
 import io.github.solcott.activitytracker.appview.api.ResolvingPdsLookup
+import io.github.solcott.activitytracker.appview.api.SpaceAccess
 import io.github.solcott.activitytracker.appview.api.StreamSource
 import io.github.solcott.activitytracker.appview.api.Views
 import io.github.solcott.activitytracker.appview.api.XrpcError
@@ -107,7 +108,9 @@ fun Application.appView(
             ActorSearch(db, avatars),
             PrivateDetails(db),
             ActivityStreamsViews(db, streamSource),
+            SpaceAccess(db),
             verifier,
+            verifier.forAudiences(setOf(config.managingAppService)),
         )
         avatarRoutes(db, pds)
         mediaRoutes(db, pds)

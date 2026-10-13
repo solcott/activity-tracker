@@ -115,7 +115,7 @@ internal fun JdbcTransaction.visibleDetails(actor: ResultRow, viewer: Did?): Pro
             public
         } else {
             val isSelf = viewer.value == did
-            val mutual by lazy { follows(viewer.value, did) && follows(did, viewer.value) }
+            val mutual by lazy { isMutual(viewer.value, did) }
             fun visible(visibility: String?) = isSelf || (visibility == Visibility.MUTUALS && mutual)
             val hidden = privateDetails(private)
             ProfileDetails(
@@ -142,6 +142,9 @@ private fun privateDetails(row: ResultRow) =
 
 private fun location(locality: String?, region: String?, country: String?): Location? =
     Location(locality, region, country).takeUnless { it == Location() }
+
+/** Whether [a] and [b] follow each other in this app's follow graph: who sees mutuals-only details and reads a `mutuals` space. */
+internal fun JdbcTransaction.isMutual(a: String, b: String): Boolean = follows(a, b) && follows(b, a)
 
 internal fun JdbcTransaction.follows(author: String, subject: String): Boolean =
     !Follows.select(Follows.uri).where { (Follows.authorDid eq author) and (Follows.subjectDid eq subject) }.limit(1).empty()

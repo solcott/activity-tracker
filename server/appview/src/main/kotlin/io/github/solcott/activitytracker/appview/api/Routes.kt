@@ -23,6 +23,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.PutPrivateDetails
 import io.github.solcott.activitytracker.lexicon.app.SearchActors
+import io.github.solcott.activitytracker.lexicon.atproto.SimpleSpace
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -46,7 +47,9 @@ fun Route.xrpcRoutes(
     search: ActorSearch,
     privateDetails: PrivateDetails,
     streams: ActivityStreamsViews,
+    spaceAccess: SpaceAccess,
     verifier: ServiceAuthVerifier,
+    managingAppVerifier: ServiceAuthVerifier,
 ) {
     xrpcQuery(GetTimeline.method, verifier) { params, viewer -> views.timeline(requireViewer(viewer), params) }
     xrpcQuery(GetAuthorActivities.method, verifier) { params, viewer -> views.authorActivities(viewer, params) }
@@ -65,6 +68,10 @@ fun Route.xrpcRoutes(
     xrpcProcedure(PutPrivateDetails.method, verifier) { input, viewer ->
         privateDetails.put(viewer, input)
         NoOutput
+    }
+    // The managing-app callout from an athlete's PDS, whose token is addressed to the managing app rather than the AppView.
+    xrpcQuery(SimpleSpace.CheckUserAccess.method, managingAppVerifier) { params, issuer ->
+        spaceAccess.check(requireViewer(issuer), params)
     }
 }
 
