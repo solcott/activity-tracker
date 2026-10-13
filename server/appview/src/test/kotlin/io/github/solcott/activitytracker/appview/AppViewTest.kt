@@ -35,8 +35,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.h2.jdbcx.JdbcDataSource
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -571,6 +573,15 @@ class AppViewTest {
         application { appView(config, db, verifier) }
         val doc = AtJson.parseToJsonElement(client.get("/.well-known/did.json").bodyAsText()) as JsonObject
         assertEquals(config.serviceDid, doc["id"]?.toString()?.trim('"'))
+        val services =
+            (doc["service"] as JsonArray)
+                .map { it as JsonObject }
+                .associate { s ->
+                    s.getValue("id").jsonPrimitive.content to
+                        (s.getValue("type").jsonPrimitive.content to s.getValue("serviceEndpoint").jsonPrimitive.content)
+                }
+        assertEquals("ActivityTrackerAppView" to config.publicUrl, services["#activity_appview"])
+        assertEquals("AtprotoSpaceService" to config.publicUrl, services["#activitytracker_space"])
         val metadata = client.get("/oauth/client-metadata.json").bodyAsText()
         assertEquals(true, metadata.contains("\"dpop_bound_access_tokens\":true"))
     }

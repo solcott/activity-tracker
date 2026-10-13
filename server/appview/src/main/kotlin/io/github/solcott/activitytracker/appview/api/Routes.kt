@@ -139,6 +139,14 @@ fun Route.wellKnownRoutes(config: AppViewConfig) {
                         put("serviceEndpoint", config.publicUrl)
                     }
                 )
+                // Athletes' spaces name this service as their managingApp, so their PDSes call checkUserAccess here.
+                add(
+                    buildJsonObject {
+                        put("id", "#${AppViewConfig.MANAGING_APP_FRAGMENT}")
+                        put("type", "AtprotoSpaceService")
+                        put("serviceEndpoint", config.publicUrl)
+                    }
+                )
             }
         }
         call.respondText(doc.toString(), ContentType.Application.Json)

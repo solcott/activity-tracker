@@ -22,7 +22,14 @@ data class AppViewConfig(
     /** Custom URL scheme native apps use for the OAuth redirect (reverse-domain of [publicUrl]'s host). */
     val oauthRedirectScheme: String,
 ) {
+    /** Service id athletes' spaces name as their `managingApp`; PDSes call `checkUserAccess` on it. */
+    val managingAppService: String
+        get() = "$serviceDid#$MANAGING_APP_FRAGMENT"
+
     companion object {
+        /** Fragment of the `AtprotoSpaceService` entry in the DID document. */
+        const val MANAGING_APP_FRAGMENT = "activitytracker_space"
+
         fun fromEnv(env: Map<String, String> = System.getenv()): AppViewConfig {
             val port = env["APPVIEW_PORT"]?.toInt() ?: 8081
             val publicUrl = env["APPVIEW_PUBLIC_URL"] ?: "http://localhost:$port"
