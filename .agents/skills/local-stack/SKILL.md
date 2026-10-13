@@ -12,7 +12,7 @@ Run docker compose as `docker compose -f docker/compose.yaml ...` from the repo 
 
 ## up
 
-Prefer `scripts/dev.sh [--seed <name>]` (run it in the background on a cold start; the first Docker build takes minutes). It brings up Docker, the cloudflared tunnel, `local.properties`, the AppView, `adb reverse` and, after a tunnel URL change, the Android debug app, skipping whatever is already current. `scripts/dev.sh status` is the quickest health overview. The manual steps:
+Prefer `scripts/dev.sh [--seed <name>]` (run it in the background on a cold start; the first Docker build takes minutes). It brings up Docker, the cloudflared tunnel, `local.properties`, the AppView, `adb reverse` and, after a tunnel URL change, the Android debug app, skipping whatever is already current. `scripts/dev.sh status` is the quickest health overview. The AppView logs to `.dev/appview.log` (each start gets a fresh file; the previous run is `.dev/appview.prev.log`). The manual steps:
 
 1. `[[ -f docker/.env ]] || cp docker/.env.example docker/.env`
 2. `docker compose -f docker/compose.yaml up -d`. The first run builds PLC, the relay and Jetstream from source and takes minutes, so run it in the background and wait for it rather than polling.

@@ -230,6 +230,10 @@ ensure_local_properties() {
 
 appview_pid() { lsof -nP -tiTCP:"$APPVIEW_PORT" -sTCP:LISTEN 2>/dev/null | head -1 || true; }
 
+# The `./gradlew :server-appview:run` client of this checkout. It outlives the AppView JVM by a few
+# seconds and then prints "BUILD FAILED" etc. into the log it was started with.
+gradle_client_pids() { pgrep -f "$ROOT/gradle/wrapper/gradle-wrapper.jar :server-appview:run" || true; }
+
 # The client_id the running AppView advertises, which is derived from the URL it started with.
 served_client_id() {
   curl -s -m 3 "http://localhost:$APPVIEW_PORT/oauth/client-metadata.json" 2>/dev/null |
@@ -253,6 +257,13 @@ stop_appview() {
     waited=$((waited + 1))
   done
   ok "stopped AppView (pid $pid)"
+  waited=0
+  while [[ -n $(gradle_client_pids) ]]; do
+    ((waited == 10)) && { gradle_client_pids | xargs kill 2>/dev/null || true; }
+    ((waited >= 15)) && die "gradle client ($(gradle_client_pids | xargs)) didn't exit"
+    sleep 1
+    waited=$((waited + 1))
+  done
 }
 
 ensure_appview() {
@@ -274,6 +285,8 @@ ensure_appview() {
     stop_appview
   fi
   mkdir -p "$STATE_DIR"
+  # A fresh file: anything still holding the old one (a lingering gradle client) writes to the .prev.
+  [[ -f $STATE_DIR/appview.log ]] && mv "$STATE_DIR/appview.log" "$STATE_DIR/appview.prev.log"
   nohup ./gradlew :server-appview:run >"$STATE_DIR/appview.log" 2>&1 &
   echo "    starting (log: .dev/appview.log); the first build can take a minute"
   if ! wait_http "http://localhost:$APPVIEW_PORT/xrpc/_health" 300 "AppView healthy"; then
