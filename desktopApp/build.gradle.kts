@@ -23,6 +23,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.swing)
     implementation(libs.maplibre.compose)
     runtimeOnly(maplibreDesktopRuntime())
+    testImplementation(kotlin("test"))
 }
 
 compose.desktop {
