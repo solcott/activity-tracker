@@ -1,0 +1,22 @@
+# Tasks
+
+## 1. Wire types (`core/lexicon`)
+
+- [x] 1.1 Copy `com/atproto/simplespace/checkUserAccess.json` from the pinned PDS image (`docker run --rm --platform linux/amd64 --entrypoint sh <image> -c 'find / -path "*simplespace/checkUserAccess.json"'`) to the session scratchpad. Verify the copy lists `space`, `user`, `access`, `clientId` and the `authorized` output.
+- [x] 1.2 Add `SimpleSpace.CheckUserAccess` to `atproto/Space.kt` (design D4): `Params(space: SpaceUri, user: Did, access: String, clientId: String? = null)` with `READ`/`WRITE` constants, `Output(authorized: Boolean)`, field names from 1.1. Add an `AthleteSpace` object with `PUBLIC`, `MUTUALS` and `SELF` built from `Visibility`'s constants. Verify with a `core-lexicon` test that the params decode through `XrpcParams.decode` from a query map (with and without `clientId`), a malformed `space` or `user` fails to decode, and the output round-trips through `AtJson`; run `./gradlew :core-lexicon:jvmTest`.
+
+## 2. Audiences in `ServiceAuthVerifier`
+
+- [x] 2.1 Make `ServiceAuthVerifier` take its accepted audiences from the caller, with a helper that builds today's set (`serviceDid`, `#activity_appview`, and both forms of each extra audience) (design D1). Keep the `IdentityResolver` constructor working for `Application.kt`. Verify the existing `ServiceAuthVerifierTest` passes unchanged, and add cases: a verifier built for `managingAppService` accepts a token with that `aud` and rejects `serviceDid` and `serviceDid#activity_appview`; the default verifier rejects `managingAppService`. Run `./gradlew :server-appview:test --tests "*.ServiceAuthVerifierTest"`.
+
+## 3. `checkUserAccess` in the AppView
+
+- [x] 3.1 Add `api/SpaceAccess.kt` with the decision order from design D2 and D3 (issuer, space type, access, tier), reusing the `follows` helper from `PrivateDetails.kt` so the mutuals rule has one definition; log a mismatched issuer at `warn`. Verify by the route tests in 3.3.
+- [x] 3.2 Build `managingAppVerifier` in `Application.kt` and register `xrpcQuery(SimpleSpace.CheckUserAccess.method, managingAppVerifier)` in `Routes.kt`, requiring a caller with `requireViewer`. Verify `./gradlew :server-appview:test` compiles and existing tests pass.
+- [x] 3.3 Add `SpaceAccessTest` (end to end through `testApplication`, follows fed as `JetstreamEvent.Commit`s, callouts signed with `TestAccountKey.serviceJwt(iss = authority, aud = managingAppService, lxm = checkUserAccess)`) covering every scenario in `specs/spaces/managing-app/spec.md` except the end-to-end requirement: public, mutual, one-way follow in both directions, unfollow after a delete commit, `self`, unknown skey, other space type, `app.bsky.graph.follow` only, `write`, unknown access, `clientId` ignored, missing or malformed params (`400`), no token and AppView-audience token (`401`), managing-app token on `getProfile` (`401`), issuer ≠ authority (`200 false`). Verify `./gradlew :server-appview:test` passes.
+- [x] 3.4 Update `.agents/rules/appview.md`: `checkUserAccess` is the managing-app callout, its tokens use the managing-app audience and verifier only, denials are `200 false`, and tiers map to space keys via `AthleteSpace`. Point BACKLOG's two Spaces items at this change for the AppView's side. Verify `scripts/check-agent-sync.sh` passes.
+
+## 4. Integration check
+
+- [x] 4.1 On the local stack with the tunnel (`scripts/dev.sh --seed alice`, plus `bob` and `carol`; alice and bob follow each other, carol follows alice), with a throwaway JVM program (not committed) using `SpaceClient` and OAuth sessions: alice creates `public`, `mutuals` and `self` spaces of type `app.activitytracker.space.athlete` with `managingAppPolicy(managingAppService)` for reads, and puts a record in each. Verify bob reads `public` and `mutuals` and gets `NoAccess` on `self`; carol reads `public` and gets `NoAccess` on `mutuals` and `self`; `.dev/appview.log` shows each `checkUserAccess` call answered `200`. Done 2026-10-13 with password sessions (which exercise the same PDS → AppView callout; OAuth only adds the scope check change 2 covered): all six outcomes matched. The log check couldn't be shown: `dev.sh --restart-appview` lets the old Gradle client's shutdown output overwrite `.dev/appview.log`. bob reading `mutuals` is itself proof of a `200 {authorized: true}` callout, since the PDS denies on anything else.
+- [x] 4.2 Run `./gradlew check` and `docker/scripts/spaces-smoke.sh alice`. Verify both pass.
