@@ -107,4 +107,36 @@ class SpaceSerializationTest {
         assertEquals(null, output.records.single().value)
         assertEquals("next", output.cursor)
     }
+
+    @Test
+    fun checkUserAccessParamsDecodeFromQuery() {
+        val query = mapOf("space" to listOf(space.value), "user" to listOf("did:plc:bob"), "access" to listOf("read"))
+        val params = XrpcParams.decode(SimpleSpace.CheckUserAccess.method.params, query)
+        assertEquals(SimpleSpace.CheckUserAccess.Params(space, Did("did:plc:bob"), SimpleSpace.CheckUserAccess.READ), params)
+
+        val withClient = XrpcParams.decode(SimpleSpace.CheckUserAccess.method.params, query + ("clientId" to listOf("https://app.test/c")))
+        assertEquals("https://app.test/c", withClient.clientId)
+    }
+
+    @Test
+    fun checkUserAccessRejectsMalformedParams() {
+        val valid = mapOf("space" to listOf(space.value), "user" to listOf("did:plc:bob"), "access" to listOf("read"))
+        listOf(
+                valid + ("space" to listOf("at://did:plc:alice/app.activitytracker.feed.activity/3k")),
+                valid + ("user" to listOf("bob.test")),
+                valid - "access",
+            )
+            .forEach { query ->
+                assertFailsWith<IllegalArgumentException>(query.toString()) {
+                    XrpcParams.decode(SimpleSpace.CheckUserAccess.method.params, query)
+                }
+            }
+    }
+
+    @Test
+    fun checkUserAccessOutputRoundTrips() {
+        val json = AtJson.encodeToString(SimpleSpace.CheckUserAccess.method.output, SimpleSpace.CheckUserAccess.Output(authorized = false))
+        assertEquals("""{"authorized":false}""", json)
+        assertEquals(true, AtJson.decodeFromString(SimpleSpace.CheckUserAccess.method.output, """{"authorized":true}""").authorized)
+    }
 }

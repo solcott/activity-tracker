@@ -297,4 +297,27 @@ object SimpleSpace {
 
         val method = XrpcQuery("com.atproto.simplespace.getSpace", Params.serializer(), Output.serializer())
     }
+
+    /**
+     * Served by the managing app, not the PDS: the space authority's PDS asks whether [Params.user] may read or write a space whose policy
+     * for that access is `#managingAppPolicy`. Authenticated with a service-auth token from the authority, addressed to the managing app.
+     */
+    object CheckUserAccess {
+        @Serializable
+        data class Params(
+            val space: SpaceUri,
+            val user: Did,
+            /** [READ] or [WRITE]; an open set. */
+            val access: String,
+            /** The attested OAuth client, when the viewer's client presented an attestation; never sent for writes. */
+            val clientId: String? = null,
+        )
+
+        @Serializable data class Output(val authorized: Boolean)
+
+        const val READ = "read"
+        const val WRITE = "write"
+
+        val method = XrpcQuery("com.atproto.simplespace.checkUserAccess", Params.serializer(), Output.serializer())
+    }
 }
