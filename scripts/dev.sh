@@ -101,9 +101,40 @@ running_tunnel_host() {
 
 tunnel_pids() { pgrep -f "cloudflared tunnel --url http://localhost:$APPVIEW_PORT" || true; }
 
+# Tunnel hostnames are resolved with a public resolver, never the system one: a fresh quick
+# tunnel's record doesn't exist for its first few seconds, and macOS's mDNSResponder caches that
+# NXDOMAIN for trycloudflare.com's 60 s negative TTL, re-caching it on every poll. Prints the IP,
+# nothing if the record doesn't exist yet; fails only if 1.1.1.1 can't be reached at all.
+tunnel_ip() {
+  local out
+  out=$(dig +short +time=2 +tries=1 A "$1" @1.1.1.1 2>/dev/null) || return 1
+  grep -E '^[0-9.]+$' <<<"$out" | head -n 1 || true
+}
+
+# http_code for https://HOST/PATH, pinned to tunnel_ip's answer. Args: host, path, timeout seconds.
+# Falls back to the system resolver only when the public one is unreachable (a filtered network).
+tunnel_http_code() {
+  local ip
+  if ! ip=$(tunnel_ip "$1"); then
+    http_code "https://$1$2" "${3:-5}"
+    return
+  fi
+  if [[ -z $ip ]]; then
+    echo 000
+    return
+  fi
+  curl -s -o /dev/null -m "${3:-5}" -w '%{http_code}' --resolve "$1:443:$ip" "https://$1$2" 2>/dev/null || true
+}
+
 # A quick tunnel answers through Cloudflare's edge even when the AppView behind it is down (502),
 # so any HTTP response means the hostname is live. 000 means DNS or the edge doesn't know it.
-tunnel_alive() { [[ $(http_code "https://$1/" 10) != 000 ]]; }
+tunnel_alive() { [[ $(tunnel_http_code "$1" / 10) != 000 ]]; }
+
+# Whether the cloudflared on this metrics port holds at least one edge connection (it logs
+# "Registered tunnel connection" at the same time). Before that, the hostname can't answer.
+tunnel_registered() {
+  curl -s -m 2 "http://127.0.0.1:$1/metrics" 2>/dev/null | grep -qE '^cloudflared_tunnel_ha_connections [1-9]'
+}
 
 ensure_tunnel() {
   step "cloudflared tunnel"
@@ -124,6 +155,12 @@ ensure_tunnel() {
     local waited=0
     until host=$(running_tunnel_host) && [[ -n $host ]]; do
       ((waited >= 30)) && die "cloudflared didn't report a hostname; see .dev/cloudflared.log"
+      sleep 1
+      waited=$((waited + 1))
+    done
+    waited=0
+    until tunnel_registered "${METRICS_PORTS[0]}"; do
+      ((waited >= 30)) && die "cloudflared didn't register a connection; see .dev/cloudflared.log"
       sleep 1
       waited=$((waited + 1))
     done
@@ -218,8 +255,13 @@ ensure_appview() {
   fi
   if [[ -n $expected ]]; then
     [[ $(served_client_id) == "$expected" ]] || die "AppView serves $(served_client_id), expected $expected"
-    wait_http "$expected" 60 "client metadata reachable through the tunnel" ||
-      die "$expected isn't reachable; check .dev/cloudflared.log"
+    local host=${TUNNEL_URL#https://} waited=0
+    until [[ $(tunnel_http_code "$host" /oauth/client-metadata.json) == 2* ]]; do
+      ((waited >= 60)) && die "$expected isn't reachable; check .dev/cloudflared.log"
+      sleep 2
+      waited=$((waited + 2))
+    done
+    ok "client metadata reachable through the tunnel"
   fi
 }
 
