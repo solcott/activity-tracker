@@ -30,6 +30,12 @@ object Nsid {
     const val GRAPH_GET_FOLLOWERS = "$NAMESPACE.graph.getFollowers"
     const val GRAPH_GET_FOLLOWS = "$NAMESPACE.graph.getFollows"
 
+    /**
+     * The space type holding an athlete's permissioned data (`lexicons/.../space/athlete.json`). Not a record collection, so it's never
+     * indexed; the local PDS resolves its declaration from the lexicon authority account (`docker/scripts/publish-lexicons.sh`).
+     */
+    const val SPACE_ATHLETE = "$NAMESPACE.space.athlete"
+
     /** Record collections the AppView indexes (used as the Jetstream `wantedCollections` filter). */
     val indexedCollections = listOf(ACTOR_PROFILE, FEED_ACTIVITY, FEED_ACTIVITY_STREAMS, FEED_KUDOS, FEED_COMMENT, GRAPH_FOLLOW)
 }

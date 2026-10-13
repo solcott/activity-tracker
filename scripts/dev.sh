@@ -85,6 +85,33 @@ ensure_docker() {
   ok "AppView Postgres :5433"
 }
 
+# ---------------------------------------------------------------- lexicons
+
+# The PDS resolves our space-type lexicons from lexicons.test (PDS_LEXICON_AUTHORITY_DID); without them,
+# OAuth refuses the space: scope. The account's DID only exists once the PDS runs, so the first run on a
+# fresh volume writes it to docker/.env and recreates the PDS; later runs find it unchanged.
+ensure_lexicons() {
+  step "Lexicon authority"
+  local did current
+  did=$(docker/scripts/publish-lexicons.sh 2> >(sed 's/^/    /' >&2)) || die "publishing lexicons failed"
+  current=$(sed -nE 's/^PDS_LEXICON_AUTHORITY_DID=(.*)$/\1/p' docker/.env)
+  if [[ $current != "$did" ]]; then
+    if grep -q '^PDS_LEXICON_AUTHORITY_DID=' docker/.env; then
+      sed -i.bak "s|^PDS_LEXICON_AUTHORITY_DID=.*|PDS_LEXICON_AUTHORITY_DID=$did|" docker/.env && rm docker/.env.bak
+    else
+      printf '\nPDS_LEXICON_AUTHORITY_DID=%s\n' "$did" >>docker/.env
+    fi
+    # Not `up -d pds`: the relay and Jetstream share the PDS's network namespace, and only a full `up`
+    # recreates them along with it.
+    "${COMPOSE[@]}" up -d --remove-orphans
+    wait_http "http://localhost:2583/xrpc/_health" 180 "PDS recreated with lexicon authority $did" \
+      || die "PDS not healthy; see: ${COMPOSE[*]} logs pds"
+    wait_http "http://localhost:2470/xrpc/_health" 180 "relay :2470" || die "relay not healthy; see: ${COMPOSE[*]} logs relay"
+  else
+    ok "lexicons.test ($did)"
+  fi
+}
+
 # ---------------------------------------------------------------- tunnel
 
 # Prints the hostname of a running quick tunnel to the AppView, if any (from cloudflared's metrics).
@@ -334,6 +361,7 @@ cmd_up() {
     shift
   done
   ensure_docker
+  ensure_lexicons
   if [[ ${NO_TUNNEL:-0} != 1 ]]; then
     ensure_tunnel
     ensure_local_properties

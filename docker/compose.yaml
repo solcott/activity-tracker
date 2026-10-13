@@ -61,6 +61,9 @@ services:
       PDS_DATA_DIRECTORY: /pds
       PDS_BLOBSTORE_DISK_LOCATION: /pds/blocks
       PDS_CRAWLERS: ""
+      # Account whose com.atproto.lexicon.schema records the PDS resolves lexicons from, so OAuth can grant
+      # space: scopes for our space types. scripts/dev.sh creates it and fills this in (publish-lexicons.sh).
+      PDS_LEXICON_AUTHORITY_DID: ${PDS_LEXICON_AUTHORITY_DID:-}
       LOG_ENABLED: "true"
     volumes:
       - pds-data:/pds

@@ -16,6 +16,7 @@ Prefer `scripts/dev.sh [--seed <name>]` (run it in the background on a cold star
 
 1. `[[ -f docker/.env ]] || cp docker/.env.example docker/.env`
 2. `docker compose -f docker/compose.yaml up -d`. The first run builds PLC, the relay and Jetstream from source and takes minutes, so run it in the background and wait for it rather than polling.
+   Then `docker/scripts/publish-lexicons.sh` (creates `lexicons.test` if needed, publishes our space-type lexicons, prints its DID). Put that DID in `PDS_LEXICON_AUTHORITY_DID` in `docker/.env` and run `up -d` again; without it, OAuth sign-in fails with `invalid_scope`.
 3. Start the AppView: in Claude Code use the `appview` launch config (`preview_start {name: "appview"}`); elsewhere run `./gradlew :server-appview:run` as a background command. **Start it before writing records you want indexed.** On first run it starts at Jetstream's live tip, so earlier records are never indexed.
 4. Web client: in Claude Code use the `web` launch config (`preview_start {name: "web"}`); elsewhere run `./gradlew :webApp:wasmJsBrowserDevelopmentRun --continuous` as a background command. Sign in from `127.0.0.1`/`localhost` with a `.test` handle.
 
@@ -51,7 +52,8 @@ Spaces: `docker/scripts/spaces-smoke.sh alice` creates (or reuses) a space, writ
 | AppView returns 401 | Service-auth JWT issue: `aud` must be the AppView DID (`did:web:localhost%3A8081`), and the `lxm` must match the NSID |
 | Native sign-in fails | Tunnel URL changed → update `activitytracker.appviewPublicUrl`, restart the AppView, rebuild the app. On an Android device, run `adb reverse tcp:2582 tcp:2582` (and 2583, 8081) |
 | Spaces `getSpaceCredential` says `UserNotAuthorized` and the AppView log has no `checkUserAccess` | The PDS can't reach the managing app: no tunnel (`--no-tunnel`), or the space names an old tunnel's `did:web` → run `scripts/dev.sh` and recreate the space. A 404 there means the AppView route is missing |
-| OAuth fails with `invalid_scope: Unable to retrieve space declarations` | The PDS can't resolve the `space:` scope's space-type lexicon. It needs `PDS_LEXICON_AUTHORITY_DID` and a published declaration, and a failed lookup stays cached for 5 minutes |
+| OAuth fails with `invalid_scope: Unable to retrieve space declarations` | The PDS can't resolve the `space:` scope's space-type lexicon. Run `scripts/dev.sh`: it publishes the declarations from `lexicons.test` and sets `PDS_LEXICON_AUTHORITY_DID`. A lookup that failed earlier stays cached for 5 minutes, so wait it out or `docker compose ... restart pds` |
+| Spaces call fails with `403 ScopeMissingError` | The session was signed in before the `space:` scope (or a space collection) was added → sign out and in again |
 | PDS exits with `SQLITE_CANTOPEN` | The `/pds` volume isn't writable by `node` → the volume predates `pds.Dockerfile`'s `chown`; wipe it (ask first) |
 | Physical iPhone can't sign in | Unsupported against the local stack (the PDS advertises `localhost`) |
 

@@ -1,0 +1,17 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.space.athlete",
+  "defs": {
+    "main": {
+      "type": "space",
+      "key": "any",
+      "name": "Athlete data",
+      "description": "An athlete's permissioned data, one space per visibility tier. The AppView is the managing app and decides who may read each tier.",
+      "collections": [
+        "app.activitytracker.actor.privateDetails",
+        "app.activitytracker.feed.activityStreams",
+        "app.activitytracker.feed.activityZones"
+      ]
+    }
+  }
+}
