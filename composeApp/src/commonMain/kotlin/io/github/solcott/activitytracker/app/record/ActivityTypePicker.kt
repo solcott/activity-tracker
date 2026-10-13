@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
 import io.github.solcott.activitytracker.app.ui.QuickTypeChips
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
+import io.github.solcott.activitytracker.app.ui.activityTypeMatcher
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
@@ -119,15 +120,8 @@ private fun ActivityTypeSheet(
     }
 
     val offered = { type: ActivityType -> !(outdoorOnly && SportCatalog.isIndoor(type)) }
-    // Labels are resources, so search filters here rather than in the presenter. Tokens match too ("mtb" doesn't, "mountain" does).
-    val labels = SportCatalog.categories.flatMap { it.types }.distinct().associateWith { activityTypeLabel(it) }
     val needle = query.text.trim().toString()
-    val matches = { type: ActivityType ->
-        needle.isEmpty() ||
-            listOfNotNull(labels[type], labels[ActivityType(type.sport)], type.sport, type.subSport).any {
-                it.contains(needle, ignoreCase = true)
-            }
-    }
+    val matches = activityTypeMatcher(needle)
     val groups =
         SportCatalog.categories
             .map { group -> group.category to group.types.filter { offered(it) && matches(it) }.toImmutableList() }
