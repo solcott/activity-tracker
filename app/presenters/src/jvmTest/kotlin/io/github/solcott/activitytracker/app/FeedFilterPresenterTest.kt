@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.data.sport.SportCatalog
 import io.github.solcott.activitytracker.data.sport.SportCategory
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -105,8 +106,8 @@ class FeedFilterPresenterTest {
             val opened = awaitItem()
             assertEquals(Selection.None, gym(opened).selection)
 
-            var state = send(opened, FeedFilterEvent.ToggleType(ActivityType(Sport.RUN, "treadmill")))
-            assertEquals(Selection.Partial, gym(state).selection, "a shortcut in the category counts")
+            var state = send(opened, FeedFilterEvent.ToggleType(ActivityType(Sport.ROW, SubSport.INDOOR)))
+            assertEquals(Selection.Partial, gym(state).selection, "a sub-sport filed under the category counts")
 
             state = send(state, FeedFilterEvent.ToggleCategory(SportCategory.Gym))
             assertEquals(Selection.All, gym(state).selection)
@@ -114,6 +115,35 @@ class FeedFilterPresenterTest {
             val gymTypes = SportCatalog.categories.first { it.category == SportCategory.Gym }.types
             assertEquals(true, gymTypes.all { type -> type in draft || ActivityType(type.sport) in draft })
             assertEquals(Selection.None, gym(send(state, FeedFilterEvent.ToggleCategory(SportCategory.Gym))).selection)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun categorySelectsItsSportsWhole() = runTest {
+        presenter().test {
+            awaitShown().eventSink(FeedFilterEvent.OpenTypes)
+            fun selection(state: FeedFilterState, category: SportCategory) =
+                assertNotNull(state.typePicker).categories.first { it.category == category }.selection
+
+            val state = send(awaitItem(), FeedFilterEvent.ToggleCategory(SportCategory.WaterSports))
+            val draft = assertNotNull(state.typePicker).draft
+            assertEquals(true, ActivityType(Sport.ROW) in draft, "Row is selected whole")
+            assertEquals(Selection.All, selection(state, SportCategory.WaterSports))
+            assertEquals(Selection.Partial, selection(state, SportCategory.Gym), "Indoor Row, filed under Gym, is covered by Row")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun everySubSportAcrossCategoriesCollapsesToTheSport() = runTest {
+        presenter().test {
+            awaitShown().eventSink(FeedFilterEvent.OpenTypes)
+            var state = awaitItem()
+            SportCatalog.subSports(Sport.ROW).forEach {
+                state = send(state, FeedFilterEvent.ToggleType(ActivityType(Sport.ROW, it.subSport)))
+            }
+            assertEquals(setOf(ActivityType(Sport.ROW)), assertNotNull(state.typePicker).draft)
             cancelAndIgnoreRemainingEvents()
         }
     }

@@ -167,7 +167,7 @@
     <string name="sub_sport_run_trail">Trail Run</string>
     <string name="sub_sport_run_treadmill">Treadmill Run</string>
     <string name="sub_sport_run_track">Track Run</string>
-    <string name="sub_sport_run_indoorTrack">Indoor Run</string>
+    <string name="sub_sport_run_indoorTrack">Indoor Track Run</string>
     <string name="sub_sport_run_virtual">Virtual Run</string>
     <string name="sub_sport_run_ultra">Ultra Run</string>
     <string name="sub_sport_run_obstacle">Obstacle Race</string>
@@ -197,8 +197,8 @@
     <string name="sub_sport_walk_dog">Dog Walk</string>
     <string name="sub_sport_walk_stroller">Stroller Walk</string>
     <string name="sub_sport_run_stroller">Stroller Run</string>
-    <string name="sub_sport_wheelchair_walkPace">Wheelchair Walk Pace</string>
-    <string name="sub_sport_wheelchair_runPace">Wheelchair Run Pace</string>
+    <string name="sub_sport_wheelchair_walkPace">Push - Walk Speed</string>
+    <string name="sub_sport_wheelchair_runPace">Push - Run Speed</string>
     <string name="sub_sport_climb_bouldering">Bouldering</string>
     <string name="sub_sport_climb_indoor">Indoor Climb</string>
     <string name="sub_sport_ski_backcountry">Backcountry Ski</string>
@@ -244,15 +244,22 @@
     <string name="sport_picker_no_matches">No matching sports</string>
     <string name="sport_category_Running">Running</string>
     <string name="sport_category_Cycling">Cycling</string>
+    <string name="sport_category_Gym">Gym &amp; Fitness</string>
+    <string name="sport_category_MindBody">Mind &amp; Body</string>
+    <string name="sport_category_Combat">Combat</string>
     <string name="sport_category_Swimming">Swimming</string>
     <string name="sport_category_Multisport">Multisport</string>
-    <string name="sport_category_Outdoor">Outdoor</string>
+    <string name="sport_category_Walking">Walking</string>
+    <string name="sport_category_HikingClimbing">Hiking &amp; Climbing</string>
     <string name="sport_category_WinterSports">Winter Sports</string>
+    <string name="sport_category_Parasports">Parasports</string>
     <string name="sport_category_WaterSports">Water Sports</string>
     <string name="sport_category_Diving">Diving</string>
-    <string name="sport_category_Gym">Gym</string>
     <string name="sport_category_TeamSports">Team Sports</string>
     <string name="sport_category_RacketSports">Racket Sports</string>
+    <string name="sport_category_Target">Target</string>
+    <string name="sport_category_Skating">Skating</string>
+    <string name="sport_category_Adventure">Adventure</string>
     <string name="sport_category_Motorsports">Motorsports</string>
     <string name="sport_category_Other">Other</string>
 

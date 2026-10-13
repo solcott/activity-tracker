@@ -46,7 +46,8 @@ import org.jetbrains.compose.resources.stringResource
 /**
  * The type pickers' list: a sticky header per category, then a row per type, with a sub-sport indented under its sport. A sport with
  * sub-sports under it collapses: they show only while its token is in [expanded] or [expandAll] is set, and a chevron before the row's
- * [trailing] content toggles it through [onToggleExpanded]. A sub-sport listed without its sport (Indoor Ride under Gym) always shows.
+ * [trailing] content toggles it through [onToggleExpanded]. A sub-sport filed away from its sport (Indoor Row under Gym) always shows as a
+ * top-level row.
  *
  * A collapsed sport names the sub-sport [hiddenChoice] returns for it under its label, so a single choice never hides without a trace. A
  * multi-select picker marks a partly selected sport with its own tri-state checkbox in [trailing] instead, collapsed or not.

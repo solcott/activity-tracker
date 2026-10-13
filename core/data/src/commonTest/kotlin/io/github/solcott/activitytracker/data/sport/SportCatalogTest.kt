@@ -25,13 +25,24 @@ class SportCatalogTest {
         SportCatalog.categories.forEach { (category, types) ->
             assertTrue(types.isNotEmpty(), "$category is empty")
             types.forEach { assertTrue(SportCatalog.isKnown(it), "$category lists unknown $it") }
-            assertEquals(types.size, types.toSet().size, "$category repeats a type")
         }
-        val primary =
+        val known =
             SportCatalog.sports.flatMap { info ->
                 listOf(ActivityType(info.sport)) + info.subSports.map { ActivityType(info.sport, it.subSport) }
             }
-        primary.forEach { type -> assertTrue(SportCatalog.categories.any { type in it.types }, "$type is in no category") }
+        known.forEach { type ->
+            val listing = SportCatalog.categories.filter { type in it.types }.map { it.category }
+            assertEquals(1, SportCatalog.categories.sumOf { it.types.count(type::equals) }, "$type is listed in $listing")
+        }
+    }
+
+    @Test
+    fun subSportsFiledUnderAnotherCategory() {
+        assertEquals(SportCategory.Gym, categoryOf(ActivityType(Sport.ROW, SubSport.INDOOR)))
+        assertEquals(SportCategory.WaterSports, categoryOf(ActivityType(Sport.ROW)))
+        assertEquals(SportCategory.Running, categoryOf(ActivityType(Sport.RUN, SubSport.TREADMILL)))
+        assertEquals(SportCategory.Cycling, categoryOf(ActivityType(Sport.RIDE, SubSport.INDOOR)))
+        assertEquals(SportCategory.Walking, categoryOf(ActivityType(Sport.WALK)))
     }
 
     @Test
@@ -71,6 +82,8 @@ class SportCatalogTest {
     @Test fun coversEveryAppleWorkoutType() = assertCovers("Apple", APPLE_WORKOUT_TYPES, expected = 84)
 
     @Test fun coversEveryHealthConnectExerciseType() = assertCovers("Health Connect", HEALTH_CONNECT_EXERCISE_TYPES, expected = 61)
+
+    private fun categoryOf(type: ActivityType): SportCategory = SportCatalog.categories.single { type in it.types }.category
 
     private fun assertCovers(provider: String, types: Map<String, ActivityType>, expected: Int) {
         assertEquals(expected, types.size, "$provider's type count")
