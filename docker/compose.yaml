@@ -48,6 +48,8 @@ services:
     build:
       context: .
       dockerfile: pds.Dockerfile
+    # The Spaces alpha image is published for amd64 only; Apple Silicon runs it under Rosetta.
+    platform: linux/amd64
     env_file: .env
     environment:
       PDS_HOSTNAME: localhost
