@@ -71,6 +71,14 @@ class KmpLibraryConventionPlugin : Plugin<Project> {
                             withJs()
                             withWasmJs()
                         }
+
+                        group("nonApple") {
+                            withJvm()
+                            withJs()
+                            withWasmJs()
+                            @Suppress("UnstableApiUsage") withAndroid()
+                            // TODO add other non-Apple targets here.
+                        }
                         // Desktop and web: no GPS recording, only manual entry.
                         group("nonMobile") {
                             withJvm()
