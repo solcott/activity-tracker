@@ -43,4 +43,14 @@ class ServiceAuthVerifierTest {
         assertEquals(Did(alice), both.verify(key.serviceJwt(alice, "$service#activity_appview", null), "app.x.y"))
         assertFailsWith<AuthException> { both.verify(key.serviceJwt(alice, "did:web:other", null), "app.x.y") }
     }
+
+    @Test
+    fun managingAppAudienceIsKeptApart() = runTest {
+        val managingApp = "$service#activitytracker_space"
+        val callouts = ServiceAuthVerifier(setOf(managingApp), keys = { key.multibase })
+        assertEquals(Did(alice), callouts.verify(key.serviceJwt(alice, managingApp, null), "app.x.y"))
+        assertFailsWith<AuthException> { callouts.verify(key.serviceJwt(alice, service, null), "app.x.y") }
+        assertFailsWith<AuthException> { callouts.verify(key.serviceJwt(alice, "$service#activity_appview", null), "app.x.y") }
+        assertFailsWith<AuthException> { verifier.verify(key.serviceJwt(alice, managingApp, null), "app.x.y") }
+    }
 }

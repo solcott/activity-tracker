@@ -15,24 +15,33 @@ import kotlinx.serialization.json.longOrNull
 import org.bouncycastle.crypto.signers.ECDSASigner
 
 /**
- * Verifies inter-service auth JWTs: issued by the user's PDS via `getServiceAuth` (direct calls) or attached by the PDS when proxying
- * (`atproto-proxy`). Returns the authenticated user's DID. Tokens must be addressed to [serviceDid] or one of [extraAudiences].
+ * Verifies inter-service auth JWTs: issued by the user's PDS via `getServiceAuth` (direct calls), attached by the PDS when proxying
+ * (`atproto-proxy`), or sent by a space authority's PDS to the managing app. Returns the issuing account's DID. Tokens must be addressed to
+ * one of [audiences]: keep each purpose in its own verifier, so a token minted for one can't be replayed on another's routes.
  */
 class ServiceAuthVerifier(
-    serviceDid: String,
+    private val audiences: Set<String>,
     private val keys: suspend (Did) -> String?,
     private val clock: Clock = Clock.System,
-    extraAudiences: Set<String> = emptySet(),
 ) {
+    /** The AppView's own routes: tokens addressed to [serviceDid] or one of [extraAudiences]. */
+    constructor(
+        serviceDid: String,
+        keys: suspend (Did) -> String?,
+        clock: Clock = Clock.System,
+        extraAudiences: Set<String> = emptySet(),
+    ) : this(appViewAudiences(serviceDid, extraAudiences), keys, clock)
+
     constructor(
         serviceDid: String,
         resolver: IdentityResolver,
         extraAudiences: Set<String> = emptySet(),
     ) : this(serviceDid, { did -> resolver.resolveDid(did).signingKey }, extraAudiences = extraAudiences)
 
-    private val audiences = (extraAudiences + serviceDid).flatMap { listOf(it, "$it#activity_appview") }.toSet()
-
     private val keyCache = ConcurrentHashMap<Did, SigningKey>()
+
+    /** A verifier with the same keys and clock that accepts only [audiences]. */
+    fun forAudiences(audiences: Set<String>) = ServiceAuthVerifier(audiences, keys, clock)
 
     suspend fun verify(token: String, nsid: String): Did {
         val parts = token.split('.')
@@ -93,11 +102,15 @@ class ServiceAuthVerifier(
 
     private fun JsonObject.string(key: String) = this[key]?.jsonPrimitive?.content
 
-    private companion object {
-        const val JWT_PARTS = 3
+    companion object {
+        /** Each of [serviceDid] and [extraAudiences], bare or with the `#activity_appview` service fragment. */
+        fun appViewAudiences(serviceDid: String, extraAudiences: Set<String> = emptySet()): Set<String> =
+            (extraAudiences + serviceDid).flatMap { listOf(it, "$it#activity_appview") }.toSet()
+
+        private const val JWT_PARTS = 3
 
         /** Compact (r || s) ECDSA signature: two 32-byte integers. */
-        const val SIGNATURE_BYTES = 64
+        private const val SIGNATURE_BYTES = 64
     }
 }
 
