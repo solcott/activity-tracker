@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.record
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,14 +8,10 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,31 +21,30 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
+import io.github.solcott.activitytracker.app.ui.QuickTypeChips
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
-import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChipIconSize
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
-import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
+import io.github.solcott.activitytracker.app.ui.rememberExpandedSports
 import io.github.solcott.activitytracker.app.ui.rememberReadOnlyTextFieldState
-import io.github.solcott.activitytracker.app.ui.sportCategoryLabel
 import io.github.solcott.activitytracker.app.ui.sportLabel
+import io.github.solcott.activitytracker.app.ui.sportTypeList
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.sport_picker_label
 import io.github.solcott.activitytracker.composeApp.resources.sport_picker_no_matches
 import io.github.solcott.activitytracker.composeApp.resources.sport_picker_quick
 import io.github.solcott.activitytracker.composeApp.resources.sport_picker_search
 import io.github.solcott.activitytracker.data.sport.SportCatalog
-import io.github.solcott.activitytracker.data.sport.SportCategory
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
@@ -136,10 +130,12 @@ private fun ActivityTypeSheet(
                 it.contains(needle, ignoreCase = true)
             }
     }
-    val groups: List<Pair<SportCategory, List<ActivityType>>> =
+    val groups =
         SportCatalog.categories
-            .map { group -> group.category to group.types.filter { offered(it) && matches(it) } }
+            .map { group -> group.category to group.types.filter { offered(it) && matches(it) }.toImmutableList() }
             .filter { it.second.isNotEmpty() }
+            .toImmutableList()
+    var expanded by rememberExpandedSports()
 
     AppBottomSheet(onDismiss = onDismiss, sheetState = sheetState) {
         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -150,46 +146,25 @@ private fun ActivityTypeSheet(
                 lineLimits = TextFieldLineLimits.SingleLine,
                 modifier = Modifier.fillMaxWidth(),
             )
-            val quick = quickTypes.filter(offered)
+            val quick = quickTypes.filter(offered).toImmutableList()
             if (needle.isEmpty() && quick.isNotEmpty()) {
                 Text(stringResource(Res.string.sport_picker_quick), style = MaterialTheme.typography.labelLarge)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    quick.forEach { type ->
-                        AppFilterChip(
-                            selected = type == selected,
-                            onClick = { choose(type) },
-                            label = { Text(activityTypeLabel(type)) },
-                            leadingIcon = { ActivityTypeIcon(type, Modifier.size(AppFilterChipIconSize)) },
-                        )
-                    }
-                }
+                QuickTypeChips(quick, isSelected = { it == selected }, onClick = choose)
             }
             if (groups.isEmpty()) Text(stringResource(Res.string.sport_picker_no_matches), style = MaterialTheme.typography.bodyMedium)
         }
         // Full height, so the sheet doesn't jump as the search narrows the list.
         LazyColumn(Modifier.fillMaxSize()) {
-            groups.forEach { (category, types) ->
-                stickyHeader(key = category.name) {
-                    Text(
-                        sportCategoryLabel(category),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow).padding(16.dp, 8.dp),
-                    )
-                }
-                items(types, key = { "${category.name}/${it.sport}/${it.subSport}" }) { type ->
-                    // A sub-sport sits under its sport, unless it's a shortcut listed without it (Indoor Ride under Gym).
-                    val nested = type.subSport != null && ActivityType(type.sport) in types
-                    ListItem(
-                        headlineContent = { Text(labels[type] ?: activityTypeLabel(type)) },
-                        leadingContent = { ActivityTypeIcon(type, Modifier.padding(start = if (nested) 24.dp else 0.dp)) },
-                        trailingContent =
-                            if (type == selected) ({ PlatformIcon(AppIcon.Check, null, tint = MaterialTheme.colorScheme.primary) })
-                            else null,
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.clickable { choose(type) }.handCursor(),
-                    )
-                }
+            sportTypeList(
+                groups,
+                expanded = expanded,
+                onToggleExpanded = { sport -> expanded = if (sport in expanded) expanded - sport else expanded + sport },
+                onClick = choose,
+                // A search shows every match, so none hides behind a collapsed sport.
+                expandAll = needle.isNotEmpty(),
+                hiddenChoice = { sport -> selected.takeIf { it.subSport != null && it.sport == sport.sport } },
+            ) { type ->
+                if (type == selected) PlatformIcon(AppIcon.Check, null, tint = MaterialTheme.colorScheme.primary)
             }
         }
     }

@@ -1,22 +1,15 @@
 package io.github.solcott.activitytracker.app.feedfilter
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,16 +21,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import com.mohamedrejeb.calf.ui.datepicker.DateBounds
 import com.slack.circuit.subcircuit.SubCircuitInject
 import com.slack.circuit.subcircuit.SubUi
 import dev.zacsweers.metro.Inject
-import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
+import io.github.solcott.activitytracker.app.ui.QuickTypeChips
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
-import io.github.solcott.activitytracker.app.ui.adaptive.AppCheckbox
 import io.github.solcott.activitytracker.app.ui.adaptive.AppDatePickerDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChipIconSize
@@ -46,16 +38,16 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSheetHeader
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTriStateCheckbox
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
-import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
-import io.github.solcott.activitytracker.app.ui.sportCategoryLabel
+import io.github.solcott.activitytracker.app.ui.rememberExpandedSports
+import io.github.solcott.activitytracker.app.ui.sportTypeList
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.feed_filter_all_types
 import io.github.solcott.activitytracker.composeApp.resources.feed_filter_any_time
 import io.github.solcott.activitytracker.composeApp.resources.feed_filter_apply
-import io.github.solcott.activitytracker.composeApp.resources.feed_filter_category_some
 import io.github.solcott.activitytracker.composeApp.resources.feed_filter_clear
 import io.github.solcott.activitytracker.composeApp.resources.feed_filter_custom
 import io.github.solcott.activitytracker.composeApp.resources.feed_filter_custom_range
@@ -186,56 +178,41 @@ private fun TypePickerSheet(picker: TypePickerState, eventSink: (FeedFilterEvent
         )
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(Res.string.sport_picker_quick), style = MaterialTheme.typography.labelLarge)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                picker.quickTypes.forEach { type ->
-                    AppFilterChip(
-                        selected = picker.draft.covers(type),
-                        onClick = { eventSink(FeedFilterEvent.ToggleType(type)) },
-                        label = { Text(activityTypeLabel(type)) },
-                        leadingIcon = { ActivityTypeIcon(type, Modifier.size(AppFilterChipIconSize)) },
-                    )
-                }
-            }
+            QuickTypeChips(
+                picker.quickTypes,
+                isSelected = { picker.draft.covers(it) },
+                onClick = { eventSink(FeedFilterEvent.ToggleType(it)) },
+            )
         }
+        val groups = remember(picker.categories) { picker.categories.map { it.category to it.types }.toImmutableList() }
+        var expanded by rememberExpandedSports()
         LazyColumn(Modifier.fillMaxSize()) {
-            picker.categories.forEach { group ->
-                stickyHeader(key = group.category.name) { CategoryHeader(group, eventSink) }
-                items(group.types, key = { "${group.category.name}/${it.sport}/${it.subSport}" }) { type ->
-                    val nested = type.subSport != null && ActivityType(type.sport) in group.types
-                    ListItem(
-                        headlineContent = { Text(activityTypeLabel(type)) },
-                        leadingContent = { ActivityTypeIcon(type, Modifier.padding(start = if (nested) 24.dp else 0.dp)) },
-                        trailingContent = { AppCheckbox(checked = picker.draft.covers(type), onCheckedChange = null) },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.clickable { eventSink(FeedFilterEvent.ToggleType(type)) }.handCursor(),
-                    )
-                }
+            sportTypeList(
+                groups,
+                expanded = expanded,
+                onToggleExpanded = { sport -> expanded = if (sport in expanded) expanded - sport else expanded + sport },
+                onClick = { eventSink(FeedFilterEvent.ToggleType(it)) },
+                onCategoryClick = { eventSink(FeedFilterEvent.ToggleCategory(it)) },
+                categoryTrailing = { category ->
+                    val state =
+                        when (picker.categories.first { it.category == category }.selection) {
+                            Selection.All -> ToggleableState.On
+                            Selection.Partial -> ToggleableState.Indeterminate
+                            Selection.None -> ToggleableState.Off
+                        }
+                    AppTriStateCheckbox(state, onClick = null)
+                },
+            ) { type ->
+                // A sport with only some of its sub-sports selected shows the mixed mark, as a category does.
+                val state =
+                    when {
+                        picker.draft.covers(type) -> ToggleableState.On
+                        type.subSport == null && picker.draft.any { it.sport == type.sport } -> ToggleableState.Indeterminate
+                        else -> ToggleableState.Off
+                    }
+                AppTriStateCheckbox(state, onClick = null)
             }
         }
-    }
-}
-
-/** A category with a checkbox for all of it; "Some" marks a partly selected one. */
-@Composable
-private fun CategoryHeader(group: CategorySelection, eventSink: (FeedFilterEvent) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .clickable { eventSink(FeedFilterEvent.ToggleCategory(group.category)) }
-            .handCursor()
-            .padding(16.dp, 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            sportCategoryLabel(group.category),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.weight(1f),
-        )
-        if (group.selection == Selection.Partial) {
-            Text(stringResource(Res.string.feed_filter_category_some), style = MaterialTheme.typography.labelMedium)
-        }
-        AppCheckbox(checked = group.selection == Selection.All, onCheckedChange = null, modifier = Modifier.padding(start = 8.dp))
     }
 }
 

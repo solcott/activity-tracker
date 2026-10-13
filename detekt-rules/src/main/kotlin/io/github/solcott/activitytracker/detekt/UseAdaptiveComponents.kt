@@ -55,6 +55,7 @@ class UseAdaptiveComponents(config: Config) :
                 "SingleChoiceSegmentedButtonRow" to "AppSegmentedControl",
                 "Switch" to "AppSwitch",
                 "Checkbox" to "AppCheckbox",
+                "TriStateCheckbox" to "AppTriStateCheckbox",
                 "FilterChip" to "AppFilterChip",
             )
     }
