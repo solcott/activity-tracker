@@ -34,10 +34,14 @@ The athlete SHALL be able to select any number of activity types from the sport 
 
 #### Scenario: Select a category
 - **WHEN** the athlete selects a whole category such as Cycling
-- **THEN** every sport and shortcut type in that category is selected and the feed shows activities of any of them
+- **THEN** every type listed in that category is selected, each sport in it whole, and the feed shows activities of any of them
+
+#### Scenario: Category covers its sports' sub-sports filed elsewhere
+- **WHEN** the athlete selects Water Sports
+- **THEN** Row is selected whole, so rows of every sub-sport match, and Indoor Row under Gym & Fitness shows as checked
 
 #### Scenario: Full selection collapses
-- **WHEN** the athlete individually selects every sub-sport of a sport
+- **WHEN** the athlete individually selects every sub-sport of a sport, including any filed in another category
 - **THEN** the selection is treated as the sport itself, so its generic form also matches
 
 ### Requirement: Type selections apply on confirm
@@ -99,15 +103,15 @@ The active filter SHALL survive navigating away from and back to the feed, and c
 - **THEN** the feed opens on the default filter (Following, no type or date filter)
 
 ### Requirement: Sports collapse in the type picker
-In the type picker, each sport that has sub-sports SHALL be collapsible, with an expand control separate from selecting the sport. Each such sport SHALL start collapsed every time the picker opens. A collapsed sport SHALL hide its sub-sports, and expanding it SHALL show them beneath it. Collapsing SHALL NOT change the draft selection.
+In the type picker, each sport that has sub-sports listed under it SHALL be collapsible, in every category,, with an expand control separate from selecting the sport. Each such sport SHALL start collapsed every time the picker opens. A collapsed sport SHALL hide its sub-sports, and expanding it SHALL show them beneath it. Collapsing SHALL NOT change the draft selection.
 
 #### Scenario: Collapsed when opened
 - **WHEN** the athlete opens the type picker
-- **THEN** every sport with sub-sports is collapsed and no sub-sport listed under its sport is shown
+- **THEN** every collapsible sport is collapsed and no sub-sport listed under its sport is shown
 
 #### Scenario: Expand a sport
-- **WHEN** the athlete expands Running
-- **THEN** Running's sub-sports appear beneath it with their selection state, and the other sports stay collapsed
+- **WHEN** the athlete expands Ride
+- **THEN** Ride's sub-sports appear beneath it with their selection state, and the other sports stay collapsed
 
 #### Scenario: Expanding does not select
 - **WHEN** the athlete expands or collapses a sport
@@ -121,16 +125,20 @@ In the type picker, each sport that has sub-sports SHALL be collapsible, with an
 A category or sport with some, but not all, of its types selected in the draft SHALL show its checkbox in the mixed (indeterminate) state, collapsed or expanded, as Material's and Apple's guidelines draw a partly selected parent. No separate text marker SHALL be shown.
 
 #### Scenario: One sub-sport selected then collapsed
-- **WHEN** the athlete expands Running, selects Trail Run, and collapses Running
-- **THEN** the Run row's checkbox and the Running category's checkbox both show the mixed state
+- **WHEN** the athlete expands Ride, selects Gravel Ride, and collapses Ride
+- **THEN** the Ride row's checkbox and the Cycling category's checkbox both show the mixed state
 
 #### Scenario: Whole sport selected
-- **WHEN** Running itself is selected and collapsed
-- **THEN** the Run row's checkbox is checked
+- **WHEN** Ride itself is selected and collapsed
+- **THEN** the Ride row's checkbox is checked
 
-### Requirement: Shortcut types always visible in the picker
-A sub-sport listed in a category without its own sport (a shortcut such as Indoor Ride under Gym) SHALL show as a top-level row in the type picker and SHALL NOT be hidden by collapsing.
+#### Scenario: Sub-sport filed elsewhere selected
+- **WHEN** the athlete selects only Indoor Row under Gym & Fitness
+- **THEN** the Gym & Fitness category's checkbox shows the mixed state
 
-#### Scenario: Shortcut under another category
+### Requirement: Sub-sports filed elsewhere are top-level rows in the type picker
+A sub-sport listed in a category other than its sport's SHALL show as a top-level row in the type picker and SHALL NOT be hidden by collapsing.
+
+#### Scenario: Indoor Row under Gym & Fitness
 - **WHEN** the athlete opens the type picker
-- **THEN** Indoor Ride is visible and selectable under Gym without expanding anything
+- **THEN** Indoor Row is visible and selectable under Gym & Fitness without expanding anything
