@@ -72,7 +72,7 @@ class OAuthFlowTest {
             on("pds.test/oauth/token") {
                 respondJson(
                     """{"access_token":"at1","token_type":"DPoP","refresh_token":"rt1","expires_in":3600,
-                   "scope":"atproto transition:generic","sub":"$did"}"""
+                   "scope":"${OAuthClientConfig.DEFAULT_SCOPE}&collection=app.activitytracker.actor.privateDetails","sub":"$did"}"""
                 )
             }
             // PDS demands a nonce once, then serves the request.

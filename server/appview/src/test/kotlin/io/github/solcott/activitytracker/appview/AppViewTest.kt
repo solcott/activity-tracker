@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
+import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
@@ -355,7 +356,7 @@ class AppViewTest {
     }
 
     @Test
-    fun servesAnActivitysPhotosThroughRedirectsToThePds() = testApplication {
+    fun servesAnActivitiesPhotosThroughRedirectsToThePds() = testApplication {
         application { appView(config, db, verifier, PdsLookup { "http://pds.test" }) }
         val uri = "at://$bob/${Nsid.FEED_ACTIVITY}/3kphotos"
         fun photo(cid: String, mime: String = "image/webp") =
@@ -584,5 +585,8 @@ class AppViewTest {
         assertEquals("AtprotoSpaceService" to config.publicUrl, services["#activitytracker_space"])
         val metadata = client.get("/oauth/client-metadata.json").bodyAsText()
         assertEquals(true, metadata.contains("\"dpop_bound_access_tokens\":true"))
+        val scope = AtJson.parseToJsonElement(metadata).jsonObject.getValue("scope").jsonPrimitive.content
+        assertEquals(OAuthClientConfig.DEFAULT_SCOPE, scope)
+        assertEquals(true, scope.split(' ').any { it.startsWith("space:app.activitytracker.space.athlete?authority=*&") })
     }
 }
