@@ -59,7 +59,7 @@ data class ActivityView(
     val record: ActivityRecord,
     /** Likes from athletes who, like the viewer, may see the activity at its current [visibility]. */
     val likeCount: Long,
-    /** Always 0 unless [visibility] is public: non-public activities take no comments. */
+    /** Comments from athletes who may see the activity at its current [visibility], written for an audience that admits the viewer. */
     val commentCount: Long,
     val indexedAt: Instant,
     /** A [Visibility] value, from where the record is stored; null means [Visibility.PUBLIC]. Read it through [visibilityOrPublic]. */
@@ -73,10 +73,6 @@ data class ActivityView(
     /** [visibility] as a known value: [Visibility.PUBLIC] when absent, [Visibility.SELF] when unknown. */
     val visibilityOrPublic: String
         get() = Visibility.known(visibility)
-
-    /** Whether viewers may comment: only on public activities. Likes are taken at every visibility. */
-    val acceptsComments: Boolean
-        get() = visibilityOrPublic == Visibility.PUBLIC
 }
 
 @Immutable @Serializable data class ActivityViewerState(val like: AtUri? = null)

@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app
 
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import app.cash.turbine.ReceiveTurbine
 import co.touchlab.kermit.Logger
 import com.slack.circuit.test.FakeNavigator
@@ -18,6 +19,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
+import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
@@ -26,6 +28,7 @@ import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -35,7 +38,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 class ActivityDetailPresenterTest {
@@ -92,6 +97,7 @@ class ActivityDetailPresenterTest {
     private val localLikes = LocalLikes()
 
     private class Repos(
+        val db: AppDatabase,
         val feed: FeedRepository,
         val activities: ActivityRepository,
         val profiles: ProfileRepository,
@@ -117,6 +123,7 @@ class ActivityDetailPresenterTest {
                 Clock.System,
             )
         return Repos(
+            db,
             feed,
             activities,
             ProfileRepository(clients, Clock.System, Logger),
@@ -157,7 +164,6 @@ class ActivityDetailPresenterTest {
         }) {
             val loaded = awaitLoaded()
             assertEquals(1, loaded.activity.likeCount)
-            assertFalse(loaded.activity.acceptsComments)
             loaded.eventSink(ActivityDetailEvent.ToggleLike)
             val liked = awaitUntil { (it as? ActivityDetailState.Loaded)?.activity?.viewer?.like != null } as ActivityDetailState.Loaded
             assertEquals(2, liked.activity.likeCount)
@@ -180,6 +186,53 @@ class ActivityDetailPresenterTest {
             assertEquals(UiError(UiError.Kind.SignInAgain, null), refused.likeError)
             assertEquals(1, refused.activity.likeCount, "the like isn't shown")
             assertNull(refused.activity.viewer?.like)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** The comments Alice has queued, as (space key or null for the repo, record). */
+    private suspend fun Repos.queuedComments() =
+        db.outbox()
+            .pending(alice.value)
+            .filter { it.collection == Nsid.FEED_COMMENT }
+            .map { it.space?.substringAfterLast('/') to it.recordJson }
+
+    @Test
+    fun commentsOnAFollowersActivityOnceForADoubleTap() = runTest {
+        visibility = "followers"
+        val r = repos()
+        presenterTestOf({
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
+        }) {
+            val loaded = awaitLoaded()
+            loaded.draftComment.setTextAndPlaceCursorAtEnd("Nice")
+            loaded.eventSink(ActivityDetailEvent.SendComment)
+            loaded.eventSink(ActivityDetailEvent.SendComment)
+            // The write is queued off the composition; it's the only thing that reaches the outbox here.
+            r.db.outbox().count(alice.value).first { it > 0 }
+            val queued = r.queuedComments()
+            assertEquals(listOf(AthleteSpace.INTERACTIONS), queued.map { it.first }, "one comment, in the interactions space")
+            assertTrue(queued.single().second!!.contains("\"audience\":\"followers\""))
+            assertEquals("", loaded.draftComment.text.toString())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aSessionWhoseScopeLacksCommentsIsAskedToSignInAgainAndKeepsTheText() = runTest {
+        visibility = "followers"
+        // Signed in before the interactions space's declaration listed comments.
+        val r = repos(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}&collection=${Nsid.FEED_LIKE}")
+        presenterTestOf({
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
+        }) {
+            val loaded = awaitLoaded()
+            loaded.draftComment.setTextAndPlaceCursorAtEnd("Nice")
+            loaded.eventSink(ActivityDetailEvent.SendComment)
+            val refused = awaitUntil { (it as? ActivityDetailState.Loaded)?.commentError != null } as ActivityDetailState.Loaded
+            assertEquals(UiError(UiError.Kind.SignInAgain, null), refused.commentError)
+            assertEquals("Nice", refused.draftComment.text.toString(), "what was typed isn't lost")
+            assertEquals(emptyList(), r.queuedComments())
             cancelAndIgnoreRemainingEvents()
         }
     }

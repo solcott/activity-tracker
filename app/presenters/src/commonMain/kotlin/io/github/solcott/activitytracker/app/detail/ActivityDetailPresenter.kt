@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app.detail
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -16,7 +17,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.activitylist.likeErrorOf
+import io.github.solcott.activitytracker.app.activitylist.interactionErrorOf
 import io.github.solcott.activitytracker.app.edit.EditActivityScreen
 import io.github.solcott.activitytracker.app.media.MediaGalleryScreen
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
@@ -56,6 +57,7 @@ fun ActivityDetailPresenter(
     var comments by remember { mutableStateOf<ImmutableList<CommentView>>(persistentListOf()) }
     var error by remember { mutableStateOf<UiError?>(null) }
     var likeError by remember { mutableStateOf<UiError?>(null) }
+    var commentError by remember { mutableStateOf<UiError?>(null) }
     val draft = rememberTextFieldState()
     var loadKey by remember { mutableIntStateOf(0) }
     var showLikes by remember { mutableStateOf(false) }
@@ -114,7 +116,7 @@ fun ActivityDetailPresenter(
                 current?.let {
                     flights.launch(it.uri) {
                         likeError = null
-                        runSuspendCatching { activities.toggleLike(it) }.onFailure { e -> likeError = likeErrorOf(e) }
+                        runSuspendCatching { activities.toggleLike(it) }.onFailure { e -> likeError = interactionErrorOf(e) }
                     }
                 }
             }
@@ -125,7 +127,7 @@ fun ActivityDetailPresenter(
             ActivityDetailEvent.ToggleAll -> expansion.toggle(event)
 
             ActivityDetailEvent.SendComment -> {
-                current?.let { sendComment(it, draft, flights, activities) }
+                current?.let { sendComment(it, draft, flights, activities) { e -> commentError = e } }
             }
 
             is ActivityDetailEvent.Delete -> manage.delete(event.withRecordings)
@@ -143,6 +145,7 @@ fun ActivityDetailPresenter(
             isOwn = isOwn,
             likesList = likesList,
             likeError = likeError,
+            commentError = commentError,
             eventSink = sink,
             charts = charts.charts,
             chartsMissingZones = charts.missingZones(isOwn),
@@ -220,13 +223,30 @@ private fun rememberManage(
     )
 }
 
-/** Sends [draft] on [activity] and clears it, unless it's blank or a comment is already sending. */
-private fun sendComment(activity: ActivityView, draft: TextFieldState, flights: SingleFlight, activities: ActivityRepository) {
+/**
+ * Sends [draft] on [activity] and clears it, unless it's blank or a comment is already sending. A comment the session can't give is
+ * reported to [onError] (null clears it) and its text put back, unless something new has been typed since.
+ */
+private fun sendComment(
+    activity: ActivityView,
+    draft: TextFieldState,
+    flights: SingleFlight,
+    activities: ActivityRepository,
+    onError: (UiError?) -> Unit,
+) {
     val text = draft.text.toString()
     // Checked before clearing the draft, so a dropped repeat can't lose what was typed.
     if (text.isNotBlank() && !flights.isRunning(ActivityDetailEvent.SendComment)) {
         draft.clearText()
-        flights.launch(ActivityDetailEvent.SendComment) { runSuspendCatching { activities.comment(activity, text) } }
+        onError(null)
+        flights.launch(ActivityDetailEvent.SendComment) {
+            runSuspendCatching { activities.comment(activity, text) }
+                .onFailure { e ->
+                    val refused = interactionErrorOf(e) ?: return@onFailure
+                    if (draft.text.isEmpty()) draft.setTextAndPlaceCursorAtEnd(text)
+                    onError(refused)
+                }
+        }
     }
 }
 

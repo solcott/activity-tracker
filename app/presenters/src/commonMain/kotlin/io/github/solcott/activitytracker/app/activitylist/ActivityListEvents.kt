@@ -16,7 +16,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityRepository
 
 /**
  * Handles [ActivityListEvent]s for a host presenter: opens navigate, and like toggles once per activity at a time. A like the session can't
- * give goes to [onError] ([likeErrorOf]).
+ * give goes to [onError] ([interactionErrorOf]).
  */
 @Composable
 fun rememberActivityListEventSink(
@@ -43,7 +43,8 @@ fun rememberActivityListEventSink(
 
                 is ActivityListEvent.ToggleLike -> {
                     flights.launch(event.activity.uri) {
-                        runSuspendCatching { activities.toggleLike(event.activity) }.onFailure { likeErrorOf(it)?.let(currentOnError) }
+                        runSuspendCatching { activities.toggleLike(event.activity) }
+                            .onFailure { interactionErrorOf(it)?.let(currentOnError) }
                     }
                 }
             }
@@ -52,7 +53,8 @@ fun rememberActivityListEventSink(
 }
 
 /**
- * What to show for a like that failed: a session whose scope doesn't cover likes in spaces is told to sign in again. Anything else is left
- * to the outbox, which retries.
+ * What to show for a like or comment that failed: a session whose scope doesn't cover it in spaces is told to sign in again, and nothing
+ * was written. Anything else is left to the outbox, which retries.
  */
-fun likeErrorOf(cause: Throwable): UiError? = uiErrorOf(UiError.Kind.SaveActivity, cause).takeIf { it.kind == UiError.Kind.SignInAgain }
+fun interactionErrorOf(cause: Throwable): UiError? =
+    uiErrorOf(UiError.Kind.SaveActivity, cause).takeIf { it.kind == UiError.Kind.SignInAgain }

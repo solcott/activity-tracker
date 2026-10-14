@@ -38,6 +38,8 @@ sealed interface ActivityDetailState : CircuitUiState {
         val likesList: LikesList?,
         /** Why the viewer's last like couldn't be given: a session that can't like a non-public activity is told to sign in again. */
         val likeError: UiError? = null,
+        /** Why the viewer's last comment couldn't be sent, likewise; its text is back in [draftComment]. */
+        val commentError: UiError? = null,
         override val eventSink: (ActivityDetailEvent) -> Unit,
         /** Null while loading, and when there are no streams or the viewer may not see them. */
         val charts: ActivityCharts? = null,

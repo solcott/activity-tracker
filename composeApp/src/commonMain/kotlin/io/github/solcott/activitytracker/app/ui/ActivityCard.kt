@@ -99,16 +99,12 @@ fun ActivityCard(
                         tint = if (given) MaterialTheme.colorScheme.tertiary else Color.Unspecified,
                     )
                 }
-                val likes = pluralStringResource(Res.plurals.like_count, activity.likeCount.toInt(), activity.likeCount)
                 Text(
-                    // Non-public activities take no comments.
-                    if (activity.acceptsComments)
-                        stringResource(
-                            Res.string.activity_card_counts,
-                            likes,
-                            pluralStringResource(Res.plurals.comments_count, activity.commentCount.toInt(), activity.commentCount),
-                        )
-                    else likes,
+                    stringResource(
+                        Res.string.activity_card_counts,
+                        pluralStringResource(Res.plurals.like_count, activity.likeCount.toInt(), activity.likeCount),
+                        pluralStringResource(Res.plurals.comments_count, activity.commentCount.toInt(), activity.commentCount),
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }

@@ -284,10 +284,8 @@ class RecordSerializationTest {
         val old = AtJson.decodeFromString(ActivityView.serializer(), "$base}")
         assertEquals(null, old.visibility)
         assertEquals(Visibility.PUBLIC, old.visibilityOrPublic)
-        assertTrue(old.acceptsComments)
         val followers = AtJson.decodeFromString(ActivityView.serializer(), "$base,\"visibility\":\"followers\"}")
         assertEquals(Visibility.FOLLOWERS, followers.visibilityOrPublic)
-        assertFalse(followers.acceptsComments)
         val unknown = AtJson.decodeFromString(ActivityView.serializer(), "$base,\"visibility\":\"friends\"}")
         assertEquals(Visibility.SELF, unknown.visibilityOrPublic)
     }

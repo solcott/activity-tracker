@@ -179,11 +179,8 @@ private fun Overview(state: ActivityDetailState.Loaded, modifier: Modifier = Mod
             state.manage?.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
             Likes(state)
             if (state.isOwn) state.charts?.let { ChartSharing(it.visibility, state) }
-            // Non-public activities take no comments.
-            if (state.activity.acceptsComments) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Comments(state)
-            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Comments(state)
         }
     }
 }
@@ -198,7 +195,7 @@ private fun ChartSharing(visibility: String, state: ActivityDetailState.Loaded, 
     }
 }
 
-/** The comment count, every comment oldest first, then a field to add one. */
+/** The comment count, every comment oldest first, then a field to add one and why the last one couldn't be sent. */
 @Composable
 private fun Comments(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
@@ -229,6 +226,7 @@ private fun Comments(state: ActivityDetailState.Loaded, modifier: Modifier = Mod
                 { state.eventSink(ActivityDetailEvent.SendComment) },
             )
         }
+        state.commentError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
     }
 }
 
