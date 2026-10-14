@@ -115,6 +115,8 @@ class ImportLogbookPresenterTest {
             assertEquals(ActivityType(Sport.DIVE, SubSport.SINGLE_GAS), batch.dives[1].defaultTitle.type)
             assertEquals(18.0, batch.dives[0].maxDepthMeters)
             assertEquals(2400.seconds, batch.dives[0].elapsed)
+            // Later states (the defaults and recent types loading) may still arrive; they're not this test's concern.
+            cancelAndIgnoreRemainingEvents()
         }
     }
 

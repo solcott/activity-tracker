@@ -52,6 +52,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.coroutines.test.runTest
@@ -88,7 +89,11 @@ class FeedPresenterTest {
         block: suspend ReceiveTurbine<FeedState>.() -> Unit,
     ) {
         val r = repos()
-        presenterTestOf({ FeedPresenter(navigator, r.feed, r.activities, r.profiles, tracker, Clock.System) }, block = block)
+        presenterTestOf(
+            { FeedPresenter(navigator, r.feed, r.activities, r.profiles, tracker, Clock.System) },
+            timeout = TURBINE_TIMEOUT,
+            block = block,
+        )
     }
 
     /** Feed queries the AppView received: the method and its params. */
@@ -164,6 +169,7 @@ class FeedPresenterTest {
         val profiles = ProfileRepository(clients, Clock.System, Logger)
         presenterTestOf(
             { FeedPresenter(FakeNavigator(FeedScreen), feed, activities, profiles, UnsupportedLocationTracker(), Clock.System) },
+            timeout = TURBINE_TIMEOUT,
             block = block,
         )
     }
@@ -291,3 +297,9 @@ class FeedPresenterTest {
         }
     }
 }
+
+/**
+ * How long a test waits for the next state. Turbine's default of 1 s is too short for a refresh (Room and the mock AppView) while
+ * `./gradlew check` runs other test tasks alongside, and a stuck test still fails within this.
+ */
+private val TURBINE_TIMEOUT = 10.seconds
