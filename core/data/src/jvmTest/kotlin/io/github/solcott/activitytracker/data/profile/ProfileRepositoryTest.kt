@@ -86,6 +86,8 @@ class ProfileRepositoryTest {
 
     /** Bob's Mutuals details on his PDS, and how his PDS answers Alice. */
     private var bobMutuals: ProfileDetails? = ProfileDetails(weight = 80_000)
+    private var bobFollowers: ProfileDetails? = null
+    private var aliceRequestedBob = false
     private var bobRefusesAlice = false
     private var bobPdsDown = false
     private var aliceFollowsBob = true
@@ -194,7 +196,7 @@ class ProfileRepositoryTest {
                     }
 
                     "bobpds.test/xrpc/com.atproto.space.getRecord" -> {
-                        val held = bobMutuals
+                        val held = if (tierOf(request.url.parameters["space"]) == AthleteSpace.FOLLOWERS) bobFollowers else bobMutuals
                         when {
                             bobPdsDown -> error("InternalServerError", HttpStatusCode.InternalServerError)
                             held == null -> error("RecordNotFound")
@@ -206,7 +208,9 @@ class ProfileRepositoryTest {
                         val actor = request.url.parameters["actor"]
                         if (actor == bob.value) {
                             val bobDetails = """"details":{"location":{"country":"CA"},"weight":75000}"""
-                            val viewer = if (aliceFollowsBob) ""","viewer":{"following":"at://$did/${Nsid.GRAPH_FOLLOW}/3k"}""" else ""
+                            val requested = if (aliceRequestedBob) ""","followRequested":true""" else ""
+                            val viewer =
+                                if (aliceFollowsBob) ""","viewer":{"following":"at://$did/${Nsid.GRAPH_FOLLOW}/3k"$requested}""" else ""
                             respond(
                                 """{"did":"${bob.value}","handle":"bob.test",$bobDetails$viewer}""",
                                 headers = json,
@@ -412,10 +416,13 @@ class ProfileRepositoryTest {
     fun ownProfileShowsEveryTier() = runTest {
         hidden =
             Hidden(
-                ProfileDetails(weight = 61_500, birthDate = "1990-04-01"),
-                DetailsVisibility(weight = Visibility.MUTUALS, birthDate = Visibility.SELF),
+                ProfileDetails(weight = 61_500, birthDate = "1990-04-01", gender = "female"),
+                DetailsVisibility(weight = Visibility.MUTUALS, birthDate = Visibility.SELF, gender = Visibility.FOLLOWERS),
             )
-        assertEquals(ProfileDetails(weight = 61_500, birthDate = "1990-04-01"), repository().profile(did.value).details)
+        assertEquals(
+            ProfileDetails(weight = 61_500, birthDate = "1990-04-01", gender = "female"),
+            repository().profile(did.value).details,
+        )
     }
 
     @Test
@@ -424,7 +431,35 @@ class ProfileRepositoryTest {
         val view: ProfileView = repository().profile(bob.value)
         // The public weight wins over the tier's.
         assertEquals(ProfileDetails(location = Location(country = "CA"), weight = 75_000, birthDate = "1985-02-03"), view.details)
-        assertEquals(1, credentialRequests.size)
+        // One credential per tier space a follower may read: followers and mutuals.
+        assertEquals(2, credentialRequests.size)
+    }
+
+    @Test
+    fun anApprovedFollowerSeesFollowersDetails() = runTest {
+        bobMutuals = null
+        bobFollowers = ProfileDetails(gender = "male")
+        val view = repository().profile(bob.value)
+        assertEquals(ProfileDetails(location = Location(country = "CA"), gender = "male", weight = 75_000), view.details)
+    }
+
+    @Test
+    fun aPendingFollowerAsksForNoCredential() = runTest {
+        aliceRequestedBob = true
+        bobFollowers = ProfileDetails(gender = "male")
+        val view = repository().profile(bob.value)
+        assertEquals(ProfileDetails(location = Location(country = "CA"), weight = 75_000), view.details)
+        assertTrue(credentialRequests.isEmpty())
+    }
+
+    @Test
+    fun aFollowersDetailGoesInTheFollowersSpaceOnly() = runTest {
+        record = ProfileRecord()
+        val repo = repository()
+        repo.save(ProfileEdit("", "", ProfileDetails(gender = "female"), DetailsVisibility(gender = Visibility.FOLLOWERS)))
+        assertEquals(mapOf(AthleteSpace.FOLLOWERS to ProfileDetails(gender = "female")), tiers.toMap())
+        assertNull(record!!.details)
+        assertEquals(Visibility.FOLLOWERS, repo.ownProfile().visibility.gender)
     }
 
     @Test

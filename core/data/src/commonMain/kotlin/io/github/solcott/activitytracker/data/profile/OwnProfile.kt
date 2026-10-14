@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data.profile
 
+import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
 
@@ -21,6 +22,8 @@ data class OwnProfile(
      * in again.
      */
     val needsSignIn: Boolean = false,
+    /** A `FollowPolicy` value: whether the athlete approves followers. */
+    val followPolicy: String = FollowPolicy.OPEN,
 )
 
 /**
@@ -34,6 +37,8 @@ data class ProfileEdit(
     val visibility: DetailsVisibility,
     val avatar: AvatarEdit = AvatarEdit.Keep,
     val groups: Set<DetailGroup> = DetailGroup.profile,
+    /** A `FollowPolicy` value, or null to keep the current one. Turning approval on first approves everyone who follows the athlete now. */
+    val followPolicy: String? = null,
 )
 
 sealed interface AvatarEdit {

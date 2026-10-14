@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.Tid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.FollowRecord
 import io.github.solcott.activitytracker.lexicon.app.GetFollowers
 import io.github.solcott.activitytracker.lexicon.app.GetFollows
@@ -65,6 +66,7 @@ class ProfileRepository(
             view.copy(
                 displayName = pending.record.displayName,
                 description = pending.record.description,
+                followPolicy = pending.record.followPolicy.toFollowPolicy(),
                 details = if (pending.details == null) view.details else pending.details.takeUnless { it == ProfileDetails() },
                 avatar =
                     if (avatarCid == view.avatar?.substringAfterLast('/')) view.avatar
@@ -75,14 +77,16 @@ class ProfileRepository(
     }
 
     /**
-     * [view] with the tier details this athlete may see. Only a follower can be a mutual, so nobody else's client asks for a credential. A
-     * refusal, a missing record or a failed read all leave the public details, so a PDS that's down never breaks a profile.
+     * [view] with the tier details this athlete may see. Only an effective follower can be one of the athlete's followers or mutuals, so
+     * nobody else's client asks for a credential, a pending follower's included. A refusal, a missing record or a failed read all leave the
+     * public details, so a PDS that's down never breaks a profile.
      */
     private suspend fun withHiddenDetails(view: ProfileView): ProfileView {
         val readable =
             when {
                 view.did == did -> AthleteSpaces.TIERS
-                view.viewer?.following != null -> listOf(AthleteSpace.MUTUALS)
+                view.viewer?.following != null && view.viewer?.followRequested != true ->
+                    listOf(AthleteSpace.FOLLOWERS, AthleteSpace.MUTUALS)
                 else -> return view
             }
         val hidden =
@@ -139,6 +143,7 @@ class ProfileRepository(
             details,
             visibility,
             needsSignIn = hidden == null,
+            followPolicy = record?.followPolicy.toFollowPolicy(),
         )
     }
 
@@ -189,12 +194,14 @@ class ProfileRepository(
                 AvatarEdit.Remove -> null
                 is AvatarEdit.Replace -> clients.pds.uploadBlob(change.bytes, change.mimeType)
             }
+        val policy = savePolicy(clients, clock, edit.followPolicy, record.followPolicy)
         val saved =
             record.copy(
                 displayName = edit.displayName.trim().ifEmpty { null },
                 description = edit.description.trim().ifEmpty { null },
                 avatar = avatar,
                 details = allDetails.only(placed[Visibility.PUBLIC].orEmpty()).takeUnless { it == ProfileDetails() },
+                followPolicy = policy.takeIf { it == FollowPolicy.APPROVE },
             )
         putProfileRecord(saved)
         // 3. Trim the copies left behind, and drop what was cleared.
@@ -238,11 +245,15 @@ class ProfileRepository(
                     ),
             ),
         )
-        pendingFollows.wrote(profile.did, AtUri("at://${clients.did.value}/${Nsid.GRAPH_FOLLOW}/$rkey"))
+        val requested = profile.followPolicy == FollowPolicy.APPROVE
+        pendingFollows.wrote(profile.did, AtUri("at://${clients.did.value}/${Nsid.GRAPH_FOLLOW}/$rkey"), requested)
         return pendingFollows.applyTo(profile)
     }
 
-    /** Unfollows [profile]'s athlete, and returns [profile] as it now stands (not following, one fewer follower). */
+    /**
+     * Unfollows [profile]'s athlete, or cancels a follow request, and returns [profile] as it now stands (not following, one fewer follower
+     * unless the follow was still a request).
+     */
     suspend fun unfollow(profile: ProfileView): ProfileView {
         val rkey = profile.viewer?.following?.rkey ?: return profile
         clients.pds.procedure(
@@ -257,6 +268,19 @@ class ProfileRepository(
         const val RECORD_NOT_FOUND = "RecordNotFound"
     }
 }
+
+/**
+ * The follow policy a save with [edit] (null keeps [saved]) writes, after approving everyone who follows now when it turns approval on:
+ * their approvals are written first, so a failure leaves the policy open.
+ */
+private suspend fun savePolicy(clients: SessionClients, clock: Clock, edit: String?, saved: String?): String {
+    val policy = edit ?: saved.toFollowPolicy()
+    if (policy == FollowPolicy.APPROVE && saved.toFollowPolicy() != FollowPolicy.APPROVE) approveCurrentFollowers(clients, clock)
+    return policy
+}
+
+/** A profile record's `followPolicy` as a [FollowPolicy] value: only [FollowPolicy.APPROVE] is kept, anything else is open. */
+internal fun String?.toFollowPolicy(): String = if (this == FollowPolicy.APPROVE) FollowPolicy.APPROVE else FollowPolicy.OPEN
 
 /**
  * Every detail the athlete has set, from their [record] and their [tiers]' records, and an effective visibility for each group (see

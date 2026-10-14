@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewerState
 import io.ktor.client.HttpClient
@@ -29,6 +30,8 @@ class ProfileFollowTest {
     /** Alice's follow of Bob and his follower count, as the AppView has indexed them. */
     private var indexedFollow: AtUri? = null
     private var indexedFollowers = 3L
+    private var indexedRequested: Boolean? = null
+    private var bobPolicy: String? = null
     private val writes = mutableListOf<String>()
 
     private val http =
@@ -68,7 +71,8 @@ class ProfileFollowTest {
             did = bob,
             handle = Handle("bob.test"),
             followersCount = indexedFollowers,
-            viewer = ProfileViewerState(indexedFollow),
+            followPolicy = bobPolicy,
+            viewer = ProfileViewerState(indexedFollow, indexedRequested),
         )
 
     private suspend fun repository() = ProfileRepository(signedInTestSession(http, did = alice).clients, Clock.System, Logger)
@@ -110,5 +114,34 @@ class ProfileFollowTest {
         indexedFollow = null
         indexedFollowers = 2
         assertEquals(bobAsIndexed(), profiles.profile(bob.value))
+    }
+
+    @Test
+    fun followingAnAthleteWhoApprovesIsARequestUntilIndexed() = runTest {
+        bobPolicy = FollowPolicy.APPROVE
+        val profiles = repository()
+        val requested = profiles.follow(profiles.profile(bob.value))
+        val uri = assertNotNull(requested.viewer?.following)
+        assertEquals(true, requested.viewer?.followRequested)
+        assertEquals(3L, requested.followersCount, "a request doesn't count")
+        assertEquals(requested, profiles.profile(bob.value))
+
+        // Indexed as still pending: the AppView's view, unchanged.
+        indexedFollow = uri
+        indexedRequested = true
+        assertEquals(bobAsIndexed(), profiles.profile(bob.value))
+    }
+
+    @Test
+    fun cancellingARequestChangesNoCount() = runTest {
+        bobPolicy = FollowPolicy.APPROVE
+        indexedFollow = AtUri("at://$alice/${Nsid.GRAPH_FOLLOW}/3kf1")
+        indexedRequested = true
+        val profiles = repository()
+        val cancelled = profiles.unfollow(profiles.profile(bob.value))
+        assertNull(cancelled.viewer?.following)
+        assertNull(cancelled.viewer?.followRequested)
+        assertEquals(3L, cancelled.followersCount)
+        assertEquals(listOf("delete"), writes)
     }
 }

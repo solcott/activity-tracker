@@ -7,20 +7,22 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.activitytracker.lexicon.app.FollowDeclineRecord
 import io.github.solcott.activitytracker.lexicon.app.PrivateDetailsRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceAppAccess
 import io.github.solcott.activitytracker.lexicon.atproto.SpacePolicy
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
+import kotlin.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * `app.activitytracker.space.athlete` tier spaces and the `actor.privateDetails` record each one holds. [ensure] creates one of the
- * signed-in athlete's tier spaces the first time a save needs it, with the AppView ([managingApp]) deciding who reads it and only the
- * athlete writing, and points an existing one at the current managing app (the local tunnel's DID changes between runs). Each tier is
- * ensured once per session; reads never create spaces.
+ * `app.activitytracker.space.athlete` tier spaces, the `actor.privateDetails` record each one holds, and the follow requests the athlete
+ * declined (`graph.followDecline`, in their `self` space only). [ensure] creates one of the signed-in athlete's tier spaces the first time
+ * a save needs it, with the AppView ([managingApp]) deciding who reads it and only the athlete writing, and points an existing one at the
+ * current managing app (the local tunnel's DID changes between runs). Each tier is ensured once per session; reads never create spaces.
  */
 class AthleteSpaces(private val spaces: SpaceClient, private val managingApp: suspend () -> String) {
     private val mutex = Mutex()
@@ -61,6 +63,34 @@ class AthleteSpaces(private val spaces: SpaceClient, private val managingApp: su
         spaces.deleteRecord(uri(tier), COLLECTION, RKEY)
     }
 
+    /** Records, privately in the athlete's `self` space, that they declined [subject]'s follow request. */
+    suspend fun putDecline(subject: Did, at: Instant) {
+        val record = AtJson.encodeToJsonElement(FollowDeclineRecord.serializer(), FollowDeclineRecord(subject, at))
+        spaces.putRecord(ensure(AthleteSpace.SELF), DECLINES, FollowDeclineRecord.rkey(subject), record)
+    }
+
+    /** Forgets the athlete's decline of [subject]. Their `self` space exists, since it holds the decline. */
+    suspend fun deleteDecline(subject: Did) {
+        spaces.deleteRecord(uri(AthleteSpace.SELF), DECLINES, FollowDeclineRecord.rkey(subject))
+    }
+
+    /** Everyone the signed-in athlete has declined; empty when their `self` space doesn't exist yet. A decline's rkey is its subject. */
+    suspend fun declined(): Set<Did> {
+        val declined = mutableSetOf<Did>()
+        var cursor: String? = null
+        do {
+            val page =
+                when (val read = spaces.listRecords(uri(AthleteSpace.SELF), spaces.did, DECLINES, PAGE_SIZE, cursor)) {
+                    is SpaceRead.Found -> read.value
+                    SpaceRead.NotFound,
+                    SpaceRead.NoAccess -> break
+                }
+            page.records.mapNotNullTo(declined) { record -> record.rkey.takeIf { it.startsWith("did:") }?.let(::Did) }
+            cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
+        } while (cursor != null)
+        return declined
+    }
+
     /**
      * Makes sure [tier]'s space exists with a current read policy. Concurrent callers share one attempt; a failed one is retried next time.
      */
@@ -91,9 +121,11 @@ class AthleteSpaces(private val spaces: SpaceClient, private val managingApp: su
 
     companion object {
         /** The tiers that hold details, most widely seen first; public ones live in the profile record. */
-        val TIERS = listOf(AthleteSpace.MUTUALS, AthleteSpace.SELF)
+        val TIERS = listOf(AthleteSpace.FOLLOWERS, AthleteSpace.MUTUALS, AthleteSpace.SELF)
 
         private const val COLLECTION = Nsid.ACTOR_PRIVATE_DETAILS
+        private const val DECLINES = Nsid.GRAPH_FOLLOW_DECLINE
+        private const val PAGE_SIZE = 100
         private const val RKEY = PrivateDetailsRecord.RKEY
     }
 }

@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.atproto.xrpc.XrpcClient
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.ktor.client.HttpClient
@@ -18,6 +19,7 @@ import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.time.Instant
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.test.runTest
@@ -36,6 +38,9 @@ class AthleteSpacesTest {
     /** The `value` of the tier's `actor.privateDetails` record that `space.getRecord` returns. */
     private var storedRecord = "{}"
 
+    /** Pages of `graph.followDecline` rkeys that `space.listRecords` returns, in order; none means the `self` space doesn't exist. */
+    private var declinePages: List<List<String>>? = null
+
     /** Each call's method and JSON body, in order. */
     private val calls = mutableListOf<Pair<String, JsonObject?>>()
 
@@ -49,7 +54,8 @@ class AthleteSpacesTest {
                         AtJson.parseToJsonElement(it).jsonObject
                     }
                 calls += method to body
-                val space = "at://${alice.value}/space/app.activitytracker.space.athlete/${AthleteSpace.MUTUALS}"
+                val skey = body?.get("skey")?.jsonPrimitive?.content ?: AthleteSpace.MUTUALS
+                val space = "at://${alice.value}/space/app.activitytracker.space.athlete/$skey"
                 when (method) {
                     "com.atproto.simplespace.createSpace" ->
                         when {
@@ -66,6 +72,22 @@ class AthleteSpacesTest {
                             headers = json,
                         )
                     "com.atproto.simplespace.updateSpace" -> respond("{}", headers = json)
+                    "com.atproto.space.putRecord" -> respond("""{"uri":"$space/x","cid":"bafyrec"}""", headers = json)
+                    "com.atproto.space.deleteRecord" -> respond("{}", headers = json)
+                    "com.atproto.space.listRecords" -> {
+                        val pages = declinePages
+                        if (pages == null) {
+                            respond("""{"error":"SpaceNotFound"}""", HttpStatusCode.BadRequest, json)
+                        } else {
+                            val index = request.url.parameters["cursor"]?.toInt() ?: 0
+                            val records =
+                                pages[index].joinToString(",") { rkey ->
+                                    """{"collection":"app.activitytracker.graph.followDecline","rkey":"$rkey","cid":"bafy"}"""
+                                }
+                            val next = if (index + 1 < pages.size) ""","cursor":"${index + 1}"""" else ""
+                            respond("""{"records":[$records]$next}""", headers = json)
+                        }
+                    }
                     "com.atproto.space.getRecord" ->
                         respond(
                             """{"uri":"$space/${alice.value}/app.activitytracker.actor.privateDetails/self",
@@ -132,6 +154,28 @@ class AthleteSpacesTest {
         spaces.ensure(AthleteSpace.MUTUALS)
         assertEquals(2, calls.count { it.first == "com.atproto.simplespace.createSpace" })
     }
+
+    @Test
+    fun aDeclineGoesInTheSelfSpaceCreatingItFirst() = runTest {
+        spaces().putDecline(Did("did:plc:bob"), Instant.parse("2026-10-13T09:00:00Z"))
+
+        assertEquals(listOf("com.atproto.simplespace.createSpace", "com.atproto.space.putRecord"), calls.map { it.first })
+        assertEquals(AthleteSpace.SELF, calls[0].second!!["skey"]?.jsonPrimitive?.content)
+        val put = calls[1].second!!
+        assertEquals("at://did:plc:alice/space/app.activitytracker.space.athlete/self", put["space"]?.jsonPrimitive?.content)
+        assertEquals(Nsid.GRAPH_FOLLOW_DECLINE, put["collection"]?.jsonPrimitive?.content)
+        assertEquals("did:plc:bob", put["rkey"]?.jsonPrimitive?.content)
+        assertEquals("did:plc:bob", put["record"]!!.jsonObject["subject"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun declinesAreListedAcrossPages() = runTest {
+        declinePages = listOf(listOf("did:plc:bob", "not-a-did"), listOf("did:plc:carol"))
+        assertEquals(setOf(Did("did:plc:bob"), Did("did:plc:carol")), spaces().declined())
+        assertEquals(2, calls.count { it.first == "com.atproto.space.listRecords" })
+    }
+
+    @Test fun noSelfSpaceMeansNoDeclines() = runTest { assertEquals(emptySet(), spaces().declined()) }
 
     @Test
     fun aRecordThatDoesNotDecodeReadsAsNoDetails() = runTest {
