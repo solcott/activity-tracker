@@ -754,16 +754,3 @@ object Visibility {
     /** Only the athlete. */
     const val SELF = "self"
 }
-
-/** `app.activitytracker.actor.defs#detailsVisibility`: a [Visibility] value per detail group. */
-@Immutable
-@Serializable
-data class DetailsVisibility(
-    /** The whole [Location]: locality, region and country. */
-    val location: String? = null,
-    val birthDate: String? = null,
-    val gender: String? = null,
-    /** [ProfileDetails.weight] and [ProfileDetails.height] together. */
-    val weight: String? = null,
-    val training: String? = null,
-)

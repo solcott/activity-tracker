@@ -49,7 +49,7 @@
     },
     "details": {
       "type": "object",
-      "description": "Optional athlete details. Each is stored in the public profile record only when the athlete makes it public; otherwise it lives in the AppView's private store (see putPrivateDetails).",
+      "description": "Optional athlete details. Each is stored in the public profile record only when the athlete makes it public; otherwise it lives in the athlete's app.activitytracker.space.athlete space for its visibility (see actor.privateDetails).",
       "properties": {
         "location": { "type": "ref", "ref": "#location" },
         "birthDate": { "type": "string", "minLength": 10, "maxLength": 10, "description": "Calendar date as YYYY-MM-DD." },
@@ -193,17 +193,6 @@
       "type": "string",
       "knownValues": ["public", "mutuals", "self"],
       "description": "Who may see a detail: anyone, accounts the athlete and the viewer both follow, or only the athlete."
-    },
-    "detailsVisibility": {
-      "type": "object",
-      "description": "Visibility of each detail group in #details. A group can cover several details, which share its visibility.",
-      "properties": {
-        "location": { "type": "ref", "ref": "#visibility", "description": "The whole location: locality, region and country." },
-        "birthDate": { "type": "ref", "ref": "#visibility" },
-        "gender": { "type": "ref", "ref": "#visibility" },
-        "weight": { "type": "ref", "ref": "#visibility", "description": "Weight and height together." },
-        "training": { "type": "ref", "ref": "#visibility" }
-      }
     }
   }
 }
