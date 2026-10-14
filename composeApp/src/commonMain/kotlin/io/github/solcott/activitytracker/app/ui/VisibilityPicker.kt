@@ -17,13 +17,14 @@ import io.github.solcott.activitytracker.composeApp.resources.visibility_mutuals
 import io.github.solcott.activitytracker.composeApp.resources.visibility_public
 import io.github.solcott.activitytracker.composeApp.resources.visibility_self
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
 
 /**
  * A Public / Followers / Mutuals / Only me choice of who may see something, as a dropdown: four segments don't fit a phone's width.
- * [selected] is a [Visibility] value. [approvesFollowers] is the athlete's follow policy: without approval anyone can follow them, so
- * choosing Followers says so.
+ * [selected] is a [Visibility] value, one of [options] (all four by default; a chart's are capped at its activity's). [approvesFollowers]
+ * is the athlete's follow policy: without approval anyone can follow them, so choosing Followers says so.
  */
 @Composable
 fun VisibilityPicker(
@@ -32,14 +33,16 @@ fun VisibilityPicker(
     approvesFollowers: Boolean,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    options: ImmutableList<String> = ALL,
 ) {
     val labels =
         listOf(
-            Visibility.PUBLIC to stringResource(Res.string.visibility_public),
-            Visibility.FOLLOWERS to stringResource(Res.string.visibility_followers),
-            Visibility.MUTUALS to stringResource(Res.string.visibility_mutuals),
-            Visibility.SELF to stringResource(Res.string.visibility_self),
-        )
+                Visibility.PUBLIC to stringResource(Res.string.visibility_public),
+                Visibility.FOLLOWERS to stringResource(Res.string.visibility_followers),
+                Visibility.MUTUALS to stringResource(Res.string.visibility_mutuals),
+                Visibility.SELF to stringResource(Res.string.visibility_self),
+            )
+            .filter { it.first in options }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         MenuField(
             shown = labels.firstOrNull { it.first == selected }?.second.orEmpty(),
@@ -57,3 +60,5 @@ fun VisibilityPicker(
         }
     }
 }
+
+private val ALL: ImmutableList<String> = Visibility.all.toImmutableList()

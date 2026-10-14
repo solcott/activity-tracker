@@ -11,7 +11,10 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.visibility.rememberNewActivityVisibility
+import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -31,6 +34,7 @@ fun ManualActivityPresenter(
     activities: ActivityRepository,
     unitsRepository: UnitsRepository,
     recentTypes: RecentActivityTypes,
+    defaults: ActivityDefaults,
     clock: Clock,
 ): ManualActivityState {
     var type by rememberSaveable(stateSaver = ActivityTypeSaver) { mutableStateOf(ActivityType(Sport.RUN)) }
@@ -43,9 +47,14 @@ fun ManualActivityPresenter(
     val flights = rememberSingleFlight()
     val saving = flights.isRunning(ManualActivityEvent.Save)
     val quickTypes = quickActivityTypes(recentTypes)
+    val visibility = rememberNewActivityVisibility(defaults)
 
-    return ManualActivityState(type, quickTypes, title, distance, duration, temperature, units, saving, error) { event ->
+    return ManualActivityState(type, quickTypes, title, distance, duration, temperature, units, saving, error, visibility.fields) { event ->
         when (event) {
+            is ManualActivityEvent.VisibilityChanged -> {
+                visibility.activityChanged(event.visibility)
+            }
+
             is ManualActivityEvent.TypeChanged -> {
                 type = event.value
             }
@@ -65,21 +74,22 @@ fun ManualActivityPresenter(
                         val elapsed = (minutes * 60).toLong()
                         activities.publish(
                             ActivityDraft(
-                                type = type,
-                                title = title.text.toString().ifBlank { null },
-                                description = null,
-                                startedAt = clock.now() - minutes.minutes,
-                                elapsed = minutes.minutes,
-                                movingSeconds = elapsed,
-                                distanceMeters =
-                                    parseDecimal(distance.text.toString())?.let { UnitConversions.fromDistanceUnit(it, units) },
-                                avgTemperatureCelsius =
-                                    parseDecimal(temperature.text.toString())?.let { UnitConversions.fromTemperatureUnit(it, units) },
-                            )
+                                    type = type,
+                                    title = title.text.toString().ifBlank { null },
+                                    description = null,
+                                    startedAt = clock.now() - minutes.minutes,
+                                    elapsed = minutes.minutes,
+                                    movingSeconds = elapsed,
+                                    distanceMeters =
+                                        parseDecimal(distance.text.toString())?.let { UnitConversions.fromDistanceUnit(it, units) },
+                                    avgTemperatureCelsius =
+                                        parseDecimal(temperature.text.toString())?.let { UnitConversions.fromTemperatureUnit(it, units) },
+                                )
+                                .withVisibility(visibility.current)
                         )
                         navigator.pop()
                     }
-                        .onFailure { e -> error = UiError.of(UiError.Kind.SaveActivity, e) }
+                        .onFailure { e -> error = uiErrorOf(UiError.Kind.SaveActivity, e) }
                 }
             }
         }

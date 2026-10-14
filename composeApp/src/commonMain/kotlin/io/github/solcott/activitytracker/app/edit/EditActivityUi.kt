@@ -13,6 +13,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.ActivityDetailsForm
+import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
@@ -30,6 +31,9 @@ import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.action_save
 import io.github.solcott.activitytracker.composeApp.resources.action_saving
+import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_narrowing_body
+import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_narrowing_confirm
+import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_narrowing_title
 import io.github.solcott.activitytracker.composeApp.resources.edit_activity_title
 import io.github.solcott.activitytracker.composeApp.resources.edit_discard
 import io.github.solcott.activitytracker.composeApp.resources.edit_discard_message
@@ -70,6 +74,15 @@ fun EditActivityUi(state: EditActivityState, modifier: Modifier = Modifier) {
                     }
                 } else {
                     ActivityDetailsForm(state.title, titlePlaceholder = activityTypeLabel(type), fields = details, enabled = !state.saving)
+                    state.visibility?.let { visibility ->
+                        ActivityVisibilityForm(
+                            visibility,
+                            hasCharts = state.hasCharts,
+                            onActivityChange = { state.eventSink(EditActivityEvent.VisibilityChanged(it)) },
+                            onChartsChange = { state.eventSink(EditActivityEvent.ChartsVisibilityChanged(it)) },
+                            enabled = !state.saving,
+                        )
+                    }
                     state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
                     AppButton(onClick = { state.eventSink(EditActivityEvent.Save) }, enabled = !state.saving) {
                         Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
@@ -90,6 +103,20 @@ fun EditActivityUi(state: EditActivityState, modifier: Modifier = Modifier) {
                 ),
             cancelLabel = stringResource(Res.string.action_cancel),
             onDismiss = { state.eventSink(EditActivityEvent.KeepEditing) },
+        )
+    }
+    if (state.confirmNarrowing) {
+        AppAlertDialog(
+            title = stringResource(Res.string.activity_visibility_narrowing_title),
+            message = stringResource(Res.string.activity_visibility_narrowing_body),
+            actions =
+                persistentListOf(
+                    AppDialogAction(stringResource(Res.string.activity_visibility_narrowing_confirm)) {
+                        state.eventSink(EditActivityEvent.ConfirmNarrowing)
+                    }
+                ),
+            cancelLabel = stringResource(Res.string.action_cancel),
+            onDismiss = { state.eventSink(EditActivityEvent.CancelNarrowing) },
         )
     }
 }

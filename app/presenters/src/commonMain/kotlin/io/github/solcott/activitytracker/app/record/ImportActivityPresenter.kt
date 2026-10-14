@@ -22,7 +22,10 @@ import io.github.solcott.activitytracker.activityfile.UnsupportedActivityFileExc
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.edit.rememberDetailsForm
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.visibility.rememberNewActivityVisibility
+import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -38,7 +41,6 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
-import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.math.roundToLong
 import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableList
@@ -60,6 +62,7 @@ fun ImportActivityPresenter(
     recentTypes: RecentActivityTypes,
     profiles: ProfileRepository,
     feed: FeedRepository,
+    defaults: ActivityDefaults,
 ): ImportActivityState {
     // The parsed file isn't saveable; after process death the athlete picks it again. A logbook holds many dives.
     var file by remember { mutableStateOf<Pair<String, ImmutableList<ImportedActivity>>?>(null) }
@@ -73,7 +76,6 @@ fun ImportActivityPresenter(
     // Where a zone-less file's clock was; null for this device's zone.
     var zoneId by rememberSaveable { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<UiError?>(null) }
-    var chartsVisibility by rememberSaveable { mutableStateOf(Visibility.PUBLIC) }
     val flights = rememberSingleFlight()
     val saving = flights.isRunning(ImportActivityEvent.Save::class)
     val reading = flights.isRunning(ImportActivityEvent.FilePicked::class)
@@ -95,6 +97,7 @@ fun ImportActivityPresenter(
             singlePreview(placed, zone, zones, matches, selection, loggedStreams)
         }
     val athlete = rememberOwnProfile(profiles)
+    val visibility = rememberNewActivityVisibility(defaults) { athlete?.followPolicy == FollowPolicy.APPROVE }
     val training = athlete?.details?.training
     val thresholdChanges = remember(placed, training, type.sport) { pendingThresholds(training, placed?.second, type.sport) }
     val quickTypes = quickActivityTypes(recentTypes)
@@ -115,7 +118,7 @@ fun ImportActivityPresenter(
         saving,
         error,
         thresholdChanges,
-        chartsVisibility,
+        visibility.fields,
         dives,
         own.check,
         placed?.let { details.fields(isDive = type.sport == Sport.DIVE) },
@@ -165,7 +168,9 @@ fun ImportActivityPresenter(
                 navigator.pop()
             }
 
-            is ImportActivityEvent.ChartsVisibilityChanged -> chartsVisibility = event.visibility
+            is ImportActivityEvent.ChartsVisibilityChanged -> visibility.chartsChanged(event.visibility)
+
+            is ImportActivityEvent.VisibilityChanged -> visibility.activityChanged(event.visibility)
 
             is ImportActivityEvent.DiveToggled -> selection = selection.toggled(event.index, matches.getOrNull(event.index))
 
@@ -175,9 +180,9 @@ fun ImportActivityPresenter(
 
             is ImportActivityEvent.SaveDives ->
                 flights.launch(ImportActivityEvent.Save::class) {
-                    val import = diveImport(placedDives, selection, matches, event.defaultTitles, training, chartsVisibility)
+                    val import = diveImport(placedDives, selection, matches, event.defaultTitles, training, visibility.current)
                     runSuspendCatching { activities.saveDives(import, onPublished = { navigator.pop() }) }
-                        .onFailure { e -> error = UiError.of(UiError.Kind.SaveActivity, e) }
+                        .onFailure { e -> error = uiErrorOf(UiError.Kind.SaveActivity, e) }
                 }
 
             is ImportActivityEvent.Save -> {
@@ -193,14 +198,15 @@ fun ImportActivityPresenter(
                                     diveSite = details.diveSite.text.toString().takeIf { type.sport == Sport.DIVE },
                                     photos = details.newPhotos(),
                                 )
-                                .copy(streamsVisibility = chartsVisibility),
+                                .withVisibility(visibility.current),
                             into = mergeTarget(matches.firstOrNull(), selection.action(0)),
                             recordingOf = groupTarget(matches.firstOrNull(), selection.action(0)),
+                            recordingOfVisibility = loggedVisibility(matches.firstOrNull()),
                         )
                         updateThresholds(profiles, activity, type.sport, previewed = thresholdChanges)
                         navigator.pop()
                     }
-                        .onFailure { e -> error = UiError.of(UiError.Kind.SaveActivity, e) }
+                        .onFailure { e -> error = uiErrorOf(UiError.Kind.SaveActivity, e) }
                 }
             }
         }

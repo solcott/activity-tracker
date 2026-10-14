@@ -16,6 +16,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
 import io.github.solcott.activitytracker.app.ui.UnitSystemPicker
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
@@ -94,6 +95,13 @@ fun ManualActivityUi(state: ManualActivityState, modifier: Modifier = Modifier) 
                 // Not Decimal: some numeric keyboards have no minus key.
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                 modifier = Modifier.fillMaxWidth(),
+            )
+            ActivityVisibilityForm(
+                state.visibility,
+                hasCharts = false,
+                onActivityChange = { state.eventSink(ManualActivityEvent.VisibilityChanged(it)) },
+                onChartsChange = {},
+                enabled = !state.saving,
             )
             state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
             AppButton(

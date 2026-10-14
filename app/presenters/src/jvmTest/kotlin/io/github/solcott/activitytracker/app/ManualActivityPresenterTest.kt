@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -26,7 +27,9 @@ class ManualActivityPresenterTest {
     fun imperialEntryIsStoredInSiUnits() = runTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Imperial)
         val navigator = FakeNavigator(ManualActivityScreen)
-        presenterTestOf({ ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, Clock.System) }) {
+        presenterTestOf({
+            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, repos.defaults, Clock.System)
+        }) {
             val initial = awaitItem()
             assertEquals(UnitSystem.Imperial, initial.units)
 
@@ -47,7 +50,9 @@ class ManualActivityPresenterTest {
     fun switchingUnitsChangesHowEntriesAreRead() = runTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Imperial)
         val navigator = FakeNavigator(ManualActivityScreen)
-        presenterTestOf({ ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, Clock.System) }) {
+        presenterTestOf({
+            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, repos.defaults, Clock.System)
+        }) {
             awaitItem().eventSink(ManualActivityEvent.UnitsChanged(UnitSystem.Metric))
             val metric = awaitItem()
             assertEquals(UnitSystem.Metric, metric.units)
@@ -68,7 +73,9 @@ class ManualActivityPresenterTest {
     fun acceptsACommaAsTheDecimalSeparator() = runTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
         val navigator = FakeNavigator(ManualActivityScreen)
-        presenterTestOf({ ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, Clock.System) }) {
+        presenterTestOf({
+            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, repos.defaults, Clock.System)
+        }) {
             val form = awaitItem()
             form.distance.setTextAndPlaceCursorAtEnd("5,2")
             form.durationMinutes.setTextAndPlaceCursorAtEnd("30,5")
@@ -90,7 +97,9 @@ class ManualActivityPresenterTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
         val navigator = FakeNavigator(ManualActivityScreen)
         val gravel = ActivityType(Sport.RIDE, SubSport.GRAVEL)
-        presenterTestOf({ ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, Clock.System) }) {
+        presenterTestOf({
+            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, repos.defaults, Clock.System)
+        }) {
             val initial = awaitUntil { it.quickTypes.isNotEmpty() }
             assertEquals(SportCatalog.common, initial.quickTypes, "nothing tracked yet")
             assertEquals(ActivityType(Sport.RUN), initial.type)
@@ -108,11 +117,57 @@ class ManualActivityPresenterTest {
         assertEquals(SubSport.GRAVEL, record.getValue("subSport").jsonPrimitive.content)
 
         presenterTestOf({
-            ManualActivityPresenter(FakeNavigator(ManualActivityScreen), repos.activities, repos.units, repos.recentTypes, Clock.System)
+            ManualActivityPresenter(
+                FakeNavigator(ManualActivityScreen),
+                repos.activities,
+                repos.units,
+                repos.recentTypes,
+                repos.defaults,
+                Clock.System,
+            )
         }) {
             val next = awaitUntil { it.quickTypes.firstOrNull() == gravel }
             assertEquals(listOf(gravel) + SportCatalog.common, next.quickTypes)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun theDefaultVisibilityCanBeOverriddenForOneActivity() = runTest {
+        fixture.activityDefaults = """{"visibility":"followers","chartsVisibility":"followers"}"""
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ManualActivityScreen)
+        presenterTestOf({
+            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, repos.defaults, Clock.System)
+        }) {
+            val defaulted = awaitUntil { it.visibility.activity == Visibility.FOLLOWERS }
+            defaulted.eventSink(ManualActivityEvent.VisibilityChanged(Visibility.PUBLIC))
+            val public = awaitUntil { it.visibility.activity == Visibility.PUBLIC }
+            public.durationMinutes.setTextAndPlaceCursorAtEnd("30")
+            public.eventSink(ManualActivityEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(1, fixture.putRecords.size, "published to the repo")
+        assertTrue(fixture.spacePuts.isEmpty())
+        assertEquals("""{"visibility":"followers","chartsVisibility":"followers"}""", fixture.activityDefaults, "the default stays")
+    }
+
+    @Test
+    fun aFollowersDefaultPublishesToTheFollowersSpace() = runTest {
+        fixture.activityDefaults = """{"visibility":"followers"}"""
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ManualActivityScreen)
+        presenterTestOf({
+            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, repos.defaults, Clock.System)
+        }) {
+            val defaulted = awaitUntil { it.visibility.activity == Visibility.FOLLOWERS }
+            defaulted.durationMinutes.setTextAndPlaceCursorAtEnd("30")
+            defaulted.eventSink(ManualActivityEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertTrue(fixture.putRecords.isEmpty(), "never in the repo")
+        assertEquals(listOf(Visibility.FOLLOWERS), fixture.spacePuts.map { it.first })
     }
 }

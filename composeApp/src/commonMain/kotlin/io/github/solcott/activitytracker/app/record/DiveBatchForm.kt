@@ -13,14 +13,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
 import io.github.solcott.activitytracker.app.ui.Format
-import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCheckbox
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_saving
-import io.github.solcott.activitytracker.composeApp.resources.charts_visibility_heading
 import io.github.solcott.activitytracker.composeApp.resources.dive_number
 import io.github.solcott.activitytracker.composeApp.resources.import_deselect_all
 import io.github.solcott.activitytracker.composeApp.resources.import_dives_details_hint
@@ -76,12 +75,13 @@ internal fun DiveBatchForm(state: ImportActivityState, batch: DiveBatch, modifie
                 inFileNumber = dive.duplicate?.inFileIndex?.let { batch.dives.getOrNull(it)?.diveNumber ?: (it + 1) },
             )
         }
-        Text(stringResource(Res.string.charts_visibility_heading), style = MaterialTheme.typography.labelLarge)
-        VisibilityPicker(
-            state.chartsVisibility,
-            onSelect = { state.eventSink(ImportActivityEvent.ChartsVisibilityChanged(it)) },
-            approvesFollowers = state.approvesFollowers,
-            modifier = Modifier.fillMaxWidth(),
+        // One choice for every dive in the batch.
+        ActivityVisibilityForm(
+            state.visibility,
+            hasCharts = true,
+            onActivityChange = { state.eventSink(ImportActivityEvent.VisibilityChanged(it)) },
+            onChartsChange = { state.eventSink(ImportActivityEvent.ChartsVisibilityChanged(it)) },
+            enabled = !state.saving,
         )
         val defaultTitles =
             batch.dives.filter { it.title == null }.associate { it.index to defaultTitleLabel(it.defaultTitle) }.toImmutableMap()

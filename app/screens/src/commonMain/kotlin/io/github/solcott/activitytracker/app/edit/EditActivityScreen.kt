@@ -6,6 +6,7 @@ import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 
@@ -23,6 +24,12 @@ data class EditActivityState(
     val error: UiError?,
     /** The athlete went back with unsaved changes; ask before dropping them. */
     val confirmDiscard: Boolean,
+    /** Who may see the activity and its charts; null while it loads. */
+    val visibility: VisibilityFields? = null,
+    /** The activity has charts, so their visibility can be chosen. */
+    val hasCharts: Boolean = false,
+    /** Saving would narrow a Public activity: copies already published (on the firehose, in other apps) can't be recalled, so ask first. */
+    val confirmNarrowing: Boolean = false,
     val eventSink: (EditActivityEvent) -> Unit,
 ) : CircuitUiState
 
@@ -38,4 +45,16 @@ sealed interface EditActivityEvent {
 
     /** Retries a failed load. */
     data object Retry : EditActivityEvent
+
+    /** Who may see the activity: a `Visibility` value. Narrows the charts with it. */
+    data class VisibilityChanged(val visibility: String) : EditActivityEvent
+
+    /** Who may see the activity's charts: a `Visibility` value, no wider than the activity's. */
+    data class ChartsVisibilityChanged(val visibility: String) : EditActivityEvent
+
+    /** Saves after the warning that narrowing a Public activity can't recall published copies. */
+    data object ConfirmNarrowing : EditActivityEvent
+
+    /** Back to editing without saving, from that warning. */
+    data object CancelNarrowing : EditActivityEvent
 }

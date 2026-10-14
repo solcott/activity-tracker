@@ -29,6 +29,7 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -180,6 +181,18 @@ class ProfilePresenterTest {
             // Room emits off the test scheduler, so this waits on the real drain (bounded by runTest\'s timeout).
             activities.pendingWrites.first { it == 0 }
             assertEquals(1, puts)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aFollowersActivityTakesNoKudos() = runTest {
+        putGate.complete(Unit)
+        presenterTestOf(presenter()) {
+            val loaded = awaitUntil { it.profile != null && it.error == null }
+            loaded.eventSink(ProfileEvent.Activity(ActivityListEvent.ToggleKudos(bobsRide.copy(visibility = Visibility.FOLLOWERS))))
+            activities.pendingWrites.first { it == 0 }
+            assertEquals(0, puts)
             cancelAndIgnoreRemainingEvents()
         }
     }

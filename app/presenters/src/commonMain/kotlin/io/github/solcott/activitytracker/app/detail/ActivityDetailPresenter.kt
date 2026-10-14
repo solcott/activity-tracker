@@ -74,7 +74,7 @@ fun ActivityDetailPresenter(
     // An edit shows as soon as it's saved, and stays over the AppView's copy until Jetstream brings it there.
     val rewrite by remember(screen.uri) { feed.rewrites.observe(AtUri(screen.uri)) }.collectAsState(null)
 
-    val charts = rememberCharts(AtUri(screen.uri), loadKey, feed, activities, flights) { error = it }
+    val charts = rememberCharts(AtUri(screen.uri), activity, loadKey, feed, activities, flights) { error = it }
     val shown = activity?.let { a -> rewrite?.let { feed.rewrites.rewritten(a, it) } ?: a }?.withKudosOverrides(kudosOverrides)
     val isOwn = shown?.author?.did == profiles.did
     var approvesFollowers by remember { mutableStateOf(false) }
@@ -200,8 +200,9 @@ private fun rememberManage(
                 flights.launch(ungroup) {
                     error = null
                     runSuspendCatching {
-                        if (recordingOf == null) manager.ungroup(recordings.single().uri, from = activity.uri)
-                        else manager.ungroup(activity.uri, from = recordingOf)
+                        val visibility = activity.visibilityOrPublic
+                        if (recordingOf == null) manager.ungroup(recordings.single().uri, from = activity.uri, visibility)
+                        else manager.ungroup(activity.uri, from = recordingOf, visibility)
                     }
                         .onSuccess { reload() }
                         .onFailure { error = UiError.of(UiError.Kind.UngroupActivity, it) }
@@ -269,11 +270,13 @@ private class Charts(val charts: ActivityCharts?, val saving: Boolean, val setVi
 
 /**
  * [activity]'s charts, reloaded with [loadKey]. They're extra: without streams, or when they fail to load, the activity shows without them.
- * Changing who sees them reports a failure through [onError].
+ * Changing who sees them (once [view] has loaded, since they're never shown wider than it) reports a failure through [onError].
  */
 @Composable
+@Suppress("LongParameterList") // The activity, and what loads and saves its charts.
 private fun rememberCharts(
     activity: AtUri,
+    view: ActivityView?,
     loadKey: Int,
     feed: FeedRepository,
     activities: ActivityRepository,
@@ -286,9 +289,9 @@ private fun rememberCharts(
     }
     val key = ActivityDetailEvent.SetChartsVisibility::class
     return Charts(charts, flights.isRunning(key)) { visibility ->
-        if (charts?.visibility.let { it != null && it != visibility }) {
+        if (view != null && charts?.visibility.let { it != null && it != visibility }) {
             flights.launch(key) {
-                runSuspendCatching { activities.setStreamsVisibility(activity, visibility) }
+                runSuspendCatching { activities.setStreamsVisibility(view, visibility) }
                     .fold({ charts = charts?.copy(visibility = visibility) }, { onError(UiError.of(UiError.Kind.SaveActivity, it)) })
             }
         }

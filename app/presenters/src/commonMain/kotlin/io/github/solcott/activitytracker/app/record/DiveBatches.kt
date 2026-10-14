@@ -1,13 +1,12 @@
 package io.github.solcott.activitytracker.app.record
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.DiveMatch
 import io.github.solcott.activitytracker.data.activity.DuplicateOf
 import io.github.solcott.activitytracker.data.activity.OwnActivity
+import io.github.solcott.activitytracker.data.activity.VisibilityChoice
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import kotlinx.collections.immutable.ImmutableList
@@ -106,8 +105,11 @@ internal class DiveImport(
     val logged: Map<Int, AtUri>,
 )
 
-/** A dive to publish as another recording of a logged activity ([ofLogged]) or of a dive earlier in the file ([ofIndex]). */
-internal class RecordingDraft(val draft: ActivityDraft, val ofLogged: AtUri?, val ofIndex: Int?)
+/**
+ * A dive to publish as another recording of a logged activity ([ofLogged], whose visibility is [loggedVisibility]) or of a dive earlier in
+ * the file ([ofIndex]), which shares this one's.
+ */
+internal class RecordingDraft(val draft: ActivityDraft, val ofLogged: AtUri?, val ofIndex: Int?, val loggedVisibility: String? = null)
 
 /**
  * The selected [dives] ready to save, oldest first, each with its own type and its site as the title, else its [defaultTitles] entry. Dives
@@ -120,7 +122,7 @@ internal fun diveImport(
     matches: List<DiveMatch?>,
     defaultTitles: Map<Int, String>,
     training: TrainingDetails?,
-    streamsVisibility: String,
+    visibility: VisibilityChoice,
 ): DiveImport {
     val drafts = mutableListOf<Pair<Int, ActivityDraft>>()
     val merges = mutableListOf<Pair<OwnActivity, ActivityDraft>>()
@@ -129,13 +131,14 @@ internal fun diveImport(
         val match = matches.getOrNull(index)
         if (!selection.isSelected(index, match)) continue
         val title = dive.title ?: defaultTitles[index]?.ifBlank { null }
-        val draft = importDraft(dive, dive.type, title, training, emptyList()).copy(streamsVisibility = streamsVisibility)
+        val draft = importDraft(dive, dive.type, title, training, emptyList()).withVisibility(visibility)
         val action = selection.action(index)
         val into = mergeTarget(match, action)
         when {
             into != null -> merges += into to draft
             match != null && action == DuplicateAction.Group ->
-                recordings += RecordingDraft(draft, groupTarget(match, action), recordedIndex(index, matches, selection))
+                recordings +=
+                    RecordingDraft(draft, groupTarget(match, action), recordedIndex(index, matches, selection), loggedVisibility(match))
             else -> drafts += index to draft
         }
     }
@@ -167,16 +170,23 @@ internal suspend fun ActivityRepository.saveDives(import: DiveImport, onPublishe
     val recordings =
         import.recordings.map { recording ->
             val of = recording.ofLogged ?: recording.ofIndex?.let { published[it] ?: import.logged[it] }
-            recording.draft.copy(recordingOf = of)
+            // A recording takes its primary's visibility: a logged dive's own, or the batch's for one in the file.
+            val visibility = recording.loggedVisibility.takeIf { recording.ofLogged != null } ?: recording.draft.visibility
+            of?.let { recording.draft.recordingOf(it, visibility) } ?: recording.draft
         }
     if (recordings.isNotEmpty()) publishAll(recordings)
     onPublished()
 }
 
 /** Publishes a single file's activity, maybe as another recording of a logged one, or merges it into the logged dive it duplicates. */
-internal suspend fun ActivityRepository.saveSingle(draft: ActivityDraft, into: OwnActivity?, recordingOf: AtUri?) {
+internal suspend fun ActivityRepository.saveSingle(
+    draft: ActivityDraft,
+    into: OwnActivity?,
+    recordingOf: AtUri?,
+    recordingOfVisibility: String?,
+) {
     if (into == null) {
-        publish(draft.copy(recordingOf = recordingOf))
+        publish(recordingOf?.let { draft.recordingOf(it, recordingOfVisibility ?: draft.visibility) } ?: draft)
     } else {
         mergeInto(into, draft)
         sync()

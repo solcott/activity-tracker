@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -13,13 +15,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.UnitSystemPicker
+import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.profile_sign_out
+import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_activity
+import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_charts
+import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_heading
+import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_help
 import io.github.solcott.activitytracker.composeApp.resources.settings_saving
 import io.github.solcott.activitytracker.composeApp.resources.settings_title
 import io.github.solcott.activitytracker.composeApp.resources.settings_units_heading
@@ -39,7 +48,7 @@ fun SettingsUi(state: SettingsState, modifier: Modifier = Modifier) {
         topBar = { AppTopBar(title = stringResource(Res.string.settings_title), onBack = { state.eventSink(SettingsEvent.Back) }) },
     ) { padding ->
         Column(
-            Modifier.padding(padding).readableWidth().padding(16.dp),
+            Modifier.verticalScroll(rememberScrollState()).padding(padding).readableWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(stringResource(Res.string.settings_units_heading), style = MaterialTheme.typography.titleMedium)
@@ -62,11 +71,54 @@ fun SettingsUi(state: SettingsState, modifier: Modifier = Modifier) {
                 ),
                 style = MaterialTheme.typography.bodySmall,
             )
+            HorizontalDivider()
+            state.defaults?.let { defaults -> DefaultVisibility(defaults, state.savingDefaults, state.eventSink) }
             state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
             HorizontalDivider()
             AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.OpenZones) }) { Text(stringResource(Res.string.settings_zones)) }
             HorizontalDivider()
             AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.SignOut) }) { Text(stringResource(Res.string.profile_sign_out)) }
         }
+    }
+}
+
+/** Who new activities and their charts start out shown to; the charts' choices are capped at the activity's. */
+@Composable
+private fun DefaultVisibility(
+    defaults: VisibilityFields,
+    saving: Boolean,
+    eventSink: (SettingsEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val enabled = defaults.canChoose && !saving
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(stringResource(Res.string.settings_defaults_heading), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(Res.string.settings_defaults_activity), style = MaterialTheme.typography.labelLarge)
+        VisibilityPicker(
+            defaults.activity,
+            onSelect = { eventSink(SettingsEvent.DefaultVisibilityChanged(it)) },
+            approvesFollowers = defaults.approvesFollowers,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = enabled,
+        )
+        Text(stringResource(Res.string.settings_defaults_charts), style = MaterialTheme.typography.labelLarge)
+        VisibilityPicker(
+            defaults.charts,
+            onSelect = { eventSink(SettingsEvent.DefaultChartsVisibilityChanged(it)) },
+            approvesFollowers = defaults.approvesFollowers,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = enabled,
+            options = defaults.chartsOptions,
+        )
+        Text(
+            stringResource(
+                when {
+                    saving -> Res.string.settings_saving
+                    !defaults.canChoose -> Res.string.activity_visibility_sign_in_again
+                    else -> Res.string.settings_defaults_help
+                }
+            ),
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }

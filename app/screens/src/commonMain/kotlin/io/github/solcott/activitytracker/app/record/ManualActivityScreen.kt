@@ -6,6 +6,7 @@ import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.parseDecimal
@@ -30,6 +31,8 @@ data class ManualActivityState(
     val units: UnitSystem,
     val saving: Boolean,
     val error: UiError?,
+    /** Who may see the activity; starts at the athlete's default. A manual entry has no charts. */
+    val visibility: VisibilityFields = VisibilityFields(),
     val eventSink: (ManualActivityEvent) -> Unit,
 ) : CircuitUiState {
     val valid: Boolean
@@ -40,6 +43,9 @@ sealed interface ManualActivityEvent {
     data class TypeChanged(val value: ActivityType) : ManualActivityEvent
 
     data class UnitsChanged(val value: UnitSystem) : ManualActivityEvent
+
+    /** Who may see this activity: a `Visibility` value. */
+    data class VisibilityChanged(val visibility: String) : ManualActivityEvent
 
     data object Save : ManualActivityEvent
 

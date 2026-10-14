@@ -9,10 +9,10 @@ import io.github.solcott.activitytracker.activityfile.SensorBattery
 import io.github.solcott.activitytracker.activityfile.SensorKind
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.edit.ActivityDetailsFields
+import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.training.ThresholdChange
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
-import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.time.Duration
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
@@ -40,8 +40,8 @@ data class ImportActivityState(
     val error: UiError?,
     /** Thresholds that saving updates from the recording device's settings, where the athlete lets imports update them. */
     val thresholdChanges: ImmutableList<ThresholdChange> = persistentListOf(),
-    /** Who may see the activity's charts: a `Visibility` value. */
-    val chartsVisibility: String = Visibility.PUBLIC,
+    /** Who may see the activity (or, for a logbook, every dive) and its charts; starts at the athlete's defaults. */
+    val visibility: VisibilityFields = VisibilityFields(),
     /** A logbook (UDDF, Subsurface) of several dives, once read; the athlete picks which to import. */
     val dives: DiveBatch? = null,
     /** How the search for dives already in the athlete's log is going; saving waits for it. */
@@ -341,6 +341,9 @@ sealed interface ImportActivityEvent {
 
     /** Who may see the activity's charts: a `Visibility` value. */
     data class ChartsVisibilityChanged(val visibility: String) : ImportActivityEvent
+
+    /** Who may see the activity (every dive of a logbook): a `Visibility` value. Narrows the charts with it. */
+    data class VisibilityChanged(val visibility: String) : ImportActivityEvent
 
     data object Back : ImportActivityEvent
 }

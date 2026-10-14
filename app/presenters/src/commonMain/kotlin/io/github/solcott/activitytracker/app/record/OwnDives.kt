@@ -135,6 +135,9 @@ internal fun groupTarget(match: DiveMatch?, action: DuplicateAction): AtUri? =
 internal fun loggedTarget(match: DiveMatch?): AtUri? =
     (match?.of as? DuplicateOf.Existing)?.activity?.let { it.record.recordingOf ?: it.uri }
 
+/** The visibility of the logged dive [match] names, which a recording grouped into it takes. */
+internal fun loggedVisibility(match: DiveMatch?): String? = (match?.of as? DuplicateOf.Existing)?.activity?.visibility
+
 /** The logged dive to merge into, when the athlete chose to. */
 internal fun mergeTarget(match: DiveMatch?, action: DuplicateAction): OwnActivity? =
     (match?.of as? DuplicateOf.Existing)?.activity?.takeIf { action == DuplicateAction.Merge }

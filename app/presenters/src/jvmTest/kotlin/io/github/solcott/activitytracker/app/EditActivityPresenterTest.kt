@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.app.edit.EditActivityScreen
 import io.github.solcott.activitytracker.app.edit.EditActivityState
 import io.github.solcott.activitytracker.app.edit.EditMedia
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
+import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
@@ -21,10 +22,12 @@ import io.github.solcott.activitytracker.data.activity.cid
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalKudos
+import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -43,6 +46,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.bytestring.ByteString
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 class EditActivityPresenterTest {
     private val alice = Did("did:plc:alice")
@@ -58,13 +62,18 @@ class EditActivityPresenterTest {
         """{"${'$'}type":"app.activitytracker.feed.activity#image","image":{"${'$'}type":"blob","ref":{"${'$'}link":"$cid"},""" +
             """"mimeType":"image/webp","size":10},"aspectRatio":{"width":4,"height":3}}"""
 
-    private val view =
-        """{"uri":"$uri","cid":"bafyact","author":{"did":"${alice.value}","handle":"alice.test"},"record":$record,""" +
-            """"kudosCount":0,"commentCount":0,"indexedAt":"2026-09-30T10:31:01Z","viewer":{},"media":[""" +
-            listOf("bafkone", "bafktwo").joinToString(",") {
-                """{"${'$'}type":"app.activitytracker.feed.defs#imageView","fullsize":"https://appview/img/media/${alice.value}/$it"}"""
-            } +
-            "]}"
+    /** Where the activity is stored, as the AppView serves it. */
+    private var visibility = Visibility.PUBLIC
+
+    private val view
+        get() =
+            """{"uri":"$uri","cid":"bafyact","author":{"did":"${alice.value}","handle":"alice.test"},"record":$record,""" +
+                """"visibility":"$visibility",""" +
+                """"kudosCount":0,"commentCount":0,"indexedAt":"2026-09-30T10:31:01Z","viewer":{},"media":[""" +
+                listOf("bafkone", "bafktwo").joinToString(",") {
+                    """{"${'$'}type":"app.activitytracker.feed.defs#imageView","fullsize":"https://appview/img/media/${alice.value}/$it"}"""
+                } +
+                "]}"
 
     /** Every upload and write the PDS took, in order. */
     private val writes = mutableListOf<String>()
@@ -96,6 +105,36 @@ class EditActivityPresenterTest {
                             )
                         }
 
+                    "/xrpc/com.atproto.space.getRecord" ->
+                        if (request.url.parameters["collection"] == Nsid.FEED_ACTIVITY) {
+                            respond("""{"uri":"$uri","cid":"bafyact","value":$record}""", headers = json)
+                        } else {
+                            respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, json)
+                        }
+
+                    "/.well-known/did.json" ->
+                        respond(
+                            """{"id":"did:web:appview.test","service":[
+                               {"id":"#activitytracker_space","type":"AtprotoSpaceService","serviceEndpoint":"http://appview.test"}]}""",
+                            headers = json,
+                        )
+
+                    "/xrpc/com.atproto.simplespace.createSpace" -> {
+                        val tier = AtJson.parseToJsonElement(body(request)).jsonObject.getValue("skey").jsonPrimitive.content
+                        respond("""{"uri":"at://${alice.value}/space/${Nsid.SPACE_ATHLETE}/$tier"}""", headers = json)
+                    }
+
+                    "/xrpc/${Nsid.SPACE_NOTIFY_SPACE}" -> respond("{}", headers = json)
+
+                    "/xrpc/com.atproto.space.putRecord",
+                    "/xrpc/com.atproto.space.deleteRecord",
+                    "/xrpc/com.atproto.repo.deleteRecord" -> {
+                        val input = AtJson.parseToJsonElement(body(request)).jsonObject
+                        val place = input["space"]?.jsonPrimitive?.content?.substringAfterLast('/') ?: "repo"
+                        writes += (if (input["record"] != null) "put " else "delete ") + place
+                        respond("""{"uri":"$uri","cid":"bafyrec"}""", headers = json)
+                    }
+
                     "/xrpc/com.atproto.repo.putRecord" -> {
                         gate.await()
                         val body = AtJson.parseToJsonElement((request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString())
@@ -111,6 +150,9 @@ class EditActivityPresenterTest {
             expectSuccess = false
         }
 
+    private fun body(request: io.ktor.client.request.HttpRequestData) =
+        (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+
     private val picked = PickedPhoto(ByteString(1, 2, 3), "image/webp", width = 3, height = 4)
 
     private suspend fun presenter(navigator: FakeNavigator): @Composable () -> EditActivityState {
@@ -119,7 +161,9 @@ class EditActivityPresenterTest {
         val outbox = OutboxProcessor(db, clients, Logger)
         val writer = OutboxWriter(db, clients, Clock.System)
         val manager = ActivityManager(db, clients, outbox, writer, PdsActivityStreamsStore(writer, clients, Clock.System), feed)
-        return { EditActivityPresenter(EditActivityScreen(uri), navigator, feed, manager) }
+        val defaults = ActivityDefaults(clients)
+        val profiles = ProfileRepository(clients, Clock.System, Logger)
+        return { EditActivityPresenter(EditActivityScreen(uri), navigator, feed, manager, defaults, profiles) }
     }
 
     private suspend fun ReceiveTurbine<EditActivityState>.awaitLoaded() = awaitUntil { it.details != null }
@@ -187,5 +231,58 @@ class EditActivityPresenterTest {
             assertNull(putRecords.firstOrNull())
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun narrowingAPublicActivityWarnsBeforeSaving() = runTest {
+        val navigator = FakeNavigator(EditActivityScreen(uri))
+        presenterTestOf(presenter(navigator)) {
+            val loaded = awaitUntil { it.visibility != null }
+            assertEquals(Visibility.PUBLIC, loaded.visibility?.activity)
+            loaded.eventSink(EditActivityEvent.VisibilityChanged(Visibility.SELF))
+            awaitUntil { it.visibility?.activity == Visibility.SELF }.eventSink(EditActivityEvent.Save)
+            val warned = awaitUntil { it.confirmNarrowing }
+            assertEquals(emptyList(), writes, "nothing saved before the athlete confirms")
+
+            warned.eventSink(EditActivityEvent.CancelNarrowing)
+            val back = awaitUntil { !it.confirmNarrowing }
+            assertEquals(Visibility.SELF, back.visibility?.activity, "the choice stays")
+            back.eventSink(EditActivityEvent.Save)
+            awaitUntil { it.confirmNarrowing }.eventSink(EditActivityEvent.ConfirmNarrowing)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        // The edit, then the move: into the self space before out of the repo.
+        assertEquals(listOf("put", "put self", "delete repo"), writes)
+    }
+
+    @Test
+    fun movingBetweenNonPublicTiersNeedsNoWarning() = runTest {
+        visibility = Visibility.FOLLOWERS
+        val navigator = FakeNavigator(EditActivityScreen(uri))
+        presenterTestOf(presenter(navigator)) {
+            awaitUntil { it.visibility != null }.eventSink(EditActivityEvent.VisibilityChanged(Visibility.MUTUALS))
+            val mutuals = awaitUntil { it.visibility?.activity == Visibility.MUTUALS }
+            assertEquals(
+                persistentListOf(Visibility.MUTUALS, Visibility.SELF),
+                mutuals.visibility?.chartsOptions,
+                "wider charts not offered",
+            )
+            mutuals.eventSink(EditActivityEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(listOf("put followers", "put mutuals", "delete followers"), writes)
+    }
+
+    @Test
+    fun anUnchangedVisibilityMovesNothing() = runTest {
+        val navigator = FakeNavigator(EditActivityScreen(uri))
+        presenterTestOf(presenter(navigator)) {
+            awaitUntil { it.visibility != null }.eventSink(EditActivityEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(listOf("put"), writes)
     }
 }

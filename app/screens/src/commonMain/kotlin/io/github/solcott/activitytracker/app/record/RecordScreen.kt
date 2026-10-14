@@ -6,6 +6,7 @@ import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.location.RecordingState
@@ -28,6 +29,8 @@ data class RecordState(
     val hasPermission: Boolean,
     val saving: Boolean,
     val error: UiError?,
+    /** Who may see the activity and its charts; starts at the athlete's defaults. */
+    val visibility: VisibilityFields = VisibilityFields(),
     val eventSink: (RecordEvent) -> Unit,
 ) : CircuitUiState
 
@@ -35,6 +38,12 @@ sealed interface RecordEvent {
     data class TypeChanged(val type: ActivityType) : RecordEvent
 
     data class PermissionResult(val granted: Boolean) : RecordEvent
+
+    /** Who may see this activity: a `Visibility` value. Narrows the charts with it. */
+    data class VisibilityChanged(val visibility: String) : RecordEvent
+
+    /** Who may see this activity's charts: a `Visibility` value, no wider than the activity's. */
+    data class ChartsVisibilityChanged(val visibility: String) : RecordEvent
 
     data object Start : RecordEvent
 

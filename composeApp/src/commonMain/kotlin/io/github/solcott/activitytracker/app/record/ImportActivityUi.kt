@@ -17,12 +17,12 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.ActivityDetailsForm
 import io.github.solcott.activitytracker.app.ui.ActivityMap
+import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
 import io.github.solcott.activitytracker.app.ui.DepthProfile
 import io.github.solcott.activitytracker.app.ui.DiveFormat
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.Stat
 import io.github.solcott.activitytracker.app.ui.StatsRow
-import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
@@ -38,8 +38,6 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_save
 import io.github.solcott.activitytracker.composeApp.resources.action_saving
-import io.github.solcott.activitytracker.composeApp.resources.charts_visibility_heading
-import io.github.solcott.activitytracker.composeApp.resources.charts_visibility_help
 import io.github.solcott.activitytracker.composeApp.resources.default_title_afternoon
 import io.github.solcott.activitytracker.composeApp.resources.default_title_evening
 import io.github.solcott.activitytracker.composeApp.resources.default_title_morning
@@ -183,20 +181,13 @@ private fun PreviewForm(state: ImportActivityState, preview: ImportPreview, modi
         // Present whenever a single activity is: the title, description, dive site and photos.
         state.details?.let { ActivityDetailsForm(state.title, titlePlaceholder = defaultTitle, fields = it, enabled = !state.saving) }
         if (state.thresholdChanges.isNotEmpty()) ThresholdChanges(state.thresholdChanges)
-        if (preview.hasStreams) {
-            Text(stringResource(Res.string.charts_visibility_heading), style = MaterialTheme.typography.labelLarge)
-            VisibilityPicker(
-                state.chartsVisibility,
-                onSelect = { state.eventSink(ImportActivityEvent.ChartsVisibilityChanged(it)) },
-                approvesFollowers = state.approvesFollowers,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                stringResource(Res.string.charts_visibility_help),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        ActivityVisibilityForm(
+            state.visibility,
+            hasCharts = preview.hasStreams,
+            onActivityChange = { state.eventSink(ImportActivityEvent.VisibilityChanged(it)) },
+            onChartsChange = { state.eventSink(ImportActivityEvent.ChartsVisibilityChanged(it)) },
+            enabled = !state.saving,
+        )
         AppButton(onClick = { state.eventSink(ImportActivityEvent.Save(defaultTitle)) }, enabled = state.canSave(preview)) {
             Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
         }

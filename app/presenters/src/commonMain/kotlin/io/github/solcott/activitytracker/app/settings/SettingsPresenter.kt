@@ -11,21 +11,32 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 
 @CircuitInject(SettingsScreen::class, SessionScope::class)
 @Composable
-fun SettingsPresenter(navigator: Navigator, unitsRepository: UnitsRepository, auth: AuthRepository): SettingsState {
+fun SettingsPresenter(
+    navigator: Navigator,
+    unitsRepository: UnitsRepository,
+    auth: AuthRepository,
+    defaults: ActivityDefaults,
+): SettingsState {
     // UnitsRepository updates optimistically, so the choice shows at once and reverts if the save fails.
     val units by unitsRepository.units.collectAsState()
     var error by remember { mutableStateOf<UiError?>(null) }
     val flights = rememberSingleFlight()
     val saving = flights.isRunning(SettingsEvent.UnitsChanged::class)
+    val defaultVisibility = rememberDefaultVisibilitySettings(defaults, flights) { error = it }
 
-    return SettingsState(units, saving, error) { event ->
+    return SettingsState(units, saving, error, defaultVisibility.fields, defaultVisibility.saving) { event ->
         when (event) {
+            is SettingsEvent.DefaultVisibilityChanged -> defaultVisibility.activityChanged(event.visibility)
+
+            is SettingsEvent.DefaultChartsVisibilityChanged -> defaultVisibility.chartsChanged(event.visibility)
+
             SettingsEvent.Back -> {
                 navigator.pop()
             }

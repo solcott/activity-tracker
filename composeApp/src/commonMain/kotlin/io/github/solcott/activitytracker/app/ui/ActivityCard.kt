@@ -43,7 +43,7 @@ fun ActivityCard(
     onClick: () -> Unit,
     /** Null leaves the author unclickable, e.g. on their own profile. */
     onAuthorClick: (() -> Unit)?,
-    /** Null hides the kudos button, e.g. on the viewer's own activities. */
+    /** Null hides the kudos button, e.g. on the viewer's own activities. A non-public activity never shows it, nor any counts. */
     onKudos: (() -> Unit)?,
     /** Opens the activity's media full screen, at an index. */
     onOpenMedia: (Int) -> Unit,
@@ -60,6 +60,7 @@ fun ActivityCard(
             ) {
                 Avatar(activity.author.avatar, author, 32.dp)
                 Text(author, style = MaterialTheme.typography.labelLarge)
+                VisibilityBadge(activity.visibilityOrPublic)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 val typeLabel = activityTypeLabel(record.activityType)
@@ -87,26 +88,28 @@ fun ActivityCard(
                 height = 160.dp,
                 map = record.polyline?.let { polyline -> { mapModifier, mapHeight -> RoutePreview(polyline, mapModifier, mapHeight) } },
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (onKudos != null) {
-                    val given = activity.viewer?.kudos != null
-                    AppIconButton(
-                        AppIcon.Kudos,
-                        contentDescription = stringResource(Res.string.kudos_content_description),
-                        onClick = onKudos,
-                        filled = given,
-                        tint = if (given) MaterialTheme.colorScheme.tertiary else Color.Unspecified,
+            // Non-public activities take no kudos or comments.
+            if (activity.acceptsInteractions)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (onKudos != null) {
+                        val given = activity.viewer?.kudos != null
+                        AppIconButton(
+                            AppIcon.Kudos,
+                            contentDescription = stringResource(Res.string.kudos_content_description),
+                            onClick = onKudos,
+                            filled = given,
+                            tint = if (given) MaterialTheme.colorScheme.tertiary else Color.Unspecified,
+                        )
+                    }
+                    Text(
+                        stringResource(
+                            Res.string.activity_card_counts,
+                            pluralStringResource(Res.plurals.kudos_count, activity.kudosCount.toInt(), activity.kudosCount),
+                            pluralStringResource(Res.plurals.comments_count, activity.commentCount.toInt(), activity.commentCount),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                Text(
-                    stringResource(
-                        Res.string.activity_card_counts,
-                        pluralStringResource(Res.plurals.kudos_count, activity.kudosCount.toInt(), activity.kudosCount),
-                        pluralStringResource(Res.plurals.comments_count, activity.commentCount.toInt(), activity.commentCount),
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
         }
     }
 }

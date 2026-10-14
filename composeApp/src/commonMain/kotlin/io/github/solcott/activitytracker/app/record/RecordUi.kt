@@ -6,13 +6,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.Stat
 import io.github.solcott.activitytracker.app.ui.StatsRow
@@ -38,7 +40,6 @@ import io.github.solcott.activitytracker.location.RecordingState
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
 
-@OptIn(ExperimentalMaterial3Api::class)
 @CircuitInject(RecordScreen::class, SessionScope::class)
 @Composable
 fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
@@ -47,8 +48,9 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
         modifier = modifier,
         topBar = { AppTopBar(title = stringResource(Res.string.record_title), onBack = { state.eventSink(RecordEvent.Back) }) },
     ) { padding ->
+        // Scrolls: the visibility pickers don't fit a small phone's height with everything else.
         Column(
-            Modifier.padding(padding).readableWidth().padding(16.dp).fillMaxSize(),
+            Modifier.verticalScroll(rememberScrollState()).padding(padding).readableWidth().padding(16.dp).fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             ActivityTypePicker(
@@ -71,6 +73,13 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
                 state = state.title,
                 label = stringResource(Res.string.field_title),
                 modifier = Modifier.fillMaxWidth(),
+            )
+            ActivityVisibilityForm(
+                state.visibility,
+                hasCharts = true,
+                onActivityChange = { state.eventSink(RecordEvent.VisibilityChanged(it)) },
+                onChartsChange = { state.eventSink(RecordEvent.ChartsVisibilityChanged(it)) },
+                enabled = !state.saving,
             )
             state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

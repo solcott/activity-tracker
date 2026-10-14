@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app
 
 import co.touchlab.kermit.Logger
+import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
@@ -89,6 +90,14 @@ class SessionTestFixture {
     var activityRecord: String = "{}"
 
     private val tierPuts = mutableListOf<JsonObject>()
+    private val otherSpacePuts = mutableListOf<Pair<String, JsonObject>>()
+
+    /** Alice's `actor.activityDefaults` record in her `self` space, as JSON; null for none. Saving one replaces it. */
+    var activityDefaults: String? = null
+
+    /** Each successful put to a tier space of anything but private details (activities, streams, defaults), as (tier, record), in order. */
+    val spacePuts: List<Pair<String, JsonObject>>
+        get() = otherSpacePuts.toList()
 
     /** Each successful put of a tier's record, in order, as `{"details":{…},"visibility":"<tier>"}`. */
     val privateDetailsPuts: List<JsonObject>
@@ -174,6 +183,15 @@ class SessionTestFixture {
                     }
 
                     "/xrpc/com.atproto.space.getRecord" -> {
+                        if (request.url.parameters["collection"] == Nsid.ACTOR_ACTIVITY_DEFAULTS) {
+                            val value =
+                                activityDefaults
+                                    ?: return@MockEngine respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, json)
+                            return@MockEngine respond(
+                                """{"uri":"at://$did/${Nsid.ACTOR_ACTIVITY_DEFAULTS}/self","cid":"bafyrec","value":$value}""",
+                                headers = json,
+                            )
+                        }
                         val tier = request.url.parameters["space"].orEmpty().substringAfterLast('/')
                         val details = tiers[tier]
                         if (details == null) {
@@ -195,7 +213,11 @@ class SessionTestFixture {
                             val input = AtJson.parseToJsonElement(body(request)).jsonObject
                             val tier = input.getValue("space").jsonPrimitive.content.substringAfterLast('/')
                             val record = input["record"]?.jsonObject
-                            if (record == null) {
+                            val collection = input.getValue("collection").jsonPrimitive.content
+                            if (collection == Nsid.ACTOR_ACTIVITY_DEFAULTS) activityDefaults = record?.toString()
+                            if (collection != Nsid.ACTOR_PRIVATE_DETAILS) {
+                                record?.let { otherSpacePuts += tier to it }
+                            } else if (record == null) {
                                 tiers.remove(tier)
                             } else {
                                 val details = record.getValue("details").jsonObject
@@ -258,6 +280,7 @@ class SessionTestFixture {
 
     private fun space(tier: String) = "at://$did/space/${Nsid.SPACE_ATHLETE}/$tier"
 
+    @Suppress("LongParameterList") // One per repository a presenter test needs.
     class Repos(
         val activities: ActivityRepository,
         val profiles: ProfileRepository,
@@ -265,6 +288,7 @@ class SessionTestFixture {
         val auth: AuthRepository,
         val recentTypes: RecentActivityTypes,
         val feed: FeedRepository,
+        val defaults: ActivityDefaults,
     )
 
     suspend fun repos(defaultUnits: UnitSystem = UnitSystem.Metric): Repos {
@@ -286,6 +310,6 @@ class SessionTestFixture {
             )
         val profiles = ProfileRepository(clients, Clock.System, Logger)
         val units = UnitsRepository(profiles, Clock.System, Logger, defaultUnits)
-        return Repos(activities, profiles, units, AuthRepository(manager, db, http), recentTypes, feed)
+        return Repos(activities, profiles, units, AuthRepository(manager, db, http), recentTypes, feed, ActivityDefaults(clients))
     }
 }

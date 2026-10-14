@@ -13,23 +13,30 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityEdit
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.activityType
 
 @CircuitInject(EditActivityScreen::class, SessionScope::class)
 @Composable
+@Suppress("LongParameterList") // Injected collaborators.
 fun EditActivityPresenter(
     screen: EditActivityScreen,
     navigator: Navigator,
     feed: FeedRepository,
     manager: ActivityManager,
+    defaults: ActivityDefaults,
+    profiles: ProfileRepository,
 ): EditActivityState {
     var activity by remember { mutableStateOf<ActivityView?>(null) }
     var error by remember { mutableStateOf<UiError?>(null) }
@@ -39,18 +46,48 @@ fun EditActivityPresenter(
     var seededTitle by remember { mutableStateOf("") }
     val form = rememberDetailsForm()
     val flights = rememberSingleFlight()
+    val visibility = rememberEditVisibility(defaults.canChoose)
 
     LaunchedEffect(loadKey) {
         if (activity != null) return@LaunchedEffect
         error = null
-        runSuspendCatching { feed.activity(AtUri(screen.uri)).activity }
-            .onSuccess { view ->
+        runSuspendCatching {
+            val view = feed.activity(AtUri(screen.uri)).activity
+            // Charts are extra: without them (or when they can't load) only the activity's visibility is offered.
+            val charts = runSuspendCatching { feed.streams(view.uri)?.visibility }.getOrNull()
+            view to charts
+        }
+            .onSuccess { (view, charts) ->
                 seededTitle = view.record.title.orEmpty()
                 title.setTextAndPlaceCursorAtEnd(seededTitle)
                 form.seed(view.record.description, view.record.dive?.site, existingMedia(view))
+                visibility.seed(view, charts)
                 activity = view
             }
             .onFailure { error = UiError.of(UiError.Kind.LoadActivity, it) }
+    }
+    LaunchedEffect(Unit) {
+        runSuspendCatching { profiles.ownProfileRecord() }
+            .onSuccess { visibility.approvesFollowers = it?.followPolicy == FollowPolicy.APPROVE }
+    }
+
+    fun save(current: ActivityView) {
+        flights.launch(EditActivityEvent.Save) {
+            error = null
+            val edit =
+                ActivityEdit(
+                    title = title.text.toString(),
+                    description = form.description.text.toString(),
+                    diveSite = form.diveSite.text.toString().takeIf { current.record.sport == Sport.DIVE },
+                    media = form.mediaEdits(),
+                )
+            runSuspendCatching {
+                manager.edit(current, edit)
+                visibility.changed?.let { manager.setVisibility(current, it) }
+            }
+                .onSuccess { navigator.pop() }
+                .onFailure { error = uiErrorOf(UiError.Kind.SaveActivity, it) }
+        }
     }
 
     val loaded = activity
@@ -62,27 +99,26 @@ fun EditActivityPresenter(
         saving = flights.isRunning(EditActivityEvent.Save),
         error = error,
         confirmDiscard = confirmDiscard,
+        visibility = visibility.fields,
+        hasCharts = visibility.hasCharts,
+        confirmNarrowing = visibility.confirmingNarrowing,
     ) { event ->
+        val saveLoaded = { activity?.let(::save) ?: Unit }
         when (event) {
-            EditActivityEvent.Save -> {
-                val current = activity ?: return@EditActivityState
-                flights.launch(EditActivityEvent.Save) {
-                    error = null
-                    val edit =
-                        ActivityEdit(
-                            title = title.text.toString(),
-                            description = form.description.text.toString(),
-                            diveSite = form.diveSite.text.toString().takeIf { isDive },
-                            media = form.mediaEdits(),
-                        )
-                    runSuspendCatching { manager.edit(current, edit) }
-                        .onSuccess { navigator.pop() }
-                        .onFailure { error = UiError.of(UiError.Kind.SaveActivity, it) }
-                }
-            }
+            // Narrowing a Public activity can't recall what's already been published: the athlete is asked first.
+            EditActivityEvent.Save -> visibility.save(saveLoaded)
+
+            EditActivityEvent.ConfirmNarrowing -> visibility.narrowingAnswered(confirmed = true, saveLoaded)
+
+            EditActivityEvent.CancelNarrowing -> visibility.narrowingAnswered(confirmed = false, saveLoaded)
+
+            is EditActivityEvent.VisibilityChanged -> visibility.activityChanged(event.visibility)
+
+            is EditActivityEvent.ChartsVisibilityChanged -> visibility.chartsChanged(event.visibility)
 
             EditActivityEvent.Back -> {
-                if (activity != null && (title.text.toString() != seededTitle || form.isChanged)) confirmDiscard = true else navigator.pop()
+                if (isChanged(activity, title.text.toString() != seededTitle, form.isChanged, visibility)) confirmDiscard = true
+                else navigator.pop()
             }
 
             EditActivityEvent.Discard -> {
@@ -100,3 +136,7 @@ fun EditActivityPresenter(
         }
     }
 }
+
+/** Whether the loaded [activity] has unsaved changes to its title, its other details or who sees it. */
+private fun isChanged(activity: ActivityView?, title: Boolean, details: Boolean, visibility: EditVisibility): Boolean =
+    activity != null && (title || details || visibility.changed != null)

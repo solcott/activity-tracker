@@ -5,6 +5,7 @@ import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitSystem
 
@@ -16,6 +17,9 @@ data class SettingsState(
     val units: UnitSystem,
     val saving: Boolean,
     val error: UiError?,
+    /** Who new activities and their charts are shown to unless the athlete chooses otherwise; null while they load. */
+    val defaults: VisibilityFields? = null,
+    val savingDefaults: Boolean = false,
     val eventSink: (SettingsEvent) -> Unit,
 ) : CircuitUiState
 
@@ -23,6 +27,12 @@ sealed interface SettingsEvent {
     data object Back : SettingsEvent
 
     data class UnitsChanged(val units: UnitSystem) : SettingsEvent
+
+    /** The default visibility of new activities: a `Visibility` value. Narrows the charts default with it. */
+    data class DefaultVisibilityChanged(val visibility: String) : SettingsEvent
+
+    /** The default visibility of new activities' charts: a `Visibility` value, no wider than the activity default. */
+    data class DefaultChartsVisibilityChanged(val visibility: String) : SettingsEvent
 
     data object OpenZones : SettingsEvent
 

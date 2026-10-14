@@ -103,13 +103,14 @@ private fun sectionOf(kind: StreamKind): DetailSection =
         StreamKind.Depth -> DetailSection.Depth
     }
 
-/** The owner's choice of who may see the charts, under a heading that asks the question. */
+/** The owner's choice of who may see the charts, under a heading that asks the question: [options] stop at the activity's visibility. */
 @Composable
 internal fun ChartsVisibility(
     visibility: String,
     saving: Boolean,
     approvesFollowers: Boolean,
     eventSink: (ActivityDetailEvent) -> Unit,
+    options: ImmutableList<String>,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(HEADER_GAP)) {
@@ -119,6 +120,7 @@ internal fun ChartsVisibility(
             approvesFollowers = approvesFollowers,
             modifier = Modifier.fillMaxWidth(),
             enabled = !saving,
+            options = options,
         )
         Text(
             stringResource(Res.string.charts_visibility_help),

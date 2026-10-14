@@ -13,7 +13,10 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.visibility.rememberNewActivityVisibility
+import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -35,6 +38,7 @@ fun RecordPresenter(
     tracker: LocationTracker,
     activities: ActivityRepository,
     recentTypes: RecentActivityTypes,
+    defaults: ActivityDefaults,
     clock: Clock,
 ): RecordState {
     val recording by recorder.state.collectAsState()
@@ -47,6 +51,7 @@ fun RecordPresenter(
     val saving = flights.isRunning(RecordEvent.Finish)
     // GPS recording: indoor types are for manual entry and import.
     val quickTypes = quickActivityTypes(recentTypes, outdoorOnly = true)
+    val visibility = rememberNewActivityVisibility(defaults)
 
     LaunchedEffect(recording.status) {
         while (recording.status == RecordingState.Status.Recording) {
@@ -67,8 +72,17 @@ fun RecordPresenter(
         hasPermission = hasPermission,
         saving = saving,
         error = error,
+        visibility = visibility.fields,
     ) { event ->
         when (event) {
+            is RecordEvent.VisibilityChanged -> {
+                visibility.activityChanged(event.visibility)
+            }
+
+            is RecordEvent.ChartsVisibilityChanged -> {
+                visibility.chartsChanged(event.visibility)
+            }
+
             is RecordEvent.TypeChanged -> {
                 type = event.type
             }
@@ -101,15 +115,16 @@ fun RecordPresenter(
                     runSuspendCatching {
                         activities.publish(
                             ActivityDraft.fromRecording(
-                                result,
-                                type,
-                                title.text.toString().ifBlank { null },
-                                null,
-                            )
+                                    result,
+                                    type,
+                                    title.text.toString().ifBlank { null },
+                                    null,
+                                )
+                                .withVisibility(visibility.current)
                         )
                         navigator.pop()
                     }
-                        .onFailure { e -> error = UiError.of(UiError.Kind.SaveActivity, e) }
+                        .onFailure { e -> error = uiErrorOf(UiError.Kind.SaveActivity, e) }
                 }
             }
 

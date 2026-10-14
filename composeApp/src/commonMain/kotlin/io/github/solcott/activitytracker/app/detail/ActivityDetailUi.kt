@@ -33,6 +33,7 @@ import io.github.solcott.activitytracker.app.ui.DiveSite
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.MediaRow
 import io.github.solcott.activitytracker.app.ui.Stat
+import io.github.solcott.activitytracker.app.ui.VisibilityBadge
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
@@ -67,6 +68,7 @@ import io.github.solcott.activitytracker.composeApp.resources.stat_temperature
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.activityType
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -142,12 +144,15 @@ private fun Overview(state: ActivityDetailState.Loaded, modifier: Modifier = Mod
     DetailCard(modifier) {
         Column(Modifier.padding(CARD_PADDING), verticalArrangement = Arrangement.spacedBy(CARD_PADDING)) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    state.activity.author.displayName ?: state.activity.author.handle.value,
-                    Modifier.clickable(role = Role.Button) { state.eventSink(ActivityDetailEvent.OpenAuthor) },
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        state.activity.author.displayName ?: state.activity.author.handle.value,
+                        Modifier.clickable(role = Role.Button) { state.eventSink(ActivityDetailEvent.OpenAuthor) },
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    VisibilityBadge(state.activity.visibilityOrPublic)
+                }
                 Text(record.title ?: activityTypeLabel(record.activityType), style = MaterialTheme.typography.headlineSmall)
                 if (record.title != null) {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -172,10 +177,14 @@ private fun Overview(state: ActivityDetailState.Loaded, modifier: Modifier = Mod
             )
             Recordings(state.activity, onOpen = { state.eventSink(ActivityDetailEvent.OpenActivity(it)) })
             state.manage?.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
-            Kudos(state)
+            // Non-public activities take no kudos or comments.
+            val interactions = state.activity.acceptsInteractions
+            if (interactions) Kudos(state)
             if (state.isOwn) state.charts?.let { ChartSharing(it.visibility, state) }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Comments(state)
+            if (interactions) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Comments(state)
+            }
         }
     }
 }
@@ -185,7 +194,8 @@ private fun Overview(state: ActivityDetailState.Loaded, modifier: Modifier = Mod
 private fun ChartSharing(visibility: String, state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(Res.string.charts_visibility_heading), style = MaterialTheme.typography.titleSmall)
-        ChartsVisibility(visibility, state.savingChartsVisibility, state.approvesFollowers, state.eventSink)
+        val options = remember(state.activity.visibilityOrPublic) { Visibility.atMost(state.activity.visibilityOrPublic).toImmutableList() }
+        ChartsVisibility(visibility, state.savingChartsVisibility, state.approvesFollowers, state.eventSink, options)
     }
 }
 
