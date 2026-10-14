@@ -12,15 +12,24 @@ Follows in this app (`app.activitytracker.graph.follow`) are separate from Blues
 - **Open questions.** Where suggestions appear: the empty feed, the user's own profile, or a screen of their own. Whether to filter to "has posted an activity" or "has an `actor.profile`".
 - **Privacy.** Bluesky follows are already public. Store nothing new beyond the follows the user chooses to create.
 
-## Private activities
+## Private activities: what's left
 
-Follow requests (`followPolicy: approve`) keep a pending or declined follower out of the athlete's Followers and Mutuals details and charts, but activities themselves are still public records: anyone can read them from the athlete's repo, and the AppView serves them to anyone through `getAuthorActivities`. Making an activity Followers, Mutuals or Only me needs:
+Each activity is Public, Followers, Mutuals or Only me (`add-activity-visibility`): a non-public one is a `feed.activity` in the athlete's tier space for it, the AppView syncs those spaces as a member and serves each activity only to the viewers its tier admits, and new activities start at the athlete's defaults (`actor.activityDefaults`, in their `self` space). What's left:
 
-- **Visibility on the activity.** A visibility per activity (and a default), in the import, record and edit screens.
-- **Non-public activities in tier spaces.** A non-public `feed.activity` goes in the athlete's tier space for its visibility, not their repo. Space records never reach Jetstream, so the AppView can't index them.
-- **Timeline without the AppView.** Clients would merge each followee's readable tier spaces into the feed (a fan-out of member reads), or the AppView reads them as a consented member (see below). Either way, decide paging and caching.
-- **Kudos and comments.** Today they're public records pointing at a public activity. On a hidden one they'd reveal it exists; they'd likely live in the same space.
-- **Streams follow the activity.** `feed.activityStreams` already has a visibility (and its own `TODO(spaces)`); move both together.
+- **Kudos and comments.** None on non-public activities yet; see the next entry.
+- **Own photos before indexing.** Until the AppView indexes a new non-public activity, its photos don't preview on the athlete's own devices: `ownBlobUrl` points at public `sync.getBlob`, which refuses a blob only a space record holds. Load them through the AppView's signed URLs once indexed (as now), or read them with the owner's session.
+- **Narrowing can't recall copies.** A Public activity made non-public stays in whatever copied it from the firehose meanwhile. The edit screen warns; there's nothing more to do on our side.
+- **Signed photo URLs are bearer links until they expire.** A non-public activity's photo URL is signed for one viewer and checked against their access on every request, so unfollowing ends it, but a URL the viewer passes on works for others until its hour is up. Shorten the lifetime if that matters.
+- **Delete-then-write races.** A visibility change writes the new place before deleting the old, and the AppView shows the narrower copy while both exist. A notification lost on both sides is covered by the 15-minute reconcile; tune that (`SpaceSyncer`) once there's real traffic.
+
+## Kudos and comments on non-public activities
+
+Non-public activities take no kudos or comments for now: clients hide the actions, the repository refuses them, and the AppView serves no counts, `viewer.kudos`, comments or `getKudos` for them. Kudos and comments given while an activity was Public stay indexed, unshown, and come back if it's made Public again. To allow them:
+
+- **Interaction records in the space.** A kudos or comment on a non-public activity can't be a public record (it would reveal the activity exists, and its subject), so it goes in the activity's tier space, as a record in the *giver's* own repo there: Spaces gives every member their own repo in a space, and the AppView already syncs those spaces.
+- **Members need write access.** `checkUserAccess` (`api/SpaceAccess.kt`) denies every `write` today, which also keeps the AppView out. Admitting a tier's readers for `write` (followers of a Followers space, mutuals of a Mutuals space) lets them hold those repos. The syncer then has to follow more than the authority's repo per space (`listRepos`, a revision per repo in `space_sync`).
+- **Records stranded on a move.** Moving an activity to another tier moves the athlete's own record, but other members' kudos and comments stay in their repos in the old space, which the old tier's readers can still read. Find out whether a space's authority can remove members' records (or a member's repo) in the Spaces API, or whether the clients must delete their own on a move notification. Until then the AppView should serve only interactions from the activity's current space.
+- **No AppView migration.** `kudos.subject_uri` and `comments.subject_uri` hold the activity's repo-style URI, which an activity keeps in every tier, so in-space interactions index into the same tables.
 
 ## Private profile details in Spaces: what's left
 
@@ -32,10 +41,9 @@ Non-public profile details live in each athlete's `app.activitytracker.space.ath
 
 ## AppView as a consented member for aggregation
 
-Segments, leaderboards and similar features will need the AppView to read some athlete data that lives in spaces (age group, weight class, efforts). The AppView already decides who reads each tier (`checkUserAccess`, `api/SpaceAccess.kt`), so letting it read is a rule change, not a data migration.
+Segments, leaderboards and similar features will need the AppView to read some athlete data that lives in spaces (age group, weight class, efforts). The AppView already reads every tier space as a member to serve non-public activities (`SpaceSyncer`, its own `APPVIEW_SIGNING_KEY`), and indexes only `feed.activity` and `feed.activityStreams` from them (`Indexer.SPACE_COLLECTIONS`), never `actor.privateDetails`.
 
-- **Spike first.** The AppView would mint delegation tokens as its own `did:web`, which needs a signing key (`#atproto` verification method) in its DID document. Whether the PDS accepts a `did:web` delegation issuer is untested.
-- **Consent, not just a code path.** "Only me" means no other person sees a detail, but a 40–49 leaderboard still reveals a bracket. Admit the AppView's DID only for the tiers a feature needs, and only for athletes who opted in (as Strava does for age and weight leaderboards).
+- **Consent, not just a code path.** "Only me" means no other person sees a detail, but a 40–49 leaderboard still reveals a bracket. Index a detail only for athletes who opted into the feature that needs it (as Strava does for age and weight leaderboards), and only from the tiers it needs.
 - **Scope it with the feature.** Design this alongside segments; nothing needs it yet.
 
 ## Show activities on real maps
@@ -72,6 +80,8 @@ Checks that only matter once the AppView runs on a database other than the local
 - **Search needs `pg_trgm`.** The PostgreSQL-only migration `db/vendor/postgresql/V6__actor_search_trigram_indexes.sql` runs `CREATE EXTENSION IF NOT EXISTS pg_trgm`. Since PostgreSQL 13 it's a trusted extension, so a role that owns the database (or has `CREATE` on it) can create it. That's untested, though: the local `appview` role is a superuser. Check the role on each target, or have an admin create the extension first so the migration's `IF NOT EXISTS` skips it. If it fails, Flyway stops and the AppView doesn't start.
 - **Check the search plan at realistic size.** Once `actors` has a realistic number of rows, run `EXPLAIN ANALYZE` on `actor.searchActors`. Trigram indexes serve queries of three or more characters. A one- or two-character query scans `actors`, and deep pages cost more because paging is by offset. If that's too slow, require three characters, or match only handle and name prefixes for shorter queries.
 - **Spaces need a real lexicon namespace.** A PDS grants the `space:` OAuth scope only if it can resolve the space type's lexicon declaration. Locally, `PDS_LEXICON_AUTHORITY_DID` points the PDS at `lexicons.test`, which publishes it (`docker/scripts/publish-lexicons.sh`, run by `scripts/dev.sh`). Anywhere else, the NSID authority must resolve through DNS: a `_lexicon` TXT record on the reversed namespace domain pointing at the DID that publishes the `com.atproto.lexicon.schema` records. `Nsid.NAMESPACE` (`app.activitytracker`) is a placeholder, so pick a domain we control first, then rename the namespace across `Nsid`, `lexicons/` and `create-account.sh`.
+- **The AppView database holds non-public data.** It syncs athletes' tier spaces and stores their Followers, Mutuals and Only-me activities and streams (and caches their stream data). Treat the database and its backups as private: encrypt them at rest, restrict who can read them, and say so in the privacy policy.
+- **`APPVIEW_SIGNING_KEY` is a secret.** It's the AppView's identity for reading athletes' spaces. Keep it in the deployment's secret store, not `docker/.env`. Rotating it means publishing the new key in `did.json`; PDSes cache DID documents, so syncs fail (and back off) until they refresh.
 
 ## More training zone options
 
@@ -81,13 +91,11 @@ Each sport can override the default thresholds (`actor.defs#sportTraining`, `Spo
 - **Threshold from a test.** Work out threshold pace or power from a test: distance plus time or pace (a 30-minute run, a CSS 400/200 swim), or a 20-minute power test.
 - **More pace models.** 80/20, USAT, PZI, CTS and MyProCoach, each from a sourced, published formula. Row pace per 500 m needs a model before `SportZones.kinds` offers it.
 
-## Move activity streams to a Space before going live
+## Activity streams: what's left
 
-Activity streams (`app.activitytracker.feed.activityStreams`, under their activity's rkey) are public records on the athlete's PDS with a public JSON blob, even when the athlete picks Mutuals or Only me. The AppView's `feed.getActivityStreams` enforces that visibility, and strips the zone snapshots (which reveal FTP and threshold heart rate) unless the viewer is the athlete or the athlete's training is public, but anyone reading the repo with `getRecord`, `sync.getBlob` or the firehose sees everything. That's acceptable only while this runs on the local dev stack. Move them before anything shared, into the same tier spaces as the private profile details.
+Non-public streams are `feed.activityStreams` records in the athlete's tier space for their visibility, never wider than the activity's, read by the AppView as a member and served through `feed.getActivityStreams`. Public streams stay in the repo.
 
-- **Client seam.** `ActivityStreamsStore` (`core/data/.../activity`) is the only writer; bind a Spaces implementation in place of `PdsActivityStreamsStore`. Clients read streams only through `FeedRepository.streams` → `feed.getActivityStreams`, so reads don't change.
-- **AppView seam.** `StreamSource` (`api/ActivityStreamsViews.kt`) is the only reader of the data; replace `PdsBlobStreamSource` with one that reads the space as a member. Access then follows the stream's tier space, which `checkUserAccess` decides as for profile details.
-- **Migration.** Have clients copy each of their streams into their space and delete the public records and blobs, then drop `activity_streams.blob_cid` and the `activity_stream_data` cache in a new migration.
+- **Older records.** Streams published before this change are repo records whose `visibility` field may say Followers, Mutuals or Only me. The AppView still honours the field, but anyone reading the repo sees them. Have clients move each such record to its tier space (`ActivityStreamsStore.move`) once, for example on the first session after upgrading, then drop the field's special handling.
 - **Zones for Mutuals.** Since non-public training moved into spaces, the AppView can't tell that a mutual may see an athlete's training, so Mutuals get no zone snapshots. Put the snapshots in the space (`feed.activityZones`, already in the declaration) so they follow the tier again.
 
 ## Videos on activities
