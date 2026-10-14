@@ -86,6 +86,15 @@ object SpaceErrors {
     const val RECORD_NOT_FOUND = "RecordNotFound"
     const val BLOB_NOT_FOUND = "BlobNotFound"
 
+    /** `updateSpace`: the caller isn't the space's authority. */
+    const val NOT_SPACE_OWNER = "NotSpaceOwner"
+
+    /** `updateSpace`: the host doesn't implement a requested policy. */
+    const val UNSUPPORTED_POLICY = "UnsupportedPolicy"
+
+    /** `updateSpace`: the host doesn't implement the requested app access. */
+    const val UNSUPPORTED_APP_ACCESS = "UnsupportedAppAccess"
+
     /** Errors meaning the viewer may not read the space. */
     val denials = setOf(USER_NOT_AUTHORIZED, APP_NOT_AUTHORIZED, NOT_AUTHORIZED)
 }
@@ -296,6 +305,21 @@ object SimpleSpace {
         data class Output(val uri: SpaceUri, val readPolicy: SpacePolicy, val writePolicy: SpacePolicy, val appAccess: SpaceAppAccess)
 
         val method = XrpcQuery("com.atproto.simplespace.getSpace", Params.serializer(), Output.serializer())
+    }
+
+    /**
+     * Changes a space's configuration; only the authority may. Each policy given replaces the current one wholesale, an omitted one stays.
+     */
+    object UpdateSpace {
+        @Serializable
+        data class Input(
+            val space: SpaceUri,
+            val readPolicy: SpacePolicy? = null,
+            val writePolicy: SpacePolicy? = null,
+            val appAccess: SpaceAppAccess? = null,
+        )
+
+        val method = XrpcProcedure("com.atproto.simplespace.updateSpace", Input.serializer(), NoOutput.serializer())
     }
 
     /**

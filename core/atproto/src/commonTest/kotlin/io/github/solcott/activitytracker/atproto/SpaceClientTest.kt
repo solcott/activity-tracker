@@ -197,6 +197,26 @@ class SpaceClientTest {
     }
 
     @Test
+    fun updateSpaceSendsOnlyTheGivenPolicy() = runTest {
+        f.network.on("alicepds.test/xrpc/com.atproto.simplespace.updateSpace") { respondJson("{}") }
+        owner().updateSpace(f.aliceSpace, readPolicy = SpacePolicy.ManagingApp("did:web:new.test#activitytracker_space"))
+
+        val body = f.requestsTo("alicepds.test/xrpc/com.atproto.simplespace.updateSpace").single().jsonBody()
+        assertEquals(setOf("space", "readPolicy"), body.keys)
+        assertEquals(f.aliceSpace.value, body["space"]?.jsonPrimitive?.content)
+        assertEquals("did:web:new.test#activitytracker_space", body["readPolicy"]!!.jsonObject["managingApp"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun updateMissingSpaceIsAnError() = runTest {
+        f.network.on("alicepds.test/xrpc/com.atproto.simplespace.updateSpace") {
+            respondJson("""{"error":"SpaceNotFound","message":"none"}""", HttpStatusCode.BadRequest)
+        }
+        val e = assertFailsWith<XrpcException> { owner().updateSpace(f.aliceSpace, readPolicy = SpacePolicy.MemberList()) }
+        assertEquals("SpaceNotFound", e.error)
+    }
+
+    @Test
     fun putAndDeleteWriteToTheAthletesOwnRepo() = runTest {
         f.network.on("alicepds.test/xrpc/com.atproto.space.putRecord") {
             respondJson("""{"uri":"at://did:plc:alice/$collection/self","cid":"bafyrec"}""")

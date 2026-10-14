@@ -44,7 +44,8 @@ sealed interface CreateSpaceResult {
  * atproto Spaces for the signed-in athlete [did]: the only entry point to spaces.
  * - **Owner reads** of the athlete's own repo in their own spaces go to their PDS with the session ([pds], DPoP, the `read_self` scope).
  * - **Member reads** go to the repo owner's PDS with a credential from [credentials], signed with its binding key.
- * - **Writes** go to the athlete's PDS with the session; an athlete writes only to their own repo in a space.
+ * - **Writes** (records, and creating or updating spaces) go to the athlete's PDS with the session; an athlete writes only to their own
+ *   repo in a space.
  *
  * A session signed in before the `space:` scope existed gets `ScopeMissingError` ([SpaceErrors.SCOPE_MISSING]) as an [XrpcException].
  */
@@ -93,6 +94,16 @@ class SpaceClient(
             if (e.error != SpaceErrors.SPACE_NOT_FOUND) throw e
             null
         }
+
+    /** Changes the athlete's space at [space]: each policy given replaces the current one, an omitted one stays. */
+    suspend fun updateSpace(
+        space: SpaceUri,
+        readPolicy: SpacePolicy? = null,
+        writePolicy: SpacePolicy? = null,
+        appAccess: SpaceAppAccess? = null,
+    ) {
+        pds.procedure(SimpleSpace.UpdateSpace.method, SimpleSpace.UpdateSpace.Input(space, readPolicy, writePolicy, appAccess))
+    }
 
     /** Writes [record] to the athlete's repo in [space]. Idempotent: the same put twice leaves one record. */
     suspend fun putRecord(space: SpaceUri, collection: String, rkey: String, record: JsonElement): Space.PutRecord.Output =

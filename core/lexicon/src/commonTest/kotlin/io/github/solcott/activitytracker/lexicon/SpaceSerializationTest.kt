@@ -66,6 +66,17 @@ class SpaceSerializationTest {
     }
 
     @Test
+    fun updateSpaceOmitsUnchangedPolicies() {
+        val space = SpaceUri.of(Did("did:plc:alice"), Nsid.SPACE_ATHLETE, "mutuals")
+        val input = SimpleSpace.UpdateSpace.Input(space, readPolicy = SpacePolicy.ManagingApp("did:web:appview.test#activitytracker_space"))
+        val json = AtJson.encodeToJsonElement(SimpleSpace.UpdateSpace.Input.serializer(), input).jsonObject
+        assertEquals(space.value, json["space"]?.jsonPrimitive?.content)
+        assertEquals("com.atproto.simplespace.defs#managingAppPolicy", json["readPolicy"]!!.jsonObject["\$type"]?.jsonPrimitive?.content)
+        assertEquals(setOf("space", "readPolicy"), json.keys)
+        assertEquals(input, AtJson.decodeFromJsonElement(SimpleSpace.UpdateSpace.Input.serializer(), json))
+    }
+
+    @Test
     fun unknownPolicyRoundTrips() {
         val policy = buildJsonObject {
             put("\$type", "com.atproto.simplespace.defs#futurePolicy")
