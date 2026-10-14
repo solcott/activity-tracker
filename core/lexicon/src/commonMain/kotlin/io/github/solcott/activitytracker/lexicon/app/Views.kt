@@ -57,15 +57,26 @@ data class ActivityView(
     val cid: Cid,
     val author: ProfileViewBasic,
     val record: ActivityRecord,
+    /** Always 0 unless [visibility] is public: non-public activities take no kudos or comments. */
     val kudosCount: Long,
     val commentCount: Long,
     val indexedAt: Instant,
+    /** A [Visibility] value, from where the record is stored; null means [Visibility.PUBLIC]. Read it through [visibilityOrPublic]. */
+    val visibility: String? = null,
     val viewer: ActivityViewerState? = null,
     /** Other recordings of this activity ([ActivityRecord.recordingOf]), oldest first; null when it has none. */
     val recordings: List<RecordingView>? = null,
     /** [record]'s media, with URLs to load them from; null when it has none. */
     val media: List<ActivityMediaView>? = null,
-)
+) {
+    /** [visibility] as a known value: [Visibility.PUBLIC] when absent, [Visibility.SELF] when unknown. */
+    val visibilityOrPublic: String
+        get() = Visibility.known(visibility)
+
+    /** Whether viewers may give kudos and comment: only on public activities. */
+    val acceptsInteractions: Boolean
+        get() = visibilityOrPublic == Visibility.PUBLIC
+}
 
 @Immutable @Serializable data class ActivityViewerState(val kudos: AtUri? = null)
 

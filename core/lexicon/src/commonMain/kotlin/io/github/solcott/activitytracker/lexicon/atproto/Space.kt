@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.lexicon.XrpcProcedure
 import io.github.solcott.activitytracker.lexicon.XrpcQuery
 import io.github.solcott.activitytracker.lexicon.app.OpenUnionSerializer
 import kotlin.jvm.JvmInline
+import kotlin.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -83,6 +84,9 @@ object SpaceErrors {
 
     const val SPACE_ALREADY_EXISTS = "SpaceAlreadyExists"
     const val SPACE_NOT_FOUND = "SpaceNotFound"
+
+    /** From `getSpaceCredential`: the space was deleted, and a syncer should drop it. */
+    const val SPACE_DELETED = "SpaceDeleted"
     const val RECORD_NOT_FOUND = "RecordNotFound"
     const val BLOB_NOT_FOUND = "BlobNotFound"
 
@@ -276,6 +280,75 @@ object Space {
         @Serializable data class Input(val space: SpaceUri, val repo: Did, val collection: String, val rkey: String)
 
         val method = XrpcProcedure("com.atproto.space.deleteRecord", Input.serializer(), JsonObject.serializer())
+    }
+
+    /**
+     * A repo's operation log in a space, after a revision: how a syncer keeps up. The host may compact the log, so with no `since` it
+     * returns only what it retained; a syncer backfills with [ListRecords] and follows ops from the head revision ([Output.commit]).
+     */
+    object ListRepoOps {
+        @Serializable
+        data class Params(
+            val space: SpaceUri,
+            val repo: Did,
+            /** Ops after this revision. */
+            val since: String? = null,
+            /** 1–1000; the PDS defaults to 100. */
+            val limit: Int? = null,
+            /** Takes precedence over [since]. */
+            val cursor: String? = null,
+            val excludeValues: Boolean? = null,
+        )
+
+        /** One write: [cid] is null for a delete, [prev] null for a create. Ops sharing a [rev] are one batch. */
+        @Serializable
+        data class Op(
+            val rev: String,
+            val collection: String,
+            val rkey: String,
+            val cid: Cid? = null,
+            val prev: Cid? = null,
+            val value: JsonObject? = null,
+        )
+
+        /** `com.atproto.space.defs#signedCommit`: only [rev] is read here. */
+        @Serializable data class Commit(val rev: String)
+
+        /** [commit] is present once the page reaches the head of the log, and [cursor] until then. */
+        @Serializable data class Output(val ops: List<Op>, val commit: Commit? = null, val cursor: String? = null)
+
+        val method = XrpcQuery("com.atproto.space.listRepoOps", Params.serializer(), Output.serializer())
+    }
+
+    /**
+     * On the authority's PDS, with a space credential: notify [Input.service] of writes to the space for 24 h. Renew before
+     * [Output.expiresAt].
+     */
+    object RegisterNotify {
+        @Serializable data class Input(val space: SpaceUri, val service: String)
+
+        @Serializable data class Output(val expiresAt: Instant)
+
+        val method = XrpcProcedure("com.atproto.space.registerNotify", Input.serializer(), Output.serializer())
+    }
+
+    /**
+     * Sent by the authority's PDS to each registered service, with service auth from the authority addressed to the service id: a repo in
+     * the space advanced. Delivered once, with no retry, so a syncer also pulls periodically.
+     */
+    object NotifyWrite {
+        @Serializable
+        data class Input(
+            val space: SpaceUri,
+            val repo: Did,
+            val repoRev: String,
+            /** `bytes`: `{"$bytes": "<base64>"}`; not read. */
+            val hash: JsonElement? = null,
+            val spaceRev: String? = null,
+            val prevSpaceRev: String? = null,
+        )
+
+        val method = XrpcProcedure("com.atproto.space.notifyWrite", Input.serializer(), JsonObject.serializer())
     }
 }
 

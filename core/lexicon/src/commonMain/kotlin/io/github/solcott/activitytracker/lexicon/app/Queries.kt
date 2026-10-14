@@ -2,9 +2,12 @@ package io.github.solcott.activitytracker.lexicon.app
 
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.XrpcProcedure
 import io.github.solcott.activitytracker.lexicon.XrpcQuery
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import kotlin.time.Instant
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
 
 /** The optional feed filters shared by [GetTimeline] and [GetAuthorActivities]. */
 object FeedFilterParams {
@@ -157,4 +160,15 @@ object Paging {
     const val MAX_LIMIT = 100
 
     fun clamp(limit: Int?): Int = (limit ?: DEFAULT_LIMIT).coerceIn(1, MAX_LIMIT)
+}
+
+/** `app.activitytracker.space.notifySpace`: the caller's [AthleteSpace] tier space at [Input.space] exists, so the AppView syncs it. */
+object NotifySpace {
+    @Serializable data class Input(val space: SpaceUri)
+
+    /** Errors the AppView answers with. */
+    const val NOT_SPACE_AUTHORITY = "NotSpaceAuthority"
+    const val UNSUPPORTED_SPACE = "UnsupportedSpace"
+
+    val method = XrpcProcedure(Nsid.SPACE_NOTIFY_SPACE, Input.serializer(), JsonObject.serializer())
 }

@@ -1,10 +1,12 @@
 package io.github.solcott.activitytracker.lexicon
 
+import io.github.solcott.activitytracker.lexicon.app.ActivityDefaultsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveTank
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
+import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.FollowApprovalRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowDeclineRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
@@ -13,6 +15,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetFollowRequests
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.HeartRateZoneModel
 import io.github.solcott.activitytracker.lexicon.app.Location
+import io.github.solcott.activitytracker.lexicon.app.NotifySpace
 import io.github.solcott.activitytracker.lexicon.app.PrivateDetailsRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
@@ -27,8 +30,10 @@ import io.github.solcott.activitytracker.lexicon.app.ThresholdEntry
 import io.github.solcott.activitytracker.lexicon.app.ThresholdSource
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.TrainingSetAt
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.ApplyWrites
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -239,6 +244,58 @@ class RecordSerializationTest {
         assertEquals("1990-04-01", details["birthDate"]?.jsonPrimitive?.content)
         assertFalse("location" in details)
         assertEquals(record, AtJson.decodeFromJsonElement(PrivateDetailsRecord.serializer(), json))
+    }
+
+    @Test
+    fun activityDefaultsRoundTripAndResolve() {
+        val record = ActivityDefaultsRecord(visibility = Visibility.MUTUALS, chartsVisibility = Visibility.SELF)
+        val json = AtJson.encodeToJsonElement(ActivityDefaultsRecord.serializer(), record).jsonObject
+        assertEquals(Nsid.ACTOR_ACTIVITY_DEFAULTS, json["\$type"]?.jsonPrimitive?.content)
+        assertEquals("mutuals", json["visibility"]?.jsonPrimitive?.content)
+        assertEquals(record, AtJson.decodeFromJsonElement(ActivityDefaultsRecord.serializer(), json))
+        assertEquals(Visibility.MUTUALS to Visibility.SELF, record.resolved())
+
+        val empty = AtJson.decodeFromString(ActivityDefaultsRecord.serializer(), """{"${'$'}type":"${Nsid.ACTOR_ACTIVITY_DEFAULTS}"}""")
+        assertEquals(Visibility.PUBLIC to Visibility.PUBLIC, empty.resolved())
+        val wideCharts = ActivityDefaultsRecord(visibility = Visibility.FOLLOWERS, chartsVisibility = Visibility.PUBLIC)
+        assertEquals(Visibility.FOLLOWERS to Visibility.FOLLOWERS, wideCharts.resolved())
+        assertEquals(Visibility.SELF to Visibility.SELF, ActivityDefaultsRecord(visibility = "friends").resolved())
+    }
+
+    @Test
+    fun visibilityOrder() {
+        assertEquals(Visibility.MUTUALS, Visibility.narrower(Visibility.FOLLOWERS, Visibility.MUTUALS))
+        assertEquals(Visibility.SELF, Visibility.narrower(Visibility.SELF, Visibility.PUBLIC))
+        assertEquals(listOf(Visibility.MUTUALS, Visibility.SELF), Visibility.atMost(Visibility.MUTUALS))
+        assertEquals(Visibility.all, Visibility.atMost(Visibility.PUBLIC))
+        assertEquals(Visibility.all.lastIndex, Visibility.rank("friends"))
+    }
+
+    @Test
+    fun activityViewVisibilityIsOptional() {
+        val base =
+            """{"uri":"at://did:plc:alice/${Nsid.FEED_ACTIVITY}/3k","cid":"bafyrei",""" +
+                """"author":{"did":"did:plc:alice","handle":"alice.test"},""" +
+                """"record":{"sport":"run","startedAt":"2026-09-30T14:00:00Z","elapsedTime":1800,"createdAt":"2026-09-30T14:31:00Z"},""" +
+                """"kudosCount":0,"commentCount":0,"indexedAt":"2026-09-30T14:31:00Z""""
+        val old = AtJson.decodeFromString(ActivityView.serializer(), "$base}")
+        assertEquals(null, old.visibility)
+        assertEquals(Visibility.PUBLIC, old.visibilityOrPublic)
+        assertTrue(old.acceptsInteractions)
+        val followers = AtJson.decodeFromString(ActivityView.serializer(), "$base,\"visibility\":\"followers\"}")
+        assertEquals(Visibility.FOLLOWERS, followers.visibilityOrPublic)
+        assertFalse(followers.acceptsInteractions)
+        val unknown = AtJson.decodeFromString(ActivityView.serializer(), "$base,\"visibility\":\"friends\"}")
+        assertEquals(Visibility.SELF, unknown.visibilityOrPublic)
+    }
+
+    @Test
+    fun notifySpaceInputRoundTrips() {
+        val input = NotifySpace.Input(SpaceUri("at://did:plc:alice/space/${Nsid.SPACE_ATHLETE}/followers"))
+        val json = AtJson.encodeToJsonElement(NotifySpace.Input.serializer(), input).jsonObject
+        assertEquals("at://did:plc:alice/space/${Nsid.SPACE_ATHLETE}/followers", json["space"]?.jsonPrimitive?.content)
+        assertEquals(input, AtJson.decodeFromJsonElement(NotifySpace.Input.serializer(), json))
+        assertEquals("app.activitytracker.space.notifySpace", NotifySpace.method.nsid)
     }
 
     @Test

@@ -1,0 +1,28 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.actor.activityDefaults",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "The visibilities an athlete's new activities start with. Lives only in the athlete's self space (app.activitytracker.space.athlete, key self), never in the public repo. Both default to public when the record or a field is absent.",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "properties": {
+          "visibility": {
+            "type": "string",
+            "maxLength": 16,
+            "knownValues": ["public", "followers", "mutuals", "self"],
+            "description": "Who may see a new activity by default (app.activitytracker.actor.defs#visibility)."
+          },
+          "chartsVisibility": {
+            "type": "string",
+            "maxLength": 16,
+            "knownValues": ["public", "followers", "mutuals", "self"],
+            "description": "Who may see a new activity's charts by default. Never wider than visibility: a reader narrows it to visibility if it is."
+          }
+        }
+      }
+    }
+  }
+}

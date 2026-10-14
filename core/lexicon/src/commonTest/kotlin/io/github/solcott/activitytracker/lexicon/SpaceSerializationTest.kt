@@ -9,6 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.time.Instant
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -44,6 +45,35 @@ class SpaceSerializationTest {
     fun spaceUriIsAPlainStringParam() {
         val params = XrpcParams.encode(Space.GetRecord.Params.serializer(), Space.GetRecord.Params(space, alice, "c", "self"))
         assertEquals(listOf("space" to space.value, "repo" to "did:plc:alice", "collection" to "c", "rkey" to "self"), params)
+    }
+
+    @Test
+    fun syncerPayloadsDecode() {
+        // Shapes as the pinned PDS sent them in docker/scripts/syncer-smoke.sh.
+        val ops =
+            AtJson.decodeFromString(
+                Space.ListRepoOps.Output.serializer(),
+                """{"ops":[{"rev":"3mxtoijnsfd2r","collection":"c","rkey":"n1","cid":"bafyput","prev":null,"value":{"text":"x"}},""" +
+                    """{"rev":"3mxtoijsskd2r","collection":"c","rkey":"n1","cid":null,"prev":"bafyput"}],""" +
+                    """"commit":{"rev":"3mxtoijsskd2r","sig":{"${'$'}bytes":"AA"},"hash":{"${'$'}bytes":"AA"}}}""",
+            )
+        assertEquals(listOf("bafyput", null), ops.ops.map { it.cid?.value })
+        assertEquals(null, ops.ops[1].value)
+        assertEquals("3mxtoijsskd2r", ops.commit?.rev)
+        assertEquals(null, ops.cursor)
+
+        val notify =
+            AtJson.decodeFromString(
+                Space.NotifyWrite.Input.serializer(),
+                """{"space":"${space.value}","repo":"did:plc:alice","repoRev":"3mxtoijnsfd2r",""" +
+                    """"hash":{"${'$'}bytes":"7DDo6UqL"},"spaceRev":"3mxtoijoa2t2r"}""",
+            )
+        assertEquals(space, notify.space)
+        assertEquals("3mxtoijnsfd2r", notify.repoRev)
+        assertEquals(null, notify.prevSpaceRev)
+
+        val registered = AtJson.decodeFromString(Space.RegisterNotify.Output.serializer(), """{"expiresAt":"2026-10-15T13:43:16.061Z"}""")
+        assertEquals(Instant.parse("2026-10-15T13:43:16.061Z"), registered.expiresAt)
     }
 
     @Test

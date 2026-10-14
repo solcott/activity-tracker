@@ -1,0 +1,28 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.space.notifySpace",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Tells the AppView that one of the caller's app.activitytracker.space.athlete spaces exists, so it joins the space and indexes its activities. Requires service auth from the space's authority. Idempotent.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["space"],
+          "properties": {
+            "space": {
+              "type": "string",
+              "format": "space-ref",
+              "description": "One of the caller's athlete spaces: at://{caller}/space/app.activitytracker.space.athlete/{tier}."
+            }
+          }
+        }
+      },
+      "errors": [
+        { "name": "NotSpaceAuthority", "description": "The space's authority isn't the caller." },
+        { "name": "UnsupportedSpace", "description": "The space isn't an app.activitytracker.space.athlete space with a known tier key." }
+      ]
+    }
+  }
+}

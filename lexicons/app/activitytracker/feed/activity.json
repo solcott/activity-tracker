@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "A recorded or manually entered athletic activity. Records are public: never include private locations; privacy zones must be trimmed from polyline/track before writing.",
+      "description": "A recorded or manually entered athletic activity. Where it is stored is its visibility: a public activity is a record in the athlete's repo, and a followers, mutuals or self activity is a record in the athlete's app.activitytracker.space.athlete space for that tier, never in the repo. Its URI is at://{did}/app.activitytracker.feed.activity/{rkey} wherever it is stored. Repo records are public: never include private locations; privacy zones must be trimmed from polyline/track before writing.",
       "key": "tid",
       "record": {
         "type": "object",

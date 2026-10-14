@@ -10,6 +10,10 @@ object Nsid {
     const val ACTOR_PROFILE = "$NAMESPACE.actor.profile"
     /** A record kept only in an athlete's tier space ([SPACE_ATHLETE]), so it never reaches the firehose and isn't indexed. */
     const val ACTOR_PRIVATE_DETAILS = "$NAMESPACE.actor.privateDetails"
+    /**
+     * A record kept only in an athlete's `self` tier space ([SPACE_ATHLETE]): the visibilities new activities start with. Never indexed.
+     */
+    const val ACTOR_ACTIVITY_DEFAULTS = "$NAMESPACE.actor.activityDefaults"
     const val ACTOR_GET_PROFILE = "$NAMESPACE.actor.getProfile"
     const val ACTOR_SEARCH_ACTORS = "$NAMESPACE.actor.searchActors"
 
@@ -40,6 +44,8 @@ object Nsid {
      * indexed; the local PDS resolves its declaration from the lexicon authority account (`docker/scripts/publish-lexicons.sh`).
      */
     const val SPACE_ATHLETE = "$NAMESPACE.space.athlete"
+    /** Procedure: an athlete tells the AppView one of their [SPACE_ATHLETE] spaces exists, so it syncs it. */
+    const val SPACE_NOTIFY_SPACE = "$NAMESPACE.space.notifySpace"
 
     /** Record collections the AppView indexes (used as the Jetstream `wantedCollections` filter). */
     val indexedCollections =

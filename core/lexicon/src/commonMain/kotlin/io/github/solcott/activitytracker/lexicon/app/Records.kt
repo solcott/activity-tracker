@@ -270,8 +270,8 @@ data class ActivityRecord(
  * `app.activitytracker.feed.activityStreams`: an activity's per-sample data, for charts, under its activity's rkey. Its [data] blob holds
  * an [ActivityStreamData] as JSON.
  *
- * TODO(spaces): records are public, so before going live streams move to a private atproto Space (see BACKLOG.md); until then the AppView
- *   serves them only to the viewers [visibility] allows.
+ * Where it's stored is who may see it: public streams in the athlete's repo, the others in their tier space for [visibility]
+ * ([AthleteSpace]), never wider than the activity. [visibility] is kept in the record too, which repo records from before spaces rely on.
  */
 @Serializable
 data class ActivityStreamsRecord(
@@ -568,6 +568,28 @@ data class PrivateDetailsRecord(
     }
 }
 
+/**
+ * `app.activitytracker.actor.activityDefaults`: the [Visibility] values an athlete's new activities and their charts start with. It lives
+ * only in their [AthleteSpace.SELF] space. A missing record or field means [Visibility.PUBLIC]; read it through [resolved], which also caps
+ * the charts at the activity.
+ */
+@Serializable
+data class ActivityDefaultsRecord(
+    val visibility: String? = null,
+    val chartsVisibility: String? = null,
+    @SerialName($$"$type") val type: String = Nsid.ACTOR_ACTIVITY_DEFAULTS,
+) {
+    /** (activity, charts), each a known [Visibility] value, with the charts never wider than the activity. */
+    fun resolved(): Pair<String, String> {
+        val activity = Visibility.known(visibility)
+        return activity to Visibility.capped(Visibility.known(chartsVisibility), activity)
+    }
+
+    companion object {
+        const val RKEY = "self"
+    }
+}
+
 /** `app.activitytracker.actor.defs#location` */
 @Immutable
 @Serializable
@@ -797,4 +819,27 @@ object Visibility {
 
     /** Only the athlete. */
     const val SELF = "self"
+
+    /** Every known value, widest first. */
+    val all = listOf(PUBLIC, FOLLOWERS, MUTUALS, SELF)
+
+    /** [value]'s place in [all], 0 the widest. An unknown value ranks as [SELF], so it is never shown wider than intended. */
+    fun rank(value: String): Int = all.indexOf(value).takeIf { it >= 0 } ?: all.lastIndex
+
+    /** The narrower of [a] and [b]. */
+    fun narrower(a: String, b: String): String = if (rank(a) >= rank(b)) a else b
+
+    /** [value], narrowed to [cap] if it's wider: charts are never more visible than their activity. */
+    fun capped(value: String, cap: String): String = narrower(value, cap)
+
+    /** The values no wider than [cap], widest first: what a charts picker offers for an activity at [cap]. */
+    fun atMost(cap: String): List<String> = all.drop(rank(cap))
+
+    /** [value] if it's a known value, [PUBLIC] when it's absent, else [SELF]. */
+    fun known(value: String?): String =
+        when (value) {
+            null -> PUBLIC
+            in all -> value
+            else -> SELF
+        }
 }

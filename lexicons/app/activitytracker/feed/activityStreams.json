@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "Per-sample data recorded during an activity, for charts. Its rkey is its activity's. TODO(spaces): records are public, so before going live this moves to a private atproto Space; until then the AppView only serves it to the viewers its visibility allows.",
+      "description": "Per-sample data recorded during an activity, for charts. Its rkey is its activity's. Public streams are a record in the athlete's repo; followers, mutuals or self streams are a record in the athlete's app.activitytracker.space.athlete space for that tier. Never more visible than its activity. The AppView serves it only to the viewers its tier allows.",
       "key": "tid",
       "record": {
         "type": "object",
