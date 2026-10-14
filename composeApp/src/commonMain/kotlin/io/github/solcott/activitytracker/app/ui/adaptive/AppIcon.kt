@@ -66,7 +66,7 @@ enum class AppIcon(
     DropDown(Icons.Filled.ArrowDropDown, CupertinoIcons.chevronUpChevronDown, "chevron.up.chevron.down"),
     ExpandAll(MaterialIcons.UnfoldMore, CupertinoIcons.rectangleExpandVertical, "rectangle.expand.vertical"),
     CollapseAll(MaterialIcons.UnfoldLess, CupertinoIcons.rectangleCompressVertical, "rectangle.compress.vertical"),
-    Kudos(
+    Like(
         Icons.Outlined.ThumbUp,
         CupertinoIcons.handThumbsup,
         "hand.thumbsup",

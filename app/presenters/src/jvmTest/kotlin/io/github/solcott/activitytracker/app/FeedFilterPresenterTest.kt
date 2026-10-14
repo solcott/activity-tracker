@@ -13,7 +13,7 @@ import io.github.solcott.activitytracker.app.feedfilter.FeedFilterState
 import io.github.solcott.activitytracker.app.feedfilter.Selection
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
-import io.github.solcott.activitytracker.data.feed.LocalKudos
+import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.data.sport.SportCatalog
 import io.github.solcott.activitytracker.data.sport.SportCategory
@@ -55,7 +55,7 @@ class FeedFilterPresenterTest {
 
     private suspend fun presenter(initial: FeedFilter = FeedFilter.Default): FeedFilterPresenter {
         val (db, _, clients) = signedInTestSession(http)
-        val recent = RecentActivityTypes(db, clients, FeedRepository(db, clients, LocalKudos(), Logger))
+        val recent = RecentActivityTypes(db, clients, FeedRepository(db, clients, LocalLikes(), Logger))
         return FeedFilterPresenter(FeedFilterScreen(initial), recent)
     }
 

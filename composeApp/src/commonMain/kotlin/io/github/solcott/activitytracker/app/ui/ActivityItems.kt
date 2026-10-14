@@ -7,7 +7,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import kotlinx.collections.immutable.ImmutableList
 
 /**
- * [activities] as cards keyed by URI, for any screen that lists them inside its own lazy list. Kudos is offered on activities not by
+ * [activities] as cards keyed by URI, for any screen that lists them inside its own lazy list. Liking is offered on activities not by
  * [viewerDid]. [authorClickable] is false where the author is the page itself, as on a profile.
  */
 fun LazyListScope.activityItems(
@@ -22,7 +22,7 @@ fun LazyListScope.activityItems(
             onClick = { onEvent(ActivityListEvent.Open(activity)) },
             onAuthorClick = { onEvent(ActivityListEvent.OpenAuthor(activity)) }.takeIf { authorClickable },
             onOpenMedia = { onEvent(ActivityListEvent.OpenMedia(activity, it)) },
-            onKudos = { onEvent(ActivityListEvent.ToggleKudos(activity)) }.takeUnless { activity.author.did.value == viewerDid },
+            onLike = { onEvent(ActivityListEvent.ToggleLike(activity)) }.takeUnless { activity.author.did.value == viewerDid },
         )
     }
 }

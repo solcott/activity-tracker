@@ -10,7 +10,7 @@ import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 
-/** Handles [ActivityListEvent]s for a host presenter: opens navigate, and kudos toggles once per activity at a time. */
+/** Handles [ActivityListEvent]s for a host presenter: opens navigate, and like toggles once per activity at a time. */
 @Composable
 fun rememberActivityListEventSink(navigator: Navigator, activities: ActivityRepository): (ActivityListEvent) -> Unit {
     val flights = rememberSingleFlight()
@@ -29,8 +29,8 @@ fun rememberActivityListEventSink(navigator: Navigator, activities: ActivityRepo
                     navigator.goTo(MediaGalleryScreen(event.activity.uri.value, event.index))
                 }
 
-                is ActivityListEvent.ToggleKudos -> {
-                    flights.launch(event.activity.uri) { runSuspendCatching { activities.toggleKudos(event.activity) } }
+                is ActivityListEvent.ToggleLike -> {
+                    flights.launch(event.activity.uri) { runSuspendCatching { activities.toggleLike(event.activity) } }
                 }
             }
         }

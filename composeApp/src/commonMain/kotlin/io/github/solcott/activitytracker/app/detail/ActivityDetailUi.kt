@@ -52,15 +52,15 @@ import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.charts_visibility_heading
 import io.github.solcott.activitytracker.composeApp.resources.detail_comment_count
 import io.github.solcott.activitytracker.composeApp.resources.detail_comment_placeholder
-import io.github.solcott.activitytracker.composeApp.resources.detail_give_kudos
-import io.github.solcott.activitytracker.composeApp.resources.detail_hide_kudos
-import io.github.solcott.activitytracker.composeApp.resources.detail_kudos_given
-import io.github.solcott.activitytracker.composeApp.resources.detail_no_kudos
+import io.github.solcott.activitytracker.composeApp.resources.detail_hide_likes
+import io.github.solcott.activitytracker.composeApp.resources.detail_like
+import io.github.solcott.activitytracker.composeApp.resources.detail_liked
+import io.github.solcott.activitytracker.composeApp.resources.detail_no_likes
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_comments
 import io.github.solcott.activitytracker.composeApp.resources.detail_send_comment
-import io.github.solcott.activitytracker.composeApp.resources.detail_show_kudos
+import io.github.solcott.activitytracker.composeApp.resources.detail_show_likes
 import io.github.solcott.activitytracker.composeApp.resources.detail_title
-import io.github.solcott.activitytracker.composeApp.resources.kudos_count
+import io.github.solcott.activitytracker.composeApp.resources.like_count
 import io.github.solcott.activitytracker.composeApp.resources.stat_distance
 import io.github.solcott.activitytracker.composeApp.resources.stat_elevation
 import io.github.solcott.activitytracker.composeApp.resources.stat_moving_time
@@ -137,7 +137,7 @@ private fun LoadedContent(state: ActivityDetailState.Loaded, contentPadding: Pad
     }
 }
 
-/** What always shows: who and what, the headline figures, the map, and kudos. */
+/** What always shows: who and what, the headline figures, the map, and likes. */
 @Composable
 private fun Overview(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
     val record = state.activity.record
@@ -177,9 +177,9 @@ private fun Overview(state: ActivityDetailState.Loaded, modifier: Modifier = Mod
             )
             Recordings(state.activity, onOpen = { state.eventSink(ActivityDetailEvent.OpenActivity(it)) })
             state.manage?.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
-            // Non-public activities take no kudos or comments.
+            // Non-public activities take no likes or comments.
             val interactions = state.activity.acceptsInteractions
-            if (interactions) Kudos(state)
+            if (interactions) Likes(state)
             if (state.isOwn) state.charts?.let { ChartSharing(it.visibility, state) }
             if (interactions) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -250,34 +250,34 @@ private fun overviewStats(record: ActivityRecord, charts: ActivityCharts?): Immu
         .toImmutableList()
 }
 
-/** The kudos count or button, the toggle for who gave them, and the list once shown. */
+/** The like count or button, the toggle for who liked it, and the list once shown. */
 @Composable
-private fun Kudos(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
+private fun Likes(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
     Column(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            KudosButton(state, Modifier.weight(1f))
-            // Hiding stays available if the last kudos goes away while the list is open.
-            if (state.activity.kudosCount > 0 || state.kudosList != null) {
-                AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.ToggleKudosList) }) {
-                    Text(stringResource(if (state.kudosList != null) Res.string.detail_hide_kudos else Res.string.detail_show_kudos))
+            LikeButton(state, Modifier.weight(1f))
+            // Hiding stays available if the last like goes away while the list is open.
+            if (state.activity.likeCount > 0 || state.likesList != null) {
+                AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.ToggleLikesList) }) {
+                    Text(stringResource(if (state.likesList != null) Res.string.detail_hide_likes else Res.string.detail_show_likes))
                 }
             }
         }
-        state.kudosList?.let { KudosList(it, state.eventSink) }
+        state.likesList?.let { LikesList(it, state.eventSink) }
     }
 }
 
 @Composable
-private fun KudosButton(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
-    val count = state.activity.kudosCount
+private fun LikeButton(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
+    val count = state.activity.likeCount
     if (state.isOwn) {
-        Text(pluralStringResource(Res.plurals.kudos_count, count.toInt(), count), modifier.padding(vertical = 12.dp))
+        Text(pluralStringResource(Res.plurals.like_count, count.toInt(), count), modifier.padding(vertical = 12.dp))
     } else {
         Box(modifier) {
-            AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.ToggleKudos) }) {
+            AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.ToggleLike) }) {
                 Text(
                     stringResource(
-                        if (state.activity.viewer?.kudos != null) Res.string.detail_kudos_given else Res.string.detail_give_kudos,
+                        if (state.activity.viewer?.like != null) Res.string.detail_liked else Res.string.detail_like,
                         count,
                     )
                 )
@@ -286,15 +286,15 @@ private fun KudosButton(state: ActivityDetailState.Loaded, modifier: Modifier = 
     }
 }
 
-/** Who gave kudos, under the kudos row: a spinner, an error, the empty state, or one tappable row per athlete. */
+/** Who liked it, under the like row: a spinner, an error, the empty state, or one tappable row per athlete. */
 @Composable
-private fun KudosList(list: KudosList, eventSink: (ActivityDetailEvent) -> Unit, modifier: Modifier = Modifier) {
+private fun LikesList(list: LikesList, eventSink: (ActivityDetailEvent) -> Unit, modifier: Modifier = Modifier) {
     val error = list.error
     Column(modifier.fillMaxWidth()) {
         when {
             list.isLoading -> Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) { AppProgressIndicator() }
             error != null -> Text(errorText(error), color = MaterialTheme.colorScheme.error)
-            list.athletes.isEmpty() -> Text(stringResource(Res.string.detail_no_kudos), style = MaterialTheme.typography.bodyMedium)
+            list.athletes.isEmpty() -> Text(stringResource(Res.string.detail_no_likes), style = MaterialTheme.typography.bodyMedium)
             else -> {
                 list.athletes.forEach { athlete ->
                     Column(

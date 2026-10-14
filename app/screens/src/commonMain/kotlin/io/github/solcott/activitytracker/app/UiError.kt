@@ -11,7 +11,7 @@ data class UiError(val kind: Kind, val detail: String?) {
     enum class Kind {
         LoadFeed,
         LoadActivity,
-        LoadKudos,
+        LoadLikes,
         LoadProfile,
         UpdateFollow,
         LoadFollowers,

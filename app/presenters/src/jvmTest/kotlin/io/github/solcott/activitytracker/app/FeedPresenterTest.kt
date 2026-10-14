@@ -20,7 +20,7 @@ import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
-import io.github.solcott.activitytracker.data.feed.LocalKudos
+import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -61,8 +61,8 @@ class FeedPresenterTest {
 
     private suspend fun repos(): Repos {
         val (db, _, clients) = signedInTestSession(http)
-        val localKudos = LocalKudos()
-        val feed = FeedRepository(db, clients, localKudos, Logger)
+        val localLikes = LocalLikes()
+        val feed = FeedRepository(db, clients, localLikes, Logger)
         val activities =
             ActivityRepository(
                 db,
@@ -71,7 +71,7 @@ class FeedPresenterTest {
                 OutboxWriter(db, clients, Clock.System),
                 PdsActivityStreamsStore(OutboxWriter(db, clients, Clock.System), clients, Clock.System),
                 feed,
-                localKudos,
+                localLikes,
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
             )
@@ -117,15 +117,15 @@ class FeedPresenterTest {
             cid = Cid("bafy3kride"),
             author = ProfileViewBasic(Did("did:plc:alice"), Handle("alice.test")),
             record = ActivityRecord("ride", Instant.parse("2026-03-05T08:00:00Z"), 1800, Instant.parse("2026-03-05T09:00:00Z")),
-            kudosCount = 0,
+            likeCount = 0,
             commentCount = 0,
             indexedAt = Instant.parse("2026-03-05T09:00:00Z"),
         )
 
     private suspend fun filterTest(block: suspend ReceiveTurbine<FeedState>.() -> Unit) {
         val (db, _, clients) = signedInTestSession(appView)
-        val localKudos = LocalKudos()
-        val feed = FeedRepository(db, clients, localKudos, Logger)
+        val localLikes = LocalLikes()
+        val feed = FeedRepository(db, clients, localLikes, Logger)
         val activities =
             ActivityRepository(
                 db,
@@ -134,7 +134,7 @@ class FeedPresenterTest {
                 OutboxWriter(db, clients, Clock.System),
                 PdsActivityStreamsStore(OutboxWriter(db, clients, Clock.System), clients, Clock.System),
                 feed,
-                localKudos,
+                localLikes,
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
             )

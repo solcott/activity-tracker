@@ -32,10 +32,10 @@ sealed interface ActivityDetailState : CircuitUiState {
         val activity: ActivityView,
         val comments: ImmutableList<CommentView>,
         val draftComment: TextFieldState,
-        /** The activity is the signed-in athlete's own, so it can't take kudos. */
+        /** The activity is the signed-in athlete's own, so it can't be liked. */
         val isOwn: Boolean,
-        /** Who gave kudos, once the viewer has shown the list; null while it's hidden. */
-        val kudosList: KudosList?,
+        /** Who liked it, once the viewer has shown the list; null while it's hidden. */
+        val likesList: LikesList?,
         override val eventSink: (ActivityDetailEvent) -> Unit,
         /** Null while loading, and when there are no streams or the viewer may not see them. */
         val charts: ActivityCharts? = null,
@@ -85,7 +85,7 @@ data class ActivityManage(
 )
 
 @Immutable
-data class KudosList(
+data class LikesList(
     val athletes: ImmutableList<ProfileViewBasic>,
     val isLoading: Boolean,
     val error: UiError?,
@@ -96,12 +96,12 @@ sealed interface ActivityDetailEvent {
 
     data object Retry : ActivityDetailEvent
 
-    data object ToggleKudos : ActivityDetailEvent
+    data object ToggleLike : ActivityDetailEvent
 
     data object OpenAuthor : ActivityDetailEvent
 
-    /** Shows or hides who gave kudos; showing it reloads the list. */
-    data object ToggleKudosList : ActivityDetailEvent
+    /** Shows or hides who liked it; showing it reloads the list. */
+    data object ToggleLikesList : ActivityDetailEvent
 
     data class OpenProfile(val did: Did) : ActivityDetailEvent
 

@@ -69,7 +69,7 @@ class ImportLogbookPresenterTest {
                     title = title,
                     device = "Garmin Descent Mk3",
                 ),
-            kudosCount = 0,
+            likeCount = 0,
             commentCount = 0,
             indexedAt = Instant.parse("2026-09-21T00:00:00Z"),
         )

@@ -21,7 +21,7 @@ import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.activity.cid
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
-import io.github.solcott.activitytracker.data.feed.LocalKudos
+import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
@@ -69,7 +69,7 @@ class EditActivityPresenterTest {
         get() =
             """{"uri":"$uri","cid":"bafyact","author":{"did":"${alice.value}","handle":"alice.test"},"record":$record,""" +
                 """"visibility":"$visibility",""" +
-                """"kudosCount":0,"commentCount":0,"indexedAt":"2026-09-30T10:31:01Z","viewer":{},"media":[""" +
+                """"likeCount":0,"commentCount":0,"indexedAt":"2026-09-30T10:31:01Z","viewer":{},"media":[""" +
                 listOf("bafkone", "bafktwo").joinToString(",") {
                     """{"${'$'}type":"app.activitytracker.feed.defs#imageView","fullsize":"https://appview/img/media/${alice.value}/$it"}"""
                 } +
@@ -157,7 +157,7 @@ class EditActivityPresenterTest {
 
     private suspend fun presenter(navigator: FakeNavigator): @Composable () -> EditActivityState {
         val (db, _, clients) = signedInTestSession(http, did = alice)
-        val feed = FeedRepository(db, clients, LocalKudos(), Logger)
+        val feed = FeedRepository(db, clients, LocalLikes(), Logger)
         val outbox = OutboxProcessor(db, clients, Logger)
         val writer = OutboxWriter(db, clients, Clock.System)
         val manager = ActivityManager(db, clients, outbox, writer, PdsActivityStreamsStore(writer, clients, Clock.System), feed)

@@ -9,7 +9,7 @@ import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
-import io.github.solcott.activitytracker.data.feed.LocalKudos
+import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.data.units.UnitSystem
@@ -293,8 +293,8 @@ class SessionTestFixture {
 
     suspend fun repos(defaultUnits: UnitSystem = UnitSystem.Metric): Repos {
         val (db, manager, clients) = signedInTestSession(http, did = did)
-        val localKudos = LocalKudos()
-        val feed = FeedRepository(db, clients, localKudos, Logger)
+        val localLikes = LocalLikes()
+        val feed = FeedRepository(db, clients, localLikes, Logger)
         val recentTypes = RecentActivityTypes(db, clients, feed)
         val activities =
             ActivityRepository(
@@ -304,7 +304,7 @@ class SessionTestFixture {
                 OutboxWriter(db, clients, Clock.System),
                 PdsActivityStreamsStore(OutboxWriter(db, clients, Clock.System), clients, Clock.System),
                 feed,
-                localKudos,
+                localLikes,
                 recentTypes,
                 Clock.System,
             )

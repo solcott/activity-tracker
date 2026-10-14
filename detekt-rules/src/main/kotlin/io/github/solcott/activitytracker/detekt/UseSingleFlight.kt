@@ -8,7 +8,7 @@ import org.jetbrains.kotlin.psi.KtCallExpression
 
 /**
  * Presenters launch event-driven work through `rememberSingleFlight()`, not a bare `rememberCoroutineScope()`, so a double tap can't run a
- * save, follow or kudos twice.
+ * save, follow or like twice.
  *
  * Applies to files named `*Presenter.kt`, the presenters' naming convention. That holds for every task (a source-set task sees paths
  * relative to its own source dir, so a path filter in `detekt.yml` can't pick out `:app-presenters` reliably), and UIs, which can launch

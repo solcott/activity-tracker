@@ -8,7 +8,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 /*
- * The brand: deep teal, with amber for kudos and highlights (tertiary). Full Material 3 tonal role sets, so nothing falls back to the
+ * The brand: deep teal, with amber for likes and highlights (tertiary). Full Material 3 tonal role sets, so nothing falls back to the
  * baseline purple. Light tertiary is a dark amber because the bright one (#F2B705, dark tertiary) is unreadable on light surfaces.
  */
 

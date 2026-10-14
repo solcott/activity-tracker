@@ -19,7 +19,7 @@ data class ProfileState(
     val profile: ProfileView?,
     val activities: ImmutableList<ActivityView>,
     val isSelf: Boolean,
-    /** The signed-in athlete, so the UI can leave kudos off their own activities. */
+    /** The signed-in athlete, so the UI can leave likes off their own activities. */
     val viewerDid: String,
     /** A follow or unfollow is on its way to the PDS; the button ignores taps until it lands. */
     val followPending: Boolean,

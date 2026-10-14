@@ -17,7 +17,7 @@ import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
-import io.github.solcott.activitytracker.data.feed.LocalKudos
+import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.profile.FollowRequestsRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
@@ -114,8 +114,8 @@ class ProfilePresenterTest {
 
     private suspend fun presenter(actor: String = "did:plc:bob"): @Composable () -> ProfileState {
         val (db, _, clients) = signedInTestSession(http, did = alice)
-        val localKudos = LocalKudos()
-        val feed = FeedRepository(db, clients, localKudos, Logger)
+        val localLikes = LocalLikes()
+        val feed = FeedRepository(db, clients, localLikes, Logger)
         activities =
             ActivityRepository(
                 db,
@@ -124,7 +124,7 @@ class ProfilePresenterTest {
                 OutboxWriter(db, clients, Clock.System),
                 PdsActivityStreamsStore(OutboxWriter(db, clients, Clock.System), clients, Clock.System),
                 feed,
-                localKudos,
+                localLikes,
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
             )
@@ -170,12 +170,12 @@ class ProfilePresenterTest {
     }
 
     @Test
-    fun kudosIgnoresTapsUntilItLands() = runTest {
+    fun likeIgnoresTapsUntilItLands() = runTest {
         presenterTestOf(presenter()) {
             val loaded = awaitUntil { it.profile != null && it.error == null }
-            loaded.eventSink(ProfileEvent.Activity(ActivityListEvent.ToggleKudos(bobsRide)))
+            loaded.eventSink(ProfileEvent.Activity(ActivityListEvent.ToggleLike(bobsRide)))
             putStarted.await()
-            loaded.eventSink(ProfileEvent.Activity(ActivityListEvent.ToggleKudos(bobsRide)))
+            loaded.eventSink(ProfileEvent.Activity(ActivityListEvent.ToggleLike(bobsRide)))
 
             putGate.complete(Unit)
             // Room emits off the test scheduler, so this waits on the real drain (bounded by runTest\'s timeout).
@@ -186,11 +186,11 @@ class ProfilePresenterTest {
     }
 
     @Test
-    fun aFollowersActivityTakesNoKudos() = runTest {
+    fun aFollowersActivityTakesNoLikes() = runTest {
         putGate.complete(Unit)
         presenterTestOf(presenter()) {
             val loaded = awaitUntil { it.profile != null && it.error == null }
-            loaded.eventSink(ProfileEvent.Activity(ActivityListEvent.ToggleKudos(bobsRide.copy(visibility = Visibility.FOLLOWERS))))
+            loaded.eventSink(ProfileEvent.Activity(ActivityListEvent.ToggleLike(bobsRide.copy(visibility = Visibility.FOLLOWERS))))
             activities.pendingWrites.first { it == 0 }
             assertEquals(0, puts)
             cancelAndIgnoreRemainingEvents()
@@ -251,7 +251,7 @@ class ProfilePresenterTest {
             cid = Cid("bafy3kride"),
             author = ProfileViewBasic(Did("did:plc:bob"), Handle("bob.test")),
             record = ActivityRecord("ride", Instant.parse("2026-03-05T08:00:00Z"), 1800, Instant.parse("2026-03-05T09:00:00Z")),
-            kudosCount = 0,
+            likeCount = 0,
             commentCount = 0,
             indexedAt = Instant.parse("2026-03-05T09:00:00Z"),
         )

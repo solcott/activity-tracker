@@ -11,7 +11,7 @@
     <!-- Errors (shown when the failure has no message of its own) -->
     <string name="error_load_feed">Couldn't load your feed</string>
     <string name="error_load_activity">Couldn't load activity</string>
-    <string name="error_load_kudos">Couldn't load kudos</string>
+    <string name="error_load_likes">Couldn't load likes</string>
     <string name="error_load_profile">Couldn't load profile</string>
     <string name="error_update_follow">Couldn't update follow</string>
     <string name="error_load_followers">Couldn't load followers</string>
@@ -269,10 +269,10 @@
     <string name="sport_category_Other">Other</string>
 
     <!-- Activity card -->
-    <string name="kudos_content_description">Kudos</string>
-    <plurals name="kudos_count">
-        <item quantity="one">%1$d kudos</item>
-        <item quantity="other">%1$d kudos</item>
+    <string name="like_content_description">Like</string>
+    <plurals name="like_count">
+        <item quantity="one">%1$d like</item>
+        <item quantity="other">%1$d likes</item>
     </plurals>
     <plurals name="comments_count">
         <item quantity="one">%1$d comment</item>
@@ -326,11 +326,11 @@
 
     <!-- Activity detail -->
     <string name="detail_title">Activity</string>
-    <string name="detail_show_kudos">Show kudos</string>
-    <string name="detail_hide_kudos">Hide kudos</string>
-    <string name="detail_kudos_given">Kudos given (%1$d)</string>
-    <string name="detail_give_kudos">Give kudos (%1$d)</string>
-    <string name="detail_no_kudos">No kudos yet.</string>
+    <string name="detail_show_likes">Show likes</string>
+    <string name="detail_hide_likes">Hide likes</string>
+    <string name="detail_liked">Liked (%1$d)</string>
+    <string name="detail_like">Like (%1$d)</string>
+    <string name="detail_no_likes">No likes yet.</string>
     <string name="detail_comment_placeholder">Add a comment</string>
     <string name="detail_send_comment">Send</string>
     <string name="detail_sections_heading">Details</string>
@@ -680,10 +680,10 @@
     <string name="detail_ungroup">Ungroup</string>
     <string name="detail_delete">Delete</string>
     <string name="delete_activity_title">Delete this activity?</string>
-    <string name="delete_activity_message">Its kudos and comments go with it. This can't be undone.</string>
+    <string name="delete_activity_message">Its likes and comments go with it. This can't be undone.</string>
     <plurals name="delete_activity_group_message">
-        <item quantity="one">It was also recorded by another device. Delete that recording too, or keep it as an activity of its own. Kudos and comments go with what's deleted. This can't be undone.</item>
-        <item quantity="other">It was also recorded by %1$d other devices. Delete those recordings too, or keep them as activities of their own. Kudos and comments go with what's deleted. This can't be undone.</item>
+        <item quantity="one">It was also recorded by another device. Delete that recording too, or keep it as an activity of its own. Likes and comments go with what's deleted. This can't be undone.</item>
+        <item quantity="other">It was also recorded by %1$d other devices. Delete those recordings too, or keep them as activities of their own. Likes and comments go with what's deleted. This can't be undone.</item>
     </plurals>
     <plurals name="delete_activity_all">
         <item quantity="one">Delete both</item>

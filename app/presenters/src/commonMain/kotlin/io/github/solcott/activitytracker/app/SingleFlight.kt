@@ -11,10 +11,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /**
- * Runs a presenter's event-driven work at most once at a time per key, so a double tap can't save, follow or give kudos twice. Presenters
- * launch through this, never a bare `rememberCoroutineScope()` (detekt's `UseSingleFlight` enforces that).
+ * Runs a presenter's event-driven work at most once at a time per key, so a double tap can't save, follow or like twice. Presenters launch
+ * through this, never a bare `rememberCoroutineScope()` (detekt's `UseSingleFlight` enforces that).
  *
- * The key names the action: the event itself (`XEvent.Save`), or what it acts on (an activity's URI for its kudos). [isRunning] is snapshot
+ * The key names the action: the event itself (`XEvent.Save`), or what it acts on (an activity's URI for its like). [isRunning] is snapshot
  * state, so a presenter can show it as its `saving` or pending flag.
  */
 @Stable

@@ -25,8 +25,8 @@ import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.activity_card_counts
 import io.github.solcott.activitytracker.composeApp.resources.comments_count
-import io.github.solcott.activitytracker.composeApp.resources.kudos_content_description
-import io.github.solcott.activitytracker.composeApp.resources.kudos_count
+import io.github.solcott.activitytracker.composeApp.resources.like_content_description
+import io.github.solcott.activitytracker.composeApp.resources.like_count
 import io.github.solcott.activitytracker.composeApp.resources.stat_distance
 import io.github.solcott.activitytracker.composeApp.resources.stat_time
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
@@ -43,8 +43,8 @@ fun ActivityCard(
     onClick: () -> Unit,
     /** Null leaves the author unclickable, e.g. on their own profile. */
     onAuthorClick: (() -> Unit)?,
-    /** Null hides the kudos button, e.g. on the viewer's own activities. A non-public activity never shows it, nor any counts. */
-    onKudos: (() -> Unit)?,
+    /** Null hides the like button, e.g. on the viewer's own activities. A non-public activity never shows it, nor any counts. */
+    onLike: (() -> Unit)?,
     /** Opens the activity's media full screen, at an index. */
     onOpenMedia: (Int) -> Unit,
     modifier: Modifier = Modifier,
@@ -88,15 +88,15 @@ fun ActivityCard(
                 height = 160.dp,
                 map = record.polyline?.let { polyline -> { mapModifier, mapHeight -> RoutePreview(polyline, mapModifier, mapHeight) } },
             )
-            // Non-public activities take no kudos or comments.
+            // Non-public activities take no likes or comments.
             if (activity.acceptsInteractions)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (onKudos != null) {
-                        val given = activity.viewer?.kudos != null
+                    if (onLike != null) {
+                        val given = activity.viewer?.like != null
                         AppIconButton(
-                            AppIcon.Kudos,
-                            contentDescription = stringResource(Res.string.kudos_content_description),
-                            onClick = onKudos,
+                            AppIcon.Like,
+                            contentDescription = stringResource(Res.string.like_content_description),
+                            onClick = onLike,
                             filled = given,
                             tint = if (given) MaterialTheme.colorScheme.tertiary else Color.Unspecified,
                         )
@@ -104,7 +104,7 @@ fun ActivityCard(
                     Text(
                         stringResource(
                             Res.string.activity_card_counts,
-                            pluralStringResource(Res.plurals.kudos_count, activity.kudosCount.toInt(), activity.kudosCount),
+                            pluralStringResource(Res.plurals.like_count, activity.likeCount.toInt(), activity.likeCount),
                             pluralStringResource(Res.plurals.comments_count, activity.commentCount.toInt(), activity.commentCount),
                         ),
                         style = MaterialTheme.typography.bodySmall,

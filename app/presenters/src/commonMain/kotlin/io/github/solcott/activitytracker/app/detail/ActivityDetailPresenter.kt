@@ -26,8 +26,8 @@ import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
-import io.github.solcott.activitytracker.data.feed.LocalKudos
-import io.github.solcott.activitytracker.data.feed.withKudosOverrides
+import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.feed.withLikeOverrides
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
@@ -48,7 +48,7 @@ fun ActivityDetailPresenter(
     feed: FeedRepository,
     activities: ActivityRepository,
     profiles: ProfileRepository,
-    localKudos: LocalKudos,
+    localLikes: LocalLikes,
     manager: ActivityManager,
 ): ActivityDetailState {
     var activity by remember { mutableStateOf<ActivityView?>(null) }
@@ -56,10 +56,10 @@ fun ActivityDetailPresenter(
     var error by remember { mutableStateOf<UiError?>(null) }
     val draft = rememberTextFieldState()
     var loadKey by remember { mutableIntStateOf(0) }
-    var showKudos by remember { mutableStateOf(false) }
+    var showLikes by remember { mutableStateOf(false) }
     val flights = rememberSingleFlight()
-    // The viewer's own kudos toggles, laid over the loaded activity: the AppView only reflects them once Jetstream catches up.
-    val kudosOverrides by localKudos.overrides.collectAsState()
+    // The viewer's own like toggles, laid over the loaded activity: the AppView only reflects them once Jetstream catches up.
+    val likeOverrides by localLikes.overrides.collectAsState()
 
     LaunchedEffect(loadKey) {
         error = null
@@ -75,7 +75,7 @@ fun ActivityDetailPresenter(
     val rewrite by remember(screen.uri) { feed.rewrites.observe(AtUri(screen.uri)) }.collectAsState(null)
 
     val charts = rememberCharts(AtUri(screen.uri), activity, loadKey, feed, activities, flights) { error = it }
-    val shown = activity?.let { a -> rewrite?.let { feed.rewrites.rewritten(a, it) } ?: a }?.withKudosOverrides(kudosOverrides)
+    val shown = activity?.let { a -> rewrite?.let { feed.rewrites.rewritten(a, it) } ?: a }?.withLikeOverrides(likeOverrides)
     val isOwn = shown?.author?.did == profiles.did
     var approvesFollowers by remember { mutableStateOf(false) }
     LaunchedEffect(isOwn) {
@@ -104,12 +104,12 @@ fun ActivityDetailPresenter(
             ActivityDetailEvent.Edit,
             is ActivityDetailEvent.OpenMedia -> navigator.open(event, screen.uri, current)
 
-            ActivityDetailEvent.ToggleKudosList -> {
-                showKudos = !showKudos
+            ActivityDetailEvent.ToggleLikesList -> {
+                showLikes = !showLikes
             }
 
-            ActivityDetailEvent.ToggleKudos -> {
-                current?.let { flights.launch(it.uri) { runSuspendCatching { activities.toggleKudos(it) } } }
+            ActivityDetailEvent.ToggleLike -> {
+                current?.let { flights.launch(it.uri) { runSuspendCatching { activities.toggleLike(it) } } }
             }
 
             is ActivityDetailEvent.SetChartsVisibility -> charts.setVisibility(event.visibility)
@@ -127,14 +127,14 @@ fun ActivityDetailPresenter(
         }
     }
 
-    val kudosList = rememberKudosList(showKudos, AtUri(screen.uri), viewerGave = shown?.viewer?.kudos != null, feed, profiles)
+    val likesList = rememberLikesList(showLikes, AtUri(screen.uri), viewerGave = shown?.viewer?.like != null, feed, profiles)
     return detailState(shown, error, sink) {
         ActivityDetailState.Loaded(
             activity = it,
             comments = comments,
             draftComment = draft,
             isOwn = isOwn,
-            kudosList = kudosList,
+            likesList = likesList,
             eventSink = sink,
             charts = charts.charts,
             chartsMissingZones = charts.missingZones(isOwn),
@@ -316,17 +316,17 @@ private fun detailState(
     }
 
 /**
- * Who gave kudos on [uri] while [show] is set, reloaded each time it's shown. The AppView lags the viewer's own toggles, so the viewer is
- * added or dropped to match [viewerGave].
+ * Who liked [uri] while [show] is set, reloaded each time it's shown. The AppView lags the viewer's own toggles, so the viewer is added or
+ * dropped to match [viewerGave].
  */
 @Composable
-private fun rememberKudosList(
+private fun rememberLikesList(
     show: Boolean,
     uri: AtUri,
     viewerGave: Boolean,
     feed: FeedRepository,
     profiles: ProfileRepository,
-): KudosList? {
+): LikesList? {
     var athletes by remember { mutableStateOf(emptyList<ProfileViewBasic>()) }
     // Starts (and goes back to) loading while hidden, so the first frame after showing doesn't flash an empty list.
     var loading by remember { mutableStateOf(true) }
@@ -337,7 +337,7 @@ private fun rememberKudosList(
         loading = true
         error = null
         if (!show) return@LaunchedEffect
-        runSuspendCatching { athletes = feed.kudos(uri) }.onFailure { error = UiError.of(UiError.Kind.LoadKudos, it) }
+        runSuspendCatching { athletes = feed.likes(uri) }.onFailure { error = UiError.of(UiError.Kind.LoadLikes, it) }
         loading = false
     }
 
@@ -357,7 +357,7 @@ private fun rememberKudosList(
             viewerListed -> athletes
             else -> listOfNotNull(me) + athletes
         }
-    return KudosList(merged.toImmutableList(), loading, error)
+    return LikesList(merged.toImmutableList(), loading, error)
 }
 
 /** Goes where [event] leads from the activity at [uri]; [current] is the activity, once loaded. */

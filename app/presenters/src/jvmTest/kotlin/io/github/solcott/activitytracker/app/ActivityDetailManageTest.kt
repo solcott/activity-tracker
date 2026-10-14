@@ -16,7 +16,7 @@ import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
-import io.github.solcott.activitytracker.data.feed.LocalKudos
+import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -78,7 +78,7 @@ class ActivityDetailManageTest {
                 ""
             }
         return """{"uri":"$uri","cid":"bafy$rkey","author":$author,"record":${record(if (isMain) null else main)},""" +
-            """"kudosCount":0,"commentCount":0,"indexedAt":"2026-09-30T10:31:01Z","viewer":{}$list}"""
+            """"likeCount":0,"commentCount":0,"indexedAt":"2026-09-30T10:31:01Z","viewer":{}$list}"""
     }
 
     private fun String.target(): String {
@@ -128,14 +128,14 @@ class ActivityDetailManageTest {
             expectSuccess = false
         }
 
-    private val localKudos = LocalKudos()
+    private val localLikes = LocalLikes()
 
     private suspend fun presenter(
         uri: String,
         navigator: FakeNavigator = FakeNavigator(ActivityDetailScreen(uri)),
     ): @Composable () -> ActivityDetailState {
         val (db, _, clients) = signedInTestSession(http, did = alice)
-        val feed = FeedRepository(db, clients, localKudos, Logger)
+        val feed = FeedRepository(db, clients, localLikes, Logger)
         val outbox = OutboxProcessor(db, clients, Logger)
         val writer = OutboxWriter(db, clients, Clock.System)
         val streams = PdsActivityStreamsStore(writer, clients, Clock.System)
@@ -147,13 +147,13 @@ class ActivityDetailManageTest {
                 writer,
                 streams,
                 feed,
-                localKudos,
+                localLikes,
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
             )
         val profiles = ProfileRepository(clients, Clock.System, Logger)
         val manager = ActivityManager(db, clients, outbox, writer, streams, feed)
-        return { ActivityDetailPresenter(ActivityDetailScreen(uri), navigator, feed, activities, profiles, localKudos, manager) }
+        return { ActivityDetailPresenter(ActivityDetailScreen(uri), navigator, feed, activities, profiles, localLikes, manager) }
     }
 
     @Test

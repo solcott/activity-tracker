@@ -29,7 +29,7 @@ data class FeedState(
     val refreshing: Boolean,
     val error: UiError?,
     val pendingWrites: Int,
-    /** The signed-in athlete, so the UI can leave kudos off their own activities. */
+    /** The signed-in athlete, so the UI can leave likes off their own activities. */
     val viewerDid: String,
     /** Whether GPS recording is available here (phones only); otherwise only manual entry is offered. */
     val canRecord: Boolean,

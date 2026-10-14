@@ -13,5 +13,5 @@ sealed interface ActivityListEvent {
     /** Opens [activity]'s media full screen at [index]. */
     data class OpenMedia(val activity: ActivityView, val index: Int) : ActivityListEvent
 
-    data class ToggleKudos(val activity: ActivityView) : ActivityListEvent
+    data class ToggleLike(val activity: ActivityView) : ActivityListEvent
 }

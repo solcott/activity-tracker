@@ -9,7 +9,7 @@ import io.github.solcott.activitytracker.app.detail.ActivityDetailPresenter
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.detail.ActivityDetailState
 import io.github.solcott.activitytracker.app.detail.DetailSection
-import io.github.solcott.activitytracker.app.detail.KudosList
+import io.github.solcott.activitytracker.app.detail.LikesList
 import io.github.solcott.activitytracker.app.detail.StreamKind
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.data.activity.ActivityManager
@@ -19,7 +19,7 @@ import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
-import io.github.solcott.activitytracker.data.feed.LocalKudos
+import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -43,13 +43,13 @@ class ActivityDetailPresenterTest {
     private val bob = """{"did":"did:plc:bob","handle":"bob.test","displayName":"Bob"}"""
     private val carol = """{"did":"did:plc:carol","handle":"carol.test"}"""
     private val staleAlice = """{"did":"did:plc:alice","handle":"alice.test"}"""
-    private var kudosFromAppView = listOf(carol)
+    private var likesFromAppView = listOf(carol)
     private var streams: String? = null
 
     private val activity =
         """{"uri":"$activityUri","cid":"bafy3kbob1","author":$bob,""" +
             """"record":{"sport":"run","startedAt":"2026-09-30T10:00:00Z","elapsedTime":1800,"createdAt":"2026-09-30T10:31:00Z"},""" +
-            """"kudosCount":${kudosFromAppView.size},"commentCount":0,"indexedAt":"2026-09-30T10:31:01Z","viewer":{}}"""
+            """"likeCount":${likesFromAppView.size},"commentCount":0,"indexedAt":"2026-09-30T10:31:01Z","viewer":{}}"""
 
     private val http =
         HttpClient(
@@ -69,8 +69,8 @@ class ActivityDetailPresenterTest {
                             ?: respond("""{"error":"NotFound","message":"none"}""", HttpStatusCode.NotFound, json)
                     }
 
-                    "/xrpc/${Nsid.FEED_GET_KUDOS}" -> {
-                        respond("""{"uri":"$activityUri","kudos":[${kudosFromAppView.joinToString(",")}]}""", headers = json)
+                    "/xrpc/${Nsid.FEED_GET_LIKES}" -> {
+                        respond("""{"uri":"$activityUri","likes":[${likesFromAppView.joinToString(",")}]}""", headers = json)
                     }
 
                     "/xrpc/${Nsid.ACTOR_GET_PROFILE}" -> {
@@ -86,7 +86,7 @@ class ActivityDetailPresenterTest {
             expectSuccess = false
         }
 
-    private val localKudos = LocalKudos()
+    private val localLikes = LocalLikes()
 
     private class Repos(
         val feed: FeedRepository,
@@ -97,7 +97,7 @@ class ActivityDetailPresenterTest {
 
     private suspend fun repos(): Repos {
         val (db, _, clients) = signedInTestSession(http, did = alice)
-        val feed = FeedRepository(db, clients, localKudos, Logger)
+        val feed = FeedRepository(db, clients, localLikes, Logger)
         val outbox = OutboxProcessor(db, clients, Logger)
         val writer = OutboxWriter(db, clients, Clock.System)
         val streams = PdsActivityStreamsStore(writer, clients, Clock.System)
@@ -109,7 +109,7 @@ class ActivityDetailPresenterTest {
                 writer,
                 streams,
                 feed,
-                localKudos,
+                localLikes,
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
             )
@@ -124,23 +124,23 @@ class ActivityDetailPresenterTest {
     private val screen = ActivityDetailScreen(activityUri)
 
     @Test
-    fun showsHidesAndOpensKudosAthletes() = runTest {
+    fun showsHidesAndOpensLikingAthletes() = runTest {
         val navigator = FakeNavigator(screen)
         val r = repos()
-        presenterTestOf({ ActivityDetailPresenter(screen, navigator, r.feed, r.activities, r.profiles, localKudos, r.manager) }) {
+        presenterTestOf({ ActivityDetailPresenter(screen, navigator, r.feed, r.activities, r.profiles, localLikes, r.manager) }) {
             val loaded = awaitLoaded()
-            assertNull(loaded.kudosList)
+            assertNull(loaded.likesList)
 
-            loaded.eventSink(ActivityDetailEvent.ToggleKudosList)
-            val shown = awaitKudos { it.athletes.isNotEmpty() }
-            assertEquals(listOf("carol.test"), shown.kudosList?.athletes?.map { it.handle.value })
+            loaded.eventSink(ActivityDetailEvent.ToggleLikesList)
+            val shown = awaitLikes { it.athletes.isNotEmpty() }
+            assertEquals(listOf("carol.test"), shown.likesList?.athletes?.map { it.handle.value })
 
             shown.eventSink(ActivityDetailEvent.OpenProfile(Did("did:plc:carol")))
             assertEquals(ProfileScreen("did:plc:carol"), navigator.awaitNextScreen())
 
-            shown.eventSink(ActivityDetailEvent.ToggleKudosList)
+            shown.eventSink(ActivityDetailEvent.ToggleLikesList)
             var hidden = awaitItem() as ActivityDetailState.Loaded
-            while (hidden.kudosList != null) hidden = awaitItem() as ActivityDetailState.Loaded
+            while (hidden.likesList != null) hidden = awaitItem() as ActivityDetailState.Loaded
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -149,30 +149,30 @@ class ActivityDetailPresenterTest {
     fun viewersOwnToggleShowsBeforeTheAppViewCatchesUp() = runTest {
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localKudos, r.manager)
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
         }) {
-            awaitLoaded().eventSink(ActivityDetailEvent.ToggleKudosList)
-            awaitKudos { it.athletes.isNotEmpty() }
+            awaitLoaded().eventSink(ActivityDetailEvent.ToggleLikesList)
+            awaitLikes { it.athletes.isNotEmpty() }
 
-            // Alice gives kudos locally; the AppView still lists only Carol, so Alice is added from her profile.
-            localKudos.set(AtUri(activityUri), AtUri("at://did:plc:alice/${Nsid.FEED_KUDOS}/3kk1"))
-            val given = awaitKudos { it.athletes.size == 2 }
-            assertEquals(listOf("Alice", null), given.kudosList?.athletes?.map { it.displayName })
+            // Alice likes it locally; the AppView still lists only Carol, so Alice is added from her profile.
+            localLikes.set(AtUri(activityUri), AtUri("at://did:plc:alice/${Nsid.FEED_LIKE}/3kk1"))
+            val given = awaitLikes { it.athletes.size == 2 }
+            assertEquals(listOf("Alice", null), given.likesList?.athletes?.map { it.displayName })
             cancelAndIgnoreRemainingEvents()
         }
     }
 
     @Test
-    fun viewersRemovedKudosIsDroppedFromAStaleList() = runTest {
-        kudosFromAppView = listOf(staleAlice, carol)
+    fun viewersRemovedLikeIsDroppedFromAStaleList() = runTest {
+        likesFromAppView = listOf(staleAlice, carol)
         val r = repos()
-        localKudos.set(AtUri(activityUri), null)
+        localLikes.set(AtUri(activityUri), null)
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localKudos, r.manager)
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
         }) {
-            awaitLoaded().eventSink(ActivityDetailEvent.ToggleKudosList)
-            val shown = awaitKudos { it.athletes.isNotEmpty() }
-            assertEquals(listOf("carol.test"), shown.kudosList?.athletes?.map { it.handle.value })
+            awaitLoaded().eventSink(ActivityDetailEvent.ToggleLikesList)
+            val shown = awaitLikes { it.athletes.isNotEmpty() }
+            assertEquals(listOf("carol.test"), shown.likesList?.athletes?.map { it.handle.value })
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -185,7 +185,7 @@ class ActivityDetailPresenterTest {
                 """"heartRateZones":{"model":"cogganHeartRate","lows":[0,138,154,164,176]}}"""
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localKudos, r.manager)
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
         }) {
             var state = awaitLoaded()
             while (state.charts == null) state = awaitLoaded()
@@ -204,7 +204,7 @@ class ActivityDetailPresenterTest {
                 """"data":{"time":[0,1,2,3],"heartRate":[100,150,160,null],"power":[200,250,300,null]}}"""
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localKudos, r.manager)
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
         }) {
             var state = awaitLoaded()
             while (state.charts == null) state = awaitLoaded()
@@ -229,7 +229,7 @@ class ActivityDetailPresenterTest {
     fun noStreamsMeansNoCharts() = runTest {
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localKudos, r.manager)
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
         }) {
             assertNull(awaitLoaded().charts)
             cancelAndIgnoreRemainingEvents()
@@ -239,9 +239,9 @@ class ActivityDetailPresenterTest {
     private suspend fun ReceiveTurbine<ActivityDetailState>.awaitLoaded() =
         awaitUntil { it is ActivityDetailState.Loaded } as ActivityDetailState.Loaded
 
-    private suspend fun ReceiveTurbine<ActivityDetailState>.awaitKudos(done: (KudosList) -> Boolean): ActivityDetailState.Loaded {
+    private suspend fun ReceiveTurbine<ActivityDetailState>.awaitLikes(done: (LikesList) -> Boolean): ActivityDetailState.Loaded {
         var state = awaitLoaded()
-        while (state.kudosList?.let { !it.isLoading && done(it) } != true) state = awaitLoaded()
+        while (state.likesList?.let { !it.isLoading && done(it) } != true) state = awaitLoaded()
         return state
     }
 }

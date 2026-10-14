@@ -23,7 +23,7 @@ expect fun AppSecondaryButton(
     content: @Composable RowScope.() -> Unit,
 )
 
-/** A low-emphasis action in running content: Retry, Cancel, Show kudos. */
+/** A low-emphasis action in running content: Retry, Cancel, Show likes. */
 @Composable
 expect fun AppTextButton(
     onClick: () -> Unit,
