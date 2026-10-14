@@ -27,7 +27,6 @@ import kotlin.time.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.KSerializer
 
 /**
  * Writes the signed-in athlete's records. Everything goes through the outbox so writes survive offline periods and app restarts; the
@@ -151,14 +150,14 @@ class ActivityRepository(
      * Gives or removes the viewer's like. The decision is made against what this repository last wrote rather than [activity], which may be
      * a stale UI snapshot, so rapid taps alternate instead of stacking likes. Athletes can't like their own activities.
      *
-     * A like on a public activity goes in the repo, and one on a non-public activity in the athlete's interactions space ([likePlaceOf]),
-     * which needs the `space:` scope to cover `feed.like` (a session from before the declaration listed it is refused up front). Unliking
-     * can't tell where the like went (its URI is the same either way, and the activity may have changed visibility since), so it deletes
-     * the rkey from both; a delete of what isn't there counts as done.
+     * A like on a public activity goes in the repo, and one on a non-public activity in the athlete's interactions space
+     * ([interactionPlaceOf]), which needs the `space:` scope to cover `feed.like` (a session from before the declaration listed it is
+     * refused up front). Unliking can't tell where the like went (its URI is the same either way, and the activity may have changed
+     * visibility since), so it deletes the rkey from both; a delete of what isn't there counts as done.
      */
     suspend fun toggleLike(activity: ActivityView) {
         if (activity.author.did == clients.did) return
-        val place = clients.likePlaceOf(activity.visibilityOrPublic)
+        val place = clients.interactionPlaceOf(activity.visibilityOrPublic)
         likeMutex.withLock {
             val current = localLikes.current(activity)
             if (current == null) {
@@ -191,31 +190,33 @@ class ActivityRepository(
         outbox.drain()
     }
 
-    /** Comments on [activity]; nothing for a non-public one, which takes no comments. */
+    /**
+     * Comments on [activity], at any visibility. Like a like, a comment on a public activity goes in the repo and one on a non-public
+     * activity in the athlete's interactions space ([interactionPlaceOf]), which needs the `space:` scope to cover `feed.comment`. A
+     * non-public one records the visibility the view shows as its audience, so the AppView never shows it wider, even if the activity is.
+     */
     suspend fun comment(activity: ActivityView, text: String) {
-        if (!activity.acceptsComments) return
+        val visibility = activity.visibilityOrPublic
+        // Refused before anything changes, so a comment is never counted that can't be written.
+        clients.requireSpacesFor(visibility, Nsid.FEED_COMMENT)
         feed.updateCached(activity.uri) { it.copy(commentCount = it.commentCount + 1) }
-        enqueue(
+        writer.put(
             Nsid.FEED_COMMENT,
             Tid.next(clock),
             CommentRecord.serializer(),
-            CommentRecord(StrongRef(activity.uri, activity.cid), text.trim(), clock.now()),
+            CommentRecord(
+                StrongRef(activity.uri, activity.cid),
+                text.trim(),
+                clock.now(),
+                audience = visibility.takeIf { it != Visibility.PUBLIC },
+            ),
+            space = clients.interactionPlaceOf(visibility),
         )
+        outbox.drain()
     }
 
     /** Retries anything left in the outbox (e.g. on app start or reconnect). */
     suspend fun sync(): Int = outbox.drain()
-
-    private suspend fun <T> enqueue(
-        collection: String,
-        rkey: String,
-        serializer: KSerializer<T>,
-        record: T,
-        blob: PendingBlob? = null,
-    ) {
-        writer.put(collection, rkey, serializer, record, blob)
-        outbox.drain()
-    }
 }
 
 /**

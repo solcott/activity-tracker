@@ -449,10 +449,6 @@ class ActivityVisibilityTest {
         val cached = s.cached(followers)
         assertEquals(1, cached.likeCount)
         assertTrue(cached.viewer?.like != null, "liked, for Alice")
-
-        // Comments stay limited to public activities.
-        s.activities.comment(followers, "Nice")
-        assertEquals(likes, writes.filter { Nsid.FEED_LIKE in it || Nsid.FEED_COMMENT in it })
     }
 
     @Test
@@ -546,8 +542,63 @@ class ActivityVisibilityTest {
         assertEquals(false, session(scope = "atproto").clients.canWriteToSpaces(Nsid.FEED_LIKE))
     }
 
+    /** Alice's one comment stored in [place]. */
+    private fun storedComment(place: String): JsonObject =
+        stored.getValue(place).filterKeys { it.startsWith("${Nsid.FEED_COMMENT}/") }.values.single()
+
     @Test
-    fun changingVisibilityKeepsTheLikesAndHidesComments() = runTest {
+    fun aCommentOnANonPublicActivityGoesInTheInteractionsSpaceWithItsAudience() = runTest {
+        val s = session()
+        val followers = s.bobs(Visibility.FOLLOWERS)
+        s.activities.comment(followers, "  Nice  ")
+
+        val comments = writes.filter { Nsid.FEED_COMMENT in it }
+        assertEquals(1, comments.size)
+        assertTrue(comments.single().startsWith("put ${AthleteSpace.INTERACTIONS} ${Nsid.FEED_COMMENT}/"), comments.single())
+        assertEquals(listOf(AthleteSpace.INTERACTIONS), created, "the space is created on the first such comment")
+        assertEquals(listOf(AthleteSpace.INTERACTIONS), announced)
+        val record = storedComment(AthleteSpace.INTERACTIONS)
+        assertEquals(Visibility.FOLLOWERS, record.getValue("audience").jsonPrimitive.content)
+        assertEquals("Nice", record.getValue("text").jsonPrimitive.content)
+        assertEquals(1, s.cached(followers).commentCount)
+    }
+
+    @Test
+    fun aCommentOnAPublicActivityGoesInTheRepoWithNoAudience() = runTest {
+        val s = session()
+        s.activities.comment(s.bobs(Visibility.PUBLIC), "Nice")
+        assertEquals(listOf("put repo ${Nsid.FEED_COMMENT}"), writes.map { it.substringBeforeLast('/') })
+        assertEquals(null, storedComment(repo)["audience"])
+        assertEquals(emptyList(), created)
+    }
+
+    @Test
+    fun aStaleViewPlacesTheCommentAndItsAudienceByWhatItShows() = runTest {
+        val s = session()
+        // Bob just made it Public; Alice's view still says Mutuals, so the comment is written for Mutuals, and stays that narrow.
+        s.activities.comment(s.bobs(Visibility.MUTUALS), "Nice")
+        assertEquals(listOf("put ${AthleteSpace.INTERACTIONS} ${Nsid.FEED_COMMENT}"), writes.map { it.substringBeforeLast('/') })
+        assertEquals(Visibility.MUTUALS, storedComment(AthleteSpace.INTERACTIONS).getValue("audience").jsonPrimitive.content)
+    }
+
+    @Test
+    fun aSessionWhoseSpaceScopeLacksCommentsCommentsOnPublicActivitiesOnly() = runTest {
+        // Signed in before the declaration listed feed.comment.
+        val s = session(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}&collection=${Nsid.FEED_LIKE}")
+        val followers = s.bobs(Visibility.FOLLOWERS)
+        val e = assertFailsWith<XrpcException> { s.activities.comment(followers, "Nice") }
+        assertEquals(SpaceErrors.SCOPE_MISSING, e.error)
+        assertEquals(emptyList(), writes, "nothing written")
+        assertEquals(emptyList(), created, "nor a space created")
+        assertEquals(0, s.cached(followers).commentCount, "nor counted")
+        assertEquals(0, s.db.outbox().pending(did.value).size, "nor left in the outbox")
+
+        s.activities.comment(s.bobs(Visibility.PUBLIC, rkey = "3kpub"), "Nice")
+        assertEquals(listOf("put repo ${Nsid.FEED_COMMENT}"), writes.map { it.substringBeforeLast('/') })
+    }
+
+    @Test
+    fun changingVisibilityKeepsTheLikesAndComments() = runTest {
         val s = session()
         val uri = s.activities.publish(draft(VisibilityChoice.PUBLIC, withStreams = false))
         val own = view(uri, Visibility.PUBLIC).copy(viewer = ActivityViewerState())
@@ -557,6 +608,6 @@ class ActivityVisibilityTest {
         val cached = s.cached(own)
         assertEquals(Visibility.FOLLOWERS, cached.visibility)
         assertEquals(2, cached.likeCount)
-        assertEquals(0, cached.commentCount)
+        assertEquals(1, cached.commentCount, "the AppView recounts both for the new audience")
     }
 }

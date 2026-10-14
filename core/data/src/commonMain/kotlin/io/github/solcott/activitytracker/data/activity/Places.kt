@@ -20,10 +20,11 @@ internal fun SessionClients.placeOf(visibility: String): SpaceUri? =
     Visibility.known(visibility).takeIf { it != Visibility.PUBLIC }?.let(tiers::uri)
 
 /**
- * Where the signed-in athlete's like on an activity at [visibility] goes: the repo for a public one, else their interactions space, which
- * only they and the AppView read. A like stays where it was written when the activity's visibility later changes.
+ * Where the signed-in athlete's like or comment on an activity at [visibility] goes: the repo for a public one, else their interactions
+ * space, which only they and the AppView read. It stays where it was written when the activity's visibility later changes.
  */
-internal fun SessionClients.likePlaceOf(visibility: String): SpaceUri? = placeOf(visibility)?.let { tiers.uri(AthleteSpace.INTERACTIONS) }
+internal fun SessionClients.interactionPlaceOf(visibility: String): SpaceUri? =
+    placeOf(visibility)?.let { tiers.uri(AthleteSpace.INTERACTIONS) }
 
 /**
  * Refuses a non-public [visibility] for a session that can't write to spaces, as the PDS would, so nothing is published wider. With a
