@@ -195,21 +195,6 @@ A like SHALL be counted, listed by `getLikes`, and reported as `viewer.like` for
 - **WHEN** a viewer who may not see a Followers activity asks `getLikes` for it
 - **THEN** the answer reveals no likes
 
-### Requirement: No comments on non-public activities
-Clients SHALL NOT offer comments on an activity that isn't Public. The AppView SHALL NOT count, list or serve comments whose subject isn't Public, including those given while it was Public.
-
-#### Scenario: Followers activity in the feed
-- **WHEN** a follower sees an athlete's Followers activity
-- **THEN** no comment action and no comment count are shown
-
-#### Scenario: Activity made private after comments
-- **WHEN** an activity with comments is changed from Public to Followers
-- **THEN** its view shows no comments
-
-#### Scenario: Made public again
-- **WHEN** that activity is changed back to Public
-- **THEN** the comments given while it was Public are shown again
-
 ### Requirement: Existing activities stay Public
 Activities published before this change SHALL remain Public, with their current charts visibility, until the athlete changes them.
 
