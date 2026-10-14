@@ -2,12 +2,20 @@ package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.ProfileDetailRules
 import io.github.solcott.activitytracker.appview.db.Actors
+import io.github.solcott.activitytracker.appview.db.FollowApprovals
 import io.github.solcott.activitytracker.appview.db.Follows
+import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
+import io.github.solcott.activitytracker.lexicon.app.ProfileViewerState
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.exists
+import org.jetbrains.exposed.v1.core.notExists
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.select
 
@@ -26,8 +34,36 @@ internal fun publicDetails(actor: ResultRow): ProfileDetails? =
         )
         .takeUnless { it == ProfileDetails() }
 
-/** Whether [a] and [b] follow each other in this app's follow graph: who reads a `mutuals` space and sees Mutuals streams. */
+/** Whether [a] and [b] effectively follow each other in this app's follow graph: who reads a `mutuals` space and sees Mutuals streams. */
 internal fun JdbcTransaction.isMutual(a: String, b: String): Boolean = follows(a, b) && follows(b, a)
 
+/** Whether [author]'s follow of [subject] is effective ([effectiveFollow]): who reads a `followers` space and sees Followers streams. */
 internal fun JdbcTransaction.follows(author: String, subject: String): Boolean =
-    !Follows.select(Follows.uri).where { (Follows.authorDid eq author) and (Follows.subjectDid eq subject) }.limit(1).empty()
+    !Follows.select(Follows.uri)
+        .where { (Follows.authorDid eq author) and (Follows.subjectDid eq subject) and effectiveFollow() }
+        .limit(1)
+        .empty()
+
+/**
+ * True for a `follows` row that counts: its subject's policy is open (no `approve` on their actor row, or no row at all), or the subject
+ * approved its author. Every query that reads `follows` for anything but the viewer's own follow record ANDs this in, so a pending follow
+ * never reaches a timeline, a count, a list or a space. It's a correlated subquery on the outer `follows` row, so it holds whichever of the
+ * follow and the approval was indexed first, and a policy change needs no rewrite.
+ */
+internal fun effectiveFollow(): Op<Boolean> =
+    notExists(Actors.select(Actors.did).where { (Actors.did eq Follows.subjectDid) and (Actors.followPolicy eq FollowPolicy.APPROVE) }) or
+        exists(
+            FollowApprovals.select(FollowApprovals.uri).where {
+                (FollowApprovals.authorDid eq Follows.subjectDid) and (FollowApprovals.subjectDid eq Follows.authorDid)
+            }
+        )
+
+/** [viewer]'s follow of [did], effective or not, and whether it still waits for [did]'s approval. */
+internal fun JdbcTransaction.viewerState(viewer: String, did: String): ProfileViewerState {
+    val following =
+        Follows.select(Follows.uri)
+            .where { (Follows.authorDid eq viewer) and (Follows.subjectDid eq did) }
+            .firstOrNull()
+            ?.let { AtUri(it[Follows.uri]) }
+    return ProfileViewerState(following = following, followRequested = (following != null && !follows(viewer, did)).takeIf { it })
+}

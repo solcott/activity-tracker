@@ -18,6 +18,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.FeedFilterParams
+import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
@@ -25,7 +26,6 @@ import io.github.solcott.activitytracker.lexicon.app.GetKudos
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
-import io.github.solcott.activitytracker.lexicon.app.ProfileViewerState
 import io.github.solcott.activitytracker.lexicon.app.RecordingView
 import io.ktor.http.HttpStatusCode
 import kotlin.time.Instant
@@ -54,7 +54,9 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 class Views(private val db: Database, private val avatars: AvatarUrls, private val mediaUrls: MediaUrls) {
     suspend fun timeline(viewer: Did, params: GetTimeline.Params): GetTimeline.Output = db.tx {
         val authors =
-            Follows.select(Follows.subjectDid).where { Follows.authorDid eq viewer.value }.map { it[Follows.subjectDid] } + viewer.value
+            Follows.select(Follows.subjectDid)
+                .where { (Follows.authorDid eq viewer.value) and effectiveFollow() }
+                .map { it[Follows.subjectDid] } + viewer.value
         val filter = feedFilter(params.type, params.since, params.until)
         val (views, cursor) = activityPage((Activities.authorDid inList authors) and filter, params.limit, params.cursor, viewer)
         GetTimeline.Output(views, cursor)
@@ -163,19 +165,11 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
             avatar = avatars.url(did, row[Actors.avatarCid]),
             details = publicDetails(row),
             units = row[Actors.units],
+            followPolicy = row[Actors.followPolicy] ?: FollowPolicy.OPEN,
             activitiesCount = Activities.selectAll().where { Activities.authorDid eq did }.count(),
-            followersCount = Follows.selectAll().where { Follows.subjectDid eq did }.count(),
-            followsCount = Follows.selectAll().where { Follows.authorDid eq did }.count(),
-            viewer =
-                viewer?.let { v ->
-                    ProfileViewerState(
-                        following =
-                            Follows.select(Follows.uri)
-                                .where { (Follows.authorDid eq v.value) and (Follows.subjectDid eq did) }
-                                .firstOrNull()
-                                ?.let { AtUri(it[Follows.uri]) }
-                    )
-                },
+            followersCount = Follows.selectAll().where { (Follows.subjectDid eq did) and effectiveFollow() }.count(),
+            followsCount = Follows.selectAll().where { (Follows.authorDid eq did) and effectiveFollow() }.count(),
+            viewer = viewer?.let { v -> viewerState(v.value, did) },
         )
     }
 

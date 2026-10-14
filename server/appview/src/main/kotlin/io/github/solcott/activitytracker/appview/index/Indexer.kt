@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.appview.db.ActivityMediaBlobs
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.Comments
+import io.github.solcott.activitytracker.appview.db.FollowApprovals
 import io.github.solcott.activitytracker.appview.db.Follows
 import io.github.solcott.activitytracker.appview.db.Kudos
 import io.github.solcott.activitytracker.appview.db.tx
@@ -20,6 +21,8 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
+import io.github.solcott.activitytracker.lexicon.app.FollowApprovalRecord
+import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.FollowRecord
 import io.github.solcott.activitytracker.lexicon.app.KudosRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
@@ -141,6 +144,10 @@ class Indexer(
                 }
             }
 
+            Nsid.GRAPH_FOLLOW_APPROVAL -> {
+                upsertApproval(AtJson.decodeFromJsonElement(FollowApprovalRecord.serializer(), json), author, uri, now)
+            }
+
             Nsid.FEED_ACTIVITY_STREAMS -> {
                 upsertStreams(AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), json), author, uri, cid, now)
             }
@@ -215,6 +222,7 @@ class Indexer(
             it[weightGrams] = details?.weight
             it[heightMm] = details?.height
             it[training] = ProfileDetailRules.encodeTraining(details?.training)
+            it[followPolicy] = record.followPolicy?.takeIf { policy -> policy == FollowPolicy.APPROVE }
             it[indexedAt] = now
         }
     }
@@ -243,6 +251,10 @@ class Indexer(
                 Follows.deleteWhere { Follows.uri eq uri.value }
             }
 
+            Nsid.GRAPH_FOLLOW_APPROVAL -> {
+                FollowApprovals.deleteWhere { FollowApprovals.uri eq uri.value }
+            }
+
             Nsid.ACTOR_PROFILE -> {
                 Actors.update({ Actors.did eq uri.authority }) {
                     it[displayName] = null
@@ -258,6 +270,7 @@ class Indexer(
                     it[weightGrams] = null
                     it[heightMm] = null
                     it[training] = null
+                    it[followPolicy] = null
                 }
             }
         }
@@ -284,6 +297,7 @@ class Indexer(
         Kudos.deleteWhere { authorDid eq did.value }
         Comments.deleteWhere { authorDid eq did.value }
         Follows.deleteWhere { authorDid eq did.value }
+        FollowApprovals.deleteWhere { authorDid eq did.value }
         Actors.deleteWhere { Actors.did eq did.value }
     }
 
@@ -333,3 +347,18 @@ private fun boundedPhotos(media: List<ActivityMedia>?): List<ActivityMedia.Image
         ?.ifEmpty { null }
 
 private val PHOTO_TYPES = setOf("image/webp", "image/jpeg")
+
+/** One approval per pair: only the one at rkey = its subject counts, so deleting that record really removes the follower. */
+private fun JdbcTransaction.upsertApproval(record: FollowApprovalRecord, author: Did, uri: AtUri, now: Long) {
+    if (uri.rkey != FollowApprovalRecord.rkey(record.subject)) {
+        FollowApprovals.deleteWhere { FollowApprovals.uri eq uri.value }
+        return
+    }
+    FollowApprovals.upsert {
+        it[FollowApprovals.uri] = uri.value
+        it[authorDid] = author.value
+        it[subjectDid] = record.subject.value
+        it[createdAt] = record.createdAt.toEpochMilliseconds()
+        it[indexedAt] = now
+    }
+}

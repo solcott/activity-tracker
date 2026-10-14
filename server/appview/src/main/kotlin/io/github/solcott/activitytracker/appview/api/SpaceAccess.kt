@@ -36,6 +36,7 @@ class SpaceAccess(private val db: Database) {
     private suspend fun canRead(authority: Did, tier: String, user: Did): Boolean =
         when (tier) {
             AthleteSpace.PUBLIC -> true
+            AthleteSpace.FOLLOWERS -> db.tx { follows(user.value, authority.value) }
             AthleteSpace.MUTUALS -> db.tx { isMutual(authority.value, user.value) }
             else -> false
         }

@@ -136,6 +136,23 @@ class ActivityStreamsTest {
     }
 
     @Test
+    fun followersStreamsServeEffectiveFollowersOnly() = testApplication {
+        start()
+        streams(Visibility.FOLLOWERS)
+        // Alice's policy is open: bob and carol both follow her, so both may see them.
+        client.streamsFor(alice).output()
+        client.streamsFor(bob).output()
+        client.streamsFor(carol).output()
+        assertEquals(HttpStatusCode.NotFound, client.streamsFor(null).status)
+
+        // With approval on, only the follower she approved still sees them.
+        commit(alice, Nsid.ACTOR_PROFILE, "self", """{"followPolicy":"approve"}""")
+        commit(alice, Nsid.GRAPH_FOLLOW_APPROVAL, bob, """{"subject":"$bob","createdAt":"2026-09-30T09:00:00Z"}""")
+        client.streamsFor(bob).output()
+        assertEquals(HttpStatusCode.NotFound, client.streamsFor(carol).status)
+    }
+
+    @Test
     fun selfAndUnknownVisibilitiesServeOnlyTheAthlete() = testApplication {
         start()
         streams(Visibility.SELF)

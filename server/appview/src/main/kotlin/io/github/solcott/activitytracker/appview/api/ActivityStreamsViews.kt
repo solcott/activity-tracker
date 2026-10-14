@@ -62,8 +62,9 @@ class PdsBlobStreamSource(private val http: HttpClient, private val pds: PdsLook
 
 /**
  * Serves `feed.getActivityStreams`. The records are public for now, but this is the only way clients read them, so visibility holds here:
- * `public` for anyone, `mutuals` for accounts the athlete and the viewer both follow, and anything else (`self`, unknown) for the athlete
- * only. Zones reveal thresholds, so they also need the viewer to be allowed the athlete's training details.
+ * `public` for anyone, `followers` for the athlete's effective followers, `mutuals` for accounts the athlete and the viewer both follow,
+ * and anything else (`self`, unknown) for the athlete only. Zones reveal thresholds, so they also need the viewer to be allowed the
+ * athlete's training details.
  */
 class ActivityStreamsViews(private val db: Database, private val source: StreamSource, private val clock: Clock = Clock.System) {
     private val log = LoggerFactory.getLogger(ActivityStreamsViews::class.java)
@@ -116,6 +117,7 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
         val isSelf = viewer?.value == author
         return when (row[ActivityStreams.visibility]) {
             Visibility.PUBLIC -> true
+            Visibility.FOLLOWERS -> isSelf || viewer != null && follows(viewer.value, author)
             Visibility.MUTUALS -> isSelf || viewer != null && isMutual(viewer.value, author)
             else -> isSelf
         }

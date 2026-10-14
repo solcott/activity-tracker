@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
+import io.github.solcott.activitytracker.lexicon.app.GetFollowRequests
 import io.github.solcott.activitytracker.lexicon.app.GetFollowers
 import io.github.solcott.activitytracker.lexicon.app.GetFollows
 import io.github.solcott.activitytracker.lexicon.app.GetKudos
@@ -57,6 +58,7 @@ fun Route.xrpcRoutes(
     }
     xrpcQuery(GetFollowers.method, verifier) { params, _ -> graph.followers(params) }
     xrpcQuery(GetFollows.method, verifier) { params, _ -> graph.follows(params) }
+    xrpcQuery(GetFollowRequests.method, verifier) { params, viewer -> graph.followRequests(requireViewer(viewer), params) }
     // The managing-app callout from an athlete's PDS, whose token is addressed to the managing app rather than the AppView.
     xrpcQuery(SimpleSpace.CheckUserAccess.method, managingAppVerifier) { params, issuer ->
         spaceAccess.check(requireViewer(issuer), params)

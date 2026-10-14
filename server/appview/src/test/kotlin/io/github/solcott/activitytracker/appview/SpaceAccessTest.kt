@@ -70,6 +70,15 @@ class SpaceAccessTest {
 
     private fun unfollow(author: String, subject: String) = commit(author, Nsid.GRAPH_FOLLOW, followRkey(author, subject), null, "delete")
 
+    private fun approve(author: String, subject: String, rkey: String = subject) =
+        commit(author, Nsid.GRAPH_FOLLOW_APPROVAL, rkey, """{"subject":"$subject","createdAt":"2026-09-30T09:00:00Z"}""")
+
+    private fun unapprove(author: String, subject: String) = commit(author, Nsid.GRAPH_FOLLOW_APPROVAL, subject, null, "delete")
+
+    /** [did]'s profile record, with [policy] as its followPolicy. */
+    private fun policy(did: String, policy: String?) =
+        commit(did, Nsid.ACTOR_PROFILE, "self", """{"displayName":"x"${policy?.let { ""","followPolicy":"$it"""" }.orEmpty()}}""")
+
     private fun space(tier: String, type: String = Nsid.SPACE_ATHLETE) = SpaceUri.of(Did(alice), type, tier).value
 
     /** A callout as alice's PDS makes it: signed by [issuer], addressed to [aud]. */
@@ -143,6 +152,56 @@ class SpaceAccessTest {
         follow(alice, bob, collection = "app.bsky.graph.follow")
         follow(bob, alice, collection = "app.bsky.graph.follow")
         assertEquals(false, client.authorized(bob))
+        assertEquals(false, client.authorized(bob, AthleteSpace.FOLLOWERS))
+    }
+
+    @Test
+    fun followersTierAdmitsEveryFollowerOfAnOpenAthlete() = testApplication {
+        start()
+        follow(bob, alice)
+        assertEquals(true, client.authorized(bob, AthleteSpace.FOLLOWERS))
+        assertEquals(false, client.authorized(carol, AthleteSpace.FOLLOWERS), "carol doesn't follow alice")
+    }
+
+    @Test
+    fun followersTierNeedsApprovalWhenAliceApproves() = testApplication {
+        start()
+        policy(alice, "approve")
+        follow(bob, alice)
+        follow(carol, alice)
+        assertEquals(false, client.authorized(bob, AthleteSpace.FOLLOWERS), "bob is pending")
+        approve(alice, bob)
+        assertEquals(true, client.authorized(bob, AthleteSpace.FOLLOWERS))
+        assertEquals(false, client.authorized(carol, AthleteSpace.FOLLOWERS), "carol is still pending")
+        // An approval at any rkey but the follower's DID doesn't count.
+        approve(alice, carol, rkey = "3kapprove")
+        assertEquals(false, client.authorized(carol, AthleteSpace.FOLLOWERS))
+    }
+
+    @Test
+    fun removedFollowerLosesTheFollowersTier() = testApplication {
+        start()
+        policy(alice, "approve")
+        follow(bob, alice)
+        approve(alice, bob)
+        assertEquals(true, client.authorized(bob, AthleteSpace.FOLLOWERS))
+        unapprove(alice, bob)
+        assertEquals(false, client.authorized(bob, AthleteSpace.FOLLOWERS))
+    }
+
+    @Test
+    fun mutualsNeedEffectiveFollowsBothWays() = testApplication {
+        start()
+        policy(alice, "approve")
+        follow(alice, bob)
+        follow(bob, alice)
+        assertEquals(false, client.authorized(bob), "bob's follow of alice is pending")
+        approve(alice, bob)
+        assertEquals(true, client.authorized(bob))
+        // Turning approval off makes every follow count again.
+        unapprove(alice, bob)
+        policy(alice, null)
+        assertEquals(true, client.authorized(bob))
     }
 
     @Test
@@ -152,6 +211,7 @@ class SpaceAccessTest {
         follow(bob, alice)
         assertEquals(false, client.authorized(bob, AthleteSpace.SELF))
         assertEquals(false, client.authorized(bob, "friends"))
+        assertEquals(false, client.authorized(carol, AthleteSpace.FOLLOWERS), "carol follows nobody")
         assertEquals(false, client.authorized(bob, space = space(AthleteSpace.PUBLIC, type = "app.activitytracker.space.other")))
     }
 

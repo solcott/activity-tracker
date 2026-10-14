@@ -19,6 +19,8 @@ object Actors : Table("actors") {
     val heightMm = long("height_mm").nullable()
     /** `actor.defs#training` as JSON. */
     val training = text("training").nullable()
+    /** `FollowPolicy.APPROVE`, or null for an open policy (the profile record had none, or a value we don't know). */
+    val followPolicy = varchar("follow_policy", 16).nullable()
     val indexedAt = long("indexed_at")
     override val primaryKey = PrimaryKey(did)
 }
@@ -70,6 +72,19 @@ object Comments : Table("comments") {
 }
 
 object Follows : Table("follows") {
+    val uri = varchar("uri", 512)
+    val authorDid = varchar("author_did", 255)
+    val subjectDid = varchar("subject_did", 255)
+    val createdAt = long("created_at")
+    val indexedAt = long("indexed_at")
+    override val primaryKey = PrimaryKey(uri)
+}
+
+/**
+ * `graph.followApproval` records: [authorDid] approved [subjectDid]'s follow. Only approvals stored at rkey = their subject are indexed, so
+ * there's at most one per pair and deleting it removes the follower.
+ */
+object FollowApprovals : Table("follow_approvals") {
     val uri = varchar("uri", 512)
     val authorDid = varchar("author_did", 255)
     val subjectDid = varchar("subject_did", 255)
