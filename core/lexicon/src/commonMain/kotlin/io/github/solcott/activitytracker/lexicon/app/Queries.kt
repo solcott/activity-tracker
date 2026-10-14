@@ -130,6 +130,15 @@ object GetFollows {
     val method = XrpcQuery(Nsid.GRAPH_GET_FOLLOWS, Params.serializer(), Output.serializer())
 }
 
+/** Accounts whose follows of the caller wait for approval, newest first. Includes ones the caller declined. Requires auth. */
+object GetFollowRequests {
+    @Serializable data class Params(val limit: Int? = null, val cursor: String? = null)
+
+    @Serializable data class Output(val requests: List<ProfileViewBasic>, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.GRAPH_GET_FOLLOW_REQUESTS, Params.serializer(), Output.serializer())
+}
+
 /** Athletes of this app matching [Params.q] by handle, display name or DID, best matches first. Requires auth. */
 object SearchActors {
     @Serializable data class Params(val q: String, val limit: Int? = null, val cursor: String? = null)

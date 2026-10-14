@@ -14,8 +14,8 @@
           "visibility": {
             "type": "string",
             "maxLength": 16,
-            "knownValues": ["public", "mutuals", "self"],
-            "description": "Who may see the streams: anyone, the athlete's mutuals, or only the athlete."
+            "knownValues": ["public", "followers", "mutuals", "self"],
+            "description": "Who may see the streams: anyone, the athlete's effective followers, the athlete's mutuals, or only the athlete."
           },
           "channels": {
             "type": "array",

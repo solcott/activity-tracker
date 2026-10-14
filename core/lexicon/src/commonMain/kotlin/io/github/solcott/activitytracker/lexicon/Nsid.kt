@@ -29,6 +29,11 @@ object Nsid {
     const val GRAPH_FOLLOW = "$NAMESPACE.graph.follow"
     const val GRAPH_GET_FOLLOWERS = "$NAMESPACE.graph.getFollowers"
     const val GRAPH_GET_FOLLOWS = "$NAMESPACE.graph.getFollows"
+    /** An athlete's public approval of one follower, keyed by the follower's DID. */
+    const val GRAPH_FOLLOW_APPROVAL = "$NAMESPACE.graph.followApproval"
+    /** A record kept only in an athlete's `self` tier space ([SPACE_ATHLETE]), so it never reaches the firehose and isn't indexed. */
+    const val GRAPH_FOLLOW_DECLINE = "$NAMESPACE.graph.followDecline"
+    const val GRAPH_GET_FOLLOW_REQUESTS = "$NAMESPACE.graph.getFollowRequests"
 
     /**
      * The space type holding an athlete's permissioned data (`lexicons/.../space/athlete.json`). Not a record collection, so it's never
@@ -37,5 +42,6 @@ object Nsid {
     const val SPACE_ATHLETE = "$NAMESPACE.space.athlete"
 
     /** Record collections the AppView indexes (used as the Jetstream `wantedCollections` filter). */
-    val indexedCollections = listOf(ACTOR_PROFILE, FEED_ACTIVITY, FEED_ACTIVITY_STREAMS, FEED_KUDOS, FEED_COMMENT, GRAPH_FOLLOW)
+    val indexedCollections =
+        listOf(ACTOR_PROFILE, FEED_ACTIVITY, FEED_ACTIVITY_STREAMS, FEED_KUDOS, FEED_COMMENT, GRAPH_FOLLOW, GRAPH_FOLLOW_APPROVAL)
 }

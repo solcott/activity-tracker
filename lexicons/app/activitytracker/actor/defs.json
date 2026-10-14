@@ -24,9 +24,14 @@
         "details": {
           "type": "ref",
           "ref": "#details",
-          "description": "Only the details this viewer may see: public ones, plus mutuals-only ones for a mutual and everything for the athlete themselves."
+          "description": "Only the details this viewer may see: public ones, plus followers-only ones for an effective follower, mutuals-only ones for a mutual and everything for the athlete themselves."
         },
         "units": { "type": "string", "knownValues": ["metric", "imperial"] },
+        "followPolicy": {
+          "type": "string",
+          "knownValues": ["open", "approve"],
+          "description": "Whether follows count at once (open) or only once the athlete approves them (approve)."
+        },
         "activitiesCount": { "type": "integer" },
         "followersCount": { "type": "integer" },
         "followsCount": { "type": "integer" },
@@ -36,7 +41,11 @@
     "viewerState": {
       "type": "object",
       "properties": {
-        "following": { "type": "string", "format": "at-uri", "description": "URI of the viewer's follow record, if any." }
+        "following": { "type": "string", "format": "at-uri", "description": "URI of the viewer's follow record, if any, whether it counts yet or not." },
+        "followRequested": {
+          "type": "boolean",
+          "description": "True while the viewer's follow waits for the athlete's approval: the athlete's followPolicy is approve and they haven't approved the viewer."
+        }
       }
     },
     "location": {
@@ -191,8 +200,8 @@
     },
     "visibility": {
       "type": "string",
-      "knownValues": ["public", "mutuals", "self"],
-      "description": "Who may see a detail: anyone, accounts the athlete and the viewer both follow, or only the athlete."
+      "knownValues": ["public", "followers", "mutuals", "self"],
+      "description": "Who may see a detail: anyone, the athlete's effective followers (approved ones, when their followPolicy is approve), accounts the athlete and the viewer both follow, or only the athlete."
     }
   }
 }

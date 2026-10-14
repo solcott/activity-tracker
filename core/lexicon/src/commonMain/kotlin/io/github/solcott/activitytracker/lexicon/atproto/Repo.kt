@@ -61,6 +61,34 @@ object DeleteRecord {
     val method = XrpcProcedure("com.atproto.repo.deleteRecord", Input.serializer(), JsonObject.serializer())
 }
 
+/** `com.atproto.repo.applyWrites`, with the `#create` and `#delete` writes this app uses. A PDS takes at most [MAX_WRITES] per call. */
+object ApplyWrites {
+    const val MAX_WRITES = 200
+
+    @Serializable
+    data class Input(
+        val repo: Did,
+        val writes: List<Write>,
+        /** Our lexicons are unknown to most PDSes; `false` skips schema validation there. */
+        val validate: Boolean? = false,
+    )
+
+    /** One write; build it with [create] or [delete]. */
+    @Serializable
+    data class Write(
+        @SerialName($$"$type") val type: String,
+        val collection: String,
+        val rkey: String? = null,
+        val value: JsonElement? = null,
+    )
+
+    fun create(collection: String, rkey: String, value: JsonElement) = Write("com.atproto.repo.applyWrites#create", collection, rkey, value)
+
+    fun delete(collection: String, rkey: String) = Write("com.atproto.repo.applyWrites#delete", collection, rkey)
+
+    val method = XrpcProcedure("com.atproto.repo.applyWrites", Input.serializer(), JsonObject.serializer())
+}
+
 object GetRecord {
     @Serializable data class Params(val repo: String, val collection: String, val rkey: String)
 

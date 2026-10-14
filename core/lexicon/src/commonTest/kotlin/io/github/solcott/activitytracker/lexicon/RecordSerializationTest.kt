@@ -5,13 +5,18 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveTank
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
+import io.github.solcott.activitytracker.lexicon.app.FollowApprovalRecord
+import io.github.solcott.activitytracker.lexicon.app.FollowDeclineRecord
+import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
+import io.github.solcott.activitytracker.lexicon.app.GetFollowRequests
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.HeartRateZoneModel
 import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.PrivateDetailsRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
+import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.SensorType
 import io.github.solcott.activitytracker.lexicon.app.SpeedZoneModel
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -22,6 +27,7 @@ import io.github.solcott.activitytracker.lexicon.app.ThresholdEntry
 import io.github.solcott.activitytracker.lexicon.app.ThresholdSource
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.TrainingSetAt
+import io.github.solcott.activitytracker.lexicon.atproto.ApplyWrites
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -233,6 +239,80 @@ class RecordSerializationTest {
         assertEquals("1990-04-01", details["birthDate"]?.jsonPrimitive?.content)
         assertFalse("location" in details)
         assertEquals(record, AtJson.decodeFromJsonElement(PrivateDetailsRecord.serializer(), json))
+    }
+
+    @Test
+    fun followApprovalAndDeclineRoundTrip() {
+        val bob = Did("did:plc:bob")
+        val approval = FollowApprovalRecord(bob, Instant.parse("2026-10-13T09:00:00Z"))
+        val approvalJson = AtJson.encodeToJsonElement(FollowApprovalRecord.serializer(), approval).jsonObject
+        assertEquals(Nsid.GRAPH_FOLLOW_APPROVAL, approvalJson["\$type"]?.jsonPrimitive?.content)
+        assertEquals("did:plc:bob", approvalJson["subject"]?.jsonPrimitive?.content)
+        assertEquals(approval, AtJson.decodeFromJsonElement(FollowApprovalRecord.serializer(), approvalJson))
+        assertEquals("did:plc:bob", FollowApprovalRecord.rkey(bob))
+
+        val decline = FollowDeclineRecord(bob, Instant.parse("2026-10-13T09:00:00Z"))
+        val declineJson = AtJson.encodeToJsonElement(FollowDeclineRecord.serializer(), decline).jsonObject
+        assertEquals(Nsid.GRAPH_FOLLOW_DECLINE, declineJson["\$type"]?.jsonPrimitive?.content)
+        assertEquals(decline, AtJson.decodeFromJsonElement(FollowDeclineRecord.serializer(), declineJson))
+    }
+
+    @Test
+    fun profileFollowPolicyIsOptional() {
+        val without = AtJson.encodeToJsonElement(ProfileRecord.serializer(), ProfileRecord(displayName = "Alice")).jsonObject
+        assertFalse("followPolicy" in without)
+        val approve = ProfileRecord(displayName = "Alice", followPolicy = FollowPolicy.APPROVE)
+        val json = AtJson.encodeToJsonElement(ProfileRecord.serializer(), approve).jsonObject
+        assertEquals("approve", json["followPolicy"]?.jsonPrimitive?.content)
+        assertEquals(approve, AtJson.decodeFromJsonElement(ProfileRecord.serializer(), json))
+    }
+
+    @Test
+    fun profileViewDecodesFollowRequestState() {
+        val view =
+            AtJson.decodeFromString(
+                ProfileView.serializer(),
+                """{"did":"did:plc:alice","handle":"alice.test","followPolicy":"approve",""" +
+                    """"viewer":{"following":"at://did:plc:bob/app.activitytracker.graph.follow/3k","followRequested":true}}""",
+            )
+        assertEquals(FollowPolicy.APPROVE, view.followPolicy)
+        assertEquals(true, view.viewer?.followRequested)
+    }
+
+    @Test
+    fun followRequestsOutputDecodes() {
+        val output =
+            AtJson.decodeFromString(
+                GetFollowRequests.Output.serializer(),
+                """{"requests":[{"did":"did:plc:bob","handle":"bob.test"}],"cursor":"c1"}""",
+            )
+        assertEquals(listOf("did:plc:bob"), output.requests.map { it.did.value })
+        assertEquals("c1", output.cursor)
+    }
+
+    @Test
+    fun applyWritesEncodesCreateAndDelete() {
+        val input =
+            ApplyWrites.Input(
+                repo = Did("did:plc:alice"),
+                writes =
+                    listOf(
+                        ApplyWrites.create(
+                            Nsid.GRAPH_FOLLOW_APPROVAL,
+                            "did:plc:bob",
+                            AtJson.encodeToJsonElement(
+                                FollowApprovalRecord.serializer(),
+                                FollowApprovalRecord(Did("did:plc:bob"), Instant.parse("2026-10-13T09:00:00Z")),
+                            ),
+                        ),
+                        ApplyWrites.delete(Nsid.GRAPH_FOLLOW_APPROVAL, "did:plc:carol"),
+                    ),
+            )
+        val writes = AtJson.encodeToJsonElement(ApplyWrites.Input.serializer(), input).jsonObject.getValue("writes").jsonArray
+        assertEquals("com.atproto.repo.applyWrites#create", writes[0].jsonObject["\$type"]?.jsonPrimitive?.content)
+        assertEquals("did:plc:bob", writes[0].jsonObject["rkey"]?.jsonPrimitive?.content)
+        assertEquals("com.atproto.repo.applyWrites#delete", writes[1].jsonObject["\$type"]?.jsonPrimitive?.content)
+        assertFalse("value" in writes[1].jsonObject)
     }
 
     @Test

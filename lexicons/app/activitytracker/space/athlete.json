@@ -9,6 +9,7 @@
       "description": "An athlete's permissioned data, one space per visibility tier. The AppView is the managing app and decides who may read each tier.",
       "collections": [
         "app.activitytracker.actor.privateDetails",
+        "app.activitytracker.graph.followDecline",
         "app.activitytracker.feed.activityStreams",
         "app.activitytracker.feed.activityZones"
       ]

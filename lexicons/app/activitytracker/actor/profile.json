@@ -20,9 +20,14 @@
           "details": {
             "type": "ref",
             "ref": "app.activitytracker.actor.defs#details",
-            "description": "Only the details the athlete made public. Records are public, so never put a mutuals-only or private detail here."
+            "description": "Only the details the athlete made public. Records are public, so never put a followers-only, mutuals-only or private detail here."
           },
           "units": { "type": "string", "knownValues": ["metric", "imperial"] },
+          "followPolicy": {
+            "type": "string",
+            "knownValues": ["open", "approve"],
+            "description": "Whether follows count at once (open, the default when absent) or only once the athlete publishes a graph.followApproval for the follower (approve)."
+          },
           "sports": {
             "type": "array",
             "maxLength": 16,

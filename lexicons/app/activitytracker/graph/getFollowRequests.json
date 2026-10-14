@@ -1,0 +1,28 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.graph.getFollowRequests",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Accounts whose follows of the requesting athlete are pending (their followPolicy is approve and they haven't approved them), most recently indexed first. Includes accounts the athlete declined: declines live in the athlete's self space, which the AppView never sees. Requires auth.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 30 },
+          "cursor": { "type": "string" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["requests"],
+          "properties": {
+            "cursor": { "type": "string" },
+            "requests": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" } }
+          }
+        }
+      }
+    }
+  }
+}

@@ -32,13 +32,22 @@ data class ProfileView(
     /** Only the details this viewer may see. */
     val details: ProfileDetails? = null,
     val units: String? = null,
+    /** A [FollowPolicy] value. */
+    val followPolicy: String? = null,
     val activitiesCount: Long? = null,
     val followersCount: Long? = null,
     val followsCount: Long? = null,
     val viewer: ProfileViewerState? = null,
 )
 
-@Immutable @Serializable data class ProfileViewerState(val following: AtUri? = null)
+@Immutable
+@Serializable
+data class ProfileViewerState(
+    /** The viewer's follow record, whether it counts yet or not. */
+    val following: AtUri? = null,
+    /** True while [following] waits for the athlete's approval. */
+    val followRequested: Boolean? = null,
+)
 
 /** `app.activitytracker.feed.defs#activityView` */
 @Immutable

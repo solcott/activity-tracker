@@ -495,6 +495,45 @@ data class FollowRecord(
     @SerialName($$"$type") val type: String = Nsid.GRAPH_FOLLOW,
 )
 
+/**
+ * `app.activitytracker.graph.followApproval`: the athlete's approval of [subject]'s follow, which makes it count while their
+ * [ProfileRecord.followPolicy] is [FollowPolicy.APPROVE]. Its rkey is always [subject]'s DID ([rkey]), so there's one per follower.
+ */
+@Serializable
+data class FollowApprovalRecord(
+    val subject: Did,
+    val createdAt: Instant,
+    @SerialName($$"$type") val type: String = Nsid.GRAPH_FOLLOW_APPROVAL,
+) {
+    companion object {
+        fun rkey(subject: Did): String = subject.value
+    }
+}
+
+/**
+ * `app.activitytracker.graph.followDecline`: the athlete declined [subject]'s follow request. It lives only in their [AthleteSpace.SELF]
+ * space, so nobody else learns of it, and its rkey is [subject]'s DID ([rkey]).
+ */
+@Serializable
+data class FollowDeclineRecord(
+    val subject: Did,
+    val createdAt: Instant,
+    @SerialName($$"$type") val type: String = Nsid.GRAPH_FOLLOW_DECLINE,
+) {
+    companion object {
+        fun rkey(subject: Did): String = subject.value
+    }
+}
+
+/** Known values of [ProfileRecord.followPolicy]; the field is an open string, and anything but [APPROVE] (or none) means [OPEN]. */
+object FollowPolicy {
+    /** Every follow counts at once. */
+    const val OPEN = "open"
+
+    /** A follow counts only once the athlete publishes a [FollowApprovalRecord] for the follower. */
+    const val APPROVE = "approve"
+}
+
 /** `app.activitytracker.actor.profile`. Records are public, so [details] holds only the details the athlete made public. */
 @Serializable
 data class ProfileRecord(
@@ -504,6 +543,8 @@ data class ProfileRecord(
     val details: ProfileDetails? = null,
     val units: String? = null,
     val sports: List<String> = emptyList(),
+    /** A [FollowPolicy] value; null means [FollowPolicy.OPEN]. */
+    val followPolicy: String? = null,
     val createdAt: Instant? = null,
     @SerialName($$"$type") val type: String = Nsid.ACTOR_PROFILE,
 ) {
@@ -747,6 +788,9 @@ object Gender {
 object Visibility {
     /** Anyone, so the detail goes in the public profile record. */
     const val PUBLIC = "public"
+
+    /** The athlete's effective followers: every follower, or only approved ones when their policy is [FollowPolicy.APPROVE]. */
+    const val FOLLOWERS = "followers"
 
     /** Accounts the athlete follows that also follow the athlete. */
     const val MUTUALS = "mutuals"
