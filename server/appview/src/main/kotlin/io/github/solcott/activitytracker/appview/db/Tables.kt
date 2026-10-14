@@ -55,7 +55,7 @@ object ActivityMediaBlobs : Table("activity_media") {
     override val primaryKey = PrimaryKey(activityUri, sortIndex)
 }
 
-object Kudos : Table("kudos") {
+object Likes : Table("likes") {
     val uri = varchar("uri", 512)
     val authorDid = varchar("author_did", 255)
     val subjectUri = varchar("subject_uri", 512)

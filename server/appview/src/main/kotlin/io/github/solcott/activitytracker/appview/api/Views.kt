@@ -4,7 +4,7 @@ import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.Follows
-import io.github.solcott.activitytracker.appview.db.Kudos
+import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -22,7 +22,7 @@ import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
-import io.github.solcott.activitytracker.lexicon.app.GetKudos
+import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
@@ -133,35 +133,35 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
     }
 
     /**
-     * Athletes who gave kudos on an activity, each once (a repo may hold duplicate kudos records), most recent kudos first. Keyset
-     * pagination over authors on (latest indexed_at, author_did) descending; cursor is `"<indexedAt>::<authorDid>"`.
+     * Athletes who liked an activity, each once (a repo may hold duplicate like records), most recent like first. Keyset pagination over
+     * authors on (latest indexed_at, author_did) descending; cursor is `"<indexedAt>::<authorDid>"`.
      */
-    suspend fun kudos(viewer: Did?, params: GetKudos.Params): GetKudos.Output = db.tx {
+    suspend fun likes(viewer: Did?, params: GetLikes.Params): GetLikes.Output = db.tx {
         val uri = params.uri.value
         val visibility =
             Activities.select(Activities.visibility)
                 .where { (Activities.uri eq uri) and visibleTo(viewer) }
                 .singleOrNull()
                 ?.get(Activities.visibility) ?: throw XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "Activity not found")
-        // Kudos on a non-public activity are kept but not served: they come back if it's made public again.
-        if (!acceptsInteractions(visibility)) return@tx GetKudos.Output(params.uri, emptyList())
+        // Likes on a non-public activity are kept but not served: they come back if it's made public again.
+        if (!acceptsInteractions(visibility)) return@tx GetLikes.Output(params.uri, emptyList())
         val pageSize = Paging.clamp(params.limit)
-        val latest = Kudos.indexedAt.max()
+        val latest = Likes.indexedAt.max()
         val after =
             params.cursor?.let(::parseCursor)?.let { (sortValue, did) ->
-                (latest less sortValue) or ((latest eq sortValue) and (Kudos.authorDid less did))
+                (latest less sortValue) or ((latest eq sortValue) and (Likes.authorDid less did))
             } ?: Op.TRUE
         val rows =
-            Kudos.select(Kudos.authorDid, latest)
-                .where { Kudos.subjectUri eq uri }
-                .groupBy(Kudos.authorDid)
+            Likes.select(Likes.authorDid, latest)
+                .where { Likes.subjectUri eq uri }
+                .groupBy(Likes.authorDid)
                 .having { after }
-                .orderBy(latest to SortOrder.DESC, Kudos.authorDid to SortOrder.DESC)
+                .orderBy(latest to SortOrder.DESC, Likes.authorDid to SortOrder.DESC)
                 .limit(pageSize)
                 .toList()
-        val next = rows.takeIf { it.size == pageSize }?.last()?.let { "${it[latest]}::${it[Kudos.authorDid]}" }
-        val profiles = basicProfiles(rows.map { it[Kudos.authorDid] }, avatars)
-        GetKudos.Output(params.uri, rows.mapNotNull { profiles[it[Kudos.authorDid]] }, next)
+        val next = rows.takeIf { it.size == pageSize }?.last()?.let { "${it[latest]}::${it[Likes.authorDid]}" }
+        val profiles = basicProfiles(rows.map { it[Likes.authorDid] }, avatars)
+        GetLikes.Output(params.uri, rows.mapNotNull { profiles[it[Likes.authorDid]] }, next)
     }
 
     suspend fun profile(viewer: Did?, actor: String): ProfileView = db.tx {
@@ -205,14 +205,14 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         if (rows.isEmpty()) return emptyList()
         val uris = rows.map { it[Activities.uri] }
         val authors = basicProfiles(rows.map { it[Activities.authorDid] }, avatars)
-        val kudosCounts = countBySubject(Kudos, Kudos.subjectUri, Kudos.authorDid, uris, distinct = true)
+        val likeCounts = countBySubject(Likes, Likes.subjectUri, Likes.authorDid, uris, distinct = true)
         val commentCounts = countBySubject(Comments, Comments.subjectUri, Comments.uri, uris)
-        val viewerKudos =
+        val viewerLikes =
             viewer
                 ?.let { v ->
-                    Kudos.select(Kudos.uri, Kudos.subjectUri)
-                        .where { (Kudos.authorDid eq v.value) and (Kudos.subjectUri inList uris) }
-                        .associate { it[Kudos.subjectUri] to it[Kudos.uri] }
+                    Likes.select(Likes.uri, Likes.subjectUri)
+                        .where { (Likes.authorDid eq v.value) and (Likes.subjectUri inList uris) }
+                        .associate { it[Likes.subjectUri] to it[Likes.uri] }
                 }
                 .orEmpty()
 
@@ -223,18 +223,18 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
             val uri = row[Activities.uri]
             val record = AtJson.decodeFromString(ActivityRecord.serializer(), row[Activities.record])
             val visibility = row[Activities.visibility]
-            // Non-public activities take no kudos or comments; any given while it was public stay in the index, unshown.
+            // Non-public activities take no likes or comments; any given while it was public stay in the index, unshown.
             val interactions = acceptsInteractions(visibility)
             ActivityView(
                 uri = AtUri(uri),
                 cid = Cid(row[Activities.cid]),
                 author = authors[row[Activities.authorDid]] ?: return@mapNotNull null,
                 record = record,
-                kudosCount = if (interactions) kudosCounts[uri] ?: 0 else 0,
+                likeCount = if (interactions) likeCounts[uri] ?: 0 else 0,
                 commentCount = if (interactions) commentCounts[uri] ?: 0 else 0,
                 indexedAt = Instant.fromEpochMilliseconds(row[Activities.indexedAt]),
                 visibility = visibility,
-                viewer = viewer?.let { ActivityViewerState(kudos = viewerKudos[uri]?.takeIf { interactions }?.let(::AtUri)) },
+                viewer = viewer?.let { ActivityViewerState(like = viewerLikes[uri]?.takeIf { interactions }?.let(::AtUri)) },
                 recordings = recordings[uri],
                 media = mediaViews(mediaUrls, row[Activities.authorDid], record.media, visibility, viewer),
             )
@@ -287,7 +287,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         uris: List<String>,
         distinct: Boolean = false,
     ): Map<String, Long> {
-        // Distinct keys let kudos count athletes rather than records, since repos may hold duplicates.
+        // Distinct keys let likes count athletes rather than records, since repos may hold duplicates.
         val count = if (distinct) key.countDistinct() else key.count()
         return table.select(subject, count).where { subject inList uris }.groupBy(subject).associate { it[subject] to it[count] }
     }

@@ -17,7 +17,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
-import io.github.solcott.activitytracker.lexicon.app.GetKudos
+import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -267,14 +267,14 @@ class ActivityVisibilityTest {
     }
 
     @Test
-    fun kudosAndCommentsAreHiddenWhileNotPublic() = testApplication {
+    fun likesAndCommentsAreHiddenWhileNotPublic() = testApplication {
         start()
         follow(bob, alice)
         post("3kact", Visibility.PUBLIC)
         commit(
             bob,
-            Nsid.FEED_KUDOS,
-            "3kkudos",
+            Nsid.FEED_LIKE,
+            "3klike",
             """{"subject":{"uri":"${uri("3kact")}","cid":"bafy3kact"},"createdAt":"2026-10-01T09:00:00Z"}""",
         )
         commit(
@@ -284,7 +284,7 @@ class ActivityVisibilityTest {
             """{"subject":{"uri":"${uri("3kact")}","cid":"bafy3kact"},"text":"Nice","createdAt":"2026-10-01T09:00:00Z"}""",
         )
         val public = client.query(GetActivity.method, bob, "?uri=${uri("3kact").encodeURLParameter()}")
-        assertEquals(1, public.activity.kudosCount)
+        assertEquals(1, public.activity.likeCount)
         assertEquals(1, public.comments.size)
 
         // Made Followers: the followers copy is written, then the repo copy deleted.
@@ -292,30 +292,30 @@ class ActivityVisibilityTest {
         unpost("3kact", Visibility.PUBLIC)
         val private = client.query(GetActivity.method, bob, "?uri=${uri("3kact").encodeURLParameter()}")
         assertEquals(Visibility.FOLLOWERS, private.activity.visibility)
-        assertEquals(0, private.activity.kudosCount)
+        assertEquals(0, private.activity.likeCount)
         assertEquals(0, private.activity.commentCount)
-        assertEquals(null, private.activity.viewer?.kudos)
+        assertEquals(null, private.activity.viewer?.like)
         assertEquals(emptyList(), private.comments)
-        assertEquals(emptyList(), client.query(GetKudos.method, bob, "?uri=${uri("3kact").encodeURLParameter()}").kudos)
+        assertEquals(emptyList(), client.query(GetLikes.method, bob, "?uri=${uri("3kact").encodeURLParameter()}").likes)
 
-        // Made public again: the kudos and comment given before come back.
+        // Made public again: the like and comment given before come back.
         post("3kact", Visibility.PUBLIC)
         unpost("3kact", Visibility.FOLLOWERS)
         val again = client.query(GetActivity.method, bob, "?uri=${uri("3kact").encodeURLParameter()}")
         assertEquals(Visibility.PUBLIC, again.activity.visibility)
-        assertEquals(1, again.activity.kudosCount)
+        assertEquals(1, again.activity.likeCount)
         assertEquals(1, again.comments.size)
         assertEquals(
             listOf(bob),
-            client.query(GetKudos.method, bob, "?uri=${uri("3kact").encodeURLParameter()}").kudos.map { it.did.value },
+            client.query(GetLikes.method, bob, "?uri=${uri("3kact").encodeURLParameter()}").likes.map { it.did.value },
         )
     }
 
     @Test
-    fun getKudosOnAnActivityTheViewerCantSeeIsNotFound() = testApplication {
+    fun getLikesOnAnActivityTheViewerCantSeeIsNotFound() = testApplication {
         start()
         post("3kme", Visibility.SELF)
-        assertEquals(HttpStatusCode.BadRequest, client.raw(GetKudos.method.nsid, bob, "?uri=${uri("3kme").encodeURLParameter()}").status)
+        assertEquals(HttpStatusCode.BadRequest, client.raw(GetLikes.method.nsid, bob, "?uri=${uri("3kme").encodeURLParameter()}").status)
     }
 
     @Test

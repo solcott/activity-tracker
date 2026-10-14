@@ -20,7 +20,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
 import io.github.solcott.activitytracker.lexicon.app.GetFollowers
 import io.github.solcott.activitytracker.lexicon.app.GetFollows
-import io.github.solcott.activitytracker.lexicon.app.GetKudos
+import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.SearchActors
@@ -84,8 +84,8 @@ class AppViewTest {
         )
     }
 
-    /** Bob posts a run that Alice follows, gives kudos to and comments on, plus one garbage record. Returns the run's URI. */
-    private fun seedBobsRunWithAlicesFollowKudosAndComment(): String {
+    /** Bob posts a run that Alice follows, likes and comments on, plus one garbage record. Returns the run's URI. */
+    private fun seedBobsRunWithAlicesFollowLikeAndComment(): String {
         val activityUri = "at://$bob/${Nsid.FEED_ACTIVITY}/3kbob1"
         commit(
             bob,
@@ -103,7 +103,7 @@ class AppViewTest {
         )
         commit(
             alice,
-            Nsid.FEED_KUDOS,
+            Nsid.FEED_LIKE,
             "3kk1",
             """{"subject":{"uri":"$activityUri","cid":"bafy3kbob1"},"createdAt":"2026-09-30T11:00:00Z"}""",
         )
@@ -138,7 +138,7 @@ class AppViewTest {
         dive(alice, "3ko", "2024-05-13T10:00:00Z", ""","recordingOf":"at://$alice/${Nsid.FEED_ACTIVITY}/3kgone"""")
         // Links the indexer won't honor: to itself, to another collection, too long to store.
         dive(alice, "3ks", "2024-05-14T10:00:00Z", ""","recordingOf":"at://$alice/${Nsid.FEED_ACTIVITY}/3ks"""")
-        dive(alice, "3kl", "2024-05-15T10:00:00Z", ""","recordingOf":"at://$alice/${Nsid.FEED_KUDOS}/3kp"""")
+        dive(alice, "3kl", "2024-05-15T10:00:00Z", ""","recordingOf":"at://$alice/${Nsid.FEED_LIKE}/3kp"""")
         dive(alice, "3kz", "2024-05-16T10:00:00Z", ""","recordingOf":"$primary${"x".repeat(512)}"""")
         // A recording's device is shown only as long as the view allows.
         dive(alice, "3kv", "2024-05-12T16:03:00Z", ""","device":"${"d".repeat(300)}","recordingOf":"$primary"""")
@@ -217,7 +217,7 @@ class AppViewTest {
     @Test
     fun timelineShowsFollowedActivitiesWithCounts() = testApplication {
         application { appView(config, db, verifier) }
-        val activityUri = seedBobsRunWithAlicesFollowKudosAndComment()
+        val activityUri = seedBobsRunWithAlicesFollowLikeAndComment()
 
         val nsid = GetTimeline.method.nsid
         val unauthenticated = client.get("/xrpc/$nsid")
@@ -236,9 +236,9 @@ class AppViewTest {
         assertEquals(activityUri, activity.uri.value)
         assertEquals("Bob", activity.author.displayName)
         assertEquals("bob.test", activity.author.handle.value)
-        assertEquals(1, activity.kudosCount)
+        assertEquals(1, activity.likeCount)
         assertEquals(1, activity.commentCount)
-        assertNotNull(activity.viewer?.kudos)
+        assertNotNull(activity.viewer?.like)
 
         val detail = client.get("/xrpc/${GetActivity.method.nsid}?uri=$activityUri")
         val output = AtJson.decodeFromString(GetActivity.Output.serializer(), detail.bodyAsText())
@@ -253,12 +253,12 @@ class AppViewTest {
         assertEquals(1, view.followersCount)
         assertEquals("imperial", view.units)
 
-        // Deleting the kudos record removes it from counts.
-        commit(alice, Nsid.FEED_KUDOS, "3kk1", "", op = "delete")
+        // Deleting the like record removes it from counts.
+        commit(alice, Nsid.FEED_LIKE, "3kk1", "", op = "delete")
         val after = client.get("/xrpc/${GetActivity.method.nsid}?uri=$activityUri")
         assertEquals(
             0,
-            AtJson.decodeFromString(GetActivity.Output.serializer(), after.bodyAsText()).activity.kudosCount,
+            AtJson.decodeFromString(GetActivity.Output.serializer(), after.bodyAsText()).activity.likeCount,
         )
     }
 
@@ -422,39 +422,39 @@ class AppViewTest {
     }
 
     @Test
-    fun kudosCountAthletesAndIgnoreSelfKudos() = testApplication {
+    fun likesCountAthletesAndIgnoreSelfLikes() = testApplication {
         application { appView(config, db, verifier) }
-        val activityUri = seedBobsRunWithAlicesFollowKudosAndComment()
-        val kudos = """{"subject":{"uri":"$activityUri","cid":"bafy3kbob1"},"createdAt":"2026-09-30T11:05:00Z"}"""
-        // A second kudos record from Alice, and Bob kudos-ing his own run: both written by other clients, neither counts.
-        commit(alice, Nsid.FEED_KUDOS, "3kk2", kudos)
-        commit(bob, Nsid.FEED_KUDOS, "3kk3", kudos)
+        val activityUri = seedBobsRunWithAlicesFollowLikeAndComment()
+        val like = """{"subject":{"uri":"$activityUri","cid":"bafy3kbob1"},"createdAt":"2026-09-30T11:05:00Z"}"""
+        // A second like record from Alice, and Bob liking his own run: both written by other clients, neither counts.
+        commit(alice, Nsid.FEED_LIKE, "3kk2", like)
+        commit(bob, Nsid.FEED_LIKE, "3kk3", like)
 
         val detail = client.get("/xrpc/${GetActivity.method.nsid}?uri=$activityUri")
-        assertEquals(1, AtJson.decodeFromString(GetActivity.Output.serializer(), detail.bodyAsText()).activity.kudosCount)
+        assertEquals(1, AtJson.decodeFromString(GetActivity.Output.serializer(), detail.bodyAsText()).activity.likeCount)
     }
 
     @Test
-    fun listsKudosAthletesOnce() = testApplication {
+    fun listsLikingAthletesOnce() = testApplication {
         application { appView(config, db, verifier) }
-        val activityUri = seedBobsRunWithAlicesFollowKudosAndComment()
-        val kudos = """{"subject":{"uri":"$activityUri","cid":"bafy3kbob1"},"createdAt":"2026-09-30T11:05:00Z"}"""
-        commit(alice, Nsid.FEED_KUDOS, "3kk2", kudos)
-        commit(carol, Nsid.FEED_KUDOS, "3kk3", kudos)
-        commit(bob, Nsid.FEED_KUDOS, "3kk4", kudos)
+        val activityUri = seedBobsRunWithAlicesFollowLikeAndComment()
+        val like = """{"subject":{"uri":"$activityUri","cid":"bafy3kbob1"},"createdAt":"2026-09-30T11:05:00Z"}"""
+        commit(alice, Nsid.FEED_LIKE, "3kk2", like)
+        commit(carol, Nsid.FEED_LIKE, "3kk3", like)
+        commit(bob, Nsid.FEED_LIKE, "3kk4", like)
 
-        suspend fun list(query: String): GetKudos.Output {
-            val response = client.get("/xrpc/${GetKudos.method.nsid}?$query")
+        suspend fun list(query: String): GetLikes.Output {
+            val response = client.get("/xrpc/${GetLikes.method.nsid}?$query")
             assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
-            return AtJson.decodeFromString(GetKudos.Output.serializer(), response.bodyAsText())
+            return AtJson.decodeFromString(GetLikes.Output.serializer(), response.bodyAsText())
         }
 
         val all = list("uri=${activityUri.encodeURLParameter()}")
         assertEquals(activityUri, all.uri.value)
-        // Alice's duplicate is listed once and Bob's self-kudos isn't indexed.
-        assertEquals(setOf(alice, carol), all.kudos.map { it.did.value }.toSet())
-        assertEquals(2, all.kudos.size)
-        assertEquals("carol.test", all.kudos.single { it.did.value == carol }.handle.value)
+        // Alice's duplicate is listed once and Bob's self-like isn't indexed.
+        assertEquals(setOf(alice, carol), all.likes.map { it.did.value }.toSet())
+        assertEquals(2, all.likes.size)
+        assertEquals("carol.test", all.likes.single { it.did.value == carol }.handle.value)
 
         // limit=1 walks every athlete through the cursor exactly once, despite Alice's duplicate.
         val paged = mutableListOf<String>()
@@ -462,15 +462,15 @@ class AppViewTest {
         do {
             val page =
                 list("uri=${activityUri.encodeURLParameter()}&limit=1" + cursor?.let { "&cursor=${it.encodeURLParameter()}" }.orEmpty())
-            paged += page.kudos.map { it.did.value }
+            paged += page.likes.map { it.did.value }
             cursor = page.cursor
         } while (cursor != null)
         assertEquals(listOf(alice, carol).sorted(), paged.sorted())
 
-        commit(carol, Nsid.FEED_KUDOS, "3kk3", "", op = "delete")
-        assertEquals(listOf(alice), list("uri=${activityUri.encodeURLParameter()}").kudos.map { it.did.value })
+        commit(carol, Nsid.FEED_LIKE, "3kk3", "", op = "delete")
+        assertEquals(listOf(alice), list("uri=${activityUri.encodeURLParameter()}").likes.map { it.did.value })
 
-        val missing = client.get("/xrpc/${GetKudos.method.nsid}?uri=${"at://$bob/${Nsid.FEED_ACTIVITY}/nope".encodeURLParameter()}")
+        val missing = client.get("/xrpc/${GetLikes.method.nsid}?uri=${"at://$bob/${Nsid.FEED_ACTIVITY}/nope".encodeURLParameter()}")
         assertEquals(HttpStatusCode.BadRequest, missing.status)
         assertEquals(true, missing.bodyAsText().contains("NotFound"))
     }

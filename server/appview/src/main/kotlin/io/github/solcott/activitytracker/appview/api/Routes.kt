@@ -19,7 +19,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
 import io.github.solcott.activitytracker.lexicon.app.GetFollowRequests
 import io.github.solcott.activitytracker.lexicon.app.GetFollowers
 import io.github.solcott.activitytracker.lexicon.app.GetFollows
-import io.github.solcott.activitytracker.lexicon.app.GetKudos
+import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.NotifySpace
@@ -59,7 +59,7 @@ fun Route.xrpcRoutes(
     xrpcQuery(GetAuthorActivitiesByStart.method, verifier) { params, viewer -> views.authorActivitiesByStart(viewer, params) }
     xrpcQuery(GetActivity.method, verifier) { params, viewer -> views.activity(viewer, params) }
     xrpcQuery(GetActivityStreams.method, verifier) { params, viewer -> streams.streams(viewer, params) }
-    xrpcQuery(GetKudos.method, verifier) { params, viewer -> views.kudos(viewer, params) }
+    xrpcQuery(GetLikes.method, verifier) { params, viewer -> views.likes(viewer, params) }
     xrpcQuery(GetProfile.method, verifier) { params, viewer -> views.profile(viewer, params.actor) }
     xrpcQuery(SearchActors.method, verifier) { params, viewer ->
         requireViewer(viewer)

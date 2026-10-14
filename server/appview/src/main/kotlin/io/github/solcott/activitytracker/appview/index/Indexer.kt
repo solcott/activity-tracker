@@ -8,7 +8,7 @@ import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.FollowApprovals
 import io.github.solcott.activitytracker.appview.db.Follows
-import io.github.solcott.activitytracker.appview.db.Kudos
+import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.appview.db.RecordShadows
 import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.db.tx
@@ -20,7 +20,7 @@ import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowApprovalRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.FollowRecord
-import io.github.solcott.activitytracker.lexicon.app.KudosRecord
+import io.github.solcott.activitytracker.lexicon.app.LikeRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import kotlin.time.Clock
@@ -145,11 +145,11 @@ class Indexer(
                 upsertPlaced(collection, author, uri, cid, json, placement, now)
             }
 
-            Nsid.FEED_KUDOS -> {
-                val record = AtJson.decodeFromJsonElement(KudosRecord.serializer(), json)
-                require(record.subject.uri.authority != author.value) { "kudos on own activity" }
-                Kudos.upsert {
-                    it[Kudos.uri] = uri.value
+            Nsid.FEED_LIKE -> {
+                val record = AtJson.decodeFromJsonElement(LikeRecord.serializer(), json)
+                require(record.subject.uri.authority != author.value) { "like on own activity" }
+                Likes.upsert {
+                    it[Likes.uri] = uri.value
                     it[authorDid] = author.value
                     it[subjectUri] = record.subject.uri.value
                     it[subjectCid] = record.subject.cid.value
@@ -222,8 +222,8 @@ class Indexer(
                 dropOrphanedStreamData()
             }
 
-            Nsid.FEED_KUDOS -> {
-                Kudos.deleteWhere { Kudos.uri eq uri.value }
+            Nsid.FEED_LIKE -> {
+                Likes.deleteWhere { Likes.uri eq uri.value }
             }
 
             Nsid.FEED_COMMENT -> {
@@ -269,7 +269,7 @@ class Indexer(
         ActivityMediaBlobs.deleteWhere { authorDid eq did.value }
         ActivityStreams.deleteWhere { authorDid eq did.value }
         dropOrphanedStreamData()
-        Kudos.deleteWhere { authorDid eq did.value }
+        Likes.deleteWhere { authorDid eq did.value }
         Comments.deleteWhere { authorDid eq did.value }
         Follows.deleteWhere { authorDid eq did.value }
         FollowApprovals.deleteWhere { authorDid eq did.value }
