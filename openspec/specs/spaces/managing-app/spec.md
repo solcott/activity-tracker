@@ -71,7 +71,7 @@ The endpoint SHALL require a service-auth JWT signed by the issuer's DID-documen
 - **THEN** the AppView answers `{"authorized": false}`
 
 ### Requirement: Read access by tier
-For a space of type `app.activitytracker.space.athlete`, a `read` check SHALL be decided by the space key: `public` admits any user; `followers` admits a user whose follow of the authority is effective in this app's follow graph; `mutuals` admits a user whose follow of the authority is effective and whom the authority effectively follows; `self` and every other key admit no one. The AppView's own service DID SHALL be admitted for `read` on the `public`, `followers`, `mutuals` and `self` spaces, so it can sync them. Any other space type SHALL be denied.
+For a space of type `app.activitytracker.space.athlete`, a `read` check SHALL be decided by the space key: `public` admits any user; `followers` admits a user whose follow of the authority is effective in this app's follow graph; `mutuals` admits a user whose follow of the authority is effective and whom the authority effectively follows; `self`, `interactions` and every other key admit no one. The AppView's own service DID SHALL be admitted for `read` on the `public`, `followers`, `mutuals`, `self` and `interactions` spaces, so it can sync them. Any other space type SHALL be denied.
 
 #### Scenario: Public tier
 - **WHEN** any user is checked for `read` on the authority's `public` space
@@ -109,16 +109,24 @@ For a space of type `app.activitytracker.space.athlete`, a `read` check SHALL be
 - **WHEN** any user other than the authority and the AppView, mutual or not, is checked for `read` on the `self` space
 - **THEN** the answer is `authorized: false`
 
+#### Scenario: Interactions space
+- **WHEN** any user other than the authority and the AppView, mutual or not, is checked for `read` on the authority's `interactions` space
+- **THEN** the answer is `authorized: false`
+
 #### Scenario: AppView reads every tier
 - **WHEN** the AppView's own service DID is checked for `read` on the authority's `public`, `followers`, `mutuals` or `self` space
 - **THEN** the answer is `authorized: true`, whatever the follow graph says
 
+#### Scenario: AppView reads the interactions space
+- **WHEN** the AppView's own service DID is checked for `read` on the authority's `interactions` space
+- **THEN** the answer is `authorized: true`
+
 #### Scenario: AppView and an unknown tier
-- **WHEN** the AppView's own service DID is checked for `read` on a space of type `app.activitytracker.space.athlete` with a key other than the four tiers
+- **WHEN** the AppView's own service DID is checked for `read` on a space of type `app.activitytracker.space.athlete` with a key other than the four tiers and `interactions`
 - **THEN** the answer is `authorized: false`
 
 #### Scenario: Unknown tier
-- **WHEN** a `read` check names a space of type `app.activitytracker.space.athlete` with a key other than `public`, `followers`, `mutuals` or `self`
+- **WHEN** a `read` check names a space of type `app.activitytracker.space.athlete` with a key other than `public`, `followers`, `mutuals`, `self` or `interactions`
 - **THEN** the answer is `authorized: false`
 
 #### Scenario: Other space type
