@@ -45,11 +45,13 @@ class ActivityDetailPresenterTest {
     private val staleAlice = """{"did":"did:plc:alice","handle":"alice.test"}"""
     private var likesFromAppView = listOf(carol)
     private var streams: String? = null
+    private var visibility = "public"
 
-    private val activity =
-        """{"uri":"$activityUri","cid":"bafy3kbob1","author":$bob,""" +
-            """"record":{"sport":"run","startedAt":"2026-09-30T10:00:00Z","elapsedTime":1800,"createdAt":"2026-09-30T10:31:00Z"},""" +
-            """"likeCount":${likesFromAppView.size},"commentCount":0,"indexedAt":"2026-09-30T10:31:01Z","viewer":{}}"""
+    private val activity
+        get() =
+            """{"uri":"$activityUri","cid":"bafy3kbob1","author":$bob,"visibility":"$visibility",""" +
+                """"record":{"sport":"run","startedAt":"2026-09-30T10:00:00Z","elapsedTime":1800,"createdAt":"2026-09-30T10:31:00Z"},""" +
+                """"likeCount":${likesFromAppView.size},"commentCount":0,"indexedAt":"2026-09-30T10:31:01Z","viewer":{}}"""
 
     private val http =
         HttpClient(
@@ -141,6 +143,23 @@ class ActivityDetailPresenterTest {
             shown.eventSink(ActivityDetailEvent.ToggleLikesList)
             var hidden = awaitItem() as ActivityDetailState.Loaded
             while (hidden.likesList != null) hidden = awaitItem() as ActivityDetailState.Loaded
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun likesAFollowersActivity() = runTest {
+        visibility = "followers"
+        val r = repos()
+        presenterTestOf({
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
+        }) {
+            val loaded = awaitLoaded()
+            assertEquals(1, loaded.activity.likeCount)
+            assertFalse(loaded.activity.acceptsComments)
+            loaded.eventSink(ActivityDetailEvent.ToggleLike)
+            val liked = awaitUntil { (it as? ActivityDetailState.Loaded)?.activity?.viewer?.like != null } as ActivityDetailState.Loaded
+            assertEquals(2, liked.activity.likeCount)
             cancelAndIgnoreRemainingEvents()
         }
     }

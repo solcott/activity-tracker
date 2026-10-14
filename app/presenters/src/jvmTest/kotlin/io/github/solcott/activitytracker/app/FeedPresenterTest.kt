@@ -5,6 +5,7 @@ import co.touchlab.kermit.Logger
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.activityfile.TimeZones
+import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
 import io.github.solcott.activitytracker.app.feed.FeedEvent
 import io.github.solcott.activitytracker.app.feed.FeedPresenter
 import io.github.solcott.activitytracker.app.feed.FeedScope
@@ -32,8 +33,10 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.location.FakeLocationTracker
 import io.github.solcott.activitytracker.location.LocationTracker
 import io.github.solcott.activitytracker.location.UnsupportedLocationTracker
@@ -101,7 +104,7 @@ class FeedPresenterTest {
                     path == "/xrpc/${Nsid.FEED_GET_TIMELINE}" || path == "/xrpc/${Nsid.FEED_GET_AUTHOR_ACTIVITIES}" -> {
                         val params = request.url.parameters.entries().associate { it.key to it.value }
                         queries += path.removePrefix("/xrpc/") to params
-                        val activities = if ("type" in params) listOf(ride) else emptyList()
+                        val activities = if ("type" in params) listOf(ride) else timeline
                         respond(AtJson.encodeToString(GetTimeline.Output.serializer(), GetTimeline.Output(activities)), headers = json)
                     }
                     else -> respond("", HttpStatusCode.NotFound)
@@ -110,6 +113,22 @@ class FeedPresenterTest {
         ) {
             expectSuccess = false
         }
+
+    /** What an unfiltered timeline query answers. */
+    private var timeline = emptyList<ActivityView>()
+
+    private val bobsFollowersRun =
+        ActivityView(
+            uri = AtUri.of(Did("did:plc:bob"), Nsid.FEED_ACTIVITY, "3kbob"),
+            cid = Cid("bafy3kbob"),
+            author = ProfileViewBasic(Did("did:plc:bob"), Handle("bob.test")),
+            record = ActivityRecord("run", Instant.parse("2026-03-05T08:00:00Z"), 1800, Instant.parse("2026-03-05T09:00:00Z")),
+            likeCount = 0,
+            commentCount = 0,
+            indexedAt = Instant.parse("2026-03-05T09:00:00Z"),
+            visibility = Visibility.FOLLOWERS,
+            viewer = ActivityViewerState(),
+        )
 
     private val ride =
         ActivityView(
@@ -149,6 +168,19 @@ class FeedPresenterTest {
     private suspend fun ReceiveTurbine<FeedState>.awaitRefreshed(): FeedState {
         awaitUntil { it.refreshing }
         return awaitUntil { !it.refreshing }
+    }
+
+    @Test
+    fun likesAFollowersActivity() = runTest {
+        timeline = listOf(bobsFollowersRun)
+        filterTest {
+            val state = awaitUntil { it.activities.isNotEmpty() }
+            state.eventSink(FeedEvent.Activity(ActivityListEvent.ToggleLike(state.activities.single())))
+            val liked = awaitUntil { it.activities.singleOrNull()?.viewer?.like != null }
+            assertEquals(1, liked.activities.single().likeCount)
+            assertEquals(Visibility.FOLLOWERS, liked.activities.single().visibility)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test

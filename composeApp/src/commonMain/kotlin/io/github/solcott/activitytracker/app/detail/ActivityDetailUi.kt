@@ -177,11 +177,10 @@ private fun Overview(state: ActivityDetailState.Loaded, modifier: Modifier = Mod
             )
             Recordings(state.activity, onOpen = { state.eventSink(ActivityDetailEvent.OpenActivity(it)) })
             state.manage?.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
-            // Non-public activities take no likes or comments.
-            val interactions = state.activity.acceptsInteractions
-            if (interactions) Likes(state)
+            Likes(state)
             if (state.isOwn) state.charts?.let { ChartSharing(it.visibility, state) }
-            if (interactions) {
+            // Non-public activities take no comments.
+            if (state.activity.acceptsComments) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Comments(state)
             }

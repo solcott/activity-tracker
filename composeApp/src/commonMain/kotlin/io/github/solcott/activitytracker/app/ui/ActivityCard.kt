@@ -88,28 +88,30 @@ fun ActivityCard(
                 height = 160.dp,
                 map = record.polyline?.let { polyline -> { mapModifier, mapHeight -> RoutePreview(polyline, mapModifier, mapHeight) } },
             )
-            // Non-public activities take no likes or comments.
-            if (activity.acceptsInteractions)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (onLike != null) {
-                        val given = activity.viewer?.like != null
-                        AppIconButton(
-                            AppIcon.Like,
-                            contentDescription = stringResource(Res.string.like_content_description),
-                            onClick = onLike,
-                            filled = given,
-                            tint = if (given) MaterialTheme.colorScheme.tertiary else Color.Unspecified,
-                        )
-                    }
-                    Text(
-                        stringResource(
-                            Res.string.activity_card_counts,
-                            pluralStringResource(Res.plurals.like_count, activity.likeCount.toInt(), activity.likeCount),
-                            pluralStringResource(Res.plurals.comments_count, activity.commentCount.toInt(), activity.commentCount),
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (onLike != null) {
+                    val given = activity.viewer?.like != null
+                    AppIconButton(
+                        AppIcon.Like,
+                        contentDescription = stringResource(Res.string.like_content_description),
+                        onClick = onLike,
+                        filled = given,
+                        tint = if (given) MaterialTheme.colorScheme.tertiary else Color.Unspecified,
                     )
                 }
+                val likes = pluralStringResource(Res.plurals.like_count, activity.likeCount.toInt(), activity.likeCount)
+                Text(
+                    // Non-public activities take no comments.
+                    if (activity.acceptsComments)
+                        stringResource(
+                            Res.string.activity_card_counts,
+                            likes,
+                            pluralStringResource(Res.plurals.comments_count, activity.commentCount.toInt(), activity.commentCount),
+                        )
+                    else likes,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
     }
 }

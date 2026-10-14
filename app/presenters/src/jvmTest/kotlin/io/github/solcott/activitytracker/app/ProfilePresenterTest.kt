@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.profile.FollowRequestsRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
+import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
@@ -28,12 +29,14 @@ import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -44,6 +47,8 @@ import kotlin.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /** Alice views Bob's profile. The AppView never catches up with her follow, as when Jetstream lags. */
 class ProfilePresenterTest {
@@ -55,6 +60,9 @@ class ProfilePresenterTest {
     private val putStarted = CompletableDeferred<Unit>()
     private var failPut = false
     private var puts = 0
+
+    /** Each `com.atproto.space.putRecord`, as `<space key> <collection>`. */
+    private val spacePuts = mutableListOf<String>()
 
     private val http =
         HttpClient(
@@ -82,6 +90,25 @@ class ProfilePresenterTest {
 
                     "/xrpc/com.atproto.space.listRecords" -> {
                         respond("""{"error":"SpaceNotFound"}""", HttpStatusCode.BadRequest, json)
+                    }
+
+                    "/.well-known/did.json" -> {
+                        respond(
+                            """{"id":"did:web:appview.test","service":[
+                               {"id":"#activitytracker_space","type":"AtprotoSpaceService","serviceEndpoint":"http://appview.test"}]}""",
+                            headers = json,
+                        )
+                    }
+
+                    "/xrpc/com.atproto.simplespace.createSpace" -> {
+                        respond("""{"uri":"at://$alice/space/${Nsid.SPACE_ATHLETE}/interactions"}""", headers = json)
+                    }
+
+                    "/xrpc/com.atproto.space.putRecord" -> {
+                        val input = AtJson.parseToJsonElement((request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString())
+                        val space = input.jsonObject.getValue("space").jsonPrimitive.content.substringAfterLast('/')
+                        spacePuts += "$space ${input.jsonObject.getValue("collection").jsonPrimitive.content}"
+                        respond("""{"uri":"at://$alice/x/y","cid":"bafyrec"}""", headers = json)
                     }
 
                     "/xrpc/${Nsid.FEED_GET_AUTHOR_ACTIVITIES}" -> {
@@ -186,13 +213,14 @@ class ProfilePresenterTest {
     }
 
     @Test
-    fun aFollowersActivityTakesNoLikes() = runTest {
+    fun aLikeOnAFollowersActivityGoesInTheInteractionsSpace() = runTest {
         putGate.complete(Unit)
         presenterTestOf(presenter()) {
             val loaded = awaitUntil { it.profile != null && it.error == null }
             loaded.eventSink(ProfileEvent.Activity(ActivityListEvent.ToggleLike(bobsRide.copy(visibility = Visibility.FOLLOWERS))))
             activities.pendingWrites.first { it == 0 }
-            assertEquals(0, puts)
+            assertEquals(0, puts, "nothing in the repo")
+            assertEquals(listOf("${AthleteSpace.INTERACTIONS} ${Nsid.FEED_LIKE}"), spacePuts)
             cancelAndIgnoreRemainingEvents()
         }
     }
