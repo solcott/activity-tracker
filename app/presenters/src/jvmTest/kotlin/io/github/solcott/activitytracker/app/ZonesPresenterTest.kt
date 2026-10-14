@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.app.settings.ZonesEvent
 import io.github.solcott.activitytracker.app.settings.ZonesPresenter
 import io.github.solcott.activitytracker.app.settings.ZonesScreen
 import io.github.solcott.activitytracker.data.training.ZoneModels
+import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.HeartRateZoneModel
 import io.github.solcott.activitytracker.lexicon.app.PowerZoneModel
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -92,14 +93,19 @@ class ZonesPresenterTest {
         }
         val sent = fixture.privateDetailsPuts.single()
         val details = sent.getValue("details").jsonObject
-        assertEquals(61_500L, details["weight"]?.jsonPrimitive?.long)
+        assertNull(details["weight"], "the Only me tier gets only the training")
+        assertEquals(
+            61_500L,
+            fixture.tierDetails[AthleteSpace.MUTUALS]?.get("weight")?.jsonPrimitive?.long,
+            "the Mutuals weight is untouched",
+        )
         val training = details.getValue("training").jsonObject
         assertEquals(231L, training["functionalThresholdPower"]?.jsonPrimitive?.long)
         assertEquals(PowerZoneModel.COGGAN_7, training["powerZoneModel"]?.jsonPrimitive?.content)
         assertNull(training["thresholdHeartRate"], "a cleared threshold is left out")
         assertEquals(
             Visibility.SELF,
-            sent.getValue("visibility").jsonObject["training"]?.jsonPrimitive?.content,
+            sent.getValue("visibility").jsonPrimitive.content,
             "new zones start as Only me",
         )
     }

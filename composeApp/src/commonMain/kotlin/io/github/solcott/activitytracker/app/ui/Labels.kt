@@ -22,6 +22,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_save_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_save_settings
 import io.github.solcott.activitytracker.composeApp.resources.error_save_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_search_athletes
+import io.github.solcott.activitytracker.composeApp.resources.error_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.error_ungroup_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_unsupported_activity_file
 import io.github.solcott.activitytracker.composeApp.resources.error_update_follow
@@ -89,6 +90,7 @@ fun errorText(error: UiError): String =
                 UiError.Kind.SaveSettings -> Res.string.error_save_settings
                 UiError.Kind.SaveProfile -> Res.string.error_save_profile
                 UiError.Kind.SaveZones -> Res.string.error_save_zones
+                UiError.Kind.SignInAgain -> Res.string.error_sign_in_again
             }
         )
 

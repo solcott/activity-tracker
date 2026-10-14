@@ -8,10 +8,10 @@ import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.DetailGroup
+import io.github.solcott.activitytracker.data.profile.DetailsVisibility
 import io.github.solcott.activitytracker.data.units.HeightConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.WeightConversions
-import io.github.solcott.activitytracker.lexicon.app.DetailsVisibility
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.io.bytestring.ByteString
 
@@ -109,6 +109,9 @@ sealed interface EditProfileEvent {
     data class VisibilityChanged(val group: DetailGroup, val visibility: String) : EditProfileEvent
 
     data object Save : EditProfileEvent
+
+    /** Signs out, so the athlete can sign in again with access to their spaces ([UiError.Kind.SignInAgain]). */
+    data object SignInAgain : EditProfileEvent
 
     data object Back : EditProfileEvent
 }

@@ -110,7 +110,7 @@ class ProfilePresenterTest {
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
             )
-        val profiles = ProfileRepository(clients, Clock.System)
+        val profiles = ProfileRepository(clients, Clock.System, Logger)
         return { ProfilePresenter(ProfileScreen("did:plc:bob"), navigator, profiles, feed, activities) }
     }
 

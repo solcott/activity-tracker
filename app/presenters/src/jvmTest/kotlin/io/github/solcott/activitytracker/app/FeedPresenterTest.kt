@@ -75,7 +75,7 @@ class FeedPresenterTest {
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
             )
-        return Repos(feed, activities, ProfileRepository(clients, Clock.System))
+        return Repos(feed, activities, ProfileRepository(clients, Clock.System, Logger))
     }
 
     private suspend fun presenterTest(
@@ -138,7 +138,7 @@ class FeedPresenterTest {
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
             )
-        val profiles = ProfileRepository(clients, Clock.System)
+        val profiles = ProfileRepository(clients, Clock.System, Logger)
         presenterTestOf(
             { FeedPresenter(FakeNavigator(FeedScreen), feed, activities, profiles, UnsupportedLocationTracker(), Clock.System) },
             block = block,

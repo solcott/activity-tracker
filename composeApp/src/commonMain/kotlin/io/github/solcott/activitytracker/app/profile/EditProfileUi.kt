@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.mohamedrejeb.calf.ui.datepicker.DateBounds
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.AvatarFrame
 import io.github.solcott.activitytracker.app.ui.Countries
@@ -49,6 +50,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
+import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
@@ -67,6 +69,7 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_save
 import io.github.solcott.activitytracker.composeApp.resources.action_saving
+import io.github.solcott.activitytracker.composeApp.resources.action_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_birth_date
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_birth_date_choose
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_clear
@@ -193,6 +196,11 @@ fun EditProfileUi(state: EditProfileState, modifier: Modifier = Modifier) {
                     )
                 }
                 state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+                if (state.error?.kind == UiError.Kind.SignInAgain) {
+                    AppSecondaryButton(onClick = { state.eventSink(EditProfileEvent.SignInAgain) }) {
+                        Text(stringResource(Res.string.action_sign_in_again))
+                    }
+                }
                 AppButton(
                     onClick = { state.eventSink(EditProfileEvent.Save) },
                     enabled = state.loaded && state.valid && !state.saving,

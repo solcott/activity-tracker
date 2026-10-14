@@ -116,7 +116,7 @@ class ActivityDetailPresenterTest {
         return Repos(
             feed,
             activities,
-            ProfileRepository(clients, Clock.System),
+            ProfileRepository(clients, Clock.System, Logger),
             ActivityManager(db, clients, outbox, writer, streams, feed),
         )
     }

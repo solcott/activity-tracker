@@ -65,7 +65,7 @@ class ProfileSetupTest {
 
     private suspend fun setup(): ProfileSetup {
         val clients = signedInTestSession(http, did = did, logger = logger).clients
-        return ProfileSetup(clients, ProfileRepository(clients, Clock.System), Clock.System, logger)
+        return ProfileSetup(clients, ProfileRepository(clients, Clock.System, Logger), Clock.System, logger)
     }
 
     @Test

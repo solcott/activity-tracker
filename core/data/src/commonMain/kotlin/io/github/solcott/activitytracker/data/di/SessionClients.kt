@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.atproto.AtprotoConfig
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSession
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSessionManager
+import io.github.solcott.activitytracker.atproto.space.ManagingApp
 import io.github.solcott.activitytracker.atproto.space.SpaceClient
 import io.github.solcott.activitytracker.atproto.space.SpaceCredentials
 import io.github.solcott.activitytracker.atproto.xrpc.ServiceAuthAuthenticator
@@ -13,6 +14,8 @@ import io.github.solcott.activitytracker.atproto.xrpc.XrpcClient
 import io.github.solcott.activitytracker.lexicon.Did
 import io.ktor.client.HttpClient
 import kotlin.time.Clock
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * XRPC clients for the signed-in account: [pds] writes to the user's repo with DPoP-bound tokens; [appView] reads aggregated views,
@@ -23,9 +26,9 @@ import kotlin.time.Clock
 @Inject
 class SessionClients(
     private val session: OAuthSession,
-    http: HttpClient,
+    private val http: HttpClient,
     private val sessionManager: OAuthSessionManager,
-    config: AtprotoConfig,
+    private val config: AtprotoConfig,
     identity: IdentityResolver,
     clock: Clock,
 ) {
@@ -56,4 +59,12 @@ class SessionClients(
             credentials = SpaceCredentials(pds, http, identity, clock = clock),
             http = http,
         )
+
+    private val managingAppLock = Mutex()
+    private var resolvedManagingApp: String? = null
+
+    /** The AppView's managing-app id for athletes' spaces, from its DID document ([ManagingApp.resolve]); looked up once per session. */
+    suspend fun managingApp(): String = managingAppLock.withLock {
+        resolvedManagingApp ?: ManagingApp.resolve(http, config.appViewUrl).also { resolvedManagingApp = it }
+    }
 }

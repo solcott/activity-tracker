@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data.profile
 
+import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -70,7 +71,7 @@ class ProfileFollowTest {
             viewer = ProfileViewerState(indexedFollow),
         )
 
-    private suspend fun repository() = ProfileRepository(signedInTestSession(http, did = alice).clients, Clock.System)
+    private suspend fun repository() = ProfileRepository(signedInTestSession(http, did = alice).clients, Clock.System, Logger)
 
     @Test
     fun followShowsAtOnceAndUntilTheAppViewIndexesIt() = runTest {

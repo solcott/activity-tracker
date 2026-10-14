@@ -151,7 +151,7 @@ class ActivityDetailManageTest {
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
             )
-        val profiles = ProfileRepository(clients, Clock.System)
+        val profiles = ProfileRepository(clients, Clock.System, Logger)
         val manager = ActivityManager(db, clients, outbox, writer, streams, feed)
         return { ActivityDetailPresenter(ActivityDetailScreen(uri), navigator, feed, activities, profiles, localKudos, manager) }
     }

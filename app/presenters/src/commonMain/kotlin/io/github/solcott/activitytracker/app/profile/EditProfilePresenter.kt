@@ -16,9 +16,12 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
+import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.AvatarEdit
 import io.github.solcott.activitytracker.data.profile.DetailGroup
+import io.github.solcott.activitytracker.data.profile.DetailsVisibility
 import io.github.solcott.activitytracker.data.profile.OwnProfile
 import io.github.solcott.activitytracker.data.profile.ProfileEdit
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
@@ -26,15 +29,20 @@ import io.github.solcott.activitytracker.data.units.HeightConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.data.units.WeightConversions
-import io.github.solcott.activitytracker.lexicon.app.DetailsVisibility
 import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import kotlinx.collections.immutable.toImmutableList
 
 @CircuitInject(EditProfileScreen::class, SessionScope::class)
 @Composable
-fun EditProfilePresenter(navigator: Navigator, profiles: ProfileRepository, unitsRepository: UnitsRepository): EditProfileState {
+fun EditProfilePresenter(
+    navigator: Navigator,
+    profiles: ProfileRepository,
+    unitsRepository: UnitsRepository,
+    auth: AuthRepository,
+): EditProfileState {
     val form = rememberForm(unitsRepository.units.value)
     // As loaded: which details were public, for the warning when one is hidden.
     var own by remember { mutableStateOf<OwnProfile?>(null) }
@@ -49,6 +57,7 @@ fun EditProfilePresenter(navigator: Navigator, profiles: ProfileRepository, unit
             .onSuccess { profile ->
                 form.fillOnce(profile)
                 own = profile
+                if (profile.needsSignIn) error = UiError(UiError.Kind.SignInAgain, null)
             }
             .onFailure { error = UiError.of(UiError.Kind.LoadProfile, it) }
     }
@@ -103,11 +112,13 @@ fun EditProfilePresenter(navigator: Navigator, profiles: ProfileRepository, unit
                             avatarEdit(picked, avatarRemoved),
                         )
                     flights.launch(EditProfileEvent.Save) {
-                        runSuspendCatching { profiles.save(edit) }
-                            .onSuccess { navigator.pop() }
-                            .onFailure { error = UiError.of(UiError.Kind.SaveProfile, it) }
+                        runSuspendCatching { profiles.save(edit) }.onSuccess { navigator.pop() }.onFailure { error = saveError(it) }
                     }
                 }
+            }
+
+            EditProfileEvent.SignInAgain -> {
+                flights.launch(EditProfileEvent.SignInAgain) { auth.signOut() }
             }
 
             else -> {
@@ -178,6 +189,7 @@ private class Form(
             is EditProfileEvent.GenderChanged -> gender.setTextAndPlaceCursorAtEnd(event.value)
             is EditProfileEvent.VisibilityChanged -> visibilities.getValue(event.group).value = event.visibility
             EditProfileEvent.Save,
+            EditProfileEvent.SignInAgain,
             EditProfileEvent.Back,
             EditProfileEvent.RemoveAvatar,
             is EditProfileEvent.AvatarPicked -> Unit
@@ -231,6 +243,11 @@ private fun nowHidden(loaded: OwnProfile, details: ProfileDetails, visibility: D
             group.isSet(details) &&
             group.visibility(visibility) != Visibility.PUBLIC
     }
+
+/** A session without access to the athlete's spaces can't save non-public details until they sign in again. */
+private fun saveError(cause: Throwable): UiError =
+    if (cause is XrpcException && cause.error == SpaceErrors.SCOPE_MISSING) UiError(UiError.Kind.SignInAgain, null)
+    else UiError.of(UiError.Kind.SaveProfile, cause)
 
 private fun avatarEdit(picked: AvatarImage.Picked?, removed: Boolean): AvatarEdit =
     when {

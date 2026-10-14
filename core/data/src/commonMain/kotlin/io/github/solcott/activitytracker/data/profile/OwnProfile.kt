@@ -1,13 +1,12 @@
 package io.github.solcott.activitytracker.data.profile
 
-import io.github.solcott.activitytracker.lexicon.app.DetailsVisibility
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
 
 /**
  * The signed-in athlete's profile as they edit it. [details] holds every detail they have set, public or not, and [visibility] has an
- * effective value for every group: public when the detail is in the record, the stored one when it's in the AppView, and Only me for a
- * detail that isn't set.
+ * effective value for every group: public when the detail is in the record, the tier when it's in a tier space, and Only me for a detail
+ * that isn't set.
  */
 data class OwnProfile(
     val displayName: String?,
@@ -17,6 +16,11 @@ data class OwnProfile(
     val avatarUrl: String?,
     val details: ProfileDetails,
     val visibility: DetailsVisibility,
+    /**
+     * The session was signed in before the `space:` scope, so [details] holds only the public ones and saving fails until the athlete signs
+     * in again.
+     */
+    val needsSignIn: Boolean = false,
 )
 
 /**

@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.data.profile
 
-import io.github.solcott.activitytracker.lexicon.app.DetailsVisibility
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 
 /**

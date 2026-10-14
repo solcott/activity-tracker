@@ -25,6 +25,9 @@ data class UiError(val kind: Kind, val detail: String?) {
         SaveSettings,
         SaveProfile,
         SaveZones,
+
+        /** The session predates access to the athlete's spaces, where non-public details live; signing in again grants it. */
+        SignInAgain,
     }
 
     companion object {

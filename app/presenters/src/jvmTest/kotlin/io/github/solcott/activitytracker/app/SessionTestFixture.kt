@@ -19,17 +19,20 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.request.HttpRequestData
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
 import kotlin.time.Clock
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -41,11 +44,33 @@ class SessionTestFixture {
     val did = Did("did:plc:alice")
     var failWrites = false
 
+    /** Answer every Spaces call as a session signed in before the `space:` scope. */
+    var scopeMissing = false
+
     /** Alice's profile record as JSON, both in her repo and as the AppView indexed it; null for none. */
     var profileRecord: String? = null
 
-    /** What the AppView's `getPrivateDetails` returns, as JSON. */
-    var privateDetails: String = """{"details":{},"visibility":{}}"""
+    /** Alice's tier spaces: each tier's `privateDetails` record's `details`, or none. */
+    private val tiers = mutableMapOf<String, JsonObject>()
+
+    /**
+     * Alice's non-public details as `{"details":{…},"visibility":{…}}`, as the edit screen sees them: each detail is put in the tier space
+     * its visibility names (Only me when it has none).
+     */
+    var privateDetails: String
+        get() = error("write-only")
+        set(value) {
+            val json = AtJson.parseToJsonElement(value).jsonObject
+            val details = json.getValue("details").jsonObject
+            val visibility = json["visibility"]?.jsonObject.orEmpty()
+            tiers.clear()
+            for ((field, detail) in details) {
+                val group = if (field == "height") "weight" else field
+                val tier = visibility[group]?.jsonPrimitive?.content ?: AthleteSpace.SELF
+                tiers[tier] = JsonObject(tiers[tier].orEmpty() + (field to detail))
+            }
+        }
+
     private val putBodies = mutableListOf<String>()
 
     /** Alice's activities as the AppView's `getAuthorActivitiesByStart` serves them, whatever the range; null to fail. */
@@ -57,11 +82,15 @@ class SessionTestFixture {
     /** What `getRecord` serves for any of Alice's activities, as JSON. */
     var activityRecord: String = "{}"
 
-    private val privateBodies = mutableListOf<String>()
+    private val tierPuts = mutableListOf<JsonObject>()
 
-    /** The input of each successful `putPrivateDetails`, in order. */
+    /** Each successful put of a tier's record, in order, as `{"details":{…},"visibility":"<tier>"}`. */
     val privateDetailsPuts: List<JsonObject>
-        get() = privateBodies.map { AtJson.parseToJsonElement(it).jsonObject }
+        get() = tierPuts.toList()
+
+    /** Each tier's details now, as JSON; absent for a tier with no record. */
+    val tierDetails: Map<String, JsonObject>
+        get() = tiers.toMap()
 
     /** The rkey of each successful `putRecord`, in order. */
     val putRkeys: List<String>
@@ -75,6 +104,9 @@ class SessionTestFixture {
         HttpClient(
             MockEngine { request ->
                 val json = headersOf("Content-Type", "application/json")
+                if (scopeMissing && "/xrpc/com.atproto.space" in request.url.encodedPath) {
+                    return@MockEngine respond("""{"error":"ScopeMissingError"}""", HttpStatusCode.Forbidden, json)
+                }
                 when (request.url.encodedPath) {
                     "/xrpc/com.atproto.repo.getRecord" -> {
                         val record = if (request.url.parameters["collection"] == Nsid.FEED_ACTIVITY) activityRecord else profileRecord
@@ -122,16 +154,49 @@ class SessionTestFixture {
                         respond("""{"token":"service-jwt"}""", headers = json)
                     }
 
-                    "/xrpc/app.activitytracker.actor.getPrivateDetails" -> {
-                        respond(privateDetails, headers = json)
+                    "/.well-known/did.json" -> {
+                        respond(
+                            """{"id":"did:web:appview.test","service":[
+                               {"id":"#activitytracker_space","type":"AtprotoSpaceService","serviceEndpoint":"http://appview.test"}]}""",
+                            headers = json,
+                        )
                     }
 
-                    "/xrpc/app.activitytracker.actor.putPrivateDetails" -> {
+                    "/xrpc/com.atproto.simplespace.createSpace" -> {
+                        val tier = AtJson.parseToJsonElement(body(request)).jsonObject.getValue("skey").jsonPrimitive.content
+                        respond("""{"uri":"${space(tier)}"}""", headers = json)
+                    }
+
+                    "/xrpc/com.atproto.space.getRecord" -> {
+                        val tier = request.url.parameters["space"].orEmpty().substringAfterLast('/')
+                        val details = tiers[tier]
+                        if (details == null) {
+                            respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, json)
+                        } else {
+                            val value = """{"${'$'}type":"${Nsid.ACTOR_PRIVATE_DETAILS}","details":$details}"""
+                            respond(
+                                """{"uri":"at://$did/${Nsid.ACTOR_PRIVATE_DETAILS}/self","cid":"bafyrec","value":$value}""",
+                                headers = json,
+                            )
+                        }
+                    }
+
+                    "/xrpc/com.atproto.space.putRecord",
+                    "/xrpc/com.atproto.space.deleteRecord" -> {
                         if (failWrites) {
                             respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
                         } else {
-                            privateBodies += (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
-                            respond("{}", headers = json)
+                            val input = AtJson.parseToJsonElement(body(request)).jsonObject
+                            val tier = input.getValue("space").jsonPrimitive.content.substringAfterLast('/')
+                            val record = input["record"]?.jsonObject
+                            if (record == null) {
+                                tiers.remove(tier)
+                            } else {
+                                val details = record.getValue("details").jsonObject
+                                tiers[tier] = details
+                                tierPuts += JsonObject(mapOf("details" to details, "visibility" to JsonPrimitive(tier)))
+                            }
+                            respond("""{"uri":"at://$did/${Nsid.ACTOR_PRIVATE_DETAILS}/self","cid":"bafyrec"}""", headers = json)
                         }
                     }
 
@@ -165,6 +230,10 @@ class SessionTestFixture {
             expectSuccess = false
         }
 
+    private fun body(request: HttpRequestData) = (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+
+    private fun space(tier: String) = "at://$did/space/${Nsid.SPACE_ATHLETE}/$tier"
+
     class Repos(
         val activities: ActivityRepository,
         val profiles: ProfileRepository,
@@ -191,7 +260,7 @@ class SessionTestFixture {
                 recentTypes,
                 Clock.System,
             )
-        val profiles = ProfileRepository(clients, Clock.System)
+        val profiles = ProfileRepository(clients, Clock.System, Logger)
         val units = UnitsRepository(profiles, Clock.System, Logger, defaultUnits)
         return Repos(activities, profiles, units, AuthRepository(manager, db, http), recentTypes, feed)
     }

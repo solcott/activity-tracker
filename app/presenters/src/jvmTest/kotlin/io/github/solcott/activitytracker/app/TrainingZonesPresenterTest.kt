@@ -91,7 +91,7 @@ class TrainingZonesPresenterTest {
         val training = details.getValue("training").jsonObject
         assertEquals(231L, training["functionalThresholdPower"]?.jsonPrimitive?.long)
         assertEquals("swim", training.getValue("sports").jsonArray.single().jsonObject["sport"]?.jsonPrimitive?.content)
-        assertEquals(Visibility.MUTUALS, sent.getValue("visibility").jsonObject["training"]?.jsonPrimitive?.content)
+        assertEquals(Visibility.MUTUALS, sent.getValue("visibility").jsonPrimitive.content)
     }
 
     @Test

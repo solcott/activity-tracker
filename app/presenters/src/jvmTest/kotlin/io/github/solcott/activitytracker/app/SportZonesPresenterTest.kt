@@ -109,7 +109,7 @@ class SportZonesPresenterTest {
             cancelAndIgnoreRemainingEvents()
         }
         val sent = fixture.privateDetailsPuts.single()
-        assertEquals(Visibility.MUTUALS, sent.getValue("visibility").jsonObject["training"]?.jsonPrimitive?.content)
+        assertEquals(Visibility.MUTUALS, sent.getValue("visibility").jsonPrimitive.content)
         val details = sent.getValue("details").jsonObject
         assertEquals(61_500L, details["weight"]?.jsonPrimitive?.long)
         val training = details.getValue("training").jsonObject

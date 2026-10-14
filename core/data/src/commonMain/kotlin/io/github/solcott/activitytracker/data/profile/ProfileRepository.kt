@@ -1,30 +1,30 @@
 package io.github.solcott.activitytracker.data.profile
 
+import co.touchlab.kermit.Logger
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.ownBlobUrl
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
-import io.github.solcott.activitytracker.lexicon.NoParams
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.Tid
-import io.github.solcott.activitytracker.lexicon.app.DetailsVisibility
+import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.FollowRecord
 import io.github.solcott.activitytracker.lexicon.app.GetFollowers
 import io.github.solcott.activitytracker.lexicon.app.GetFollows
-import io.github.solcott.activitytracker.lexicon.app.GetPrivateDetails
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
-import io.github.solcott.activitytracker.lexicon.app.PutPrivateDetails
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.DeleteRecord
 import io.github.solcott.activitytracker.lexicon.atproto.GetRecord
 import io.github.solcott.activitytracker.lexicon.atproto.PutRecord
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import kotlin.time.Clock
 
 @SingleIn(SessionScope::class)
@@ -32,9 +32,15 @@ import kotlin.time.Clock
 class ProfileRepository(
     private val clients: SessionClients,
     internal val clock: Clock,
+    logger: Logger,
 ) {
+    private val logger = logger.withTag("ProfileRepository")
+
     val did
         get() = clients.did
+
+    /** The tier spaces holding non-public details: the athlete's own, and others' Mutuals tiers. */
+    private val tiers = AthleteSpaces(clients.spaces, clients::managingApp)
 
     /**
      * The signed-in athlete's last save, until the AppView shows it. [profile] lays it over the AppView's view of the athlete so an edit
@@ -46,8 +52,12 @@ class ProfileRepository(
 
     private val pendingFollows = PendingFollows()
 
+    /**
+     * [actor]'s profile as the AppView shows it (public details only), with the non-public details this athlete may see laid under the
+     * public ones: all of their own, and a followed athlete's Mutuals details when that athlete's PDS admits them as a mutual.
+     */
     suspend fun profile(actor: String): ProfileView {
-        val view = pendingFollows.applyTo(clients.appView.query(GetProfile.method, GetProfile.Params(actor)))
+        val view = withHiddenDetails(pendingFollows.applyTo(clients.appView.query(GetProfile.method, GetProfile.Params(actor))))
         val pending = pendingOwnProfile
         if (view.did != did || pending == null) return view
         val avatarCid = pending.record.avatar?.ref?.link
@@ -62,6 +72,27 @@ class ProfileRepository(
             )
         if (shown == view) pendingOwnProfile = null
         return shown
+    }
+
+    /**
+     * [view] with the tier details this athlete may see. Only a follower can be a mutual, so nobody else's client asks for a credential. A
+     * refusal, a missing record or a failed read all leave the public details, so a PDS that's down never breaks a profile.
+     */
+    private suspend fun withHiddenDetails(view: ProfileView): ProfileView {
+        val readable =
+            when {
+                view.did == did -> AthleteSpaces.TIERS
+                view.viewer?.following != null -> listOf(AthleteSpace.MUTUALS)
+                else -> return view
+            }
+        val hidden =
+            readable.fold(ProfileDetails()) { acc, tier ->
+                runSuspendCatching { tiers.details(view.did, tier) }
+                    .onFailure { e -> logger.w(e) { "Couldn't read the $tier details of ${view.did.value}" } }
+                    .map { under(acc, it) }
+                    .getOrDefault(acc)
+            }
+        return view.copy(details = under(view.details ?: ProfileDetails(), hidden).takeUnless { it == ProfileDetails() })
     }
 
     /** One page of athletes following [actor] (a DID or handle). */
@@ -85,12 +116,20 @@ class ProfileRepository(
     }
 
     /**
-     * The signed-in athlete's profile for editing: the record from their PDS (the AppView may lag) and their non-public details from the
-     * AppView, which is the only place those live.
+     * The signed-in athlete's profile for editing: the record from their PDS (the AppView may lag) and their non-public details from their
+     * tier spaces. A session signed in before the `space:` scope can't read those, so it gets the public details and
+     * [OwnProfile.needsSignIn].
      */
     suspend fun ownProfile(): OwnProfile {
         val record = ownProfileRecord()
-        val (details, visibility) = ownDetails(record, clients.appView.query(GetPrivateDetails.method, NoParams))
+        val hidden =
+            try {
+                tiers.own()
+            } catch (e: XrpcException) {
+                if (e.error != SpaceErrors.SCOPE_MISSING) throw e
+                null
+            }
+        val (details, visibility) = ownDetails(record, hidden.orEmpty())
         val avatar = record?.avatar
         return OwnProfile(
             record?.displayName,
@@ -99,6 +138,7 @@ class ProfileRepository(
             avatar?.let { ownBlobUrl(clients.pdsUrl, did, it.ref.link) },
             details,
             visibility,
+            needsSignIn = hidden == null,
         )
     }
 
@@ -109,34 +149,40 @@ class ProfileRepository(
     }
 
     /**
-     * Saves [edit]. Each detail goes in exactly one place by its visibility: the public record, or the AppView's private store. When a
-     * detail moves, its new home is written before its old one is cleared, so a failure part-way leaves it in both places (where it counts
-     * as public, which it was or is about to be) rather than losing it.
+     * Saves [edit]. Each detail goes in exactly one place by its visibility: the public record, or the tier space of that visibility. A
+     * detail that moves is written to its new home before its old one is trimmed, so a failure part-way leaves it in both places, seen by
+     * the wider of the audience it had and the one it's getting, rather than losing it.
      */
     suspend fun save(edit: ProfileEdit) {
         val existing = ownProfileRecord()
         val record = existing ?: ProfileRecord(createdAt = clock.now())
-        // putPrivateDetails replaces every private detail, so the groups this edit doesn't own keep their current values.
+        val current = tiers.own()
+        // The groups this edit doesn't own keep their current values and visibility.
         val kept = DetailGroup.entries - edit.groups
         val (allDetails, allVisibility) =
             if (kept.isEmpty()) {
                 edit.details to edit.visibility
             } else {
-                val (current, currentVisibility) = ownDetails(existing, clients.appView.query(GetPrivateDetails.method, NoParams))
+                val (currentDetails, currentVisibility) = ownDetails(existing, current)
                 kept.fold(edit.details.only(edit.groups) to edit.visibility.only(edit.groups)) { (details, visibility), group ->
-                    group.copy(current, details) to group.withVisibility(visibility, group.visibility(currentVisibility))
+                    group.copy(currentDetails, details) to group.withVisibility(visibility, group.visibility(currentVisibility))
                 }
             }
-        val (publicGroups, privateGroups) =
-            DetailGroup.entries.filter { it.isSet(allDetails) }.partition { it.visibility(allVisibility) == Visibility.PUBLIC }
-        val hiddenDetails = allDetails.only(privateGroups)
-        val hiddenVisibility = allVisibility.only(privateGroups)
-        // A detail going public stays in the private store (as Only me) until the record holds it.
-        val goingPublic = publicGroups.filterNot { it.isSet(record.details ?: ProfileDetails()) }
-        putPrivateDetails(
-            hiddenDetails.let { d -> goingPublic.fold(d) { acc, group -> group.copy(allDetails, acc) } },
-            goingPublic.fold(hiddenVisibility) { acc, group -> group.withVisibility(acc, Visibility.SELF) },
-        )
+        val placed = DetailGroup.entries.filter { it.isSet(allDetails) }.groupBy { it.visibility(allVisibility) ?: Visibility.SELF }
+        val final = AthleteSpaces.TIERS.associateWith { tier -> allDetails.only(placed[tier].orEmpty()) }
+        // Every tier left holding details gets a current managing app, even when this save doesn't change its record: re-saving is how an
+        // athlete whose mutuals were refused (the AppView's DID changed) lets them back in.
+        for (tier in AthleteSpaces.TIERS) if (final.getValue(tier) != ProfileDetails()) tiers.ensure(tier)
+        // 1. Every detail into its new home, keeping the copy in a tier it's moving out of (a cleared detail goes in step 3).
+        val written =
+            AthleteSpaces.TIERS.associateWith { tier ->
+                val now = current.getValue(tier)
+                val target = final.getValue(tier)
+                val leaving = DetailGroup.entries.filter { it.isSet(now) && !it.isSet(target) && it.isSet(allDetails) }
+                val first = leaving.fold(target) { acc, group -> group.copy(now, acc) }
+                if (first != now && first != ProfileDetails()) tiers.put(tier, first) else now
+            }
+        // 2. The public record.
         val avatar =
             when (val change = edit.avatar) {
                 AvatarEdit.Keep -> record.avatar
@@ -148,10 +194,18 @@ class ProfileRepository(
                 displayName = edit.displayName.trim().ifEmpty { null },
                 description = edit.description.trim().ifEmpty { null },
                 avatar = avatar,
-                details = allDetails.only(publicGroups).takeUnless { it == ProfileDetails() },
+                details = allDetails.only(placed[Visibility.PUBLIC].orEmpty()).takeUnless { it == ProfileDetails() },
             )
         putProfileRecord(saved)
-        if (goingPublic.isNotEmpty()) putPrivateDetails(hiddenDetails, hiddenVisibility)
+        // 3. Trim the copies left behind, and drop what was cleared.
+        for (tier in AthleteSpaces.TIERS) {
+            val target = final.getValue(tier)
+            when {
+                target == written.getValue(tier) -> Unit
+                target == ProfileDetails() -> tiers.delete(tier)
+                else -> tiers.put(tier, target)
+            }
+        }
         pendingOwnProfile = Pending(saved, allDetails)
     }
 
@@ -165,10 +219,6 @@ class ProfileRepository(
                 record = AtJson.encodeToJsonElement(ProfileRecord.serializer(), record),
             ),
         )
-    }
-
-    private suspend fun putPrivateDetails(details: ProfileDetails, visibility: DetailsVisibility) {
-        clients.appView.procedure(PutPrivateDetails.method, PutPrivateDetails.Input(details, visibility))
     }
 
     /** Follows [profile]'s athlete, and returns [profile] as it now stands (following, one more follower). */
@@ -209,22 +259,21 @@ class ProfileRepository(
 }
 
 /**
- * Every detail the athlete has set, from their [record] and the AppView's [hidden] copy, and an effective visibility for each group (see
- * [OwnProfile]).
+ * Every detail the athlete has set, from their [record] and their [tiers]' records, and an effective visibility for each group (see
+ * [OwnProfile]). A detail a failed save left in two places shows where it's seen most widely.
  */
-private fun ownDetails(record: ProfileRecord?, hidden: GetPrivateDetails.Output): Pair<ProfileDetails, DetailsVisibility> {
-    val public = record?.details ?: ProfileDetails()
+private fun ownDetails(record: ProfileRecord?, tiers: Map<String, ProfileDetails>): Pair<ProfileDetails, DetailsVisibility> {
+    val sources = listOf(Visibility.PUBLIC to (record?.details ?: ProfileDetails())) + tiers.toList()
     var details = ProfileDetails()
     var visibility = DetailsVisibility()
     for (group in DetailGroup.entries) {
-        val (source, shownTo) =
-            when {
-                group.isSet(public) -> public to Visibility.PUBLIC
-                group.isSet(hidden.details) -> hidden.details to (group.visibility(hidden.visibility) ?: Visibility.SELF)
-                else -> ProfileDetails() to Visibility.SELF
-            }
+        val (shownTo, source) = sources.firstOrNull { (_, held) -> group.isSet(held) } ?: (Visibility.SELF to ProfileDetails())
         details = group.copy(source, details)
         visibility = group.withVisibility(visibility, shownTo)
     }
     return details to visibility
 }
+
+/** [top] with each group it doesn't set taken from [bottom]. */
+private fun under(top: ProfileDetails, bottom: ProfileDetails): ProfileDetails =
+    DetailGroup.entries.filterNot { it.isSet(top) }.fold(top) { acc, group -> group.copy(bottom, acc) }

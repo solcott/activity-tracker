@@ -17,6 +17,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.bytestring.ByteString
 import kotlinx.serialization.json.jsonObject
@@ -31,7 +32,7 @@ class EditProfilePresenterTest {
         fixture.profileRecord = """{"displayName":"Alice","description":"Runner","units":"imperial"}"""
         val repos = fixture.repos()
         val navigator = FakeNavigator(EditProfileScreen)
-        presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units) }) {
+        presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units, repos.auth) }) {
             val loaded = awaitUntil { it.loaded }
             assertEquals("Alice", loaded.displayName.text.toString())
             assertEquals("Runner", loaded.description.text.toString())
@@ -59,7 +60,7 @@ class EditProfilePresenterTest {
         fixture.failWrites = true
         val repos = fixture.repos()
         val navigator = FakeNavigator(EditProfileScreen)
-        presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units) }) {
+        presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units, repos.auth) }) {
             val loaded = awaitUntil { it.loaded }
             assertEquals("", loaded.displayName.text.toString())
 
@@ -74,9 +75,42 @@ class EditProfilePresenterTest {
     }
 
     @Test
+    fun aSessionWithoutSpaceAccessAsksToSignInAgainAndStillEditsPublicDetails() = runTest {
+        fixture.profileRecord = """{"displayName":"Alice","details":{"location":{"locality":"Portland"}}}"""
+        fixture.scopeMissing = true
+        val repos = fixture.repos()
+        presenterTestOf({ EditProfilePresenter(FakeNavigator(EditProfileScreen), repos.profiles, repos.units, repos.auth) }) {
+            val loaded = awaitUntil { it.loaded }
+            assertEquals(UiError.Kind.SignInAgain, loaded.error?.kind)
+            assertEquals("Portland", loaded.locality.text.toString())
+
+            loaded.eventSink(EditProfileEvent.SignInAgain)
+            repos.auth.session.first { it == null }
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun savingWithoutSpaceAccessAsksToSignInAgain() = runTest {
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(EditProfileScreen)
+        presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units, repos.auth) }) {
+            val loaded = awaitUntil { it.loaded }
+            fixture.scopeMissing = true
+            loaded.weight.setTextAndPlaceCursorAtEnd("60")
+            loaded.eventSink(EditProfileEvent.VisibilityChanged(DetailGroup.Body, Visibility.MUTUALS))
+            loaded.eventSink(EditProfileEvent.Save)
+            val failed = awaitUntil { it.error != null && !it.saving }
+            assertEquals(UiError.Kind.SignInAgain, failed.error?.kind)
+            cancelAndIgnoreRemainingEvents()
+        }
+        navigator.assertPopIsEmpty()
+    }
+
+    @Test
     fun overLongNameIsInvalid() = runTest {
         val repos = fixture.repos()
-        presenterTestOf({ EditProfilePresenter(FakeNavigator(EditProfileScreen), repos.profiles, repos.units) }) {
+        presenterTestOf({ EditProfilePresenter(FakeNavigator(EditProfileScreen), repos.profiles, repos.units, repos.auth) }) {
             val loaded = awaitUntil { it.loaded }
             loaded.displayName.setTextAndPlaceCursorAtEnd("a".repeat(EditProfileState.DISPLAY_NAME_MAX_LENGTH))
             assertTrue(loaded.valid)
@@ -87,10 +121,10 @@ class EditProfilePresenterTest {
     }
 
     @Test
-    fun hiddenDetailsGoToTheAppViewAndWeightIsStoredInGrams() = runTest {
+    fun hiddenDetailsGoToTheirTierSpaceAndWeightIsStoredInGrams() = runTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Imperial)
         val navigator = FakeNavigator(EditProfileScreen)
-        presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units) }) {
+        presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units, repos.auth) }) {
             val loaded = awaitUntil { it.loaded }
             assertEquals(Visibility.SELF, loaded.visibility.weight, "unset details default to Only me")
 
@@ -108,7 +142,7 @@ class EditProfilePresenterTest {
         assertNull(record["details"]?.jsonObject?.get("weight"), "a Mutuals detail never goes in the public record")
         val hidden = fixture.privateDetailsPuts.last()
         assertEquals(68_039L, hidden["details"]?.jsonObject?.get("weight")?.jsonPrimitive?.long)
-        assertEquals(Visibility.MUTUALS, hidden["visibility"]?.jsonObject?.get("weight")?.jsonPrimitive?.content)
+        assertEquals(Visibility.MUTUALS, hidden["visibility"]?.jsonPrimitive?.content)
     }
 
     @Test
@@ -116,7 +150,7 @@ class EditProfilePresenterTest {
         fixture.privateDetails = """{"details":{"height":1803},"visibility":{}}"""
         val repos = fixture.repos(defaultUnits = UnitSystem.Imperial)
         val navigator = FakeNavigator(EditProfileScreen)
-        presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units) }) {
+        presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units, repos.auth) }) {
             val loaded = awaitUntil { it.loaded }
             assertEquals("5", loaded.height.text.toString())
             assertEquals("11", loaded.heightInches.text.toString())
@@ -136,14 +170,14 @@ class EditProfilePresenterTest {
         assertNull(fixture.putRecords.single()["details"], "an Only me height never goes in the public record")
         val hidden = fixture.privateDetailsPuts.last()
         assertEquals(1_829L, hidden["details"]?.jsonObject?.get("height")?.jsonPrimitive?.long)
-        assertEquals(Visibility.SELF, hidden["visibility"]?.jsonObject?.get("weight")?.jsonPrimitive?.content)
+        assertEquals(Visibility.SELF, hidden["visibility"]?.jsonPrimitive?.content)
     }
 
     @Test
     fun heightIsEnteredInCentimeters() = runTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
         val navigator = FakeNavigator(EditProfileScreen)
-        presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units) }) {
+        presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units, repos.auth) }) {
             val loaded = awaitUntil { it.loaded }
             loaded.height.setTextAndPlaceCursorAtEnd("400")
             assertFalse(loaded.valid)
@@ -160,7 +194,7 @@ class EditProfilePresenterTest {
     fun pickedAvatarShowsThenUploadsOnSave() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(EditProfileScreen)
-        presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units) }) {
+        presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units, repos.auth) }) {
             val loaded = awaitUntil { it.loaded }
             assertNull(loaded.avatar)
             val jpeg = ByteString(1, 2, 3)
@@ -180,7 +214,7 @@ class EditProfilePresenterTest {
     @Test
     fun invalidWeightBlocksSaving() = runTest {
         val repos = fixture.repos()
-        presenterTestOf({ EditProfilePresenter(FakeNavigator(EditProfileScreen), repos.profiles, repos.units) }) {
+        presenterTestOf({ EditProfilePresenter(FakeNavigator(EditProfileScreen), repos.profiles, repos.units, repos.auth) }) {
             val loaded = awaitUntil { it.loaded }
             loaded.weight.setTextAndPlaceCursorAtEnd("heavy")
             assertFalse(loaded.valid)

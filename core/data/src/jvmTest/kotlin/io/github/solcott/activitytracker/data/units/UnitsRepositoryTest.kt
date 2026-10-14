@@ -66,7 +66,7 @@ class UnitsRepositoryTest {
 
     private suspend fun repository(default: UnitSystem = UnitSystem.Metric): UnitsRepository {
         val clients = signedInTestSession(http, did = did, logger = logger).clients
-        return UnitsRepository(ProfileRepository(clients, Clock.System), Clock.System, logger, default)
+        return UnitsRepository(ProfileRepository(clients, Clock.System, Logger), Clock.System, logger, default)
     }
 
     private fun putRecord(index: Int = putBodies.lastIndex) =

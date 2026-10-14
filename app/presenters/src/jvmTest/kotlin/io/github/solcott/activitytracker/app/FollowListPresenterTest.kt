@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app
 
+import co.touchlab.kermit.Logger
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.profile.FollowListEvent
@@ -65,7 +66,7 @@ class FollowListPresenterTest {
         }
 
     private suspend fun profiles(): ProfileRepository {
-        return ProfileRepository(signedInTestSession(http, did = alice).clients, Clock.System)
+        return ProfileRepository(signedInTestSession(http, did = alice).clients, Clock.System, Logger)
     }
 
     private val screen = FollowListScreen("bob.test", FollowListKind.Followers)
