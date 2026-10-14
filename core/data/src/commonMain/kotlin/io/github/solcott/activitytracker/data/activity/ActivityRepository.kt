@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.LikeRecord
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -148,29 +149,39 @@ class ActivityRepository(
 
     /**
      * Gives or removes the viewer's like. The decision is made against what this repository last wrote rather than [activity], which may be
-     * a stale UI snapshot, so rapid taps alternate instead of stacking likes. Athletes can't like their own activities, and nobody can like
-     * a non-public one.
+     * a stale UI snapshot, so rapid taps alternate instead of stacking likes. Athletes can't like their own activities.
+     *
+     * A like on a public activity goes in the repo, and one on a non-public activity in the athlete's interactions space ([likePlaceOf]),
+     * which needs the `space:` scope. Unliking can't tell where the like went (its URI is the same either way, and the activity may have
+     * changed visibility since), so it deletes the rkey from both; a delete of what isn't there counts as done.
      */
     suspend fun toggleLike(activity: ActivityView) {
-        if (activity.author.did == clients.did || !activity.acceptsInteractions) return
+        if (activity.author.did == clients.did) return
+        val place = clients.likePlaceOf(activity.visibilityOrPublic)
         likeMutex.withLock {
             val current = localLikes.current(activity)
             if (current == null) {
                 val rkey = Tid.next(clock)
                 val like = AtUri.of(clients.did, Nsid.FEED_LIKE, rkey)
+                // Refused before anything changes, so a like is never shown that can't be written.
+                clients.requireSpacesFor(activity.visibilityOrPublic)
                 feed.updateCached(activity.uri) { it.copy(likeCount = it.likeCount + 1, viewer = it.viewer?.copy(like = like)) }
                 writer.put(
                     Nsid.FEED_LIKE,
                     rkey,
                     LikeRecord.serializer(),
                     LikeRecord(StrongRef(activity.uri, activity.cid), clock.now()),
+                    space = place,
                 )
                 localLikes.set(activity.uri, like)
             } else {
                 feed.updateCached(activity.uri) {
                     it.copy(likeCount = (it.likeCount - 1).coerceAtLeast(0), viewer = it.viewer?.copy(like = null))
                 }
-                writer.delete(Nsid.FEED_LIKE, requireNotNull(current.rkey))
+                val rkey = requireNotNull(current.rkey)
+                writer.delete(Nsid.FEED_LIKE, rkey)
+                // Without the scope this session can't reach the space; another session's like there stays until one with it unlikes.
+                if (clients.canUseSpaces) writer.delete(Nsid.FEED_LIKE, rkey, clients.tiers.uri(AthleteSpace.INTERACTIONS))
                 localLikes.set(activity.uri, null)
             }
         }
@@ -179,7 +190,7 @@ class ActivityRepository(
 
     /** Comments on [activity]; nothing for a non-public one, which takes no comments. */
     suspend fun comment(activity: ActivityView, text: String) {
-        if (!activity.acceptsInteractions) return
+        if (!activity.acceptsComments) return
         feed.updateCached(activity.uri) { it.copy(commentCount = it.commentCount + 1) }
         enqueue(
             Nsid.FEED_COMMENT,

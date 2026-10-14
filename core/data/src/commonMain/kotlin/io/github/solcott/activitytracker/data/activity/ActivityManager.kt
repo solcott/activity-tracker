@@ -135,9 +135,11 @@ class ActivityManager(
     }
 }
 
-/** This view at [visibility], as the AppView will serve it: a non-public activity shows no likes or comments. */
+/**
+ * This view at [visibility], as the AppView will serve it: a non-public activity shows no comments. Its likes stay until the AppView
+ * recounts them for the new audience.
+ */
 private fun ActivityView.withVisibility(visibility: String): ActivityView =
-    if (visibility == Visibility.PUBLIC) copy(visibility = visibility)
-    else copy(visibility = visibility, likeCount = 0, commentCount = 0, viewer = viewer?.copy(like = null))
+    if (visibility == Visibility.PUBLIC) copy(visibility = visibility) else copy(visibility = visibility, commentCount = 0)
 
 private const val NOT_FOUND_STATUS = 400

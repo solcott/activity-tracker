@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.data.activity
 import io.github.solcott.activitytracker.atproto.space.SpaceRead
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.di.SessionClients
+import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.DeleteRecord
 import io.github.solcott.activitytracker.lexicon.atproto.GetRecord
@@ -17,6 +18,12 @@ import kotlinx.serialization.json.JsonObject
 /** The tier space for [visibility], or null for the repo. An unknown value is treated as Only me. */
 internal fun SessionClients.placeOf(visibility: String): SpaceUri? =
     Visibility.known(visibility).takeIf { it != Visibility.PUBLIC }?.let(tiers::uri)
+
+/**
+ * Where the signed-in athlete's like on an activity at [visibility] goes: the repo for a public one, else their interactions space, which
+ * only they and the AppView read. A like stays where it was written when the activity's visibility later changes.
+ */
+internal fun SessionClients.likePlaceOf(visibility: String): SpaceUri? = placeOf(visibility)?.let { tiers.uri(AthleteSpace.INTERACTIONS) }
 
 /** Refuses a non-public [visibility] for a session that can't write to spaces, as the PDS would, so nothing is published wider. */
 internal fun SessionClients.requireSpacesFor(visibility: String) {

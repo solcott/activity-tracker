@@ -138,6 +138,32 @@ class AthleteSpacesTest {
     }
 
     @Test
+    fun createsTheInteractionsSpaceAsATierIsCreated() = runTest {
+        val uri = spaces().ensure(AthleteSpace.INTERACTIONS)
+
+        assertEquals("at://did:plc:alice/space/app.activitytracker.space.athlete/interactions", uri.value)
+        val body = calls.single { it.first == "com.atproto.simplespace.createSpace" }.second!!
+        assertEquals(AthleteSpace.INTERACTIONS, body["skey"]?.jsonPrimitive?.content)
+        assertEquals(current, body["readPolicy"]!!.jsonObject["managingApp"]?.jsonPrimitive?.content)
+        assertEquals("com.atproto.simplespace.defs#memberListPolicy", body["writePolicy"]!!.jsonObject["\$type"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun anExistingInteractionsSpaceIsLeftAloneOrRepointed() = runTest {
+        exists = true
+        spaces().ensure(AthleteSpace.INTERACTIONS)
+        assertEquals(listOf("com.atproto.simplespace.createSpace", "com.atproto.simplespace.getSpace"), calls.map { it.first })
+
+        calls.clear()
+        readPolicy = "did:web:old-tunnel.test#activitytracker_space"
+        spaces().ensure(AthleteSpace.INTERACTIONS)
+        val update = calls.single { it.first == "com.atproto.simplespace.updateSpace" }.second!!
+        assertEquals(current, update["readPolicy"]!!.jsonObject["managingApp"]?.jsonPrimitive?.content)
+    }
+
+    @Test fun theInteractionsSpaceIsNotATier() = runTest { assertEquals(false, AthleteSpace.INTERACTIONS in AthleteSpaces.TIERS) }
+
+    @Test
     fun eachTierIsEnsuredOncePerSessionEvenConcurrently() = runTest {
         val spaces = spaces()
         List(3) { async { spaces.ensure(AthleteSpace.MUTUALS) } }.awaitAll()

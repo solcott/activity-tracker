@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -58,6 +59,15 @@ class LocalLikesTest {
         local.set(stale.uri, mine)
 
         assertEquals(view(likeCount = 3, like = mine), local.applyTo(stale))
+    }
+
+    @Test
+    fun aGivenLikeIsOverlaidOnANonPublicActivityToo() {
+        val local = LocalLikes()
+        val stale = view(likeCount = 1, like = null).copy(visibility = Visibility.FOLLOWERS)
+        local.set(stale.uri, mine)
+
+        assertEquals(view(likeCount = 2, like = mine).copy(visibility = Visibility.FOLLOWERS), local.applyTo(stale))
     }
 
     @Test

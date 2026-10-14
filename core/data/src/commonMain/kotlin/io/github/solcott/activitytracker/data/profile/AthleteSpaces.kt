@@ -21,11 +21,12 @@ import kotlinx.coroutines.sync.withLock
 
 /**
  * `app.activitytracker.space.athlete` tier spaces, the `actor.privateDetails` record each one holds, and the follow requests the athlete
- * declined (`graph.followDecline`, in their `self` space only). [ensure] creates one of the signed-in athlete's tier spaces the first time
- * a save needs it, with the AppView ([managingApp]) deciding who reads it and only the athlete writing, and points an existing one at the
- * current managing app (the local tunnel's DID changes between runs), then tells the AppView it exists ([announce], `notifySpace`) so it
- * syncs the activities in it. Each tier is ensured once per session; reads never create spaces. A failed announcement doesn't fail the
- * save: the next session announces again.
+ * declined (`graph.followDecline`, in their `self` space only). [ensure] creates one of the signed-in athlete's spaces (a tier, or
+ * [AthleteSpace.INTERACTIONS] for their likes on non-public activities, which is never one of [TIERS]) the first time a write needs it,
+ * with the AppView ([managingApp]) deciding who reads it and only the athlete writing, and points an existing one at the current managing
+ * app (the local tunnel's DID changes between runs), then tells the AppView it exists ([announce], `notifySpace`) so it syncs what's in it.
+ * Each tier is ensured once per session; reads never create spaces. A failed announcement doesn't fail the save: the next session announces
+ * again.
  */
 class AthleteSpaces(
     private val spaces: SpaceClient,
@@ -99,7 +100,8 @@ class AthleteSpaces(
     }
 
     /**
-     * Makes sure [tier]'s space exists with a current read policy. Concurrent callers share one attempt; a failed one is retried next time.
+     * Makes sure the space for [tier] (or [AthleteSpace.INTERACTIONS]) exists with a current read policy. Concurrent callers share one
+     * attempt; a failed one is retried next time.
      */
     suspend fun ensure(tier: String): SpaceUri {
         var owner = false
@@ -129,7 +131,7 @@ class AthleteSpaces(
     }
 
     companion object {
-        /** The tiers that hold details, most widely seen first; public ones live in the profile record. */
+        /** The tiers that hold details, most widely seen first; public ones live in the profile record. Never the interactions space. */
         val TIERS = listOf(AthleteSpace.FOLLOWERS, AthleteSpace.MUTUALS, AthleteSpace.SELF)
 
         private const val COLLECTION = Nsid.ACTOR_PRIVATE_DETAILS

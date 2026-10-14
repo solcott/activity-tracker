@@ -12,6 +12,8 @@ import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.OwnActivity
 import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
+import io.github.solcott.activitytracker.data.db.AppDatabase
+import io.github.solcott.activitytracker.data.db.FeedItemEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -27,6 +29,8 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
+import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.RecordingView
@@ -157,12 +161,12 @@ class ActivityVisibilityTest {
     private fun placesOf(collection: String, rkey: String): Set<String> = stored.filterValues { "$collection/$rkey" in it }.keys
 
     private class Session(
+        val db: AppDatabase,
         val clients: SessionClients,
         val activities: ActivityRepository,
         val manager: ActivityManager,
         val streams: PdsActivityStreamsStore,
         val defaults: ActivityDefaults,
-        val feed: FeedRepository,
     )
 
     private suspend fun session(scope: String? = null): Session {
@@ -185,12 +189,12 @@ class ActivityVisibilityTest {
                 Clock.System,
             )
         return Session(
+            db,
             clients,
             activities,
             ActivityManager(db, clients, outbox, writer, streams, feed),
             streams,
             ActivityDefaults(clients),
-            feed,
         )
     }
 
@@ -416,17 +420,113 @@ class ActivityVisibilityTest {
         assertEquals(VisibilityChoice.PUBLIC, session().defaults.load(), "unreadable: Public, without blocking")
     }
 
+    private val bob = Did("did:plc:bob")
+
+    /** One of Bob's activities, as Alice sees it at [visibility], cached in her feed. */
+    private suspend fun Session.bobs(visibility: String, rkey: String = "3kbob"): ActivityView {
+        val view =
+            view(AtUri.of(bob, Nsid.FEED_ACTIVITY, rkey), visibility)
+                .copy(author = ProfileViewBasic(bob, Handle("bob.test")), likeCount = 0, commentCount = 0, viewer = ActivityViewerState())
+        db.feed().upsert(listOf(FeedItemEntity("timeline", view.uri.value, 0, AtJson.encodeToString(ActivityView.serializer(), view))))
+        return view
+    }
+
+    private suspend fun Session.cached(view: ActivityView): ActivityView =
+        AtJson.decodeFromString(ActivityView.serializer(), db.feed().byUri(view.uri.value).single().json)
+
     @Test
-    fun nonPublicActivitiesTakeNoLikesOrComments() = runTest {
+    fun aLikeOnANonPublicActivityGoesInTheInteractionsSpace() = runTest {
         val s = session()
-        val bobs =
-            view(AtUri.of(Did("did:plc:bob"), Nsid.FEED_ACTIVITY, "3kbob"), Visibility.FOLLOWERS)
-                .copy(author = ProfileViewBasic(Did("did:plc:bob"), Handle("bob.test")))
-        s.activities.toggleLike(bobs)
-        s.activities.comment(bobs, "Nice")
-        s.activities.sync()
-        assertEquals(emptyList(), writes)
-        s.activities.toggleLike(bobs.copy(visibility = Visibility.PUBLIC))
+        val followers = s.bobs(Visibility.FOLLOWERS)
+        s.activities.toggleLike(followers)
+
+        val likes = writes.filter { Nsid.FEED_LIKE in it }
+        assertEquals(1, likes.size)
+        assertTrue(likes.single().startsWith("put ${AthleteSpace.INTERACTIONS} ${Nsid.FEED_LIKE}/"), likes.single())
+        assertEquals(listOf(AthleteSpace.INTERACTIONS), created, "the space is created on the first such like")
+        assertEquals(listOf(AthleteSpace.INTERACTIONS), announced, "and the AppView told it exists")
+        val cached = s.cached(followers)
+        assertEquals(1, cached.likeCount)
+        assertTrue(cached.viewer?.like != null, "liked, for Alice")
+
+        // Comments stay limited to public activities.
+        s.activities.comment(followers, "Nice")
+        assertEquals(likes, writes.filter { Nsid.FEED_LIKE in it || Nsid.FEED_COMMENT in it })
+    }
+
+    @Test
+    fun aLikeOnAPublicActivityGoesInTheRepo() = runTest {
+        val s = session()
+        s.activities.toggleLike(s.bobs(Visibility.PUBLIC))
         assertEquals(listOf("put repo ${Nsid.FEED_LIKE}"), writes.map { it.substringBeforeLast('/') })
+        assertEquals(emptyList(), created)
+    }
+
+    @Test
+    fun aStaleViewPlacesTheLikeByWhatItShows() = runTest {
+        val s = session()
+        // Bob just made it Followers; Alice's view still says Public, so the like goes in her repo, and the AppView shows it by the tier.
+        s.activities.toggleLike(s.bobs(Visibility.PUBLIC))
+        assertEquals(listOf("put repo ${Nsid.FEED_LIKE}"), writes.map { it.substringBeforeLast('/') })
+    }
+
+    @Test
+    fun unlikingDeletesFromBothPlaces() = runTest {
+        val s = session()
+        val followers = s.bobs(Visibility.FOLLOWERS)
+        s.activities.toggleLike(followers)
+        val rkey = writes.single().substringAfterLast('/')
+        writes.clear()
+
+        // The activity was made public since: the like is still in the space, and unliking finds it there.
+        s.activities.toggleLike(followers.copy(visibility = Visibility.PUBLIC))
+        assertEquals(
+            listOf("delete repo ${Nsid.FEED_LIKE}/$rkey", "delete ${AthleteSpace.INTERACTIONS} ${Nsid.FEED_LIKE}/$rkey"),
+            writes,
+        )
+        assertEquals(emptySet(), placesOf(Nsid.FEED_LIKE, rkey))
+        val cached = s.cached(followers)
+        assertEquals(0, cached.likeCount)
+        assertEquals(null, cached.viewer?.like)
+    }
+
+    @Test
+    fun unlikingWithNoInteractionsSpaceCountsAsDone() = runTest {
+        val s = session()
+        s.activities.toggleLike(s.bobs(Visibility.PUBLIC))
+        val rkey = writes.single().substringAfterLast('/')
+        s.activities.toggleLike(s.bobs(Visibility.PUBLIC))
+        assertEquals(listOf("put repo ${Nsid.FEED_LIKE}/$rkey", "delete repo ${Nsid.FEED_LIKE}/$rkey"), writes)
+        assertEquals(0, s.db.outbox().pending(did.value).size, "SpaceNotFound for the space delete doesn't hold up the outbox")
+    }
+
+    @Test
+    fun aSessionWithoutTheSpaceScopeLikesPublicActivitiesOnly() = runTest {
+        val s = session(scope = "atproto")
+        val followers = s.bobs(Visibility.FOLLOWERS)
+        val e = assertFailsWith<XrpcException> { s.activities.toggleLike(followers) }
+        assertEquals(SpaceErrors.SCOPE_MISSING, e.error)
+        assertEquals(emptyList(), writes, "nothing written to the repo")
+        assertEquals(0, s.cached(followers).likeCount, "nor shown")
+
+        val public = s.bobs(Visibility.PUBLIC, rkey = "3kpub")
+        s.activities.toggleLike(public)
+        s.activities.toggleLike(public)
+        assertEquals(listOf("put repo ${Nsid.FEED_LIKE}", "delete repo ${Nsid.FEED_LIKE}"), writes.map { it.substringBeforeLast('/') })
+        assertEquals(0, s.db.outbox().pending(did.value).size)
+    }
+
+    @Test
+    fun changingVisibilityKeepsTheLikesAndHidesComments() = runTest {
+        val s = session()
+        val uri = s.activities.publish(draft(VisibilityChoice.PUBLIC, withStreams = false))
+        val own = view(uri, Visibility.PUBLIC).copy(viewer = ActivityViewerState())
+        s.db.feed().upsert(listOf(FeedItemEntity("timeline", uri.value, 0, AtJson.encodeToString(ActivityView.serializer(), own))))
+
+        s.manager.setVisibility(own, VisibilityChoice(Visibility.FOLLOWERS, Visibility.FOLLOWERS))
+        val cached = s.cached(own)
+        assertEquals(Visibility.FOLLOWERS, cached.visibility)
+        assertEquals(2, cached.likeCount)
+        assertEquals(0, cached.commentCount)
     }
 }
