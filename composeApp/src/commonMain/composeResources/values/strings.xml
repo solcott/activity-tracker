@@ -16,6 +16,9 @@
     <string name="error_update_follow">Couldn't update follow</string>
     <string name="error_load_followers">Couldn't load followers</string>
     <string name="error_load_following">Couldn't load following</string>
+    <string name="error_load_follow_requests">Couldn't load follow requests</string>
+    <string name="error_answer_follow_request">Couldn't answer the follow request</string>
+    <string name="error_remove_follower">Couldn't remove the follower</string>
     <string name="error_search_athletes">Couldn't search athletes</string>
     <string name="error_save_activity">Couldn't save activity</string>
     <string name="error_read_activity_file">Couldn't read that file</string>
@@ -25,7 +28,7 @@
     <string name="error_save_settings">Couldn't save settings</string>
     <string name="error_save_profile">Couldn't save profile</string>
     <string name="error_save_zones">Couldn't save zones</string>
-    <string name="error_sign_in_again">Sign in again to save details shown to Mutuals or Only me</string>
+    <string name="error_sign_in_again">Sign in again to save details shown to Followers, Mutuals or Only me, or to decline follow requests</string>
     <string name="action_sign_in_again">Sign in again</string>
     <string name="error_delete_activity">Couldn't delete activity</string>
     <string name="error_ungroup_activity">Couldn't ungroup activity</string>
@@ -534,6 +537,8 @@
     <string name="profile_following_count">%1$d following</string>
     <string name="profile_follow">Follow</string>
     <string name="profile_following">Following</string>
+    <string name="profile_requested">Requested</string>
+    <string name="profile_follow_requests">Follow requests (%1$s)</string>
     <string name="profile_edit">Edit profile</string>
     <plurals name="profile_age">
         <item quantity="one">%1$d year old</item>
@@ -552,7 +557,9 @@
     <string name="edit_profile_photo_change">Change photo</string>
     <string name="edit_profile_photo_remove">Remove photo</string>
     <string name="edit_profile_details_heading">Details</string>
-    <string name="edit_profile_details_help">Each section has its own setting for who can see it, which covers every field in that section. Mutuals are people you follow who also follow you.</string>
+    <string name="edit_profile_details_help">Each section has its own setting for who can see it, which covers every field in that section. Followers are people who follow you, and Mutuals are people you follow who also follow you.</string>
+    <string name="edit_profile_approve_followers">Approve followers</string>
+    <string name="edit_profile_approve_followers_help">New followers wait until you approve them before they see what you share with Followers or Mutuals, or your activities in their feed. Everyone who follows you now stays a follower.</string>
     <string name="edit_profile_location_heading">Location</string>
     <string name="edit_profile_locality">City</string>
     <string name="edit_profile_region">State or province</string>
@@ -578,7 +585,10 @@
     <string name="gender_male">Male</string>
     <string name="gender_non_binary">Non-binary</string>
     <string name="gender_self_describe">Self-describe</string>
+    <string name="visibility_label">Visible to</string>
     <string name="visibility_public">Public</string>
+    <string name="visibility_followers">Followers</string>
+    <string name="visibility_followers_open_note">Anyone who follows you can see what you share with Followers. Turn on Approve followers in your profile to choose who.</string>
     <string name="visibility_mutuals">Mutuals</string>
     <string name="visibility_self">Only me</string>
     <string name="visibility_scope_location">Who can see your city, state and country</string>
@@ -592,6 +602,16 @@
     <string name="follow_list_following">Following</string>
     <string name="follow_list_no_followers">No followers yet.</string>
     <string name="follow_list_no_following">Not following anyone yet.</string>
+    <string name="follow_list_remove">Remove</string>
+    <string name="follow_requests_title">Follow requests</string>
+    <string name="follow_requests_tab_requests">Requests</string>
+    <string name="follow_requests_tab_declined">Declined</string>
+    <string name="follow_requests_approve">Approve</string>
+    <string name="follow_requests_decline">Decline</string>
+    <string name="follow_requests_none">No follow requests.</string>
+    <string name="follow_requests_none_declined">No declined requests.</string>
+    <string name="follow_requests_declined_help">Only you can see who you declined. To them, their request still shows as Requested.</string>
+    <string name="follow_requests_truncated">Showing the first 500 requests.</string>
 
     <!-- Athlete search -->
     <string name="search_title">Find athletes</string>

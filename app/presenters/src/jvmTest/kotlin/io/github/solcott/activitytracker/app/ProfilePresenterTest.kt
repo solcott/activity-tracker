@@ -6,6 +6,7 @@ import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.profile.FollowRequestsScreen
 import io.github.solcott.activitytracker.app.profile.ProfileEvent
 import io.github.solcott.activitytracker.app.profile.ProfilePresenter
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
@@ -17,6 +18,7 @@ import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalKudos
+import io.github.solcott.activitytracker.data.profile.FollowRequestsRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -45,7 +47,7 @@ import kotlinx.coroutines.test.runTest
 /** Alice views Bob's profile. The AppView never catches up with her follow, as when Jetstream lags. */
 class ProfilePresenterTest {
     private val alice = Did("did:plc:alice")
-    private val bob = """{"did":"did:plc:bob","handle":"bob.test","followersCount":3}"""
+    private var bob = """{"did":"did:plc:bob","handle":"bob.test","followersCount":3}"""
 
     /** Holds each `putRecord` until completed, so the test sees the follow in flight. */
     private val putGate = CompletableDeferred<Unit>()
@@ -63,7 +65,22 @@ class ProfilePresenterTest {
                     }
 
                     "/xrpc/${Nsid.ACTOR_GET_PROFILE}" -> {
-                        respond(bob, headers = json)
+                        if (request.url.parameters["actor"] == alice.value) {
+                            respond("""{"did":"$alice","handle":"alice.test","followPolicy":"approve"}""", headers = json)
+                        } else {
+                            respond(bob, headers = json)
+                        }
+                    }
+
+                    "/xrpc/${Nsid.GRAPH_GET_FOLLOW_REQUESTS}" -> {
+                        respond(
+                            """{"requests":[{"did":"did:plc:bob","handle":"bob.test"},{"did":"did:plc:carol","handle":"carol.test"}]}""",
+                            headers = json,
+                        )
+                    }
+
+                    "/xrpc/com.atproto.space.listRecords" -> {
+                        respond("""{"error":"SpaceNotFound"}""", HttpStatusCode.BadRequest, json)
                     }
 
                     "/xrpc/${Nsid.FEED_GET_AUTHOR_ACTIVITIES}" -> {
@@ -94,7 +111,7 @@ class ProfilePresenterTest {
     private val navigator = FakeNavigator(ProfileScreen("did:plc:bob"))
     private lateinit var activities: ActivityRepository
 
-    private suspend fun presenter(): @Composable () -> ProfileState {
+    private suspend fun presenter(actor: String = "did:plc:bob"): @Composable () -> ProfileState {
         val (db, _, clients) = signedInTestSession(http, did = alice)
         val localKudos = LocalKudos()
         val feed = FeedRepository(db, clients, localKudos, Logger)
@@ -111,7 +128,8 @@ class ProfilePresenterTest {
                 Clock.System,
             )
         val profiles = ProfileRepository(clients, Clock.System, Logger)
-        return { ProfilePresenter(ProfileScreen("did:plc:bob"), navigator, profiles, feed, activities) }
+        val requests = FollowRequestsRepository(clients, Clock.System, Logger)
+        return { ProfilePresenter(ProfileScreen(actor), navigator, profiles, feed, activities, requests) }
     }
 
     @Test
@@ -162,6 +180,45 @@ class ProfilePresenterTest {
             // Room emits off the test scheduler, so this waits on the real drain (bounded by runTest\'s timeout).
             activities.pendingWrites.first { it == 0 }
             assertEquals(1, puts)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun followingAnAthleteWhoApprovesShowsRequested() = runTest {
+        bob = """{"did":"did:plc:bob","handle":"bob.test","followersCount":3,"followPolicy":"approve"}"""
+        putGate.complete(Unit)
+        presenterTestOf(presenter()) {
+            awaitUntil { it.profile != null && it.error == null }.eventSink(ProfileEvent.ToggleFollow)
+            val requested = awaitUntil { it.profile?.viewer?.following != null && !it.followPending }
+            assertEquals(true, requested.profile?.viewer?.followRequested)
+            assertEquals(3L, requested.profile?.followersCount)
+
+            // Tapping Requested cancels the request.
+            requested.eventSink(ProfileEvent.ToggleFollow)
+            val cancelled = awaitUntil { it.profile?.viewer?.following == null && !it.followPending }
+            assertNull(cancelled.profile?.viewer?.followRequested)
+            assertEquals(2, puts)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun ownProfileCountsFollowRequestsAndOpensThem() = runTest {
+        presenterTestOf(presenter(actor = alice.value)) {
+            val loaded = awaitUntil { it.followRequestCount != null }
+            assertEquals(2, loaded.followRequestCount)
+            assertEquals(false, loaded.moreFollowRequests)
+            loaded.eventSink(ProfileEvent.OpenFollowRequests)
+            assertEquals(FollowRequestsScreen, navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun anotherAthletesProfileHasNoRequests() = runTest {
+        presenterTestOf(presenter()) {
+            assertNull(awaitUntil { it.profile != null }.followRequestCount)
             cancelAndIgnoreRemainingEvents()
         }
     }

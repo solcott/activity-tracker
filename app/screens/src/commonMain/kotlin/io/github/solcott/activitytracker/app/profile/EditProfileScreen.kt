@@ -43,6 +43,11 @@ data class EditProfileState(
     val units: UnitSystem,
     /** Who may see each detail; set for every group. */
     val visibility: DetailsVisibility,
+    /**
+     * Follows count only once the athlete approves them. Turning it on keeps everyone who follows them now; while it's off, Followers means
+     * anyone who follows them.
+     */
+    val approveFollowers: Boolean = false,
     /** Details that were public when the screen opened and are now set to be hidden. Anyone may already have copied them. */
     val nowHidden: ImmutableList<DetailGroup>,
     /** False until the current profile has been read, so a save can't blank fields the athlete never saw. */
@@ -107,6 +112,8 @@ sealed interface EditProfileEvent {
 
     /** [visibility] is a `Visibility` value. */
     data class VisibilityChanged(val group: DetailGroup, val visibility: String) : EditProfileEvent
+
+    data class ApproveFollowersChanged(val approve: Boolean) : EditProfileEvent
 
     data object Save : EditProfileEvent
 

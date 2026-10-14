@@ -43,6 +43,8 @@ sealed interface ActivityDetailState : CircuitUiState {
         val chartsMissingZones: Boolean = false,
         /** The owner is changing who may see the charts. */
         val savingChartsVisibility: Boolean = false,
+        /** The owner approves followers, so Followers means only the ones they approved. */
+        val approvesFollowers: Boolean = false,
         /** The collapsible sections this activity has data for, in the order they show. */
         val sections: ImmutableList<DetailSection> = persistentListOf(),
         /** The sections showing in full; the rest show an overview. */

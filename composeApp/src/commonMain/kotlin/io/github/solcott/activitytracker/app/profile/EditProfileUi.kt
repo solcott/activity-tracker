@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.InputTransformation
 import androidx.compose.foundation.text.input.TextFieldLineLimits
@@ -33,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -51,6 +53,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
@@ -70,6 +73,8 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_save
 import io.github.solcott.activitytracker.composeApp.resources.action_saving
 import io.github.solcott.activitytracker.composeApp.resources.action_sign_in_again
+import io.github.solcott.activitytracker.composeApp.resources.edit_profile_approve_followers
+import io.github.solcott.activitytracker.composeApp.resources.edit_profile_approve_followers_help
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_birth_date
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_birth_date_choose
 import io.github.solcott.activitytracker.composeApp.resources.edit_profile_clear
@@ -144,6 +149,8 @@ fun EditProfileUi(state: EditProfileState, modifier: Modifier = Modifier) {
                     enabled = state.loaded,
                     singleLine = false,
                 )
+                HorizontalDivider()
+                ApproveFollowers(state)
                 HorizontalDivider()
                 Text(stringResource(Res.string.edit_profile_details_heading), style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(Res.string.edit_profile_details_help), style = MaterialTheme.typography.bodySmall)
@@ -253,6 +260,29 @@ private const val AVATAR_MAX_PIXELS = 512
 private const val AVATAR_JPEG_QUALITY = 85
 private val AVATAR_SIZE = 72.dp
 
+/** The Approve followers switch, with what turning it on means. */
+@Composable
+private fun ApproveFollowers(state: EditProfileState, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            Modifier.fillMaxWidth()
+                .toggleable(state.approveFollowers, enabled = state.loaded && !state.saving, role = Role.Switch) {
+                    state.eventSink(EditProfileEvent.ApproveFollowersChanged(it))
+                }
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                stringResource(Res.string.edit_profile_approve_followers),
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            AppSwitch(state.approveFollowers, onCheckedChange = null, enabled = state.loaded && !state.saving)
+        }
+        Text(stringResource(Res.string.edit_profile_approve_followers_help), style = MaterialTheme.typography.bodySmall)
+    }
+}
+
 /** One detail group's fields, headed by its name and followed by who may see all of them. */
 @Composable
 private fun DetailSection(
@@ -269,6 +299,7 @@ private fun DetailSection(
         VisibilityPicker(
             group.visibility(state.visibility),
             { state.eventSink(EditProfileEvent.VisibilityChanged(group, it)) },
+            state.approveFollowers,
             Modifier.fillMaxWidth(),
             enabled = state.loaded,
         )

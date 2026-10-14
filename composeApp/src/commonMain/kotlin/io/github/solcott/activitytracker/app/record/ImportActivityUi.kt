@@ -188,6 +188,7 @@ private fun PreviewForm(state: ImportActivityState, preview: ImportPreview, modi
             VisibilityPicker(
                 state.chartsVisibility,
                 onSelect = { state.eventSink(ImportActivityEvent.ChartsVisibilityChanged(it)) },
+                approvesFollowers = state.approvesFollowers,
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(

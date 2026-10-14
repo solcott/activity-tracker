@@ -261,6 +261,7 @@ private fun VisibilitySection(state: TrainingZonesState, modifier: Modifier = Mo
         VisibilityPicker(
             state.visibility,
             { state.eventSink(TrainingZonesEvent.VisibilityChanged(it)) },
+            state.approvesFollowers,
             Modifier.fillMaxWidth(),
             enabled = !state.savingVisibility,
         )

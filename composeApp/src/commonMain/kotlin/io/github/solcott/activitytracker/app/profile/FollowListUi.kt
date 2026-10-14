@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app.profile
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -27,6 +28,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.AccountRow
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
+import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
@@ -39,6 +41,7 @@ import io.github.solcott.activitytracker.composeApp.resources.follow_list_follow
 import io.github.solcott.activitytracker.composeApp.resources.follow_list_following
 import io.github.solcott.activitytracker.composeApp.resources.follow_list_no_followers
 import io.github.solcott.activitytracker.composeApp.resources.follow_list_no_following
+import io.github.solcott.activitytracker.composeApp.resources.follow_list_remove
 import io.github.solcott.activitytracker.data.di.SessionScope
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -77,7 +80,19 @@ fun FollowListUi(state: FollowListState, modifier: Modifier = Modifier) {
                 contentPadding = listPadding + PaddingValues(vertical = 8.dp),
             ) {
                 items(state.accounts, key = { it.did.value }) { account ->
-                    AccountRow(account, onClick = { state.eventSink(FollowListEvent.Open(account.did)) })
+                    if (state.canRemove) {
+                        Row(Modifier.fillMaxWidth().padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            AccountRow(account, onClick = { state.eventSink(FollowListEvent.Open(account.did)) }, Modifier.weight(1f))
+                            AppSecondaryButton(
+                                onClick = { state.eventSink(FollowListEvent.Remove(account.did)) },
+                                enabled = account.did !in state.removing,
+                            ) {
+                                Text(stringResource(Res.string.follow_list_remove))
+                            }
+                        }
+                    } else {
+                        AccountRow(account, onClick = { state.eventSink(FollowListEvent.Open(account.did)) })
+                    }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
                 footer(state)

@@ -80,6 +80,7 @@ internal fun DiveBatchForm(state: ImportActivityState, batch: DiveBatch, modifie
         VisibilityPicker(
             state.chartsVisibility,
             onSelect = { state.eventSink(ImportActivityEvent.ChartsVisibilityChanged(it)) },
+            approvesFollowers = state.approvesFollowers,
             modifier = Modifier.fillMaxWidth(),
         )
         val defaultTitles =

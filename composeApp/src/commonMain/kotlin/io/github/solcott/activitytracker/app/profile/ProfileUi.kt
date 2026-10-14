@@ -43,9 +43,11 @@ import io.github.solcott.activitytracker.composeApp.resources.profile_activities
 import io.github.solcott.activitytracker.composeApp.resources.profile_age
 import io.github.solcott.activitytracker.composeApp.resources.profile_edit
 import io.github.solcott.activitytracker.composeApp.resources.profile_follow
+import io.github.solcott.activitytracker.composeApp.resources.profile_follow_requests
 import io.github.solcott.activitytracker.composeApp.resources.profile_followers_count
 import io.github.solcott.activitytracker.composeApp.resources.profile_following
 import io.github.solcott.activitytracker.composeApp.resources.profile_following_count
+import io.github.solcott.activitytracker.composeApp.resources.profile_requested
 import io.github.solcott.activitytracker.composeApp.resources.profile_settings
 import io.github.solcott.activitytracker.composeApp.resources.profile_title
 import io.github.solcott.activitytracker.composeApp.resources.unit_height_cm
@@ -123,12 +125,25 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
                             }
                         }
                         if (state.isSelf) {
-                            AppSecondaryButton(onClick = { state.eventSink(ProfileEvent.EditProfile) }) {
-                                Text(stringResource(Res.string.profile_edit))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                AppSecondaryButton(onClick = { state.eventSink(ProfileEvent.EditProfile) }) {
+                                    Text(stringResource(Res.string.profile_edit))
+                                }
+                                state.followRequestCount?.let { count ->
+                                    AppSecondaryButton(onClick = { state.eventSink(ProfileEvent.OpenFollowRequests) }) {
+                                        Text(
+                                            stringResource(
+                                                Res.string.profile_follow_requests,
+                                                if (state.moreFollowRequests) "$count+" else count.toString(),
+                                            )
+                                        )
+                                    }
+                                }
                             }
                         } else {
                             FollowButton(
                                 following = p.viewer?.following != null,
+                                requested = p.viewer?.followRequested == true,
                                 pending = state.followPending,
                                 onClick = { state.eventSink(ProfileEvent.ToggleFollow) },
                             )
@@ -141,15 +156,24 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
     }
 }
 
-/** Follow, or Following when [following]. While [pending] it's disabled and shows a spinner, so a second tap can't follow twice. */
+/**
+ * Follow, Following when [following], or Requested when the follow waits for approval ([requested]; a tap cancels it). While [pending] it's
+ * disabled and shows a spinner, so a second tap can't follow twice.
+ */
 @Composable
-private fun FollowButton(following: Boolean, pending: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun FollowButton(following: Boolean, requested: Boolean, pending: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val content: @Composable RowScope.() -> Unit = {
         if (pending) {
             AppProgressIndicator(small = true)
             Spacer(Modifier.width(8.dp))
         }
-        Text(stringResource(if (following) Res.string.profile_following else Res.string.profile_follow))
+        val label =
+            when {
+                requested -> Res.string.profile_requested
+                following -> Res.string.profile_following
+                else -> Res.string.profile_follow
+            }
+        Text(stringResource(label))
     }
     if (following) {
         AppSecondaryButton(onClick, modifier, enabled = !pending, content = content)

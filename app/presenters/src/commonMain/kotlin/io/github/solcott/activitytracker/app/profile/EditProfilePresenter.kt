@@ -29,6 +29,7 @@ import io.github.solcott.activitytracker.data.units.HeightConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.data.units.WeightConversions
+import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -49,6 +50,8 @@ fun EditProfilePresenter(
     var picked by remember { mutableStateOf<AvatarImage.Picked?>(null) }
     var avatarRemoved by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<UiError?>(null) }
+    // Null until loaded; saved, like the form, so a configuration change keeps the athlete's choice.
+    var approveFollowers by rememberSaveable { mutableStateOf<Boolean?>(null) }
     val flights = rememberSingleFlight()
     val saving = flights.isRunning(EditProfileEvent.Save)
 
@@ -56,6 +59,7 @@ fun EditProfilePresenter(
         runSuspendCatching { profiles.ownProfile() }
             .onSuccess { profile ->
                 form.fillOnce(profile)
+                approveFollowers = approveFollowers ?: (profile.followPolicy == FollowPolicy.APPROVE)
                 own = profile
                 if (profile.needsSignIn) error = UiError(UiError.Kind.SignInAgain, null)
             }
@@ -80,6 +84,7 @@ fun EditProfilePresenter(
         heightInches = form.heightInches,
         units = form.units,
         visibility = visibility,
+        approveFollowers = approveFollowers == true,
         nowHidden = nowHidden,
         loaded = own != null,
         saving = saving,
@@ -110,6 +115,7 @@ fun EditProfilePresenter(
                             form.details(),
                             form.visibility(),
                             avatarEdit(picked, avatarRemoved),
+                            followPolicy = followPolicy(approveFollowers == true),
                         )
                     flights.launch(EditProfileEvent.Save) {
                         runSuspendCatching { profiles.save(edit) }.onSuccess { navigator.pop() }.onFailure { error = saveError(it) }
@@ -119,6 +125,10 @@ fun EditProfilePresenter(
 
             EditProfileEvent.SignInAgain -> {
                 flights.launch(EditProfileEvent.SignInAgain) { auth.signOut() }
+            }
+
+            is EditProfileEvent.ApproveFollowersChanged -> {
+                approveFollowers = event.approve
             }
 
             else -> {
@@ -190,6 +200,7 @@ private class Form(
             is EditProfileEvent.VisibilityChanged -> visibilities.getValue(event.group).value = event.visibility
             EditProfileEvent.Save,
             EditProfileEvent.SignInAgain,
+            is EditProfileEvent.ApproveFollowersChanged,
             EditProfileEvent.Back,
             EditProfileEvent.RemoveAvatar,
             is EditProfileEvent.AvatarPicked -> Unit
@@ -243,6 +254,8 @@ private fun nowHidden(loaded: OwnProfile, details: ProfileDetails, visibility: D
             group.isSet(details) &&
             group.visibility(visibility) != Visibility.PUBLIC
     }
+
+private fun followPolicy(approve: Boolean): String = if (approve) FollowPolicy.APPROVE else FollowPolicy.OPEN
 
 /** A session without access to the athlete's spaces can't save non-public details until they sign in again. */
 private fun saveError(cause: Throwable): UiError =

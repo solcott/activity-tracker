@@ -44,6 +44,12 @@ class SessionTestFixture {
     val did = Did("did:plc:alice")
     var failWrites = false
 
+    /** Alice's followers as the AppView lists them. */
+    var followers = listOf<String>()
+
+    /** The `writes` of each `applyWrites`, in order. */
+    val appliedWrites = mutableListOf<JsonObject>()
+
     /** Answer every Spaces call as a session signed in before the `space:` scope. */
     var scopeMissing = false
 
@@ -210,6 +216,24 @@ class SessionTestFixture {
                                 view["description"]?.let { """"description":$it""" },
                             )
                         respond(fields.joinToString(",", "{", "}"), headers = json)
+                    }
+
+                    "/xrpc/${Nsid.GRAPH_GET_FOLLOWERS}" -> {
+                        val accounts = followers.joinToString(",") { """{"did":"$it","handle":"${it.substringAfterLast(':')}.test"}""" }
+                        respond("""{"subject":{"did":"$did","handle":"alice.test"},"followers":[$accounts]}""", headers = json)
+                    }
+
+                    "/xrpc/com.atproto.repo.listRecords" -> {
+                        respond("""{"records":[]}""", headers = json)
+                    }
+
+                    "/xrpc/com.atproto.repo.applyWrites" -> {
+                        if (failWrites) {
+                            respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
+                        } else {
+                            appliedWrites += AtJson.parseToJsonElement(body(request)).jsonObject
+                            respond("{}", headers = json)
+                        }
                     }
 
                     "/xrpc/com.atproto.repo.putRecord" -> {

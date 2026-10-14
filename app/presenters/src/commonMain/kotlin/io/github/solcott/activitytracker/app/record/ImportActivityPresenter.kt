@@ -27,6 +27,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.profile.OwnProfile
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.profile.applyDeviceThresholds
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
@@ -34,6 +35,7 @@ import io.github.solcott.activitytracker.data.streams.StreamAnalytics
 import io.github.solcott.activitytracker.data.training.ThresholdChange
 import io.github.solcott.activitytracker.data.training.ThresholdUpdates
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -92,7 +94,8 @@ fun ImportActivityPresenter(
         remember(placed, zones, zone, matches, selection, loggedStreams) {
             singlePreview(placed, zone, zones, matches, selection, loggedStreams)
         }
-    val training = rememberOwnTraining(profiles)
+    val athlete = rememberOwnProfile(profiles)
+    val training = athlete?.details?.training
     val thresholdChanges = remember(placed, training, type.sport) { pendingThresholds(training, placed?.second, type.sport) }
     val quickTypes = quickActivityTypes(recentTypes)
     val defaultTitle =
@@ -116,6 +119,7 @@ fun ImportActivityPresenter(
         dives,
         own.check,
         placed?.let { details.fields(isDive = type.sport == Sport.DIVE) },
+        approvesFollowers = athlete?.followPolicy == FollowPolicy.APPROVE,
     ) { event ->
         when (event) {
             is ImportActivityEvent.FilePicked -> {
@@ -207,12 +211,15 @@ fun ImportActivityPresenter(
 private fun pendingThresholds(training: TrainingDetails?, activity: ImportedActivity?, sport: String): ImmutableList<ThresholdChange> =
     ThresholdUpdates.pending(training, activity?.deviceThresholds, activity?.startedAt ?: Instant.DISTANT_PAST, sport).toImmutableList()
 
-/** The athlete's thresholds, read once; null until they load, and when they can't (offline, say), so the import still works. */
+/**
+ * The athlete's profile (their thresholds and follow policy), read once; null until it loads, and when it can't (offline, say), so the
+ * import still works.
+ */
 @Composable
-private fun rememberOwnTraining(profiles: ProfileRepository): TrainingDetails? {
-    var training by remember { mutableStateOf<TrainingDetails?>(null) }
-    LaunchedEffect(Unit) { runSuspendCatching { profiles.ownProfile() }.onSuccess { training = it.details.training } }
-    return training
+private fun rememberOwnProfile(profiles: ProfileRepository): OwnProfile? {
+    var own by remember { mutableStateOf<OwnProfile?>(null) }
+    LaunchedEffect(Unit) { runSuspendCatching { profiles.ownProfile() }.onSuccess { own = it } }
+    return own
 }
 
 /**

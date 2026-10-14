@@ -20,6 +20,7 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.bytestring.ByteString
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
@@ -220,5 +221,63 @@ class EditProfilePresenterTest {
             assertFalse(loaded.valid)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun turningOnApproveFollowersApprovesCurrentFollowersThenSavesThePolicy() = runTest {
+        fixture.profileRecord = """{"displayName":"Alice"}"""
+        fixture.followers = listOf("did:plc:bob", "did:plc:carol")
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(EditProfileScreen)
+        presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units, repos.auth) }) {
+            val loaded = awaitUntil { it.loaded }
+            assertFalse(loaded.approveFollowers)
+            loaded.eventSink(EditProfileEvent.ApproveFollowersChanged(true))
+            awaitUntil { it.approveFollowers }.eventSink(EditProfileEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val approved = fixture.appliedWrites.single().getValue("writes").jsonArray.map { it.jsonObject["rkey"]?.jsonPrimitive?.content }
+        assertEquals(listOf("did:plc:bob", "did:plc:carol"), approved)
+        assertEquals("approve", fixture.putRecords.single()["followPolicy"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun theSwitchShowsTheSavedPolicyAndTurningItOffWritesNoApprovals() = runTest {
+        fixture.profileRecord = """{"displayName":"Alice","followPolicy":"approve"}"""
+        fixture.followers = listOf("did:plc:bob")
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(EditProfileScreen)
+        presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units, repos.auth) }) {
+            val loaded = awaitUntil { it.loaded }
+            assertTrue(loaded.approveFollowers)
+            loaded.eventSink(EditProfileEvent.ApproveFollowersChanged(false))
+            awaitUntil { !it.approveFollowers }.eventSink(EditProfileEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertTrue(fixture.appliedWrites.isEmpty())
+        assertNull(fixture.putRecords.single()["followPolicy"])
+    }
+
+    @Test
+    fun aFailedApprovalLeavesThePolicyOpenAndShowsTheError() = runTest {
+        fixture.profileRecord = """{"displayName":"Alice"}"""
+        fixture.followers = listOf("did:plc:bob")
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(EditProfileScreen)
+        presenterTestOf({ EditProfilePresenter(navigator, repos.profiles, repos.units, repos.auth) }) {
+            val loaded = awaitUntil { it.loaded }
+            fixture.failWrites = true
+            loaded.eventSink(EditProfileEvent.ApproveFollowersChanged(true))
+            awaitUntil { it.approveFollowers }.eventSink(EditProfileEvent.Save)
+            val failed = awaitUntil { it.error != null && !it.saving }
+            assertEquals(UiError.Kind.SaveProfile, failed.error?.kind)
+            assertTrue(failed.approveFollowers)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertTrue(fixture.putRecords.isEmpty())
+        navigator.assertPopIsEmpty()
     }
 }

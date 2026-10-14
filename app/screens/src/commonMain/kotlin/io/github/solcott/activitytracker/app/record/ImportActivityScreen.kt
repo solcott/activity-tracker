@@ -48,6 +48,8 @@ data class ImportActivityState(
     val duplicateCheck: DuplicateCheck = DuplicateCheck.Done,
     /** The description, dive site and photos of a single activity; null until a file is read, and for a logbook. */
     val details: ActivityDetailsFields? = null,
+    /** The athlete approves followers, so Followers means only the ones they approved. */
+    val approvesFollowers: Boolean = false,
     val eventSink: (ImportActivityEvent) -> Unit,
 ) : CircuitUiState
 

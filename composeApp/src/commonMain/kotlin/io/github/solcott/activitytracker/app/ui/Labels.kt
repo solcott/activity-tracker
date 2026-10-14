@@ -9,14 +9,17 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_body
 import io.github.solcott.activitytracker.composeApp.resources.detail_gender
 import io.github.solcott.activitytracker.composeApp.resources.detail_location
 import io.github.solcott.activitytracker.composeApp.resources.detail_training
+import io.github.solcott.activitytracker.composeApp.resources.error_answer_follow_request
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_load_feed
+import io.github.solcott.activitytracker.composeApp.resources.error_load_follow_requests
 import io.github.solcott.activitytracker.composeApp.resources.error_load_followers
 import io.github.solcott.activitytracker.composeApp.resources.error_load_following
 import io.github.solcott.activitytracker.composeApp.resources.error_load_kudos
 import io.github.solcott.activitytracker.composeApp.resources.error_load_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_read_activity_file
+import io.github.solcott.activitytracker.composeApp.resources.error_remove_follower
 import io.github.solcott.activitytracker.composeApp.resources.error_save_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_save_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_save_settings
@@ -81,6 +84,9 @@ fun errorText(error: UiError): String =
                 UiError.Kind.UpdateFollow -> Res.string.error_update_follow
                 UiError.Kind.LoadFollowers -> Res.string.error_load_followers
                 UiError.Kind.LoadFollowing -> Res.string.error_load_following
+                UiError.Kind.LoadFollowRequests -> Res.string.error_load_follow_requests
+                UiError.Kind.AnswerFollowRequest -> Res.string.error_answer_follow_request
+                UiError.Kind.RemoveFollower -> Res.string.error_remove_follower
                 UiError.Kind.SearchAthletes -> Res.string.error_search_athletes
                 UiError.Kind.SaveActivity -> Res.string.error_save_activity
                 UiError.Kind.DeleteActivity -> Res.string.error_delete_activity

@@ -108,6 +108,7 @@ private fun sectionOf(kind: StreamKind): DetailSection =
 internal fun ChartsVisibility(
     visibility: String,
     saving: Boolean,
+    approvesFollowers: Boolean,
     eventSink: (ActivityDetailEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -115,6 +116,7 @@ internal fun ChartsVisibility(
         VisibilityPicker(
             visibility,
             onSelect = { eventSink(ActivityDetailEvent.SetChartsVisibility(it)) },
+            approvesFollowers = approvesFollowers,
             modifier = Modifier.fillMaxWidth(),
             enabled = !saving,
         )

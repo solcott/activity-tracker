@@ -17,7 +17,10 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.profile.FollowRequests
+import io.github.solcott.activitytracker.data.profile.FollowRequestsRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -31,9 +34,11 @@ fun ProfilePresenter(
     profiles: ProfileRepository,
     feed: FeedRepository,
     activities: ActivityRepository,
+    followRequests: FollowRequestsRepository,
 ): ProfileState {
     var profile by remember { mutableStateOf<ProfileView?>(null) }
     var error by remember { mutableStateOf<UiError?>(null) }
+    var requests by remember { mutableStateOf<FollowRequests?>(null) }
     val did = profile?.did?.value ?: screen.actor
     val items by remember(did) { feed.authorActivities(did).map { it.toImmutableList() } }.collectAsState(persistentListOf())
     val flights = rememberSingleFlight()
@@ -50,7 +55,19 @@ fun ProfilePresenter(
 
     val viewerDid = profiles.did.value
     val isSelf = did == viewerDid
-    return ProfileState(profile, items, isSelf, viewerDid, flights.isRunning(ProfileEvent.ToggleFollow), error) { event ->
+    val approves = isSelf && profile?.followPolicy == FollowPolicy.APPROVE
+    // Counted afresh each time the athlete's own profile shows, so answering requests and coming back updates it.
+    LaunchedEffect(approves) { requests = if (approves) runSuspendCatching { followRequests.followRequests() }.getOrNull() else null }
+    return ProfileState(
+        profile = profile,
+        activities = items,
+        isSelf = isSelf,
+        viewerDid = viewerDid,
+        followPending = flights.isRunning(ProfileEvent.ToggleFollow),
+        followRequestCount = requests?.pending?.size,
+        moreFollowRequests = requests?.truncated == true,
+        error = error,
+    ) { event ->
         when (event) {
             ProfileEvent.Back -> {
                 navigator.pop()
@@ -82,6 +99,10 @@ fun ProfilePresenter(
 
             ProfileEvent.OpenFollowing -> {
                 navigator.goTo(FollowListScreen(did, FollowListKind.Following))
+            }
+
+            ProfileEvent.OpenFollowRequests -> {
+                navigator.goTo(FollowRequestsScreen)
             }
 
             ProfileEvent.OpenSettings -> {

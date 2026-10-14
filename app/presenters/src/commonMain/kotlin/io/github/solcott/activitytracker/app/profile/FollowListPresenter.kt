@@ -13,11 +13,14 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.profile.FollowRequestsRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 
 @CircuitInject(FollowListScreen::class, SessionScope::class)
 @Composable
@@ -25,6 +28,7 @@ fun FollowListPresenter(
     screen: FollowListScreen,
     navigator: Navigator,
     profiles: ProfileRepository,
+    followRequests: FollowRequestsRepository,
 ): FollowListState {
     var subject by remember { mutableStateOf<ProfileViewBasic?>(null) }
     var accounts by remember { mutableStateOf<ImmutableList<ProfileViewBasic>>(persistentListOf()) }
@@ -33,6 +37,7 @@ fun FollowListPresenter(
     var error by remember { mutableStateOf<UiError?>(null) }
     var loadKey by remember { mutableIntStateOf(0) }
     val flights = rememberSingleFlight()
+    val canRemove = rememberCanRemove(screen.kind, subject, profiles)
 
     // Callers set isLoading before launching, so a second LoadMore can't start the same page twice.
     suspend fun load(after: String?) {
@@ -68,6 +73,8 @@ fun FollowListPresenter(
         accounts = accounts,
         isLoading = isLoading,
         canLoadMore = cursor != null && error == null,
+        canRemove = canRemove,
+        removing = accounts.map { it.did }.filter { flights.isRunning(it) }.toImmutableSet(),
         error = error,
     ) { event ->
         when (event) {
@@ -90,8 +97,31 @@ fun FollowListPresenter(
             is FollowListEvent.Open -> {
                 navigator.goTo(ProfileScreen(event.did.value))
             }
+
+            is FollowListEvent.Remove -> {
+                flights.launch(event.did) {
+                    runSuspendCatching { followRequests.removeFollower(event.did) }
+                        .onSuccess { accounts = accounts.filterNot { account -> account.did == event.did }.toImmutableList() }
+                        .onFailure { error = UiError.of(UiError.Kind.RemoveFollower, it) }
+                }
+            }
         }
     }
+}
+
+/**
+ * Whether the athlete can remove followers from this list: it's their own followers and they approve followers. Their policy comes from
+ * their record, since the AppView may lag a change they just made.
+ */
+@Composable
+private fun rememberCanRemove(kind: FollowListKind, subject: ProfileViewBasic?, profiles: ProfileRepository): Boolean {
+    val ownFollowers = kind == FollowListKind.Followers && subject?.did == profiles.did
+    var approves by remember { mutableStateOf(false) }
+    LaunchedEffect(ownFollowers) {
+        if (ownFollowers)
+            approves = runSuspendCatching { profiles.ownProfileRecord()?.followPolicy == FollowPolicy.APPROVE }.getOrDefault(false)
+    }
+    return ownFollowers && approves
 }
 
 private class Page(val subject: ProfileViewBasic, val accounts: List<ProfileViewBasic>, val cursor: String?)

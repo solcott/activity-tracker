@@ -23,6 +23,10 @@ data class ProfileState(
     val viewerDid: String,
     /** A follow or unfollow is on its way to the PDS; the button ignores taps until it lands. */
     val followPending: Boolean,
+    /** The athlete's own unanswered follow requests, when they approve followers; null otherwise or until loaded. */
+    val followRequestCount: Int? = null,
+    /** There are more requests than [followRequestCount] counts. */
+    val moreFollowRequests: Boolean = false,
     val error: UiError?,
     val eventSink: (ProfileEvent) -> Unit,
 ) : CircuitUiState
@@ -30,11 +34,14 @@ data class ProfileState(
 sealed interface ProfileEvent {
     data object Back : ProfileEvent
 
+    /** Follows, unfollows, or cancels a follow request. */
     data object ToggleFollow : ProfileEvent
 
     data object OpenFollowers : ProfileEvent
 
     data object OpenFollowing : ProfileEvent
+
+    data object OpenFollowRequests : ProfileEvent
 
     data object OpenSettings : ProfileEvent
 

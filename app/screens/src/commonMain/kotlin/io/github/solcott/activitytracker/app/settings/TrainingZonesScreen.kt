@@ -36,6 +36,8 @@ data class TrainingZonesState(
     /** Whether any threshold has a value, so there's history to show. */
     val hasHistory: Boolean,
     val savingVisibility: Boolean,
+    /** The athlete approves followers, so Followers means only the ones they approved. */
+    val approvesFollowers: Boolean = false,
     val error: UiError?,
     val eventSink: (TrainingZonesEvent) -> Unit,
 ) : CircuitUiState

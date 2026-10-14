@@ -9,6 +9,8 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -31,6 +33,10 @@ data class FollowListState(
     val accounts: ImmutableList<ProfileViewBasic>,
     val isLoading: Boolean,
     val canLoadMore: Boolean,
+    /** The athlete's own followers list while they approve followers, so each follower can be removed. */
+    val canRemove: Boolean = false,
+    /** Followers whose removal is being written. */
+    val removing: ImmutableSet<Did> = persistentSetOf(),
     val error: UiError?,
     val eventSink: (FollowListEvent) -> Unit,
 ) : CircuitUiState
@@ -45,4 +51,7 @@ sealed interface FollowListEvent {
     data object Retry : FollowListEvent
 
     data class Open(val did: Did) : FollowListEvent
+
+    /** Removes [did] from the athlete's followers: their follow waits for approval again. Only when [FollowListState.canRemove]. */
+    data class Remove(val did: Did) : FollowListEvent
 }

@@ -25,6 +25,7 @@ import io.github.solcott.activitytracker.data.training.forSport
 import io.github.solcott.activitytracker.data.training.override
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.UnitsRepository
+import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlinx.collections.immutable.persistentListOf
@@ -61,6 +62,7 @@ fun TrainingZonesPresenter(navigator: Navigator, profiles: ProfileRepository, un
         hasZones = training != TrainingDetails(),
         hasHistory = TrainingHistory.backfilled(training).history.isNotEmpty(),
         savingVisibility = savingVisibility,
+        approvesFollowers = profile?.followPolicy == FollowPolicy.APPROVE,
         error = error,
     ) { event ->
         when (event) {

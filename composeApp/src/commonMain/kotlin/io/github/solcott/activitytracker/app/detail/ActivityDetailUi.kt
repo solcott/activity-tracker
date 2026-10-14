@@ -185,7 +185,7 @@ private fun Overview(state: ActivityDetailState.Loaded, modifier: Modifier = Mod
 private fun ChartSharing(visibility: String, state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(Res.string.charts_visibility_heading), style = MaterialTheme.typography.titleSmall)
-        ChartsVisibility(visibility, state.savingChartsVisibility, state.eventSink)
+        ChartsVisibility(visibility, state.savingChartsVisibility, state.approvesFollowers, state.eventSink)
     }
 }
 

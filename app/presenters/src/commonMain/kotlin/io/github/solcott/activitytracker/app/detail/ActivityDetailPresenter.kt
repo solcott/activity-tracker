@@ -32,6 +32,7 @@ import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
+import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
@@ -76,6 +77,11 @@ fun ActivityDetailPresenter(
     val charts = rememberCharts(AtUri(screen.uri), loadKey, feed, activities, flights) { error = it }
     val shown = activity?.let { a -> rewrite?.let { feed.rewrites.rewritten(a, it) } ?: a }?.withKudosOverrides(kudosOverrides)
     val isOwn = shown?.author?.did == profiles.did
+    var approvesFollowers by remember { mutableStateOf(false) }
+    LaunchedEffect(isOwn) {
+        if (isOwn)
+            runSuspendCatching { profiles.ownProfileRecord() }.onSuccess { approvesFollowers = it?.followPolicy == FollowPolicy.APPROVE }
+    }
     val sections = shown?.let { detailSections(it, charts.charts) } ?: persistentListOf()
     val expansion = rememberExpansion(sections)
     val manage = rememberManage(activity.takeIf { isOwn }, loadKey, feed, manager, navigator, flights) { loadKey++ }
@@ -133,6 +139,7 @@ fun ActivityDetailPresenter(
             charts = charts.charts,
             chartsMissingZones = charts.missingZones(isOwn),
             savingChartsVisibility = charts.saving,
+            approvesFollowers = approvesFollowers,
             sections = sections,
             expanded = expansion.expanded,
             manage = manage.state,
