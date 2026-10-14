@@ -104,7 +104,7 @@ With a credential, the client SHALL fetch a single record, list a collection's r
 - **THEN** the client returns the blob's bytes
 
 ### Requirement: Owner writes
-The signed-in athlete SHALL be able to create one of their spaces, look it up, and put and delete records in it, all authenticated with their session.
+The signed-in athlete SHALL be able to create one of their spaces, look it up, update its policies, and put and delete records in it, all authenticated with their session.
 
 #### Scenario: Create a space
 - **WHEN** the athlete creates a space of type `app.activitytracker.space.athlete` with a given key and the AppView as managing app
@@ -113,6 +113,10 @@ The signed-in athlete SHALL be able to create one of their spaces, look it up, a
 #### Scenario: Create an existing space
 - **WHEN** the athlete creates a space that already exists
 - **THEN** the client reports that it exists rather than failing, so callers can create spaces lazily
+
+#### Scenario: Update a space's policies
+- **WHEN** the athlete updates their space's read policy to name a different managing app
+- **THEN** a later lookup of the space returns the new read policy
 
 #### Scenario: Put is idempotent
 - **WHEN** the athlete puts the same record at the same collection and rkey twice
