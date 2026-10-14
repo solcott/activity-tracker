@@ -28,21 +28,30 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 
 /**
- * Credentials for reading other athletes' spaces, one per space, for one signed-in viewer. Getting one takes a single-use delegation token
- * from the viewer's PDS ([viewerPds]), exchanged at the PDS of the space's authority with a request signed by the session's binding key
- * ([newKey], created on first use); the credential is then bound to that key. Each is reused until [REFRESH_MARGIN] before it expires, and
- * concurrent callers share one exchange.
+ * Credentials for reading other athletes' spaces, one per space, for one reader: a signed-in viewer, or the AppView syncing athletes' tier
+ * spaces. Getting one takes a single-use delegation token naming the reader ([delegation]: from the viewer's PDS, or signed by the AppView
+ * itself), exchanged at the PDS of the space's authority with a request signed by the binding key ([newKey], created on first use); the
+ * credential is then bound to that key. Each is reused until [REFRESH_MARGIN] before it expires, and concurrent callers share one exchange.
  *
  * A refused exchange (`UserNotAuthorized` and friends) throws and is never cached, so a new follow counts on the next read. Everything is
- * in memory and lives as long as the session.
+ * in memory and lives as long as the session (or the AppView process).
  */
 class SpaceCredentials(
-    private val viewerPds: XrpcClient,
+    private val delegation: DelegationTokenSource,
     private val http: HttpClient,
     private val identity: IdentityResolver,
     private val newKey: suspend () -> DpopKey = DpopKey::generate,
     private val clock: Clock = Clock.System,
 ) {
+    /** A signed-in viewer's credentials, with delegation tokens from their PDS. */
+    constructor(
+        viewerPds: XrpcClient,
+        http: HttpClient,
+        identity: IdentityResolver,
+        newKey: suspend () -> DpopKey = DpopKey::generate,
+        clock: Clock = Clock.System,
+    ) : this(DelegationTokenSource.pds(viewerPds), http, identity, newKey, clock)
+
     class Credential(val token: String, val expiresAt: Instant)
 
     private val mutex = Mutex()
@@ -106,8 +115,7 @@ class SpaceCredentials(
         }
 
     private suspend fun exchange(space: SpaceUri): Credential {
-        val delegation = viewerPds.query(Space.GetDelegationToken.method, Space.GetDelegationToken.Params(space)).token
-        val authority = XrpcClient(http, pdsUrl(space.authority), DelegationAuthenticator(delegation, bindingKey()))
+        val authority = XrpcClient(http, pdsUrl(space.authority), DelegationAuthenticator(delegation.token(space), bindingKey()))
         val token = authority.procedure(Space.GetSpaceCredential.method, Space.GetSpaceCredential.Input(space)).credential
         val exp = jwtPayload(token)["exp"]?.jsonPrimitive?.long ?: error("Space credential has no exp")
         return Credential(token, Instant.fromEpochSeconds(exp))
