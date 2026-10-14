@@ -1,0 +1,22 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.actor.privateDetails",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "An athlete's non-public profile details for one visibility tier. Lives only in the athlete's app.activitytracker.space.athlete space for that tier (mutuals or self), never in the public repo: the space it sits in is the details' visibility.",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": ["details"],
+        "properties": {
+          "details": {
+            "type": "ref",
+            "ref": "app.activitytracker.actor.defs#details",
+            "description": "Only the details the athlete gave this space's tier."
+          }
+        }
+      }
+    }
+  }
+}

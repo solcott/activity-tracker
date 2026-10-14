@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.HeartRateZoneModel
 import io.github.solcott.activitytracker.lexicon.app.Location
+import io.github.solcott.activitytracker.lexicon.app.PrivateDetailsRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.SensorType
@@ -221,6 +222,17 @@ class RecordSerializationTest {
         assertFalse("thresholdHeartRate" in run)
         assertEquals("2026-10-02T07:00:00Z", run.getValue("setAt").jsonObject["thresholdSpeed"]?.jsonPrimitive?.content)
         assertEquals(profile, AtJson.decodeFromJsonElement(ProfileRecord.serializer(), json))
+    }
+
+    @Test
+    fun privateDetailsRoundTrip() {
+        val record = PrivateDetailsRecord(ProfileDetails(birthDate = "1990-04-01", weight = 61_500))
+        val json = AtJson.encodeToJsonElement(PrivateDetailsRecord.serializer(), record).jsonObject
+        assertEquals(Nsid.ACTOR_PRIVATE_DETAILS, json["\$type"]?.jsonPrimitive?.content)
+        val details = json.getValue("details").jsonObject
+        assertEquals("1990-04-01", details["birthDate"]?.jsonPrimitive?.content)
+        assertFalse("location" in details)
+        assertEquals(record, AtJson.decodeFromJsonElement(PrivateDetailsRecord.serializer(), json))
     }
 
     @Test

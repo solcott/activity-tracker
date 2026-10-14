@@ -512,6 +512,21 @@ data class ProfileRecord(
     }
 }
 
+/**
+ * `app.activitytracker.actor.privateDetails`: the details an athlete gave one visibility tier. It lives only in their
+ * `app.activitytracker.space.athlete` space for that tier ([AthleteSpace.MUTUALS] or [AthleteSpace.SELF]), whose key is the details'
+ * visibility, so it carries none of its own.
+ */
+@Serializable
+data class PrivateDetailsRecord(
+    val details: ProfileDetails,
+    @SerialName($$"$type") val type: String = Nsid.ACTOR_PRIVATE_DETAILS,
+) {
+    companion object {
+        const val RKEY = "self"
+    }
+}
+
 /** `app.activitytracker.actor.defs#location` */
 @Immutable
 @Serializable
@@ -524,7 +539,10 @@ data class Location(
     val country: String? = null,
 )
 
-/** `app.activitytracker.actor.defs#details`. Who sees each one is set by a [DetailsVisibility]. */
+/**
+ * `app.activitytracker.actor.defs#details`. Who sees each one is where it's stored: the public [ProfileRecord], or the athlete's
+ * [AthleteSpace] tier space holding a [PrivateDetailsRecord].
+ */
 @Immutable
 @Serializable
 data class ProfileDetails(
@@ -535,7 +553,7 @@ data class ProfileDetails(
     val gender: String? = null,
     /** Grams (lexicons have no floats). */
     val weight: Long? = null,
-    /** Millimeters (lexicons have no floats). Shares [DetailsVisibility.weight] with [weight]. */
+    /** Millimeters (lexicons have no floats). Always stored with [weight], under one visibility. */
     val height: Long? = null,
     val training: TrainingDetails? = null,
 ) {

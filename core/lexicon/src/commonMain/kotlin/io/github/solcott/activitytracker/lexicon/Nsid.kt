@@ -8,6 +8,8 @@ object Nsid {
     const val NAMESPACE = "app.activitytracker"
 
     const val ACTOR_PROFILE = "$NAMESPACE.actor.profile"
+    /** A record kept only in an athlete's tier space ([SPACE_ATHLETE]), so it never reaches the firehose and isn't indexed. */
+    const val ACTOR_PRIVATE_DETAILS = "$NAMESPACE.actor.privateDetails"
     const val ACTOR_GET_PROFILE = "$NAMESPACE.actor.getProfile"
     const val ACTOR_GET_PRIVATE_DETAILS = "$NAMESPACE.actor.getPrivateDetails"
     const val ACTOR_PUT_PRIVATE_DETAILS = "$NAMESPACE.actor.putPrivateDetails"
