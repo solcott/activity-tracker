@@ -13,10 +13,13 @@
         "visibility": {
           "type": "string",
           "knownValues": ["public", "followers", "mutuals", "self"],
-          "description": "Who may see the activity (app.activitytracker.actor.defs#visibility), from where its record is stored. Absent means public. Unless it is public, commentCount is 0."
+          "description": "Who may see the activity (app.activitytracker.actor.defs#visibility), from where its record is stored. Absent means public."
         },
         "likeCount": { "type": "integer", "description": "Likes from athletes who, like the viewer, may see the activity at its current visibility." },
-        "commentCount": { "type": "integer" },
+        "commentCount": {
+          "type": "integer",
+          "description": "Comments the viewer may see: from athletes who may see the activity at its current visibility, written for an audience that admits the viewer."
+        },
         "indexedAt": { "type": "string", "format": "datetime" },
         "viewer": { "type": "ref", "ref": "#viewerState" },
         "recordings": {

@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.appview.db.Actors
+import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
 import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.appview.db.RecordShadows
@@ -103,12 +104,24 @@ class SpaceSyncTest {
         """{"${'$'}type":"${Nsid.FEED_LIKE}","subject":{"uri":"at://$alice/${Nsid.FEED_ACTIVITY}/$subjectRkey",""" +
             """"cid":"bafyreihwzzyxpay7qndclffr6usq5te3of4fra7yucklue2b5ckxhq7aeq"},"createdAt":"2026-10-14T08:00:00Z"}"""
 
+    private fun comment(subjectRkey: String, audience: String? = null) =
+        """{"${'$'}type":"${Nsid.FEED_COMMENT}","subject":{"uri":"at://$alice/${Nsid.FEED_ACTIVITY}/$subjectRkey",""" +
+            """"cid":"bafyreihwzzyxpay7qndclffr6usq5te3of4fra7yucklue2b5ckxhq7aeq"},"text":"Nice!",""" +
+            audience.let { if (it == null) "" else """"audience":"$it",""" } +
+            """"createdAt":"2026-10-14T08:00:00Z"}"""
+
     private fun runDue() = runBlocking { syncer.runDue(this) }
 
     /** (author, origin) of each indexed like, by rkey. */
     private fun likes(): Map<String, Pair<String, String>> =
         transaction(db) {
             Likes.selectAll().associate { it[Likes.uri].substringAfterLast('/') to (it[Likes.authorDid] to it[Likes.origin]) }
+        }
+
+    /** (origin, audience) of each indexed comment, by rkey. */
+    private fun comments(): Map<String, Pair<String, String>> =
+        transaction(db) {
+            Comments.selectAll().associate { it[Comments.uri].substringAfterLast('/') to (it[Comments.origin] to it[Comments.audience]) }
         }
 
     /** (visibility, origin) of each indexed activity, by rkey. */
@@ -477,6 +490,75 @@ class SpaceSyncTest {
         runDue()
         assertEquals(mapOf("3kr1" to (bob to "repo")), likes(), "bob's repo like on a public activity stays")
         assertEquals(null, syncState(bobInteractions))
+    }
+
+    @Test
+    fun interactionsSpaceIsSyncedForItsComments() = testApplication {
+        start()
+        val bobInteractions = space(bob, AthleteSpace.INTERACTIONS)
+        // Already there when the space is first synced: the backfill picks it up.
+        pds.put(bobInteractions, Nsid.FEED_COMMENT, "3kc1", comment("3kf1", Visibility.FOLLOWERS))
+        client.notifySpace(bobInteractions)
+        runDue()
+        assertEquals(mapOf("3kc1" to (bobInteractions.value to Visibility.FOLLOWERS)), comments())
+
+        pds.put(bobInteractions, Nsid.FEED_COMMENT, "3kc2", comment("3kf2", "friends"))
+        pds.put(bobInteractions, Nsid.FEED_COMMENT, "3kc3", comment("3kf3"))
+        client.notifyWrite(bobInteractions)
+        runDue()
+        // The same notification again changes nothing.
+        client.notifyWrite(bobInteractions)
+        runDue()
+        assertEquals(
+            mapOf(
+                "3kc1" to (bobInteractions.value to Visibility.FOLLOWERS),
+                "3kc2" to (bobInteractions.value to Visibility.SELF),
+                "3kc3" to (bobInteractions.value to Visibility.PUBLIC),
+            ),
+            comments(),
+            "an unknown audience is the athlete's only, and none is public",
+        )
+
+        // A delete of the same rkey from the repo, where it isn't, leaves it.
+        commit(bob, Nsid.FEED_COMMENT, "3kc1", null)
+        assertEquals(setOf("3kc1", "3kc2", "3kc3"), comments().keys)
+        pds.delete(bobInteractions, Nsid.FEED_COMMENT, "3kc1")
+        client.notifyWrite(bobInteractions)
+        runDue()
+        assertEquals(setOf("3kc2", "3kc3"), comments().keys)
+    }
+
+    @Test
+    fun commentsInATierSpaceAreIgnored() = testApplication {
+        start()
+        val bobFollowers = space(bob, AthleteSpace.FOLLOWERS)
+        pds.put(bobFollowers, Nsid.FEED_COMMENT, "3kc1", comment("3kf1", Visibility.FOLLOWERS))
+        client.notifySpace(bobFollowers)
+        runDue()
+        pds.put(bobFollowers, Nsid.FEED_COMMENT, "3kc2", comment("3kf2", Visibility.FOLLOWERS))
+        client.notifyWrite(bobFollowers)
+        runDue()
+        assertEquals(emptyMap(), comments())
+    }
+
+    @Test
+    fun deletedInteractionsSpaceDropsOnlyItsComments() = testApplication {
+        start()
+        val bobInteractions = space(bob, AthleteSpace.INTERACTIONS)
+        commit(bob, Nsid.FEED_COMMENT, "3kr1", comment("3kp1"))
+        pds.put(bobInteractions, Nsid.FEED_COMMENT, "3kc1", comment("3kf1", Visibility.MUTUALS))
+        client.notifySpace(bobInteractions)
+        runDue()
+        assertEquals(
+            mapOf("3kr1" to ("repo" to Visibility.PUBLIC), "3kc1" to (bobInteractions.value to Visibility.MUTUALS)),
+            comments(),
+        )
+
+        pds.deleted += bobInteractions
+        clock.now += 15.minutes
+        credentials.invalidate(bobInteractions)
+        runDue()
+        assertEquals(mapOf("3kr1" to ("repo" to Visibility.PUBLIC)), comments(), "bob's repo comment on a public activity stays")
     }
 
     @Test

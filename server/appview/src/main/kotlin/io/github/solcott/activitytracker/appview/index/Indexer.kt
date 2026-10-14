@@ -23,6 +23,7 @@ import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.FollowRecord
 import io.github.solcott.activitytracker.lexicon.app.LikeRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import kotlin.time.Clock
 import kotlinx.serialization.SerializationException
@@ -113,6 +114,7 @@ class Indexer(
         }
         RecordShadows.deleteWhere { origin eq placement.origin }
         Likes.deleteWhere { origin eq placement.origin }
+        Comments.deleteWhere { origin eq placement.origin }
     }
 
     @Suppress("LongParameterList") // The record, and where it's from.
@@ -171,6 +173,9 @@ class Indexer(
                     it[text] = record.text.take(MAX_COMMENT_LENGTH)
                     it[createdAt] = record.createdAt.toEpochMilliseconds()
                     it[indexedAt] = now
+                    it[origin] = placement.origin
+                    // Absent is public, and an unknown value only the athlete's, so serving never shows it wider than written.
+                    it[audience] = Visibility.known(record.audience)
                 }
             }
 
@@ -230,7 +235,7 @@ class Indexer(
             }
 
             Nsid.FEED_COMMENT -> {
-                Comments.deleteWhere { Comments.uri eq uri.value }
+                Comments.deleteWhere { (Comments.uri eq uri.value) and (origin eq placement.origin) }
             }
 
             Nsid.GRAPH_FOLLOW -> {
@@ -283,12 +288,12 @@ class Indexer(
 
     companion object {
         private val TIER_COLLECTIONS = setOf(Nsid.FEED_ACTIVITY, Nsid.FEED_ACTIVITY_STREAMS)
-        private val INTERACTION_COLLECTIONS = setOf(Nsid.FEED_LIKE)
+        private val INTERACTION_COLLECTIONS = setOf(Nsid.FEED_LIKE, Nsid.FEED_COMMENT)
 
         /**
-         * What the AppView indexes from the athlete space with key [skey]: likes from the interactions space, and activities and their
-         * streams from a tier (an unknown key is a tier only the athlete sees). Private details, follow declines and defaults are never
-         * stored.
+         * What the AppView indexes from the athlete space with key [skey]: likes and comments from the interactions space, and activities
+         * and their streams from a tier (an unknown key is a tier only the athlete sees). Private details, follow declines and defaults are
+         * never stored.
          */
         fun spaceCollections(skey: String): Set<String> =
             if (skey == AthleteSpace.INTERACTIONS) INTERACTION_COLLECTIONS else TIER_COLLECTIONS

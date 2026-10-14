@@ -30,7 +30,6 @@ import io.github.solcott.activitytracker.lexicon.app.RecordingView
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.http.HttpStatusCode
 import kotlin.time.Instant
-import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.NotExists
 import org.jetbrains.exposed.v1.core.Op
@@ -108,15 +107,13 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val row =
             Activities.selectAll().where { (Activities.uri eq params.uri.value) and visibleTo(viewer) }.singleOrNull()
                 ?: throw XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "Activity not found")
-        // Comments on a non-public activity are kept but not served: they come back if it's made public again.
         val comments =
-            if (!acceptsComments(row[Activities.visibility])) emptyList()
-            else
-                Comments.selectAll()
-                    .where { Comments.subjectUri eq params.uri.value }
-                    .orderBy(Comments.createdAt to SortOrder.ASC)
-                    .limit(HttpStatusCode.InternalServerError.value)
-                    .toList()
+            admittedComments()
+                .select(Comments.columns)
+                .where { (Comments.subjectUri eq params.uri.value) and commentsVisibleTo(viewer) }
+                .orderBy(Comments.createdAt to SortOrder.ASC)
+                .limit(HttpStatusCode.InternalServerError.value)
+                .toList()
         val authors = basicProfiles(comments.map { it[Comments.authorDid] }, avatars)
         GetActivity.Output(
             activity = hydrate(listOf(row), viewer).single(),
@@ -213,7 +210,13 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 .where { (Likes.subjectUri inList uris) and visibleTo(Likes.authorDid) }
                 .groupBy(Likes.subjectUri)
                 .associate { it[Likes.subjectUri] to it[likeCount] }
-        val commentCounts = countBySubject(Comments, Comments.subjectUri, Comments.uri, uris)
+        val commentCount = Comments.uri.count()
+        val commentCounts =
+            admittedComments()
+                .select(Comments.subjectUri, commentCount)
+                .where { (Comments.subjectUri inList uris) and commentsVisibleTo(viewer) }
+                .groupBy(Comments.subjectUri)
+                .associate { it[Comments.subjectUri] to it[commentCount] }
         // The viewer may see every row, so their own like is always admitted.
         val viewerLikes =
             viewer
@@ -231,15 +234,13 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
             val uri = row[Activities.uri]
             val record = AtJson.decodeFromString(ActivityRecord.serializer(), row[Activities.record])
             val visibility = row[Activities.visibility]
-            // Non-public activities take no comments; any given while it was public stay in the index, unshown.
-            val comments = acceptsComments(visibility)
             ActivityView(
                 uri = AtUri(uri),
                 cid = Cid(row[Activities.cid]),
                 author = authors[row[Activities.authorDid]] ?: return@mapNotNull null,
                 record = record,
                 likeCount = likeCounts[uri] ?: 0,
-                commentCount = if (comments) commentCounts[uri] ?: 0 else 0,
+                commentCount = commentCounts[uri] ?: 0,
                 indexedAt = Instant.fromEpochMilliseconds(row[Activities.indexedAt]),
                 visibility = visibility,
                 viewer = viewer?.let { ActivityViewerState(like = viewerLikes[uri]?.let(::AtUri)) },
@@ -287,16 +288,6 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 }
             )
     }
-
-    private fun countBySubject(
-        table: org.jetbrains.exposed.v1.core.Table,
-        subject: Column<String>,
-        key: Column<String>,
-        uris: List<String>,
-    ): Map<String, Long> {
-        val count = key.count()
-        return table.select(subject, count).where { subject inList uris }.groupBy(subject).associate { it[subject] to it[count] }
-    }
 }
 
 class XrpcError(val status: Int, val error: String, override val message: String, override val cause: Throwable? = null) :
@@ -307,6 +298,20 @@ class XrpcError(val status: Int, val error: String, override val message: String
  * the activity at its current visibility, wherever the like is stored. Likes follow the activity when it's narrowed or widened.
  */
 private fun admittedLikes() = Likes.join(Activities, JoinType.INNER, Likes.subjectUri, Activities.uri)
+
+/**
+ * Comments joined to the activity they name, for [commentsVisibleTo]. Like likes, a comment is served by the activity's current visibility
+ * wherever it's stored, but never wider than the audience it was written for.
+ */
+private fun admittedComments() = Comments.join(Activities, JoinType.INNER, Comments.subjectUri, Activities.uri)
+
+/**
+ * Comments on activities [viewer] may already see (the caller filters the activities) that they may see too: while the commenter may still
+ * see the activity at its current visibility, and the comment's audience admits the viewer, judged against the activity's athlete. Tiers
+ * nest, so a comment is shown at the narrower of the activity's visibility and its audience.
+ */
+private fun commentsVisibleTo(viewer: Did?): Op<Boolean> =
+    visibleTo(Comments.authorDid) and visibleTo(viewer, visibility = Comments.audience, author = Activities.authorDid)
 
 /** A recording's device as `#recordingView` allows it: the record's own is untrusted. */
 private const val MAX_DEVICE_LENGTH = 256

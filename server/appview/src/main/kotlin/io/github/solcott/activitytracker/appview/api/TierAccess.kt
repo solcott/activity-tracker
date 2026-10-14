@@ -46,6 +46,3 @@ private fun admits(viewer: Expression<String>, visibility: Column<String>, autho
 
 /** An effective follow matching [pair], correlated to the outer query's author column. */
 private fun followExists(pair: Op<Boolean>): Op<Boolean> = exists(Follows.select(Follows.uri).where { pair and effectiveFollow() })
-
-/** Whether a row at [visibility] takes comments: only public activities do. Likes are taken at every visibility (`admittedLikes`). */
-internal fun acceptsComments(visibility: String): Boolean = visibility == Visibility.PUBLIC

@@ -76,6 +76,12 @@ object Comments : Table("comments") {
     val text = text("text")
     val createdAt = long("created_at")
     val indexedAt = long("indexed_at")
+
+    /** `repo`, or the URI of the `interactions` space the comment came from. */
+    val origin = varchar("origin", 512).default(Origins.REPO)
+
+    /** The [Visibility] the comment was written for, normalised when indexed: never shown wider than this. */
+    val audience = varchar("audience", 16).default(Visibility.PUBLIC)
     override val primaryKey = PrimaryKey(uri)
 }
 

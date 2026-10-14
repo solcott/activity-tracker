@@ -141,6 +141,42 @@ class ActivityVisibilityTest {
         }
     }
 
+    /**
+     * [author] comments on alice's [rkey]: in their repo with no [audience], else in their interactions space written for [audience]. The
+     * comment's rkey is `3kc` + the author's initial.
+     */
+    private fun comment(author: String, rkey: String, audience: String? = null) {
+        val commentRkey = "3kc${author.last()}"
+        val json =
+            """{"subject":{"uri":"${uri(rkey)}","cid":"bafy$rkey"},"text":"Nice","createdAt":"2026-10-01T09:00:00Z"""" +
+                audience?.let { ""","audience":"$it"""" }.orEmpty() +
+                "}"
+        if (audience == null) {
+            commit(author, Nsid.FEED_COMMENT, commentRkey, json)
+        } else {
+            val interactions = SpaceUri.of(Did(author), Nsid.SPACE_ATHLETE, AthleteSpace.INTERACTIONS)
+            runBlocking {
+                indexer.spaceWrite(
+                    interactions,
+                    Nsid.FEED_COMMENT,
+                    commentRkey,
+                    "bafy$commentRkey",
+                    AtJson.parseToJsonElement(json).jsonObject,
+                )
+            }
+        }
+    }
+
+    private fun uncomment(author: String, inSpace: Boolean) {
+        val commentRkey = "3kc${author.last()}"
+        if (!inSpace) {
+            commit(author, Nsid.FEED_COMMENT, commentRkey, null)
+        } else {
+            val interactions = SpaceUri.of(Did(author), Nsid.SPACE_ATHLETE, AthleteSpace.INTERACTIONS)
+            runBlocking { indexer.spaceDelete(interactions, Nsid.FEED_COMMENT, commentRkey) }
+        }
+    }
+
     private fun uri(rkey: String) = "at://$alice/${Nsid.FEED_ACTIVITY}/$rkey"
 
     private suspend fun HttpClient.raw(nsid: String, viewer: String?, query: String): HttpResponse =
@@ -184,6 +220,14 @@ class ActivityVisibilityTest {
             cursor = page.cursor?.takeIf { page.likes.isNotEmpty() }
         } while (cursor != null)
         return all
+    }
+
+    /** The authors of the comments [viewer] is shown on alice's [rkey], after checking that the view's count matches them. */
+    private suspend fun HttpClient.commenters(rkey: String, viewer: String?): List<String> {
+        val output = activity(rkey, viewer)
+        val authors = output.comments.map { it.author.did.value }
+        assertEquals(authors.size.toLong(), output.activity.commentCount, "the count matches the list")
+        return authors
     }
 
     private suspend fun HttpClient.count(viewer: String?): Long? = query(GetProfile.method, viewer, "?actor=$alice").activitiesCount
@@ -317,30 +361,104 @@ class ActivityVisibilityTest {
     }
 
     @Test
-    fun commentsAreHiddenWhileNotPublic() = testApplication {
+    fun commentsOnANonPublicActivityAreServedToItsAudience() = testApplication {
         start()
         follow(bob, alice)
-        post("3kact", Visibility.PUBLIC)
-        commit(
-            bob,
-            Nsid.FEED_COMMENT,
-            "3kcomm",
-            """{"subject":{"uri":"${uri("3kact")}","cid":"bafy3kact"},"text":"Nice","createdAt":"2026-10-01T09:00:00Z"}""",
-        )
-        assertEquals(1, client.activity("3kact", bob).comments.size)
+        follow(dave, alice)
+        post("3kact", Visibility.FOLLOWERS)
+        comment(bob, "3kact", audience = Visibility.FOLLOWERS)
 
-        // Made Followers: the followers copy is written, then the repo copy deleted.
-        move("3kact", Visibility.PUBLIC, Visibility.FOLLOWERS)
-        val private = client.activity("3kact", bob)
-        assertEquals(Visibility.FOLLOWERS, private.activity.visibility)
-        assertEquals(0, private.activity.commentCount)
-        assertEquals(emptyList(), private.comments)
+        assertEquals(listOf(bob), client.commenters("3kact", bob))
+        assertEquals(listOf(bob), client.commenters("3kact", dave))
+        assertEquals(listOf(bob), client.commenters("3kact", alice), "alice sees comments on her own activity")
+        assertEquals(HttpStatusCode.BadRequest, client.activityStatus("3kact", carol), "carol can't see it, nor its comments")
 
-        // Made public again: the comment given before comes back.
+        // A delete of the rkey from bob's repo, where it isn't, leaves the space's comment.
+        uncomment(bob, inSpace = false)
+        assertEquals(listOf(bob), client.commenters("3kact", dave))
+        uncomment(bob, inSpace = true)
+        assertEquals(emptyList(), client.commenters("3kact", dave))
+    }
+
+    @Test
+    fun commentsStayWithinTheirAudienceWhenWidened() = testApplication {
+        start()
+        follow(bob, alice)
+        follow(dave, alice)
+        post("3kact", Visibility.FOLLOWERS)
+        comment(bob, "3kact", audience = Visibility.FOLLOWERS)
+
         move("3kact", Visibility.FOLLOWERS, Visibility.PUBLIC)
-        val again = client.activity("3kact", bob)
-        assertEquals(1, again.activity.commentCount)
-        assertEquals(1, again.comments.size)
+        assertEquals(Visibility.PUBLIC, client.activity("3kact", carol).activity.visibility)
+        assertEquals(emptyList(), client.commenters("3kact", carol), "carol isn't in the audience bob wrote for")
+        assertEquals(emptyList(), client.commenters("3kact", null), "nor is anyone signed out")
+        assertEquals(listOf(bob), client.commenters("3kact", dave))
+        assertEquals(listOf(bob), client.commenters("3kact", alice))
+    }
+
+    @Test
+    fun commentsFollowTheActivityWhenNarrowed() = testApplication {
+        start()
+        follow(bob, alice)
+        follow(dave, alice)
+        post("3kact", Visibility.PUBLIC)
+        comment(bob, "3kact")
+        comment(carol, "3kact")
+        assertEquals(setOf(bob, carol), client.commenters("3kact", null).toSet())
+
+        move("3kact", Visibility.PUBLIC, Visibility.FOLLOWERS)
+        assertEquals(listOf(bob), client.commenters("3kact", dave), "carol can't see the activity now, so neither can anyone her comment")
+        assertEquals(listOf(bob), client.commenters("3kact", alice))
+
+        // Made public again: both were written for Public, so both come back.
+        move("3kact", Visibility.FOLLOWERS, Visibility.PUBLIC)
+        assertEquals(setOf(bob, carol), client.commenters("3kact", null).toSet())
+    }
+
+    @Test
+    fun aCommenterWhoUnfollowsIsNoLongerShown() = testApplication {
+        start()
+        follow(bob, alice)
+        follow(dave, alice)
+        post("3kact", Visibility.FOLLOWERS)
+        comment(bob, "3kact", audience = Visibility.FOLLOWERS)
+        assertEquals(listOf(bob), client.commenters("3kact", dave))
+
+        unfollow(bob, alice)
+        assertEquals(emptyList(), client.commenters("3kact", dave))
+        assertEquals(emptyList(), client.commenters("3kact", alice))
+
+        follow(bob, alice)
+        assertEquals(listOf(bob), client.commenters("3kact", dave))
+    }
+
+    @Test
+    fun aCommentIsNeverShownWiderThanItsAudience() = testApplication {
+        start()
+        // dave is alice's mutual; bob only follows her.
+        follow(dave, alice)
+        follow(alice, dave)
+        follow(bob, alice)
+        post("3kact", Visibility.FOLLOWERS)
+        comment(dave, "3kact", audience = Visibility.MUTUALS)
+        comment(carol, "3kact", audience = "friends")
+        follow(carol, alice)
+
+        assertEquals(emptyList(), client.commenters("3kact", bob), "bob isn't alice's mutual")
+        assertEquals(listOf(dave), client.commenters("3kact", dave))
+        assertEquals(setOf(dave, carol), client.commenters("3kact", alice).toSet(), "an unknown audience is alice's only")
+        assertEquals(emptyList(), client.commenters("3kact", carol), "carol isn't a mutual, and not even she sees her unknown audience")
+    }
+
+    @Test
+    fun anAthleteCommentsOnTheirOwnOnlyMeActivity() = testApplication {
+        start()
+        follow(bob, alice)
+        follow(alice, bob)
+        post("3kme", Visibility.SELF)
+        comment(alice, "3kme", audience = Visibility.SELF)
+        assertEquals(listOf(alice), client.commenters("3kme", alice))
+        assertEquals(HttpStatusCode.BadRequest, client.activityStatus("3kme", bob))
     }
 
     @Test
