@@ -41,7 +41,7 @@ For each query:
 11. `Routes.kt` registers `xrpcQuery(GetX.method, ...)`, and `api/Views.kt` builds the output. If the JSON or handler implies a viewer is required, the handler throws `AuthException` when the viewer is null.
 12. At least one client call site or test exercises it (note it if not).
 
-Also flag: NSID string literals outside `Nsid.kt` (other than lexicon JSON and `docker/scripts/create-account.sh`), lexicon data serialized with anything but `AtJson`, and fields that look private (location precision beyond the polyline, emails, tokens) in a public record. Mutuals-only or private profile details belong in `actor_private_details`, not `actor.profile`: flag any client code that writes a non-public detail into the record, and any AppView view that reads `ActorPrivateDetails` without going through `visibleDetails`.
+Also flag: NSID string literals outside `Nsid.kt` (other than lexicon JSON and `docker/scripts/create-account.sh`), lexicon data serialized with anything but `AtJson`, and fields that look private (location precision beyond the polyline, emails, tokens) in a public record. Mutuals-only or private profile details belong in the athlete's tier-space `actor.privateDetails` record, not `actor.profile`: flag any client code that writes a non-public detail into the record, and any AppView code that stores or serves non-public details (it shows only `publicDetails`).
 
 ## Output
 
