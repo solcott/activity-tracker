@@ -77,8 +77,8 @@ class FeedRepository(
     }
 
     /**
-     * [uri]'s streams, or null when it has none or the viewer may not see them. Always from the AppView, never the author's PDS, so this
-     * doesn't change when streams move to a private store (see `ActivityStreamsStore`).
+     * [uri]'s streams, or null when it has none or the viewer may not see them. Always from the AppView, never the author's PDS, so it's
+     * the same wherever they're stored (the repo, or a tier space; see `ActivityStreamsStore`).
      */
     suspend fun streams(uri: AtUri): GetActivityStreams.Output? =
         try {
@@ -109,7 +109,7 @@ class FeedRepository(
                     GetAuthorActivitiesByStart.method,
                     GetAuthorActivitiesByStart.Params(clients.did.value, since, until, sport, Paging.MAX_LIMIT, cursor),
                 )
-            indexed += page.activities.map { OwnActivity(it.uri, it.cid, it.record) }
+            indexed += page.activities.map { OwnActivity(it.uri, it.cid, it.record, it.visibilityOrPublic) }
             cursor = page.cursor
         } while (cursor != null && ++pages < MAX_RANGE_PAGES)
         val known = indexed.mapTo(mutableSetOf()) { it.uri }

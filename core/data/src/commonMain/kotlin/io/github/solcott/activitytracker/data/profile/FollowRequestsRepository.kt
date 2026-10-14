@@ -31,7 +31,7 @@ import kotlin.time.Clock
 class FollowRequestsRepository(private val clients: SessionClients, private val clock: Clock, logger: Logger) {
     private val logger = logger.withTag("FollowRequestsRepository")
 
-    private val tiers = AthleteSpaces(clients.spaces, clients::managingApp)
+    private val tiers = clients.tiers
 
     /**
      * Everyone asking to follow the signed-in athlete, split into [FollowRequests.pending] and the ones they [FollowRequests.declined].

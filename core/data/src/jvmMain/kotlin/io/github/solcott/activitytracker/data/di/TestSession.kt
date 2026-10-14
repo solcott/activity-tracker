@@ -21,8 +21,16 @@ import kotlin.time.Duration.Companion.hours
 /** For tests: [did] signed in to `pds.test` and `appview.test`, both served by a mock [HttpClient]. The desktop app never uses it. */
 data class TestSession(val db: AppDatabase, val manager: OAuthSessionManager, val clients: SessionClients)
 
-/** Saves a fresh session for [did] in an in-memory database and restores it, so every request goes through [http]. */
-suspend fun signedInTestSession(http: HttpClient, did: Did = Did("did:plc:alice"), logger: Logger = Logger): TestSession {
+/**
+ * Saves a fresh session for [did] in an in-memory database and restores it, so every request goes through [http]. Its [scope] is the app's
+ * own by default; pass `"atproto"` for a session signed in before the `space:` scope existed.
+ */
+suspend fun signedInTestSession(
+    http: HttpClient,
+    did: Did = Did("did:plc:alice"),
+    logger: Logger = Logger,
+    scope: String = OAuthClientConfig.DEFAULT_SCOPE,
+): TestSession {
     val db = inMemoryDatabase()
     val store = RoomOAuthStore(db, Clock.System, InMemorySecretCipher(), logger)
     val session =
@@ -35,7 +43,7 @@ suspend fun signedInTestSession(http: HttpClient, did: Did = Did("did:plc:alice"
             accessToken = "at",
             refreshToken = "rt",
             expiresAt = Clock.System.now() + 1.hours,
-            scope = "atproto",
+            scope = scope,
             dpopKey = DpopKey.generate().serialize(),
         )
     store.saveSession(session)

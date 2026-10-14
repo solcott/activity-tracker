@@ -177,8 +177,9 @@ class ActivityRepositoryTest {
             expectSuccess = false
         }
 
+    /** A session without the `space:` scope: these tests are about the repo; where tier spaces come in is `ActivityVisibilityTest`. */
     private suspend fun repository(): ActivityRepository {
-        val (db, _, clients) = signedInTestSession(http, did = did, logger = logger)
+        val (db, _, clients) = signedInTestSession(http, did = did, logger = logger, scope = "atproto transition:generic")
         val outbox = OutboxProcessor(db, clients, logger)
         val localKudos = LocalKudos()
         feed = FeedRepository(db, clients, localKudos, logger)
@@ -312,7 +313,7 @@ class ActivityRepositoryTest {
         storedStreams =
             GetActivityStreams.Output(
                 uri,
-                Visibility.MUTUALS,
+                Visibility.PUBLIC,
                 listOf(StreamChannel.DEPTH),
                 ActivityStreamData(time = listOf(0, 10, 20, 30), depth = listOf(0, 500, 1000, 1500)),
             )
@@ -326,7 +327,7 @@ class ActivityRepositoryTest {
         assertEquals(existingDive.copy(device = "Shearwater Perdix"), merged, "only the device was missing")
         assertEquals("3kexisting", streams["rkey"]?.jsonPrimitive?.content)
         val record = AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), streams["record"]!!)
-        assertEquals(Visibility.MUTUALS, record.visibility, "who may see them stays")
+        assertEquals(Visibility.PUBLIC, record.visibility, "who may see them stays")
         assertEquals(listOf(StreamChannel.TEMPERATURE, StreamChannel.DEPTH), record.channels)
     }
 
@@ -371,7 +372,7 @@ class ActivityRepositoryTest {
                 startedAt = Instant.parse("2026-09-30T07:00:00Z"),
                 elapsed = 30.minutes,
                 streams = ActivityStreamData(time = listOf(0, 1), power = listOf(200, 210)),
-                streamsVisibility = Visibility.MUTUALS,
+                streamsVisibility = Visibility.PUBLIC,
                 powerZones = ZoneSnapshot(PowerZoneModel.COGGAN_6, listOf(0, 138, 188, 225, 263, 300)),
             )
 
@@ -383,7 +384,7 @@ class ActivityRepositoryTest {
         assertEquals(uri.rkey, streams["rkey"]?.jsonPrimitive?.content)
         val record = AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), streams["record"]!!)
         assertEquals(uri, record.activity)
-        assertEquals(Visibility.MUTUALS, record.visibility)
+        assertEquals(Visibility.PUBLIC, record.visibility)
         assertEquals(listOf(StreamChannel.POWER), record.channels)
         assertEquals("bafyblob", record.data?.ref?.link)
         assertEquals(draft.powerZones, record.powerZones)

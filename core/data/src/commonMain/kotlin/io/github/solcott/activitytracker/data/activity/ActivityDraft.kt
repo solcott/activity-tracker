@@ -41,7 +41,9 @@ data class ActivityDraft(
     val gpx: ByteArray? = null,
     /** Per-sample data for charts, published as the activity's streams record. */
     val streams: ActivityStreamData? = null,
-    /** Who may see [streams]: a [Visibility] value. */
+    /** Who may see the activity: a [Visibility] value, which decides where it's stored. */
+    val visibility: String = Visibility.PUBLIC,
+    /** Who may see [streams]: a [Visibility] value, never wider than [visibility] once published. */
     val streamsVisibility: String = Visibility.PUBLIC,
     /** The athlete's zones for this activity, kept with [streams]. */
     val heartRateZones: ZoneSnapshot? = null,
@@ -66,6 +68,21 @@ data class ActivityDraft(
                     (dive ?: ActivityDive()).copy(site = site.trim().take(ActivityDive.MAX_SITE_LENGTH).ifEmpty { null })
                 } ?: dive,
         )
+
+    /** This draft shown to [choice]'s viewers: the activity at its visibility, the charts capped at it. */
+    fun withVisibility(choice: VisibilityChoice): ActivityDraft =
+        choice.capped().let { copy(visibility = it.activity, streamsVisibility = it.charts) }
+
+    /** This draft as another recording of [primary]: it takes the primary's visibility, its charts capped at it. */
+    fun recordingOf(primary: OwnActivity): ActivityDraft = recordingOf(primary.uri, primary.visibility)
+
+    /** This draft as another recording of the activity at [primary], whose visibility is [visibility]. */
+    fun recordingOf(primary: AtUri, visibility: String): ActivityDraft =
+        copy(recordingOf = primary, visibility = visibility, streamsVisibility = Visibility.capped(streamsVisibility, visibility))
+
+    /** [streamsVisibility] as published: never wider than the activity. */
+    val publishedStreamsVisibility: String
+        get() = Visibility.capped(streamsVisibility, visibility)
 
     /** The record, holding [media]: [photos] once uploaded. */
     fun toRecord(createdAt: Instant, media: List<ActivityMedia> = emptyList()): ActivityRecord =
@@ -116,6 +133,7 @@ data class ActivityDraft(
             sensors,
             polyline,
             streams,
+            visibility,
             streamsVisibility,
             heartRateZones,
             powerZones,

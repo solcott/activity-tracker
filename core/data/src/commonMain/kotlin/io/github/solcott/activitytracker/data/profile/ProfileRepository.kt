@@ -41,7 +41,7 @@ class ProfileRepository(
         get() = clients.did
 
     /** The tier spaces holding non-public details: the athlete's own, and others' Mutuals tiers. */
-    private val tiers = AthleteSpaces(clients.spaces, clients::managingApp)
+    private val tiers = clients.tiers
 
     /**
      * The signed-in athlete's last save, until the AppView shows it. [profile] lays it over the AppView's view of the athlete so an edit

@@ -14,5 +14,6 @@ object DatabaseBindings {
     /** Persisted to the browser's Origin Private File System by the SQLite WASM worker. */
     @Provides
     @SingleIn(AppScope::class)
-    fun database(): AppDatabase = Room.databaseBuilder<AppDatabase>(DATABASE_NAME).setDriver(createSqliteWorkerDriver()).build()
+    fun database(): AppDatabase =
+        Room.databaseBuilder<AppDatabase>(DATABASE_NAME).addAppMigrations().setDriver(createSqliteWorkerDriver()).build()
 }

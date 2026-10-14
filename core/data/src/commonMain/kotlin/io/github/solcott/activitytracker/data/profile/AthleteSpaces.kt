@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data.profile
 
+import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.space.CreateSpaceResult
 import io.github.solcott.activitytracker.atproto.space.SpaceClient
 import io.github.solcott.activitytracker.atproto.space.SpaceRead
@@ -22,9 +23,15 @@ import kotlinx.coroutines.sync.withLock
  * `app.activitytracker.space.athlete` tier spaces, the `actor.privateDetails` record each one holds, and the follow requests the athlete
  * declined (`graph.followDecline`, in their `self` space only). [ensure] creates one of the signed-in athlete's tier spaces the first time
  * a save needs it, with the AppView ([managingApp]) deciding who reads it and only the athlete writing, and points an existing one at the
- * current managing app (the local tunnel's DID changes between runs). Each tier is ensured once per session; reads never create spaces.
+ * current managing app (the local tunnel's DID changes between runs), then tells the AppView it exists ([announce], `notifySpace`) so it
+ * syncs the activities in it. Each tier is ensured once per session; reads never create spaces. A failed announcement doesn't fail the
+ * save: the next session announces again.
  */
-class AthleteSpaces(private val spaces: SpaceClient, private val managingApp: suspend () -> String) {
+class AthleteSpaces(
+    private val spaces: SpaceClient,
+    private val managingApp: suspend () -> String,
+    private val announce: suspend (SpaceUri) -> Unit = {},
+) {
     private val mutex = Mutex()
     private val ensured = mutableMapOf<String, CompletableDeferred<SpaceUri>>()
 
@@ -101,7 +108,9 @@ class AthleteSpaces(private val spaces: SpaceClient, private val managingApp: su
         // Every failure, cancellation included, must release the callers waiting on this attempt.
         @Suppress("TooGenericExceptionCaught")
         try {
-            return create(tier).also { pending.complete(it) }
+            val uri = create(tier)
+            runSuspendCatching { announce(uri) }
+            return uri.also { pending.complete(it) }
         } catch (e: Throwable) {
             mutex.withLock { ensured.remove(tier) }
             pending.completeExceptionally(e)

@@ -11,7 +11,10 @@ import io.github.solcott.activitytracker.atproto.space.SpaceClient
 import io.github.solcott.activitytracker.atproto.space.SpaceCredentials
 import io.github.solcott.activitytracker.atproto.xrpc.ServiceAuthAuthenticator
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcClient
+import io.github.solcott.activitytracker.data.profile.AthleteSpaces
 import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.NotifySpace
 import io.ktor.client.HttpClient
 import kotlin.time.Clock
 import kotlinx.coroutines.sync.Mutex
@@ -59,6 +62,16 @@ class SessionClients(
             credentials = SpaceCredentials(pds, http, identity, clock = clock),
             http = http,
         )
+
+    /** The athlete's tier spaces, shared so each is ensured, and announced to the AppView, once per session. */
+    val tiers: AthleteSpaces =
+        AthleteSpaces(spaces, ::managingApp) { space -> appView.procedure(NotifySpace.method, NotifySpace.Input(space)) }
+
+    /**
+     * Whether this session may use the athlete's tier spaces at all. One signed in before the `space:` scope existed can't, so it publishes
+     * public activities only until the athlete signs in again.
+     */
+    val canUseSpaces: Boolean = session.scope.split(' ').any { it.startsWith("space:${Nsid.SPACE_ATHLETE}") }
 
     private val managingAppLock = Mutex()
     private var resolvedManagingApp: String? = null

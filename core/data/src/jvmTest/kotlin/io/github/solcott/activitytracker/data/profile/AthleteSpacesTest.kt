@@ -104,7 +104,7 @@ class AthleteSpacesTest {
     private fun spaces(): AthleteSpaces {
         val pds = XrpcClient(http, "http://pds.test")
         val client = SpaceClient(alice, pds, SpaceCredentials(pds, http, IdentityResolver(http, "http://plc.test", null)), http)
-        return AthleteSpaces(client) { current }
+        return AthleteSpaces(client, managingApp = { current })
     }
 
     @Test

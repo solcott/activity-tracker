@@ -18,6 +18,7 @@ object DatabaseBindings {
     @SingleIn(AppScope::class)
     fun database(dirs: DesktopAppDirs, ioDispatcher: CoroutineDispatcher = Dispatchers.IO): AppDatabase =
         Room.databaseBuilder<AppDatabase>(dirs.data.resolve(DATABASE_NAME).toString())
+            .addAppMigrations()
             .setDriver(BundledSQLiteDriver())
             .setQueryCoroutineContext(ioDispatcher)
             .build()

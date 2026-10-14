@@ -30,6 +30,7 @@ object DatabaseBindings {
                 error = null,
             )
         return Room.databaseBuilder<AppDatabase>(name = requireNotNull(documents?.path) + "/$DATABASE_NAME")
+            .addAppMigrations()
             .setDriver(BundledSQLiteDriver())
             .setQueryCoroutineContext(Dispatchers.IO)
             .build()

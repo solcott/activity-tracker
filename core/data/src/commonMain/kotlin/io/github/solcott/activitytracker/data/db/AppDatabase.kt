@@ -11,9 +11,23 @@ import androidx.room3.RoomDatabase
 import androidx.room3.RoomDatabaseConstructor
 import androidx.room3.Transaction
 import androidx.room3.Upsert
+import androidx.room3.migration.Migration
+import androidx.sqlite.SQLiteConnection
 import kotlinx.coroutines.flow.Flow
 
 const val DATABASE_NAME = "activity-tracker.db"
+
+/**
+ * Adds every schema migration to a platform's builder. Hand-written rather than `@Database(autoMigrations = ...)`: Kotlin/Native's backend
+ * crashes lowering the `AutoMigration` annotation.
+ */
+fun <T : RoomDatabase> RoomDatabase.Builder<T>.addAppMigrations(): RoomDatabase.Builder<T> = addMigrations(MIGRATION_1_2)
+
+/** Runs one statement: `execSQL` blocks on most platforms and suspends on the web, so it has no common form. */
+internal expect suspend fun SQLiteConnection.runSql(sql: String)
+
+/** 1 → 2: an outbox write can target one of the athlete's tier spaces. */
+private val MIGRATION_1_2 = Migration(1, 2) { it.runSql("ALTER TABLE outbox ADD COLUMN space TEXT") }
 
 @Database(
     entities =
@@ -23,7 +37,7 @@ const val DATABASE_NAME = "activity-tracker.db"
             FeedItemEntity::class,
             OutboxEntity::class,
         ],
-    version = 1,
+    version = 2,
 )
 @ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -107,8 +121,8 @@ interface FeedDao {
 }
 
 /**
- * Pending repo writes for the signed-in account, applied in order by `OutboxProcessor`. Keys are client-generated TIDs so retries are
- * idempotent (`putRecord` overwrites).
+ * Pending writes for the signed-in account, applied in order by `OutboxProcessor`: to their repo, or to one of their tier spaces ([space]).
+ * Keys are client-generated TIDs so retries are idempotent (`putRecord` overwrites).
  */
 @Entity(tableName = "outbox")
 data class OutboxEntity(
@@ -126,6 +140,8 @@ data class OutboxEntity(
     val attempts: Int = 0,
     val lastError: String? = null,
     val createdAt: Long,
+    /** The athlete's tier space to write to (a space URI), or null for their repo. */
+    val space: String? = null,
 )
 
 @Dao

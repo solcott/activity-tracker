@@ -96,6 +96,9 @@ class ProfileRepositoryTest {
     /** The tier of each `createSpace` call, in order. */
     private val spacesEnsured = mutableListOf<String>()
 
+    /** The tier of each `notifySpace` the AppView got, in order. */
+    private val spacesAnnounced = mutableListOf<String>()
+
     private val http =
         HttpClient(
             MockEngine { request ->
@@ -173,6 +176,11 @@ class ProfileRepositoryTest {
                         respond("""{"uri":"at://$did/${Nsid.ACTOR_PRIVATE_DETAILS}/self","cid":"bafyrec"}""", headers = json)
                     }
 
+                    "appview.test/xrpc/${Nsid.SPACE_NOTIFY_SPACE}" -> {
+                        spacesAnnounced += tierOf(AtJson.parseToJsonElement(body()).jsonObject.getValue("space").jsonPrimitive.content)
+                        respond("{}", headers = json)
+                    }
+
                     "pds.test/xrpc/com.atproto.server.getServiceAuth" -> {
                         respond("""{"token":"service-jwt"}""", headers = json)
                     }
@@ -242,6 +250,25 @@ class ProfileRepositoryTest {
     }
 
     private val portland = Location(locality = "Portland", country = "US")
+
+    @Test
+    fun savingATierAnnouncesItsSpaceToTheAppView() = runTest {
+        record = ProfileRecord()
+        val repo = repository()
+        val edit =
+            ProfileEdit(
+                displayName = "Alice",
+                description = "",
+                details = ProfileDetails(weight = 61_500, birthDate = "1990-04-01"),
+                visibility = DetailsVisibility(Visibility.PUBLIC, Visibility.SELF, Visibility.SELF, Visibility.MUTUALS),
+            )
+        repo.save(edit)
+        assertEquals(spacesEnsured.sorted(), spacesAnnounced.sorted())
+        assertTrue(Visibility.SELF in spacesAnnounced && Visibility.MUTUALS in spacesAnnounced, "$spacesAnnounced")
+        // Once per session: a second save doesn't announce again.
+        repo.save(edit)
+        assertEquals(spacesEnsured.size, spacesAnnounced.size)
+    }
 
     @Test
     fun eachDetailGoesInTheRecordOrItsTierSpace() = runTest {

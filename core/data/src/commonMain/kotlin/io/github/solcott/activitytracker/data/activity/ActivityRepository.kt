@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.data.activity
 
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -18,7 +19,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.KudosRecord
-import io.github.solcott.activitytracker.lexicon.atproto.GetRecord
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.activitytracker.location.Gpx
 import kotlin.time.Clock
@@ -29,7 +30,8 @@ import kotlinx.serialization.KSerializer
 
 /**
  * Writes the signed-in athlete's records. Everything goes through the outbox so writes survive offline periods and app restarts; the
- * AppView picks them up from the firehose afterwards.
+ * AppView picks them up from the firehose, or for a non-public activity from the athlete's tier space, afterwards. An activity is queued to
+ * the place its visibility says ([placeOf]), its streams to theirs.
  */
 @SingleIn(SessionScope::class)
 @Inject
@@ -51,6 +53,7 @@ class ActivityRepository(
 
     /** Publishes [draft]. Its photos upload first, so one with photos needs a connection; one without waits in the outbox if offline. */
     suspend fun publish(draft: ActivityDraft): AtUri {
+        clients.requireSpacesFor(draft.visibility)
         val uri = queue(draft, draft.photos.map { clients.upload(it) })
         outbox.drain()
         recentTypes.remember(draft.type)
@@ -62,6 +65,7 @@ class ActivityRepository(
      * queued before any is sent, so a failed upload leaves them all in the outbox to retry.
      */
     suspend fun publishAll(drafts: List<ActivityDraft>): List<AtUri> {
+        drafts.forEach { clients.requireSpacesFor(it.visibility) }
         val uris = drafts.map { queue(it, photos = emptyList()) }
         outbox.drain()
         drafts.map { it.type }.distinct().forEach { recentTypes.remember(it) }
@@ -78,7 +82,8 @@ class ActivityRepository(
     suspend fun mergeInto(existing: OwnActivity, draft: ActivityDraft) {
         val rkey = requireNotNull(existing.uri.rkey)
         val indexed = existing.cid != null
-        val current = if (indexed) currentRecord(rkey) else existing.record
+        val place = clients.placeOf(existing.visibility)
+        val current = if (indexed) clients.ownActivityRecord(rkey, existing.visibility) else existing.record
         val photos = draft.photos.take((ActivityMedia.MAX - current.media.orEmpty().size).coerceAtLeast(0)).map { clients.upload(it) }
         // The athlete's own words on the import screen fill an empty description; a file's never do.
         val merged =
@@ -86,18 +91,17 @@ class ActivityRepository(
                 if (it.description == null) it.copy(description = draft.description?.takeIf(String::isNotBlank)) else it
             }
         val track = draft.gpx?.takeIf { current.track == null }?.let { PendingBlob(it, Gpx.MIME_TYPE, field = "track") }
-        writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), merged, track)
+        writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), merged, track, space = place)
         val imported = draft.streams
         // The draft's stream times count from its own start.
         val offsetSeconds = (draft.startedAt - current.startedAt).inWholeSeconds.toInt()
-        if (indexed && imported != null) mergeStreams(existing.uri, draft, imported, offsetSeconds)
+        if (indexed && imported != null) mergeStreams(existing, draft, imported, offsetSeconds)
         feed.rewrites.set(existing.uri, merged)
         feed.updateCached(existing.uri) { feed.rewrites.rewritten(it, merged) }
     }
 
-    private suspend fun currentRecord(rkey: String): ActivityRecord = clients.ownActivityRecord(rkey)
-
-    private suspend fun mergeStreams(activity: AtUri, draft: ActivityDraft, imported: ActivityStreamData, offsetSeconds: Int) {
+    private suspend fun mergeStreams(existing: OwnActivity, draft: ActivityDraft, imported: ActivityStreamData, offsetSeconds: Int) {
+        val activity = existing.uri
         val have = feed.streams(activity)
         val data =
             have?.data?.let { ActivityMerge.fillMissing(it, imported, offsetSeconds) } ?: ActivityMerge.shifted(imported, offsetSeconds)
@@ -106,7 +110,7 @@ class ActivityRepository(
             activity,
             ActivityStreams(
                 data,
-                have?.visibility ?: draft.streamsVisibility,
+                have?.visibility ?: Visibility.capped(draft.streamsVisibility, existing.visibility),
                 have?.heartRateZones ?: draft.heartRateZones,
                 have?.powerZones ?: draft.powerZones,
             ),
@@ -123,23 +127,32 @@ class ActivityRepository(
             serializer = ActivityRecord.serializer(),
             record = draft.toRecord(clock.now(), photos),
             blob = draft.gpx?.let { PendingBlob(it, Gpx.MIME_TYPE, field = "track") },
+            space = clients.placeOf(draft.visibility),
         )
-        draft.streams?.let { streams.put(uri, ActivityStreams(it, draft.streamsVisibility, draft.heartRateZones, draft.powerZones)) }
+        draft.streams?.let {
+            streams.put(uri, ActivityStreams(it, draft.publishedStreamsVisibility, draft.heartRateZones, draft.powerZones))
+        }
         return uri
     }
 
-    /** Changes who may see the signed-in athlete's [activity]'s streams. */
-    suspend fun setStreamsVisibility(activity: AtUri, visibility: String) {
-        streams.setVisibility(activity, visibility)
-        outbox.drain()
+    /**
+     * Changes who may see the signed-in athlete's [activity]'s streams, never wider than the activity: moves the streams record to the
+     * place for the new visibility, now, rather than through the outbox.
+     */
+    suspend fun setStreamsVisibility(activity: ActivityView, visibility: String) {
+        val to = Visibility.capped(visibility, activity.visibilityOrPublic)
+        clients.requireSpacesFor(to)
+        val from = feed.streams(activity.uri)?.visibility ?: return
+        streams.move(activity.uri, from, to)
     }
 
     /**
      * Gives or removes the viewer's kudos. The decision is made against what this repository last wrote rather than [activity], which may
-     * be a stale UI snapshot, so rapid taps alternate instead of stacking kudos. Athletes can't kudos their own activities.
+     * be a stale UI snapshot, so rapid taps alternate instead of stacking kudos. Athletes can't kudos their own activities, and nobody can
+     * kudos a non-public one.
      */
     suspend fun toggleKudos(activity: ActivityView) {
-        if (activity.author.did == clients.did) return
+        if (activity.author.did == clients.did || !activity.acceptsInteractions) return
         kudosMutex.withLock {
             val current = localKudos.current(activity)
             if (current == null) {
@@ -164,7 +177,9 @@ class ActivityRepository(
         outbox.drain()
     }
 
+    /** Comments on [activity]; nothing for a non-public one, which takes no comments. */
     suspend fun comment(activity: ActivityView, text: String) {
+        if (!activity.acceptsInteractions) return
         feed.updateCached(activity.uri) { it.copy(commentCount = it.commentCount + 1) }
         enqueue(
             Nsid.FEED_COMMENT,
@@ -189,8 +204,15 @@ class ActivityRepository(
     }
 }
 
-/** The signed-in athlete's activity [rkey] as their PDS has it now, rather than the AppView's copy, which may lag a write. */
-internal suspend fun SessionClients.ownActivityRecord(rkey: String): ActivityRecord {
-    val output = pds.query(GetRecord.method, GetRecord.Params(did.value, Nsid.FEED_ACTIVITY, rkey))
-    return AtJson.decodeFromJsonElement(ActivityRecord.serializer(), output.value)
+/**
+ * The signed-in athlete's activity [rkey], stored at [visibility]'s place, as their PDS has it now rather than the AppView's copy, which
+ * may lag a write.
+ */
+internal suspend fun SessionClients.ownActivityRecord(rkey: String, visibility: String = Visibility.PUBLIC): ActivityRecord {
+    val value =
+        readOwn(Nsid.FEED_ACTIVITY, rkey, placeOf(visibility))
+            ?: throw XrpcException(NOT_FOUND_STATUS, "RecordNotFound", "No activity $rkey at $visibility")
+    return AtJson.decodeFromJsonElement(ActivityRecord.serializer(), value)
 }
+
+private const val NOT_FOUND_STATUS = 400
