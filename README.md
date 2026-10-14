@@ -1,7 +1,7 @@
 # Activity Tracker
 
 A Strava-style athlete activity tracker built on the [AT Protocol](https://atproto.com). Activities,
-kudos, comments, follows and profiles are records in each athlete's own repository (their PDS); an
+likes, comments, follows and profiles are records in each athlete's own repository (their PDS); an
 AppView indexes them from the firehose and serves feeds.
 
 - **Clients:** Android, iOS, Web (Kotlin/Wasm), Desktop (JVM, mainly a hot-reload dev target). GPS recording is phone-only. Compose Multiplatform + Circuit + Metro + Ktor + Room 3.

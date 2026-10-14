@@ -20,7 +20,7 @@ Lexicon JSON is the source of truth, and everything else is hand-mirrored. Work 
 
 ## 1. Schema: `lexicons/app/activitytracker/<group>/<name>.json`
 
-Copy a sibling: `feed/kudos.json` (a small record), `feed/activity.json` (a rich record), `feed/getActivity.json` (a query), `feed/defs.json` (views). Records use `"key": "tid"`, or `"literal:self"` for singletons like the profile. `id` must match the path.
+Copy a sibling: `feed/like.json` (a small record), `feed/activity.json` (a rich record), `feed/getActivity.json` (a query), `feed/defs.json` (views). Records use `"key": "tid"`, or `"literal:self"` for singletons like the profile. `id` must match the path.
 
 ## 2. Kotlin mirror: `core/lexicon/src/commonMain/kotlin/io/github/solcott/activitytracker/lexicon/`
 

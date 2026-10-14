@@ -16,20 +16,20 @@ Follows in this app (`app.activitytracker.graph.follow`) are separate from Blues
 
 Each activity is Public, Followers, Mutuals or Only me (`add-activity-visibility`): a non-public one is a `feed.activity` in the athlete's tier space for it, the AppView syncs those spaces as a member and serves each activity only to the viewers its tier admits, and new activities start at the athlete's defaults (`actor.activityDefaults`, in their `self` space). What's left:
 
-- **Kudos and comments.** None on non-public activities yet; see the next entry.
+- **Likes and comments.** None on non-public activities yet; see the next entry.
 - **Own photos before indexing.** Until the AppView indexes a new non-public activity, its photos don't preview on the athlete's own devices: `ownBlobUrl` points at public `sync.getBlob`, which refuses a blob only a space record holds. Load them through the AppView's signed URLs once indexed (as now), or read them with the owner's session.
 - **Narrowing can't recall copies.** A Public activity made non-public stays in whatever copied it from the firehose meanwhile. The edit screen warns; there's nothing more to do on our side.
 - **Signed photo URLs are bearer links until they expire.** A non-public activity's photo URL is signed for one viewer and checked against their access on every request, so unfollowing ends it, but a URL the viewer passes on works for others until its hour is up. Shorten the lifetime if that matters.
 - **Delete-then-write races.** A visibility change writes the new place before deleting the old, and the AppView shows the narrower copy while both exist. A notification lost on both sides is covered by the 15-minute reconcile; tune that (`SpaceSyncer`) once there's real traffic.
 
-## Kudos and comments on non-public activities
+## Likes and comments on non-public activities
 
-Non-public activities take no kudos or comments for now: clients hide the actions, the repository refuses them, and the AppView serves no counts, `viewer.kudos`, comments or `getKudos` for them. Kudos and comments given while an activity was Public stay indexed, unshown, and come back if it's made Public again. To allow them:
+Non-public activities take no likes or comments for now: clients hide the actions, the repository refuses them, and the AppView serves no counts, `viewer.like`, comments or `getLikes` for them. Likes and comments given while an activity was Public stay indexed, unshown, and come back if it's made Public again. To allow them:
 
-- **Interaction records in the space.** A kudos or comment on a non-public activity can't be a public record (it would reveal the activity exists, and its subject), so it goes in the activity's tier space, as a record in the *giver's* own repo there: Spaces gives every member their own repo in a space, and the AppView already syncs those spaces.
+- **Interaction records in the space.** A like or comment on a non-public activity can't be a public record (it would reveal the activity exists, and its subject), so it goes in the activity's tier space, as a record in the *giver's* own repo there: Spaces gives every member their own repo in a space, and the AppView already syncs those spaces.
 - **Members need write access.** `checkUserAccess` (`api/SpaceAccess.kt`) denies every `write` today, which also keeps the AppView out. Admitting a tier's readers for `write` (followers of a Followers space, mutuals of a Mutuals space) lets them hold those repos. The syncer then has to follow more than the authority's repo per space (`listRepos`, a revision per repo in `space_sync`).
-- **Records stranded on a move.** Moving an activity to another tier moves the athlete's own record, but other members' kudos and comments stay in their repos in the old space, which the old tier's readers can still read. Find out whether a space's authority can remove members' records (or a member's repo) in the Spaces API, or whether the clients must delete their own on a move notification. Until then the AppView should serve only interactions from the activity's current space.
-- **No AppView migration.** `kudos.subject_uri` and `comments.subject_uri` hold the activity's repo-style URI, which an activity keeps in every tier, so in-space interactions index into the same tables.
+- **Records stranded on a move.** Moving an activity to another tier moves the athlete's own record, but other members' likes and comments stay in their repos in the old space, which the old tier's readers can still read. Find out whether a space's authority can remove members' records (or a member's repo) in the Spaces API, or whether the clients must delete their own on a move notification. Until then the AppView should serve only interactions from the activity's current space.
+- **No AppView migration.** `likes.subject_uri` and `comments.subject_uri` hold the activity's repo-style URI, which an activity keeps in every tier, so in-space interactions index into the same tables.
 
 ## Private profile details in Spaces: what's left
 
