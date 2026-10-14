@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.data
 
 import co.touchlab.kermit.Logger
+import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
@@ -514,6 +515,35 @@ class ActivityVisibilityTest {
         s.activities.toggleLike(public)
         assertEquals(listOf("put repo ${Nsid.FEED_LIKE}", "delete repo ${Nsid.FEED_LIKE}"), writes.map { it.substringBeforeLast('/') })
         assertEquals(0, s.db.outbox().pending(did.value).size)
+    }
+
+    @Test
+    fun aSessionWhoseSpaceScopeLacksLikesLikesPublicActivitiesOnly() = runTest {
+        // Signed in before the declaration listed feed.like: the PDS filled in only the collections declared then, and would refuse it.
+        val s =
+            session(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}&collection=${Nsid.ACTOR_PRIVATE_DETAILS}")
+        assertEquals(true, s.clients.canUseSpaces)
+        val followers = s.bobs(Visibility.FOLLOWERS)
+        val e = assertFailsWith<XrpcException> { s.activities.toggleLike(followers) }
+        assertEquals(SpaceErrors.SCOPE_MISSING, e.error)
+        assertEquals(emptyList(), writes, "nothing written")
+        assertEquals(emptyList(), created, "nor a space created")
+        assertEquals(0, s.cached(followers).likeCount, "nor shown")
+        assertEquals(0, s.db.outbox().pending(did.value).size, "nor left in the outbox to hold up later writes")
+
+        val public = s.bobs(Visibility.PUBLIC, rkey = "3kpub")
+        s.activities.toggleLike(public)
+        s.activities.toggleLike(public)
+        assertEquals(listOf("put repo ${Nsid.FEED_LIKE}", "delete repo ${Nsid.FEED_LIKE}"), writes.map { it.substringBeforeLast('/') })
+        assertEquals(0, s.db.outbox().pending(did.value).size)
+    }
+
+    @Test
+    fun aSpaceScopeListingLikesOrAnyCollectionCoversLikes() = runTest {
+        for (collections in listOf("&collection=${Nsid.FEED_LIKE}&collection=${Nsid.FEED_ACTIVITY}", "&collection=*", "")) {
+            assertTrue(session(scope = OAuthClientConfig.DEFAULT_SCOPE + collections).clients.canWriteToSpaces(Nsid.FEED_LIKE), collections)
+        }
+        assertEquals(false, session(scope = "atproto").clients.canWriteToSpaces(Nsid.FEED_LIKE))
     }
 
     @Test

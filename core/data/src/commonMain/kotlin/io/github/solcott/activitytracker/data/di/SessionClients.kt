@@ -71,7 +71,21 @@ class SessionClients(
      * Whether this session may use the athlete's tier spaces at all. One signed in before the `space:` scope existed can't, so it publishes
      * public activities only until the athlete signs in again.
      */
-    val canUseSpaces: Boolean = session.scope.split(' ').any { it.startsWith("space:${Nsid.SPACE_ATHLETE}") }
+    val canUseSpaces: Boolean
+        get() = athleteSpaceScopes.isNotEmpty()
+
+    /**
+     * Whether this session may write [collection] to the athlete's tier spaces. The PDS fills each `space:` grant with the collections the
+     * space type declares when it issues the token, and refuses a write to any other with `ScopeMissingError`, so a session signed in
+     * before the declaration listed [collection] can't write it. A grant that lists no collections is the scope as requested (no
+     * declaration was filled in), and is taken to cover them all, as [canUseSpaces] does.
+     */
+    fun canWriteToSpaces(collection: String): Boolean = athleteSpaceScopes.any { scope ->
+        val collections = scopeParams(scope, "collection")
+        collections.isEmpty() || "*" in collections || collection in collections
+    }
+
+    private val athleteSpaceScopes: List<String> = session.scope.split(' ').filter { it.startsWith("space:${Nsid.SPACE_ATHLETE}") }
 
     private val managingAppLock = Mutex()
     private var resolvedManagingApp: String? = null
@@ -81,3 +95,7 @@ class SessionClients(
         resolvedManagingApp ?: ManagingApp.resolve(http, config.appViewUrl).also { resolvedManagingApp = it }
     }
 }
+
+/** The values of [name] in [scope]'s query (`space:<type>?collection=a&collection=b`). */
+private fun scopeParams(scope: String, name: String): List<String> =
+    scope.substringAfter('?', "").split('&').mapNotNull { param -> param.split('=', limit = 2).takeIf { it[0] == name }?.getOrNull(1) }

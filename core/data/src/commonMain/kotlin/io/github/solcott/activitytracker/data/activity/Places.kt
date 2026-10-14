@@ -25,9 +25,14 @@ internal fun SessionClients.placeOf(visibility: String): SpaceUri? =
  */
 internal fun SessionClients.likePlaceOf(visibility: String): SpaceUri? = placeOf(visibility)?.let { tiers.uri(AthleteSpace.INTERACTIONS) }
 
-/** Refuses a non-public [visibility] for a session that can't write to spaces, as the PDS would, so nothing is published wider. */
-internal fun SessionClients.requireSpacesFor(visibility: String) {
-    if (placeOf(visibility) != null && !canUseSpaces) {
+/**
+ * Refuses a non-public [visibility] for a session that can't write to spaces, as the PDS would, so nothing is published wider. With a
+ * [collection], also one whose grant doesn't cover that collection ([SessionClients.canWriteToSpaces]), so nothing is queued that the PDS
+ * would refuse and leave at the head of the outbox.
+ */
+internal fun SessionClients.requireSpacesFor(visibility: String, collection: String? = null) {
+    val allowed = if (collection == null) canUseSpaces else canWriteToSpaces(collection)
+    if (placeOf(visibility) != null && !allowed) {
         throw XrpcException(SCOPE_MISSING_STATUS, SpaceErrors.SCOPE_MISSING, "Sign in again to choose who sees your activities")
     }
 }

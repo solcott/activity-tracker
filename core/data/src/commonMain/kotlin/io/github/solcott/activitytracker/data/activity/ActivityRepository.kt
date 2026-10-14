@@ -152,8 +152,9 @@ class ActivityRepository(
      * a stale UI snapshot, so rapid taps alternate instead of stacking likes. Athletes can't like their own activities.
      *
      * A like on a public activity goes in the repo, and one on a non-public activity in the athlete's interactions space ([likePlaceOf]),
-     * which needs the `space:` scope. Unliking can't tell where the like went (its URI is the same either way, and the activity may have
-     * changed visibility since), so it deletes the rkey from both; a delete of what isn't there counts as done.
+     * which needs the `space:` scope to cover `feed.like` (a session from before the declaration listed it is refused up front). Unliking
+     * can't tell where the like went (its URI is the same either way, and the activity may have changed visibility since), so it deletes
+     * the rkey from both; a delete of what isn't there counts as done.
      */
     suspend fun toggleLike(activity: ActivityView) {
         if (activity.author.did == clients.did) return
@@ -164,7 +165,7 @@ class ActivityRepository(
                 val rkey = Tid.next(clock)
                 val like = AtUri.of(clients.did, Nsid.FEED_LIKE, rkey)
                 // Refused before anything changes, so a like is never shown that can't be written.
-                clients.requireSpacesFor(activity.visibilityOrPublic)
+                clients.requireSpacesFor(activity.visibilityOrPublic, Nsid.FEED_LIKE)
                 feed.updateCached(activity.uri) { it.copy(likeCount = it.likeCount + 1, viewer = it.viewer?.copy(like = like)) }
                 writer.put(
                     Nsid.FEED_LIKE,
@@ -180,8 +181,10 @@ class ActivityRepository(
                 }
                 val rkey = requireNotNull(current.rkey)
                 writer.delete(Nsid.FEED_LIKE, rkey)
-                // Without the scope this session can't reach the space; another session's like there stays until one with it unlikes.
-                if (clients.canUseSpaces) writer.delete(Nsid.FEED_LIKE, rkey, clients.tiers.uri(AthleteSpace.INTERACTIONS))
+                // Without the scope this session can't reach the space, and the PDS would refuse the delete and hold up the outbox; another
+                // session's like there stays until one with it unlikes.
+                if (clients.canWriteToSpaces(Nsid.FEED_LIKE))
+                    writer.delete(Nsid.FEED_LIKE, rkey, clients.tiers.uri(AthleteSpace.INTERACTIONS))
                 localLikes.set(activity.uri, null)
             }
         }
