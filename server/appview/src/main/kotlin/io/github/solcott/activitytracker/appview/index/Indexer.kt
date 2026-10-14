@@ -9,39 +9,43 @@ import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.FollowApprovals
 import io.github.solcott.activitytracker.appview.db.Follows
 import io.github.solcott.activitytracker.appview.db.Kudos
+import io.github.solcott.activitytracker.appview.db.RecordShadows
+import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
-import io.github.solcott.activitytracker.lexicon.app.ActivityDive
-import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
-import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
-import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
-import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
-import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowApprovalRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.FollowRecord
 import io.github.solcott.activitytracker.lexicon.app.KudosRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import kotlin.time.Clock
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
-import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.update
 import org.jetbrains.exposed.v1.jdbc.upsert
 import org.slf4j.LoggerFactory
 
 /**
- * Applies repo commits to the index. Every write is an upsert/delete keyed by AT-URI, so replaying events (e.g. after rewinding the
- * Jetstream cursor) is safe. Records that fail to decode are dropped: repos are untrusted input.
+ * Applies repo commits, and writes synced from athletes' tier spaces, to the index. Every write is an upsert/delete keyed by AT-URI, so
+ * replaying events (e.g. after rewinding the Jetstream cursor) is safe. Records that fail to decode are dropped: repos are untrusted input.
+ *
+ * Activities and their streams come from the repo (public) or a tier space, each an origin ([Placement]). Mid-move one URI can be held by
+ * two origins: the narrower tier's copy is the indexed row, the other waits in [RecordShadows], and a delete removes only its own origin's
+ * copy, promoting a shadow left behind.
  */
 class Indexer(
     private val db: Database,
@@ -74,17 +78,48 @@ class Indexer(
         val record = commit.record
         val cid = commit.cid
         when {
-            commit.operation == "delete" -> db.tx { delete(commit.collection, uri) }
-            record != null && cid != null -> index(author, commit.collection, uri, cid, record)
+            commit.operation == "delete" -> db.tx { delete(commit.collection, uri, Placement.REPO) }
+            record != null && cid != null -> index(author, commit.collection, uri, cid, record, Placement.REPO)
         }
     }
 
-    private suspend fun index(author: Did, collection: String, uri: AtUri, cid: String, record: JsonObject) {
+    /**
+     * A put of [collection]/[rkey] in [space]'s authority repo. Only activities and their streams are indexed; anything else is dropped.
+     */
+    suspend fun spaceWrite(space: SpaceUri, collection: String, rkey: String, cid: String, record: JsonObject) {
+        if (collection !in SPACE_COLLECTIONS) return
+        index(space.authority, collection, AtUri.of(space.authority, collection, rkey), cid, record, Placement.of(space))
+    }
+
+    /** A delete of [collection]/[rkey] in [space]'s authority repo. */
+    suspend fun spaceDelete(space: SpaceUri, collection: String, rkey: String) {
+        if (collection !in SPACE_COLLECTIONS) return
+        db.tx { delete(collection, AtUri.of(space.authority, collection, rkey), Placement.of(space)) }
+    }
+
+    /** Everything indexed from [space], after it was deleted: as if each record in it were deleted. */
+    suspend fun dropSpace(space: SpaceUri) = db.tx {
+        val placement = Placement.of(space)
+        for (table in listOf(Activities, ActivityStreams)) {
+            val (uriColumn, originColumn, collection) =
+                if (table == Activities) Triple(Activities.uri, Activities.origin, Nsid.FEED_ACTIVITY)
+                else Triple(ActivityStreams.uri, ActivityStreams.origin, Nsid.FEED_ACTIVITY_STREAMS)
+            table
+                .select(uriColumn)
+                .where { originColumn eq placement.origin }
+                .map { it[uriColumn] }
+                .forEach { delete(collection, AtUri(it), placement) }
+        }
+        RecordShadows.deleteWhere { origin eq placement.origin }
+    }
+
+    @Suppress("LongParameterList") // The record, and where it's from.
+    private suspend fun index(author: Did, collection: String, uri: AtUri, cid: String, record: JsonObject, placement: Placement) {
         val handle = handles.handleFor(author)
         try {
             db.tx {
-                ensureActor(author, handle)
-                upsert(collection, author, uri, cid, record)
+                ensureActor(author, handle, clock.now().toEpochMilliseconds())
+                upsert(collection, author, uri, cid, record, placement)
             }
         } catch (e: SerializationException) {
             // Before IllegalArgumentException, which SerializationException extends.
@@ -94,17 +129,20 @@ class Indexer(
         }
     }
 
+    @Suppress("LongParameterList") // The record, and where it's from.
     private fun JdbcTransaction.upsert(
         collection: String,
         author: Did,
         uri: AtUri,
         cid: String,
         json: JsonObject,
+        placement: Placement,
     ) {
         val now = clock.now().toEpochMilliseconds()
         when (collection) {
-            Nsid.FEED_ACTIVITY -> {
-                upsertActivity(AtJson.decodeFromJsonElement(ActivityRecord.serializer(), json), author, uri, cid, now)
+            Nsid.FEED_ACTIVITY,
+            Nsid.FEED_ACTIVITY_STREAMS -> {
+                upsertPlaced(collection, author, uri, cid, json, placement, now)
             }
 
             Nsid.FEED_KUDOS -> {
@@ -148,10 +186,6 @@ class Indexer(
                 upsertApproval(AtJson.decodeFromJsonElement(FollowApprovalRecord.serializer(), json), author, uri, now)
             }
 
-            Nsid.FEED_ACTIVITY_STREAMS -> {
-                upsertStreams(AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), json), author, uri, cid, now)
-            }
-
             Nsid.ACTOR_PROFILE -> {
                 if (uri.rkey == ProfileRecord.RKEY)
                     updateProfile(AtJson.decodeFromJsonElement(ProfileRecord.serializer(), json), author, now)
@@ -159,83 +193,32 @@ class Indexer(
         }
     }
 
-    private fun JdbcTransaction.upsertActivity(record: ActivityRecord, author: Did, uri: AtUri, cid: String, now: Long) {
-        val photos = boundedPhotos(record.media)
-        Activities.upsert {
-            it[Activities.uri] = uri.value
-            it[Activities.cid] = cid
-            it[authorDid] = author.value
-            it[Activities.record] =
-                AtJson.encodeToString(
-                    ActivityRecord.serializer(),
-                    record.copy(sensors = boundedSensors(record.sensors), dive = boundedDive(record.dive), media = photos),
-                )
-            it[sport] = record.sport.take(MAX_SPORT_LENGTH)
-            it[subSport] = record.subSport?.take(MAX_SPORT_LENGTH)
-            it[startedAt] = record.startedAt.toEpochMilliseconds()
-            it[sortAt] = minOf(record.createdAt.toEpochMilliseconds(), now)
-            it[indexedAt] = now
-            // Untrusted: a recording links only to another of its author's activities, and must fit the column.
-            it[recordingOf] =
-                record.recordingOf
-                    ?.takeIf { of -> of.authority == author.value && of.collection == Nsid.FEED_ACTIVITY && of.rkey != null && of != uri }
-                    ?.value
-                    ?.takeIf { of -> of.length <= MAX_URI_LENGTH }
-        }
-        ActivityMediaBlobs.deleteWhere { activityUri eq uri.value }
-        ActivityMediaBlobs.batchInsert(photos.orEmpty().withIndex()) { (position, photo) ->
-            this[ActivityMediaBlobs.activityUri] = uri.value
-            this[ActivityMediaBlobs.sortIndex] = position
-            this[ActivityMediaBlobs.authorDid] = author.value
-            this[ActivityMediaBlobs.cid] = photo.image.ref.link
-            this[ActivityMediaBlobs.mimeType] = photo.image.mimeType
+    /** After the row for [uri] was deleted: the narrowest copy another origin still holds becomes the row. */
+    private fun JdbcTransaction.promoteShadow(collection: String, uri: AtUri) {
+        val next = takeShadow(uri) ?: return
+        val origin = next[RecordShadows.origin]
+        try {
+            val record = AtJson.parseToJsonElement(next[RecordShadows.record]).jsonObject
+            upsert(collection, Did(uri.authority), uri, next[RecordShadows.cid], record, Placement.of(origin))
+        } catch (e: IllegalArgumentException) {
+            log.debug("Dropping unpromotable {} copy of {}: {}", origin, uri, e.message)
         }
     }
 
-    /** Records are untrusted: hold the sensors to the lexicon's limits before serving them. */
-    private fun boundedSensors(sensors: List<ActivitySensor>?): List<ActivitySensor>? =
-        sensors
-            ?.take(ActivitySensor.MAX)
-            ?.map {
-                ActivitySensor(
-                    kind = it.kind.take(MAX_SENSOR_KIND_LENGTH),
-                    manufacturer = it.manufacturer?.take(MAX_SENSOR_NAME_LENGTH),
-                    model = it.model?.take(MAX_SENSOR_NAME_LENGTH),
-                )
-            }
-            ?.ifEmpty { null }
-
-    private fun JdbcTransaction.updateProfile(record: ProfileRecord, author: Did, now: Long) {
-        val avatar = ProfileDetailRules.avatarCid(record.avatar)
-        val details = ProfileDetailRules.sanitize(record.details)
-        Actors.update({ Actors.did eq author.value }) {
-            it[displayName] = record.displayName?.take(MAX_DISPLAY_NAME_LENGTH)
-            it[description] = record.description?.take(MAX_DESCRIPTION_LENGTH)
-            it[units] = record.units?.take(MAX_UNITS_LENGTH)
-            it[avatarCid] = avatar
-            it[avatarMime] = record.avatar?.mimeType?.takeIf { avatar != null }
-            it[locality] = details?.location?.locality
-            it[region] = details?.location?.region
-            it[country] = details?.location?.country
-            it[birthDate] = details?.birthDate
-            it[gender] = details?.gender
-            it[weightGrams] = details?.weight
-            it[heightMm] = details?.height
-            it[training] = ProfileDetailRules.encodeTraining(details?.training)
-            it[followPolicy] = record.followPolicy?.takeIf { policy -> policy == FollowPolicy.APPROVE }
-            it[indexedAt] = now
-        }
-    }
-
-    private fun JdbcTransaction.delete(collection: String, uri: AtUri) {
+    /** A delete from [placement]'s origin: only its own copy goes, and a copy another origin still holds takes over the row. */
+    private fun JdbcTransaction.delete(collection: String, uri: AtUri, placement: Placement) {
         when (collection) {
-            Nsid.FEED_ACTIVITY -> {
-                Activities.deleteWhere { Activities.uri eq uri.value }
-                ActivityMediaBlobs.deleteWhere { activityUri eq uri.value }
-            }
-
+            Nsid.FEED_ACTIVITY,
             Nsid.FEED_ACTIVITY_STREAMS -> {
-                ActivityStreams.deleteWhere { ActivityStreams.uri eq uri.value }
+                RecordShadows.deleteWhere { (RecordShadows.uri eq uri.value) and (origin eq placement.origin) }
+                if (heldCopy(collection, uri)?.origin != placement.origin) return
+                if (collection == Nsid.FEED_ACTIVITY) {
+                    Activities.deleteWhere { Activities.uri eq uri.value }
+                    ActivityMediaBlobs.deleteWhere { activityUri eq uri.value }
+                } else {
+                    ActivityStreams.deleteWhere { ActivityStreams.uri eq uri.value }
+                }
+                promoteShadow(collection, uri)
                 dropOrphanedStreamData()
             }
 
@@ -276,14 +259,6 @@ class Indexer(
         }
     }
 
-    private fun JdbcTransaction.ensureActor(did: Did, handle: String) {
-        Actors.insertIgnore {
-            it[Actors.did] = did.value
-            it[Actors.handle] = handle
-            it[indexedAt] = clock.now().toEpochMilliseconds()
-        }
-    }
-
     private suspend fun updateHandle(did: Did, handle: String) {
         handles.invalidate(did)
         db.tx { Actors.update({ Actors.did eq did.value }) { it[Actors.handle] = handle } }
@@ -298,55 +273,16 @@ class Indexer(
         Comments.deleteWhere { authorDid eq did.value }
         Follows.deleteWhere { authorDid eq did.value }
         FollowApprovals.deleteWhere { authorDid eq did.value }
+        RecordShadows.deleteWhere { uri like "at://${did.value}/%" }
+        SpaceSync.deleteWhere { authorityDid eq did.value }
         Actors.deleteWhere { Actors.did eq did.value }
     }
 
-    // Records are untrusted, so free text is clamped to the lexicon maxLength (or the column size) before it's stored.
-    private companion object {
-        const val MAX_SPORT_LENGTH = 64
-        private const val MAX_URI_LENGTH = 512
-        const val MAX_COMMENT_LENGTH = 10_000
-        const val MAX_DISPLAY_NAME_LENGTH = 640
-        const val MAX_DESCRIPTION_LENGTH = 2560
-        const val MAX_UNITS_LENGTH = 16
-        const val MAX_SENSOR_KIND_LENGTH = 64
-        const val MAX_SENSOR_NAME_LENGTH = 128
+    companion object {
+        /** What the AppView indexes from tier spaces. Private details, follow declines and defaults are never stored. */
+        val SPACE_COLLECTIONS = setOf(Nsid.FEED_ACTIVITY, Nsid.FEED_ACTIVITY_STREAMS)
     }
 }
-
-/** Records are untrusted: hold a dive's lists and gas percents to the lexicon's limits before serving them. */
-private fun boundedDive(dive: ActivityDive?): ActivityDive? =
-    dive?.copy(
-        gases =
-            dive.gases?.take(ActivityDive.MAX_GASES)?.map {
-                ActivityDiveGas(it.oxygen.coerceIn(0, ActivityDiveGas.MAX_PERCENT), it.helium.coerceIn(0, ActivityDiveGas.MAX_PERCENT))
-            },
-        tanks = dive.tanks?.take(ActivityDive.MAX_TANKS),
-        site = dive.site?.take(ActivityDive.MAX_SITE_LENGTH),
-    )
-
-/**
- * Records are untrusted: keep only photos the lexicon allows, with a real CID, and drop media kinds this AppView can't serve (they stay in
- * the athlete's repo).
- */
-private fun boundedPhotos(media: List<ActivityMedia>?): List<ActivityMedia.Image>? =
-    media
-        ?.take(ActivityMedia.MAX)
-        ?.filterIsInstance<ActivityMedia.Image>()
-        ?.filter {
-            it.image.mimeType in PHOTO_TYPES &&
-                it.image.size in 1..ActivityMedia.Image.MAX_BYTES &&
-                ProfileDetailRules.isCid(it.image.ref.link)
-        }
-        ?.map { photo ->
-            photo.copy(
-                alt = photo.alt?.take(ActivityMedia.Image.MAX_ALT_LENGTH),
-                aspectRatio = photo.aspectRatio?.takeIf { it.width > 0 && it.height > 0 },
-            )
-        }
-        ?.ifEmpty { null }
-
-private val PHOTO_TYPES = setOf("image/webp", "image/jpeg")
 
 /** One approval per pair: only the one at rkey = its subject counts, so deleting that record really removes the follower. */
 private fun JdbcTransaction.upsertApproval(record: FollowApprovalRecord, author: Did, uri: AtUri, now: Long) {
@@ -362,3 +298,39 @@ private fun JdbcTransaction.upsertApproval(record: FollowApprovalRecord, author:
         it[indexedAt] = now
     }
 }
+
+private fun JdbcTransaction.updateProfile(record: ProfileRecord, author: Did, now: Long) {
+    val avatar = ProfileDetailRules.avatarCid(record.avatar)
+    val details = ProfileDetailRules.sanitize(record.details)
+    Actors.update({ Actors.did eq author.value }) {
+        it[displayName] = record.displayName?.take(MAX_DISPLAY_NAME_LENGTH)
+        it[description] = record.description?.take(MAX_DESCRIPTION_LENGTH)
+        it[units] = record.units?.take(MAX_UNITS_LENGTH)
+        it[avatarCid] = avatar
+        it[avatarMime] = record.avatar?.mimeType?.takeIf { avatar != null }
+        it[locality] = details?.location?.locality
+        it[region] = details?.location?.region
+        it[country] = details?.location?.country
+        it[birthDate] = details?.birthDate
+        it[gender] = details?.gender
+        it[weightGrams] = details?.weight
+        it[heightMm] = details?.height
+        it[training] = ProfileDetailRules.encodeTraining(details?.training)
+        it[followPolicy] = record.followPolicy?.takeIf { policy -> policy == FollowPolicy.APPROVE }
+        it[indexedAt] = now
+    }
+}
+
+private fun JdbcTransaction.ensureActor(did: Did, handle: String, now: Long) {
+    Actors.insertIgnore {
+        it[Actors.did] = did.value
+        it[Actors.handle] = handle
+        it[indexedAt] = now
+    }
+}
+
+// Records are untrusted, so free text is clamped to the lexicon maxLength (or the column size) before it's stored.
+private const val MAX_COMMENT_LENGTH = 10_000
+private const val MAX_DISPLAY_NAME_LENGTH = 640
+private const val MAX_DESCRIPTION_LENGTH = 2560
+private const val MAX_UNITS_LENGTH = 16

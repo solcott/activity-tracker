@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.appview.db
 
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import org.jetbrains.exposed.v1.core.Table
 
 object Actors : Table("actors") {
@@ -37,6 +38,10 @@ object Activities : Table("activities") {
     val indexedAt = long("indexed_at")
     /** The athlete's own activity this one is another recording of; null for an activity in its own right. */
     val recordingOf = varchar("recording_of", 512).nullable()
+    /** The [io.github.solcott.activitytracker.lexicon.app.Visibility] it's served at: its tier space's key, or public for the repo. */
+    val visibility = varchar("visibility", 16).default(Visibility.PUBLIC)
+    /** Where the row came from: [Origins.REPO] or the tier space's URI. Only that origin's delete removes it. */
+    val origin = varchar("origin", 512).default(Origins.REPO)
     override val primaryKey = PrimaryKey(uri)
 }
 
@@ -113,6 +118,10 @@ object ActivityStreams : Table("activity_streams") {
     val powerZones = text("power_zones").nullable()
     val blobCid = varchar("blob_cid", 255)
     val indexedAt = long("indexed_at")
+    /** As [Activities.origin]. */
+    val origin = varchar("origin", 512).default(Origins.REPO)
+    /** The raw record JSON, so the row can become a [RecordShadows] copy mid-move; null on rows indexed before V15. */
+    val record = text("record").nullable()
     override val primaryKey = PrimaryKey(uri)
 }
 
@@ -122,4 +131,42 @@ object ActivityStreamData : Table("activity_stream_data") {
     val data = text("stream_data")
     val fetchedAt = long("fetched_at")
     override val primaryKey = PrimaryKey(blobCid)
+}
+
+/** Values of [Activities.origin] and [ActivityStreams.origin] besides a space URI. */
+object Origins {
+    /** The athlete's repo, through Jetstream. */
+    const val REPO = "repo"
+}
+
+/**
+ * The wider copy of a record that two origins hold at once mid-move. The narrower copy is the row in [Activities] or [ActivityStreams];
+ * this one is promoted to it if that copy is deleted first.
+ */
+object RecordShadows : Table("record_shadows") {
+    val uri = varchar("uri", 512)
+    val origin = varchar("origin", 512)
+    val collection = varchar("collection", 255)
+    val visibility = varchar("visibility", 16)
+    val cid = varchar("cid", 255)
+    val record = text("record")
+    val indexedAt = long("indexed_at")
+    override val primaryKey = PrimaryKey(uri, origin)
+}
+
+/** An athlete tier space the AppView syncs as a member. */
+object SpaceSync : Table("space_sync") {
+    val space = varchar("space_uri", 512)
+    val authorityDid = varchar("authority_did", 255)
+    /** The authority repo's last indexed revision; null until the first backfill finishes. */
+    val repoRev = varchar("repo_rev", 32).nullable()
+    /** When the `notifyWrite` registration expires, epoch millis; null when not registered. */
+    val registeredUntil = long("registered_until").nullable()
+    /** Consecutive failed syncs, for backoff. */
+    val failures = integer("failures").default(0)
+    /** When the last sync succeeded, epoch millis; null before the first one. */
+    val syncedAt = long("synced_at").nullable()
+    val nextAttemptAt = long("next_attempt_at")
+    val createdAt = long("created_at")
+    override val primaryKey = PrimaryKey(space)
 }

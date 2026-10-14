@@ -1,0 +1,453 @@
+package io.github.solcott.activitytracker.appview
+
+import io.github.solcott.activitytracker.appview.api.SpaceBlobs
+import io.github.solcott.activitytracker.appview.api.StreamSource
+import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
+import io.github.solcott.activitytracker.appview.db.DatabaseFactory
+import io.github.solcott.activitytracker.appview.index.Indexer
+import io.github.solcott.activitytracker.appview.index.JetstreamEvent
+import io.github.solcott.activitytracker.atproto.xrpc.XrpcBytes
+import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.XrpcQuery
+import io.github.solcott.activitytracker.lexicon.app.ActivityMediaView
+import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.activitytracker.lexicon.app.GetActivity
+import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
+import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
+import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
+import io.github.solcott.activitytracker.lexicon.app.GetKudos
+import io.github.solcott.activitytracker.lexicon.app.GetProfile
+import io.github.solcott.activitytracker.lexicon.app.GetTimeline
+import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
+import io.ktor.client.HttpClient
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.readRawBytes
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.encodeURLParameter
+import io.ktor.server.testing.ApplicationTestBuilder
+import io.ktor.server.testing.testApplication
+import java.util.UUID
+import kotlin.test.Test
+import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.jsonObject
+import org.h2.jdbcx.JdbcDataSource
+import org.jetbrains.exposed.v1.jdbc.Database
+
+/** Non-public activities served by tier (`spaces/appview-syncer`, `feed/activity-visibility`), indexed as the syncer indexes them. */
+class ActivityVisibilityTest {
+    private val service = "did:web:localhost%3A8081"
+    private val alice = "did:plc:alice"
+    private val bob = "did:plc:bob"
+    private val carol = "did:plc:carol"
+    private val dave = "did:plc:dave"
+    private val keys = listOf(alice, bob, carol, dave).associateWith { TestAccountKey() }
+
+    private val db: Database =
+        JdbcDataSource().run {
+            setURL("jdbc:h2:mem:${UUID.randomUUID()};MODE=PostgreSQL;DB_CLOSE_DELAY=-1")
+            DatabaseFactory.migrate(this)
+            Database.connect(this)
+        }
+    private val indexer = Indexer(db, { did -> did.value.substringAfterLast(':') + ".test" })
+    private val config = AppViewConfig.fromEnv(emptyMap())
+    private val verifier = ServiceAuthVerifier(service, keys = { keys[it.value]?.multibase })
+
+    private fun commit(did: String, collection: String, rkey: String, record: String?) = runBlocking {
+        indexer.handle(
+            JetstreamEvent.Commit(
+                did = did,
+                time = "2026-10-14T12:00:00.000000Z",
+                operation = if (record == null) "delete" else "create",
+                collection = collection,
+                rkey = rkey,
+                record = record?.let { AtJson.parseToJsonElement(it).jsonObject },
+                cid = "bafy$rkey",
+            )
+        )
+    }
+
+    private fun follow(author: String, subject: String) =
+        commit(
+            author,
+            Nsid.GRAPH_FOLLOW,
+            "3kf${author.last()}${subject.last()}",
+            """{"subject":"$subject","createdAt":"2026-10-01T09:00:00Z"}""",
+        )
+
+    private fun record(day: Int, sport: String = "run", recordingOf: String? = null): String {
+        val date = "2026-10-${day.toString().padStart(2, '0')}"
+        return """{"sport":"$sport","startedAt":"${date}T07:00:00Z","elapsedTime":1800,""" +
+            """"createdAt":"${date}T07:31:00Z"${recordingOf?.let { ""","recordingOf":"$it"""" }.orEmpty()}}"""
+    }
+
+    /** Alice posts an activity at [tier]: in her repo when public, in her tier space otherwise. */
+    private fun post(rkey: String, tier: String, day: Int = 1, sport: String = "run", recordingOf: String? = null) {
+        val json = record(day, sport, recordingOf)
+        if (tier == Visibility.PUBLIC) {
+            commit(alice, Nsid.FEED_ACTIVITY, rkey, json)
+        } else {
+            runBlocking {
+                indexer.spaceWrite(space(tier), Nsid.FEED_ACTIVITY, rkey, "bafy$rkey", AtJson.parseToJsonElement(json).jsonObject)
+            }
+        }
+    }
+
+    private fun unpost(rkey: String, tier: String) {
+        if (tier == Visibility.PUBLIC) commit(alice, Nsid.FEED_ACTIVITY, rkey, null)
+        else runBlocking { indexer.spaceDelete(space(tier), Nsid.FEED_ACTIVITY, rkey) }
+    }
+
+    private fun space(tier: String) = SpaceUri.of(Did(alice), Nsid.SPACE_ATHLETE, tier)
+
+    private fun uri(rkey: String) = "at://$alice/${Nsid.FEED_ACTIVITY}/$rkey"
+
+    private suspend fun HttpClient.raw(nsid: String, viewer: String?, query: String): HttpResponse =
+        get("/xrpc/$nsid$query") {
+            viewer?.let { header(HttpHeaders.Authorization, "Bearer ${keys.getValue(it).serviceJwt(it, service, nsid)}") }
+        }
+
+    private suspend fun <P, O> HttpClient.query(method: XrpcQuery<P, O>, viewer: String?, query: String): O {
+        val response = raw(method.nsid, viewer, query)
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        return AtJson.decodeFromString(method.output, response.bodyAsText())
+    }
+
+    private suspend fun HttpClient.timeline(viewer: String, query: String = ""): List<String> =
+        query(GetTimeline.method, viewer, "?limit=50$query").activities.map { it.uri.rkey!! }
+
+    private suspend fun HttpClient.aliceActivities(viewer: String?): List<String> =
+        query(GetAuthorActivities.method, viewer, "?actor=$alice").activities.map { it.uri.rkey!! }
+
+    private suspend fun HttpClient.aliceByStart(viewer: String?): List<String> =
+        query(GetAuthorActivitiesByStart.method, viewer, "?actor=$alice&since=2026-10-01T00:00:00Z&until=2026-11-01T00:00:00Z")
+            .activities
+            .map { it.uri.rkey!! }
+
+    private suspend fun HttpClient.activityStatus(rkey: String, viewer: String?): HttpStatusCode =
+        raw(GetActivity.method.nsid, viewer, "?uri=${uri(rkey).encodeURLParameter()}").status
+
+    private suspend fun HttpClient.count(viewer: String?): Long? = query(GetProfile.method, viewer, "?actor=$alice").activitiesCount
+
+    private fun ApplicationTestBuilder.start() {
+        application { appView(config, db, verifier) }
+    }
+
+    @Test
+    fun effectiveFollowerSeesFollowersActivities() = testApplication {
+        start()
+        follow(bob, alice)
+        post("3kpub", Visibility.PUBLIC, day = 1)
+        post("3kfol", Visibility.FOLLOWERS, day = 2)
+        post("3kmut", Visibility.MUTUALS, day = 3)
+        post("3kme", Visibility.SELF, day = 4)
+
+        assertEquals(listOf("3kfol", "3kpub"), client.timeline(bob))
+        assertEquals(listOf("3kfol", "3kpub"), client.aliceActivities(bob))
+        assertEquals(listOf("3kpub", "3kfol"), client.aliceByStart(bob))
+        assertEquals(HttpStatusCode.OK, client.activityStatus("3kfol", bob))
+        assertEquals(HttpStatusCode.BadRequest, client.activityStatus("3kmut", bob), "bob isn't a mutual")
+        val view = client.query(GetActivity.method, bob, "?uri=${uri("3kfol").encodeURLParameter()}").activity
+        assertEquals(Visibility.FOLLOWERS, view.visibility)
+    }
+
+    @Test
+    fun mutualsSeeMutualsActivities() = testApplication {
+        start()
+        follow(bob, alice)
+        follow(alice, bob)
+        follow(carol, alice)
+        post("3kmut", Visibility.MUTUALS)
+        assertEquals(listOf("3kmut"), client.timeline(bob))
+        assertEquals(emptyList(), client.timeline(carol), "carol follows alice one way")
+        assertEquals(HttpStatusCode.BadRequest, client.activityStatus("3kmut", carol))
+    }
+
+    @Test
+    fun pendingFollowerSeesNoNonPublicActivity() = testApplication {
+        start()
+        commit(alice, Nsid.ACTOR_PROFILE, "self", """{"displayName":"Alice","followPolicy":"approve"}""")
+        follow(bob, alice)
+        follow(alice, bob)
+        post("3kpub", Visibility.PUBLIC, day = 1)
+        post("3kfol", Visibility.FOLLOWERS, day = 2)
+        post("3kmut", Visibility.MUTUALS, day = 3)
+
+        assertEquals(listOf("3kpub"), client.aliceActivities(bob))
+        assertEquals(HttpStatusCode.BadRequest, client.activityStatus("3kfol", bob))
+        assertEquals(HttpStatusCode.BadRequest, client.activityStatus("3kmut", bob))
+        commit(alice, Nsid.GRAPH_FOLLOW_APPROVAL, bob, """{"subject":"$bob","createdAt":"2026-10-02T09:00:00Z"}""")
+        assertEquals(listOf("3kmut", "3kfol", "3kpub"), client.aliceActivities(bob), "approved: follower, and mutual")
+    }
+
+    @Test
+    fun onlyMeIsOnlyForTheAthlete() = testApplication {
+        start()
+        follow(bob, alice)
+        follow(alice, bob)
+        post("3kme", Visibility.SELF)
+        assertEquals(listOf("3kme"), client.aliceActivities(alice))
+        assertEquals(listOf("3kme"), client.timeline(alice))
+        assertEquals(HttpStatusCode.OK, client.activityStatus("3kme", alice))
+        assertEquals(emptyList(), client.aliceActivities(bob))
+        assertEquals(HttpStatusCode.BadRequest, client.activityStatus("3kme", bob))
+        assertEquals(HttpStatusCode.BadRequest, client.activityStatus("3kme", null))
+    }
+
+    @Test
+    fun activityCountDependsOnTheViewer() = testApplication {
+        start()
+        follow(bob, alice)
+        (1..3).forEach { post("3kpub$it", Visibility.PUBLIC, day = it) }
+        (1..2).forEach { post("3kfol$it", Visibility.FOLLOWERS, day = it) }
+        post("3kme", Visibility.SELF)
+        assertEquals(5, client.count(bob))
+        assertEquals(3, client.count(carol))
+        assertEquals(6, client.count(alice))
+        assertEquals(3, client.count(null))
+    }
+
+    @Test
+    fun unauthenticatedViewerSeesPublicOnly() = testApplication {
+        start()
+        post("3kpub", Visibility.PUBLIC, day = 1)
+        post("3kfol", Visibility.FOLLOWERS, day = 2)
+        assertEquals(listOf("3kpub"), client.aliceActivities(null))
+        assertEquals(listOf("3kpub"), client.aliceByStart(null))
+    }
+
+    @Test
+    fun filtersAndPagingStillHold() = testApplication {
+        start()
+        follow(bob, alice)
+        post("3k1", Visibility.PUBLIC, day = 1)
+        post("3k2", Visibility.FOLLOWERS, day = 2)
+        post("3k3", Visibility.MUTUALS, day = 3)
+        post("3k4", Visibility.FOLLOWERS, day = 4, sport = "ride")
+        post("3k5", Visibility.SELF, day = 5)
+        post("3k6", Visibility.PUBLIC, day = 6)
+
+        val paged = mutableListOf<String>()
+        var cursor: String? = null
+        do {
+            val page =
+                client.query(GetTimeline.method, bob, "?limit=1&type=run" + cursor?.let { "&cursor=${it.encodeURLParameter()}" }.orEmpty())
+            paged += page.activities.map { it.uri.rkey!! }
+            cursor = page.cursor
+        } while (cursor != null)
+        assertEquals(listOf("3k6", "3k2", "3k1"), paged)
+    }
+
+    @Test
+    fun recordingsCountOnlyAtTheirPrimarysVisibility() = testApplication {
+        start()
+        follow(bob, alice)
+        post("3kme", Visibility.SELF, day = 1)
+        post("3kpub", Visibility.PUBLIC, day = 1, recordingOf = uri("3kme"))
+        // A public recording of an Only-me activity stands on its own, and says nothing about the other.
+        assertEquals(listOf("3kpub"), client.aliceActivities(bob))
+        val mine = client.query(GetAuthorActivities.method, alice, "?actor=$alice").activities
+        assertEquals(setOf("3kme", "3kpub"), mine.map { it.uri.rkey }.toSet(), "the athlete sees both, unlinked")
+        assertEquals(null, mine.single { it.uri.rkey == "3kme" }.recordings)
+
+        post("3kfol", Visibility.FOLLOWERS, day = 2)
+        post("3kfol2", Visibility.FOLLOWERS, day = 2, recordingOf = uri("3kfol"))
+        val feed = client.query(GetAuthorActivities.method, bob, "?actor=$alice").activities
+        assertEquals(listOf("3kfol", "3kpub"), feed.map { it.uri.rkey })
+        assertEquals(listOf("3kfol2"), feed.first().recordings?.map { it.uri.rkey })
+    }
+
+    @Test
+    fun kudosAndCommentsAreHiddenWhileNotPublic() = testApplication {
+        start()
+        follow(bob, alice)
+        post("3kact", Visibility.PUBLIC)
+        commit(
+            bob,
+            Nsid.FEED_KUDOS,
+            "3kkudos",
+            """{"subject":{"uri":"${uri("3kact")}","cid":"bafy3kact"},"createdAt":"2026-10-01T09:00:00Z"}""",
+        )
+        commit(
+            bob,
+            Nsid.FEED_COMMENT,
+            "3kcomm",
+            """{"subject":{"uri":"${uri("3kact")}","cid":"bafy3kact"},"text":"Nice","createdAt":"2026-10-01T09:00:00Z"}""",
+        )
+        val public = client.query(GetActivity.method, bob, "?uri=${uri("3kact").encodeURLParameter()}")
+        assertEquals(1, public.activity.kudosCount)
+        assertEquals(1, public.comments.size)
+
+        // Made Followers: the followers copy is written, then the repo copy deleted.
+        post("3kact", Visibility.FOLLOWERS)
+        unpost("3kact", Visibility.PUBLIC)
+        val private = client.query(GetActivity.method, bob, "?uri=${uri("3kact").encodeURLParameter()}")
+        assertEquals(Visibility.FOLLOWERS, private.activity.visibility)
+        assertEquals(0, private.activity.kudosCount)
+        assertEquals(0, private.activity.commentCount)
+        assertEquals(null, private.activity.viewer?.kudos)
+        assertEquals(emptyList(), private.comments)
+        assertEquals(emptyList(), client.query(GetKudos.method, bob, "?uri=${uri("3kact").encodeURLParameter()}").kudos)
+
+        // Made public again: the kudos and comment given before come back.
+        post("3kact", Visibility.PUBLIC)
+        unpost("3kact", Visibility.FOLLOWERS)
+        val again = client.query(GetActivity.method, bob, "?uri=${uri("3kact").encodeURLParameter()}")
+        assertEquals(Visibility.PUBLIC, again.activity.visibility)
+        assertEquals(1, again.activity.kudosCount)
+        assertEquals(1, again.comments.size)
+        assertEquals(
+            listOf(bob),
+            client.query(GetKudos.method, bob, "?uri=${uri("3kact").encodeURLParameter()}").kudos.map { it.did.value },
+        )
+    }
+
+    @Test
+    fun getKudosOnAnActivityTheViewerCantSeeIsNotFound() = testApplication {
+        start()
+        post("3kme", Visibility.SELF)
+        assertEquals(HttpStatusCode.BadRequest, client.raw(GetKudos.method.nsid, bob, "?uri=${uri("3kme").encodeURLParameter()}").status)
+    }
+
+    @Test
+    fun unknownTierIsOnlyForTheAthlete() = testApplication {
+        start()
+        follow(bob, alice)
+        follow(alice, bob)
+        runBlocking {
+            indexer.spaceWrite(
+                SpaceUri.of(Did(alice), Nsid.SPACE_ATHLETE, "friends"),
+                Nsid.FEED_ACTIVITY,
+                "3kodd",
+                "bafy3kodd",
+                AtJson.parseToJsonElement(record(1)).jsonObject,
+            )
+        }
+        assertEquals(emptyList(), client.aliceActivities(bob))
+        assertEquals(listOf("3kodd"), client.aliceActivities(alice))
+        assertEquals(AthleteSpace.SELF, Visibility.known("friends"))
+    }
+
+    private val photoCid = "bafkreihwzzyxpay7qndclffr6usq5te3of4fra7yucklue2b5ckxhq7aeq"
+    private val photoBytes = byteArrayOf(1, 2, 3, 4)
+    private val fetchedFrom = mutableListOf<Pair<SpaceUri, String>>()
+    private val spaceBlobs = SpaceBlobs { space, repo, cid ->
+        fetchedFrom += space to cid
+        if (repo.value == alice && cid == photoCid) XrpcBytes(photoBytes, "image/jpeg") else null
+    }
+
+    private fun withPhoto(day: Int = 1) =
+        record(day).removeSuffix("}") +
+            ""","media":[{"${'$'}type":"${Nsid.FEED_ACTIVITY}#image","image":{"${'$'}type":"blob","ref":{"${'$'}link":"$photoCid"},""" +
+            """"mimeType":"image/jpeg","size":4}}]}"""
+
+    private fun ApplicationTestBuilder.startSigning(streams: StreamSource = StreamSource { _, _, _ -> null }) {
+        application { appView(config.copy(signingKey = TEST_SIGNING_KEY), db, verifier, streamSource = streams, spaceBlobs = spaceBlobs) }
+    }
+
+    private fun postSpace(rkey: String, tier: String, json: String) = runBlocking {
+        indexer.spaceWrite(space(tier), Nsid.FEED_ACTIVITY, rkey, "bafy$rkey", AtJson.parseToJsonElement(json).jsonObject)
+    }
+
+    @Test
+    fun followerViewsAPhotoOfAFollowersActivity() = testApplication {
+        startSigning()
+        follow(bob, alice)
+        postSpace("3kpic", Visibility.FOLLOWERS, withPhoto())
+        val url = client.query(GetActivity.method, bob, "?uri=${uri("3kpic").encodeURLParameter()}").activity.media!!.single()
+        val fullsize = (url as ActivityMediaView.Image).fullsize
+        assertTrue(fullsize.contains("viewer=${bob.encodeURLParameter()}"), fullsize)
+        val response = client.get(fullsize.removePrefix(config.publicUrl))
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertContentEquals(photoBytes, response.readRawBytes())
+        assertEquals("private, max-age=3600", response.headers[HttpHeaders.CacheControl])
+        assertEquals(listOf(space(Visibility.FOLLOWERS) to photoCid), fetchedFrom)
+    }
+
+    @Test
+    fun photoUrlsAreServedOnlyToViewersWhoMaySeeTheActivity() = testApplication {
+        startSigning()
+        follow(bob, alice)
+        postSpace("3kpic", Visibility.FOLLOWERS, withPhoto())
+        val bobs =
+            (client.query(GetActivity.method, bob, "?uri=${uri("3kpic").encodeURLParameter()}").activity.media!!.single()
+                    as ActivityMediaView.Image)
+                .fullsize
+                .removePrefix(config.publicUrl)
+        val bare = "/img/media/$alice/$photoCid"
+        assertEquals(HttpStatusCode.NotFound, client.get(bare).status, "unsigned: no redirect to the PDS either")
+        assertEquals(HttpStatusCode.NotFound, client.get(bobs.replace(bob.encodeURLParameter(), carol.encodeURLParameter())).status)
+        assertEquals(HttpStatusCode.NotFound, client.get(bobs.dropLast(2) + "xx").status, "bad signature")
+        // Bob unfollows: his URL stops working at once, signature or not.
+        commit(bob, Nsid.GRAPH_FOLLOW, "3kf${bob.last()}${alice.last()}", null)
+        assertEquals(HttpStatusCode.NotFound, client.get(bobs).status)
+        assertEquals(emptyList(), fetchedFrom, "nothing fetched for a refused request")
+    }
+
+    @Test
+    fun publicPhotosStillRedirect() = testApplication {
+        startSigning()
+        commit(alice, Nsid.FEED_ACTIVITY, "3kpub", withPhoto())
+        val media = client.query(GetActivity.method, null, "?uri=${uri("3kpub").encodeURLParameter()}").activity.media!!.single()
+        val fullsize = (media as ActivityMediaView.Image).fullsize
+        assertEquals("${config.publicUrl}/img/media/$alice/$photoCid", fullsize)
+    }
+
+    @Test
+    fun spaceHeldStreamsComeFromTheSpaceByTier() = testApplication {
+        val origins = mutableListOf<String>()
+        startSigning(
+            StreamSource { _, _, origin ->
+                origins += origin
+                """{"time":[0,1],"heartRate":[120,121]}""".encodeToByteArray()
+            }
+        )
+        follow(bob, alice)
+        postSpace("3kfol", Visibility.FOLLOWERS, record(1))
+        runBlocking {
+            indexer.spaceWrite(
+                space(Visibility.FOLLOWERS),
+                Nsid.FEED_ACTIVITY_STREAMS,
+                "3kfol",
+                "bafystreams",
+                AtJson.parseToJsonElement(
+                        """{"activity":"${uri("3kfol")}","visibility":"public","channels":["heartRate"],""" +
+                            """"createdAt":"2026-10-01T07:31:00Z","data":{"${'$'}type":"blob","ref":{"${'$'}link":"$photoCid"},""" +
+                            """"mimeType":"application/json","size":40}}"""
+                    )
+                    .jsonObject,
+            )
+        }
+        val streamsUri = "?uri=${uri("3kfol").encodeURLParameter()}"
+        val bobs = client.query(GetActivityStreams.method, bob, streamsUri)
+        assertEquals(Visibility.FOLLOWERS, bobs.visibility, "capped at the tier")
+        assertEquals(listOf(120, 121), bobs.data.heartRate)
+        assertEquals(listOf(space(Visibility.FOLLOWERS).value), origins)
+        assertEquals(HttpStatusCode.NotFound, client.raw(GetActivityStreams.method.nsid, carol, streamsUri).status)
+    }
+
+    @Test
+    fun publicStreamsOfAnOnlyMeActivityStayHidden() = testApplication {
+        startSigning(StreamSource { _, _, _ -> """{"time":[0]}""".encodeToByteArray() })
+        postSpace("3kme", Visibility.SELF, record(1))
+        commit(
+            alice,
+            Nsid.FEED_ACTIVITY_STREAMS,
+            "3kme",
+            """{"activity":"${uri("3kme")}","visibility":"public","channels":[],"createdAt":"2026-10-01T07:31:00Z",""" +
+                """"data":{"${'$'}type":"blob","ref":{"${'$'}link":"$photoCid"},"mimeType":"application/json","size":12}}""",
+        )
+        val streamsUri = "?uri=${uri("3kme").encodeURLParameter()}"
+        assertEquals(HttpStatusCode.NotFound, client.raw(GetActivityStreams.method.nsid, carol, streamsUri).status)
+        assertEquals(HttpStatusCode.OK, client.raw(GetActivityStreams.method.nsid, alice, streamsUri).status)
+    }
+}

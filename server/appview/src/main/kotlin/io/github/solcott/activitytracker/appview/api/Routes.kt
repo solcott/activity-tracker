@@ -1,13 +1,16 @@
 package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.AppViewConfig
+import io.github.solcott.activitytracker.appview.auth.AppViewSigningKey
 import io.github.solcott.activitytracker.appview.auth.AuthException
 import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
+import io.github.solcott.activitytracker.appview.sync.SpaceSyncer
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.XrpcErrorBody
 import io.github.solcott.activitytracker.lexicon.XrpcParams
+import io.github.solcott.activitytracker.lexicon.XrpcProcedure
 import io.github.solcott.activitytracker.lexicon.XrpcQuery
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
@@ -19,16 +22,22 @@ import io.github.solcott.activitytracker.lexicon.app.GetFollows
 import io.github.solcott.activitytracker.lexicon.app.GetKudos
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
+import io.github.solcott.activitytracker.lexicon.app.NotifySpace
 import io.github.solcott.activitytracker.lexicon.app.SearchActors
 import io.github.solcott.activitytracker.lexicon.atproto.SimpleSpace
+import io.github.solcott.activitytracker.lexicon.atproto.Space
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
+import io.ktor.server.request.receiveText
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import io.ktor.server.routing.post
 import io.ktor.util.toMap
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -50,7 +59,7 @@ fun Route.xrpcRoutes(
     xrpcQuery(GetAuthorActivitiesByStart.method, verifier) { params, viewer -> views.authorActivitiesByStart(viewer, params) }
     xrpcQuery(GetActivity.method, verifier) { params, viewer -> views.activity(viewer, params) }
     xrpcQuery(GetActivityStreams.method, verifier) { params, viewer -> streams.streams(viewer, params) }
-    xrpcQuery(GetKudos.method, verifier) { params, _ -> views.kudos(params) }
+    xrpcQuery(GetKudos.method, verifier) { params, viewer -> views.kudos(viewer, params) }
     xrpcQuery(GetProfile.method, verifier) { params, viewer -> views.profile(viewer, params.actor) }
     xrpcQuery(SearchActors.method, verifier) { params, viewer ->
         requireViewer(viewer)
@@ -63,6 +72,40 @@ fun Route.xrpcRoutes(
     xrpcQuery(SimpleSpace.CheckUserAccess.method, managingAppVerifier) { params, issuer ->
         spaceAccess.check(requireViewer(issuer), params)
     }
+}
+
+/**
+ * Athletes' tier spaces, which the AppView syncs as a member ([SpaceSyncer]; null when no signing key is configured, and then nothing is
+ * joined):
+ * - `notifySpace`: an athlete announces one of their tier spaces, with service auth for the AppView;
+ * - `notifyWrite`: the authority's PDS says the space advanced, with service auth addressed to [syncerVerifier]'s syncer service id, so a
+ *   token for the AppView or the managing app never works here, or the reverse.
+ */
+fun Route.spaceSyncRoutes(syncer: SpaceSyncer?, verifier: ServiceAuthVerifier, syncerVerifier: ServiceAuthVerifier) {
+    xrpcProcedure(NotifySpace.method, verifier) { input, caller ->
+        syncer?.announce(announced(input.space, requireViewer(caller)))
+        JsonObject(emptyMap())
+    }
+    xrpcProcedure(Space.NotifyWrite.method, syncerVerifier) { input, issuer ->
+        // Only the space's authority, whose PDS hosts the space, sends these.
+        if (requireViewer(issuer) != input.space.authority)
+            throw AuthException("notifyWrite from ${issuer?.value}, not ${input.space.authority}")
+        // Only the authority writes to an athlete's space; a notification for another repo has nothing for the AppView.
+        if (input.repo == input.space.authority) syncer?.notified(input.space)
+        JsonObject(emptyMap())
+    }
+}
+
+/** [space], if [caller] may announce it: it must be one of their own athlete tier spaces. */
+private fun announced(space: SpaceUri, caller: Did): SpaceUri {
+    val error =
+        when {
+            space.authority != caller -> NotifySpace.NOT_SPACE_AUTHORITY to "Not your space: $space"
+            !SpaceSyncer.isSyncable(space) -> NotifySpace.UNSUPPORTED_SPACE to "Not an athlete tier space: $space"
+            else -> null
+        }
+    if (error != null) throw XrpcError(HttpStatusCode.BadRequest.value, error.first, error.second)
+    return space
 }
 
 /** The authenticated caller, for queries that need one. */
@@ -89,6 +132,23 @@ private fun <P, O> Route.xrpcQuery(
     }
 }
 
+/** Serves a typed procedure, decoding its JSON input. Auth is optional here, as for [xrpcQuery]. */
+private fun <I, O> Route.xrpcProcedure(
+    method: XrpcProcedure<I, O>,
+    verifier: ServiceAuthVerifier,
+    handler: suspend (input: I, caller: Did?) -> O,
+) {
+    post("/xrpc/${method.nsid}") {
+        val caller = call.viewer(verifier, method.nsid)
+        val body = call.receiveText()
+        val input = runCatching {
+            AtJson.decodeFromString(method.input, body)
+        }
+            .getOrElse { e -> throw XrpcError(HttpStatusCode.BadRequest.value, "InvalidRequest", e.message ?: "Invalid input", cause = e) }
+        call.respondText(AtJson.encodeToString(method.output, handler(input, caller)), ContentType.Application.Json)
+    }
+}
+
 private suspend fun ApplicationCall.viewer(verifier: ServiceAuthVerifier, nsid: String): Did? {
     val header = request.headers[HttpHeaders.Authorization] ?: return null
     if (!header.startsWith("Bearer ")) throw AuthException("Expected a Bearer service-auth token")
@@ -103,32 +163,12 @@ suspend fun ApplicationCall.respondXrpcError(status: Int, error: String, message
     )
 }
 
-/** `did:web` document and OAuth client metadata for native apps. */
-fun Route.wellKnownRoutes(config: AppViewConfig) {
-    get("/.well-known/did.json") {
-        val doc = buildJsonObject {
-            putJsonArray("@context") { add("https://www.w3.org/ns/did/v1") }
-            put("id", config.serviceDid)
-            putJsonArray("service") {
-                add(
-                    buildJsonObject {
-                        put("id", "#activity_appview")
-                        put("type", "ActivityTrackerAppView")
-                        put("serviceEndpoint", config.publicUrl)
-                    }
-                )
-                // Athletes' spaces name this service as their managingApp, so their PDSes call checkUserAccess here.
-                add(
-                    buildJsonObject {
-                        put("id", "#${AppViewConfig.MANAGING_APP_FRAGMENT}")
-                        put("type", "AtprotoSpaceService")
-                        put("serviceEndpoint", config.publicUrl)
-                    }
-                )
-            }
-        }
-        call.respondText(doc.toString(), ContentType.Application.Json)
-    }
+/**
+ * `did:web` document and OAuth client metadata for native apps. With a [signingKey], the document also publishes it as `#atproto`, which
+ * PDSes use to verify the delegation tokens the AppView signs to sync athletes' spaces.
+ */
+fun Route.wellKnownRoutes(config: AppViewConfig, signingKey: AppViewSigningKey? = null) {
+    get("/.well-known/did.json") { call.respondText(didDocument(config, signingKey).toString(), ContentType.Application.Json) }
 
     get("/oauth/client-metadata.json") {
         val metadata = buildJsonObject {
@@ -156,6 +196,52 @@ fun Route.wellKnownRoutes(config: AppViewConfig) {
             }
                 .toString(),
             ContentType.Application.Json,
+        )
+    }
+}
+
+/** The AppView's `did:web` document: its services and, with a [signingKey], the `#atproto` key PDSes check its delegation tokens with. */
+private fun didDocument(config: AppViewConfig, signingKey: AppViewSigningKey?): JsonObject = buildJsonObject {
+    putJsonArray("@context") {
+        add("https://www.w3.org/ns/did/v1")
+        if (signingKey != null) add("https://w3id.org/security/multikey/v1")
+    }
+    put("id", config.serviceDid)
+    if (signingKey != null) {
+        putJsonArray("verificationMethod") {
+            add(
+                buildJsonObject {
+                    put("id", "${config.serviceDid}#atproto")
+                    put("type", "Multikey")
+                    put("controller", config.serviceDid)
+                    put("publicKeyMultibase", signingKey.publicMultibase)
+                }
+            )
+        }
+    }
+    putJsonArray("service") {
+        add(
+            buildJsonObject {
+                put("id", "#activity_appview")
+                put("type", "ActivityTrackerAppView")
+                put("serviceEndpoint", config.publicUrl)
+            }
+        )
+        // Athletes' spaces name this service as their managingApp, so their PDSes call checkUserAccess here.
+        add(
+            buildJsonObject {
+                put("id", "#${AppViewConfig.MANAGING_APP_FRAGMENT}")
+                put("type", "AtprotoSpaceService")
+                put("serviceEndpoint", config.publicUrl)
+            }
+        )
+        // The AppView registers this id for athletes' tier spaces, so their PDSes send notifyWrite here.
+        add(
+            buildJsonObject {
+                put("id", "#${AppViewConfig.SYNCER_FRAGMENT}")
+                put("type", "AtprotoSpaceSyncer")
+                put("serviceEndpoint", config.publicUrl)
+            }
         )
     }
 }

@@ -216,6 +216,26 @@ class SpaceAccessTest {
     }
 
     @Test
+    fun appViewReadsEveryTier() = testApplication {
+        start()
+        // Nobody follows anybody: the AppView syncs every tier whatever the follow graph says.
+        for (tier in listOf(AthleteSpace.PUBLIC, AthleteSpace.FOLLOWERS, AthleteSpace.MUTUALS, AthleteSpace.SELF)) {
+            assertEquals(true, client.authorized(config.serviceDid, tier), tier)
+        }
+    }
+
+    @Test
+    fun appViewIsDeniedWritesUnknownTiersAndOtherTypes() = testApplication {
+        start()
+        val appView = config.serviceDid
+        assertEquals(false, client.authorized(appView, AthleteSpace.FOLLOWERS, access = CheckUserAccess.WRITE))
+        assertEquals(false, client.authorized(appView, AthleteSpace.SELF, access = CheckUserAccess.WRITE))
+        assertEquals(false, client.authorized(appView, "friends"))
+        assertEquals(false, client.authorized(appView, space = space(AthleteSpace.SELF, type = "app.activitytracker.space.other")))
+        assertEquals(false, client.authorized(appView, AthleteSpace.SELF, issuer = carol), "only the authority's PDS asks")
+    }
+
+    @Test
     fun onlyReadsAreEverAuthorized() = testApplication {
         start()
         follow(alice, bob)

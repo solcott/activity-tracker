@@ -55,7 +55,7 @@ class ActivityStreamsTest {
     private val data = ActivityStreamData(time = listOf(0, 1, 2), heartRate = listOf(120, null, 130), power = listOf(200, 210, 220))
     private val blobs = mutableMapOf("bafkdata" to AtJson.encodeToString(ActivityStreamData.serializer(), data).encodeToByteArray())
     private var fetches = 0
-    private val source = StreamSource { did, cid ->
+    private val source = StreamSource { did, cid, _ ->
         fetches++
         blobs[cid]?.takeIf { did.value == alice }
     }

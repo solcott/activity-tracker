@@ -13,6 +13,7 @@ application { mainClass.set("io.github.solcott.activitytracker.appview.Applicati
 // read during configuration.
 tasks.named<JavaExec>(ApplicationPlugin.TASK_RUN_NAME) {
     val configuredPublicUrl = nativeOAuth.configuredAppviewPublicUrl
+    val dockerEnv = rootDir.resolve("docker/.env")
     workingDir = rootDir
     doFirst {
         with(this as JavaExec) {
@@ -20,6 +21,17 @@ tasks.named<JavaExec>(ApplicationPlugin.TASK_RUN_NAME) {
             if ("APPVIEW_PUBLIC_URL" !in environment) configuredPublicUrl.orNull?.let { environment("APPVIEW_PUBLIC_URL", it) }
             if ("APPVIEW_PUBLIC_URL" in environment && "APPVIEW_EXTRA_AUDIENCES" !in environment) {
                 environment("APPVIEW_EXTRA_AUDIENCES", "did:web:localhost%3A${environment["APPVIEW_PORT"]}")
+            }
+            // The signing key scripts/dev.sh generates into docker/.env, so the AppView can sync athletes' tier spaces.
+            if ("APPVIEW_SIGNING_KEY" !in environment) {
+                dockerEnv
+                    .takeIf { it.isFile }
+                    ?.readLines()
+                    ?.map(String::trim)
+                    ?.firstOrNull { it.startsWith("APPVIEW_SIGNING_KEY=") }
+                    ?.substringAfter('=')
+                    ?.takeIf(String::isNotBlank)
+                    ?.let { environment("APPVIEW_SIGNING_KEY", it) }
             }
         }
     }
@@ -52,5 +64,6 @@ dependencies {
     testImplementation(libs.garmin.fit)
     testImplementation(libs.h2)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.ktor.client.mock)
     testImplementation(libs.ktor.server.test.host)
 }

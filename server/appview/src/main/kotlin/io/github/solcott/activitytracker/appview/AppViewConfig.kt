@@ -21,14 +21,26 @@ data class AppViewConfig(
     val handleResolverUrl: String?,
     /** Custom URL scheme native apps use for the OAuth redirect (reverse-domain of [publicUrl]'s host). */
     val oauthRedirectScheme: String,
+    /**
+     * The AppView's P-256 private key as 64 hex chars (`APPVIEW_SIGNING_KEY`), published as `#atproto` and used to sync athletes' tier
+     * spaces. Null disables syncing: only public activities are served.
+     */
+    val signingKey: String? = null,
 ) {
     /** Service id athletes' spaces name as their `managingApp`; PDSes call `checkUserAccess` on it. */
     val managingAppService: String
         get() = "$serviceDid#$MANAGING_APP_FRAGMENT"
 
+    /** Service id the AppView registers for athletes' spaces' write notifications; PDSes call `notifyWrite` on it. */
+    val syncerService: String
+        get() = "$serviceDid#$SYNCER_FRAGMENT"
+
     companion object {
         /** Fragment of the `AtprotoSpaceService` entry in the DID document. */
         const val MANAGING_APP_FRAGMENT = "activitytracker_space"
+
+        /** Fragment of the space-syncer entry in the DID document. */
+        const val SYNCER_FRAGMENT = "activitytracker_space_syncer"
 
         fun fromEnv(env: Map<String, String> = System.getenv()): AppViewConfig {
             val port = env["APPVIEW_PORT"]?.toInt() ?: 8081
@@ -47,6 +59,7 @@ data class AppViewConfig(
                 plcUrl = env["PLC_URL"] ?: "http://localhost:2582",
                 handleResolverUrl = env["HANDLE_RESOLVER_URL"] ?: "http://localhost:2583",
                 oauthRedirectScheme = env["OAUTH_REDIRECT_SCHEME"] ?: host.substringBefore(':').split('.').reversed().joinToString("."),
+                signingKey = env["APPVIEW_SIGNING_KEY"]?.trim()?.takeIf { it.isNotEmpty() },
             )
         }
     }

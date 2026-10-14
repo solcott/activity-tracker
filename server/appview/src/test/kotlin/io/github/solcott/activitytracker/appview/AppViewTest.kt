@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview
 
 import io.github.solcott.activitytracker.appview.api.PdsLookup
+import io.github.solcott.activitytracker.appview.auth.AppViewSigningKey
 import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
@@ -570,6 +571,20 @@ class AppViewTest {
     }
 
     @Test
+    fun didDocumentPublishesTheSigningKey() = testApplication {
+        val key = AppViewSigningKey(TEST_SIGNING_KEY)
+        application { appView(config.copy(signingKey = TEST_SIGNING_KEY), db, verifier) }
+        val doc = AtJson.parseToJsonElement(client.get("/.well-known/did.json").bodyAsText()).jsonObject
+        val method = (doc.getValue("verificationMethod") as JsonArray).single().jsonObject
+        assertEquals("${config.serviceDid}#atproto", method.getValue("id").jsonPrimitive.content)
+        assertEquals("Multikey", method.getValue("type").jsonPrimitive.content)
+        assertEquals(config.serviceDid, method.getValue("controller").jsonPrimitive.content)
+        assertEquals(key.publicMultibase, method.getValue("publicKeyMultibase").jsonPrimitive.content)
+        val ids = (doc.getValue("service") as JsonArray).map { it.jsonObject.getValue("id").jsonPrimitive.content }
+        assertEquals(listOf("#activity_appview", "#activitytracker_space", "#activitytracker_space_syncer"), ids)
+    }
+
+    @Test
     fun servesDidDocumentAndClientMetadata() = testApplication {
         application { appView(config, db, verifier) }
         val doc = AtJson.parseToJsonElement(client.get("/.well-known/did.json").bodyAsText()) as JsonObject
@@ -583,6 +598,9 @@ class AppViewTest {
                 }
         assertEquals("ActivityTrackerAppView" to config.publicUrl, services["#activity_appview"])
         assertEquals("AtprotoSpaceService" to config.publicUrl, services["#activitytracker_space"])
+        assertEquals("AtprotoSpaceSyncer" to config.publicUrl, services["#activitytracker_space_syncer"])
+        // Without a signing key there's nothing for a PDS to verify delegation tokens against.
+        assertEquals(null, doc["verificationMethod"])
         val metadata = client.get("/oauth/client-metadata.json").bodyAsText()
         assertEquals(true, metadata.contains("\"dpop_bound_access_tokens\":true"))
         val scope = AtJson.parseToJsonElement(metadata).jsonObject.getValue("scope").jsonPrimitive.content

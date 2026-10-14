@@ -112,6 +112,32 @@ ensure_lexicons() {
   fi
 }
 
+# ---------------------------------------------------------------- AppView signing key
+
+# The AppView's P-256 key (APPVIEW_SIGNING_KEY in docker/.env), which it publishes as #atproto and signs Spaces
+# delegation tokens with to sync athletes' tier spaces. Generated once; the AppView's run task reads it from
+# docker/.env. Rotating it is harmless locally: PDSes resolve the key from the AppView's DID document each time.
+ensure_signing_key() {
+  step "AppView signing key"
+  if grep -qE '^APPVIEW_SIGNING_KEY=[0-9a-fA-F]{64}$' docker/.env; then
+    ok "APPVIEW_SIGNING_KEY set"
+    return
+  fi
+  local key
+  # The private scalar from openssl's text dump: hex pairs after "priv:", left-padded to 32 bytes.
+  key=$(openssl ecparam -name prime256v1 -genkey -noout | openssl ec -text -noout 2>/dev/null |
+    sed -n '/^priv:/,/^pub:/p' | grep -v -e '^priv:' -e '^pub:' | tr -d ' :\n')
+  key=$(printf '%064s' "${key: -64}" | tr ' ' 0)
+  [[ $key =~ ^[0-9a-f]{64}$ ]] || die "couldn't generate a P-256 key with openssl"
+  if grep -q '^APPVIEW_SIGNING_KEY=' docker/.env; then
+    sed -i.bak "s|^APPVIEW_SIGNING_KEY=.*|APPVIEW_SIGNING_KEY=$key|" docker/.env && rm docker/.env.bak
+  else
+    printf '\nAPPVIEW_SIGNING_KEY=%s\n' "$key" >>docker/.env
+  fi
+  RESTART_APPVIEW=1
+  ok "generated APPVIEW_SIGNING_KEY into docker/.env (the AppView restarts to pick it up)"
+}
+
 # ---------------------------------------------------------------- tunnel
 
 # Prints the hostname of a running quick tunnel to the AppView, if any (from cloudflared's metrics).
@@ -382,6 +408,7 @@ cmd_up() {
     step "cloudflared tunnel"
     warn "skipped: the PDS can't reach the AppView's Spaces checkUserAccess without it"
   fi
+  ensure_signing_key
   ensure_appview
   [[ ${NO_ANDROID:-0} != 1 ]] && ensure_android
   ensure_accounts

@@ -27,6 +27,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.RecordingView
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.http.HttpStatusCode
 import kotlin.time.Instant
 import org.jetbrains.exposed.v1.core.Column
@@ -88,6 +89,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
             Activities.selectAll()
                 .where {
                     (Activities.authorDid eq did) and
+                        visibleTo(viewer) and
                         (Activities.startedAt greaterEq since) and
                         (Activities.startedAt less until) and
                         sport and
@@ -101,15 +103,19 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
     }
 
     suspend fun activity(viewer: Did?, params: GetActivity.Params): GetActivity.Output = db.tx {
+        // An activity the viewer may not see answers as if it didn't exist.
         val row =
-            Activities.selectAll().where { Activities.uri eq params.uri.value }.singleOrNull()
+            Activities.selectAll().where { (Activities.uri eq params.uri.value) and visibleTo(viewer) }.singleOrNull()
                 ?: throw XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "Activity not found")
+        // Comments on a non-public activity are kept but not served: they come back if it's made public again.
         val comments =
-            Comments.selectAll()
-                .where { Comments.subjectUri eq params.uri.value }
-                .orderBy(Comments.createdAt to SortOrder.ASC)
-                .limit(HttpStatusCode.InternalServerError.value)
-                .toList()
+            if (!acceptsInteractions(row[Activities.visibility])) emptyList()
+            else
+                Comments.selectAll()
+                    .where { Comments.subjectUri eq params.uri.value }
+                    .orderBy(Comments.createdAt to SortOrder.ASC)
+                    .limit(HttpStatusCode.InternalServerError.value)
+                    .toList()
         val authors = basicProfiles(comments.map { it[Comments.authorDid] }, avatars)
         GetActivity.Output(
             activity = hydrate(listOf(row), viewer).single(),
@@ -130,11 +136,15 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
      * Athletes who gave kudos on an activity, each once (a repo may hold duplicate kudos records), most recent kudos first. Keyset
      * pagination over authors on (latest indexed_at, author_did) descending; cursor is `"<indexedAt>::<authorDid>"`.
      */
-    suspend fun kudos(params: GetKudos.Params): GetKudos.Output = db.tx {
+    suspend fun kudos(viewer: Did?, params: GetKudos.Params): GetKudos.Output = db.tx {
         val uri = params.uri.value
-        if (Activities.select(Activities.uri).where { Activities.uri eq uri }.empty()) {
-            throw XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "Activity not found")
-        }
+        val visibility =
+            Activities.select(Activities.visibility)
+                .where { (Activities.uri eq uri) and visibleTo(viewer) }
+                .singleOrNull()
+                ?.get(Activities.visibility) ?: throw XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "Activity not found")
+        // Kudos on a non-public activity are kept but not served: they come back if it's made public again.
+        if (!acceptsInteractions(visibility)) return@tx GetKudos.Output(params.uri, emptyList())
         val pageSize = Paging.clamp(params.limit)
         val latest = Kudos.indexedAt.max()
         val after =
@@ -166,7 +176,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
             details = publicDetails(row),
             units = row[Actors.units],
             followPolicy = row[Actors.followPolicy] ?: FollowPolicy.OPEN,
-            activitiesCount = Activities.selectAll().where { Activities.authorDid eq did }.count(),
+            activitiesCount = Activities.selectAll().where { (Activities.authorDid eq did) and visibleTo(viewer) }.count(),
             followersCount = Follows.selectAll().where { (Follows.subjectDid eq did) and effectiveFollow() }.count(),
             followsCount = Follows.selectAll().where { (Follows.authorDid eq did) and effectiveFollow() }.count(),
             viewer = viewer?.let { v -> viewerState(v.value, did) },
@@ -183,7 +193,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val pageSize = Paging.clamp(limit)
         val rows =
             Activities.selectAll()
-                .where { filter and shownInFeeds() and keysetBefore(Activities.sortAt, Activities.uri, cursor) }
+                .where { filter and visibleTo(viewer) and shownInFeeds() and keysetBefore(Activities.sortAt, Activities.uri, cursor) }
                 .orderBy(Activities.sortAt to SortOrder.DESC, Activities.uri to SortOrder.DESC)
                 .limit(pageSize)
                 .toList()
@@ -206,34 +216,43 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 }
                 .orEmpty()
 
-        val recordings = recordingsOf(rows.filter { it[Activities.recordingOf] == null }.map { it[Activities.uri] })
+        val recordings =
+            recordingsOf(rows.filter { it[Activities.recordingOf] == null }.associate { it[Activities.uri] to it[Activities.visibility] })
 
         return rows.mapNotNull { row ->
             val uri = row[Activities.uri]
             val record = AtJson.decodeFromString(ActivityRecord.serializer(), row[Activities.record])
+            val visibility = row[Activities.visibility]
+            // Non-public activities take no kudos or comments; any given while it was public stay in the index, unshown.
+            val interactions = acceptsInteractions(visibility)
             ActivityView(
                 uri = AtUri(uri),
                 cid = Cid(row[Activities.cid]),
                 author = authors[row[Activities.authorDid]] ?: return@mapNotNull null,
                 record = record,
-                kudosCount = kudosCounts[uri] ?: 0,
-                commentCount = commentCounts[uri] ?: 0,
+                kudosCount = if (interactions) kudosCounts[uri] ?: 0 else 0,
+                commentCount = if (interactions) commentCounts[uri] ?: 0 else 0,
                 indexedAt = Instant.fromEpochMilliseconds(row[Activities.indexedAt]),
-                viewer = viewer?.let { ActivityViewerState(kudos = viewerKudos[uri]?.let(::AtUri)) },
+                visibility = visibility,
+                viewer = viewer?.let { ActivityViewerState(kudos = viewerKudos[uri]?.takeIf { interactions }?.let(::AtUri)) },
                 recordings = recordings[uri],
-                media = mediaViews(mediaUrls, row[Activities.authorDid], record.media),
+                media = mediaViews(mediaUrls, row[Activities.authorDid], record.media, visibility, viewer),
             )
         }
     }
 
-    /** Each of [primaries]' other recordings, oldest first. */
-    private fun JdbcTransaction.recordingsOf(primaries: List<String>): Map<String, List<RecordingView>> =
+    /**
+     * Each of [primaries]' other recordings, oldest first, given each primary's visibility: a recording counts only at its primary's
+     * visibility, so it never shows anyone more than the primary does.
+     */
+    private fun JdbcTransaction.recordingsOf(primaries: Map<String, String>): Map<String, List<RecordingView>> =
         if (primaries.isEmpty()) {
             emptyMap()
         } else {
-            Activities.select(Activities.uri, Activities.recordingOf, Activities.startedAt, Activities.record)
-                .where { Activities.recordingOf inList primaries }
+            Activities.select(Activities.uri, Activities.recordingOf, Activities.startedAt, Activities.record, Activities.visibility)
+                .where { Activities.recordingOf inList primaries.keys }
                 .orderBy(Activities.startedAt to SortOrder.ASC, Activities.uri to SortOrder.ASC)
+                .filter { primaries[it[Activities.recordingOf]] == it[Activities.visibility] }
                 .groupBy({ it[Activities.recordingOf].orEmpty() }) {
                     val record = AtJson.decodeFromString(ActivityRecord.serializer(), it[Activities.record])
                     RecordingView(
@@ -245,15 +264,18 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         }
 
     /**
-     * Leaves out another recording of an activity that's indexed and is an activity in its own right: the feed shows that one, listing its
-     * recordings. A recording whose activity is gone, or is itself a recording, shows on its own.
+     * Leaves out another recording of an activity that's indexed, is an activity in its own right and has the same visibility: the feed
+     * shows that one, listing its recordings. A recording whose activity is gone, is itself a recording, or is at another visibility shows
+     * on its own.
      */
     private fun shownInFeeds(): Op<Boolean> {
         val recorded = Activities.alias("recorded")
         return Activities.recordingOf.isNull() or
             NotExists(
                 recorded.select(recorded[Activities.uri]).where {
-                    (recorded[Activities.uri] eq Activities.recordingOf) and recorded[Activities.recordingOf].isNull()
+                    (recorded[Activities.uri] eq Activities.recordingOf) and
+                        recorded[Activities.recordingOf].isNull() and
+                        (recorded[Activities.visibility] eq Activities.visibility)
                 }
             )
     }
@@ -277,11 +299,24 @@ class XrpcError(val status: Int, val error: String, override val message: String
 /** A recording's device as `#recordingView` allows it: the record's own is untrusted. */
 private const val MAX_DEVICE_LENGTH = 256
 
-/** The indexer kept only photos it can serve (see `Indexer.boundedPhotos`). */
-private fun mediaViews(urls: MediaUrls, author: String, media: List<ActivityMedia>?): List<ActivityMediaView>? =
+/**
+ * The indexer kept only photos it can serve (see `Indexer.boundedPhotos`). A non-public activity's photos get URLs signed for [viewer];
+ * with no viewer (or no way to sign) they're left out.
+ */
+private fun mediaViews(
+    urls: MediaUrls,
+    author: String,
+    media: List<ActivityMedia>?,
+    visibility: String,
+    viewer: Did?,
+): List<ActivityMediaView>? =
     media
         ?.filterIsInstance<ActivityMedia.Image>()
-        ?.map { ActivityMediaView.Image(fullsize = urls.url(author, it.image.ref.link), alt = it.alt, aspectRatio = it.aspectRatio) }
+        ?.mapNotNull {
+            val cid = it.image.ref.link
+            val url = if (visibility == Visibility.PUBLIC) urls.url(author, cid) else viewer?.let { v -> urls.privateUrl(author, cid, v) }
+            url?.let { u -> ActivityMediaView.Image(fullsize = u, alt = it.alt, aspectRatio = it.aspectRatio) }
+        }
         ?.ifEmpty { null }
 
 /**

@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.JsonObject
 import org.jetbrains.exposed.v1.core.notInSubQuery
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -21,10 +22,20 @@ import org.jetbrains.exposed.v1.jdbc.upsert
 // Indexing of `feed.activityStreams` records, which the Indexer hands off here.
 
 /**
- * Streams must sit under their own activity's rkey in the same repo, and name their data blob. An unknown visibility is stored as is; views
- * treat it as [Visibility.SELF].
+ * Streams must sit under their own activity's rkey in the same repo, and name their data blob. [visibility] is what they're served at (the
+ * Indexer works it out from the record and its origin); an unknown value is stored as is, and views treat it as [Visibility.SELF].
  */
-internal fun JdbcTransaction.upsertStreams(record: ActivityStreamsRecord, author: Did, uri: AtUri, cid: String, now: Long) {
+@Suppress("LongParameterList") // The record, its raw JSON, and where it's from.
+internal fun JdbcTransaction.upsertStreams(
+    record: ActivityStreamsRecord,
+    author: Did,
+    uri: AtUri,
+    cid: String,
+    json: JsonObject,
+    origin: String,
+    visibility: String,
+    now: Long,
+) {
     val activity = record.activity
     require(activity.authority == author.value && activity.collection == Nsid.FEED_ACTIVITY && activity.rkey == uri.rkey) {
         "streams not under their activity's rkey"
@@ -35,7 +46,9 @@ internal fun JdbcTransaction.upsertStreams(record: ActivityStreamsRecord, author
         it[ActivityStreams.cid] = cid
         it[authorDid] = author.value
         it[activityUri] = activity.value
-        it[visibility] = record.visibility.take(MAX_VISIBILITY_LENGTH)
+        it[ActivityStreams.visibility] = visibility
+        it[ActivityStreams.origin] = origin
+        it[ActivityStreams.record] = AtJson.encodeToString(JsonObject.serializer(), json)
         it[channels] =
             AtJson.encodeToString(
                 ListSerializer(String.serializer()),
@@ -64,7 +77,6 @@ private fun boundedZones(zones: ZoneSnapshot?): String? =
 
 // Records are untrusted, so text is clamped to the lexicon maxLength before it's stored.
 private const val MAX_MODEL_LENGTH = 64
-private const val MAX_VISIBILITY_LENGTH = 16
 private const val MAX_CHANNEL_LENGTH = 32
 
 /** Above any heart rate or power an athlete could hold. */
