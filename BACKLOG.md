@@ -28,10 +28,6 @@ Likes work at every visibility (`like-non-public-activities`): one on a non-publ
 - **`getComments` and the comment UI, for every visibility.** Store a comment on a non-public activity in the giver's `interactions` space, the same way (add `feed.comment` to the declaration and to `Indexer.spaceCollections` for that key, and a `comments.origin` column), and serve it by the same serve-time rule (`admittedLikes`/`visibleTo(column)` in `api/Views.kt`). Then drop `acceptsComments`.
 - **Text is more revealing than a like.** A comment's text survives a widening as readable by everyone, so decide whether widening should show comments given under a narrower tier, as likes do, or only to the audience they were written for.
 
-## Likes: what's left
-
-- **A refused like is silent.** A like the client refuses (no `space:` scope) or the PDS rejects (a session from before the declaration listed `feed.like`) shows nothing: `ActivityListEvents` and `ActivityDetailPresenter` swallow the failure. Surface `ScopeMissingError` as "sign in again", as saves do. A PDS rejection also leaves the like in the outbox, where it blocks later writes until the athlete signs in again.
-
 ## Private profile details in Spaces: what's left
 
 Non-public profile details live in each athlete's `app.activitytracker.space.athlete` tier spaces (`mutuals`, `self`), one `actor.privateDetails` record each, with the AppView as managing app. Spaces are an alpha (August 2026: no security audit, breaking changes weekly, the hosted sandbox will be wiped), so revisit the pinned image and `Space.kt` when they reach a stable release.
