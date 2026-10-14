@@ -6,10 +6,8 @@ import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
-import io.github.solcott.activitytracker.lexicon.NoOutput
 import io.github.solcott.activitytracker.lexicon.XrpcErrorBody
 import io.github.solcott.activitytracker.lexicon.XrpcParams
-import io.github.solcott.activitytracker.lexicon.XrpcProcedure
 import io.github.solcott.activitytracker.lexicon.XrpcQuery
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
@@ -18,21 +16,17 @@ import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
 import io.github.solcott.activitytracker.lexicon.app.GetFollowers
 import io.github.solcott.activitytracker.lexicon.app.GetFollows
 import io.github.solcott.activitytracker.lexicon.app.GetKudos
-import io.github.solcott.activitytracker.lexicon.app.GetPrivateDetails
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
-import io.github.solcott.activitytracker.lexicon.app.PutPrivateDetails
 import io.github.solcott.activitytracker.lexicon.app.SearchActors
 import io.github.solcott.activitytracker.lexicon.atproto.SimpleSpace
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
-import io.ktor.server.request.receiveText
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
-import io.ktor.server.routing.post
 import io.ktor.util.toMap
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
@@ -45,7 +39,6 @@ fun Route.xrpcRoutes(
     views: Views,
     graph: GraphViews,
     search: ActorSearch,
-    privateDetails: PrivateDetails,
     streams: ActivityStreamsViews,
     spaceAccess: SpaceAccess,
     verifier: ServiceAuthVerifier,
@@ -64,11 +57,6 @@ fun Route.xrpcRoutes(
     }
     xrpcQuery(GetFollowers.method, verifier) { params, _ -> graph.followers(params) }
     xrpcQuery(GetFollows.method, verifier) { params, _ -> graph.follows(params) }
-    xrpcQuery(GetPrivateDetails.method, verifier) { _, viewer -> privateDetails.get(requireViewer(viewer)) }
-    xrpcProcedure(PutPrivateDetails.method, verifier) { input, viewer ->
-        privateDetails.put(viewer, input)
-        NoOutput
-    }
     // The managing-app callout from an athlete's PDS, whose token is addressed to the managing app rather than the AppView.
     xrpcQuery(SimpleSpace.CheckUserAccess.method, managingAppVerifier) { params, issuer ->
         spaceAccess.check(requireViewer(issuer), params)
@@ -94,25 +82,6 @@ private fun <P, O> Route.xrpcQuery(
         val viewer = call.viewer(verifier, method.nsid)
         call.respondText(
             AtJson.encodeToString(method.output, handler(params, viewer)),
-            ContentType.Application.Json,
-        )
-    }
-}
-
-/** Serves a typed procedure (a JSON POST). Procedures change the caller's own data, so they always require auth. */
-private fun <I, O> Route.xrpcProcedure(
-    method: XrpcProcedure<I, O>,
-    verifier: ServiceAuthVerifier,
-    handler: suspend (input: I, viewer: Did) -> O,
-) {
-    post("/xrpc/${method.nsid}") {
-        val viewer = call.viewer(verifier, method.nsid) ?: throw AuthException("Authentication required")
-        val input = runCatching {
-            AtJson.decodeFromString(method.input, call.receiveText())
-        }
-            .getOrElse { e -> throw XrpcError(HttpStatusCode.BadRequest.value, "InvalidRequest", e.message ?: "Invalid input", cause = e) }
-        call.respondText(
-            AtJson.encodeToString(method.output, handler(input, viewer)),
             ContentType.Application.Json,
         )
     }

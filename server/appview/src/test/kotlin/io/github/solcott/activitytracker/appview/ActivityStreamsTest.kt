@@ -12,23 +12,15 @@ import io.github.solcott.activitytracker.appview.index.JetstreamEvent
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
-import io.github.solcott.activitytracker.lexicon.app.DetailsVisibility
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
-import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
-import io.github.solcott.activitytracker.lexicon.app.PutPrivateDetails
-import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
-import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import java.util.UUID
@@ -156,32 +148,18 @@ class ActivityStreamsTest {
     }
 
     @Test
-    fun zonesNeedTheViewerToSeeTheAthletesTraining() = testApplication {
+    fun zonesNeedTheAthletesTrainingToBePublic() = testApplication {
         start()
         streams(Visibility.PUBLIC)
 
+        // Bob is Alice's mutual, but non-public training lives in her tier spaces, which the AppView can't see.
         assertNotNull(client.streamsFor(alice).output().powerZones)
         assertNull(client.streamsFor(bob).output().powerZones)
-
-        val nsid = PutPrivateDetails.method.nsid
-        val response =
-            client.post("/xrpc/$nsid") {
-                header(HttpHeaders.Authorization, auth(alice, nsid))
-                contentType(ContentType.Application.Json)
-                setBody(
-                    AtJson.encodeToString(
-                        PutPrivateDetails.Input.serializer(),
-                        PutPrivateDetails.Input(
-                            ProfileDetails(training = TrainingDetails(functionalThresholdPower = 250)),
-                            DetailsVisibility(training = Visibility.MUTUALS),
-                        ),
-                    )
-                )
-            }
-        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
-
-        assertNotNull(client.streamsFor(bob).output().powerZones)
         assertNull(client.streamsFor(carol).output().powerZones)
+
+        commit(alice, Nsid.ACTOR_PROFILE, "self", """{"details":{"training":{"functionalThresholdPower":250}}}""")
+        assertNotNull(client.streamsFor(bob).output().powerZones)
+        assertNotNull(client.streamsFor(carol).output().powerZones)
     }
 
     @Test

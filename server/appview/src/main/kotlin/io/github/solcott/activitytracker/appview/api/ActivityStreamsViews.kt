@@ -99,7 +99,7 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
         val author = row[ActivityStreams.authorDid]
         val isSelf = viewer?.value == author
         val actor = Actors.selectAll().where { Actors.did eq author }.singleOrNull()
-        val seesTraining = isSelf || (actor != null && visibleDetails(actor, viewer)?.training != null)
+        val seesTraining = isSelf || (actor != null && publicDetails(actor)?.training != null)
         fun zones(json: String?) = json?.takeIf { seesTraining }?.let { AtJson.decodeFromString(ZoneSnapshot.serializer(), it) }
         return Visible(
             author = author,

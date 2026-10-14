@@ -8,30 +8,21 @@ import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
-import io.github.solcott.activitytracker.lexicon.app.DetailsVisibility
-import io.github.solcott.activitytracker.lexicon.app.GetPrivateDetails
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
-import io.github.solcott.activitytracker.lexicon.app.HeartRateZoneModel
 import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.PowerZoneModel
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
-import io.github.solcott.activitytracker.lexicon.app.PutPrivateDetails
-import io.github.solcott.activitytracker.lexicon.app.SpeedZoneModel
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SportTraining
 import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.ThresholdEntry
-import io.github.solcott.activitytracker.lexicon.app.ThresholdSource
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
-import io.github.solcott.activitytracker.lexicon.app.TrainingSetAt
-import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
-import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -49,7 +40,9 @@ import kotlinx.serialization.json.jsonObject
 import org.h2.jdbcx.JdbcDataSource
 import org.jetbrains.exposed.v1.jdbc.Database
 
-/** Public details come from the indexed profile record; mutuals-only and private ones from `putPrivateDetails`, shown per viewer. */
+/**
+ * Profile details come only from the indexed profile record: non-public ones live in athletes' tier spaces, which the AppView never stores.
+ */
 class ProfileDetailsTest {
     private val service = "did:web:localhost%3A8081"
     private val alice = "did:plc:alice"
@@ -99,17 +92,8 @@ class ProfileDetailsTest {
         return AtJson.decodeFromString(GetProfile.method.output, response.bodyAsText())
     }
 
-    private suspend fun HttpClient.putPrivate(caller: String?, input: PutPrivateDetails.Input): HttpResponse {
-        val nsid = PutPrivateDetails.method.nsid
-        return post("/xrpc/$nsid") {
-            caller?.let { header(HttpHeaders.Authorization, auth(it, nsid)) }
-            contentType(ContentType.Application.Json)
-            setBody(AtJson.encodeToString(PutPrivateDetails.Input.serializer(), input))
-        }
-    }
-
-    /** Alice: public city and avatar in her record; weight and height for mutuals and birthdate for herself in the AppView. */
-    private suspend fun ApplicationTestBuilder.seedAlice() {
+    /** Alice: a public city, weight and avatar in her record. */
+    private fun ApplicationTestBuilder.seedAlice() {
         application { appView(config, db, verifier, pds) }
         commit(
             alice,
@@ -119,46 +103,23 @@ class ProfileDetailsTest {
                 """"avatar":{"${'$'}type":"blob","ref":{"${'$'}link":"bafkavatar"},"mimeType":"image/jpeg","size":2048},""" +
                 """"details":{"location":{"locality":"Portland","country":"US"},"weight":12}}""",
         )
-        val response =
-            client.putPrivate(
-                alice,
-                PutPrivateDetails.Input(
-                    ProfileDetails(birthDate = "1990-04-01", weight = 61_500, height = 1_680),
-                    DetailsVisibility(birthDate = Visibility.SELF, weight = Visibility.MUTUALS),
-                ),
-            )
-        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
     }
 
     @Test
-    fun eachViewerSeesOnlyWhatVisibilityAllows() = testApplication {
+    fun everyViewerSeesOnlyTheRecordsDetails() = testApplication {
         seedAlice()
-        // Alice's record also says weight=12, so the public copy wins over the mutuals-only one: it's already public.
-        commit(
-            alice,
-            Nsid.ACTOR_PROFILE,
-            "self",
-            """{"displayName":"Alice","details":{"location":{"locality":"Portland","country":"US"}}}""",
-        )
         follow(bob, alice) // Bob follows Alice, but she doesn't follow him back.
         follow(alice, carol)
-        follow(carol, alice) // Carol and Alice are mutuals.
+        follow(carol, alice) // Carol and Alice are mutuals: they read her Mutuals tier space themselves, not through the AppView.
 
-        val publicOnly = ProfileDetails(location = Location(locality = "Portland", country = "US"))
-        assertEquals(publicOnly, client.profile(viewer = null).details)
-        assertEquals(publicOnly, client.profile(viewer = bob).details)
-        assertEquals(publicOnly.copy(weight = 61_500, height = 1_680), client.profile(viewer = carol).details)
-        assertEquals(
-            publicOnly.copy(weight = 61_500, height = 1_680, birthDate = "1990-04-01"),
-            client.profile(viewer = alice).details,
-        )
+        val public = ProfileDetails(location = Location(locality = "Portland", country = "US"), weight = 12)
+        for (viewer in listOf(null, bob, carol, alice)) assertEquals(public, client.profile(viewer).details, "viewer $viewer")
     }
 
     @Test
-    fun publicCopyWinsAndAvatarRedirectsToPds() = testApplication {
+    fun avatarRedirectsToPds() = testApplication {
         seedAlice()
         val view = client.profile(viewer = null)
-        assertEquals(12, view.details?.weight)
         assertEquals("${config.publicUrl}/img/avatar/$alice/bafkavatar", view.avatar)
 
         val noRedirects = createClient { followRedirects = false }
@@ -173,55 +134,23 @@ class ProfileDetailsTest {
     }
 
     @Test
-    fun privateDetailsNeedAuthAndANonPublicVisibility() = testApplication {
+    fun theAppViewNoLongerTakesPrivateDetails() = testApplication {
         seedAlice()
-        val input = PutPrivateDetails.Input(ProfileDetails(gender = "female"), DetailsVisibility(gender = Visibility.SELF))
-        assertEquals(HttpStatusCode.Unauthorized, client.putPrivate(null, input).status)
-
-        val public = client.putPrivate(alice, input.copy(visibility = DetailsVisibility(gender = Visibility.PUBLIC)))
-        assertEquals(HttpStatusCode.BadRequest, public.status)
-        assertEquals(
-            PutPrivateDetails.INVALID_VISIBILITY,
-            AtJson.parseToJsonElement(public.bodyAsText()).jsonObject["error"]?.toString()?.trim('"'),
-        )
-
-        val badDate =
-            client.putPrivate(
-                alice,
-                PutPrivateDetails.Input(ProfileDetails(birthDate = "1990-13-45"), DetailsVisibility(birthDate = Visibility.SELF)),
-            )
-        assertEquals(HttpStatusCode.BadRequest, badDate.status)
-
-        // Each caller reads only their own private details.
-        val nsid = GetPrivateDetails.method.nsid
-        assertEquals(HttpStatusCode.Unauthorized, client.get("/xrpc/$nsid").status)
-        suspend fun own(did: String) =
-            AtJson.decodeFromString(
-                GetPrivateDetails.Output.serializer(),
-                client.get("/xrpc/$nsid") { header(HttpHeaders.Authorization, auth(did, nsid)) }.bodyAsText(),
-            )
-        assertEquals(ProfileDetails(birthDate = "1990-04-01", weight = 61_500, height = 1_680), own(alice).details)
-        assertEquals(Visibility.MUTUALS, own(alice).visibility.weight)
-        assertEquals(ProfileDetails(), own(bob).details)
+        val put = "app.activitytracker.actor.putPrivateDetails"
+        val response =
+            client.post("/xrpc/$put") {
+                header(HttpHeaders.Authorization, auth(alice, put))
+                contentType(ContentType.Application.Json)
+                setBody("""{"details":{"weight":61500},"visibility":{"weight":"mutuals"}}""")
+            }
+        assertEquals(HttpStatusCode.NotFound, response.status)
+        val get = "app.activitytracker.actor.getPrivateDetails"
+        assertEquals(HttpStatusCode.NotFound, client.get("/xrpc/$get") { header(HttpHeaders.Authorization, auth(alice, get)) }.status)
     }
 
     @Test
-    fun heightSharesWeightsVisibility() = testApplication {
+    fun heightInTheRecordIsShownAndKeptInRange() = testApplication {
         seedAlice()
-        // Height alone still needs the weight group's non-public visibility, and is kept within the lexicon's range.
-        suspend fun put(details: ProfileDetails, visibility: String?) =
-            client.putPrivate(alice, PutPrivateDetails.Input(details, DetailsVisibility(weight = visibility)))
-        assertEquals(HttpStatusCode.BadRequest, put(ProfileDetails(height = 1_680), Visibility.PUBLIC).status)
-        assertEquals(HttpStatusCode.BadRequest, put(ProfileDetails(height = 1_680), null).status)
-        assertEquals(HttpStatusCode.BadRequest, put(ProfileDetails(height = 5_000), Visibility.SELF).status)
-        val saved = put(ProfileDetails(height = 1_680), Visibility.MUTUALS)
-        assertEquals(HttpStatusCode.OK, saved.status, saved.bodyAsText())
-        follow(alice, carol)
-        follow(carol, alice)
-        assertEquals(1_680, client.profile(viewer = carol).details?.height)
-        assertNull(client.profile(viewer = bob).details?.height)
-
-        // A public height in the record is shown to everyone; an out-of-range one is dropped.
         commit(alice, Nsid.ACTOR_PROFILE, "self", """{"details":{"height":1700}}""")
         assertEquals(1_700, client.profile(viewer = null).details?.height)
         commit(alice, Nsid.ACTOR_PROFILE, "self", """{"details":{"height":9000}}""")
@@ -229,57 +158,8 @@ class ProfileDetailsTest {
     }
 
     @Test
-    fun trainingIsStoredAndShownByVisibility() = testApplication {
+    fun trainingInTheRecordIsSanitized() = testApplication {
         seedAlice()
-        val training =
-            TrainingDetails(
-                functionalThresholdPower = 231,
-                thresholdHeartRate = 168,
-                heartRateZoneModel = HeartRateZoneModel.FRIEL_CYCLING,
-            )
-        val tooFast =
-            client.putPrivate(
-                alice,
-                PutPrivateDetails.Input(
-                    ProfileDetails(training = training.copy(maxHeartRate = 400)),
-                    DetailsVisibility(training = Visibility.SELF),
-                ),
-            )
-        assertEquals(HttpStatusCode.BadRequest, tooFast.status)
-        val saved =
-            client.putPrivate(
-                alice,
-                PutPrivateDetails.Input(ProfileDetails(training = training), DetailsVisibility(training = Visibility.MUTUALS)),
-            )
-        assertEquals(HttpStatusCode.OK, saved.status, saved.bodyAsText())
-        follow(alice, carol)
-        follow(carol, alice)
-        assertEquals(training, client.profile(viewer = carol).details?.training)
-        assertNull(client.profile(viewer = bob).details?.training)
-
-        // Auto-update choices and when each value was set round-trip; a repeated choice is dropped from a record.
-        val auto =
-            training.copy(
-                autoUpdate = listOf(Threshold.MAX_HEART_RATE, Threshold.FUNCTIONAL_THRESHOLD_POWER),
-                setAt = TrainingSetAt(maxHeartRate = Instant.parse("2026-10-01T07:00:00Z")),
-            )
-        val withAuto =
-            client.putPrivate(
-                alice,
-                PutPrivateDetails.Input(ProfileDetails(training = auto), DetailsVisibility(training = Visibility.SELF)),
-            )
-        assertEquals(HttpStatusCode.OK, withAuto.status, withAuto.bodyAsText())
-        assertEquals(auto, client.profile(viewer = alice).details?.training)
-        val repeated =
-            client.putPrivate(
-                alice,
-                PutPrivateDetails.Input(
-                    ProfileDetails(training = auto.copy(autoUpdate = listOf(Threshold.MAX_HEART_RATE, Threshold.MAX_HEART_RATE))),
-                    DetailsVisibility(training = Visibility.SELF),
-                ),
-            )
-        assertEquals(HttpStatusCode.BadRequest, repeated.status)
-
         // A public copy in the record is indexed and shown to everyone; an out-of-range value in it is dropped.
         commit(
             alice,
@@ -294,32 +174,9 @@ class ProfileDetailsTest {
     }
 
     @Test
-    fun sportOverridesAreValidatedAndSanitized() = testApplication {
+    fun sportOverridesInTheRecordAreSanitized() = testApplication {
         seedAlice()
-        // Per-sport overrides round-trip; a second entry for one sport, or an out-of-range threshold speed, is rejected.
-        val run = SportTraining(sport = Sport.RUN, thresholdSpeed = 3271, speedZoneModel = SpeedZoneModel.FRIEL_RUNNING)
-        val training =
-            TrainingDetails(thresholdHeartRate = 165, sports = listOf(run, SportTraining(sport = Sport.SWIM, thresholdHeartRate = 150)))
-        val saved =
-            client.putPrivate(
-                alice,
-                PutPrivateDetails.Input(ProfileDetails(training = training), DetailsVisibility(training = Visibility.SELF)),
-            )
-        assertEquals(HttpStatusCode.OK, saved.status, saved.bodyAsText())
-        assertEquals(training, client.profile(viewer = alice).details?.training)
-        for (bad in listOf(listOf(run, run.copy(thresholdSpeed = 3000)), listOf(run.copy(thresholdSpeed = 50_000)))) {
-            val rejected =
-                client.putPrivate(
-                    alice,
-                    PutPrivateDetails.Input(
-                        ProfileDetails(training = training.copy(sports = bad)),
-                        DetailsVisibility(training = Visibility.SELF),
-                    ),
-                )
-            assertEquals(HttpStatusCode.BadRequest, rejected.status)
-        }
-
-        // In a public record, a repeated sport and an out-of-range speed are dropped.
+        // A repeated sport and an out-of-range speed are dropped.
         val sports = """[{"sport":"run","thresholdSpeed":3271},{"sport":"run","thresholdSpeed":1},{"sport":"swim","thresholdSpeed":5}]"""
         commit(alice, Nsid.ACTOR_PROFILE, "self", """{"details":{"training":{"sports":$sports}}}""")
         assertEquals(
@@ -329,30 +186,10 @@ class ProfileDetailsTest {
     }
 
     @Test
-    fun thresholdHistoryIsValidatedAndSanitized() = testApplication {
+    fun thresholdHistoryInTheRecordIsSanitized() = testApplication {
         seedAlice()
+        // An out-of-range value is dropped and a long device name truncated.
         val at = Instant.parse("2026-10-01T07:00:00Z")
-        val ftp = ThresholdEntry(Threshold.FUNCTIONAL_THRESHOLD_POWER, 250, at, source = ThresholdSource.DEVICE, device = "Edge 840")
-        val pace = ThresholdEntry(Threshold.THRESHOLD_SPEED, 3271, at, sport = Sport.RUN, source = ThresholdSource.TRAINER_ROAD)
-        val training = TrainingDetails(functionalThresholdPower = 250, history = listOf(ftp, pace))
-        val saved =
-            client.putPrivate(
-                alice,
-                PutPrivateDetails.Input(ProfileDetails(training = training), DetailsVisibility(training = Visibility.SELF)),
-            )
-        assertEquals(HttpStatusCode.OK, saved.status, saved.bodyAsText())
-        assertEquals(training, client.profile(viewer = alice).details?.training)
-        val rejected =
-            client.putPrivate(
-                alice,
-                PutPrivateDetails.Input(
-                    ProfileDetails(training = training.copy(history = listOf(ftp.copy(value = 0)))),
-                    DetailsVisibility(training = Visibility.SELF),
-                ),
-            )
-        assertEquals(HttpStatusCode.BadRequest, rejected.status)
-
-        // In a public record, an out-of-range value is dropped and a long device name truncated.
         val device = "x".repeat(700)
         val history =
             """[{"threshold":"maxHeartRate","value":190,"setAt":"2026-10-01T07:00:00Z","device":"$device"},""" +
@@ -362,22 +199,5 @@ class ProfileDetailsTest {
             TrainingDetails(history = listOf(ThresholdEntry(Threshold.MAX_HEART_RATE, 190, at, device = device.take(640)))),
             client.profile(viewer = null).details?.training,
         )
-    }
-
-    @Test
-    fun deletedAccountLosesItsPrivateDetails() = testApplication {
-        seedAlice()
-        runBlocking {
-            indexer.handle(
-                JetstreamEvent.Account(
-                    did = alice,
-                    time = "2026-09-30T12:00:00.000000Z",
-                    account = JetstreamEvent.Account.Body(did = alice, active = false, status = "deleted"),
-                )
-            )
-        }
-        val nsid = GetPrivateDetails.method.nsid
-        val own = client.get("/xrpc/$nsid") { header(HttpHeaders.Authorization, auth(alice, nsid)) }
-        assertNull(AtJson.decodeFromString(GetPrivateDetails.Output.serializer(), own.bodyAsText()).details.weight)
     }
 }

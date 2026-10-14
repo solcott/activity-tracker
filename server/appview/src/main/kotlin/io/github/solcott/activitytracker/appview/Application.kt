@@ -8,7 +8,6 @@ import io.github.solcott.activitytracker.appview.api.GraphViews
 import io.github.solcott.activitytracker.appview.api.MediaUrls
 import io.github.solcott.activitytracker.appview.api.PdsBlobStreamSource
 import io.github.solcott.activitytracker.appview.api.PdsLookup
-import io.github.solcott.activitytracker.appview.api.PrivateDetails
 import io.github.solcott.activitytracker.appview.api.ResolvingPdsLookup
 import io.github.solcott.activitytracker.appview.api.SpaceAccess
 import io.github.solcott.activitytracker.appview.api.StreamSource
@@ -106,7 +105,6 @@ fun Application.appView(
             Views(db, avatars, MediaUrls(config.publicUrl)),
             GraphViews(db, avatars),
             ActorSearch(db, avatars),
-            PrivateDetails(db),
             ActivityStreamsViews(db, streamSource),
             SpaceAccess(db),
             verifier,

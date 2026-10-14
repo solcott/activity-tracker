@@ -13,8 +13,8 @@ import java.time.LocalDate
 import java.time.format.DateTimeParseException
 
 /**
- * The `actor.defs#details` and `actor.profile#avatar` constraints, shared by the indexer (which drops what breaks them, because records are
- * untrusted) and `putPrivateDetails` (which rejects the request instead).
+ * The `actor.defs#details` and `actor.profile#avatar` constraints, which the indexer applies to profile records: records are untrusted, so
+ * it drops what breaks them.
  */
 internal object ProfileDetailRules {
     /** The lexicon `maxLength` of free-text details. */
@@ -109,16 +109,6 @@ internal object ProfileDetailRules {
             setAt = sport.setAt?.takeUnless { it == TrainingSetAt() },
         )
     }
-
-    /** True when [sanitize] would change nothing, apart from dropping an empty location or training. */
-    fun isValid(details: ProfileDetails): Boolean =
-        sanitize(details) ==
-            details
-                .copy(
-                    location = details.location?.takeUnless { it == Location() },
-                    training = details.training?.takeUnless { it == TrainingDetails() },
-                )
-                .takeUnless { it == ProfileDetails() }
 
     /** [training] as the JSON stored in a `training` column, or null to store nothing. */
     fun encodeTraining(training: TrainingDetails?): String? = training?.let { AtJson.encodeToString(TrainingDetails.serializer(), it) }

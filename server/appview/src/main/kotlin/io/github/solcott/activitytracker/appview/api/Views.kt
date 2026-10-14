@@ -161,7 +161,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
             displayName = row[Actors.displayName],
             description = row[Actors.description],
             avatar = avatars.url(did, row[Actors.avatarCid]),
-            details = visibleDetails(row, viewer),
+            details = publicDetails(row),
             units = row[Actors.units],
             activitiesCount = Activities.selectAll().where { Activities.authorDid eq did }.count(),
             followersCount = Follows.selectAll().where { Follows.subjectDid eq did }.count(),

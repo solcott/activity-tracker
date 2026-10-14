@@ -4,7 +4,6 @@ import io.github.solcott.activitytracker.appview.ProfileDetailRules
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityMediaBlobs
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
-import io.github.solcott.activitytracker.appview.db.ActorPrivateDetails
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.Follows
@@ -285,7 +284,6 @@ class Indexer(
         Kudos.deleteWhere { authorDid eq did.value }
         Comments.deleteWhere { authorDid eq did.value }
         Follows.deleteWhere { authorDid eq did.value }
-        ActorPrivateDetails.deleteWhere { ActorPrivateDetails.did eq did.value }
         Actors.deleteWhere { Actors.did eq did.value }
     }
 
