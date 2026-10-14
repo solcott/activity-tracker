@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowApprovalRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
@@ -40,12 +41,14 @@ import org.jetbrains.exposed.v1.jdbc.upsert
 import org.slf4j.LoggerFactory
 
 /**
- * Applies repo commits, and writes synced from athletes' tier spaces, to the index. Every write is an upsert/delete keyed by AT-URI, so
- * replaying events (e.g. after rewinding the Jetstream cursor) is safe. Records that fail to decode are dropped: repos are untrusted input.
+ * Applies repo commits, and writes synced from athletes' tier and interactions spaces, to the index. Every write is an upsert/delete keyed
+ * by AT-URI, so replaying events (e.g. after rewinding the Jetstream cursor) is safe. Records that fail to decode are dropped: repos are
+ * untrusted input.
  *
  * Activities and their streams come from the repo (public) or a tier space, each an origin ([Placement]). Mid-move one URI can be held by
  * two origins: the narrower tier's copy is the indexed row, the other waits in [RecordShadows], and a delete removes only its own origin's
- * copy, promoting a shadow left behind.
+ * copy, promoting a shadow left behind. Likes come from the repo (on public activities) or the giver's interactions space, and are never
+ * moved, so they need no shadows: a like's row just records its origin, and only that origin's delete removes it.
  */
 class Indexer(
     private val db: Database,
@@ -83,17 +86,15 @@ class Indexer(
         }
     }
 
-    /**
-     * A put of [collection]/[rkey] in [space]'s authority repo. Only activities and their streams are indexed; anything else is dropped.
-     */
+    /** A put of [collection]/[rkey] in [space]'s authority repo. Only [spaceCollections] for the space's key are indexed. */
     suspend fun spaceWrite(space: SpaceUri, collection: String, rkey: String, cid: String, record: JsonObject) {
-        if (collection !in SPACE_COLLECTIONS) return
+        if (collection !in spaceCollections(space.skey)) return
         index(space.authority, collection, AtUri.of(space.authority, collection, rkey), cid, record, Placement.of(space))
     }
 
     /** A delete of [collection]/[rkey] in [space]'s authority repo. */
     suspend fun spaceDelete(space: SpaceUri, collection: String, rkey: String) {
-        if (collection !in SPACE_COLLECTIONS) return
+        if (collection !in spaceCollections(space.skey)) return
         db.tx { delete(collection, AtUri.of(space.authority, collection, rkey), Placement.of(space)) }
     }
 
@@ -111,6 +112,7 @@ class Indexer(
                 .forEach { delete(collection, AtUri(it), placement) }
         }
         RecordShadows.deleteWhere { origin eq placement.origin }
+        Likes.deleteWhere { origin eq placement.origin }
     }
 
     @Suppress("LongParameterList") // The record, and where it's from.
@@ -155,6 +157,7 @@ class Indexer(
                     it[subjectCid] = record.subject.cid.value
                     it[createdAt] = record.createdAt.toEpochMilliseconds()
                     it[indexedAt] = now
+                    it[origin] = placement.origin
                 }
             }
 
@@ -223,7 +226,7 @@ class Indexer(
             }
 
             Nsid.FEED_LIKE -> {
-                Likes.deleteWhere { Likes.uri eq uri.value }
+                Likes.deleteWhere { (Likes.uri eq uri.value) and (origin eq placement.origin) }
             }
 
             Nsid.FEED_COMMENT -> {
@@ -279,8 +282,16 @@ class Indexer(
     }
 
     companion object {
-        /** What the AppView indexes from tier spaces. Private details, follow declines and defaults are never stored. */
-        val SPACE_COLLECTIONS = setOf(Nsid.FEED_ACTIVITY, Nsid.FEED_ACTIVITY_STREAMS)
+        private val TIER_COLLECTIONS = setOf(Nsid.FEED_ACTIVITY, Nsid.FEED_ACTIVITY_STREAMS)
+        private val INTERACTION_COLLECTIONS = setOf(Nsid.FEED_LIKE)
+
+        /**
+         * What the AppView indexes from the athlete space with key [skey]: likes from the interactions space, and activities and their
+         * streams from a tier (an unknown key is a tier only the athlete sees). Private details, follow declines and defaults are never
+         * stored.
+         */
+        fun spaceCollections(skey: String): Set<String> =
+            if (skey == AthleteSpace.INTERACTIONS) INTERACTION_COLLECTIONS else TIER_COLLECTIONS
     }
 }
 

@@ -225,6 +225,18 @@ class SpaceAccessTest {
     }
 
     @Test
+    fun interactionsSpaceAdmitsNoOneButTheAppView() = testApplication {
+        start()
+        follow(alice, bob)
+        follow(bob, alice)
+        assertEquals(false, client.authorized(bob, AthleteSpace.INTERACTIONS), "bob is a mutual")
+        assertEquals(false, client.authorized(carol, AthleteSpace.INTERACTIONS))
+        assertEquals(true, client.authorized(config.serviceDid, AthleteSpace.INTERACTIONS))
+        assertEquals(false, client.authorized(config.serviceDid, AthleteSpace.INTERACTIONS, access = CheckUserAccess.WRITE))
+        assertEquals(false, client.authorized(bob, AthleteSpace.INTERACTIONS, access = CheckUserAccess.WRITE))
+    }
+
+    @Test
     fun appViewIsDeniedWritesUnknownTiersAndOtherTypes() = testApplication {
         start()
         val appView = config.serviceDid

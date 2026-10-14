@@ -41,7 +41,8 @@ import org.jetbrains.exposed.v1.jdbc.update
 import org.slf4j.LoggerFactory
 
 /**
- * Keeps the activities in athletes' tier spaces indexed, as a member of each space (design decision 4):
+ * Keeps the activities in athletes' tier spaces, and the likes in their interactions spaces, indexed, as a member of each space (design
+ * decision 4):
  * - an athlete's client announces a space ([announce]); the AppView joins it with its own credential, registers for `notifyWrite` at
  *   [service], and backfills it;
  * - each notification ([notified]) pulls the space's ops since the last indexed revision;
@@ -49,8 +50,9 @@ import org.slf4j.LoggerFactory
  *   renewed within [renewalMargin] of expiring.
  *
  * Only the authority writes to an athlete's space, so the authority's repo is the only one synced. Ops go through the [Indexer], which
- * keeps only activities and their streams. A space whose sync fails is retried with backoff; it never holds up other spaces or Jetstream.
- * Syncs of one space never overlap. The PDS may compact the op log, so a space that hasn't synced for [resyncAfter] is backfilled again.
+ * keeps only what [Indexer.spaceCollections] allows for the space's key. A space whose sync fails is retried with backoff; it never holds
+ * up other spaces or Jetstream. Syncs of one space never overlap. The PDS may compact the op log, so a space that hasn't synced for
+ * [resyncAfter] is backfilled again.
  */
 @Suppress("LongParameterList") // Collaborators, then tunables with defaults.
 class SpaceSyncer(
@@ -76,9 +78,9 @@ class SpaceSyncer(
     /** Spaces notified while a sync of them ran, which may have read the log before the write: they're pulled again at once. */
     private val renotified = ConcurrentHashMap.newKeySet<String>()
 
-    /** An athlete says their tier [space] exists. Idempotent; the space is synced soon after. */
+    /** An athlete says their tier or interactions [space] exists. Idempotent; the space is synced soon after. */
     suspend fun announce(space: SpaceUri) {
-        require(isSyncable(space)) { "Not an athlete tier space: $space" }
+        require(isSyncable(space)) { "Not a syncable athlete space: $space" }
         val now = clock.now().toEpochMilliseconds()
         db.tx {
             SpaceSync.insertIgnore {
@@ -193,13 +195,13 @@ class SpaceSyncer(
     }
 
     /**
-     * First sync, or one after a gap: the head revision, then every activity and streams record as it stands, dropping indexed ones the
+     * First sync, or one after a gap: the head revision, then every record the space's key indexes as it stands, dropping indexed ones the
      * space no longer has, then ops after the head on later syncs. The PDS may have compacted the op log, so it can't stand in for the
      * records. Returns the head revision, or null if nothing was ever written.
      */
     private suspend fun backfill(space: SpaceUri): String? {
         val head = member.call(space, space.authority) { pds -> headRev(pds, space) }
-        for (collection in listOf(Nsid.FEED_ACTIVITY, Nsid.FEED_ACTIVITY_STREAMS)) {
+        for (collection in Indexer.spaceCollections(space.skey)) {
             val listed = mutableSetOf<String>()
             var cursor: String? = null
             do {
@@ -286,7 +288,9 @@ class SpaceSyncer(
         /** The tiers that hold non-public activities. The public tier never does. */
         val TIERS = setOf(AthleteSpace.FOLLOWERS, AthleteSpace.MUTUALS, AthleteSpace.SELF)
 
-        fun isSyncable(space: SpaceUri): Boolean = space.type == Nsid.SPACE_ATHLETE && space.skey in TIERS
+        /** A tier holding non-public activities, or the interactions space holding likes on them. */
+        fun isSyncable(space: SpaceUri): Boolean =
+            space.type == Nsid.SPACE_ATHLETE && (space.skey in TIERS || space.skey == AthleteSpace.INTERACTIONS)
 
         private const val PAGE = 100
         internal const val MAX_PAGE = 1000

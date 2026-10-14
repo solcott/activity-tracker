@@ -62,6 +62,9 @@ object Likes : Table("likes") {
     val subjectCid = varchar("subject_cid", 255)
     val createdAt = long("created_at")
     val indexedAt = long("indexed_at")
+
+    /** `repo`, or the URI of the `interactions` space the like came from. */
+    val origin = varchar("origin", 512).default(Origins.REPO)
     override val primaryKey = PrimaryKey(uri)
 }
 

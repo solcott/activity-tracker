@@ -109,6 +109,38 @@ class ActivityVisibilityTest {
 
     private fun space(tier: String) = SpaceUri.of(Did(alice), Nsid.SPACE_ATHLETE, tier)
 
+    private fun unfollow(author: String, subject: String) = commit(author, Nsid.GRAPH_FOLLOW, "3kf${author.last()}${subject.last()}", null)
+
+    /** Alice changes [rkey] from [from] to [to]: the new copy is written, then the old one deleted. */
+    private fun move(rkey: String, from: String, to: String) {
+        post(rkey, to)
+        unpost(rkey, from)
+    }
+
+    /** [giver] likes alice's [rkey], in their repo or their interactions space; the like's rkey is `3kl` + the giver's initial. */
+    private fun like(giver: String, rkey: String, inSpace: Boolean = false) {
+        val likeRkey = "3kl${giver.last()}"
+        val json = """{"subject":{"uri":"${uri(rkey)}","cid":"bafy$rkey"},"createdAt":"2026-10-01T09:00:00Z"}"""
+        if (!inSpace) {
+            commit(giver, Nsid.FEED_LIKE, likeRkey, json)
+        } else {
+            val interactions = SpaceUri.of(Did(giver), Nsid.SPACE_ATHLETE, AthleteSpace.INTERACTIONS)
+            runBlocking {
+                indexer.spaceWrite(interactions, Nsid.FEED_LIKE, likeRkey, "bafy$likeRkey", AtJson.parseToJsonElement(json).jsonObject)
+            }
+        }
+    }
+
+    private fun unlike(giver: String, inSpace: Boolean) {
+        val likeRkey = "3kl${giver.last()}"
+        if (!inSpace) {
+            commit(giver, Nsid.FEED_LIKE, likeRkey, null)
+        } else {
+            val interactions = SpaceUri.of(Did(giver), Nsid.SPACE_ATHLETE, AthleteSpace.INTERACTIONS)
+            runBlocking { indexer.spaceDelete(interactions, Nsid.FEED_LIKE, likeRkey) }
+        }
+    }
+
     private fun uri(rkey: String) = "at://$alice/${Nsid.FEED_ACTIVITY}/$rkey"
 
     private suspend fun HttpClient.raw(nsid: String, viewer: String?, query: String): HttpResponse =
@@ -135,6 +167,24 @@ class ActivityVisibilityTest {
 
     private suspend fun HttpClient.activityStatus(rkey: String, viewer: String?): HttpStatusCode =
         raw(GetActivity.method.nsid, viewer, "?uri=${uri(rkey).encodeURLParameter()}").status
+
+    private suspend fun HttpClient.activity(rkey: String, viewer: String?) =
+        query(GetActivity.method, viewer, "?uri=${uri(rkey).encodeURLParameter()}")
+
+    private fun likesQuery(rkey: String, limit: Int = 50, cursor: String? = null) =
+        "?uri=${uri(rkey).encodeURLParameter()}&limit=$limit" + cursor?.let { "&cursor=${it.encodeURLParameter()}" }.orEmpty()
+
+    /** Every athlete `getLikes` lists for alice's [rkey], following cursors in pages of [limit]. */
+    private suspend fun HttpClient.likers(rkey: String, viewer: String?, limit: Int = 50): List<String> {
+        val all = mutableListOf<String>()
+        var cursor: String? = null
+        do {
+            val page = query(GetLikes.method, viewer, likesQuery(rkey, limit, cursor))
+            all += page.likes.map { it.did.value }
+            cursor = page.cursor?.takeIf { page.likes.isNotEmpty() }
+        } while (cursor != null)
+        return all
+    }
 
     private suspend fun HttpClient.count(viewer: String?): Long? = query(GetProfile.method, viewer, "?actor=$alice").activitiesCount
 
@@ -267,55 +317,145 @@ class ActivityVisibilityTest {
     }
 
     @Test
-    fun likesAndCommentsAreHiddenWhileNotPublic() = testApplication {
+    fun commentsAreHiddenWhileNotPublic() = testApplication {
         start()
         follow(bob, alice)
         post("3kact", Visibility.PUBLIC)
-        commit(
-            bob,
-            Nsid.FEED_LIKE,
-            "3klike",
-            """{"subject":{"uri":"${uri("3kact")}","cid":"bafy3kact"},"createdAt":"2026-10-01T09:00:00Z"}""",
-        )
         commit(
             bob,
             Nsid.FEED_COMMENT,
             "3kcomm",
             """{"subject":{"uri":"${uri("3kact")}","cid":"bafy3kact"},"text":"Nice","createdAt":"2026-10-01T09:00:00Z"}""",
         )
-        val public = client.query(GetActivity.method, bob, "?uri=${uri("3kact").encodeURLParameter()}")
-        assertEquals(1, public.activity.likeCount)
-        assertEquals(1, public.comments.size)
+        assertEquals(1, client.activity("3kact", bob).comments.size)
 
         // Made Followers: the followers copy is written, then the repo copy deleted.
-        post("3kact", Visibility.FOLLOWERS)
-        unpost("3kact", Visibility.PUBLIC)
-        val private = client.query(GetActivity.method, bob, "?uri=${uri("3kact").encodeURLParameter()}")
+        move("3kact", Visibility.PUBLIC, Visibility.FOLLOWERS)
+        val private = client.activity("3kact", bob)
         assertEquals(Visibility.FOLLOWERS, private.activity.visibility)
-        assertEquals(0, private.activity.likeCount)
         assertEquals(0, private.activity.commentCount)
-        assertEquals(null, private.activity.viewer?.like)
         assertEquals(emptyList(), private.comments)
-        assertEquals(emptyList(), client.query(GetLikes.method, bob, "?uri=${uri("3kact").encodeURLParameter()}").likes)
 
-        // Made public again: the like and comment given before come back.
-        post("3kact", Visibility.PUBLIC)
-        unpost("3kact", Visibility.FOLLOWERS)
-        val again = client.query(GetActivity.method, bob, "?uri=${uri("3kact").encodeURLParameter()}")
-        assertEquals(Visibility.PUBLIC, again.activity.visibility)
-        assertEquals(1, again.activity.likeCount)
+        // Made public again: the comment given before comes back.
+        move("3kact", Visibility.FOLLOWERS, Visibility.PUBLIC)
+        val again = client.activity("3kact", bob)
+        assertEquals(1, again.activity.commentCount)
         assertEquals(1, again.comments.size)
-        assertEquals(
-            listOf(bob),
-            client.query(GetLikes.method, bob, "?uri=${uri("3kact").encodeURLParameter()}").likes.map { it.did.value },
-        )
+    }
+
+    @Test
+    fun likesOnANonPublicActivityAreServedToItsAudience() = testApplication {
+        start()
+        follow(bob, alice)
+        follow(dave, alice)
+        post("3kact", Visibility.FOLLOWERS)
+        like(bob, "3kact", inSpace = true)
+
+        val bobs = client.activity("3kact", bob).activity
+        assertEquals(1, bobs.likeCount)
+        assertEquals("at://$bob/${Nsid.FEED_LIKE}/3klb", bobs.viewer?.like?.value, "liked, for bob")
+        assertEquals(1, client.activity("3kact", dave).activity.likeCount)
+        assertEquals(null, client.activity("3kact", dave).activity.viewer?.like)
+        assertEquals(1, client.activity("3kact", alice).activity.likeCount, "alice sees likes on her own activity")
+        assertEquals(listOf(bob), client.likers("3kact", dave))
+
+        // Unliked: bob's client deletes the rkey from his repo and his interactions space; only the space held it.
+        unlike(bob, inSpace = false)
+        assertEquals(1, client.activity("3kact", dave).activity.likeCount, "a delete from the repo leaves the space's like")
+        unlike(bob, inSpace = true)
+        assertEquals(0, client.activity("3kact", dave).activity.likeCount)
+        assertEquals(null, client.activity("3kact", bob).activity.viewer?.like)
+    }
+
+    @Test
+    fun likesFollowTheActivityWhenNarrowed() = testApplication {
+        start()
+        follow(bob, alice)
+        follow(dave, alice)
+        post("3kact", Visibility.PUBLIC)
+        like(bob, "3kact")
+        like(carol, "3kact")
+        like(dave, "3kact")
+        assertEquals(3, client.activity("3kact", bob).activity.likeCount)
+
+        move("3kact", Visibility.PUBLIC, Visibility.FOLLOWERS)
+        assertEquals(2, client.activity("3kact", bob).activity.likeCount, "carol doesn't follow alice")
+        assertEquals(setOf(bob, dave), client.likers("3kact", bob).toSet())
+        // Paging skips carol and still reaches every admitted giver.
+        assertEquals(setOf(bob, dave), client.likers("3kact", bob, limit = 1).toSet())
+        assertEquals(HttpStatusCode.BadRequest, client.activityStatus("3kact", carol), "carol can't see it")
+        assertEquals(HttpStatusCode.BadRequest, client.raw(GetLikes.method.nsid, carol, likesQuery("3kact")).status)
+    }
+
+    @Test
+    fun likesFollowTheActivityWhenWidened() = testApplication {
+        start()
+        follow(bob, alice)
+        post("3kact", Visibility.FOLLOWERS)
+        like(bob, "3kact", inSpace = true)
+        assertEquals(HttpStatusCode.BadRequest, client.activityStatus("3kact", null))
+
+        move("3kact", Visibility.FOLLOWERS, Visibility.PUBLIC)
+        assertEquals(1, client.activity("3kact", null).activity.likeCount, "signed out")
+        assertEquals(1, client.activity("3kact", carol).activity.likeCount)
+        assertEquals(listOf(bob), client.likers("3kact", null))
+        assertEquals(listOf(bob), client.likers("3kact", carol))
+    }
+
+    @Test
+    fun aGiverWhoUnfollowsIsNoLongerCounted() = testApplication {
+        start()
+        follow(bob, alice)
+        follow(dave, alice)
+        post("3kact", Visibility.FOLLOWERS)
+        like(bob, "3kact", inSpace = true)
+        assertEquals(1, client.activity("3kact", dave).activity.likeCount)
+
+        unfollow(bob, alice)
+        assertEquals(0, client.activity("3kact", dave).activity.likeCount)
+        assertEquals(0, client.activity("3kact", alice).activity.likeCount)
+        assertEquals(emptyList(), client.likers("3kact", dave))
+
+        follow(bob, alice)
+        assertEquals(1, client.activity("3kact", dave).activity.likeCount)
+        assertEquals(listOf(bob), client.likers("3kact", dave))
+    }
+
+    @Test
+    fun aLikeFromSomeoneWhoCantSeeTheActivityIsNeverCounted() = testApplication {
+        start()
+        // dave is alice's mutual; bob follows alice, but alice doesn't follow him back.
+        follow(dave, alice)
+        follow(alice, dave)
+        follow(bob, alice)
+        post("3kact", Visibility.MUTUALS)
+        like(bob, "3kact", inSpace = true)
+        like(dave, "3kact", inSpace = true)
+        assertEquals(1, client.activity("3kact", dave).activity.likeCount)
+        assertEquals(listOf(dave), client.likers("3kact", alice))
+    }
+
+    @Test
+    fun aLikeIndexedBeforeItsGiversFollowCountsOnceTheFollowIs() = testApplication {
+        start()
+        follow(dave, alice)
+        post("3kact", Visibility.FOLLOWERS)
+        like(bob, "3kact", inSpace = true)
+        assertEquals(0, client.activity("3kact", dave).activity.likeCount)
+        follow(bob, alice)
+        assertEquals(1, client.activity("3kact", dave).activity.likeCount)
     }
 
     @Test
     fun getLikesOnAnActivityTheViewerCantSeeIsNotFound() = testApplication {
         start()
+        follow(bob, alice)
         post("3kme", Visibility.SELF)
-        assertEquals(HttpStatusCode.BadRequest, client.raw(GetLikes.method.nsid, bob, "?uri=${uri("3kme").encodeURLParameter()}").status)
+        assertEquals(HttpStatusCode.BadRequest, client.raw(GetLikes.method.nsid, bob, likesQuery("3kme")).status)
+        post("3kact", Visibility.FOLLOWERS)
+        like(bob, "3kact", inSpace = true)
+        assertEquals(HttpStatusCode.BadRequest, client.raw(GetLikes.method.nsid, carol, likesQuery("3kact")).status)
+        assertEquals(HttpStatusCode.BadRequest, client.raw(GetLikes.method.nsid, null, likesQuery("3kact")).status)
     }
 
     @Test

@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
+import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.appview.db.RecordShadows
 import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.index.Indexer
@@ -98,7 +99,17 @@ class SpaceSyncTest {
             """"data":{"${'$'}type":"blob","ref":{"${'$'}link":"bafkreihwzzyxpay7qndclffr6usq5te3of4fra7yucklue2b5ckxhq7aeq"},""" +
             """"mimeType":"application/octet-stream","size":10}}"""
 
+    private fun like(subjectRkey: String) =
+        """{"${'$'}type":"${Nsid.FEED_LIKE}","subject":{"uri":"at://$alice/${Nsid.FEED_ACTIVITY}/$subjectRkey",""" +
+            """"cid":"bafyreihwzzyxpay7qndclffr6usq5te3of4fra7yucklue2b5ckxhq7aeq"},"createdAt":"2026-10-14T08:00:00Z"}"""
+
     private fun runDue() = runBlocking { syncer.runDue(this) }
+
+    /** (author, origin) of each indexed like, by rkey. */
+    private fun likes(): Map<String, Pair<String, String>> =
+        transaction(db) {
+            Likes.selectAll().associate { it[Likes.uri].substringAfterLast('/') to (it[Likes.authorDid] to it[Likes.origin]) }
+        }
 
     /** (visibility, origin) of each indexed activity, by rkey. */
     private fun activities(): Map<String, Pair<String, String>> =
@@ -396,6 +407,86 @@ class SpaceSyncTest {
         val record = transaction(db) { Activities.selectAll().single()[Activities.record] }
         assertTrue(record.contains("public again"))
         assertEquals(0, transaction(db) { RecordShadows.selectAll().count() })
+    }
+
+    @Test
+    fun interactionsSpaceIsSyncedForItsLikesOnly() = testApplication {
+        start()
+        val bobInteractions = space(bob, AthleteSpace.INTERACTIONS)
+        pds.put(bobInteractions, Nsid.FEED_LIKE, "3kl1", like("3kf1"))
+        pds.put(bobInteractions, Nsid.FEED_ACTIVITY, "3kb1", activity())
+        assertEquals(HttpStatusCode.OK, client.notifySpace(bobInteractions).status)
+        runDue()
+        assertEquals(mapOf("3kl1" to (bob to bobInteractions.value)), likes())
+        assertEquals(emptyMap(), activities(), "an activity in an interactions space is ignored")
+        assertEquals(bobInteractions.value, pds.registrations.single()["space"]?.jsonPrimitive?.content)
+
+        pds.put(bobInteractions, Nsid.FEED_LIKE, "3kl2", like("3kf2"))
+        client.notifyWrite(bobInteractions)
+        runDue()
+        // The same notification again changes nothing.
+        client.notifyWrite(bobInteractions)
+        runDue()
+        assertEquals(setOf("3kl1", "3kl2"), likes().keys)
+
+        pds.delete(bobInteractions, Nsid.FEED_LIKE, "3kl1")
+        client.notifyWrite(bobInteractions)
+        runDue()
+        assertEquals(setOf("3kl2"), likes().keys)
+    }
+
+    @Test
+    fun someoneElsesInteractionsSpaceIsRejected() = testApplication {
+        start()
+        val bobInteractions = space(bob, AthleteSpace.INTERACTIONS)
+        val response = client.notifySpace(bobInteractions, caller = alice)
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertTrue(response.bodyAsText().contains(NotifySpace.NOT_SPACE_AUTHORITY))
+        assertEquals(null, syncState(bobInteractions), "nothing joined")
+    }
+
+    @Test
+    fun likesInATierSpaceAreIgnored() = testApplication {
+        start()
+        val bobFollowers = space(bob, AthleteSpace.FOLLOWERS)
+        pds.put(bobFollowers, Nsid.FEED_LIKE, "3kl1", like("3kf1"))
+        client.notifySpace(bobFollowers)
+        runDue()
+        pds.put(bobFollowers, Nsid.FEED_LIKE, "3kl2", like("3kf2"))
+        client.notifyWrite(bobFollowers)
+        runDue()
+        assertEquals(emptyMap(), likes())
+    }
+
+    @Test
+    fun deletedInteractionsSpaceDropsOnlyItsLikes() = testApplication {
+        start()
+        val bobInteractions = space(bob, AthleteSpace.INTERACTIONS)
+        commit(bob, Nsid.FEED_LIKE, "3kr1", like("3kp1"))
+        pds.put(bobInteractions, Nsid.FEED_LIKE, "3kl1", like("3kf1"))
+        client.notifySpace(bobInteractions)
+        runDue()
+        assertEquals(mapOf("3kr1" to (bob to "repo"), "3kl1" to (bob to bobInteractions.value)), likes())
+        // A delete from the other place never removes a like.
+        commit(bob, Nsid.FEED_LIKE, "3kl1", null)
+        assertEquals(setOf("3kr1", "3kl1"), likes().keys)
+
+        pds.deleted += bobInteractions
+        clock.now += 15.minutes
+        credentials.invalidate(bobInteractions)
+        runDue()
+        assertEquals(mapOf("3kr1" to (bob to "repo")), likes(), "bob's repo like on a public activity stays")
+        assertEquals(null, syncState(bobInteractions))
+    }
+
+    @Test
+    fun selfLikesInAnInteractionsSpaceAreRejected() = testApplication {
+        start()
+        val aliceInteractions = space(alice, AthleteSpace.INTERACTIONS)
+        pds.put(aliceInteractions, Nsid.FEED_LIKE, "3kl1", like("3kf1"))
+        client.notifySpace(aliceInteractions)
+        runDue()
+        assertEquals(emptyMap(), likes())
     }
 }
 

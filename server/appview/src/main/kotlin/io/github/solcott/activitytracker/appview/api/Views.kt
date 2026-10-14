@@ -31,6 +31,7 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.http.HttpStatusCode
 import kotlin.time.Instant
 import org.jetbrains.exposed.v1.core.Column
+import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.NotExists
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -109,7 +110,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 ?: throw XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "Activity not found")
         // Comments on a non-public activity are kept but not served: they come back if it's made public again.
         val comments =
-            if (!acceptsInteractions(row[Activities.visibility])) emptyList()
+            if (!acceptsComments(row[Activities.visibility])) emptyList()
             else
                 Comments.selectAll()
                     .where { Comments.subjectUri eq params.uri.value }
@@ -133,18 +134,15 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
     }
 
     /**
-     * Athletes who liked an activity, each once (a repo may hold duplicate like records), most recent like first. Keyset pagination over
-     * authors on (latest indexed_at, author_did) descending; cursor is `"<indexedAt>::<authorDid>"`.
+     * Athletes who liked an activity, each once (a repo may hold duplicate like records), most recent like first, counting only givers who
+     * may see it now ([admittedLikes]). Keyset pagination over authors on (latest indexed_at, author_did) descending; cursor is
+     * `"<indexedAt>::<authorDid>"`.
      */
     suspend fun likes(viewer: Did?, params: GetLikes.Params): GetLikes.Output = db.tx {
         val uri = params.uri.value
-        val visibility =
-            Activities.select(Activities.visibility)
-                .where { (Activities.uri eq uri) and visibleTo(viewer) }
-                .singleOrNull()
-                ?.get(Activities.visibility) ?: throw XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "Activity not found")
-        // Likes on a non-public activity are kept but not served: they come back if it's made public again.
-        if (!acceptsInteractions(visibility)) return@tx GetLikes.Output(params.uri, emptyList())
+        // An activity the viewer may not see answers as if it didn't exist, revealing none of its likes.
+        if (Activities.select(Activities.uri).where { (Activities.uri eq uri) and visibleTo(viewer) }.empty())
+            throw XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "Activity not found")
         val pageSize = Paging.clamp(params.limit)
         val latest = Likes.indexedAt.max()
         val after =
@@ -152,8 +150,9 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 (latest less sortValue) or ((latest eq sortValue) and (Likes.authorDid less did))
             } ?: Op.TRUE
         val rows =
-            Likes.select(Likes.authorDid, latest)
-                .where { Likes.subjectUri eq uri }
+            admittedLikes()
+                .select(Likes.authorDid, latest)
+                .where { (Likes.subjectUri eq uri) and visibleTo(Likes.authorDid) }
                 .groupBy(Likes.authorDid)
                 .having { after }
                 .orderBy(latest to SortOrder.DESC, Likes.authorDid to SortOrder.DESC)
@@ -205,8 +204,17 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         if (rows.isEmpty()) return emptyList()
         val uris = rows.map { it[Activities.uri] }
         val authors = basicProfiles(rows.map { it[Activities.authorDid] }, avatars)
-        val likeCounts = countBySubject(Likes, Likes.subjectUri, Likes.authorDid, uris, distinct = true)
+        // Every row is one the viewer may see, so a like counts once its giver may see the activity too.
+        // Distinct givers, not records, since repos may hold duplicates.
+        val likeCount = Likes.authorDid.countDistinct()
+        val likeCounts =
+            admittedLikes()
+                .select(Likes.subjectUri, likeCount)
+                .where { (Likes.subjectUri inList uris) and visibleTo(Likes.authorDid) }
+                .groupBy(Likes.subjectUri)
+                .associate { it[Likes.subjectUri] to it[likeCount] }
         val commentCounts = countBySubject(Comments, Comments.subjectUri, Comments.uri, uris)
+        // The viewer may see every row, so their own like is always admitted.
         val viewerLikes =
             viewer
                 ?.let { v ->
@@ -223,18 +231,18 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
             val uri = row[Activities.uri]
             val record = AtJson.decodeFromString(ActivityRecord.serializer(), row[Activities.record])
             val visibility = row[Activities.visibility]
-            // Non-public activities take no likes or comments; any given while it was public stay in the index, unshown.
-            val interactions = acceptsInteractions(visibility)
+            // Non-public activities take no comments; any given while it was public stay in the index, unshown.
+            val comments = acceptsComments(visibility)
             ActivityView(
                 uri = AtUri(uri),
                 cid = Cid(row[Activities.cid]),
                 author = authors[row[Activities.authorDid]] ?: return@mapNotNull null,
                 record = record,
-                likeCount = if (interactions) likeCounts[uri] ?: 0 else 0,
-                commentCount = if (interactions) commentCounts[uri] ?: 0 else 0,
+                likeCount = likeCounts[uri] ?: 0,
+                commentCount = if (comments) commentCounts[uri] ?: 0 else 0,
                 indexedAt = Instant.fromEpochMilliseconds(row[Activities.indexedAt]),
                 visibility = visibility,
-                viewer = viewer?.let { ActivityViewerState(like = viewerLikes[uri]?.takeIf { interactions }?.let(::AtUri)) },
+                viewer = viewer?.let { ActivityViewerState(like = viewerLikes[uri]?.let(::AtUri)) },
                 recordings = recordings[uri],
                 media = mediaViews(mediaUrls, row[Activities.authorDid], record.media, visibility, viewer),
             )
@@ -285,16 +293,20 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         subject: Column<String>,
         key: Column<String>,
         uris: List<String>,
-        distinct: Boolean = false,
     ): Map<String, Long> {
-        // Distinct keys let likes count athletes rather than records, since repos may hold duplicates.
-        val count = if (distinct) key.countDistinct() else key.count()
+        val count = key.count()
         return table.select(subject, count).where { subject inList uris }.groupBy(subject).associate { it[subject] to it[count] }
     }
 }
 
 class XrpcError(val status: Int, val error: String, override val message: String, override val cause: Throwable? = null) :
     Exception(message, cause)
+
+/**
+ * Likes joined to the activity they name, for [visibleTo] with the like's giver as viewer: a like is served only while its giver may see
+ * the activity at its current visibility, wherever the like is stored. Likes follow the activity when it's narrowed or widened.
+ */
+private fun admittedLikes() = Likes.join(Activities, JoinType.INNER, Likes.subjectUri, Activities.uri)
 
 /** A recording's device as `#recordingView` allows it: the record's own is untrusted. */
 private const val MAX_DEVICE_LENGTH = 256

@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.appview.ProfileDetailRules
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityMediaBlobs
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
+import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.appview.db.Origins
 import io.github.solcott.activitytracker.appview.db.RecordShadows
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -101,6 +102,10 @@ private fun JdbcTransaction.place(
 /** The rkeys of the [collection] records indexed from [space]: the rows it holds, and its copies waiting in [RecordShadows]. */
 internal fun JdbcTransaction.spaceRkeys(space: SpaceUri, collection: String): Set<String> {
     val origin = Placement.of(space).origin
+    if (collection == Nsid.FEED_LIKE) {
+        // Likes are never moved, so none is ever shadowed.
+        return Likes.select(Likes.uri).where { Likes.origin eq origin }.mapNotNull { AtUri(it[Likes.uri]).rkey }.toSet()
+    }
     val (uriColumn, originColumn) =
         if (collection == Nsid.FEED_ACTIVITY) Activities.uri to Activities.origin else ActivityStreams.uri to ActivityStreams.origin
     val held = uriColumn.table.select(uriColumn).where { originColumn eq origin }.map { it[uriColumn] }

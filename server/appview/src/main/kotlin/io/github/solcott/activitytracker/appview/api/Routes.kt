@@ -96,12 +96,12 @@ fun Route.spaceSyncRoutes(syncer: SpaceSyncer?, verifier: ServiceAuthVerifier, s
     }
 }
 
-/** [space], if [caller] may announce it: it must be one of their own athlete tier spaces. */
+/** [space], if [caller] may announce it: it must be one of their own athlete tier or interactions spaces. */
 private fun announced(space: SpaceUri, caller: Did): SpaceUri {
     val error =
         when {
             space.authority != caller -> NotifySpace.NOT_SPACE_AUTHORITY to "Not your space: $space"
-            !SpaceSyncer.isSyncable(space) -> NotifySpace.UNSUPPORTED_SPACE to "Not an athlete tier space: $space"
+            !SpaceSyncer.isSyncable(space) -> NotifySpace.UNSUPPORTED_SPACE to "Not a syncable athlete space: $space"
             else -> null
         }
     if (error != null) throw XrpcError(HttpStatusCode.BadRequest.value, error.first, error.second)
