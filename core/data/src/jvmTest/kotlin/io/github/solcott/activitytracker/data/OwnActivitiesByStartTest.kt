@@ -4,7 +4,7 @@ import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
-import io.github.solcott.activitytracker.data.feed.LocalKudos
+import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -41,7 +41,7 @@ class OwnActivitiesByStartTest {
             cid = Cid("bafy$rkey"),
             author = ProfileViewBasic(did, Handle("alice.test")),
             record = record(start),
-            kudosCount = 0,
+            likeCount = 0,
             commentCount = 0,
             indexedAt = Instant.parse("2026-10-01T00:00:00Z"),
         )
@@ -75,7 +75,7 @@ class OwnActivitiesByStartTest {
         writer.put(Nsid.FEED_ACTIVITY, "3kd2", ActivityRecord.serializer(), record("2024-05-12T18:00:00Z"))
         writer.put(Nsid.FEED_ACTIVITY, "3kd9", ActivityRecord.serializer(), record("2024-06-01T10:00:00Z"))
         writer.put(Nsid.FEED_ACTIVITY, "3kr1", ActivityRecord.serializer(), record("2024-05-12T07:00:00Z", Sport.RUN))
-        val feed = FeedRepository(db, clients, LocalKudos(), Logger)
+        val feed = FeedRepository(db, clients, LocalLikes(), Logger)
 
         val own = feed.ownActivitiesStartedBetween(Instant.parse("2024-05-12T00:00:00Z"), Instant.parse("2024-05-13T00:00:00Z"), Sport.DIVE)
 

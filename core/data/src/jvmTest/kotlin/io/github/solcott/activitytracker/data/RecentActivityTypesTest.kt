@@ -4,7 +4,7 @@ import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.data.db.FeedItemEntity
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
-import io.github.solcott.activitytracker.data.feed.LocalKudos
+import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -45,7 +45,7 @@ class RecentActivityTypesTest {
                     elapsedTime = 1800,
                     createdAt = Instant.parse("2026-09-30T07:31:00Z"),
                 ),
-            kudosCount = 0,
+            likeCount = 0,
             commentCount = 0,
             indexedAt = Instant.parse("2026-09-30T07:32:00Z"),
         )
@@ -65,7 +65,7 @@ class RecentActivityTypesTest {
                     FeedItemEntity("author:${did.value}", view.uri.value, i, AtJson.encodeToString(ActivityView.serializer(), view))
                 }
             )
-        val recent = RecentActivityTypes(db, clients, FeedRepository(db, clients, LocalKudos(), Logger))
+        val recent = RecentActivityTypes(db, clients, FeedRepository(db, clients, LocalLikes(), Logger))
 
         assertEquals(listOf(ActivityType(Sport.RIDE, SubSport.MOUNTAIN), ActivityType(Sport.RUN)), recent.types.first())
 

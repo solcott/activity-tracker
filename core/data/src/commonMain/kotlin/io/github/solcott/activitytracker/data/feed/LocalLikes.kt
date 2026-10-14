@@ -11,29 +11,29 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 
 /**
- * The viewer's kudos toggled this session, keyed by subject URI (null once removed). The AppView only learns about a toggle once it comes
+ * The viewer's likes toggled this session, keyed by subject URI (null once removed). The AppView only learns about a toggle once it comes
  * back through Jetstream, so its reads are laid over with this until then.
  */
 @SingleIn(SessionScope::class)
 @Inject
-class LocalKudos {
+class LocalLikes {
     val overrides: StateFlow<Map<String, AtUri?>>
         field = MutableStateFlow(emptyMap())
 
-    /** The viewer's kudos on [activity], preferring what was toggled locally over the (possibly stale) view. */
+    /** The viewer's like on [activity], preferring what was toggled locally over the (possibly stale) view. */
     fun current(activity: ActivityView): AtUri? =
-        overrides.value.let { if (activity.uri.value in it) it[activity.uri.value] else activity.viewer?.kudos }
+        overrides.value.let { if (activity.uri.value in it) it[activity.uri.value] else activity.viewer?.like }
 
-    fun set(subject: AtUri, kudos: AtUri?) = overrides.update { it + (subject.value to kudos) }
+    fun set(subject: AtUri, like: AtUri?) = overrides.update { it + (subject.value to like) }
 
-    fun applyTo(view: ActivityView): ActivityView = view.withKudosOverrides(overrides.value)
+    fun applyTo(view: ActivityView): ActivityView = view.withLikeOverrides(overrides.value)
 }
 
-/** Replaces the viewer's kudos with any local override, adjusting the count by the difference from what the view reported. */
-fun ActivityView.withKudosOverrides(overrides: Map<String, AtUri?>): ActivityView {
+/** Replaces the viewer's like with any local override, adjusting the count by the difference from what the view reported. */
+fun ActivityView.withLikeOverrides(overrides: Map<String, AtUri?>): ActivityView {
     if (uri.value !in overrides) return this
     val mine = overrides[uri.value]
-    val reported = viewer?.kudos != null
+    val reported = viewer?.like != null
     val delta =
         when {
             mine != null && !reported -> 1
@@ -41,7 +41,7 @@ fun ActivityView.withKudosOverrides(overrides: Map<String, AtUri?>): ActivityVie
             else -> 0
         }
     return copy(
-        kudosCount = (kudosCount + delta).coerceAtLeast(0),
-        viewer = (viewer ?: ActivityViewerState()).copy(kudos = mine),
+        likeCount = (likeCount + delta).coerceAtLeast(0),
+        viewer = (viewer ?: ActivityViewerState()).copy(like = mine),
     )
 }

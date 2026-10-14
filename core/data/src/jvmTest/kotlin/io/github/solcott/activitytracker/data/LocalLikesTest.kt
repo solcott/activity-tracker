@@ -1,6 +1,6 @@
 package io.github.solcott.activitytracker.data
 
-import io.github.solcott.activitytracker.data.feed.LocalKudos
+import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
@@ -15,11 +15,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.time.Instant
 
-class LocalKudosTest {
+class LocalLikesTest {
     private val bob = Did("did:plc:bob")
-    private val mine = AtUri.of(Did("did:plc:alice"), Nsid.FEED_KUDOS, "3kk1")
+    private val mine = AtUri.of(Did("did:plc:alice"), Nsid.FEED_LIKE, "3kk1")
 
-    private fun view(kudosCount: Long, kudos: AtUri?) =
+    private fun view(likeCount: Long, like: AtUri?) =
         ActivityView(
             uri = AtUri.of(bob, Nsid.FEED_ACTIVITY, "3kact1"),
             cid = Cid("bafyact"),
@@ -31,38 +31,38 @@ class LocalKudosTest {
                     elapsedTime = 1800,
                     createdAt = Instant.parse("2026-09-30T07:31:00Z"),
                 ),
-            kudosCount = kudosCount,
+            likeCount = likeCount,
             commentCount = 0,
             indexedAt = Instant.parse("2026-09-30T07:32:00Z"),
-            viewer = ActivityViewerState(kudos),
+            viewer = ActivityViewerState(like),
         )
 
     @Test
-    fun staleAppViewReadsReflectARemovedKudos() {
-        val local = LocalKudos()
-        val stale = view(kudosCount = 1, kudos = mine)
+    fun staleAppViewReadsReflectARemovedLike() {
+        val local = LocalLikes()
+        val stale = view(likeCount = 1, like = mine)
         local.set(stale.uri, null)
 
         val shown = local.applyTo(stale)
-        assertEquals(0, shown.kudosCount)
-        assertNull(shown.viewer?.kudos)
+        assertEquals(0, shown.likeCount)
+        assertNull(shown.viewer?.like)
         // Applying twice, or once the AppView has caught up, changes nothing.
         assertEquals(shown, local.applyTo(shown))
-        assertEquals(view(kudosCount = 0, kudos = null), local.applyTo(view(kudosCount = 0, kudos = null)))
+        assertEquals(view(likeCount = 0, like = null), local.applyTo(view(likeCount = 0, like = null)))
     }
 
     @Test
-    fun staleAppViewReadsReflectAGivenKudos() {
-        val local = LocalKudos()
-        val stale = view(kudosCount = 2, kudos = null)
+    fun staleAppViewReadsReflectAGivenLike() {
+        val local = LocalLikes()
+        val stale = view(likeCount = 2, like = null)
         local.set(stale.uri, mine)
 
-        assertEquals(view(kudosCount = 3, kudos = mine), local.applyTo(stale))
+        assertEquals(view(likeCount = 3, like = mine), local.applyTo(stale))
     }
 
     @Test
     fun untouchedActivitiesPassThrough() {
-        val stale = view(kudosCount = 1, kudos = mine)
-        assertEquals(stale, LocalKudos().applyTo(stale))
+        val stale = view(likeCount = 1, like = mine)
+        assertEquals(stale, LocalLikes().applyTo(stale))
     }
 }

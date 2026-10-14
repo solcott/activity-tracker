@@ -19,7 +19,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
-import io.github.solcott.activitytracker.lexicon.app.GetKudos
+import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
@@ -35,7 +35,7 @@ import kotlinx.serialization.builtins.serializer
 class FeedRepository(
     private val db: AppDatabase,
     private val clients: SessionClients,
-    private val localKudos: LocalKudos,
+    private val localLikes: LocalLikes,
     logger: Logger,
 ) {
     private val log = logger.withTag("FeedRepository")
@@ -71,7 +71,7 @@ class FeedRepository(
 
     suspend fun activity(uri: AtUri): GetActivity.Output {
         val output = clients.appView.query(GetActivity.method, GetActivity.Params(uri))
-        val activity = localKudos.applyTo(deletes.applyTo(rewrites.applyTo(output.activity)))
+        val activity = localLikes.applyTo(deletes.applyTo(rewrites.applyTo(output.activity)))
         updateCached(uri) { activity }
         return output.copy(activity = activity)
     }
@@ -88,11 +88,11 @@ class FeedRepository(
         }
 
     /**
-     * The first [Paging.MAX_LIMIT] athletes who gave kudos on [uri], straight from the AppView, so it lags the viewer's own toggles (see
-     * [LocalKudos]).
+     * The first [Paging.MAX_LIMIT] athletes who liked [uri], straight from the AppView, so it lags the viewer's own toggles (see
+     * [LocalLikes]).
      */
-    suspend fun kudos(uri: AtUri): List<ProfileViewBasic> =
-        clients.appView.query(GetKudos.method, GetKudos.Params(uri, limit = Paging.MAX_LIMIT)).kudos
+    suspend fun likes(uri: AtUri): List<ProfileViewBasic> =
+        clients.appView.query(GetLikes.method, GetLikes.Params(uri, limit = Paging.MAX_LIMIT)).likes
 
     /**
      * The signed-in athlete's own activities that started in [since, until), oldest first, optionally of one [sport]: every page the
@@ -145,13 +145,13 @@ class FeedRepository(
             }
         }
 
-    // AppView reads lag the viewer's own kudos toggles until Jetstream catches up, so local ones win.
+    // AppView reads lag the viewer's own like toggles until Jetstream catches up, so local ones win.
     private fun List<ActivityView>.toEntities(key: String) = mapIndexed { index, view ->
         FeedItemEntity(
             key,
             view.uri.value,
             index,
-            AtJson.encodeToString(ActivityView.serializer(), localKudos.applyTo(rewrites.applyTo(view))),
+            AtJson.encodeToString(ActivityView.serializer(), localLikes.applyTo(rewrites.applyTo(view))),
         )
     }
 

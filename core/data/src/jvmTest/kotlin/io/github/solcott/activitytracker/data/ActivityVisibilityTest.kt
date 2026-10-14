@@ -15,7 +15,7 @@ import io.github.solcott.activitytracker.data.activity.VisibilityChoice
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
-import io.github.solcott.activitytracker.data.feed.LocalKudos
+import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -169,7 +169,7 @@ class ActivityVisibilityTest {
         val (db, _, clients) =
             if (scope == null) signedInTestSession(http, did = did) else signedInTestSession(http, did = did, scope = scope)
         val outbox = OutboxProcessor(db, clients, Logger)
-        val feed = FeedRepository(db, clients, LocalKudos(), Logger)
+        val feed = FeedRepository(db, clients, LocalLikes(), Logger)
         val writer = OutboxWriter(db, clients, Clock.System)
         val streams = PdsActivityStreamsStore(writer, clients, Clock.System)
         val activities =
@@ -180,7 +180,7 @@ class ActivityVisibilityTest {
                 writer,
                 streams,
                 feed,
-                LocalKudos(),
+                LocalLikes(),
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
             )
@@ -219,7 +219,7 @@ class ActivityVisibilityTest {
                     elapsedTime = 1800,
                     createdAt = Clock.System.now(),
                 ),
-            kudosCount = 2,
+            likeCount = 2,
             commentCount = 1,
             indexedAt = Clock.System.now(),
             visibility = visibility,
@@ -417,16 +417,16 @@ class ActivityVisibilityTest {
     }
 
     @Test
-    fun nonPublicActivitiesTakeNoKudosOrComments() = runTest {
+    fun nonPublicActivitiesTakeNoLikesOrComments() = runTest {
         val s = session()
         val bobs =
             view(AtUri.of(Did("did:plc:bob"), Nsid.FEED_ACTIVITY, "3kbob"), Visibility.FOLLOWERS)
                 .copy(author = ProfileViewBasic(Did("did:plc:bob"), Handle("bob.test")))
-        s.activities.toggleKudos(bobs)
+        s.activities.toggleLike(bobs)
         s.activities.comment(bobs, "Nice")
         s.activities.sync()
         assertEquals(emptyList(), writes)
-        s.activities.toggleKudos(bobs.copy(visibility = Visibility.PUBLIC))
-        assertEquals(listOf("put repo ${Nsid.FEED_KUDOS}"), writes.map { it.substringBeforeLast('/') })
+        s.activities.toggleLike(bobs.copy(visibility = Visibility.PUBLIC))
+        assertEquals(listOf("put repo ${Nsid.FEED_LIKE}"), writes.map { it.substringBeforeLast('/') })
     }
 }

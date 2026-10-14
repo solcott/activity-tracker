@@ -18,7 +18,7 @@ import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.activity.cid
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
-import io.github.solcott.activitytracker.data.feed.LocalKudos
+import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -181,8 +181,8 @@ class ActivityRepositoryTest {
     private suspend fun repository(): ActivityRepository {
         val (db, _, clients) = signedInTestSession(http, did = did, logger = logger, scope = "atproto transition:generic")
         val outbox = OutboxProcessor(db, clients, logger)
-        val localKudos = LocalKudos()
-        feed = FeedRepository(db, clients, localKudos, logger)
+        val localLikes = LocalLikes()
+        feed = FeedRepository(db, clients, localLikes, logger)
         val writer = OutboxWriter(db, clients, Clock.System)
         val streams = PdsActivityStreamsStore(writer, clients, Clock.System)
         manager = ActivityManager(db, clients, outbox, writer, streams, feed)
@@ -193,7 +193,7 @@ class ActivityRepositoryTest {
             writer,
             streams,
             feed,
-            localKudos,
+            localLikes,
             RecentActivityTypes(db, clients, feed),
             Clock.System,
         )
@@ -216,7 +216,7 @@ class ActivityRepositoryTest {
                     elapsedTime = 1800,
                     createdAt = Instant.parse("2026-09-30T07:31:00Z"),
                 ),
-            kudosCount = 0,
+            likeCount = 0,
             commentCount = 0,
             indexedAt = Instant.parse("2026-09-30T07:32:00Z"),
             viewer = ActivityViewerState(),
@@ -408,26 +408,26 @@ class ActivityRepositoryTest {
     }
 
     @Test
-    fun rapidKudosTapsOnAStaleSnapshotNeverWriteTwoKudos() = runTest {
+    fun rapidLikeTapsOnAStaleSnapshotNeverWriteTwoLikes() = runTest {
         val repo = repository()
-        // Every tap carries the same snapshot, taken before the first kudos landed.
+        // Every tap carries the same snapshot, taken before the first like landed.
         val stale = activityBy(Did("did:plc:bob"))
 
-        listOf(launch { repo.toggleKudos(stale) }, launch { repo.toggleKudos(stale) }).joinAll()
-        repo.toggleKudos(stale)
+        listOf(launch { repo.toggleLike(stale) }, launch { repo.toggleLike(stale) }).joinAll()
+        repo.toggleLike(stale)
 
         assertEquals(2, putBodies.size)
         assertEquals(1, deleteBodies.size)
         val rkeys = putBodies.map { AtJson.parseToJsonElement(it).jsonObject["rkey"]?.jsonPrimitive?.content }
         assertEquals(rkeys.first(), AtJson.parseToJsonElement(deleteBodies.single()).jsonObject["rkey"]?.jsonPrimitive?.content)
-        assertTrue(putBodies.all { Nsid.FEED_KUDOS in it })
+        assertTrue(putBodies.all { Nsid.FEED_LIKE in it })
     }
 
     @Test
-    fun ownActivitiesCannotGetKudos() = runTest {
+    fun ownActivitiesCannotGetLikes() = runTest {
         val repo = repository()
 
-        repo.toggleKudos(activityBy(did))
+        repo.toggleLike(activityBy(did))
 
         assertTrue(putBodies.isEmpty())
         assertEquals(0, repo.pendingWrites.first())

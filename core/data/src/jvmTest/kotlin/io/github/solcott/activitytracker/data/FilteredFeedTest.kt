@@ -4,7 +4,7 @@ import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.ActivityFilter
 import io.github.solcott.activitytracker.data.feed.FeedRepository
-import io.github.solcott.activitytracker.data.feed.LocalKudos
+import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -38,7 +38,7 @@ class FilteredFeedTest {
             cid = Cid("bafy$rkey"),
             author = ProfileViewBasic(did, Handle("alice.test")),
             record = ActivityRecord(sport, Instant.parse("2026-03-05T08:00:00Z"), 1800, Instant.parse("2026-03-05T09:00:00Z")),
-            kudosCount = 0,
+            likeCount = 0,
             commentCount = 0,
             indexedAt = Instant.parse("2026-03-05T09:00:00Z"),
         )
@@ -63,7 +63,7 @@ class FilteredFeedTest {
 
     private suspend fun feed(): FeedRepository {
         val (db, _, clients) = signedInTestSession(http, did = did)
-        return FeedRepository(db, clients, LocalKudos(), Logger)
+        return FeedRepository(db, clients, LocalLikes(), Logger)
     }
 
     private fun rides(since: String? = null) =

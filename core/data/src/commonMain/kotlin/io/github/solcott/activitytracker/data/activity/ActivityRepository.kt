@@ -7,7 +7,7 @@ import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
-import io.github.solcott.activitytracker.data.feed.LocalKudos
+import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -18,7 +18,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
-import io.github.solcott.activitytracker.lexicon.app.KudosRecord
+import io.github.solcott.activitytracker.lexicon.app.LikeRecord
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.activitytracker.location.Gpx
@@ -43,13 +43,13 @@ class ActivityRepository(
     private val writer: OutboxWriter,
     private val streams: ActivityStreamsStore,
     private val feed: FeedRepository,
-    private val localKudos: LocalKudos,
+    private val localLikes: LocalLikes,
     private val recentTypes: RecentActivityTypes,
     private val clock: Clock,
 ) {
     val pendingWrites: Flow<Int> = db.outbox().count(clients.did.value)
 
-    private val kudosMutex = Mutex()
+    private val likeMutex = Mutex()
 
     /** Publishes [draft]. Its photos upload first, so one with photos needs a connection; one without waits in the outbox if offline. */
     suspend fun publish(draft: ActivityDraft): AtUri {
@@ -147,31 +147,31 @@ class ActivityRepository(
     }
 
     /**
-     * Gives or removes the viewer's kudos. The decision is made against what this repository last wrote rather than [activity], which may
-     * be a stale UI snapshot, so rapid taps alternate instead of stacking kudos. Athletes can't kudos their own activities, and nobody can
-     * kudos a non-public one.
+     * Gives or removes the viewer's like. The decision is made against what this repository last wrote rather than [activity], which may be
+     * a stale UI snapshot, so rapid taps alternate instead of stacking likes. Athletes can't like their own activities, and nobody can like
+     * a non-public one.
      */
-    suspend fun toggleKudos(activity: ActivityView) {
+    suspend fun toggleLike(activity: ActivityView) {
         if (activity.author.did == clients.did || !activity.acceptsInteractions) return
-        kudosMutex.withLock {
-            val current = localKudos.current(activity)
+        likeMutex.withLock {
+            val current = localLikes.current(activity)
             if (current == null) {
                 val rkey = Tid.next(clock)
-                val kudos = AtUri.of(clients.did, Nsid.FEED_KUDOS, rkey)
-                feed.updateCached(activity.uri) { it.copy(kudosCount = it.kudosCount + 1, viewer = it.viewer?.copy(kudos = kudos)) }
+                val like = AtUri.of(clients.did, Nsid.FEED_LIKE, rkey)
+                feed.updateCached(activity.uri) { it.copy(likeCount = it.likeCount + 1, viewer = it.viewer?.copy(like = like)) }
                 writer.put(
-                    Nsid.FEED_KUDOS,
+                    Nsid.FEED_LIKE,
                     rkey,
-                    KudosRecord.serializer(),
-                    KudosRecord(StrongRef(activity.uri, activity.cid), clock.now()),
+                    LikeRecord.serializer(),
+                    LikeRecord(StrongRef(activity.uri, activity.cid), clock.now()),
                 )
-                localKudos.set(activity.uri, kudos)
+                localLikes.set(activity.uri, like)
             } else {
                 feed.updateCached(activity.uri) {
-                    it.copy(kudosCount = (it.kudosCount - 1).coerceAtLeast(0), viewer = it.viewer?.copy(kudos = null))
+                    it.copy(likeCount = (it.likeCount - 1).coerceAtLeast(0), viewer = it.viewer?.copy(like = null))
                 }
-                writer.delete(Nsid.FEED_KUDOS, requireNotNull(current.rkey))
-                localKudos.set(activity.uri, null)
+                writer.delete(Nsid.FEED_LIKE, requireNotNull(current.rkey))
+                localLikes.set(activity.uri, null)
             }
         }
         outbox.drain()
