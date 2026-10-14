@@ -12,6 +12,16 @@ Follows in this app (`app.activitytracker.graph.follow`) are separate from Blues
 - **Open questions.** Where suggestions appear: the empty feed, the user's own profile, or a screen of their own. Whether to filter to "has posted an activity" or "has an `actor.profile`".
 - **Privacy.** Bluesky follows are already public. Store nothing new beyond the follows the user chooses to create.
 
+## Private activities
+
+Follow requests (`followPolicy: approve`) keep a pending or declined follower out of the athlete's Followers and Mutuals details and charts, but activities themselves are still public records: anyone can read them from the athlete's repo, and the AppView serves them to anyone through `getAuthorActivities`. Making an activity Followers, Mutuals or Only me needs:
+
+- **Visibility on the activity.** A visibility per activity (and a default), in the import, record and edit screens.
+- **Non-public activities in tier spaces.** A non-public `feed.activity` goes in the athlete's tier space for its visibility, not their repo. Space records never reach Jetstream, so the AppView can't index them.
+- **Timeline without the AppView.** Clients would merge each followee's readable tier spaces into the feed (a fan-out of member reads), or the AppView reads them as a consented member (see below). Either way, decide paging and caching.
+- **Kudos and comments.** Today they're public records pointing at a public activity. On a hidden one they'd reveal it exists; they'd likely live in the same space.
+- **Streams follow the activity.** `feed.activityStreams` already has a visibility (and its own `TODO(spaces)`); move both together.
+
 ## Private profile details in Spaces: what's left
 
 Non-public profile details live in each athlete's `app.activitytracker.space.athlete` tier spaces (`mutuals`, `self`), one `actor.privateDetails` record each, with the AppView as managing app. Spaces are an alpha (August 2026: no security audit, breaking changes weekly, the hosted sandbox will be wiped), so revisit the pinned image and `Space.kt` when they reach a stable release.
