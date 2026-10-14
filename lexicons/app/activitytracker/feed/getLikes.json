@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "query",
-      "description": "Athletes who liked an activity, most recently indexed first. Each athlete is listed once.",
+      "description": "Athletes who liked an activity, most recently indexed first. Each athlete is listed once. Lists only athletes who, like the viewer, may see the activity at its current visibility; a viewer who may not see it gets no likes.",
       "parameters": {
         "type": "params",
         "required": ["uri"],

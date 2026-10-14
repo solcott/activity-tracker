@@ -162,7 +162,10 @@ object Paging {
     fun clamp(limit: Int?): Int = (limit ?: DEFAULT_LIMIT).coerceIn(1, MAX_LIMIT)
 }
 
-/** `app.activitytracker.space.notifySpace`: the caller's [AthleteSpace] tier space at [Input.space] exists, so the AppView syncs it. */
+/**
+ * `app.activitytracker.space.notifySpace`: the caller's [AthleteSpace] tier or interactions space at [Input.space] exists, so the AppView
+ * syncs it.
+ */
 object NotifySpace {
     @Serializable data class Input(val space: SpaceUri)
 

@@ -13,9 +13,9 @@
         "visibility": {
           "type": "string",
           "knownValues": ["public", "followers", "mutuals", "self"],
-          "description": "Who may see the activity (app.activitytracker.actor.defs#visibility), from where its record is stored. Absent means public. Unless it is public, likeCount and commentCount are 0 and viewer.like is absent."
+          "description": "Who may see the activity (app.activitytracker.actor.defs#visibility), from where its record is stored. Absent means public. Unless it is public, commentCount is 0."
         },
-        "likeCount": { "type": "integer" },
+        "likeCount": { "type": "integer", "description": "Likes from athletes who, like the viewer, may see the activity at its current visibility." },
         "commentCount": { "type": "integer" },
         "indexedAt": { "type": "string", "format": "datetime" },
         "viewer": { "type": "ref", "ref": "#viewerState" },
@@ -53,7 +53,7 @@
     "viewerState": {
       "type": "object",
       "properties": {
-        "like": { "type": "string", "format": "at-uri", "description": "URI of the viewer's like record, if any." }
+        "like": { "type": "string", "format": "at-uri", "description": "URI of the viewer's like record, if any. A like on a non-public activity is stored in the giver's interactions space, under the same repo-style URI." }
       }
     },
     "commentView": {

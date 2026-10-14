@@ -6,14 +6,15 @@
       "type": "space",
       "key": "any",
       "name": "Athlete data",
-      "description": "An athlete's permissioned data, one space per visibility tier. The AppView is the managing app and decides who may read each tier; it also syncs every tier, indexing only feed.activity and feed.activityStreams records, and serves them only to the viewers the tier admits.",
+      "description": "An athlete's permissioned data: one space per visibility tier (followers, mutuals, self), plus an interactions space holding the athlete's likes on non-public activities. The AppView is the managing app and decides who may read each space; it also syncs them. From a tier it indexes only feed.activity and feed.activityStreams records and serves them only to the viewers the tier admits. Only the athlete and the AppView read the interactions space; the AppView indexes only feed.like records from it and shows each like only to viewers who, like its giver, may see the liked activity now.",
       "collections": [
         "app.activitytracker.actor.privateDetails",
         "app.activitytracker.graph.followDecline",
         "app.activitytracker.feed.activityStreams",
         "app.activitytracker.feed.activityZones",
         "app.activitytracker.feed.activity",
-        "app.activitytracker.actor.activityDefaults"
+        "app.activitytracker.actor.activityDefaults",
+        "app.activitytracker.feed.like"
       ]
     }
   }

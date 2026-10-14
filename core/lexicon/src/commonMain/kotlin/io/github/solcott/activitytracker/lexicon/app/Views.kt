@@ -57,8 +57,9 @@ data class ActivityView(
     val cid: Cid,
     val author: ProfileViewBasic,
     val record: ActivityRecord,
-    /** Always 0 unless [visibility] is public: non-public activities take no likes or comments. */
+    /** Likes from athletes who, like the viewer, may see the activity at its current [visibility]. */
     val likeCount: Long,
+    /** Always 0 unless [visibility] is public: non-public activities take no comments. */
     val commentCount: Long,
     val indexedAt: Instant,
     /** A [Visibility] value, from where the record is stored; null means [Visibility.PUBLIC]. Read it through [visibilityOrPublic]. */
@@ -73,8 +74,8 @@ data class ActivityView(
     val visibilityOrPublic: String
         get() = Visibility.known(visibility)
 
-    /** Whether viewers may like and comment: only on public activities. */
-    val acceptsInteractions: Boolean
+    /** Whether viewers may comment: only on public activities. Likes are taken at every visibility. */
+    val acceptsComments: Boolean
         get() = visibilityOrPublic == Visibility.PUBLIC
 }
 

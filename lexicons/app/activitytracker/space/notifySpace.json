@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "procedure",
-      "description": "Tells the AppView that one of the caller's app.activitytracker.space.athlete spaces exists, so it joins the space and indexes its activities. Requires service auth from the space's authority. Idempotent.",
+      "description": "Tells the AppView that one of the caller's app.activitytracker.space.athlete spaces exists, so it joins the space and indexes its activities, or, for the interactions space, its likes. Requires service auth from the space's authority. Idempotent.",
       "input": {
         "encoding": "application/json",
         "schema": {
@@ -14,14 +14,14 @@
             "space": {
               "type": "string",
               "format": "space-ref",
-              "description": "One of the caller's athlete spaces: at://{caller}/space/app.activitytracker.space.athlete/{tier}."
+              "description": "One of the caller's athlete spaces: at://{caller}/space/app.activitytracker.space.athlete/{key}, where key is a tier (followers, mutuals, self) or interactions."
             }
           }
         }
       },
       "errors": [
         { "name": "NotSpaceAuthority", "description": "The space's authority isn't the caller." },
-        { "name": "UnsupportedSpace", "description": "The space isn't an app.activitytracker.space.athlete space with a known tier key." }
+        { "name": "UnsupportedSpace", "description": "The space isn't an app.activitytracker.space.athlete space with a known key (a tier or interactions)." }
       ]
     }
   }
