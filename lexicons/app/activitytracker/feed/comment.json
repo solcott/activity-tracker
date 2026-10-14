@@ -12,7 +12,12 @@
         "properties": {
           "subject": { "type": "ref", "ref": "com.atproto.repo.strongRef" },
           "text": { "type": "string", "maxLength": 10000, "maxGraphemes": 1000 },
-          "createdAt": { "type": "string", "format": "datetime" }
+          "createdAt": { "type": "string", "format": "datetime" },
+          "audience": {
+            "type": "string",
+            "knownValues": ["public", "followers", "mutuals", "self"],
+            "description": "Who the comment was written for (app.activitytracker.actor.defs#visibility): the activity's visibility as the commenter's view showed it. Absent means public. It is set only on a comment stored in the commenter's app.activitytracker.space.athlete interactions space, and the comment is shown only to viewers it admits, even if the activity is later made wider."
+          }
         }
       }
     }

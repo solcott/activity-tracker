@@ -485,6 +485,11 @@ data class CommentRecord(
     val subject: StrongRef,
     val text: String,
     val createdAt: Instant,
+    /**
+     * The [Visibility] the comment was written for: the activity's as the commenter's view showed it. Null means [Visibility.PUBLIC]; set
+     * only on a comment in the commenter's interactions space. The AppView never shows the comment wider, even if the activity is widened.
+     */
+    val audience: String? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_COMMENT,
 )
 

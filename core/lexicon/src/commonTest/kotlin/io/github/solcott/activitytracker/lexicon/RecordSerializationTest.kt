@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityDiveTank
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowApprovalRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowDeclineRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
@@ -307,6 +308,20 @@ class RecordSerializationTest {
         val json = AtJson.encodeToJsonElement(LikeRecord.serializer(), like).jsonObject
         assertEquals("app.activitytracker.feed.like", json["\$type"]?.jsonPrimitive?.content)
         assertEquals(like, AtJson.decodeFromJsonElement(LikeRecord.serializer(), json))
+    }
+
+    @Test
+    fun commentRecordAudienceIsOptional() {
+        val subject = StrongRef(AtUri("at://did:plc:bob/${Nsid.FEED_ACTIVITY}/3kact"), Cid("bafy3kact"))
+        val public = CommentRecord(subject, "Nice!", Instant.parse("2026-10-14T09:00:00Z"))
+        val publicJson = AtJson.encodeToJsonElement(CommentRecord.serializer(), public).jsonObject
+        assertEquals(Nsid.FEED_COMMENT, publicJson["\$type"]?.jsonPrimitive?.content)
+        assertFalse("audience" in publicJson)
+        assertEquals(public, AtJson.decodeFromJsonElement(CommentRecord.serializer(), publicJson))
+        val followers = public.copy(audience = Visibility.FOLLOWERS)
+        val followersJson = AtJson.encodeToJsonElement(CommentRecord.serializer(), followers).jsonObject
+        assertEquals(Visibility.FOLLOWERS, followersJson["audience"]?.jsonPrimitive?.content)
+        assertEquals(followers, AtJson.decodeFromJsonElement(CommentRecord.serializer(), followersJson))
     }
 
     @Test
