@@ -249,7 +249,7 @@ private fun overviewStats(record: ActivityRecord, charts: ActivityCharts?): Immu
         .toImmutableList()
 }
 
-/** The like count or button, the toggle for who liked it, and the list once shown. */
+/** The like count or button, the toggle for who liked it, why a like couldn't be given, and the list once shown. */
 @Composable
 private fun Likes(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
     Column(modifier) {
@@ -262,6 +262,7 @@ private fun Likes(state: ActivityDetailState.Loaded, modifier: Modifier = Modifi
                 }
             }
         }
+        state.likeError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
         state.likesList?.let { LikesList(it, state.eventSink) }
     }
 }

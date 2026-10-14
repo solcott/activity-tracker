@@ -62,7 +62,7 @@ fun FeedPresenter(
     var error by remember { mutableStateOf<UiError?>(null) }
     var refreshKey by remember { mutableIntStateOf(0) }
     var syncedFor by remember { mutableIntStateOf(-1) }
-    val activityEvents = rememberActivityListEventSink(navigator, activities)
+    val activityEvents = rememberActivityListEventSink(navigator, activities) { error = it }
 
     LaunchedEffect(refreshKey, mine, query) {
         refreshing = true

@@ -28,7 +28,7 @@
     <string name="error_save_settings">Couldn't save settings</string>
     <string name="error_save_profile">Couldn't save profile</string>
     <string name="error_save_zones">Couldn't save zones</string>
-    <string name="error_sign_in_again">Sign in again to share activities or details with Followers, Mutuals or Only me, or to decline follow requests</string>
+    <string name="error_sign_in_again">Sign in again to share activities or details with Followers, Mutuals or Only me, to like activities that aren't public, or to decline follow requests</string>
     <string name="action_sign_in_again">Sign in again</string>
     <string name="error_delete_activity">Couldn't delete activity</string>
     <string name="error_ungroup_activity">Couldn't ungroup activity</string>

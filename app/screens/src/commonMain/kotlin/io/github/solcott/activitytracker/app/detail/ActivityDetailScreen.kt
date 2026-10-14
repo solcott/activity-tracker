@@ -36,6 +36,8 @@ sealed interface ActivityDetailState : CircuitUiState {
         val isOwn: Boolean,
         /** Who liked it, once the viewer has shown the list; null while it's hidden. */
         val likesList: LikesList?,
+        /** Why the viewer's last like couldn't be given: a session that can't like a non-public activity is told to sign in again. */
+        val likeError: UiError? = null,
         override val eventSink: (ActivityDetailEvent) -> Unit,
         /** Null while loading, and when there are no streams or the viewer may not see them. */
         val charts: ActivityCharts? = null,

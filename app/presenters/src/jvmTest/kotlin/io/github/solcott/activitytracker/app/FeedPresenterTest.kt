@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.app.feedfilter.DateRange
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
 import io.github.solcott.activitytracker.app.record.RecordScreen
+import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
@@ -141,8 +142,11 @@ class FeedPresenterTest {
             indexedAt = Instant.parse("2026-03-05T09:00:00Z"),
         )
 
-    private suspend fun filterTest(block: suspend ReceiveTurbine<FeedState>.() -> Unit) {
-        val (db, _, clients) = signedInTestSession(appView)
+    private suspend fun filterTest(
+        scope: String = OAuthClientConfig.DEFAULT_SCOPE,
+        block: suspend ReceiveTurbine<FeedState>.() -> Unit,
+    ) {
+        val (db, _, clients) = signedInTestSession(appView, scope = scope)
         val localLikes = LocalLikes()
         val feed = FeedRepository(db, clients, localLikes, Logger)
         val activities =
@@ -179,6 +183,22 @@ class FeedPresenterTest {
             val liked = awaitUntil { it.activities.singleOrNull()?.viewer?.like != null }
             assertEquals(1, liked.activities.single().likeCount)
             assertEquals(Visibility.FOLLOWERS, liked.activities.single().visibility)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aSessionWhoseScopeLacksLikesIsAskedToSignInAgain() = runTest {
+        timeline = listOf(bobsFollowersRun)
+        // Signed in before the interactions space's declaration listed likes.
+        filterTest(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}") {
+            val state = awaitUntil { it.activities.isNotEmpty() && !it.refreshing }
+            assertEquals(null, state.error)
+            state.eventSink(FeedEvent.Activity(ActivityListEvent.ToggleLike(state.activities.single())))
+            val refused = awaitUntil { it.error != null }
+            assertEquals(UiError(UiError.Kind.SignInAgain, null), refused.error)
+            assertEquals(null, refused.activities.single().viewer?.like, "the like isn't shown")
+            assertEquals(0, refused.activities.single().likeCount)
             cancelAndIgnoreRemainingEvents()
         }
     }

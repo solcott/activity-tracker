@@ -42,7 +42,7 @@ fun ProfilePresenter(
     val did = profile?.did?.value ?: screen.actor
     val items by remember(did) { feed.authorActivities(did).map { it.toImmutableList() } }.collectAsState(persistentListOf())
     val flights = rememberSingleFlight()
-    val activityEvents = rememberActivityListEventSink(navigator, activities)
+    val activityEvents = rememberActivityListEventSink(navigator, activities) { error = it }
 
     LaunchedEffect(screen.actor) {
         runSuspendCatching {

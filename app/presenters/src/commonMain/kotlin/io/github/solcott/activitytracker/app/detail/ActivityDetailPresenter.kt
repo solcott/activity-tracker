@@ -16,6 +16,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.activitylist.likeErrorOf
 import io.github.solcott.activitytracker.app.edit.EditActivityScreen
 import io.github.solcott.activitytracker.app.media.MediaGalleryScreen
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
@@ -54,6 +55,7 @@ fun ActivityDetailPresenter(
     var activity by remember { mutableStateOf<ActivityView?>(null) }
     var comments by remember { mutableStateOf<ImmutableList<CommentView>>(persistentListOf()) }
     var error by remember { mutableStateOf<UiError?>(null) }
+    var likeError by remember { mutableStateOf<UiError?>(null) }
     val draft = rememberTextFieldState()
     var loadKey by remember { mutableIntStateOf(0) }
     var showLikes by remember { mutableStateOf(false) }
@@ -109,7 +111,12 @@ fun ActivityDetailPresenter(
             }
 
             ActivityDetailEvent.ToggleLike -> {
-                current?.let { flights.launch(it.uri) { runSuspendCatching { activities.toggleLike(it) } } }
+                current?.let {
+                    flights.launch(it.uri) {
+                        likeError = null
+                        runSuspendCatching { activities.toggleLike(it) }.onFailure { e -> likeError = likeErrorOf(e) }
+                    }
+                }
             }
 
             is ActivityDetailEvent.SetChartsVisibility -> charts.setVisibility(event.visibility)
@@ -135,6 +142,7 @@ fun ActivityDetailPresenter(
             draftComment = draft,
             isOwn = isOwn,
             likesList = likesList,
+            likeError = likeError,
             eventSink = sink,
             charts = charts.charts,
             chartsMissingZones = charts.missingZones(isOwn),

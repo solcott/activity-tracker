@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.app.detail.DetailSection
 import io.github.solcott.activitytracker.app.detail.LikesList
 import io.github.solcott.activitytracker.app.detail.StreamKind
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
+import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
@@ -97,8 +98,8 @@ class ActivityDetailPresenterTest {
         val manager: ActivityManager,
     )
 
-    private suspend fun repos(): Repos {
-        val (db, _, clients) = signedInTestSession(http, did = alice)
+    private suspend fun repos(scope: String = OAuthClientConfig.DEFAULT_SCOPE): Repos {
+        val (db, _, clients) = signedInTestSession(http, did = alice, scope = scope)
         val feed = FeedRepository(db, clients, localLikes, Logger)
         val outbox = OutboxProcessor(db, clients, Logger)
         val writer = OutboxWriter(db, clients, Clock.System)
@@ -160,6 +161,25 @@ class ActivityDetailPresenterTest {
             loaded.eventSink(ActivityDetailEvent.ToggleLike)
             val liked = awaitUntil { (it as? ActivityDetailState.Loaded)?.activity?.viewer?.like != null } as ActivityDetailState.Loaded
             assertEquals(2, liked.activity.likeCount)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aSessionWhoseScopeLacksLikesIsAskedToSignInAgain() = runTest {
+        visibility = "followers"
+        // Signed in before the interactions space's declaration listed likes.
+        val r = repos(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}")
+        presenterTestOf({
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
+        }) {
+            val loaded = awaitLoaded()
+            assertNull(loaded.likeError)
+            loaded.eventSink(ActivityDetailEvent.ToggleLike)
+            val refused = awaitUntil { (it as? ActivityDetailState.Loaded)?.likeError != null } as ActivityDetailState.Loaded
+            assertEquals(UiError(UiError.Kind.SignInAgain, null), refused.likeError)
+            assertEquals(1, refused.activity.likeCount, "the like isn't shown")
+            assertNull(refused.activity.viewer?.like)
             cancelAndIgnoreRemainingEvents()
         }
     }
