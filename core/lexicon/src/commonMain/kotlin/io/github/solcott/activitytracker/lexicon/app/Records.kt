@@ -474,10 +474,10 @@ object SensorType {
 }
 
 @Serializable
-data class KudosRecord(
+data class LikeRecord(
     val subject: StrongRef,
     val createdAt: Instant,
-    @SerialName($$"$type") val type: String = Nsid.FEED_KUDOS,
+    @SerialName($$"$type") val type: String = Nsid.FEED_LIKE,
 )
 
 @Serializable

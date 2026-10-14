@@ -57,8 +57,8 @@ data class ActivityView(
     val cid: Cid,
     val author: ProfileViewBasic,
     val record: ActivityRecord,
-    /** Always 0 unless [visibility] is public: non-public activities take no kudos or comments. */
-    val kudosCount: Long,
+    /** Always 0 unless [visibility] is public: non-public activities take no likes or comments. */
+    val likeCount: Long,
     val commentCount: Long,
     val indexedAt: Instant,
     /** A [Visibility] value, from where the record is stored; null means [Visibility.PUBLIC]. Read it through [visibilityOrPublic]. */
@@ -73,12 +73,12 @@ data class ActivityView(
     val visibilityOrPublic: String
         get() = Visibility.known(visibility)
 
-    /** Whether viewers may give kudos and comment: only on public activities. */
+    /** Whether viewers may like and comment: only on public activities. */
     val acceptsInteractions: Boolean
         get() = visibilityOrPublic == Visibility.PUBLIC
 }
 
-@Immutable @Serializable data class ActivityViewerState(val kudos: AtUri? = null)
+@Immutable @Serializable data class ActivityViewerState(val like: AtUri? = null)
 
 /** `app.activitytracker.feed.defs#recordingView`: another device's recording of an activity. */
 @Immutable @Serializable data class RecordingView(val uri: AtUri, val startedAt: Instant, val device: String? = null)

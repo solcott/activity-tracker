@@ -4,7 +4,7 @@
   "defs": {
     "activityView": {
       "type": "object",
-      "required": ["uri", "cid", "author", "record", "kudosCount", "commentCount", "indexedAt"],
+      "required": ["uri", "cid", "author", "record", "likeCount", "commentCount", "indexedAt"],
       "properties": {
         "uri": { "type": "string", "format": "at-uri" },
         "cid": { "type": "string", "format": "cid" },
@@ -13,9 +13,9 @@
         "visibility": {
           "type": "string",
           "knownValues": ["public", "followers", "mutuals", "self"],
-          "description": "Who may see the activity (app.activitytracker.actor.defs#visibility), from where its record is stored. Absent means public. Unless it is public, kudosCount and commentCount are 0 and viewer.kudos is absent."
+          "description": "Who may see the activity (app.activitytracker.actor.defs#visibility), from where its record is stored. Absent means public. Unless it is public, likeCount and commentCount are 0 and viewer.like is absent."
         },
-        "kudosCount": { "type": "integer" },
+        "likeCount": { "type": "integer" },
         "commentCount": { "type": "integer" },
         "indexedAt": { "type": "string", "format": "datetime" },
         "viewer": { "type": "ref", "ref": "#viewerState" },
@@ -53,7 +53,7 @@
     "viewerState": {
       "type": "object",
       "properties": {
-        "kudos": { "type": "string", "format": "at-uri", "description": "URI of the viewer's kudos record, if any." }
+        "like": { "type": "string", "format": "at-uri", "description": "URI of the viewer's like record, if any." }
       }
     },
     "commentView": {

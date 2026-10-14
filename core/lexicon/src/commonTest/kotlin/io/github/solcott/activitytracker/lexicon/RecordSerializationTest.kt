@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetFollowRequests
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.HeartRateZoneModel
+import io.github.solcott.activitytracker.lexicon.app.LikeRecord
 import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.NotifySpace
 import io.github.solcott.activitytracker.lexicon.app.PrivateDetailsRecord
@@ -34,6 +35,7 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.ApplyWrites
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
+import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -277,7 +279,7 @@ class RecordSerializationTest {
             """{"uri":"at://did:plc:alice/${Nsid.FEED_ACTIVITY}/3k","cid":"bafyrei",""" +
                 """"author":{"did":"did:plc:alice","handle":"alice.test"},""" +
                 """"record":{"sport":"run","startedAt":"2026-09-30T14:00:00Z","elapsedTime":1800,"createdAt":"2026-09-30T14:31:00Z"},""" +
-                """"kudosCount":0,"commentCount":0,"indexedAt":"2026-09-30T14:31:00Z""""
+                """"likeCount":0,"commentCount":0,"indexedAt":"2026-09-30T14:31:00Z""""
         val old = AtJson.decodeFromString(ActivityView.serializer(), "$base}")
         assertEquals(null, old.visibility)
         assertEquals(Visibility.PUBLIC, old.visibilityOrPublic)
@@ -296,6 +298,15 @@ class RecordSerializationTest {
         assertEquals("at://did:plc:alice/space/${Nsid.SPACE_ATHLETE}/followers", json["space"]?.jsonPrimitive?.content)
         assertEquals(input, AtJson.decodeFromJsonElement(NotifySpace.Input.serializer(), json))
         assertEquals("app.activitytracker.space.notifySpace", NotifySpace.method.nsid)
+    }
+
+    @Test
+    fun likeRecordCarriesItsTypeAndRoundTrips() {
+        val subject = StrongRef(AtUri("at://did:plc:bob/${Nsid.FEED_ACTIVITY}/3kact"), Cid("bafy3kact"))
+        val like = LikeRecord(subject, Instant.parse("2026-10-14T09:00:00Z"))
+        val json = AtJson.encodeToJsonElement(LikeRecord.serializer(), like).jsonObject
+        assertEquals("app.activitytracker.feed.like", json["\$type"]?.jsonPrimitive?.content)
+        assertEquals(like, AtJson.decodeFromJsonElement(LikeRecord.serializer(), json))
     }
 
     @Test

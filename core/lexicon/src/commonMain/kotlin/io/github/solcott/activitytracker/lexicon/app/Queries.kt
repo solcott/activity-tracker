@@ -103,12 +103,12 @@ object GetActivityStreams {
     val method = XrpcQuery(Nsid.FEED_GET_ACTIVITY_STREAMS, Params.serializer(), Output.serializer())
 }
 
-object GetKudos {
+object GetLikes {
     @Serializable data class Params(val uri: AtUri, val limit: Int? = null, val cursor: String? = null)
 
-    @Serializable data class Output(val uri: AtUri, val kudos: List<ProfileViewBasic>, val cursor: String? = null)
+    @Serializable data class Output(val uri: AtUri, val likes: List<ProfileViewBasic>, val cursor: String? = null)
 
-    val method = XrpcQuery(Nsid.FEED_GET_KUDOS, Params.serializer(), Output.serializer())
+    val method = XrpcQuery(Nsid.FEED_GET_LIKES, Params.serializer(), Output.serializer())
 }
 
 object GetProfile {

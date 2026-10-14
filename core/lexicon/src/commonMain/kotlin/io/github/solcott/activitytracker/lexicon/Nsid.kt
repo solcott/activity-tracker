@@ -18,13 +18,13 @@ object Nsid {
     const val ACTOR_SEARCH_ACTORS = "$NAMESPACE.actor.searchActors"
 
     const val FEED_ACTIVITY = "$NAMESPACE.feed.activity"
-    const val FEED_KUDOS = "$NAMESPACE.feed.kudos"
+    const val FEED_LIKE = "$NAMESPACE.feed.like"
     const val FEED_COMMENT = "$NAMESPACE.feed.comment"
     const val FEED_GET_TIMELINE = "$NAMESPACE.feed.getTimeline"
     const val FEED_GET_AUTHOR_ACTIVITIES = "$NAMESPACE.feed.getAuthorActivities"
     const val FEED_GET_AUTHOR_ACTIVITIES_BY_START = "$NAMESPACE.feed.getAuthorActivitiesByStart"
     const val FEED_GET_ACTIVITY = "$NAMESPACE.feed.getActivity"
-    const val FEED_GET_KUDOS = "$NAMESPACE.feed.getKudos"
+    const val FEED_GET_LIKES = "$NAMESPACE.feed.getLikes"
     const val FEED_ACTIVITY_STREAMS = "$NAMESPACE.feed.activityStreams"
     /** Not a record or a query: the views' definitions, named in a union member's `$type`. */
     const val FEED_DEFS = "$NAMESPACE.feed.defs"
@@ -49,5 +49,5 @@ object Nsid {
 
     /** Record collections the AppView indexes (used as the Jetstream `wantedCollections` filter). */
     val indexedCollections =
-        listOf(ACTOR_PROFILE, FEED_ACTIVITY, FEED_ACTIVITY_STREAMS, FEED_KUDOS, FEED_COMMENT, GRAPH_FOLLOW, GRAPH_FOLLOW_APPROVAL)
+        listOf(ACTOR_PROFILE, FEED_ACTIVITY, FEED_ACTIVITY_STREAMS, FEED_LIKE, FEED_COMMENT, GRAPH_FOLLOW, GRAPH_FOLLOW_APPROVAL)
 }

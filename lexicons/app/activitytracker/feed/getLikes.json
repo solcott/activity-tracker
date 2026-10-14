@@ -1,10 +1,10 @@
 {
   "lexicon": 1,
-  "id": "app.activitytracker.feed.getKudos",
+  "id": "app.activitytracker.feed.getLikes",
   "defs": {
     "main": {
       "type": "query",
-      "description": "Athletes who gave kudos on an activity, most recently indexed first. Each athlete is listed once.",
+      "description": "Athletes who liked an activity, most recently indexed first. Each athlete is listed once.",
       "parameters": {
         "type": "params",
         "required": ["uri"],
@@ -18,11 +18,11 @@
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["uri", "kudos"],
+          "required": ["uri", "likes"],
           "properties": {
             "uri": { "type": "string", "format": "at-uri" },
             "cursor": { "type": "string" },
-            "kudos": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" } }
+            "likes": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" } }
           }
         }
       },
