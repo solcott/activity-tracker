@@ -92,3 +92,15 @@ Activities carry photos (`feed.activity#media`, an open union with `#image` only
 - **Uploads.** A video is too big to hold as a `ByteArray` in memory or in the Room outbox. Upload from a file path, streamed, and let the outbox carry several file-backed blobs per write, so a video posts even after the app restarts.
 - **PDS limit.** The reference PDS caps blobs with `PDS_BLOB_UPLOAD_LIMIT`; raise it in `docker/compose.yaml` and expect other PDSes to refuse large videos with a clear error.
 
+## Spaces and route privacy: order of the open changes
+
+Seven OpenSpec changes in `openspec/changes/` cover the rest of the local spaces work, plus route privacy and file export. Implement them in this order, and delete each entry when its change is archived.
+
+1. **Independent, any order or in parallel:**
+   - `shorten-private-media-urls`: signed photo URLs for non-public activities last 15–30 minutes instead of 1–2 hours (AppView only).
+   - `skip-mutuals-read-without-follow-back`: `getProfile` reports `viewer.followedBy`, and the client reads the `mutuals` tier only with it (small lexicon change).
+   - `show-own-space-photos-before-indexing`: the writing device shows a non-public activity's new photos from the bytes it uploaded until the AppView serves them (client only). Land it before 2 and 3, which also touch `LocalRewrites`.
+2. `keep-full-track-only-me`: **breaking.** `feed.activity` loses `track`, and the full-resolution GPX moves to a `feed.activityTrack` in the `self` space. Privacy zones and export both need it.
+3. `add-privacy-zones`: zones and hide-start/end, stored in `self`, trim every `polyline` at write time and retroactively (from the track). Supersedes the "Privacy zones" bullet under "Show activities on real maps".
+4. `export-activity-files`: the athlete exports their own activity as a rebuilt GPX or TCX (FIT open), from the record, streams and track.
+5. `keep-original-activity-files`: imports keep the original file in a `feed.activitySource` in `self`, for "Download original". Reuses 4's file hand-off.
