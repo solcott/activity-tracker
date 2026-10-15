@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -10,6 +11,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import coil3.ImageLoader
+import coil3.compose.setSingletonImageLoaderFactory
 import com.slack.circuit.backstack.SaveableBackStack
 import com.slack.circuit.backstack.rememberSaveableBackStack
 import com.slack.circuit.foundation.CircuitCompositionLocals
@@ -23,6 +26,7 @@ import io.github.solcott.activitytracker.app.di.AppGraph
 import io.github.solcott.activitytracker.app.feed.FeedScreen
 import io.github.solcott.activitytracker.app.login.LoginScreen
 import io.github.solcott.activitytracker.app.nav.AppShell
+import io.github.solcott.activitytracker.app.ui.HeldPhotoFetcher
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.adaptive.LocalIsNavRoot
 import io.github.solcott.activitytracker.app.ui.theme.AppTheme
@@ -39,6 +43,7 @@ fun App(graph: AppGraph, modifier: Modifier = Modifier, onRootPop: () -> Unit = 
         restored = true
     }
     val session by graph.authRepository.session.collectAsState()
+    setSingletonImageLoaderFactory { context -> ImageLoader.Builder(context).components { add(HeldPhotoFetcher.Factory()) }.build() }
 
     AppTheme(modifier) {
         if (!restored) return@AppTheme
@@ -48,6 +53,12 @@ fun App(graph: AppGraph, modifier: Modifier = Modifier, onRootPop: () -> Unit = 
         } else {
             key(current.did) {
                 val sessionGraph = remember { graph.createSessionGraph(current) }
+                // The image loader is app-wide; the photos it shows from this device's uploads are the signed-in session's.
+                DisposableEffect(sessionGraph) {
+                    val held = sessionGraph.feedRepository.heldPhotos
+                    HeldPhotoFetcher.Factory.session.value = held
+                    onDispose { HeldPhotoFetcher.Factory.session.compareAndSet(held, null) }
+                }
                 LaunchedEffect(Unit) { sessionGraph.unitsRepository.refresh() }
                 // So the AppView knows this athlete (and others can find them) before they post anything.
                 LaunchedEffect(Unit) { sessionGraph.profileSetup.ensureProfile() }
