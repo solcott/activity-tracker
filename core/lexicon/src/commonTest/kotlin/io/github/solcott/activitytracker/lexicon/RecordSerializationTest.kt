@@ -456,6 +456,18 @@ class RecordSerializationTest {
     }
 
     @Test
+    fun profileViewDecodesFollowedBy() {
+        val view =
+            AtJson.decodeFromString(
+                ProfileView.serializer(),
+                """{"did":"did:plc:alice","handle":"alice.test",""" +
+                    """"viewer":{"followedBy":"at://did:plc:alice/app.activitytracker.graph.follow/3j"}}""",
+            )
+        assertEquals(AtUri("at://did:plc:alice/app.activitytracker.graph.follow/3j"), view.viewer?.followedBy)
+        assertNull(view.viewer?.following)
+    }
+
+    @Test
     fun activityOutputStillWritesEmptyComments() {
         val view =
             ActivityView(

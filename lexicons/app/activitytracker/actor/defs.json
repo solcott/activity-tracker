@@ -45,6 +45,11 @@
         "followRequested": {
           "type": "boolean",
           "description": "True while the viewer's follow waits for the athlete's approval: the athlete's followPolicy is approve and they haven't approved the viewer."
+        },
+        "followedBy": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "URI of the athlete's follow of the viewer, only when it counts: absent while it waits for the viewer's approval."
         }
       }
     },
