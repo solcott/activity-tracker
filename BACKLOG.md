@@ -46,7 +46,7 @@ The activity detail screen shows the route on a MapLibre map (`ActivityMap`) on 
 - **Avoid.** Google Maps SDK (no wasmJs or desktop target, Google tiles only, billed per load). Mapbox v2+ (proprietary licence, billed per active user). `tile.openstreetmap.org` (its usage policy forbids app traffic). MapKit (iOS only).
 - **Feed vs detail.** Use the interactive map only on the activity detail screen. Feed cards stay static. Near term that's the Canvas polyline. Later, the AppView renders a PNG per activity at index time, using a provider's Static Maps API or self-hosted tileserver-gl, and serves it from an `app.activitytracker.*` endpoint.
 - **Attribution.** Every OSM-based provider requires "© OpenStreetMap contributors" plus the provider's own credit to be visible. Keep MapLibre's attribution control on.
-- **Privacy zones.** Repo records are public, and imported files carry exact start and end points, often a home address. Trim the polyline around the athlete's privacy zones before `putRecord`. Never put the full-resolution track in a record.
+- **Privacy zones.** Repo records are public, and imported files carry exact start and end points, often a home address. Trim the polyline around the athlete's privacy zones before `putRecord`. The full-resolution track already stays in the `self` space (`feed.activityTrack`).
 
 ## Keep more of what activity files hold
 
@@ -58,7 +58,7 @@ FIT, GPX, TCX, Shearwater dive XML, and UDDF and Subsurface logbook import (opti
 - **More streams.** Activity streams (`feed.activityStreams`) carry distance, altitude, speed, heart rate, power, cadence, temperature, depth and rear/front gear changes. Still dropped: laps, left/right balance, FIT dive deco state (NDL, TTS, ppO₂, tank pressure) and running dynamics.
 - **Duplicates beyond dives.** Imports flag duplicates of dives only (`DiveMatcher`); runs and rides imported twice (a watch and a bike computer on one ride) could use the same check and the same merge or group actions. A logbook dive twice in the file can't be merged into the other yet, only imported, grouped or ignored.
 - **Bulk import.** Strava's account export is a zip of gzipped files plus `activities.csv` with titles. Reading the zip and importing many activities at once would reuse `ActivityFileReader`.
-- **Track blob MIME type.** The local PDS stores the GPX `track` blob as `application/xml`, not the lexicon's `application/gpx+xml`. Check whether a stricter PDS rejects it.
+- **Track blob MIME type.** The local PDS stores the GPX blob of a `feed.activityTrack` as `application/xml`, not the lexicon's `application/gpx+xml`. Check whether a stricter PDS rejects it.
 
 ## Before deploying anywhere shared (QA, staging, prod)
 
