@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.appview.api.ActivityStreamsViews
 import io.github.solcott.activitytracker.appview.api.StreamSource
 import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
 import io.github.solcott.activitytracker.appview.db.ActivityStreamData as StreamDataCache
+import io.github.solcott.activitytracker.appview.db.ActivityZones
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.HandleLookup
@@ -277,6 +278,35 @@ class ActivityStreamsTest {
         zones(Visibility.PUBLIC, rkey = "3kother")
         zones(AthleteSpace.INTERACTIONS)
         assertNull(client.streamsFor(alice).output().powerZones)
+    }
+
+    private fun zoneRows() = runBlocking { db.tx { ActivityZones.selectAll().count() } }
+
+    @Test
+    fun aDeletedAccountsZonesAreGone() = testApplication {
+        start()
+        zones(Visibility.PUBLIC)
+        zones(Visibility.MUTUALS, rkey = "3kother", activity = "at://$alice/${Nsid.FEED_ACTIVITY}/3kother")
+        assertEquals(2L, zoneRows())
+        runBlocking {
+            indexer.handle(
+                JetstreamEvent.Account(
+                    did = alice,
+                    time = "2026-10-15T12:00:00.000000Z",
+                    account = JetstreamEvent.Account.Body(alice, active = false, status = "deleted"),
+                )
+            )
+        }
+        assertEquals(0L, zoneRows())
+    }
+
+    @Test
+    fun aDroppedSpacesZonesAreGone() = testApplication {
+        start()
+        zones(Visibility.PUBLIC)
+        zones(Visibility.MUTUALS, rkey = "3kother", activity = "at://$alice/${Nsid.FEED_ACTIVITY}/3kother")
+        runBlocking { indexer.dropSpace(SpaceUri.of(Did(alice), Nsid.SPACE_ATHLETE, Visibility.MUTUALS)) }
+        assertEquals(1L, zoneRows(), "the repo's zones stay")
     }
 
     @Test
