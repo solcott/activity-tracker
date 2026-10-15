@@ -14,7 +14,8 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import kotlin.time.Clock
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 /** Blobs held in athletes' tier spaces, read with the AppView's own credential: photos and stream data of non-public activities. */
 fun interface SpaceBlobs {
@@ -74,28 +75,39 @@ class MemberSpaceBlobs(private val member: SpaceMember, private val maxBytes: In
 
 /**
  * Signs the photo URLs of non-public activities for one viewer. Image loaders fetch photos without service auth, so the URL itself names
- * the viewer, and the media route checks the signature and then the viewer's access as of the request. Expiry is rounded up to the next
- * hour so a viewer's URLs stay stable (and cacheable on their device) within it. The key is derived from the AppView's signing key.
+ * the viewer, and the media route checks the signature and then the viewer's access as of the request. Anyone holding a URL can use it
+ * until it expires, so it lives [ttl], with expiry rounded up to the next multiple of [step] so a viewer's URLs stay stable (and cacheable
+ * on their device) within it: 15 to 30 minutes by default. The key is derived from the AppView's signing key.
  */
-class PrivateMediaTokens(signingKey: String, private val clock: Clock = Clock.System, private val ttl: Duration = 1.hours) {
+class PrivateMediaTokens(
+    signingKey: String,
+    private val clock: Clock = Clock.System,
+    private val ttl: Duration = 15.minutes,
+    private val step: Duration = 15.minutes,
+) {
     private val key = SecretKeySpec(MessageDigest.getInstance("SHA-256").digest("activitytracker-media-url:$signingKey".toByteArray()), ALG)
+
+    init {
+        require(step.isPositive()) { "step must be positive" }
+    }
 
     /** Query parameters for [viewer]'s URL to [cid] of [did]. */
     fun params(did: String, cid: String, viewer: Did): List<Pair<String, String>> {
-        val hour = 1.hours.inWholeSeconds
-        val exp = ((clock.now() + ttl).epochSeconds / hour + 1) * hour
+        val stepSeconds = step.inWholeSeconds
+        val exp = Math.ceilDiv((clock.now() + ttl).epochSeconds, stepSeconds) * stepSeconds
         return listOf(VIEWER to viewer.value, EXPIRES to exp.toString(), SIGNATURE to sign(did, cid, viewer.value, exp))
     }
 
-    /** The viewer a URL with [viewer], [exp] and [sig] was signed for, if it's genuine and current. */
-    fun verify(did: String, cid: String, viewer: String?, exp: String?, sig: String?): Did? {
-        val expires = exp?.toLongOrNull()?.takeIf { it >= clock.now().epochSeconds }
+    /** The viewer a URL with [viewer], [exp] and [sig] was signed for, and how long it stays valid, if it's genuine and current. */
+    fun verify(did: String, cid: String, viewer: String?, exp: String?, sig: String?): SignedViewer? {
+        val now = clock.now().epochSeconds
+        val expires = exp?.toLongOrNull()?.takeIf { it >= now }
         val genuine =
             viewer != null &&
                 sig != null &&
                 expires != null &&
                 MessageDigest.isEqual(sign(did, cid, viewer, expires).toByteArray(), sig.toByteArray())
-        return viewer?.takeIf { genuine }?.let(::Did)
+        return if (genuine) SignedViewer(Did(viewer), (expires - now).seconds) else null
     }
 
     private fun sign(did: String, cid: String, viewer: String, exp: Long): String {
@@ -110,3 +122,6 @@ class PrivateMediaTokens(signingKey: String, private val clock: Clock = Clock.Sy
         private const val ALG = "HmacSHA256"
     }
 }
+
+/** A viewer a media URL was signed for, and the time left until the URL expires. */
+data class SignedViewer(val viewer: Did, val expiresIn: Duration)

@@ -100,8 +100,8 @@ fun Application.appView(
     signingKey: AppViewSigningKey? = config.signingKey?.let(::AppViewSigningKey),
     syncer: SpaceSyncer? = null,
     spaceBlobs: SpaceBlobs? = null,
+    mediaTokens: PrivateMediaTokens? = config.signingKey?.let(::PrivateMediaTokens),
 ) {
-    val mediaTokens = config.signingKey?.let(::PrivateMediaTokens)
     install(CallLogging)
     install(CORS) {
         // The web client calls the AppView directly from the browser.

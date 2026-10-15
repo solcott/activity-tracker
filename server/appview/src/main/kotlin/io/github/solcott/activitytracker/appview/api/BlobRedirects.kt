@@ -110,12 +110,13 @@ private suspend fun RoutingContext.privateMedia(
     cid: String,
 ): Boolean {
     val query = call.request.queryParameters
-    val viewer =
+    val signed =
         tokens?.verify(did, cid, query[PrivateMediaTokens.VIEWER], query[PrivateMediaTokens.EXPIRES], query[PrivateMediaTokens.SIGNATURE])
-    val origin = viewer?.let { db.tx { visibleMediaOrigin(did, cid, it) } }
+    val origin = signed?.let { db.tx { visibleMediaOrigin(did, cid, it.viewer) } }
     val blob = origin?.let { runSuspendCatching { blobs?.fetch(SpaceUri(it), Did(did), cid) }.getOrNull() }
-    if (blob != null) {
-        call.response.header(HttpHeaders.CacheControl, "private, max-age=3600")
+    if (signed != null && blob != null) {
+        // Never cached past the URL's expiry.
+        call.response.header(HttpHeaders.CacheControl, "private, max-age=${signed.expiresIn.inWholeSeconds}")
         call.respondBytes(blob.bytes, blob.contentType?.let(ContentType::parse) ?: ContentType.Application.OctetStream)
     }
     return blob != null
