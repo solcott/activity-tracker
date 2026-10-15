@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "query",
-      "description": "A single activity with its comments, oldest comment first.",
+      "description": "A single activity. Its comments are listed by app.activitytracker.feed.getComments.",
       "parameters": {
         "type": "params",
         "required": ["uri"],
@@ -16,10 +16,14 @@
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["activity", "comments"],
+          "required": ["activity"],
           "properties": {
             "activity": { "type": "ref", "ref": "app.activitytracker.feed.defs#activityView" },
-            "comments": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#commentView" } }
+            "comments": {
+              "type": "array",
+              "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#commentView" },
+              "description": "Deprecated: always empty, kept for clients that still read it. Use app.activitytracker.feed.getComments."
+            }
           }
         }
       },

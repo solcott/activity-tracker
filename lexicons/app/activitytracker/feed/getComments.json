@@ -1,0 +1,38 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.getComments",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "An activity's comments, oldest first, a page at a time. Lists only the comments the viewer sees by the same rule as the activity's commentCount, plus hidden ones (marked) for the activity's athlete and each one's commenter; the count equals the comments not marked hidden across every page. A viewer who may not see the activity gets NotFound.",
+      "parameters": {
+        "type": "params",
+        "required": ["uri"],
+        "properties": {
+          "uri": { "type": "string", "format": "at-uri", "description": "The activity." },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 30 },
+          "cursor": { "type": "string" },
+          "uris": {
+            "type": "array",
+            "maxLength": 25,
+            "items": { "type": "string", "format": "at-uri" },
+            "description": "Instead of a page, just these comments: those on the activity that are listed for the viewer, oldest first, with no cursor. limit and cursor are ignored, URIs not listed are left out without saying why, and more than 25 is InvalidRequest."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["uri", "comments"],
+          "properties": {
+            "uri": { "type": "string", "format": "at-uri" },
+            "cursor": { "type": "string" },
+            "comments": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#commentView" } }
+          }
+        }
+      },
+      "errors": [{ "name": "NotFound" }, { "name": "InvalidRequest" }]
+    }
+  }
+}

@@ -77,10 +77,16 @@ object GetAuthorActivitiesByStart {
     val method = XrpcQuery(Nsid.FEED_GET_AUTHOR_ACTIVITIES_BY_START, Params.serializer(), Output.serializer())
 }
 
+/** A single activity. Its comments come from [GetComments]. */
 object GetActivity {
     @Serializable data class Params(val uri: AtUri)
 
-    @Serializable data class Output(val activity: ActivityView, val comments: List<CommentView>)
+    @Serializable
+    data class Output(
+        val activity: ActivityView,
+        /** Deprecated: always empty, and still written (`[]`) only for clients from before [GetComments]. */
+        val comments: List<CommentView> = emptyList(),
+    )
 
     val method = XrpcQuery(Nsid.FEED_GET_ACTIVITY, Params.serializer(), Output.serializer())
 }
@@ -109,6 +115,29 @@ object GetLikes {
     @Serializable data class Output(val uri: AtUri, val likes: List<ProfileViewBasic>, val cursor: String? = null)
 
     val method = XrpcQuery(Nsid.FEED_GET_LIKES, Params.serializer(), Output.serializer())
+}
+
+/**
+ * An activity's comments, oldest first, a page at a time ([limit], [cursor]), by the same rule as its `commentCount`, plus hidden ones
+ * (marked) for its athlete and their commenters. Given [Params.uris], just those of them listed for the viewer instead, with no cursor.
+ */
+object GetComments {
+    /** Most [Params.uris] one request may carry. */
+    const val MAX_URIS = 25
+
+    @Serializable
+    data class Params(
+        /** The activity. */
+        val uri: AtUri,
+        val limit: Int? = null,
+        val cursor: String? = null,
+        /** Instead of a page, these comments only, at most [MAX_URIS]; [limit] and [cursor] are ignored. */
+        val uris: List<AtUri>? = null,
+    )
+
+    @Serializable data class Output(val uri: AtUri, val comments: List<CommentView>, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.FEED_GET_COMMENTS, Params.serializer(), Output.serializer())
 }
 
 object GetProfile {

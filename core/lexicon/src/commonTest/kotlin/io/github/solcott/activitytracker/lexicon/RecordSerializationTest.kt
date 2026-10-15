@@ -13,7 +13,9 @@ import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.FollowApprovalRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowDeclineRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
+import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
+import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.GetFollowRequests
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.HeartRateZoneModel
@@ -391,6 +393,46 @@ class RecordSerializationTest {
             )
         assertEquals(FollowPolicy.APPROVE, view.followPolicy)
         assertEquals(true, view.viewer?.followRequested)
+    }
+
+    @Test
+    fun activityOutputStillWritesEmptyComments() {
+        val view =
+            ActivityView(
+                uri = AtUri("at://did:plc:alice/${Nsid.FEED_ACTIVITY}/3k"),
+                cid = Cid("bafyrei"),
+                author = ProfileViewBasic(Did("did:plc:alice"), Handle("alice.test")),
+                record = record,
+                likeCount = 0,
+                commentCount = 12,
+                indexedAt = Instant.parse("2026-10-14T09:00:00Z"),
+            )
+        val json = AtJson.encodeToString(GetActivity.Output.serializer(), GetActivity.Output(view))
+        // Clients from before getComments require the field.
+        assertTrue("\"comments\":[]" in json)
+        assertEquals(GetActivity.Output(view), AtJson.decodeFromString(GetActivity.Output.serializer(), json))
+    }
+
+    @Test
+    fun commentsParamsRoundTripThroughQueryString() {
+        val activity = AtUri("at://did:plc:alice/${Nsid.FEED_ACTIVITY}/3k")
+        val first = AtUri("at://did:plc:bob/${Nsid.FEED_COMMENT}/3ka")
+        val second = AtUri("at://did:plc:carol/${Nsid.FEED_COMMENT}/3kb")
+        val params = GetComments.Params(activity, uris = listOf(first, second))
+        val encoded = XrpcParams.encode(GetComments.Params.serializer(), params)
+        assertEquals(listOf("uri" to activity.value, "uris" to first.value, "uris" to second.value), encoded)
+        assertEquals(params, XrpcParams.decode(GetComments.Params.serializer(), encoded.groupBy({ it.first }, { it.second })))
+        // A single URI still decodes to a list.
+        val one = XrpcParams.decode(GetComments.Params.serializer(), mapOf("uri" to listOf(activity.value), "uris" to listOf(first.value)))
+        assertEquals(listOf(first), one.uris)
+        val page = GetComments.Params(activity, limit = 30, cursor = "1760000000000::at://x")
+        assertEquals(
+            page,
+            XrpcParams.decode(
+                GetComments.Params.serializer(),
+                XrpcParams.encode(GetComments.Params.serializer(), page).groupBy({ it.first }, { it.second }),
+            ),
+        )
     }
 
     @Test

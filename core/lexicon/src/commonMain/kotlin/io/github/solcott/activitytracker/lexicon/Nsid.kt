@@ -27,6 +27,7 @@ object Nsid {
     const val FEED_GET_AUTHOR_ACTIVITIES_BY_START = "$NAMESPACE.feed.getAuthorActivitiesByStart"
     const val FEED_GET_ACTIVITY = "$NAMESPACE.feed.getActivity"
     const val FEED_GET_LIKES = "$NAMESPACE.feed.getLikes"
+    const val FEED_GET_COMMENTS = "$NAMESPACE.feed.getComments"
     const val FEED_ACTIVITY_STREAMS = "$NAMESPACE.feed.activityStreams"
     /** Not a record or a query: the views' definitions, named in a union member's `$type`. */
     const val FEED_DEFS = "$NAMESPACE.feed.defs"
