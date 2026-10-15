@@ -16,9 +16,7 @@ Follows in this app (`app.activitytracker.graph.follow`) are separate from Blues
 
 Each activity is Public, Followers, Mutuals or Only me (`add-activity-visibility`): a non-public one is a `feed.activity` in the athlete's tier space for it, the AppView syncs those spaces as a member and serves each activity only to the viewers its tier admits, and new activities start at the athlete's defaults (`actor.activityDefaults`, in their `self` space). What's left:
 
-- **Own photos before indexing.** Until the AppView indexes a new non-public activity, its photos don't preview on the athlete's own devices: `ownBlobUrl` points at public `sync.getBlob`, which refuses a blob only a space record holds. Load them through the AppView's signed URLs once indexed (as now), or read them with the owner's session.
 - **Narrowing can't recall copies.** A Public activity made non-public stays in whatever copied it from the firehose meanwhile. The edit screen warns; there's nothing more to do on our side.
-- **Signed photo URLs are bearer links until they expire.** A non-public activity's photo URL is signed for one viewer and checked against their access on every request, so unfollowing ends it, but a URL the viewer passes on works for others until its hour is up. Shorten the lifetime if that matters.
 - **Delete-then-write races.** A visibility change writes the new place before deleting the old, and the AppView shows the narrower copy while both exist. A notification lost on both sides is covered by the 15-minute reconcile; tune that (`SpaceSyncer`) once there's real traffic.
 
 ## Private profile details in Spaces: what's left
@@ -26,7 +24,6 @@ Each activity is Public, Followers, Mutuals or Only me (`add-activity-visibility
 Non-public profile details live in each athlete's `app.activitytracker.space.athlete` tier spaces (`mutuals`, `self`), one `actor.privateDetails` record each, with the AppView as managing app. Spaces are an alpha (August 2026: no security audit, breaking changes weekly, the hosted sandbox will be wiped), so revisit the pinned image and `Space.kt` when they reach a stable release.
 
 - **Real namespace first.** See "Spaces need a real lexicon namespace" below: outside the local stack, nothing can sign in with the `space:` scope until the NSID authority resolves.
-- **One-way followers pay an exchange per view.** Opening the profile of someone you follow who doesn't follow back costs a delegation token and a refused credential exchange every time, because denials aren't cached. If that shows up, add a short negative cache in `ProfileRepository`.
 - **Hard rule still applies.** Client code can't use an atproto SDK, so the Spaces XRPC calls stay hand-written in `core/atproto`.
 
 ## AppView as a consented member for aggregation
@@ -94,13 +91,9 @@ Activities carry photos (`feed.activity#media`, an open union with `#image` only
 
 ## Spaces and route privacy: order of the open changes
 
-Seven OpenSpec changes in `openspec/changes/` cover the rest of the local spaces work, plus route privacy and file export. Implement them in this order, and delete each entry when its change is archived.
+Four OpenSpec changes in `openspec/changes/` cover the rest of the local spaces work, plus route privacy and file export. Implement them in this order, and delete each entry when its change is archived.
 
-1. **Independent, any order or in parallel:**
-   - `shorten-private-media-urls`: signed photo URLs for non-public activities last 15–30 minutes instead of 1–2 hours (AppView only).
-   - `skip-mutuals-read-without-follow-back`: `getProfile` reports `viewer.followedBy`, and the client reads the `mutuals` tier only with it (small lexicon change).
-   - `show-own-space-photos-before-indexing`: the writing device shows a non-public activity's new photos from the bytes it uploaded until the AppView serves them (client only). Land it before 2 and 3, which also touch `LocalRewrites`.
-2. `keep-full-track-only-me`: **breaking.** `feed.activity` loses `track`, and the full-resolution GPX moves to a `feed.activityTrack` in the `self` space. Privacy zones and export both need it.
-3. `add-privacy-zones`: zones and hide-start/end, stored in `self`, trim every `polyline` at write time and retroactively (from the track). Supersedes the "Privacy zones" bullet under "Show activities on real maps".
-4. `export-activity-files`: the athlete exports their own activity as a rebuilt GPX or TCX (FIT open), from the record, streams and track.
-5. `keep-original-activity-files`: imports keep the original file in a `feed.activitySource` in `self`, for "Download original". Reuses 4's file hand-off.
+1. `keep-full-track-only-me`: **breaking.** `feed.activity` loses `track`, and the full-resolution GPX moves to a `feed.activityTrack` in the `self` space. Privacy zones and export both need it.
+2. `add-privacy-zones`: zones and hide-start/end, stored in `self`, trim every `polyline` at write time and retroactively (from the track). Supersedes the "Privacy zones" bullet under "Show activities on real maps".
+3. `export-activity-files`: the athlete exports their own activity as a rebuilt GPX or TCX (FIT open), from the record, streams and track.
+4. `keep-original-activity-files`: imports keep the original file in a `feed.activitySource` in `self`, for "Download original". Reuses 3's file hand-off.
