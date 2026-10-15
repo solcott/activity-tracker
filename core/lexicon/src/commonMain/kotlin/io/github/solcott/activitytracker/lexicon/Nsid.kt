@@ -31,6 +31,8 @@ object Nsid {
     const val FEED_ACTIVITY_STREAMS = "$NAMESPACE.feed.activityStreams"
     /** An activity's zone snapshots, apart from its streams because they can be narrower (the training's visibility). */
     const val FEED_ACTIVITY_ZONES = "$NAMESPACE.feed.activityZones"
+    /** An activity's full-resolution track, kept only in the athlete's `self` tier space ([SPACE_ATHLETE]) and never indexed. */
+    const val FEED_ACTIVITY_TRACK = "$NAMESPACE.feed.activityTrack"
     /** Not a record or a query: the views' definitions, named in a union member's `$type`. */
     const val FEED_DEFS = "$NAMESPACE.feed.defs"
     const val FEED_GET_ACTIVITY_STREAMS = "$NAMESPACE.feed.getActivityStreams"

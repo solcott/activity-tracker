@@ -1,0 +1,25 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.activityTrack",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "An activity's full-resolution GPS track. Its rkey is its activity's. It holds exact positions, so it is stored only in the athlete's app.activitytracker.space.athlete self space, whatever the activity's visibility, and never in the repo. Only the athlete reads it: the AppView neither indexes nor serves it. Feeds and maps draw the activity's simplified polyline instead.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["activity", "track", "createdAt"],
+        "properties": {
+          "activity": { "type": "string", "format": "at-uri", "description": "The activity's URI; it shares this record's rkey." },
+          "track": {
+            "type": "blob",
+            "accept": ["application/gpx+xml"],
+            "maxSize": 10000000,
+            "description": "Full-resolution GPS track as GPX."
+          },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

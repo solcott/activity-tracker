@@ -33,7 +33,7 @@
     },
     "streamData": {
       "type": "object",
-      "description": "The data blob's JSON. Every array lines up with time; a channel the activity lacks is absent, and a missing sample is null (blob contents aren't validated against lexicons). No positions: the activity's track holds those.",
+      "description": "The data blob's JSON. Every array lines up with time; a channel the activity lacks is absent, and a missing sample is null (blob contents aren't validated against lexicons). No positions: the activity's app.activitytracker.feed.activityTrack holds those.",
       "required": ["time"],
       "properties": {
         "time": { "type": "array", "items": { "type": "integer" }, "description": "Seconds since the activity's startedAt." },

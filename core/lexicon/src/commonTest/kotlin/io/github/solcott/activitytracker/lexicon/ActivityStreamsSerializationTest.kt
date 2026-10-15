@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.lexicon
 
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivityTrackRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityZonesRecord
 import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.StreamChannel
@@ -52,6 +53,19 @@ class ActivityStreamsSerializationTest {
         assertFalse("powerZones" in json, "zones are a record of their own")
         assertFalse("visibility" in json, "where it's stored is its visibility")
         assertEquals(record, AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), json))
+    }
+
+    @Test
+    fun trackRecordCarriesTypeAndRoundTrips() {
+        val record =
+            ActivityTrackRecord(
+                activity = AtUri("at://did:plc:a/${Nsid.FEED_ACTIVITY}/3k"),
+                createdAt = Instant.parse("2026-10-08T12:00:00Z"),
+                track = BlobRef(ref = BlobRef.Link("bafytrack"), mimeType = "application/gpx+xml", size = 100),
+            )
+        val json = AtJson.encodeToJsonElement(ActivityTrackRecord.serializer(), record).jsonObject
+        assertEquals(Nsid.FEED_ACTIVITY_TRACK, json["\$type"]?.jsonPrimitive?.content)
+        assertEquals(record, AtJson.decodeFromJsonElement(ActivityTrackRecord.serializer(), json))
     }
 
     @Test

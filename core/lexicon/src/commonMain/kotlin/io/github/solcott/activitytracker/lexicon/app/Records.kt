@@ -247,8 +247,6 @@ data class ActivityRecord(
     val avgTemperature: Long? = null,
     /** Simplified Google encoded polyline (precision 5). */
     val polyline: String? = null,
-    /** Full GPX track blob. */
-    val track: BlobRef? = null,
     val device: String? = null,
     /** A [SubSport] value refining [sport]; null for the sport's generic form. */
     val subSport: String? = null,
@@ -290,6 +288,26 @@ data class ActivityStreamsRecord(
 
         /** The lexicon's `maxSize` for [data]. */
         const val MAX_DATA_BYTES = 5_000_000L
+    }
+}
+
+/**
+ * `app.activitytracker.feed.activityTrack`: an activity's full-resolution GPS track as a GPX blob, under its activity's rkey. It holds
+ * exact positions, so it's stored only in the athlete's [AthleteSpace.SELF] space, whatever the activity's visibility, and only the athlete
+ * reads it: the AppView ignores it.
+ */
+@Serializable
+data class ActivityTrackRecord(
+    /** The activity's URI; it shares this record's rkey. */
+    val activity: AtUri,
+    val createdAt: Instant,
+    /** Required by the lexicon: null only in the outbox, which uploads the blob and fills it in before `putRecord`. */
+    val track: BlobRef? = null,
+    @SerialName($$"$type") val type: String = Nsid.FEED_ACTIVITY_TRACK,
+) {
+    companion object {
+        /** The record's blob field, for [track]. */
+        const val TRACK_FIELD = "track"
     }
 }
 
