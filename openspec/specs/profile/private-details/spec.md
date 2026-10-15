@@ -152,18 +152,3 @@ The AppView SHALL NOT accept or store non-public profile details. `getProfile` S
 #### Scenario: Removed procedure
 - **WHEN** a client calls `app.activitytracker.actor.putPrivateDetails`
 - **THEN** the AppView answers `404 Not Found`, since it no longer serves the method
-
-### Requirement: Stream zones follow public training
-`feed.getActivityStreams` SHALL include an activity's zone snapshots only for the activity's athlete, or when the athlete's training details are public.
-
-#### Scenario: Mutual and non-public training
-- **WHEN** a mutual of the athlete fetches streams for an activity they may view, and the athlete's training isn't in their profile record
-- **THEN** the response has no zone snapshots
-
-#### Scenario: Public training
-- **WHEN** any viewer who may view the activity fetches its streams, and the athlete's training is in their profile record
-- **THEN** the response includes the zone snapshots
-
-#### Scenario: Athlete's own streams
-- **WHEN** the athlete fetches their own activity's streams
-- **THEN** the response includes the zone snapshots
