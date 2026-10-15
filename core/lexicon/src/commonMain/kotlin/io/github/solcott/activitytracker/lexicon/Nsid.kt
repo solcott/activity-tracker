@@ -20,6 +20,8 @@ object Nsid {
     const val FEED_ACTIVITY = "$NAMESPACE.feed.activity"
     const val FEED_LIKE = "$NAMESPACE.feed.like"
     const val FEED_COMMENT = "$NAMESPACE.feed.comment"
+    /** The athlete hid a comment on their own activity; keyed by the comment (`commentHideRkey` in `core/atproto`). */
+    const val FEED_COMMENT_HIDE = "$NAMESPACE.feed.commentHide"
     const val FEED_GET_TIMELINE = "$NAMESPACE.feed.getTimeline"
     const val FEED_GET_AUTHOR_ACTIVITIES = "$NAMESPACE.feed.getAuthorActivities"
     const val FEED_GET_AUTHOR_ACTIVITIES_BY_START = "$NAMESPACE.feed.getAuthorActivitiesByStart"
@@ -49,5 +51,14 @@ object Nsid {
 
     /** Record collections the AppView indexes (used as the Jetstream `wantedCollections` filter). */
     val indexedCollections =
-        listOf(ACTOR_PROFILE, FEED_ACTIVITY, FEED_ACTIVITY_STREAMS, FEED_LIKE, FEED_COMMENT, GRAPH_FOLLOW, GRAPH_FOLLOW_APPROVAL)
+        listOf(
+            ACTOR_PROFILE,
+            FEED_ACTIVITY,
+            FEED_ACTIVITY_STREAMS,
+            FEED_LIKE,
+            FEED_COMMENT,
+            FEED_COMMENT_HIDE,
+            GRAPH_FOLLOW,
+            GRAPH_FOLLOW_APPROVAL,
+        )
 }

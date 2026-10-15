@@ -18,7 +18,7 @@
         "likeCount": { "type": "integer", "description": "Likes from athletes who, like the viewer, may see the activity at its current visibility." },
         "commentCount": {
           "type": "integer",
-          "description": "Comments the viewer may see: from athletes who may see the activity at its current visibility, written for an audience that admits the viewer."
+          "description": "Comments the viewer may see: from athletes who may see the activity at its current visibility, written for an audience that admits the viewer, and not hidden by the activity's athlete (app.activitytracker.feed.commentHide)."
         },
         "indexedAt": { "type": "string", "format": "datetime" },
         "viewer": { "type": "ref", "ref": "#viewerState" },
@@ -67,7 +67,11 @@
         "cid": { "type": "string", "format": "cid" },
         "author": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
         "text": { "type": "string" },
-        "createdAt": { "type": "string", "format": "datetime" }
+        "createdAt": { "type": "string", "format": "datetime" },
+        "hidden": {
+          "type": "boolean",
+          "description": "The activity's athlete hid this comment (app.activitytracker.feed.commentHide). Present only for the athlete and the commenter, the only viewers a hidden comment is listed for."
+        }
       }
     }
   }

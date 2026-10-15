@@ -6,7 +6,7 @@
       "type": "space",
       "key": "any",
       "name": "Athlete data",
-      "description": "An athlete's permissioned data: one space per visibility tier (followers, mutuals, self), plus an interactions space holding the athlete's likes and comments on non-public activities. The AppView is the managing app and decides who may read each space; it also syncs them. From a tier it indexes only feed.activity and feed.activityStreams records and serves them only to the viewers the tier admits. Only the athlete and the AppView read the interactions space; the AppView indexes only feed.like and feed.comment records from it. It shows each like only to viewers who, like its giver, may see the liked activity now, and each comment only to those who also belong to the audience it was written for.",
+      "description": "An athlete's permissioned data: one space per visibility tier (followers, mutuals, self), plus an interactions space holding the athlete's likes and comments on non-public activities and their hides of comments on their own non-public activities. The AppView is the managing app and decides who may read each space; it also syncs them. From a tier it indexes only feed.activity and feed.activityStreams records and serves them only to the viewers the tier admits. Only the athlete and the AppView read the interactions space; the AppView indexes only feed.like, feed.comment and feed.commentHide records from it. It shows each like only to viewers who, like its giver, may see the liked activity now, and each comment only to those who also belong to the audience it was written for, unless the athlete hid it.",
       "collections": [
         "app.activitytracker.actor.privateDetails",
         "app.activitytracker.graph.followDecline",
@@ -15,7 +15,8 @@
         "app.activitytracker.feed.activity",
         "app.activitytracker.actor.activityDefaults",
         "app.activitytracker.feed.like",
-        "app.activitytracker.feed.comment"
+        "app.activitytracker.feed.comment",
+        "app.activitytracker.feed.commentHide"
       ]
     }
   }

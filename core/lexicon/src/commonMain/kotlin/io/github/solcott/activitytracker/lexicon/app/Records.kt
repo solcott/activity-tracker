@@ -493,6 +493,19 @@ data class CommentRecord(
     @SerialName($$"$type") val type: String = Nsid.FEED_COMMENT,
 )
 
+/**
+ * `app.activitytracker.feed.commentHide`: the athlete hid the comment [subject] on one of their own activities. It's stored where their
+ * like on that activity would be (the repo for a public one, else their interactions space), and its rkey is derived from [subject]
+ * (`commentHideRkey` in `core/atproto`, which needs SHA-256), so there's at most one per comment and unhiding needs no lookup. Only the
+ * activity's athlete's hide counts.
+ */
+@Serializable
+data class CommentHideRecord(
+    val subject: AtUri,
+    val createdAt: Instant,
+    @SerialName($$"$type") val type: String = Nsid.FEED_COMMENT_HIDE,
+)
+
 @Serializable
 data class FollowRecord(
     val subject: Did,

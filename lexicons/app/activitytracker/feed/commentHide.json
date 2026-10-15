@@ -1,0 +1,19 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.commentHide",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "An athlete hid a comment on one of their activities: it leaves the activity's comment count for everyone and its comment list for everyone but the athlete and the commenter. Only a hide by the athlete whose activity the comment is on counts. It is stored where the athlete's like on that activity would be: their repo when the activity is public, else their app.activitytracker.space.athlete interactions space. Its rkey is the first 20 bytes of SHA-256 over the comment's AT-URI, lowercase base32 without padding, so an athlete has at most one hide per comment; the AppView ignores a hide stored under any other rkey. Deleting it unhides the comment.",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": ["subject", "createdAt"],
+        "properties": {
+          "subject": { "type": "string", "format": "at-uri", "description": "The hidden app.activitytracker.feed.comment." },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

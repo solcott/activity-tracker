@@ -89,4 +89,6 @@ data class CommentView(
     val author: ProfileViewBasic,
     val text: String,
     val createdAt: Instant,
+    /** The activity's athlete hid it. Set only for the athlete and the commenter, the only viewers a hidden comment is listed for. */
+    val hidden: Boolean? = null,
 )

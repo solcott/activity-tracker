@@ -7,7 +7,9 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityDiveTank
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.CommentHideRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
+import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.FollowApprovalRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowDeclineRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
@@ -22,6 +24,7 @@ import io.github.solcott.activitytracker.lexicon.app.PrivateDetailsRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
+import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SensorType
 import io.github.solcott.activitytracker.lexicon.app.SpeedZoneModel
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -320,6 +323,36 @@ class RecordSerializationTest {
         val followersJson = AtJson.encodeToJsonElement(CommentRecord.serializer(), followers).jsonObject
         assertEquals(Visibility.FOLLOWERS, followersJson["audience"]?.jsonPrimitive?.content)
         assertEquals(followers, AtJson.decodeFromJsonElement(CommentRecord.serializer(), followersJson))
+    }
+
+    @Test
+    fun commentHideRecordCarriesItsTypeAndRoundTrips() {
+        val hide = CommentHideRecord(AtUri("at://did:plc:bob/${Nsid.FEED_COMMENT}/3kcom"), Instant.parse("2026-10-14T09:00:00Z"))
+        val json = AtJson.encodeToJsonElement(CommentHideRecord.serializer(), hide).jsonObject
+        assertEquals(Nsid.FEED_COMMENT_HIDE, json["\$type"]?.jsonPrimitive?.content)
+        assertEquals("at://did:plc:bob/${Nsid.FEED_COMMENT}/3kcom", json["subject"]?.jsonPrimitive?.content)
+        assertEquals(hide, AtJson.decodeFromJsonElement(CommentHideRecord.serializer(), json))
+        assertTrue(Nsid.FEED_COMMENT_HIDE in Nsid.indexedCollections)
+    }
+
+    @Test
+    fun commentViewHiddenIsOptional() {
+        val author = ProfileViewBasic(Did("did:plc:bob"), Handle("bob.test"))
+        val shown =
+            CommentView(
+                AtUri("at://did:plc:bob/${Nsid.FEED_COMMENT}/3kcom"),
+                Cid("bafy3kcom"),
+                author,
+                "Hi",
+                Instant.parse("2026-10-14T09:00:00Z"),
+            )
+        val shownJson = AtJson.encodeToJsonElement(CommentView.serializer(), shown).jsonObject
+        assertFalse("hidden" in shownJson)
+        assertEquals(shown, AtJson.decodeFromJsonElement(CommentView.serializer(), shownJson))
+        val hidden = shown.copy(hidden = true)
+        val hiddenJson = AtJson.encodeToJsonElement(CommentView.serializer(), hidden).jsonObject
+        assertEquals("true", hiddenJson["hidden"]?.jsonPrimitive?.content)
+        assertEquals(hidden, AtJson.decodeFromJsonElement(CommentView.serializer(), hiddenJson))
     }
 
     @Test
