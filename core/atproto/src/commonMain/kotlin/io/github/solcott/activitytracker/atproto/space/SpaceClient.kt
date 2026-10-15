@@ -63,6 +63,33 @@ class SpaceClient(
     ): SpaceRead<Space.ListRecords.Output> =
         read(space, repo) { it.query(Space.ListRecords.method, Space.ListRecords.Params(space, repo, collection, limit, cursor)) }
 
+    /**
+     * Every [collection] record of [repo] in [space], following cursors [pageSize] at a time. A refusal or a missing space part-way answers
+     * as it would for the first page, so callers never see a partial list as complete.
+     */
+    suspend fun listAllRecords(space: SpaceUri, repo: Did, collection: String, pageSize: Int): SpaceRead<List<Space.ListRecords.Record>> {
+        val records = mutableListOf<Space.ListRecords.Record>()
+        var failed: SpaceRead<Nothing>? = null
+        var cursor: String? = null
+        do {
+            when (val read = listRecords(space, repo, collection, pageSize, cursor)) {
+                is SpaceRead.Found -> {
+                    records += read.value.records
+                    cursor = read.value.cursor?.takeIf { read.value.records.isNotEmpty() }
+                }
+                SpaceRead.NotFound -> {
+                    failed = SpaceRead.NotFound
+                    cursor = null
+                }
+                SpaceRead.NoAccess -> {
+                    failed = SpaceRead.NoAccess
+                    cursor = null
+                }
+            }
+        } while (cursor != null)
+        return failed ?: SpaceRead.Found(records)
+    }
+
     suspend fun getBlob(space: SpaceUri, repo: Did, cid: Cid): SpaceRead<XrpcBytes> =
         read(space, repo) { it.queryBytes(Space.GetBlob.method, Space.GetBlob.Params(space, repo, cid)) }
 

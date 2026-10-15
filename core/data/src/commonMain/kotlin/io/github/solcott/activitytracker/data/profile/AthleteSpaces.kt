@@ -83,21 +83,12 @@ class AthleteSpaces(
     }
 
     /** Everyone the signed-in athlete has declined; empty when their `self` space doesn't exist yet. A decline's rkey is its subject. */
-    suspend fun declined(): Set<Did> {
-        val declined = mutableSetOf<Did>()
-        var cursor: String? = null
-        do {
-            val page =
-                when (val read = spaces.listRecords(uri(AthleteSpace.SELF), spaces.did, DECLINES, PAGE_SIZE, cursor)) {
-                    is SpaceRead.Found -> read.value
-                    SpaceRead.NotFound,
-                    SpaceRead.NoAccess -> break
-                }
-            page.records.mapNotNullTo(declined) { record -> record.rkey.takeIf { it.startsWith("did:") }?.let(::Did) }
-            cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
-        } while (cursor != null)
-        return declined
-    }
+    suspend fun declined(): Set<Did> =
+        when (val read = spaces.listAllRecords(uri(AthleteSpace.SELF), spaces.did, DECLINES, PAGE_SIZE)) {
+            is SpaceRead.Found -> read.value.mapNotNull { record -> record.rkey.takeIf { it.startsWith("did:") }?.let(::Did) }.toSet()
+            SpaceRead.NotFound,
+            SpaceRead.NoAccess -> emptySet()
+        }
 
     /**
      * Makes sure the space for [tier] (or [AthleteSpace.INTERACTIONS]) exists with a current read policy. Concurrent callers share one
