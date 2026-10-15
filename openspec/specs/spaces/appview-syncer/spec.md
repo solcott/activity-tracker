@@ -229,7 +229,7 @@ The AppView SHALL serve an activity held in a tier space only to the athlete and
 - **THEN** each page contains only activities the follower may see that match the filter, and the cursor continues the same sequence
 
 ### Requirement: Space-held media and charts served by tier
-Photos and track of a non-public activity, and charts stored in a tier space, SHALL be served only to viewers who may see them. The AppView SHALL fetch them from the space with its own credential rather than redirecting the viewer to the PDS.
+Photos of a non-public activity, and charts stored in a tier space, SHALL be served only to viewers who may see them. The AppView SHALL fetch them from the space with its own credential rather than redirecting the viewer to the PDS.
 
 #### Scenario: Follower views a photo
 - **WHEN** an effective follower opens a Followers activity with a photo
@@ -257,3 +257,10 @@ A signed URL for a photo of a non-public activity SHALL stop working at most 30 
 #### Scenario: Cache lifetime bounded by the URL
 - **WHEN** the AppView serves a photo of a non-public activity
 - **THEN** the response may be cached only privately, and for no longer than the time left until the URL expires
+
+### Requirement: Full tracks are not indexed
+The AppView SHALL NOT store or serve any `feed.activityTrack` record or its blob, though it syncs the `self` space that holds them.
+
+#### Scenario: Track synced from self
+- **WHEN** the AppView syncs an athlete's `self` space holding a `feed.activityTrack`
+- **THEN** it stores nothing from that record, and no query or media route returns it
