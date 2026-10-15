@@ -23,6 +23,8 @@ data class UiError(val kind: Kind, val detail: String?) {
         SaveActivity,
         DeleteActivity,
         DeleteComment,
+        HideComment,
+        UnhideComment,
         UngroupActivity,
         ReadActivityFile,
         UnsupportedActivityFile,

@@ -32,6 +32,8 @@
     <string name="action_sign_in_again">Sign in again</string>
     <string name="error_delete_activity">Couldn't delete activity</string>
     <string name="error_delete_comment">Couldn't delete comment</string>
+    <string name="error_hide_comment">Couldn't hide comment</string>
+    <string name="error_unhide_comment">Couldn't unhide comment</string>
     <string name="error_ungroup_activity">Couldn't ungroup activity</string>
 
     <!-- Stats and units -->
@@ -685,6 +687,10 @@
     <string name="comment_more">More for this comment</string>
     <string name="delete_comment_title">Delete this comment?</string>
     <string name="delete_comment_message">It's removed for everyone who can see it. This can't be undone.</string>
+    <string name="hide_comment">Hide</string>
+    <string name="unhide_comment">Unhide</string>
+    <string name="comment_hidden">Hidden. Only you and its author can see it.</string>
+    <string name="comment_hidden_by">Hidden by %1$s. Only you and %1$s can see it.</string>
     <plurals name="delete_activity_group_message">
         <item quantity="one">It was also recorded by another device. Delete that recording too, or keep it as an activity of its own. Likes and comments go with what's deleted. This can't be undone.</item>
         <item quantity="other">It was also recorded by %1$d other devices. Delete those recordings too, or keep them as activities of their own. Likes and comments go with what's deleted. This can't be undone.</item>

@@ -124,7 +124,9 @@ fun ActivityDetailPresenter(
             ActivityDetailEvent.ToggleAll -> expansion.toggle(event)
 
             ActivityDetailEvent.SendComment,
-            is ActivityDetailEvent.DeleteComment -> {
+            is ActivityDetailEvent.DeleteComment,
+            is ActivityDetailEvent.HideComment,
+            is ActivityDetailEvent.UnhideComment -> {
                 current?.let {
                     CommentActions(draft, flights, activities, { comments }, { list -> comments = list }) { e -> commentError = e }
                         .on(event, it)

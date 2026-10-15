@@ -59,6 +59,8 @@ enum class AppIcon(
     ChevronDown(Icons.Filled.KeyboardArrowDown, CupertinoIcons.chevronDown, "chevron.down"),
     Delete(Icons.Filled.Delete, CupertinoIcons.trash, "trash"),
     More(Icons.Filled.MoreVert, CupertinoIcons.ellipsisCircle, "ellipsis.circle"),
+    Hide(MaterialIcons.VisibilityOff, CupertinoIcons.eyeSlash, "eye.slash"),
+    Unhide(MaterialIcons.Visibility, CupertinoIcons.eye, "eye"),
     Ungroup(MaterialIcons.CallSplit, CupertinoIcons.arrowBranch, "arrow.branch"),
     Close(Icons.Filled.Close, CupertinoIcons.xmark, "xmark"),
     Location(Icons.Filled.Place, CupertinoIcons.location, "location"),

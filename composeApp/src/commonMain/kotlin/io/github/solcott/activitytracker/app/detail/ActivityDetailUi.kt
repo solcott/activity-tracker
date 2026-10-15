@@ -23,6 +23,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -51,6 +52,8 @@ import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.charts_visibility_heading
+import io.github.solcott.activitytracker.composeApp.resources.comment_hidden
+import io.github.solcott.activitytracker.composeApp.resources.comment_hidden_by
 import io.github.solcott.activitytracker.composeApp.resources.detail_comment_count
 import io.github.solcott.activitytracker.composeApp.resources.detail_comment_placeholder
 import io.github.solcott.activitytracker.composeApp.resources.detail_hide_likes
@@ -68,10 +71,13 @@ import io.github.solcott.activitytracker.composeApp.resources.stat_moving_time
 import io.github.solcott.activitytracker.composeApp.resources.stat_temperature
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.activityType
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -197,28 +203,44 @@ private fun ChartSharing(visibility: String, state: ActivityDetailState.Loaded, 
 }
 
 /**
- * The comment count, every comment oldest first with a menu to delete the viewer's own, then a field to add one and why the last one
- * couldn't be sent or deleted.
+ * The comment count (hidden ones left out), every comment oldest first with a menu to delete the viewer's own or hide others' on their own
+ * activity, then a field to add one and why the last one couldn't be sent, deleted, hidden or unhidden. A hidden comment, listed only for
+ * the athlete and its author, is dimmed and says so.
  */
 @Composable
 private fun Comments(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(Res.string.detail_section_comments), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+            val count = state.comments.count { it.hidden != true }
             Text(
-                pluralStringResource(Res.plurals.detail_comment_count, state.comments.size, state.comments.size),
+                pluralStringResource(Res.plurals.detail_comment_count, count, count),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         state.comments.forEachIndexed { i, comment ->
             if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = DIVIDER_ALPHA))
+            val hidden = comment.hidden == true
             Row(verticalAlignment = Alignment.Top) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Column(
+                    Modifier.weight(1f).alpha(if (hidden) HIDDEN_ALPHA else 1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
                     Text(comment.author.displayName ?: comment.author.handle.value, style = MaterialTheme.typography.labelLarge)
                     Text(comment.text, style = MaterialTheme.typography.bodyMedium)
+                    if (hidden) {
+                        val athlete = state.activity.author.let { it.displayName ?: it.handle.value }
+                        Text(
+                            if (state.isOwn) stringResource(Res.string.comment_hidden)
+                            else stringResource(Res.string.comment_hidden_by, athlete),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
-                if (comment.author.did == state.viewerDid) key(comment.uri) { CommentMenu(comment.uri, state.eventSink) }
+                val actions = commentActions(comment, state)
+                if (actions.isNotEmpty()) key(comment.uri) { CommentMenu(comment.uri, actions, state.eventSink) }
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -317,3 +339,15 @@ private fun LikesList(list: LikesList, eventSink: (ActivityDetailEvent) -> Unit,
 }
 
 private const val DIVIDER_ALPHA = 0.5f
+
+/** The viewer deletes their own comments, and hides or unhides others' on their own activity. */
+private fun commentActions(comment: CommentView, state: ActivityDetailState.Loaded): ImmutableSet<CommentAction> =
+    when {
+        comment.author.did == state.viewerDid -> persistentSetOf(CommentAction.Delete)
+        !state.isOwn -> persistentSetOf()
+        comment.hidden == true -> persistentSetOf(CommentAction.Unhide)
+        else -> persistentSetOf(CommentAction.Hide)
+    }
+
+/** How strongly a hidden comment shows, to the only two who see it. */
+private const val HIDDEN_ALPHA = 0.55f

@@ -19,17 +19,41 @@ import io.github.solcott.activitytracker.composeApp.resources.comment_more
 import io.github.solcott.activitytracker.composeApp.resources.delete_comment_message
 import io.github.solcott.activitytracker.composeApp.resources.delete_comment_title
 import io.github.solcott.activitytracker.composeApp.resources.detail_delete
+import io.github.solcott.activitytracker.composeApp.resources.hide_comment
+import io.github.solcott.activitytracker.composeApp.resources.unhide_comment
 import io.github.solcott.activitytracker.lexicon.AtUri
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
 
-/** The "…" menu on one of the viewer's own comments: Delete, which asks first. */
+/** The "…" menu on a comment, with [actions] (at least one). */
 @Composable
-internal fun CommentMenu(comment: AtUri, eventSink: (ActivityDetailEvent) -> Unit, modifier: Modifier = Modifier) {
+internal fun CommentMenu(
+    comment: AtUri,
+    actions: ImmutableSet<CommentAction>,
+    eventSink: (ActivityDetailEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     var open by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf(false) }
     val delete = stringResource(Res.string.detail_delete)
-    val items = remember(delete) { persistentListOf(AppMenuItem(delete, AppIcon.Delete, destructive = true) { confirming = true }) }
+    val hide = stringResource(Res.string.hide_comment)
+    val unhide = stringResource(Res.string.unhide_comment)
+    val items =
+        remember(actions, delete, hide, unhide, comment) {
+            actions
+                .sortedBy { it.ordinal }
+                .map { action ->
+                    when (action) {
+                        CommentAction.Hide -> AppMenuItem(hide, AppIcon.Hide) { eventSink(ActivityDetailEvent.HideComment(comment)) }
+                        CommentAction.Unhide ->
+                            AppMenuItem(unhide, AppIcon.Unhide) { eventSink(ActivityDetailEvent.UnhideComment(comment)) }
+                        CommentAction.Delete -> AppMenuItem(delete, AppIcon.Delete, destructive = true) { confirming = true }
+                    }
+                }
+                .toImmutableList()
+        }
     Box(modifier) {
         AppIconButton(AppIcon.More, stringResource(Res.string.comment_more), onClick = { open = true })
         AppMenu(expanded = open, onDismiss = { open = false }, items = items)

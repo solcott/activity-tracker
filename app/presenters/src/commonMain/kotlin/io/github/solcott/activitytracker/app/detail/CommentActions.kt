@@ -15,8 +15,9 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
 /**
- * The detail screen's comment actions: sending [draft] and deleting the viewer's own comments, from the screen's [comments] list (changed
- * with [setComments]). Why the last one failed goes to [onError], and null clears it.
+ * The detail screen's comment actions: sending [draft], deleting the viewer's own comments, and hiding or unhiding others' comments on the
+ * viewer's own activity, from the screen's [comments] list (changed with [setComments]). Why the last one failed goes to [onError], and
+ * null clears it.
  */
 @Suppress("LongParameterList") // The screen state the actions read and change.
 internal class CommentActions(
@@ -32,6 +33,8 @@ internal class CommentActions(
         when (event) {
             ActivityDetailEvent.SendComment -> send(activity)
             is ActivityDetailEvent.DeleteComment -> delete(activity, event.uri)
+            is ActivityDetailEvent.HideComment -> setHidden(activity, event.uri, hidden = true)
+            is ActivityDetailEvent.UnhideComment -> setHidden(activity, event.uri, hidden = false)
             else -> Unit
         }
     }
@@ -74,4 +77,26 @@ internal class CommentActions(
                 }
         }
     }
+
+    /**
+     * Hides or unhides comment [uri] on the viewer's own [activity]. It's marked so at once, so the count moves with it; a repeat while the
+     * first is running is dropped. A failure puts the mark back and is reported, a session that can't hide there asked to sign in again.
+     */
+    private fun setHidden(activity: ActivityView, uri: AtUri, hidden: Boolean) {
+        val comment =
+            comments().firstOrNull { it.uri == uri }?.takeIf { (it.hidden == true) != hidden && !flights.isRunning(uri) } ?: return
+        mark(uri, hidden)
+        onError(null)
+        flights.launch(uri) {
+            runSuspendCatching { activities.setCommentHidden(activity, comment, hidden) }
+                .onFailure { e ->
+                    mark(uri, !hidden)
+                    val kind = if (hidden) UiError.Kind.HideComment else UiError.Kind.UnhideComment
+                    onError(interactionErrorOf(e) ?: UiError.of(kind, e))
+                }
+        }
+    }
+
+    private fun mark(uri: AtUri, hidden: Boolean) =
+        setComments(comments().map { if (it.uri == uri) it.copy(hidden = true.takeIf { hidden }) else it }.toImmutableList())
 }

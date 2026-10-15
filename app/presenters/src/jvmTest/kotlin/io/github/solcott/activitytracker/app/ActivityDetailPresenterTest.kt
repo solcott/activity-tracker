@@ -53,18 +53,22 @@ class ActivityDetailPresenterTest {
     private var streams: String? = null
     private var visibility = "public"
 
+    /** The activity's athlete, as JSON: Bob's unless a test makes it Alice's own. */
+    private var author = bob
+
     /** The comments the AppView lists, as JSON objects. */
     private var commentsFromAppView = listOf<String>()
 
-    private fun comment(author: String, did: String, rkey: String) =
+    private fun comment(author: String, did: String, rkey: String, hidden: Boolean = false) =
         """{"uri":"at://$did/${Nsid.FEED_COMMENT}/$rkey","cid":"bafy$rkey","author":$author,"text":"Nice",""" +
+            (if (hidden) """"hidden":true,""" else "") +
             """"createdAt":"2026-09-30T11:00:00Z"}"""
 
     private val activity
         get() =
-            """{"uri":"$activityUri","cid":"bafy3kbob1","author":$bob,"visibility":"$visibility",""" +
+            """{"uri":"$activityUri","cid":"bafy3kbob1","author":$author,"visibility":"$visibility",""" +
                 """"record":{"sport":"run","startedAt":"2026-09-30T10:00:00Z","elapsedTime":1800,"createdAt":"2026-09-30T10:31:00Z"},""" +
-                """"likeCount":${likesFromAppView.size},"commentCount":${commentsFromAppView.size},"indexedAt":"2026-09-30T10:31:01Z","viewer":{}}"""
+                """"likeCount":${likesFromAppView.size},"commentCount":${commentsFromAppView.count { "\"hidden\"" !in it }},"indexedAt":"2026-09-30T10:31:01Z","viewer":{}}"""
 
     private val http =
         HttpClient(
@@ -394,5 +398,104 @@ class ActivityDetailPresenterTest {
         var state = awaitLoaded()
         while (state.likesList?.let { !it.isLoading && done(it) } != true) state = awaitLoaded()
         return state
+    }
+
+    /** The comment hides Alice has queued, as (operation, space key or null for the repo). */
+    private suspend fun Repos.queuedHides() =
+        db.outbox()
+            .pending(alice.value)
+            .filter { it.collection == Nsid.FEED_COMMENT_HIDE }
+            .map { it.operation to it.space?.substringAfterLast('/') }
+
+    @Test
+    fun hidesOthersCommentOnOwnActivityAtOnceAndOnceForADoubleTap() = runTest {
+        author = staleAlice
+        commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1"), comment(carol, "did:plc:carol", "3kc2"))
+        val r = repos()
+        presenterTestOf({
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
+        }) {
+            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.size == 2 } as ActivityDetailState.Loaded
+            assertTrue(loaded.isOwn)
+            val bobs = loaded.comments.first().uri
+            loaded.eventSink(ActivityDetailEvent.HideComment(bobs))
+            loaded.eventSink(ActivityDetailEvent.HideComment(bobs))
+            val hidden = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.first()?.hidden == true } as ActivityDetailState.Loaded
+            assertEquals(listOf(true, null), hidden.comments.map { it.hidden }, "still listed for the athlete, marked")
+            r.db.outbox().count(alice.value).first { it >= 1 }
+            assertEquals(listOf(OutboxProcessor.OP_PUT to null), r.queuedHides(), "one hide, in the repo")
+
+            // A reload while the AppView still shows it keeps it hidden, and out of the count.
+            hidden.eventSink(ActivityDetailEvent.Retry)
+            val reloaded =
+                awaitUntil { it is ActivityDetailState.Loaded && it.comments.firstOrNull()?.hidden == true } as ActivityDetailState.Loaded
+            assertEquals(listOf(true, null), reloaded.comments.map { it.hidden })
+            assertEquals(1, r.feed.activity(AtUri(activityUri)).activity.commentCount)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun unhidesAHiddenComment() = runTest {
+        author = staleAlice
+        visibility = "followers"
+        commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1", hidden = true), comment(carol, "did:plc:carol", "3kc2"))
+        val r = repos()
+        presenterTestOf({
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
+        }) {
+            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.size == 2 } as ActivityDetailState.Loaded
+            assertEquals(true, loaded.comments.first().hidden)
+            loaded.eventSink(ActivityDetailEvent.UnhideComment(loaded.comments.first().uri))
+            val shown = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.first()?.hidden == null } as ActivityDetailState.Loaded
+            assertEquals(listOf(null, null), shown.comments.map { it.hidden })
+            r.db.outbox().count(alice.value).first { it >= 2 }
+            assertEquals(
+                listOf(OutboxProcessor.OP_DELETE to null, OutboxProcessor.OP_DELETE to AthleteSpace.INTERACTIONS),
+                r.queuedHides(),
+                "deleted from both places",
+            )
+            assertEquals(2, r.feed.activity(AtUri(activityUri)).activity.commentCount)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aSessionWhoseScopeLacksHidesIsAskedToSignInAgain() = runTest {
+        author = staleAlice
+        visibility = "followers"
+        commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1"))
+        // Signed in before the interactions space's declaration listed comment hides.
+        val r = repos(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}&collection=${Nsid.FEED_COMMENT}")
+        presenterTestOf({
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
+        }) {
+            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.size == 1 } as ActivityDetailState.Loaded
+            loaded.eventSink(ActivityDetailEvent.HideComment(loaded.comments.single().uri))
+            val refused = awaitUntil { (it as? ActivityDetailState.Loaded)?.commentError != null } as ActivityDetailState.Loaded
+            assertEquals(UiError(UiError.Kind.SignInAgain, null), refused.commentError)
+            assertEquals(listOf(null), refused.comments.map { it.hidden }, "not marked")
+            assertEquals(emptyList(), r.queuedHides())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aFailedHidePutsTheMarkBackWithTheError() = runTest {
+        author = staleAlice
+        commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1"))
+        val r = repos()
+        presenterTestOf({
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
+        }) {
+            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.size == 1 } as ActivityDetailState.Loaded
+            // Queueing the hide fails once the database is gone.
+            r.db.close()
+            loaded.eventSink(ActivityDetailEvent.HideComment(loaded.comments.single().uri))
+            val failed = awaitUntil { (it as? ActivityDetailState.Loaded)?.commentError != null } as ActivityDetailState.Loaded
+            assertEquals(UiError.Kind.HideComment, failed.commentError?.kind)
+            assertEquals(loaded.comments, failed.comments, "not marked")
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }

@@ -119,6 +119,12 @@ sealed interface ActivityDetailEvent {
     /** The viewer deletes their own comment [uri], confirmed. */
     data class DeleteComment(val uri: AtUri) : ActivityDetailEvent
 
+    /** The owner hides someone else's comment [uri] on their activity: it stays listed for them, marked, and leaves the count. */
+    data class HideComment(val uri: AtUri) : ActivityDetailEvent
+
+    /** The owner unhides a comment [uri] they hid. */
+    data class UnhideComment(val uri: AtUri) : ActivityDetailEvent
+
     /** The owner changes who may see the charts: a `Visibility` value. */
     data class SetChartsVisibility(val visibility: String) : ActivityDetailEvent
 
