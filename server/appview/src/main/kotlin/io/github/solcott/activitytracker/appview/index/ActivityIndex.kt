@@ -53,12 +53,9 @@ internal fun JdbcTransaction.upsertPlaced(
         place(collection, uri, cid, json, placement, placement.visibility, now) { upsertActivity(record, author, uri, cid, placement, now) }
     } else {
         val record = AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), json)
-        // In a space, never wider than the tier; in the repo, the record's own field (kept as is, for records from before spaces).
-        val visibility =
-            if (placement == Placement.REPO) record.visibility.take(MAX_VISIBILITY_LENGTH)
-            else Visibility.narrower(Visibility.known(record.visibility), placement.visibility)
-        place(collection, uri, cid, json, placement, visibility, now) {
-            upsertStreams(record, author, uri, cid, json, placement.origin, visibility, now)
+        // Like an activity, where it's stored is who may see it; a `visibility` the record still carries is ignored.
+        place(collection, uri, cid, json, placement, placement.visibility, now) {
+            upsertStreams(record, author, uri, cid, json, placement, now)
         }
     }
 }
@@ -279,4 +276,3 @@ private const val MAX_SPORT_LENGTH = 64
 private const val MAX_URI_LENGTH = 512
 private const val MAX_SENSOR_KIND_LENGTH = 64
 private const val MAX_SENSOR_NAME_LENGTH = 128
-private const val MAX_VISIBILITY_LENGTH = 16

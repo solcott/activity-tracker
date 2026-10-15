@@ -32,6 +32,7 @@ import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
@@ -114,7 +115,7 @@ class ActivityVisibilityTest {
         assertEquals(setOf(repo), placesOf(Nsid.FEED_ACTIVITY, uri.rkey!!))
         assertEquals(setOf(Visibility.MUTUALS), placesOf(Nsid.FEED_ACTIVITY_STREAMS, uri.rkey!!), "public run, private heart rate")
         val streams = stored.getValue(Visibility.MUTUALS).getValue("${Nsid.FEED_ACTIVITY_STREAMS}/${uri.rkey}")
-        assertEquals(Visibility.MUTUALS, streams.getValue("visibility").jsonPrimitive.content)
+        assertFalse("visibility" in streams, "where it's stored is its visibility")
     }
 
     @Test
@@ -157,7 +158,7 @@ class ActivityVisibilityTest {
         assertEquals(setOf(Visibility.FOLLOWERS), placesOf(Nsid.FEED_ACTIVITY, rkey))
         assertEquals(setOf(Visibility.FOLLOWERS), placesOf(Nsid.FEED_ACTIVITY_STREAMS, rkey), "charts narrowed to the activity")
         val streams = stored.getValue(Visibility.FOLLOWERS).getValue("${Nsid.FEED_ACTIVITY_STREAMS}/$rkey")
-        assertEquals(Visibility.FOLLOWERS, streams.getValue("visibility").jsonPrimitive.content)
+        assertFalse("visibility" in streams)
         assertEquals("bafyblob", streams.getValue("data").jsonObject.getValue("ref").jsonObject.getValue("\$link").jsonPrimitive.content)
         // Each record is written to its new place before it leaves the old one.
         assertEquals(
@@ -254,7 +255,7 @@ class ActivityVisibilityTest {
         s.streams.move(uri, Visibility.FOLLOWERS, Visibility.PUBLIC)
         assertEquals(setOf(repo), placesOf(Nsid.FEED_ACTIVITY_STREAMS, "3kstreams"))
         val record = stored.getValue(repo).getValue("${Nsid.FEED_ACTIVITY_STREAMS}/3kstreams")
-        assertEquals(Visibility.PUBLIC, record.getValue("visibility").jsonPrimitive.content)
+        assertFalse("visibility" in record)
     }
 
     @Test

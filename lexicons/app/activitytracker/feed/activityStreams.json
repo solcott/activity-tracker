@@ -4,19 +4,13 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "Per-sample data recorded during an activity, for charts. Its rkey is its activity's. Public streams are a record in the athlete's repo; followers, mutuals or self streams are a record in the athlete's app.activitytracker.space.athlete space for that tier. Never more visible than its activity. The AppView serves it only to the viewers its tier allows.",
+      "description": "Per-sample data recorded during an activity, for charts. Its rkey is its activity's. Where it's stored is who may see it: public streams are a record in the athlete's repo; followers, mutuals or self streams are a record in the athlete's app.activitytracker.space.athlete space for that tier. Never more visible than its activity. The AppView serves it only to the viewers its place allows.",
       "key": "tid",
       "record": {
         "type": "object",
-        "required": ["activity", "visibility", "channels", "data", "createdAt"],
+        "required": ["activity", "channels", "data", "createdAt"],
         "properties": {
           "activity": { "type": "string", "format": "at-uri", "description": "The activity's URI; it shares this record's rkey." },
-          "visibility": {
-            "type": "string",
-            "maxLength": 16,
-            "knownValues": ["public", "followers", "mutuals", "self"],
-            "description": "Who may see the streams: anyone, the athlete's effective followers, the athlete's mutuals, or only the athlete."
-          },
           "channels": {
             "type": "array",
             "maxLength": 16,

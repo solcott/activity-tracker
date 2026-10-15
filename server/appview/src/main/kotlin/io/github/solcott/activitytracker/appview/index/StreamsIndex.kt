@@ -8,7 +8,6 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
-import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -22,8 +21,8 @@ import org.jetbrains.exposed.v1.jdbc.upsert
 // Indexing of `feed.activityStreams` records, which the Indexer hands off here.
 
 /**
- * Streams must sit under their own activity's rkey in the same repo, and name their data blob. [visibility] is what they're served at (the
- * Indexer works it out from the record and its origin); an unknown value is stored as is, and views treat it as [Visibility.SELF].
+ * Streams must sit under their own activity's rkey in the same repo, and name their data blob. They're served at [placement]'s visibility:
+ * where they're stored is who may see them.
  */
 @Suppress("LongParameterList") // The record, its raw JSON, and where it's from.
 internal fun JdbcTransaction.upsertStreams(
@@ -32,8 +31,7 @@ internal fun JdbcTransaction.upsertStreams(
     uri: AtUri,
     cid: String,
     json: JsonObject,
-    origin: String,
-    visibility: String,
+    placement: Placement,
     now: Long,
 ) {
     val activity = record.activity
@@ -46,8 +44,8 @@ internal fun JdbcTransaction.upsertStreams(
         it[ActivityStreams.cid] = cid
         it[authorDid] = author.value
         it[activityUri] = activity.value
-        it[ActivityStreams.visibility] = visibility
-        it[ActivityStreams.origin] = origin
+        it[ActivityStreams.visibility] = placement.visibility
+        it[ActivityStreams.origin] = placement.origin
         it[ActivityStreams.record] = AtJson.encodeToString(JsonObject.serializer(), json)
         it[channels] =
             AtJson.encodeToString(

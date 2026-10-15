@@ -84,18 +84,17 @@ internal suspend fun SessionClients.deleteOwn(collection: String, rkey: String, 
 }
 
 /**
- * Moves the athlete's [collection]/[rkey] from [from] to [to], [transform]ing the record on the way: the new place is written before the
- * old one is deleted, so a failure part-way leaves it stored at least once, and a retry finishes the job. Returns false if it's in neither.
+ * Moves the athlete's [collection]/[rkey] from [from] to [to]: the new place is written before the old one is deleted, so a failure
+ * part-way leaves it stored at least once, and a retry finishes the job. Returns false if it's in neither.
  */
 internal suspend fun SessionClients.moveOwn(
     collection: String,
     rkey: String,
     from: SpaceUri?,
     to: SpaceUri?,
-    transform: (JsonObject) -> JsonObject = { it },
 ): Boolean {
     val record = readOwn(collection, rkey, from) ?: readOwn(collection, rkey, to) ?: return false
-    writeOwn(collection, rkey, transform(record), to)
+    writeOwn(collection, rkey, record, to)
     if (from != to) deleteOwn(collection, rkey, from)
     return true
 }

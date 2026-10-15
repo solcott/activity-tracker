@@ -76,8 +76,9 @@ class PdsBlobStreamSource(private val http: HttpClient, private val pds: PdsLook
 /**
  * Serves `feed.getActivityStreams`, the only way clients read streams, so visibility holds here: `public` for anyone, `followers` for the
  * athlete's effective followers, `mutuals` for accounts the athlete and the viewer both follow, and anything else (`self`, unknown) for the
- * athlete only. A space-held record's visibility is already capped at its tier. Streams are never shown to a viewer who may not see their
- * activity, when it's indexed. Zones reveal thresholds, so they also need the viewer to be allowed the athlete's training details.
+ * athlete only. A row's visibility is where its record is stored: `public` in the repo, the tier in a space. Streams are never shown to a
+ * viewer who may not see their activity, when it's indexed. Zones reveal thresholds, so they also need the viewer to be allowed the
+ * athlete's training details.
  */
 class ActivityStreamsViews(private val db: Database, private val source: StreamSource, private val clock: Clock = Clock.System) {
     private val log = LoggerFactory.getLogger(ActivityStreamsViews::class.java)

@@ -4,7 +4,6 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.StreamChannel
-import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
 import kotlin.test.Test
@@ -43,7 +42,6 @@ class ActivityStreamsSerializationTest {
         val record =
             ActivityStreamsRecord(
                 activity = AtUri("at://did:plc:a/${Nsid.FEED_ACTIVITY}/3k"),
-                visibility = Visibility.MUTUALS,
                 channels = data.channels,
                 data = BlobRef(ref = BlobRef.Link("bafyblob"), mimeType = ActivityStreamsRecord.MIME_TYPE, size = 100),
                 createdAt = Instant.parse("2026-10-08T12:00:00Z"),
@@ -52,6 +50,16 @@ class ActivityStreamsSerializationTest {
         val json = AtJson.encodeToJsonElement(ActivityStreamsRecord.serializer(), record).jsonObject
         assertEquals(Nsid.FEED_ACTIVITY_STREAMS, json["\$type"]?.jsonPrimitive?.content)
         assertFalse("heartRateZones" in json)
+        assertFalse("visibility" in json, "where it's stored is its visibility")
         assertEquals(record, AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), json))
+    }
+
+    @Test
+    fun aStrayVisibilityIsIgnored() {
+        val json =
+            """{"${'$'}type":"${Nsid.FEED_ACTIVITY_STREAMS}","activity":"at://did:plc:a/${Nsid.FEED_ACTIVITY}/3k","visibility":"self",""" +
+                """"channels":["power"],"createdAt":"2026-10-08T12:00:00Z"}"""
+        val record = AtJson.decodeFromString(ActivityStreamsRecord.serializer(), json)
+        assertEquals(listOf(StreamChannel.POWER), record.channels)
     }
 }

@@ -270,15 +270,13 @@ data class ActivityRecord(
  * `app.activitytracker.feed.activityStreams`: an activity's per-sample data, for charts, under its activity's rkey. Its [data] blob holds
  * an [ActivityStreamData] as JSON.
  *
- * Where it's stored is who may see it: public streams in the athlete's repo, the others in their tier space for [visibility]
- * ([AthleteSpace]), never wider than the activity. [visibility] is kept in the record too, which repo records from before spaces rely on.
+ * Where it's stored is who may see it: public streams in the athlete's repo, the others in their tier space ([AthleteSpace]), never wider
+ * than the activity. The record carries no visibility of its own.
  */
 @Serializable
 data class ActivityStreamsRecord(
     /** The activity's URI; it shares this record's rkey. */
     val activity: AtUri,
-    /** A [Visibility] value. */
-    val visibility: String,
     /** [StreamChannel] values: what [data] holds. At most [MAX_CHANNELS]. */
     val channels: List<String>,
     val createdAt: Instant,

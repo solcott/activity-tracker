@@ -55,6 +55,7 @@ import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
@@ -327,7 +328,7 @@ class ActivityRepositoryTest {
         assertEquals(existingDive.copy(device = "Shearwater Perdix"), merged, "only the device was missing")
         assertEquals("3kexisting", streams["rkey"]?.jsonPrimitive?.content)
         val record = AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), streams["record"]!!)
-        assertEquals(Visibility.PUBLIC, record.visibility, "who may see them stays")
+        assertFalse("visibility" in streams.getValue("record").jsonObject, "the repo is who may see them")
         assertEquals(listOf(StreamChannel.TEMPERATURE, StreamChannel.DEPTH), record.channels)
     }
 
@@ -384,7 +385,7 @@ class ActivityRepositoryTest {
         assertEquals(uri.rkey, streams["rkey"]?.jsonPrimitive?.content)
         val record = AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), streams["record"]!!)
         assertEquals(uri, record.activity)
-        assertEquals(Visibility.PUBLIC, record.visibility)
+        assertFalse("visibility" in streams.getValue("record").jsonObject, "the repo is who may see them")
         assertEquals(listOf(StreamChannel.POWER), record.channels)
         assertEquals("bafyblob", record.data?.ref?.link)
         assertEquals(draft.powerZones, record.powerZones)

@@ -19,7 +19,7 @@
           "required": ["uri", "visibility", "channels", "data"],
           "properties": {
             "uri": { "type": "string", "format": "at-uri", "description": "The activity's URI." },
-            "visibility": { "type": "string", "knownValues": ["public", "mutuals", "self"] },
+            "visibility": { "type": "string", "knownValues": ["public", "followers", "mutuals", "self"] },
             "channels": { "type": "array", "items": { "type": "string" } },
             "heartRateZones": { "type": "ref", "ref": "app.activitytracker.feed.activityStreams#zoneSnapshot" },
             "powerZones": { "type": "ref", "ref": "app.activitytracker.feed.activityStreams#zoneSnapshot" },

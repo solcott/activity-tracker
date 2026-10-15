@@ -10,10 +10,12 @@ import io.github.solcott.activitytracker.appview.index.HandleLookup
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -34,7 +36,7 @@ import org.h2.jdbcx.JdbcDataSource
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.selectAll
 
-/** Streams are public records for now, so `getActivityStreams` is where their visibility holds. */
+/** `getActivityStreams` serves streams by where they're stored: the repo for anyone, a tier space for that tier's viewers. */
 class ActivityStreamsTest {
     private val service = "did:web:localhost%3A8081"
     private val alice = "did:plc:alice"
@@ -76,15 +78,27 @@ class ActivityStreamsTest {
         )
     }
 
-    private fun streams(visibility: String, rkey: String = "3kride", activity: String = activityUri, blob: String = "bafkdata") =
-        commit(
-            alice,
-            Nsid.FEED_ACTIVITY_STREAMS,
-            rkey,
-            """{"activity":"$activity","visibility":"$visibility","channels":["heartRate","power"],""" +
+    /** Alice's streams in her repo when [tier] is public, else in her space for [tier]; [claim] is a stray `visibility` they carry. */
+    private fun streams(
+        tier: String,
+        rkey: String = "3kride",
+        activity: String = activityUri,
+        blob: String = "bafkdata",
+        claim: String? = null,
+    ) {
+        val record =
+            """{"activity":"$activity",${claim?.let { """"visibility":"$it",""" }.orEmpty()}"channels":["heartRate","power"],""" +
                 """"data":{"${'$'}type":"blob","ref":{"${'$'}link":"$blob"},"mimeType":"application/json","size":100},""" +
-                """"powerZones":{"model":"coggan6","lows":[0,138,188,225,263,300]},"createdAt":"2026-09-30T12:00:00Z"}""",
-        )
+                """"powerZones":{"model":"coggan6","lows":[0,138,188,225,263,300]},"createdAt":"2026-09-30T12:00:00Z"}"""
+        if (tier == Visibility.PUBLIC) {
+            commit(alice, Nsid.FEED_ACTIVITY_STREAMS, rkey, record)
+        } else {
+            val space = SpaceUri.of(Did(alice), Nsid.SPACE_ATHLETE, tier)
+            runBlocking {
+                indexer.spaceWrite(space, Nsid.FEED_ACTIVITY_STREAMS, rkey, "bafy$rkey", AtJson.parseToJsonElement(record).jsonObject)
+            }
+        }
+    }
 
     private fun follow(author: String, subject: String) =
         commit(
@@ -153,15 +167,34 @@ class ActivityStreamsTest {
     }
 
     @Test
-    fun selfAndUnknownVisibilitiesServeOnlyTheAthlete() = testApplication {
+    fun selfAndUnknownTiersServeOnlyTheAthlete() = testApplication {
         start()
         streams(Visibility.SELF)
         client.streamsFor(alice).output()
         assertEquals(HttpStatusCode.NotFound, client.streamsFor(bob).status)
 
-        streams("friendsOfFriends")
-        client.streamsFor(alice).output()
-        assertEquals(HttpStatusCode.NotFound, client.streamsFor(bob).status)
+        val other = "at://$alice/${Nsid.FEED_ACTIVITY}/3kother"
+        streams("friendsOfFriends", rkey = "3kother", activity = other)
+        assertEquals(Visibility.SELF, client.streamsFor(alice, other).output().visibility)
+        assertEquals(HttpStatusCode.NotFound, client.streamsFor(bob, other).status)
+    }
+
+    @Test
+    fun repoStreamsArePublicWhateverTheyClaim() = testApplication {
+        start()
+        streams(Visibility.PUBLIC, claim = Visibility.SELF)
+        assertEquals(Visibility.PUBLIC, client.streamsFor(null).output().visibility)
+        client.streamsFor(carol).output()
+    }
+
+    @Test
+    fun spaceStreamsTakeTheirTierWhateverTheyClaim() = testApplication {
+        start()
+        streams(Visibility.MUTUALS, claim = Visibility.PUBLIC)
+        assertEquals(Visibility.MUTUALS, client.streamsFor(alice).output().visibility)
+        assertEquals(Visibility.MUTUALS, client.streamsFor(bob).output().visibility)
+        assertEquals(HttpStatusCode.NotFound, client.streamsFor(carol).status)
+        assertEquals(HttpStatusCode.NotFound, client.streamsFor(null).status)
     }
 
     @Test

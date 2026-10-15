@@ -13,7 +13,6 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import kotlin.time.Clock
-import kotlinx.serialization.json.jsonObject
 
 /** An activity's streams and who may see them, ready to write. */
 data class ActivityStreams(
@@ -47,7 +46,7 @@ interface ActivityStreamsStore {
 
 /**
  * Writes streams as `feed.activityStreams` records under the activity's rkey, with the data as a JSON blob, in the athlete's repo or tier
- * space for their visibility. The record keeps its `visibility` field too, which repo records from before spaces rely on.
+ * space for their visibility. Where it's stored is its only visibility: the record carries none of its own.
  */
 @SingleIn(SessionScope::class)
 @ContributesBinding(SessionScope::class)
@@ -59,7 +58,6 @@ class PdsActivityStreamsStore(private val writer: OutboxWriter, private val clie
         val record =
             ActivityStreamsRecord(
                 activity = activity,
-                visibility = streams.visibility,
                 channels = streams.data.channels,
                 createdAt = clock.now(),
                 heartRateZones = streams.heartRateZones,
@@ -77,10 +75,7 @@ class PdsActivityStreamsStore(private val writer: OutboxWriter, private val clie
 
     // The blob moves with the record: the new place takes it over before the old one lets it go.
     override suspend fun move(activity: AtUri, from: String, to: String) {
-        clients.moveOwn(Nsid.FEED_ACTIVITY_STREAMS, requireNotNull(activity.rkey), clients.placeOf(from), clients.placeOf(to)) { json ->
-            val record = AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), json).copy(visibility = to)
-            AtJson.encodeToJsonElement(ActivityStreamsRecord.serializer(), record).jsonObject
-        }
+        clients.moveOwn(Nsid.FEED_ACTIVITY_STREAMS, requireNotNull(activity.rkey), clients.placeOf(from), clients.placeOf(to))
     }
 
     // Deleting a record (or from a space) that isn't there is a no-op, so every place can be cleared without checking where they are.
