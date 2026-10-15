@@ -31,6 +31,7 @@ class ProfileFollowTest {
     private var indexedFollow: AtUri? = null
     private var indexedFollowers = 3L
     private var indexedRequested: Boolean? = null
+    private var indexedFollowedBy: AtUri? = null
     private var bobPolicy: String? = null
     private val writes = mutableListOf<String>()
 
@@ -72,7 +73,7 @@ class ProfileFollowTest {
             handle = Handle("bob.test"),
             followersCount = indexedFollowers,
             followPolicy = bobPolicy,
-            viewer = ProfileViewerState(indexedFollow, indexedRequested),
+            viewer = ProfileViewerState(indexedFollow, indexedRequested, indexedFollowedBy),
         )
 
     private suspend fun repository() =
@@ -115,6 +116,17 @@ class ProfileFollowTest {
         indexedFollow = null
         indexedFollowers = 2
         assertEquals(bobAsIndexed(), profiles.profile(bob.value))
+    }
+
+    @Test
+    fun followingBackKeepsTheFollowBackShown() = runTest {
+        val bobsFollow = AtUri("at://$bob/${Nsid.GRAPH_FOLLOW}/3kf2")
+        indexedFollowedBy = bobsFollow
+        val profiles = repository()
+        val followed = profiles.follow(profiles.profile(bob.value))
+        assertNotNull(followed.viewer?.following)
+        assertEquals(bobsFollow, followed.viewer?.followedBy)
+        assertEquals(bobsFollow, profiles.profile(bob.value).viewer?.followedBy, "a lagging AppView doesn't hide the follow-back")
     }
 
     @Test
