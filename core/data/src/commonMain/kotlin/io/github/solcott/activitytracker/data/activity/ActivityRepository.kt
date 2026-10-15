@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
+import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.LikeRecord
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
@@ -212,6 +213,23 @@ class ActivityRepository(
             ),
             space = clients.interactionPlaceOf(visibility),
         )
+        outbox.drain()
+    }
+
+    /**
+     * Deletes the viewer's own [comment] on [activity]; someone else's is left alone. As with unliking, its URI is the same wherever it
+     * went and the activity may have changed visibility since, so it's deleted from the repo and the interactions space, the space only
+     * when the session can write `feed.comment` there; a delete of what isn't there counts as done. It's left out of
+     * [FeedRepository.activity] until the AppView drops it.
+     */
+    suspend fun deleteComment(activity: ActivityView, comment: CommentView) {
+        if (comment.uri.authority != clients.did.value) return
+        val rkey = requireNotNull(comment.uri.rkey)
+        writer.delete(Nsid.FEED_COMMENT, rkey)
+        if (clients.canWriteToSpaces(Nsid.FEED_COMMENT))
+            writer.delete(Nsid.FEED_COMMENT, rkey, clients.tiers.uri(AthleteSpace.INTERACTIONS))
+        feed.deletes.deleteComment(comment.uri)
+        feed.updateCached(activity.uri) { it.copy(commentCount = (it.commentCount - 1).coerceAtLeast(0)) }
         outbox.drain()
     }
 

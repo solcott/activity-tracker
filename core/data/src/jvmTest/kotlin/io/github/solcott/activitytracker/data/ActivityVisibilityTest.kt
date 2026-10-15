@@ -32,6 +32,8 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.activitytracker.lexicon.app.CommentView
+import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.RecordingView
@@ -77,6 +79,9 @@ class ActivityVisibilityTest {
     /** Fail space deletes while set; and every request to the PDS while [offline]. */
     private var failSpaceDeletes = false
     private var offline = false
+
+    /** What the AppView's `getActivity` serves; NotFound while null. */
+    private var served: GetActivity.Output? = null
 
     /** The charts visibility the AppView serves for each activity rkey; absent for none. */
     private val streamsVisibility = mutableMapOf<String, String>()
@@ -131,6 +136,8 @@ class ActivityVisibilityTest {
                         val value = stored[place]?.get(key) ?: return@MockEngine error("RecordNotFound")
                         json("""{"uri":"at://$did/$key","cid":"bafyrec","value":$value}""")
                     }
+                    path == "/xrpc/${Nsid.FEED_GET_ACTIVITY}" ->
+                        served?.let { json(AtJson.encodeToString(GetActivity.Output.serializer(), it)) } ?: error("NotFound")
                     path == "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" -> {
                         val uri = AtUri(request.url.parameters["uri"]!!)
                         val visibility = streamsVisibility[uri.rkey] ?: return@MockEngine error("NotFound")
@@ -161,9 +168,11 @@ class ActivityVisibilityTest {
     /** The places holding [collection]/[rkey] now. */
     private fun placesOf(collection: String, rkey: String): Set<String> = stored.filterValues { "$collection/$rkey" in it }.keys
 
+    @Suppress("LongParameterList") // What each test reaches for.
     private class Session(
         val db: AppDatabase,
         val clients: SessionClients,
+        val feed: FeedRepository,
         val activities: ActivityRepository,
         val manager: ActivityManager,
         val streams: PdsActivityStreamsStore,
@@ -192,6 +201,7 @@ class ActivityVisibilityTest {
         return Session(
             db,
             clients,
+            feed,
             activities,
             ActivityManager(db, clients, outbox, writer, streams, feed),
             streams,
@@ -609,5 +619,112 @@ class ActivityVisibilityTest {
         assertEquals(Visibility.FOLLOWERS, cached.visibility)
         assertEquals(2, cached.likeCount)
         assertEquals(1, cached.commentCount, "the AppView recounts both for the new audience")
+    }
+
+    /** A comment by [author] with rkey [rkey], as the AppView lists it. */
+    private fun commentOn(author: Did, rkey: String) =
+        CommentView(
+            AtUri.of(author, Nsid.FEED_COMMENT, rkey),
+            Cid("bafy$rkey"),
+            ProfileViewBasic(author, Handle("${author.value.substringAfterLast(':')}.test")),
+            "Nice",
+            Instant.parse("2026-10-14T08:00:00Z"),
+        )
+
+    @Test
+    fun aDeletedCommentStaysHiddenUntilTheAppViewDropsIt() = runTest {
+        val s = session()
+        val activity = s.bobs(Visibility.FOLLOWERS)
+        val mine = commentOn(did, "3kc1")
+        val bobs = commentOn(bob, "3kc2")
+        served = GetActivity.Output(activity.copy(commentCount = 2), listOf(mine, bobs))
+        s.feed.deletes.deleteComment(mine.uri)
+
+        val stale = s.feed.activity(activity.uri)
+        assertEquals(listOf(bobs), stale.comments, "the AppView still lists it, but it's left out")
+        assertEquals(1, stale.activity.commentCount)
+        assertEquals(1, s.cached(activity).commentCount)
+
+        served = GetActivity.Output(activity.copy(commentCount = 1), listOf(bobs))
+        val caughtUp = s.feed.activity(activity.uri)
+        assertEquals(listOf(bobs), caughtUp.comments)
+        assertEquals(1, caughtUp.activity.commentCount, "not taken off twice once the AppView has dropped it")
+    }
+
+    /** Alice's last comment, as the AppView would list it once indexed, from the rkey she wrote. */
+    private fun ownComment(): CommentView {
+        val rkey = writes.last { Nsid.FEED_COMMENT in it }.substringAfterLast('/')
+        return commentOn(did, rkey)
+    }
+
+    @Test
+    fun deletingACommentDeletesFromBothPlaces() = runTest {
+        val s = session()
+        val followers = s.bobs(Visibility.FOLLOWERS)
+        s.activities.comment(followers, "Nice")
+        val comment = ownComment()
+        writes.clear()
+
+        // The activity was made public since: the comment is still in the space, and deleting finds it there.
+        s.activities.deleteComment(followers.copy(visibility = Visibility.PUBLIC), comment)
+        val rkey = comment.uri.rkey
+        assertEquals(
+            listOf("delete repo ${Nsid.FEED_COMMENT}/$rkey", "delete ${AthleteSpace.INTERACTIONS} ${Nsid.FEED_COMMENT}/$rkey"),
+            writes,
+        )
+        assertEquals(emptySet(), placesOf(Nsid.FEED_COMMENT, rkey!!))
+        assertEquals(0, s.cached(followers).commentCount)
+        assertEquals(0, s.db.outbox().pending(did.value).size)
+    }
+
+    @Test
+    fun deletingACommentWithNoInteractionsSpaceCountsAsDone() = runTest {
+        val s = session()
+        val public = s.bobs(Visibility.PUBLIC)
+        s.activities.comment(public, "Nice")
+        val comment = ownComment()
+        s.activities.deleteComment(public, comment)
+        assertEquals(
+            listOf("put repo ${Nsid.FEED_COMMENT}/${comment.uri.rkey}", "delete repo ${Nsid.FEED_COMMENT}/${comment.uri.rkey}"),
+            writes,
+        )
+        assertEquals(0, s.db.outbox().pending(did.value).size, "SpaceNotFound for the space delete doesn't hold up the outbox")
+    }
+
+    @Test
+    fun aDeleteWaitsInTheOutboxWhileOffline() = runTest {
+        val s = session()
+        val public = s.bobs(Visibility.PUBLIC)
+        s.activities.comment(public, "Nice")
+        val comment = ownComment()
+        offline = true
+        s.activities.deleteComment(public, comment)
+        assertEquals(2, s.db.outbox().pending(did.value).size, "both deletes kept")
+        served = GetActivity.Output(public.copy(commentCount = 1), listOf(comment))
+        offline = false
+        assertEquals(emptyList(), s.feed.activity(public.uri).comments, "hidden meanwhile")
+        s.activities.sync()
+        assertEquals(emptySet(), placesOf(Nsid.FEED_COMMENT, comment.uri.rkey!!))
+        assertEquals(0, s.db.outbox().pending(did.value).size)
+    }
+
+    @Test
+    fun aSessionWhoseSpaceScopeLacksCommentsDeletesFromTheRepoOnly() = runTest {
+        val s = session(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}&collection=${Nsid.FEED_LIKE}")
+        val followers = s.bobs(Visibility.FOLLOWERS)
+        // Written by another, newer session of Alice's.
+        val comment = commentOn(did, "3kc9")
+        s.activities.deleteComment(followers, comment)
+        assertEquals(listOf("delete repo ${Nsid.FEED_COMMENT}/3kc9"), writes)
+        assertEquals(0, s.db.outbox().pending(did.value).size, "nothing left waiting on a space write the PDS would refuse")
+    }
+
+    @Test
+    fun someoneElsesCommentIsNotDeleted() = runTest {
+        val s = session()
+        val followers = s.bobs(Visibility.FOLLOWERS).copy(commentCount = 1)
+        s.activities.deleteComment(followers, commentOn(bob, "3kc2"))
+        assertEquals(emptyList(), writes)
+        assertEquals(0, s.db.outbox().pending(did.value).size)
     }
 }

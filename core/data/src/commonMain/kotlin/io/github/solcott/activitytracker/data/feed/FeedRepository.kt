@@ -43,7 +43,7 @@ class FeedRepository(
     /** Records the athlete rewrote this session, shown over the AppView's until it catches up: write one with [updateCached] too. */
     val rewrites = LocalRewrites { cid -> ownBlobUrl(clients.pdsUrl, clients.did, cid) }
 
-    /** Activities the athlete deleted and recordings they split off this session, left out until the AppView catches up. */
+    /** Activities and comments the athlete deleted and recordings they split off this session, left out until the AppView catches up. */
     val deletes = LocalDeletes()
 
     fun timeline(filter: ActivityFilter = ActivityFilter.None): Flow<List<ActivityView>> = observe(filter.cacheKey(TIMELINE))
@@ -70,7 +70,7 @@ class FeedRepository(
     }
 
     suspend fun activity(uri: AtUri): GetActivity.Output {
-        val output = clients.appView.query(GetActivity.method, GetActivity.Params(uri))
+        val output = deletes.applyTo(clients.appView.query(GetActivity.method, GetActivity.Params(uri)))
         val activity = localLikes.applyTo(deletes.applyTo(rewrites.applyTo(output.activity)))
         updateCached(uri) { activity }
         return output.copy(activity = activity)
