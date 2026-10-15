@@ -82,6 +82,16 @@ object Comments : Table("comments") {
 
     /** The [Visibility] the comment was written for, normalised when indexed: never shown wider than this. */
     val audience = varchar("audience", 16).default(Visibility.PUBLIC)
+
+    /** The top-level comment of the thread (`reply.root`), or [uri] itself for a top-level comment. */
+    val threadUri = varchar("thread_uri", 512)
+
+    /** The rest of `reply.root`'s strong ref; null on a top-level comment. */
+    val threadCid = varchar("thread_cid", 255).nullable()
+
+    /** The comment a reply answers (`reply.parent`); null on a top-level comment. */
+    val parentUri = varchar("parent_uri", 512).nullable()
+    val parentCid = varchar("parent_cid", 255).nullable()
     override val primaryKey = PrimaryKey(uri)
 }
 

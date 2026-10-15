@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.Actors
-import io.github.solcott.activitytracker.appview.db.CommentHides
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.Follows
 import io.github.solcott.activitytracker.appview.db.Likes
@@ -17,7 +16,6 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityMediaView
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
-import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.FeedFilterParams
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
@@ -42,12 +40,12 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.countDistinct
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.max
+import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -115,29 +113,35 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
     }
 
     /**
-     * An activity's comments listed for the viewer ([commentsListedFor], the rule [hydrate] counts by), oldest first. A page is a keyset on
-     * (created_at, uri) ascending, cursor `"<createdAt>::<uri>"`, taken from the last row read rather than the last view built, since
-     * [commentViews] drops a comment whose author has no profile row. With `uris`, just those comments, and no cursor.
+     * An activity's comments listed for the viewer ([commentsListedFor], the rule [hydrate] counts by), oldest first, in one of three
+     * modes: a page of threads ([threadPage]), the `uris` asked for, or with `root` a page of that thread's replies. Comment keysets are on
+     * (created_at, uri) ascending, cursor `"<createdAt>::<uri>"`, taken from the last row read rather than the last view built, since a
+     * view is built for every row read.
      */
     suspend fun comments(viewer: Did?, params: GetComments.Params): GetComments.Output = db.tx {
         val uris = params.uris
         if (uris != null && uris.size > GetComments.MAX_URIS)
             invalidRequest("At most ${GetComments.MAX_URIS} uris may be given, not ${uris.size}")
+        if (uris != null && params.root != null) invalidRequest("uris and root can't be given together")
         val athlete = requireVisibleActivity(params.uri.value, viewer)
-        val pageSize = Paging.clamp(params.limit)
         val listed = (Comments.subjectUri eq params.uri.value) and commentsListedFor(viewer)
-        val rows =
-            admittedComments()
-                .select(Comments.columns)
-                .where {
-                    if (uris != null) listed and (Comments.uri inList uris.map { it.value })
-                    else listed and keysetAfter(Comments.createdAt, Comments.uri, params.cursor)
-                }
-                .orderBy(Comments.createdAt to SortOrder.ASC, Comments.uri to SortOrder.ASC)
-                .let { if (uris == null) it.limit(pageSize) else it }
-                .toList()
-        val next = rows.takeIf { uris == null && it.size == pageSize }?.last()?.let { "${it[Comments.createdAt]}::${it[Comments.uri]}" }
-        GetComments.Output(params.uri, commentViews(rows, athlete, avatars), next)
+        val root = params.root
+        when {
+            uris != null -> {
+                val rows = listedRows(listed and (Comments.uri inList uris.map { it.value }))
+                GetComments.Output(params.uri, commentViews(rows, athlete, avatars))
+            }
+
+            root != null -> {
+                val pageSize = Paging.clamp(params.limit)
+                val replies = (Comments.threadUri eq root.value) and (Comments.uri neq root.value)
+                val rows = listedRows(listed and replies and keysetAfter(Comments.createdAt, Comments.uri, params.cursor), pageSize)
+                val next = rows.takeIf { it.size == pageSize }?.last()?.let(::commentCursor)
+                GetComments.Output(params.uri, commentViews(rows, athlete, avatars), next)
+            }
+
+            else -> threadPage(params, avatars, listed, athlete)
+        }
     }
 
     /**
@@ -308,41 +312,6 @@ class XrpcError(val status: Int, val error: String, override val message: String
  */
 private fun admittedLikes() = Likes.join(Activities, JoinType.INNER, Likes.subjectUri, Activities.uri)
 
-/**
- * Comments joined to the activity they name, for [commentsVisibleTo]. Like likes, a comment is served by the activity's current visibility
- * wherever it's stored, but never wider than the audience it was written for.
- */
-private fun admittedComments() = Comments.join(Activities, JoinType.INNER, Comments.subjectUri, Activities.uri)
-
-/**
- * Comments on activities [viewer] may already see (the caller filters the activities) that they may see too: while the commenter may still
- * see the activity at its current visibility, and the comment's audience admits the viewer, judged against the activity's athlete. Tiers
- * nest, so a comment is shown at the narrower of the activity's visibility and its audience.
- */
-private fun commentsVisibleTo(viewer: Did?): Op<Boolean> =
-    visibleTo(Comments.authorDid) and visibleTo(viewer, visibility = Comments.audience, author = Activities.authorDid)
-
-/**
- * The activity's athlete hid the comment (`feed.commentHide`), from their repo or their interactions space. Checked here rather than at
- * index time, so a hide indexed before its comment counts, and a hide by anyone else changes nothing.
- */
-private fun hiddenByAthlete(): Op<Boolean> =
-    exists(
-        CommentHides.select(CommentHides.uri).where {
-            (CommentHides.commentUri eq Comments.uri) and (CommentHides.authorDid eq Activities.authorDid)
-        }
-    )
-
-/**
- * The comments listed for [viewer]: [commentsVisibleTo], and a hidden one ([hiddenByAthlete]) only for the activity's athlete and its
- * commenter. It's never counted ([hydrate] leaves it out for everyone), so the count matches the listed comments that aren't hidden.
- */
-private fun commentsListedFor(viewer: Did?): Op<Boolean> {
-    val shown = commentsVisibleTo(viewer)
-    if (viewer == null) return shown and not(hiddenByAthlete())
-    return shown and (not(hiddenByAthlete()) or (Activities.authorDid eq viewer.value) or (Comments.authorDid eq viewer.value))
-}
-
 /** A recording's device as `#recordingView` allows it: the record's own is untrusted. */
 private const val MAX_DEVICE_LENGTH = 256
 
@@ -397,29 +366,5 @@ private fun JdbcTransaction.requireVisibleActivity(uri: String, viewer: Did?): S
         .where { (Activities.uri eq uri) and visibleTo(viewer) }
         .singleOrNull()
         ?.get(Activities.authorDid) ?: throw notFound()
-
-/**
- * Views of comment [rows] on an activity of [athlete]'s, in order, leaving out any whose author has no profile row. Only the athlete and
- * each commenter are listed hidden comments ([commentsListedFor]), so any listed one that's hidden is theirs to see marked.
- */
-private fun JdbcTransaction.commentViews(rows: List<ResultRow>, athlete: String, avatars: AvatarUrls): List<CommentView> {
-    if (rows.isEmpty()) return emptyList()
-    val authors = basicProfiles(rows.map { it[Comments.authorDid] }, avatars)
-    val hidden =
-        CommentHides.select(CommentHides.commentUri)
-            .where { (CommentHides.commentUri inList rows.map { it[Comments.uri] }) and (CommentHides.authorDid eq athlete) }
-            .map { it[CommentHides.commentUri] }
-            .toSet()
-    return rows.mapNotNull { c ->
-        CommentView(
-            uri = AtUri(c[Comments.uri]),
-            cid = Cid(c[Comments.cid]),
-            author = authors[c[Comments.authorDid]] ?: return@mapNotNull null,
-            text = c[Comments.text],
-            createdAt = Instant.fromEpochMilliseconds(c[Comments.createdAt]),
-            hidden = true.takeIf { c[Comments.uri] in hidden },
-        )
-    }
-}
 
 private fun notFound() = XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "Activity not found")

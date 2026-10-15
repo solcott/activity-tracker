@@ -26,6 +26,7 @@ import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.FollowRecord
 import io.github.solcott.activitytracker.lexicon.app.LikeRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
+import io.github.solcott.activitytracker.lexicon.app.ReplyRef
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import kotlin.time.Clock
@@ -170,19 +171,7 @@ class Indexer(
             }
 
             Nsid.FEED_COMMENT -> {
-                val record = AtJson.decodeFromJsonElement(CommentRecord.serializer(), json)
-                Comments.upsert {
-                    it[Comments.uri] = uri.value
-                    it[Comments.cid] = cid
-                    it[authorDid] = author.value
-                    it[subjectUri] = record.subject.uri.value
-                    it[text] = record.text.take(MAX_COMMENT_LENGTH)
-                    it[createdAt] = record.createdAt.toEpochMilliseconds()
-                    it[indexedAt] = now
-                    it[origin] = placement.origin
-                    // Absent is public, and an unknown value only the athlete's, so serving never shows it wider than written.
-                    it[audience] = Visibility.known(record.audience)
-                }
+                upsertComment(AtJson.decodeFromJsonElement(CommentRecord.serializer(), json), author, uri, cid, placement, now)
             }
 
             Nsid.FEED_COMMENT_HIDE -> {
@@ -324,6 +313,41 @@ private suspend fun requireHideKey(uri: AtUri, json: JsonObject) {
     require(subject.collection == Nsid.FEED_COMMENT && subject.rkey != null) { "hide of a non-comment $subject" }
     require(uri.rkey == commentHideRkey(subject)) { "hide of $subject under another rkey" }
 }
+
+/**
+ * A comment or reply. A reply naming anything but comments ([namesOnlyComments]) isn't indexed, and an earlier version of the record from
+ * the same place is dropped, so an edit can't keep a malformed reply listed. A replay keeps the row's first `indexed_at`, which places its
+ * thread (`threadPlace` in `api/CommentQueries.kt`).
+ */
+@Suppress("LongParameterList") // The record, and where it's from.
+private fun JdbcTransaction.upsertComment(record: CommentRecord, author: Did, uri: AtUri, cid: String, placement: Placement, now: Long) {
+    val reply = record.reply
+    if (reply != null && !namesOnlyComments(reply)) {
+        Comments.deleteWhere { (Comments.uri eq uri.value) and (origin eq placement.origin) }
+        return
+    }
+    Comments.upsert(onUpdateExclude = listOf(Comments.indexedAt)) {
+        it[Comments.uri] = uri.value
+        it[Comments.cid] = cid
+        it[authorDid] = author.value
+        it[subjectUri] = record.subject.uri.value
+        it[text] = record.text.take(MAX_COMMENT_LENGTH)
+        it[createdAt] = record.createdAt.toEpochMilliseconds()
+        it[indexedAt] = now
+        it[origin] = placement.origin
+        // Absent is public, and an unknown value only the athlete's, so serving never shows it wider than written.
+        it[audience] = Visibility.known(record.audience)
+        // Grouped by the root the record names, whether or not it's indexed (or on this activity): serving sorts that out.
+        it[threadUri] = reply?.root?.uri?.value ?: uri.value
+        it[threadCid] = reply?.root?.cid?.value
+        it[parentUri] = reply?.parent?.uri?.value
+        it[parentCid] = reply?.parent?.cid?.value
+    }
+}
+
+/** A reply's root and parent must both be comments: a reply "to" a like or an activity is malformed. */
+private fun namesOnlyComments(reply: ReplyRef): Boolean =
+    listOf(reply.root.uri, reply.parent.uri).all { it.collection == Nsid.FEED_COMMENT && it.rkey != null }
 
 private fun JdbcTransaction.upsertHide(record: CommentHideRecord, author: Did, uri: AtUri, placement: Placement, now: Long) {
     CommentHides.upsert {

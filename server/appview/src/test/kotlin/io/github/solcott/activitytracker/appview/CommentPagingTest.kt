@@ -1,193 +1,28 @@
 package io.github.solcott.activitytracker.appview
 
-import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
-import io.github.solcott.activitytracker.appview.db.DatabaseFactory
-import io.github.solcott.activitytracker.appview.index.Indexer
-import io.github.solcott.activitytracker.appview.index.JetstreamEvent
-import io.github.solcott.activitytracker.atproto.commentHideRkey
-import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
-import io.github.solcott.activitytracker.lexicon.XrpcQuery
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
-import io.ktor.client.HttpClient
 import io.ktor.client.request.get
-import io.ktor.client.request.header
-import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
-import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.encodeURLParameter
-import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Instant
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.jsonObject
-import org.h2.jdbcx.JdbcDataSource
-import org.jetbrains.exposed.v1.jdbc.Database
 
 /** `getComments`: an activity's comments a page at a time, or looked up by URI, by the same rule `getActivity`'s count uses. */
-class CommentPagingTest {
-    private val service = "did:web:localhost%3A8081"
-    private val alice = "did:plc:alice"
-    private val bob = "did:plc:bob"
-    private val carol = "did:plc:carol"
-    private val dave = "did:plc:dave"
-    private val erin = "did:plc:erin"
-    private val keys = listOf(alice, bob, carol, dave, erin).associateWith { TestAccountKey() }
-
-    private val db: Database =
-        JdbcDataSource().run {
-            setURL("jdbc:h2:mem:${UUID.randomUUID()};MODE=PostgreSQL;DB_CLOSE_DELAY=-1")
-            DatabaseFactory.migrate(this)
-            Database.connect(this)
-        }
-    private val indexer = Indexer(db, { did -> did.value.substringAfterLast(':') + ".test" })
-    private val config = AppViewConfig.fromEnv(emptyMap())
-    private val verifier = ServiceAuthVerifier(service, keys = { keys[it.value]?.multibase })
-
-    private val base = Instant.parse("2026-10-14T10:00:00Z")
-
-    private fun uri(rkey: String) = "at://$alice/${Nsid.FEED_ACTIVITY}/$rkey"
-
-    private fun commit(did: String, collection: String, rkey: String, record: String?) = runBlocking {
-        indexer.handle(
-            JetstreamEvent.Commit(
-                did = did,
-                time = "2026-10-14T12:00:00.000000Z",
-                operation = if (record == null) "delete" else "create",
-                collection = collection,
-                rkey = rkey,
-                record = record?.let { AtJson.parseToJsonElement(it).jsonObject },
-                cid = "bafy$rkey",
-            )
-        )
-    }
-
-    /** Alice posts [rkey] at [tier]: in her repo when public, in her tier space otherwise. */
-    private fun post(rkey: String, tier: String = Visibility.PUBLIC) {
-        val json = """{"sport":"run","startedAt":"2026-10-14T07:00:00Z","elapsedTime":1800,"createdAt":"2026-10-14T07:31:00Z"}"""
-        if (tier == Visibility.PUBLIC) commit(alice, Nsid.FEED_ACTIVITY, rkey, json)
-        else
-            runBlocking {
-                indexer.spaceWrite(
-                    SpaceUri.of(Did(alice), Nsid.SPACE_ATHLETE, tier),
-                    Nsid.FEED_ACTIVITY,
-                    rkey,
-                    "bafy$rkey",
-                    AtJson.parseToJsonElement(json).jsonObject,
-                )
-            }
-    }
-
-    private fun follow(author: String, subject: String) =
-        commit(
-            author,
-            Nsid.GRAPH_FOLLOW,
-            "3kf${author.last()}${subject.last()}",
-            """{"subject":"$subject","createdAt":"2026-10-01T09:00:00Z"}""",
-        )
-
-    private fun unfollow(author: String, subject: String) = commit(author, Nsid.GRAPH_FOLLOW, "3kf${author.last()}${subject.last()}", null)
-
-    /**
-     * [author] comments [rkey] on alice's [activity], dated [minute] minutes after [base]: in their repo with no [audience], else in their
-     * interactions space written for [audience].
-     */
-    private fun comment(author: String, rkey: String, minute: Int, activity: String = "3krun", audience: String? = null): AtUri {
-        val createdAt = Instant.fromEpochMilliseconds(base.toEpochMilliseconds() + minute * 60_000L)
-        val json =
-            """{"subject":{"uri":"${uri(activity)}","cid":"bafy$activity"},"text":"c$rkey","createdAt":"$createdAt"""" +
-                audience?.let { ""","audience":"$it"""" }.orEmpty() +
-                "}"
-        if (audience == null) commit(author, Nsid.FEED_COMMENT, rkey, json)
-        else
-            runBlocking {
-                indexer.spaceWrite(
-                    SpaceUri.of(Did(author), Nsid.SPACE_ATHLETE, AthleteSpace.INTERACTIONS),
-                    Nsid.FEED_COMMENT,
-                    rkey,
-                    "bafy$rkey",
-                    AtJson.parseToJsonElement(json).jsonObject,
-                )
-            }
-        return AtUri("at://$author/${Nsid.FEED_COMMENT}/$rkey")
-    }
-
-    private fun hide(comment: AtUri) {
-        val rkey = runBlocking { commentHideRkey(comment) }
-        commit(alice, Nsid.FEED_COMMENT_HIDE, rkey, """{"subject":"${comment.value}","createdAt":"2026-10-14T11:00:00Z"}""")
-    }
-
-    /** Bob's comments `3kc000`… on alice's public run, one a minute apart, oldest first. */
-    private fun bobComments(count: Int): List<String> =
-        (0 until count)
-            .map { i -> "3kc" + i.toString().padStart(3, '0') }
-            .onEach { rkey -> comment(bob, rkey, minute = rkey.drop(3).toInt()) }
-
-    private fun ApplicationTestBuilder.start() {
-        application { appView(config, db, verifier) }
-    }
-
-    private suspend fun HttpClient.raw(nsid: String, viewer: String?, query: String): HttpResponse =
-        get("/xrpc/$nsid$query") {
-            viewer?.let { header(HttpHeaders.Authorization, "Bearer ${keys.getValue(it).serviceJwt(it, service, nsid)}") }
-        }
-
-    private suspend fun <P, O> HttpClient.query(method: XrpcQuery<P, O>, viewer: String?, query: String): O {
-        val response = raw(method.nsid, viewer, query)
-        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
-        return AtJson.decodeFromString(method.output, response.bodyAsText())
-    }
-
-    private fun pageQuery(activity: String, limit: Int?, cursor: String?) =
-        "?uri=${uri(activity).encodeURLParameter()}" +
-            limit?.let { "&limit=$it" }.orEmpty() +
-            cursor?.let { "&cursor=${it.encodeURLParameter()}" }.orEmpty()
-
-    private suspend fun HttpClient.page(viewer: String?, limit: Int? = null, cursor: String? = null, activity: String = "3krun") =
-        query(GetComments.method, viewer, pageQuery(activity, limit, cursor))
-
-    private suspend fun HttpClient.lookup(viewer: String?, uris: List<AtUri>, activity: String = "3krun"): List<CommentView> =
-        query(
-                GetComments.method,
-                viewer,
-                "?uri=${uri(activity).encodeURLParameter()}" + uris.joinToString("") { "&uris=${it.value.encodeURLParameter()}" },
-            )
-            .also { assertNull(it.cursor, "a lookup has no cursor") }
-            .comments
-
-    /** Every comment [viewer] is listed on [activity], following cursors in pages of [limit]. */
-    private suspend fun HttpClient.allPages(viewer: String?, limit: Int, activity: String = "3krun"): List<CommentView> {
-        val all = mutableListOf<CommentView>()
-        var cursor: String? = null
-        do {
-            val page = page(viewer, limit, cursor, activity)
-            assertTrue(page.comments.size <= limit)
-            all += page.comments
-            cursor = page.cursor
-        } while (cursor != null)
-        return all
-    }
-
-    private suspend fun HttpClient.count(viewer: String?, activity: String = "3krun"): Long =
-        query(GetActivity.method, viewer, "?uri=${uri(activity).encodeURLParameter()}").activity.commentCount
-
-    private val CommentView.rkey
-        get() = uri.rkey!!
-
+class CommentPagingTest : CommentTestBase() {
     @Test
     fun pagesListCommentsOldestFirst() = testApplication {
         start()
@@ -213,6 +48,7 @@ class CommentPagingTest {
         bobComments(105)
         val page = client.page(null, limit = 500)
         assertEquals(100, page.comments.size)
+        assertEquals(100, page.threads?.size)
         assertNotNull(page.cursor)
     }
 
