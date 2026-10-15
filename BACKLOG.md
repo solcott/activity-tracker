@@ -91,9 +91,8 @@ Activities carry photos (`feed.activity#media`, an open union with `#image` only
 
 ## Spaces and route privacy: order of the open changes
 
-Four OpenSpec changes in `openspec/changes/` cover the rest of the local spaces work, plus route privacy and file export. Implement them in this order, and delete each entry when its change is archived.
+Three OpenSpec changes in `openspec/changes/` cover the rest of the local spaces work, plus route privacy and file export. Implement them in this order, and delete each entry when its change is archived.
 
-1. `keep-full-track-only-me`: **breaking.** `feed.activity` loses `track`, and the full-resolution GPX moves to a `feed.activityTrack` in the `self` space. Privacy zones and export both need it.
-2. `add-privacy-zones`: zones and hide-start/end, stored in `self`, trim every `polyline` at write time and retroactively (from the track). Supersedes the "Privacy zones" bullet under "Show activities on real maps".
-3. `export-activity-files`: the athlete exports their own activity as a rebuilt GPX or TCX (FIT open), from the record, streams and track.
-4. `keep-original-activity-files`: imports keep the original file in a `feed.activitySource` in `self`, for "Download original". Reuses 3's file hand-off.
+1. `add-privacy-zones`: zones and hide-start/end, stored in `self`, trim every `polyline` at write time and retroactively (from the track). Supersedes the "Privacy zones" bullet under "Show activities on real maps".
+2. `export-activity-files`: the athlete exports their own activity as a rebuilt GPX or TCX (FIT open), from the record, streams and track.
+3. `keep-original-activity-files`: imports keep the original file in a `feed.activitySource` in `self`, for "Download original". Reuses 2's file hand-off.
