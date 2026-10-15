@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.XrpcQuery
 import io.github.solcott.activitytracker.lexicon.app.ActivityMediaView
+import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -32,6 +33,7 @@ import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -149,6 +151,30 @@ class SpaceMediaTest {
         assertContentEquals(photoBytes, response.readRawBytes())
         assertEquals("private, max-age=${(19.minutes + 59.seconds).inWholeSeconds}", response.headers[HttpHeaders.CacheControl])
         assertEquals(listOf(space(Visibility.FOLLOWERS) to photoCid), fetchedFrom)
+    }
+
+    @Test
+    fun aFullTrackInTheSelfSpaceIsNeitherStoredNorServed() = testApplication {
+        startSigning()
+        postSpace("3ktrk", Visibility.SELF, record(1))
+        val track =
+            """{"activity":"${uri("3ktrk")}","createdAt":"2026-10-01T07:31:00Z",""" +
+                """"track":{"${'$'}type":"blob","ref":{"${'$'}link":"$photoCid"},"mimeType":"application/gpx+xml","size":4}}"""
+        runBlocking {
+            indexer.spaceWrite(
+                space(Visibility.SELF),
+                Nsid.FEED_ACTIVITY_TRACK,
+                "3ktrk",
+                "bafytrk",
+                AtJson.parseToJsonElement(track).jsonObject,
+            )
+        }
+
+        assertTrue(Nsid.FEED_ACTIVITY_TRACK !in Nsid.indexedCollections)
+        assertTrue(listOf(Visibility.SELF, AthleteSpace.INTERACTIONS).none { Nsid.FEED_ACTIVITY_TRACK in Indexer.spaceCollections(it) })
+        val response = client.raw(GetActivity.method.nsid, alice, "?uri=${uri("3ktrk").encodeURLParameter()}")
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertFalse(photoCid in response.bodyAsText(), "the athlete's own view doesn't link the track either")
     }
 
     @Test
