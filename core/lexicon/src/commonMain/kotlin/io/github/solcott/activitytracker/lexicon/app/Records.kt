@@ -486,12 +486,21 @@ data class CommentRecord(
     val text: String,
     val createdAt: Instant,
     /**
-     * The [Visibility] the comment was written for: the activity's as the commenter's view showed it. Null means [Visibility.PUBLIC]; set
-     * only on a comment in the commenter's interactions space. The AppView never shows the comment wider, even if the activity is widened.
+     * The [Visibility] the comment was written for: the activity's as the commenter's view showed it, narrowed for a reply to the audience
+     * of the comment it answers ([Visibility.narrower]). Null means [Visibility.PUBLIC]. A comment is stored by its audience: in the repo
+     * for public, else in the commenter's interactions space. The AppView never shows the comment wider, even if the activity is widened.
      */
     val audience: String? = null,
+    /** Set on a reply; [subject] still names the activity. */
+    val reply: ReplyRef? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_COMMENT,
 )
+
+/**
+ * `app.activitytracker.feed.comment#replyRef`: threads are one level deep, so every reply is listed in [root]'s thread, however deep the
+ * chain of replies it answers. [parent] is the comment answered: [root] itself or a reply in its thread.
+ */
+@Serializable data class ReplyRef(val root: StrongRef, val parent: StrongRef)
 
 /**
  * `app.activitytracker.feed.commentHide`: the athlete hid the comment [subject] on one of their own activities. It's stored where their

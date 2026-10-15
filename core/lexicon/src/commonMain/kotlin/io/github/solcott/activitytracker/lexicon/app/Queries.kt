@@ -131,11 +131,21 @@ object GetComments {
         val uri: AtUri,
         val limit: Int? = null,
         val cursor: String? = null,
-        /** Instead of a page, these comments only, at most [MAX_URIS]; [limit] and [cursor] are ignored. */
+        /** Lookup mode: instead of a page, these comments and replies only, at most [MAX_URIS]; [limit] and [cursor] are ignored. */
         val uris: List<AtUri>? = null,
+        /** Thread mode: a page of this top-level comment's replies in [Output.comments]. Not allowed with [uris]. */
+        val root: AtUri? = null,
     )
 
-    @Serializable data class Output(val uri: AtUri, val comments: List<CommentView>, val cursor: String? = null)
+    @Serializable
+    data class Output(
+        val uri: AtUri,
+        /** Page mode: the page's listed top-level comments, for clients from before replies. Lookup and thread mode: the result. */
+        val comments: List<CommentView>,
+        val cursor: String? = null,
+        /** Page mode only: the page's threads. */
+        val threads: List<ThreadView>? = null,
+    )
 
     val method = XrpcQuery(Nsid.FEED_GET_COMMENTS, Params.serializer(), Output.serializer())
 }

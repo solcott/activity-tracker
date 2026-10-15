@@ -4,19 +4,24 @@
   "defs": {
     "main": {
       "type": "query",
-      "description": "An activity's comments, oldest first, a page at a time. Lists only the comments the viewer sees by the same rule as the activity's commentCount, plus hidden ones (marked) for the activity's athlete and each one's commenter; the count equals the comments not marked hidden across every page. A viewer who may not see the activity gets NotFound.",
+      "description": "An activity's comments, oldest first, a page at a time, in one of three modes. Page mode (cursor) lists threads, each a top-level comment or a placeholder with its first replies, ordered by the oldest comment listed for the viewer in each; comments then holds the page's listed top-level comments, for clients from before replies. Lookup mode (uris) and thread mode (root) are described on those parameters, and giving both is InvalidRequest. Lists only the comments the viewer sees by the same rule as the activity's commentCount, plus hidden ones (marked) for the activity's athlete and each one's commenter; a reply is also listed only to viewers admitted to its thread's top-level comment's audience, while that comment is indexed. The count equals the comments and replies not marked hidden across every page of threads and every page of each thread's replies. A viewer who may not see the activity gets NotFound.",
       "parameters": {
         "type": "params",
         "required": ["uri"],
         "properties": {
           "uri": { "type": "string", "format": "at-uri", "description": "The activity." },
-          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 30 },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 30, "description": "Threads per page in page mode, replies per page in thread mode." },
           "cursor": { "type": "string" },
           "uris": {
             "type": "array",
             "maxLength": 25,
             "items": { "type": "string", "format": "at-uri" },
-            "description": "Instead of a page, just these comments: those on the activity that are listed for the viewer, oldest first, with no cursor. limit and cursor are ignored, URIs not listed are left out without saying why, and more than 25 is InvalidRequest."
+            "description": "Lookup mode: instead of a page, just these comments and replies: those on the activity that are listed for the viewer, oldest first, with no cursor. limit and cursor are ignored, URIs not listed are left out without saying why, and more than 25 is InvalidRequest."
+          },
+          "root": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "Thread mode: instead of a page of threads, a page of this top-level comment's replies listed for the viewer, oldest first, in comments. The cursor comes from the thread's repliesCursor or a previous page of replies."
           }
         }
       },
@@ -28,7 +33,16 @@
           "properties": {
             "uri": { "type": "string", "format": "at-uri" },
             "cursor": { "type": "string" },
-            "comments": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#commentView" } }
+            "comments": {
+              "type": "array",
+              "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#commentView" },
+              "description": "Page mode: the page's listed top-level comments. Lookup mode: the comments and replies asked for. Thread mode: the thread's replies."
+            },
+            "threads": {
+              "type": "array",
+              "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#threadView" },
+              "description": "Page mode only: the page's threads."
+            }
           }
         }
       },

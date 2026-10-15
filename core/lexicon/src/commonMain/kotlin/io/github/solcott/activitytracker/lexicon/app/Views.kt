@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
+import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import kotlin.time.Instant
 import kotlinx.serialization.Serializable
 
@@ -91,4 +92,32 @@ data class CommentView(
     val createdAt: Instant,
     /** The activity's athlete hid it. Set only for the athlete and the commenter, the only viewers a hidden comment is listed for. */
     val hidden: Boolean? = null,
+    /** The [Visibility] it was written for, which caps a reply to it. Null means [Visibility.PUBLIC]. */
+    val audience: String? = null,
+    /** On a reply, its thread's top-level comment ([ReplyRef.root]). */
+    val root: StrongRef? = null,
+    /** On a reply, the comment it answers ([ReplyRef.parent]). */
+    val parent: StrongRef? = null,
+) {
+    /** This comment as a strong ref, for a reply to it. */
+    val ref: StrongRef
+        get() = StrongRef(uri, cid)
+}
+
+/**
+ * `app.activitytracker.feed.defs#threadView`: a top-level comment and its oldest replies listed for the viewer. A null [root] is the
+ * placeholder for a top-level comment not listed for the viewer while some of its replies are; nothing says why.
+ */
+@Immutable
+@Serializable
+data class ThreadView(
+    /** The top-level comment's URI. */
+    val uri: AtUri,
+    val root: CommentView? = null,
+    /** At most three, oldest first. */
+    val replies: List<CommentView>,
+    /** Replies listed for the viewer, of which [replies] are the first. */
+    val replyCount: Int,
+    /** For [GetComments.Params.root], when [replyCount] is more than [replies] holds. */
+    val repliesCursor: String? = null,
 )

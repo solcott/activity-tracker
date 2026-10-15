@@ -71,6 +71,44 @@
         "hidden": {
           "type": "boolean",
           "description": "The activity's athlete hid this comment (app.activitytracker.feed.commentHide). Present only for the athlete and the commenter, the only viewers a hidden comment is listed for."
+        },
+        "audience": {
+          "type": "string",
+          "knownValues": ["public", "followers", "mutuals", "self"],
+          "description": "Who the comment was written for (app.activitytracker.feed.comment#audience), which caps the audience of a reply to it. Absent means public."
+        },
+        "root": {
+          "type": "ref",
+          "ref": "com.atproto.repo.strongRef",
+          "description": "On a reply, the top-level comment of its thread (app.activitytracker.feed.comment#replyRef)."
+        },
+        "parent": {
+          "type": "ref",
+          "ref": "com.atproto.repo.strongRef",
+          "description": "On a reply, the comment it answers (app.activitytracker.feed.comment#replyRef)."
+        }
+      }
+    },
+    "threadView": {
+      "type": "object",
+      "description": "A top-level comment and its first replies listed for the viewer, oldest first.",
+      "required": ["uri", "replies", "replyCount"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri", "description": "The thread's top-level comment." },
+        "root": {
+          "type": "ref",
+          "ref": "#commentView",
+          "description": "The top-level comment. Absent when it isn't listed for the viewer (deleted, hidden, or its commenter can no longer see the activity) but some of its replies are: the client shows a placeholder, and nothing here says why."
+        },
+        "replies": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "#commentView" },
+          "description": "The thread's oldest replies listed for the viewer, at most three."
+        },
+        "replyCount": { "type": "integer", "description": "The thread's replies listed for the viewer." },
+        "repliesCursor": {
+          "type": "string",
+          "description": "When replyCount is more than replies holds, the cursor for app.activitytracker.feed.getComments with root to list the rest."
         }
       }
     }

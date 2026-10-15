@@ -27,11 +27,13 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.ReplyRef
 import io.github.solcott.activitytracker.lexicon.app.SensorType
 import io.github.solcott.activitytracker.lexicon.app.SpeedZoneModel
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SportTraining
 import io.github.solcott.activitytracker.lexicon.app.SubSport
+import io.github.solcott.activitytracker.lexicon.app.ThreadView
 import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.ThresholdEntry
 import io.github.solcott.activitytracker.lexicon.app.ThresholdSource
@@ -45,6 +47,7 @@ import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 import kotlinx.serialization.json.jsonArray
@@ -328,6 +331,38 @@ class RecordSerializationTest {
     }
 
     @Test
+    fun commentRecordReplyRoundTrips() {
+        val subject = StrongRef(AtUri("at://did:plc:alice/${Nsid.FEED_ACTIVITY}/3kact"), Cid("bafy3kact"))
+        val root = StrongRef(AtUri("at://did:plc:bob/${Nsid.FEED_COMMENT}/3kroot"), Cid("bafy3kroot"))
+        val parent = StrongRef(AtUri("at://did:plc:carol/${Nsid.FEED_COMMENT}/3kparent"), Cid("bafy3kparent"))
+        val reply = CommentRecord(subject, "Agreed", Instant.parse("2026-10-14T09:00:00Z"), reply = ReplyRef(root, parent))
+        val json = AtJson.encodeToJsonElement(CommentRecord.serializer(), reply).jsonObject
+        val replyJson = json["reply"]?.jsonObject
+        assertEquals(root.uri.value, replyJson?.get("root")?.jsonObject?.get("uri")?.jsonPrimitive?.content)
+        assertEquals(parent.cid.value, replyJson?.get("parent")?.jsonObject?.get("cid")?.jsonPrimitive?.content)
+        assertEquals(reply, AtJson.decodeFromJsonElement(CommentRecord.serializer(), json))
+    }
+
+    @Test
+    fun commentRecordWithoutReplyIsTopLevel() {
+        val json =
+            """{"${'$'}type":"${Nsid.FEED_COMMENT}","subject":{"uri":"at://did:plc:alice/${Nsid.FEED_ACTIVITY}/3kact","cid":"bafy"},""" +
+                """"text":"Hi","createdAt":"2026-10-14T09:00:00Z"}"""
+        val record = AtJson.decodeFromString(CommentRecord.serializer(), json)
+        assertNull(record.reply)
+        assertFalse("reply" in AtJson.encodeToJsonElement(CommentRecord.serializer(), record).jsonObject)
+    }
+
+    @Test
+    fun visibilityNarrowerOverEveryPair() {
+        for ((i, a) in Visibility.all.withIndex()) {
+            for ((j, b) in Visibility.all.withIndex()) {
+                assertEquals(Visibility.all[maxOf(i, j)], Visibility.narrower(a, b), "narrower($a, $b)")
+            }
+        }
+    }
+
+    @Test
     fun commentHideRecordCarriesItsTypeAndRoundTrips() {
         val hide = CommentHideRecord(AtUri("at://did:plc:bob/${Nsid.FEED_COMMENT}/3kcom"), Instant.parse("2026-10-14T09:00:00Z"))
         val json = AtJson.encodeToJsonElement(CommentHideRecord.serializer(), hide).jsonObject
@@ -355,6 +390,31 @@ class RecordSerializationTest {
         val hiddenJson = AtJson.encodeToJsonElement(CommentView.serializer(), hidden).jsonObject
         assertEquals("true", hiddenJson["hidden"]?.jsonPrimitive?.content)
         assertEquals(hidden, AtJson.decodeFromJsonElement(CommentView.serializer(), hiddenJson))
+    }
+
+    @Test
+    fun threadViewWithoutRootIsAPlaceholder() {
+        val author = ProfileViewBasic(Did("did:plc:carol"), Handle("carol.test"))
+        val root = StrongRef(AtUri("at://did:plc:bob/${Nsid.FEED_COMMENT}/3kroot"), Cid("bafy3kroot"))
+        val reply =
+            CommentView(
+                AtUri("at://did:plc:carol/${Nsid.FEED_COMMENT}/3krep"),
+                Cid("bafy3krep"),
+                author,
+                "Agreed",
+                Instant.parse("2026-10-14T09:00:00Z"),
+                audience = Visibility.FOLLOWERS,
+                root = root,
+                parent = root,
+            )
+        val thread = ThreadView(root.uri, root = null, replies = listOf(reply), replyCount = 1)
+        val json = AtJson.encodeToJsonElement(ThreadView.serializer(), thread).jsonObject
+        assertFalse("root" in json)
+        assertFalse("repliesCursor" in json)
+        assertFalse("ref" in json["replies"]!!.jsonArray[0].jsonObject)
+        assertEquals(thread, AtJson.decodeFromJsonElement(ThreadView.serializer(), json))
+        val output = AtJson.decodeFromString(GetComments.Output.serializer(), """{"uri":"${root.uri.value}","comments":[]}""")
+        assertNull(output.threads)
     }
 
     @Test

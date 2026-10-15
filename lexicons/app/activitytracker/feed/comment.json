@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "A comment on an activity.",
+      "description": "A comment on an activity, or a reply to one of its comments.",
       "key": "tid",
       "record": {
         "type": "object",
@@ -16,9 +16,19 @@
           "audience": {
             "type": "string",
             "knownValues": ["public", "followers", "mutuals", "self"],
-            "description": "Who the comment was written for (app.activitytracker.actor.defs#visibility): the activity's visibility as the commenter's view showed it. Absent means public. It is set only on a comment stored in the commenter's app.activitytracker.space.athlete interactions space, and the comment is shown only to viewers it admits, even if the activity is later made wider."
-          }
+            "description": "Who the comment was written for (app.activitytracker.actor.defs#visibility). For a top-level comment, the activity's visibility as the commenter's view showed it; for a reply, the narrower of that and the audience of the comment it answers. Absent means public. A comment written for public is stored in the commenter's repo, and any other in their app.activitytracker.space.athlete interactions space. The comment is shown only to viewers its audience admits, even if the activity is later made wider."
+          },
+          "reply": { "type": "ref", "ref": "#replyRef", "description": "Present on a reply. subject still names the activity." }
         }
+      }
+    },
+    "replyRef": {
+      "type": "object",
+      "description": "The comments a reply belongs to. Threads are one level deep: every reply is listed in root's thread, however deep the chain of replies it answers.",
+      "required": ["root", "parent"],
+      "properties": {
+        "root": { "type": "ref", "ref": "com.atproto.repo.strongRef", "description": "The top-level comment of the reply's thread (one without reply)." },
+        "parent": { "type": "ref", "ref": "com.atproto.repo.strongRef", "description": "The comment answered: root itself, or a reply in its thread." }
       }
     }
   }
