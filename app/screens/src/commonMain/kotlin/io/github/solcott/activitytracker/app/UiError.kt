@@ -22,6 +22,7 @@ data class UiError(val kind: Kind, val detail: String?) {
         SearchAthletes,
         SaveActivity,
         DeleteActivity,
+        DeleteComment,
         UngroupActivity,
         ReadActivityFile,
         UnsupportedActivityFile,

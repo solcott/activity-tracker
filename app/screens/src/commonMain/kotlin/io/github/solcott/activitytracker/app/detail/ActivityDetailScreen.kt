@@ -32,13 +32,15 @@ sealed interface ActivityDetailState : CircuitUiState {
         val activity: ActivityView,
         val comments: ImmutableList<CommentView>,
         val draftComment: TextFieldState,
+        /** The signed-in athlete, who may delete the comments they wrote and no others. */
+        val viewerDid: Did,
         /** The activity is the signed-in athlete's own, so it can't be liked. */
         val isOwn: Boolean,
         /** Who liked it, once the viewer has shown the list; null while it's hidden. */
         val likesList: LikesList?,
         /** Why the viewer's last like couldn't be given: a session that can't like a non-public activity is told to sign in again. */
         val likeError: UiError? = null,
-        /** Why the viewer's last comment couldn't be sent, likewise; its text is back in [draftComment]. */
+        /** Why the viewer's last comment couldn't be sent, likewise, its text back in [draftComment]; or why a delete failed. */
         val commentError: UiError? = null,
         override val eventSink: (ActivityDetailEvent) -> Unit,
         /** Null while loading, and when there are no streams or the viewer may not see them. */
@@ -113,6 +115,9 @@ sealed interface ActivityDetailEvent {
     data class OpenActivity(val uri: AtUri) : ActivityDetailEvent
 
     data object SendComment : ActivityDetailEvent
+
+    /** The viewer deletes their own comment [uri], confirmed. */
+    data class DeleteComment(val uri: AtUri) : ActivityDetailEvent
 
     /** The owner changes who may see the charts: a `Visibility` value. */
     data class SetChartsVisibility(val visibility: String) : ActivityDetailEvent

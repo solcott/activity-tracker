@@ -53,11 +53,18 @@ class ActivityDetailPresenterTest {
     private var streams: String? = null
     private var visibility = "public"
 
+    /** The comments the AppView lists, as JSON objects. */
+    private var commentsFromAppView = listOf<String>()
+
+    private fun comment(author: String, did: String, rkey: String) =
+        """{"uri":"at://$did/${Nsid.FEED_COMMENT}/$rkey","cid":"bafy$rkey","author":$author,"text":"Nice",""" +
+            """"createdAt":"2026-09-30T11:00:00Z"}"""
+
     private val activity
         get() =
             """{"uri":"$activityUri","cid":"bafy3kbob1","author":$bob,"visibility":"$visibility",""" +
                 """"record":{"sport":"run","startedAt":"2026-09-30T10:00:00Z","elapsedTime":1800,"createdAt":"2026-09-30T10:31:00Z"},""" +
-                """"likeCount":${likesFromAppView.size},"commentCount":0,"indexedAt":"2026-09-30T10:31:01Z","viewer":{}}"""
+                """"likeCount":${likesFromAppView.size},"commentCount":${commentsFromAppView.size},"indexedAt":"2026-09-30T10:31:01Z","viewer":{}}"""
 
     private val http =
         HttpClient(
@@ -69,7 +76,7 @@ class ActivityDetailPresenterTest {
                     }
 
                     "/xrpc/${Nsid.FEED_GET_ACTIVITY}" -> {
-                        respond("""{"activity":$activity,"comments":[]}""", headers = json)
+                        respond("""{"activity":$activity,"comments":[${commentsFromAppView.joinToString(",")}]}""", headers = json)
                     }
 
                     "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" -> {
@@ -233,6 +240,58 @@ class ActivityDetailPresenterTest {
             assertEquals(UiError(UiError.Kind.SignInAgain, null), refused.commentError)
             assertEquals("Nice", refused.draftComment.text.toString(), "what was typed isn't lost")
             assertEquals(emptyList(), r.queuedComments())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** The deletes of comments Alice has queued, as (space key or null for the repo, rkey). */
+    private suspend fun Repos.queuedCommentDeletes() =
+        db.outbox()
+            .pending(alice.value)
+            .filter { it.collection == Nsid.FEED_COMMENT && it.operation == OutboxProcessor.OP_DELETE }
+            .map { it.space?.substringAfterLast('/') to it.rkey }
+
+    @Test
+    fun deletesOwnCommentAtOnceAndOnceForADoubleConfirm() = runTest {
+        visibility = "followers"
+        commentsFromAppView = listOf(comment(staleAlice, alice.value, "3kc1"), comment(carol, "did:plc:carol", "3kc2"))
+        val r = repos()
+        presenterTestOf({
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
+        }) {
+            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.size == 2 } as ActivityDetailState.Loaded
+            assertEquals(alice, loaded.viewerDid)
+            val mine = loaded.comments.first().uri
+            loaded.eventSink(ActivityDetailEvent.DeleteComment(mine))
+            loaded.eventSink(ActivityDetailEvent.DeleteComment(mine))
+            val after = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.size == 1 } as ActivityDetailState.Loaded
+            assertEquals(listOf("did:plc:carol"), after.comments.map { it.author.did.value }, "gone at once, and the count with it")
+            r.db.outbox().count(alice.value).first { it >= 2 }
+            assertEquals(listOf(null to "3kc1", AthleteSpace.INTERACTIONS to "3kc1"), r.queuedCommentDeletes(), "one pair of deletes")
+
+            // A reload while the AppView still lists it keeps it hidden.
+            after.eventSink(ActivityDetailEvent.Retry)
+            val reloaded = awaitUntil { it is ActivityDetailState.Loaded && it.comments.size == 1 } as ActivityDetailState.Loaded
+            assertEquals(listOf("did:plc:carol"), reloaded.comments.map { it.author.did.value })
+            assertEquals(1, r.feed.activity(AtUri(activityUri)).activity.commentCount)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aFailedDeletePutsTheCommentBackWithTheError() = runTest {
+        commentsFromAppView = listOf(comment(carol, "did:plc:carol", "3kc0"), comment(staleAlice, alice.value, "3kc1"))
+        val r = repos()
+        presenterTestOf({
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
+        }) {
+            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.size == 2 } as ActivityDetailState.Loaded
+            // Queueing the delete fails once the database is gone.
+            r.db.close()
+            loaded.eventSink(ActivityDetailEvent.DeleteComment(loaded.comments.last().uri))
+            val failed = awaitUntil { (it as? ActivityDetailState.Loaded)?.commentError != null } as ActivityDetailState.Loaded
+            assertEquals(UiError.Kind.DeleteComment, failed.commentError?.kind)
+            assertEquals(loaded.comments, failed.comments, "back where it was")
             cancelAndIgnoreRemainingEvents()
         }
     }

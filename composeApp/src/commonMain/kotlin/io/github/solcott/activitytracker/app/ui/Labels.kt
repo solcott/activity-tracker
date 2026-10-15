@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_location
 import io.github.solcott.activitytracker.composeApp.resources.detail_training
 import io.github.solcott.activitytracker.composeApp.resources.error_answer_follow_request
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_activity
+import io.github.solcott.activitytracker.composeApp.resources.error_delete_comment
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_load_feed
 import io.github.solcott.activitytracker.composeApp.resources.error_load_follow_requests
@@ -90,6 +91,7 @@ fun errorText(error: UiError): String =
                 UiError.Kind.SearchAthletes -> Res.string.error_search_athletes
                 UiError.Kind.SaveActivity -> Res.string.error_save_activity
                 UiError.Kind.DeleteActivity -> Res.string.error_delete_activity
+                UiError.Kind.DeleteComment -> Res.string.error_delete_comment
                 UiError.Kind.UngroupActivity -> Res.string.error_ungroup_activity
                 UiError.Kind.ReadActivityFile -> Res.string.error_read_activity_file
                 UiError.Kind.UnsupportedActivityFile -> Res.string.error_unsupported_activity_file

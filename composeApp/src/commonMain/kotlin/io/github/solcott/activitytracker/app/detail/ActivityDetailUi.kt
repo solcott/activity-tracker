@@ -19,6 +19,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -195,7 +196,10 @@ private fun ChartSharing(visibility: String, state: ActivityDetailState.Loaded, 
     }
 }
 
-/** The comment count, every comment oldest first, then a field to add one and why the last one couldn't be sent. */
+/**
+ * The comment count, every comment oldest first with a menu to delete the viewer's own, then a field to add one and why the last one
+ * couldn't be sent or deleted.
+ */
 @Composable
 private fun Comments(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
@@ -209,9 +213,12 @@ private fun Comments(state: ActivityDetailState.Loaded, modifier: Modifier = Mod
         }
         state.comments.forEachIndexed { i, comment ->
             if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = DIVIDER_ALPHA))
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(comment.author.displayName ?: comment.author.handle.value, style = MaterialTheme.typography.labelLarge)
-                Text(comment.text, style = MaterialTheme.typography.bodyMedium)
+            Row(verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(comment.author.displayName ?: comment.author.handle.value, style = MaterialTheme.typography.labelLarge)
+                    Text(comment.text, style = MaterialTheme.typography.bodyMedium)
+                }
+                if (comment.author.did == state.viewerDid) key(comment.uri) { CommentMenu(comment.uri, state.eventSink) }
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {

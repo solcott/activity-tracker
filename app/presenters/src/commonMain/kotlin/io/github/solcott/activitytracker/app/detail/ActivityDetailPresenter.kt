@@ -1,9 +1,6 @@
 package io.github.solcott.activitytracker.app.detail
 
-import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -126,8 +123,12 @@ fun ActivityDetailPresenter(
             is ActivityDetailEvent.ToggleSection,
             ActivityDetailEvent.ToggleAll -> expansion.toggle(event)
 
-            ActivityDetailEvent.SendComment -> {
-                current?.let { sendComment(it, draft, flights, activities) { e -> commentError = e } }
+            ActivityDetailEvent.SendComment,
+            is ActivityDetailEvent.DeleteComment -> {
+                current?.let {
+                    CommentActions(draft, flights, activities, { comments }, { list -> comments = list }) { e -> commentError = e }
+                        .on(event, it)
+                }
             }
 
             is ActivityDetailEvent.Delete -> manage.delete(event.withRecordings)
@@ -142,6 +143,7 @@ fun ActivityDetailPresenter(
             activity = it,
             comments = comments,
             draftComment = draft,
+            viewerDid = profiles.did,
             isOwn = isOwn,
             likesList = likesList,
             likeError = likeError,
@@ -221,33 +223,6 @@ private fun rememberManage(
             }
         },
     )
-}
-
-/**
- * Sends [draft] on [activity] and clears it, unless it's blank or a comment is already sending. A comment the session can't give is
- * reported to [onError] (null clears it) and its text put back, unless something new has been typed since.
- */
-private fun sendComment(
-    activity: ActivityView,
-    draft: TextFieldState,
-    flights: SingleFlight,
-    activities: ActivityRepository,
-    onError: (UiError?) -> Unit,
-) {
-    val text = draft.text.toString()
-    // Checked before clearing the draft, so a dropped repeat can't lose what was typed.
-    if (text.isNotBlank() && !flights.isRunning(ActivityDetailEvent.SendComment)) {
-        draft.clearText()
-        onError(null)
-        flights.launch(ActivityDetailEvent.SendComment) {
-            runSuspendCatching { activities.comment(activity, text) }
-                .onFailure { e ->
-                    val refused = interactionErrorOf(e) ?: return@onFailure
-                    if (draft.text.isEmpty()) draft.setTextAndPlaceCursorAtEnd(text)
-                    onError(refused)
-                }
-        }
-    }
 }
 
 /** Which of the screen's sections show in full, and how [toggle] changes that. */
