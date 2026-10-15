@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.appview.ProfileDetailRules
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityMediaBlobs
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
+import io.github.solcott.activitytracker.appview.db.ActivityZones
 import io.github.solcott.activitytracker.appview.db.CommentHides
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.Likes
@@ -19,6 +20,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivityZonesRecord
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import kotlinx.serialization.json.JsonObject
@@ -35,8 +37,8 @@ import org.jetbrains.exposed.v1.jdbc.upsert
 // Indexing of `feed.activity` records, and the placing of activities and their streams by origin, which the Indexer hands off here.
 
 /**
- * [placement]'s copy of an activity or its streams: decoded, then indexed as the row unless another origin's narrower copy holds it
- * ([place]).
+ * [placement]'s copy of an activity, its streams or its zones: decoded, then indexed as the row unless another origin's narrower copy holds
+ * it ([place]).
  */
 @Suppress("LongParameterList") // The record, and where it's from.
 internal fun JdbcTransaction.upsertPlaced(
@@ -51,6 +53,11 @@ internal fun JdbcTransaction.upsertPlaced(
     if (collection == Nsid.FEED_ACTIVITY) {
         val record = AtJson.decodeFromJsonElement(ActivityRecord.serializer(), json)
         place(collection, uri, cid, json, placement, placement.visibility, now) { upsertActivity(record, author, uri, cid, placement, now) }
+    } else if (collection == Nsid.FEED_ACTIVITY_ZONES) {
+        val record = AtJson.decodeFromJsonElement(ActivityZonesRecord.serializer(), json)
+        place(collection, uri, cid, json, placement, placement.visibility, now) {
+            upsertZones(record, author, uri, cid, json, placement, now)
+        }
     } else {
         val record = AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), json)
         // Like an activity, where it's stored is who may see it; a `visibility` the record still carries is ignored.
@@ -110,8 +117,11 @@ internal fun JdbcTransaction.spaceRkeys(space: SpaceUri, collection: String): Se
                 CommentHides.select(CommentHides.uri).where { CommentHides.origin eq origin }.map { it[CommentHides.uri] }
             else -> {
                 val (uriColumn, originColumn) =
-                    if (collection == Nsid.FEED_ACTIVITY) Activities.uri to Activities.origin
-                    else ActivityStreams.uri to ActivityStreams.origin
+                    when (collection) {
+                        Nsid.FEED_ACTIVITY -> Activities.uri to Activities.origin
+                        Nsid.FEED_ACTIVITY_ZONES -> ActivityZones.uri to ActivityZones.origin
+                        else -> ActivityStreams.uri to ActivityStreams.origin
+                    }
                 val held = uriColumn.table.select(uriColumn).where { originColumn eq origin }.map { it[uriColumn] }
                 val shadowed =
                     RecordShadows.select(RecordShadows.uri)
@@ -142,6 +152,11 @@ internal fun JdbcTransaction.heldCopy(collection: String, uri: AtUri): HeldCopy?
                         it[ActivityStreams.record],
                     )
                 }
+        Nsid.FEED_ACTIVITY_ZONES ->
+            ActivityZones.selectAll()
+                .where { ActivityZones.uri eq uri.value }
+                .singleOrNull()
+                ?.let { HeldCopy(it[ActivityZones.origin], it[ActivityZones.visibility], it[ActivityZones.cid], it[ActivityZones.record]) }
         else -> null
     }
 
@@ -225,7 +240,7 @@ private fun boundedSensors(sensors: List<ActivitySensor>?): List<ActivitySensor>
 /** An origin's copy of a record that holds the indexed row. [record] is null only for a streams row indexed before V15. */
 internal class HeldCopy(val origin: String, val visibility: String, val cid: String, val record: String?)
 
-/** Where a copy of an activity or its streams comes from ([origin]), and the tier it's served at. */
+/** Where a copy of an activity, its streams or its zones comes from ([origin]), and the tier it's served at. */
 data class Placement(val origin: String, val visibility: String) {
     companion object {
         val REPO = Placement(Origins.REPO, Visibility.PUBLIC)

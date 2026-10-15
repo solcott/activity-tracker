@@ -271,7 +271,7 @@ data class ActivityRecord(
  * an [ActivityStreamData] as JSON.
  *
  * Where it's stored is who may see it: public streams in the athlete's repo, the others in their tier space ([AthleteSpace]), never wider
- * than the activity. The record carries no visibility of its own.
+ * than the activity. The record carries no visibility of its own, and no zones: those are an [ActivityZonesRecord], which can be narrower.
  */
 @Serializable
 data class ActivityStreamsRecord(
@@ -282,8 +282,6 @@ data class ActivityStreamsRecord(
     val createdAt: Instant,
     /** Required by the lexicon: null only in the outbox, which uploads the blob and fills it in before `putRecord`. */
     val data: BlobRef? = null,
-    val heartRateZones: ZoneSnapshot? = null,
-    val powerZones: ZoneSnapshot? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_ACTIVITY_STREAMS,
 ) {
     companion object {
@@ -295,7 +293,24 @@ data class ActivityStreamsRecord(
     }
 }
 
-/** `app.activitytracker.feed.activityStreams#zoneSnapshot`: the athlete's zones when the activity was published. */
+/**
+ * `app.activitytracker.feed.activityZones`: the athlete's zones for an activity, under its activity's rkey, so later threshold changes
+ * don't change its time in zone.
+ *
+ * Zone bounds reveal thresholds, so it's stored at the narrower of the activity's charts visibility and the athlete's training visibility:
+ * in the repo when both are public, otherwise in their tier space ([AthleteSpace]). Where it's stored is its only visibility.
+ */
+@Serializable
+data class ActivityZonesRecord(
+    /** The activity's URI; it shares this record's rkey. */
+    val activity: AtUri,
+    val createdAt: Instant,
+    val heartRateZones: ZoneSnapshot? = null,
+    val powerZones: ZoneSnapshot? = null,
+    @SerialName($$"$type") val type: String = Nsid.FEED_ACTIVITY_ZONES,
+)
+
+/** `app.activitytracker.feed.activityZones#zoneSnapshot`: the athlete's zones when the activity was published. */
 @Immutable
 @Serializable
 data class ZoneSnapshot(

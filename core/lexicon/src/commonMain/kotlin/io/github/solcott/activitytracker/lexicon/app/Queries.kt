@@ -91,7 +91,7 @@ object GetActivity {
     val method = XrpcQuery(Nsid.FEED_GET_ACTIVITY, Params.serializer(), Output.serializer())
 }
 
-/** An activity's streams, if the viewer may see them; zones only if the viewer may also see the athlete's training. */
+/** An activity's streams, if the viewer may see them; zones only if the viewer may also see its [ActivityZonesRecord] where it's stored. */
 object GetActivityStreams {
     @Serializable data class Params(val uri: AtUri)
 

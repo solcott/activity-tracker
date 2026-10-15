@@ -75,7 +75,8 @@ class ProfileFollowTest {
             viewer = ProfileViewerState(indexedFollow, indexedRequested),
         )
 
-    private suspend fun repository() = ProfileRepository(signedInTestSession(http, did = alice).clients, Clock.System, Logger)
+    private suspend fun repository() =
+        ProfileRepository(signedInTestSession(http, did = alice).clients, Clock.System, Logger, TrainingNarrowing {})
 
     @Test
     fun followShowsAtOnceAndUntilTheAppViewIndexesIt() = runTest {

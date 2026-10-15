@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.appview.auth.AppViewSigningKey
 import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
+import io.github.solcott.activitytracker.appview.db.ActivityZones
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.CommentHides
 import io.github.solcott.activitytracker.appview.db.Comments
@@ -245,7 +246,7 @@ class SpaceSyncTest {
     }
 
     @Test
-    fun onlyActivitiesAndStreamsAreStored() = testApplication {
+    fun onlyActivitiesStreamsAndZonesAreStored() = testApplication {
         start()
         val self = space(alice, AthleteSpace.SELF)
         pds.put(self, Nsid.ACTOR_PRIVATE_DETAILS, "self", """{"details":{"birthDate":"1990-04-01","weight":61500}}""")
@@ -253,6 +254,13 @@ class SpaceSyncTest {
         pds.put(self, Nsid.GRAPH_FOLLOW_DECLINE, bob, """{"subject":"$bob","createdAt":"2026-10-14T07:00:00Z"}""")
         pds.put(self, Nsid.FEED_ACTIVITY, "3ks1", activity())
         pds.put(self, Nsid.FEED_ACTIVITY_STREAMS, "3ks1", streams("3ks1", Visibility.PUBLIC))
+        pds.put(
+            self,
+            Nsid.FEED_ACTIVITY_ZONES,
+            "3ks1",
+            """{"activity":"at://$alice/${Nsid.FEED_ACTIVITY}/3ks1","powerZones":{"model":"coggan6","lows":[0,138]},""" +
+                """"createdAt":"2026-10-14T07:00:00Z"}""",
+        )
         client.notifySpace(self)
         runDue()
         // A later op of each kind, through the pull rather than the backfill.
@@ -263,6 +271,7 @@ class SpaceSyncTest {
         assertEquals(mapOf("3ks1" to (Visibility.SELF to self.value)), activities())
         val streams = transaction(db) { ActivityStreams.selectAll().single() }
         assertEquals(Visibility.SELF, streams[ActivityStreams.visibility], "never wider than the tier")
+        assertEquals(Visibility.SELF, transaction(db) { ActivityZones.selectAll().single()[ActivityZones.visibility] })
         assertEquals(0, transaction(db) { RecordShadows.selectAll().count() })
         val actor = transaction(db) { Actors.selectAll().where { Actors.did eq alice }.single() }
         assertEquals(null, actor[Actors.birthDate])

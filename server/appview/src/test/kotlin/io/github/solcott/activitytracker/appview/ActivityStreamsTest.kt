@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
+import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
@@ -36,7 +37,10 @@ import org.h2.jdbcx.JdbcDataSource
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.selectAll
 
-/** `getActivityStreams` serves streams by where they're stored: the repo for anyone, a tier space for that tier's viewers. */
+/**
+ * `getActivityStreams` serves streams by where they're stored: the repo for anyone, a tier space for that tier's viewers. Their zones are a
+ * record of their own, served the same way.
+ */
 class ActivityStreamsTest {
     private val service = "did:web:localhost%3A8081"
     private val alice = "did:plc:alice"
@@ -197,19 +201,82 @@ class ActivityStreamsTest {
         assertEquals(HttpStatusCode.NotFound, client.streamsFor(null).status)
     }
 
+    /** Alice's zones for [activity] in her repo when [tier] is public, else in her space for [tier]. */
+    private fun zones(tier: String, rkey: String = "3kride", activity: String = activityUri) {
+        val record =
+            """{"activity":"$activity","powerZones":{"model":"coggan6","lows":[0,138,188,225,263,300]},""" +
+                """"createdAt":"2026-09-30T12:00:00Z"}"""
+        if (tier == Visibility.PUBLIC) {
+            commit(alice, Nsid.FEED_ACTIVITY_ZONES, rkey, record)
+        } else {
+            val space = SpaceUri.of(Did(alice), Nsid.SPACE_ATHLETE, tier)
+            runBlocking {
+                indexer.spaceWrite(space, Nsid.FEED_ACTIVITY_ZONES, rkey, "bafyz$rkey", AtJson.parseToJsonElement(record).jsonObject)
+            }
+        }
+    }
+
+    private fun deleteZones(tier: String, rkey: String = "3kride") {
+        if (tier == Visibility.PUBLIC) {
+            commit(alice, Nsid.FEED_ACTIVITY_ZONES, rkey, null, op = "delete")
+        } else {
+            runBlocking { indexer.spaceDelete(SpaceUri.of(Did(alice), Nsid.SPACE_ATHLETE, tier), Nsid.FEED_ACTIVITY_ZONES, rkey) }
+        }
+    }
+
     @Test
-    fun zonesNeedTheAthletesTrainingToBePublic() = testApplication {
+    fun zonesServeOnlyViewersTheirPlaceAdmits() = testApplication {
         start()
         streams(Visibility.PUBLIC)
+        zones(Visibility.MUTUALS)
 
-        // Bob is Alice's mutual, but non-public training lives in her tier spaces, which the AppView can't see.
         assertNotNull(client.streamsFor(alice).output().powerZones)
-        assertNull(client.streamsFor(bob).output().powerZones)
-        assertNull(client.streamsFor(carol).output().powerZones)
-
-        commit(alice, Nsid.ACTOR_PROFILE, "self", """{"details":{"training":{"functionalThresholdPower":250}}}""")
         assertNotNull(client.streamsFor(bob).output().powerZones)
+        // Carol follows Alice one way: she gets the charts, not the zones.
+        assertNull(client.streamsFor(carol).output().powerZones)
+        assertNull(client.streamsFor(null).output().powerZones)
+    }
+
+    @Test
+    fun publicZonesServeAnyoneWhoSeesTheCharts() = testApplication {
+        start()
+        streams(Visibility.PUBLIC)
+        zones(Visibility.PUBLIC)
+        assertNotNull(client.streamsFor(null).output().powerZones)
         assertNotNull(client.streamsFor(carol).output().powerZones)
+    }
+
+    @Test
+    fun zonesInAStreamsRecordAreIgnored() = testApplication {
+        start()
+        // The streams record carries powerZones, but there's no zones record: no one gets zones, the athlete included.
+        streams(Visibility.PUBLIC)
+        assertNull(client.streamsFor(alice).output().powerZones)
+    }
+
+    @Test
+    fun theNarrowerCopyOfZonesWinsMidMove() = testApplication {
+        start()
+        streams(Visibility.PUBLIC)
+        zones(Visibility.PUBLIC)
+        zones(Visibility.MUTUALS)
+        assertNull(client.streamsFor(carol).output().powerZones)
+        assertNotNull(client.streamsFor(bob).output().powerZones)
+
+        // The narrower copy goes first: the repo's takes over again until its own delete lands.
+        deleteZones(Visibility.MUTUALS)
+        assertNotNull(client.streamsFor(carol).output().powerZones)
+        deleteZones(Visibility.PUBLIC)
+        assertNull(client.streamsFor(alice).output().powerZones)
+    }
+
+    @Test
+    fun zonesOutsideTheirActivitysRkeyOrInInteractionsAreDropped() = testApplication {
+        start()
+        streams(Visibility.PUBLIC)
+        zones(Visibility.PUBLIC, rkey = "3kother")
+        zones(AthleteSpace.INTERACTIONS)
+        assertNull(client.streamsFor(alice).output().powerZones)
     }
 
     @Test

@@ -51,6 +51,7 @@ import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -258,7 +259,12 @@ class ImportActivityPresenterTest {
         assertTrue(fixture.putRecords.none { it.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY_STREAMS })
         val (tier, streams) = fixture.spacePuts.single { it.second.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY_STREAMS }
         assertEquals(Visibility.MUTUALS, tier)
-        val zones = streams.getValue("heartRateZones").jsonObject
+        assertFalse("heartRateZones" in streams, "zones are a record of their own")
+        // Zones go to the narrower of the charts (Mutuals) and the training (Only me).
+        val (zonesTier, zonesRecord) =
+            fixture.spacePuts.single { it.second.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY_ZONES }
+        assertEquals(Visibility.SELF, zonesTier)
+        val zones = zonesRecord.getValue("heartRateZones").jsonObject
         assertEquals(HeartRateZoneModel.PERCENT_MAX, zones.getValue("model").jsonPrimitive.content)
         // Zones from the device's max heart rate (188), not the saved 190.
         val expected = Zones.compute(ZoneModels.heartRate(HeartRateZoneModel.PERCENT_MAX), TrainingDetails(maxHeartRate = 188))!!

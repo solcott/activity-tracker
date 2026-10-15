@@ -11,9 +11,6 @@ import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.detail.ActivityDetailState
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
-import io.github.solcott.activitytracker.data.activity.OutboxProcessor
-import io.github.solcott.activitytracker.data.activity.OutboxWriter
-import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
@@ -136,9 +133,8 @@ class ActivityDetailManageTest {
     ): @Composable () -> ActivityDetailState {
         val (db, _, clients) = signedInTestSession(http, did = alice)
         val feed = FeedRepository(db, clients, localLikes, Logger)
-        val outbox = OutboxProcessor(db, clients, Logger)
-        val writer = OutboxWriter(db, clients, Clock.System)
-        val streams = PdsActivityStreamsStore(writer, clients, Clock.System)
+        val zones = TestZones(db, clients)
+        val (outbox, writer, streams) = Triple(zones.outbox, zones.writer, zones.streams)
         val activities =
             ActivityRepository(
                 db,
@@ -146,12 +142,13 @@ class ActivityDetailManageTest {
                 outbox,
                 writer,
                 streams,
+                zones.store,
                 feed,
                 localLikes,
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
             )
-        val profiles = ProfileRepository(clients, Clock.System, Logger)
+        val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
         val manager = ActivityManager(db, clients, outbox, writer, streams, feed)
         return { ActivityDetailPresenter(ActivityDetailScreen(uri), navigator, feed, activities, profiles, localLikes, manager) }
     }

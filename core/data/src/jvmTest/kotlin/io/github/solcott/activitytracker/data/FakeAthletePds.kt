@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
+import io.github.solcott.activitytracker.data.activity.ActivityZonesStore
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
@@ -53,8 +54,9 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
     val announced = mutableListOf<String>()
     val created = mutableListOf<String>()
 
-    /** Fail space deletes while set; and every request to the PDS while [offline]. */
+    /** Fail space deletes, or space puts, while set; and every request to the PDS while [offline]. */
     var failSpaceDeletes = false
+    var failSpacePuts = false
     var offline = false
 
     /**
@@ -97,6 +99,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                     path == "/xrpc/com.atproto.repo.putRecord" || path == "/xrpc/com.atproto.space.putRecord" -> {
                         val input = body(request)
                         val place = placeOf(input)
+                        if (place != repo && failSpacePuts) return@MockEngine error("RateLimitExceeded", HttpStatusCode.TooManyRequests)
                         val key = "${input.getValue("collection").jsonPrimitive.content}/${input.getValue("rkey").jsonPrimitive.content}"
                         stored.getOrPut(place) { mutableMapOf() }[key] = input.getValue("record").jsonObject
                         writes += "put $place $key"
@@ -119,6 +122,21 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                         val key = "${params["collection"]}/${params["rkey"]}"
                         val value = stored[place]?.get(key) ?: return@MockEngine error("RecordNotFound")
                         json("""{"uri":"at://$did/$key","cid":"bafyrec","value":$value}""")
+                    }
+                    path == "/xrpc/com.atproto.repo.listRecords" || path == "/xrpc/com.atproto.space.listRecords" -> {
+                        val params = request.url.parameters
+                        val place = params["space"]?.substringAfterLast('/') ?: repo
+                        val collection = params["collection"]!!
+                        val records =
+                            stored[place]
+                                .orEmpty()
+                                .filterKeys { it.startsWith("$collection/") }
+                                .map { (key, value) ->
+                                    val rkey = key.substringAfter('/')
+                                    if (place == repo) """{"uri":"at://$did/$key","cid":"bafyrec","value":$value}"""
+                                    else """{"collection":"$collection","rkey":"$rkey","cid":"bafyrec","value":$value}"""
+                                }
+                        json("""{"records":[${records.joinToString(",")}]}""")
                     }
                     path == "/xrpc/${Nsid.FEED_GET_ACTIVITY}" ->
                         served?.let { json(AtJson.encodeToString(GetActivity.Output.serializer(), GetActivity.Output(it.activity))) }
@@ -178,6 +196,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
         val manager: ActivityManager,
         val streams: PdsActivityStreamsStore,
         val defaults: ActivityDefaults,
+        val zones: ActivityZonesStore,
     )
 
     suspend fun session(scope: String? = null): Session {
@@ -186,7 +205,8 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
         val outbox = OutboxProcessor(db, clients, Logger)
         val feed = FeedRepository(db, clients, LocalLikes(), Logger)
         val writer = OutboxWriter(db, clients, Clock.System)
-        val streams = PdsActivityStreamsStore(writer, clients, Clock.System)
+        val zones = ActivityZonesStore(db, writer, outbox, clients, Clock.System, Logger)
+        val streams = PdsActivityStreamsStore(writer, clients, Clock.System, zones)
         val activities =
             ActivityRepository(
                 db,
@@ -194,6 +214,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                 outbox,
                 writer,
                 streams,
+                zones,
                 feed,
                 LocalLikes(),
                 RecentActivityTypes(db, clients, feed),
@@ -207,6 +228,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
             ActivityManager(db, clients, outbox, writer, streams, feed),
             streams,
             ActivityDefaults(clients),
+            zones,
         )
     }
 }

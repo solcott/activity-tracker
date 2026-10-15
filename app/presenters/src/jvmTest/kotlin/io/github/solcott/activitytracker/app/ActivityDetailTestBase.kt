@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.app.detail.LikesList
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
+import io.github.solcott.activitytracker.data.activity.ActivityZonesStore
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
@@ -175,7 +176,8 @@ open class ActivityDetailTestBase {
         val feed = FeedRepository(db, clients, localLikes, Logger)
         val outbox = OutboxProcessor(db, clients, Logger)
         val writer = OutboxWriter(db, clients, Clock.System)
-        val streams = PdsActivityStreamsStore(writer, clients, Clock.System)
+        val zones = ActivityZonesStore(db, writer, outbox, clients, Clock.System, Logger)
+        val streams = PdsActivityStreamsStore(writer, clients, Clock.System, zones)
         val activities =
             ActivityRepository(
                 db,
@@ -183,6 +185,7 @@ open class ActivityDetailTestBase {
                 outbox,
                 writer,
                 streams,
+                zones,
                 feed,
                 localLikes,
                 RecentActivityTypes(db, clients, feed),
@@ -192,7 +195,7 @@ open class ActivityDetailTestBase {
             db,
             feed,
             activities,
-            ProfileRepository(clients, Clock.System, Logger),
+            ProfileRepository(clients, Clock.System, Logger, zones),
             ActivityManager(db, clients, outbox, writer, streams, feed),
         )
     }

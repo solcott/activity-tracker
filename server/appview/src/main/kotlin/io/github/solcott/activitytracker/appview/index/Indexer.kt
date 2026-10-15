@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.appview.ProfileDetailRules
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityMediaBlobs
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
+import io.github.solcott.activitytracker.appview.db.ActivityZones
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.CommentHides
 import io.github.solcott.activitytracker.appview.db.Comments
@@ -106,11 +107,8 @@ class Indexer(
     /** Everything indexed from [space], after it was deleted: as if each record in it were deleted. */
     suspend fun dropSpace(space: SpaceUri) = db.tx {
         val placement = Placement.of(space)
-        for (table in listOf(Activities, ActivityStreams)) {
-            val (uriColumn, originColumn, collection) =
-                if (table == Activities) Triple(Activities.uri, Activities.origin, Nsid.FEED_ACTIVITY)
-                else Triple(ActivityStreams.uri, ActivityStreams.origin, Nsid.FEED_ACTIVITY_STREAMS)
-            table
+        for ((uriColumn, originColumn, collection) in PLACED) {
+            uriColumn.table
                 .select(uriColumn)
                 .where { originColumn eq placement.origin }
                 .map { it[uriColumn] }
@@ -152,7 +150,8 @@ class Indexer(
         val now = clock.now().toEpochMilliseconds()
         when (collection) {
             Nsid.FEED_ACTIVITY,
-            Nsid.FEED_ACTIVITY_STREAMS -> {
+            Nsid.FEED_ACTIVITY_STREAMS,
+            Nsid.FEED_ACTIVITY_ZONES -> {
                 upsertPlaced(collection, author, uri, cid, json, placement, now)
             }
 
@@ -216,14 +215,17 @@ class Indexer(
     private fun JdbcTransaction.delete(collection: String, uri: AtUri, placement: Placement) {
         when (collection) {
             Nsid.FEED_ACTIVITY,
-            Nsid.FEED_ACTIVITY_STREAMS -> {
+            Nsid.FEED_ACTIVITY_STREAMS,
+            Nsid.FEED_ACTIVITY_ZONES -> {
                 RecordShadows.deleteWhere { (RecordShadows.uri eq uri.value) and (origin eq placement.origin) }
                 if (heldCopy(collection, uri)?.origin != placement.origin) return
-                if (collection == Nsid.FEED_ACTIVITY) {
-                    Activities.deleteWhere { Activities.uri eq uri.value }
-                    ActivityMediaBlobs.deleteWhere { activityUri eq uri.value }
-                } else {
-                    ActivityStreams.deleteWhere { ActivityStreams.uri eq uri.value }
+                when (collection) {
+                    Nsid.FEED_ACTIVITY -> {
+                        Activities.deleteWhere { Activities.uri eq uri.value }
+                        ActivityMediaBlobs.deleteWhere { activityUri eq uri.value }
+                    }
+                    Nsid.FEED_ACTIVITY_ZONES -> ActivityZones.deleteWhere { ActivityZones.uri eq uri.value }
+                    else -> ActivityStreams.deleteWhere { ActivityStreams.uri eq uri.value }
                 }
                 promoteShadow(collection, uri)
                 dropOrphanedStreamData()
@@ -279,6 +281,7 @@ class Indexer(
         Activities.deleteWhere { authorDid eq did.value }
         ActivityMediaBlobs.deleteWhere { authorDid eq did.value }
         ActivityStreams.deleteWhere { authorDid eq did.value }
+        ActivityZones.deleteWhere { authorDid eq did.value }
         dropOrphanedStreamData()
         Likes.deleteWhere { authorDid eq did.value }
         Comments.deleteWhere { authorDid eq did.value }
@@ -291,13 +294,21 @@ class Indexer(
     }
 
     companion object {
-        private val TIER_COLLECTIONS = setOf(Nsid.FEED_ACTIVITY, Nsid.FEED_ACTIVITY_STREAMS)
+        private val TIER_COLLECTIONS = setOf(Nsid.FEED_ACTIVITY, Nsid.FEED_ACTIVITY_STREAMS, Nsid.FEED_ACTIVITY_ZONES)
+
+        /** The tables of records placed by origin: each one's URI and origin columns, and its collection. */
+        private val PLACED =
+            listOf(
+                Triple(Activities.uri, Activities.origin, Nsid.FEED_ACTIVITY),
+                Triple(ActivityStreams.uri, ActivityStreams.origin, Nsid.FEED_ACTIVITY_STREAMS),
+                Triple(ActivityZones.uri, ActivityZones.origin, Nsid.FEED_ACTIVITY_ZONES),
+            )
         private val INTERACTION_COLLECTIONS = setOf(Nsid.FEED_LIKE, Nsid.FEED_COMMENT, Nsid.FEED_COMMENT_HIDE)
 
         /**
          * What the AppView indexes from the athlete space with key [skey]: likes, comments and comment hides from the interactions space,
-         * and activities and their streams from a tier (an unknown key is a tier only the athlete sees). Private details, follow declines
-         * and defaults are never stored.
+         * and activities, their streams and their zones from a tier (an unknown key is a tier only the athlete sees). Private details,
+         * follow declines and defaults are never stored.
          */
         fun spaceCollections(skey: String): Set<String> =
             if (skey == AthleteSpace.INTERACTIONS) INTERACTION_COLLECTIONS else TIER_COLLECTIONS

@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityEdit
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
+import io.github.solcott.activitytracker.data.activity.ActivityZonesStore
 import io.github.solcott.activitytracker.data.activity.MediaEdit
 import io.github.solcott.activitytracker.data.activity.NewPhoto
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
@@ -185,7 +186,8 @@ class ActivityRepositoryTest {
         val localLikes = LocalLikes()
         feed = FeedRepository(db, clients, localLikes, logger)
         val writer = OutboxWriter(db, clients, Clock.System)
-        val streams = PdsActivityStreamsStore(writer, clients, Clock.System)
+        val zones = ActivityZonesStore(db, writer, outbox, clients, Clock.System, logger)
+        val streams = PdsActivityStreamsStore(writer, clients, Clock.System, zones)
         manager = ActivityManager(db, clients, outbox, writer, streams, feed)
         return ActivityRepository(
             db,
@@ -193,6 +195,7 @@ class ActivityRepositoryTest {
             outbox,
             writer,
             streams,
+            zones,
             feed,
             localLikes,
             RecentActivityTypes(db, clients, feed),
@@ -388,7 +391,7 @@ class ActivityRepositoryTest {
         assertFalse("visibility" in streams.getValue("record").jsonObject, "the repo is who may see them")
         assertEquals(listOf(StreamChannel.POWER), record.channels)
         assertEquals("bafyblob", record.data?.ref?.link)
-        assertEquals(draft.powerZones, record.powerZones)
+        assertFalse("powerZones" in streams.getValue("record").jsonObject, "zones are a record of their own")
     }
 
     @Test
@@ -447,7 +450,14 @@ class ActivityRepositoryTest {
 
         manager.delete(activity, withRecordings = false)
 
-        assertEquals(listOf("delete ${Nsid.FEED_ACTIVITY}/3kgone", "delete ${Nsid.FEED_ACTIVITY_STREAMS}/3kgone"), writes)
+        assertEquals(
+            listOf(
+                "delete ${Nsid.FEED_ACTIVITY}/3kgone",
+                "delete ${Nsid.FEED_ACTIVITY_STREAMS}/3kgone",
+                "delete ${Nsid.FEED_ACTIVITY_ZONES}/3kgone",
+            ),
+            writes,
+        )
         assertEquals(listOf("3kkept"), feed.timeline().first().map { it.uri.rkey })
         feed.refreshTimeline()
         assertEquals(listOf("3kkept"), feed.timeline().first().map { it.uri.rkey }, "Jetstream hasn't brought the AppView the delete yet")
@@ -461,7 +471,11 @@ class ActivityRepositoryTest {
 
         assertEquals(
             listOf("3krec1", "3krec2", "3kmain").flatMap {
-                listOf("delete ${Nsid.FEED_ACTIVITY}/$it", "delete ${Nsid.FEED_ACTIVITY_STREAMS}/$it")
+                listOf(
+                    "delete ${Nsid.FEED_ACTIVITY}/$it",
+                    "delete ${Nsid.FEED_ACTIVITY_STREAMS}/$it",
+                    "delete ${Nsid.FEED_ACTIVITY_ZONES}/$it",
+                )
             },
             writes,
         )
@@ -487,6 +501,7 @@ class ActivityRepositoryTest {
                 "put ${Nsid.FEED_ACTIVITY}/3krec1",
                 "delete ${Nsid.FEED_ACTIVITY}/3kmain",
                 "delete ${Nsid.FEED_ACTIVITY_STREAMS}/3kmain",
+                "delete ${Nsid.FEED_ACTIVITY_ZONES}/3kmain",
             ),
             writes,
         )

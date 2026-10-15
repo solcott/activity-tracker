@@ -17,9 +17,6 @@ import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
 import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
-import io.github.solcott.activitytracker.data.activity.OutboxProcessor
-import io.github.solcott.activitytracker.data.activity.OutboxWriter
-import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
@@ -68,19 +65,21 @@ class FeedPresenterTest {
         val (db, _, clients) = signedInTestSession(http)
         val localLikes = LocalLikes()
         val feed = FeedRepository(db, clients, localLikes, Logger)
+        val zones = TestZones(db, clients)
         val activities =
             ActivityRepository(
                 db,
                 clients,
-                OutboxProcessor(db, clients, Logger),
-                OutboxWriter(db, clients, Clock.System),
-                PdsActivityStreamsStore(OutboxWriter(db, clients, Clock.System), clients, Clock.System),
+                zones.outbox,
+                zones.writer,
+                zones.streams,
+                zones.store,
                 feed,
                 localLikes,
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
             )
-        return Repos(feed, activities, ProfileRepository(clients, Clock.System, Logger))
+        return Repos(feed, activities, ProfileRepository(clients, Clock.System, Logger, zones.store))
     }
 
     private suspend fun presenterTest(
@@ -154,19 +153,21 @@ class FeedPresenterTest {
         val (db, _, clients) = signedInTestSession(appView, scope = scope)
         val localLikes = LocalLikes()
         val feed = FeedRepository(db, clients, localLikes, Logger)
+        val zones = TestZones(db, clients)
         val activities =
             ActivityRepository(
                 db,
                 clients,
-                OutboxProcessor(db, clients, Logger),
-                OutboxWriter(db, clients, Clock.System),
-                PdsActivityStreamsStore(OutboxWriter(db, clients, Clock.System), clients, Clock.System),
+                zones.outbox,
+                zones.writer,
+                zones.streams,
+                zones.store,
                 feed,
                 localLikes,
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
             )
-        val profiles = ProfileRepository(clients, Clock.System, Logger)
+        val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
         presenterTestOf(
             { FeedPresenter(FakeNavigator(FeedScreen), feed, activities, profiles, UnsupportedLocationTracker(), Clock.System) },
             timeout = TURBINE_TIMEOUT,

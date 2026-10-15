@@ -169,7 +169,8 @@ class FollowRequestsRepositoryTest {
             expectSuccess = false
         }
 
-    private suspend fun repository() = ProfileRepository(signedInTestSession(http, did = alice).clients, Clock.System, Logger)
+    private suspend fun repository() =
+        ProfileRepository(signedInTestSession(http, did = alice).clients, Clock.System, Logger, TrainingNarrowing {})
 
     private suspend fun requests() = FollowRequestsRepository(signedInTestSession(http, did = alice).clients, Clock.System, Logger)
 

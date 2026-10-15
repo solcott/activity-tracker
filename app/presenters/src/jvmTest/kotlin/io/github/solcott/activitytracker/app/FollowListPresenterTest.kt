@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.profile.FollowRequestsRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.profile.TrainingNarrowing
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.ktor.client.HttpClient
@@ -91,7 +92,7 @@ class FollowListPresenterTest {
         }
 
     private suspend fun profiles(): ProfileRepository {
-        return ProfileRepository(signedInTestSession(http, did = alice).clients, Clock.System, Logger)
+        return ProfileRepository(signedInTestSession(http, did = alice).clients, Clock.System, Logger, TrainingNarrowing {})
     }
 
     private suspend fun requests() = FollowRequestsRepository(signedInTestSession(http, did = alice).clients, Clock.System, Logger)

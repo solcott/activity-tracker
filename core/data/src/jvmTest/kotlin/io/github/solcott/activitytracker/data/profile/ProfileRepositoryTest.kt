@@ -246,7 +246,7 @@ class ProfileRepositoryTest {
         )
 
     private suspend fun repository(clock: Clock = Clock.System): ProfileRepository {
-        return ProfileRepository(signedInTestSession(http, did = did).clients, clock, Logger)
+        return ProfileRepository(signedInTestSession(http, did = did).clients, clock, Logger, TrainingNarrowing {})
     }
 
     private val portland = Location(locality = "Portland", country = "US")

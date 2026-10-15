@@ -6,6 +6,7 @@ import co.touchlab.kermit.TestLogWriter
 import co.touchlab.kermit.loggerConfigInit
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.profile.TrainingNarrowing
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.ktor.client.HttpClient
@@ -66,7 +67,7 @@ class UnitsRepositoryTest {
 
     private suspend fun repository(default: UnitSystem = UnitSystem.Metric): UnitsRepository {
         val clients = signedInTestSession(http, did = did, logger = logger).clients
-        return UnitsRepository(ProfileRepository(clients, Clock.System, Logger), Clock.System, logger, default)
+        return UnitsRepository(ProfileRepository(clients, Clock.System, Logger, TrainingNarrowing {}), Clock.System, logger, default)
     }
 
     private fun putRecord(index: Int = putBodies.lastIndex) =

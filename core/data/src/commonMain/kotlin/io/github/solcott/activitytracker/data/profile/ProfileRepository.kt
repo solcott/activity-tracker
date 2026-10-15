@@ -34,6 +34,7 @@ class ProfileRepository(
     private val clients: SessionClients,
     internal val clock: Clock,
     logger: Logger,
+    private val trainingNarrowing: TrainingNarrowing,
 ) {
     private val logger = logger.withTag("ProfileRepository")
 
@@ -173,6 +174,7 @@ class ProfileRepository(
                     group.copy(currentDetails, details) to group.withVisibility(visibility, group.visibility(currentVisibility))
                 }
             }
+        trainingNarrowing.narrowFirst(existing, current, allDetails, allVisibility)
         val placed = DetailGroup.entries.filter { it.isSet(allDetails) }.groupBy { it.visibility(allVisibility) ?: Visibility.SELF }
         val final = AthleteSpaces.TIERS.associateWith { tier -> allDetails.only(placed[tier].orEmpty()) }
         // Every tier left holding details gets a current managing app, even when this save doesn't change its record: re-saving is how an
@@ -279,6 +281,24 @@ private suspend fun savePolicy(clients: SessionClients, clock: Clock, edit: Stri
     return policy
 }
 
+/**
+ * When a save of [details] at [visibility] narrows the training's visibility from what [existing] and [current] hold, narrows what reveals
+ * it more widely first ([TrainingNarrowing]), so a failure stops the save with the training still at its old visibility.
+ */
+private suspend fun TrainingNarrowing.narrowFirst(
+    existing: ProfileRecord?,
+    current: Map<String, ProfileDetails>,
+    details: ProfileDetails,
+    visibility: DetailsVisibility,
+) {
+    if (!DetailGroup.Training.isSet(details)) return
+    val (savedDetails, savedVisibility) = ownDetails(existing, current)
+    if (!DetailGroup.Training.isSet(savedDetails)) return
+    val from = DetailGroup.Training.visibility(savedVisibility) ?: Visibility.SELF
+    val to = DetailGroup.Training.visibility(visibility) ?: Visibility.SELF
+    if (Visibility.rank(to) > Visibility.rank(from)) narrowTo(to)
+}
+
 /** A profile record's `followPolicy` as a [FollowPolicy] value: only [FollowPolicy.APPROVE] is kept, anything else is open. */
 internal fun String?.toFollowPolicy(): String = if (this == FollowPolicy.APPROVE) FollowPolicy.APPROVE else FollowPolicy.OPEN
 
@@ -286,7 +306,7 @@ internal fun String?.toFollowPolicy(): String = if (this == FollowPolicy.APPROVE
  * Every detail the athlete has set, from their [record] and their [tiers]' records, and an effective visibility for each group (see
  * [OwnProfile]). A detail a failed save left in two places shows where it's seen most widely.
  */
-private fun ownDetails(record: ProfileRecord?, tiers: Map<String, ProfileDetails>): Pair<ProfileDetails, DetailsVisibility> {
+internal fun ownDetails(record: ProfileRecord?, tiers: Map<String, ProfileDetails>): Pair<ProfileDetails, DetailsVisibility> {
     val sources = listOf(Visibility.PUBLIC to (record?.details ?: ProfileDetails())) + tiers.toList()
     var details = ProfileDetails()
     var visibility = DetailsVisibility()

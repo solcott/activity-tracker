@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "Per-sample data recorded during an activity, for charts. Its rkey is its activity's. Where it's stored is who may see it: public streams are a record in the athlete's repo; followers, mutuals or self streams are a record in the athlete's app.activitytracker.space.athlete space for that tier. Never more visible than its activity. The AppView serves it only to the viewers its place allows.",
+      "description": "Per-sample data recorded during an activity, for charts. Its rkey is its activity's. Where it's stored is who may see it: public streams are a record in the athlete's repo; followers, mutuals or self streams are a record in the athlete's app.activitytracker.space.athlete space for that tier. Never more visible than its activity. The AppView serves it only to the viewers its place allows. Its zones are a separate app.activitytracker.feed.activityZones record, since they can be narrower.",
       "key": "tid",
       "record": {
         "type": "object",
@@ -21,8 +21,6 @@
             },
             "description": "The channels #streamData holds, so a client knows which charts exist without fetching it."
           },
-          "heartRateZones": { "type": "ref", "ref": "#zoneSnapshot" },
-          "powerZones": { "type": "ref", "ref": "#zoneSnapshot" },
           "data": {
             "type": "blob",
             "accept": ["application/json"],
@@ -30,20 +28,6 @@
             "description": "A #streamData as JSON."
           },
           "createdAt": { "type": "string", "format": "datetime" }
-        }
-      }
-    },
-    "zoneSnapshot": {
-      "type": "object",
-      "description": "The athlete's zones when the activity was published, so later threshold changes don't change its time in zone.",
-      "required": ["model", "lows"],
-      "properties": {
-        "model": { "type": "string", "maxLength": 64, "description": "The zone model token, e.g. cogganPower6." },
-        "lows": {
-          "type": "array",
-          "maxLength": 12,
-          "items": { "type": "integer", "minimum": 0 },
-          "description": "Each zone's lower bound in bpm or watts, lowest zone first; each zone ends where the next begins."
         }
       }
     },

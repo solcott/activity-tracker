@@ -1,0 +1,35 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.activityZones",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "The athlete's heart rate and power zones for an activity, so its time in zone doesn't change with later thresholds. Its rkey is its activity's. Zone bounds reveal training thresholds, so it is stored at the narrower of the activity's charts visibility and the athlete's training visibility: in the athlete's repo when both are public, otherwise in their app.activitytracker.space.athlete space for that tier. Where it's stored is its only visibility. The AppView serves it only to the viewers its place allows.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["activity", "createdAt"],
+        "properties": {
+          "activity": { "type": "string", "format": "at-uri", "description": "The activity's URI; it shares this record's rkey." },
+          "heartRateZones": { "type": "ref", "ref": "#zoneSnapshot" },
+          "powerZones": { "type": "ref", "ref": "#zoneSnapshot" },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    },
+    "zoneSnapshot": {
+      "type": "object",
+      "description": "The athlete's zones when the activity was published, so later threshold changes don't change its time in zone.",
+      "required": ["model", "lows"],
+      "properties": {
+        "model": { "type": "string", "maxLength": 64, "description": "The zone model token, e.g. cogganPower6." },
+        "lows": {
+          "type": "array",
+          "maxLength": 12,
+          "items": { "type": "integer", "minimum": 0 },
+          "description": "Each zone's lower bound in bpm or watts, lowest zone first; each zone ends where the next begins."
+        }
+      }
+    }
+  }
+}

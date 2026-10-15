@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "query",
-      "description": "An activity's per-sample streams, if its visibility lets the viewer see them. NotFound when there are none or the viewer may not see them. Zones are left out unless the viewer may also see the athlete's training details.",
+      "description": "An activity's per-sample streams, if its visibility lets the viewer see them. NotFound when there are none or the viewer may not see them. Zones are left out unless the viewer may also see the activity's feed.activityZones record where it's stored.",
       "parameters": {
         "type": "params",
         "required": ["uri"],
@@ -21,8 +21,8 @@
             "uri": { "type": "string", "format": "at-uri", "description": "The activity's URI." },
             "visibility": { "type": "string", "knownValues": ["public", "followers", "mutuals", "self"] },
             "channels": { "type": "array", "items": { "type": "string" } },
-            "heartRateZones": { "type": "ref", "ref": "app.activitytracker.feed.activityStreams#zoneSnapshot" },
-            "powerZones": { "type": "ref", "ref": "app.activitytracker.feed.activityStreams#zoneSnapshot" },
+            "heartRateZones": { "type": "ref", "ref": "app.activitytracker.feed.activityZones#zoneSnapshot" },
+            "powerZones": { "type": "ref", "ref": "app.activitytracker.feed.activityZones#zoneSnapshot" },
             "data": { "type": "ref", "ref": "app.activitytracker.feed.activityStreams#streamData" }
           }
         }

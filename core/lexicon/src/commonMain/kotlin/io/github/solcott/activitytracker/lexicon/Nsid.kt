@@ -29,6 +29,8 @@ object Nsid {
     const val FEED_GET_LIKES = "$NAMESPACE.feed.getLikes"
     const val FEED_GET_COMMENTS = "$NAMESPACE.feed.getComments"
     const val FEED_ACTIVITY_STREAMS = "$NAMESPACE.feed.activityStreams"
+    /** An activity's zone snapshots, apart from its streams because they can be narrower (the training's visibility). */
+    const val FEED_ACTIVITY_ZONES = "$NAMESPACE.feed.activityZones"
     /** Not a record or a query: the views' definitions, named in a union member's `$type`. */
     const val FEED_DEFS = "$NAMESPACE.feed.defs"
     const val FEED_GET_ACTIVITY_STREAMS = "$NAMESPACE.feed.getActivityStreams"
@@ -56,6 +58,7 @@ object Nsid {
             ACTOR_PROFILE,
             FEED_ACTIVITY,
             FEED_ACTIVITY_STREAMS,
+            FEED_ACTIVITY_ZONES,
             FEED_LIKE,
             FEED_COMMENT,
             FEED_COMMENT_HIDE,

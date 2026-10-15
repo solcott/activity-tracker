@@ -49,6 +49,7 @@ class ActivityRepository(
     private val outbox: OutboxProcessor,
     private val writer: OutboxWriter,
     private val streams: ActivityStreamsStore,
+    private val zones: ActivityZonesStore,
     private val feed: FeedRepository,
     private val localLikes: LocalLikes,
     private val recentTypes: RecentActivityTypes,
@@ -119,8 +120,9 @@ class ActivityRepository(
             ActivityStreams(
                 data,
                 have?.visibility ?: Visibility.capped(draft.streamsVisibility, existing.visibility),
-                have?.heartRateZones ?: draft.heartRateZones,
-                have?.powerZones ?: draft.powerZones,
+                // Zones already stored stay as they are.
+                draft.heartRateZones.takeIf { have?.heartRateZones == null && have?.powerZones == null },
+                draft.powerZones.takeIf { have?.heartRateZones == null && have?.powerZones == null },
             ),
         )
     }
@@ -296,8 +298,14 @@ class ActivityRepository(
         return changed
     }
 
-    /** Retries anything left in the outbox (e.g. on app start or reconnect). */
-    suspend fun sync(): Int = outbox.drain()
+    /**
+     * Retries anything left in the outbox (e.g. on app start or reconnect), first queueing, once a session, the moves of any zones left
+     * wider than they should be ([ActivityZonesStore.sweepOnce]).
+     */
+    suspend fun sync(): Int {
+        zones.sweepOnce()
+        return outbox.drain()
+    }
 }
 
 /**

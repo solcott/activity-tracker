@@ -15,9 +15,6 @@ import io.github.solcott.activitytracker.app.edit.EditMedia
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityManager
-import io.github.solcott.activitytracker.data.activity.OutboxProcessor
-import io.github.solcott.activitytracker.data.activity.OutboxWriter
-import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.activity.cid
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -158,11 +155,10 @@ class EditActivityPresenterTest {
     private suspend fun presenter(navigator: FakeNavigator): @Composable () -> EditActivityState {
         val (db, _, clients) = signedInTestSession(http, did = alice)
         val feed = FeedRepository(db, clients, LocalLikes(), Logger)
-        val outbox = OutboxProcessor(db, clients, Logger)
-        val writer = OutboxWriter(db, clients, Clock.System)
-        val manager = ActivityManager(db, clients, outbox, writer, PdsActivityStreamsStore(writer, clients, Clock.System), feed)
+        val zones = TestZones(db, clients)
+        val manager = ActivityManager(db, clients, zones.outbox, zones.writer, zones.streams, feed)
         val defaults = ActivityDefaults(clients)
-        val profiles = ProfileRepository(clients, Clock.System, Logger)
+        val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
         return { EditActivityPresenter(EditActivityScreen(uri), navigator, feed, manager, defaults, profiles) }
     }
 

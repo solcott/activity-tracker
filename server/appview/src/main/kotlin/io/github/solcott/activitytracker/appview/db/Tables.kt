@@ -148,15 +148,33 @@ object ActivityStreams : Table("activity_streams") {
     val visibility = varchar("visibility", 16)
     /** JSON array of channel tokens. */
     val channels = text("channels")
-    /** `activityStreams#zoneSnapshot` as JSON. */
-    val heartRateZones = text("heart_rate_zones").nullable()
-    val powerZones = text("power_zones").nullable()
     val blobCid = varchar("blob_cid", 255)
     val indexedAt = long("indexed_at")
     /** As [Activities.origin]. */
     val origin = varchar("origin", 512).default(Origins.REPO)
     /** The raw record JSON, so the row can become a [RecordShadows] copy mid-move; null on rows indexed before V15. */
     val record = text("record").nullable()
+    override val primaryKey = PrimaryKey(uri)
+}
+
+/**
+ * `feed.activityZones` records, which share their activity's rkey. Served at [visibility], where the record is stored, and only alongside
+ * streams the viewer may see (`ActivityStreamsViews`).
+ */
+object ActivityZones : Table("activity_zones") {
+    val uri = varchar("uri", 512)
+    val cid = varchar("cid", 255)
+    val authorDid = varchar("author_did", 255)
+    val activityUri = varchar("activity_uri", 512)
+    val visibility = varchar("visibility", 16)
+    /** As [Activities.origin]. */
+    val origin = varchar("origin", 512)
+    /** `activityZones#zoneSnapshot` as JSON. */
+    val heartRateZones = text("heart_rate_zones").nullable()
+    val powerZones = text("power_zones").nullable()
+    /** The raw record JSON, so the row can become a [RecordShadows] copy mid-move. */
+    val record = text("record")
+    val indexedAt = long("indexed_at")
     override val primaryKey = PrimaryKey(uri)
 }
 
@@ -168,15 +186,15 @@ object ActivityStreamData : Table("activity_stream_data") {
     override val primaryKey = PrimaryKey(blobCid)
 }
 
-/** Values of [Activities.origin] and [ActivityStreams.origin] besides a space URI. */
+/** Values of [Activities.origin], [ActivityStreams.origin] and [ActivityZones.origin] besides a space URI. */
 object Origins {
     /** The athlete's repo, through Jetstream. */
     const val REPO = "repo"
 }
 
 /**
- * The wider copy of a record that two origins hold at once mid-move. The narrower copy is the row in [Activities] or [ActivityStreams];
- * this one is promoted to it if that copy is deleted first.
+ * The wider copy of a record that two origins hold at once mid-move. The narrower copy is the row in [Activities], [ActivityStreams] or
+ * [ActivityZones]; this one is promoted to it if that copy is deleted first.
  */
 object RecordShadows : Table("record_shadows") {
     val uri = varchar("uri", 512)
