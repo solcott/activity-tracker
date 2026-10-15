@@ -1,0 +1,175 @@
+package io.github.solcott.activitytracker.app
+
+import app.cash.turbine.ReceiveTurbine
+import co.touchlab.kermit.Logger
+import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.detail.ActivityDetailState
+import io.github.solcott.activitytracker.app.detail.LikesList
+import io.github.solcott.activitytracker.atproto.OAuthClientConfig
+import io.github.solcott.activitytracker.data.activity.ActivityManager
+import io.github.solcott.activitytracker.data.activity.ActivityRepository
+import io.github.solcott.activitytracker.data.activity.OutboxProcessor
+import io.github.solcott.activitytracker.data.activity.OutboxWriter
+import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
+import io.github.solcott.activitytracker.data.db.AppDatabase
+import io.github.solcott.activitytracker.data.di.signedInTestSession
+import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
+import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.Nsid
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
+import kotlin.time.Clock
+import kotlinx.coroutines.CompletableDeferred
+
+/** The detail screen's fakes, shared by its presenter tests: an AppView serving one activity, its likes, comments and streams. */
+open class ActivityDetailTestBase {
+    protected val alice = Did("did:plc:alice")
+    protected val activityUri = "at://did:plc:bob/${Nsid.FEED_ACTIVITY}/3kbob1"
+    protected val bob = """{"did":"did:plc:bob","handle":"bob.test","displayName":"Bob"}"""
+    protected val carol = """{"did":"did:plc:carol","handle":"carol.test"}"""
+    protected val staleAlice = """{"did":"did:plc:alice","handle":"alice.test"}"""
+    protected var likesFromAppView = listOf(carol)
+    protected var streams: String? = null
+    protected var visibility = "public"
+
+    /** The activity's athlete, as JSON: Bob's unless a test makes it Alice's own. */
+    protected var author = bob
+
+    /** The comments the AppView lists, as JSON objects, oldest first. */
+    protected var commentsFromAppView = listOf<String>()
+
+    /** `getComments` page requests, by cursor (null for the first page). */
+    protected val pageRequests = mutableListOf<String?>()
+
+    /** `getComments` answers InternalServerError while set. */
+    protected var failComments = false
+
+    /** Holds `getComments` pages (not lookups) until completed, while set. */
+    protected var commentsGate: CompletableDeferred<Unit>? = null
+
+    protected fun comment(author: String, did: String, rkey: String, hidden: Boolean = false) =
+        """{"uri":"at://$did/${Nsid.FEED_COMMENT}/$rkey","cid":"bafy$rkey","author":$author,"text":"Nice",""" +
+            (if (hidden) """"hidden":true,""" else "") +
+            """"createdAt":"2026-09-30T11:00:00Z"}"""
+
+    protected val activity
+        get() =
+            """{"uri":"$activityUri","cid":"bafy3kbob1","author":$author,"visibility":"$visibility",""" +
+                """"record":{"sport":"run","startedAt":"2026-09-30T10:00:00Z","elapsedTime":1800,"createdAt":"2026-09-30T10:31:00Z"},""" +
+                """"likeCount":${likesFromAppView.size},"commentCount":${commentsFromAppView.count { "\"hidden\"" !in it }},"indexedAt":"2026-09-30T10:31:01Z","viewer":{}}"""
+
+    protected val http =
+        HttpClient(
+            MockEngine { request ->
+                val json = headersOf("Content-Type", "application/json")
+                when (request.url.encodedPath) {
+                    "/xrpc/com.atproto.server.getServiceAuth" -> {
+                        respond("""{"token":"service-jwt"}""", headers = json)
+                    }
+
+                    "/xrpc/${Nsid.FEED_GET_ACTIVITY}" -> {
+                        respond("""{"activity":$activity,"comments":[]}""", headers = json)
+                    }
+
+                    "/xrpc/${Nsid.FEED_GET_COMMENTS}" -> {
+                        val params = request.url.parameters
+                        val uris = params.getAll("uris")
+                        if (uris == null) {
+                            pageRequests += params["cursor"]
+                            commentsGate?.await()
+                        }
+                        if (failComments)
+                            return@MockEngine respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
+                        val all = commentsFromAppView
+                        val (page, next) =
+                            if (uris != null) {
+                                all.filter { c -> uris.any { "\"$it\"" in c } } to null
+                            } else {
+                                val from = params["cursor"]?.toInt() ?: 0
+                                all.drop(from).take(PAGE) to (from + PAGE).takeIf { it < all.size }
+                            }
+                        val cursor = next?.let { ""","cursor":"$it"""" }.orEmpty()
+                        respond("""{"uri":"$activityUri","comments":[${page.joinToString(",")}]$cursor}""", headers = json)
+                    }
+
+                    "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" -> {
+                        streams?.let { respond(it, headers = json) }
+                            ?: respond("""{"error":"NotFound","message":"none"}""", HttpStatusCode.NotFound, json)
+                    }
+
+                    "/xrpc/${Nsid.FEED_GET_LIKES}" -> {
+                        respond("""{"uri":"$activityUri","likes":[${likesFromAppView.joinToString(",")}]}""", headers = json)
+                    }
+
+                    "/xrpc/${Nsid.ACTOR_GET_PROFILE}" -> {
+                        respond("""{"did":"did:plc:alice","handle":"alice.test","displayName":"Alice"}""", headers = json)
+                    }
+
+                    else -> {
+                        respond("", HttpStatusCode.NotFound)
+                    }
+                }
+            }
+        ) {
+            expectSuccess = false
+        }
+
+    protected val localLikes = LocalLikes()
+
+    protected class Repos(
+        val db: AppDatabase,
+        val feed: FeedRepository,
+        val activities: ActivityRepository,
+        val profiles: ProfileRepository,
+        val manager: ActivityManager,
+    )
+
+    protected suspend fun repos(scope: String = OAuthClientConfig.DEFAULT_SCOPE): Repos {
+        val (db, _, clients) = signedInTestSession(http, did = alice, scope = scope)
+        val feed = FeedRepository(db, clients, localLikes, Logger)
+        val outbox = OutboxProcessor(db, clients, Logger)
+        val writer = OutboxWriter(db, clients, Clock.System)
+        val streams = PdsActivityStreamsStore(writer, clients, Clock.System)
+        val activities =
+            ActivityRepository(
+                db,
+                clients,
+                outbox,
+                writer,
+                streams,
+                feed,
+                localLikes,
+                RecentActivityTypes(db, clients, feed),
+                Clock.System,
+            )
+        return Repos(
+            db,
+            feed,
+            activities,
+            ProfileRepository(clients, Clock.System, Logger),
+            ActivityManager(db, clients, outbox, writer, streams, feed),
+        )
+    }
+
+    protected val screen = ActivityDetailScreen(activityUri)
+
+    protected suspend fun ReceiveTurbine<ActivityDetailState>.awaitLoaded() =
+        awaitUntil { it is ActivityDetailState.Loaded } as ActivityDetailState.Loaded
+
+    protected suspend fun ReceiveTurbine<ActivityDetailState>.awaitLikes(done: (LikesList) -> Boolean): ActivityDetailState.Loaded {
+        var state = awaitLoaded()
+        while (state.likesList?.let { !it.isLoading && done(it) } != true) state = awaitLoaded()
+        return state
+    }
+
+    protected companion object {
+        /** The AppView's page size for `getComments` when none is asked for. */
+        const val PAGE = 30
+    }
+}

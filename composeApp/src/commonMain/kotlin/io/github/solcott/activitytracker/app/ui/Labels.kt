@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_delete_activ
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_comment
 import io.github.solcott.activitytracker.composeApp.resources.error_hide_comment
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activity
+import io.github.solcott.activitytracker.composeApp.resources.error_load_comments
 import io.github.solcott.activitytracker.composeApp.resources.error_load_feed
 import io.github.solcott.activitytracker.composeApp.resources.error_load_follow_requests
 import io.github.solcott.activitytracker.composeApp.resources.error_load_followers
@@ -83,6 +84,7 @@ fun errorText(error: UiError): String =
                 UiError.Kind.LoadFeed -> Res.string.error_load_feed
                 UiError.Kind.LoadActivity -> Res.string.error_load_activity
                 UiError.Kind.LoadLikes -> Res.string.error_load_likes
+                UiError.Kind.LoadComments -> Res.string.error_load_comments
                 UiError.Kind.LoadProfile -> Res.string.error_load_profile
                 UiError.Kind.UpdateFollow -> Res.string.error_update_follow
                 UiError.Kind.LoadFollowers -> Res.string.error_load_followers

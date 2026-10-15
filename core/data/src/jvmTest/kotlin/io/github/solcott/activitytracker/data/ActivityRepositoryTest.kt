@@ -340,13 +340,13 @@ class ActivityRepositoryTest {
 
         repo.mergeInto(OwnActivity(uri, Cid("bafyold"), existingDive), secondComputer)
         val merged = existingDive.copy(device = "Shearwater Perdix")
-        assertEquals(merged, feed.activity(uri).activity.record, "Jetstream hasn't brought the AppView the merge yet")
+        assertEquals(merged, feed.activity(uri).record, "Jetstream hasn't brought the AppView the merge yet")
 
         indexedRecord = merged
-        assertEquals(merged, feed.activity(uri).activity.record)
+        assertEquals(merged, feed.activity(uri).record)
         // Caught up, the AppView's copy is the one shown from now on, whatever later changes it.
         indexedRecord = existingDive.copy(title = "Renamed elsewhere")
-        assertEquals("Renamed elsewhere", feed.activity(uri).activity.record.title)
+        assertEquals("Renamed elsewhere", feed.activity(uri).record.title)
     }
 
     @Test

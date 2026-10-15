@@ -52,7 +52,7 @@ fun EditActivityPresenter(
         if (activity != null) return@LaunchedEffect
         error = null
         runSuspendCatching {
-            val view = feed.activity(AtUri(screen.uri)).activity
+            val view = feed.activity(AtUri(screen.uri))
             // Charts are extra: without them (or when they can't load) only the activity's visibility is offered.
             val charts = runSuspendCatching { feed.streams(view.uri)?.visibility }.getOrNull()
             view to charts

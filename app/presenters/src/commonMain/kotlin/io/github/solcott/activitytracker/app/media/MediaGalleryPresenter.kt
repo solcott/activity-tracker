@@ -30,7 +30,7 @@ fun MediaGalleryPresenter(screen: MediaGalleryScreen, navigator: Navigator, feed
     val rewrite by remember(uri) { feed.rewrites.observe(uri) }.collectAsState(null)
 
     LaunchedEffect(uri) {
-        runSuspendCatching { feed.activity(uri).activity }
+        runSuspendCatching { feed.activity(uri) }
             .onSuccess { activity = it }
             .onFailure { error = UiError.of(UiError.Kind.LoadActivity, it) }
     }

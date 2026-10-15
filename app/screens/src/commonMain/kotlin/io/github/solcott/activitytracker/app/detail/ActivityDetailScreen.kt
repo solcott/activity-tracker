@@ -7,6 +7,7 @@ import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.feed.SentComment
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
@@ -29,8 +30,12 @@ sealed interface ActivityDetailState : CircuitUiState {
 
     @Immutable
     data class Loaded(
+        /** Its comment count already moved by the viewer's own comment changes the AppView hasn't caught up with. */
         val activity: ActivityView,
-        val comments: ImmutableList<CommentView>,
+        /** The comments loaded so far, oldest first, as the viewer left them. */
+        val comments: CommentsPaging,
+        /** The viewer's comments the AppView doesn't list yet, shown after [comments]. */
+        val sentComments: ImmutableList<SentComment>,
         val draftComment: TextFieldState,
         /** The signed-in athlete, who may delete the comments they wrote and no others. */
         val viewerDid: Did,
@@ -90,6 +95,18 @@ data class ActivityManage(
     val error: UiError?,
 )
 
+/** An activity's comments, loaded a page at a time as the viewer scrolls to the end. */
+@Immutable
+data class CommentsPaging(
+    val items: ImmutableList<CommentView> = persistentListOf(),
+    /** A page is loading. */
+    val isLoading: Boolean = false,
+    /** Every page is loaded. */
+    val endReached: Boolean = false,
+    /** Why the last page couldn't be loaded; [ActivityDetailEvent.RetryComments] tries it again. */
+    val error: UiError? = null,
+)
+
 @Immutable
 data class LikesList(
     val athletes: ImmutableList<ProfileViewBasic>,
@@ -116,7 +133,13 @@ sealed interface ActivityDetailEvent {
 
     data object SendComment : ActivityDetailEvent
 
-    /** The viewer deletes their own comment [uri], confirmed. */
+    /** The viewer scrolled near the end of the listed comments: the next page loads, unless one is loading, failed or none is left. */
+    data object LoadMoreComments : ActivityDetailEvent
+
+    /** Loads again the page of comments that failed. */
+    data object RetryComments : ActivityDetailEvent
+
+    /** The viewer deletes their own comment [uri], listed or just sent, confirmed. */
     data class DeleteComment(val uri: AtUri) : ActivityDetailEvent
 
     /** The owner hides someone else's comment [uri] on their activity: it stays listed for them, marked, and leaves the count. */

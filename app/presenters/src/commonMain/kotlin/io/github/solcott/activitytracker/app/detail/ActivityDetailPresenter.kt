@@ -30,7 +30,6 @@ import io.github.solcott.activitytracker.data.feed.withLikeOverrides
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
-import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import kotlinx.collections.immutable.ImmutableList
@@ -50,8 +49,9 @@ fun ActivityDetailPresenter(
     localLikes: LocalLikes,
     manager: ActivityManager,
 ): ActivityDetailState {
-    var activity by remember { mutableStateOf<ActivityView?>(null) }
-    var comments by remember { mutableStateOf<ImmutableList<CommentView>>(persistentListOf()) }
+    // The activity as loaded, and how far the viewer's comment actions have moved its count since: one value, so a reload replaces both.
+    var loaded by remember { mutableStateOf<CountedActivity?>(null) }
+    val activity = loaded?.view
     var error by remember { mutableStateOf<UiError?>(null) }
     var likeError by remember { mutableStateOf<UiError?>(null) }
     var commentError by remember { mutableStateOf<UiError?>(null) }
@@ -65,9 +65,7 @@ fun ActivityDetailPresenter(
     LaunchedEffect(loadKey) {
         error = null
         runSuspendCatching {
-            val output = feed.activity(AtUri(screen.uri))
-            activity = output.activity
-            comments = output.comments.toImmutableList()
+            loaded = CountedActivity(feed.activity(AtUri(screen.uri)))
         }
             .onFailure { error = UiError.of(UiError.Kind.LoadActivity, it) }
     }
@@ -76,7 +74,8 @@ fun ActivityDetailPresenter(
     val rewrite by remember(screen.uri) { feed.rewrites.observe(AtUri(screen.uri)) }.collectAsState(null)
 
     val charts = rememberCharts(AtUri(screen.uri), activity, loadKey, feed, activities, flights) { error = it }
-    val shown = activity?.let { a -> rewrite?.let { feed.rewrites.rewritten(a, it) } ?: a }?.withLikeOverrides(likeOverrides)
+    val comments = rememberComments(AtUri(screen.uri), loadKey, feed, flights)
+    val shown = loaded?.shown(rewrite?.let { r -> { a: ActivityView -> feed.rewrites.rewritten(a, r) } }, likeOverrides)
     val isOwn = shown?.author?.did == profiles.did
     var approvesFollowers by remember { mutableStateOf(false) }
     LaunchedEffect(isOwn) {
@@ -123,12 +122,16 @@ fun ActivityDetailPresenter(
             is ActivityDetailEvent.ToggleSection,
             ActivityDetailEvent.ToggleAll -> expansion.toggle(event)
 
+            ActivityDetailEvent.LoadMoreComments,
+            ActivityDetailEvent.RetryComments,
             ActivityDetailEvent.SendComment,
             is ActivityDetailEvent.DeleteComment,
             is ActivityDetailEvent.HideComment,
             is ActivityDetailEvent.UnhideComment -> {
                 current?.let {
-                    CommentActions(draft, flights, activities, { comments }, { list -> comments = list }) { e -> commentError = e }
+                    CommentActions(draft, flights, activities, comments, { e -> commentError = e }) { moved ->
+                            loaded = loaded?.let { l -> l.copy(commentMoves = l.commentMoves + moved) }
+                        }
                         .on(event, it)
                 }
             }
@@ -143,7 +146,8 @@ fun ActivityDetailPresenter(
     return detailState(shown, error, sink) {
         ActivityDetailState.Loaded(
             activity = it,
-            comments = comments,
+            comments = comments.paging,
+            sentComments = comments.sent,
             draftComment = draft,
             viewerDid = profiles.did,
             isOwn = isOwn,
@@ -159,6 +163,18 @@ fun ActivityDetailPresenter(
             expanded = expansion.expanded,
             manage = manage.state,
         )
+    }
+}
+
+/**
+ * [view] as [FeedRepository.activity] loaded it, its comment count right for the viewer's comment changes then, and [commentMoves], how far
+ * their sends, deletes, hides and unhides on this screen have moved it since.
+ */
+private data class CountedActivity(val view: ActivityView, val commentMoves: Int = 0) {
+    /** [view] as it shows: [rewritten] with the viewer's own edit, their like toggles laid over it, and its count moved by theirs. */
+    fun shown(rewritten: ((ActivityView) -> ActivityView)?, likeOverrides: Map<String, AtUri?>): ActivityView {
+        val liked = (rewritten?.invoke(view) ?: view).withLikeOverrides(likeOverrides)
+        return if (commentMoves == 0) liked else liked.copy(commentCount = (liked.commentCount + commentMoves).coerceAtLeast(0))
     }
 }
 
@@ -186,7 +202,7 @@ private fun rememberManage(
     var siblings by remember(recordingOf) { mutableStateOf<Int?>(null) }
     LaunchedEffect(recordingOf, loadKey) {
         if (recordingOf != null) {
-            runSuspendCatching { feed.activity(recordingOf) }.onSuccess { siblings = it.activity.recordings.orEmpty().size }
+            runSuspendCatching { feed.activity(recordingOf) }.onSuccess { siblings = it.recordings.orEmpty().size }
         }
     }
     val delete = ActivityDetailEvent.Delete::class

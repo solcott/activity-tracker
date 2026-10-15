@@ -22,6 +22,8 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
+import io.github.solcott.activitytracker.lexicon.app.GetComments
+import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -55,8 +57,14 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
     var failSpaceDeletes = false
     var offline = false
 
-    /** What the AppView's `getActivity` serves; NotFound while null. */
+    /**
+     * What the AppView serves: `getActivity` the activity, `getComments` its comments (in pages of the asked limit, or those of the asked
+     * `uris`); NotFound while null.
+     */
     var served: GetActivity.Output? = null
+
+    /** The `uris` of each `getComments` lookup, in order. */
+    val lookups = mutableListOf<List<String>>()
 
     /** The charts visibility the AppView serves for each activity rkey; absent for none. */
     val streamsVisibility = mutableMapOf<String, String>()
@@ -112,7 +120,25 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                         json("""{"uri":"at://$did/$key","cid":"bafyrec","value":$value}""")
                     }
                     path == "/xrpc/${Nsid.FEED_GET_ACTIVITY}" ->
-                        served?.let { json(AtJson.encodeToString(GetActivity.Output.serializer(), it)) } ?: error("NotFound")
+                        served?.let { json(AtJson.encodeToString(GetActivity.Output.serializer(), GetActivity.Output(it.activity))) }
+                            ?: error("NotFound")
+                    path == "/xrpc/${Nsid.FEED_GET_COMMENTS}" -> {
+                        val output = served ?: return@MockEngine error("NotFound")
+                        val params = request.url.parameters
+                        val uris = params.getAll("uris")
+                        val page =
+                            if (uris != null) {
+                                lookups += uris
+                                GetComments.Output(output.activity.uri, output.comments.filter { it.uri.value in uris })
+                            } else {
+                                val from = params["cursor"]?.toInt() ?: 0
+                                val limit = params["limit"]?.toInt() ?: Paging.DEFAULT_LIMIT
+                                val comments = output.comments.drop(from).take(limit)
+                                val next = (from + limit).takeIf { it < output.comments.size }?.toString()
+                                GetComments.Output(output.activity.uri, comments, next)
+                            }
+                        json(AtJson.encodeToString(GetComments.Output.serializer(), page))
+                    }
                     path == "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" -> {
                         val uri = AtUri(request.url.parameters["uri"]!!)
                         val visibility = streamsVisibility[uri.rkey] ?: return@MockEngine error("NotFound")

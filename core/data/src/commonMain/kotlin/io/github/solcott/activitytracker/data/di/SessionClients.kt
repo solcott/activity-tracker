@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.atproto.xrpc.ServiceAuthAuthenticator
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcClient
 import io.github.solcott.activitytracker.data.profile.AthleteSpaces
 import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.NotifySpace
 import io.ktor.client.HttpClient
@@ -36,6 +37,8 @@ class SessionClients(
     clock: Clock,
 ) {
     val did: Did = session.did
+
+    val handle: Handle = session.handle
 
     /** The account's PDS base URL. Follows the live session so a PDS migration picked up on refresh is respected. */
     val pdsUrl: String

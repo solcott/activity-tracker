@@ -8,7 +8,9 @@ import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.feed.LocalComments
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.feed.SentComment
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -23,6 +25,7 @@ import io.github.solcott.activitytracker.lexicon.app.CommentHideRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.LikeRecord
+import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.activitytracker.location.Gpx
@@ -198,42 +201,49 @@ class ActivityRepository(
      * Comments on [activity], at any visibility. Like a like, a comment on a public activity goes in the repo and one on a non-public
      * activity in the athlete's interactions space ([interactionPlaceOf]), which needs the `space:` scope to cover `feed.comment`. A
      * non-public one records the visibility the view shows as its audience, so the AppView never shows it wider, even if the activity is.
+     * Returns the comment's URI. It's listed after the loaded comments and counted at once ([LocalComments.sent]) until the AppView lists
+     * it.
      */
-    suspend fun comment(activity: ActivityView, text: String) {
+    suspend fun comment(activity: ActivityView, text: String): AtUri {
         val visibility = activity.visibilityOrPublic
         // Refused before anything changes, so a comment is never counted that can't be written.
         clients.requireSpacesFor(visibility, Nsid.FEED_COMMENT)
-        feed.updateCached(activity.uri) { it.copy(commentCount = it.commentCount + 1) }
-        writer.put(
-            Nsid.FEED_COMMENT,
-            Tid.next(clock),
-            CommentRecord.serializer(),
+        val rkey = Tid.next(clock)
+        val uri = AtUri.of(clients.did, Nsid.FEED_COMMENT, rkey)
+        val createdAt = clock.now()
+        val record =
             CommentRecord(
                 StrongRef(activity.uri, activity.cid),
                 text.trim(),
-                clock.now(),
+                createdAt,
                 audience = visibility.takeIf { it != Visibility.PUBLIC },
-            ),
-            space = clients.interactionPlaceOf(visibility),
-        )
+            )
+        feed.localComments.send(activity.uri, SentComment(uri, ProfileViewBasic(clients.did, clients.handle), record.text, createdAt))
+        undoingOnFailure({ feed.localComments.restore(uri, null) }) {
+            writer.put(Nsid.FEED_COMMENT, rkey, CommentRecord.serializer(), record, space = clients.interactionPlaceOf(visibility))
+        }
+        feed.updateCached(activity.uri) { it.copy(commentCount = it.commentCount + 1) }
         outbox.drain()
+        return uri
     }
 
     /**
-     * Deletes the viewer's own [comment] on [activity]; someone else's is left alone. As with unliking, its URI is the same wherever it
-     * went and the activity may have changed visibility since, so it's deleted from the repo and the interactions space, the space only
-     * when the session can write `feed.comment` there; a delete of what isn't there counts as done. It's left out of
-     * [FeedRepository.activity] until the AppView drops it.
+     * Deletes the viewer's own comment [uri] on [activity], listed as hidden ([hidden]) or not; someone else's is left alone. As with
+     * unliking, its URI is the same wherever it went and the activity may have changed visibility since, so it's deleted from the repo and
+     * the interactions space, the space only when the session can write `feed.comment` there; a delete of what isn't there counts as done.
+     * It leaves the list and the count at once ([LocalComments]), the count only while the AppView counts it, until the AppView drops it.
      */
-    suspend fun deleteComment(activity: ActivityView, comment: CommentView) {
-        if (comment.uri.authority != clients.did.value) return
-        val rkey = requireNotNull(comment.uri.rkey)
-        writer.delete(Nsid.FEED_COMMENT, rkey)
-        if (clients.canWriteToSpaces(Nsid.FEED_COMMENT))
-            writer.delete(Nsid.FEED_COMMENT, rkey, clients.tiers.uri(AthleteSpace.INTERACTIONS))
-        feed.deletes.deleteComment(comment.uri)
+    suspend fun deleteComment(activity: ActivityView, uri: AtUri, hidden: Boolean = false) {
+        if (uri.authority != clients.did.value) return
+        val rkey = requireNotNull(uri.rkey)
+        val previous = feed.localComments.change(activity.uri, uri, LocalComments.Want.Gone, listedHidden = hidden)
+        undoingOnFailure({ feed.localComments.restore(uri, previous) }) {
+            writer.delete(Nsid.FEED_COMMENT, rkey)
+            if (clients.canWriteToSpaces(Nsid.FEED_COMMENT))
+                writer.delete(Nsid.FEED_COMMENT, rkey, clients.tiers.uri(AthleteSpace.INTERACTIONS))
+        }
         // A hidden comment was never counted.
-        if (comment.hidden != true) feed.updateCached(activity.uri) { it.copy(commentCount = (it.commentCount - 1).coerceAtLeast(0)) }
+        if (!hidden) feed.updateCached(activity.uri) { it.copy(commentCount = (it.commentCount - 1).coerceAtLeast(0)) }
         outbox.drain()
     }
 
@@ -243,35 +253,42 @@ class ActivityRepository(
      * ([interactionPlaceOf]), so one on a non-public activity needs the `space:` scope to cover `feed.commentHide` and is refused up front
      * without it. As with unliking, the activity may have changed visibility since the hide, so unhiding deletes that rkey from the repo
      * and the interactions space, the space only when the session can write `feed.commentHide` there; a delete of what isn't there counts
-     * as done. Either shows at once ([FeedRepository.hides]), with the count, until the AppView catches up.
+     * as done. Either shows at once ([FeedRepository.localComments]), with the count, until the AppView catches up, and is taken back if it
+     * can't be queued. Returns whether anything changed.
      */
-    suspend fun setCommentHidden(activity: ActivityView, comment: CommentView, hidden: Boolean) {
-        if (activity.author.did != clients.did || comment.author.did == clients.did) return
+    suspend fun setCommentHidden(activity: ActivityView, comment: CommentView, hidden: Boolean): Boolean {
+        if (activity.author.did != clients.did || comment.author.did == clients.did) return false
         val visibility = activity.visibilityOrPublic
         val rkey = commentHideRkey(comment.uri)
-        hideMutex.withLock {
-            if (feed.hides.isHidden(comment) == hidden) return
-            if (hidden) {
-                // Refused before anything changes, so a comment is never shown hidden that can't be.
-                clients.requireSpacesFor(visibility, Nsid.FEED_COMMENT_HIDE)
-                val record = CommentHideRecord(comment.uri, clock.now())
-                writer.put(
-                    Nsid.FEED_COMMENT_HIDE,
-                    rkey,
-                    CommentHideRecord.serializer(),
-                    record,
-                    space = clients.interactionPlaceOf(visibility),
-                )
-            } else {
-                writer.delete(Nsid.FEED_COMMENT_HIDE, rkey)
-                // Without the scope the PDS would refuse the space delete and hold up the outbox; a newer session's hide there stays.
-                if (clients.canWriteToSpaces(Nsid.FEED_COMMENT_HIDE))
-                    writer.delete(Nsid.FEED_COMMENT_HIDE, rkey, clients.tiers.uri(AthleteSpace.INTERACTIONS))
+        val local = feed.localComments
+        val changed = hideMutex.withLock {
+            if (local.isHidden(comment.uri, comment.hidden == true) == hidden) return@withLock false
+            // Refused before anything changes, so a comment is never shown hidden that can't be.
+            if (hidden) clients.requireSpacesFor(visibility, Nsid.FEED_COMMENT_HIDE)
+            val previous =
+                local.change(activity.uri, comment.uri, LocalComments.Want.Present(hidden), listedHidden = comment.hidden == true)
+            undoingOnFailure({ local.restore(comment.uri, previous) }) {
+                if (hidden) {
+                    val record = CommentHideRecord(comment.uri, clock.now())
+                    writer.put(
+                        Nsid.FEED_COMMENT_HIDE,
+                        rkey,
+                        CommentHideRecord.serializer(),
+                        record,
+                        space = clients.interactionPlaceOf(visibility),
+                    )
+                } else {
+                    writer.delete(Nsid.FEED_COMMENT_HIDE, rkey)
+                    // Without the scope the PDS would refuse the space delete and hold up the outbox; a newer session's hide there stays.
+                    if (clients.canWriteToSpaces(Nsid.FEED_COMMENT_HIDE))
+                        writer.delete(Nsid.FEED_COMMENT_HIDE, rkey, clients.tiers.uri(AthleteSpace.INTERACTIONS))
+                }
             }
-            feed.hides.set(comment.uri, hidden)
             feed.updateCached(activity.uri) { it.copy(commentCount = (it.commentCount + if (hidden) -1 else 1).coerceAtLeast(0)) }
+            true
         }
-        outbox.drain()
+        if (changed) outbox.drain()
+        return changed
     }
 
     /** Retries anything left in the outbox (e.g. on app start or reconnect). */
@@ -290,3 +307,13 @@ internal suspend fun SessionClients.ownActivityRecord(rkey: String, visibility: 
 }
 
 private const val NOT_FOUND_STATUS = 400
+
+/** Runs [block], and [undo] if it throws (cancellation included), so a change shown before a write is queued is taken back with it. */
+private inline fun <T> undoingOnFailure(undo: () -> Unit, block: () -> T): T {
+    var done = false
+    try {
+        return block().also { done = true }
+    } finally {
+        if (!done) undo()
+    }
+}

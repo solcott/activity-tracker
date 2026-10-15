@@ -8,29 +8,29 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.interactionErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
+import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
-import io.github.solcott.activitytracker.lexicon.app.CommentView
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.toImmutableList
 
 /**
  * The detail screen's comment actions: sending [draft], deleting the viewer's own comments, and hiding or unhiding others' comments on the
- * viewer's own activity, from the screen's [comments] list (changed with [setComments]). Why the last one failed goes to [onError], and
- * null clears it.
+ * viewer's own activity, from the screen's [comments]. Each shows through [FeedRepository.localComments] as soon as it's made, and is taken
+ * back there if it can't be; why the last one failed goes to [onError], and null clears it. How far each moves the activity's comment count
+ * goes to [onCountMoved] at once, with the list, and back again if it fails.
  */
-@Suppress("LongParameterList") // The screen state the actions read and change.
 internal class CommentActions(
     private val draft: TextFieldState,
     private val flights: SingleFlight,
     private val activities: ActivityRepository,
-    private val comments: () -> ImmutableList<CommentView>,
-    private val setComments: (ImmutableList<CommentView>) -> Unit,
+    private val comments: Comments,
     private val onError: (UiError?) -> Unit,
+    private val onCountMoved: (Int) -> Unit,
 ) {
-    /** Handles [event] on [activity] if it's a comment event. */
+    /** Handles [event] on [activity] if it's a comment event, paging included. */
     fun on(event: ActivityDetailEvent, activity: ActivityView) {
         when (event) {
+            ActivityDetailEvent.LoadMoreComments -> comments.loadMore()
+            ActivityDetailEvent.RetryComments -> comments.retry()
             ActivityDetailEvent.SendComment -> send(activity)
             is ActivityDetailEvent.DeleteComment -> delete(activity, event.uri)
             is ActivityDetailEvent.HideComment -> setHidden(activity, event.uri, hidden = true)
@@ -49,33 +49,41 @@ internal class CommentActions(
         if (text.isNotBlank() && !flights.isRunning(ActivityDetailEvent.SendComment)) {
             draft.clearText()
             onError(null)
-            flights.launch(ActivityDetailEvent.SendComment) {
-                runSuspendCatching { activities.comment(activity, text) }
-                    .onFailure { e ->
-                        val refused = interactionErrorOf(e) ?: return@onFailure
-                        if (draft.text.isEmpty()) draft.setTextAndPlaceCursorAtEnd(text)
-                        onError(refused)
-                    }
-            }
+            flights
+                .launch(ActivityDetailEvent.SendComment) {
+                    runSuspendCatching { activities.comment(activity, text) }
+                        .onFailure { e ->
+                            onCountMoved(-1)
+                            val refused = interactionErrorOf(e) ?: return@onFailure
+                            if (draft.text.isEmpty()) draft.setTextAndPlaceCursorAtEnd(text)
+                            onError(refused)
+                        }
+                }
+                // Counted with the list, only if it started: a dropped repeat moves nothing.
+                ?.let { onCountMoved(1) }
         }
     }
 
     /**
-     * Deletes the viewer's comment [uri] on [activity]. It leaves the list at once, so a repeat finds nothing to delete; a failure puts it
-     * back where it was and is reported.
+     * Deletes the viewer's comment [uri] on [activity], listed or just sent. It leaves the list at once, so a repeat finds nothing to
+     * delete; a failure puts it back and is reported.
      */
     private fun delete(activity: ActivityView, uri: AtUri) {
-        val comment = comments().firstOrNull { it.uri == uri } ?: return
-        val index = comments().indexOf(comment)
-        setComments((comments() - comment).toImmutableList())
+        val listed = comments.paging.items.firstOrNull { it.uri == uri }
+        if (listed == null && comments.sent.none { it.uri == uri }) return
         onError(null)
-        flights.launch(uri) {
-            runSuspendCatching { activities.deleteComment(activity, comment) }
-                .onFailure { e ->
-                    setComments(comments().toMutableList().apply { add(index.coerceAtMost(size), comment) }.toImmutableList())
-                    onError(UiError.of(UiError.Kind.DeleteComment, e))
-                }
-        }
+        val hidden = listed?.hidden == true
+        // A hidden comment was never counted.
+        val moved = if (hidden) 0 else -1
+        flights
+            .launch(uri) {
+                runSuspendCatching { activities.deleteComment(activity, uri, hidden) }
+                    .onFailure { e ->
+                        onCountMoved(-moved)
+                        onError(UiError.of(UiError.Kind.DeleteComment, e))
+                    }
+            }
+            ?.let { onCountMoved(moved) }
     }
 
     /**
@@ -84,19 +92,20 @@ internal class CommentActions(
      */
     private fun setHidden(activity: ActivityView, uri: AtUri, hidden: Boolean) {
         val comment =
-            comments().firstOrNull { it.uri == uri }?.takeIf { (it.hidden == true) != hidden && !flights.isRunning(uri) } ?: return
-        mark(uri, hidden)
+            comments.paging.items.firstOrNull { it.uri == uri }?.takeIf { (it.hidden == true) != hidden && !flights.isRunning(uri) }
+                ?: return
         onError(null)
-        flights.launch(uri) {
-            runSuspendCatching { activities.setCommentHidden(activity, comment, hidden) }
-                .onFailure { e ->
-                    mark(uri, !hidden)
-                    val kind = if (hidden) UiError.Kind.HideComment else UiError.Kind.UnhideComment
-                    onError(interactionErrorOf(e) ?: UiError.of(kind, e))
-                }
-        }
+        val moved = if (hidden) -1 else 1
+        flights
+            .launch(uri) {
+                runSuspendCatching { activities.setCommentHidden(activity, comment, hidden) }
+                    .onSuccess { changed -> if (!changed) onCountMoved(-moved) }
+                    .onFailure { e ->
+                        onCountMoved(-moved)
+                        val kind = if (hidden) UiError.Kind.HideComment else UiError.Kind.UnhideComment
+                        onError(interactionErrorOf(e) ?: UiError.of(kind, e))
+                    }
+            }
+            ?.let { onCountMoved(moved) }
     }
-
-    private fun mark(uri: AtUri, hidden: Boolean) =
-        setComments(comments().map { if (it.uri == uri) it.copy(hidden = true.takeIf { hidden }) else it }.toImmutableList())
 }

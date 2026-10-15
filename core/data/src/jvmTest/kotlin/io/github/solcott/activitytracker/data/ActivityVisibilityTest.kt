@@ -486,18 +486,20 @@ class ActivityVisibilityTest {
         val mine = commentOn(did, "3kc1")
         val bobs = commentOn(bob, "3kc2")
         served = GetActivity.Output(activity.copy(commentCount = 2), listOf(mine, bobs))
-        s.feed.deletes.deleteComment(mine.uri)
+        s.activities.deleteComment(activity, mine.uri)
 
-        val stale = s.feed.activity(activity.uri)
-        assertEquals(listOf(bobs), stale.comments, "the AppView still lists it, but it's left out")
-        assertEquals(1, stale.activity.commentCount)
+        assertEquals(1, s.feed.activity(activity.uri).commentCount)
+        assertEquals(listOf(bobs), s.listed(activity), "the AppView still lists it, but it's left out")
         assertEquals(1, s.cached(activity).commentCount)
 
         served = GetActivity.Output(activity.copy(commentCount = 1), listOf(bobs))
-        val caughtUp = s.feed.activity(activity.uri)
-        assertEquals(listOf(bobs), caughtUp.comments)
-        assertEquals(1, caughtUp.activity.commentCount, "not taken off twice once the AppView has dropped it")
+        assertEquals(listOf(bobs), s.listed(activity))
+        assertEquals(1, s.feed.activity(activity.uri).commentCount, "not taken off twice once the AppView has dropped it")
     }
+
+    /** The first page of [activity]'s comments as the AppView serves them, laid over with Alice's own changes. */
+    private suspend fun Session.listed(activity: ActivityView): List<CommentView> =
+        feed.localComments.applyTo(feed.comments(activity.uri).comments)
 
     /** Alice's last comment, as the AppView would list it once indexed, from the rkey she wrote. */
     private fun ownComment(): CommentView {
@@ -514,7 +516,7 @@ class ActivityVisibilityTest {
         writes.clear()
 
         // The activity was made public since: the comment is still in the space, and deleting finds it there.
-        s.activities.deleteComment(followers.copy(visibility = Visibility.PUBLIC), comment)
+        s.activities.deleteComment(followers.copy(visibility = Visibility.PUBLIC), comment.uri)
         val rkey = comment.uri.rkey
         assertEquals(
             listOf("delete repo ${Nsid.FEED_COMMENT}/$rkey", "delete ${AthleteSpace.INTERACTIONS} ${Nsid.FEED_COMMENT}/$rkey"),
@@ -531,7 +533,7 @@ class ActivityVisibilityTest {
         val public = s.bobs(Visibility.PUBLIC)
         s.activities.comment(public, "Nice")
         val comment = ownComment()
-        s.activities.deleteComment(public, comment)
+        s.activities.deleteComment(public, comment.uri)
         assertEquals(
             listOf("put repo ${Nsid.FEED_COMMENT}/${comment.uri.rkey}", "delete repo ${Nsid.FEED_COMMENT}/${comment.uri.rkey}"),
             writes,
@@ -546,11 +548,11 @@ class ActivityVisibilityTest {
         s.activities.comment(public, "Nice")
         val comment = ownComment()
         offline = true
-        s.activities.deleteComment(public, comment)
+        s.activities.deleteComment(public, comment.uri)
         assertEquals(2, s.db.outbox().pending(did.value).size, "both deletes kept")
         served = GetActivity.Output(public.copy(commentCount = 1), listOf(comment))
         offline = false
-        assertEquals(emptyList(), s.feed.activity(public.uri).comments, "hidden meanwhile")
+        assertEquals(emptyList(), s.listed(public), "left out meanwhile")
         s.activities.sync()
         assertEquals(emptySet(), placesOf(Nsid.FEED_COMMENT, comment.uri.rkey!!))
         assertEquals(0, s.db.outbox().pending(did.value).size)
@@ -562,7 +564,7 @@ class ActivityVisibilityTest {
         val followers = s.bobs(Visibility.FOLLOWERS)
         // Written by another, newer session of Alice's.
         val comment = commentOn(did, "3kc9")
-        s.activities.deleteComment(followers, comment)
+        s.activities.deleteComment(followers, comment.uri)
         assertEquals(listOf("delete repo ${Nsid.FEED_COMMENT}/3kc9"), writes)
         assertEquals(0, s.db.outbox().pending(did.value).size, "nothing left waiting on a space write the PDS would refuse")
     }
@@ -571,7 +573,7 @@ class ActivityVisibilityTest {
     fun someoneElsesCommentIsNotDeleted() = runTest {
         val s = session()
         val followers = s.bobs(Visibility.FOLLOWERS).copy(commentCount = 1)
-        s.activities.deleteComment(followers, commentOn(bob, "3kc2"))
+        s.activities.deleteComment(followers, commentOn(bob, "3kc2").uri)
         assertEquals(emptyList(), writes)
         assertEquals(0, s.db.outbox().pending(did.value).size)
     }

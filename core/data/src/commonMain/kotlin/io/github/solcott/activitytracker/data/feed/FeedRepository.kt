@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.data.feed
 import co.touchlab.kermit.Logger
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.activity.OwnActivity
 import io.github.solcott.activitytracker.data.activity.pendingActivity
@@ -19,11 +20,14 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
+import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import kotlin.time.Instant
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
@@ -43,11 +47,11 @@ class FeedRepository(
     /** Records the athlete rewrote this session, shown over the AppView's until it catches up: write one with [updateCached] too. */
     val rewrites = LocalRewrites { cid -> ownBlobUrl(clients.pdsUrl, clients.did, cid) }
 
-    /** Activities and comments the athlete deleted and recordings they split off this session, left out until the AppView catches up. */
+    /** Activities the athlete deleted and recordings they split off this session, left out until the AppView catches up. */
     val deletes = LocalDeletes()
 
-    /** Comments the athlete hid or unhid on their own activities this session, shown so until the AppView catches up. */
-    val hides = LocalCommentHides()
+    /** Comments the viewer sent, deleted, hid or unhid this session, shown so until the AppView catches up. */
+    val localComments = LocalComments()
 
     fun timeline(filter: ActivityFilter = ActivityFilter.None): Flow<List<ActivityView>> = observe(filter.cacheKey(TIMELINE))
 
@@ -58,7 +62,7 @@ class FeedRepository(
         val params = GetTimeline.Params(type = filter.typeTokens().ifEmpty { null }, since = filter.since, until = filter.until)
         val output = clients.appView.query(GetTimeline.method, params)
         val key = filter.cacheKey(TIMELINE)
-        db.feed().replace(key, deletes.filter(output.activities).toEntities(key))
+        db.feed().replace(key, deletes.filter(output.activities).toFeedItems(key, shownInFeed))
         if (filter != ActivityFilter.None) db.trackFilteredFeed(key)
     }
 
@@ -68,16 +72,41 @@ class FeedRepository(
         val output = clients.appView.query(GetAuthorActivities.method, params)
         val did = output.activities.firstOrNull()?.author?.did?.value ?: actor
         val key = filter.cacheKey(authorKey(did))
-        db.feed().replace(key, deletes.filter(output.activities).toEntities(key))
+        db.feed().replace(key, deletes.filter(output.activities).toFeedItems(key, shownInFeed))
         if (filter != ActivityFilter.None) db.trackFilteredFeed(key)
     }
 
-    suspend fun activity(uri: AtUri): GetActivity.Output {
-        val output = hides.applyTo(deletes.applyTo(clients.appView.query(GetActivity.method, GetActivity.Params(uri))))
-        val activity = localLikes.applyTo(deletes.applyTo(rewrites.applyTo(output.activity)))
-        updateCached(uri) { activity }
-        return output.copy(activity = activity)
+    /**
+     * [uri] as the viewer left it, its comment count included. When the viewer changed comments on it this session, the AppView is asked,
+     * alongside, which of those it lists ([LocalComments.lookup]), so the count is moved only by the changes it hasn't caught up with,
+     * wherever on the activity's pages they are.
+     */
+    suspend fun activity(uri: AtUri): ActivityView = coroutineScope {
+        val pending = localComments.pending(uri)
+        val lookup =
+            if (pending.isEmpty()) null
+            else async { runSuspendCatching { clients.appView.query(GetComments.method, GetComments.Params(uri, uris = pending)) } }
+        val view = clients.appView.query(GetActivity.method, GetActivity.Params(uri)).activity
+        // Without an answer, each change still counts as not caught up.
+        val answer =
+            lookup?.await()?.onFailure { log.w(it) { "Couldn't look up the viewer's comment changes on $uri" } }?.getOrNull()?.comments
+        val lookedUp = answer?.let { localComments.lookup(uri, pending, it) }
+        val activity = localLikes.applyTo(deletes.applyTo(rewrites.applyTo(view)))
+        val delta = lookedUp?.delta ?: localComments.delta(uri)
+        val counted = activity.copy(commentCount = (activity.commentCount + delta).coerceAtLeast(0))
+        updateCached(uri) { counted }
+        // Reported last, with nothing suspending before the caller has the view, so a screen showing the activity loaded before and
+        // [LocalComments.delta] now never shows the one moved by the other's catch-up.
+        lookedUp?.report()
+        counted
     }
+
+    /**
+     * A page of [activity]'s comments from the AppView, oldest first, after [cursor] (the first page when null), as it serves them. What it
+     * lists is reported to [localComments]; lay [LocalComments.applyTo] over the page to show it as the viewer left it.
+     */
+    suspend fun comments(activity: AtUri, cursor: String? = null): GetComments.Output =
+        clients.appView.query(GetComments.method, GetComments.Params(activity, cursor = cursor)).also { localComments.report(it.comments) }
 
     /**
      * [uri]'s streams, or null when it has none or the viewer may not see them. Always from the AppView, never the author's PDS, so it's
@@ -139,6 +168,9 @@ class FeedRepository(
             )
     }
 
+    // AppView reads lag the viewer's own like toggles until Jetstream catches up, so local ones win.
+    private val shownInFeed: (ActivityView) -> ActivityView = { localLikes.applyTo(rewrites.applyTo(it)) }
+
     private fun observe(key: String): Flow<List<ActivityView>> =
         db.feed().observe(key).map { items ->
             items.mapNotNull { item ->
@@ -147,16 +179,6 @@ class FeedRepository(
                     .getOrNull()
             }
         }
-
-    // AppView reads lag the viewer's own like toggles until Jetstream catches up, so local ones win.
-    private fun List<ActivityView>.toEntities(key: String) = mapIndexed { index, view ->
-        FeedItemEntity(
-            key,
-            view.uri.value,
-            index,
-            AtJson.encodeToString(ActivityView.serializer(), localLikes.applyTo(rewrites.applyTo(view))),
-        )
-    }
 
     private companion object {
         const val NOT_FOUND = "NotFound"
@@ -183,4 +205,9 @@ private suspend fun AppDatabase.trackFilteredFeed(key: String) {
     val updated = listOf(key) + (recent - key)
     updated.drop(MAX_FILTERED_FEEDS).forEach { feed().clear(it) }
     keyValue().put(KeyValueEntity(FILTERED_FEEDS, AtJson.encodeToString(recentKeys, updated.take(MAX_FILTERED_FEEDS))))
+}
+
+/** [this] as the cached items of feed [key], in order, each as [shown] makes it. */
+private fun List<ActivityView>.toFeedItems(key: String, shown: (ActivityView) -> ActivityView) = mapIndexed { index, view ->
+    FeedItemEntity(key, view.uri.value, index, AtJson.encodeToString(ActivityView.serializer(), shown(view)))
 }

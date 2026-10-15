@@ -129,12 +129,11 @@ class CommentHidePlacesTest {
         served = GetActivity.Output(public, listOf(bobs, carols))
         s.activities.setCommentHidden(public, bobs, hidden = true)
 
-        val stale = s.feed.activity(public.uri)
-        assertEquals(listOf(true, null), stale.comments.map { it.hidden })
-        assertEquals(1, stale.activity.commentCount)
+        assertEquals(1, s.feed.activity(public.uri).commentCount)
+        assertEquals(listOf(true, null), s.feed.localComments.applyTo(s.feed.comments(public.uri).comments).map { it.hidden })
 
         served = GetActivity.Output(public.copy(commentCount = 1), listOf(bobs.copy(hidden = true), carols))
-        assertEquals(1, s.feed.activity(public.uri).activity.commentCount, "not taken off twice")
+        assertEquals(1, s.feed.activity(public.uri).commentCount, "not taken off twice")
     }
 
     @Test
@@ -205,8 +204,8 @@ class CommentHidePlacesTest {
         val public = s.bobs(Visibility.PUBLIC, comments = 1)
         val mine = commentOn(did, "3kc1").copy(hidden = true)
         served = GetActivity.Output(public, listOf(mine, commentOn(Did("did:plc:carol"), "3kc3")))
-        s.activities.deleteComment(public, mine)
+        s.activities.deleteComment(public, mine.uri, hidden = true)
         assertEquals(1, s.cached(public).commentCount)
-        assertEquals(1, s.feed.activity(public.uri).activity.commentCount)
+        assertEquals(1, s.feed.activity(public.uri).commentCount)
     }
 }

@@ -12,6 +12,7 @@ data class UiError(val kind: Kind, val detail: String?) {
         LoadFeed,
         LoadActivity,
         LoadLikes,
+        LoadComments,
         LoadProfile,
         UpdateFollow,
         LoadFollowers,
