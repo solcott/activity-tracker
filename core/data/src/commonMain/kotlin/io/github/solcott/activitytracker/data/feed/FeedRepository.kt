@@ -5,6 +5,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
+import io.github.solcott.activitytracker.data.activity.HeldPhotos
 import io.github.solcott.activitytracker.data.activity.OwnActivity
 import io.github.solcott.activitytracker.data.activity.pendingActivity
 import io.github.solcott.activitytracker.data.db.AppDatabase
@@ -44,8 +45,11 @@ class FeedRepository(
 ) {
     private val log = logger.withTag("FeedRepository")
 
+    /** Photos this device uploaded this session, shown until the AppView serves them. */
+    val heldPhotos = HeldPhotos()
+
     /** Records the athlete rewrote this session, shown over the AppView's until it catches up: write one with [updateCached] too. */
-    val rewrites = LocalRewrites { cid -> ownBlobUrl(clients.pdsUrl, clients.did, cid) }
+    val rewrites = LocalRewrites(heldPhotos) { cid -> ownBlobUrl(clients.pdsUrl, clients.did, cid) }
 
     /** Activities the athlete deleted and recordings they split off this session, left out until the AppView catches up. */
     val deletes = LocalDeletes()
@@ -91,6 +95,7 @@ class FeedRepository(
         val answer =
             lookup?.await()?.onFailure { log.w(it) { "Couldn't look up the viewer's comment changes on $uri" } }?.getOrNull()?.comments
         val lookedUp = answer?.let { localComments.lookup(uri, pending, it) }
+        heldPhotos.dropServed(view)
         val activity = localLikes.applyTo(deletes.applyTo(rewrites.applyTo(view)))
         val delta = lookedUp?.delta ?: localComments.delta(uri)
         val counted = activity.copy(commentCount = (activity.commentCount + delta).coerceAtLeast(0))
@@ -171,8 +176,11 @@ class FeedRepository(
             )
     }
 
-    // AppView reads lag the viewer's own like toggles until Jetstream catches up, so local ones win.
-    private val shownInFeed: (ActivityView) -> ActivityView = { localLikes.applyTo(rewrites.applyTo(it)) }
+    // AppView reads lag the viewer's own like toggles until Jetstream catches up, so local ones win. Photos they serve needn't be held.
+    private val shownInFeed: (ActivityView) -> ActivityView = {
+        heldPhotos.dropServed(it)
+        localLikes.applyTo(rewrites.applyTo(it))
+    }
 
     private fun observe(key: String): Flow<List<ActivityView>> =
         db.feed().observe(key).map { items ->

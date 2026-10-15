@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data.feed
 
+import io.github.solcott.activitytracker.data.activity.HeldPhotos
 import io.github.solcott.activitytracker.data.activity.mediaViews
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
@@ -12,10 +13,10 @@ import kotlinx.coroutines.flow.update
 
 /**
  * Activity records the athlete rewrote this session (a merge or an edit), by URI. The AppView serves the old record until Jetstream brings
- * it the new one, so its reads are laid over with these until they match. A photo the AppView hasn't indexed yet loads from the athlete's
- * PDS ([ownBlobUrl]).
+ * it the new one, so its reads are laid over with these until they match. A photo the AppView hasn't indexed yet shows from the bytes this
+ * device uploaded ([held]), or, for a public activity, from the athlete's PDS ([ownBlobUrl]).
  */
-class LocalRewrites(private val ownBlobUrl: (cid: String) -> String) {
+class LocalRewrites(private val held: HeldPhotos, private val ownBlobUrl: (cid: String) -> String) {
     private val records = MutableStateFlow(emptyMap<String, ActivityRecord>())
 
     fun set(uri: AtUri, record: ActivityRecord) = records.update { it + (uri.value to record) }
@@ -36,5 +37,8 @@ class LocalRewrites(private val ownBlobUrl: (cid: String) -> String) {
 
     /** [view] showing [record], which the athlete just wrote, photos and all. */
     fun rewritten(view: ActivityView, record: ActivityRecord): ActivityView =
-        view.copy(record = record.copy(track = record.track ?: view.record.track), media = mediaViews(record, view.media, ownBlobUrl))
+        view.copy(
+            record = record.copy(track = record.track ?: view.record.track),
+            media = mediaViews(record, view.media, view.visibilityOrPublic, held, ownBlobUrl),
+        )
 }

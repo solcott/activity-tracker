@@ -63,7 +63,7 @@ class ActivityRepository(
     /** Publishes [draft]. Its photos upload first, so one with photos needs a connection; one without waits in the outbox if offline. */
     suspend fun publish(draft: ActivityDraft): AtUri {
         clients.requireSpacesFor(draft.visibility)
-        val uri = queue(draft, draft.photos.map { clients.upload(it) })
+        val uri = queue(draft, draft.photos.map { clients.upload(it, feed.heldPhotos) })
         outbox.drain()
         recentTypes.remember(draft.type)
         return uri
@@ -93,7 +93,10 @@ class ActivityRepository(
         val indexed = existing.cid != null
         val place = clients.placeOf(existing.visibility)
         val current = if (indexed) clients.ownActivityRecord(rkey, existing.visibility) else existing.record
-        val photos = draft.photos.take((ActivityMedia.MAX - current.media.orEmpty().size).coerceAtLeast(0)).map { clients.upload(it) }
+        val photos =
+            draft.photos.take((ActivityMedia.MAX - current.media.orEmpty().size).coerceAtLeast(0)).map {
+                clients.upload(it, feed.heldPhotos)
+            }
         // The athlete's own words on the import screen fill an empty description; a file's never do.
         val merged =
             ActivityMerge.fillGaps(current, draft.toRecord(clock.now(), photos)).let {

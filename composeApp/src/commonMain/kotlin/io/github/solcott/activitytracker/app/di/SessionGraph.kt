@@ -6,6 +6,7 @@ import dev.zacsweers.metro.Provides
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSession
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.profile.ProfileSetup
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 
@@ -15,6 +16,7 @@ interface SessionGraph {
     val sessionCircuit: SessionCircuit
     val subCircuit: SubCircuit
     val activityRepository: ActivityRepository
+    val feedRepository: FeedRepository
     val unitsRepository: UnitsRepository
     val profileSetup: ProfileSetup
 
