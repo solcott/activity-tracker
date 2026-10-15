@@ -58,12 +58,24 @@ internal fun effectiveFollow(): Op<Boolean> =
             }
         )
 
-/** [viewer]'s follow of [did], effective or not, and whether it still waits for [did]'s approval. */
+/**
+ * [viewer]'s follow of [did], effective or not, and whether it still waits for [did]'s approval; and [did]'s follow of [viewer], only when
+ * effective, so a client can skip a `mutuals` read the PDS would refuse.
+ */
 internal fun JdbcTransaction.viewerState(viewer: String, did: String): ProfileViewerState {
     val following =
         Follows.select(Follows.uri)
             .where { (Follows.authorDid eq viewer) and (Follows.subjectDid eq did) }
             .firstOrNull()
             ?.let { AtUri(it[Follows.uri]) }
-    return ProfileViewerState(following = following, followRequested = (following != null && !follows(viewer, did)).takeIf { it })
+    val followedBy =
+        Follows.select(Follows.uri)
+            .where { (Follows.authorDid eq did) and (Follows.subjectDid eq viewer) and effectiveFollow() }
+            .firstOrNull()
+            ?.let { AtUri(it[Follows.uri]) }
+    return ProfileViewerState(
+        following = following,
+        followRequested = (following != null && !follows(viewer, did)).takeIf { it },
+        followedBy = followedBy,
+    )
 }

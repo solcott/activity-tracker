@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
+import io.github.solcott.activitytracker.lexicon.app.ProfileViewerState
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.DeleteRecord
 import io.github.solcott.activitytracker.lexicon.atproto.PutRecord
@@ -40,7 +41,7 @@ class ProfileRepository(
     val did
         get() = clients.did
 
-    /** The tier spaces holding non-public details: the athlete's own, and others' Mutuals tiers. */
+    /** The tier spaces holding non-public details: the athlete's own, and others' Followers and Mutuals tiers. */
     private val tiers = clients.tiers
 
     /**
@@ -77,17 +78,20 @@ class ProfileRepository(
     }
 
     /**
-     * [view] with the tier details this athlete may see. Only an effective follower can be one of the athlete's followers or mutuals, so
-     * nobody else's client asks for a credential, a pending follower's included. A refusal, a missing record or a failed read all leave the
-     * public details, so a PDS that's down never breaks a profile.
+     * [view] with the tier details this athlete may see. Only an effective follower can be one of the athlete's followers, so nobody else's
+     * client asks for a credential, a pending follower's included; and only one the athlete effectively follows back
+     * ([ProfileViewerState.followedBy]) can be a mutual, so a one-way follower skips the `mutuals` read its PDS would refuse (refusals
+     * aren't cached, so each costs an exchange). A refusal, a missing record or a failed read all leave the public details, so a PDS that's
+     * down never breaks a profile.
      */
     private suspend fun withHiddenDetails(view: ProfileView): ProfileView {
+        val viewer = view.viewer
         val readable =
             when {
                 view.did == did -> AthleteSpaces.TIERS
-                view.viewer?.following != null && view.viewer?.followRequested != true ->
-                    listOf(AthleteSpace.FOLLOWERS, AthleteSpace.MUTUALS)
-                else -> return view
+                viewer?.following == null || viewer.followRequested == true -> return view
+                viewer.followedBy != null -> listOf(AthleteSpace.FOLLOWERS, AthleteSpace.MUTUALS)
+                else -> listOf(AthleteSpace.FOLLOWERS)
             }
         val hidden =
             readable.fold(ProfileDetails()) { acc, tier ->

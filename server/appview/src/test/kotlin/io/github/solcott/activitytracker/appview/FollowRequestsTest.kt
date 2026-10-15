@@ -189,6 +189,34 @@ class FollowRequestsTest {
     }
 
     @Test
+    fun followedByReportsAnOpenPolicyViewersFollower() = testApplication {
+        start()
+        activity(alice)
+        follow(bob, alice)
+        assertNull(client.profile(alice, bob).viewer?.followedBy)
+        follow(alice, bob)
+        val seenByBob = client.profile(alice, bob).viewer
+        assertEquals("at://$alice/${Nsid.GRAPH_FOLLOW}/${followRkey(alice, bob)}", seenByBob?.followedBy?.value)
+        assertEquals("at://$bob/${Nsid.GRAPH_FOLLOW}/${followRkey(bob, alice)}", seenByBob?.following?.value)
+        assertNull(client.profile(alice, null).viewer)
+        unfollow(alice, bob)
+        assertNull(client.profile(alice, bob).viewer?.followedBy)
+    }
+
+    @Test
+    fun followedByWaitsForTheViewersApproval() = testApplication {
+        start()
+        activity(alice)
+        policy(bob, "approve")
+        follow(alice, bob)
+        assertNull(client.profile(alice, bob).viewer?.followedBy)
+        approve(bob, alice)
+        assertEquals("at://$alice/${Nsid.GRAPH_FOLLOW}/${followRkey(alice, bob)}", client.profile(alice, bob).viewer?.followedBy?.value)
+        unapprove(bob, alice)
+        assertNull(client.profile(alice, bob).viewer?.followedBy)
+    }
+
+    @Test
     fun approvalIndexedBeforeTheFollowCounts() = testApplication {
         start()
         policy(alice, "approve")

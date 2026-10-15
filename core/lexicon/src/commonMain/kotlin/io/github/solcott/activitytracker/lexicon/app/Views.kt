@@ -48,6 +48,8 @@ data class ProfileViewerState(
     val following: AtUri? = null,
     /** True while [following] waits for the athlete's approval. */
     val followRequested: Boolean? = null,
+    /** The athlete's follow of the viewer, only once it counts (not while it waits for the viewer's approval). */
+    val followedBy: AtUri? = null,
 )
 
 /** `app.activitytracker.feed.defs#activityView` */

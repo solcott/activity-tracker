@@ -91,6 +91,7 @@ class ProfileRepositoryTest {
     private var bobRefusesAlice = false
     private var bobPdsDown = false
     private var aliceFollowsBob = true
+    private var bobFollowsAlice = true
     private val credentialRequests = mutableListOf<String>()
 
     /** The tier of each `createSpace` call, in order. */
@@ -217,8 +218,10 @@ class ProfileRepositoryTest {
                         if (actor == bob.value) {
                             val bobDetails = """"details":{"location":{"country":"CA"},"weight":75000}"""
                             val requested = if (aliceRequestedBob) ""","followRequested":true""" else ""
+                            val followedBy = if (bobFollowsAlice) ""","followedBy":"at://${bob.value}/${Nsid.GRAPH_FOLLOW}/3j"""" else ""
                             val viewer =
-                                if (aliceFollowsBob) ""","viewer":{"following":"at://$did/${Nsid.GRAPH_FOLLOW}/3k"$requested}""" else ""
+                                if (aliceFollowsBob) ""","viewer":{"following":"at://$did/${Nsid.GRAPH_FOLLOW}/3k"$requested$followedBy}"""
+                                else ""
                             respond(
                                 """{"did":"${bob.value}","handle":"bob.test",$bobDetails$viewer}""",
                                 headers = json,
@@ -477,6 +480,15 @@ class ProfileRepositoryTest {
         val view = repository().profile(bob.value)
         assertEquals(ProfileDetails(location = Location(country = "CA"), weight = 75_000), view.details)
         assertTrue(credentialRequests.isEmpty())
+    }
+
+    @Test
+    fun aOneWayFollowerAsksForNoMutualsCredential() = runTest {
+        bobFollowsAlice = false
+        bobFollowers = ProfileDetails(gender = "male")
+        val view = repository().profile(bob.value)
+        assertEquals(ProfileDetails(location = Location(country = "CA"), gender = "male", weight = 75_000), view.details)
+        assertEquals(listOf(AthleteSpace.FOLLOWERS), credentialRequests.map { it.substringAfterLast('/') })
     }
 
     @Test
