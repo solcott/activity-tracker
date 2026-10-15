@@ -32,12 +32,12 @@ class LocalDeletes {
 
     /**
      * [output] without the deleted comments, and its activity's count lowered by as many as were left out: only those the AppView still
-     * has, so a comment it already dropped isn't taken off twice.
+     * has, so a comment it already dropped isn't taken off twice, and not hidden ones, which it never counted.
      */
     fun applyTo(output: GetActivity.Output): GetActivity.Output {
-        val kept = output.comments.filterNot { it.uri.value in comments.value }
-        val dropped = output.comments.size - kept.size
-        if (dropped == 0) return output
+        val (gone, kept) = output.comments.partition { it.uri.value in comments.value }
+        if (gone.isEmpty()) return output
+        val dropped = gone.count { it.hidden != true }
         val activity = output.activity
         return output.copy(activity = activity.copy(commentCount = (activity.commentCount - dropped).coerceAtLeast(0)), comments = kept)
     }

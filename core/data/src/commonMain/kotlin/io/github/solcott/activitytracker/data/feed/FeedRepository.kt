@@ -46,6 +46,9 @@ class FeedRepository(
     /** Activities and comments the athlete deleted and recordings they split off this session, left out until the AppView catches up. */
     val deletes = LocalDeletes()
 
+    /** Comments the athlete hid or unhid on their own activities this session, shown so until the AppView catches up. */
+    val hides = LocalCommentHides()
+
     fun timeline(filter: ActivityFilter = ActivityFilter.None): Flow<List<ActivityView>> = observe(filter.cacheKey(TIMELINE))
 
     fun authorActivities(did: String, filter: ActivityFilter = ActivityFilter.None): Flow<List<ActivityView>> =
@@ -70,7 +73,7 @@ class FeedRepository(
     }
 
     suspend fun activity(uri: AtUri): GetActivity.Output {
-        val output = deletes.applyTo(clients.appView.query(GetActivity.method, GetActivity.Params(uri)))
+        val output = hides.applyTo(deletes.applyTo(clients.appView.query(GetActivity.method, GetActivity.Params(uri))))
         val activity = localLikes.applyTo(deletes.applyTo(rewrites.applyTo(output.activity)))
         updateCached(uri) { activity }
         return output.copy(activity = activity)

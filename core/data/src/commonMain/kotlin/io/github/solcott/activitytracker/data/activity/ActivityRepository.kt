@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.data.activity
 
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import io.github.solcott.activitytracker.atproto.commentHideRkey
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.di.SessionClients
@@ -18,6 +19,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.activitytracker.lexicon.app.CommentHideRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.LikeRecord
@@ -51,6 +53,7 @@ class ActivityRepository(
     val pendingWrites: Flow<Int> = db.outbox().count(clients.did.value)
 
     private val likeMutex = Mutex()
+    private val hideMutex = Mutex()
 
     /** Publishes [draft]. Its photos upload first, so one with photos needs a connection; one without waits in the outbox if offline. */
     suspend fun publish(draft: ActivityDraft): AtUri {
@@ -229,7 +232,45 @@ class ActivityRepository(
         if (clients.canWriteToSpaces(Nsid.FEED_COMMENT))
             writer.delete(Nsid.FEED_COMMENT, rkey, clients.tiers.uri(AthleteSpace.INTERACTIONS))
         feed.deletes.deleteComment(comment.uri)
-        feed.updateCached(activity.uri) { it.copy(commentCount = (it.commentCount - 1).coerceAtLeast(0)) }
+        // A hidden comment was never counted.
+        if (comment.hidden != true) feed.updateCached(activity.uri) { it.copy(commentCount = (it.commentCount - 1).coerceAtLeast(0)) }
+        outbox.drain()
+    }
+
+    /**
+     * Hides ([hidden]) or unhides someone else's [comment] on the athlete's own [activity]; nothing happens if it already is, as far as
+     * this session knows. A hide is a `feed.commentHide` at the rkey derived from the comment ([commentHideRkey]), placed like a like
+     * ([interactionPlaceOf]), so one on a non-public activity needs the `space:` scope to cover `feed.commentHide` and is refused up front
+     * without it. As with unliking, the activity may have changed visibility since the hide, so unhiding deletes that rkey from the repo
+     * and the interactions space, the space only when the session can write `feed.commentHide` there; a delete of what isn't there counts
+     * as done. Either shows at once ([FeedRepository.hides]), with the count, until the AppView catches up.
+     */
+    suspend fun setCommentHidden(activity: ActivityView, comment: CommentView, hidden: Boolean) {
+        if (activity.author.did != clients.did || comment.author.did == clients.did) return
+        val visibility = activity.visibilityOrPublic
+        val rkey = commentHideRkey(comment.uri)
+        hideMutex.withLock {
+            if (feed.hides.isHidden(comment) == hidden) return
+            if (hidden) {
+                // Refused before anything changes, so a comment is never shown hidden that can't be.
+                clients.requireSpacesFor(visibility, Nsid.FEED_COMMENT_HIDE)
+                val record = CommentHideRecord(comment.uri, clock.now())
+                writer.put(
+                    Nsid.FEED_COMMENT_HIDE,
+                    rkey,
+                    CommentHideRecord.serializer(),
+                    record,
+                    space = clients.interactionPlaceOf(visibility),
+                )
+            } else {
+                writer.delete(Nsid.FEED_COMMENT_HIDE, rkey)
+                // Without the scope the PDS would refuse the space delete and hold up the outbox; a newer session's hide there stays.
+                if (clients.canWriteToSpaces(Nsid.FEED_COMMENT_HIDE))
+                    writer.delete(Nsid.FEED_COMMENT_HIDE, rkey, clients.tiers.uri(AthleteSpace.INTERACTIONS))
+            }
+            feed.hides.set(comment.uri, hidden)
+            feed.updateCached(activity.uri) { it.copy(commentCount = (it.commentCount + if (hidden) -1 else 1).coerceAtLeast(0)) }
+        }
         outbox.drain()
     }
 

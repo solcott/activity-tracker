@@ -1,25 +1,13 @@
 package io.github.solcott.activitytracker.data
 
-import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
-import io.github.solcott.activitytracker.data.activity.ActivityDefaults
+import io.github.solcott.activitytracker.data.FakeAthletePds.Session
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
-import io.github.solcott.activitytracker.data.activity.ActivityManager
-import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.ActivityStreams
-import io.github.solcott.activitytracker.data.activity.OutboxProcessor
-import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.OwnActivity
-import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
-import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.FeedItemEntity
-import io.github.solcott.activitytracker.data.di.SessionClients
-import io.github.solcott.activitytracker.data.di.signedInTestSession
-import io.github.solcott.activitytracker.data.feed.FeedRepository
-import io.github.solcott.activitytracker.data.feed.LocalLikes
-import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -34,20 +22,11 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
-import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.RecordingView
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.MockRequestHandleScope
-import io.ktor.client.engine.mock.respond
-import io.ktor.client.request.HttpRequestData
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.content.OutgoingContent
-import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -65,149 +44,21 @@ import kotlinx.serialization.json.jsonPrimitive
  * visibility change moves them. The fake PDS holds Alice's repo and each of her tier spaces as `place → collection/rkey → record`.
  */
 class ActivityVisibilityTest {
-    private val did = Did("did:plc:alice")
-    private val repo = "repo"
+    private val pds = FakeAthletePds()
+    private val did = pds.did
+    private val repo = pds.repo
+    private val stored = pds.stored
+    private val writes = pds.writes
+    private val announced = pds.announced
+    private val created = pds.created
+    private var failSpaceDeletes by pds::failSpaceDeletes
+    private var offline by pds::offline
+    private var served by pds::served
+    private val streamsVisibility = pds.streamsVisibility
 
-    /** Every place's records: [repo] or a tier, then `collection/rkey`. */
-    private val stored = mutableMapOf<String, MutableMap<String, JsonObject>>()
+    private fun placesOf(collection: String, rkey: String) = pds.placesOf(collection, rkey)
 
-    /** Every write in order, as `"put|delete <place> <collection>/<rkey>"`. */
-    private val writes = mutableListOf<String>()
-    private val announced = mutableListOf<String>()
-    private val created = mutableListOf<String>()
-
-    /** Fail space deletes while set; and every request to the PDS while [offline]. */
-    private var failSpaceDeletes = false
-    private var offline = false
-
-    /** What the AppView's `getActivity` serves; NotFound while null. */
-    private var served: GetActivity.Output? = null
-
-    /** The charts visibility the AppView serves for each activity rkey; absent for none. */
-    private val streamsVisibility = mutableMapOf<String, String>()
-
-    private val http =
-        HttpClient(
-            MockEngine { request ->
-                if (offline && request.url.host == "pds.test")
-                    return@MockEngine error("InternalServerError", HttpStatusCode.InternalServerError)
-                val path = request.url.encodedPath
-                when {
-                    path == "/xrpc/com.atproto.server.getServiceAuth" -> json("""{"token":"service-jwt"}""")
-                    path == "/.well-known/did.json" ->
-                        json(
-                            """{"id":"did:web:appview.test","service":[
-                               {"id":"#activitytracker_space","type":"AtprotoSpaceService","serviceEndpoint":"http://appview.test"}]}"""
-                        )
-                    path == "/xrpc/com.atproto.repo.uploadBlob" ->
-                        json($$"""{"blob":{"$type":"blob","ref":{"$link":"bafyblob"},"mimeType":"application/json","size":10}}""")
-                    path == "/xrpc/com.atproto.simplespace.createSpace" -> {
-                        val tier = body(request).getValue("skey").jsonPrimitive.content
-                        created += tier
-                        json("""{"uri":"at://$did/space/${Nsid.SPACE_ATHLETE}/$tier"}""")
-                    }
-                    path == "/xrpc/${Nsid.SPACE_NOTIFY_SPACE}" -> {
-                        announced += body(request).getValue("space").jsonPrimitive.content.substringAfterLast('/')
-                        json("{}")
-                    }
-                    path == "/xrpc/com.atproto.repo.putRecord" || path == "/xrpc/com.atproto.space.putRecord" -> {
-                        val input = body(request)
-                        val place = placeOf(input)
-                        val key = "${input.getValue("collection").jsonPrimitive.content}/${input.getValue("rkey").jsonPrimitive.content}"
-                        stored.getOrPut(place) { mutableMapOf() }[key] = input.getValue("record").jsonObject
-                        writes += "put $place $key"
-                        json("""{"uri":"at://$did/x/y","cid":"bafyrec"}""")
-                    }
-                    path == "/xrpc/com.atproto.repo.deleteRecord" || path == "/xrpc/com.atproto.space.deleteRecord" -> {
-                        val input = body(request)
-                        val place = placeOf(input)
-                        if (place != repo && failSpaceDeletes)
-                            return@MockEngine error("InternalServerError", HttpStatusCode.InternalServerError)
-                        val key = "${input.getValue("collection").jsonPrimitive.content}/${input.getValue("rkey").jsonPrimitive.content}"
-                        if (place != repo && place !in stored && place !in created) return@MockEngine error(SpaceErrors.SPACE_NOT_FOUND)
-                        stored[place]?.remove(key)
-                        writes += "delete $place $key"
-                        json("{}")
-                    }
-                    path == "/xrpc/com.atproto.repo.getRecord" || path == "/xrpc/com.atproto.space.getRecord" -> {
-                        val params = request.url.parameters
-                        val place = params["space"]?.substringAfterLast('/') ?: repo
-                        val key = "${params["collection"]}/${params["rkey"]}"
-                        val value = stored[place]?.get(key) ?: return@MockEngine error("RecordNotFound")
-                        json("""{"uri":"at://$did/$key","cid":"bafyrec","value":$value}""")
-                    }
-                    path == "/xrpc/${Nsid.FEED_GET_ACTIVITY}" ->
-                        served?.let { json(AtJson.encodeToString(GetActivity.Output.serializer(), it)) } ?: error("NotFound")
-                    path == "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" -> {
-                        val uri = AtUri(request.url.parameters["uri"]!!)
-                        val visibility = streamsVisibility[uri.rkey] ?: return@MockEngine error("NotFound")
-                        json(
-                            AtJson.encodeToString(
-                                GetActivityStreams.Output.serializer(),
-                                GetActivityStreams.Output(uri, visibility, emptyList(), ActivityStreamData(time = listOf(0))),
-                            )
-                        )
-                    }
-                    else -> respond("", HttpStatusCode.NotFound)
-                }
-            }
-        ) {
-            expectSuccess = false
-        }
-
-    private fun placeOf(input: JsonObject) = input["space"]?.jsonPrimitive?.content?.substringAfterLast('/') ?: repo
-
-    private fun body(request: HttpRequestData): JsonObject =
-        AtJson.parseToJsonElement((request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()).jsonObject
-
-    private fun MockRequestHandleScope.json(body: String) = respond(body, headers = headersOf("Content-Type", "application/json"))
-
-    private fun MockRequestHandleScope.error(name: String, status: HttpStatusCode = HttpStatusCode.BadRequest) =
-        respond("""{"error":"$name"}""", status, headersOf("Content-Type", "application/json"))
-
-    /** The places holding [collection]/[rkey] now. */
-    private fun placesOf(collection: String, rkey: String): Set<String> = stored.filterValues { "$collection/$rkey" in it }.keys
-
-    @Suppress("LongParameterList") // What each test reaches for.
-    private class Session(
-        val db: AppDatabase,
-        val clients: SessionClients,
-        val feed: FeedRepository,
-        val activities: ActivityRepository,
-        val manager: ActivityManager,
-        val streams: PdsActivityStreamsStore,
-        val defaults: ActivityDefaults,
-    )
-
-    private suspend fun session(scope: String? = null): Session {
-        val (db, _, clients) =
-            if (scope == null) signedInTestSession(http, did = did) else signedInTestSession(http, did = did, scope = scope)
-        val outbox = OutboxProcessor(db, clients, Logger)
-        val feed = FeedRepository(db, clients, LocalLikes(), Logger)
-        val writer = OutboxWriter(db, clients, Clock.System)
-        val streams = PdsActivityStreamsStore(writer, clients, Clock.System)
-        val activities =
-            ActivityRepository(
-                db,
-                clients,
-                outbox,
-                writer,
-                streams,
-                feed,
-                LocalLikes(),
-                RecentActivityTypes(db, clients, feed),
-                Clock.System,
-            )
-        return Session(
-            db,
-            clients,
-            feed,
-            activities,
-            ActivityManager(db, clients, outbox, writer, streams, feed),
-            streams,
-            ActivityDefaults(clients),
-        )
-    }
+    private suspend fun session(scope: String? = null) = pds.session(scope)
 
     private val run = ActivityType(Sport.RUN)
 
@@ -441,9 +292,6 @@ class ActivityVisibilityTest {
         db.feed().upsert(listOf(FeedItemEntity("timeline", view.uri.value, 0, AtJson.encodeToString(ActivityView.serializer(), view))))
         return view
     }
-
-    private suspend fun Session.cached(view: ActivityView): ActivityView =
-        AtJson.decodeFromString(ActivityView.serializer(), db.feed().byUri(view.uri.value).single().json)
 
     @Test
     fun aLikeOnANonPublicActivityGoesInTheInteractionsSpace() = runTest {
