@@ -30,37 +30,45 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_retry
+import io.github.solcott.activitytracker.composeApp.resources.comment_cancel_reply
 import io.github.solcott.activitytracker.composeApp.resources.comment_hidden
 import io.github.solcott.activitytracker.composeApp.resources.comment_hidden_by
+import io.github.solcott.activitytracker.composeApp.resources.comment_reply
+import io.github.solcott.activitytracker.composeApp.resources.comment_replying_to
 import io.github.solcott.activitytracker.composeApp.resources.detail_comment_count
 import io.github.solcott.activitytracker.composeApp.resources.detail_comment_placeholder
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_comments
 import io.github.solcott.activitytracker.composeApp.resources.detail_send_comment
+import io.github.solcott.activitytracker.data.feed.SentComment
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableSet
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
-// The detail screen's comments: lazy items, paged as the viewer scrolls (ActivityDetailUi).
+// The detail screen's comments: lazy items, threads paged as the viewer scrolls (ActivityDetailUi).
 
 /**
- * Asks for the next page of comments when the last one listed comes within [LOAD_MORE_AHEAD] items of being shown (the rows after the
- * comments count as the end), unless one is loading, the last failed or every page is in. The presenter drops a repeat while one loads.
+ * Asks for the next page of threads when one of the last [LOAD_MORE_AHEAD] threads listed, or anything after them, is shown, unless a page
+ * is loading, the last failed or every page is in. Threads, not rows, since a thread is several rows. The presenter drops a repeat while
+ * one loads.
  */
 @Composable
 internal fun LoadMoreNearTheEnd(listState: LazyListState, state: ActivityDetailState.Loaded) {
     val paging = state.comments
-    val tail = state.sentComments.size + TAIL_KEYS.size
     val near by
-        remember(listState, tail) {
+        remember(listState, paging.items) {
             derivedStateOf {
-                val info = listState.layoutInfo
-                val lastShown = info.visibleItemsInfo.lastOrNull()?.index ?: return@derivedStateOf false
-                lastShown >= info.totalItemsCount - 1 - tail - LOAD_MORE_AHEAD
+                val lastThreads = paging.items.takeLast(LOAD_MORE_AHEAD).mapTo(HashSet()) { it.uri.value }
+                listState.layoutInfo.visibleItemsInfo.any { item ->
+                    val key = item.key as? String ?: return@any false
+                    key in TAIL_KEYS || key.startsWith(SENT_KEY) || (key.startsWith(THREAD_KEY) && threadOf(key) in lastThreads)
+                }
             }
         }
     val wanted = near && !paging.isLoading && !paging.endReached && paging.error == null
@@ -68,37 +76,31 @@ internal fun LoadMoreNearTheEnd(listState: LazyListState, state: ActivityDetailS
 }
 
 /**
- * The comment count (hidden ones left out), the comments loaded so far oldest first, each with a menu to delete the viewer's own or hide
- * others' on their own activity, the viewer's just sent, a row while more load or when they couldn't, then a field to add one and why the
- * last one couldn't be sent, deleted, hidden or unhidden. A hidden comment, listed only for the athlete and its author, is dimmed and says
- * so.
+ * The comment count (hidden ones left out), then the threads loaded so far, oldest first: each top-level comment, or a placeholder when it
+ * isn't listed, with its replies indented under it, the viewer's just-sent replies, and a row to view the rest. Each comment has Reply, and
+ * a menu to delete the viewer's own or hide others' on their own activity. Then the viewer's just-sent comments, a row while more load or
+ * when they couldn't, and a field to add one, saying which comment it answers, and why the last one couldn't be sent, deleted, hidden or
+ * unhidden. A hidden comment, listed only for the athlete and its author, is dimmed and says so.
  */
 internal fun LazyListScope.comments(state: ActivityDetailState.Loaded) {
     item(key = "comments") { CommentsHeader(state, Modifier.padding(horizontal = CARD_PADDING)) }
-    items(state.comments.items, key = { COMMENT_KEY + it.uri.value }) { comment ->
-        CommentRow(
-            author = comment.author.displayName ?: comment.author.handle.value,
-            text = comment.text,
-            hidden = comment.hidden == true,
-            actions = commentActions(comment, state),
-            uri = comment.uri,
-            state = state,
-            modifier = Modifier.padding(horizontal = CARD_PADDING),
-        )
+    val top = Modifier.padding(horizontal = CARD_PADDING)
+    val reply = Modifier.padding(start = CARD_PADDING + REPLY_INDENT, end = CARD_PADDING)
+    for (thread in state.comments.items) {
+        val prefix = THREAD_KEY + thread.uri.value
+        item(key = "$prefix|root") {
+            val root = thread.root
+            if (root == null) CommentUnavailable(top) else CommentRow(root, commentActions(root, state), state, top)
+        }
+        items(thread.replies, key = { "$prefix|r|${it.uri.value}" }) { CommentRow(it, commentActions(it, state), state, reply) }
+        items(thread.sentReplies, key = { "$prefix|s|${it.uri.value}" }) { SentCommentRow(it, state, reply) }
+        if (thread.moreReplies > 0 || thread.repliesState is RepliesState.Failed) {
+            item(key = "$prefix|more") { MoreReplies(thread, state.eventSink, reply) }
+        }
     }
-    items(state.sentComments, key = { SENT_KEY + it.uri.value }) { comment ->
-        CommentRow(
-            author = comment.author.displayName ?: comment.author.handle.value,
-            text = comment.text,
-            hidden = false,
-            actions = persistentSetOf(CommentAction.Delete),
-            uri = comment.uri,
-            state = state,
-            modifier = Modifier.padding(horizontal = CARD_PADDING),
-        )
-    }
-    item(key = TAIL_KEYS[0]) { CommentsLoading(state, Modifier.padding(horizontal = CARD_PADDING)) }
-    item(key = TAIL_KEYS[1]) { CommentField(state, Modifier.padding(horizontal = CARD_PADDING)) }
+    items(state.sentComments, key = { SENT_KEY + it.uri.value }) { SentCommentRow(it, state, top) }
+    item(key = TAIL_KEYS[0]) { CommentsLoading(state, top) }
+    item(key = TAIL_KEYS[1]) { CommentField(state, top) }
 }
 
 @Composable
@@ -113,6 +115,36 @@ private fun CommentsHeader(state: ActivityDetailState.Loaded, modifier: Modifier
         )
     }
 }
+
+@Composable
+private fun CommentRow(
+    comment: CommentView,
+    actions: ImmutableSet<CommentAction>,
+    state: ActivityDetailState.Loaded,
+    modifier: Modifier = Modifier,
+) =
+    CommentRow(
+        author = comment.author.displayName ?: comment.author.handle.value,
+        text = comment.text,
+        hidden = comment.hidden == true,
+        actions = actions,
+        uri = comment.uri,
+        state = state,
+        modifier = modifier,
+    )
+
+/** The viewer's comment or reply the AppView doesn't list yet: they can delete it, but not reply to it until it's listed. */
+@Composable
+private fun SentCommentRow(comment: SentComment, state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) =
+    CommentRow(
+        author = comment.author.displayName ?: comment.author.handle.value,
+        text = comment.text,
+        hidden = false,
+        actions = persistentSetOf(CommentAction.Delete),
+        uri = comment.uri,
+        state = state,
+        modifier = modifier,
+    )
 
 @Suppress("LongParameterList") // A listed comment or a just-sent one, which share no type.
 @Composable
@@ -137,8 +169,14 @@ private fun CommentRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            if (CommentAction.Reply in actions) {
+                AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.ReplyTo(uri)) }) {
+                    Text(stringResource(Res.string.comment_reply), style = MaterialTheme.typography.labelMedium)
+                }
+            }
         }
-        if (actions.isNotEmpty()) key(uri) { CommentMenu(uri, actions, state.eventSink) }
+        val menu = actions.filterTo(mutableSetOf()) { it != CommentAction.Reply }.toImmutableSet()
+        if (menu.isNotEmpty()) key(uri) { CommentMenu(uri, menu, state.eventSink) }
     }
 }
 
@@ -163,6 +201,21 @@ private fun CommentsLoading(state: ActivityDetailState.Loaded, modifier: Modifie
 @Composable
 private fun CommentField(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
     Column(modifier) {
+        state.replyingTo?.let { parent ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(Res.string.comment_replying_to, handleLabel(parent.author.handle.value)),
+                    Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                AppIconButton(
+                    AppIcon.Close,
+                    stringResource(Res.string.comment_cancel_reply),
+                    { state.eventSink(ActivityDetailEvent.CancelReply) },
+                )
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             AppTextField(
                 state = state.draftComment,
@@ -179,23 +232,38 @@ private fun CommentField(state: ActivityDetailState.Loaded, modifier: Modifier =
     }
 }
 
-private const val COMMENT_KEY = "comment/"
 private const val SENT_KEY = "sent/"
+
+/** The rows of a thread: `thread/<uri>|root`, `|r|<reply>`, `|s|<sent reply>` and `|more`. AT-URIs never hold a `|`. */
+private const val THREAD_KEY = "thread/"
+
+/** The thread a row of it ([THREAD_KEY]) belongs to. */
+private fun threadOf(key: String): String = key.removePrefix(THREAD_KEY).substringBefore('|')
+
+/** How far replies are indented under their thread's top-level comment. */
+private val REPLY_INDENT = 32.dp
 
 /** The rows after the comments: the loading or retry row, and the field. */
 private val TAIL_KEYS = listOf("comments/loading", "comments/field")
 
-/** How many comments short of the last one listed the next page starts loading. */
+/** How many threads short of the last one listed the next page starts loading. */
 private const val LOAD_MORE_AHEAD = 5
 
-/** The viewer deletes their own comments, and hides or unhides others' on their own activity. */
-private fun commentActions(comment: CommentView, state: ActivityDetailState.Loaded): ImmutableSet<CommentAction> =
-    when {
-        comment.author.did == state.viewerDid -> persistentSetOf(CommentAction.Delete)
-        !state.isOwn -> persistentSetOf()
-        comment.hidden == true -> persistentSetOf(CommentAction.Unhide)
-        else -> persistentSetOf(CommentAction.Hide)
-    }
+/**
+ * The viewer replies to any listed comment that isn't hidden, deletes their own comments, and hides or unhides others' on their own
+ * activity. A placeholder and a just-sent comment never come here.
+ */
+private fun commentActions(comment: CommentView, state: ActivityDetailState.Loaded): ImmutableSet<CommentAction> {
+    val hidden = comment.hidden == true
+    val manage =
+        when {
+            comment.author.did == state.viewerDid -> CommentAction.Delete
+            !state.isOwn -> null
+            hidden -> CommentAction.Unhide
+            else -> CommentAction.Hide
+        }
+    return listOfNotNull(CommentAction.Reply.takeIf { !hidden }, manage).toImmutableSet()
+}
 
 /** How strongly a hidden comment shows, to the only two who see it. */
 private const val HIDDEN_ALPHA = 0.55f

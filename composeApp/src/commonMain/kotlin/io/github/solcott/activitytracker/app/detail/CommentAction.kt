@@ -2,6 +2,9 @@ package io.github.solcott.activitytracker.app.detail
 
 /** What the viewer may do to a comment from its "…" menu. */
 internal enum class CommentAction {
+    /** A listed comment or reply that isn't hidden: Reply, a button under it rather than in its menu. */
+    Reply,
+
     /** Their own comment: Delete, which asks first. */
     Delete,
 

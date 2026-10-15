@@ -20,13 +20,6 @@ import kotlinx.coroutines.test.runTest
 
 /** The detail screen's comments: paging, sending, deleting, hiding and unhiding, and the count through all of them. */
 class ActivityDetailCommentsTest : ActivityDetailTestBase() {
-    /** The comments Alice has queued, as (space key or null for the repo, record). */
-    private suspend fun Repos.queuedComments() =
-        db.outbox()
-            .pending(alice.value)
-            .filter { it.collection == Nsid.FEED_COMMENT }
-            .map { it.space?.substringAfterLast('/') to it.recordJson }
-
     @Test
     fun commentsOnAFollowersActivityOnceForADoubleTap() = runTest {
         visibility = "followers"
@@ -82,20 +75,20 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         presenterTestOf({
             ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
         }) {
-            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.items?.size == 2 } as ActivityDetailState.Loaded
+            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 2 } as ActivityDetailState.Loaded
             assertEquals(alice, loaded.viewerDid)
-            val mine = loaded.comments.items.first().uri
+            val mine = loaded.comments.roots.first().uri
             loaded.eventSink(ActivityDetailEvent.DeleteComment(mine))
             loaded.eventSink(ActivityDetailEvent.DeleteComment(mine))
-            val after = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.items?.size == 1 } as ActivityDetailState.Loaded
-            assertEquals(listOf("did:plc:carol"), after.comments.items.map { it.author.did.value }, "gone at once, and the count with it")
+            val after = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 1 } as ActivityDetailState.Loaded
+            assertEquals(listOf("did:plc:carol"), after.comments.roots.map { it.author.did.value }, "gone at once, and the count with it")
             r.db.outbox().count(alice.value).first { it >= 2 }
             assertEquals(listOf(null to "3kc1", AthleteSpace.INTERACTIONS to "3kc1"), r.queuedCommentDeletes(), "one pair of deletes")
 
             // A reload while the AppView still lists it keeps it hidden.
             after.eventSink(ActivityDetailEvent.Retry)
-            val reloaded = awaitUntil { it is ActivityDetailState.Loaded && it.comments.items.size == 1 } as ActivityDetailState.Loaded
-            assertEquals(listOf("did:plc:carol"), reloaded.comments.items.map { it.author.did.value })
+            val reloaded = awaitUntil { it is ActivityDetailState.Loaded && it.comments.roots.size == 1 } as ActivityDetailState.Loaded
+            assertEquals(listOf("did:plc:carol"), reloaded.comments.roots.map { it.author.did.value })
             assertEquals(1, r.feed.activity(AtUri(activityUri)).commentCount)
             cancelAndIgnoreRemainingEvents()
         }
@@ -108,13 +101,13 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         presenterTestOf({
             ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
         }) {
-            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.items?.size == 2 } as ActivityDetailState.Loaded
+            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 2 } as ActivityDetailState.Loaded
             // Queueing the delete fails once the database is gone.
             r.db.close()
-            loaded.eventSink(ActivityDetailEvent.DeleteComment(loaded.comments.items.last().uri))
+            loaded.eventSink(ActivityDetailEvent.DeleteComment(loaded.comments.roots.last().uri))
             val failed = awaitUntil { (it as? ActivityDetailState.Loaded)?.commentError != null } as ActivityDetailState.Loaded
             assertEquals(UiError.Kind.DeleteComment, failed.commentError?.kind)
-            assertEquals(loaded.comments.items, failed.comments.items, "back where it was")
+            assertEquals(loaded.comments.roots, failed.comments.roots, "back where it was")
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -134,23 +127,23 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         presenterTestOf({
             ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
         }) {
-            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.items?.size == 2 } as ActivityDetailState.Loaded
+            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 2 } as ActivityDetailState.Loaded
             assertTrue(loaded.isOwn)
-            val bobs = loaded.comments.items.first().uri
+            val bobs = loaded.comments.roots.first().uri
             loaded.eventSink(ActivityDetailEvent.HideComment(bobs))
             loaded.eventSink(ActivityDetailEvent.HideComment(bobs))
             val hidden =
-                awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.items?.first()?.hidden == true } as ActivityDetailState.Loaded
-            assertEquals(listOf(true, null), hidden.comments.items.map { it.hidden }, "still listed for the athlete, marked")
+                awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.first()?.hidden == true } as ActivityDetailState.Loaded
+            assertEquals(listOf(true, null), hidden.comments.roots.map { it.hidden }, "still listed for the athlete, marked")
             r.db.outbox().count(alice.value).first { it >= 1 }
             assertEquals(listOf(OutboxProcessor.OP_PUT to null), r.queuedHides(), "one hide, in the repo")
 
             // A reload while the AppView still shows it keeps it hidden, and out of the count.
             hidden.eventSink(ActivityDetailEvent.Retry)
             val reloaded =
-                awaitUntil { it is ActivityDetailState.Loaded && it.comments.items.firstOrNull()?.hidden == true }
+                awaitUntil { it is ActivityDetailState.Loaded && it.comments.roots.firstOrNull()?.hidden == true }
                     as ActivityDetailState.Loaded
-            assertEquals(listOf(true, null), reloaded.comments.items.map { it.hidden })
+            assertEquals(listOf(true, null), reloaded.comments.roots.map { it.hidden })
             assertEquals(1, r.feed.activity(AtUri(activityUri)).commentCount)
             cancelAndIgnoreRemainingEvents()
         }
@@ -165,12 +158,12 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         presenterTestOf({
             ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
         }) {
-            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.items?.size == 2 } as ActivityDetailState.Loaded
-            assertEquals(true, loaded.comments.items.first().hidden)
-            loaded.eventSink(ActivityDetailEvent.UnhideComment(loaded.comments.items.first().uri))
+            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 2 } as ActivityDetailState.Loaded
+            assertEquals(true, loaded.comments.roots.first().hidden)
+            loaded.eventSink(ActivityDetailEvent.UnhideComment(loaded.comments.roots.first().uri))
             val shown =
-                awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.items?.first()?.hidden == null } as ActivityDetailState.Loaded
-            assertEquals(listOf(null, null), shown.comments.items.map { it.hidden })
+                awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.first()?.hidden == null } as ActivityDetailState.Loaded
+            assertEquals(listOf(null, null), shown.comments.roots.map { it.hidden })
             r.db.outbox().count(alice.value).first { it >= 2 }
             assertEquals(
                 listOf(OutboxProcessor.OP_DELETE to null, OutboxProcessor.OP_DELETE to AthleteSpace.INTERACTIONS),
@@ -192,11 +185,11 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         presenterTestOf({
             ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
         }) {
-            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.items?.size == 1 } as ActivityDetailState.Loaded
-            loaded.eventSink(ActivityDetailEvent.HideComment(loaded.comments.items.single().uri))
+            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 1 } as ActivityDetailState.Loaded
+            loaded.eventSink(ActivityDetailEvent.HideComment(loaded.comments.roots.single().uri))
             val refused = awaitUntil { (it as? ActivityDetailState.Loaded)?.commentError != null } as ActivityDetailState.Loaded
             assertEquals(UiError(UiError.Kind.SignInAgain, null), refused.commentError)
-            assertEquals(listOf(null), refused.comments.items.map { it.hidden }, "not marked")
+            assertEquals(listOf(null), refused.comments.roots.map { it.hidden }, "not marked")
             assertEquals(emptyList(), r.queuedHides())
             cancelAndIgnoreRemainingEvents()
         }
@@ -210,25 +203,16 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         presenterTestOf({
             ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
         }) {
-            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.items?.size == 1 } as ActivityDetailState.Loaded
+            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 1 } as ActivityDetailState.Loaded
             // Queueing the hide fails once the database is gone.
             r.db.close()
-            loaded.eventSink(ActivityDetailEvent.HideComment(loaded.comments.items.single().uri))
+            loaded.eventSink(ActivityDetailEvent.HideComment(loaded.comments.roots.single().uri))
             val failed = awaitUntil { (it as? ActivityDetailState.Loaded)?.commentError != null } as ActivityDetailState.Loaded
             assertEquals(UiError.Kind.HideComment, failed.commentError?.kind)
-            assertEquals(loaded.comments.items, failed.comments.items, "not marked")
+            assertEquals(loaded.comments.roots, failed.comments.roots, "not marked")
             cancelAndIgnoreRemainingEvents()
         }
     }
-
-    /** [count] of carol's comments, `3kc000`…, oldest first, with Alice's own at [own] when set. */
-    private fun manyComments(count: Int, own: Int = -1) =
-        (0 until count).map { i ->
-            val rkey = "3kc" + i.toString().padStart(3, '0')
-            if (i == own) comment(staleAlice, alice.value, rkey) else comment(carol, "did:plc:carol", rkey)
-        }
-
-    private fun ActivityDetailState.loaded() = this as? ActivityDetailState.Loaded
 
     @Test
     fun loadsCommentsAPageAtATimeAsTheViewerScrolls() = runTest {
@@ -237,7 +221,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         presenterTestOf({
             ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
         }) {
-            val first = awaitUntil { it.loaded()?.comments?.items?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
+            val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
             assertEquals(45, first.activity.commentCount, "the count is the whole activity's")
             assertEquals(false, first.comments.endReached)
 
@@ -247,9 +231,9 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
             // Reaching the end again while the page loads loads it once.
             first.eventSink(ActivityDetailEvent.LoadMoreComments)
             commentsGate!!.complete(Unit)
-            val all = awaitUntil { it.loaded()?.comments?.items?.size == 45 && it.loaded()?.comments?.isLoading == false }.loaded()!!
+            val all = awaitUntil { it.loaded()?.comments?.roots?.size == 45 && it.loaded()?.comments?.isLoading == false }.loaded()!!
             assertEquals(true, all.comments.endReached)
-            assertEquals((0 until 45).map { "3kc" + it.toString().padStart(3, '0') }, all.comments.items.map { it.uri.rkey })
+            assertEquals((0 until 45).map { "3kc" + it.toString().padStart(3, '0') }, all.comments.roots.map { it.uri.rkey })
 
             all.eventSink(ActivityDetailEvent.LoadMoreComments)
             assertEquals(listOf(null, "30"), pageRequests, "nothing more once every page is loaded")
@@ -264,17 +248,17 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         presenterTestOf({
             ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
         }) {
-            val first = awaitUntil { it.loaded()?.comments?.items?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
+            val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
             failComments = true
             first.eventSink(ActivityDetailEvent.LoadMoreComments)
             val failed = awaitUntil { it.loaded()?.comments?.error != null }.loaded()!!
             assertEquals(UiError.Kind.LoadComments, failed.comments.error?.kind)
-            assertEquals(30, failed.comments.items.size, "what's listed stays")
+            assertEquals(30, failed.comments.roots.size, "what's listed stays")
 
             failed.eventSink(ActivityDetailEvent.LoadMoreComments)
             failComments = false
             failed.eventSink(ActivityDetailEvent.RetryComments)
-            val all = awaitUntil { it.loaded()?.comments?.items?.size == 45 }.loaded()!!
+            val all = awaitUntil { it.loaded()?.comments?.roots?.size == 45 }.loaded()!!
             assertEquals(null, all.comments.error)
             assertEquals(listOf(null, "30", "30"), pageRequests, "no page asked for while failed but the retry")
             cancelAndIgnoreRemainingEvents()
@@ -291,10 +275,10 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         }) {
             val failed = awaitUntil { it.loaded()?.comments?.error != null }.loaded()!!
             assertEquals(3, failed.activity.commentCount)
-            assertEquals(emptyList(), failed.comments.items)
+            assertEquals(emptyList(), failed.comments.roots)
             failComments = false
             failed.eventSink(ActivityDetailEvent.RetryComments)
-            assertEquals(3, awaitUntil { it.loaded()?.comments?.items?.size == 3 }.loaded()!!.activity.commentCount)
+            assertEquals(3, awaitUntil { it.loaded()?.comments?.roots?.size == 3 }.loaded()!!.activity.commentCount)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -306,17 +290,17 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         presenterTestOf({
             ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
         }) {
-            val first = awaitUntil { it.loaded()?.comments?.items?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
+            val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
             first.draftComment.setTextAndPlaceCursorAtEnd("Mine")
             first.eventSink(ActivityDetailEvent.SendComment)
             val sent = awaitUntil { it.loaded()?.sentComments?.size == 1 && it.loaded()?.activity?.commentCount == 46L }.loaded()!!
             assertEquals("Mine", sent.sentComments.single().text)
             assertEquals(46, sent.activity.commentCount, "counted at once")
-            assertEquals(30, sent.comments.items.size, "nothing loaded again")
+            assertEquals(30, sent.comments.roots.size, "nothing loaded again")
 
             // Loading more before the AppView has it lists the new page before it.
             sent.eventSink(ActivityDetailEvent.LoadMoreComments)
-            val more = awaitUntil { it.loaded()?.comments?.items?.size == 45 }.loaded()!!
+            val more = awaitUntil { it.loaded()?.comments?.roots?.size == 45 }.loaded()!!
             assertEquals(listOf("Mine"), more.sentComments.map { it.text })
             assertEquals(46, more.activity.commentCount)
 
@@ -326,7 +310,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
             more.eventSink(ActivityDetailEvent.Retry)
             val reloaded =
                 awaitUntil {
-                    it.loaded()?.comments?.items?.size == 30 &&
+                    it.loaded()?.comments?.roots?.size == 30 &&
                         it.loaded()?.comments?.isLoading == false &&
                         it.loaded()?.sentComments?.isEmpty() == true
                 }
@@ -334,8 +318,8 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
             assertEquals(46, reloaded.activity.commentCount)
             reloaded.eventSink(ActivityDetailEvent.LoadMoreComments)
             val end = awaitUntil { it.loaded()?.comments?.endReached == true }.loaded()!!
-            assertEquals(rkey, end.comments.items.last().uri.rkey)
-            assertEquals(1, end.comments.items.count { it.uri.rkey == rkey } + end.sentComments.size)
+            assertEquals(rkey, end.comments.roots.last().uri.rkey)
+            assertEquals(1, end.comments.roots.count { it.uri.rkey == rkey } + end.sentComments.size)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -347,7 +331,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         presenterTestOf({
             ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
         }) {
-            val first = awaitUntil { it.loaded()?.comments?.items?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
+            val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
             first.draftComment.setTextAndPlaceCursorAtEnd("Mine")
             first.eventSink(ActivityDetailEvent.SendComment)
             val sent = awaitUntil { it.loaded()?.sentComments?.size == 1 && it.loaded()?.activity?.commentCount == 46L }.loaded()!!
@@ -355,7 +339,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
             // The AppView indexes it, and the next page lists it: shown in its place, and still counted once.
             commentsFromAppView = commentsFromAppView + comment(staleAlice, alice.value, sent.sentComments.single().uri.rkey!!)
             sent.eventSink(ActivityDetailEvent.LoadMoreComments)
-            val listed = awaitUntil { it.loaded()?.comments?.items?.size == 46 && it.loaded()?.sentComments?.isEmpty() == true }.loaded()!!
+            val listed = awaitUntil { it.loaded()?.comments?.roots?.size == 46 && it.loaded()?.sentComments?.isEmpty() == true }.loaded()!!
             assertEquals(emptyList(), listed.sentComments)
             assertEquals(46, listed.activity.commentCount)
             cancelAndIgnoreRemainingEvents()
@@ -369,14 +353,14 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         presenterTestOf({
             ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
         }) {
-            val loaded = awaitUntil { it.loaded()?.comments?.items?.size == 2 }.loaded()!!
+            val loaded = awaitUntil { it.loaded()?.comments?.roots?.size == 2 }.loaded()!!
             loaded.draftComment.setTextAndPlaceCursorAtEnd("Oops")
             loaded.eventSink(ActivityDetailEvent.SendComment)
             val sent = awaitUntil { it.loaded()?.sentComments?.size == 1 && it.loaded()?.activity?.commentCount == 3L }.loaded()!!
             sent.eventSink(ActivityDetailEvent.DeleteComment(sent.sentComments.single().uri))
             // Gone from the list and the count; nothing else moves it.
             val gone = awaitUntil { it.loaded()?.sentComments?.isEmpty() == true && it.loaded()?.activity?.commentCount == 2L }.loaded()!!
-            assertEquals(2, gone.comments.items.size)
+            assertEquals(2, gone.comments.roots.size)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -388,20 +372,20 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         presenterTestOf({
             ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
         }) {
-            val first = awaitUntil { it.loaded()?.comments?.items?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
+            val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
             first.eventSink(ActivityDetailEvent.LoadMoreComments)
-            val all = awaitUntil { it.loaded()?.comments?.items?.size == 45 }.loaded()!!
-            val mine = all.comments.items.single { it.author.did == alice }.uri
+            val all = awaitUntil { it.loaded()?.comments?.roots?.size == 45 }.loaded()!!
+            val mine = all.comments.roots.single { it.author.did == alice }.uri
             all.eventSink(ActivityDetailEvent.DeleteComment(mine))
-            val after = awaitUntil { it.loaded()?.comments?.items?.size == 44 && it.loaded()?.activity?.commentCount == 44L }.loaded()!!
+            val after = awaitUntil { it.loaded()?.comments?.roots?.size == 44 && it.loaded()?.activity?.commentCount == 44L }.loaded()!!
 
             // Reloaded before the AppView drops it: the count still leaves it out, though it's on a page not loaded yet.
             after.eventSink(ActivityDetailEvent.Retry)
-            val reloaded = awaitUntil { it.loaded()?.comments?.items?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
+            val reloaded = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
             assertEquals(44, reloaded.activity.commentCount)
             reloaded.eventSink(ActivityDetailEvent.LoadMoreComments)
             val end = awaitUntil { it.loaded()?.comments?.endReached == true }.loaded()!!
-            assertTrue(end.comments.items.none { it.uri == mine })
+            assertTrue(end.comments.roots.none { it.uri == mine })
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -414,21 +398,21 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         presenterTestOf({
             ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
         }) {
-            val first = awaitUntil { it.loaded()?.comments?.items?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
+            val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
             first.eventSink(ActivityDetailEvent.LoadMoreComments)
-            val all = awaitUntil { it.loaded()?.comments?.items?.size == 45 }.loaded()!!
-            val target = all.comments.items[35].uri
+            val all = awaitUntil { it.loaded()?.comments?.roots?.size == 45 }.loaded()!!
+            val target = all.comments.roots[35].uri
             all.eventSink(ActivityDetailEvent.HideComment(target))
             val hidden =
-                awaitUntil { it.loaded()?.comments?.items?.get(35)?.hidden == true && it.loaded()?.activity?.commentCount == 44L }
+                awaitUntil { it.loaded()?.comments?.roots?.get(35)?.hidden == true && it.loaded()?.activity?.commentCount == 44L }
                     .loaded()!!
 
             hidden.eventSink(ActivityDetailEvent.Retry)
-            val reloaded = awaitUntil { it.loaded()?.comments?.items?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
+            val reloaded = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
             assertEquals(44, reloaded.activity.commentCount)
             reloaded.eventSink(ActivityDetailEvent.LoadMoreComments)
             val end = awaitUntil { it.loaded()?.comments?.endReached == true }.loaded()!!
-            assertEquals(true, end.comments.items.single { it.uri == target }.hidden, "marked when its page is listed")
+            assertEquals(true, end.comments.roots.single { it.uri == target }.hidden, "marked when its page is listed")
             cancelAndIgnoreRemainingEvents()
         }
     }

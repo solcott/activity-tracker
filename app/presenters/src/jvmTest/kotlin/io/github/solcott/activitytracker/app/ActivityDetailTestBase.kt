@@ -2,8 +2,13 @@ package io.github.solcott.activitytracker.app
 
 import app.cash.turbine.ReceiveTurbine
 import co.touchlab.kermit.Logger
+import com.slack.circuit.test.CircuitReceiveTurbine
+import com.slack.circuit.test.FakeNavigator
+import com.slack.circuit.test.presenterTestOf
+import io.github.solcott.activitytracker.app.detail.ActivityDetailPresenter
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.detail.ActivityDetailState
+import io.github.solcott.activitytracker.app.detail.CommentsPaging
 import io.github.solcott.activitytracker.app.detail.LikesList
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.activity.ActivityManager
@@ -15,10 +20,15 @@ import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.feed.fakeGetComments
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
+import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.CommentView
+import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -26,6 +36,10 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlin.time.Clock
 import kotlinx.coroutines.CompletableDeferred
+
+/** The top-level comments of the listed threads, leaving out placeholders. */
+internal val CommentsPaging.roots: List<CommentView>
+    get() = items.mapNotNull { it.root }
 
 /** The detail screen's fakes, shared by its presenter tests: an AppView serving one activity, its likes, comments and streams. */
 open class ActivityDetailTestBase {
@@ -47,16 +61,42 @@ open class ActivityDetailTestBase {
     /** `getComments` page requests, by cursor (null for the first page). */
     protected val pageRequests = mutableListOf<String?>()
 
+    /** `getComments` requests for a thread's replies, as (root rkey, cursor). */
+    protected val replyRequests = mutableListOf<Pair<String?, String?>>()
+
     /** `getComments` answers InternalServerError while set. */
     protected var failComments = false
+
+    /** `getComments` for a thread's replies answers InternalServerError while set. */
+    protected var failReplies = false
+
+    /** Holds `getComments` requests for a thread's replies until completed, while set. */
+    protected var repliesGate: CompletableDeferred<Unit>? = null
 
     /** Holds `getComments` pages (not lookups) until completed, while set. */
     protected var commentsGate: CompletableDeferred<Unit>? = null
 
-    protected fun comment(author: String, did: String, rkey: String, hidden: Boolean = false) =
+    /** A comment's view as JSON; with [root], a reply in that comment's thread, to [parent]. */
+    @Suppress("LongParameterList") // The view's fields.
+    protected fun comment(
+        author: String,
+        did: String,
+        rkey: String,
+        hidden: Boolean = false,
+        audience: String? = null,
+        root: String? = null,
+        parent: String? = root,
+    ) =
         """{"uri":"at://$did/${Nsid.FEED_COMMENT}/$rkey","cid":"bafy$rkey","author":$author,"text":"Nice",""" +
             (if (hidden) """"hidden":true,""" else "") +
+            audience?.let { """"audience":"$it",""" }.orEmpty() +
+            root?.let { """"root":${strongRef(it)},"parent":${strongRef(parent!!)},""" }.orEmpty() +
             """"createdAt":"2026-09-30T11:00:00Z"}"""
+
+    /** The URI of [did]'s comment [rkey]. */
+    protected fun commentUri(did: String, rkey: String) = "at://$did/${Nsid.FEED_COMMENT}/$rkey"
+
+    private fun strongRef(uri: String) = """{"uri":"$uri","cid":"bafy${uri.substringAfterLast('/')}"}"""
 
     protected val activity
         get() =
@@ -80,22 +120,22 @@ open class ActivityDetailTestBase {
                     "/xrpc/${Nsid.FEED_GET_COMMENTS}" -> {
                         val params = request.url.parameters
                         val uris = params.getAll("uris")
-                        if (uris == null) {
-                            pageRequests += params["cursor"]
-                            commentsGate?.await()
-                        }
-                        if (failComments)
-                            return@MockEngine respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
-                        val all = commentsFromAppView
-                        val (page, next) =
-                            if (uris != null) {
-                                all.filter { c -> uris.any { "\"$it\"" in c } } to null
-                            } else {
-                                val from = params["cursor"]?.toInt() ?: 0
-                                all.drop(from).take(PAGE) to (from + PAGE).takeIf { it < all.size }
+                        val root = params["root"]
+                        when {
+                            root != null -> {
+                                replyRequests += root.substringAfterLast('/') to params["cursor"]
+                                repliesGate?.await()
                             }
-                        val cursor = next?.let { ""","cursor":"$it"""" }.orEmpty()
-                        respond("""{"uri":"$activityUri","comments":[${page.joinToString(",")}]$cursor}""", headers = json)
+                            uris == null -> {
+                                pageRequests += params["cursor"]
+                                commentsGate?.await()
+                            }
+                        }
+                        if (failComments || (root != null && failReplies))
+                            return@MockEngine respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
+                        val all = commentsFromAppView.map { AtJson.decodeFromString(CommentView.serializer(), it) }
+                        val page = fakeGetComments(AtUri(activityUri), all, uris, root, params["cursor"], params["limit"]?.toInt())
+                        respond(AtJson.encodeToString(GetComments.Output.serializer(), page), headers = json)
                     }
 
                     "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" -> {
@@ -158,6 +198,28 @@ open class ActivityDetailTestBase {
     }
 
     protected val screen = ActivityDetailScreen(activityUri)
+
+    /** The comments Alice has queued, as (space key or null for the repo, record). */
+    protected suspend fun Repos.queuedComments() =
+        db.outbox()
+            .pending(alice.value)
+            .filter { it.collection == Nsid.FEED_COMMENT }
+            .map { it.space?.substringAfterLast('/') to it.recordJson }
+
+    /** [count] of carol's comments, `3kc000`…, oldest first, with Alice's own at [own] when set. */
+    protected fun manyComments(count: Int, own: Int = -1) =
+        (0 until count).map { i ->
+            val rkey = "3kc" + i.toString().padStart(3, '0')
+            if (i == own) comment(staleAlice, alice.value, rkey) else comment(carol, "did:plc:carol", rkey)
+        }
+
+    protected fun ActivityDetailState.loaded() = this as? ActivityDetailState.Loaded
+
+    protected suspend fun detail(r: Repos, block: suspend CircuitReceiveTurbine<ActivityDetailState>.() -> Unit) =
+        presenterTestOf(
+            { ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager) },
+            block = block,
+        )
 
     protected suspend fun ReceiveTurbine<ActivityDetailState>.awaitLoaded() =
         awaitUntil { it is ActivityDetailState.Loaded } as ActivityDetailState.Loaded

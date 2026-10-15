@@ -30,6 +30,7 @@ import io.github.solcott.activitytracker.data.feed.withLikeOverrides
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import kotlinx.collections.immutable.ImmutableList
@@ -56,6 +57,7 @@ fun ActivityDetailPresenter(
     var likeError by remember { mutableStateOf<UiError?>(null) }
     var commentError by remember { mutableStateOf<UiError?>(null) }
     val draft = rememberTextFieldState()
+    val replying = remember { mutableStateOf<CommentView?>(null) }
     var loadKey by remember { mutableIntStateOf(0) }
     var showLikes by remember { mutableStateOf(false) }
     val flights = rememberSingleFlight()
@@ -125,11 +127,21 @@ fun ActivityDetailPresenter(
             ActivityDetailEvent.LoadMoreComments,
             ActivityDetailEvent.RetryComments,
             ActivityDetailEvent.SendComment,
+            is ActivityDetailEvent.ReplyTo,
+            ActivityDetailEvent.CancelReply,
+            is ActivityDetailEvent.LoadMoreReplies,
             is ActivityDetailEvent.DeleteComment,
             is ActivityDetailEvent.HideComment,
             is ActivityDetailEvent.UnhideComment -> {
                 current?.let {
-                    CommentActions(draft, flights, activities, comments, { e -> commentError = e }) { moved ->
+                    CommentActions(
+                            draft,
+                            flights,
+                            activities,
+                            comments,
+                            replying,
+                            { e -> commentError = e },
+                        ) { moved ->
                             loaded = loaded?.let { l -> l.copy(commentMoves = l.commentMoves + moved) }
                         }
                         .on(event, it)
@@ -149,6 +161,7 @@ fun ActivityDetailPresenter(
             comments = comments.paging,
             sentComments = comments.sent,
             draftComment = draft,
+            replyingTo = replying.value,
             viewerDid = profiles.did,
             isOwn = isOwn,
             likesList = likesList,

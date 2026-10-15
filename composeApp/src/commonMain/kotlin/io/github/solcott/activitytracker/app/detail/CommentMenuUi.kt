@@ -44,8 +44,9 @@ internal fun CommentMenu(
         remember(actions, delete, hide, unhide, comment) {
             actions
                 .sortedBy { it.ordinal }
-                .map { action ->
+                .mapNotNull { action ->
                     when (action) {
+                        CommentAction.Reply -> null // A button under the comment.
                         CommentAction.Hide -> AppMenuItem(hide, AppIcon.Hide) { eventSink(ActivityDetailEvent.HideComment(comment)) }
                         CommentAction.Unhide ->
                             AppMenuItem(unhide, AppIcon.Unhide) { eventSink(ActivityDetailEvent.UnhideComment(comment)) }

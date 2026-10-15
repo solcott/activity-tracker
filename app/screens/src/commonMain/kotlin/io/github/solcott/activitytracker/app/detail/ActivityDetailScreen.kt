@@ -32,11 +32,13 @@ sealed interface ActivityDetailState : CircuitUiState {
     data class Loaded(
         /** Its comment count already moved by the viewer's own comment changes the AppView hasn't caught up with. */
         val activity: ActivityView,
-        /** The comments loaded so far, oldest first, as the viewer left them. */
+        /** The threads loaded so far, oldest first, as the viewer left them. */
         val comments: CommentsPaging,
-        /** The viewer's comments the AppView doesn't list yet, shown after [comments]. */
+        /** The viewer's top-level comments the AppView doesn't list yet, shown after [comments]; sent replies are in their thread. */
         val sentComments: ImmutableList<SentComment>,
         val draftComment: TextFieldState,
+        /** The listed comment or reply [draftComment] answers; null while it's a top-level comment. */
+        val replyingTo: CommentView? = null,
         /** The signed-in athlete, who may delete the comments they wrote and no others. */
         val viewerDid: Did,
         /** The activity is the signed-in athlete's own, so it can't be liked. */
@@ -45,7 +47,10 @@ sealed interface ActivityDetailState : CircuitUiState {
         val likesList: LikesList?,
         /** Why the viewer's last like couldn't be given: a session that can't like a non-public activity is told to sign in again. */
         val likeError: UiError? = null,
-        /** Why the viewer's last comment couldn't be sent, likewise, its text back in [draftComment]; or why a delete failed. */
+        /**
+         * Why the viewer's last comment couldn't be sent, likewise, its text back in [draftComment] and [replyingTo] kept; or why a delete
+         * failed.
+         */
         val commentError: UiError? = null,
         override val eventSink: (ActivityDetailEvent) -> Unit,
         /** Null while loading, and when there are no streams or the viewer may not see them. */
@@ -95,10 +100,10 @@ data class ActivityManage(
     val error: UiError?,
 )
 
-/** An activity's comments, loaded a page at a time as the viewer scrolls to the end. */
+/** An activity's comment threads, loaded a page at a time as the viewer scrolls to the end. */
 @Immutable
 data class CommentsPaging(
-    val items: ImmutableList<CommentView> = persistentListOf(),
+    val items: ImmutableList<CommentThread> = persistentListOf(),
     /** A page is loading. */
     val isLoading: Boolean = false,
     /** Every page is loaded. */
@@ -106,6 +111,36 @@ data class CommentsPaging(
     /** Why the last page couldn't be loaded; [ActivityDetailEvent.RetryComments] tries it again. */
     val error: UiError? = null,
 )
+
+/**
+ * A thread on the detail screen, as the viewer left it: a top-level comment and its replies, indented under it. Threads are one level deep,
+ * so a reply to a reply is listed here too.
+ */
+@Immutable
+data class CommentThread(
+    /** The top-level comment's URI. */
+    val uri: AtUri,
+    /** The top-level comment; null for the placeholder shown when it isn't listed for the viewer, which says nothing more about it. */
+    val root: CommentView?,
+    /** The replies loaded so far, oldest first: its first few, then each page of more the viewer asked for. */
+    val replies: ImmutableList<CommentView>,
+    /** The viewer's replies in this thread the AppView doesn't list yet, after [replies]. */
+    val sentReplies: ImmutableList<SentComment> = persistentListOf(),
+    /** Replies not loaded yet: "View n more replies", which sends [ActivityDetailEvent.LoadMoreReplies]. */
+    val moreReplies: Int = 0,
+    val repliesState: RepliesState = RepliesState.Idle,
+)
+
+/** Loading more of a thread's replies. */
+@Immutable
+sealed interface RepliesState {
+    data object Idle : RepliesState
+
+    data object Loading : RepliesState
+
+    /** The last page couldn't be loaded; [ActivityDetailEvent.LoadMoreReplies] tries it again. */
+    data class Failed(val error: UiError) : RepliesState
+}
 
 @Immutable
 data class LikesList(
@@ -131,6 +166,7 @@ sealed interface ActivityDetailEvent {
     /** Opens another recording of this activity, or the activity this one is a recording of. */
     data class OpenActivity(val uri: AtUri) : ActivityDetailEvent
 
+    /** Sends the draft: a reply to [ActivityDetailState.Loaded.replyingTo] when set, else a top-level comment. */
     data object SendComment : ActivityDetailEvent
 
     /** The viewer scrolled near the end of the listed comments: the next page loads, unless one is loading, failed or none is left. */
@@ -138,6 +174,15 @@ sealed interface ActivityDetailEvent {
 
     /** Loads again the page of comments that failed. */
     data object RetryComments : ActivityDetailEvent
+
+    /** The viewer replies to the listed comment or reply [uri]: the comment field answers it until it's sent or [CancelReply]. */
+    data class ReplyTo(val uri: AtUri) : ActivityDetailEvent
+
+    /** The comment field goes back to a top-level comment, keeping its text. */
+    data object CancelReply : ActivityDetailEvent
+
+    /** Loads the next page of [thread]'s replies, or again the one that failed, unless one is loading or none is left. */
+    data class LoadMoreReplies(val thread: AtUri) : ActivityDetailEvent
 
     /** The viewer deletes their own comment [uri], listed or just sent, confirmed. */
     data class DeleteComment(val uri: AtUri) : ActivityDetailEvent

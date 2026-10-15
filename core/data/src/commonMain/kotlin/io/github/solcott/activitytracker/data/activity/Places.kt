@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.atproto.space.SpaceRead
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.DeleteRecord
 import io.github.solcott.activitytracker.lexicon.atproto.GetRecord
@@ -20,11 +21,19 @@ internal fun SessionClients.placeOf(visibility: String): SpaceUri? =
     Visibility.known(visibility).takeIf { it != Visibility.PUBLIC }?.let(tiers::uri)
 
 /**
- * Where the signed-in athlete's like or comment on an activity at [visibility] goes: the repo for a public one, else their interactions
- * space, which only they and the AppView read. It stays where it was written when the activity's visibility later changes.
+ * Where the signed-in athlete's like on an activity at [visibility] goes, or their comment written for that audience ([commentAudience]):
+ * the repo for public, else their interactions space, which only they and the AppView read. It stays where it was written when the
+ * activity's visibility later changes.
  */
 internal fun SessionClients.interactionPlaceOf(visibility: String): SpaceUri? =
     placeOf(visibility)?.let { tiers.uri(AthleteSpace.INTERACTIONS) }
+
+/**
+ * Who a comment on an activity at [visibility] is written for: that visibility, or for a reply to [replyTo] the narrower of it and
+ * [replyTo]'s audience, so a reply never reaches viewers its parent was hidden from. The comment is placed by it ([interactionPlaceOf]).
+ */
+internal fun commentAudience(visibility: String, replyTo: CommentView?): String =
+    Visibility.known(visibility).let { if (replyTo == null) it else Visibility.narrower(it, Visibility.known(replyTo.audience)) }
 
 /**
  * Refuses a non-public [visibility] for a session that can't write to spaces, as the PDS would, so nothing is published wider. With a

@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.ThreadView
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -141,6 +142,84 @@ class CommentPagesTest {
         assertEquals(41, s.feed.activity(activity.uri).commentCount, "send then refresh counts it once")
         assertEquals(emptyList(), s.feed.localComments.sent(activity.uri))
         assertEquals(listOf(indexed), s.allPages(activity).last().takeLast(1))
+    }
+
+    /** [author]'s reply [rkey] in [root]'s thread. */
+    private fun replyOn(author: Did, rkey: String, root: CommentView) = commentOn(author, rkey).copy(root = root.ref, parent = root.ref)
+
+    /** Every page of [activity]'s threads, as the viewer sees them. */
+    private suspend fun Session.allThreads(activity: ActivityView): List<ThreadView> {
+        val threads = mutableListOf<ThreadView>()
+        var cursor: String? = null
+        do {
+            val page = feed.comments(activity.uri, cursor)
+            threads += page.threads.orEmpty().map(feed.localComments::applyTo)
+            cursor = page.cursor
+        } while (cursor != null)
+        return threads
+    }
+
+    @Test
+    fun aDeletedReplyOnTheSecondPageLeavesItsThreadAndTheCount() = runTest {
+        val s = session()
+        val top = comments(40)
+        val mine = replyOn(did, "3kmine", top[35])
+        val activity = s.cache(view(bob, "3kbob", comments = 41))
+        served = GetActivity.Output(activity, top + mine)
+        assertEquals(listOf(mine), s.allThreads(activity)[35].replies, "listed in bob's thread, on the second page")
+
+        s.activities.deleteComment(activity, mine.uri)
+        assertEquals(40, s.feed.activity(activity.uri).commentCount)
+        assertEquals(listOf(listOf(mine.uri.value)), pds.lookups)
+        val thread = s.allThreads(activity)[35]
+        assertEquals(emptyList(), thread.replies)
+        assertEquals(0, thread.replyCount)
+    }
+
+    @Test
+    fun aHiddenReplyIsMarkedAndUncounted() = runTest {
+        val s = session()
+        val top = comments(3)
+        val carols = replyOn(Did("did:plc:carol"), "3kreply", top[1])
+        val own = s.cache(view(did, "3kown", comments = 4))
+        served = GetActivity.Output(own, top + carols)
+        s.allThreads(own)
+
+        s.activities.setCommentHidden(own, carols, hidden = true)
+        assertEquals(3, s.feed.activity(own.uri).commentCount)
+        assertEquals(true, s.allThreads(own)[1].replies.single().hidden)
+    }
+
+    @Test
+    fun aSentReplyIsCountedOnceAndSettlesThroughALookup() = runTest {
+        val s = session()
+        val top = comments(40)
+        val activity = s.cache(view(bob, "3kbob", comments = 40))
+        served = GetActivity.Output(activity, top)
+        val uri = s.activities.comment(activity, "Agreed", replyTo = top[35])
+
+        assertEquals(top[35].uri, s.feed.localComments.sent(activity.uri).single().root)
+        assertEquals(41, s.feed.activity(activity.uri).commentCount, "counted before the AppView indexes it")
+
+        // Indexed in bob's thread, on a page the viewer hasn't loaded: the lookup settles it.
+        val indexed = replyOn(did, uri.rkey!!, top[35])
+        served = GetActivity.Output(activity.copy(commentCount = 41), top + indexed)
+        assertEquals(41, s.feed.activity(activity.uri).commentCount, "counted once")
+        assertEquals(emptyList(), s.feed.localComments.sent(activity.uri))
+        assertEquals(listOf(indexed), s.allThreads(activity)[35].replies)
+    }
+
+    @Test
+    fun theRestOfAThreadsRepliesComeAPageAtATime() = runTest {
+        val s = session()
+        val root = commentOn(bob, "3kroot")
+        val replies = (0 until 8).map { replyOn(Did("did:plc:carol"), "3kr$it", root) }
+        val activity = s.cache(view(bob, "3kbob", comments = 9))
+        served = GetActivity.Output(activity, listOf(root) + replies)
+        val thread = s.allThreads(activity).single()
+        assertEquals(replies.take(3), thread.replies)
+        val rest = s.feed.comments(activity.uri, thread.repliesCursor, root = root.uri)
+        assertEquals(replies.drop(3), rest.comments)
     }
 
     @Test

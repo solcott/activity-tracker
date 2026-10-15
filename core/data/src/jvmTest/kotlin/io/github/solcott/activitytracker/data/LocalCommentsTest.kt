@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.ThreadView
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -44,6 +45,39 @@ class LocalCommentsTest {
             "Mine",
             Instant.parse("2026-10-14T09:00:00Z"),
         )
+
+    private fun reply(author: Did, rkey: String, root: CommentView) = comment(author, rkey).copy(root = root.ref, parent = root.ref)
+
+    @Test
+    fun aThreadIsShownAsTheViewerLeftIt() {
+        val local = LocalComments()
+        val first = reply(carol, "3kr1", bobs)
+        val second = reply(alice, "3kr2", bobs)
+        val third = reply(bob, "3kr3", bobs)
+        val thread = ThreadView(bobs.uri, root = bobs, replies = listOf(first, second, third), replyCount = 5, repliesCursor = "c")
+        local.change(run, second.uri, Want.Gone, listedHidden = false)
+        local.change(run, first.uri, Want.Present(hidden = true), listedHidden = false)
+        local.change(run, bobs.uri, Want.Gone, listedHidden = false)
+
+        val shown = local.applyTo(thread)
+        assertEquals(null, shown.root, "a deleted top-level comment leaves a placeholder")
+        assertEquals(listOf(first.copy(hidden = true), third), shown.replies)
+        assertEquals(4, shown.replyCount, "the deleted reply no longer counts; 2 more still to load")
+        assertEquals("c", shown.repliesCursor)
+        assertEquals(-3, local.delta(run), "two deletes and a hide, replies counted like any comment")
+    }
+
+    @Test
+    fun aSentReplyIsCountedAndKeepsItsThread() {
+        val local = LocalComments()
+        val mine = sent("3kca").copy(root = bobs.uri)
+        local.send(run, mine)
+        assertEquals(1, local.delta(run))
+        assertEquals(bobs.uri, local.sent(run).single().root)
+        local.lookup(run, listOf(mine.uri), listOf(reply(alice, "3kca", bobs))).report()
+        assertEquals(emptyList(), local.sent(run), "settled once a lookup finds it")
+        assertEquals(0, local.delta(run))
+    }
 
     @Test
     fun aSentCommentIsListedAndCountedUntilTheAppViewListsIt() {

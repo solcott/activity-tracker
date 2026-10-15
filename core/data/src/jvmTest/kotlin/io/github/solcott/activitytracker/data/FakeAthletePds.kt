@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.feed.fakeGetComments
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -23,7 +24,6 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetComments
-import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -58,8 +58,9 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
     var offline = false
 
     /**
-     * What the AppView serves: `getActivity` the activity, `getComments` its comments (in pages of the asked limit, or those of the asked
-     * `uris`); NotFound while null.
+     * What the AppView serves: `getActivity` the activity, `getComments` its comments, oldest first, as threads (in pages of the asked
+     * limit of threads, each with its first three replies; a `root`'s replies a page at a time; or those of the asked `uris`); NotFound
+     * while null. A comment naming a root is a reply in that thread, and a thread with no top-level comment listed is a placeholder.
      */
     var served: GetActivity.Output? = null
 
@@ -126,17 +127,16 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                         val output = served ?: return@MockEngine error("NotFound")
                         val params = request.url.parameters
                         val uris = params.getAll("uris")
+                        if (uris != null) lookups += uris
                         val page =
-                            if (uris != null) {
-                                lookups += uris
-                                GetComments.Output(output.activity.uri, output.comments.filter { it.uri.value in uris })
-                            } else {
-                                val from = params["cursor"]?.toInt() ?: 0
-                                val limit = params["limit"]?.toInt() ?: Paging.DEFAULT_LIMIT
-                                val comments = output.comments.drop(from).take(limit)
-                                val next = (from + limit).takeIf { it < output.comments.size }?.toString()
-                                GetComments.Output(output.activity.uri, comments, next)
-                            }
+                            fakeGetComments(
+                                output.activity.uri,
+                                output.comments,
+                                uris,
+                                params["root"],
+                                params["cursor"],
+                                params["limit"]?.toInt(),
+                            )
                         json(AtJson.encodeToString(GetComments.Output.serializer(), page))
                     }
                     path == "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" -> {

@@ -102,11 +102,14 @@ class FeedRepository(
     }
 
     /**
-     * A page of [activity]'s comments from the AppView, oldest first, after [cursor] (the first page when null), as it serves them. What it
-     * lists is reported to [localComments]; lay [LocalComments.applyTo] over the page to show it as the viewer left it.
+     * A page of [activity]'s comment threads from the AppView, oldest first, after [cursor] (the first page when null), as it serves them;
+     * with [root], a page of that thread's replies instead, after [cursor]. Everything it lists, top-level comments and replies alike, is
+     * reported to [localComments]; lay [LocalComments.applyTo] over the threads or replies to show them as the viewer left them.
      */
-    suspend fun comments(activity: AtUri, cursor: String? = null): GetComments.Output =
-        clients.appView.query(GetComments.method, GetComments.Params(activity, cursor = cursor)).also { localComments.report(it.comments) }
+    suspend fun comments(activity: AtUri, cursor: String? = null, root: AtUri? = null): GetComments.Output =
+        clients.appView.query(GetComments.method, GetComments.Params(activity, cursor = cursor, root = root)).also { page ->
+            localComments.report(page.comments + page.threads.orEmpty().flatMap { listOfNotNull(it.root) + it.replies })
+        }
 
     /**
      * [uri]'s streams, or null when it has none or the viewer may not see them. Always from the AppView, never the author's PDS, so it's

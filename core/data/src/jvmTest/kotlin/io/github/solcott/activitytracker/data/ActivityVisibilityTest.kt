@@ -20,16 +20,19 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.RecordingView
+import io.github.solcott.activitytracker.lexicon.app.ReplyRef
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
@@ -283,6 +286,7 @@ class ActivityVisibilityTest {
     }
 
     private val bob = Did("did:plc:bob")
+    private val carol = Did("did:plc:carol")
 
     /** One of Bob's activities, as Alice sees it at [visibility], cached in her feed. */
     private suspend fun Session.bobs(visibility: String, rkey: String = "3kbob"): ActivityView {
@@ -453,6 +457,67 @@ class ActivityVisibilityTest {
 
         s.activities.comment(s.bobs(Visibility.PUBLIC, rkey = "3kpub"), "Nice")
         assertEquals(listOf("put repo ${Nsid.FEED_COMMENT}"), writes.map { it.substringBeforeLast('/') })
+    }
+
+    /** Carol's comment on bob's activity, written for [audience]; with [root], a reply in [root]'s thread. */
+    private fun carols(rkey: String, audience: String? = null, root: CommentView? = null) =
+        commentOn(carol, rkey).copy(audience = audience, root = root?.ref, parent = root?.ref)
+
+    @Test
+    fun aReplyToAFollowersCommentOnAPublicActivityGoesInTheInteractionsSpace() = runTest {
+        val s = session()
+        val parent = carols("3kc1", audience = Visibility.FOLLOWERS)
+        s.activities.comment(s.bobs(Visibility.PUBLIC), "Agreed", replyTo = parent)
+        assertEquals(listOf("put ${AthleteSpace.INTERACTIONS} ${Nsid.FEED_COMMENT}"), writes.map { it.substringBeforeLast('/') })
+        val record = AtJson.decodeFromJsonElement(CommentRecord.serializer(), storedComment(AthleteSpace.INTERACTIONS))
+        assertEquals(Visibility.FOLLOWERS, record.audience, "capped by its parent's audience")
+        assertEquals(ReplyRef(parent.ref, parent.ref), record.reply)
+    }
+
+    @Test
+    fun aReplyToAPublicCommentOnAPublicActivityGoesInTheRepo() = runTest {
+        val s = session()
+        val parent = carols("3kc1")
+        s.activities.comment(s.bobs(Visibility.PUBLIC), "Agreed", replyTo = parent)
+        assertEquals(listOf("put repo ${Nsid.FEED_COMMENT}"), writes.map { it.substringBeforeLast('/') })
+        val record = AtJson.decodeFromJsonElement(CommentRecord.serializer(), storedComment(repo))
+        assertNull(record.audience)
+        assertEquals(ReplyRef(parent.ref, parent.ref), record.reply)
+    }
+
+    @Test
+    fun aReplyToAPublicCommentOnAMutualsActivityIsForMutuals() = runTest {
+        val s = session()
+        s.activities.comment(s.bobs(Visibility.MUTUALS), "Agreed", replyTo = carols("3kc1"))
+        val record = AtJson.decodeFromJsonElement(CommentRecord.serializer(), storedComment(AthleteSpace.INTERACTIONS))
+        assertEquals(Visibility.MUTUALS, record.audience)
+    }
+
+    @Test
+    fun aNonPublicReplyIsRefusedWithoutTheScopeAndWritesNothing() = runTest {
+        val s = session(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}&collection=${Nsid.FEED_LIKE}")
+        val public = s.bobs(Visibility.PUBLIC)
+        val e =
+            assertFailsWith<XrpcException> {
+                s.activities.comment(public, "Agreed", replyTo = carols("3kc1", audience = Visibility.FOLLOWERS))
+            }
+        assertEquals(SpaceErrors.SCOPE_MISSING, e.error)
+        assertEquals(emptyList(), writes, "nothing written")
+        assertEquals(0, s.cached(public).commentCount, "nor counted")
+        assertEquals(emptyList(), s.feed.localComments.sent(public.uri), "nor listed")
+        assertEquals(0, s.db.outbox().pending(did.value).size, "nor left in the outbox")
+    }
+
+    @Test
+    fun aReplyToAReplyKeepsItsThreadsRoot() = runTest {
+        val s = session()
+        val root = commentOn(bob, "3kc1")
+        val reply = carols("3kc2", root = root)
+        val activity = s.bobs(Visibility.PUBLIC)
+        val uri = s.activities.comment(activity, "Me too", replyTo = reply)
+        val record = AtJson.decodeFromJsonElement(CommentRecord.serializer(), storedComment(repo))
+        assertEquals(ReplyRef(root = root.ref, parent = reply.ref), record.reply)
+        assertEquals(root.uri, s.feed.localComments.sent(activity.uri).single { it.uri == uri }.root)
     }
 
     @Test

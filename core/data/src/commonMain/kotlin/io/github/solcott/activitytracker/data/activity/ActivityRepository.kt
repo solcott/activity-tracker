@@ -26,6 +26,7 @@ import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.LikeRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.ReplyRef
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.activitytracker.location.Gpx
@@ -198,29 +199,33 @@ class ActivityRepository(
     }
 
     /**
-     * Comments on [activity], at any visibility. Like a like, a comment on a public activity goes in the repo and one on a non-public
-     * activity in the athlete's interactions space ([interactionPlaceOf]), which needs the `space:` scope to cover `feed.comment`. A
-     * non-public one records the visibility the view shows as its audience, so the AppView never shows it wider, even if the activity is.
-     * Returns the comment's URI. It's listed after the loaded comments and counted at once ([LocalComments.sent]) until the AppView lists
-     * it.
+     * Comments on [activity], at any visibility, or with [replyTo] replies to one of its listed comments or replies. The comment is written
+     * for the visibility the view shows, narrowed for a reply to [replyTo]'s audience ([commentAudience]), and placed by that audience: in
+     * the repo for public, else in the athlete's interactions space ([interactionPlaceOf]), which needs the `space:` scope to cover
+     * `feed.comment`. A non-public one records its audience, so the AppView never shows it wider, even if the activity is. A reply names
+     * [replyTo] as its parent and [replyTo]'s thread's top-level comment as its root. Returns the comment's URI. It's listed after the
+     * loaded comments, or at the end of its thread, and counted at once ([LocalComments.sent]) until the AppView lists it.
      */
-    suspend fun comment(activity: ActivityView, text: String): AtUri {
-        val visibility = activity.visibilityOrPublic
+    suspend fun comment(activity: ActivityView, text: String, replyTo: CommentView? = null): AtUri {
+        val audience = commentAudience(activity.visibilityOrPublic, replyTo)
         // Refused before anything changes, so a comment is never counted that can't be written.
-        clients.requireSpacesFor(visibility, Nsid.FEED_COMMENT)
+        clients.requireSpacesFor(audience, Nsid.FEED_COMMENT)
         val rkey = Tid.next(clock)
         val uri = AtUri.of(clients.did, Nsid.FEED_COMMENT, rkey)
         val createdAt = clock.now()
+        val reply = replyTo?.let { ReplyRef(root = it.root ?: it.ref, parent = it.ref) }
         val record =
             CommentRecord(
                 StrongRef(activity.uri, activity.cid),
                 text.trim(),
                 createdAt,
-                audience = visibility.takeIf { it != Visibility.PUBLIC },
+                audience = audience.takeIf { it != Visibility.PUBLIC },
+                reply = reply,
             )
-        feed.localComments.send(activity.uri, SentComment(uri, ProfileViewBasic(clients.did, clients.handle), record.text, createdAt))
+        val sent = SentComment(uri, ProfileViewBasic(clients.did, clients.handle), record.text, createdAt, root = reply?.root?.uri)
+        feed.localComments.send(activity.uri, sent)
         undoingOnFailure({ feed.localComments.restore(uri, null) }) {
-            writer.put(Nsid.FEED_COMMENT, rkey, CommentRecord.serializer(), record, space = clients.interactionPlaceOf(visibility))
+            writer.put(Nsid.FEED_COMMENT, rkey, CommentRecord.serializer(), record, space = clients.interactionPlaceOf(audience))
         }
         feed.updateCached(activity.uri) { it.copy(commentCount = it.commentCount + 1) }
         outbox.drain()

@@ -5,13 +5,18 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.ThreadView
 import kotlin.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 
-/** A comment the viewer sent this session that the AppView doesn't list yet. Not a [CommentView]: the client can't compute its CID. */
-@Immutable data class SentComment(val uri: AtUri, val author: ProfileViewBasic, val text: String, val createdAt: Instant)
+/**
+ * A comment the viewer sent this session that the AppView doesn't list yet. Not a [CommentView]: the client can't compute its CID, so it
+ * can't be replied to until the AppView lists it. A reply's [root] is its thread's top-level comment.
+ */
+@Immutable
+data class SentComment(val uri: AtUri, val author: ProfileViewBasic, val text: String, val createdAt: Instant, val root: AtUri? = null)
 
 /**
  * Comments the viewer sent, deleted, hid or unhid this session, each held as what the viewer wants of it ([Want]) against what the AppView
@@ -134,6 +139,19 @@ class LocalComments {
                 is Want.Present -> if ((c.hidden == true) == want.hidden) c else c.copy(hidden = true.takeIf { want.hidden })
             }
         }
+    }
+
+    /**
+     * A [thread] as the viewer left it: [applyTo] over its top-level comment and replies, its reply count lowered by the replies the viewer
+     * deleted. A top-level comment the viewer deleted leaves a placeholder, which the caller drops when nothing is left under it.
+     */
+    fun applyTo(thread: ThreadView): ThreadView {
+        val replies = applyTo(thread.replies)
+        return thread.copy(
+            root = thread.root?.let { applyTo(listOf(it)).singleOrNull() },
+            replies = replies,
+            replyCount = thread.replyCount - (thread.replies.size - replies.size),
+        )
     }
 
     /** The comments the viewer sent on [activity] that the AppView doesn't list yet, oldest first. */
