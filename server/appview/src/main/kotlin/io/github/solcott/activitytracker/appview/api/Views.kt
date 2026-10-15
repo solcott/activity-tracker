@@ -23,6 +23,7 @@ import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
+import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.Paging
@@ -105,42 +106,38 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         GetAuthorActivitiesByStart.Output(hydrate(rows, viewer), next)
     }
 
+    /** The activity alone; its comments come from [comments]. `comments` is still written, empty, for clients from before that. */
     suspend fun activity(viewer: Did?, params: GetActivity.Params): GetActivity.Output = db.tx {
         // An activity the viewer may not see answers as if it didn't exist.
         val row =
-            Activities.selectAll().where { (Activities.uri eq params.uri.value) and visibleTo(viewer) }.singleOrNull()
-                ?: throw XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "Activity not found")
-        val comments =
+            Activities.selectAll().where { (Activities.uri eq params.uri.value) and visibleTo(viewer) }.singleOrNull() ?: throw notFound()
+        GetActivity.Output(hydrate(listOf(row), viewer).single())
+    }
+
+    /**
+     * An activity's comments listed for the viewer ([commentsListedFor], the rule [hydrate] counts by), oldest first. A page is a keyset on
+     * (created_at, uri) ascending, cursor `"<createdAt>::<uri>"`, taken from the last row read rather than the last view built, since
+     * [commentViews] drops a comment whose author has no profile row. With `uris`, just those comments, and no cursor.
+     */
+    suspend fun comments(viewer: Did?, params: GetComments.Params): GetComments.Output = db.tx {
+        val uris = params.uris
+        if (uris != null && uris.size > GetComments.MAX_URIS)
+            invalidRequest("At most ${GetComments.MAX_URIS} uris may be given, not ${uris.size}")
+        val athlete = requireVisibleActivity(params.uri.value, viewer)
+        val pageSize = Paging.clamp(params.limit)
+        val listed = (Comments.subjectUri eq params.uri.value) and commentsListedFor(viewer)
+        val rows =
             admittedComments()
                 .select(Comments.columns)
-                .where { (Comments.subjectUri eq params.uri.value) and commentsListedFor(viewer) }
-                .orderBy(Comments.createdAt to SortOrder.ASC)
-                .limit(HttpStatusCode.InternalServerError.value)
-                .toList()
-        val authors = basicProfiles(comments.map { it[Comments.authorDid] }, avatars)
-        // Only the athlete and each commenter are listed hidden comments, so any listed one that's hidden is theirs to see marked.
-        val hidden =
-            CommentHides.select(CommentHides.commentUri)
                 .where {
-                    (CommentHides.commentUri inList comments.map { it[Comments.uri] }) and
-                        (CommentHides.authorDid eq row[Activities.authorDid])
+                    if (uris != null) listed and (Comments.uri inList uris.map { it.value })
+                    else listed and keysetAfter(Comments.createdAt, Comments.uri, params.cursor)
                 }
-                .map { it[CommentHides.commentUri] }
-                .toSet()
-        GetActivity.Output(
-            activity = hydrate(listOf(row), viewer).single(),
-            comments =
-                comments.mapNotNull { c ->
-                    CommentView(
-                        uri = AtUri(c[Comments.uri]),
-                        cid = Cid(c[Comments.cid]),
-                        author = authors[c[Comments.authorDid]] ?: return@mapNotNull null,
-                        text = c[Comments.text],
-                        createdAt = Instant.fromEpochMilliseconds(c[Comments.createdAt]),
-                        hidden = true.takeIf { c[Comments.uri] in hidden },
-                    )
-                },
-        )
+                .orderBy(Comments.createdAt to SortOrder.ASC, Comments.uri to SortOrder.ASC)
+                .let { if (uris == null) it.limit(pageSize) else it }
+                .toList()
+        val next = rows.takeIf { uris == null && it.size == pageSize }?.last()?.let { "${it[Comments.createdAt]}::${it[Comments.uri]}" }
+        GetComments.Output(params.uri, commentViews(rows, athlete, avatars), next)
     }
 
     /**
@@ -151,8 +148,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
     suspend fun likes(viewer: Did?, params: GetLikes.Params): GetLikes.Output = db.tx {
         val uri = params.uri.value
         // An activity the viewer may not see answers as if it didn't exist, revealing none of its likes.
-        if (Activities.select(Activities.uri).where { (Activities.uri eq uri) and visibleTo(viewer) }.empty())
-            throw XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "Activity not found")
+        requireVisibleActivity(uri, viewer)
         val pageSize = Paging.clamp(params.limit)
         val latest = Likes.indexedAt.max()
         val after =
@@ -394,3 +390,36 @@ private fun feedFilter(types: List<String>?, since: Instant?, until: Instant?): 
 }
 
 private fun invalidRequest(message: String): Nothing = throw XrpcError(HttpStatusCode.BadRequest.value, "InvalidRequest", message)
+
+/** The athlete whose activity [uri] is; [notFound] when the viewer may not see it, as if it didn't exist. */
+private fun JdbcTransaction.requireVisibleActivity(uri: String, viewer: Did?): String =
+    Activities.select(Activities.authorDid)
+        .where { (Activities.uri eq uri) and visibleTo(viewer) }
+        .singleOrNull()
+        ?.get(Activities.authorDid) ?: throw notFound()
+
+/**
+ * Views of comment [rows] on an activity of [athlete]'s, in order, leaving out any whose author has no profile row. Only the athlete and
+ * each commenter are listed hidden comments ([commentsListedFor]), so any listed one that's hidden is theirs to see marked.
+ */
+private fun JdbcTransaction.commentViews(rows: List<ResultRow>, athlete: String, avatars: AvatarUrls): List<CommentView> {
+    if (rows.isEmpty()) return emptyList()
+    val authors = basicProfiles(rows.map { it[Comments.authorDid] }, avatars)
+    val hidden =
+        CommentHides.select(CommentHides.commentUri)
+            .where { (CommentHides.commentUri inList rows.map { it[Comments.uri] }) and (CommentHides.authorDid eq athlete) }
+            .map { it[CommentHides.commentUri] }
+            .toSet()
+    return rows.mapNotNull { c ->
+        CommentView(
+            uri = AtUri(c[Comments.uri]),
+            cid = Cid(c[Comments.cid]),
+            author = authors[c[Comments.authorDid]] ?: return@mapNotNull null,
+            text = c[Comments.text],
+            createdAt = Instant.fromEpochMilliseconds(c[Comments.createdAt]),
+            hidden = true.takeIf { c[Comments.uri] in hidden },
+        )
+    }
+}
+
+private fun notFound() = XrpcError(HttpStatusCode.BadRequest.value, "NotFound", "Activity not found")

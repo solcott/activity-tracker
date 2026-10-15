@@ -10,8 +10,10 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.XrpcQuery
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
+import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
@@ -95,16 +97,19 @@ class CommentHidesTest {
         application { appView(config, db, verifier) }
     }
 
-    /** `getActivity` for [viewer] (signed out when null): (count, listed comment rkey → hidden). */
+    /** `getActivity`'s count and `getComments`' list for [viewer] (signed out when null): (count, listed comment rkey → hidden). */
     private suspend fun HttpClient.seen(viewer: String?): Pair<Int, Map<String, Boolean?>> {
-        val nsid = GetActivity.method.nsid
+        val count = query(GetActivity.method, viewer).activity.commentCount.toInt()
+        return count to query(GetComments.method, viewer).comments.associate { it.uri.rkey!! to it.hidden }
+    }
+
+    private suspend fun <P, O> HttpClient.query(method: XrpcQuery<P, O>, viewer: String?): O {
         val response =
-            get("/xrpc/$nsid?uri=${run.encodeURLParameter()}") {
-                viewer?.let { header(HttpHeaders.Authorization, "Bearer ${keys.getValue(it).serviceJwt(it, service, nsid)}") }
+            get("/xrpc/${method.nsid}?uri=${run.encodeURLParameter()}") {
+                viewer?.let { header(HttpHeaders.Authorization, "Bearer ${keys.getValue(it).serviceJwt(it, service, method.nsid)}") }
             }
         assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
-        val output = AtJson.decodeFromString(GetActivity.Output.serializer(), response.bodyAsText())
-        return output.activity.commentCount.toInt() to output.comments.associate { it.uri.rkey!! to it.hidden }
+        return AtJson.decodeFromString(method.output, response.bodyAsText())
     }
 
     @Test

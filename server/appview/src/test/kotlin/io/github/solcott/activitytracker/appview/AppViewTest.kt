@@ -18,6 +18,7 @@ import io.github.solcott.activitytracker.lexicon.app.AspectRatio
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
+import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.GetFollowers
 import io.github.solcott.activitytracker.lexicon.app.GetFollows
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
@@ -242,7 +243,9 @@ class AppViewTest {
 
         val detail = client.get("/xrpc/${GetActivity.method.nsid}?uri=$activityUri")
         val output = AtJson.decodeFromString(GetActivity.Output.serializer(), detail.bodyAsText())
-        assertEquals("Nice!", output.comments.single().text)
+        assertEquals(emptyList(), output.comments, "comments are listed by getComments")
+        val comments = client.get("/xrpc/${GetComments.method.nsid}?uri=$activityUri")
+        assertEquals("Nice!", AtJson.decodeFromString(GetComments.Output.serializer(), comments.bodyAsText()).comments.single().text)
         assertEquals(-55L, output.activity.record.avgTemperature)
         assertEquals("trail", output.activity.record.subSport)
         assertEquals("trail", transaction(db) { Activities.selectAll().single()[Activities.subSport] })

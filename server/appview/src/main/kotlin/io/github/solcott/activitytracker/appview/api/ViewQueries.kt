@@ -10,6 +10,7 @@ import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.or
@@ -30,10 +31,13 @@ internal fun keysetBefore(sort: Column<Long>, uri: Column<String>, cursor: Strin
     return (sort less sortValue) or ((sort eq sortValue) and (uri less uriValue))
 }
 
-/** The ascending counterpart of [keysetBefore]: rows after the cursor's (sort, uri). */
+/**
+ * The ascending counterpart of [keysetBefore]: rows after the cursor's (sort, uri). The redundant `sort >= cursor` lets an index on (…,
+ * sort) seek to the cursor instead of filtering every earlier row, which Postgres doesn't do for the `OR` alone.
+ */
 internal fun keysetAfter(sort: Column<Long>, uri: Column<String>, cursor: String?): Op<Boolean> {
     val (sortValue, uriValue) = cursor?.let(::parseCursor) ?: return Op.TRUE
-    return (sort greater sortValue) or ((sort eq sortValue) and (uri greater uriValue))
+    return (sort greaterEq sortValue) and ((sort greater sortValue) or ((sort eq sortValue) and (uri greater uriValue)))
 }
 
 /** Splits a `"<sort>::<key>"` cursor; null when it is malformed. */

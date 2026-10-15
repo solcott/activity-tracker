@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
+import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.GetFollowRequests
 import io.github.solcott.activitytracker.lexicon.app.GetFollowers
 import io.github.solcott.activitytracker.lexicon.app.GetFollows
@@ -60,6 +61,7 @@ fun Route.xrpcRoutes(
     xrpcQuery(GetActivity.method, verifier) { params, viewer -> views.activity(viewer, params) }
     xrpcQuery(GetActivityStreams.method, verifier) { params, viewer -> streams.streams(viewer, params) }
     xrpcQuery(GetLikes.method, verifier) { params, viewer -> views.likes(viewer, params) }
+    xrpcQuery(GetComments.method, verifier) { params, viewer -> views.comments(viewer, params) }
     xrpcQuery(GetProfile.method, verifier) { params, viewer -> views.profile(viewer, params.actor) }
     xrpcQuery(SearchActors.method, verifier) { params, viewer ->
         requireViewer(viewer)

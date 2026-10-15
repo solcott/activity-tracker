@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
+import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
@@ -224,10 +225,10 @@ class ActivityVisibilityTest {
 
     /** The authors of the comments [viewer] is shown on alice's [rkey], after checking that the view's count matches them. */
     private suspend fun HttpClient.commenters(rkey: String, viewer: String?): List<String> {
-        val output = activity(rkey, viewer)
-        val authors = output.comments.map { it.author.did.value }
-        assertEquals(authors.size.toLong(), output.activity.commentCount, "the count matches the list")
-        return authors
+        val count = activity(rkey, viewer).activity.commentCount
+        val comments = query(GetComments.method, viewer, "?uri=${uri(rkey).encodeURLParameter()}&limit=100").comments
+        assertEquals(count, comments.count { it.hidden != true }.toLong(), "the count matches the list")
+        return comments.map { it.author.did.value }
     }
 
     private suspend fun HttpClient.count(viewer: String?): Long? = query(GetProfile.method, viewer, "?actor=$alice").activitiesCount
