@@ -24,13 +24,10 @@ class LocalRewrites(private val held: HeldPhotos, private val ownBlobUrl: (cid: 
     /** The record the athlete rewrote [uri] to, while the AppView hasn't caught up; null otherwise. */
     fun observe(uri: AtUri): Flow<ActivityRecord?> = records.map { it[uri.value] }.distinctUntilChanged()
 
-    /**
-     * [view] with the record the athlete rewrote it to, until the AppView serves that record itself. A blob the rewrite added is uploaded
-     * after it's queued, so only the AppView's copy has its ref.
-     */
+    /** [view] with the record the athlete rewrote it to, until the AppView serves that record itself. */
     fun applyTo(view: ActivityView): ActivityView {
         val mine = records.value[view.uri.value]
-        val caughtUp = mine != null && view.record.copy(track = null) == mine.copy(track = null)
+        val caughtUp = mine != null && view.record == mine
         if (caughtUp) records.update { it - view.uri.value }
         return if (mine == null || caughtUp) view else rewritten(view, mine)
     }
@@ -38,7 +35,7 @@ class LocalRewrites(private val held: HeldPhotos, private val ownBlobUrl: (cid: 
     /** [view] showing [record], which the athlete just wrote, photos and all. */
     fun rewritten(view: ActivityView, record: ActivityRecord): ActivityView =
         view.copy(
-            record = record.copy(track = record.track ?: view.record.track),
+            record = record,
             media = mediaViews(record, view.media, view.visibilityOrPublic, held, ownBlobUrl),
         )
 }

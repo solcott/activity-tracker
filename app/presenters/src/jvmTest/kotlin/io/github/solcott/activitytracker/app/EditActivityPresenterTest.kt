@@ -52,7 +52,6 @@ class EditActivityPresenterTest {
     private val record =
         """{"sport":"dive","startedAt":"2026-09-30T10:00:00Z","elapsedTime":1800,"createdAt":"2026-09-30T10:31:00Z",""" +
             """"title":"Blue Hole","description":"Sharks","dive":{"maxDepth":3000,"site":"Dahab"},""" +
-            """"track":{"${'$'}type":"blob","ref":{"${'$'}link":"bafytrack"},"mimeType":"application/gpx+xml","size":10},""" +
             """"media":[${photo("bafkone")},${photo("bafktwo")}]}"""
 
     private fun photo(cid: String) =
@@ -160,7 +159,7 @@ class EditActivityPresenterTest {
         val (db, _, clients) = signedInTestSession(http, did = alice)
         val feed = FeedRepository(db, clients, LocalLikes(), Logger)
         val zones = TestZones(db, clients)
-        val manager = ActivityManager(db, clients, zones.outbox, zones.writer, zones.streams, feed)
+        val manager = ActivityManager(db, clients, zones.outbox, zones.writer, zones.streams, zones.tracks, feed)
         val defaults = ActivityDefaults(clients)
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
         return { EditActivityPresenter(EditActivityScreen(uri), navigator, feed, manager, defaults, profiles) }
@@ -195,7 +194,6 @@ class EditActivityPresenterTest {
             assertEquals("Sharks and turtles", saved.description)
             assertEquals("Dahab", saved.dive?.site)
             assertEquals(3000, saved.dive?.maxDepth)
-            assertEquals("bafytrack", saved.track?.ref?.link)
             assertEquals(listOf("bafktwo", "bafknew"), saved.media.orEmpty().map { it.cid })
             cancelAndIgnoreRemainingEvents()
         }

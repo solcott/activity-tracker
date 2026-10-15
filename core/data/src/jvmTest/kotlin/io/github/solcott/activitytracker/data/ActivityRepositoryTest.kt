@@ -5,6 +5,7 @@ import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
 import co.touchlab.kermit.TestLogWriter
 import co.touchlab.kermit.loggerConfigInit
+import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityEdit
 import io.github.solcott.activitytracker.data.activity.ActivityManager
@@ -17,6 +18,7 @@ import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.OwnActivity
 import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
+import io.github.solcott.activitytracker.data.activity.PdsActivityTrackStore
 import io.github.solcott.activitytracker.data.activity.cid
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -49,6 +51,7 @@ import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -57,6 +60,7 @@ import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Clock
@@ -189,13 +193,15 @@ class ActivityRepositoryTest {
         val writer = OutboxWriter(db, clients, Clock.System)
         val zones = ActivityZonesStore(db, writer, outbox, clients, Clock.System, logger)
         val streams = PdsActivityStreamsStore(writer, clients, Clock.System, zones)
-        manager = ActivityManager(db, clients, outbox, writer, streams, feed)
+        val tracks = PdsActivityTrackStore(db, writer, clients, Clock.System)
+        manager = ActivityManager(db, clients, outbox, writer, streams, tracks, feed)
         return ActivityRepository(
             db,
             clients,
             outbox,
             writer,
             streams,
+            tracks,
             zones,
             feed,
             localLikes,
@@ -228,7 +234,7 @@ class ActivityRepositoryTest {
         )
 
     @Test
-    fun publishUploadsTrackThenWritesRecordAndRetriesAfterFailure() = runTest {
+    fun publishWritesRecordAndRetriesAfterFailure() = runTest {
         val repo = repository()
 
         val draft =
@@ -239,7 +245,6 @@ class ActivityRepositoryTest {
                 startedAt = Instant.parse("2026-09-30T07:00:00Z"),
                 elapsed = 30.minutes,
                 distanceMeters = 5012.4,
-                gpx = "<gpx/>".encodeToByteArray(),
             )
 
         failWrites = true
@@ -258,7 +263,26 @@ class ActivityRepositoryTest {
         assertEquals(Nsid.FEED_ACTIVITY, record["\$type"]?.jsonPrimitive?.content)
         assertEquals("5012", record["distance"]?.jsonPrimitive?.content)
         assertEquals(SubSport.TRAIL, record["subSport"]?.jsonPrimitive?.content)
-        assertTrue("bafyblob" in record["track"].toString())
+        assertFalse("track" in record, "the full track is a record of its own, in the self space")
+    }
+
+    @Test
+    fun aTrackIsRefusedWithoutTheSpaceScope() = runTest {
+        val repo = repository()
+        val draft =
+            ActivityDraft(
+                type = ActivityType(Sport.RUN),
+                title = "Morning run",
+                description = null,
+                startedAt = Instant.parse("2026-09-30T07:00:00Z"),
+                elapsed = 30.minutes,
+                gpx = "<gpx/>".encodeToByteArray(),
+            )
+
+        val refused = assertFailsWith<XrpcException> { repo.publish(draft) }
+
+        assertEquals(SpaceErrors.SCOPE_MISSING, refused.error)
+        assertEquals(0, repo.pendingWrites.first(), "nothing is queued")
     }
 
     @Test
@@ -489,10 +513,7 @@ class ActivityRepositoryTest {
         storedRecord =
             AtJson.encodeToString(
                 ActivityRecord.serializer(),
-                existingDive.copy(
-                    recordingOf = main.uri,
-                    track = BlobRef(ref = BlobRef.Link("bafytrack"), mimeType = "application/gpx+xml", size = 10),
-                ),
+                existingDive.copy(recordingOf = main.uri),
             )
 
         manager.delete(main.copy(recordings = listOf(recording("3krec1"))), withRecordings = false)
@@ -509,7 +530,6 @@ class ActivityRepositoryTest {
         val record =
             AtJson.decodeFromJsonElement(ActivityRecord.serializer(), AtJson.parseToJsonElement(putBodies.single()).jsonObject["record"]!!)
         assertEquals(null, record.recordingOf)
-        assertEquals("bafytrack", record.track?.ref?.link, "the recording keeps its track")
     }
 
     @Test
@@ -533,21 +553,19 @@ class ActivityRepositoryTest {
     private val newPhoto = NewPhoto(byteArrayOf(1, 2, 3), "image/webp", width = 4, height = 3)
 
     @Test
-    fun editUploadsOnlyNewPhotosAndKeepsTheTrackAndUnknownMedia() = runTest {
+    fun editUploadsOnlyNewPhotosAndKeepsUnknownMedia() = runTest {
         repository()
         val video = AtJson.parseToJsonElement($$"""{"$type":"app.activitytracker.feed.activity#video","video":{}}""").jsonObject
-        val track = BlobRef(ref = BlobRef.Link("bafytrack"), mimeType = "application/gpx+xml", size = 10)
         storedRecord =
             AtJson.encodeToString(
                 ActivityRecord.serializer(),
                 existingDive.copy(
-                    track = track,
                     media =
                         listOf(
                             ActivityMedia.Image(photoBlob("bafkold1")),
                             ActivityMedia.Unknown(video),
                             ActivityMedia.Image(photoBlob("bafkold2")),
-                        ),
+                        )
                 ),
             )
         val activity = ownActivity("3kdive").copy(media = listOf(ActivityMediaView.Image("https://appview/img/media/$did/bafkold2")))
@@ -574,7 +592,6 @@ class ActivityRepositoryTest {
         assertEquals(null, record.description)
         assertEquals("Blue Hole", record.dive?.site)
         assertEquals(existingDive.dive?.maxDepth, record.dive?.maxDepth)
-        assertEquals(track, record.track)
         assertEquals(
             listOf(
                 ActivityMedia.Image(photoBlob("bafkold2")),

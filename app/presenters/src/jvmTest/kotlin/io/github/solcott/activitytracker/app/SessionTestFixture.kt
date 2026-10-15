@@ -302,6 +302,7 @@ class SessionTestFixture {
                 zones.outbox,
                 zones.writer,
                 zones.streams,
+                zones.tracks,
                 zones.store,
                 feed,
                 localLikes,

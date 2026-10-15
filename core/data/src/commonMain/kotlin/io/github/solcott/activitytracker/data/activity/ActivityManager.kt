@@ -22,17 +22,19 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
  */
 @SingleIn(SessionScope::class)
 @Inject
+@Suppress("LongParameterList") // Injected collaborators.
 class ActivityManager(
     private val db: AppDatabase,
     private val clients: SessionClients,
     private val outbox: OutboxProcessor,
     private val writer: OutboxWriter,
     private val streams: ActivityStreamsStore,
+    private val tracks: ActivityTrackStore,
     private val feed: FeedRepository,
 ) {
     /**
-     * Deletes [activity] and its streams. A main activity's other recordings go too [withRecordings], or else are split off first, each to
-     * stand as an activity of its own, so none is left pointing at one that's gone.
+     * Deletes [activity], its streams and its track. A main activity's other recordings go too [withRecordings], or else are split off
+     * first, each to stand as an activity of its own, so none is left pointing at one that's gone.
      */
     suspend fun delete(activity: ActivityView, withRecordings: Boolean) {
         val recordings = activity.recordings.orEmpty().map { it.uri }
@@ -118,12 +120,12 @@ class ActivityManager(
     private suspend fun queueDelete(uri: AtUri, visibility: String, recordingOf: AtUri? = null) {
         writer.delete(Nsid.FEED_ACTIVITY, requireNotNull(uri.rkey), clients.placeOf(visibility))
         streams.delete(uri)
+        tracks.delete(uri)
         feed.deletes.delete(uri)
         db.feed().deleteByUri(uri.value)
         recordingOf?.let { feed.updateCached(it, feed.deletes::applyTo) }
     }
 
-    // Written without a blob, so the record keeps the track it has.
     private suspend fun queueUngroup(recording: AtUri, from: AtUri, visibility: String) {
         val rkey = requireNotNull(recording.rkey)
         val record = clients.ownActivityRecord(rkey, visibility).copy(recordingOf = null)

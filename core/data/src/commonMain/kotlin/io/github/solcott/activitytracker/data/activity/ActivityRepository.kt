@@ -29,7 +29,6 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.ReplyRef
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
-import io.github.solcott.activitytracker.location.Gpx
 import kotlin.time.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Mutex
@@ -38,7 +37,8 @@ import kotlinx.coroutines.sync.withLock
 /**
  * Writes the signed-in athlete's records. Everything goes through the outbox so writes survive offline periods and app restarts; the
  * AppView picks them up from the firehose, or for a non-public activity from the athlete's tier space, afterwards. An activity is queued to
- * the place its visibility says ([placeOf]), its streams to theirs.
+ * the place its visibility says ([placeOf]), its streams to theirs, and its full track to the athlete's `self` space
+ * ([ActivityTrackStore]).
  */
 @SingleIn(SessionScope::class)
 @Inject
@@ -49,6 +49,7 @@ class ActivityRepository(
     private val outbox: OutboxProcessor,
     private val writer: OutboxWriter,
     private val streams: ActivityStreamsStore,
+    private val tracks: ActivityTrackStore,
     private val zones: ActivityZonesStore,
     private val feed: FeedRepository,
     private val localLikes: LocalLikes,
@@ -63,6 +64,7 @@ class ActivityRepository(
     /** Publishes [draft]. Its photos upload first, so one with photos needs a connection; one without waits in the outbox if offline. */
     suspend fun publish(draft: ActivityDraft): AtUri {
         clients.requireSpacesFor(draft.visibility)
+        if (draft.gpx != null) clients.requireTrackSpace()
         val uri = queue(draft, draft.photos.map { clients.upload(it, feed.heldPhotos) })
         outbox.drain()
         recentTypes.remember(draft.type)
@@ -75,6 +77,7 @@ class ActivityRepository(
      */
     suspend fun publishAll(drafts: List<ActivityDraft>): List<AtUri> {
         drafts.forEach { clients.requireSpacesFor(it.visibility) }
+        if (drafts.any { it.gpx != null }) clients.requireTrackSpace()
         val uris = zones.withTrainingReadOnce { drafts.map { queue(it, photos = emptyList()) } }
         outbox.drain()
         drafts.map { it.type }.distinct().forEach { recentTypes.remember(it) }
@@ -85,10 +88,11 @@ class ActivityRepository(
      * Fills the gaps in the athlete's [existing] activity from [draft], another recording of it ([ActivityMerge]): its summary fields, its
      * track, and its streams' channels. Doesn't drain the outbox, so a batch can queue several before [publishAll] or [sync] sends them.
      *
-     * An activity still in the outbox ([OwnActivity.cid] null) gets only its record merged: its streams aren't readable until the AppView
-     * indexes them, and writing ours would replace them.
+     * An activity still in the outbox ([OwnActivity.cid] null) gets its record and track merged but not its streams: those aren't readable
+     * until the AppView indexes them, and writing ours would replace them.
      */
     suspend fun mergeInto(existing: OwnActivity, draft: ActivityDraft) {
+        if (draft.gpx != null) clients.requireTrackSpace()
         val rkey = requireNotNull(existing.uri.rkey)
         val indexed = existing.cid != null
         val place = clients.placeOf(existing.visibility)
@@ -102,8 +106,9 @@ class ActivityRepository(
             ActivityMerge.fillGaps(current, draft.toRecord(clock.now(), photos)).let {
                 if (it.description == null) it.copy(description = draft.description?.takeIf(String::isNotBlank)) else it
             }
-        val track = draft.gpx?.takeIf { current.track == null }?.let { PendingBlob(it, Gpx.MIME_TYPE, field = "track") }
-        writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), merged, track, space = place)
+        writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), merged, space = place)
+        // The track's place doesn't depend on the activity being sent, so unlike its streams an unsent activity's is checked too.
+        draft.gpx?.let { if (!tracks.has(existing.uri)) tracks.put(existing.uri, it) }
         val imported = draft.streams
         // The draft's stream times count from its own start.
         val offsetSeconds = (draft.startedAt - current.startedAt).inWholeSeconds.toInt()
@@ -139,9 +144,9 @@ class ActivityRepository(
             rkey = rkey,
             serializer = ActivityRecord.serializer(),
             record = draft.toRecord(clock.now(), photos),
-            blob = draft.gpx?.let { PendingBlob(it, Gpx.MIME_TYPE, field = "track") },
             space = clients.placeOf(draft.visibility),
         )
+        draft.gpx?.let { tracks.put(uri, it) }
         draft.streams?.let {
             streams.put(uri, ActivityStreams(it, draft.publishedStreamsVisibility, draft.heartRateZones, draft.powerZones))
         }

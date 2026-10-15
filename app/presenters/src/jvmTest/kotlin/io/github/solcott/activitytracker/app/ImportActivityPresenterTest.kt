@@ -157,7 +157,11 @@ class ImportActivityPresenterTest {
         assertEquals(1750L, record.getValue("movingTime").jsonPrimitive.long)
         assertEquals(152, record.getValue("avgHeartRate").jsonPrimitive.int)
         assertEquals("Garmin Fenix 7", record.getValue("device").jsonPrimitive.content)
-        assertTrue("track" in record, "the GPS track is uploaded as a GPX blob")
+        assertFalse("track" in record, "the full track is a record of its own")
+        val (tier, track) =
+            fixture.spacePuts.single { (_, put) -> put.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY_TRACK }
+        assertEquals(Visibility.SELF, tier, "only the athlete reads it, whatever the activity's visibility")
+        assertTrue("track" in track, "the GPS track is uploaded as a GPX blob")
     }
 
     @Test

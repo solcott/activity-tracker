@@ -106,7 +106,8 @@ private fun mergeGains(logged: OwnActivity, dive: ImportedActivity, streams: Log
             MergeGain.WaterTemperature.takeIf { existing.avgTemperature == null && dive.avgTemperatureCelsius != null },
             MergeGain.DiveDetails.takeIf { existing.dive == null && dive.dive != null },
             MergeGain.HeartRate.takeIf { existing.avgHeartRate == null && dive.avgHeartRate != null },
-            MergeGain.Track.takeIf { existing.track == null && dive.samples.isNotEmpty() },
+            // A polyline is written exactly when a track is, so this reads no space; the merge itself checks the track.
+            MergeGain.Track.takeIf { existing.polyline == null && dive.samples.isNotEmpty() },
             chartsGain(logged, dive, streams),
         )
         .toImmutableList()

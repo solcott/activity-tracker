@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityZonesStore
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
+import io.github.solcott.activitytracker.data.activity.PdsActivityTrackStore
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.FeedItemEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
@@ -203,6 +204,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
         val activities: ActivityRepository,
         val manager: ActivityManager,
         val streams: PdsActivityStreamsStore,
+        val tracks: PdsActivityTrackStore,
         val defaults: ActivityDefaults,
         val zones: ActivityZonesStore,
     )
@@ -215,6 +217,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
         val writer = OutboxWriter(db, clients, Clock.System)
         val zones = ActivityZonesStore(db, writer, outbox, clients, Clock.System, Logger)
         val streams = PdsActivityStreamsStore(writer, clients, Clock.System, zones)
+        val tracks = PdsActivityTrackStore(db, writer, clients, Clock.System)
         val activities =
             ActivityRepository(
                 db,
@@ -222,6 +225,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                 outbox,
                 writer,
                 streams,
+                tracks,
                 zones,
                 feed,
                 LocalLikes(),
@@ -233,8 +237,9 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
             clients,
             feed,
             activities,
-            ActivityManager(db, clients, outbox, writer, streams, feed),
+            ActivityManager(db, clients, outbox, writer, streams, tracks, feed),
             streams,
+            tracks,
             ActivityDefaults(clients),
             zones,
         )

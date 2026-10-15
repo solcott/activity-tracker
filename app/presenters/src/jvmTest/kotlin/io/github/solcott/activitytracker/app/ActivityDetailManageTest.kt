@@ -135,6 +135,7 @@ class ActivityDetailManageTest {
         val feed = FeedRepository(db, clients, localLikes, Logger)
         val zones = TestZones(db, clients)
         val (outbox, writer, streams) = Triple(zones.outbox, zones.writer, zones.streams)
+        val tracks = zones.tracks
         val activities =
             ActivityRepository(
                 db,
@@ -142,6 +143,7 @@ class ActivityDetailManageTest {
                 outbox,
                 writer,
                 streams,
+                tracks,
                 zones.store,
                 feed,
                 localLikes,
@@ -149,7 +151,7 @@ class ActivityDetailManageTest {
                 Clock.System,
             )
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
-        val manager = ActivityManager(db, clients, outbox, writer, streams, feed)
+        val manager = ActivityManager(db, clients, outbox, writer, streams, tracks, feed)
         return { ActivityDetailPresenter(ActivityDetailScreen(uri), navigator, feed, activities, profiles, localLikes, manager) }
     }
 
