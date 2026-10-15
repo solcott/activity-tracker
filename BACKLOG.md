@@ -31,7 +31,7 @@ Non-public profile details live in each athlete's `app.activitytracker.space.ath
 
 ## AppView as a consented member for aggregation
 
-Segments, leaderboards and similar features will need the AppView to read some athlete data that lives in spaces (age group, weight class, efforts). The AppView already reads every tier space as a member to serve non-public activities (`SpaceSyncer`, its own `APPVIEW_SIGNING_KEY`), and indexes only `feed.activity` and `feed.activityStreams` from them, and `feed.like` from `interactions` spaces (`Indexer.spaceCollections`), never `actor.privateDetails`.
+Segments, leaderboards and similar features will need the AppView to read some athlete data that lives in spaces (age group, weight class, efforts). The AppView already reads every tier space as a member to serve non-public activities (`SpaceSyncer`, its own `APPVIEW_SIGNING_KEY`), and indexes only `feed.activity`, `feed.activityStreams` and `feed.activityZones` from them, and `feed.like` from `interactions` spaces (`Indexer.spaceCollections`), never `actor.privateDetails`.
 
 - **Consent, not just a code path.** "Only me" means no other person sees a detail, but a 40–49 leaderboard still reveals a bracket. Index a detail only for athletes who opted into the feature that needs it (as Strava does for age and weight leaderboards), and only from the tiers it needs.
 - **Scope it with the feature.** Design this alongside segments; nothing needs it yet.
@@ -80,12 +80,7 @@ Each sport can override the default thresholds (`actor.defs#sportTraining`, `Spo
 - **Custom zones.** Let athletes edit zone boundaries and names, as TrainingPeaks does. Store them as explicit boundary arrays (say `heartRateZones`, `powerZones`, `speedZones`) on `#training` and `#sportTraining`, plus a `custom` model token. `Zones.compute` would then read boundaries from the record instead of a `ZoneModel`.
 - **Threshold from a test.** Work out threshold pace or power from a test: distance plus time or pace (a 30-minute run, a CSS 400/200 swim), or a 20-minute power test.
 - **More pace models.** 80/20, USAT, PZI, CTS and MyProCoach, each from a sourced, published formula. Row pace per 500 m needs a model before `SportZones.kinds` offers it.
-
-## Activity streams: what's left
-
-Non-public streams are `feed.activityStreams` records in the athlete's tier space for their visibility, never wider than the activity's, read by the AppView as a member and served through `feed.getActivityStreams`. Public streams stay in the repo.
-
-- **Zones for Mutuals.** Since non-public training moved into spaces, the AppView can't tell that a mutual may see an athlete's training, so Mutuals get no zone snapshots. Put the snapshots in the space (`feed.activityZones`, already in the declaration) so they follow the tier again.
+- **Zones for recorded activities.** Only imports snapshot the athlete's zones (`importDraft` → `ZoneSnapshots`, then a `feed.activityZones` record). An activity recorded in the app has none, so its charts show no time in zone. Snapshot the training when a recording is saved, as imports do.
 
 ## Videos on activities
 
