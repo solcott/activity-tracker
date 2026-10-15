@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityMediaBlobs
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.appview.db.Actors
+import io.github.solcott.activitytracker.appview.db.CommentHides
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.FollowApprovals
 import io.github.solcott.activitytracker.appview.db.Follows
@@ -12,11 +13,13 @@ import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.appview.db.RecordShadows
 import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.db.tx
+import io.github.solcott.activitytracker.atproto.commentHideRkey
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.activitytracker.lexicon.app.CommentHideRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowApprovalRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
@@ -115,12 +118,15 @@ class Indexer(
         RecordShadows.deleteWhere { origin eq placement.origin }
         Likes.deleteWhere { origin eq placement.origin }
         Comments.deleteWhere { origin eq placement.origin }
+        CommentHides.deleteWhere { origin eq placement.origin }
     }
 
     @Suppress("LongParameterList") // The record, and where it's from.
     private suspend fun index(author: Did, collection: String, uri: AtUri, cid: String, record: JsonObject, placement: Placement) {
         val handle = handles.handleFor(author)
         try {
+            // Checked before the transaction: the rkey is a SHA-256, which suspends.
+            if (collection == Nsid.FEED_COMMENT_HIDE) requireHideKey(uri, record)
             db.tx {
                 ensureActor(author, handle, clock.now().toEpochMilliseconds())
                 upsert(collection, author, uri, cid, record, placement)
@@ -177,6 +183,10 @@ class Indexer(
                     // Absent is public, and an unknown value only the athlete's, so serving never shows it wider than written.
                     it[audience] = Visibility.known(record.audience)
                 }
+            }
+
+            Nsid.FEED_COMMENT_HIDE -> {
+                upsertHide(AtJson.decodeFromJsonElement(CommentHideRecord.serializer(), json), author, uri, placement, now)
             }
 
             Nsid.GRAPH_FOLLOW -> {
@@ -238,6 +248,10 @@ class Indexer(
                 Comments.deleteWhere { (Comments.uri eq uri.value) and (origin eq placement.origin) }
             }
 
+            Nsid.FEED_COMMENT_HIDE -> {
+                CommentHides.deleteWhere { (CommentHides.uri eq uri.value) and (origin eq placement.origin) }
+            }
+
             Nsid.GRAPH_FOLLOW -> {
                 Follows.deleteWhere { Follows.uri eq uri.value }
             }
@@ -279,6 +293,7 @@ class Indexer(
         dropOrphanedStreamData()
         Likes.deleteWhere { authorDid eq did.value }
         Comments.deleteWhere { authorDid eq did.value }
+        CommentHides.deleteWhere { authorDid eq did.value }
         Follows.deleteWhere { authorDid eq did.value }
         FollowApprovals.deleteWhere { authorDid eq did.value }
         RecordShadows.deleteWhere { uri like "at://${did.value}/%" }
@@ -288,15 +303,36 @@ class Indexer(
 
     companion object {
         private val TIER_COLLECTIONS = setOf(Nsid.FEED_ACTIVITY, Nsid.FEED_ACTIVITY_STREAMS)
-        private val INTERACTION_COLLECTIONS = setOf(Nsid.FEED_LIKE, Nsid.FEED_COMMENT)
+        private val INTERACTION_COLLECTIONS = setOf(Nsid.FEED_LIKE, Nsid.FEED_COMMENT, Nsid.FEED_COMMENT_HIDE)
 
         /**
-         * What the AppView indexes from the athlete space with key [skey]: likes and comments from the interactions space, and activities
-         * and their streams from a tier (an unknown key is a tier only the athlete sees). Private details, follow declines and defaults are
-         * never stored.
+         * What the AppView indexes from the athlete space with key [skey]: likes, comments and comment hides from the interactions space,
+         * and activities and their streams from a tier (an unknown key is a tier only the athlete sees). Private details, follow declines
+         * and defaults are never stored.
          */
         fun spaceCollections(skey: String): Set<String> =
             if (skey == AthleteSpace.INTERACTIONS) INTERACTION_COLLECTIONS else TIER_COLLECTIONS
+    }
+}
+
+/**
+ * A comment hide counts only under the rkey derived from its subject, so unhiding (deleting that rkey) always removes it; one under any
+ * other rkey, or of something that isn't a comment, is skipped.
+ */
+private suspend fun requireHideKey(uri: AtUri, json: JsonObject) {
+    val subject = AtJson.decodeFromJsonElement(CommentHideRecord.serializer(), json).subject
+    require(subject.collection == Nsid.FEED_COMMENT && subject.rkey != null) { "hide of a non-comment $subject" }
+    require(uri.rkey == commentHideRkey(subject)) { "hide of $subject under another rkey" }
+}
+
+private fun JdbcTransaction.upsertHide(record: CommentHideRecord, author: Did, uri: AtUri, placement: Placement, now: Long) {
+    CommentHides.upsert {
+        it[CommentHides.uri] = uri.value
+        it[origin] = placement.origin
+        it[authorDid] = author.value
+        it[commentUri] = record.subject.value
+        it[createdAt] = record.createdAt.toEpochMilliseconds()
+        it[indexedAt] = now
     }
 }
 

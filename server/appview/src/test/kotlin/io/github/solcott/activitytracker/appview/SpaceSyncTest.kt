@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.appview.db.Actors
+import io.github.solcott.activitytracker.appview.db.CommentHides
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
 import io.github.solcott.activitytracker.appview.db.Likes
@@ -13,11 +14,13 @@ import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
 import io.github.solcott.activitytracker.appview.sync.SpaceSyncer
+import io.github.solcott.activitytracker.atproto.commentHideRkey
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.atproto.space.SignedDelegationTokens
 import io.github.solcott.activitytracker.atproto.space.SpaceCredentials
 import io.github.solcott.activitytracker.atproto.space.SpaceMember
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
@@ -110,6 +113,13 @@ class SpaceSyncTest {
             audience.let { if (it == null) "" else """"audience":"$it",""" } +
             """"createdAt":"2026-10-14T08:00:00Z"}"""
 
+    /** Alice's hide of bob's comment [commentRkey], and its rkey. */
+    private fun hide(commentRkey: String): Pair<String, String> {
+        val comment = AtUri("at://$bob/${Nsid.FEED_COMMENT}/$commentRkey")
+        val record = """{"${'$'}type":"${Nsid.FEED_COMMENT_HIDE}","subject":"${comment.value}","createdAt":"2026-10-14T08:00:00Z"}"""
+        return runBlocking { commentHideRkey(comment) } to record
+    }
+
     private fun runDue() = runBlocking { syncer.runDue(this) }
 
     /** (author, origin) of each indexed like, by rkey. */
@@ -122,6 +132,14 @@ class SpaceSyncTest {
     private fun comments(): Map<String, Pair<String, String>> =
         transaction(db) {
             Comments.selectAll().associate { it[Comments.uri].substringAfterLast('/') to (it[Comments.origin] to it[Comments.audience]) }
+        }
+
+    /** The (rkey, origin) of each indexed comment hide, by the rkey of the comment it hides. */
+    private fun hides(): Map<String, Set<String>> =
+        transaction(db) {
+            CommentHides.selectAll()
+                .groupBy({ it[CommentHides.commentUri].substringAfterLast('/') }, { it[CommentHides.origin] })
+                .mapValues { it.value.toSet() }
         }
 
     /** (visibility, origin) of each indexed activity, by rkey. */
@@ -559,6 +577,68 @@ class SpaceSyncTest {
         credentials.invalidate(bobInteractions)
         runDue()
         assertEquals(mapOf("3kr1" to ("repo" to Visibility.PUBLIC)), comments(), "bob's repo comment on a public activity stays")
+    }
+
+    @Test
+    fun interactionsSpaceIsSyncedForItsCommentHides() = testApplication {
+        start()
+        val aliceInteractions = space(alice, AthleteSpace.INTERACTIONS)
+        val (rkey1, hide1) = hide("3kc1")
+        val (rkey2, hide2) = hide("3kc2")
+        // Already there when the space is first synced: the backfill picks it up, with the space's likes and comments.
+        pds.put(aliceInteractions, Nsid.FEED_COMMENT_HIDE, rkey1, hide1)
+        client.notifySpace(aliceInteractions)
+        runDue()
+        assertEquals(mapOf("3kc1" to setOf(aliceInteractions.value)), hides())
+
+        pds.put(aliceInteractions, Nsid.FEED_COMMENT_HIDE, rkey2, hide2)
+        client.notifyWrite(aliceInteractions)
+        runDue()
+        assertEquals(setOf("3kc1", "3kc2"), hides().keys)
+
+        // A delete of the same rkey from the repo, where it isn't, leaves it.
+        commit(alice, Nsid.FEED_COMMENT_HIDE, rkey1, null)
+        assertEquals(setOf("3kc1", "3kc2"), hides().keys)
+        pds.delete(aliceInteractions, Nsid.FEED_COMMENT_HIDE, rkey1)
+        client.notifyWrite(aliceInteractions)
+        runDue()
+        assertEquals(setOf("3kc2"), hides().keys)
+
+        // A hide deleted while the space went unsynced long enough to be backfilled again is dropped then.
+        pds.delete(aliceInteractions, Nsid.FEED_COMMENT_HIDE, rkey2)
+        clock.now += 2.hours
+        credentials.invalidate(aliceInteractions)
+        runDue()
+        assertEquals(emptyMap(), hides())
+    }
+
+    @Test
+    fun commentHidesInATierSpaceAreIgnored() = testApplication {
+        start()
+        val (rkey, hide) = hide("3kc1")
+        pds.put(aliceFollowers, Nsid.FEED_COMMENT_HIDE, rkey, hide)
+        client.notifySpace(aliceFollowers)
+        runDue()
+        assertEquals(emptyMap(), hides())
+    }
+
+    @Test
+    fun deletedInteractionsSpaceDropsOnlyItsCommentHides() = testApplication {
+        start()
+        val aliceInteractions = space(alice, AthleteSpace.INTERACTIONS)
+        val (repoRkey, repoHide) = hide("3kr1")
+        val (spaceRkey, spaceHide) = hide("3kc1")
+        commit(alice, Nsid.FEED_COMMENT_HIDE, repoRkey, repoHide)
+        pds.put(aliceInteractions, Nsid.FEED_COMMENT_HIDE, spaceRkey, spaceHide)
+        client.notifySpace(aliceInteractions)
+        runDue()
+        assertEquals(mapOf("3kr1" to setOf("repo"), "3kc1" to setOf(aliceInteractions.value)), hides())
+
+        pds.deleted += aliceInteractions
+        clock.now += 15.minutes
+        credentials.invalidate(aliceInteractions)
+        runDue()
+        assertEquals(mapOf("3kr1" to setOf("repo")), hides(), "alice's repo hide stays")
     }
 
     @Test

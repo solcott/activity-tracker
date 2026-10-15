@@ -85,6 +85,22 @@ object Comments : Table("comments") {
     override val primaryKey = PrimaryKey(uri)
 }
 
+/**
+ * An athlete's hide of [commentUri] (`feed.commentHide`). It counts only when [authorDid] is the athlete whose activity the comment is on,
+ * which serving checks, so a stranger's hide is an inert row.
+ */
+object CommentHides : Table("comment_hides") {
+    val uri = varchar("uri", 512)
+
+    /** `repo`, or the URI of the `interactions` space the hide came from. */
+    val origin = varchar("origin", 512)
+    val authorDid = varchar("author_did", 255)
+    val commentUri = varchar("comment_uri", 512)
+    val createdAt = long("created_at")
+    val indexedAt = long("indexed_at")
+    override val primaryKey = PrimaryKey(uri, origin)
+}
+
 object Follows : Table("follows") {
     val uri = varchar("uri", 512)
     val authorDid = varchar("author_did", 255)

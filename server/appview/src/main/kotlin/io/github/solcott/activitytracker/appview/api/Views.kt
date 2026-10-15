@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.Actors
+import io.github.solcott.activitytracker.appview.db.CommentHides
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.Follows
 import io.github.solcott.activitytracker.appview.db.Likes
@@ -40,11 +41,13 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.countDistinct
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.max
+import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
@@ -110,11 +113,20 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val comments =
             admittedComments()
                 .select(Comments.columns)
-                .where { (Comments.subjectUri eq params.uri.value) and commentsVisibleTo(viewer) }
+                .where { (Comments.subjectUri eq params.uri.value) and commentsListedFor(viewer) }
                 .orderBy(Comments.createdAt to SortOrder.ASC)
                 .limit(HttpStatusCode.InternalServerError.value)
                 .toList()
         val authors = basicProfiles(comments.map { it[Comments.authorDid] }, avatars)
+        // Only the athlete and each commenter are listed hidden comments, so any listed one that's hidden is theirs to see marked.
+        val hidden =
+            CommentHides.select(CommentHides.commentUri)
+                .where {
+                    (CommentHides.commentUri inList comments.map { it[Comments.uri] }) and
+                        (CommentHides.authorDid eq row[Activities.authorDid])
+                }
+                .map { it[CommentHides.commentUri] }
+                .toSet()
         GetActivity.Output(
             activity = hydrate(listOf(row), viewer).single(),
             comments =
@@ -125,6 +137,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                         author = authors[c[Comments.authorDid]] ?: return@mapNotNull null,
                         text = c[Comments.text],
                         createdAt = Instant.fromEpochMilliseconds(c[Comments.createdAt]),
+                        hidden = true.takeIf { c[Comments.uri] in hidden },
                     )
                 },
         )
@@ -214,7 +227,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val commentCounts =
             admittedComments()
                 .select(Comments.subjectUri, commentCount)
-                .where { (Comments.subjectUri inList uris) and commentsVisibleTo(viewer) }
+                .where { (Comments.subjectUri inList uris) and commentsVisibleTo(viewer) and not(hiddenByAthlete()) }
                 .groupBy(Comments.subjectUri)
                 .associate { it[Comments.subjectUri] to it[commentCount] }
         // The viewer may see every row, so their own like is always admitted.
@@ -312,6 +325,27 @@ private fun admittedComments() = Comments.join(Activities, JoinType.INNER, Comme
  */
 private fun commentsVisibleTo(viewer: Did?): Op<Boolean> =
     visibleTo(Comments.authorDid) and visibleTo(viewer, visibility = Comments.audience, author = Activities.authorDid)
+
+/**
+ * The activity's athlete hid the comment (`feed.commentHide`), from their repo or their interactions space. Checked here rather than at
+ * index time, so a hide indexed before its comment counts, and a hide by anyone else changes nothing.
+ */
+private fun hiddenByAthlete(): Op<Boolean> =
+    exists(
+        CommentHides.select(CommentHides.uri).where {
+            (CommentHides.commentUri eq Comments.uri) and (CommentHides.authorDid eq Activities.authorDid)
+        }
+    )
+
+/**
+ * The comments listed for [viewer]: [commentsVisibleTo], and a hidden one ([hiddenByAthlete]) only for the activity's athlete and its
+ * commenter. It's never counted ([hydrate] leaves it out for everyone), so the count matches the listed comments that aren't hidden.
+ */
+private fun commentsListedFor(viewer: Did?): Op<Boolean> {
+    val shown = commentsVisibleTo(viewer)
+    if (viewer == null) return shown and not(hiddenByAthlete())
+    return shown and (not(hiddenByAthlete()) or (Activities.authorDid eq viewer.value) or (Comments.authorDid eq viewer.value))
+}
 
 /** A recording's device as `#recordingView` allows it: the record's own is untrusted. */
 private const val MAX_DEVICE_LENGTH = 256
