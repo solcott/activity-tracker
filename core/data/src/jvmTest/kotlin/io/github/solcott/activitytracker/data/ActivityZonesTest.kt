@@ -4,6 +4,8 @@ import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.FakeAthletePds.Session
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
+import io.github.solcott.activitytracker.data.activity.OutboxWriter
+import io.github.solcott.activitytracker.data.activity.PendingWritesException
 import io.github.solcott.activitytracker.data.activity.ZonesPlacement
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.profile.saveTraining
@@ -26,6 +28,7 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 
 /**
@@ -181,7 +184,7 @@ class ActivityZonesTest {
         val s = pds.session()
 
         pds.failSpacePuts = true
-        assertFailsWith<XrpcException> { profiles(s).saveTraining(training, Visibility.SELF) }
+        assertFailsWith<PendingWritesException> { profiles(s).saveTraining(training, Visibility.SELF) }
         assertTrue("${Nsid.ACTOR_PRIVATE_DETAILS}/self" in stored.getValue(Visibility.FOLLOWERS), "training keeps its visibility")
         assertFalse(stored[Visibility.SELF].orEmpty().containsKey("${Nsid.ACTOR_PRIVATE_DETAILS}/self"))
         assertEquals(setOf(repo), zonesAt("3ka"))
@@ -200,6 +203,59 @@ class ActivityZonesTest {
     }
 
     @Test
+    fun aStuckWriteElsewhereDoesntBlockNarrowingTraining() = runTest {
+        trainingAt(Visibility.FOLLOWERS)
+        storedZones("3kride", repo)
+        val s = pds.session()
+        // A write the PDS keeps refusing, queued ahead of the zones moves.
+        pds.failPutsOf = Nsid.FEED_LIKE
+        OutboxWriter(s.db, s.clients, Clock.System).put(Nsid.FEED_LIKE, "3klike", JsonObject.serializer(), JsonObject(emptyMap()))
+
+        profiles(s).saveTraining(training, Visibility.SELF)
+
+        assertEquals(setOf(Visibility.SELF), zonesAt("3kride"))
+        assertTrue("${Nsid.ACTOR_PRIVATE_DETAILS}/self" in stored.getValue(Visibility.SELF))
+        assertEquals(1, s.activities.sync(), "the stuck write is still waiting")
+    }
+
+    @Test
+    fun aPendingZonesWriteStopsTheSaveWithPendingWrites() = runTest {
+        trainingAt(Visibility.FOLLOWERS)
+        storedZones("3kride", repo)
+        val s = pds.session()
+        pds.failSpacePuts = true
+        assertFailsWith<PendingWritesException> { profiles(s).saveTraining(training, Visibility.SELF) }
+    }
+
+    @Test
+    fun settingTrainingAgainAfterClearingItNarrowsOldZones() = runTest {
+        storedZones("3kride", repo)
+        val s = pds.session()
+        profiles(s).saveTraining(training, Visibility.SELF)
+        assertEquals(setOf(Visibility.SELF), zonesAt("3kride"))
+    }
+
+    @Test
+    fun aChartsMoveTheSessionCantFollowWithZonesFailsBeforeMovingCharts() = runTest {
+        trainingAt(Visibility.PUBLIC)
+        storedZones("3kride", repo, charts = repo)
+        // Granted the space, but not the zones collection in it.
+        val s = pds.session(scope = "atproto transition:generic space:${Nsid.SPACE_ATHLETE}?collection=${Nsid.FEED_ACTIVITY_STREAMS}")
+        assertFailsWith<XrpcException> { s.streams.move(AtUri.of(did, Nsid.FEED_ACTIVITY, "3kride"), Visibility.PUBLIC, Visibility.SELF) }
+        assertEquals(setOf(repo), pds.placesOf(Nsid.FEED_ACTIVITY_STREAMS, "3kride"), "the charts didn't move past their zones")
+    }
+
+    @Test
+    fun aBatchReadsTheTrainingOnce() = runTest {
+        trainingAt(Visibility.MUTUALS)
+        val s = pds.session()
+        val before = pds.requests.count { it.endsWith(" ${Nsid.ACTOR_PROFILE}/self") }
+        val uris = s.activities.publishAll(List(3) { draft(Visibility.PUBLIC) })
+        assertEquals(1, pds.requests.count { it.endsWith(" ${Nsid.ACTOR_PROFILE}/self") } - before)
+        uris.forEach { assertEquals(setOf(Visibility.MUTUALS), zonesAt(it.rkey!!)) }
+    }
+
+    @Test
     fun wideningOrClearingTrainingLeavesZonesInPlace() = runTest {
         trainingAt(Visibility.SELF)
         storedZones("3kride", Visibility.SELF)
@@ -215,7 +271,7 @@ class ActivityZonesTest {
     fun sessionStartMovesZonesLeftWideByAnotherDevice() = runTest {
         trainingAt(Visibility.SELF)
         storedZones("3kride", Visibility.FOLLOWERS, charts = repo)
-        pds.session().activities.sync()
+        pds.session().activities.repairZones()
         assertEquals(setOf(Visibility.SELF), zonesAt("3kride"))
     }
 
@@ -223,7 +279,7 @@ class ActivityZonesTest {
     fun sessionStartDeletesALeftoverCopy() = runTest {
         trainingAt(Visibility.PUBLIC)
         storedZones("3kride", Visibility.MUTUALS, Visibility.SELF, charts = repo)
-        pds.session().activities.sync()
+        pds.session().activities.repairZones()
         assertEquals(setOf(Visibility.SELF), zonesAt("3kride"))
     }
 
@@ -232,8 +288,8 @@ class ActivityZonesTest {
         trainingAt(Visibility.PUBLIC)
         storedZones("3kride", Visibility.SELF, charts = repo)
         val s = pds.session()
-        s.activities.sync()
-        s.activities.sync()
+        s.activities.repairZones()
+        s.activities.repairZones()
         assertEquals(setOf(Visibility.SELF), zonesAt("3kride"))
         assertTrue(pds.writes.none { Nsid.FEED_ACTIVITY_ZONES in it })
     }
@@ -241,7 +297,7 @@ class ActivityZonesTest {
     @Test
     fun aSessionWithoutTheSpaceScopeSkipsTheSweep() = runTest {
         storedZones("3kride", Visibility.FOLLOWERS, charts = repo)
-        pds.session(scope = "atproto transition:generic").activities.sync()
+        pds.session(scope = "atproto transition:generic").activities.repairZones()
         assertEquals(setOf(Visibility.FOLLOWERS), zonesAt("3kride"))
     }
 }

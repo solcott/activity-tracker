@@ -16,6 +16,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
@@ -74,7 +75,7 @@ fun SportZonesPresenter(
         flights.launch(key) {
             runSuspendCatching { profiles.updateTraining(transform = transform) }
                 .onSuccess { navigator.pop() }
-                .onFailure { error = UiError.of(UiError.Kind.SaveZones, it) }
+                .onFailure { error = uiErrorOf(UiError.Kind.SaveZones, it) }
         }
     }
 

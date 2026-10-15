@@ -79,8 +79,9 @@ class PdsActivityStreamsStore(
 
     // The blob moves with the record: the new place takes it over before the old one lets it go.
     override suspend fun move(activity: AtUri, from: String, to: String) {
-        clients.moveOwn(Nsid.FEED_ACTIVITY_STREAMS, requireNotNull(activity.rkey), clients.placeOf(from), clients.placeOf(to))
+        // Zones first: a session that can't move them stops here, before the charts are narrower than their zones.
         zones.move(activity, to)
+        clients.moveOwn(Nsid.FEED_ACTIVITY_STREAMS, requireNotNull(activity.rkey), clients.placeOf(from), clients.placeOf(to))
     }
 
     // Deleting a record (or from a space) that isn't there is a no-op, so every place can be cleared without checking where they are.

@@ -34,6 +34,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_ungroup_acti
 import io.github.solcott.activitytracker.composeApp.resources.error_unhide_comment
 import io.github.solcott.activitytracker.composeApp.resources.error_unsupported_activity_file
 import io.github.solcott.activitytracker.composeApp.resources.error_update_follow
+import io.github.solcott.activitytracker.composeApp.resources.error_writes_pending
 import io.github.solcott.activitytracker.composeApp.resources.gender_female
 import io.github.solcott.activitytracker.composeApp.resources.gender_male
 import io.github.solcott.activitytracker.composeApp.resources.gender_non_binary
@@ -107,6 +108,7 @@ fun errorText(error: UiError): String =
                 UiError.Kind.SaveProfile -> Res.string.error_save_profile
                 UiError.Kind.SaveZones -> Res.string.error_save_zones
                 UiError.Kind.SignInAgain -> Res.string.error_sign_in_again
+                UiError.Kind.WritesPending -> Res.string.error_writes_pending
             }
         )
 

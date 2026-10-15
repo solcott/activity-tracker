@@ -268,8 +268,9 @@ private suspend fun savePolicy(clients: SessionClients, clock: Clock, edit: Stri
 }
 
 /**
- * When a save of [details] at [visibility] narrows the training's visibility from what [existing] and [current] hold, narrows what reveals
- * it more widely first ([TrainingNarrowing]), so a failure stops the save with the training still at its old visibility.
+ * When a save of [details] at [visibility] narrows the training's visibility from what [existing] and [current] hold (or sets training that
+ * isn't Public where none is saved), narrows what reveals it more widely first ([TrainingNarrowing]), so a failure stops the save with the
+ * training still at its old visibility.
  */
 private suspend fun TrainingNarrowing.narrowFirst(
     existing: ProfileRecord?,
@@ -279,8 +280,10 @@ private suspend fun TrainingNarrowing.narrowFirst(
 ) {
     if (!DetailGroup.Training.isSet(details)) return
     val (savedDetails, savedVisibility) = ownDetails(existing, current)
-    if (!DetailGroup.Training.isSet(savedDetails)) return
-    val from = DetailGroup.Training.visibility(savedVisibility) ?: Visibility.SELF
+    // Without saved training (cleared, or never set), zones from earlier training may be anywhere, so any tier but Public narrows them.
+    val from =
+        if (DetailGroup.Training.isSet(savedDetails)) DetailGroup.Training.visibility(savedVisibility) ?: Visibility.SELF
+        else Visibility.PUBLIC
     val to = DetailGroup.Training.visibility(visibility) ?: Visibility.SELF
     if (Visibility.rank(to) > Visibility.rank(from)) narrowTo(to)
 }

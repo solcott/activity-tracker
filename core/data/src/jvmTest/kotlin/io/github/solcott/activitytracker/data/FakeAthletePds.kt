@@ -51,12 +51,18 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
 
     /** Every write in order, as `"put|delete <place> <collection>/<rkey>"`. */
     val writes = mutableListOf<String>()
+
+    /** Every request's method and, for a record read, `collection/rkey`: `"<path> <collection>/<rkey>"`. */
+    val requests = mutableListOf<String>()
     val announced = mutableListOf<String>()
     val created = mutableListOf<String>()
 
     /** Fail space deletes, or space puts, while set; and every request to the PDS while [offline]. */
     var failSpaceDeletes = false
     var failSpacePuts = false
+
+    /** Fail every put of this collection, wherever it goes, while set. */
+    var failPutsOf: String? = null
     var offline = false
 
     /**
@@ -78,6 +84,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                 if (offline && request.url.host == "pds.test")
                     return@MockEngine error("InternalServerError", HttpStatusCode.InternalServerError)
                 val path = request.url.encodedPath
+                requests += "$path ${request.url.parameters["collection"]}/${request.url.parameters["rkey"]}"
                 when {
                     path == "/xrpc/com.atproto.server.getServiceAuth" -> json("""{"token":"service-jwt"}""")
                     path == "/.well-known/did.json" ->
@@ -100,6 +107,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                         val input = body(request)
                         val place = placeOf(input)
                         if (place != repo && failSpacePuts) return@MockEngine error("RateLimitExceeded", HttpStatusCode.TooManyRequests)
+                        if (input.getValue("collection").jsonPrimitive.content == failPutsOf) return@MockEngine error("InvalidRecord")
                         val key = "${input.getValue("collection").jsonPrimitive.content}/${input.getValue("rkey").jsonPrimitive.content}"
                         stored.getOrPut(place) { mutableMapOf() }[key] = input.getValue("record").jsonObject
                         writes += "put $place $key"

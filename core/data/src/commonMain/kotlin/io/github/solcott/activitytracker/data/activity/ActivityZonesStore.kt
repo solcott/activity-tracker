@@ -22,6 +22,9 @@ import io.github.solcott.activitytracker.lexicon.atproto.ListRecords
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import kotlin.time.Clock
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
@@ -58,6 +61,22 @@ class ActivityZonesStore(
     private val mutex = Mutex()
     private var swept = false
 
+    /** The training's visibility read once for a batch of puts ([withTrainingReadOnce]); null outside one. */
+    private var batchTraining: Result<String?>? = null
+
+    /**
+     * Runs [block] with the training's visibility read once for every [put] in it, rather than once per put: a logbook import queues
+     * hundreds. Outside a batch each put reads it fresh.
+     */
+    suspend fun <T> withTrainingReadOnce(block: suspend () -> T): T {
+        batchTraining = runSuspendCatching { clients.ownTrainingVisibility() }
+        try {
+            return block()
+        } finally {
+            batchTraining = null
+        }
+    }
+
     /**
      * Queues [activity]'s zones at the place for charts at [charts] and the training as saved now. Doesn't drain the outbox. When the
      * training can't be read (offline), they go to Only me; when the session can't write zones to the space they need, they're dropped
@@ -65,7 +84,7 @@ class ActivityZonesStore(
      */
     suspend fun put(activity: AtUri, charts: String, heartRate: ZoneSnapshot?, power: ZoneSnapshot?) {
         if (heartRate == null && power == null) return
-        val training = runSuspendCatching { clients.ownTrainingVisibility() }.getOrElse { Visibility.SELF }
+        val training = (batchTraining ?: runSuspendCatching { clients.ownTrainingVisibility() }).getOrElse { Visibility.SELF }
         val target = ZonesPlacement.target(charts, training)
         if (!canWrite(target)) {
             log.w { "Dropping the zones of $activity: this session can't write them to the $target space" }
@@ -77,14 +96,21 @@ class ActivityZonesStore(
 
     /**
      * Moves [activity]'s zones, now, to the place for charts at [charts] and the training as saved now: wider only up to the training,
-     * never wider than they are without training details. Copies left elsewhere by an earlier interrupted move go too.
+     * never wider than they are without training details. Copies left elsewhere by an earlier interrupted move go too. Throws, moving
+     * nothing, when the session can't write zones to that place, rather than leaving them wider than the charts.
      */
     suspend fun move(activity: AtUri, charts: String) = mutex.withLock {
         val rkey = requireNotNull(activity.rkey)
-        val copies = PLACES.mapNotNull { at -> clients.readOwn(Nsid.FEED_ACTIVITY_ZONES, rkey, place(at))?.let { at to it } }
+        // Every place and the training are independent reads.
+        val (copies, training) =
+            coroutineScope {
+                val reads = PLACES.map { at -> async { clients.readOwn(Nsid.FEED_ACTIVITY_ZONES, rkey, place(at))?.let { at to it } } }
+                val training = async { clients.ownTrainingVisibility() }
+                reads.awaitAll().filterNotNull() to training.await()
+            }
         val (narrowest, record) = copies.maxByOrNull { (at, _) -> Visibility.rank(at) } ?: return@withLock
-        val target = ZonesPlacement.target(charts, clients.ownTrainingVisibility(), current = narrowest)
-        if (!canWrite(target)) return@withLock
+        val target = ZonesPlacement.target(charts, training, current = narrowest)
+        if (!canWrite(target)) throw scopeMissing()
         if (copies.none { it.first == target }) clients.writeOwn(Nsid.FEED_ACTIVITY_ZONES, rkey, record, place(target))
         for ((at, _) in copies) if (at != target) clients.deleteOwn(Nsid.FEED_ACTIVITY_ZONES, rkey, place(at))
     }
@@ -98,9 +124,10 @@ class ActivityZonesStore(
 
     /**
      * Before training is saved at [visibility]: every zones record stored wider moves down to it, through the outbox, and this returns only
-     * once the outbox has drained. Queued publishes drain first, so none lands at the old tier after the scan. Throws if anything is left
-     * pending, so the training keeps its old visibility; the queued moves still finish on a later drain. A retry scans again, so it moves
-     * only what's still too wide, and skips records whose moves are already queued.
+     * once the outbox has sent every zones write. Queued publishes' zones go first, so none lands at the old tier after the scan. Only
+     * zones writes are sent here, so a write stuck elsewhere in the outbox doesn't stop it. Throws [PendingWritesException] if any zones
+     * write is left pending, so the training keeps its old visibility; the queued moves still finish on a later drain. A retry scans again,
+     * so it moves only what's still too wide, and skips records whose moves are already queued.
      */
     override suspend fun narrowTo(visibility: String) = mutex.withLock {
         val tier = Visibility.known(visibility)
@@ -152,56 +179,50 @@ class ActivityZonesStore(
     }
 
     private suspend fun queueMove(rkey: String, record: JsonObject, from: String, to: String) {
-        if (!canWrite(to)) throw XrpcException(SCOPE_MISSING_STATUS, SpaceErrors.SCOPE_MISSING, "Sign in again to hide your zones")
+        if (!canWrite(to)) throw scopeMissing()
         writer.put(Nsid.FEED_ACTIVITY_ZONES, rkey, JsonObject.serializer(), record, space = place(to))
         writer.delete(Nsid.FEED_ACTIVITY_ZONES, rkey, place(from))
     }
 
+    /**
+     * Sends the queued zones writes, skipping the rest of the outbox so a stuck write elsewhere can't hold them up; throws if any is left.
+     */
     private suspend fun drainOrThrow() {
-        val pending = outbox.drain()
-        if (pending > 0) throw XrpcException(OUTBOX_STUCK_STATUS, OUTBOX_PENDING, "$pending writes are still waiting to be sent")
+        val pending = outbox.drain { it.collection == Nsid.FEED_ACTIVITY_ZONES }
+        if (pending > 0) throw PendingWritesException(pending)
     }
+
+    private fun scopeMissing() = XrpcException(SCOPE_MISSING_STATUS, SpaceErrors.SCOPE_MISSING, "Sign in again to hide your zones")
 
     private suspend fun queuedRkeys(): Set<String> =
         db.outbox().pending(clients.did.value).filter { it.collection == Nsid.FEED_ACTIVITY_ZONES }.map { it.rkey }.toSet()
 
     /** The athlete's own [collection] records at [at], by rkey. A tier space that doesn't exist yet holds none. */
     private suspend fun list(collection: String, at: String): Map<String, JsonObject> {
-        val records = mutableMapOf<String, JsonObject>()
-        val space = place(at)
-        var cursor: String? = null
-        do {
-            val page = if (space == null) repoPage(collection, cursor) else spacePage(space, collection, cursor)
-            records += page.first
-            cursor = page.second
-        } while (cursor != null)
-        return records
-    }
-
-    /** One page of the repo's [collection], and the next cursor (null at the end). */
-    private suspend fun repoPage(collection: String, cursor: String?): Pair<Map<String, JsonObject>, String?> {
-        val page = clients.pds.query(ListRecords.method, ListRecords.Params(clients.did.value, collection, PAGE, cursor))
-        val records = page.records.mapNotNull { r -> r.uri.rkey?.let { it to r.value } }.toMap()
-        return records to page.cursor?.takeIf { page.records.isNotEmpty() }
-    }
-
-    /** One page of [space]'s [collection], and the next cursor (null at the end); none when the space doesn't exist yet. */
-    private suspend fun spacePage(space: SpaceUri, collection: String, cursor: String?): Pair<Map<String, JsonObject>, String?> {
+        val space = place(at) ?: return listRepo(collection)
         val read =
             try {
-                clients.spaces.listRecords(space, clients.did, collection, PAGE, cursor)
+                clients.spaces.listAllRecords(space, clients.did, collection, PAGE)
             } catch (e: XrpcException) {
                 if (e.error != SpaceErrors.SPACE_NOT_FOUND) throw e
                 SpaceRead.NotFound
             }
-        val page =
-            when (read) {
-                is SpaceRead.Found -> read.value
-                SpaceRead.NotFound -> null
-                SpaceRead.NoAccess -> throw XrpcException(SCOPE_MISSING_STATUS, SpaceErrors.NOT_AUTHORIZED, "Can't read $space")
-            }
-        val records = page?.records.orEmpty().mapNotNull { r -> r.value?.let { r.rkey to it } }.toMap()
-        return records to page?.cursor?.takeIf { page.records.isNotEmpty() }
+        return when (read) {
+            is SpaceRead.Found -> read.value.mapNotNull { r -> r.value?.let { r.rkey to it } }.toMap()
+            SpaceRead.NotFound -> emptyMap()
+            SpaceRead.NoAccess -> throw XrpcException(SCOPE_MISSING_STATUS, SpaceErrors.NOT_AUTHORIZED, "Can't read $space")
+        }
+    }
+
+    private suspend fun listRepo(collection: String): Map<String, JsonObject> {
+        val records = mutableMapOf<String, JsonObject>()
+        var cursor: String? = null
+        do {
+            val page = clients.pds.query(ListRecords.method, ListRecords.Params(clients.did.value, collection, PAGE, cursor))
+            page.records.forEach { r -> r.uri.rkey?.let { records[it] = r.value } }
+            cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
+        } while (cursor != null)
+        return records
     }
 
     private fun place(visibility: String): SpaceUri? = clients.placeOf(visibility)
@@ -213,7 +234,8 @@ class ActivityZonesStore(
         val PLACES = listOf(Visibility.PUBLIC) + AthleteSpaces.TIERS
         const val PAGE = 100
         const val SCOPE_MISSING_STATUS = 403
-        const val OUTBOX_STUCK_STATUS = 503
-        const val OUTBOX_PENDING = "OutboxPending"
     }
 }
+
+/** Some of the athlete's [pending] writes haven't been sent yet (offline, or the PDS refused them for now); retrying later sends them. */
+class PendingWritesException(val pending: Int) : Exception("$pending writes are still waiting to be sent")

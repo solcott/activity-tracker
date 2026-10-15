@@ -11,6 +11,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.DetailGroup
@@ -80,7 +81,7 @@ fun TrainingZonesPresenter(navigator: Navigator, profiles: ProfileRepository, un
                                     saved.copy(visibility = DetailGroup.Training.withVisibility(saved.visibility, event.visibility))
                                 }
                             }
-                            .onFailure { error = UiError.of(UiError.Kind.SaveZones, it) }
+                            .onFailure { error = uiErrorOf(UiError.Kind.SaveZones, it) }
                         pickedVisibility = null
                     }
                 }

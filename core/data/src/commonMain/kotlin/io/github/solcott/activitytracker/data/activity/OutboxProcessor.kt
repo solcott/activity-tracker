@@ -35,9 +35,12 @@ class OutboxProcessor(
     private val log = logger.withTag("OutboxProcessor")
     private val mutex = Mutex()
 
-    /** Returns the number of writes still pending. */
-    suspend fun drain(): Int = mutex.withLock {
-        val pending = db.outbox().pending(clients.did.value)
+    /**
+     * Returns the number of writes still pending. With [only], applies just the writes it accepts, in order, so a stuck write it skips
+     * doesn't hold them up; the count is then of those.
+     */
+    suspend fun drain(only: (OutboxEntity) -> Boolean = { true }): Int = mutex.withLock {
+        val pending = db.outbox().pending(clients.did.value).filter(only)
         for ((index, item) in pending.withIndex()) {
             runSuspendCatching {
                 apply(item)

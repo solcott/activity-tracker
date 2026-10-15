@@ -64,6 +64,9 @@ fun FeedPresenter(
     var syncedFor by remember { mutableIntStateOf(-1) }
     val activityEvents = rememberActivityListEventSink(navigator, activities) { error = it }
 
+    // Apart from the feed load, which mustn't wait on it.
+    LaunchedEffect(Unit) { activities.repairZones() }
+
     LaunchedEffect(refreshKey, mine, query) {
         refreshing = true
         error =

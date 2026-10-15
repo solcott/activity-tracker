@@ -242,7 +242,8 @@ class SessionTestFixture {
                         respond("""{"subject":{"did":"$did","handle":"alice.test"},"followers":[$accounts]}""", headers = json)
                     }
 
-                    "/xrpc/com.atproto.repo.listRecords" -> {
+                    "/xrpc/com.atproto.repo.listRecords",
+                    "/xrpc/com.atproto.space.listRecords" -> {
                         respond("""{"records":[]}""", headers = json)
                     }
 

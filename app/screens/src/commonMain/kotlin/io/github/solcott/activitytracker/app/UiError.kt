@@ -36,6 +36,9 @@ data class UiError(val kind: Kind, val detail: String?) {
 
         /** The session predates access to the athlete's spaces, where non-public details live; signing in again grants it. */
         SignInAgain,
+
+        /** Writes the save depends on haven't been sent yet (offline, or refused for now); trying again later sends them. */
+        WritesPending,
     }
 
     companion object {

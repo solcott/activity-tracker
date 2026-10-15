@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
+import io.github.solcott.activitytracker.data.activity.PendingWritesException
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
@@ -55,7 +56,13 @@ fun rememberNewActivityVisibility(defaults: ActivityDefaults, approvesFollowers:
     return state
 }
 
-/** [cause] as a [UiError] of [kind], except that a session without access to the athlete's spaces is told to sign in again. */
+/**
+ * [cause] as a [UiError] of [kind], except that a session without access to the athlete's spaces is told to sign in again, and a save
+ * waiting on unsent writes says so.
+ */
 fun uiErrorOf(kind: UiError.Kind, cause: Throwable): UiError =
-    if (cause is XrpcException && cause.error == SpaceErrors.SCOPE_MISSING) UiError(UiError.Kind.SignInAgain, null)
-    else UiError.of(kind, cause)
+    when {
+        cause is XrpcException && cause.error == SpaceErrors.SCOPE_MISSING -> UiError(UiError.Kind.SignInAgain, null)
+        cause is PendingWritesException -> UiError(UiError.Kind.WritesPending, null)
+        else -> UiError.of(kind, cause)
+    }

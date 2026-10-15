@@ -42,7 +42,7 @@ import kotlinx.coroutines.sync.withLock
  */
 @SingleIn(SessionScope::class)
 @Inject
-@Suppress("LongParameterList") // Injected collaborators.
+@Suppress("LongParameterList", "TooManyFunctions") // Injected collaborators; every kind of write the athlete makes.
 class ActivityRepository(
     db: AppDatabase,
     private val clients: SessionClients,
@@ -75,7 +75,7 @@ class ActivityRepository(
      */
     suspend fun publishAll(drafts: List<ActivityDraft>): List<AtUri> {
         drafts.forEach { clients.requireSpacesFor(it.visibility) }
-        val uris = drafts.map { queue(it, photos = emptyList()) }
+        val uris = zones.withTrainingReadOnce { drafts.map { queue(it, photos = emptyList()) } }
         outbox.drain()
         drafts.map { it.type }.distinct().forEach { recentTypes.remember(it) }
         return uris
@@ -298,13 +298,17 @@ class ActivityRepository(
         return changed
     }
 
+    /** Retries anything left in the outbox (e.g. on app start or reconnect). */
+    suspend fun sync(): Int = outbox.drain()
+
     /**
-     * Retries anything left in the outbox (e.g. on app start or reconnect), first queueing, once a session, the moves of any zones left
-     * wider than they should be ([ActivityZonesStore.sweepOnce]).
+     * Once a session, moves any zones left wider than they should be and drops copies an interrupted move left behind
+     * ([ActivityZonesStore.sweepOnce]), then sends the moves. Best effort, and slow for an athlete with many activities, so callers run it
+     * apart from anything the athlete waits on.
      */
-    suspend fun sync(): Int {
+    suspend fun repairZones() {
         zones.sweepOnce()
-        return outbox.drain()
+        outbox.drain()
     }
 }
 

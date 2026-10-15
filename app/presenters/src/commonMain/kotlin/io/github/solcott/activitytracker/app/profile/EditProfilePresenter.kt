@@ -15,8 +15,8 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
-import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.AvatarEdit
@@ -33,7 +33,6 @@ import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.Visibility
-import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import kotlinx.collections.immutable.toImmutableList
 
 @CircuitInject(EditProfileScreen::class, SessionScope::class)
@@ -258,9 +257,7 @@ private fun nowHidden(loaded: OwnProfile, details: ProfileDetails, visibility: D
 private fun followPolicy(approve: Boolean): String = if (approve) FollowPolicy.APPROVE else FollowPolicy.OPEN
 
 /** A session without access to the athlete's spaces can't save non-public details until they sign in again. */
-private fun saveError(cause: Throwable): UiError =
-    if (cause is XrpcException && cause.error == SpaceErrors.SCOPE_MISSING) UiError(UiError.Kind.SignInAgain, null)
-    else UiError.of(UiError.Kind.SaveProfile, cause)
+private fun saveError(cause: Throwable): UiError = uiErrorOf(UiError.Kind.SaveProfile, cause)
 
 private fun avatarEdit(picked: AvatarImage.Picked?, removed: Boolean): AvatarEdit =
     when {

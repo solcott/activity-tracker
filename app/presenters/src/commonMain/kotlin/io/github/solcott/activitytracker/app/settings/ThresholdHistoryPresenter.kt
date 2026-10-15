@@ -13,6 +13,7 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
@@ -85,7 +86,7 @@ fun ThresholdHistoryPresenter(
                         removing = event.entry
                         runSuspendCatching { profiles.removeThresholdEntry(event.entry) }
                             .onSuccess { training = TrainingHistory.remove(loaded, event.entry) }
-                            .onFailure { error = UiError.of(UiError.Kind.SaveZones, it) }
+                            .onFailure { error = uiErrorOf(UiError.Kind.SaveZones, it) }
                         removing = null
                     }
                 }

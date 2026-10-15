@@ -15,6 +15,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.OwnProfile
@@ -99,7 +100,7 @@ fun ZonesPresenter(navigator: Navigator, profiles: ProfileRepository, clock: Clo
                         // The sports as saved now: one may have been edited on its own screen since this one loaded.
                         runSuspendCatching { profiles.updateTraining { current -> edited.copy(sports = current.sports) } }
                             .onSuccess { navigator.pop() }
-                            .onFailure { error = UiError.of(UiError.Kind.SaveZones, it) }
+                            .onFailure { error = uiErrorOf(UiError.Kind.SaveZones, it) }
                     }
                 }
             }
