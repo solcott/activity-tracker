@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityEdit
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.ActivityZonesStore
+import io.github.solcott.activitytracker.data.activity.HeldPhotos
 import io.github.solcott.activitytracker.data.activity.MediaEdit
 import io.github.solcott.activitytracker.data.activity.NewPhoto
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
@@ -583,13 +584,20 @@ class ActivityRepositoryTest {
             record.media,
         )
 
-        // The AppView still serves the old record: the kept photo loads from it, the new one from the PDS.
+        // The AppView still serves the old record: the kept photo loads from it, the new one from the bytes this device uploaded.
         feed.refreshTimeline()
         val shown = feed.timeline().first().single()
         assertEquals("Blue Hole North", shown.record.title)
         val urls = shown.media.orEmpty().map { (it as ActivityMediaView.Image).fullsize }
-        assertEquals("https://appview/img/media/$did/bafkold2", urls[0])
-        assertTrue(urls[1].endsWith("com.atproto.sync.getBlob?did=did%3Aplc%3Aalice&cid=bafkphoto1"), urls[1])
+        assertEquals(listOf("https://appview/img/media/$did/bafkold2", HeldPhotos.url("bafkphoto1")), urls)
+        assertEquals(newPhoto, feed.heldPhotos["bafkphoto1"])
+
+        // Once the AppView serves the new photo, its URL wins and the bytes go.
+        val served = listOf("bafkold2", "bafkphoto1").map { ActivityMediaView.Image("https://appview/img/media/$did/$it") }
+        timeline = listOf(activity.copy(record = record, media = served))
+        feed.refreshTimeline()
+        assertEquals(served, feed.timeline().first().single().media)
+        assertEquals(null, feed.heldPhotos["bafkphoto1"])
     }
 
     @Test
@@ -616,5 +624,6 @@ class ActivityRepositoryTest {
             )
         assertEquals("Hills", record.description)
         assertEquals(listOf("bafkphoto1", "bafkphoto2"), record.media.orEmpty().map { it.cid })
+        assertEquals(newPhoto, feed.heldPhotos["bafkphoto1"], "held until the AppView serves it")
     }
 }

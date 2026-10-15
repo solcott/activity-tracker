@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.app.media.MediaItem
 import io.github.solcott.activitytracker.data.activity.MediaEdit
 import io.github.solcott.activitytracker.data.activity.NewPhoto
 import io.github.solcott.activitytracker.data.activity.cid
+import io.github.solcott.activitytracker.data.activity.photoCid
 import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityMediaView
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
@@ -75,7 +76,7 @@ fun existingMedia(activity: ActivityView): List<EditMedia> {
     val views = activity.media.orEmpty().filterIsInstance<ActivityMediaView.Image>()
     return activity.record.media.orEmpty().mapNotNull { media ->
         val cid = media.cid ?: return@mapNotNull null
-        val view = views.firstOrNull { it.fullsize.endsWith("/$cid") } ?: return@mapNotNull null
+        val view = views.firstOrNull { photoCid(it.fullsize) == cid } ?: return@mapNotNull null
         EditMedia.Existing(cid, MediaItem.Photo(view.fullsize, view.aspectRatio?.let { it.width.toFloat() / it.height }, view.alt))
     }
 }

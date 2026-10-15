@@ -60,7 +60,7 @@ class ActivityManager(
             edit.media.take(ActivityMedia.MAX).mapNotNull { change ->
                 when (change) {
                     is MediaEdit.Keep -> have.firstOrNull { it.cid == change.cid }
-                    is MediaEdit.Add -> clients.upload(change.photo)
+                    is MediaEdit.Add -> clients.upload(change.photo, feed.heldPhotos)
                 }
             }
         val unknown = have.filterIsInstance<ActivityMedia.Unknown>()

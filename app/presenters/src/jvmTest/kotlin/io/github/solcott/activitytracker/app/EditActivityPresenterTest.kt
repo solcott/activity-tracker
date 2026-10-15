@@ -62,13 +62,17 @@ class EditActivityPresenterTest {
     /** Where the activity is stored, as the AppView serves it. */
     private var visibility = Visibility.PUBLIC
 
+    /** What the AppView appends to each photo URL: a non-public activity's are signed for the viewer. */
+    private var photoQuery = ""
+
     private val view
         get() =
             """{"uri":"$uri","cid":"bafyact","author":{"did":"${alice.value}","handle":"alice.test"},"record":$record,""" +
                 """"visibility":"$visibility",""" +
                 """"likeCount":0,"commentCount":0,"indexedAt":"2026-09-30T10:31:01Z","viewer":{},"media":[""" +
                 listOf("bafkone", "bafktwo").joinToString(",") {
-                    """{"${'$'}type":"app.activitytracker.feed.defs#imageView","fullsize":"https://appview/img/media/${alice.value}/$it"}"""
+                    """{"${'$'}type":"app.activitytracker.feed.defs#imageView",""" +
+                        """"fullsize":"https://appview/img/media/${alice.value}/$it$photoQuery"}"""
                 } +
                 "]}"
 
@@ -269,6 +273,18 @@ class EditActivityPresenterTest {
             cancelAndIgnoreRemainingEvents()
         }
         assertEquals(listOf("put followers", "put mutuals", "delete followers"), writes)
+    }
+
+    @Test
+    fun aNonPublicActivityKeepsItsPhotosWhoseUrlsAreSigned() = runTest {
+        visibility = Visibility.FOLLOWERS
+        photoQuery = "?viewer=did%3Aplc%3Aalice&exp=1&sig=abc"
+        val navigator = FakeNavigator(EditActivityScreen(uri))
+        presenterTestOf(presenter(navigator)) {
+            val details = assertNotNull(awaitLoaded().details)
+            assertEquals(listOf("bafkone", "bafktwo"), details.media.map { (it as EditMedia.Existing).cid })
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
