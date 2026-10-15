@@ -544,6 +544,13 @@ class SpaceSyncTest {
         client.notifyWrite(bobInteractions)
         runDue()
         assertEquals(setOf("3kc2", "3kc3"), comments().keys)
+
+        // A comment deleted while the space went unsynced long enough to be backfilled again is dropped then.
+        pds.delete(bobInteractions, Nsid.FEED_COMMENT, "3kc2")
+        clock.now += 2.hours
+        credentials.invalidate(bobInteractions)
+        runDue()
+        assertEquals(setOf("3kc3"), comments().keys)
     }
 
     @Test
