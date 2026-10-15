@@ -20,17 +20,20 @@ fun interface TrainingNarrowing {
  * when they have none. Training held in two places (a failed move) counts at the wider.
  */
 internal suspend fun SessionClients.ownTrainingVisibility(): String? {
-    val record =
-        try {
-            pds.query(GetRecord.method, GetRecord.Params(did.value, Nsid.ACTOR_PROFILE, ProfileRecord.RKEY)).value.let {
-                AtJson.decodeFromJsonElement(ProfileRecord.serializer(), it)
-            }
-        } catch (e: XrpcException) {
-            if (e.error != RECORD_NOT_FOUND) throw e
-            null
-        }
-    val (details, visibility) = ownDetails(record, if (canUseSpaces) tiers.own() else emptyMap())
+    val (details, visibility) = ownDetails(ownProfileRecord(), if (canUseSpaces) tiers.own() else emptyMap())
     return if (DetailGroup.Training.isSet(details)) DetailGroup.Training.visibility(visibility) else null
+}
+
+/** The signed-in athlete's own profile record, read from their PDS (not the AppView, which may lag); null if they have none. */
+internal suspend fun SessionClients.ownProfileRecord(): ProfileRecord? {
+    val output =
+        try {
+            pds.query(GetRecord.method, GetRecord.Params(did.value, Nsid.ACTOR_PROFILE, ProfileRecord.RKEY))
+        } catch (e: XrpcException) {
+            if (e.error == RECORD_NOT_FOUND) return null
+            throw e
+        }
+    return AtJson.decodeFromJsonElement(ProfileRecord.serializer(), output.value)
 }
 
 private const val RECORD_NOT_FOUND = "RecordNotFound"

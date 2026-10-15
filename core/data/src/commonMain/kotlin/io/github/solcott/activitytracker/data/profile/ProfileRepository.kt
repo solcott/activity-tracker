@@ -23,7 +23,6 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.DeleteRecord
-import io.github.solcott.activitytracker.lexicon.atproto.GetRecord
 import io.github.solcott.activitytracker.lexicon.atproto.PutRecord
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import kotlin.time.Clock
@@ -109,16 +108,7 @@ class ProfileRepository(
         clients.appView.query(GetFollows.method, GetFollows.Params(actor, cursor = cursor))
 
     /** The signed-in athlete's own profile record, read from their PDS (not the AppView, which may lag); null if they have none. */
-    suspend fun ownProfileRecord(): ProfileRecord? {
-        val output =
-            try {
-                clients.pds.query(GetRecord.method, GetRecord.Params(clients.did.value, Nsid.ACTOR_PROFILE, ProfileRecord.RKEY))
-            } catch (e: XrpcException) {
-                if (e.error == RECORD_NOT_FOUND) return null
-                throw e
-            }
-        return AtJson.decodeFromJsonElement(ProfileRecord.serializer(), output.value)
-    }
+    suspend fun ownProfileRecord(): ProfileRecord? = clients.ownProfileRecord()
 
     /**
      * The signed-in athlete's profile for editing: the record from their PDS (the AppView may lag) and their non-public details from their
@@ -264,10 +254,6 @@ class ProfileRepository(
         )
         pendingFollows.wrote(profile.did, null)
         return pendingFollows.applyTo(profile)
-    }
-
-    private companion object {
-        const val RECORD_NOT_FOUND = "RecordNotFound"
     }
 }
 
