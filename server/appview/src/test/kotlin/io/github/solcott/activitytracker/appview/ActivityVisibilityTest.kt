@@ -451,6 +451,29 @@ class ActivityVisibilityTest {
     }
 
     @Test
+    fun aDeletedCommentIsGoneForEveryViewerWhicheverDeleteArrivesFirst() = testApplication {
+        start()
+        follow(bob, alice)
+        follow(dave, alice)
+        post("3kpub", Visibility.PUBLIC)
+        post("3kact", Visibility.FOLLOWERS, day = 2)
+        // The client deletes a comment from both places; only the delete from where it's stored counts.
+        comment(bob, "3kpub")
+        comment(dave, "3kact", audience = Visibility.FOLLOWERS)
+
+        uncomment(bob, inSpace = true)
+        assertEquals(listOf(bob), client.commenters("3kpub", null), "a space delete leaves bob's repo comment")
+        uncomment(bob, inSpace = false)
+        for (viewer in listOf(null, carol, alice)) assertEquals(emptyList(), client.commenters("3kpub", viewer))
+
+        uncomment(dave, inSpace = true)
+        uncomment(dave, inSpace = false)
+        assertEquals(emptyList(), client.commenters("3kact", alice))
+        assertEquals(emptyList(), client.commenters("3kact", bob))
+        assertEquals(setOf("3kpub", "3kact"), client.aliceActivities(alice).toSet(), "the activities are untouched")
+    }
+
+    @Test
     fun anAthleteCommentsOnTheirOwnOnlyMeActivity() = testApplication {
         start()
         follow(bob, alice)
