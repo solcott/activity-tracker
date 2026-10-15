@@ -8,7 +8,7 @@ Best after `comment-non-public-activities`, so that paging is built on the final
 
 ## What Changes
 
-- **A new query, `app.activitytracker.feed.getComments`.** It takes `uri` (the activity), `limit` and `cursor`, and returns comment views oldest first. Paging is by keyset over `(created_at, uri)`. It applies the same rule for who sees each comment as the comment count does. An activity the viewer may not see is `NotFound`, as `getLikes` treats it.
+- **A new query, `app.activitytracker.feed.getComments`.** It takes `uri` (the activity), `limit` and `cursor`, and returns comment views oldest first. Paging is by keyset over `(created_at, uri)`. It applies the same rule for who sees each comment as the comment count does. An activity the viewer may not see is `NotFound`, as `getLikes` treats it. It also takes `uris` instead of a cursor, so the client can check whether the AppView has caught up with its own sends, deletes and hides on pages it hasn't loaded.
 - **BREAKING:** `feed.getActivity` stops returning `comments`. Its output keeps `activity`, which already carries `commentCount`. All our clients change in the same release. The AppView keeps answering old clients with an empty `comments` array until they're gone, so the field becomes optional rather than removed outright.
 - **One serving rule.** The count in `hydrate` and the list in `getComments` share one filter on the comments table, so the number shown always matches what the list returns.
 - **Detail screen.** It loads the first page of comments separately from the activity, then loads more as the viewer scrolls near the end. A comment the viewer has just sent is added at the end without fetching again.
