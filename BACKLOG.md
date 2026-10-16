@@ -90,8 +90,7 @@ Activities carry photos (`feed.activity#media`, an open union with `#image` only
 
 ## Spaces and route privacy: order of the open changes
 
-Three OpenSpec changes in `openspec/changes/` cover the rest of the local spaces work, plus route privacy and file export. Implement them in this order, and delete each entry when its change is archived.
+Two OpenSpec changes in `openspec/changes/` cover file export. Implement them in this order, and delete each entry when its change is archived.
 
-1. `add-privacy-zones`: zones and hide-start/end, stored in `self`, trim every `polyline` at write time and retroactively (from the track).
-2. `export-activity-files`: the athlete exports their own activity as a rebuilt GPX or TCX (FIT open), from the record, streams and track.
-3. `keep-original-activity-files`: imports keep the original file in a `feed.activitySource` in `self`, for "Download original". Reuses 2's file hand-off.
+1. `export-activity-files`: the athlete exports their own activity as a rebuilt GPX or TCX (FIT open), from the record, streams and track.
+2. `keep-original-activity-files`: imports keep the original file in a `feed.activitySource` in `self`, for "Download original". Reuses 1's file hand-off.
