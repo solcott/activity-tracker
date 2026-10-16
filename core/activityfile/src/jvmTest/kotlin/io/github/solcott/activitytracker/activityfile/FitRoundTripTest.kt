@@ -125,7 +125,17 @@ class FitRoundTripTest {
         assertEquals(250, power.ftpWatts)
         val shifting = assertNotNull(read.shifting)
         assertEquals(1 to 1, shifting.frontShifts to shifting.rearShifts)
-        assertEquals(4, read.mtb!!.jumps)
+        val mtb = assertNotNull(read.mtb)
+        assertEquals(4, mtb.jumps)
+        assertEquals(39.6, mtb.grit!!, 1e-4)
+        assertEquals(2.1, mtb.flow!!, 1e-4)
+    }
+
+    @Test
+    fun a1xRidesRepeatedRearGearAddsNoFrontShift() = runTest {
+        val oneBy = ride.copy(gearChanges = listOf(GearChange(2, null, 5), GearChange(4, null, 5), GearChange(6, null, 4)))
+        val shifting = assertNotNull(reader.read(write(oneBy)).single().shifting)
+        assertEquals(null to 3, shifting.frontShifts to shifting.rearShifts)
     }
 
     private fun Double.round7() = kotlin.math.round(this * 1e7) / 1e7

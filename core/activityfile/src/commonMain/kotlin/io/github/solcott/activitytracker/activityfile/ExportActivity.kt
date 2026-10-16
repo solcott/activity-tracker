@@ -65,6 +65,10 @@ data class ExportTotals(
     val frontShifts: Int? = null,
     val rearShifts: Int? = null,
     val jumps: Int? = null,
+    /** Tenths, as the lexicon keeps them. */
+    val grit: Int? = null,
+    /** Tenths. */
+    val flow: Int? = null,
 ) {
     companion object {
         fun of(record: ActivityRecord) =
@@ -80,6 +84,8 @@ data class ExportTotals(
                 frontShifts = record.frontShifts,
                 rearShifts = record.rearShifts,
                 jumps = record.jumps,
+                grit = record.grit,
+                flow = record.flow,
             )
     }
 }

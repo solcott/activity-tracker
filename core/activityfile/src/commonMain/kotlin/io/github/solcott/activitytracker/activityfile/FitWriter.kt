@@ -100,15 +100,17 @@ object FitWriter {
         }
 
     /**
-     * Each change as a rear gear change when its rear gear differs from the one before (the first change's rear gear counts as a change),
-     * else a front one. Both gear numbers go in the event's packed data; teeth stay zero (invalid): the app doesn't store them.
+     * Each change as a front gear change when its front gear differs from the one before, else a rear one, so a change that repeats both
+     * gears (a 1x drivetrain logs no front gear) never counts as a front shift. Both gear numbers go in the event's packed data; teeth stay
+     * zero (invalid): the app doesn't store them.
      */
     private fun writeGearChanges(out: FitOutput, changes: List<GearChange>, start: Long) =
         with(FitProfile.EventMessage) {
-            var rear: Int? = null
+            var front: Int? = null
             for (change in changes) {
-                val event = if (change.rear != null && change.rear != rear) REAR_GEAR_CHANGE else FRONT_GEAR_CHANGE
-                rear = change.rear ?: rear
+                val frontChanged = change.front != null && front != null && change.front != front
+                val event = if (frontChanged || change.rear == null) FRONT_GEAR_CHANGE else REAR_GEAR_CHANGE
+                front = change.front ?: front
                 val data = (change.rear ?: 0).toLong() or ((change.front ?: 0).toLong() shl FRONT_GEAR_SHIFT)
                 out.write(
                     FitMessage(
@@ -264,7 +266,7 @@ object FitWriter {
 
     /**
      * A lap spanning the activity or the session, which share every field we write at different field numbers. The session alone carries
-     * shift counts, jumps and, as only the owner exports, the training load.
+     * shift counts, jumps, grit and flow and, as only the owner exports, the training load.
      */
     private fun summary(message: FitProfile.Summary, activity: ExportActivity, start: Long, end: Long): FitMessage {
         val sport = FitSports.of(ActivityType(activity.sport, activity.subSport))
@@ -313,6 +315,8 @@ object FitWriter {
                 FRONT_GEAR_SHIFT_COUNT(activity.totals.frontShifts?.toLong()),
                 REAR_GEAR_SHIFT_COUNT(activity.totals.rearShifts?.toLong()),
                 JUMP_COUNT(activity.totals.jumps?.toLong()),
+                TOTAL_GRIT(activity.totals.grit?.let { FitBaseType.floatBits(it / DECI) }),
+                AVG_FLOW(activity.totals.flow?.let { FitBaseType.floatBits(it / DECI) }),
                 THRESHOLD_POWER(load?.ftp?.toLong()),
                 // Hundredths to thousandths.
                 INTENSITY_FACTOR(load?.intensityFactor?.let { it * DECI.toLong() }),

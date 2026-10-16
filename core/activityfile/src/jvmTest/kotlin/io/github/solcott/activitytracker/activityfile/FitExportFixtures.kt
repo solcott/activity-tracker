@@ -171,6 +171,8 @@ object FitExportFixtures {
                     frontShifts = 1,
                     rearShifts = 1,
                     jumps = 4,
+                    grit = 396,
+                    flow = 21,
                 ),
             trainingLoad =
                 TrainingLoad(

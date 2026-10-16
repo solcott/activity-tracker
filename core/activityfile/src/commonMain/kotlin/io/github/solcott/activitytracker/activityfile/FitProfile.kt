@@ -207,6 +207,9 @@ internal object FitProfile {
         val FRONT_GEAR_SHIFT_COUNT = FitFieldDef(107, UINT16)
         val REAR_GEAR_SHIFT_COUNT = FitFieldDef(108, UINT16)
         val JUMP_COUNT = FitFieldDef(183, UINT16)
+        /** Kilograms of grit. */
+        val TOTAL_GRIT = FitFieldDef(181, FLOAT32)
+        val AVG_FLOW = FitFieldDef(187, FLOAT32)
     }
 
     object Activity {

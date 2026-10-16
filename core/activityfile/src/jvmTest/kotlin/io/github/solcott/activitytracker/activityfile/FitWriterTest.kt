@@ -31,6 +31,7 @@ import io.github.solcott.activitytracker.activityfile.FitExportFixtures.interval
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.ride
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.start
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.write
+import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
 import kotlin.test.Test
@@ -132,6 +133,13 @@ class FitWriterTest {
         assertEquals(listOf(start + 2.seconds, start + 6.seconds), gears.map { it.timestamp.date.toInstant().toKotlinInstant() })
         assertEquals(listOf(2, 1), gears.map { it.frontGearNum.toInt() })
         assertEquals(listOf(5, 5), gears.map { it.rearGearNum.toInt() })
+    }
+
+    @Test
+    fun aRepeatedRearGearOnA1xIsNoFrontShift() {
+        val oneBy = ride.copy(gearChanges = listOf(GearChange(2, null, 5), GearChange(4, null, 5), GearChange(6, null, 4)))
+        val gears = decode(write(oneBy)).of(MesgNum.EVENT, ::EventMesg).filter { it.eventType == EventType.MARKER }
+        assertEquals(List(3) { Event.REAR_GEAR_CHANGE }, gears.map { it.event })
     }
 
     @Test
@@ -254,6 +262,7 @@ class FitWriterTest {
         assertEquals(2000L, session.totalWork)
         assertEquals(3, session.totalDescent)
         assertEquals(Triple(1, 1, 4), Triple(session.frontGearShiftCount, session.rearGearShiftCount, session.jumpCount))
+        assertEquals(39.6f to 2.1f, session.totalGrit to session.avgFlow)
         assertEquals(250, session.thresholdPower)
         assertEquals(0.84f, session.intensityFactor)
         assertEquals(112.4f, session.trainingStressScore)
