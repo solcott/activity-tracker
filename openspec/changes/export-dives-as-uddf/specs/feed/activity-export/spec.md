@@ -80,11 +80,15 @@ A UDDF export SHALL define a mix for each gas the record lists and each gas a st
 - **THEN** the file's dive is in closed-circuit mode
 
 ### Requirement: UDDF carries tanks
-A UDDF export SHALL hold each of the record's tanks with its start and end pressure, volume and gas where stored, and each waypoint's tank pressures SHALL name the tank they were read from.
+A UDDF export SHALL hold each of the record's tanks with its start and end pressure, volume and gas where stored, and each waypoint's tank pressures SHALL name the tank they were read from. Each gas no stored tank holds SHALL also get a tank naming only that gas, since logbook software attaches gases and switches to tanks; importing the file back SHALL NOT turn those into tanks.
 
 #### Scenario: Two tanks
 - **WHEN** an athlete exports as UDDF a dive with two tanks and a pressure series for each
 - **THEN** the file holds two tanks with their pressures and gases, and each waypoint's readings name their tank
+
+#### Scenario: Gases without stored tanks
+- **WHEN** an athlete exports as UDDF a dive breathed on 17/30 and 52/0 with no stored tanks
+- **THEN** the file holds a tank naming each gas and nothing else, and Subsurface imports the dive with both gases
 
 ### Requirement: UDDF carries the site and dive computer
 A UDDF export SHALL hold the dive site with the record's site name and, when the dive has a stored track, the track's first position as its coordinates. It SHALL name the record's device as the diver's dive computer. The site's coordinates SHALL appear only in the exported file.

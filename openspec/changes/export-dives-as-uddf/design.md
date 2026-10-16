@@ -37,7 +37,7 @@ In UDDF 3.2's element order, within `<uddf version="3.2.3" xmlns="http://www.str
 - `gasdefinitions/mix id="mix-O-H"`: one per distinct gas in `dive.gases` order, then each gas a switch names that isn't among them; `name` (`Air`, `EAN50`, `18/45`), `o2` and `he` as fractions. Ids derive from the percents, so a switch finds its mix without a lookup table.
 - `profiledata/repetitiongroup id="rg"/dive id="dive"`:
   - `informationbeforedive`: `link`s to site and computer, `datetime`, `divenumber`, `airtemperature` (K), `altitude`, and `surfaceintervalbeforedive/passedtime` when stored.
-  - `tankdata id="tankN"` per `dive.tanks` entry: `link` to its gas's mix, `tankvolume` (mL → m³), `tankpressurebegin`/`tankpressureend` (mbar → Pa).
+  - `tankdata id="tankN"` per `dive.tanks` entry: `link` to its gas's mix, `tankvolume` (mL → m³), `tankpressurebegin`/`tankpressureend` (mbar → Pa). Then a gas-only `tankdata` (just the `link`) for each mix no stored tank holds, numbered after them (see below).
   - `samples/waypoint` per second with a depth (the first point of each second, as FIT does, since the join can attach one sample to two track points): `depth` and `divetime`, and where present `temperature` (K), `heartrate`, `calculatedpo2` (Pa), `cns`, `nodecotime`, `decostop kind="mandatory" decodepth duration` (only in deco), `tankpressure ref="tankN"` (Pa) per non-null reading, and `switchmix ref` at the waypoint nearest each switch's second (at or after it). Children go in the schema's order, not the order listed here. The first waypoint also carries `divemode type="closedcircuit"` for a closed-circuit dive.
   - `informationafterdive`: `greatestdepth`, `averagedepth`, `diveduration` (the record's elapsed time), `lowesttemperature`, `visibility`, `highestpo2`, `noflighttime`, `desaturationtime`.
 
@@ -45,6 +45,11 @@ The element order within each parent follows the UDDF 3.2 schema, so a validatin
 
 ### Gases with no stored switches
 A dive from before `store-dive-gas-switches` lists gases "in order of first use" but no switch times. The writer switches to the first at the first waypoint and defines the rest without switching to them, mirroring FIT's rule: inventing switch times would put wrong deco gas changes in a logbook. Tanks still link their gases, so a tank on a later gas brings that gas back on re-import.
+
+### A gas-only tank per gas no stored tank holds
+Importing the first exports into Subsurface (task 3.2) showed it makes cylinders only from `tankdata` and drops a `switchmix` to a mix no cylinder holds: a CCR dive with two gases and no stored tanks came in with no gases, no switches. So each mix no stored tank links gets a `tankdata` with only its `link`. The schema requires `tankpressurebegin`, which these leave out: a made-up pressure would read back as a real one, in our import and in logbooks. `UddfParser` already skips a tank with no pressure, volume or readings, so a round trip gains no tanks.
+
+Subsurface still shows neither the gas each switch goes to nor closed-circuit mode. Its `uddf.xslt` reads a namespaced file's switch target as `@u:ref` (attributes have no namespace, so it never matches) and looks up mixes and `divemode` by unprefixed paths, which a file in the UDDF 3.2 namespace never has. Running its XSLT on our export without the namespace gives the right switches and CCR mode. We keep the namespace, as UDDF requires and other logbook software may check, and leave this to a Subsurface fix rather than write a non-conforming file for one reader.
 
 ### `ExportActivity` gains `device`
 Add `device: String? = null` from `record.device`. Everything else UDDF needs (`dive`, `gasSwitches`, `isDive`, per-point dive channels, `startedAt`, `elapsed`) is already there. `UddfWriter.write(activity, zone, createdAt = Clock.System.now())` takes the zone as `FitWriter` does.
