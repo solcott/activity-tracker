@@ -19,10 +19,12 @@ object TrackMath {
     private const val CONTINUATION_BIT = 0x20
     private const val ASCII_OFFSET = 63
 
-    fun distanceMeters(a: LocationSample, b: LocationSample): Double {
-        val dLat = (b.latitude - a.latitude).toRadians()
-        val dLon = (b.longitude - a.longitude).toRadians()
-        val h = sin(dLat / 2).pow(2) + cos(a.latitude.toRadians()) * cos(b.latitude.toRadians()) * sin(dLon / 2).pow(2)
+    fun distanceMeters(a: LocationSample, b: LocationSample): Double = distanceMeters(a.latitude, a.longitude, b.latitude, b.longitude)
+
+    fun distanceMeters(latA: Double, lonA: Double, latB: Double, lonB: Double): Double {
+        val dLat = (latB - latA).toRadians()
+        val dLon = (lonB - lonA).toRadians()
+        val h = sin(dLat / 2).pow(2) + cos(latA.toRadians()) * cos(latB.toRadians()) * sin(dLon / 2).pow(2)
         return 2 * EARTH_RADIUS_M * asin(sqrt(h))
     }
 
