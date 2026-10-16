@@ -178,6 +178,38 @@ class SpaceMediaTest {
     }
 
     @Test
+    fun privacyZonesAndTheirTrimMarkerInTheSelfSpaceAreIgnored() = testApplication {
+        startSigning()
+        postSpace("3kzon", Visibility.SELF, record(1))
+        val zones =
+            """{"revision":"3l2abcdefgh22","hideEndsMeters":200,""" +
+                """"zones":[{"latitudeE7":515123457,"longitudeE7":-1275000,"radiusMeters":400,"label":"Home"}]}"""
+        val trim = """{"revision":"3l2abcdefgh22","updatedAt":"2026-10-01T07:31:00Z"}"""
+        runBlocking {
+            indexer.spaceWrite(
+                space(Visibility.SELF),
+                Nsid.ACTOR_PRIVACY_ZONES,
+                "self",
+                "bafyzon",
+                AtJson.parseToJsonElement(zones).jsonObject,
+            )
+            indexer.spaceWrite(space(Visibility.SELF), Nsid.ACTOR_ROUTE_TRIM, "self", "bafytrm", AtJson.parseToJsonElement(trim).jsonObject)
+        }
+
+        for (collection in listOf(Nsid.ACTOR_PRIVACY_ZONES, Nsid.ACTOR_ROUTE_TRIM)) {
+            assertTrue(collection !in Nsid.indexedCollections)
+            assertTrue(
+                listOf(Visibility.FOLLOWERS, Visibility.MUTUALS, Visibility.SELF, AthleteSpace.INTERACTIONS).none {
+                    collection in Indexer.spaceCollections(it)
+                }
+            )
+        }
+        val response = client.raw(GetActivity.method.nsid, alice, "?uri=${uri("3kzon").encodeURLParameter()}")
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertFalse("515123457" in response.bodyAsText())
+    }
+
+    @Test
     fun expiredPhotoUrlIsRefused() = testApplication {
         startSigning()
         follow(bob, alice)

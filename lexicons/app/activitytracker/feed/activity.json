@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "A recorded or manually entered athletic activity. Where it is stored is its visibility: a public activity is a record in the athlete's repo, and a followers, mutuals or self activity is a record in the athlete's app.activitytracker.space.athlete space for that tier, never in the repo. Its URI is at://{did}/app.activitytracker.feed.activity/{rkey} wherever it is stored. Repo records are public: never include private locations; privacy zones must be trimmed from polyline before writing. The full-resolution track is never part of this record: it is an app.activitytracker.feed.activityTrack in the athlete's self space.",
+      "description": "A recorded or manually entered athletic activity. Where it is stored is its visibility: a public activity is a record in the athlete's repo, and a followers, mutuals or self activity is a record in the athlete's app.activitytracker.space.athlete space for that tier, never in the repo. Its URI is at://{did}/app.activitytracker.feed.activity/{rkey} wherever it is stored. Repo records are public: never include private locations. At every visibility, polyline leaves out the athlete's privacy zones and hidden start and end (app.activitytracker.actor.privacyZones). The full-resolution track is never part of this record: it is an app.activitytracker.feed.activityTrack in the athlete's self space.",
       "key": "tid",
       "record": {
         "type": "object",
@@ -37,7 +37,7 @@
           "polyline": {
             "type": "string",
             "maxLength": 50000,
-            "description": "Simplified route as a Google encoded polyline (precision 5), for feed/map previews."
+            "description": "Simplified route as a Google encoded polyline (precision 5), for feed/map previews. Trimmed by the athlete's privacy zones and hidden start and end; absent when nothing is left."
           },
           "device": { "type": "string", "maxLength": 256 },
           "sensors": {

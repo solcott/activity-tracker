@@ -14,6 +14,13 @@ object Nsid {
      * A record kept only in an athlete's `self` tier space ([SPACE_ATHLETE]): the visibilities new activities start with. Never indexed.
      */
     const val ACTOR_ACTIVITY_DEFAULTS = "$NAMESPACE.actor.activityDefaults"
+    /** A record kept only in an athlete's `self` tier space ([SPACE_ATHLETE]): the places hidden from their routes. Never indexed. */
+    const val ACTOR_PRIVACY_ZONES = "$NAMESPACE.actor.privacyZones"
+    /**
+     * A record kept only in an athlete's `self` tier space ([SPACE_ATHLETE]): which [ACTOR_PRIVACY_ZONES] save their polylines were trimmed
+     * by. Never indexed.
+     */
+    const val ACTOR_ROUTE_TRIM = "$NAMESPACE.actor.routeTrim"
     const val ACTOR_GET_PROFILE = "$NAMESPACE.actor.getProfile"
     const val ACTOR_SEARCH_ACTORS = "$NAMESPACE.actor.searchActors"
 

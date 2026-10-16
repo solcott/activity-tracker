@@ -1,0 +1,44 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.actor.privacyZones",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "The places an athlete hides from their routes, and how much of every route's start and end they hide. Lives only in the athlete's self space (app.activitytracker.space.athlete, key self), never in the public repo; the AppView ignores it. Clients trim every activity's polyline by it before writing, at every visibility. No record means no zones and nothing hidden.",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": ["revision"],
+        "properties": {
+          "zones": {
+            "type": "array",
+            "maxLength": 10,
+            "items": { "type": "ref", "ref": "#zone" }
+          },
+          "hideEndsMeters": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1600,
+            "description": "Meters hidden from the start and from the end of every route, wherever it is. Absent or 0: off."
+          },
+          "revision": {
+            "type": "string",
+            "format": "tid",
+            "description": "A new TID on every save, so app.activitytracker.actor.routeTrim can say which save polylines were trimmed by."
+          }
+        }
+      }
+    },
+    "zone": {
+      "type": "object",
+      "description": "A circle hidden from routes. Its center is already offset from the place the athlete chose, by up to half its radius; that place is never stored.",
+      "required": ["latitudeE7", "longitudeE7", "radiusMeters"],
+      "properties": {
+        "latitudeE7": { "type": "integer", "minimum": -900000000, "maximum": 900000000, "description": "Center latitude in 1e-7 degrees." },
+        "longitudeE7": { "type": "integer", "minimum": -1800000000, "maximum": 1800000000, "description": "Center longitude in 1e-7 degrees." },
+        "radiusMeters": { "type": "integer", "minimum": 200, "maximum": 1600, "description": "Radius in meters, in 200 m steps. Readers clamp values outside the range." },
+        "label": { "type": "string", "maxLength": 320, "maxGraphemes": 32, "description": "The athlete's name for the zone, such as Home." }
+      }
+    }
+  }
+}

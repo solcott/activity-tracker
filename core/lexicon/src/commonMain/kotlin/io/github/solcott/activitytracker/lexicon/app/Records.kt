@@ -648,6 +648,63 @@ data class ActivityDefaultsRecord(
     }
 }
 
+/**
+ * `app.activitytracker.actor.privacyZones`: the places an athlete hides from their routes, and how much of each route's start and end. It
+ * lives only in their [AthleteSpace.SELF] space. Every activity's polyline is trimmed by it before it's written, at every visibility.
+ */
+@Serializable
+data class PrivacyZonesRecord(
+    /** A new TID on every save ([RouteTrimRecord.revision] names the one polylines were trimmed by). */
+    val revision: String,
+    val zones: List<PrivacyZone>? = null,
+    /** Meters hidden from the start and from the end of every route; null or 0 is off. */
+    val hideEndsMeters: Int? = null,
+    @SerialName($$"$type") val type: String = Nsid.ACTOR_PRIVACY_ZONES,
+) {
+    companion object {
+        const val RKEY = "self"
+        const val MAX_ZONES = 10
+        /** A zone's smallest radius. [hideEndsMeters] starts at 0 (off). */
+        const val MIN_RADIUS_METERS = 200
+        /** The largest radius and hidden start/end. */
+        const val MAX_METERS = 1600
+        /** The step radii and hidden start/end are chosen in. */
+        const val STEP_METERS = 200
+    }
+}
+
+/** `app.activitytracker.actor.privacyZones#zone`: a circle hidden from routes, its center already offset from the place chosen. */
+@Immutable
+@Serializable
+data class PrivacyZone(
+    /** Center latitude in 1e-7 degrees. */
+    val latitudeE7: Int,
+    /** Center longitude in 1e-7 degrees. */
+    val longitudeE7: Int,
+    /** Meters, [PrivacyZonesRecord.MIN_RADIUS_METERS] to [PrivacyZonesRecord.MAX_METERS]. */
+    val radiusMeters: Int,
+    val label: String? = null,
+) {
+    companion object {
+        const val MAX_LABEL_LENGTH = 32
+    }
+}
+
+/**
+ * `app.activitytracker.actor.routeTrim`: the [PrivacyZonesRecord.revision] every one of the athlete's polylines has been trimmed by and
+ * sent. It lives only in their [AthleteSpace.SELF] space, apart from the zones so finishing a re-trim never overwrites a zone saved since.
+ */
+@Serializable
+data class RouteTrimRecord(
+    val revision: String,
+    val updatedAt: Instant,
+    @SerialName($$"$type") val type: String = Nsid.ACTOR_ROUTE_TRIM,
+) {
+    companion object {
+        const val RKEY = "self"
+    }
+}
+
 /** `app.activitytracker.actor.defs#location` */
 @Immutable
 @Serializable

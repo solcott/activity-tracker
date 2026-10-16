@@ -1,0 +1,19 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.actor.routeTrim",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "Which app.activitytracker.actor.privacyZones save every one of the athlete's activity polylines has been trimmed by and sent. A client whose zones revision differs re-trims the athlete's activities from their tracks, then writes this. Lives only in the athlete's self space, never in the repo; the AppView ignores it. Kept apart from privacyZones so finishing a re-trim never overwrites a zone saved meanwhile.",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": ["revision", "updatedAt"],
+        "properties": {
+          "revision": { "type": "string", "format": "tid", "description": "The privacyZones revision the polylines were trimmed by." },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

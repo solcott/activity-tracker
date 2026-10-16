@@ -22,12 +22,15 @@ import io.github.solcott.activitytracker.lexicon.app.HeartRateZoneModel
 import io.github.solcott.activitytracker.lexicon.app.LikeRecord
 import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.NotifySpace
+import io.github.solcott.activitytracker.lexicon.app.PrivacyZone
+import io.github.solcott.activitytracker.lexicon.app.PrivacyZonesRecord
 import io.github.solcott.activitytracker.lexicon.app.PrivateDetailsRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.ReplyRef
+import io.github.solcott.activitytracker.lexicon.app.RouteTrimRecord
 import io.github.solcott.activitytracker.lexicon.app.SensorType
 import io.github.solcott.activitytracker.lexicon.app.SpeedZoneModel
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -255,6 +258,36 @@ class RecordSerializationTest {
         assertEquals("1990-04-01", details["birthDate"]?.jsonPrimitive?.content)
         assertFalse("location" in details)
         assertEquals(record, AtJson.decodeFromJsonElement(PrivateDetailsRecord.serializer(), json))
+    }
+
+    @Test
+    fun privacyZonesAndRouteTrimRoundTrip() {
+        val record =
+            PrivacyZonesRecord(
+                revision = "3l2abcdefgh22",
+                zones = listOf(PrivacyZone(latitudeE7 = 515_000_000, longitudeE7 = -1_275_000, radiusMeters = 400, label = "Home")),
+                hideEndsMeters = 200,
+            )
+        val json = AtJson.encodeToJsonElement(PrivacyZonesRecord.serializer(), record).jsonObject
+        assertEquals(Nsid.ACTOR_PRIVACY_ZONES, json["\$type"]?.jsonPrimitive?.content)
+        assertEquals("515000000", json["zones"]?.jsonArray?.single()?.jsonObject?.get("latitudeE7")?.jsonPrimitive?.content)
+        assertEquals(record, AtJson.decodeFromJsonElement(PrivacyZonesRecord.serializer(), json))
+
+        val bare = PrivacyZonesRecord(revision = "3l2abcdefgh22")
+        val bareJson = AtJson.encodeToJsonElement(PrivacyZonesRecord.serializer(), bare).jsonObject
+        assertFalse("zones" in bareJson)
+        assertFalse("hideEndsMeters" in bareJson)
+        val unknown =
+            AtJson.decodeFromString(
+                PrivacyZonesRecord.serializer(),
+                """{"${'$'}type":"${Nsid.ACTOR_PRIVACY_ZONES}","revision":"3l2abcdefgh22","later":1}""",
+            )
+        assertEquals(bare, unknown)
+
+        val trim = RouteTrimRecord(revision = "3l2abcdefgh22", updatedAt = Instant.parse("2026-10-15T12:00:00Z"))
+        val trimJson = AtJson.encodeToJsonElement(RouteTrimRecord.serializer(), trim).jsonObject
+        assertEquals(Nsid.ACTOR_ROUTE_TRIM, trimJson["\$type"]?.jsonPrimitive?.content)
+        assertEquals(trim, AtJson.decodeFromJsonElement(RouteTrimRecord.serializer(), trimJson))
     }
 
     @Test
