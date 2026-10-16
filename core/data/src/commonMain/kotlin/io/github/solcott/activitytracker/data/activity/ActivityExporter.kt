@@ -5,6 +5,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.activityfile.ExportActivity
 import io.github.solcott.activitytracker.activityfile.ExportPoints
+import io.github.solcott.activitytracker.activityfile.ExportTotals
 import io.github.solcott.activitytracker.activityfile.FitWriter
 import io.github.solcott.activitytracker.activityfile.GpxWriter
 import io.github.solcott.activitytracker.activityfile.TcxSport
@@ -19,7 +20,9 @@ import io.github.solcott.activitytracker.data.sport.SportCategory
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.location.Gpx
 import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.time.Duration.Companion.seconds
@@ -77,7 +80,7 @@ class ActivityExporter(
         val track = readTrack(view)
         val streams = readStreams(view)
         if (format !in formats(track, streams != null)) throw ExportUnreadableException()
-        return build(view, format, track, streams)
+        return build(view, format, track, streams?.data, streams?.trainingLoad)
     }
 
     private suspend fun requireSent(view: ActivityView) {
@@ -87,11 +90,11 @@ class ActivityExporter(
         }
     }
 
-    private suspend fun readStreams(view: ActivityView): ActivityStreamData? = runSuspendCatching {
+    /** The streams and, as the owner may see the zones record, the training load stored with the zones. */
+    private suspend fun readStreams(view: ActivityView): GetActivityStreams.Output? = runSuspendCatching {
         feed.streams(view.uri)
     }
         .getOrElse { throw ExportUnreadableException(it) }
-        ?.data
 
     // `read` says null both for no track and for one it couldn't read, so a null asks whether there's one to read.
     private suspend fun readTrack(view: ActivityView): List<LocationSample>? {
@@ -109,6 +112,7 @@ class ActivityExporter(
         format: ExportFormat,
         track: List<LocationSample>?,
         streams: ActivityStreamData?,
+        trainingLoad: TrainingLoad?,
     ): ExportedFile =
         withContext(Dispatchers.Default) {
             val record = view.record
@@ -132,6 +136,10 @@ class ActivityExporter(
                     avgTemperatureCelsius = record.avgTemperature?.div(DECI),
                     gearChanges = streams?.gears.orEmpty(),
                     dive = record.dive,
+                    gasSwitches = streams?.gasSwitches.orEmpty(),
+                    laps = streams?.laps.orEmpty(),
+                    totals = ExportTotals.of(record),
+                    trainingLoad = trainingLoad,
                 )
             val zone = TimeZone.currentSystemDefault()
             val bytes =

@@ -119,7 +119,10 @@ private fun chartsGain(logged: OwnActivity, dive: ImportedActivity, streams: Log
     return when {
         logged.cid == null -> null
         logged.uri !in streams -> MergeGain.AnyCharts
-        else -> MergeGain.Charts.takeIf { ActivityMerge.addsChannels(streams[logged.uri], imported) }
+        else ->
+            MergeGain.Charts.takeIf {
+                ActivityMerge.addsChannels(streams[logged.uri], imported, logged.record.dive?.tanks?.size ?: 0, dive.dive?.tanks?.size ?: 0)
+            }
     }
 }
 

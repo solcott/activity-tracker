@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.data.activity
 
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
+import io.github.solcott.activitytracker.activityfile.ImportedDive
 import io.github.solcott.activitytracker.activityfile.StreamBuilder
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
@@ -9,12 +10,14 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import io.github.solcott.activitytracker.location.Gpx
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.RecordingResult
 import io.github.solcott.activitytracker.location.TrackMath
+import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 import kotlin.time.Duration
 import kotlin.time.Instant
@@ -58,6 +61,24 @@ data class ActivityDraft(
     val dive: ActivityDive? = null,
     /** Photos to upload with it, in order. */
     val photos: List<NewPhoto> = emptyList(),
+    val elevationLossMeters: Double? = null,
+    /** Revolutions or steps per minute. */
+    val avgCadence: Int? = null,
+    val maxCadence: Int? = null,
+    val avgPowerWatts: Int? = null,
+    val maxPowerWatts: Int? = null,
+    val normalizedPowerWatts: Int? = null,
+    val workJoules: Double? = null,
+    /** Kilocalories. */
+    val calories: Int? = null,
+    val frontShifts: Int? = null,
+    val rearShifts: Int? = null,
+    /** Garmin's mountain bike dynamics. */
+    val jumps: Int? = null,
+    val grit: Double? = null,
+    val flow: Double? = null,
+    /** The recording device's training load, kept with the zones (it reveals thresholds), never on the record. */
+    val trainingLoad: TrainingLoad? = null,
 ) {
     /**
      * This draft with what the athlete wrote about it: [description], [photos], and for a dive its [diveSite] (blank clears the logbook's;
@@ -116,6 +137,19 @@ data class ActivityDraft(
             recordingOf = recordingOf,
             media = media.take(ActivityMedia.MAX).ifEmpty { null },
             createdAt = createdAt,
+            elevationLoss = elevationLossMeters?.roundToLong()?.coerceAtLeast(0),
+            avgCadence = avgCadence,
+            maxCadence = maxCadence,
+            avgPower = avgPowerWatts,
+            maxPower = maxPowerWatts,
+            normalizedPower = normalizedPowerWatts,
+            work = workJoules?.let { (it / J_PER_KJ).roundToLong() },
+            calories = calories,
+            frontShifts = frontShifts,
+            rearShifts = rearShifts,
+            jumps = jumps,
+            grit = grit?.let { (it * TENTHS).roundToInt().coerceAtLeast(0) },
+            flow = flow?.let { (it * TENTHS).roundToInt().coerceAtLeast(0) },
         )
 
     // Generated equals/hashCode compare arrays by identity; compare gpx by content instead.
@@ -144,6 +178,20 @@ data class ActivityDraft(
             recordingOf,
             dive,
             photos,
+            elevationLossMeters,
+            avgCadence,
+            maxCadence,
+            avgPowerWatts,
+            maxPowerWatts,
+            normalizedPowerWatts,
+            workJoules,
+            calories,
+            frontShifts,
+            rearShifts,
+            jumps,
+            grit,
+            flow,
+            trainingLoad,
         )
 
     override fun equals(other: Any?): Boolean =
@@ -157,6 +205,9 @@ data class ActivityDraft(
 
         /** Lexicon temperatures are integer tenths of a degree Celsius. */
         private const val TENTHS_PER_DEGREE = 10
+        private const val TENTHS = 10
+        private const val HUNDREDTHS = 100
+        private const val J_PER_KJ = 1000.0
 
         fun fromRecording(
             result: RecordingResult,
@@ -182,16 +233,21 @@ data class ActivityDraft(
             )
         }
 
-        /** An activity read from a FIT (and later GPX or TCX) file. Its track is published as GPX, like a recorded one. */
+        /**
+         * An activity read from a file. Its track is published as GPX, like a recorded one; a dive with no GPS track gets one from where it
+         * went in and came out (or its logbook site), timed at its start and end, which stays in the track and makes no polyline. Its
+         * description starts from the file's notes, for the athlete to keep or change.
+         */
         fun fromImport(
             imported: ImportedActivity,
             type: ActivityType,
             title: String?,
-        ): ActivityDraft =
-            ActivityDraft(
+        ): ActivityDraft {
+            val diveFixes = if (imported.samples.isEmpty()) imported.dive?.let { diveFixes(it, imported) }.orEmpty() else emptyList()
+            return ActivityDraft(
                 type = type,
                 title = title,
-                description = null,
+                description = imported.description,
                 startedAt = imported.startedAt,
                 elapsed = imported.elapsed,
                 movingSeconds = imported.movingSeconds,
@@ -204,9 +260,45 @@ data class ActivityDraft(
                 device = imported.device,
                 sensors = imported.sensors.map { ActivitySensor(it.kind.token, it.manufacturer, it.model) },
                 route = imported.samples,
-                gpx = gpxOf(imported.samples, title, type.sport),
+                gpx = gpxOf(imported.samples.ifEmpty { diveFixes }, title, type.sport),
                 streams = imported.streams,
                 dive = imported.dive?.let(DiveSummary::of),
+                elevationLossMeters = imported.elevationLossMeters,
+                avgCadence = imported.avgCadence,
+                maxCadence = imported.maxCadence,
+                avgPowerWatts = imported.power?.avgWatts,
+                maxPowerWatts = imported.power?.maxWatts,
+                normalizedPowerWatts = imported.power?.normalizedWatts,
+                workJoules = imported.power?.workJoules,
+                calories = imported.calories,
+                frontShifts = imported.shifting?.frontShifts,
+                rearShifts = imported.shifting?.rearShifts,
+                jumps = imported.mtb?.jumps,
+                grit = imported.mtb?.grit,
+                flow = imported.mtb?.flow,
+                trainingLoad = trainingLoadOf(imported),
+            )
+        }
+
+        /** The device's FTP, IF, TSS and training effect, or null without any. */
+        private fun trainingLoadOf(imported: ImportedActivity): TrainingLoad? =
+            TrainingLoad(
+                    ftp = imported.power?.ftpWatts?.takeIf { it > 0 },
+                    intensityFactor = imported.power?.intensityFactor?.let { (it * HUNDREDTHS).roundToInt() }?.takeIf { it > 0 },
+                    trainingStressScore = imported.power?.trainingStressScore?.let { (it * TENTHS).roundToInt() }?.takeIf { it > 0 },
+                    aerobicTrainingEffect = imported.aerobicTrainingEffect?.let { (it * TENTHS).roundToInt() },
+                    anaerobicTrainingEffect = imported.anaerobicTrainingEffect?.let { (it * TENTHS).roundToInt() },
+                )
+                .takeUnless { it.isEmpty }
+
+        /**
+         * A trackless dive's surface fixes: its entry at the start and its exit at the end. A logbook's site position comes through as its
+         * entry, so it's one point.
+         */
+        private fun diveFixes(dive: ImportedDive, imported: ImportedActivity): List<LocationSample> =
+            listOfNotNull(
+                dive.entry?.let { LocationSample(it.latitude, it.longitude, null, null, null, imported.startedAt) },
+                dive.exit?.let { LocationSample(it.latitude, it.longitude, null, null, null, imported.startedAt + imported.elapsed) },
             )
 
         /**

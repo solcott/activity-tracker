@@ -1,23 +1,32 @@
 package io.github.solcott.activitytracker.data.activity
 
 import io.github.solcott.activitytracker.activityfile.DiveGas
+import io.github.solcott.activitytracker.activityfile.DivePosition
 import io.github.solcott.activitytracker.activityfile.DiveTank
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
 import io.github.solcott.activitytracker.activityfile.ImportedDive
+import io.github.solcott.activitytracker.activityfile.ImportedMtb
+import io.github.solcott.activitytracker.activityfile.ImportedPower
 import io.github.solcott.activitytracker.activityfile.ImportedSensor
+import io.github.solcott.activitytracker.activityfile.ImportedShifting
 import io.github.solcott.activitytracker.activityfile.SensorBattery
 import io.github.solcott.activitytracker.activityfile.SensorKind
+import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveTank
+import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.SensorType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
+import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
+import io.github.solcott.activitytracker.lexicon.app.WaterType
 import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
@@ -141,5 +150,137 @@ class ActivityDraftTest {
             ),
             record.dive,
         )
+    }
+
+    private val diveFields =
+        ImportedDive(
+            maxDepthMeters = 25.0,
+            avgDepthMeters = null,
+            minWaterTempCelsius = null,
+            diveNumber = null,
+            surfaceIntervalMinutes = null,
+            gradientFactorLow = null,
+            gradientFactorHigh = null,
+            startCns = null,
+            endCns = null,
+            gases = listOf(DiveGas(32, 0)),
+            closedCircuit = false,
+            profile = emptyList(),
+            tanks = listOf(DiveTank(200.0, 60.0, null, volumeLiters = 11.1, gas = DiveGas(32, 0), sensor = "t")),
+            startN2 = 10,
+            endN2 = 55,
+            avgAscentRateMps = 0.15,
+            maxAscentRateMps = 0.3,
+            avgDescentRateMps = 0.2,
+            maxDescentRateMps = 0.4,
+            descentTimeSeconds = 300.4,
+            waterType = WaterType.SALT,
+            waterDensityKgPerM3 = 1025.0,
+            airTemperatureCelsius = -2.5,
+            visibilityMeters = 15.0,
+            altitudeMeters = 450.0,
+            noFlyTimeSeconds = 64_800.0,
+            desaturationTimeSeconds = 72_000.0,
+            highestPpO2Bar = 1.4,
+        )
+
+    @Test
+    fun aDivesNewerSummaryAndTanksAreInLexiconUnits() {
+        val dive =
+            ActivityDraft.fromImport(imported(emptyList()).copy(dive = diveFields), ActivityType(Sport.DIVE), null).toRecord(start).dive!!
+        assertEquals(10 to 55, dive.startN2 to dive.endN2)
+        assertEquals(
+            listOf(150L, 300L, 200L, 400L),
+            listOf(dive.avgAscentRate, dive.maxAscentRate, dive.avgDescentRate, dive.maxDescentRate),
+        )
+        assertEquals(300L, dive.descentTime)
+        assertEquals(WaterType.SALT to 1025, dive.waterType to dive.waterDensity)
+        assertEquals(-25L, dive.airTemperature)
+        assertEquals(1500L, dive.visibility, "centimeters")
+        assertEquals(450L, dive.altitude)
+        assertEquals(64_800L to 72_000L, dive.noFlyTime to dive.desaturationTime)
+        assertEquals(1400, dive.highestPpO2)
+        assertEquals(
+            listOf(ActivityDiveTank(startPressure = 200_000, endPressure = 60_000, volume = 11_100, gas = ActivityDiveGas(32, 0))),
+            dive.tanks,
+            "milliliters, and no sensor id",
+        )
+    }
+
+    @Test
+    fun aRidesPowerShiftingAndTrailTotalsArePublishedAndItsTrainingLoadKeptApart() {
+        val ride =
+            imported(emptyList())
+                .copy(
+                    type = ActivityType(Sport.RIDE, SubSport.MOUNTAIN),
+                    elevationLossMeters = 120.4,
+                    avgCadence = 80,
+                    maxCadence = 110,
+                    power = ImportedPower(180, 650, 210, 300_000.0, 250, 0.84, 45.0),
+                    shifting = ImportedShifting(2, 3, emptyList(), emptyList(), emptyList()),
+                    mtb = ImportedMtb(jumps = 2, longestHangTimeSeconds = 0.9, longestJumpMeters = 8.2, grit = 12.5, flow = 2.54),
+                    calories = 450,
+                    aerobicTrainingEffect = 3.4,
+                )
+        val draft = ActivityDraft.fromImport(ride, ride.type, null)
+        val record = draft.toRecord(start)
+        assertEquals(120L, record.elevationLoss)
+        assertEquals(80 to 110, record.avgCadence to record.maxCadence)
+        assertEquals(listOf(180, 650, 210), listOf(record.avgPower, record.maxPower, record.normalizedPower))
+        assertEquals(300L, record.work, "kilojoules")
+        assertEquals(450, record.calories)
+        assertEquals(2 to 3, record.frontShifts to record.rearShifts)
+        assertEquals(Triple(2, 125, 25), Triple(record.jumps, record.grit, record.flow), "grit and flow in tenths")
+        assertEquals(
+            TrainingLoad(ftp = 250, intensityFactor = 84, trainingStressScore = 450, aerobicTrainingEffect = 34),
+            draft.trainingLoad,
+            "kept for the zones record",
+        )
+        val json = AtJson.encodeToString(ActivityRecord.serializer(), record)
+        assertFalse("ftp" in json || "intensityFactor" in json || "trainingStressScore" in json || "TrainingEffect" in json, json)
+    }
+
+    @Test
+    fun aRunWithoutPowerHasNoPowerFields() {
+        val draft = ActivityDraft.fromImport(imported(emptyList()).copy(avgCadence = 172), ActivityType(Sport.RUN), null)
+        val record = draft.toRecord(start)
+        assertEquals(172, record.avgCadence)
+        assertNull(record.avgPower)
+        assertNull(record.normalizedPower)
+        assertNull(draft.trainingLoad)
+    }
+
+    @Test
+    fun theDescriptionStartsFromTheFilesNotes() {
+        val draft = ActivityDraft.fromImport(imported(emptyList()).copy(description = "Turtle at the wall"), ActivityType(Sport.DIVE), null)
+        assertEquals("Turtle at the wall", draft.description)
+        assertEquals("Mine", draft.withDetails("Mine", null, emptyList()).description, "the athlete's words replace it")
+    }
+
+    @Test
+    fun aTracklessDiveKeepsItsSurfaceFixesInItsTrackOnly() {
+        val dive = diveFields.copy(entry = DivePosition(13.86, -61.07), exit = DivePosition(13.87, -61.08))
+        val draft = ActivityDraft.fromImport(imported(emptyList()).copy(dive = dive), ActivityType(Sport.DIVE), null)
+        val gpx = draft.gpx!!.decodeToString()
+        assertTrue("13.86" in gpx && "13.87" in gpx, gpx)
+        assertTrue(draft.route.isEmpty(), "no route, so no polyline")
+        assertNull(draft.toRecord(start).polyline)
+
+        val logbook = diveFields.copy(entry = DivePosition(17.3157, -87.5346))
+        assertEquals(
+            1,
+            Regex("<trkpt")
+                .findAll(
+                    ActivityDraft.fromImport(imported(emptyList()).copy(dive = logbook), ActivityType(Sport.DIVE), null)
+                        .gpx!!
+                        .decodeToString()
+                )
+                .count(),
+        )
+
+        val tracked = ActivityDraft.fromImport(imported(listOf(sample(0), sample(30))).copy(dive = dive), ActivityType(Sport.DIVE), null)
+        assertEquals(2, tracked.route.size, "a dive with GPS records keeps them")
+        assertTrue("13.86" !in tracked.gpx!!.decodeToString())
+        assertNull(ActivityDraft.fromImport(imported(emptyList()).copy(dive = diveFields), ActivityType(Sport.DIVE), null).gpx)
     }
 }

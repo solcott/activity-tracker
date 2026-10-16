@@ -11,6 +11,7 @@ import kotlin.math.abs
  */
 object ActivityMerge {
     /** [existing] with each summary field it lacks taken from [other]. */
+    @Suppress("CyclomaticComplexMethod") // An elvis per field.
     fun fillGaps(existing: ActivityRecord, other: ActivityRecord): ActivityRecord =
         existing.copy(
             subSport = existing.subSport ?: other.subSport,
@@ -22,6 +23,19 @@ object ActivityMerge {
             avgHeartRate = existing.avgHeartRate ?: other.avgHeartRate,
             maxHeartRate = existing.maxHeartRate ?: other.maxHeartRate,
             avgTemperature = existing.avgTemperature ?: other.avgTemperature,
+            elevationLoss = existing.elevationLoss ?: other.elevationLoss,
+            avgCadence = existing.avgCadence ?: other.avgCadence,
+            maxCadence = existing.maxCadence ?: other.maxCadence,
+            avgPower = existing.avgPower ?: other.avgPower,
+            maxPower = existing.maxPower ?: other.maxPower,
+            normalizedPower = existing.normalizedPower ?: other.normalizedPower,
+            work = existing.work ?: other.work,
+            calories = existing.calories ?: other.calories,
+            frontShifts = existing.frontShifts ?: other.frontShifts,
+            rearShifts = existing.rearShifts ?: other.rearShifts,
+            jumps = existing.jumps ?: other.jumps,
+            grit = existing.grit ?: other.grit,
+            flow = existing.flow ?: other.flow,
             polyline = existing.polyline ?: other.polyline,
             device = existing.device ?: other.device,
             sensors = existing.sensors ?: other.sensors,
@@ -31,56 +45,72 @@ object ActivityMerge {
 
     /**
      * [existing]'s channels, plus each one only [other] has, resampled onto [existing]'s times. [other]'s times are [offsetSeconds] after
-     * [existing]'s start; a sample with nothing of [other]'s within [MAX_GAP_SECONDS] stays empty.
+     * [existing]'s start; a sample with nothing of [other]'s within [MAX_GAP_SECONDS] stays empty. Gas switches and laps come over, shifted
+     * onto [existing]'s start, when it has none. Tank pressure comes over only when it can line up with the record's tanks: the dive has
+     * none of its own ([existingTanks] is 0; it takes [other]'s too) or as many as [other] has ([otherTanks], else its series).
      */
-    fun fillMissing(existing: ActivityStreamData, other: ActivityStreamData, offsetSeconds: Int): ActivityStreamData {
+    fun fillMissing(
+        existing: ActivityStreamData,
+        other: ActivityStreamData,
+        offsetSeconds: Int,
+        existingTanks: Int = 0,
+        otherTanks: Int? = null,
+    ): ActivityStreamData {
         val times = other.time.map { it + offsetSeconds }
-        fun resample(channel: List<Int?>?): List<Int?>? = channel?.let { values ->
-            existing.time.map { t -> nearest(times, t)?.let { values.getOrNull(it) } }
-        }
-        return existing.copy(
-            distance = existing.distance ?: resample(other.distance),
-            altitude = existing.altitude ?: resample(other.altitude),
-            speed = existing.speed ?: resample(other.speed),
-            heartRate = existing.heartRate ?: resample(other.heartRate),
-            power = existing.power ?: resample(other.power),
-            cadence = existing.cadence ?: resample(other.cadence),
-            temperature = existing.temperature ?: resample(other.temperature),
-            depth = existing.depth ?: resample(other.depth),
+        fun resample(channel: List<Int?>): List<Int?> = existing.time.map { t -> nearest(times, t)?.let { channel.getOrNull(it) } }
+        val filled =
+            ActivityStreamData.INT_CHANNELS.fold(existing) { data, channel ->
+                if (channel.get(data) != null) data else channel.with(data, channel.get(other)?.let(::resample))
+            }
+        val shiftedOther = shifted(other, offsetSeconds)
+        return filled.copy(
+            gasSwitches = existing.gasSwitches ?: shiftedOther.gasSwitches,
+            laps = existing.laps ?: shiftedOther.laps,
+            tankPressures =
+                existing.tankPressures
+                    ?: other.tankPressures
+                        ?.takeIf { tanksLineUp(existingTanks, otherTanks ?: it.size) }
+                        ?.map { it.copy(pressure = resample(it.pressure)) },
         )
     }
 
     /** Whether [fillMissing] would add any of [other]'s channels to [existing]: all of them when there's no [existing] to fill. */
-    fun addsChannels(existing: ActivityStreamData?, other: ActivityStreamData): Boolean {
+    fun addsChannels(existing: ActivityStreamData?, other: ActivityStreamData, existingTanks: Int = 0, otherTanks: Int? = null): Boolean {
         if (existing == null) return true
-        fun adds(have: List<Int?>?, extra: List<Int?>?) = have == null && extra != null
-        return adds(existing.distance, other.distance) ||
-            adds(existing.altitude, other.altitude) ||
-            adds(existing.speed, other.speed) ||
-            adds(existing.heartRate, other.heartRate) ||
-            adds(existing.power, other.power) ||
-            adds(existing.cadence, other.cadence) ||
-            adds(existing.temperature, other.temperature) ||
-            adds(existing.depth, other.depth)
+        return ActivityStreamData.INT_CHANNELS.any { it.get(existing) == null && it.get(other) != null } ||
+            (existing.gasSwitches == null && other.gasSwitches != null) ||
+            (existing.laps == null && other.laps != null) ||
+            (existing.tankPressures == null && other.tankPressures?.let { tanksLineUp(existingTanks, otherTanks ?: it.size) } == true)
     }
 
-    /** [data] with its times moved [offsetSeconds] later, for an activity that starts that much earlier; samples before it start go. */
+    private fun tanksLineUp(existingTanks: Int, otherTanks: Int) = existingTanks == 0 || existingTanks == otherTanks
+
+    /**
+     * [data] with its times moved [offsetSeconds] later, for an activity that starts that much earlier; samples before it start go. The gas
+     * breathed at the new start is a switch at 0, and a lap that started before it starts at 0.
+     */
     fun shifted(data: ActivityStreamData, offsetSeconds: Int): ActivityStreamData {
         if (offsetSeconds == 0) return data
         val keep = data.time.indices.filter { data.time[it] + offsetSeconds >= 0 }
-        fun <T> List<T>?.kept() = this?.let { values -> keep.map { values[it] } }
-        return data.copy(
-            time = keep.map { data.time[it] + offsetSeconds },
-            distance = data.distance.kept(),
-            altitude = data.altitude.kept(),
-            speed = data.speed.kept(),
-            heartRate = data.heartRate.kept(),
-            power = data.power.kept(),
-            cadence = data.cadence.kept(),
-            temperature = data.temperature.kept(),
-            depth = data.depth.kept(),
-            gears = data.gears?.mapNotNull { gear -> gear.copy(time = gear.time + offsetSeconds).takeIf { it.time >= 0 } },
-        )
+        fun <T> List<T>.kept() = keep.map { this[it] }
+        val moved =
+            data.copy(
+                time = keep.map { data.time[it] + offsetSeconds },
+                gears = data.gears?.mapNotNull { gear -> gear.copy(time = gear.time + offsetSeconds).takeIf { it.time >= 0 } },
+                gasSwitches =
+                    data.gasSwitches?.let { switches ->
+                        val moved = switches.map { it.copy(time = it.time + offsetSeconds) }
+                        val before = moved.lastOrNull { it.time <= 0 }?.copy(time = 0)
+                        listOfNotNull(before) + moved.filter { it.time > 0 }
+                    },
+                laps =
+                    data.laps?.mapNotNull { lap ->
+                        val start = lap.start + offsetSeconds
+                        if (start + lap.elapsed <= 0) null else lap.copy(start = start.coerceAtLeast(0))
+                    },
+                tankPressures = data.tankPressures?.map { it.copy(pressure = it.pressure.kept()) },
+            )
+        return ActivityStreamData.INT_CHANNELS.fold(moved) { shifted, channel -> channel.with(shifted, channel.get(data)?.kept()) }
     }
 
     /** The index in sorted [times] closest to [t], if within [MAX_GAP_SECONDS]. */

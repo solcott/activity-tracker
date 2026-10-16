@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.PowerZoneModel
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
+import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import kotlin.test.Test
@@ -174,6 +175,48 @@ class ActivityZonesTest {
         val lastZonesWrite = pds.writes.indexOfLast { Nsid.FEED_ACTIVITY_ZONES in it }
         val trainingWrite = pds.writes.indexOfFirst { it == "put ${Visibility.SELF} ${Nsid.ACTOR_PRIVATE_DETAILS}/self" }
         assertTrue(lastZonesWrite in 0..<trainingWrite, "zones move before the training: ${pds.writes}")
+    }
+
+    private val load = TrainingLoad(ftp = 250, intensityFactor = 84, trainingStressScore = 450)
+
+    @Test
+    fun aPublicRidesTrainingLoadGoesWithItsZonesToOnlyMeTraining() = runTest {
+        trainingAt(Visibility.SELF)
+        val uri = pds.session().activities.publish(draft(Visibility.PUBLIC).copy(trainingLoad = load))
+        val rkey = uri.rkey!!
+
+        assertEquals(setOf(Visibility.SELF), zonesAt(rkey))
+        val zones = stored.getValue(Visibility.SELF).getValue("${Nsid.FEED_ACTIVITY_ZONES}/$rkey")
+        assertEquals(load, AtJson.decodeFromJsonElement(TrainingLoad.serializer(), zones.getValue("trainingLoad")))
+        assertTrue("powerZones" in zones, "with the zones")
+        val record = stored.getValue(repo).getValue("${Nsid.FEED_ACTIVITY}/$rkey").toString()
+        assertFalse("trainingLoad" in record || "ftp" in record || "trainingStressScore" in record, record)
+    }
+
+    @Test
+    fun trainingLoadWithoutZonesStillGetsAZonesRecord() = runTest {
+        trainingAt(Visibility.FOLLOWERS)
+        val uri = pds.session().activities.publish(draft(Visibility.PUBLIC).copy(powerZones = null, trainingLoad = load))
+
+        assertEquals(setOf(Visibility.FOLLOWERS), zonesAt(uri.rkey!!), "the narrower of charts and training")
+        val zones = stored.getValue(Visibility.FOLLOWERS).getValue("${Nsid.FEED_ACTIVITY_ZONES}/${uri.rkey}")
+        assertFalse("powerZones" in zones || "heartRateZones" in zones)
+        assertTrue("trainingLoad" in zones)
+        assertEquals(emptySet(), zonesAt(pds.session().activities.publish(draft(Visibility.PUBLIC).copy(powerZones = null)).rkey!!))
+    }
+
+    @Test
+    fun narrowingTrainingMovesTrainingLoadWithItsZones() = runTest {
+        trainingAt(Visibility.PUBLIC)
+        val s = pds.session()
+        val rkey = s.activities.publish(draft(Visibility.PUBLIC).copy(powerZones = null, trainingLoad = load)).rkey!!
+        assertEquals(setOf(repo), zonesAt(rkey))
+
+        profiles(s).saveTraining(training, Visibility.SELF)
+
+        assertEquals(setOf(Visibility.SELF), zonesAt(rkey))
+        val zones = stored.getValue(Visibility.SELF).getValue("${Nsid.FEED_ACTIVITY_ZONES}/$rkey")
+        assertEquals(load, AtJson.decodeFromJsonElement(TrainingLoad.serializer(), zones.getValue("trainingLoad")))
     }
 
     @Test

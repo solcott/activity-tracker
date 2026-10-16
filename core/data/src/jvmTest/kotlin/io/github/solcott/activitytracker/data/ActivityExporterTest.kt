@@ -17,10 +17,13 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.GearChange
+import io.github.solcott.activitytracker.lexicon.app.Lap
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
+import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.location.Gpx
 import io.github.solcott.activitytracker.location.LocationSample
@@ -169,6 +172,49 @@ class ActivityExporterTest {
         assertEquals(listOf(47.6, 47.6001, 47.6002), read.samples.map { kotlin.math.round(it.latitude * 1e4) / 1e4 })
         assertEquals(listOf(140, 141, 142), read.streams?.heartRate)
         assertEquals(gears, read.streams?.gears)
+    }
+
+    @Test
+    fun aRideExportsItsLapsTotalsAndTrainingLoadAsFit() = runTest {
+        val s = pds.session()
+        val uri = s.activities.publish(draft(ActivityType(Sport.RIDE, SubSport.ROAD), gpx = false))
+        val laps =
+            listOf(Lap(start = 0, elapsed = 60, moving = 60, distance = 500), Lap(start = 60, elapsed = 60, moving = 55, avgPower = 260))
+        serveStreams(uri, ActivityStreamData(time = listOf(0, 60, 120), power = listOf(200, 250, 270), laps = laps))
+        pds.streamsLoad[uri.rkey!!] = TrainingLoad(ftp = 250, intensityFactor = 84, trainingStressScore = 1124, aerobicTrainingEffect = 34)
+        val ride =
+            view(uri, Sport.RIDE).let {
+                it.copy(
+                    record =
+                        it.record.copy(subSport = SubSport.ROAD, avgPower = 245, normalizedPower = 250, calories = 300, frontShifts = 2)
+                )
+            }
+
+        val read = ActivityFileReader(GarminJavaFitDecoder()).read(s.exporter.export(ride, ExportFormat.FIT).bytes).single()
+        assertEquals(laps, read.streams?.laps)
+        assertEquals(245 to 250, read.power?.avgWatts to read.power?.normalizedWatts)
+        assertEquals(250, read.power?.ftpWatts)
+        assertEquals(300, read.calories)
+        assertEquals(2, read.shifting?.frontShifts)
+        assertEquals(3.4, read.aerobicTrainingEffect!!, 1e-6)
+    }
+
+    @Test
+    fun aDiveExportsItsSwitchesAsFit() = runTest {
+        val s = pds.session()
+        val uri = s.activities.publish(draft(ActivityType(Sport.DIVE), gpx = false))
+        val switches = listOf(GasSwitch(0, 21, 0), GasSwitch(60, 50, 0))
+        serveStreams(uri, ActivityStreamData(time = listOf(0, 60, 120), depth = listOf(0, 1800, 0), gasSwitches = switches))
+        val dive =
+            view(uri, Sport.DIVE).let {
+                it.copy(
+                    record = it.record.copy(distance = null, dive = ActivityDive(maxDepth = 1800, gases = listOf(ActivityDiveGas(21, 0))))
+                )
+            }
+
+        val read = ActivityFileReader(GarminJavaFitDecoder()).read(s.exporter.export(dive, ExportFormat.FIT).bytes).single()
+        assertEquals(switches, read.streams?.gasSwitches)
+        assertEquals(listOf(DiveGas(21, 0), DiveGas(50, 0)), read.dive?.gases)
     }
 
     @Test

@@ -24,6 +24,7 @@ import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.CommentHideRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentView
+import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.LikeRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.ReplyRef
@@ -124,25 +125,37 @@ class ActivityRepository(
         val imported = draft.streams
         // The draft's stream times count from its own start.
         val offsetSeconds = (draft.startedAt - current.startedAt).inWholeSeconds.toInt()
-        if (indexed && imported != null) mergeStreams(existing, draft, imported, offsetSeconds)
+        if (indexed && imported != null) {
+            // A record that had no tanks takes the draft's (fillGaps), so its tank pressure series line up with them.
+            mergeStreams(existing, draft, imported, offsetSeconds, existingTanks = current.dive?.tanks?.size ?: 0)
+        }
         feed.rewrites.set(existing.uri, merged)
         feed.updateCached(existing.uri) { feed.rewrites.rewritten(it, merged) }
     }
 
-    private suspend fun mergeStreams(existing: OwnActivity, draft: ActivityDraft, imported: ActivityStreamData, offsetSeconds: Int) {
+    private suspend fun mergeStreams(
+        existing: OwnActivity,
+        draft: ActivityDraft,
+        imported: ActivityStreamData,
+        offsetSeconds: Int,
+        existingTanks: Int,
+    ) {
         val activity = existing.uri
         val have = feed.streams(activity)
+        val otherTanks = draft.dive?.tanks?.size ?: 0
         val data =
-            have?.data?.let { ActivityMerge.fillMissing(it, imported, offsetSeconds) } ?: ActivityMerge.shifted(imported, offsetSeconds)
+            have?.data?.let { ActivityMerge.fillMissing(it, imported, offsetSeconds, existingTanks, otherTanks) }
+                ?: ActivityMerge.shifted(imported, offsetSeconds)
         if (data == have?.data) return
         streams.put(
             activity,
             ActivityStreams(
                 data,
                 have?.visibility ?: Visibility.capped(draft.streamsVisibility, existing.visibility),
-                // Zones already stored stay as they are.
-                draft.heartRateZones.takeIf { have?.heartRateZones == null && have?.powerZones == null },
-                draft.powerZones.takeIf { have?.heartRateZones == null && have?.powerZones == null },
+                // Zones and training load already stored stay as they are.
+                draft.heartRateZones.takeIf { have.hasNoZonesRecord() },
+                draft.powerZones.takeIf { have.hasNoZonesRecord() },
+                draft.trainingLoad.takeIf { have.hasNoZonesRecord() },
             ),
         )
     }
@@ -161,7 +174,10 @@ class ActivityRepository(
         privacy.published(uri, draft.visibility, draft.route, trim)
         draft.gpx?.let { tracks.put(uri, it) }
         draft.streams?.let {
-            streams.put(uri, ActivityStreams(it, draft.publishedStreamsVisibility, draft.heartRateZones, draft.powerZones))
+            streams.put(
+                uri,
+                ActivityStreams(it, draft.publishedStreamsVisibility, draft.heartRateZones, draft.powerZones, draft.trainingLoad),
+            )
         }
         return uri
     }
@@ -404,3 +420,7 @@ private inline fun <T> undoingOnFailure(undo: () -> Unit, block: () -> T): T {
         if (!done) undo()
     }
 }
+
+/** No zones record is stored for these streams (or there are none): a merge may add the other recording's. */
+private fun GetActivityStreams.Output?.hasNoZonesRecord() =
+    this == null || (heartRateZones == null && powerZones == null && trainingLoad == null)

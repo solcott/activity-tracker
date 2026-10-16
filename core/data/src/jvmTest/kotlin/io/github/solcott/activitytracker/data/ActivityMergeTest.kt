@@ -4,7 +4,11 @@ import io.github.solcott.activitytracker.data.activity.ActivityMerge
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
+import io.github.solcott.activitytracker.lexicon.app.GasSwitch
+import io.github.solcott.activitytracker.lexicon.app.Lap
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.TankPressure
+import io.github.solcott.activitytracker.lexicon.app.WaterType
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -69,6 +73,102 @@ class ActivityMergeTest {
         assertTrue(ActivityMerge.addsChannels(depth, depthAndTemperature))
         assertFalse(ActivityMerge.addsChannels(depthAndTemperature, depth))
         assertFalse(ActivityMerge.addsChannels(depthAndTemperature, depthAndTemperature))
+    }
+
+    private val ride = ActivityRecord(Sport.RIDE, Instant.parse("2026-10-02T19:00:00Z"), 3600, Instant.parse("2026-10-02T21:00:00Z"))
+
+    @Test
+    fun aBikeComputerAddsPowerAndKeepsTheWatchsHeartRate() {
+        val watch = ride.copy(avgHeartRate = 150, calories = 900)
+        val bike = ride.copy(avgHeartRate = 140, avgPower = 210, normalizedPower = 232, work = 750, calories = 950, rearShifts = 240)
+        val merged = ActivityMerge.fillGaps(watch, bike)
+        assertEquals(150, merged.avgHeartRate)
+        assertEquals(900, merged.calories, "never overwritten")
+        assertEquals(Triple(210, 232, 750L), Triple(merged.avgPower, merged.normalizedPower, merged.work))
+        assertEquals(240, merged.rearShifts)
+
+        val watchStreams = ActivityStreamData(time = listOf(0, 10, 20), heartRate = listOf(120, 130, 140))
+        val bikeStreams =
+            ActivityStreamData(
+                time = listOf(0, 10, 20),
+                heartRate = listOf(1, 1, 1),
+                power = listOf(200, 210, 220),
+                leftRightBalance = listOf(51, 52, 50),
+            )
+        val streams = ActivityMerge.fillMissing(watchStreams, bikeStreams, offsetSeconds = 0)
+        assertEquals(watchStreams.heartRate, streams.heartRate)
+        assertEquals(listOf(200, 210, 220), streams.power)
+        assertEquals(listOf(51, 52, 50), streams.leftRightBalance, "every channel in the table, not just the first ones")
+        assertTrue(ActivityMerge.addsChannels(watchStreams, bikeStreams))
+    }
+
+    @Test
+    fun fillsTheDivesNewerFields() {
+        val existing = ride.copy(sport = Sport.DIVE, dive = ActivityDive(maxDepth = 3000, endN2 = 60))
+        val other =
+            existing.copy(dive = ActivityDive(endN2 = 10, startN2 = 5, waterType = WaterType.SALT, visibility = 1500, highestPpO2 = 1400))
+        assertEquals(
+            ActivityDive(maxDepth = 3000, endN2 = 60, startN2 = 5, waterType = WaterType.SALT, visibility = 1500, highestPpO2 = 1400),
+            ActivityMerge.fillGaps(existing, other).dive,
+        )
+    }
+
+    @Test
+    fun aLogbooksSwitchesAreShiftedOntoTheLoggedDivesStart() {
+        val logged = ActivityStreamData(time = listOf(0, 600, 1200, 2400), depth = listOf(0, 3000, 1800, 0))
+        // The logbook's dive started a minute after the logged one.
+        val logbook =
+            ActivityStreamData(
+                time = listOf(0, 1500, 2300),
+                depth = listOf(0, 600, 0),
+                gasSwitches = listOf(GasSwitch(0, 32, 0), GasSwitch(1500, 50, 0)),
+            )
+        val merged = ActivityMerge.fillMissing(logged, logbook, offsetSeconds = 60)
+        assertEquals(listOf(GasSwitch(60, 32, 0), GasSwitch(1560, 50, 0)), merged.gasSwitches)
+        assertEquals(logged.depth, merged.depth)
+
+        val own = logged.copy(gasSwitches = listOf(GasSwitch(0, 21, 0)))
+        assertEquals(own.gasSwitches, ActivityMerge.fillMissing(own, logbook, offsetSeconds = 60).gasSwitches, "a dive's own switches stay")
+        assertTrue(ActivityMerge.addsChannels(logged, logbook))
+        assertFalse(ActivityMerge.addsChannels(own, logbook.copy(depth = null)))
+    }
+
+    @Test
+    fun shiftingOntoALaterStartKeepsTheGasBreathedThenAtZero() {
+        val data =
+            ActivityStreamData(time = listOf(0, 10), gasSwitches = listOf(GasSwitch(0, 21, 0), GasSwitch(5, 50, 0), GasSwitch(30, 21, 0)))
+        assertEquals(listOf(GasSwitch(0, 50, 0), GasSwitch(20, 21, 0)), ActivityMerge.shifted(data, -10).gasSwitches)
+    }
+
+    @Test
+    fun lapsComeOverWhenTheActivityHasNone() {
+        val existing = ActivityStreamData(time = listOf(0, 300, 600), heartRate = listOf(120, 140, 150))
+        val other =
+            ActivityStreamData(time = listOf(0, 300, 600), laps = listOf(Lap(0, 300, distance = 1200), Lap(300, 300, distance = 1800)))
+        assertEquals(
+            listOf(Lap(30, 300, distance = 1200), Lap(330, 300, distance = 1800)),
+            ActivityMerge.fillMissing(existing, other, 30).laps,
+        )
+        val own = existing.copy(laps = listOf(Lap(0, 600)))
+        assertEquals(own.laps, ActivityMerge.fillMissing(own, other, 30).laps)
+        assertEquals(listOf(Lap(0, 300, distance = 1800)), ActivityMerge.shifted(other, -300).laps, "a lap ended before the start goes")
+    }
+
+    @Test
+    fun aLogbooksTankPressureFillsADiveWithoutIt() {
+        val fit = ActivityStreamData(time = listOf(0, 10, 20), depth = listOf(0, 500, 0), ppO2 = listOf(210, 315, 210))
+        val uddf = ActivityStreamData(time = listOf(0, 10, 20), tankPressures = listOf(TankPressure(listOf(200_000, 190_000, 180_000))))
+        val merged = ActivityMerge.fillMissing(fit, uddf, offsetSeconds = 0, existingTanks = 0, otherTanks = 1)
+        assertEquals(uddf.tankPressures, merged.tankPressures, "a dive with no tanks takes the other's")
+        assertEquals(fit.ppO2, merged.ppO2)
+        assertEquals(uddf.tankPressures, ActivityMerge.fillMissing(fit, uddf, 0, existingTanks = 1, otherTanks = 1).tankPressures)
+        assertEquals(
+            null,
+            ActivityMerge.fillMissing(fit, uddf, 0, existingTanks = 2, otherTanks = 1).tankPressures,
+            "they wouldn't line up",
+        )
+        assertFalse(ActivityMerge.addsChannels(fit, uddf, existingTanks = 2, otherTanks = 1))
+        assertTrue(ActivityMerge.addsChannels(fit, uddf, existingTanks = 0, otherTanks = 1))
     }
 
     @Test

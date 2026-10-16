@@ -1,5 +1,9 @@
 package io.github.solcott.activitytracker.data
 
+import io.github.solcott.activitytracker.activityfile.DiveGas
+import io.github.solcott.activitytracker.activityfile.DivePosition
+import io.github.solcott.activitytracker.activityfile.ImportedActivity
+import io.github.solcott.activitytracker.activityfile.ImportedDive
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityEdit
 import io.github.solcott.activitytracker.data.activity.OwnActivity
@@ -75,6 +79,50 @@ class ActivityTrackTest {
 
         assertEquals(setOf(Visibility.FOLLOWERS), pds.placesOf(Nsid.FEED_ACTIVITY, uri.rkey!!))
         assertEquals(setOf(Visibility.SELF), tracksOf(uri.rkey!!))
+    }
+
+    @Test
+    fun aTracklessDivesSurfaceFixesAreItsTrackInTheSelfSpaceAndNeverItsRecord() = runTest {
+        val dive =
+            ImportedDive(
+                maxDepthMeters = 18.0,
+                avgDepthMeters = null,
+                minWaterTempCelsius = null,
+                diveNumber = null,
+                surfaceIntervalMinutes = null,
+                gradientFactorLow = null,
+                gradientFactorHigh = null,
+                startCns = null,
+                endCns = null,
+                gases = listOf(DiveGas(21, 0)),
+                closedCircuit = false,
+                profile = emptyList(),
+                entry = DivePosition(13.86622, -61.07885),
+                exit = DivePosition(13.86701, -61.07912),
+            )
+        val imported =
+            ImportedActivity(
+                type = ActivityType(Sport.DIVE),
+                startedAt = start,
+                elapsed = 45.minutes,
+                movingSeconds = null,
+                distanceMeters = null,
+                elevationGainMeters = null,
+                maxSpeedMps = null,
+                avgHeartRate = null,
+                maxHeartRate = null,
+                avgTemperatureCelsius = null,
+                device = null,
+                samples = emptyList(),
+                dive = dive,
+            )
+        val uri = pds.session().activities.publish(ActivityDraft.fromImport(imported, imported.type, "Dive"))
+        val rkey = uri.rkey!!
+
+        assertEquals(setOf(Visibility.SELF), tracksOf(rkey))
+        val record = pds.stored.getValue(pds.repo).getValue("${Nsid.FEED_ACTIVITY}/$rkey")
+        assertFalse("polyline" in record, "two fixes make no polyline")
+        assertFalse("13.866" in record.toString() || "-61.07" in record.toString(), "no position in the record: $record")
     }
 
     @Test

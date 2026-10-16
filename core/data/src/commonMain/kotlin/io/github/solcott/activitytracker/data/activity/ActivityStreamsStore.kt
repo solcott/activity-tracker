@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
+import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import kotlin.time.Clock
 
@@ -21,6 +22,8 @@ data class ActivityStreams(
     val visibility: String,
     val heartRateZones: ZoneSnapshot? = null,
     val powerZones: ZoneSnapshot? = null,
+    /** Kept with the zones, as it reveals thresholds too. */
+    val trainingLoad: TrainingLoad? = null,
 )
 
 /**
@@ -74,7 +77,7 @@ class PdsActivityStreamsStore(
             PendingBlob(bytes, ActivityStreamsRecord.MIME_TYPE, field = "data"),
             space = clients.placeOf(streams.visibility),
         )
-        zones.put(activity, streams.visibility, streams.heartRateZones, streams.powerZones)
+        zones.put(activity, streams.visibility, streams.heartRateZones, streams.powerZones, streams.trainingLoad)
     }
 
     // The blob moves with the record: the new place takes it over before the old one lets it go.
@@ -108,18 +111,9 @@ class PdsActivityStreamsStore(
         }
 
         private fun ActivityStreamData.halved(): ActivityStreamData {
-            fun <T> List<T>?.half() = this?.filterIndexed { i, _ -> i % 2 == 0 }
-            return copy(
-                time = time.filterIndexed { i, _ -> i % 2 == 0 },
-                distance = distance.half(),
-                altitude = altitude.half(),
-                speed = speed.half(),
-                heartRate = heartRate.half(),
-                power = power.half(),
-                cadence = cadence.half(),
-                temperature = temperature.half(),
-                depth = depth.half(),
-            )
+            fun <T> List<T>.half() = filterIndexed { i, _ -> i % 2 == 0 }
+            val halved = copy(time = time.half(), tankPressures = tankPressures?.map { it.copy(pressure = it.pressure.half()) })
+            return ActivityStreamData.INT_CHANNELS.fold(halved) { data, channel -> channel.with(data, channel.get(this)?.half()) }
         }
     }
 }

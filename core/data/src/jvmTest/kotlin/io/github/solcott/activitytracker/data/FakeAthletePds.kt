@@ -29,6 +29,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetComments
+import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -84,6 +85,9 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
 
     /** The streams the AppView serves for each activity rkey in [streamsVisibility]; a single sample at 0 when absent. */
     val streamsData = mutableMapOf<String, ActivityStreamData>()
+
+    /** The training load the AppView serves with each activity rkey's streams; absent for none. */
+    val streamsLoad = mutableMapOf<String, TrainingLoad>()
 
     /** Fail every `getActivityStreams` while set. */
     var failStreams = false
@@ -200,6 +204,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                                     visibility,
                                     emptyList(),
                                     streamsData[uri.rkey] ?: ActivityStreamData(time = listOf(0)),
+                                    trainingLoad = streamsLoad[uri.rkey],
                                 ),
                             )
                         )

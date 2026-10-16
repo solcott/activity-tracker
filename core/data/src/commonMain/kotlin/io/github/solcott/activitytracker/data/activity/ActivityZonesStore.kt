@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.data.profile.ownTrainingVisibility
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityZonesRecord
+import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
@@ -76,19 +77,20 @@ class ActivityZonesStore(
     }
 
     /**
-     * Queues [activity]'s zones at the place for charts at [charts] and the training as saved now. Doesn't drain the outbox. When the
-     * training can't be read (offline), they go to Only me; when the session can't write zones to the space they need, they're dropped
-     * rather than published wider.
+     * Queues [activity]'s zones and [trainingLoad] at the place for charts at [charts] and the training as saved now: a record with only
+     * the training load when there are no zones. Doesn't drain the outbox. When the training can't be read (offline), they go to Only me;
+     * when the session can't write zones to the space they need, they're dropped rather than published wider.
      */
-    suspend fun put(activity: AtUri, charts: String, heartRate: ZoneSnapshot?, power: ZoneSnapshot?) {
-        if (heartRate == null && power == null) return
+    suspend fun put(activity: AtUri, charts: String, heartRate: ZoneSnapshot?, power: ZoneSnapshot?, trainingLoad: TrainingLoad? = null) {
+        val load = trainingLoad?.takeUnless { it.isEmpty }
+        if (heartRate == null && power == null && load == null) return
         val training = (batchTraining ?: runSuspendCatching { clients.ownTrainingVisibility() }).getOrElse { Visibility.SELF }
         val target = ZonesPlacement.target(charts, training)
         if (!canWrite(target)) {
             log.w { "Dropping the zones of $activity: this session can't write them to the $target space" }
             return
         }
-        val record = ActivityZonesRecord(activity, clock.now(), heartRate, power)
+        val record = ActivityZonesRecord(activity, clock.now(), heartRate, power, load)
         writer.put(Nsid.FEED_ACTIVITY_ZONES, requireNotNull(activity.rkey), ActivityZonesRecord.serializer(), record, space = place(target))
     }
 
