@@ -54,6 +54,7 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_liked
 import io.github.solcott.activitytracker.composeApp.resources.detail_no_likes
 import io.github.solcott.activitytracker.composeApp.resources.detail_show_likes
 import io.github.solcott.activitytracker.composeApp.resources.detail_title
+import io.github.solcott.activitytracker.composeApp.resources.detail_zone_added
 import io.github.solcott.activitytracker.composeApp.resources.like_count
 import io.github.solcott.activitytracker.composeApp.resources.stat_distance
 import io.github.solcott.activitytracker.composeApp.resources.stat_elevation
@@ -80,7 +81,9 @@ fun ActivityDetailUi(state: ActivityDetailState, modifier: Modifier = Modifier) 
                 title = stringResource(Res.string.detail_title),
                 onBack = { state.eventSink(ActivityDetailEvent.Back) },
                 scrollBehavior = scrollBehavior,
-                actions = { (state as? ActivityDetailState.Loaded)?.manage?.let { ManageMenu(it, state.eventSink) } },
+                actions = {
+                    (state as? ActivityDetailState.Loaded)?.manage?.let { ManageMenu(it, state.canHideRouteEnds, state.eventSink) }
+                },
             )
         },
     ) { padding ->
@@ -169,10 +172,16 @@ private fun Overview(state: ActivityDetailState.Loaded, modifier: Modifier = Mod
                 media,
                 onOpen = { state.eventSink(ActivityDetailEvent.OpenMedia(it)) },
                 height = 240.dp,
-                map = record.polyline?.let { polyline -> { mapModifier, mapHeight -> ActivityMap(polyline, mapModifier, mapHeight) } },
+                // The owner sees their whole route; everyone else the polyline trimmed by the owner's privacy zones.
+                map =
+                    (state.ownRoute ?: record.polyline)?.let { polyline ->
+                        { mapModifier, mapHeight -> ActivityMap(polyline, mapModifier, mapHeight) }
+                    },
             )
             Recordings(state.activity, onOpen = { state.eventSink(ActivityDetailEvent.OpenActivity(it)) })
             state.manage?.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+            state.routeError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+            if (state.zoneAdded) Text(stringResource(Res.string.detail_zone_added), style = MaterialTheme.typography.bodySmall)
             Likes(state)
             if (state.isOwn) state.charts?.let { ChartSharing(it.visibility, state) }
         }

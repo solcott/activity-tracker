@@ -87,6 +87,7 @@ fun ActivityDetailPresenter(
     val sections = shown?.let { detailSections(it, charts.charts) } ?: persistentListOf()
     val expansion = rememberExpansion(sections)
     val manage = rememberManage(activity.takeIf { isOwn }, loadKey, feed, manager, navigator, flights) { loadKey++ }
+    val ownRoute = rememberOwnRoute(activity?.uri?.takeIf { isOwn }, activities, flights)
 
     val sink: (ActivityDetailEvent) -> Unit = { event ->
         val current = activity
@@ -151,6 +152,10 @@ fun ActivityDetailPresenter(
             is ActivityDetailEvent.Delete -> manage.delete(event.withRecordings)
 
             ActivityDetailEvent.Ungroup -> manage.ungroup()
+
+            ActivityDetailEvent.HideStart -> ownRoute.hide(true)
+
+            ActivityDetailEvent.HideEnd -> ownRoute.hide(false)
         }
     }
 
@@ -175,6 +180,10 @@ fun ActivityDetailPresenter(
             sections = sections,
             expanded = expansion.expanded,
             manage = manage.state,
+            ownRoute = ownRoute.polyline,
+            canHideRouteEnds = ownRoute.canHide,
+            zoneAdded = ownRoute.zoneAdded,
+            routeError = ownRoute.error,
         )
     }
 }

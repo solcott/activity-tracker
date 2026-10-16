@@ -22,6 +22,8 @@ import io.github.solcott.activitytracker.composeApp.resources.delete_activity_on
 import io.github.solcott.activitytracker.composeApp.resources.delete_activity_title
 import io.github.solcott.activitytracker.composeApp.resources.detail_delete
 import io.github.solcott.activitytracker.composeApp.resources.detail_edit
+import io.github.solcott.activitytracker.composeApp.resources.detail_hide_end
+import io.github.solcott.activitytracker.composeApp.resources.detail_hide_start
 import io.github.solcott.activitytracker.composeApp.resources.detail_more
 import io.github.solcott.activitytracker.composeApp.resources.detail_ungroup
 import kotlinx.collections.immutable.persistentListOf
@@ -29,19 +31,33 @@ import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
-/** The owner's "…" menu: Edit, Ungroup when the activity is grouped with just one other, and Delete, which asks first. */
+/**
+ * The owner's "…" menu: Edit, Ungroup when the activity is grouped with just one other, Hide this start and end when its track can be read
+ * ([canHideRouteEnds]), and Delete, which asks first.
+ */
 @Composable
-internal fun ManageMenu(manage: ActivityManage, eventSink: (ActivityDetailEvent) -> Unit, modifier: Modifier = Modifier) {
+internal fun ManageMenu(
+    manage: ActivityManage,
+    canHideRouteEnds: Boolean,
+    eventSink: (ActivityDetailEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     var open by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf(false) }
     val ungroup = stringResource(Res.string.detail_ungroup)
     val delete = stringResource(Res.string.detail_delete)
     val edit = stringResource(Res.string.detail_edit)
+    val hideStart = stringResource(Res.string.detail_hide_start)
+    val hideEnd = stringResource(Res.string.detail_hide_end)
     val items =
-        remember(manage.canUngroup, edit, ungroup, delete, eventSink) {
+        remember(manage.canUngroup, canHideRouteEnds, edit, ungroup, delete, hideStart, hideEnd, eventSink) {
             buildList {
                 add(AppMenuItem(edit, AppIcon.ManualEntry) { eventSink(ActivityDetailEvent.Edit) })
                 if (manage.canUngroup) add(AppMenuItem(ungroup, AppIcon.Ungroup) { eventSink(ActivityDetailEvent.Ungroup) })
+                if (canHideRouteEnds) {
+                    add(AppMenuItem(hideStart, AppIcon.Hide) { eventSink(ActivityDetailEvent.HideStart) })
+                    add(AppMenuItem(hideEnd, AppIcon.Hide) { eventSink(ActivityDetailEvent.HideEnd) })
+                }
                 add(AppMenuItem(delete, AppIcon.Delete, destructive = true) { confirming = true })
             }
                 .toImmutableList()

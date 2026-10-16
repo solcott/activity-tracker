@@ -67,6 +67,16 @@ sealed interface ActivityDetailState : CircuitUiState {
         val expanded: ImmutableSet<DetailSection> = persistentSetOf(),
         /** What the owner can do to the activity; null on someone else's. */
         val manage: ActivityManage? = null,
+        /**
+         * The owner's full route, untrimmed by their privacy zones, from the track only they read; null on someone else's activity or until
+         * it loads. The map draws it over the record's trimmed polyline.
+         */
+        val ownRoute: String? = null,
+        /** The owner can add a privacy zone at the route's start or end: the track was read. */
+        val canHideRouteEnds: Boolean = false,
+        /** A zone was just added from this activity. */
+        val zoneAdded: Boolean = false,
+        val routeError: UiError? = null,
     ) : ActivityDetailState {
         val anyExpanded: Boolean
             get() = sections.any { it in expanded }
@@ -212,6 +222,12 @@ sealed interface ActivityDetailEvent {
 
     /** The owner edits the activity's title, description, dive site and photos. */
     data object Edit : ActivityDetailEvent
+
+    /** The owner adds a privacy zone at the route's start: see [Loaded.canHideRouteEnds]. */
+    data object HideStart : ActivityDetailEvent
+
+    /** The owner adds a privacy zone at the route's end. */
+    data object HideEnd : ActivityDetailEvent
 
     /** Opens the activity's media full screen at [index]. */
     data class OpenMedia(val index: Int) : ActivityDetailEvent
