@@ -85,11 +85,60 @@ class ActivityExporterTest {
     @Test
     fun formatsFollowTheDataStored() {
         val all = setOf(ExportFormat.GPX, ExportFormat.TCX, ExportFormat.FIT)
-        assertEquals(all, ActivityExporter.formats(route, hasStreams = true))
-        assertEquals(all, ActivityExporter.formats(route, hasStreams = false))
-        assertEquals(setOf(ExportFormat.TCX, ExportFormat.FIT), ActivityExporter.formats(null, hasStreams = true))
-        assertEquals(setOf(ExportFormat.TCX, ExportFormat.FIT), ActivityExporter.formats(route.take(1), hasStreams = false))
-        assertEquals(emptySet(), ActivityExporter.formats(null, hasStreams = false))
+        assertEquals(all, ActivityExporter.formats(route, hasStreams = true, isDive = false))
+        assertEquals(all, ActivityExporter.formats(route, hasStreams = false, isDive = false))
+        assertEquals(setOf(ExportFormat.TCX, ExportFormat.FIT), ActivityExporter.formats(null, hasStreams = true, isDive = false))
+        assertEquals(setOf(ExportFormat.TCX, ExportFormat.FIT), ActivityExporter.formats(route.take(1), hasStreams = false, isDive = false))
+        assertEquals(emptySet(), ActivityExporter.formats(null, hasStreams = false, isDive = false))
+    }
+
+    @Test
+    fun aDiveAlsoOffersUddfWheneverItOffersTcx() {
+        assertEquals(ExportFormat.entries.toSet(), ActivityExporter.formats(route.take(2), hasStreams = true, isDive = true))
+        assertEquals(
+            setOf(ExportFormat.TCX, ExportFormat.FIT, ExportFormat.UDDF),
+            ActivityExporter.formats(null, hasStreams = true, isDive = true),
+        )
+        assertEquals(emptySet(), ActivityExporter.formats(null, hasStreams = false, isDive = true))
+        assertFalse(ExportFormat.UDDF in ActivityExporter.formats(route, hasStreams = true, isDive = false), "a run never offers it")
+    }
+
+    @Test
+    fun aDiveExportsAsUddf() = runTest {
+        val s = pds.session()
+        val uri = s.activities.publish(draft(ActivityType(Sport.DIVE), title = "Blue Hole", gpx = false))
+        val switches = listOf(GasSwitch(0, 21, 0), GasSwitch(60, 50, 0))
+        serveStreams(uri, ActivityStreamData(time = listOf(0, 60, 120), depth = listOf(0, 1800, 0), gasSwitches = switches))
+        val dive =
+            view(uri, Sport.DIVE, title = "Blue Hole").let {
+                it.copy(
+                    record =
+                        it.record.copy(
+                            distance = null,
+                            device = "Shearwater Perdix 2",
+                            dive = ActivityDive(maxDepth = 1800, diveNumber = 7, gases = listOf(ActivityDiveGas(21, 0))),
+                        )
+                )
+            }
+
+        val file = s.exporter.export(dive, ExportFormat.UDDF)
+        assertEquals("application/xml", file.mimeType)
+        assertTrue(file.name.endsWith(".uddf"), file.name)
+        val read = ActivityFileReader { error("not FIT") }.read(file.bytes).single()
+        assertEquals(Sport.DIVE, read.type.sport)
+        assertEquals("Shearwater Perdix 2", read.device)
+        assertEquals(listOf(0, 1800, 0), read.streams?.depth)
+        assertEquals(switches, read.streams?.gasSwitches)
+        assertEquals(7, read.dive?.diveNumber)
+    }
+
+    @Test
+    fun aRunCantBeExportedAsUddf() = runTest {
+        val s = pds.session()
+        val uri = s.activities.publish(draft())
+        serveStreams(uri, ActivityStreamData(time = listOf(0, 1, 2), heartRate = listOf(140, 141, 142)))
+
+        assertFailsWith<ExportUnreadableException> { s.exporter.export(view(uri), ExportFormat.UDDF) }
     }
 
     @Test

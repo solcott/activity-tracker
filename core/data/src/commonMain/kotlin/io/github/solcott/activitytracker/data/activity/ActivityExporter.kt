@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.activityfile.FitWriter
 import io.github.solcott.activitytracker.activityfile.GpxWriter
 import io.github.solcott.activitytracker.activityfile.TcxSport
 import io.github.solcott.activitytracker.activityfile.TcxWriter
+import io.github.solcott.activitytracker.activityfile.UddfWriter
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.di.SessionClients
@@ -36,6 +37,8 @@ enum class ExportFormat(val extension: String, val mimeType: String) {
     GPX("gpx", Gpx.MIME_TYPE),
     TCX("tcx", "application/vnd.garmin.tcx+xml"),
     FIT("fit", "application/vnd.ant.fit"),
+    /** Dives only. Share targets know `application/xml`; logbook apps go by the `.uddf` extension. */
+    UDDF("uddf", "application/xml"),
 }
 
 /** An exported file waiting to be handed to the platform. Equal by name, type and the very same bytes, so it's cheap to compare. */
@@ -60,8 +63,8 @@ class NotSentYetException : IllegalStateException("The activity can be exported 
 class ExportUnreadableException(cause: Throwable? = null) : IllegalStateException("Couldn't read the activity's track or streams", cause)
 
 /**
- * Rebuilds the signed-in athlete's own activity as a GPX, TCX or FIT file from its record, its streams (from the AppView, as charts read
- * them) and its full track (from the `self` space, untrimmed by privacy zones: it's the athlete's own data).
+ * Rebuilds the signed-in athlete's own activity as a GPX, TCX, FIT or (for a dive) UDDF file from its record, its streams (from the
+ * AppView, as charts read them) and its full track (from the `self` space, untrimmed by privacy zones: it's the athlete's own data).
  */
 @SingleIn(SessionScope::class)
 @Inject
@@ -79,7 +82,7 @@ class ActivityExporter(
         requireSent(view)
         val track = readTrack(view)
         val streams = readStreams(view)
-        if (format !in formats(track, streams != null)) throw ExportUnreadableException()
+        if (format !in formats(track, streams != null, view.record.sport == Sport.DIVE)) throw ExportUnreadableException()
         return build(view, format, track, streams?.data, streams?.trainingLoad)
     }
 
@@ -140,6 +143,7 @@ class ActivityExporter(
                     laps = streams?.laps.orEmpty(),
                     totals = ExportTotals.of(record),
                     trainingLoad = trainingLoad,
+                    device = record.device,
                 )
             val zone = TimeZone.currentSystemDefault()
             val bytes =
@@ -147,6 +151,7 @@ class ActivityExporter(
                     ExportFormat.GPX -> GpxWriter.write(activity).encodeToByteArray()
                     ExportFormat.TCX -> TcxWriter.write(activity).encodeToByteArray()
                     ExportFormat.FIT -> FitWriter.write(activity, zone)
+                    ExportFormat.UDDF -> UddfWriter.write(activity, zone).encodeToByteArray()
                 }
             ExportedFile(fileName(view, format, zone), format.mimeType, bytes)
         }
@@ -158,12 +163,16 @@ class ActivityExporter(
         private const val MILLI = 1000.0
         private const val DECI = 10.0
 
-        /** What [track] and streams allow: GPX needs a track of two points or more, TCX and FIT a track or streams. */
-        fun formats(track: List<LocationSample>?, hasStreams: Boolean): Set<ExportFormat> = buildSet {
+        /**
+         * What [track] and streams allow: GPX needs a track of two points or more, TCX and FIT a track or streams, and UDDF the same on a
+         * dive ([isDive]) only.
+         */
+        fun formats(track: List<LocationSample>?, hasStreams: Boolean, isDive: Boolean): Set<ExportFormat> = buildSet {
             if ((track?.size ?: 0) >= 2) add(ExportFormat.GPX)
             if (!track.isNullOrEmpty() || hasStreams) {
                 add(ExportFormat.TCX)
                 add(ExportFormat.FIT)
+                if (isDive) add(ExportFormat.UDDF)
             }
         }
 
