@@ -104,6 +104,8 @@ object GetActivityStreams {
         val data: ActivityStreamData,
         val heartRateZones: ZoneSnapshot? = null,
         val powerZones: ZoneSnapshot? = null,
+        /** From the activity's zones record: left out, like the zones, unless the viewer may see that record. */
+        val trainingLoad: TrainingLoad? = null,
     )
 
     val method = XrpcQuery(Nsid.FEED_GET_ACTIVITY_STREAMS, Params.serializer(), Output.serializer())

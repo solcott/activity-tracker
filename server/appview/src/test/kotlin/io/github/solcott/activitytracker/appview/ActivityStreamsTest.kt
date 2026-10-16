@@ -15,7 +15,12 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
+import io.github.solcott.activitytracker.lexicon.app.Lap
+import io.github.solcott.activitytracker.lexicon.app.StreamChannel
+import io.github.solcott.activitytracker.lexicon.app.TankPressure
+import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.ktor.client.HttpClient
@@ -32,6 +37,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.jsonObject
 import org.h2.jdbcx.JdbcDataSource
@@ -84,15 +90,18 @@ class ActivityStreamsTest {
     }
 
     /** Alice's streams in her repo when [tier] is public, else in her space for [tier]; [claim] is a stray `visibility` they carry. */
+    @Suppress("LongParameterList") // Each part of the record a test varies.
     private fun streams(
         tier: String,
         rkey: String = "3kride",
         activity: String = activityUri,
         blob: String = "bafkdata",
         claim: String? = null,
+        channels: List<String> = listOf(StreamChannel.HEART_RATE, StreamChannel.POWER),
     ) {
+        val tokens = channels.joinToString(",") { "\"$it\"" }
         val record =
-            """{"activity":"$activity",${claim?.let { """"visibility":"$it",""" }.orEmpty()}"channels":["heartRate","power"],""" +
+            """{"activity":"$activity",${claim?.let { """"visibility":"$it",""" }.orEmpty()}"channels":[$tokens],""" +
                 """"data":{"${'$'}type":"blob","ref":{"${'$'}link":"$blob"},"mimeType":"application/json","size":100},""" +
                 """"powerZones":{"model":"coggan6","lows":[0,138,188,225,263,300]},"createdAt":"2026-09-30T12:00:00Z"}"""
         if (tier == Visibility.PUBLIC) {
@@ -203,9 +212,9 @@ class ActivityStreamsTest {
     }
 
     /** Alice's zones for [activity] in her repo when [tier] is public, else in her space for [tier]. */
-    private fun zones(tier: String, rkey: String = "3kride", activity: String = activityUri) {
+    private fun zones(tier: String, rkey: String = "3kride", activity: String = activityUri, trainingLoad: String = "") {
         val record =
-            """{"activity":"$activity","powerZones":{"model":"coggan6","lows":[0,138,188,225,263,300]},""" +
+            """{"activity":"$activity","powerZones":{"model":"coggan6","lows":[0,138,188,225,263,300]}$trainingLoad,""" +
                 """"createdAt":"2026-09-30T12:00:00Z"}"""
         if (tier == Visibility.PUBLIC) {
             commit(alice, Nsid.FEED_ACTIVITY_ZONES, rkey, record)
@@ -333,6 +342,47 @@ class ActivityStreamsTest {
         blobs["bafkjunk"] = "not json".encodeToByteArray()
         streams(Visibility.PUBLIC, blob = "bafkjunk")
         assertEquals(HttpStatusCode.NotFound, client.streamsFor(alice).status)
+    }
+
+    @Test
+    fun newChannelsSwitchesTanksAndLapsAreServed() = testApplication {
+        start()
+        val dive =
+            ActivityStreamData(
+                time = listOf(0, 10, 20),
+                depth = listOf(0, 1800, 2100),
+                ppO2 = listOf(210, 588, 610),
+                decoStopDepth = listOf(null, 600, 300),
+                gasSwitches = listOf(GasSwitch(0, 21, 0), GasSwitch(20, 50, 0)),
+                tankPressures = listOf(TankPressure(listOf(200_000, null, 190_000))),
+                laps = listOf(Lap(start = 0, elapsed = 20)),
+            )
+        blobs["bafkdive"] = AtJson.encodeToString(ActivityStreamData.serializer(), dive).encodeToByteArray()
+        streams(Visibility.PUBLIC, blob = "bafkdive", channels = dive.channels)
+
+        val output = client.streamsFor(alice).output()
+        assertEquals(dive, output.data)
+        assertEquals(dive.channels, output.channels)
+        assertTrue(StreamChannel.PP_O2 in output.channels)
+    }
+
+    @Test
+    fun trainingLoadServesOnlyViewersTheZonesAdmit() = testApplication {
+        start()
+        streams(Visibility.PUBLIC)
+        zones(Visibility.SELF, trainingLoad = ""","trainingLoad":{"ftp":250,"trainingStressScore":1124,"aerobicTrainingEffect":99}""")
+
+        // A training effect out of range is dropped.
+        assertEquals(TrainingLoad(ftp = 250, trainingStressScore = 1124), client.streamsFor(alice).output().trainingLoad)
+        assertNull(client.streamsFor(bob).output().trainingLoad)
+        assertNull(client.streamsFor(null).output().trainingLoad)
+    }
+
+    @Test
+    fun misalignedTankSeriesKeepTheirPlaceEmpty() {
+        val bounded =
+            ActivityStreamsViews.bounded(data.copy(tankPressures = listOf(TankPressure(listOf(1)), TankPressure(listOf(1, 2, 3)))))
+        assertEquals(listOf(TankPressure(listOf(null, null, null)), TankPressure(listOf(1, 2, 3))), bounded.tankPressures)
     }
 
     @Test

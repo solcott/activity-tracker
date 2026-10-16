@@ -255,13 +255,16 @@ data class Placement(val origin: String, val visibility: String) {
 /** Records are untrusted: hold a dive's lists and gas percents to the lexicon's limits before serving them. */
 private fun boundedDive(dive: ActivityDive?): ActivityDive? =
     dive?.copy(
-        gases =
-            dive.gases?.take(ActivityDive.MAX_GASES)?.map {
-                ActivityDiveGas(it.oxygen.coerceIn(0, ActivityDiveGas.MAX_PERCENT), it.helium.coerceIn(0, ActivityDiveGas.MAX_PERCENT))
-            },
-        tanks = dive.tanks?.take(ActivityDive.MAX_TANKS),
+        gases = dive.gases?.take(ActivityDive.MAX_GASES)?.map(::boundedGas),
+        tanks = dive.tanks?.take(ActivityDive.MAX_TANKS)?.map { it.copy(gas = it.gas?.let(::boundedGas)) },
         site = dive.site?.take(ActivityDive.MAX_SITE_LENGTH),
+        waterType = dive.waterType?.take(MAX_WATER_TYPE_LENGTH),
     )
+
+private fun boundedGas(gas: ActivityDiveGas) =
+    ActivityDiveGas(gas.oxygen.coerceIn(0, ActivityDiveGas.MAX_PERCENT), gas.helium.coerceIn(0, ActivityDiveGas.MAX_PERCENT))
+
+private const val MAX_WATER_TYPE_LENGTH = 64
 
 /**
  * Records are untrusted: keep only photos the lexicon allows, with a real CID, and drop media kinds this AppView can't serve (they stay in

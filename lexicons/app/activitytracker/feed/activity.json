@@ -29,11 +29,24 @@
           "movingTime": { "type": "integer", "minimum": 0, "description": "Seconds spent moving." },
           "distance": { "type": "integer", "minimum": 0, "description": "Meters." },
           "elevationGain": { "type": "integer", "minimum": 0, "description": "Meters." },
+          "elevationLoss": { "type": "integer", "minimum": 0, "description": "Meters." },
           "avgSpeed": { "type": "integer", "minimum": 0, "description": "Millimeters per second (lexicons have no floats)." },
           "maxSpeed": { "type": "integer", "minimum": 0, "description": "Millimeters per second." },
           "avgHeartRate": { "type": "integer", "minimum": 0, "maximum": 300 },
           "maxHeartRate": { "type": "integer", "minimum": 0, "maximum": 300 },
           "avgTemperature": { "type": "integer", "description": "Tenths of a degree Celsius (lexicons have no floats). May be negative." },
+          "avgCadence": { "type": "integer", "minimum": 0, "description": "Revolutions or steps per minute." },
+          "maxCadence": { "type": "integer", "minimum": 0, "description": "Revolutions or steps per minute." },
+          "avgPower": { "type": "integer", "minimum": 0, "description": "Watts." },
+          "maxPower": { "type": "integer", "minimum": 0, "description": "Watts." },
+          "normalizedPower": { "type": "integer", "minimum": 0, "description": "Watts." },
+          "work": { "type": "integer", "minimum": 0, "description": "Kilojoules." },
+          "calories": { "type": "integer", "minimum": 0, "description": "Kilocalories." },
+          "frontShifts": { "type": "integer", "minimum": 0, "description": "Front derailleur shifts by electronic shifting." },
+          "rearShifts": { "type": "integer", "minimum": 0, "description": "Rear derailleur shifts by electronic shifting." },
+          "jumps": { "type": "integer", "minimum": 0, "description": "Mountain bike jumps." },
+          "grit": { "type": "integer", "minimum": 0, "description": "Garmin's mountain bike grit (trail difficulty), in tenths." },
+          "flow": { "type": "integer", "minimum": 0, "description": "Garmin's mountain bike flow (smoothness), in tenths." },
           "polyline": {
             "type": "string",
             "maxLength": 50000,
@@ -82,7 +95,22 @@
         "sac": { "type": "integer", "minimum": 0, "description": "Air consumption by tank pressure, adjusted to the surface, in millibar per minute." },
         "rmv": { "type": "integer", "minimum": 0, "description": "Air consumption by volume (respiratory minute volume), in milliliters per minute." },
         "tanks": { "type": "array", "maxLength": 8, "items": { "type": "ref", "ref": "#diveTank" }, "description": "One per tank a pressure transmitter was on." },
-        "site": { "type": "string", "maxLength": 640, "maxGraphemes": 64, "description": "The dive site's name. Never its coordinates: records are public." }
+        "startN2": { "type": "integer", "minimum": 0, "description": "Nitrogen loading at the start, in percent of the limit." },
+        "endN2": { "type": "integer", "minimum": 0, "description": "Nitrogen loading at the end, in percent of the limit." },
+        "avgAscentRate": { "type": "integer", "minimum": 0, "description": "Millimeters per second." },
+        "maxAscentRate": { "type": "integer", "minimum": 0, "description": "Millimeters per second." },
+        "avgDescentRate": { "type": "integer", "minimum": 0, "description": "Millimeters per second." },
+        "maxDescentRate": { "type": "integer", "minimum": 0, "description": "Millimeters per second." },
+        "descentTime": { "type": "integer", "minimum": 0, "description": "Seconds from leaving the surface to reaching the maximum depth." },
+        "waterType": { "type": "string", "maxLength": 64, "knownValues": ["fresh", "salt", "en13319", "custom"], "description": "The water the dive computer was set for; custom has its waterDensity." },
+        "waterDensity": { "type": "integer", "minimum": 0, "description": "Kilograms per cubic meter." },
+        "airTemperature": { "type": "integer", "description": "Tenths of a degree Celsius. May be negative." },
+        "visibility": { "type": "integer", "minimum": 0, "description": "Centimeters." },
+        "altitude": { "type": "integer", "description": "The dive site's altitude above sea level, in meters." },
+        "noFlyTime": { "type": "integer", "minimum": 0, "description": "Seconds after the dive before flying." },
+        "desaturationTime": { "type": "integer", "minimum": 0, "description": "Seconds after the dive until fully desaturated." },
+        "highestPpO2": { "type": "integer", "minimum": 0, "description": "The highest partial pressure of oxygen breathed, in millibar." },
+        "site":{ "type": "string", "maxLength": 640, "maxGraphemes": 64, "description": "The dive site's name. Never its coordinates: records are public." }
       }
     },
     "image": {
@@ -118,7 +146,9 @@
       "properties": {
         "startPressure": { "type": "integer", "minimum": 0, "description": "Millibar." },
         "endPressure": { "type": "integer", "minimum": 0, "description": "Millibar." },
-        "volumeUsed": { "type": "integer", "minimum": 0, "description": "Liters of gas used, at the surface." }
+        "volumeUsed": { "type": "integer", "minimum": 0, "description": "Liters of gas used, at the surface." },
+        "volume": { "type": "integer", "minimum": 0, "description": "The tank's water volume, in milliliters." },
+        "gas": { "type": "ref", "ref": "#diveGas", "description": "The gas the tank held." }
       }
     },
     "sensor": {

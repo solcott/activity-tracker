@@ -13,11 +13,11 @@
           "activity": { "type": "string", "format": "at-uri", "description": "The activity's URI; it shares this record's rkey." },
           "channels": {
             "type": "array",
-            "maxLength": 16,
+            "maxLength": 32,
             "items": {
               "type": "string",
               "maxLength": 32,
-              "knownValues": ["distance", "altitude", "speed", "heartRate", "power", "cadence", "temperature", "depth", "gears"]
+              "knownValues": ["distance", "altitude", "speed", "heartRate", "power", "cadence", "temperature", "depth", "gears", "respirationRate", "verticalOscillation", "stanceTime", "stepLength", "verticalRatio", "stanceTimeBalance", "leftRightBalance", "ppO2", "cns", "n2Load", "ndl", "decoStopDepth", "decoStopTime", "tts", "gasSwitches", "tankPressures", "laps"]
             },
             "description": "The channels #streamData holds, so a client knows which charts exist without fetching it."
           },
@@ -45,7 +45,61 @@
         "cadence": { "type": "array", "items": { "type": "integer" }, "description": "Revolutions or steps per minute." },
         "temperature": { "type": "array", "items": { "type": "integer" }, "description": "Tenths of a degree Celsius." },
         "depth": { "type": "array", "items": { "type": "integer" }, "description": "Centimeters below the surface." },
-        "gears": { "type": "array", "items": { "type": "ref", "ref": "#gearChange" } }
+        "respirationRate": { "type": "array", "items": { "type": "integer" }, "description": "Tenths of a breath per minute." },
+        "verticalOscillation": { "type": "array", "items": { "type": "integer" }, "description": "Millimeters of vertical bounce per step." },
+        "stanceTime": { "type": "array", "items": { "type": "integer" }, "description": "Milliseconds of ground contact per step." },
+        "stepLength": { "type": "array", "items": { "type": "integer" }, "description": "Millimeters." },
+        "verticalRatio": { "type": "array", "items": { "type": "integer" }, "description": "Vertical oscillation over step length, in hundredths of a percent." },
+        "stanceTimeBalance": { "type": "array", "items": { "type": "integer" }, "description": "The left foot's share of ground contact time, in hundredths of a percent." },
+        "leftRightBalance": { "type": "array", "items": { "type": "integer" }, "description": "Percent of power from the right leg." },
+        "ppO2": { "type": "array", "items": { "type": "integer" }, "description": "Partial pressure of the oxygen breathed, in millibar." },
+        "cns": { "type": "array", "items": { "type": "integer" }, "description": "Central nervous system oxygen toxicity, in percent of the limit." },
+        "n2Load": { "type": "array", "items": { "type": "integer" }, "description": "Nitrogen loading, in percent of the limit." },
+        "ndl": { "type": "array", "items": { "type": "integer" }, "description": "No-decompression limit in seconds, as the dive computer recorded it (0 while in deco)." },
+        "decoStopDepth": { "type": "array", "items": { "type": "integer" }, "description": "The next decompression stop's depth (the ceiling), in centimeters; null when not in deco." },
+        "decoStopTime": { "type": "array", "items": { "type": "integer" }, "description": "The next decompression stop's duration, in seconds." },
+        "tts": { "type": "array", "items": { "type": "integer" }, "description": "Time to surface, in seconds." },
+        "gears": { "type": "array", "items": { "type": "ref", "ref": "#gearChange" } },
+        "gasSwitches": { "type": "array", "items": { "type": "ref", "ref": "#gasSwitch" }, "description": "Each switch of breathing gas, in time order. The first gas breathed is a switch at time 0." },
+        "tankPressures": { "type": "array", "items": { "type": "ref", "ref": "#tankPressure" }, "description": "One pressure series per tank, in the order of the activity's dive.tanks." },
+        "laps": { "type": "array", "items": { "type": "ref", "ref": "#lap" }, "description": "The recording's laps, in order. Absent when its only lap spans the activity." }
+      }
+    },
+    "gasSwitch": {
+      "type": "object",
+      "description": "A switch to a breathing gas, named by its oxygen and helium in whole percents (air is 21/0) rather than an index, since the activity's gases may come from another file.",
+      "required": ["time", "oxygen", "helium"],
+      "properties": {
+        "time": { "type": "integer", "description": "Seconds since the activity's startedAt." },
+        "oxygen": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "helium": { "type": "integer", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "tankPressure": {
+      "type": "object",
+      "description": "One tank's pressure over the dive.",
+      "required": ["pressure"],
+      "properties": {
+        "pressure": { "type": "array", "items": { "type": "integer" }, "description": "Millibar, lined up with time; null where the tank has no reading." }
+      }
+    },
+    "lap": {
+      "type": "object",
+      "description": "A lap as the recording device split it.",
+      "required": ["start", "elapsed"],
+      "properties": {
+        "start": { "type": "integer", "description": "Seconds since the activity's startedAt." },
+        "elapsed": { "type": "integer", "minimum": 0, "description": "Seconds." },
+        "moving": { "type": "integer", "minimum": 0, "description": "Seconds spent moving." },
+        "distance": { "type": "integer", "minimum": 0, "description": "Meters." },
+        "avgSpeed": { "type": "integer", "minimum": 0, "description": "Millimeters per second." },
+        "maxSpeed": { "type": "integer", "minimum": 0, "description": "Millimeters per second." },
+        "avgHeartRate": { "type": "integer", "minimum": 0, "maximum": 300 },
+        "maxHeartRate": { "type": "integer", "minimum": 0, "maximum": 300 },
+        "avgPower": { "type": "integer", "minimum": 0, "description": "Watts." },
+        "avgCadence": { "type": "integer", "minimum": 0, "description": "Revolutions or steps per minute." },
+        "ascent": { "type": "integer", "minimum": 0, "description": "Meters." },
+        "descent": { "type": "integer", "minimum": 0, "description": "Meters." }
       }
     },
     "gearChange": {

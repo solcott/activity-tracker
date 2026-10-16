@@ -12,7 +12,10 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivityZonesRecord
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
+import io.github.solcott.activitytracker.lexicon.app.TankPressure
+import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.ktor.client.HttpClient
@@ -94,6 +97,7 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
             data = data,
             heartRateZones = visible.heartRateZones,
             powerZones = visible.powerZones,
+            trainingLoad = visible.trainingLoad,
         )
     }
 
@@ -106,6 +110,7 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
         val blobCid: String,
         val heartRateZones: ZoneSnapshot?,
         val powerZones: ZoneSnapshot?,
+        val trainingLoad: TrainingLoad?,
     )
 
     private fun JdbcTransaction.visibleStreams(viewer: Did?, activity: AtUri): Visible? {
@@ -133,8 +138,26 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
             blobCid = row[ActivityStreams.blobCid],
             heartRateZones = zones(zonesRow?.get(ActivityZones.heartRateZones)),
             powerZones = zones(zonesRow?.get(ActivityZones.powerZones)),
+            trainingLoad = zonesRow?.let { trainingLoad(it[ActivityZones.record]) },
         )
     }
+
+    /** The zones record's training load, from its raw JSON (no queries need a column), or null when it has none or it doesn't decode. */
+    private fun trainingLoad(record: String): TrainingLoad? = runCatching {
+        AtJson.decodeFromString(ActivityZonesRecord.serializer(), record).trainingLoad
+    }
+        .getOrNull()
+        ?.let { load ->
+            fun Int?.within(max: Int) = this?.takeIf { it in 0..max }
+            TrainingLoad(
+                ftp = load.ftp.within(MAX_LOAD_VALUE),
+                intensityFactor = load.intensityFactor.within(MAX_LOAD_VALUE),
+                trainingStressScore = load.trainingStressScore.within(MAX_LOAD_VALUE),
+                aerobicTrainingEffect = load.aerobicTrainingEffect.within(MAX_TRAINING_EFFECT),
+                anaerobicTrainingEffect = load.anaerobicTrainingEffect.within(MAX_TRAINING_EFFECT),
+            )
+        }
+        ?.takeUnless { it.isEmpty }
 
     /** False only when the streams' activity is indexed and [viewer] may not see it: charts are never more visible than their activity. */
     private fun activityVisible(activity: AtUri, viewer: Did?): Op<Boolean> =
@@ -176,22 +199,41 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
         const val MAX_SAMPLES = 345_600
         const val MAX_GEAR_CHANGES = 100_000
 
-        /** [data] capped at [MAX_SAMPLES], with any channel that doesn't line up with its times dropped. */
+        /** Above any FTP, IF or TSS in their units; values out of range are dropped. */
+        const val MAX_LOAD_VALUE = 100_000
+
+        /** Training effect runs from 0 to 5.0, in tenths. */
+        const val MAX_TRAINING_EFFECT = 50
+        const val MAX_GAS_SWITCHES = 1_000
+        const val MAX_TANKS = 8
+        const val MAX_LAPS = 10_000
+        private const val MAX_PERCENT = 100
+        private const val MAX_HEART_RATE = 300
+
+        /** [data] capped at [MAX_SAMPLES], with any channel or tank series that doesn't line up with its times dropped. */
         fun bounded(data: ActivityStreamData): ActivityStreamData {
-            val time = data.time.take(MAX_SAMPLES)
             fun List<Int?>?.aligned() = this?.takeIf { it.size == data.time.size }?.take(MAX_SAMPLES)
-            return ActivityStreamData(
-                time = time,
-                distance = data.distance.aligned(),
-                altitude = data.altitude.aligned(),
-                speed = data.speed.aligned(),
-                heartRate = data.heartRate.aligned(),
-                power = data.power.aligned(),
-                cadence = data.cadence.aligned(),
-                temperature = data.temperature.aligned(),
-                depth = data.depth.aligned(),
-                gears = data.gears?.take(MAX_GEAR_CHANGES),
-            )
+            val base =
+                ActivityStreamData(
+                    time = data.time.take(MAX_SAMPLES),
+                    gears = data.gears?.take(MAX_GEAR_CHANGES),
+                    gasSwitches =
+                        data.gasSwitches?.take(MAX_GAS_SWITCHES)?.map {
+                            it.copy(oxygen = it.oxygen.coerceIn(0, MAX_PERCENT), helium = it.helium.coerceIn(0, MAX_PERCENT))
+                        },
+                    tankPressures =
+                        data.tankPressures?.take(MAX_TANKS)?.map { tank ->
+                            TankPressure(tank.pressure.aligned() ?: List(minOf(data.time.size, MAX_SAMPLES)) { null })
+                        },
+                    laps =
+                        data.laps?.take(MAX_LAPS)?.map {
+                            it.copy(
+                                avgHeartRate = it.avgHeartRate?.coerceIn(0, MAX_HEART_RATE),
+                                maxHeartRate = it.maxHeartRate?.coerceIn(0, MAX_HEART_RATE),
+                            )
+                        },
+                )
+            return ActivityStreamData.INT_CHANNELS.fold(base) { bounded, channel -> channel.with(bounded, channel.get(data).aligned()) }
         }
     }
 }

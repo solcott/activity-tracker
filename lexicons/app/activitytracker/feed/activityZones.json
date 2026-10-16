@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "The athlete's heart rate and power zones for an activity, so its time in zone doesn't change with later thresholds. Its rkey is its activity's. Zone bounds reveal training thresholds, so it is stored at the narrower of the activity's charts visibility and the athlete's training visibility: in the athlete's repo when both are public, otherwise in their app.activitytracker.space.athlete space for that tier. Where it's stored is its only visibility. The AppView serves it only to the viewers its place allows.",
+      "description": "The athlete's heart rate and power zones for an activity, so its time in zone doesn't change with later thresholds, and the activity's training load. Its rkey is its activity's. Zone bounds and training load reveal training thresholds, so it is stored at the narrower of the activity's charts visibility and the athlete's training visibility: in the athlete's repo when both are public, otherwise in their app.activitytracker.space.athlete space for that tier. Where it's stored is its only visibility. The AppView serves it only to the viewers its place allows.",
       "key": "tid",
       "record": {
         "type": "object",
@@ -13,8 +13,20 @@
           "activity": { "type": "string", "format": "at-uri", "description": "The activity's URI; it shares this record's rkey." },
           "heartRateZones": { "type": "ref", "ref": "#zoneSnapshot" },
           "powerZones": { "type": "ref", "ref": "#zoneSnapshot" },
+          "trainingLoad": { "type": "ref", "ref": "#trainingLoad" },
           "createdAt": { "type": "string", "format": "datetime" }
         }
+      }
+    },
+    "trainingLoad": {
+      "type": "object",
+      "description": "The activity's training load as the recording device computed it. Every field is optional.",
+      "properties": {
+        "ftp": { "type": "integer", "minimum": 0, "description": "Functional threshold power, in watts." },
+        "intensityFactor": { "type": "integer", "minimum": 0, "description": "Normalized power over FTP, in hundredths." },
+        "trainingStressScore": { "type": "integer", "minimum": 0, "description": "Tenths." },
+        "aerobicTrainingEffect": { "type": "integer", "minimum": 0, "description": "Tenths, from 0 to 50." },
+        "anaerobicTrainingEffect": { "type": "integer", "minimum": 0, "description": "Tenths, from 0 to 50." }
       }
     },
     "zoneSnapshot": {

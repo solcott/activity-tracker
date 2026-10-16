@@ -43,6 +43,7 @@ import io.github.solcott.activitytracker.lexicon.app.ThresholdSource
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.TrainingSetAt
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.lexicon.app.WaterType
 import io.github.solcott.activitytracker.lexicon.atproto.ApplyWrites
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
@@ -135,6 +136,62 @@ class RecordSerializationTest {
         assertFalse("avgDepth" in json || "volumeUsed" in json, json)
         assertEquals(dive, AtJson.decodeFromString(ActivityRecord.serializer(), json))
         assertFalse("\"dive\"" in AtJson.encodeToString(ActivityRecord.serializer(), record))
+    }
+
+    @Test
+    fun newDiveAndTankFieldsRoundTripAndOlderDivesLackThem() {
+        val dive =
+            record.copy(
+                sport = Sport.DIVE,
+                dive =
+                    ActivityDive(
+                        startN2 = 12,
+                        endN2 = 64,
+                        maxAscentRate = 150,
+                        descentTime = 180,
+                        waterType = WaterType.SALT,
+                        waterDensity = 1025,
+                        airTemperature = -20,
+                        visibility = 1500,
+                        highestPpO2 = 1400,
+                        tanks = listOf(ActivityDiveTank(volume = 12_000, gas = ActivityDiveGas(32, 0))),
+                    ),
+            )
+        val json = AtJson.encodeToString(ActivityRecord.serializer(), dive)
+        assertTrue(""""waterType":"salt"""" in json, json)
+        assertTrue(""""tanks":[{"volume":12000,"gas":{"oxygen":32,"helium":0}}]""" in json, json)
+        assertEquals(dive, AtJson.decodeFromString(ActivityRecord.serializer(), json))
+        val older =
+            """{"${'$'}type":"${Nsid.FEED_ACTIVITY}","sport":"dive","startedAt":"2026-09-30T14:00:00Z","elapsedTime":1800,""" +
+                """"createdAt":"2026-09-30T14:31:00Z","dive":{"maxDepth":3012,"tanks":[{"startPressure":200000}]}}"""
+        val decoded = AtJson.decodeFromString(ActivityRecord.serializer(), older).dive!!
+        assertNull(decoded.waterType)
+        assertNull(decoded.tanks!!.single().gas)
+    }
+
+    @Test
+    fun summaryFieldsRoundTripAndOmitTheirNulls() {
+        val ride =
+            record.copy(
+                sport = Sport.RIDE,
+                elevationLoss = 420,
+                avgCadence = 88,
+                maxCadence = 120,
+                avgPower = 210,
+                maxPower = 850,
+                normalizedPower = 232,
+                work = 1512,
+                calories = 1450,
+                frontShifts = 12,
+                rearShifts = 240,
+                jumps = 3,
+                grit = 125,
+                flow = 42,
+            )
+        val json = AtJson.encodeToString(ActivityRecord.serializer(), ride)
+        assertTrue(""""normalizedPower":232""" in json && """"calories":1450""" in json && """"flow":42""" in json, json)
+        assertEquals(ride, AtJson.decodeFromString(ActivityRecord.serializer(), json))
+        assertFalse("avgPower" in AtJson.encodeToString(ActivityRecord.serializer(), record))
     }
 
     @Test

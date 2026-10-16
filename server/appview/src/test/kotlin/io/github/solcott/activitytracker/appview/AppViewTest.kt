@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
+import io.github.solcott.activitytracker.lexicon.app.ActivityDiveTank
 import io.github.solcott.activitytracker.lexicon.app.ActivityMediaView
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.AspectRatio
@@ -26,6 +27,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.SearchActors
 import io.github.solcott.activitytracker.lexicon.app.SensorType
+import io.github.solcott.activitytracker.lexicon.app.WaterType
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
@@ -422,6 +424,31 @@ class AppViewTest {
         assertEquals(ActivityDive.MAX_GASES, dive.gases?.size)
         assertEquals(ActivityDiveGas(100, 0), dive.gases?.first(), "out-of-range percents are clamped")
         assertEquals(ActivityDive.MAX_TANKS, dive.tanks?.size)
+    }
+
+    @Test
+    fun servesADivesNewerSummaryAndARidesPowerAsRecorded() = testApplication {
+        application { appView(config, db, verifier) }
+        commit(
+            bob,
+            Nsid.FEED_ACTIVITY,
+            "3kdive",
+            """{"sport":"dive","startedAt":"2026-09-30T10:00:00Z","elapsedTime":2700,"createdAt":"2026-09-30T10:50:00Z",""" +
+                """"normalizedPower":5,"dive":{"endN2":64,"waterType":"salt","highestPpO2":1400,""" +
+                """"tanks":[{"volume":12000,"gas":{"oxygen":320,"helium":0}}]}}""",
+        )
+
+        val detail = client.get("/xrpc/${GetActivity.method.nsid}?uri=at://$bob/${Nsid.FEED_ACTIVITY}/3kdive")
+        val record = AtJson.decodeFromString(GetActivity.Output.serializer(), detail.bodyAsText()).activity.record
+        assertEquals(5, record.normalizedPower)
+        assertEquals(64, record.dive?.endN2)
+        assertEquals(WaterType.SALT, record.dive?.waterType)
+        assertEquals(1400, record.dive?.highestPpO2)
+        assertEquals(
+            ActivityDiveTank(volume = 12_000, gas = ActivityDiveGas(100, 0)),
+            record.dive?.tanks?.single(),
+            "a tank's gas is clamped",
+        )
     }
 
     @Test

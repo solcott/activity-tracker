@@ -237,6 +237,8 @@ data class ActivityRecord(
     val distance: Long? = null,
     /** Meters. */
     val elevationGain: Long? = null,
+    /** Meters. */
+    val elevationLoss: Long? = null,
     /** Millimeters per second. */
     val avgSpeed: Long? = null,
     /** Millimeters per second. */
@@ -261,6 +263,30 @@ data class ActivityRecord(
     val recordingOf: AtUri? = null,
     /** Photos, in the athlete's order. At most [ActivityMedia.MAX]. */
     val media: List<ActivityMedia>? = null,
+    /** Revolutions or steps per minute. */
+    val avgCadence: Int? = null,
+    /** Revolutions or steps per minute. */
+    val maxCadence: Int? = null,
+    /** Watts. */
+    val avgPower: Int? = null,
+    /** Watts. */
+    val maxPower: Int? = null,
+    /** Watts. */
+    val normalizedPower: Int? = null,
+    /** Kilojoules. */
+    val work: Long? = null,
+    /** Kilocalories. */
+    val calories: Int? = null,
+    /** Front derailleur shifts by electronic shifting. */
+    val frontShifts: Int? = null,
+    /** Rear derailleur shifts by electronic shifting. */
+    val rearShifts: Int? = null,
+    /** Mountain bike jumps. */
+    val jumps: Int? = null,
+    /** Garmin's mountain bike grit (trail difficulty), in tenths. */
+    val grit: Int? = null,
+    /** Garmin's mountain bike flow (smoothness), in tenths. */
+    val flow: Int? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_ACTIVITY,
 )
 
@@ -283,7 +309,7 @@ data class ActivityStreamsRecord(
     @SerialName($$"$type") val type: String = Nsid.FEED_ACTIVITY_STREAMS,
 ) {
     companion object {
-        const val MAX_CHANNELS = 16
+        const val MAX_CHANNELS = 32
         const val MIME_TYPE = "application/json"
 
         /** The lexicon's `maxSize` for [data]. */
@@ -313,10 +339,11 @@ data class ActivityTrackRecord(
 
 /**
  * `app.activitytracker.feed.activityZones`: the athlete's zones for an activity, under its activity's rkey, so later threshold changes
- * don't change its time in zone.
+ * don't change its time in zone, and the activity's [trainingLoad].
  *
- * Zone bounds reveal thresholds, so it's stored at the narrower of the activity's charts visibility and the athlete's training visibility:
- * in the repo when both are public, otherwise in their tier space ([AthleteSpace]). Where it's stored is its only visibility.
+ * Zone bounds and training load reveal thresholds, so it's stored at the narrower of the activity's charts visibility and the athlete's
+ * training visibility: in the repo when both are public, otherwise in their tier space ([AthleteSpace]). Where it's stored is its only
+ * visibility.
  */
 @Serializable
 data class ActivityZonesRecord(
@@ -325,8 +352,29 @@ data class ActivityZonesRecord(
     val createdAt: Instant,
     val heartRateZones: ZoneSnapshot? = null,
     val powerZones: ZoneSnapshot? = null,
+    val trainingLoad: TrainingLoad? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_ACTIVITY_ZONES,
 )
+
+/** `app.activitytracker.feed.activityZones#trainingLoad`: the activity's training load as the recording device computed it. */
+@Immutable
+@Serializable
+data class TrainingLoad(
+    /** Functional threshold power, in watts. */
+    val ftp: Int? = null,
+    /** Normalized power over [ftp], in hundredths. */
+    val intensityFactor: Int? = null,
+    /** Tenths. */
+    val trainingStressScore: Int? = null,
+    /** Tenths, from 0 to 50. */
+    val aerobicTrainingEffect: Int? = null,
+    /** Tenths, from 0 to 50. */
+    val anaerobicTrainingEffect: Int? = null,
+) {
+    /** Whether this holds nothing, so there's no load to store. */
+    val isEmpty: Boolean
+        get() = this == TrainingLoad()
+}
 
 /** `app.activitytracker.feed.activityZones#zoneSnapshot`: the athlete's zones when the activity was published. */
 @Immutable
@@ -368,21 +416,90 @@ data class ActivityStreamData(
     /** Centimeters below the surface. */
     val depth: List<Int?>? = null,
     val gears: List<GearChange>? = null,
+    /** Tenths of a breath per minute. */
+    val respirationRate: List<Int?>? = null,
+    /** Millimeters of vertical bounce per step. */
+    val verticalOscillation: List<Int?>? = null,
+    /** Milliseconds of ground contact per step. */
+    val stanceTime: List<Int?>? = null,
+    /** Millimeters. */
+    val stepLength: List<Int?>? = null,
+    /** [verticalOscillation] over [stepLength], in hundredths of a percent. */
+    val verticalRatio: List<Int?>? = null,
+    /** The left foot's share of ground contact time, in hundredths of a percent. */
+    val stanceTimeBalance: List<Int?>? = null,
+    /** Percent of power from the right leg. */
+    val leftRightBalance: List<Int?>? = null,
+    /** Partial pressure of the oxygen breathed, in millibar. */
+    val ppO2: List<Int?>? = null,
+    /** Central nervous system oxygen toxicity, in percent of the limit. */
+    val cns: List<Int?>? = null,
+    /** Nitrogen loading, in percent of the limit. */
+    val n2Load: List<Int?>? = null,
+    /** No-decompression limit in seconds, as the dive computer recorded it (0 while in deco). */
+    val ndl: List<Int?>? = null,
+    /** The next decompression stop's depth (the ceiling), in centimeters; null when not in deco. */
+    val decoStopDepth: List<Int?>? = null,
+    /** The next decompression stop's duration, in seconds. */
+    val decoStopTime: List<Int?>? = null,
+    /** Time to surface, in seconds. */
+    val tts: List<Int?>? = null,
+    /** Each switch of breathing gas, in time order; the first gas breathed is a switch at time 0. */
+    val gasSwitches: List<GasSwitch>? = null,
+    /** One pressure series per tank, in the order of the activity's `dive.tanks`. */
+    val tankPressures: List<TankPressure>? = null,
+    /** The recording's laps, in order; null when its only lap spans the activity. */
+    val laps: List<Lap>? = null,
 ) {
     /** The [StreamChannel]s this holds. */
     val channels: List<String>
         get() =
-            listOfNotNull(
-                StreamChannel.DISTANCE.takeIf { distance != null },
-                StreamChannel.ALTITUDE.takeIf { altitude != null },
-                StreamChannel.SPEED.takeIf { speed != null },
-                StreamChannel.HEART_RATE.takeIf { heartRate != null },
-                StreamChannel.POWER.takeIf { power != null },
-                StreamChannel.CADENCE.takeIf { cadence != null },
-                StreamChannel.TEMPERATURE.takeIf { temperature != null },
-                StreamChannel.DEPTH.takeIf { depth != null },
-                StreamChannel.GEARS.takeIf { gears != null },
+            INT_CHANNELS.filter { it.get(this) != null }.map { it.token } +
+                listOfNotNull(
+                    StreamChannel.GEARS.takeIf { gears != null },
+                    StreamChannel.GAS_SWITCHES.takeIf { gasSwitches != null },
+                    StreamChannel.TANK_PRESSURES.takeIf { tankPressures != null },
+                    StreamChannel.LAPS.takeIf { laps != null },
+                )
+
+    /**
+     * A per-sample integer channel, lined up with [time]: its [token], how to read it from the data, and how to replace it. Code that
+     * treats channels alike (merging, export) iterates [INT_CHANNELS] instead of listing fields.
+     */
+    class IntChannel(
+        val token: String,
+        val get: (ActivityStreamData) -> List<Int?>?,
+        val with: (ActivityStreamData, List<Int?>?) -> ActivityStreamData,
+    )
+
+    companion object {
+        /** Every per-sample integer channel, in the order [channels] lists them. */
+        val INT_CHANNELS: List<IntChannel> =
+            listOf(
+                IntChannel(StreamChannel.DISTANCE, { it.distance }) { d, v -> d.copy(distance = v) },
+                IntChannel(StreamChannel.ALTITUDE, { it.altitude }) { d, v -> d.copy(altitude = v) },
+                IntChannel(StreamChannel.SPEED, { it.speed }) { d, v -> d.copy(speed = v) },
+                IntChannel(StreamChannel.HEART_RATE, { it.heartRate }) { d, v -> d.copy(heartRate = v) },
+                IntChannel(StreamChannel.POWER, { it.power }) { d, v -> d.copy(power = v) },
+                IntChannel(StreamChannel.CADENCE, { it.cadence }) { d, v -> d.copy(cadence = v) },
+                IntChannel(StreamChannel.TEMPERATURE, { it.temperature }) { d, v -> d.copy(temperature = v) },
+                IntChannel(StreamChannel.DEPTH, { it.depth }) { d, v -> d.copy(depth = v) },
+                IntChannel(StreamChannel.RESPIRATION_RATE, { it.respirationRate }) { d, v -> d.copy(respirationRate = v) },
+                IntChannel(StreamChannel.VERTICAL_OSCILLATION, { it.verticalOscillation }) { d, v -> d.copy(verticalOscillation = v) },
+                IntChannel(StreamChannel.STANCE_TIME, { it.stanceTime }) { d, v -> d.copy(stanceTime = v) },
+                IntChannel(StreamChannel.STEP_LENGTH, { it.stepLength }) { d, v -> d.copy(stepLength = v) },
+                IntChannel(StreamChannel.VERTICAL_RATIO, { it.verticalRatio }) { d, v -> d.copy(verticalRatio = v) },
+                IntChannel(StreamChannel.STANCE_TIME_BALANCE, { it.stanceTimeBalance }) { d, v -> d.copy(stanceTimeBalance = v) },
+                IntChannel(StreamChannel.LEFT_RIGHT_BALANCE, { it.leftRightBalance }) { d, v -> d.copy(leftRightBalance = v) },
+                IntChannel(StreamChannel.PP_O2, { it.ppO2 }) { d, v -> d.copy(ppO2 = v) },
+                IntChannel(StreamChannel.CNS, { it.cns }) { d, v -> d.copy(cns = v) },
+                IntChannel(StreamChannel.N2_LOAD, { it.n2Load }) { d, v -> d.copy(n2Load = v) },
+                IntChannel(StreamChannel.NDL, { it.ndl }) { d, v -> d.copy(ndl = v) },
+                IntChannel(StreamChannel.DECO_STOP_DEPTH, { it.decoStopDepth }) { d, v -> d.copy(decoStopDepth = v) },
+                IntChannel(StreamChannel.DECO_STOP_TIME, { it.decoStopTime }) { d, v -> d.copy(decoStopTime = v) },
+                IntChannel(StreamChannel.TTS, { it.tts }) { d, v -> d.copy(tts = v) },
             )
+    }
 }
 
 /** `app.activitytracker.feed.activityStreams#gearChange`: a shift, with the gears it shifted to (rear gear 1 is the largest cog). */
@@ -393,6 +510,52 @@ data class GearChange(
     val time: Int,
     val front: Int? = null,
     val rear: Int? = null,
+)
+
+/** `app.activitytracker.feed.activityStreams#gasSwitch`: a switch to a breathing gas, in whole percents (air is 21/0). */
+@Immutable
+@Serializable
+data class GasSwitch(
+    /** Seconds since the activity's `startedAt`. */
+    val time: Int,
+    val oxygen: Int,
+    val helium: Int,
+)
+
+/** `app.activitytracker.feed.activityStreams#tankPressure`: one tank's pressure over the dive. */
+@Immutable
+@Serializable
+data class TankPressure(
+    /** Millibar, lined up with [ActivityStreamData.time]; null where the tank has no reading. */
+    val pressure: List<Int?>
+)
+
+/** `app.activitytracker.feed.activityStreams#lap`: a lap as the recording device split it. */
+@Immutable
+@Serializable
+data class Lap(
+    /** Seconds since the activity's `startedAt`. */
+    val start: Int,
+    /** Seconds. */
+    val elapsed: Int,
+    /** Seconds spent moving. */
+    val moving: Int? = null,
+    /** Meters. */
+    val distance: Int? = null,
+    /** Millimeters per second. */
+    val avgSpeed: Int? = null,
+    /** Millimeters per second. */
+    val maxSpeed: Int? = null,
+    val avgHeartRate: Int? = null,
+    val maxHeartRate: Int? = null,
+    /** Watts. */
+    val avgPower: Int? = null,
+    /** Revolutions or steps per minute. */
+    val avgCadence: Int? = null,
+    /** Meters. */
+    val ascent: Int? = null,
+    /** Meters. */
+    val descent: Int? = null,
 )
 
 /** Known values of [ActivityStreamsRecord.channels], an open string. */
@@ -406,6 +569,23 @@ object StreamChannel {
     const val TEMPERATURE = "temperature"
     const val DEPTH = "depth"
     const val GEARS = "gears"
+    const val RESPIRATION_RATE = "respirationRate"
+    const val VERTICAL_OSCILLATION = "verticalOscillation"
+    const val STANCE_TIME = "stanceTime"
+    const val STEP_LENGTH = "stepLength"
+    const val VERTICAL_RATIO = "verticalRatio"
+    const val STANCE_TIME_BALANCE = "stanceTimeBalance"
+    const val LEFT_RIGHT_BALANCE = "leftRightBalance"
+    const val PP_O2 = "ppO2"
+    const val CNS = "cns"
+    const val N2_LOAD = "n2Load"
+    const val NDL = "ndl"
+    const val DECO_STOP_DEPTH = "decoStopDepth"
+    const val DECO_STOP_TIME = "decoStopTime"
+    const val TTS = "tts"
+    const val GAS_SWITCHES = "gasSwitches"
+    const val TANK_PRESSURES = "tankPressures"
+    const val LAPS = "laps"
 }
 
 /** `app.activitytracker.feed.activity#sensor`: a sensor paired with the recording device. */
@@ -461,6 +641,36 @@ data class ActivityDive(
     val tanks: List<ActivityDiveTank>? = null,
     /** The dive site's name, never its coordinates: records are public. At most [MAX_SITE_LENGTH]. */
     val site: String? = null,
+    /** Nitrogen loading at the start, in percent of the limit. */
+    val startN2: Int? = null,
+    /** Nitrogen loading at the end, in percent of the limit. */
+    val endN2: Int? = null,
+    /** Millimeters per second. */
+    val avgAscentRate: Long? = null,
+    /** Millimeters per second. */
+    val maxAscentRate: Long? = null,
+    /** Millimeters per second. */
+    val avgDescentRate: Long? = null,
+    /** Millimeters per second. */
+    val maxDescentRate: Long? = null,
+    /** Seconds from leaving the surface to reaching the maximum depth. */
+    val descentTime: Long? = null,
+    /** A [WaterType] value: the water the dive computer was set for. */
+    val waterType: String? = null,
+    /** Kilograms per cubic meter. */
+    val waterDensity: Int? = null,
+    /** Tenths of a degree Celsius; may be negative. */
+    val airTemperature: Long? = null,
+    /** Centimeters. */
+    val visibility: Long? = null,
+    /** The site's altitude above sea level, in meters. */
+    val altitude: Long? = null,
+    /** Seconds after the dive before flying. */
+    val noFlyTime: Long? = null,
+    /** Seconds after the dive until fully desaturated. */
+    val desaturationTime: Long? = null,
+    /** The highest partial pressure of oxygen breathed, in millibar. */
+    val highestPpO2: Int? = null,
 ) {
     companion object {
         /** The lexicon's `maxLength`s. */
@@ -487,7 +697,19 @@ data class ActivityDiveTank(
     val endPressure: Long? = null,
     /** Liters of gas used, at the surface. */
     val volumeUsed: Long? = null,
+    /** The tank's water volume, in milliliters. */
+    val volume: Long? = null,
+    /** The gas the tank held. */
+    val gas: ActivityDiveGas? = null,
 )
+
+/** Known values of [ActivityDive.waterType], an open string. */
+object WaterType {
+    const val FRESH = "fresh"
+    const val SALT = "salt"
+    const val EN13319 = "en13319"
+    const val CUSTOM = "custom"
+}
 
 /** Known values of [ActivitySensor.kind], an open string. */
 object SensorType {

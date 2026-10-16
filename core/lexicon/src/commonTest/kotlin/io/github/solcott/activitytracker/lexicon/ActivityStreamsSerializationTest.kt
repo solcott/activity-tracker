@@ -4,13 +4,19 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityTrackRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityZonesRecord
+import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.GearChange
+import io.github.solcott.activitytracker.lexicon.app.Lap
 import io.github.solcott.activitytracker.lexicon.app.StreamChannel
+import io.github.solcott.activitytracker.lexicon.app.TankPressure
+import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.jsonArray
@@ -37,6 +43,48 @@ class ActivityStreamsSerializationTest {
     @Test
     fun channelsListWhatTheDataHolds() {
         assertEquals(listOf(StreamChannel.HEART_RATE, StreamChannel.POWER, StreamChannel.GEARS), data.channels)
+    }
+
+    @Test
+    fun diveChannelsSwitchesTanksAndLapsRoundTrip() {
+        val dive =
+            ActivityStreamData(
+                time = listOf(0, 10, 20),
+                depth = listOf(0, 1800, 2100),
+                ppO2 = listOf(210, 588, null),
+                ndl = listOf(null, 0, 0),
+                decoStopDepth = listOf(null, 600, 300),
+                gasSwitches = listOf(GasSwitch(0, 21, 0), GasSwitch(20, 50, 0)),
+                tankPressures = listOf(TankPressure(listOf(200_000, null, 190_000))),
+                laps = listOf(Lap(start = 0, elapsed = 10, distance = 100), Lap(start = 10, elapsed = 10)),
+            )
+        val json = AtJson.encodeToJsonElement(ActivityStreamData.serializer(), dive).jsonObject
+        assertEquals(JsonNull, json["tankPressures"]!!.jsonArray[0].jsonObject["pressure"]!!.jsonArray[1])
+        assertFalse("moving" in json["laps"]!!.jsonArray[0].jsonObject)
+        assertEquals(dive, AtJson.decodeFromJsonElement(ActivityStreamData.serializer(), json))
+        assertEquals(
+            listOf(
+                StreamChannel.DEPTH,
+                StreamChannel.PP_O2,
+                StreamChannel.NDL,
+                StreamChannel.DECO_STOP_DEPTH,
+                StreamChannel.GAS_SWITCHES,
+                StreamChannel.TANK_PRESSURES,
+                StreamChannel.LAPS,
+            ),
+            dive.channels,
+        )
+    }
+
+    @Test
+    fun channelTableCoversEveryIntChannelOnce() {
+        val tokens = ActivityStreamData.INT_CHANNELS.map { it.token }
+        assertEquals(tokens.distinct(), tokens)
+        val full = ActivityStreamData.INT_CHANNELS.fold(ActivityStreamData(time = listOf(0))) { d, c -> c.with(d, listOf(1)) }
+        assertTrue(ActivityStreamData.INT_CHANNELS.all { it.get(full) == listOf(1) })
+        assertTrue(full.channels.size <= ActivityStreamsRecord.MAX_CHANNELS)
+        val json = AtJson.encodeToJsonElement(ActivityStreamData.serializer(), full).jsonObject
+        assertEquals(tokens.toSet() + "time", json.keys, "each token is its field's JSON name")
     }
 
     @Test
@@ -97,5 +145,23 @@ class ActivityStreamsSerializationTest {
         assertEquals(Nsid.FEED_ACTIVITY_ZONES, json["\$type"]?.jsonPrimitive?.content)
         assertFalse("heartRateZones" in json)
         assertEquals(record, AtJson.decodeFromJsonElement(ActivityZonesRecord.serializer(), json))
+    }
+
+    @Test
+    fun zonesRecordCarriesTrainingLoadAndOlderRecordsLackIt() {
+        val record =
+            ActivityZonesRecord(
+                activity = AtUri("at://did:plc:a/${Nsid.FEED_ACTIVITY}/3k"),
+                createdAt = Instant.parse("2026-10-08T12:00:00Z"),
+                trainingLoad = TrainingLoad(ftp = 250, intensityFactor = 93, trainingStressScore = 1124, aerobicTrainingEffect = 35),
+            )
+        val json = AtJson.encodeToJsonElement(ActivityZonesRecord.serializer(), record).jsonObject
+        assertFalse("anaerobicTrainingEffect" in json["trainingLoad"]!!.jsonObject)
+        assertEquals(record, AtJson.decodeFromJsonElement(ActivityZonesRecord.serializer(), json))
+        val older =
+            """{"${'$'}type":"${Nsid.FEED_ACTIVITY_ZONES}","activity":"at://did:plc:a/${Nsid.FEED_ACTIVITY}/3k",""" +
+                """"createdAt":"2026-10-08T12:00:00Z","powerZones":{"model":"coggan6","lows":[0,138]}}"""
+        assertNull(AtJson.decodeFromString(ActivityZonesRecord.serializer(), older).trainingLoad)
+        assertTrue(TrainingLoad().isEmpty)
     }
 }
