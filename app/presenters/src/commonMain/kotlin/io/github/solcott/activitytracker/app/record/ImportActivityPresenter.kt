@@ -146,7 +146,11 @@ fun ImportActivityPresenter(
                                 fileTitle != null && title.text.toString() == fileTitle -> title.clearText()
                             }
                             fileTitle = named
-                            details.seed(description = null, diveSite = first.dive?.siteName.takeIf { read.size == 1 })
+                            // A logbook's notes start the description, for the athlete to keep, change or clear before saving.
+                            details.seed(
+                                description = first.description.takeIf { read.size == 1 },
+                                diveSite = first.dive?.siteName.takeIf { read.size == 1 },
+                            )
                         }
                         .onFailure { e ->
                             error =

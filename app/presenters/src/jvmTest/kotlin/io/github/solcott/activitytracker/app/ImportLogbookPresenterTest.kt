@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
@@ -277,7 +278,13 @@ class ImportLogbookPresenterTest {
     fun aMergeAddsNoChartsTheLoggedDiveAlreadyHas() = runTest {
         val repos = fixture.repos()
         fixture.ownActivities = listOf(loggedDive("2026-09-20T10:00:00Z"))
-        fixture.activityStreams = ActivityStreamData(time = listOf(0, 2400), temperature = listOf(260, 255), depth = listOf(0, 0))
+        fixture.activityStreams =
+            ActivityStreamData(
+                time = listOf(0, 2400),
+                temperature = listOf(260, 255),
+                depth = listOf(0, 0),
+                gasSwitches = listOf(GasSwitch(0, 21, 0)),
+            )
         presenterTestOf({
             ImportActivityPresenter(
                 FakeNavigator(ImportActivityScreen),
@@ -300,7 +307,10 @@ class ImportLogbookPresenterTest {
                 val duplicate = it.preview?.duplicate
                 duplicate?.action == DuplicateAction.Merge && MergeGain.AnyCharts !in duplicate.mergeGains
             }
-            assertTrue(MergeGain.Charts !in loaded.preview?.duplicate?.mergeGains.orEmpty(), "it has depth and temperature already")
+            assertTrue(
+                MergeGain.Charts !in loaded.preview?.duplicate?.mergeGains.orEmpty(),
+                "it has depth, temperature and gas switches already",
+            )
             cancelAndIgnoreRemainingEvents()
         }
     }

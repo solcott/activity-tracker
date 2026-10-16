@@ -131,7 +131,8 @@ internal fun diveImport(
         val match = matches.getOrNull(index)
         if (!selection.isSelected(index, match)) continue
         val title = dive.title ?: defaultTitles[index]?.ifBlank { null }
-        val draft = importDraft(dive, dive.type, title, training, emptyList()).withVisibility(visibility)
+        // A logbook's notes are personal and the batch never shows them, so none are published unseen.
+        val draft = importDraft(dive, dive.type, title, training, emptyList()).copy(description = null).withVisibility(visibility)
         val action = selection.action(index)
         val into = mergeTarget(match, action)
         when {
