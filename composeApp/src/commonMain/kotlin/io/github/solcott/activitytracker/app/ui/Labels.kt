@@ -20,16 +20,20 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_follow_
 import io.github.solcott.activitytracker.composeApp.resources.error_load_followers
 import io.github.solcott.activitytracker.composeApp.resources.error_load_following
 import io.github.solcott.activitytracker.composeApp.resources.error_load_likes
+import io.github.solcott.activitytracker.composeApp.resources.error_load_privacy_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_load_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_load_replies
+import io.github.solcott.activitytracker.composeApp.resources.error_no_location
 import io.github.solcott.activitytracker.composeApp.resources.error_read_activity_file
 import io.github.solcott.activitytracker.composeApp.resources.error_remove_follower
 import io.github.solcott.activitytracker.composeApp.resources.error_save_activity
+import io.github.solcott.activitytracker.composeApp.resources.error_save_privacy_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_save_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_save_settings
 import io.github.solcott.activitytracker.composeApp.resources.error_save_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_search_athletes
 import io.github.solcott.activitytracker.composeApp.resources.error_sign_in_again
+import io.github.solcott.activitytracker.composeApp.resources.error_too_many_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_ungroup_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_unhide_comment
 import io.github.solcott.activitytracker.composeApp.resources.error_unsupported_activity_file
@@ -107,6 +111,10 @@ fun errorText(error: UiError): String =
                 UiError.Kind.SaveSettings -> Res.string.error_save_settings
                 UiError.Kind.SaveProfile -> Res.string.error_save_profile
                 UiError.Kind.SaveZones -> Res.string.error_save_zones
+                UiError.Kind.LoadPrivacyZones -> Res.string.error_load_privacy_zones
+                UiError.Kind.SavePrivacyZones -> Res.string.error_save_privacy_zones
+                UiError.Kind.TooManyZones -> Res.string.error_too_many_zones
+                UiError.Kind.NoLocation -> Res.string.error_no_location
                 UiError.Kind.SignInAgain -> Res.string.error_sign_in_again
                 UiError.Kind.WritesPending -> Res.string.error_writes_pending
             }

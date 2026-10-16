@@ -20,6 +20,10 @@ data class SettingsState(
     /** Who new activities and their charts are shown to unless the athlete chooses otherwise; null while they load. */
     val defaults: VisibilityFields? = null,
     val savingDefaults: Boolean = false,
+    /** How many privacy zones the athlete keeps; null until read. */
+    val privacyZoneCount: Int? = null,
+    /** Whether the start and end of every route are hidden. */
+    val hidesRouteEnds: Boolean = false,
     val eventSink: (SettingsEvent) -> Unit,
 ) : CircuitUiState
 
@@ -35,6 +39,8 @@ sealed interface SettingsEvent {
     data class DefaultChartsVisibilityChanged(val visibility: String) : SettingsEvent
 
     data object OpenZones : SettingsEvent
+
+    data object OpenPrivacyZones : SettingsEvent
 
     data object SignOut : SettingsEvent
 }

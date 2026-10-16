@@ -33,6 +33,14 @@ data class UiError(val kind: Kind, val detail: String?) {
         SaveSettings,
         SaveProfile,
         SaveZones,
+        LoadPrivacyZones,
+        SavePrivacyZones,
+
+        /** An athlete already has the most privacy zones they can keep. */
+        TooManyZones,
+
+        /** The current location couldn't be found for a new privacy zone. */
+        NoLocation,
 
         /** The session predates access to the athlete's spaces, where non-public details live; signing in again grants it. */
         SignInAgain,

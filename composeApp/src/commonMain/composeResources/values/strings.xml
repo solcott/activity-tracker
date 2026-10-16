@@ -30,6 +30,10 @@
     <string name="error_save_settings">Couldn't save settings</string>
     <string name="error_save_profile">Couldn't save profile</string>
     <string name="error_save_zones">Couldn't save zones</string>
+    <string name="error_load_privacy_zones">Couldn't load your privacy zones</string>
+    <string name="error_save_privacy_zones">Couldn't save your privacy zones</string>
+    <string name="error_too_many_zones">You can keep up to 10 privacy zones</string>
+    <string name="error_no_location">Couldn't find your location</string>
     <string name="error_writes_pending">Some of your changes haven't been sent yet. Try again once you're back online.</string>
     <string name="error_sign_in_again">Sign in again to share activities or details with Followers, Mutuals or Only me, to like or comment on activities that aren't public, or to decline follow requests</string>
     <string name="action_sign_in_again">Sign in again</string>
@@ -375,6 +379,30 @@
     <string name="settings_units_imperial_example">Miles, feet, °F</string>
     <string name="settings_saving">Saving…</string>
     <string name="settings_zones">Training zones</string>
+    <string name="settings_privacy_zones">Privacy zones</string>
+    <plurals name="settings_privacy_zones_count">
+        <item quantity="one">%1$d zone</item>
+        <item quantity="other">%1$d zones</item>
+    </plurals>
+    <string name="settings_privacy_zones_none">No zones</string>
+    <!-- After the zone count when the start and end of every route are hidden. -->
+    <string name="settings_privacy_zones_ends">%1$s, start and end hidden</string>
+    <string name="privacy_zones_help">Others never see the parts of your routes inside these zones, whoever you share an activity with. You still see your whole route.</string>
+    <string name="privacy_zones_empty">No privacy zones yet.</string>
+    <string name="privacy_zones_from_activity">To hide where an activity started or ended, open it and choose Hide this start or Hide this end.</string>
+    <string name="privacy_zones_radius">Radius</string>
+    <string name="privacy_zones_unnamed">Zone %1$d</string>
+    <string name="privacy_zones_remove">Remove zone</string>
+    <string name="privacy_zones_hide_ends">Hide start and end</string>
+    <string name="privacy_zones_hide_ends_help">Hides the first and last part of every route, wherever it is.</string>
+    <string name="privacy_zones_off">Off</string>
+    <string name="privacy_zones_label">Label (optional)</string>
+    <string name="privacy_zones_add_here">Add a zone at my location</string>
+    <string name="privacy_zones_locating">Finding your location…</string>
+    <string name="privacy_zones_others_note">Changes apply to all your activities here. Copies other apps already hold aren't changed.</string>
+    <string name="detail_hide_start">Hide this start</string>
+    <string name="detail_hide_end">Hide this end</string>
+    <string name="detail_zone_added">Added a privacy zone. Your routes are being updated.</string>
 
     <!-- Zones -->
     <string name="zones_title">Training zones</string>

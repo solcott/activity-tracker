@@ -29,6 +29,10 @@ import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_
 import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_charts
 import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_heading
 import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_help
+import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_zones
+import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_zones_count
+import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_zones_ends
+import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_zones_none
 import io.github.solcott.activitytracker.composeApp.resources.settings_saving
 import io.github.solcott.activitytracker.composeApp.resources.settings_title
 import io.github.solcott.activitytracker.composeApp.resources.settings_units_heading
@@ -37,6 +41,7 @@ import io.github.solcott.activitytracker.composeApp.resources.settings_units_met
 import io.github.solcott.activitytracker.composeApp.resources.settings_zones
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,6 +81,18 @@ fun SettingsUi(state: SettingsState, modifier: Modifier = Modifier) {
             state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
             HorizontalDivider()
             AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.OpenZones) }) { Text(stringResource(Res.string.settings_zones)) }
+            AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.OpenPrivacyZones) }) {
+                Text(stringResource(Res.string.settings_privacy_zones))
+            }
+            state.privacyZoneCount?.let { count ->
+                val zones =
+                    if (count == 0) stringResource(Res.string.settings_privacy_zones_none)
+                    else pluralStringResource(Res.plurals.settings_privacy_zones_count, count, count)
+                Text(
+                    if (state.hidesRouteEnds) stringResource(Res.string.settings_privacy_zones_ends, zones) else zones,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
             HorizontalDivider()
             AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.SignOut) }) { Text(stringResource(Res.string.profile_sign_out)) }
         }

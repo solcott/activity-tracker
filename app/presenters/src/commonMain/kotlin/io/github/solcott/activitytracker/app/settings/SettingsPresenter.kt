@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.settings
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -12,6 +13,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
+import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.UnitsRepository
@@ -23,6 +25,7 @@ fun SettingsPresenter(
     unitsRepository: UnitsRepository,
     auth: AuthRepository,
     defaults: ActivityDefaults,
+    privacy: PrivacyZones,
 ): SettingsState {
     // UnitsRepository updates optimistically, so the choice shows at once and reverts if the save fails.
     val units by unitsRepository.units.collectAsState()
@@ -30,8 +33,19 @@ fun SettingsPresenter(
     val flights = rememberSingleFlight()
     val saving = flights.isRunning(SettingsEvent.UnitsChanged::class)
     val defaultVisibility = rememberDefaultVisibilitySettings(defaults, flights) { error = it }
+    val privacySettings by privacy.current.collectAsState()
+    // Only the summary line: a failed read leaves it out, and the zones screen says why.
+    LaunchedEffect(Unit) { runSuspendCatching { privacy.refresh() } }
 
-    return SettingsState(units, saving, error, defaultVisibility.fields, defaultVisibility.saving) { event ->
+    return SettingsState(
+        units,
+        saving,
+        error,
+        defaultVisibility.fields,
+        defaultVisibility.saving,
+        privacyZoneCount = privacySettings?.zones?.size,
+        hidesRouteEnds = (privacySettings?.hideEndsMeters ?: 0) > 0,
+    ) { event ->
         when (event) {
             is SettingsEvent.DefaultVisibilityChanged -> defaultVisibility.activityChanged(event.visibility)
 
@@ -53,6 +67,10 @@ fun SettingsPresenter(
 
             SettingsEvent.OpenZones -> {
                 navigator.goTo(TrainingZonesScreen)
+            }
+
+            SettingsEvent.OpenPrivacyZones -> {
+                navigator.goTo(PrivacyZonesScreen)
             }
 
             // Dropping the session tears down the SessionGraph and returns to LoginScreen.

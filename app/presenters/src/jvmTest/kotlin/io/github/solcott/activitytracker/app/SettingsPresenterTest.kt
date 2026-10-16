@@ -24,7 +24,7 @@ class SettingsPresenterTest {
     @Test
     fun choosingUnitsSavesThemToTheProfile() = runTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
-        presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults) }) {
+        presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy) }) {
             val initial = awaitItem()
             assertEquals(UnitSystem.Metric, initial.units)
             assertNull(initial.error)
@@ -41,7 +41,7 @@ class SettingsPresenterTest {
     fun failedSaveRevertsAndShowsError() = runTest {
         fixture.failWrites = true
         val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
-        presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults) }) {
+        presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy) }) {
             awaitItem().eventSink(SettingsEvent.UnitsChanged(UnitSystem.Imperial))
             val failed = awaitUntil { it.error != null && !it.saving }
             assertEquals(UiError.Kind.SaveSettings, failed.error?.kind)
@@ -54,7 +54,7 @@ class SettingsPresenterTest {
     fun backPops() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(SettingsScreen)
-        presenterTestOf({ SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults) }) {
+        presenterTestOf({ SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults, repos.privacy) }) {
             awaitItem().eventSink(SettingsEvent.Back)
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
@@ -65,7 +65,7 @@ class SettingsPresenterTest {
     fun zonesOpenTheZonesScreen() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(SettingsScreen)
-        presenterTestOf({ SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults) }) {
+        presenterTestOf({ SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults, repos.privacy) }) {
             awaitItem().eventSink(SettingsEvent.OpenZones)
             assertEquals(TrainingZonesScreen, navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
@@ -75,7 +75,7 @@ class SettingsPresenterTest {
     @Test
     fun defaultVisibilitiesSaveCappedAndReload() = runTest {
         val repos = fixture.repos()
-        presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults) }) {
+        presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy) }) {
             val loaded = awaitUntil { it.defaults != null }
             assertEquals(VisibilityFields(), loaded.defaults, "never set: Public")
             loaded.eventSink(SettingsEvent.DefaultChartsVisibilityChanged(Visibility.SELF))
@@ -94,7 +94,7 @@ class SettingsPresenterTest {
 
         // Opening Settings again, in a new session, reads them back.
         val again = fixture.repos()
-        presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), again.units, again.auth, again.defaults) }) {
+        presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), again.units, again.auth, again.defaults, again.privacy) }) {
             assertEquals(VisibilityFields(Visibility.MUTUALS, Visibility.SELF), awaitUntil { it.defaults != null }.defaults)
             cancelAndIgnoreRemainingEvents()
         }
@@ -104,7 +104,7 @@ class SettingsPresenterTest {
     fun wideningTheActivityDefaultKeepsTheChartsAndNarrowingCapsThem() = runTest {
         fixture.activityDefaults = """{"visibility":"followers","chartsVisibility":"followers"}"""
         val repos = fixture.repos()
-        presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults) }) {
+        presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy) }) {
             awaitUntil { it.defaults != null }.eventSink(SettingsEvent.DefaultVisibilityChanged(Visibility.SELF))
             awaitUntil { it.savingDefaults }
             val narrowed = awaitUntil { !it.savingDefaults }
