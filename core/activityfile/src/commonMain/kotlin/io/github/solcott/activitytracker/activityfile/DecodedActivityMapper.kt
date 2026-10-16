@@ -60,8 +60,24 @@ object DecodedActivityMapper {
                 ),
             mtb = RideMetrics.mtb(sessions, fit.jumps),
             sensors = FitSensors.interpret(fit.sensors),
+            calories = sessions.mapNotNull { it.totalCalories }.takeIf { it.isNotEmpty() }?.sum()?.takeIf { it > 0 },
+            aerobicTrainingEffect = sessions.mapNotNull { it.aerobicTrainingEffect }.maxOrNull()?.takeIf { it > 0 },
+            anaerobicTrainingEffect = sessions.mapNotNull { it.anaerobicTrainingEffect }.maxOrNull()?.takeIf { it > 0 },
+            description = fit.notes?.trim()?.ifEmpty { null },
             deviceThresholds = DeviceThresholds.interpret(fit.athlete, fit.sessions),
-            streams = StreamBuilder.fromRecords(records, startedAtMillis, fit.gearChanges),
+            streams =
+                StreamBuilder.fromRecords(
+                    records,
+                    startedAtMillis,
+                    fit.gearChanges,
+                    gasSwitches = fit.gasSwitches,
+                    gases = fit.dive?.gases.orEmpty(),
+                    tanks = fit.dive?.tanks.orEmpty(),
+                    tankUpdates = fit.tankUpdates,
+                    // A TCX file's laps are its only summaries; only a file with sessions has laps of its own to keep.
+                    laps = fit.laps.takeIf { fit.sessions.isNotEmpty() }.orEmpty(),
+                    elapsedSeconds = elapsed.inWholeMilliseconds / MILLIS_PER_SECOND,
+                ),
         )
     }
 
@@ -92,6 +108,21 @@ object DecodedActivityMapper {
             entry = dive.entry,
             siteName = dive.siteName,
             exit = dive.exit,
+            startN2 = dive.startN2,
+            endN2 = dive.endN2,
+            avgAscentRateMps = dive.avgAscentRateMps,
+            maxAscentRateMps = dive.maxAscentRateMps,
+            avgDescentRateMps = dive.avgDescentRateMps,
+            maxDescentRateMps = dive.maxDescentRateMps,
+            descentTimeSeconds = dive.descentTimeSeconds,
+            waterType = dive.waterType,
+            waterDensityKgPerM3 = dive.waterDensityKgPerM3,
+            airTemperatureCelsius = dive.airTemperatureCelsius,
+            visibilityMeters = dive.visibilityMeters,
+            altitudeMeters = dive.altitudeMeters,
+            noFlyTimeSeconds = dive.noFlyTimeSeconds,
+            desaturationTimeSeconds = dive.desaturationTimeSeconds,
+            highestPpO2Bar = dive.highestPpO2Bar,
         )
     }
 

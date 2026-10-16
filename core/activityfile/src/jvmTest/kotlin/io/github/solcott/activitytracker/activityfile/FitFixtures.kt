@@ -30,7 +30,9 @@ import com.garmin.fit.SourceType
 import com.garmin.fit.Sport as FitSport
 import com.garmin.fit.SubSport
 import com.garmin.fit.TankSummaryMesg
+import com.garmin.fit.TankUpdateMesg
 import com.garmin.fit.UserProfileMesg
+import com.garmin.fit.WaterType
 import com.garmin.fit.ZonesTargetMesg
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -64,6 +66,33 @@ object FitFixtures {
             UserProfileMesg().apply { restingHeartRate = restingHr.toShort() },
         )
 
+    const val INTERVAL_LAPS = 8
+
+    /**
+     * Eight 1-minute laps of a track run with a running dynamics pod (a point every 10 s): respiration rate, vertical oscillation, stance
+     * time and its balance, step length and vertical ratio on every record. Each lap is 300 m.
+     */
+    fun intervalRun(start: Instant): ByteArray =
+        encode(
+            start,
+            FitSport.RUNNING,
+            SubSport.TRACK,
+            distance = INTERVAL_LAPS * 300f,
+            avgHr = 160,
+            points = INTERVAL_LAPS * 6 + 1,
+            interval = 10,
+            laps = (0 until INTERVAL_LAPS).map { FitLap(it * 60L, 60f, 300f) },
+        ) { i, record ->
+            record.distance = i * 50f
+            record.heartRate = (150 + i % 20).toShort()
+            record.enhancedRespirationRate = 30.5f
+            record.verticalOscillation = 85.4f
+            record.stanceTime = 245.5f
+            record.stanceTimeBalance = 49.75f
+            record.stepLength = 1250f
+            record.verticalRatio = 6.83f
+        }
+
     /** A trainer ride: power and cadence, no position. */
     fun indoorRide(start: Instant): ByteArray =
         encode(start, FitSport.CYCLING, SubSport.INDOOR_CYCLING, distance = 5000f, avgHr = 140, points = 5) { _, record ->
@@ -78,6 +107,7 @@ object FitFixtures {
      * and AXS derailleur over ANT+. Each device writes `device_info` at the start and the end. Rear shifts to gear 5 (21T) at the start,
      * gear 7 (17T) at 1 min and gear 6 (19T) at 2 min; two jumps; the session's power, shifting and trail totals.
      */
+    @Suppress("LongMethod") // One file, message by message.
     fun mtbRide(start: Instant): ByteArray {
         val startedAt = DateTime(start.toJavaInstant())
         fun at(seconds: Long) = DateTime(startedAt).apply { add(seconds) }
@@ -118,7 +148,15 @@ object FitFixtures {
                 this.distance = distance
             }
         val extra =
-            devices(0, hrmBattery = 80) +
+            listOf<Mesg>(
+                EventMesg().apply {
+                    // A lap button press, before the lap messages the encoder writes.
+                    timestamp = at(300)
+                    event = Event.LAP
+                    eventType = EventType.STOP
+                }
+            ) +
+                devices(0, hrmBattery = 80) +
                 listOf(shift(0, 5, 21), shift(60, 7, 17), shift(120, 6, 19), jump(200, 0.4f, 3.5f), jump(400, 0.9f, 8.2f)) +
                 devices((MTB_POINTS - 1) * 60L, hrmBattery = 75)
         return encode(
@@ -130,7 +168,24 @@ object FitFixtures {
             points = MTB_POINTS,
             interval = 60,
             extra = extra,
+            laps =
+                listOf(
+                    FitLap(0, 300f, 1_200f) {
+                        avgPower = 170
+                        avgHeartRate = 140.toShort()
+                        maxHeartRate = 160.toShort()
+                        avgCadence = 78.toShort()
+                        totalAscent = 80
+                        totalDescent = 20
+                        enhancedAvgSpeed = 4f
+                        enhancedMaxSpeed = 9.5f
+                    },
+                    FitLap(300, 300f, 1_800f) { avgPower = 190 },
+                ),
             session = {
+                totalCalories = 450
+                totalTrainingEffect = 3.4f
+                totalAnaerobicTrainingEffect = 1.2f
                 avgPower = 180
                 maxPower = 650
                 normalizedPower = 210
@@ -146,9 +201,11 @@ object FitFixtures {
                 totalGrit = 12.5f
                 avgFlow = 2.5f
             },
-        ) { i, record ->
+        ) { _, record ->
             record.power = 180
             record.cadence = 80.toShort()
+            // 52% from the right pedal.
+            record.leftRightBalance = (0x80 or 52).toShort()
         }
     }
 
@@ -171,9 +228,11 @@ object FitFixtures {
         }
 
     /**
-     * What the sample Descent files lack: RMV, a tank with its gas used, a backup-only gas and a lap summary written before the session's.
-     * Ten minutes at 0-20-0 m on air, then nitrox 50 from the backup slot; GF 35/75.
+     * What the sample Descent files lack: RMV, a tank with its gas used and its readings every two minutes, a backup-only gas, a switch to
+     * a slot that doesn't exist, a lap summary written before the session's, ppO₂ and a deco stop on the records, and the dive summary's N₂
+     * loading and rates. Ten minutes at 0-20-0 m in fresh water on air, then nitrox 50 from the backup slot at 7 min; GF 35/75.
      */
+    @Suppress("CyclomaticComplexMethod") // One file, message by message.
     fun dive(start: Instant): ByteArray {
         val startedAt = DateTime(start.toJavaInstant())
         fun at(seconds: Long) = DateTime(startedAt).apply { add(seconds) }
@@ -188,12 +247,21 @@ object FitFixtures {
                 bottomTime = 480f
                 avgRmv = 14.2f
                 avgPressureSac = 1.1f
+                startN2 = 10
+                endN2 = 55
+                avgAscentRate = 0.15f
+                maxAscentRate = 0.3f
+                avgDescentRate = 0.2f
+                maxDescentRate = 0.4f
+                descentTime = 300f
             }
         val extra =
             listOf<Mesg>(
                 DiveSettingsMesg().apply {
                     gfLow = 35.toShort()
                     gfHigh = 75.toShort()
+                    waterType = WaterType.FRESH
+                    waterDensity = 1000f
                 },
                 gas(0, 21, DiveGasStatus.ENABLED),
                 gas(1, 50, DiveGasStatus.BACKUP_ONLY),
@@ -203,6 +271,12 @@ object FitFixtures {
                     event = Event.DIVE_GAS_SWITCHED
                     eventType = EventType.MARKER
                     data = 1L
+                },
+                EventMesg().apply {
+                    timestamp = at(480)
+                    event = Event.DIVE_GAS_SWITCHED
+                    eventType = EventType.MARKER
+                    data = 9L
                 },
                 summary(MesgNum.LAP),
                 summary(MesgNum.SESSION).apply {
@@ -218,14 +292,32 @@ object FitFixtures {
                     endPressure = 60f
                     volumeUsed = 1_680f
                 },
-            )
+            ) +
+                (0..DIVE_POINTS step 2).map { i ->
+                    TankUpdateMesg().apply {
+                        timestamp = at(i * 60L + 5)
+                        sensor = 42L
+                        pressure = 200f - i * 14f
+                    }
+                }
         return encode(start, FitSport.DIVING, SubSport.MULTI_GAS_DIVING, 0f, 80, DIVE_POINTS + 1, interval = 60, extra) { i, record ->
             record.depth = 20f - abs(i - DIVE_POINTS / 2) * 4f
             record.temperature = (18 - i % 3).toByte()
+            record.po2 = if (i < 7) 0.21f * (1 + record.depth / 10) else 0.5f * (1 + record.depth / 10)
+            record.cnsLoad = i.toShort()
+            record.n2Load = 10 + i * 4
+            // In deco from 5 min: a 3 m stop for 2 min, 4 min to surface.
+            record.ndlTime = if (i < 5) 600L - i * 60 else 0L
+            record.nextStopDepth = if (i < 5) 0f else 3f
+            record.nextStopTime = if (i < 5) 0L else 120L
+            record.timeToSurface = if (i < 5) 60L else 240L
         }
     }
 
     const val DIVE_POINTS = 10
+
+    /** A lap the encoder writes, [startSeconds] after the activity's start. */
+    class FitLap(val startSeconds: Long, val elapsedSeconds: Float, val distanceMeters: Float, val configure: LapMesg.() -> Unit = {})
 
     private fun gas(index: Int, oxygen: Int, status: DiveGasStatus) =
         DiveGasMesg().apply {
@@ -246,6 +338,7 @@ object FitFixtures {
         points: Int,
         interval: Long = 30,
         extra: List<Mesg> = emptyList(),
+        laps: List<FitLap>? = null,
         session: SessionMesg.() -> Unit = {},
         fill: (Int, RecordMesg) -> Unit,
     ): ByteArray {
@@ -271,15 +364,18 @@ object FitFixtures {
             )
         }
         extra.forEach(encoder::write)
-        encoder.write(
-            LapMesg().apply {
-                timestamp = end
-                startTime = DateTime(startedAt)
-                totalElapsedTime = elapsed
-                totalTimerTime = elapsed
-                totalDistance = distance
-            }
-        )
+        for (lap in laps ?: listOf(FitLap(0, elapsed, distance))) {
+            encoder.write(
+                LapMesg().apply {
+                    startTime = DateTime(startedAt).apply { add(lap.startSeconds) }
+                    timestamp = DateTime(startTime).apply { add(lap.elapsedSeconds.toLong()) }
+                    totalElapsedTime = lap.elapsedSeconds
+                    totalTimerTime = lap.elapsedSeconds
+                    totalDistance = lap.distanceMeters
+                    lap.configure(this)
+                }
+            )
+        }
         encoder.write(
             SessionMesg().apply {
                 timestamp = end

@@ -51,6 +51,13 @@ data class ImportedActivity(
     val deviceThresholds: DeviceThresholds? = null,
     /** Every sample's channels, indoor ones included, for charts; null when the file has none. Times are relative to [startedAt]. */
     val streams: ActivityStreamData? = null,
+    /** Kilocalories. */
+    val calories: Int? = null,
+    /** The device's aerobic and anaerobic training effect, 0 to 5. */
+    val aerobicTrainingEffect: Double? = null,
+    val anaerobicTrainingEffect: Double? = null,
+    /** The file's own notes on the activity (a logbook's), for the import screen to start the description from. */
+    val description: String? = null,
 ) {
     /** This activity with [localStart] read in [zone], every time moved together. Unchanged if the file's times had a zone. */
     fun inZone(zone: TimeZone): ImportedActivity {
@@ -88,6 +95,23 @@ data class ImportedDive(
     /** The dive site's name, from a logbook that names it. Unlike [entry], it goes into the public record. */
     val siteName: String? = null,
     val exit: DivePosition? = null,
+    /** Nitrogen loading, in percent of the limit. */
+    val startN2: Int? = null,
+    val endN2: Int? = null,
+    val avgAscentRateMps: Double? = null,
+    val maxAscentRateMps: Double? = null,
+    val avgDescentRateMps: Double? = null,
+    val maxDescentRateMps: Double? = null,
+    val descentTimeSeconds: Double? = null,
+    /** A `WaterType` token. */
+    val waterType: String? = null,
+    val waterDensityKgPerM3: Double? = null,
+    val airTemperatureCelsius: Double? = null,
+    val visibilityMeters: Double? = null,
+    val altitudeMeters: Double? = null,
+    val noFlyTimeSeconds: Double? = null,
+    val desaturationTimeSeconds: Double? = null,
+    val highestPpO2Bar: Double? = null,
 )
 
 data class DepthPoint(val seconds: Long, val depthMeters: Double)

@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.activityfile
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
+import io.github.solcott.activitytracker.lexicon.app.WaterType
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -18,6 +19,47 @@ class GarminFitDiveTest {
     private suspend fun read(name: String): ImportedActivity {
         val bytes = assertNotNull(javaClass.getResourceAsStream("/dives/$name.fit.gz")).use { it.readBytes() }
         return reader.read(bytes).single()
+    }
+
+    private suspend fun decode(name: String): DecodedActivity {
+        val bytes = assertNotNull(javaClass.getResourceAsStream("/dives/$name.fit.gz")).use { it.readBytes() }
+        return GarminJavaFitDecoder().decode(gunzip(bytes, Int.MAX_VALUE))
+    }
+
+    private fun DecodedActivity.secondsOf(millis: Long) = (millis - sessions.first().startTimeMillis!!) / 1000
+
+    @Test
+    fun aDescentKeepsItsSwitchTimesAndDecoState() = runTest {
+        val decoded = decode("fit-parser-swift-TestDive3")
+        assertEquals(
+            listOf(3546L to DiveGas(52, 0)),
+            decoded.gasSwitches.map { decoded.secondsOf(it.timestampMillis) to it.gas },
+            "the bailout at 59 min; the diluent is never switched to",
+        )
+        val dive = assertNotNull(decoded.dive)
+        assertEquals(0 to 104, dive.startN2 to dive.endN2)
+        assertEquals(WaterType.SALT, dive.waterType)
+        assertEquals(1025.0, dive.waterDensityKgPerM3!!, 1e-3)
+        val deco = decoded.records.first { (it.nextStopDepthMeters ?: 0.0) > 0 }
+        assertEquals(385L, decoded.secondsOf(deco.timestampMillis!!))
+        assertEquals(3.0, deco.nextStopDepthMeters!!, 1e-3)
+        assertEquals(0L, deco.ndlSeconds, "NDL is 0 while in deco")
+        assertEquals(363L, deco.ttsSeconds)
+        assertEquals(4 to 100, deco.cnsPercent to deco.n2LoadPercent)
+        assertEquals(177, decoded.sessions.first().totalCalories)
+    }
+
+    @Test
+    fun anAirIntegratedDiveKeepsItsTankReadings() = runTest {
+        val decoded = decode("fit-parser-test-diving")
+        val tank = assertNotNull(decoded.dive).tanks.single()
+        assertEquals("1234567890", tank.sensor)
+        assertEquals(112, decoded.tankUpdates.size)
+        assertTrue(decoded.tankUpdates.all { it.sensor == tank.sensor })
+        assertEquals(223.59, decoded.tankUpdates.first().pressureBar, 1e-2)
+        assertEquals(100L, decoded.secondsOf(decoded.tankUpdates.first().timestampMillis))
+        assertEquals(691.0, decoded.dive.descentTimeSeconds!!, 1e-3)
+        assertTrue(decoded.records.any { it.respirationRate != null })
     }
 
     @Test
@@ -102,9 +144,36 @@ class GarminFitDiveTest {
         assertEquals(35 to 75, dive.gradientFactorLow to dive.gradientFactorHigh)
         assertEquals(12.5, dive.avgDepthMeters!!, 1e-3, "the computer's average, not the profile's")
         assertEquals(14.2, dive.rmvLitersPerMinute!!, 1e-3)
-        assertEquals(DiveTank(200.0, 60.0, 1680.0), dive.tanks.single())
+        assertEquals(DiveTank(200.0, 60.0, 1680.0, sensor = "42"), dive.tanks.single())
         assertEquals(FitFixtures.DIVE_POINTS + 1, dive.profile.size)
         assertEquals(20.0, dive.profile.maxOf { it.depthMeters }, 1e-3)
         assertNull(activity.distanceMeters)
+    }
+
+    @Test
+    fun anEncodedDivesSwitchesTankUpdatesAndDecoChannels() {
+        val start = Instant.parse("2026-09-20T07:00:00Z")
+        val decoded = GarminJavaFitDecoder().decode(FitFixtures.dive(start))
+        assertEquals(
+            listOf(420L to DiveGas(50, 0)),
+            decoded.gasSwitches.map { decoded.secondsOf(it.timestampMillis) to it.gas },
+            "the switch to slot 9, which has no dive_gas, is dropped",
+        )
+        assertEquals(
+            (0..FitFixtures.DIVE_POINTS step 2).map { it * 60L + 5 },
+            decoded.tankUpdates.map { decoded.secondsOf(it.timestampMillis) },
+        )
+        assertEquals(200.0, decoded.tankUpdates.first().pressureBar, 1e-3)
+        val dive = assertNotNull(decoded.dive)
+        assertEquals(10 to 55, dive.startN2 to dive.endN2)
+        assertEquals(0.15, dive.avgAscentRateMps!!, 1e-3)
+        assertEquals(0.4, dive.maxDescentRateMps!!, 1e-3)
+        assertEquals(300.0, dive.descentTimeSeconds!!, 1e-3)
+        assertEquals(WaterType.FRESH, dive.waterType)
+        val deco = decoded.records[8]
+        assertEquals(0.5 * (1 + 8 / 10.0), deco.ppO2Bar!!, 1e-2)
+        assertEquals(3.0, deco.nextStopDepthMeters!!, 1e-3)
+        assertEquals(120L to 240L, deco.nextStopSeconds to deco.ttsSeconds)
+        assertEquals(8 to 42, deco.cnsPercent to deco.n2LoadPercent)
     }
 }

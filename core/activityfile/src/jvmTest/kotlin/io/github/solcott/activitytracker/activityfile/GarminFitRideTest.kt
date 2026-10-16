@@ -54,6 +54,31 @@ class GarminFitRideTest {
         assertEquals("Garmin Fenix 7", ride.device, "the file_id's device, not the device_info list")
     }
 
+    @Test
+    fun decodesLapsCaloriesTrainingEffectAndPowerBalance() {
+        val decoded = GarminJavaFitDecoder().decode(FitFixtures.mtbRide(Instant.parse("2026-10-02T19:52:33Z")))
+        assertEquals(listOf(300.0 to 1_200.0, 300.0 to 1_800.0), decoded.laps.map { it.totalElapsedSeconds to it.totalDistanceMeters })
+        assertEquals(listOf(170, 190), decoded.laps.map { it.avgPowerWatts })
+        val session = decoded.sessions.single()
+        assertEquals(450, session.totalCalories)
+        assertEquals(3.4, session.aerobicTrainingEffect!!, 1e-3)
+        assertEquals(1.2, session.anaerobicTrainingEffect!!, 1e-3)
+        assertEquals(52, FitBalance.rightPercent(decoded.records.first().leftRightBalance!!))
+    }
+
+    @Test
+    fun decodesARunsDynamicsAndRespiration() {
+        val decoded = GarminJavaFitDecoder().decode(FitFixtures.intervalRun(Instant.parse("2026-10-02T19:52:33Z")))
+        assertEquals(FitFixtures.INTERVAL_LAPS, decoded.laps.size)
+        val sample = decoded.records.first()
+        assertEquals(30.5, sample.respirationRate!!, 1e-3)
+        assertEquals(85.4, sample.verticalOscillationMm!!, 0.1)
+        assertEquals(245.5, sample.stanceTimeMs!!, 0.1)
+        assertEquals(49.75, sample.stanceTimeBalancePercent!!, 0.01)
+        assertEquals(1250.0, sample.stepLengthMm!!, 0.1)
+        assertEquals(6.83, sample.verticalRatioPercent!!, 0.01)
+    }
+
     private fun Double.round2() = kotlin.math.round(this * 100) / 100
 
     private fun ImportedMtb.rounded() =

@@ -109,6 +109,31 @@ class ShearwaterXmlParserTest {
     }
 
     @Test
+    fun keepsEachGasChangeAtItsRecordsTime() {
+        val decoded =
+            ShearwaterXmlParser.parse(
+                dive(
+                    records =
+                        listOf(
+                            record(0, 10.0, 80.0, o2 = 0.21),
+                            record(1_790_000, 70.0, 80.0, o2 = 0.21),
+                            record(1_800_000, 60.0, 80.0, o2 = 0.5),
+                            record(1_810_000, 50.0, 80.0, o2 = 0.5),
+                            record(2_000_000, 20.0, 80.0, o2 = 0.21),
+                        )
+                ),
+                zone,
+            )
+        val start = decoded.sessions.single().startTimeMillis!!
+        assertEquals(
+            listOf(0L to DiveGas(21, 0), 1800L to DiveGas(50, 0), 2000L to DiveGas(21, 0)),
+            decoded.gasSwitches.map { (it.timestampMillis - start) / 1000 to it.gas },
+            "the first gas, then each change, a switch back included",
+        )
+        assertEquals(listOf(DiveGas(21, 0), DiveGas(50, 0)), decoded.dive?.gases, "each gas once")
+    }
+
+    @Test
     fun unknownModelsAreJustShearwater() {
         assertEquals("Shearwater", read(dive(product = "99")).device)
         assertEquals("Shearwater Petrel", read(dive(product = "3")).device)

@@ -26,7 +26,19 @@ data class DecodedActivity(
     val jumps: List<DecodedJump> = emptyList(),
     /** The athlete's settings on the recording device: FIT `zones_target` and `user_profile`. Null when the file has neither. */
     val athlete: DecodedAthleteSettings? = null,
+    /** Each switch of breathing gas the dive log placed in time, in time order, the first gas included when the file switched to it. */
+    val gasSwitches: List<DecodedGasSwitch> = emptyList(),
+    /** Tank pressure readings during the dive, in time order, each naming its tank by [DiveTank.sensor]. */
+    val tankUpdates: List<DecodedTankUpdate> = emptyList(),
+    /** The diver's notes on the dive, from a logbook that keeps them. */
+    val notes: String? = null,
 )
+
+/** A switch to [gas] at [timestampMillis]. */
+data class DecodedGasSwitch(val timestampMillis: Long, val gas: DiveGas)
+
+/** A tank pressure reading: [sensor] is the [DiveTank.sensor] of the tank it's from. */
+data class DecodedTankUpdate(val timestampMillis: Long, val sensor: String, val pressureBar: Double)
 
 /**
  * The athlete's thresholds as the recording device had them set, as raw values: zero or out of range when unset. FIT `zones_target` holds
@@ -116,6 +128,12 @@ data class DecodedSummary(
     val totalGrit: Double? = null,
     /** Garmin's score for how smoothly the trail was ridden; lower is smoother. */
     val avgFlow: Double? = null,
+    /** Kilocalories. */
+    val totalCalories: Int? = null,
+    /** Aerobic training effect, 0 to 5. */
+    val aerobicTrainingEffect: Double? = null,
+    /** Anaerobic training effect, 0 to 5. */
+    val anaerobicTrainingEffect: Double? = null,
 )
 
 /** One sample of the activity's record stream. */
@@ -132,7 +150,43 @@ data class DecodedSample(
     val temperatureCelsius: Double?,
     /** Depth below the surface, for dives. */
     val depthMeters: Double? = null,
+    /** Partial pressure of the oxygen breathed, as the dive computer reported or calculated it. */
+    val ppO2Bar: Double? = null,
+    /** Each oxygen cell's reading on a rebreather; when there are any they win over [ppO2Bar]. */
+    val measuredPpO2Bars: List<Double> = emptyList(),
+    /** Central nervous system oxygen toxicity, in percent of the limit. */
+    val cnsPercent: Int? = null,
+    /** Nitrogen loading, in percent of the limit. */
+    val n2LoadPercent: Int? = null,
+    /** No-decompression limit; 0 while in deco. */
+    val ndlSeconds: Long? = null,
+    /** The next decompression stop (the ceiling); null when not in deco. */
+    val nextStopDepthMeters: Double? = null,
+    val nextStopSeconds: Long? = null,
+    /** Time to surface. */
+    val ttsSeconds: Long? = null,
+    /** Breaths per minute. */
+    val respirationRate: Double? = null,
+    val verticalOscillationMm: Double? = null,
+    val stanceTimeMs: Double? = null,
+    val stepLengthMm: Double? = null,
+    /** Vertical oscillation over step length, in percent. */
+    val verticalRatioPercent: Double? = null,
+    /** The left foot's share of ground contact time, in percent. */
+    val stanceTimeBalancePercent: Double? = null,
+    /** FIT `left_right_balance` as recorded: the low 7 bits are a percent, from the right leg when [FitBalance.RIGHT] is set. */
+    val leftRightBalance: Int? = null,
 )
+
+/** FIT's `left_right_balance` bits. */
+object FitBalance {
+    const val RIGHT = 0x80
+    const val MASK = 0x7F
+    private const val MAX_PERCENT = 100
+
+    /** The percent of power from the right leg, or null when the device didn't say which side it measured. */
+    fun rightPercent(raw: Int): Int? = if (raw and RIGHT != 0) (raw and MASK).takeIf { it <= MAX_PERCENT } else null
+}
 
 /** A dive log's header, in SI units. */
 data class DecodedDive(
@@ -163,15 +217,46 @@ data class DecodedDive(
     val sacBarPerMinute: Double? = null,
     /** One per tank a pressure transmitter was on. */
     val tanks: List<DiveTank> = emptyList(),
-    /** Where the diver went in and came out, if the computer had a GPS fix at the surface. */
+    /** Where the diver went in and came out, if the computer had a GPS fix at the surface; a logbook's site position is the entry. */
     val entry: DivePosition? = null,
     /** The dive site's name, from a logbook that names it. */
     val siteName: String? = null,
     val exit: DivePosition? = null,
+    /** Nitrogen loading, in percent of the limit. */
+    val startN2: Int? = null,
+    val endN2: Int? = null,
+    val avgAscentRateMps: Double? = null,
+    val maxAscentRateMps: Double? = null,
+    val avgDescentRateMps: Double? = null,
+    val maxDescentRateMps: Double? = null,
+    /** Time from leaving the surface to reaching the maximum depth. */
+    val descentTimeSeconds: Double? = null,
+    /** A `WaterType` token. */
+    val waterType: String? = null,
+    val waterDensityKgPerM3: Double? = null,
+    val airTemperatureCelsius: Double? = null,
+    val visibilityMeters: Double? = null,
+    /** The site's altitude above sea level. */
+    val altitudeMeters: Double? = null,
+    /** Time after the dive before flying. */
+    val noFlyTimeSeconds: Double? = null,
+    /** Time after the dive until fully desaturated. */
+    val desaturationTimeSeconds: Double? = null,
+    val highestPpO2Bar: Double? = null,
 )
 
-/** A tank's pressures, in bar (the diving convention), and the gas used, in liters at the surface when the tank's size was set. */
-data class DiveTank(val startPressureBar: Double?, val endPressureBar: Double?, val volumeUsedLiters: Double?)
+/**
+ * A tank's pressures, in bar (the diving convention), the gas used, in liters at the surface when the tank's size was set, the tank's own
+ * water volume and the gas it held. [sensor] names it in [DecodedActivity.tankUpdates].
+ */
+data class DiveTank(
+    val startPressureBar: Double?,
+    val endPressureBar: Double?,
+    val volumeUsedLiters: Double?,
+    val volumeLiters: Double? = null,
+    val gas: DiveGas? = null,
+    val sensor: String? = null,
+)
 
 data class DivePosition(val latitude: Double, val longitude: Double)
 

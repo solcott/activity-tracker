@@ -24,6 +24,7 @@ import com.garmin.fit.RecordMesg
 import com.garmin.fit.SessionMesg
 import com.garmin.fit.SourceType
 import com.garmin.fit.TankSummaryMesg
+import com.garmin.fit.TankUpdateMesg
 import com.garmin.fit.UserProfileMesg
 import com.garmin.fit.ZonesTargetMesg
 import dev.zacsweers.metro.AppScope
@@ -77,12 +78,15 @@ class GarminJavaFitDecoder : FitDecoder {
         } catch (e: FitRuntimeException) {
             activityFileError("Couldn't read FIT file: ${e.message}", e)
         }
+        val diveMessages = dive.messages(firstSession)
         return DecodedActivity(
             fileId = fileId,
             sessions = sessions,
             laps = laps,
             records = records,
-            dive = dive.interpret(firstSession),
+            dive = FitDives.interpret(diveMessages, sport = firstSession?.sport?.name, subSport = firstSession?.subSport?.name),
+            gasSwitches = FitDives.gasSwitches(diveMessages),
+            tankUpdates = FitDives.tankUpdates(diveMessages),
             sensors = ride.sensors,
             gearChanges = ride.gearChanges,
             jumps = ride.jumps,
@@ -115,6 +119,20 @@ class GarminJavaFitDecoder : FitDecoder {
             distanceMeters = distance?.toDouble(),
             temperatureCelsius = temperature?.toDouble(),
             depthMeters = depth?.toDouble(),
+            ppO2Bar = po2?.toDouble(),
+            cnsPercent = cnsLoad?.toInt(),
+            n2LoadPercent = n2Load,
+            ndlSeconds = ndlTime,
+            nextStopDepthMeters = nextStopDepth?.toDouble(),
+            nextStopSeconds = nextStopTime,
+            ttsSeconds = timeToSurface,
+            respirationRate = (enhancedRespirationRate ?: respirationRate?.toFloat())?.toDouble(),
+            verticalOscillationMm = verticalOscillation?.toDouble(),
+            stanceTimeMs = stanceTime?.toDouble(),
+            stepLengthMm = stepLength?.toDouble(),
+            verticalRatioPercent = verticalRatio?.toDouble(),
+            stanceTimeBalancePercent = stanceTimeBalance?.toDouble(),
+            leftRightBalance = leftRightBalance?.toInt(),
         )
 
     private fun DateTime.millis(): Long = instant.toEpochMilli()
@@ -148,6 +166,9 @@ class GarminJavaFitDecoder : FitDecoder {
             jumpCount = jumpCount,
             totalGrit = totalGrit?.toDouble(),
             avgFlow = avgFlow?.toDouble(),
+            totalCalories = totalCalories,
+            aerobicTrainingEffect = totalTrainingEffect?.toDouble(),
+            anaerobicTrainingEffect = totalAnaerobicTrainingEffect?.toDouble(),
         )
 
     private fun LapMesg.toSummary() =
@@ -176,6 +197,7 @@ class GarminJavaFitDecoder : FitDecoder {
             jumpCount = jumpCount,
             totalGrit = totalGrit?.toDouble(),
             avgFlow = avgFlow?.toDouble(),
+            totalCalories = totalCalories,
         )
 }
 
@@ -231,8 +253,9 @@ private class DiveListeners(broadcaster: MesgBroadcaster) {
     private var settings: DiveSettingsMesg? = null
     private val summaries = mutableListOf<FitDiveSummary>()
     private val gases = mutableListOf<FitDiveGas>()
-    private val gasSwitches = mutableListOf<Int>()
+    private val gasSwitches = mutableListOf<FitGasSwitch>()
     private val tanks = mutableListOf<FitTankSummary>()
+    private val tankUpdates = mutableListOf<FitTankUpdate>()
 
     init {
         broadcaster.addListener { m: DiveSettingsMesg -> if (settings == null) settings = m }
@@ -240,30 +263,35 @@ private class DiveListeners(broadcaster: MesgBroadcaster) {
         broadcaster.addListener { m: DiveGasMesg ->
             gases += FitDiveGas(m.messageIndex, m.oxygenContent?.toInt(), m.heliumContent?.toInt(), m.status?.name, m.mode?.name)
         }
-        broadcaster.addListener { m: EventMesg -> if (m.event == Event.DIVE_GAS_SWITCHED) m.data?.let { gasSwitches += it.toInt() } }
+        broadcaster.addListener { m: EventMesg ->
+            if (m.event == Event.DIVE_GAS_SWITCHED)
+                m.data?.let { gasSwitches += FitGasSwitch(m.timestamp?.instant?.toEpochMilli(), it.toInt()) }
+        }
         broadcaster.addListener { m: TankSummaryMesg ->
-            tanks += FitTankSummary(m.startPressure?.toDouble(), m.endPressure?.toDouble(), m.volumeUsed?.toDouble())
+            tanks += FitTankSummary(m.startPressure?.toDouble(), m.endPressure?.toDouble(), m.volumeUsed?.toDouble(), m.sensor)
+        }
+        broadcaster.addListener { m: TankUpdateMesg ->
+            tankUpdates += FitTankUpdate(m.timestamp?.instant?.toEpochMilli(), m.sensor, m.pressure?.toDouble())
         }
     }
 
     /** [session] is the file's first: where the diver went in and came out, and its own dive fields. */
-    fun interpret(session: SessionMesg?): DecodedDive? =
-        FitDives.interpret(
-            FitDiveMessages(
-                summaries = summaries,
-                gradientFactorLow = settings?.gfLow?.toInt(),
-                gradientFactorHigh = settings?.gfHigh?.toInt(),
-                gases = gases,
-                gasSwitches = gasSwitches,
-                tanks = tanks,
-                entry = position(session?.startPositionLat, session?.startPositionLong),
-                exit = position(session?.endPositionLat, session?.endPositionLong),
-                sessionMaxDepthMeters = session?.maxDepth?.toDouble(),
-                sessionAvgDepthMeters = session?.avgDepth?.toDouble(),
-                sessionDiveNumber = session?.diveNumber?.toInt(),
-            ),
-            sport = session?.sport?.name,
-            subSport = session?.subSport?.name,
+    fun messages(session: SessionMesg?) =
+        FitDiveMessages(
+            summaries = summaries,
+            gradientFactorLow = settings?.gfLow?.toInt(),
+            gradientFactorHigh = settings?.gfHigh?.toInt(),
+            gases = gases,
+            gasSwitches = gasSwitches,
+            tanks = tanks,
+            entry = position(session?.startPositionLat, session?.startPositionLong),
+            exit = position(session?.endPositionLat, session?.endPositionLong),
+            sessionMaxDepthMeters = session?.maxDepth?.toDouble(),
+            sessionAvgDepthMeters = session?.avgDepth?.toDouble(),
+            sessionDiveNumber = session?.diveNumber?.toInt(),
+            waterType = settings?.waterType?.name,
+            waterDensityKgPerM3 = settings?.waterDensity?.toDouble(),
+            tankUpdates = tankUpdates,
         )
 
     private fun position(lat: Int?, lon: Int?): DivePosition? =
@@ -283,5 +311,12 @@ private class DiveListeners(broadcaster: MesgBroadcaster) {
             avgRmv = avgRmv?.toDouble(),
             avgVolumeSac = avgVolumeSac?.toDouble(),
             avgPressureSac = avgPressureSac?.toDouble(),
+            startN2 = startN2,
+            endN2 = endN2,
+            avgAscentRate = avgAscentRate?.toDouble(),
+            maxAscentRate = maxAscentRate?.toDouble(),
+            avgDescentRate = avgDescentRate?.toDouble(),
+            maxDescentRate = maxDescentRate?.toDouble(),
+            descentTimeSeconds = descentTime?.toDouble(),
         )
 }

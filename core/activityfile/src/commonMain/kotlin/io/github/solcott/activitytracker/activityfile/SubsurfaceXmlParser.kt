@@ -29,8 +29,8 @@ internal object SubsurfaceXmlParser {
     private class Dive(val attribute: Map<String, String>) {
         val cylinders = mutableListOf<Cylinder>()
         val samples = mutableListOf<Sample>()
-        /** Gases switched to, by cylinder index or by mix. */
-        val switches = mutableListOf<Pair<Int?, DiveGas?>>()
+        /** Gases switched to, by cylinder index or by mix, at the event's time. */
+        val switches = mutableListOf<GasChange>()
         var computers = 0
         var model: String? = null
         var closedCircuit = false
@@ -44,10 +44,13 @@ internal object SubsurfaceXmlParser {
             val start = localStart?.toInstant(timeZone)?.toEpochMilliseconds() ?: return null
             val site = attribute["divesiteid"]?.let { sites[it] }
             // The first cylinder is breathed from the start; a gas change adds the next.
-            val gases =
-                (listOf(cylinders.firstOrNull()?.gas) + switches.map { (index, mix) -> mix ?: index?.let { cylinders.getOrNull(it)?.gas } })
-                    .filterNotNull()
-                    .distinct()
+            fun GasChange.gas() = mix ?: cylinder?.let { cylinders.getOrNull(it)?.gas }
+            val gases = (listOf(cylinders.firstOrNull()?.gas) + switches.map { it.gas() }).filterNotNull().distinct()
+            val gasSwitches = switches.mapNotNull { switch ->
+                val gas = switch.gas()
+                val seconds = switch.seconds
+                if (gas == null || seconds == null) null else DecodedGasSwitch(start + (seconds * DiveLogs.MILLIS_PER_SECOND).toLong(), gas)
+            }
             val dive =
                 DecodedDive(
                     maxDepthMeters = maxDepth,
@@ -85,9 +88,12 @@ internal object SubsurfaceXmlParser {
                 dive = dive,
                 localStart = localStart,
                 title = site?.name,
+                gasSwitches = gasSwitches,
             )
         }
     }
+
+    private class GasChange(val cylinder: Int?, val mix: DiveGas?, val seconds: Double?)
 
     private class State {
         val sites = mutableMapOf<String, Site>()
@@ -127,7 +133,12 @@ internal object SubsurfaceXmlParser {
                 "temperature" -> dive.waterTemperature = attribute("water")?.let(::celsius)
                 "event" ->
                     if (attribute("name") == "gaschange") {
-                        dive.switches += attribute("cylinder")?.toIntOrNull() to gas(attribute("o2"), attribute("he"))
+                        dive.switches +=
+                            GasChange(
+                                attribute("cylinder")?.toIntOrNull(),
+                                gas(attribute("o2"), attribute("he")),
+                                attribute("time")?.let(::seconds),
+                            )
                     }
                 "sample" ->
                     dive.samples +=

@@ -23,13 +23,19 @@ final class SwiftFitDecoder: FitDecoder {
             throw ActivityFileException(message: "Couldn't read FIT file: \(error)", cause: nil).asError()
         }
         let messages = listener.fitMessages
+        let diveMessages = Self.diveMessages(messages)
+        let session = messages.sessionMesgs.first
 
         return DecodedActivity(
             fileId: messages.fileIdMesgs.first.map(Self.fileId),
             sessions: messages.sessionMesgs.map(Self.summary),
             laps: messages.lapMesgs.map(Self.summary),
             records: messages.recordMesgs.map(Self.record),
-            dive: Self.dive(messages),
+            dive: FitDives.shared.interpret(
+                messages: diveMessages,
+                sport: session?.getSport().map { String(describing: $0) },
+                subSport: session?.getSubSport().map { String(describing: $0) }
+            ),
             // FIT times are UTC.
             localStart: nil,
             title: nil,
@@ -38,7 +44,10 @@ final class SwiftFitDecoder: FitDecoder {
             jumps: messages.jumpMesgs.map { m in
                 DecodedJump(hangTimeSeconds: Self.double(m.getHangTime().map(Double.init)), distanceMeters: Self.double(m.getDistance().map(Double.init)))
             },
-            athlete: Self.athlete(messages)
+            athlete: Self.athlete(messages),
+            gasSwitches: FitDives.shared.gasSwitches(messages: diveMessages),
+            tankUpdates: FitDives.shared.tankUpdates(messages: diveMessages),
+            notes: nil
         )
     }
 
@@ -95,10 +104,10 @@ final class SwiftFitDecoder: FitDecoder {
     }
 
     /// The dive messages as they are; FitDives (Kotlin) interprets them, as for the Java and JS decoders.
-    private static func dive(_ messages: FitMessages) -> DecodedDive? {
+    private static func diveMessages(_ messages: FitMessages) -> FitDiveMessages {
         let session = messages.sessionMesgs.first
         let settings = messages.diveSettingsMesgs.first
-        let diveMessages = FitDiveMessages(
+        return FitDiveMessages(
             summaries: messages.diveSummaryMesgs.map { m in
                 FitDiveSummary(
                     referenceMesg: m.getReferenceMesg().map { String(describing: $0) },
@@ -112,7 +121,14 @@ final class SwiftFitDecoder: FitDecoder {
                     oxygenToxicityOtu: int(m.getO2Toxicity().map(Int32.init)),
                     avgRmv: double(m.getAvgRmv()),
                     avgVolumeSac: double(m.getAvgVolumeSac()),
-                    avgPressureSac: double(m.getAvgPressureSac())
+                    avgPressureSac: double(m.getAvgPressureSac()),
+                    startN2: int(m.getStartN2().map(Int32.init)),
+                    endN2: int(m.getEndN2().map(Int32.init)),
+                    avgAscentRate: double(m.getAvgAscentRate()),
+                    maxAscentRate: double(m.getMaxAscentRate()),
+                    avgDescentRate: double(m.getAvgDescentRate()),
+                    maxDescentRate: double(m.getMaxDescentRate()),
+                    descentTimeSeconds: double(m.getDescentTime())
                 )
             },
             gradientFactorLow: int(settings?.getGfLow().map(Int32.init)),
@@ -127,25 +143,34 @@ final class SwiftFitDecoder: FitDecoder {
                 )
             },
             gasSwitches: messages.eventMesgs.compactMap { m in
-                m.getEvent() == .diveGasSwitched ? m.getData().map { KotlinInt(value: Int32(truncatingIfNeeded: $0)) } : nil
+                guard m.getEvent() == .diveGasSwitched, let data = m.getData() else { return nil }
+                return FitGasSwitch(
+                    timestampMillis: m.getTimestamp().map { KotlinLong(value: millis($0)) },
+                    gasIndex: Int32(truncatingIfNeeded: data)
+                )
             },
             tanks: messages.tankSummaryMesgs.map { m in
                 FitTankSummary(
                     startPressureBar: double(m.getStartPressure()),
                     endPressureBar: double(m.getEndPressure()),
-                    volumeUsedLiters: double(m.getVolumeUsed())
+                    volumeUsedLiters: double(m.getVolumeUsed()),
+                    sensor: m.getSensor().map { KotlinLong(value: Int64($0)) }
                 )
             },
             entry: position(session?.getStartPositionLat(), session?.getStartPositionLong()),
             exit: position(session?.getEndPositionLat(), session?.getEndPositionLong()),
             sessionMaxDepthMeters: double(session?.getMaxDepth()),
             sessionAvgDepthMeters: double(session?.getAvgDepth()),
-            sessionDiveNumber: int(session?.getDiveNumber().map(Int32.init(truncatingIfNeeded:)))
-        )
-        return FitDives.shared.interpret(
-            messages: diveMessages,
-            sport: session?.getSport().map { String(describing: $0) },
-            subSport: session?.getSubSport().map { String(describing: $0) }
+            sessionDiveNumber: int(session?.getDiveNumber().map(Int32.init(truncatingIfNeeded:))),
+            waterType: settings?.getWaterType().map { String(describing: $0) },
+            waterDensityKgPerM3: double(settings?.getWaterDensity().map(Double.init)),
+            tankUpdates: messages.tankUpdateMesgs.map { m in
+                FitTankUpdate(
+                    timestampMillis: m.getTimestamp().map { KotlinLong(value: millis($0)) },
+                    sensor: m.getSensor().map { KotlinLong(value: Int64($0)) },
+                    pressureBar: double(m.getPressure())
+                )
+            }
         )
     }
 
@@ -199,7 +224,10 @@ final class SwiftFitDecoder: FitDecoder {
             rearShiftCount: int(m.getRearGearShiftCount().map(Int32.init)),
             jumpCount: int(m.getJumpCount().map(Int32.init)),
             totalGrit: double(m.getTotalGrit().map(Double.init)),
-            avgFlow: double(m.getAvgFlow().map(Double.init))
+            avgFlow: double(m.getAvgFlow().map(Double.init)),
+            totalCalories: int(m.getTotalCalories().map(Int32.init)),
+            aerobicTrainingEffect: double(m.getTotalTrainingEffect()),
+            anaerobicTrainingEffect: double(m.getTotalAnaerobicTrainingEffect())
         )
     }
 
@@ -231,7 +259,10 @@ final class SwiftFitDecoder: FitDecoder {
             rearShiftCount: int(m.getRearGearShiftCount().map(Int32.init)),
             jumpCount: int(m.getJumpCount().map(Int32.init)),
             totalGrit: double(m.getTotalGrit().map(Double.init)),
-            avgFlow: double(m.getAvgFlow().map(Double.init))
+            avgFlow: double(m.getAvgFlow().map(Double.init)),
+            totalCalories: int(m.getTotalCalories().map(Int32.init)),
+            aerobicTrainingEffect: nil,
+            anaerobicTrainingEffect: nil
         )
     }
 
@@ -247,7 +278,22 @@ final class SwiftFitDecoder: FitDecoder {
             speedMps: double(m.getEnhancedSpeed() ?? m.getSpeed()),
             distanceMeters: double(m.getDistance()),
             temperatureCelsius: double(m.getTemperature().map(Double.init)),
-            depthMeters: double(m.getDepth())
+            depthMeters: double(m.getDepth()),
+            ppO2Bar: double(m.getPo2()),
+            measuredPpO2Bars: [],
+            cnsPercent: int(m.getCnsLoad().map(Int32.init)),
+            n2LoadPercent: int(m.getN2Load().map(Int32.init)),
+            ndlSeconds: long(m.getNdlTime()),
+            nextStopDepthMeters: double(m.getNextStopDepth()),
+            nextStopSeconds: long(m.getNextStopTime()),
+            ttsSeconds: long(m.getTimeToSurface()),
+            respirationRate: double(m.getEnhancedRespirationRate() ?? m.getRespirationRate().map(Double.init)),
+            verticalOscillationMm: double(m.getVerticalOscillation()),
+            stanceTimeMs: double(m.getStanceTime()),
+            stepLengthMm: double(m.getStepLength()),
+            verticalRatioPercent: double(m.getVerticalRatio()),
+            stanceTimeBalancePercent: double(m.getStanceTimeBalance()),
+            leftRightBalance: int(m.getLeftRightBalance().map(Int32.init))
         )
     }
 
@@ -258,4 +304,6 @@ final class SwiftFitDecoder: FitDecoder {
     private static func double(_ value: Double?) -> KotlinDouble? { value.map { KotlinDouble(value: $0) } }
 
     private static func int(_ value: Int32?) -> KotlinInt? { value.map { KotlinInt(value: $0) } }
+
+    private static func long(_ value: UInt32?) -> KotlinLong? { value.map { KotlinLong(value: Int64($0)) } }
 }

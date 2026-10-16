@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.activityfile
 
+import io.github.solcott.activitytracker.lexicon.app.WaterType
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -8,12 +9,29 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class FitDivesTest {
+    @Suppress("LongParameterList") // Each kind of dive message a test varies.
     private fun messages(
         gases: List<FitDiveGas> = emptyList(),
         switches: List<Int> = emptyList(),
         summaries: List<FitDiveSummary> = emptyList(),
         tanks: List<FitTankSummary> = emptyList(),
-    ) = FitDiveMessages(summaries, 40, 85, gases, switches, tanks, null, null, null, null, null)
+        switchTimes: List<Long?> = switches.indices.map { (it + 1) * 60_000L },
+        tankUpdates: List<FitTankUpdate> = emptyList(),
+    ) =
+        FitDiveMessages(
+            summaries,
+            40,
+            85,
+            gases,
+            switches.zip(switchTimes) { index, time -> FitGasSwitch(time, index) },
+            tanks,
+            null,
+            null,
+            null,
+            null,
+            null,
+            tankUpdates = tankUpdates,
+        )
 
     private fun gas(index: Int, o2: Int, he: Int = 0, status: String? = "ENABLED", mode: String? = null) =
         FitDiveGas(index, o2, he, status, mode)
@@ -69,7 +87,84 @@ class FitDivesTest {
     fun anUnusedTransmitterIsNotATank() {
         val tanks = listOf(FitTankSummary(210.0, 50.0, 0.0), FitTankSummary(0.0, 0.0, null))
         val dive = FitDives.interpret(messages(tanks = tanks), "diving", null)!!
-        assertEquals(listOf(DiveTank(210.0, 50.0, null)), dive.tanks)
+        assertEquals(listOf(DiveTank(210.0, 50.0, null)), dive.tanks.map { it.copy(sensor = null) })
+    }
+
+    @Test
+    fun switchesNameTheirGasAndDropUnknownSlots() {
+        val gases = listOf(gas(0, 21), gas(1, 50), gas(2, 21, status = "disabled"))
+        val messages = messages(gases, switches = listOf(1, 7, 2, 0), switchTimes = listOf(1_920_000L, 2_000_000L, 2_100_000L, 2_400_000L))
+        assertEquals(
+            listOf(DecodedGasSwitch(1_920_000, DiveGas(50, 0)), DecodedGasSwitch(2_400_000, DiveGas(21, 0))),
+            FitDives.gasSwitches(messages),
+            "slot 7 doesn't exist and slot 2 is disabled; the switch back to air stays",
+        )
+        assertEquals(listOf(DiveGas(21, 0), DiveGas(50, 0)), FitDives.interpret(messages, "diving", null)!!.gases, "each gas once")
+    }
+
+    @Test
+    fun aSwitchWithoutATimeIsDroppedButStillNamesAGasBreathed() {
+        val messages = messages(listOf(gas(0, 21), gas(1, 50)), switches = listOf(1), switchTimes = listOf(null))
+        assertEquals(emptyList(), FitDives.gasSwitches(messages))
+        assertEquals(listOf(DiveGas(21, 0), DiveGas(50, 0)), FitDives.interpret(messages, "diving", null)!!.gases)
+    }
+
+    @Test
+    fun tankUpdatesFollowTheTankSummariesSensors() {
+        val tanks =
+            listOf(
+                FitTankSummary(210.0, 50.0, null, sensor = 9),
+                FitTankSummary(0.0, 0.0, null, sensor = 3),
+                FitTankSummary(200.0, 190.0, null, sensor = 4),
+            )
+        val updates =
+            listOf(
+                FitTankUpdate(1_000, 4, 200.0),
+                FitTankUpdate(1_000, 9, 210.0),
+                FitTankUpdate(2_000, 3, 0.0),
+                FitTankUpdate(3_000, 5, 180.0),
+                FitTankUpdate(null, 9, 200.0),
+            )
+        val messages = messages(tanks = tanks, tankUpdates = updates)
+        assertEquals(
+            listOf("9", "4"),
+            FitDives.interpret(messages, "diving", null)!!.tanks.map { it.sensor },
+            "in tank_summary order, unused left out",
+        )
+        assertEquals(
+            listOf(DecodedTankUpdate(1_000, "4", 200.0), DecodedTankUpdate(1_000, "9", 210.0)),
+            FitDives.tankUpdates(messages),
+            "readings from an unused or unknown sensor, or with no time, are dropped",
+        )
+    }
+
+    @Test
+    fun tankUpdatesWithoutSummariesMakeTheirOwnTanks() {
+        val updates = listOf(FitTankUpdate(1_000, 4, 200.0), FitTankUpdate(2_000, 4, 150.0))
+        val dive = FitDives.interpret(messages(tankUpdates = updates), "diving", null)!!
+        assertEquals(listOf(DiveTank(200.0, 150.0, null, sensor = "4")), dive.tanks)
+        assertEquals(2, FitDives.tankUpdates(messages(tankUpdates = updates)).size)
+    }
+
+    @Test
+    fun readsWaterTypeAndTheSummarysNitrogenAndRates() {
+        val summary =
+            summary("session")
+                .copy(startN2 = 10, endN2 = 55, avgAscentRate = 0.15, maxAscentRate = 0.0, maxDescentRate = 0.4, descentTimeSeconds = 300.0)
+        val dive =
+            FitDives.interpret(
+                messages(summaries = listOf(summary)).copy(waterType = "EN13319", waterDensityKgPerM3 = 1020.0),
+                "diving",
+                null,
+            )!!
+        assertEquals(10 to 55, dive.startN2 to dive.endN2)
+        assertEquals(0.15, dive.avgAscentRateMps)
+        assertNull(dive.maxAscentRateMps, "0 is unset")
+        assertEquals(0.4, dive.maxDescentRateMps)
+        assertEquals(300.0, dive.descentTimeSeconds)
+        assertEquals(WaterType.EN13319, dive.waterType)
+        assertEquals(1020.0, dive.waterDensityKgPerM3)
+        assertNull(FitDives.interpret(messages().copy(waterType = "invalid"), "diving", null)!!.waterType)
     }
 
     @Test

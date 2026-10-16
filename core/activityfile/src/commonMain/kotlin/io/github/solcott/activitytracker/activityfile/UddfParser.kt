@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.activityfile
 
+import kotlin.math.roundToInt
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 
@@ -69,15 +70,17 @@ internal object UddfParser {
         }
     }
 
-    private class Tank : Element {
+    private class Tank(val id: String?) : Element {
         var mixRef: String? = null
         var beginPascals: Double? = null
         var endPascals: Double? = null
+        var volumeCubicMeters: Double? = null
 
         override fun read(name: String, parent: String?, text: String) {
             when (name) {
                 "tankpressurebegin" -> beginPascals = text.toDoubleOrNull()
                 "tankpressureend" -> endPascals = text.toDoubleOrNull()
+                "tankvolume" -> volumeCubicMeters = text.toDoubleOrNull()
             }
         }
     }
@@ -86,12 +89,31 @@ internal object UddfParser {
         var seconds: Double? = null
         var depth: Double? = null
         var temperature: Double? = null
+        var heartRate: Int? = null
+        var switchMix: String? = null
+        var calculatedPo2: Double? = null
+        val measuredPo2 = mutableListOf<Double>()
+        var cns: Double? = null
+        var noDecoSeconds: Double? = null
+        var decoStopDepth: Double? = null
+        var decoStopSeconds: Double? = null
+        /** Each `tankpressure`, in Pascal, by the `tankdata` its `ref` names (null when it names none). */
+        val tankPressures = mutableListOf<Pair<String?, Double>>()
+        /** The `ref` of the `tankpressure` being read, which its text belongs to. */
+        var tankRef: String? = null
 
         override fun read(name: String, parent: String?, text: String) {
+            val number = text.toDoubleOrNull()
             when (name) {
-                "divetime" -> seconds = text.toDoubleOrNull()
-                "depth" -> depth = text.toDoubleOrNull()
-                "temperature" -> temperature = text.toDoubleOrNull()
+                "divetime" -> seconds = number
+                "depth" -> depth = number
+                "temperature" -> temperature = number
+                "heartrate" -> heartRate = number?.toInt()
+                "calculatedpo2" -> calculatedPo2 = number
+                "measuredpo2" -> number?.let { measuredPo2 += it }
+                "cns" -> cns = number
+                "nodecotime" -> noDecoSeconds = number
+                "tankpressure" -> number?.let { tankPressures += tankRef to it }
             }
         }
     }
@@ -108,6 +130,13 @@ internal object UddfParser {
         val waypoints = mutableListOf<Waypoint>()
         val switchedMixes = mutableListOf<String>()
         var closedCircuit = false
+        var airTemperature: Double? = null
+        var altitude: Double? = null
+        var visibility: Double? = null
+        var noFlySeconds: Double? = null
+        var desaturationSeconds: Double? = null
+        var highestPo2: Double? = null
+        val notes = mutableListOf<String>()
 
         override fun read(name: String, parent: String?, text: String) {
             val number = text.toDoubleOrNull()
@@ -118,6 +147,13 @@ internal object UddfParser {
                 "greatestdepth" -> greatestDepth = number
                 "averagedepth" -> averageDepth = number
                 "diveduration" -> duration = number
+                "airtemperature" -> airTemperature = number
+                "altitude" -> if (parent == "informationbeforedive") altitude = number
+                "visibility" -> visibility = number
+                "noflighttime" -> noFlySeconds = number
+                "desaturationtime" -> desaturationSeconds = number
+                "highestpo2" -> highestPo2 = number
+                "para" -> if (parent == "notes") notes += text
             }
         }
 
@@ -128,15 +164,9 @@ internal object UddfParser {
             val site = links.firstNotNullOfOrNull { file.sites[it] }
             val computer = links.firstNotNullOfOrNull { file.computers[it] } ?: onlyComputer
             val mixes = (switchedMixes + tanks.mapNotNull { it.mixRef } + links).mapNotNull { file.mixes[it] }
-            val records = waypoints.map { w ->
-                SampleBuilder()
-                    .apply {
-                        time = w.seconds?.let { start + (it * DiveLogs.MILLIS_PER_SECOND).toLong() }
-                        depth = w.depth
-                        temperature = w.temperature?.let(::celsius)
-                    }
-                    .build()
-            }
+            fun timeOf(w: Waypoint) = w.seconds?.let { start + (it * DiveLogs.MILLIS_PER_SECOND).toLong() }
+            val sensors = tanks.mapIndexed { i, tank -> tank.id ?: "tank$i" }
+            val tankUpdates = tankUpdates(sensors, ::timeOf)
             val dive =
                 DecodedDive(
                     maxDepthMeters = greatestDepth,
@@ -149,26 +179,83 @@ internal object UddfParser {
                     gases = mixes.mapNotNull { DiveLogs.gasFromFractions(it.oxygen, it.helium) }.distinct(),
                     closedCircuit = closedCircuit,
                     avgDepthMeters = averageDepth,
-                    tanks =
-                        tanks
-                            .filter { it.beginPascals != null || it.endPascals != null }
-                            .map {
-                                DiveTank(it.beginPascals?.div(DiveLogs.PASCALS_PER_BAR), it.endPascals?.div(DiveLogs.PASCALS_PER_BAR), null)
-                            },
+                    tanks = tanks(file, sensors, tankUpdates.map { it.sensor }.toSet()),
                     entry = site?.position(),
                     siteName = site?.name,
+                    airTemperatureCelsius = airTemperature?.let(::celsius),
+                    visibilityMeters = visibility,
+                    altitudeMeters = altitude,
+                    noFlyTimeSeconds = noFlySeconds,
+                    desaturationTimeSeconds = desaturationSeconds,
+                    highestPpO2Bar = highestPo2?.let(::bar),
                 )
             val elapsed = duration?.takeIf { it > 0 } ?: waypoints.mapNotNull { it.seconds }.maxOrNull()?.takeIf { it > 0 }
             return DecodedActivity(
                 fileId = computer?.let { DiveLogs.source(it.model ?: it.name, it.manufacturer) },
                 sessions = listOf(DiveLogs.summary(dive, start, elapsed)),
                 laps = emptyList(),
-                records = records,
+                records = records(::timeOf),
                 dive = dive,
                 localStart = localStart,
                 title = site?.name,
+                gasSwitches =
+                    waypoints.mapNotNull { w ->
+                        val gas = w.switchMix?.let(file.mixes::get)?.let { DiveLogs.gasFromFractions(it.oxygen, it.helium) }
+                        val time = timeOf(w)
+                        if (gas == null || time == null) null else DecodedGasSwitch(time, gas)
+                    },
+                tankUpdates = tankUpdates,
+                notes = notes.joinToString("\n\n").trim().ifEmpty { null },
             )
         }
+
+        private fun records(timeOf: (Waypoint) -> Long?) = waypoints.map { w ->
+            SampleBuilder()
+                .apply {
+                    time = timeOf(w)
+                    depth = w.depth
+                    temperature = w.temperature?.let(::celsius)
+                    heartRate = w.heartRate
+                }
+                .build()
+                .copy(
+                    ppO2Bar = w.calculatedPo2?.let(::bar),
+                    measuredPpO2Bars = w.measuredPo2.map(::bar),
+                    cnsPercent = w.cns?.roundToInt(),
+                    ndlSeconds = w.noDecoSeconds?.toLong(),
+                    nextStopDepthMeters = w.decoStopDepth,
+                    nextStopSeconds = w.decoStopSeconds?.toLong(),
+                )
+        }
+
+        private fun tankUpdates(sensors: List<String>, timeOf: (Waypoint) -> Long?) = waypoints.flatMap { w ->
+            val time = timeOf(w) ?: return@flatMap emptyList()
+            w.tankPressures.mapNotNull { (ref, pascals) ->
+                // A reading that names no tank is the only tank's.
+                val sensor = ref?.takeIf { it in sensors } ?: sensors.singleOrNull()?.takeIf { ref == null }
+                sensor?.let { DecodedTankUpdate(time, it, pascals / DiveLogs.PASCALS_PER_BAR) }
+            }
+        }
+
+        /** Each tank that says anything: a pressure, a volume or readings over time ([readTanks], by sensor). */
+        private fun tanks(file: State, sensors: List<String>, readTanks: Set<String>) =
+            tanks.zip(sensors).mapNotNull { (tank, sensor) ->
+                val gas = tank.mixRef?.let(file.mixes::get)?.let { DiveLogs.gasFromFractions(it.oxygen, it.helium) }
+                val volume = tank.volumeCubicMeters?.takeIf { it > 0 }?.times(LITERS_PER_CUBIC_METER)
+                val noPressures = tank.beginPascals == null && tank.endPascals == null
+                if (noPressures && volume == null && sensor !in readTanks) {
+                    null
+                } else {
+                    DiveTank(
+                        tank.beginPascals?.div(DiveLogs.PASCALS_PER_BAR),
+                        tank.endPascals?.div(DiveLogs.PASCALS_PER_BAR),
+                        null,
+                        volumeLiters = volume,
+                        gas = gas,
+                        sensor = sensor,
+                    )
+                }
+            }
 
         /** A 0, 0 position is an exporter's placeholder, not a site in the Gulf of Guinea. */
         private fun Site.position(): DivePosition? =
@@ -179,6 +266,9 @@ internal object UddfParser {
 
     /** UDDF says Kelvin, but some exporters write Celsius anyway; no water a diver survives is below 200 K, and none is above 200 °C. */
     private fun celsius(value: Double) = if (value > KELVIN_OR_CELSIUS) value - DiveLogs.KELVIN_OFFSET else value
+
+    /** UDDF says Pascal, but a partial pressure above 10 bar can't be breathed, so a smaller value was written in bar. */
+    private fun bar(value: Double) = if (value > BAR_OR_PASCAL) value / DiveLogs.PASCALS_PER_BAR else value
 
     private class State {
         val sites = mutableMapOf<String, Site>()
@@ -209,10 +299,20 @@ internal object UddfParser {
 
         private fun startInDive(current: Dive, name: String, attribute: (String) -> String?) {
             when (name) {
-                "tankdata" -> tank = Tank()
+                "tankdata" -> tank = Tank(attribute("id"))
                 "waypoint" -> waypoint = Waypoint()
                 "link" -> attribute("ref")?.let { ref -> tank?.let { it.mixRef = ref } ?: current.links.add(ref) }
-                "switchmix" -> attribute("ref")?.let { current.switchedMixes.add(it) }
+                "switchmix" ->
+                    attribute("ref")?.let { ref ->
+                        current.switchedMixes.add(ref)
+                        waypoint?.switchMix = ref
+                    }
+                "tankpressure" -> waypoint?.tankRef = attribute("ref")
+                "decostop" ->
+                    waypoint?.let { w ->
+                        w.decoStopDepth = attribute("decodepth")?.toDoubleOrNull()
+                        w.decoStopSeconds = attribute("duration")?.toDoubleOrNull()
+                    }
                 "divemode" -> if (attribute("type") == "closedcircuit") current.closedCircuit = true
                 "setpo2" -> current.closedCircuit = true
             }
@@ -247,4 +347,6 @@ internal object UddfParser {
     }
 
     private const val KELVIN_OR_CELSIUS = 200.0
+    private const val BAR_OR_PASCAL = 10.0
+    private const val LITERS_PER_CUBIC_METER = 1000.0
 }

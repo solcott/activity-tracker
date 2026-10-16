@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.activityfile
 
+import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.GearChange
+import io.github.solcott.activitytracker.lexicon.app.Lap
 import io.github.solcott.activitytracker.lexicon.app.StreamChannel
 import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.test.Test
@@ -57,6 +59,171 @@ class StreamBuilderTest {
         val changes = listOf(DecodedGearChange((start + 30.seconds).toEpochMilliseconds(), rear = true, 2, null, 5, null))
         val data = assertNotNull(StreamBuilder.fromRecords(listOf(sample(0, hr = 100)), start.toEpochMilliseconds(), changes))
         assertEquals(listOf(GearChange(30, 2, 5)), data.gears)
+    }
+
+    private fun at(sec: Long) = (start + sec.seconds).toEpochMilliseconds()
+
+    private fun dive(sec: Long, depth: Double = 20.0) = sample(sec).copy(depthMeters = depth)
+
+    @Suppress("LongParameterList") // Everything fromRecords takes besides the records.
+    private fun build(
+        records: List<DecodedSample>,
+        switches: List<DecodedGasSwitch> = emptyList(),
+        gases: List<DiveGas> = emptyList(),
+        tanks: List<DiveTank> = emptyList(),
+        updates: List<DecodedTankUpdate> = emptyList(),
+        laps: List<DecodedSummary> = emptyList(),
+        elapsed: Double? = null,
+    ) = assertNotNull(StreamBuilder.fromRecords(records, at(0), emptyList(), switches, gases, tanks, updates, laps, elapsed))
+
+    @Test
+    fun keepsDiveStateInLexiconUnits() {
+        val records =
+            listOf(
+                dive(0)
+                    .copy(
+                        ppO2Bar = 0.42,
+                        cnsPercent = 1,
+                        n2LoadPercent = 10,
+                        ndlSeconds = 900,
+                        nextStopDepthMeters = 0.0,
+                        nextStopSeconds = 0,
+                        ttsSeconds = 60,
+                    ),
+                dive(10)
+                    .copy(
+                        ppO2Bar = 1.3,
+                        measuredPpO2Bars = listOf(1.18, 1.20, 1.22),
+                        ndlSeconds = 0,
+                        nextStopDepthMeters = 6.0,
+                        nextStopSeconds = 120,
+                        ttsSeconds = 480,
+                    ),
+            )
+        val data = build(records)
+        assertEquals(listOf(420, 1200), data.ppO2, "millibar; the cells' average wins over the calculated value")
+        assertEquals(listOf(1, null), data.cns)
+        assertEquals(listOf(10, null), data.n2Load)
+        assertEquals(listOf(900, 0), data.ndl)
+        assertEquals(listOf(null, 600), data.decoStopDepth, "centimeters, and none outside deco")
+        assertEquals(listOf(null, 120), data.decoStopTime)
+        assertEquals(listOf(60, 480), data.tts)
+    }
+
+    @Test
+    fun aRecreationalDiveHasNoDecoChannels() {
+        val data = build(listOf(dive(0).copy(temperatureCelsius = 24.0), dive(10)))
+        assertEquals(listOf(StreamChannel.TEMPERATURE, StreamChannel.DEPTH), data.channels)
+    }
+
+    @Test
+    fun keepsRespirationRunningDynamicsAndBalance() {
+        val records =
+            listOf(
+                sample(0, hr = 150)
+                    .copy(
+                        respirationRate = 30.55,
+                        verticalOscillationMm = 85.4,
+                        stanceTimeMs = 245.5,
+                        stepLengthMm = 1250.0,
+                        verticalRatioPercent = 6.83,
+                        stanceTimeBalancePercent = 49.75,
+                        leftRightBalance = 0x80 or 52,
+                    ),
+                // A balance without the right-side flag says nothing about which leg.
+                sample(1, hr = 151).copy(leftRightBalance = 48),
+            )
+        val data = build(records)
+        assertEquals(306, data.respirationRate!!.first(), "tenths of a breath")
+        assertEquals(85, data.verticalOscillation!!.first())
+        assertEquals(246, data.stanceTime!!.first())
+        assertEquals(1250, data.stepLength!!.first())
+        assertEquals(683, data.verticalRatio!!.first(), "hundredths of a percent")
+        assertEquals(4975, data.stanceTimeBalance!!.first())
+        assertEquals(listOf(52, null), data.leftRightBalance)
+    }
+
+    @Test
+    fun theFirstGasIsASwitchAtZero() {
+        val records = listOf(dive(0), dive(1920), dive(2400))
+        val air = DiveGas(21, 0)
+        val ean50 = DiveGas(50, 0)
+        assertEquals(
+            listOf(GasSwitch(0, 21, 0), GasSwitch(1920, 50, 0)),
+            build(records, listOf(DecodedGasSwitch(at(1920), ean50)), listOf(air, ean50)).gasSwitches,
+        )
+        assertEquals(listOf(GasSwitch(0, 32, 0)), build(records, gases = listOf(DiveGas(32, 0))).gasSwitches, "a single-gas dive")
+        assertEquals(
+            listOf(GasSwitch(0, 21, 0), GasSwitch(1920, 50, 0), GasSwitch(2400, 21, 0)),
+            build(
+                    records,
+                    listOf(DecodedGasSwitch(at(5), air), DecodedGasSwitch(at(1920), ean50), DecodedGasSwitch(at(2400), air)),
+                    listOf(air, ean50),
+                )
+                .gasSwitches,
+            "a switch to the first gas once under way moves to 0; a switch back stays",
+        )
+        assertNull(build(records).gasSwitches, "no gases, no switches")
+    }
+
+    @Test
+    fun tankReadingsGoOnTheNearestSample() {
+        val records = (0L..6L).map { dive(it * 10) }
+        val tanks =
+            listOf(
+                DiveTank(200.0, 150.0, null, sensor = "a"),
+                DiveTank(null, null, null, sensor = "b"),
+                DiveTank(210.0, 200.0, null, sensor = "c"),
+            )
+        val updates =
+            listOf(
+                DecodedTankUpdate(at(1), "a", 200.0),
+                DecodedTankUpdate(at(3), "a", 199.0),
+                DecodedTankUpdate(at(22), "a", 180.0),
+                DecodedTankUpdate(at(95), "a", 150.0),
+                DecodedTankUpdate(at(60), "c", 200.0),
+            )
+        val pressures = build(records, tanks = tanks, updates = updates).tankPressures!!
+        assertEquals(
+            listOf(200_000, null, 180_000, null, null, null, null),
+            pressures[0].pressure,
+            "the nearest reading wins; 35 s off has no place",
+        )
+        assertEquals(List(7) { null }, pressures[1].pressure, "a tank with no readings keeps its place")
+        assertEquals(listOf(null, null, null, null, null, null, 200_000), pressures[2].pressure)
+        assertNull(build(records, tanks = tanks).tankPressures)
+    }
+
+    @Test
+    fun keepsLapsButNotOneSpanningTheActivity() {
+        fun lap(startSec: Long, elapsed: Double, distance: Double) =
+            DecodedSummary(
+                null,
+                null,
+                at(startSec),
+                elapsed,
+                elapsed - 2,
+                distance,
+                12.0,
+                4.0,
+                6.5,
+                150,
+                170,
+                210,
+                88,
+                null,
+                totalDescentMeters = 3.0,
+            )
+        val records = listOf(sample(0, hr = 140), sample(600, hr = 150))
+        val laps = build(records, laps = listOf(lap(300, 300.0, 1500.0), lap(0, 300.0, 1400.0)), elapsed = 600.0).laps!!
+        assertEquals(listOf(0, 300), laps.map { it.start }, "in order")
+        assertEquals(Lap(0, 300, 298, 1400, 4000, 6500, 150, 170, 210, 88, 12, 3), laps.first())
+        assertNull(build(records, laps = listOf(lap(0, 600.4, 3000.0)), elapsed = 600.0).laps)
+        assertEquals(
+            1,
+            build(records, laps = listOf(lap(0, 400.0, 2000.0)), elapsed = 600.0).laps?.size,
+            "one lap that stops short is a lap",
+        )
     }
 
     @Test

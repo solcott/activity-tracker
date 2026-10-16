@@ -51,6 +51,31 @@ class SubsurfaceXmlParserTest {
     }
 
     @Test
+    fun keepsEachGasChangeAtItsEventsTime() {
+        val deco =
+            """<dive number='43' date='2024-03-05' time='08:00:00' duration='50:00 min'>
+              <cylinder o2='21.0%' start='200.0 bar' end='80.0 bar' />
+              <cylinder o2='50.0%' />
+              <divecomputer model='Suunto D5'>
+              <event time='32:00 min' type='25' flags='2' name='gaschange' cylinder='1' o2='50.0%' />
+              <event time='40:00 min' name='gaschange' cylinder='0' />
+              <event name='gaschange' cylinder='1' />
+              <sample time='0:10 min' depth='2.0 m' />
+              </divecomputer>
+            </dive>"""
+        val decoded = SubsurfaceXmlParser.parse(logbook(deco), zone).single()
+        val start = decoded.sessions.single().startTimeMillis!!
+        assertEquals(
+            listOf(1920L to DiveGas(50, 0), 2400L to DiveGas(21, 0)),
+            decoded.gasSwitches.map { (it.timestampMillis - start) / 1000 to it.gas },
+            "a change with no time is dropped; a cylinder index finds its gas",
+        )
+        assertEquals(listOf(DiveGas(21, 0), DiveGas(50, 0)), decoded.dive?.gases)
+        val ccr = SubsurfaceXmlParser.parse(logbook(ccrDive), zone).single()
+        assertEquals(listOf(DecodedGasSwitch(ccr.sessions.single().startTimeMillis!!, DiveGas(21, 35))), ccr.gasSwitches)
+    }
+
+    @Test
     fun readsARebreatherDiveFromItsFirstComputer() {
         val activity = read(logbook()).last()
         assertEquals(SubSport.CCR, activity.type.subSport)

@@ -6,6 +6,9 @@ package io.github.solcott.activitytracker.activityfile
  * SDK's messages into [DecodedActivity]; [DecodedActivityMapper] does the interpreting, so it stays the same everywhere.
  *
  * This is an interface rather than expect/actual because the iOS implementation is Swift.
+ *
+ * Every field the decoders read is in each pinned SDK's profile (Java and JS 21.218, Swift 21.217), dive state, running dynamics, power
+ * balance, `tank_update` and the dive summary's N₂, rates and descent time included; a field an SDK lacked would be passed as null there.
  */
 fun interface FitDecoder {
     /**

@@ -43,7 +43,20 @@ internal object ShearwaterXmlParser {
                 },
             dive = dive,
             localStart = localStart,
+            gasSwitches = gasSwitches(state.records, start),
         )
+    }
+
+    /** A switch wherever a record's gas differs from the one before it, the first record's gas included. */
+    private fun gasSwitches(records: List<RecordBuilder>, start: Long): List<DecodedGasSwitch> {
+        var breathing: DiveGas? = null
+        return records.mapNotNull { r ->
+            val gas = r.gas
+            val time = r.timeMillis
+            if (gas == null || time == null || gas == breathing) return@mapNotNull null
+            breathing = gas
+            DecodedGasSwitch(start + time, gas)
+        }
     }
 
     /** The `diveLog` values, which know the file's units. */

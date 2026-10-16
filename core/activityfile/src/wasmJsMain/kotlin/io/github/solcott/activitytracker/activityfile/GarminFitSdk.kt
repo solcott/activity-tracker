@@ -29,6 +29,7 @@ internal external interface FitMessages : JsAny {
     val diveGasMesgs: JsArray<JsDiveGasMesg>?
     val eventMesgs: JsArray<JsEventMesg>?
     val tankSummaryMesgs: JsArray<JsTankSummaryMesg>?
+    val tankUpdateMesgs: JsArray<JsTankUpdateMesg>?
     val deviceInfoMesgs: JsArray<JsDeviceInfoMesg>?
     val jumpMesgs: JsArray<JsJumpMesg>?
     val zonesTargetMesgs: JsArray<JsZonesTargetMesg>?
@@ -73,6 +74,9 @@ internal external interface JsSummaryMesg : JsAny {
     val jumpCount: JsAny?
     val totalGrit: JsAny?
     val avgFlow: JsAny?
+    val totalCalories: JsAny?
+    val totalTrainingEffect: JsAny?
+    val totalAnaerobicTrainingEffect: JsAny?
     // Session only: the FTP that intensity factor and TSS are relative to.
     val thresholdPower: JsAny?
     val intensityFactor: JsAny?
@@ -101,6 +105,21 @@ internal external interface JsRecordMesg : JsAny {
     val distance: JsAny?
     val temperature: JsAny?
     val depth: JsAny?
+    val po2: JsAny?
+    val cnsLoad: JsAny?
+    val n2Load: JsAny?
+    val ndlTime: JsAny?
+    val nextStopDepth: JsAny?
+    val nextStopTime: JsAny?
+    val timeToSurface: JsAny?
+    val respirationRate: JsAny?
+    val enhancedRespirationRate: JsAny?
+    val verticalOscillation: JsAny?
+    val stanceTime: JsAny?
+    val stepLength: JsAny?
+    val verticalRatio: JsAny?
+    val stanceTimeBalance: JsAny?
+    val leftRightBalance: JsAny?
 }
 
 internal external interface JsDiveSummaryMesg : JsAny {
@@ -116,11 +135,20 @@ internal external interface JsDiveSummaryMesg : JsAny {
     val avgRmv: JsAny?
     val avgVolumeSac: JsAny?
     val avgPressureSac: JsAny?
+    val startN2: JsAny?
+    val endN2: JsAny?
+    val avgAscentRate: JsAny?
+    val maxAscentRate: JsAny?
+    val avgDescentRate: JsAny?
+    val maxDescentRate: JsAny?
+    val descentTime: JsAny?
 }
 
 internal external interface JsDiveSettingsMesg : JsAny {
     val gfLow: JsAny?
     val gfHigh: JsAny?
+    val waterType: JsAny?
+    val waterDensity: JsAny?
 }
 
 internal external interface JsDiveGasMesg : JsAny {
@@ -166,6 +194,13 @@ internal external interface JsTankSummaryMesg : JsAny {
     val startPressure: JsAny?
     val endPressure: JsAny?
     val volumeUsed: JsAny?
+    val sensor: JsAny?
+}
+
+internal external interface JsTankUpdateMesg : JsAny {
+    val timestamp: JsAny?
+    val sensor: JsAny?
+    val pressure: JsAny?
 }
 
 internal external interface JsZonesTargetMesg : JsAny {

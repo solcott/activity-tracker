@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.activityfile
 
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
 import kotlin.test.Test
@@ -254,6 +255,82 @@ class DecodedActivityMapperTest {
         assertEquals(18.0, dive.maxDepthMeters)
         assertEquals(null, activity.distanceMeters, "a dive computer's 0 m is no distance")
         assertEquals(ActivityType(Sport.DIVE, SubSport.SINGLE_GAS), activity.type, "one gas breathed, whatever the watch's dive mode")
+    }
+
+    @Test
+    fun carriesTheDivesSummaryTanksSwitchesAndNotes() {
+        val records = listOf(record(0).copy(depthMeters = 0.0), record(60).copy(depthMeters = 10.0), record(120).copy(depthMeters = 0.0))
+        val tank = DiveTank(200.0, 60.0, null, volumeLiters = 12.0, gas = DiveGas(32, 0), sensor = "t")
+        val header =
+            DecodedDive(
+                18.0,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                listOf(DiveGas(32, 0)),
+                false,
+                tanks = listOf(tank),
+                startN2 = 10,
+                endN2 = 55,
+                maxAscentRateMps = 0.3,
+                descentTimeSeconds = 300.0,
+                waterType = "salt",
+                waterDensityKgPerM3 = 1025.0,
+                airTemperatureCelsius = 30.0,
+                visibilityMeters = 15.0,
+                altitudeMeters = 450.0,
+                noFlyTimeSeconds = 64_800.0,
+                desaturationTimeSeconds = 72_000.0,
+                highestPpO2Bar = 1.4,
+            )
+        val activity =
+            DecodedActivityMapper.map(
+                DecodedActivity(
+                    null,
+                    listOf(summary("diving", elapsed = 120.0)),
+                    emptyList(),
+                    records,
+                    header,
+                    gasSwitches = listOf(DecodedGasSwitch(start.toEpochMilliseconds(), DiveGas(32, 0))),
+                    tankUpdates = listOf(DecodedTankUpdate((start + 60.seconds).toEpochMilliseconds(), "t", 150.0)),
+                    notes = "  Turtle at the wall\n",
+                )
+            )
+        val dive = activity.dive!!
+        assertEquals(listOf(tank), dive.tanks)
+        assertEquals(10 to 55, dive.startN2 to dive.endN2)
+        assertEquals(0.3, dive.maxAscentRateMps)
+        assertEquals(300.0, dive.descentTimeSeconds)
+        assertEquals("salt" to 1025.0, dive.waterType to dive.waterDensityKgPerM3)
+        assertEquals(30.0, dive.airTemperatureCelsius)
+        assertEquals(15.0, dive.visibilityMeters)
+        assertEquals(450.0, dive.altitudeMeters)
+        assertEquals(64_800.0 to 72_000.0, dive.noFlyTimeSeconds to dive.desaturationTimeSeconds)
+        assertEquals(1.4, dive.highestPpO2Bar)
+        assertEquals("Turtle at the wall", activity.description)
+        assertEquals(listOf(GasSwitch(0, 32, 0)), activity.streams?.gasSwitches)
+        assertEquals(listOf(null, 150_000, null), activity.streams?.tankPressures?.single()?.pressure)
+    }
+
+    @Test
+    fun carriesCaloriesTrainingEffectAndRealLaps() {
+        val session = summary(elapsed = 600.0).copy(totalCalories = 450, aerobicTrainingEffect = 3.4, anaerobicTrainingEffect = 0.0)
+        fun lap(startSec: Long) = summary(elapsed = 300.0).copy(startTimeMillis = (start + startSec.seconds).toEpochMilliseconds())
+        val records = listOf(record(0, hr = 120), record(600, hr = 140))
+        val activity = DecodedActivityMapper.map(DecodedActivity(fileId(), listOf(session), listOf(lap(0), lap(300)), records))
+        assertEquals(450, activity.calories)
+        assertEquals(3.4, activity.aerobicTrainingEffect)
+        assertEquals(null, activity.anaerobicTrainingEffect, "0 is unset")
+        assertEquals(listOf(0, 300), activity.streams?.laps?.map { it.start })
+        assertEquals(null, activity.description)
+
+        val oneLap = DecodedActivityMapper.map(DecodedActivity(fileId(), listOf(session), listOf(summary(elapsed = 600.0)), records))
+        assertEquals(null, oneLap.streams?.laps, "one lap spanning the activity isn't kept")
+        val tcx = DecodedActivityMapper.map(DecodedActivity(fileId(), emptyList(), listOf(lap(0), lap(300)), records))
+        assertEquals(null, tcx.streams?.laps, "a file whose laps are its only summaries keeps none")
     }
 
     @Test
