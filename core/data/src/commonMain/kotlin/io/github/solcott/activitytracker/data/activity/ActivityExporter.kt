@@ -5,6 +5,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.activityfile.ExportActivity
 import io.github.solcott.activitytracker.activityfile.ExportPoints
+import io.github.solcott.activitytracker.activityfile.FitWriter
 import io.github.solcott.activitytracker.activityfile.GpxWriter
 import io.github.solcott.activitytracker.activityfile.TcxSport
 import io.github.solcott.activitytracker.activityfile.TcxWriter
@@ -31,6 +32,7 @@ import kotlinx.datetime.toLocalDateTime
 enum class ExportFormat(val extension: String, val mimeType: String) {
     GPX("gpx", Gpx.MIME_TYPE),
     TCX("tcx", "application/vnd.garmin.tcx+xml"),
+    FIT("fit", "application/vnd.ant.fit"),
 }
 
 /** An exported file waiting to be handed to the platform. Equal by name, type and the very same bytes, so it's cheap to compare. */
@@ -55,8 +57,8 @@ class NotSentYetException : IllegalStateException("The activity can be exported 
 class ExportUnreadableException(cause: Throwable? = null) : IllegalStateException("Couldn't read the activity's track or streams", cause)
 
 /**
- * Rebuilds the signed-in athlete's own activity as a GPX or TCX file from its record, its streams (from the AppView, as charts read them)
- * and its full track (from the `self` space, untrimmed by privacy zones: it's the athlete's own data).
+ * Rebuilds the signed-in athlete's own activity as a GPX, TCX or FIT file from its record, its streams (from the AppView, as charts read
+ * them) and its full track (from the `self` space, untrimmed by privacy zones: it's the athlete's own data).
  */
 @SingleIn(SessionScope::class)
 @Inject
@@ -123,24 +125,38 @@ class ActivityExporter(
                     maxHeartRate = record.maxHeartRate,
                     isDive = record.sport == Sport.DIVE,
                     points = ExportPoints.join(record.startedAt, track, streams),
+                    subSport = record.subSport,
+                    elevationGainMeters = record.elevationGain?.toDouble(),
+                    avgSpeedMps = record.avgSpeed?.div(MILLI),
+                    maxSpeedMps = record.maxSpeed?.div(MILLI),
+                    avgTemperatureCelsius = record.avgTemperature?.div(DECI),
+                    gearChanges = streams?.gears.orEmpty(),
+                    dive = record.dive,
                 )
-            val text =
+            val zone = TimeZone.currentSystemDefault()
+            val bytes =
                 when (format) {
-                    ExportFormat.GPX -> GpxWriter.write(activity)
-                    ExportFormat.TCX -> TcxWriter.write(activity)
+                    ExportFormat.GPX -> GpxWriter.write(activity).encodeToByteArray()
+                    ExportFormat.TCX -> TcxWriter.write(activity).encodeToByteArray()
+                    ExportFormat.FIT -> FitWriter.write(activity, zone)
                 }
-            ExportedFile(fileName(view, format, TimeZone.currentSystemDefault()), format.mimeType, text.encodeToByteArray())
+            ExportedFile(fileName(view, format, zone), format.mimeType, bytes)
         }
 
     companion object {
         private val EXPORTED_COLLECTIONS = setOf(Nsid.FEED_ACTIVITY, Nsid.FEED_ACTIVITY_STREAMS, Nsid.FEED_ACTIVITY_TRACK)
         private val INVALID_FILE_NAME_CHARS = Regex("""[/\\:*?"<>|\u0000-\u001F]""")
         private const val MAX_NAME_LENGTH = 80
+        private const val MILLI = 1000.0
+        private const val DECI = 10.0
 
-        /** What [track] and streams allow: GPX needs a track of two points or more, TCX a track or streams. */
+        /** What [track] and streams allow: GPX needs a track of two points or more, TCX and FIT a track or streams. */
         fun formats(track: List<LocationSample>?, hasStreams: Boolean): Set<ExportFormat> = buildSet {
             if ((track?.size ?: 0) >= 2) add(ExportFormat.GPX)
-            if (!track.isNullOrEmpty() || hasStreams) add(ExportFormat.TCX)
+            if (!track.isNullOrEmpty() || hasStreams) {
+                add(ExportFormat.TCX)
+                add(ExportFormat.FIT)
+            }
         }
 
         /** TCX knows only running and biking; everything else is `Other`. */

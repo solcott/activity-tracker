@@ -24,6 +24,7 @@ import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.export_action
+import io.github.solcott.activitytracker.composeApp.resources.export_format_fit
 import io.github.solcott.activitytracker.composeApp.resources.export_format_gpx
 import io.github.solcott.activitytracker.composeApp.resources.export_format_tcx
 import io.github.solcott.activitytracker.composeApp.resources.export_note
@@ -73,4 +74,5 @@ private val ExportFormat.label: StringResource
         when (this) {
             ExportFormat.GPX -> Res.string.export_format_gpx
             ExportFormat.TCX -> Res.string.export_format_tcx
+            ExportFormat.FIT -> Res.string.export_format_fit
         }

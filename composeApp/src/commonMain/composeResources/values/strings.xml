@@ -747,6 +747,7 @@
     <string name="export_action">Export</string>
     <string name="export_format_gpx">GPX</string>
     <string name="export_format_tcx">TCX</string>
+    <string name="export_format_fit">FIT</string>
     <string name="export_note">The file is rebuilt from what the app keeps, so it has no laps, sub-second timing or other fields the app doesn't store. It holds your full route, including any parts your privacy zones hide from others.</string>
     <string name="export_preparing">Preparing the file…</string>
     <string name="edit_activity_title">Edit activity</string>

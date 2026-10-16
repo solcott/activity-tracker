@@ -28,19 +28,19 @@ class ActivityDetailExportTest : ActivityDetailTestBase() {
         track = route
         streams = heartRate
         detail(repos()) {
-            val export = awaitUntil { it.loaded()?.export?.formats?.size == 2 }.loaded()!!.export!!
-            assertEquals(persistentListOf(ExportFormat.GPX, ExportFormat.TCX), export.formats)
+            val export = awaitUntil { it.loaded()?.export?.formats?.size == 3 }.loaded()!!.export!!
+            assertEquals(persistentListOf(ExportFormat.GPX, ExportFormat.TCX, ExportFormat.FIT), export.formats)
             cancelAndIgnoreRemainingEvents()
         }
     }
 
     @Test
-    fun anIndoorActivityOffersTcxOnly() = runTest {
+    fun anIndoorActivityOffersTcxAndFit() = runTest {
         author = staleAlice
         streams = heartRate
         detail(repos()) {
             val export = awaitUntil { it.loaded()?.export != null }.loaded()!!.export!!
-            assertEquals(persistentListOf(ExportFormat.TCX), export.formats)
+            assertEquals(persistentListOf(ExportFormat.TCX, ExportFormat.FIT), export.formats)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -72,7 +72,7 @@ class ActivityDetailExportTest : ActivityDetailTestBase() {
         track = route
         streams = heartRate
         detail(repos()) {
-            val ready = awaitUntil { it.loaded()?.export?.formats?.size == 2 }.loaded()!!
+            val ready = awaitUntil { it.loaded()?.export?.formats?.size == 3 }.loaded()!!
             val before = streamsRequests
             val gate = CompletableDeferred<Unit>()
             streamsGate = gate

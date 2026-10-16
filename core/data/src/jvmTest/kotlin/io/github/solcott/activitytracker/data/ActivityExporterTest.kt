@@ -1,5 +1,8 @@
 package io.github.solcott.activitytracker.data
 
+import io.github.solcott.activitytracker.activityfile.ActivityFileReader
+import io.github.solcott.activitytracker.activityfile.DiveGas
+import io.github.solcott.activitytracker.activityfile.GarminJavaFitDecoder
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityExporter
 import io.github.solcott.activitytracker.data.activity.ExportFormat
@@ -8,10 +11,13 @@ import io.github.solcott.activitytracker.data.activity.NotSentYetException
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Handle
+import io.github.solcott.activitytracker.lexicon.app.ActivityDive
+import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
@@ -75,10 +81,11 @@ class ActivityExporterTest {
 
     @Test
     fun formatsFollowTheDataStored() {
-        assertEquals(setOf(ExportFormat.GPX, ExportFormat.TCX), ActivityExporter.formats(route, hasStreams = true))
-        assertEquals(setOf(ExportFormat.GPX, ExportFormat.TCX), ActivityExporter.formats(route, hasStreams = false))
-        assertEquals(setOf(ExportFormat.TCX), ActivityExporter.formats(null, hasStreams = true))
-        assertEquals(setOf(ExportFormat.TCX), ActivityExporter.formats(route.take(1), hasStreams = false))
+        val all = setOf(ExportFormat.GPX, ExportFormat.TCX, ExportFormat.FIT)
+        assertEquals(all, ActivityExporter.formats(route, hasStreams = true))
+        assertEquals(all, ActivityExporter.formats(route, hasStreams = false))
+        assertEquals(setOf(ExportFormat.TCX, ExportFormat.FIT), ActivityExporter.formats(null, hasStreams = true))
+        assertEquals(setOf(ExportFormat.TCX, ExportFormat.FIT), ActivityExporter.formats(route.take(1), hasStreams = false))
         assertEquals(emptySet(), ActivityExporter.formats(null, hasStreams = false))
     }
 
@@ -143,6 +150,49 @@ class ActivityExporterTest {
         assertFalse("<Position>" in text)
         assertTrue("<ns3:Watts>210</ns3:Watts>" in text)
         assertFailsWith<ExportUnreadableException> { s.exporter.export(ride, ExportFormat.GPX) }
+    }
+
+    @Test
+    fun aRideWithGearsExportsAsFit() = runTest {
+        val s = pds.session()
+        val uri = s.activities.publish(draft(ActivityType(Sport.RIDE, SubSport.ROAD)))
+        val gears = listOf(GearChange(time = 1, front = 2, rear = 5))
+        serveStreams(uri, ActivityStreamData(time = listOf(0, 1, 2), heartRate = listOf(140, 141, 142), gears = gears))
+        val ride = view(uri, Sport.RIDE).let { it.copy(record = it.record.copy(subSport = SubSport.ROAD, movingTime = 1700)) }
+
+        val fit = s.exporter.export(ride, ExportFormat.FIT)
+        assertEquals("application/vnd.ant.fit", fit.mimeType)
+        assertTrue(fit.name.endsWith(" 2026-10-14.fit"), fit.name)
+        val read = ActivityFileReader(GarminJavaFitDecoder()).read(fit.bytes).single()
+        assertEquals(ActivityType(Sport.RIDE, SubSport.ROAD), read.type)
+        assertEquals(1700L, read.movingSeconds)
+        assertEquals(listOf(47.6, 47.6001, 47.6002), read.samples.map { kotlin.math.round(it.latitude * 1e4) / 1e4 })
+        assertEquals(listOf(140, 141, 142), read.streams?.heartRate)
+        assertEquals(gears, read.streams?.gears)
+    }
+
+    @Test
+    fun aDiveExportsItsSummaryAsFit() = runTest {
+        val s = pds.session()
+        val uri = s.activities.publish(draft(ActivityType(Sport.DIVE), gpx = false))
+        serveStreams(uri, ActivityStreamData(time = listOf(0, 60, 120), depth = listOf(0, 1800, 0)))
+        val dive =
+            view(uri, Sport.DIVE).let {
+                it.copy(
+                    record =
+                        it.record.copy(
+                            distance = null,
+                            dive = ActivityDive(maxDepth = 1800, diveNumber = 7, gases = listOf(ActivityDiveGas(32, 0))),
+                        )
+                )
+            }
+
+        val read = ActivityFileReader(GarminJavaFitDecoder()).read(s.exporter.export(dive, ExportFormat.FIT).bytes).single()
+        assertEquals(Sport.DIVE, read.type.sport)
+        assertEquals(listOf(0, 1800, 0), read.streams?.depth)
+        assertEquals(18.0, read.dive?.maxDepthMeters)
+        assertEquals(7, read.dive?.diveNumber)
+        assertEquals(listOf(DiveGas(32, 0)), read.dive?.gases)
     }
 
     @Test
