@@ -39,15 +39,17 @@ data class ExportActivity(
     val avgTemperatureCelsius: Double? = null,
     /** As the streams store them; only FIT writes them. */
     val gearChanges: List<GearChange> = emptyList(),
-    /** As the record stores it, in lexicon units; only FIT writes it. */
+    /** As the record stores it, in lexicon units; only FIT and UDDF write it. */
     val dive: ActivityDive? = null,
-    /** As the streams store them, in lexicon units; only FIT writes them. */
+    /** As the streams store them, in lexicon units; only FIT and UDDF write them. */
     val gasSwitches: List<GasSwitch> = emptyList(),
     val laps: List<Lap> = emptyList(),
     /** The record's power, cadence, calories, descent and shift counts, in lexicon units; only FIT writes them. */
     val totals: ExportTotals = ExportTotals(),
     /** From the zones record, which only the owner (and so only an export) reads in full; only FIT writes it. */
     val trainingLoad: TrainingLoad? = null,
+    /** The record's device ("Shearwater Perdix 2"); only UDDF writes it, as the dive computer. */
+    val device: String? = null,
 )
 
 /** The record's summary fields only FIT has a place for, in lexicon units. */
