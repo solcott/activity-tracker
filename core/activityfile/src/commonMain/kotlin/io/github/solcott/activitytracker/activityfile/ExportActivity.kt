@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.activityfile
 
+import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
+import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.math.roundToInt
 import kotlin.time.Duration
@@ -25,6 +27,16 @@ data class ExportActivity(
     val isDive: Boolean,
     /** In time order. */
     val points: List<ExportPoint>,
+    /** The lexicon sub-sport, which FIT's session names along with the sport. */
+    val subSport: String? = null,
+    val elevationGainMeters: Double? = null,
+    val avgSpeedMps: Double? = null,
+    val maxSpeedMps: Double? = null,
+    val avgTemperatureCelsius: Double? = null,
+    /** As the streams store them; only FIT writes them. */
+    val gearChanges: List<GearChange> = emptyList(),
+    /** As the record stores it, in lexicon units; only FIT writes it. */
+    val dive: ActivityDive? = null,
 )
 
 /** TCX's `Sport` attribute, which knows only these three. */
