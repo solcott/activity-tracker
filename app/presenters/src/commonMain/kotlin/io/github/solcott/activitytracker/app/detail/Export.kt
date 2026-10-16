@@ -20,9 +20,9 @@ import kotlinx.collections.immutable.toImmutableList
 /** The owner's export: [state] is null on someone else's activity or when nothing can be exported. */
 internal class Export(val state: ActivityExportState?, val export: (ExportFormat) -> Unit, val handedOff: () -> Unit)
 
-/** What the owner's loaded [track] and streams allow, in [ExportFormat] order. */
-internal fun exportFormats(track: List<LocationSample>?, hasStreams: Boolean): ImmutableList<ExportFormat> =
-    ActivityExporter.formats(track, hasStreams).sorted().toImmutableList()
+/** What the owner's loaded [track] and streams allow, UDDF only on a dive ([isDive]), in [ExportFormat] order. */
+internal fun exportFormats(track: List<LocationSample>?, hasStreams: Boolean, isDive: Boolean): ImmutableList<ExportFormat> =
+    ActivityExporter.formats(track, hasStreams, isDive).sorted().toImmutableList()
 
 /**
  * Exporting the signed-in athlete's own [activity] (null for someone else's) as one of [formats], which come from what the screen loaded

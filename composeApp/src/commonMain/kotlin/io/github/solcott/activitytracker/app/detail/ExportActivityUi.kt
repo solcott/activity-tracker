@@ -27,6 +27,7 @@ import io.github.solcott.activitytracker.composeApp.resources.export_action
 import io.github.solcott.activitytracker.composeApp.resources.export_format_fit
 import io.github.solcott.activitytracker.composeApp.resources.export_format_gpx
 import io.github.solcott.activitytracker.composeApp.resources.export_format_tcx
+import io.github.solcott.activitytracker.composeApp.resources.export_format_uddf
 import io.github.solcott.activitytracker.composeApp.resources.export_note
 import io.github.solcott.activitytracker.composeApp.resources.export_note_with_laps
 import io.github.solcott.activitytracker.composeApp.resources.export_preparing
@@ -79,4 +80,5 @@ private val ExportFormat.label: StringResource
             ExportFormat.GPX -> Res.string.export_format_gpx
             ExportFormat.TCX -> Res.string.export_format_tcx
             ExportFormat.FIT -> Res.string.export_format_fit
+            ExportFormat.UDDF -> Res.string.export_format_uddf
         }

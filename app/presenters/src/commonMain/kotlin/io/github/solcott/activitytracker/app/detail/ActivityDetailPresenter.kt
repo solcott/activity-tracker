@@ -36,6 +36,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.Sport
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
@@ -95,7 +96,8 @@ fun ActivityDetailPresenter(
     val manage = rememberManage(activity.takeIf { isOwn }, loadKey, feed, manager, navigator, flights) { loadKey++ }
     val ownRoute = rememberOwnRoute(activity?.uri?.takeIf { isOwn }, activities, flights)
     val hasStreams = charts.charts != null
-    val formats = remember(ownRoute.track, hasStreams) { exportFormats(ownRoute.track, hasStreams) }
+    val isDive = shown?.record?.sport == Sport.DIVE
+    val formats = remember(ownRoute.track, hasStreams, isDive) { exportFormats(ownRoute.track, hasStreams, isDive) }
     val export = rememberExport(shown?.takeIf { isOwn }, formats, !charts.charts?.laps.isNullOrEmpty(), exporter, flights)
 
     val sink: (ActivityDetailEvent) -> Unit = { event ->

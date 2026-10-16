@@ -36,6 +36,31 @@ class ActivityDetailExportTest : ActivityDetailTestBase() {
     }
 
     @Test
+    fun anOwnDiveAlsoOffersUddf() = runTest {
+        author = staleAlice
+        sport = "dive"
+        track = route
+        streams = heartRate
+        detail(repos()) {
+            val export = awaitUntil { it.loaded()?.export?.formats?.size == 4 }.loaded()!!.export!!
+            assertEquals(persistentListOf(ExportFormat.GPX, ExportFormat.TCX, ExportFormat.FIT, ExportFormat.UDDF), export.formats)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun anOwnRunDoesntOfferUddf() = runTest {
+        author = staleAlice
+        track = route
+        streams = heartRate
+        detail(repos()) {
+            val export = awaitUntil { it.loaded()?.export?.formats?.size == 3 }.loaded()!!.export!!
+            assertFalse(ExportFormat.UDDF in export.formats)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun anIndoorActivityOffersTcxAndFit() = runTest {
         author = staleAlice
         streams = heartRate
