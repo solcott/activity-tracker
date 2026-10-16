@@ -46,7 +46,6 @@ The activity detail screen shows the route on a MapLibre map (`ActivityMap`) on 
 - **Avoid.** Google Maps SDK (no wasmJs or desktop target, Google tiles only, billed per load). Mapbox v2+ (proprietary licence, billed per active user). `tile.openstreetmap.org` (its usage policy forbids app traffic). MapKit (iOS only).
 - **Feed vs detail.** Use the interactive map only on the activity detail screen. Feed cards stay static. Near term that's the Canvas polyline. Later, the AppView renders a PNG per activity at index time, using a provider's Static Maps API or self-hosted tileserver-gl, and serves it from an `app.activitytracker.*` endpoint.
 - **Attribution.** Every OSM-based provider requires "© OpenStreetMap contributors" plus the provider's own credit to be visible. Keep MapLibre's attribution control on.
-- **Privacy zones.** Repo records are public, and imported files carry exact start and end points, often a home address. Trim the polyline around the athlete's privacy zones before `putRecord`. The full-resolution track already stays in the `self` space (`feed.activityTrack`).
 
 ## Keep more of what activity files hold
 
@@ -93,6 +92,6 @@ Activities carry photos (`feed.activity#media`, an open union with `#image` only
 
 Three OpenSpec changes in `openspec/changes/` cover the rest of the local spaces work, plus route privacy and file export. Implement them in this order, and delete each entry when its change is archived.
 
-1. `add-privacy-zones`: zones and hide-start/end, stored in `self`, trim every `polyline` at write time and retroactively (from the track). Supersedes the "Privacy zones" bullet under "Show activities on real maps".
+1. `add-privacy-zones`: zones and hide-start/end, stored in `self`, trim every `polyline` at write time and retroactively (from the track).
 2. `export-activity-files`: the athlete exports their own activity as a rebuilt GPX or TCX (FIT open), from the record, streams and track.
 3. `keep-original-activity-files`: imports keep the original file in a `feed.activitySource` in `self`, for "Download original". Reuses 2's file hand-off.
