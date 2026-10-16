@@ -28,6 +28,8 @@ import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.feed.fakeGetComments
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
+import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
@@ -238,6 +240,7 @@ open class ActivityDetailTestBase {
 
     protected val localLikes = LocalLikes()
 
+    @Suppress("LongParameterList") // One per repository a detail test reaches for.
     protected class Repos(
         val db: AppDatabase,
         val feed: FeedRepository,
@@ -245,9 +248,10 @@ open class ActivityDetailTestBase {
         val profiles: ProfileRepository,
         val manager: ActivityManager,
         val exporter: ActivityExporter,
+        val units: UnitsRepository,
     )
 
-    protected suspend fun repos(scope: String = OAuthClientConfig.DEFAULT_SCOPE): Repos {
+    protected suspend fun repos(scope: String = OAuthClientConfig.DEFAULT_SCOPE, units: UnitSystem = UnitSystem.Metric): Repos {
         val (db, _, clients) = signedInTestSession(http, did = alice, scope = scope)
         val feed = FeedRepository(db, clients, localLikes, Logger)
         val outbox = OutboxProcessor(db, clients, Logger)
@@ -272,13 +276,15 @@ open class ActivityDetailTestBase {
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
             )
+        val profiles = ProfileRepository(clients, Clock.System, Logger, zones)
         return Repos(
             db,
             feed,
             activities,
-            ProfileRepository(clients, Clock.System, Logger, zones),
+            profiles,
             ActivityManager(db, clients, outbox, writer, streams, tracks, feed),
             ActivityExporter(db, clients, tracks, feed),
+            UnitsRepository(profiles, Clock.System, Logger, units),
         )
     }
 
@@ -302,7 +308,19 @@ open class ActivityDetailTestBase {
 
     protected suspend fun detail(r: Repos, block: suspend CircuitReceiveTurbine<ActivityDetailState>.() -> Unit) =
         presenterTestOf(
-            { ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter) },
+            {
+                ActivityDetailPresenter(
+                    screen,
+                    FakeNavigator(screen),
+                    r.feed,
+                    r.activities,
+                    r.profiles,
+                    localLikes,
+                    r.manager,
+                    r.exporter,
+                    r.units,
+                )
+            },
             block = block,
         )
 

@@ -29,6 +29,8 @@ import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.feed.withLikeOverrides
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
@@ -51,6 +53,7 @@ fun ActivityDetailPresenter(
     localLikes: LocalLikes,
     manager: ActivityManager,
     exporter: ActivityExporter,
+    units: UnitsRepository,
 ): ActivityDetailState {
     // The activity as loaded, and how far the viewer's comment actions have moved its count since: one value, so a reload replaces both.
     var loaded by remember { mutableStateOf<CountedActivity?>(null) }
@@ -77,7 +80,8 @@ fun ActivityDetailPresenter(
     // An edit shows as soon as it's saved, and stays over the AppView's copy until Jetstream brings it there.
     val rewrite by remember(screen.uri) { feed.rewrites.observe(AtUri(screen.uri)) }.collectAsState(null)
 
-    val charts = rememberCharts(AtUri(screen.uri), activity, loadKey, feed, activities, flights) { error = it }
+    val unitSystem by units.units.collectAsState()
+    val charts = rememberCharts(AtUri(screen.uri), activity, loadKey, unitSystem, feed, activities, flights) { error = it }
     val comments = rememberComments(AtUri(screen.uri), loadKey, feed, flights)
     val shown = loaded?.shown(rewrite?.let { r -> { a: ActivityView -> feed.rewrites.rewritten(a, r) } }, likeOverrides)
     val isOwn = shown?.author?.did == profiles.did
@@ -92,7 +96,7 @@ fun ActivityDetailPresenter(
     val ownRoute = rememberOwnRoute(activity?.uri?.takeIf { isOwn }, activities, flights)
     val hasStreams = charts.charts != null
     val formats = remember(ownRoute.track, hasStreams) { exportFormats(ownRoute.track, hasStreams) }
-    val export = rememberExport(shown?.takeIf { isOwn }, formats, exporter, flights)
+    val export = rememberExport(shown?.takeIf { isOwn }, formats, !charts.charts?.laps.isNullOrEmpty(), exporter, flights)
 
     val sink: (ActivityDetailEvent) -> Unit = { event ->
         val current = activity
@@ -308,12 +312,27 @@ internal fun detailSections(activity: ActivityView, charts: ActivityCharts?): Im
                 DetailSection.Elevation -> StreamKind.Elevation in kinds || StreamKind.Grade in kinds
                 DetailSection.Temperature -> StreamKind.Temperature in kinds
                 DetailSection.Depth -> StreamKind.Depth in kinds
+                DetailSection.Oxygen -> StreamKind.PpO2 in kinds || StreamKind.Cns in kinds
+                DetailSection.TankPressure -> !charts?.tankPressures.isNullOrEmpty()
+                DetailSection.Respiration -> StreamKind.RespirationRate in kinds
+                DetailSection.RunningDynamics -> RUNNING_DYNAMICS.any { it in kinds }
                 DetailSection.Gears -> charts != null && charts.gears.size >= 2
+                DetailSection.Laps -> !charts?.laps.isNullOrEmpty()
                 DetailSection.Device -> record.device != null || !record.sensors.isNullOrEmpty()
             }
         }
         .toImmutableList()
 }
+
+/** The lines the running dynamics section charts. */
+internal val RUNNING_DYNAMICS =
+    setOf(
+        StreamKind.VerticalOscillation,
+        StreamKind.StanceTime,
+        StreamKind.StanceTimeBalance,
+        StreamKind.StepLength,
+        StreamKind.VerticalRatio,
+    )
 
 /** The activity's charts, and the owner's control over who sees them. */
 private class Charts(val charts: ActivityCharts?, val saving: Boolean, val setVisibility: (String) -> Unit) {
@@ -331,14 +350,17 @@ private fun rememberCharts(
     activity: AtUri,
     view: ActivityView?,
     loadKey: Int,
+    units: UnitSystem,
     feed: FeedRepository,
     activities: ActivityRepository,
     flights: SingleFlight,
     onError: (UiError) -> Unit,
 ): Charts {
     var charts by remember { mutableStateOf<ActivityCharts?>(null) }
-    LaunchedEffect(loadKey) {
-        runSuspendCatching { feed.streams(activity) }.onSuccess { streams -> charts = streams?.let { ChartsBuilder.buildOffMain(it) } }
+    // The lap table is in the viewer's units, so a change of units rebuilds it.
+    LaunchedEffect(loadKey, units) {
+        runSuspendCatching { feed.streams(activity) }
+            .onSuccess { streams -> charts = streams?.let { ChartsBuilder.buildOffMain(it, units) } }
     }
     val key = ActivityDetailEvent.SetChartsVisibility::class
     return Charts(charts, flights.isRunning(key)) { visibility ->

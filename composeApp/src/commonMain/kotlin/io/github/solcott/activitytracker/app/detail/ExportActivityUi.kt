@@ -28,6 +28,7 @@ import io.github.solcott.activitytracker.composeApp.resources.export_format_fit
 import io.github.solcott.activitytracker.composeApp.resources.export_format_gpx
 import io.github.solcott.activitytracker.composeApp.resources.export_format_tcx
 import io.github.solcott.activitytracker.composeApp.resources.export_note
+import io.github.solcott.activitytracker.composeApp.resources.export_note_with_laps
 import io.github.solcott.activitytracker.composeApp.resources.export_preparing
 import io.github.solcott.activitytracker.composeApp.resources.export_title
 import io.github.solcott.activitytracker.data.activity.ExportFormat
@@ -57,7 +58,10 @@ internal fun ExportSheet(export: ActivityExportState, eventSink: (ActivityDetail
             } else {
                 Text(stringResource(export.formats.single().label), style = MaterialTheme.typography.titleMedium)
             }
-            Text(stringResource(Res.string.export_note), style = MaterialTheme.typography.bodyMedium)
+            Text(
+                stringResource(if (export.hasLaps) Res.string.export_note_with_laps else Res.string.export_note),
+                style = MaterialTheme.typography.bodyMedium,
+            )
             if (export.busy) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     AppProgressIndicator(small = true)

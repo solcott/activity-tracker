@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.settings.zoneName
+import io.github.solcott.activitytracker.app.ui.DiveFormat
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
@@ -23,6 +24,9 @@ import io.github.solcott.activitytracker.app.ui.chart.ZoneBars
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.chart_avg_max
 import io.github.solcott.activitytracker.composeApp.resources.chart_avg_np_max
+import io.github.solcott.activitytracker.composeApp.resources.chart_depth_ceiling
+import io.github.solcott.activitytracker.composeApp.resources.chart_depth_switch
+import io.github.solcott.activitytracker.composeApp.resources.chart_depth_switches
 import io.github.solcott.activitytracker.composeApp.resources.chart_description
 import io.github.solcott.activitytracker.composeApp.resources.chart_gear_value
 import io.github.solcott.activitytracker.composeApp.resources.chart_gears
@@ -33,6 +37,7 @@ import io.github.solcott.activitytracker.composeApp.resources.chart_power_curve
 import io.github.solcott.activitytracker.composeApp.resources.chart_power_curve_help
 import io.github.solcott.activitytracker.composeApp.resources.chart_power_curve_point
 import io.github.solcott.activitytracker.composeApp.resources.chart_power_zones
+import io.github.solcott.activitytracker.composeApp.resources.chart_tank_pressure_help
 import io.github.solcott.activitytracker.composeApp.resources.chart_zone_label
 import io.github.solcott.activitytracker.composeApp.resources.chart_zone_range
 import io.github.solcott.activitytracker.composeApp.resources.chart_zone_range_open
@@ -49,6 +54,7 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -67,7 +73,11 @@ internal fun SectionCharts(section: DetailSection, state: ActivityDetailState.Lo
             // The section's title already names its own line; grade under elevation needs one.
             val titled = series.kind.name != section.name
             val normalized = charts.normalizedPower.takeIf { series.kind == StreamKind.Power }
-            LineChart(series, charts.durationSeconds, elevation?.takeIf { series.kind in OVER_ELEVATION }, titled, normalized)
+            if (series.kind == StreamKind.Depth) {
+                DepthChart(series, charts)
+            } else {
+                LineChart(series, charts.durationSeconds, elevation?.takeIf { series.kind in OVER_ELEVATION }, titled, normalized)
+            }
         }
         when (section) {
             DetailSection.HeartRate -> {
@@ -85,6 +95,10 @@ internal fun SectionCharts(section: DetailSection, state: ActivityDetailState.Lo
 
             DetailSection.Gears -> Gears(charts.gears, charts.durationSeconds, elevation)
 
+            DetailSection.TankPressure -> TankPressures(charts.tankPressures, charts.durationSeconds)
+
+            DetailSection.Laps -> LapTable(charts.laps)
+
             else -> {}
         }
     }
@@ -94,13 +108,23 @@ internal fun SectionCharts(section: DetailSection, state: ActivityDetailState.Lo
 private fun sectionOf(kind: StreamKind): DetailSection =
     when (kind) {
         StreamKind.HeartRate -> DetailSection.HeartRate
-        StreamKind.Power -> DetailSection.Power
+        StreamKind.Power,
+        StreamKind.LeftRightBalance -> DetailSection.Power
         StreamKind.Speed -> DetailSection.Speed
         StreamKind.Cadence -> DetailSection.Cadence
         StreamKind.Elevation,
         StreamKind.Grade -> DetailSection.Elevation
         StreamKind.Temperature -> DetailSection.Temperature
         StreamKind.Depth -> DetailSection.Depth
+        StreamKind.PpO2,
+        StreamKind.Cns -> DetailSection.Oxygen
+        StreamKind.TankPressure -> DetailSection.TankPressure
+        StreamKind.RespirationRate -> DetailSection.Respiration
+        StreamKind.VerticalOscillation,
+        StreamKind.StanceTime,
+        StreamKind.StepLength,
+        StreamKind.VerticalRatio,
+        StreamKind.StanceTimeBalance -> DetailSection.RunningDynamics
     }
 
 /** The owner's choice of who may see the charts, under a heading that asks the question: [options] stop at the activity's visibility. */
@@ -154,8 +178,69 @@ private fun ChartHeader(title: String?, detail: String?) {
     }
 }
 
+/**
+ * A dive's depth, with each gas switch marked by the gas's name at its time and the deco ceiling, where the computer logged one, drawn as a
+ * second line under the depth.
+ */
 @Composable
-private fun LineChart(series: LineSeries, durationSeconds: Int, elevation: LineSeries?, titled: Boolean, normalizedPower: Int? = null) {
+private fun DepthChart(series: LineSeries, charts: ActivityCharts) {
+    val unit = streamUnit(StreamKind.Depth)
+    val ceiling = remember(charts.ceiling, unit) { charts.ceiling.map { SeriesPoint(it.seconds.toDouble(), unit.convert(it.value)) } }
+    val names = charts.gasSwitches.map { DiveFormat.gasName(it.oxygen, it.helium) }
+    val events =
+        remember(charts.gasSwitches, names) {
+            charts.gasSwitches.mapIndexed { i, switch -> SeriesLabel(switch.seconds.toDouble(), 0.0, names[i]) }.toImmutableList()
+        }
+    val switchText =
+        charts.gasSwitches.zip(names) { switch, name ->
+            stringResource(Res.string.chart_depth_switch, name, Format.duration(switch.seconds.toLong()))
+        }
+    val extra =
+        listOfNotNull(
+            switchText.takeIf { it.isNotEmpty() }?.let { stringResource(Res.string.chart_depth_switches, it.joinToString(", ")) },
+            stringResource(Res.string.chart_depth_ceiling).takeIf { ceiling.isNotEmpty() },
+        )
+    LineChart(
+        series,
+        charts.durationSeconds,
+        elevation = null,
+        titled = false,
+        others = if (ceiling.isEmpty()) persistentListOf() else persistentListOf(ceiling.toImmutableList()),
+        events = events,
+        extraDescription = extra.joinToString(" "),
+    )
+}
+
+/** A line per tank, on one scale, the first in the theme's colour and the rest in the others. */
+@Composable
+private fun TankPressures(tanks: ImmutableList<LineSeries>, durationSeconds: Int) {
+    val first = tanks.firstOrNull() ?: return
+    val unit = streamUnit(StreamKind.TankPressure)
+    val rest = tanks.drop(1).map { rememberPoints(it) }.toImmutableList()
+    LineChart(
+        first,
+        durationSeconds,
+        elevation = null,
+        titled = tanks.size > 1,
+        others = rest,
+        extraDescription = stringResource(Res.string.chart_tank_pressure_help, tanks.size).takeIf { tanks.size > 1 },
+        detailOverride = tanks.mapNotNull { it.max }.takeIf { tanks.size > 1 }?.joinToString(" · ") { unit.text(unit.convert(it)) },
+    )
+}
+
+@Composable
+@Suppress("LongParameterList") // The series, what goes with it, and how it reads.
+private fun LineChart(
+    series: LineSeries,
+    durationSeconds: Int,
+    elevation: LineSeries?,
+    titled: Boolean,
+    normalizedPower: Int? = null,
+    others: ImmutableList<ImmutableList<SeriesPoint>> = persistentListOf(),
+    events: ImmutableList<SeriesLabel> = persistentListOf(),
+    extraDescription: String? = null,
+    detailOverride: String? = null,
+) {
     val unit = streamUnit(series.kind)
     val title = stringResource(streamTitle(series.kind))
     val average = series.average?.let { unit.text(unit.convert(it)) }
@@ -163,6 +248,7 @@ private fun LineChart(series: LineSeries, durationSeconds: Int, elevation: LineS
     val detail =
         when {
             average == null || max == null -> null
+            detailOverride != null -> detailOverride
             normalizedPower != null ->
                 stringResource(Res.string.chart_avg_np_max, average, stringResource(Res.string.unit_watts, normalizedPower), max)
             else -> stringResource(Res.string.chart_avg_max, average, max)
@@ -175,13 +261,17 @@ private fun LineChart(series: LineSeries, durationSeconds: Int, elevation: LineS
         TimeSeriesChart(
             points = points,
             xRange = 0.0..durationSeconds.toDouble(),
-            description = stringResource(Res.string.chart_description, title, average.orEmpty(), max.orEmpty()),
+            description =
+                listOfNotNull(stringResource(Res.string.chart_description, title, average.orEmpty(), max.orEmpty()), extraDescription)
+                    .joinToString(" "),
             yLabel = unit.axis,
             xLabel = { Format.duration(it.roundToLong()) },
             markerLabel = markerLabel,
             average = series.average?.let(unit.convert),
             backdrop = backdrop,
             inverted = series.kind == StreamKind.Depth,
+            others = others,
+            events = events,
         )
     }
 }

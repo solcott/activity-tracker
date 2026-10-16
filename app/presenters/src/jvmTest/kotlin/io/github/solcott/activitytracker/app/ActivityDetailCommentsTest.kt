@@ -25,7 +25,17 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         visibility = "followers"
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
+            ActivityDetailPresenter(
+                screen,
+                FakeNavigator(screen),
+                r.feed,
+                r.activities,
+                r.profiles,
+                localLikes,
+                r.manager,
+                r.exporter,
+                r.units,
+            )
         }) {
             val loaded = awaitLoaded()
             loaded.draftComment.setTextAndPlaceCursorAtEnd("Nice")
@@ -47,7 +57,17 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         // Signed in before the interactions space's declaration listed comments.
         val r = repos(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}&collection=${Nsid.FEED_LIKE}")
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
+            ActivityDetailPresenter(
+                screen,
+                FakeNavigator(screen),
+                r.feed,
+                r.activities,
+                r.profiles,
+                localLikes,
+                r.manager,
+                r.exporter,
+                r.units,
+            )
         }) {
             val loaded = awaitLoaded()
             loaded.draftComment.setTextAndPlaceCursorAtEnd("Nice")
@@ -73,7 +93,17 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         commentsFromAppView = listOf(comment(staleAlice, alice.value, "3kc1"), comment(carol, "did:plc:carol", "3kc2"))
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
+            ActivityDetailPresenter(
+                screen,
+                FakeNavigator(screen),
+                r.feed,
+                r.activities,
+                r.profiles,
+                localLikes,
+                r.manager,
+                r.exporter,
+                r.units,
+            )
         }) {
             val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 2 } as ActivityDetailState.Loaded
             assertEquals(alice, loaded.viewerDid)
@@ -99,7 +129,17 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         commentsFromAppView = listOf(comment(carol, "did:plc:carol", "3kc0"), comment(staleAlice, alice.value, "3kc1"))
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
+            ActivityDetailPresenter(
+                screen,
+                FakeNavigator(screen),
+                r.feed,
+                r.activities,
+                r.profiles,
+                localLikes,
+                r.manager,
+                r.exporter,
+                r.units,
+            )
         }) {
             val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 2 } as ActivityDetailState.Loaded
             // Queueing the delete fails once the database is gone.
@@ -125,7 +165,17 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1"), comment(carol, "did:plc:carol", "3kc2"))
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
+            ActivityDetailPresenter(
+                screen,
+                FakeNavigator(screen),
+                r.feed,
+                r.activities,
+                r.profiles,
+                localLikes,
+                r.manager,
+                r.exporter,
+                r.units,
+            )
         }) {
             val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 2 } as ActivityDetailState.Loaded
             assertTrue(loaded.isOwn)
@@ -156,7 +206,17 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1", hidden = true), comment(carol, "did:plc:carol", "3kc2"))
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
+            ActivityDetailPresenter(
+                screen,
+                FakeNavigator(screen),
+                r.feed,
+                r.activities,
+                r.profiles,
+                localLikes,
+                r.manager,
+                r.exporter,
+                r.units,
+            )
         }) {
             val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 2 } as ActivityDetailState.Loaded
             assertEquals(true, loaded.comments.roots.first().hidden)
@@ -183,7 +243,17 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         // Signed in before the interactions space's declaration listed comment hides.
         val r = repos(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}&collection=${Nsid.FEED_COMMENT}")
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
+            ActivityDetailPresenter(
+                screen,
+                FakeNavigator(screen),
+                r.feed,
+                r.activities,
+                r.profiles,
+                localLikes,
+                r.manager,
+                r.exporter,
+                r.units,
+            )
         }) {
             val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 1 } as ActivityDetailState.Loaded
             loaded.eventSink(ActivityDetailEvent.HideComment(loaded.comments.roots.single().uri))
@@ -201,7 +271,17 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1"))
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
+            ActivityDetailPresenter(
+                screen,
+                FakeNavigator(screen),
+                r.feed,
+                r.activities,
+                r.profiles,
+                localLikes,
+                r.manager,
+                r.exporter,
+                r.units,
+            )
         }) {
             val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 1 } as ActivityDetailState.Loaded
             // Queueing the hide fails once the database is gone.
@@ -219,7 +299,17 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         commentsFromAppView = manyComments(45)
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
+            ActivityDetailPresenter(
+                screen,
+                FakeNavigator(screen),
+                r.feed,
+                r.activities,
+                r.profiles,
+                localLikes,
+                r.manager,
+                r.exporter,
+                r.units,
+            )
         }) {
             val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
             assertEquals(45, first.activity.commentCount, "the count is the whole activity's")
@@ -246,7 +336,17 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         commentsFromAppView = manyComments(45)
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
+            ActivityDetailPresenter(
+                screen,
+                FakeNavigator(screen),
+                r.feed,
+                r.activities,
+                r.profiles,
+                localLikes,
+                r.manager,
+                r.exporter,
+                r.units,
+            )
         }) {
             val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
             failComments = true
@@ -271,7 +371,17 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         failComments = true
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
+            ActivityDetailPresenter(
+                screen,
+                FakeNavigator(screen),
+                r.feed,
+                r.activities,
+                r.profiles,
+                localLikes,
+                r.manager,
+                r.exporter,
+                r.units,
+            )
         }) {
             val failed = awaitUntil { it.loaded()?.comments?.error != null }.loaded()!!
             assertEquals(3, failed.activity.commentCount)
@@ -288,7 +398,17 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         commentsFromAppView = manyComments(45)
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
+            ActivityDetailPresenter(
+                screen,
+                FakeNavigator(screen),
+                r.feed,
+                r.activities,
+                r.profiles,
+                localLikes,
+                r.manager,
+                r.exporter,
+                r.units,
+            )
         }) {
             val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
             first.draftComment.setTextAndPlaceCursorAtEnd("Mine")
@@ -329,7 +449,17 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         commentsFromAppView = manyComments(45)
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
+            ActivityDetailPresenter(
+                screen,
+                FakeNavigator(screen),
+                r.feed,
+                r.activities,
+                r.profiles,
+                localLikes,
+                r.manager,
+                r.exporter,
+                r.units,
+            )
         }) {
             val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
             first.draftComment.setTextAndPlaceCursorAtEnd("Mine")
@@ -351,7 +481,17 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         commentsFromAppView = manyComments(2)
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
+            ActivityDetailPresenter(
+                screen,
+                FakeNavigator(screen),
+                r.feed,
+                r.activities,
+                r.profiles,
+                localLikes,
+                r.manager,
+                r.exporter,
+                r.units,
+            )
         }) {
             val loaded = awaitUntil { it.loaded()?.comments?.roots?.size == 2 }.loaded()!!
             loaded.draftComment.setTextAndPlaceCursorAtEnd("Oops")
@@ -370,7 +510,17 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         commentsFromAppView = manyComments(45, own = 40)
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
+            ActivityDetailPresenter(
+                screen,
+                FakeNavigator(screen),
+                r.feed,
+                r.activities,
+                r.profiles,
+                localLikes,
+                r.manager,
+                r.exporter,
+                r.units,
+            )
         }) {
             val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
             first.eventSink(ActivityDetailEvent.LoadMoreComments)
@@ -396,7 +546,17 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         commentsFromAppView = manyComments(45)
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
+            ActivityDetailPresenter(
+                screen,
+                FakeNavigator(screen),
+                r.feed,
+                r.activities,
+                r.profiles,
+                localLikes,
+                r.manager,
+                r.exporter,
+                r.units,
+            )
         }) {
             val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
             first.eventSink(ActivityDetailEvent.LoadMoreComments)

@@ -23,7 +23,9 @@ import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.Stat
 import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.chart_cns
 import io.github.solcott.activitytracker.composeApp.resources.chart_gear_value
+import io.github.solcott.activitytracker.composeApp.resources.chart_tank_pressure
 import io.github.solcott.activitytracker.composeApp.resources.detail_avg
 import io.github.solcott.activitytracker.composeApp.resources.detail_best_power
 import io.github.solcott.activitytracker.composeApp.resources.detail_device
@@ -33,9 +35,11 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_highest
 import io.github.solcott.activitytracker.composeApp.resources.detail_max
 import io.github.solcott.activitytracker.composeApp.resources.detail_max_grade
 import io.github.solcott.activitytracker.composeApp.resources.detail_most_used_gear
+import io.github.solcott.activitytracker.composeApp.resources.detail_section_laps
 import io.github.solcott.activitytracker.composeApp.resources.detail_sensor_count
 import io.github.solcott.activitytracker.composeApp.resources.detail_shifts
 import io.github.solcott.activitytracker.composeApp.resources.stat_avg_depth
+import io.github.solcott.activitytracker.composeApp.resources.stat_highest_ppo2
 import io.github.solcott.activitytracker.composeApp.resources.stat_max_depth
 import io.github.solcott.activitytracker.composeApp.resources.stat_normalized_power
 import io.github.solcott.activitytracker.composeApp.resources.unit_duration_minutes
@@ -154,6 +158,15 @@ internal fun chartOverview(section: DetailSection, state: ActivityDetailState.Lo
 
             DetailSection.Gears -> gearOverview(charts.gears)
 
+            DetailSection.Oxygen,
+            DetailSection.TankPressure -> diveStateOverview(section, charts)
+
+            DetailSection.Respiration -> averageAndMax(lines[StreamKind.RespirationRate], avg, max)
+
+            DetailSection.RunningDynamics -> runningDynamicsOverview(charts)
+
+            DetailSection.Laps -> listOf(Stat(stringResource(Res.string.detail_section_laps), "${charts.laps.size}"))
+
             else -> {
                 val kind = StreamKind.entries.firstOrNull { it.name == section.name }
                 averageAndMax(kind?.let { lines[it] }, avg, max)
@@ -161,6 +174,35 @@ internal fun chartOverview(section: DetailSection, state: ActivityDetailState.Lo
         }
     return stats.toImmutableList()
 }
+
+/** A dive's oxygen section (the highest ppO₂ and the CNS reached: the limits a diver watches) or each tank's highest pressure. */
+@Composable
+private fun diveStateOverview(section: DetailSection, charts: ActivityCharts): List<Stat> =
+    if (section == DetailSection.Oxygen) {
+        val ppO2 = streamUnit(StreamKind.PpO2)
+        val cns = streamUnit(StreamKind.Cns)
+        listOfNotNull(
+            charts.line(StreamKind.PpO2)?.max?.let { Stat(stringResource(Res.string.stat_highest_ppo2), ppO2.text(it)) },
+            charts.line(StreamKind.Cns)?.max?.let { Stat(stringResource(Res.string.chart_cns), cns.text(it)) },
+        )
+    } else {
+        val unit = streamUnit(StreamKind.TankPressure)
+        charts.tankPressures.mapIndexedNotNull { i, tank ->
+            tank.max?.let { Stat("${stringResource(Res.string.chart_tank_pressure)} ${i + 1}", unit.text(unit.convert(it))) }
+        }
+    }
+
+/** The figures a runner compares run to run: bounce, contact and stride. */
+@Composable
+private fun runningDynamicsOverview(charts: ActivityCharts): List<Stat> =
+    listOf(StreamKind.VerticalOscillation, StreamKind.StanceTime, StreamKind.StepLength).mapNotNull { kind ->
+        charts.line(kind)?.average?.let { value ->
+            val unit = streamUnit(kind)
+            Stat(stringResource(streamTitle(kind)), unit.text(unit.convert(value)))
+        }
+    }
+
+private fun ActivityCharts.line(kind: StreamKind) = lines.firstOrNull { it.kind == kind }
 
 @Composable
 private fun averageAndMax(series: LineSeries?, avgLabel: String, maxLabel: String): List<Stat> {

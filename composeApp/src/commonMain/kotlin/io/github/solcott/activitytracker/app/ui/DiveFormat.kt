@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.ui
 
 import androidx.compose.runtime.Composable
+import io.github.solcott.activitytracker.app.detail.GasKind
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.dive_gas_air
 import io.github.solcott.activitytracker.composeApp.resources.dive_gas_nitrox
@@ -62,14 +63,14 @@ object DiveFormat {
         }
     }
 
-    /** "Air", "EAN32", "Oxygen" or "Tx 18/45". */
+    /** "Air", "EAN32", "Oxygen" or "Tx 18/45", as [GasKind] names it. */
     @Composable
     fun gasName(oxygenPercent: Int, heliumPercent: Int): String =
-        when {
-            heliumPercent > 0 -> stringResource(Res.string.dive_gas_trimix, oxygenPercent, heliumPercent)
-            oxygenPercent == AIR_O2 -> stringResource(Res.string.dive_gas_air)
-            oxygenPercent >= PURE_O2 -> stringResource(Res.string.dive_gas_oxygen)
-            else -> stringResource(Res.string.dive_gas_nitrox, oxygenPercent)
+        when (GasKind.of(oxygenPercent, heliumPercent)) {
+            GasKind.Trimix -> stringResource(Res.string.dive_gas_trimix, oxygenPercent, heliumPercent)
+            GasKind.Air -> stringResource(Res.string.dive_gas_air)
+            GasKind.Oxygen -> stringResource(Res.string.dive_gas_oxygen)
+            GasKind.Nitrox -> stringResource(Res.string.dive_gas_nitrox, oxygenPercent)
         }
 
     /**
@@ -85,8 +86,4 @@ object DiveFormat {
 
     private const val MINUTES_PER_HOUR = 60
     private const val HOURS_PER_DAY = 24
-    private const val AIR_O2 = 21
-
-    /** Mixes this rich are oxygen; Garmin logs it as 99%. */
-    private const val PURE_O2 = 99
 }

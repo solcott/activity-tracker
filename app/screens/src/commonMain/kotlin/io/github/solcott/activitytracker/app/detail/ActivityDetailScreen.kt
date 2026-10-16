@@ -97,7 +97,14 @@ enum class DetailSection {
     Elevation,
     Temperature,
     Depth,
+    /** A dive's ppO₂ and CNS. */
+    Oxygen,
+    TankPressure,
+    Respiration,
+    /** Vertical oscillation, stance time and its balance, step length and vertical ratio. */
+    RunningDynamics,
     Gears,
+    Laps,
     /** The recording device and its sensors. */
     Device,
 }
@@ -125,6 +132,8 @@ data class ActivityExportState(
     val error: UiError? = null,
     /** The file built, waiting for the UI to hand to the platform and send [ActivityDetailEvent.ExportHandedOff]. */
     val file: ExportedFile? = null,
+    /** The activity's streams hold laps, so the file has them and the note doesn't say it lacks them. */
+    val hasLaps: Boolean = false,
 )
 
 /** An activity's comment threads, loaded a page at a time as the viewer scrolls to the end. */

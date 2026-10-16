@@ -19,6 +19,8 @@ import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
+import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -168,6 +170,7 @@ class ActivityDetailManageTest {
                 localLikes,
                 manager,
                 ActivityExporter(db, clients, tracks, feed),
+                UnitsRepository(profiles, Clock.System, Logger, UnitSystem.Metric),
             )
         }
     }

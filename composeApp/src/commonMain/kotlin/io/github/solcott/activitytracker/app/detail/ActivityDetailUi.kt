@@ -58,11 +58,34 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_show_likes
 import io.github.solcott.activitytracker.composeApp.resources.detail_title
 import io.github.solcott.activitytracker.composeApp.resources.detail_zone_added
 import io.github.solcott.activitytracker.composeApp.resources.like_count
+import io.github.solcott.activitytracker.composeApp.resources.shifting_front_rear
+import io.github.solcott.activitytracker.composeApp.resources.stat_aerobic_effect
+import io.github.solcott.activitytracker.composeApp.resources.stat_anaerobic_effect
+import io.github.solcott.activitytracker.composeApp.resources.stat_avg_cadence
+import io.github.solcott.activitytracker.composeApp.resources.stat_avg_power
+import io.github.solcott.activitytracker.composeApp.resources.stat_calories
+import io.github.solcott.activitytracker.composeApp.resources.stat_descent
 import io.github.solcott.activitytracker.composeApp.resources.stat_distance
 import io.github.solcott.activitytracker.composeApp.resources.stat_elevation
+import io.github.solcott.activitytracker.composeApp.resources.stat_flow
+import io.github.solcott.activitytracker.composeApp.resources.stat_ftp
+import io.github.solcott.activitytracker.composeApp.resources.stat_grit
+import io.github.solcott.activitytracker.composeApp.resources.stat_intensity_factor
+import io.github.solcott.activitytracker.composeApp.resources.stat_jumps
+import io.github.solcott.activitytracker.composeApp.resources.stat_max_cadence
+import io.github.solcott.activitytracker.composeApp.resources.stat_max_power
 import io.github.solcott.activitytracker.composeApp.resources.stat_moving_time
+import io.github.solcott.activitytracker.composeApp.resources.stat_normalized_power
+import io.github.solcott.activitytracker.composeApp.resources.stat_shifts
 import io.github.solcott.activitytracker.composeApp.resources.stat_temperature
+import io.github.solcott.activitytracker.composeApp.resources.stat_tss
+import io.github.solcott.activitytracker.composeApp.resources.stat_work
+import io.github.solcott.activitytracker.composeApp.resources.unit_kcal
+import io.github.solcott.activitytracker.composeApp.resources.unit_kj
+import io.github.solcott.activitytracker.composeApp.resources.unit_rpm
+import io.github.solcott.activitytracker.composeApp.resources.unit_watts
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.units.formatDecimal
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -224,8 +247,47 @@ private fun overviewStats(record: ActivityRecord, charts: ActivityCharts?): Immu
             Format.rateStat(record.sport, record.distance?.toDouble(), time),
             record.avgTemperature?.let { Stat(stringResource(Res.string.stat_temperature), Format.temperature(it)) },
         )
+        .plus(fileStats(record))
+        .plus(trainingLoadStats(charts?.trainingLoad))
         .toImmutableList()
 }
+
+/** What a FIT file adds to the summary: power, cadence, calories, descent, shifts and trail dynamics, each only where stored. */
+@Composable
+private fun fileStats(record: ActivityRecord): List<Stat> {
+    val watts = stringResource(Res.string.unit_watts, "%s")
+    return listOfNotNull(
+        record.avgPower?.let { Stat(stringResource(Res.string.stat_avg_power), watts.replace("%s", "$it")) },
+        record.normalizedPower?.let { Stat(stringResource(Res.string.stat_normalized_power), watts.replace("%s", "$it")) },
+        record.maxPower?.let { Stat(stringResource(Res.string.stat_max_power), watts.replace("%s", "$it")) },
+        record.work?.let { Stat(stringResource(Res.string.stat_work), stringResource(Res.string.unit_kj, it)) },
+        record.avgCadence?.let { Stat(stringResource(Res.string.stat_avg_cadence), stringResource(Res.string.unit_rpm, it)) },
+        record.maxCadence?.let { Stat(stringResource(Res.string.stat_max_cadence), stringResource(Res.string.unit_rpm, it)) },
+        record.calories?.let { Stat(stringResource(Res.string.stat_calories), stringResource(Res.string.unit_kcal, it)) },
+        record.elevationLoss?.let { Stat(stringResource(Res.string.stat_descent), Format.elevation(it.toDouble())) },
+        record.rearShifts?.let { rear ->
+            Stat(stringResource(Res.string.stat_shifts), stringResource(Res.string.shifting_front_rear, record.frontShifts ?: 0, rear))
+        },
+        record.jumps?.let { Stat(stringResource(Res.string.stat_jumps), "$it") },
+        record.grit?.let { Stat(stringResource(Res.string.stat_grit), formatDecimal(it / TENTHS, 1)) },
+        record.flow?.let { Stat(stringResource(Res.string.stat_flow), formatDecimal(it / TENTHS, 1)) },
+    )
+}
+
+/** FTP, IF, TSS and training effect: only for a viewer the activity's zones record admits, as the AppView serves them. */
+@Composable
+private fun trainingLoadStats(load: TrainingLoadStats?): List<Stat> {
+    load ?: return emptyList()
+    return listOfNotNull(
+        load.ftp?.let { Stat(stringResource(Res.string.stat_ftp), stringResource(Res.string.unit_watts, it)) },
+        load.intensityFactor?.let { Stat(stringResource(Res.string.stat_intensity_factor), formatDecimal(it, 2)) },
+        load.trainingStressScore?.let { Stat(stringResource(Res.string.stat_tss), formatDecimal(it, 0)) },
+        load.aerobicTrainingEffect?.let { Stat(stringResource(Res.string.stat_aerobic_effect), formatDecimal(it, 1)) },
+        load.anaerobicTrainingEffect?.let { Stat(stringResource(Res.string.stat_anaerobic_effect), formatDecimal(it, 1)) },
+    )
+}
+
+private const val TENTHS = 10.0
 
 /** The like count or button, the toggle for who liked it, why a like couldn't be given, and the list once shown. */
 @Composable

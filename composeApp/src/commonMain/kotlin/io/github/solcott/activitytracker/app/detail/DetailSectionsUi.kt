@@ -41,6 +41,11 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_section_col
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_device
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_expanded
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_gears
+import io.github.solcott.activitytracker.composeApp.resources.detail_section_laps
+import io.github.solcott.activitytracker.composeApp.resources.detail_section_oxygen
+import io.github.solcott.activitytracker.composeApp.resources.detail_section_respiration
+import io.github.solcott.activitytracker.composeApp.resources.detail_section_running_dynamics
+import io.github.solcott.activitytracker.composeApp.resources.detail_section_tank_pressure
 import io.github.solcott.activitytracker.composeApp.resources.detail_sections_heading
 import io.github.solcott.activitytracker.composeApp.resources.detail_sensor_count
 import kotlinx.collections.immutable.ImmutableList
@@ -130,7 +135,12 @@ private fun sectionTitle(section: DetailSection): String =
             DetailSection.Elevation -> Res.string.chart_elevation
             DetailSection.Temperature -> Res.string.chart_temperature
             DetailSection.Depth -> Res.string.chart_depth
+            DetailSection.Oxygen -> Res.string.detail_section_oxygen
+            DetailSection.TankPressure -> Res.string.detail_section_tank_pressure
+            DetailSection.Respiration -> Res.string.detail_section_respiration
+            DetailSection.RunningDynamics -> Res.string.detail_section_running_dynamics
             DetailSection.Gears -> Res.string.detail_section_gears
+            DetailSection.Laps -> Res.string.detail_section_laps
             DetailSection.Device -> Res.string.detail_section_device
         }
     )

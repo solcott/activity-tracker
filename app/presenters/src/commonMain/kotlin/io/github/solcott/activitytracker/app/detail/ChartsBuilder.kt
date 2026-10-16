@@ -5,10 +5,15 @@ import io.github.solcott.activitytracker.data.streams.StreamAnalytics
 import io.github.solcott.activitytracker.data.training.ZoneModel
 import io.github.solcott.activitytracker.data.training.ZoneModels
 import io.github.solcott.activitytracker.data.training.ZoneSnapshots
+import io.github.solcott.activitytracker.data.units.UnitConversions
+import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
+import io.github.solcott.activitytracker.lexicon.app.Lap
+import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -17,11 +22,16 @@ import kotlinx.coroutines.withContext
 internal object ChartsBuilder {
     private const val CENTI = 100.0
 
+    private const val DECI = 10.0
+    private const val MILLI = 1000.0
+
     /** [build] on a background thread: a long ride has tens of thousands of samples. */
     @Suppress("InjectDispatcher") // Pure CPU work with nothing to swap in tests; presenters have no dispatcher to inject.
-    suspend fun buildOffMain(streams: GetActivityStreams.Output): ActivityCharts = withContext(Dispatchers.Default) { build(streams) }
+    suspend fun buildOffMain(streams: GetActivityStreams.Output, units: UnitSystem): ActivityCharts =
+        withContext(Dispatchers.Default) { build(streams, units) }
 
-    fun build(streams: GetActivityStreams.Output): ActivityCharts {
+    /** [units] are the viewer's, for the lap table. */
+    fun build(streams: GetActivityStreams.Output, units: UnitSystem = UnitSystem.Metric): ActivityCharts {
         val data = streams.data
         val time = data.time
         val power = data.power
@@ -35,25 +45,74 @@ internal object ChartsBuilder {
             normalizedPower = PerSecond.normalizedPower(powerBySecond),
             powerCurve = StreamAnalytics.meanMax(powerBySecond).map { (seconds, watts) -> CurvePoint(seconds, watts) }.toImmutableList(),
             gears = data.gears.orEmpty().map { GearPoint(it.time, it.front, it.rear) }.toImmutableList(),
+            gasSwitches = data.gasSwitches.orEmpty().map { GasSwitchPoint(it.time, it.oxygen, it.helium) }.toImmutableList(),
+            ceiling = ceiling(data),
+            tankPressures =
+                data.tankPressures
+                    .orEmpty()
+                    .mapNotNull { tank -> line(StreamKind.TankPressure, time, tank.pressure.map { it?.div(MILLI) }) }
+                    .toImmutableList(),
+            laps = data.laps.orEmpty().mapIndexed { i, lap -> lapRow(i + 1, lap, units) }.toImmutableList(),
+            trainingLoad = streams.trainingLoad?.let(::trainingLoad),
         )
     }
 
-    /** Lines in the order Strava draws them, then Garmin's extras. */
+    /** Lines in the order Strava draws them, then Garmin's extras, then a dive's. */
     private fun lines(data: ActivityStreamData): List<LineSeries> {
         val distance = data.distance
         val altitude = data.altitude
         val grade = if (distance != null && altitude != null) StreamAnalytics.grade(distance, altitude) else null
+        fun ints(values: List<Int?>?, scale: Double = 1.0) = values?.map { it?.div(scale) }
         return listOfNotNull(
-            line(StreamKind.HeartRate, data.time, data.heartRate?.map { it?.toDouble() }),
-            line(StreamKind.Power, data.time, data.power?.map { it?.toDouble() }),
-            line(StreamKind.Speed, data.time, data.speed?.map { it?.toDouble() }),
-            line(StreamKind.Cadence, data.time, data.cadence?.map { it?.toDouble() }),
-            line(StreamKind.Elevation, data.time, data.altitude?.map { it?.div(CENTI) }),
+            line(StreamKind.HeartRate, data.time, ints(data.heartRate)),
+            line(StreamKind.Power, data.time, ints(data.power)),
+            line(StreamKind.LeftRightBalance, data.time, ints(data.leftRightBalance)),
+            line(StreamKind.Speed, data.time, ints(data.speed)),
+            line(StreamKind.Cadence, data.time, ints(data.cadence)),
+            line(StreamKind.Elevation, data.time, ints(data.altitude, CENTI)),
             line(StreamKind.Grade, data.time, grade),
-            line(StreamKind.Temperature, data.time, data.temperature?.map { it?.toDouble() }),
-            line(StreamKind.Depth, data.time, data.depth?.map { it?.div(CENTI) }),
+            line(StreamKind.Temperature, data.time, ints(data.temperature)),
+            line(StreamKind.RespirationRate, data.time, ints(data.respirationRate, DECI)),
+            line(StreamKind.VerticalOscillation, data.time, ints(data.verticalOscillation)),
+            line(StreamKind.StanceTime, data.time, ints(data.stanceTime)),
+            line(StreamKind.StanceTimeBalance, data.time, ints(data.stanceTimeBalance, CENTI)),
+            line(StreamKind.StepLength, data.time, ints(data.stepLength, MILLI)),
+            line(StreamKind.VerticalRatio, data.time, ints(data.verticalRatio, CENTI)),
+            line(StreamKind.Depth, data.time, ints(data.depth, CENTI)),
+            line(StreamKind.PpO2, data.time, ints(data.ppO2, MILLI)),
+            line(StreamKind.Cns, data.time, ints(data.cns)),
         )
     }
+
+    /** The deco stop's depth, in meters, wherever it's set: a gap in the data is a gap in the line. */
+    private fun ceiling(data: ActivityStreamData): ImmutableList<ChartSample> {
+        val stops = data.decoStopDepth?.takeIf { depths -> depths.any { (it ?: 0) > 0 } } ?: return persistentListOf()
+        return StreamAnalytics.averaged(data.time, stops.map { it?.div(CENTI) })
+            .map { (seconds, value) -> ChartSample(seconds, value) }
+            .toImmutableList()
+    }
+
+    private fun lapRow(number: Int, lap: Lap, units: UnitSystem) =
+        LapRow(
+            number = number,
+            elapsedSeconds = lap.elapsed,
+            movingSeconds = lap.moving,
+            distance = lap.distance?.let { UnitConversions.toDistanceUnit(it.toDouble(), units) },
+            speed = lap.avgSpeed?.let { UnitConversions.toSpeedUnit(it.toLong(), units) },
+            avgHeartRate = lap.avgHeartRate,
+            avgPower = lap.avgPower,
+            avgCadence = lap.avgCadence,
+            ascent = lap.ascent?.let { UnitConversions.toElevationUnit(it.toDouble(), units) },
+        )
+
+    private fun trainingLoad(load: TrainingLoad) =
+        TrainingLoadStats(
+            ftp = load.ftp,
+            intensityFactor = load.intensityFactor?.div(CENTI),
+            trainingStressScore = load.trainingStressScore?.div(DECI),
+            aerobicTrainingEffect = load.aerobicTrainingEffect?.div(DECI),
+            anaerobicTrainingEffect = load.anaerobicTrainingEffect?.div(DECI),
+        )
 
     private fun line(kind: StreamKind, time: List<Int>, values: List<Double?>?): LineSeries? {
         val present = values?.filterNotNull()?.takeIf { it.size >= 2 } ?: return null

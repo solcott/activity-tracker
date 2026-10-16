@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -41,6 +42,24 @@ class ActivityDetailExportTest : ActivityDetailTestBase() {
         detail(repos()) {
             val export = awaitUntil { it.loaded()?.export != null }.loaded()!!.export!!
             assertEquals(persistentListOf(ExportFormat.TCX, ExportFormat.FIT), export.formats)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun theNoteSaysLapsAreMissingOnlyWhenNoneAreStored() = runTest {
+        author = staleAlice
+        streams = heartRate
+        detail(repos()) {
+            val loaded = awaitUntil { it.loaded()?.export != null && it.loaded()?.charts != null }.loaded()!!
+            assertFalse(loaded.export!!.hasLaps)
+            cancelAndIgnoreRemainingEvents()
+        }
+        streams =
+            """{"uri":"$activityUri","visibility":"public","channels":["heartRate","laps"],"data":{"time":[0,1,2],""" +
+                """"heartRate":[120,130,140],"laps":[{"start":0,"elapsed":1},{"start":1,"elapsed":1}]}}"""
+        detail(repos()) {
+            assertTrue(awaitUntil { it.loaded()?.export?.hasLaps == true }.loaded()!!.export!!.hasLaps)
             cancelAndIgnoreRemainingEvents()
         }
     }

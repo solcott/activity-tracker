@@ -33,6 +33,7 @@ internal fun exportFormats(track: List<LocationSample>?, hasStreams: Boolean): I
 internal fun rememberExport(
     activity: ActivityView?,
     formats: ImmutableList<ExportFormat>,
+    hasLaps: Boolean,
     exporter: ActivityExporter,
     flights: SingleFlight,
 ): Export {
@@ -41,7 +42,7 @@ internal fun rememberExport(
     if (activity == null || formats.isEmpty()) return Export(null, {}, {})
     val key = ActivityDetailEvent.Export::class
     return Export(
-        ActivityExportState(formats, busy = flights.isRunning(key), error = error, file = file),
+        ActivityExportState(formats, busy = flights.isRunning(key), error = error, file = file, hasLaps = hasLaps),
         export = { format ->
             flights.launch(key) {
                 error = null
