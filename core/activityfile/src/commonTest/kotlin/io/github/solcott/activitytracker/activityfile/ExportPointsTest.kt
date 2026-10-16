@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.activityfile
 
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.GearChange
+import io.github.solcott.activitytracker.lexicon.app.TankPressure
 import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -38,6 +39,47 @@ class ExportPointsTest {
         assertEquals(listOf(100.5, 12.0, 101.0), points.map { it.altitudeMeters })
         assertEquals(listOf(3.0, 3.1, null), points.map { it.speedMps })
         assertEquals(21.5, points.first().temperatureCelsius)
+    }
+
+    @Test
+    fun aDivesStateTanksAndARunsDynamicsGoBackToSiUnits() {
+        val streams =
+            ActivityStreamData(
+                time = listOf(0, 10),
+                depth = listOf(0, 1800),
+                ppO2 = listOf(210, 1300),
+                cns = listOf(1, 5),
+                n2Load = listOf(10, 40),
+                ndl = listOf(900, 0),
+                decoStopDepth = listOf(null, 600),
+                decoStopTime = listOf(null, 120),
+                tts = listOf(60, 480),
+                tankPressures = listOf(TankPressure(listOf(200_000, 190_000)), TankPressure(listOf(null, 205_500))),
+                respirationRate = listOf(305, null),
+                verticalOscillation = listOf(85, null),
+                stanceTime = listOf(245, null),
+                stepLength = listOf(1250, null),
+                verticalRatio = listOf(683, null),
+                stanceTimeBalance = listOf(4975, null),
+                leftRightBalance = listOf(52, null),
+            )
+        val (first, second) = ExportPoints.join(start, null, streams)
+        assertEquals(1.3, second.ppO2Bar)
+        assertEquals(5 to 40, second.cnsPercent to second.n2LoadPercent)
+        assertEquals(0L, second.ndlSeconds)
+        assertEquals(6.0, second.nextStopDepthMeters)
+        assertEquals(120L to 480L, second.nextStopSeconds to second.ttsSeconds)
+        assertNull(first.nextStopDepthMeters)
+        assertEquals(listOf(200.0, null), first.tankPressuresBar)
+        assertEquals(listOf(190.0, 205.5), second.tankPressuresBar)
+        assertEquals(30.5, first.respirationRate)
+        assertEquals(85.0, first.verticalOscillationMm)
+        assertEquals(6.83, first.verticalRatioPercent)
+        assertEquals(49.75, first.stanceTimeBalancePercent)
+        assertEquals(52, first.rightBalancePercent)
+        assertTrue(
+            ExportPoints.join(start, null, ActivityStreamData(time = listOf(0), depth = listOf(0))).single().tankPressuresBar.isEmpty()
+        )
     }
 
     @Test

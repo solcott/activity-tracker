@@ -15,6 +15,11 @@ internal class FitBaseType private constructor(val id: Int, val size: Int, val i
         val UINT8Z = FitBaseType(0x0A, 1, 0, 1, 0xFF)
         val UINT16Z = FitBaseType(0x8B, 2, 0, 1, 0xFFFF)
         val UINT32Z = FitBaseType(0x8C, 4, 0, 1, 0xFFFF_FFFF)
+        /** A float's raw bits ([floatBits]); all ones (a NaN) is invalid. */
+        val FLOAT32 = FitBaseType(0x88, 4, 0xFFFF_FFFF, 0, 0xFFFF_FFFE)
+
+        /** [value] as [FLOAT32] takes it. */
+        fun floatBits(value: Double): Long = value.toFloat().toRawBits().toUInt().toLong()
     }
 }
 

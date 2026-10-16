@@ -12,6 +12,8 @@ import com.garmin.fit.EventType
 import com.garmin.fit.File
 import com.garmin.fit.FileIdMesg
 import com.garmin.fit.LapMesg
+import com.garmin.fit.LapTrigger
+import com.garmin.fit.LeftRightBalance
 import com.garmin.fit.Mesg
 import com.garmin.fit.MesgNum
 import com.garmin.fit.RecordMesg
@@ -19,9 +21,13 @@ import com.garmin.fit.SessionMesg
 import com.garmin.fit.Sport as GarminSport
 import com.garmin.fit.SubSport as GarminSubSport
 import com.garmin.fit.TankSummaryMesg
+import com.garmin.fit.TankUpdateMesg
+import com.garmin.fit.WaterType
+import io.github.solcott.activitytracker.activityfile.FitExportFixtures.decoDive
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.decode
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.dive
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.indoorRide
+import io.github.solcott.activitytracker.activityfile.FitExportFixtures.intervalRide
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.ride
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.start
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.write
@@ -165,6 +171,125 @@ class FitWriterTest {
         assertEquals(GarminSport.DIVING, session.sport)
         assertEquals(GarminSubSport.CCR_DIVING, session.subSport)
         assertEquals(30.0, messages.of(MesgNum.RECORD, ::RecordMesg).maxOf { it.depth.toDouble() }, 0.001)
+    }
+
+    @Test
+    fun gasSwitchesAreEventsNamingTheirSlot() {
+        val messages = decode(write(decoDive))
+        val gases = messages.of(MesgNum.DIVE_GAS, ::DiveGasMesg)
+        assertEquals(listOf(21, 50, 100), gases.map { it.oxygenContent.toInt() }, "the record's gases, then the one only a switch names")
+        assertTrue(gases.all { it.mode == DiveGasMode.OPEN_CIRCUIT })
+        val switches = messages.of(MesgNum.EVENT, ::EventMesg).filter { it.event == Event.DIVE_GAS_SWITCHED }
+        assertEquals(listOf(0L, 1L, 2L), switches.map { it.data })
+        assertEquals(
+            listOf(start, start + 60.seconds, start + 100.seconds),
+            switches.map { it.timestamp.date.toInstant().toKotlinInstant() },
+        )
+    }
+
+    @Test
+    fun aDivesRecordsCarryItsDecoState() {
+        val records = decode(write(decoDive)).of(MesgNum.RECORD, ::RecordMesg)
+        val seventh = records[6]
+        assertEquals(0.8, seventh.po2.toDouble(), 1e-6)
+        assertEquals(11, seventh.cnsLoad.toInt())
+        assertEquals(34, seventh.n2Load)
+        assertEquals(0L, seventh.ndlTime)
+        assertEquals(6.0, seventh.nextStopDepth.toDouble(), 1e-6)
+        assertEquals(60L, seventh.nextStopTime)
+        assertEquals(180L, seventh.timeToSurface)
+        assertNull(records[0].nextStopDepth, "no stop before deco")
+    }
+
+    @Test
+    fun eachTanksPressuresAreUpdatesFromItsOwnSensor() {
+        val messages = decode(write(decoDive))
+        val updates = messages.of(MesgNum.TANK_UPDATE, ::TankUpdateMesg)
+        val bySensor = updates.groupBy({ it.sensor }, { it.pressure.toDouble() })
+        assertEquals(setOf(1L, 2L), bySensor.keys)
+        assertEquals(13, bySensor.getValue(1L).size)
+        assertEquals(listOf(210.0, 200.0, 190.0, 180.0, 170.0, 160.0, 150.0), bySensor.getValue(2L), "only while the second tank reads")
+        assertEquals(listOf(1L, 2L), messages.of(MesgNum.TANK_SUMMARY, ::TankSummaryMesg).map { it.sensor })
+    }
+
+    @Test
+    fun aDivesWaterAndRatesAreInItsSettingsAndSummary() {
+        val messages = decode(write(decoDive))
+        val settings = messages.of(MesgNum.DIVE_SETTINGS, ::DiveSettingsMesg).single()
+        assertEquals(WaterType.SALT, settings.waterType)
+        assertEquals(1025f, settings.waterDensity)
+        val summary = messages.of(MesgNum.DIVE_SUMMARY, ::DiveSummaryMesg).single()
+        assertEquals(10, summary.startN2)
+        assertEquals(58, summary.endN2)
+        assertEquals(20f, summary.descentTime)
+        assertEquals(0.15f, summary.avgAscentRate)
+        assertEquals(0.4f, summary.maxDescentRate)
+    }
+
+    @Test
+    fun storedLapsAreWrittenInsteadOfOneSpanningLap() {
+        val messages = decode(write(intervalRide))
+        val laps = messages.of(MesgNum.LAP, ::LapMesg)
+        assertEquals(listOf(0, 1), laps.map { it.messageIndex })
+        assertEquals(listOf(start, start + 5.seconds), laps.map { it.startTime.date.toInstant().toKotlinInstant() })
+        assertEquals(listOf(5f, 5f), laps.map { it.totalElapsedTime })
+        assertEquals(listOf(4f, 5f), laps.map { it.totalTimerTime })
+        assertEquals(listOf(44f, 55f), laps.map { it.totalDistance })
+        assertEquals(11.0, laps[0].enhancedAvgSpeed.round3)
+        assertEquals(12.5, laps[1].enhancedMaxSpeed.round3)
+        assertEquals(listOf(122, null), laps.map { it.avgHeartRate?.toInt() })
+        assertEquals(listOf(220, null), laps.map { it.avgPower })
+        assertEquals(listOf(null, 92), laps.map { it.avgCadence?.toInt() })
+        assertEquals(listOf(4, null), laps.map { it.totalAscent })
+        assertTrue(laps.all { it.lapTrigger == LapTrigger.MANUAL })
+        assertEquals(2, messages.of(MesgNum.SESSION, ::SessionMesg).single().numLaps)
+    }
+
+    @Test
+    fun sessionCarriesTheRecordsTotalsAndTheTrainingLoad() {
+        val session = decode(write(intervalRide)).of(MesgNum.SESSION, ::SessionMesg).single()
+        assertEquals(300, session.totalCalories)
+        assertEquals(89 to 94, session.avgCadence.toInt() to session.maxCadence.toInt())
+        assertEquals(Triple(245, 290, 250), Triple(session.avgPower, session.maxPower, session.normalizedPower))
+        assertEquals(2000L, session.totalWork)
+        assertEquals(3, session.totalDescent)
+        assertEquals(Triple(1, 1, 4), Triple(session.frontGearShiftCount, session.rearGearShiftCount, session.jumpCount))
+        assertEquals(250, session.thresholdPower)
+        assertEquals(0.84f, session.intensityFactor)
+        assertEquals(112.4f, session.trainingStressScore)
+        assertEquals(3.4f, session.totalTrainingEffect)
+        assertEquals(1.2f, session.totalAnaerobicTrainingEffect)
+        val lap = decode(write(ride)).of(MesgNum.LAP, ::LapMesg).single()
+        assertNull(lap.totalCalories, "a ride without totals writes none")
+    }
+
+    @Test
+    fun aRunsDynamicsAndBalanceAreRecordFields() {
+        val run =
+            ride.copy(
+                sport = Sport.RUN,
+                subSport = null,
+                points =
+                    ride.points.map {
+                        it.copy(
+                            respirationRate = 30.5,
+                            verticalOscillationMm = 85.0,
+                            stanceTimeMs = 245.5,
+                            stepLengthMm = 1250.0,
+                            verticalRatioPercent = 6.83,
+                            stanceTimeBalancePercent = 49.75,
+                            rightBalancePercent = 52,
+                        )
+                    },
+            )
+        val record = decode(write(run)).of(MesgNum.RECORD, ::RecordMesg).first()
+        assertEquals(30.5f, record.enhancedRespirationRate)
+        assertEquals(85f, record.verticalOscillation)
+        assertEquals(245.5f, record.stanceTime)
+        assertEquals(1250f, record.stepLength)
+        assertEquals(6.83f, record.verticalRatio)
+        assertEquals(49.75f, record.stanceTimeBalance)
+        assertEquals(LeftRightBalance.RIGHT.toInt() or 52, record.leftRightBalance.toInt())
     }
 
     @Test

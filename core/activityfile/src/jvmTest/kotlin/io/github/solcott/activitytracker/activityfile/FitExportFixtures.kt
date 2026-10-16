@@ -6,9 +6,13 @@ import com.garmin.fit.MesgListener
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveTank
+import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.GearChange
+import io.github.solcott.activitytracker.lexicon.app.Lap
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
+import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
+import io.github.solcott.activitytracker.lexicon.app.WaterType
 import java.io.ByteArrayInputStream
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -95,6 +99,86 @@ object FitExportFixtures {
                     endCns = 18,
                     otu = 25,
                     tanks = listOf(ActivityDiveTank(startPressure = 200_000, endPressure = 80_000, volumeUsed = 1200)),
+                ),
+        )
+
+    /**
+     * [dive] as a decompression dive: air, then 50% nitrox at 60 s and oxygen at 100 s (a gas the record doesn't list, as from a merged
+     * file), two tanks with transmitters, deco state on every record, in salt water.
+     */
+    val decoDive =
+        dive.copy(
+            subSport = SubSport.MULTI_GAS,
+            points =
+                dive.points.mapIndexed { i, point ->
+                    point.copy(
+                        ppO2Bar = 0.2 + i * 0.1,
+                        cnsPercent = 5 + i,
+                        n2LoadPercent = 10 + i * 4,
+                        ndlSeconds = if (i < 6) 600L - i * 100 else 0L,
+                        nextStopDepthMeters = if (i in 6..11) 6.0 else null,
+                        nextStopSeconds = if (i in 6..11) 60L else null,
+                        ttsSeconds = 300L - i * 20,
+                        tankPressuresBar = listOf(200.0 - i * 5, if (i < 6) null else 210.0 - (i - 6) * 10),
+                    )
+                },
+            dive =
+                dive.dive!!.copy(
+                    closedCircuit = false,
+                    tanks =
+                        listOf(
+                            ActivityDiveTank(startPressure = 200_000, endPressure = 140_000),
+                            ActivityDiveTank(startPressure = 210_000, endPressure = 150_000),
+                        ),
+                    waterType = WaterType.SALT,
+                    waterDensity = 1025,
+                    startN2 = 10,
+                    endN2 = 58,
+                    descentTime = 20,
+                    avgAscentRate = 150,
+                    maxDescentRate = 400,
+                ),
+            gasSwitches = listOf(GasSwitch(0, 21, 0), GasSwitch(60, 50, 0), GasSwitch(100, 100, 0)),
+        )
+
+    /** [ride] as two laps of 5 s, with the record's power, calories and shifts and the zones record's training load. */
+    val intervalRide =
+        ride.copy(
+            laps =
+                listOf(
+                    Lap(
+                        start = 0,
+                        elapsed = 5,
+                        moving = 4,
+                        distance = 44,
+                        avgSpeed = 11_000,
+                        avgHeartRate = 122,
+                        avgPower = 220,
+                        ascent = 4,
+                    ),
+                    Lap(start = 5, elapsed = 5, distance = 55, maxSpeed = 12_500, maxHeartRate = 129, avgCadence = 92, descent = 1),
+                ),
+            totals =
+                ExportTotals(
+                    elevationLossMeters = 3,
+                    avgCadence = 89,
+                    maxCadence = 94,
+                    avgPower = 245,
+                    maxPower = 290,
+                    normalizedPower = 250,
+                    work = 2,
+                    calories = 300,
+                    frontShifts = 1,
+                    rearShifts = 1,
+                    jumps = 4,
+                ),
+            trainingLoad =
+                TrainingLoad(
+                    ftp = 250,
+                    intensityFactor = 84,
+                    trainingStressScore = 1124,
+                    aerobicTrainingEffect = 34,
+                    anaerobicTrainingEffect = 12,
                 ),
         )
 

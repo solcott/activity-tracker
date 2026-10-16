@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.activityfile
 
+import io.github.solcott.activitytracker.activityfile.FitExportFixtures.decoDive
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.dive
+import io.github.solcott.activitytracker.activityfile.FitExportFixtures.intervalRide
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.ride
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.start
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.write
@@ -9,9 +11,12 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
+import io.github.solcott.activitytracker.lexicon.app.WaterType
 import io.github.solcott.activitytracker.location.LocationSample
+import kotlin.math.roundToInt
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.test.runTest
 
@@ -64,7 +69,7 @@ class FitRoundTripTest {
         val read = reader.read(write(dive)).single()
         assertEquals(ActivityType(Sport.DIVE, SubSport.CCR), read.type)
         assertEquals(dive.points.map { (it.depthMeters!! * 100).toInt() }, read.streams!!.depth)
-        val back = read.dive!!
+        val back = assertNotNull(read.dive)
         assertEquals(30.0, back.maxDepthMeters)
         assertEquals(25.0, back.avgDepthMeters)
         assertEquals(90.0, back.bottomTimeSeconds)
@@ -78,7 +83,49 @@ class FitRoundTripTest {
         assertEquals(true, back.closedCircuit)
         // Later gases are in the file, but with no switch times the import counts only the first as breathed.
         assertEquals(DiveGas(21, 0), back.gases.first())
-        assertEquals(listOf(DiveTank(200.0, 80.0, 1200.0)), back.tanks)
+        assertEquals(listOf(DiveTank(200.0, 80.0, 1200.0, sensor = "1")), back.tanks)
+    }
+
+    @Test
+    fun aDecoDiveComesBackWithItsSwitchesTanksAndState() = runTest {
+        val read = reader.read(write(decoDive)).single()
+        val streams = read.streams!!
+        assertEquals(decoDive.gasSwitches, streams.gasSwitches)
+        assertEquals(listOf(DiveGas(21, 0), DiveGas(50, 0), DiveGas(100, 0)), read.dive!!.gases)
+        assertEquals(
+            decoDive.points.map { p -> p.tankPressuresBar.map { it?.let { bar -> (bar * 1000).toInt() } } },
+            streams.tankPressures!!.let { tanks -> streams.time.indices.map { i -> tanks.map { it.pressure[i] } } },
+        )
+        assertEquals(decoDive.points.map { (it.ppO2Bar!! * 1000).roundToInt() }, streams.ppO2)
+        assertEquals(decoDive.points.map { it.cnsPercent }, streams.cns)
+        assertEquals(decoDive.points.map { it.nextStopDepthMeters?.let { m -> (m * 100).toInt() } }, streams.decoStopDepth)
+        assertEquals(decoDive.points.map { it.ttsSeconds?.toInt() }, streams.tts)
+        val back = assertNotNull(read.dive)
+        assertEquals(listOf("1", "2"), back.tanks.map { it.sensor })
+        assertEquals(WaterType.SALT, back.waterType)
+        assertEquals(1025.0, back.waterDensityKgPerM3)
+        assertEquals(10 to 58, back.startN2 to back.endN2)
+        assertEquals(20.0, back.descentTimeSeconds)
+        assertEquals(0.15, back.avgAscentRateMps!!, 1e-6)
+    }
+
+    @Test
+    fun aRidesLapsAndTotalsComeBack() = runTest {
+        val read = reader.read(write(intervalRide)).single()
+        // FIT's lap always has a timer time, so a lap stored without a moving time comes back moving all of it.
+        assertEquals(intervalRide.laps.map { it.copy(moving = it.moving ?: it.elapsed) }, read.streams!!.laps)
+        assertEquals(300, read.calories)
+        assertEquals(3.4, read.aerobicTrainingEffect!!, 1e-6)
+        assertEquals(1.2, read.anaerobicTrainingEffect!!, 1e-6)
+        assertEquals(3.0, read.elevationLossMeters)
+        assertEquals(89 to 94, read.avgCadence to read.maxCadence)
+        val power = read.power!!
+        assertEquals(Triple(245, 290, 250), Triple(power.avgWatts, power.maxWatts, power.normalizedWatts))
+        assertEquals(2000.0, power.workJoules)
+        assertEquals(250, power.ftpWatts)
+        val shifting = assertNotNull(read.shifting)
+        assertEquals(1 to 1, shifting.frontShifts to shifting.rearShifts)
+        assertEquals(4, read.mtb!!.jumps)
     }
 
     private fun Double.round7() = kotlin.math.round(this * 1e7) / 1e7
