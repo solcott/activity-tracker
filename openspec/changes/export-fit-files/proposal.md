@@ -12,26 +12,26 @@ FIT is what Garmin Connect, TrainingPeaks, intervals.icu and most head units rea
   - one `lap` and one `session` spanning the activity, with sport and sub-sport, elapsed and moving time, distance and the heart-rate summary
   - `event` start/stop and an `activity` message, so Garmin Connect and Strava accept it as a completed activity
   - `event` gear-change messages from the stored gear changes, which GPX and TCX drop
-  - for a dive, the dive summary (`dive_summary`: max and average depth, bottom time, surface interval, CNS, OTU) and its gases (`dive_gas`)
+  - for a dive, the dive summary (`dive_summary`: max and average depth, bottom time, surface interval, CNS, OTU), its gases (`dive_gas`), gradient factors (`dive_settings`) and tanks (`tank_summary`)
 - Sport and sub-sport map from the activity's `sport`/`subSport` back to FIT's enums, the reverse of the import mapping.
 - The rebuilt-file note applies as for GPX and TCX: no laps beyond one, no developer fields, no running dynamics or deco state.
+- Re-importing an exported FIT gives back the activity's type, summary, streams, gear changes and dive data. A dive's later gases are written but not switched to: the app doesn't store switch times, and the file doesn't invent them.
 
-## Open questions
+## Resolved questions
 
-- **Encoder per platform.** Garmin's SDKs all encode: the Java SDK (`FileEncoder`) on Android, desktop and the AppView, the npm JS SDK (`Encoder`, already in `build/wasm/node_modules/@garmin/fitsdk`) on web, and the Swift SDK (`Encoder`) on iOS. A `FitEncoder` interface beside `FitDecoder`, implemented in Swift in `iosApp` the way `SwiftFitDecoder` is, keeps each platform on the official encoder. A hand-written common encoder is the alternative (one implementation, but CRC, definitions and field scaling to get right ourselves). Decide in design.
-- **Round trip.** Re-importing an exported FIT should give back the same summary and streams. Decide whether a test pins that on every target or only the JVM.
+- **Encoder.** One FIT encoder in common Kotlin, not one per platform behind a `FitEncoder` interface. The file holds a fixed handful of message types we fully control, so header, definitions, scaling and CRC are small; one implementation runs the same on Android, iOS, desktop and web, and the JVM tests check it with Garmin's Java SDK, which is the reference decoder. Per-platform encoders would mean three message translators, one of them in Swift that Gradle's tests never run. See design.md.
+- **Round trip.** Pinned on the JVM only: export, then decode with `GarminJavaFitDecoder` through `ActivityFileReader` and compare. The encoder is common code, so the JVM covers every platform; a common test checks the header and CRC on every target.
 
 ## Capabilities
 
 ### New Capabilities
 
 ### Modified Capabilities
-- `feed/activity-export`: adds FIT to the formats offered and what a FIT export holds. The capability is added by `export-activity-files`; archive that change first.
+- `feed/activity-export`: adds FIT to the formats offered and what a FIT export holds.
 
 ## Impact
 
-- `:core-activityfile`: a `FitEncoder` interface and a `FitWriter` turning `ExportActivity` into FIT messages; implementations in `commonJvmMain` (Garmin Java SDK, already a dependency) and `wasmJsMain` (`@garmin/fitsdk` externals, extended with `Encoder`).
-- `iosApp`: `SwiftFitEncoder.swift`, passed into `IosAppGraph.Factory` next to `SwiftFitDecoder`.
-- `core/data`: `ExportFormat.FIT` (`application/vnd.ant.fit`, `.fit`) and the sport/sub-sport reverse mapping.
-- Detail screen: FIT in the format list; no new hand-off.
-- No lexicon or AppView change. Depends on `export-activity-files`.
+- `:core-activityfile`: a common `FitWriter` turning `ExportActivity` into FIT bytes (message definitions, field scaling, CRC), and `ExportActivity` gaining what FIT holds that GPX and TCX don't (sub-sport, ascent, speeds, temperature, gear changes, dive data), and the lexicon-to-FIT sport table. JVM tests decode its output with Garmin's Java SDK, already a test dependency.
+- `core/data`: `ExportFormat.FIT` (`application/vnd.ant.fit`, `.fit`), offered whenever TCX is; `ActivityExporter` passing the record's dive and the streams' gear changes.
+- Detail screen: FIT in the format list (a label string); no new hand-off, which already takes bytes.
+- No lexicon, AppView, iOS-app or dependency change. Builds on the archived `export-activity-files`.
