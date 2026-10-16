@@ -90,9 +90,8 @@ Activities carry photos (`feed.activity#media`, an open union with `#image` only
 
 ## Spaces and route privacy: order of the open changes
 
-Four OpenSpec changes in `openspec/changes/` cover file export. Implement them in this order, and delete each entry when its change is archived.
+Three OpenSpec changes in `openspec/changes/` cover file export, building on the archived `export-activity-files` (GPX and TCX export, `feed/activity-export`). Implement them in this order, and delete each entry when its change is archived.
 
-1. `export-activity-files`: the athlete exports their own activity as a rebuilt GPX or TCX, from the record, streams and track.
-2. `export-fit-files`: FIT joins GPX and TCX, written with Garmin's encoder on each platform (Java, JS, Swift), with a session summary, gear changes and, for dives, the dive summary and gases. Needs 1 archived, since it modifies `feed/activity-export`.
-3. `export-dives-as-uddf`: dives also export as UDDF for logbook software, with summary, gases, samples and site. Needs 1 archived; independent of 2.
-4. `keep-original-activity-files`: imports keep the original file in a `feed.activitySource` in `self`, for "Download original". Reuses 1's file hand-off.
+1. `export-fit-files`: FIT joins GPX and TCX, written with Garmin's encoder on each platform (Java, JS, Swift), with a session summary, gear changes and, for dives, the dive summary and gases. It modifies `feed/activity-export`.
+2. `export-dives-as-uddf`: dives also export as UDDF for logbook software, with summary, gases, samples and site. Independent of 1.
+3. `keep-original-activity-files`: imports keep the original file in a `feed.activitySource` in `self`, for "Download original". Reuses export's file hand-off (`rememberFileHandOff`).
