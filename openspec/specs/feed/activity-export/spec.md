@@ -1,10 +1,10 @@
-# Spec Delta
+# feed/activity-export Specification
 
 ## Purpose
 
 Lets an athlete take any of their own activities out of the app as a GPX or TCX file, rebuilt from the record, streams and full track the app stores, including activities recorded in the app that have no original file.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Only the owner can export an activity
 The Export action SHALL be offered only on the signed-in athlete's own activities, whatever their visibility. It SHALL NOT be offered on anyone else's activity, and exporting SHALL need nothing from the AppView beyond what the athlete can already read.
@@ -70,11 +70,11 @@ A GPX export SHALL be GPX 1.1 with one track named after the activity's title (o
 - **THEN** each point carries its depth and temperature in extensions
 
 ### Requirement: TCX carries the activity's channels and summary
-A TCX export SHALL be one activity with one lap spanning it, holding the record's elapsed time, distance and heart rate summary. Each point SHALL carry time and, where stored, position, altitude, distance, heart rate, cadence, speed and power. Its sport SHALL be Running, Biking or Other.
+A TCX export SHALL be one activity with one lap spanning it, holding the record's moving time (its elapsed time when it has none, since readers take a lap's time as timer time), distance and heart rate summary. Each point SHALL carry time and, where stored, position, altitude, distance, heart rate, cadence, speed and power. Its sport SHALL be Running, Biking or Other.
 
 #### Scenario: Run as TCX
 - **WHEN** an athlete exports a run as TCX
-- **THEN** the file's activity is Running, with one lap of the run's elapsed time and distance
+- **THEN** the file's activity is Running, with one lap of the run's moving time and distance
 
 #### Scenario: Swim as TCX
 - **WHEN** an athlete exports a swim as TCX
