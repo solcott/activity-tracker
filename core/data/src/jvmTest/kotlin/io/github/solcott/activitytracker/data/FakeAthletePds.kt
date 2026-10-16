@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.data
 
 import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
+import io.github.solcott.activitytracker.data.activity.ActivityExporter
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.ActivityZonesStore
@@ -80,6 +81,12 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
 
     /** The charts visibility the AppView serves for each activity rkey; absent for none. */
     val streamsVisibility = mutableMapOf<String, String>()
+
+    /** The streams the AppView serves for each activity rkey in [streamsVisibility]; a single sample at 0 when absent. */
+    val streamsData = mutableMapOf<String, ActivityStreamData>()
+
+    /** Fail every `getActivityStreams` while set. */
+    var failStreams = false
 
     /** Uploaded blobs by CID. */
     val blobs = mutableMapOf<String, ByteArray>()
@@ -182,12 +189,18 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                         json(AtJson.encodeToString(GetComments.Output.serializer(), page))
                     }
                     path == "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" -> {
+                        if (failStreams) return@MockEngine error("InternalServerError", HttpStatusCode.InternalServerError)
                         val uri = AtUri(request.url.parameters["uri"]!!)
                         val visibility = streamsVisibility[uri.rkey] ?: return@MockEngine error("NotFound")
                         json(
                             AtJson.encodeToString(
                                 GetActivityStreams.Output.serializer(),
-                                GetActivityStreams.Output(uri, visibility, emptyList(), ActivityStreamData(time = listOf(0))),
+                                GetActivityStreams.Output(
+                                    uri,
+                                    visibility,
+                                    emptyList(),
+                                    streamsData[uri.rkey] ?: ActivityStreamData(time = listOf(0)),
+                                ),
                             )
                         )
                     }
@@ -224,6 +237,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
         val zones: ActivityZonesStore,
         val privacy: PrivacyZones,
         val routes: RouteTrimmer,
+        val exporter: ActivityExporter,
     )
 
     suspend fun session(scope: String? = null): Session {
@@ -265,6 +279,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
             zones,
             privacy,
             routes,
+            ActivityExporter(db, clients, tracks, feed),
         )
     }
 }
