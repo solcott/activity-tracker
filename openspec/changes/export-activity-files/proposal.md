@@ -12,7 +12,7 @@ This covers activities recorded in the app as well, which have no original file.
 
 ## What Changes
 
-- An "Export" action on the athlete's own activity (detail screen menu), offering GPX and TCX. FIT is a follow-up (see Open questions).
+- An "Export" action on the athlete's own activity (detail screen menu), offering GPX and TCX. FIT is its own change, `export-fit-files`.
 - The client builds the file from the activity record, its `feed.activityStreams` data (read through the AppView's `getActivityStreams`, as charts are) and its `feed.activityTrack`, read from the `self` space with the athlete's session. Track points and stream samples are joined on time.
 - The file is handed to the platform: a share sheet on Android and iOS, a save dialog on desktop, a download on the web.
 - Only the athlete can export, since only they can read the track. Exporting someone else's activity is not offered.
@@ -24,8 +24,8 @@ This covers activities recorded in the app as well, which have no original file.
 
 ## Open questions
 
-- **FIT export.** FIT needs an encoder on every target, wasmJs included. Today the per-platform FIT decoders only read. Ship GPX/TCX first and decide FIT in design (hand-written encoder vs a KMP library).
-- **Dives.** GPX/TCX have no depth semantics. A dive might export as UDDF instead, or as a GPX with a depth extension.
+- **FIT export.** Moved to `export-fit-files`.
+- **Dives.** GPX carries depth and water temperature in Garmin's extension; TCX has none. UDDF for logbook software is `export-dives-as-uddf`.
 
 ## Capabilities
 
