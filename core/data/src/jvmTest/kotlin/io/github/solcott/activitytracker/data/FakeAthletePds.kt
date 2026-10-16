@@ -9,6 +9,8 @@ import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.activity.PdsActivityTrackStore
+import io.github.solcott.activitytracker.data.activity.PrivacyZones
+import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.FeedItemEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
@@ -79,6 +81,9 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
     /** The charts visibility the AppView serves for each activity rkey; absent for none. */
     val streamsVisibility = mutableMapOf<String, String>()
 
+    /** Uploaded blobs by CID. */
+    val blobs = mutableMapOf<String, ByteArray>()
+
     val http =
         HttpClient(
             MockEngine { request ->
@@ -93,8 +98,18 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                             """{"id":"did:web:appview.test","service":[
                                {"id":"#activitytracker_space","type":"AtprotoSpaceService","serviceEndpoint":"http://appview.test"}]}"""
                         )
-                    path == "/xrpc/com.atproto.repo.uploadBlob" ->
-                        json($$"""{"blob":{"$type":"blob","ref":{"$link":"bafyblob"},"mimeType":"application/json","size":10}}""")
+                    path == "/xrpc/com.atproto.repo.uploadBlob" -> {
+                        val bytes = (request.body as OutgoingContent.ByteArrayContent).bytes()
+                        // GPX tracks get a CID of their own so they read back ([blobs]); everything else shares one.
+                        val cid =
+                            if (bytes.decodeToString().startsWith("<?xml")) "bafyblobgpx${bytes.contentHashCode().toUInt()}" else "bafyblob"
+                        blobs[cid] = bytes
+                        json($$"""{"blob":{"$type":"blob","ref":{"$link":"$$cid"},"mimeType":"application/json","size":10}}""")
+                    }
+                    path == "/xrpc/com.atproto.space.getBlob" ->
+                        blobs[request.url.parameters["cid"]]?.let {
+                            respond(it, headers = headersOf("Content-Type", "application/gpx+xml"))
+                        } ?: error("BlobNotFound")
                     path == "/xrpc/com.atproto.simplespace.createSpace" -> {
                         val tier = body(request).getValue("skey").jsonPrimitive.content
                         created += tier
@@ -207,6 +222,8 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
         val tracks: PdsActivityTrackStore,
         val defaults: ActivityDefaults,
         val zones: ActivityZonesStore,
+        val privacy: PrivacyZones,
+        val routes: RouteTrimmer,
     )
 
     suspend fun session(scope: String? = null): Session {
@@ -218,6 +235,8 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
         val zones = ActivityZonesStore(db, writer, outbox, clients, Clock.System, Logger)
         val streams = PdsActivityStreamsStore(writer, clients, Clock.System, zones)
         val tracks = PdsActivityTrackStore(db, writer, clients, Clock.System)
+        val privacy = PrivacyZones(clients, Clock.System, Logger)
+        val routes = RouteTrimmer(db, clients, writer, outbox, privacy, tracks, feed, Clock.System, Logger)
         val activities =
             ActivityRepository(
                 db,
@@ -227,6 +246,8 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                 streams,
                 tracks,
                 zones,
+                privacy,
+                routes,
                 feed,
                 LocalLikes(),
                 RecentActivityTypes(db, clients, feed),
@@ -242,6 +263,8 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
             tracks,
             ActivityDefaults(clients),
             zones,
+            privacy,
+            routes,
         )
     }
 }

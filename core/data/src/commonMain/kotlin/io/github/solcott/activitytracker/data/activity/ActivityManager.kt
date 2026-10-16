@@ -56,7 +56,7 @@ class ActivityManager(
     suspend fun edit(activity: ActivityView, edit: ActivityEdit) {
         val rkey = requireNotNull(activity.uri.rkey)
         val visibility = activity.visibilityOrPublic
-        val current = clients.ownActivityRecord(rkey, visibility)
+        val current = db.queuedActivityRecord(clients, rkey) ?: clients.ownActivityRecord(rkey, visibility)
         val have = current.media.orEmpty()
         val photos =
             edit.media.take(ActivityMedia.MAX).mapNotNull { change ->
@@ -128,7 +128,7 @@ class ActivityManager(
 
     private suspend fun queueUngroup(recording: AtUri, from: AtUri, visibility: String) {
         val rkey = requireNotNull(recording.rkey)
-        val record = clients.ownActivityRecord(rkey, visibility).copy(recordingOf = null)
+        val record = (db.queuedActivityRecord(clients, rkey) ?: clients.ownActivityRecord(rkey, visibility)).copy(recordingOf = null)
         writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), record, space = clients.placeOf(visibility))
         feed.rewrites.set(recording, record)
         feed.updateCached(recording) { it.copy(record = record) }

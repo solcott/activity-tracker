@@ -60,6 +60,8 @@ fun App(graph: AppGraph, modifier: Modifier = Modifier, onRootPop: () -> Unit = 
                     onDispose { HeldPhotoFetcher.Factory.session.compareAndSet(held, null) }
                 }
                 LaunchedEffect(Unit) { sessionGraph.unitsRepository.refresh() }
+                // Session-long, so a re-trim after a privacy zones save outlives the settings screen.
+                LaunchedEffect(Unit) { sessionGraph.activityRepository.repairRoutesOnSave() }
                 // So the AppView knows this athlete (and others can find them) before they post anything.
                 LaunchedEffect(Unit) { sessionGraph.profileSetup.ensureProfile() }
                 val units by sessionGraph.unitsRepository.units.collectAsState()

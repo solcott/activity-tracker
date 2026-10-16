@@ -37,7 +37,11 @@ data class ActivityDraft(
     val device: String? = null,
     /** Paired with [device]; public, so make and model only. */
     val sensors: List<ActivitySensor> = emptyList(),
-    val polyline: String? = null,
+    /**
+     * The GPS points, full resolution. Never published as they are: `ActivityRepository` trims them by the athlete's privacy zones for the
+     * record's polyline, and the track keeps them only in the `self` space ([gpx]).
+     */
+    val route: List<LocationSample> = emptyList(),
     val gpx: ByteArray? = null,
     /** Per-sample data for charts, published as the activity's streams record. */
     val streams: ActivityStreamData? = null,
@@ -84,8 +88,8 @@ data class ActivityDraft(
     val publishedStreamsVisibility: String
         get() = Visibility.capped(streamsVisibility, visibility)
 
-    /** The record, holding [media]: [photos] once uploaded. */
-    fun toRecord(createdAt: Instant, media: List<ActivityMedia> = emptyList()): ActivityRecord =
+    /** The record, holding [media] ([photos] once uploaded) and [polyline] ([route] as trimmed for it). */
+    fun toRecord(createdAt: Instant, media: List<ActivityMedia> = emptyList(), polyline: String? = null): ActivityRecord =
         ActivityRecord(
             sport = type.sport,
             subSport = type.subSport,
@@ -131,7 +135,7 @@ data class ActivityDraft(
             maxHeartRate,
             device,
             sensors,
-            polyline,
+            route,
             streams,
             visibility,
             streamsVisibility,
@@ -172,7 +176,7 @@ data class ActivityDraft(
                 distanceMeters = state.distanceMeters,
                 elevationGainMeters = state.elevationGainMeters,
                 maxSpeedMps = state.maxSpeedMps,
-                polyline = polylineOf(samples),
+                route = samples,
                 gpx = gpxOf(samples, title, type.sport),
                 streams = StreamBuilder.fromLocations(samples, state.startedAt ?: result.endedAt),
             )
@@ -199,13 +203,16 @@ data class ActivityDraft(
                 maxHeartRate = imported.maxHeartRate,
                 device = imported.device,
                 sensors = imported.sensors.map { ActivitySensor(it.kind.token, it.manufacturer, it.model) },
-                polyline = polylineOf(imported.samples),
+                route = imported.samples,
                 gpx = gpxOf(imported.samples, title, type.sport),
                 streams = imported.streams,
                 dive = imported.dive?.let(DiveSummary::of),
             )
 
-        /** The feed polyline for a track: simplified, then encoded. Null below two points. */
+        /**
+         * The polyline for a track: simplified, then encoded. Null below two points. Untrimmed: only the athlete's own screens draw it as
+         * it is; records get `RouteTrim.polylineOf`.
+         */
         fun polylineOf(samples: List<LocationSample>): String? =
             samples.takeIf { it.size >= 2 }?.let { TrackMath.encodePolyline(TrackMath.simplify(it)) }
 

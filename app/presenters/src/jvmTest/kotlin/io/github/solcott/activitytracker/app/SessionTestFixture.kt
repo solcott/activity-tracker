@@ -3,6 +3,8 @@ package io.github.solcott.activitytracker.app
 import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
+import io.github.solcott.activitytracker.data.activity.PrivacyZones
+import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -92,6 +94,12 @@ class SessionTestFixture {
     /** Alice's `actor.activityDefaults` record in her `self` space, as JSON; null for none. Saving one replaces it. */
     var activityDefaults: String? = null
 
+    /** Alice's `actor.privacyZones` record in her `self` space, as JSON; null for none. Saving one replaces it. */
+    var privacyZones: String? = null
+
+    /** Reads of her privacy zones fail, as offline. */
+    var failZoneReads = false
+
     /** Each successful put to a tier space of anything but private details (activities, streams, defaults), as (tier, record), in order. */
     val spacePuts: List<Pair<String, JsonObject>>
         get() = otherSpacePuts.toList()
@@ -180,6 +188,16 @@ class SessionTestFixture {
                     }
 
                     "/xrpc/com.atproto.space.getRecord" -> {
+                        if (request.url.parameters["collection"] == Nsid.ACTOR_PRIVACY_ZONES) {
+                            if (failZoneReads)
+                                return@MockEngine respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
+                            val value =
+                                privacyZones ?: return@MockEngine respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, json)
+                            return@MockEngine respond(
+                                """{"uri":"at://$did/${Nsid.ACTOR_PRIVACY_ZONES}/self","cid":"bafyrec","value":$value}""",
+                                headers = json,
+                            )
+                        }
                         if (request.url.parameters["collection"] == Nsid.ACTOR_ACTIVITY_DEFAULTS) {
                             val value =
                                 activityDefaults
@@ -212,6 +230,7 @@ class SessionTestFixture {
                             val record = input["record"]?.jsonObject
                             val collection = input.getValue("collection").jsonPrimitive.content
                             if (collection == Nsid.ACTOR_ACTIVITY_DEFAULTS) activityDefaults = record?.toString()
+                            if (collection == Nsid.ACTOR_PRIVACY_ZONES) privacyZones = record?.toString()
                             if (collection != Nsid.ACTOR_PRIVATE_DETAILS) {
                                 record?.let { otherSpacePuts += tier to it }
                             } else if (record == null) {
@@ -287,6 +306,7 @@ class SessionTestFixture {
         val recentTypes: RecentActivityTypes,
         val feed: FeedRepository,
         val defaults: ActivityDefaults,
+        val privacy: PrivacyZones,
     )
 
     suspend fun repos(defaultUnits: UnitSystem = UnitSystem.Metric): Repos {
@@ -295,6 +315,7 @@ class SessionTestFixture {
         val feed = FeedRepository(db, clients, localLikes, Logger)
         val recentTypes = RecentActivityTypes(db, clients, feed)
         val zones = TestZones(db, clients)
+        val privacy = PrivacyZones(clients, Clock.System, Logger)
         val activities =
             ActivityRepository(
                 db,
@@ -304,6 +325,8 @@ class SessionTestFixture {
                 zones.streams,
                 zones.tracks,
                 zones.store,
+                privacy,
+                RouteTrimmer(db, clients, zones.writer, zones.outbox, privacy, zones.tracks, feed, Clock.System, Logger),
                 feed,
                 localLikes,
                 recentTypes,
@@ -311,6 +334,6 @@ class SessionTestFixture {
             )
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
         val units = UnitsRepository(profiles, Clock.System, Logger, defaultUnits)
-        return Repos(activities, profiles, units, AuthRepository(manager, db, http), recentTypes, feed, ActivityDefaults(clients))
+        return Repos(activities, profiles, units, AuthRepository(manager, db, http), recentTypes, feed, ActivityDefaults(clients), privacy)
     }
 }

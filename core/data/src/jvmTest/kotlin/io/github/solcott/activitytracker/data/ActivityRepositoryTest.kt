@@ -19,6 +19,8 @@ import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.OwnActivity
 import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.activity.PdsActivityTrackStore
+import io.github.solcott.activitytracker.data.activity.PrivacyZones
+import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.activity.cid
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -195,6 +197,7 @@ class ActivityRepositoryTest {
         val streams = PdsActivityStreamsStore(writer, clients, Clock.System, zones)
         val tracks = PdsActivityTrackStore(db, writer, clients, Clock.System)
         manager = ActivityManager(db, clients, outbox, writer, streams, tracks, feed)
+        val privacy = PrivacyZones(clients, Clock.System, Logger)
         return ActivityRepository(
             db,
             clients,
@@ -203,6 +206,8 @@ class ActivityRepositoryTest {
             streams,
             tracks,
             zones,
+            privacy,
+            RouteTrimmer(db, clients, writer, outbox, privacy, tracks, feed, Clock.System, Logger),
             feed,
             localLikes,
             RecentActivityTypes(db, clients, feed),

@@ -11,6 +11,8 @@ import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.detail.ActivityDetailState
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
+import io.github.solcott.activitytracker.data.activity.PrivacyZones
+import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
@@ -136,6 +138,7 @@ class ActivityDetailManageTest {
         val zones = TestZones(db, clients)
         val (outbox, writer, streams) = Triple(zones.outbox, zones.writer, zones.streams)
         val tracks = zones.tracks
+        val privacy = PrivacyZones(clients, Clock.System, Logger)
         val activities =
             ActivityRepository(
                 db,
@@ -145,6 +148,8 @@ class ActivityDetailManageTest {
                 streams,
                 tracks,
                 zones.store,
+                privacy,
+                RouteTrimmer(db, clients, writer, outbox, privacy, tracks, feed, Clock.System, Logger),
                 feed,
                 localLikes,
                 RecentActivityTypes(db, clients, feed),

@@ -18,7 +18,6 @@ import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
@@ -70,14 +69,15 @@ class ActivityDraftTest {
         assertEquals(178, record.maxHeartRate)
         assertEquals(123L, record.avgTemperature)
         assertEquals("Garmin fenix7", record.device)
-        assertNotNull(record.polyline)
+        assertNull(record.polyline, "the repository adds the trimmed polyline")
+        assertEquals(3, draft.route.size)
         assertTrue("<trkpt" in draft.gpx!!.decodeToString())
     }
 
     @Test
     fun indoorImportHasNoTrack() {
         val draft = ActivityDraft.fromImport(imported(emptyList()), type = ActivityType(Sport.RIDE, SubSport.INDOOR), title = null)
-        assertNull(draft.polyline)
+        assertTrue(draft.route.isEmpty())
         assertNull(draft.gpx)
     }
 

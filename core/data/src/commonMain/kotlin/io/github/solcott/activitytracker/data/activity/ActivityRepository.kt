@@ -29,8 +29,11 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.ReplyRef
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
+import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.time.Clock
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -44,13 +47,15 @@ import kotlinx.coroutines.sync.withLock
 @Inject
 @Suppress("LongParameterList", "TooManyFunctions") // Injected collaborators; every kind of write the athlete makes.
 class ActivityRepository(
-    db: AppDatabase,
+    private val db: AppDatabase,
     private val clients: SessionClients,
     private val outbox: OutboxProcessor,
     private val writer: OutboxWriter,
     private val streams: ActivityStreamsStore,
     private val tracks: ActivityTrackStore,
     private val zones: ActivityZonesStore,
+    private val privacy: PrivacyZones,
+    private val routes: RouteTrimmer,
     private val feed: FeedRepository,
     private val localLikes: LocalLikes,
     private val recentTypes: RecentActivityTypes,
@@ -65,8 +70,10 @@ class ActivityRepository(
     suspend fun publish(draft: ActivityDraft): AtUri {
         clients.requireSpacesFor(draft.visibility)
         if (draft.gpx != null) clients.requireTrackSpace()
-        val uri = queue(draft, draft.photos.map { clients.upload(it, feed.heldPhotos) })
+        val photos = draft.photos.map { clients.upload(it, feed.heldPhotos) }
+        val uri = queue(draft, photos, privacy.forPublish())
         outbox.drain()
+        if (privacy.hasStale) routes.trimStale()
         recentTypes.remember(draft.type)
         return uri
     }
@@ -78,7 +85,9 @@ class ActivityRepository(
     suspend fun publishAll(drafts: List<ActivityDraft>): List<AtUri> {
         drafts.forEach { clients.requireSpacesFor(it.visibility) }
         if (drafts.any { it.gpx != null }) clients.requireTrackSpace()
-        val uris = zones.withTrainingReadOnce { drafts.map { queue(it, photos = emptyList()) } }
+        val uris = privacy.withReadOnce {
+            zones.withTrainingReadOnce { drafts.map { queue(it, photos = emptyList(), trim = privacy.forPublish()) } }
+        }
         outbox.drain()
         drafts.map { it.type }.distinct().forEach { recentTypes.remember(it) }
         return uris
@@ -96,17 +105,20 @@ class ActivityRepository(
         val rkey = requireNotNull(existing.uri.rkey)
         val indexed = existing.cid != null
         val place = clients.placeOf(existing.visibility)
-        val current = if (indexed) clients.ownActivityRecord(rkey, existing.visibility) else existing.record
+        val current =
+            db.queuedActivityRecord(clients, rkey) ?: if (indexed) clients.ownActivityRecord(rkey, existing.visibility) else existing.record
         val photos =
             draft.photos.take((ActivityMedia.MAX - current.media.orEmpty().size).coerceAtLeast(0)).map {
                 clients.upload(it, feed.heldPhotos)
             }
+        val trim = if (current.polyline == null && draft.route.size >= 2) privacy.forPublish() else null
         // The athlete's own words on the import screen fill an empty description; a file's never do.
         val merged =
-            ActivityMerge.fillGaps(current, draft.toRecord(clock.now(), photos)).let {
+            ActivityMerge.fillGaps(current, draft.toRecord(clock.now(), photos, trim?.trim?.polylineOf(draft.route))).let {
                 if (it.description == null) it.copy(description = draft.description?.takeIf(String::isNotBlank)) else it
             }
         writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), merged, space = place)
+        trim?.let { privacy.published(existing.uri, existing.visibility, draft.route, it) }
         // The track's place doesn't depend on the activity being sent, so unlike its streams an unsent activity's is checked too.
         draft.gpx?.let { if (!tracks.has(existing.uri)) tracks.put(existing.uri, it) }
         val imported = draft.streams
@@ -135,17 +147,18 @@ class ActivityRepository(
         )
     }
 
-    /** [photos] are [draft]'s, uploaded. */
-    private suspend fun queue(draft: ActivityDraft, photos: List<ActivityMedia>): AtUri {
+    /** [photos] are [draft]'s, uploaded; its route is trimmed by [trim] for the record's polyline. */
+    private suspend fun queue(draft: ActivityDraft, photos: List<ActivityMedia>, trim: PublishTrim): AtUri {
         val rkey = Tid.next(clock)
         val uri = AtUri.of(clients.did, Nsid.FEED_ACTIVITY, rkey)
         writer.put(
             collection = Nsid.FEED_ACTIVITY,
             rkey = rkey,
             serializer = ActivityRecord.serializer(),
-            record = draft.toRecord(clock.now(), photos),
+            record = draft.toRecord(clock.now(), photos, trim.trim.polylineOf(draft.route)),
             space = clients.placeOf(draft.visibility),
         )
+        privacy.published(uri, draft.visibility, draft.route, trim)
         draft.gpx?.let { tracks.put(uri, it) }
         draft.streams?.let {
             streams.put(uri, ActivityStreams(it, draft.publishedStreamsVisibility, draft.heartRateZones, draft.powerZones))
@@ -306,8 +319,42 @@ class ActivityRepository(
         return changed
     }
 
-    /** Retries anything left in the outbox (e.g. on app start or reconnect). */
-    suspend fun sync(): Int = outbox.drain()
+    /**
+     * Retries anything left in the outbox (e.g. on app start or reconnect), first trimming again any route this session published without
+     * reading the zones ([RouteTrimmer.trimStale]).
+     */
+    suspend fun sync(): Int {
+        routes.trimStale()
+        return outbox.drain()
+    }
+
+    /**
+     * Once the athlete's zones change, on any device, re-trims every activity's polyline from its track ([RouteTrimmer.sweep]) and sends
+     * the rewrites. Best effort and slow for an athlete with many activities, so callers run it apart from anything the athlete waits on.
+     */
+    suspend fun repairRoutes() {
+        routes.sweep()
+    }
+
+    /** The signed-in athlete's own [activity]'s full route, from its track in `self`; null when it has none or it can't be read now. */
+    suspend fun ownRoute(activity: AtUri): List<LocationSample>? = tracks.read(activity)
+
+    /**
+     * Adds a privacy zone of [HIDE_ROUTE_END_METERS] at [route]'s first point ([start]) or its last, offset as every new zone is. Its
+     * activities are trimmed again by [repairRoutesOnSave]. Throws as [PrivacyZones.add] does.
+     */
+    suspend fun hideRouteEnd(route: List<LocationSample>, start: Boolean) {
+        val point = if (start) route.first() else route.last()
+        privacy.add(point.latitude, point.longitude, HIDE_ROUTE_END_METERS)
+    }
+
+    /**
+     * Re-trims after every save of the zones this session ([PrivacyZones.saved]), a newer save replacing a sweep still running, for as long
+     * as it's collected: the session, so leaving the settings screen doesn't stop a sweep.
+     */
+    suspend fun repairRoutesOnSave() {
+        privacy.saved.filterNotNull().collectLatest { routes.sweep() }
+    }
 
     /**
      * Once a session, moves any zones left wider than they should be and drops copies an interrupted move left behind
@@ -331,7 +378,22 @@ internal suspend fun SessionClients.ownActivityRecord(rkey: String, visibility: 
     return AtJson.decodeFromJsonElement(ActivityRecord.serializer(), value)
 }
 
+/**
+ * The signed-in athlete's activity [rkey] as the outbox will leave it: its last queued put, if one is queued. Rewrites start from it rather
+ * than the PDS's copy, so an edit never undoes a queued rewrite (a re-trimmed polyline). Null when nothing is queued for it.
+ */
+internal suspend fun AppDatabase.queuedActivityRecord(clients: SessionClients, rkey: String): ActivityRecord? =
+    outbox()
+        .pending(clients.did.value)
+        .lastOrNull { it.collection == Nsid.FEED_ACTIVITY && it.rkey == rkey }
+        ?.takeIf { it.operation == OutboxProcessor.OP_PUT }
+        ?.recordJson
+        ?.let { AtJson.decodeFromString(ActivityRecord.serializer(), it) }
+
 private const val NOT_FOUND_STATUS = 400
+
+/** The radius of a zone added from an activity's start or end; the athlete can change it in Settings. */
+const val HIDE_ROUTE_END_METERS = 400
 
 /** Runs [block], and [undo] if it throws (cancellation included), so a change shown before a write is queued is taken back with it. */
 private inline fun <T> undoingOnFailure(undo: () -> Unit, block: () -> T): T {

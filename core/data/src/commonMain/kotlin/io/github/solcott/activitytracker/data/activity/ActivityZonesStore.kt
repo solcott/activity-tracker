@@ -5,7 +5,6 @@ import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
-import io.github.solcott.activitytracker.atproto.space.SpaceRead
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.di.SessionClients
@@ -18,7 +17,6 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityZonesRecord
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
-import io.github.solcott.activitytracker.lexicon.atproto.ListRecords
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import kotlin.time.Clock
@@ -198,32 +196,7 @@ class ActivityZonesStore(
         db.outbox().pending(clients.did.value).filter { it.collection == Nsid.FEED_ACTIVITY_ZONES }.map { it.rkey }.toSet()
 
     /** The athlete's own [collection] records at [at], by rkey. A tier space that doesn't exist yet holds none. */
-    private suspend fun list(collection: String, at: String): Map<String, JsonObject> {
-        val space = place(at) ?: return listRepo(collection)
-        val read =
-            try {
-                clients.spaces.listAllRecords(space, clients.did, collection, PAGE)
-            } catch (e: XrpcException) {
-                if (e.error != SpaceErrors.SPACE_NOT_FOUND) throw e
-                SpaceRead.NotFound
-            }
-        return when (read) {
-            is SpaceRead.Found -> read.value.mapNotNull { r -> r.value?.let { r.rkey to it } }.toMap()
-            SpaceRead.NotFound -> emptyMap()
-            SpaceRead.NoAccess -> throw XrpcException(SCOPE_MISSING_STATUS, SpaceErrors.NOT_AUTHORIZED, "Can't read $space")
-        }
-    }
-
-    private suspend fun listRepo(collection: String): Map<String, JsonObject> {
-        val records = mutableMapOf<String, JsonObject>()
-        var cursor: String? = null
-        do {
-            val page = clients.pds.query(ListRecords.method, ListRecords.Params(clients.did.value, collection, PAGE, cursor))
-            page.records.forEach { r -> r.uri.rkey?.let { records[it] = r.value } }
-            cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
-        } while (cursor != null)
-        return records
-    }
+    private suspend fun list(collection: String, at: String): Map<String, JsonObject> = clients.listOwn(collection, place(at))
 
     private fun place(visibility: String): SpaceUri? = clients.placeOf(visibility)
 
@@ -232,7 +205,6 @@ class ActivityZonesStore(
     private companion object {
         /** Widest first, so the last copy of a record is its narrowest. */
         val PLACES = listOf(Visibility.PUBLIC) + AthleteSpaces.TIERS
-        const val PAGE = 100
         const val SCOPE_MISSING_STATUS = 403
     }
 }

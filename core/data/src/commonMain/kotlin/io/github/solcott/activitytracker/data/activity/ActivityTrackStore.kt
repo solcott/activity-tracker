@@ -3,15 +3,21 @@ package io.github.solcott.activitytracker.data.activity
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import io.github.solcott.activitytracker.activityfile.readGpxTrack
+import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.atproto.space.SpaceRead
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityTrackRecord
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.location.Gpx
+import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.time.Clock
 
 /**
@@ -27,6 +33,12 @@ interface ActivityTrackStore {
 
     /** Queues removing [activity]'s track, if it has one. Doesn't drain the outbox. */
     suspend fun delete(activity: AtUri)
+
+    /**
+     * [activity]'s track as stored now, every point: only the athlete reads it. Null when it has none, it hasn't been sent yet, or it can't
+     * be read (offline, a blob that won't parse). Never throws but for cancellation.
+     */
+    suspend fun read(activity: AtUri): List<LocationSample>?
 }
 
 /** Writes tracks as `feed.activityTrack` records under the activity's rkey, with the GPX as a blob, in the athlete's `self` space. */
@@ -60,6 +72,18 @@ class PdsActivityTrackStore(
         return if (queued != null) queued.operation == OutboxProcessor.OP_PUT
         else clients.readOwn(Nsid.FEED_ACTIVITY_TRACK, rkey, self) != null
     }
+
+    override suspend fun read(activity: AtUri): List<LocationSample>? = runSuspendCatching {
+        val value = clients.readOwn(Nsid.FEED_ACTIVITY_TRACK, requireNotNull(activity.rkey), self) ?: return@runSuspendCatching null
+        val record = AtJson.decodeFromJsonElement(ActivityTrackRecord.serializer(), value)
+        val cid = Cid(record.track?.ref?.link ?: return@runSuspendCatching null)
+        when (val blob = clients.spaces.getBlob(self, clients.did, cid)) {
+            is SpaceRead.Found -> readGpxTrack(blob.value.bytes)
+            SpaceRead.NotFound,
+            SpaceRead.NoAccess -> null
+        }
+    }
+        .getOrNull()
 
     // A session that can't write tracks never wrote one (publishing refuses it), and the PDS would refuse the delete at the head of the
     // outbox.

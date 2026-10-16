@@ -18,6 +18,8 @@ import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.activity.PdsActivityTrackStore
+import io.github.solcott.activitytracker.data.activity.PrivacyZones
+import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -31,13 +33,18 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.GetComments
+import io.github.solcott.activitytracker.location.Gpx
+import io.github.solcott.activitytracker.location.LocationSample
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
 import kotlin.time.Clock
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /** The top-level comments of the listed threads, leaving out placeholders. */
 internal val CommentsPaging.roots: List<CommentView>
@@ -53,6 +60,12 @@ open class ActivityDetailTestBase {
     protected var likesFromAppView = listOf(carol)
     protected var streams: String? = null
     protected var visibility = "public"
+
+    /** The full track in Alice's `self` space for the activity's rkey; null for none. */
+    protected var track: List<LocationSample>? = null
+
+    /** Alice's `actor.privacyZones` record as last saved, as JSON; null for none. */
+    protected var privacyZones: String? = null
 
     /** The activity's athlete, as JSON: Bob's unless a test makes it Alice's own. */
     protected var author = bob
@@ -149,6 +162,54 @@ open class ActivityDetailTestBase {
                         respond("""{"uri":"$activityUri","likes":[${likesFromAppView.joinToString(",")}]}""", headers = json)
                     }
 
+                    "/xrpc/com.atproto.space.getRecord" -> {
+                        val notFound = respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, json)
+                        when (request.url.parameters["collection"]) {
+                            Nsid.FEED_ACTIVITY_TRACK ->
+                                if (track == null) notFound
+                                else {
+                                    val blob =
+                                        $$"""{"$type":"blob","ref":{"$link":"bafytrack"},"mimeType":"application/gpx+xml","size":10}"""
+                                    val value = """{"activity":"$activityUri","createdAt":"2026-09-30T10:31:00Z","track":$blob}"""
+                                    respond("""{"uri":"at://did:plc:alice/x/y","cid":"bafyrec","value":$value}""", headers = json)
+                                }
+                            Nsid.ACTOR_PRIVACY_ZONES ->
+                                privacyZones?.let {
+                                    respond("""{"uri":"at://did:plc:alice/x/self","cid":"bafyrec","value":$it}""", headers = json)
+                                } ?: notFound
+                            else -> notFound
+                        }
+                    }
+
+                    "/xrpc/com.atproto.space.getBlob" -> {
+                        track?.let { respond(Gpx.write("Run", "run", it), headers = headersOf("Content-Type", "application/gpx+xml")) }
+                            ?: respond("""{"error":"BlobNotFound"}""", HttpStatusCode.BadRequest, json)
+                    }
+
+                    "/.well-known/did.json" -> {
+                        respond(
+                            """{"id":"did:web:appview.test","service":[
+                               {"id":"#activitytracker_space","type":"AtprotoSpaceService","serviceEndpoint":"http://appview.test"}]}""",
+                            headers = json,
+                        )
+                    }
+
+                    "/xrpc/com.atproto.simplespace.createSpace" -> {
+                        respond("""{"uri":"at://did:plc:alice/space/${Nsid.SPACE_ATHLETE}/self"}""", headers = json)
+                    }
+
+                    "/xrpc/${Nsid.SPACE_NOTIFY_SPACE}" -> {
+                        respond("{}", headers = json)
+                    }
+
+                    "/xrpc/com.atproto.space.putRecord" -> {
+                        val input = AtJson.parseToJsonElement((request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString())
+                        val record = input.jsonObject["record"]
+                        if (input.jsonObject["collection"]?.jsonPrimitive?.content == Nsid.ACTOR_PRIVACY_ZONES)
+                            privacyZones = record.toString()
+                        respond("""{"uri":"at://did:plc:alice/x/y","cid":"bafyrec"}""", headers = json)
+                    }
+
                     "/xrpc/${Nsid.ACTOR_GET_PROFILE}" -> {
                         respond("""{"did":"did:plc:alice","handle":"alice.test","displayName":"Alice"}""", headers = json)
                     }
@@ -180,6 +241,7 @@ open class ActivityDetailTestBase {
         val zones = ActivityZonesStore(db, writer, outbox, clients, Clock.System, Logger)
         val streams = PdsActivityStreamsStore(writer, clients, Clock.System, zones)
         val tracks = PdsActivityTrackStore(db, writer, clients, Clock.System)
+        val privacy = PrivacyZones(clients, Clock.System, Logger)
         val activities =
             ActivityRepository(
                 db,
@@ -189,6 +251,8 @@ open class ActivityDetailTestBase {
                 streams,
                 tracks,
                 zones,
+                privacy,
+                RouteTrimmer(db, clients, writer, outbox, privacy, tracks, feed, Clock.System, Logger),
                 feed,
                 localLikes,
                 RecentActivityTypes(db, clients, feed),

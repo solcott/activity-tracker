@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.DeleteRecord
 import io.github.solcott.activitytracker.lexicon.atproto.GetRecord
+import io.github.solcott.activitytracker.lexicon.atproto.ListRecords
 import io.github.solcott.activitytracker.lexicon.atproto.PutRecord
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
@@ -99,5 +100,32 @@ internal suspend fun SessionClients.moveOwn(
     return true
 }
 
+/** The athlete's own [collection] records at [place] (null: the repo), by rkey. A tier space that doesn't exist yet holds none. */
+internal suspend fun SessionClients.listOwn(collection: String, place: SpaceUri?): Map<String, JsonObject> {
+    if (place == null) {
+        val records = mutableMapOf<String, JsonObject>()
+        var cursor: String? = null
+        do {
+            val page = pds.query(ListRecords.method, ListRecords.Params(did.value, collection, LIST_PAGE, cursor))
+            page.records.forEach { r -> r.uri.rkey?.let { records[it] = r.value } }
+            cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
+        } while (cursor != null)
+        return records
+    }
+    val read =
+        try {
+            spaces.listAllRecords(place, did, collection, LIST_PAGE)
+        } catch (e: XrpcException) {
+            if (e.error != SpaceErrors.SPACE_NOT_FOUND) throw e
+            SpaceRead.NotFound
+        }
+    return when (read) {
+        is SpaceRead.Found -> read.value.mapNotNull { r -> r.value?.let { r.rkey to it } }.toMap()
+        SpaceRead.NotFound -> emptyMap()
+        SpaceRead.NoAccess -> throw XrpcException(SCOPE_MISSING_STATUS, SpaceErrors.NOT_AUTHORIZED, "Can't read $place")
+    }
+}
+
+private const val LIST_PAGE = 100
 private const val RECORD_NOT_FOUND = "RecordNotFound"
 private const val SCOPE_MISSING_STATUS = 403
