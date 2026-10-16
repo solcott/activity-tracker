@@ -22,7 +22,7 @@ Clients SHALL offer the comment field and show the comment count on every activi
 - **THEN** its comment count is shown
 
 ### Requirement: Where a comment is stored
-A comment written for Public SHALL be a `feed.comment` record in the commenter's repo. A comment written for Followers, Mutuals or Only me SHALL be a `feed.comment` record in the commenter's own `interactions` space, and SHALL NOT be in their repo. A top-level comment is written for the visibility of the activity as its view shows it, and a reply for the audience `A reply's audience is capped by its parent's` gives it. A comment SHALL stay where it was written when the activity's visibility later changes.
+A comment written for Public SHALL be a `feed.comment` record in the commenter's repo. A comment written for Followers, Mutuals or Only me SHALL be a `feed.comment` record in the commenter's `interactions` space, and SHALL NOT be in their repo. A top-level comment is written for the activity's visibility as its view shows it, and a reply for the audience `A reply's audience is capped by its parent's` gives it. A comment SHALL stay where it was written if the activity's visibility changes later.
 
 #### Scenario: Comment on a non-public activity
 - **WHEN** a mutual comments on an athlete's Mutuals activity
