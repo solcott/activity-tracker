@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
@@ -45,6 +46,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScroll
 import io.github.solcott.activitytracker.app.ui.diveOverviewStats
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.handleLabel
+import io.github.solcott.activitytracker.app.ui.rememberFileHandOff
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.charts_visibility_heading
@@ -82,7 +84,9 @@ fun ActivityDetailUi(state: ActivityDetailState, modifier: Modifier = Modifier) 
                 onBack = { state.eventSink(ActivityDetailEvent.Back) },
                 scrollBehavior = scrollBehavior,
                 actions = {
-                    (state as? ActivityDetailState.Loaded)?.manage?.let { ManageMenu(it, state.canHideRouteEnds, state.eventSink) }
+                    (state as? ActivityDetailState.Loaded)?.manage?.let {
+                        ManageMenu(it, state.canHideRouteEnds, state.export, state.eventSink)
+                    }
                 },
             )
         },
@@ -115,6 +119,14 @@ fun ActivityDetailUi(state: ActivityDetailState, modifier: Modifier = Modifier) 
 
 @Composable
 private fun LoadedContent(state: ActivityDetailState.Loaded, contentPadding: PaddingValues, modifier: Modifier = Modifier) {
+    val handOff = rememberFileHandOff()
+    val exported = state.export?.file
+    SideEffect(exported) {
+        if (exported != null) {
+            handOff(exported)
+            state.eventSink(ActivityDetailEvent.ExportHandedOff)
+        }
+    }
     val listState = rememberLazyListState()
     ReadableList(listState, modifier.fillMaxSize(), contentPadding) { listPadding ->
         LazyColumn(

@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Person
@@ -62,6 +63,7 @@ enum class AppIcon(
     Hide(MaterialIcons.VisibilityOff, CupertinoIcons.eyeSlash, "eye.slash"),
     Unhide(MaterialIcons.Visibility, CupertinoIcons.eye, "eye"),
     Ungroup(MaterialIcons.CallSplit, CupertinoIcons.arrowBranch, "arrow.branch"),
+    Export(Icons.Filled.Share, CupertinoIcons.squareArrowUp, "square.and.arrow.up"),
     Close(Icons.Filled.Close, CupertinoIcons.xmark, "xmark"),
     Location(Icons.Filled.Place, CupertinoIcons.location, "location"),
     AddPhoto(Icons.Filled.Add, CupertinoIcons.photoOnRectangle, "photo.badge.plus"),

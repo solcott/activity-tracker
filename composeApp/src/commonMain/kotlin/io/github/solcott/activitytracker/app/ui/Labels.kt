@@ -12,6 +12,8 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_training
 import io.github.solcott.activitytracker.composeApp.resources.error_answer_follow_request
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_comment
+import io.github.solcott.activitytracker.composeApp.resources.error_export_activity
+import io.github.solcott.activitytracker.composeApp.resources.error_export_not_sent
 import io.github.solcott.activitytracker.composeApp.resources.error_hide_comment
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_load_comments
@@ -117,6 +119,8 @@ fun errorText(error: UiError): String =
                 UiError.Kind.NoLocation -> Res.string.error_no_location
                 UiError.Kind.SignInAgain -> Res.string.error_sign_in_again
                 UiError.Kind.WritesPending -> Res.string.error_writes_pending
+                UiError.Kind.ExportActivity -> Res.string.error_export_activity
+                UiError.Kind.ExportNotSent -> Res.string.error_export_not_sent
             }
         )
 

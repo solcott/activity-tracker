@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.detail
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,6 +23,7 @@ import io.github.solcott.activitytracker.composeApp.resources.delete_activity_on
 import io.github.solcott.activitytracker.composeApp.resources.delete_activity_title
 import io.github.solcott.activitytracker.composeApp.resources.detail_delete
 import io.github.solcott.activitytracker.composeApp.resources.detail_edit
+import io.github.solcott.activitytracker.composeApp.resources.detail_export
 import io.github.solcott.activitytracker.composeApp.resources.detail_hide_end
 import io.github.solcott.activitytracker.composeApp.resources.detail_hide_start
 import io.github.solcott.activitytracker.composeApp.resources.detail_more
@@ -33,24 +35,30 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * The owner's "…" menu: Edit, Ungroup when the activity is grouped with just one other, Hide this start and end when its track can be read
- * ([canHideRouteEnds]), and Delete, which asks first.
+ * ([canHideRouteEnds]), Export when it has data to export ([export]), and Delete, which asks first.
  */
 @Composable
 internal fun ManageMenu(
     manage: ActivityManage,
     canHideRouteEnds: Boolean,
+    export: ActivityExportState?,
     eventSink: (ActivityDetailEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var open by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf(false) }
+    var exporting by remember { mutableStateOf(false) }
+    val canExport = export != null
+    // The file is built: the sheet's done, and the detail screen hands the file off.
+    SideEffect(export?.file) { if (export?.file != null) exporting = false }
     val ungroup = stringResource(Res.string.detail_ungroup)
     val delete = stringResource(Res.string.detail_delete)
     val edit = stringResource(Res.string.detail_edit)
     val hideStart = stringResource(Res.string.detail_hide_start)
     val hideEnd = stringResource(Res.string.detail_hide_end)
+    val exportLabel = stringResource(Res.string.detail_export)
     val items =
-        remember(manage.canUngroup, canHideRouteEnds, edit, ungroup, delete, hideStart, hideEnd, eventSink) {
+        remember(manage.canUngroup, canHideRouteEnds, canExport, edit, ungroup, delete, hideStart, hideEnd, exportLabel, eventSink) {
             buildList {
                 add(AppMenuItem(edit, AppIcon.ManualEntry) { eventSink(ActivityDetailEvent.Edit) })
                 if (manage.canUngroup) add(AppMenuItem(ungroup, AppIcon.Ungroup) { eventSink(ActivityDetailEvent.Ungroup) })
@@ -58,6 +66,7 @@ internal fun ManageMenu(
                     add(AppMenuItem(hideStart, AppIcon.Hide) { eventSink(ActivityDetailEvent.HideStart) })
                     add(AppMenuItem(hideEnd, AppIcon.Hide) { eventSink(ActivityDetailEvent.HideEnd) })
                 }
+                if (canExport) add(AppMenuItem(exportLabel, AppIcon.Export) { exporting = true })
                 add(AppMenuItem(delete, AppIcon.Delete, destructive = true) { confirming = true })
             }
                 .toImmutableList()
@@ -67,6 +76,7 @@ internal fun ManageMenu(
         AppMenu(expanded = open, onDismiss = { open = false }, items = items)
     }
     if (confirming) ConfirmDelete(manage.otherRecordings, eventSink, onDismiss = { confirming = false })
+    if (exporting && export != null) ExportSheet(export, eventSink, onDismiss = { exporting = false })
 }
 
 /**

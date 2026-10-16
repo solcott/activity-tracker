@@ -35,6 +35,8 @@
     <string name="error_too_many_zones">You can keep up to 10 privacy zones</string>
     <string name="error_no_location">Couldn't find your location</string>
     <string name="error_writes_pending">Some of your changes haven't been sent yet. Try again once you're back online.</string>
+    <string name="error_export_activity">Couldn't export this activity. Check your connection and try again.</string>
+    <string name="error_export_not_sent">This activity can be exported once it's sent.</string>
     <string name="error_sign_in_again">Sign in again to share activities or details with Followers, Mutuals or Only me, to like or comment on activities that aren't public, or to decline follow requests</string>
     <string name="action_sign_in_again">Sign in again</string>
     <string name="error_delete_activity">Couldn't delete activity</string>
@@ -740,6 +742,13 @@
     </plurals>
     <string name="delete_activity_only_this">Delete only this one</string>
     <string name="detail_edit">Edit</string>
+    <string name="detail_export">Export</string>
+    <string name="export_title">Export activity</string>
+    <string name="export_action">Export</string>
+    <string name="export_format_gpx">GPX</string>
+    <string name="export_format_tcx">TCX</string>
+    <string name="export_note">The file is rebuilt from what the app keeps, so it has no laps, sub-second timing or other fields the app doesn't store. It holds your full route, including any parts your privacy zones hide from others.</string>
+    <string name="export_preparing">Preparing the file…</string>
     <string name="edit_activity_title">Edit activity</string>
     <string name="details_title_label">Title</string>
     <string name="details_description_label">Description</string>
