@@ -42,7 +42,7 @@ Multiple track points in one second each take that second's sample, so no positi
 GPX 1.1 with Garmin's `TrackPointExtension` v2 (`gpxtpx`, `http://www.garmin.com/xmlschemas/TrackPointExtension/v2`) for `hr`, `cad`, `wtemp` (dives) or `atemp` (everything else), `depth` and `speed`; power as a bare `<power>` element in `<extensions>`, the convention Strava writes and reads. GPX is offered only with positions (`trkpt` requires lat/lon); points without a position are left out of GPX.
 
 ### TCX shape
-`TrainingCenterDatabase` v2 with one `Activity` (`Sport` `Running`, `Biking` or `Other`, `Id` = `startedAt`) and one `Lap` (`StartTime`, `TotalTimeSeconds` = elapsed time, `DistanceMeters`, `AverageHeartRateBpm`, `MaximumHeartRateBpm`, `Intensity` Active, `TriggerMethod` Manual), and one `Track` of `Trackpoint`s. Speed and power go in the `ActivityExtension` v2 `TPX` (`Speed`, `Watts`). The TCX sport comes from `SportCatalog`'s `SportCategory` (Running → `Running`, Cycling → `Biking`, the rest `Other`), mapped in `core/data` because `:core-activityfile` can't see the catalog.
+`TrainingCenterDatabase` v2 with one `Activity` (`Sport` `Running`, `Biking` or `Other`, `Id` = `startedAt`) and one `Lap` (`StartTime`, `TotalTimeSeconds` = moving time, else elapsed time, since readers take it as timer time, `DistanceMeters`, `AverageHeartRateBpm`, `MaximumHeartRateBpm`, `Intensity` Active, `TriggerMethod` Manual), and one `Track` of `Trackpoint`s. Speed and power go in the `ActivityExtension` v2 `TPX` (`Speed`, `Watts`). The TCX sport comes from `SportCatalog`'s `SportCategory` (Running → `Running`, Cycling → `Biking`, the rest `Other`), mapped in `core/data` because `:core-activityfile` can't see the catalog.
 
 ### `ActivityExporter` in `core/data`
 Session-scoped, injected into the presenter:
@@ -63,8 +63,8 @@ The UI adds "Export" to the owner's overflow menu, opening an `AppAlertDialog` (
 
 ### Platform hand-off: `rememberFileHandOff` in `composeApp`
 An expect/actual composable returning `(ExportedFile) -> Unit`:
-- `androidMain` / `iosMain`: write the bytes to FileKit's cache dir under the file's name and call `FileKit.shareFile`. Android needs FileKit's `FileProvider` entry in the manifest if it isn't merged in.
-- `jvmMain` (desktop): FileKit's file saver launcher with the suggested name and extension, then write the bytes.
+- `androidMain` / `iosMain`: write the bytes to FileKit's cache dir under the file's name and share it with `rememberShareFileLauncher` (`FileKit.shareFile`). Checked in 0.16.0: `filekit-dialogs` merges its own `FileKitFileProvider` (authority `{applicationId}.FileKitFileProvider`, serving `cache-path`) and `filekit-core` initializes through androidx.startup, so the app's manifest needs nothing.
+- `jvmMain` (desktop): `rememberFileSaverLauncher` with the suggested name (without extension) and `defaultExtension`, then write the bytes to the chosen file; a cancel writes nothing.
 - `wasmJsMain`: FileKit's web download of the bytes under the name.
 
 Alternative: a share sheet everywhere through Calf. Calf has no desktop/web share, and FileKit is already in the build.
