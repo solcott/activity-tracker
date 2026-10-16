@@ -47,6 +47,12 @@ data class UiError(val kind: Kind, val detail: String?) {
 
         /** Writes the save depends on haven't been sent yet (offline, or refused for now); trying again later sends them. */
         WritesPending,
+
+        /** The activity's track or streams couldn't be read for an export. */
+        ExportActivity,
+
+        /** The activity still has writes waiting to be sent, so it can't be exported yet. */
+        ExportNotSent,
     }
 
     companion object {

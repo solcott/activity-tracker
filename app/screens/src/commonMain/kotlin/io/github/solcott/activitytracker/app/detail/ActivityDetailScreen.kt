@@ -6,6 +6,8 @@ import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.data.activity.ExportFormat
+import io.github.solcott.activitytracker.data.activity.ExportedFile
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.SentComment
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -77,6 +79,8 @@ sealed interface ActivityDetailState : CircuitUiState {
         /** A zone was just added from this activity. */
         val zoneAdded: Boolean = false,
         val routeError: UiError? = null,
+        /** Exporting the activity as a file; null on someone else's activity or when it has no track or streams to export. */
+        val export: ActivityExportState? = null,
     ) : ActivityDetailState {
         val anyExpanded: Boolean
             get() = sections.any { it in expanded }
@@ -108,6 +112,19 @@ data class ActivityManage(
     /** A delete or ungroup is running. */
     val busy: Boolean,
     val error: UiError?,
+)
+
+/** Exporting the signed-in athlete's own activity as a file rebuilt from its record, streams and full track. */
+@Immutable
+data class ActivityExportState(
+    /** What the stored data allows, in [ExportFormat] order; never empty. */
+    val formats: ImmutableList<ExportFormat>,
+    /** An export is being built. */
+    val busy: Boolean = false,
+    /** Why the last export failed: not sent yet ([UiError.Kind.ExportNotSent]) or unreadable. */
+    val error: UiError? = null,
+    /** The file built, waiting for the UI to hand to the platform and send [ActivityDetailEvent.ExportHandedOff]. */
+    val file: ExportedFile? = null,
 )
 
 /** An activity's comment threads, loaded a page at a time as the viewer scrolls to the end. */
@@ -231,4 +248,10 @@ sealed interface ActivityDetailEvent {
 
     /** Opens the activity's media full screen at [index]. */
     data class OpenMedia(val index: Int) : ActivityDetailEvent
+
+    /** The owner exports the activity as [format]: see [ActivityExportState]. */
+    data class Export(val format: ExportFormat) : ActivityDetailEvent
+
+    /** The UI handed [ActivityExportState.file] to the platform, whether it was shared, saved or cancelled. */
+    data object ExportHandedOff : ActivityDetailEvent
 }

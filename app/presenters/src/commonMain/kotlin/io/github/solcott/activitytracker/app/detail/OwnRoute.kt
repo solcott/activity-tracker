@@ -21,6 +21,8 @@ import io.github.solcott.activitytracker.location.LocationSample
  * when the track can't be read (the trimmed polyline shows then). [hide] adds a privacy zone at its start or end.
  */
 internal class OwnRoute(
+    /** The full track's points, two or more; null like [polyline]. */
+    val track: List<LocationSample>?,
     val polyline: String?,
     val canHide: Boolean,
     val zoneAdded: Boolean,
@@ -37,7 +39,7 @@ internal fun rememberOwnRoute(activity: AtUri?, activities: ActivityRepository, 
     LaunchedEffect(activity) { route = activity?.let { activities.ownRoute(it) }?.takeIf { it.size >= 2 } }
     val polyline = remember(route) { route?.let(ActivityDraft::polylineOf) }
     val current = route
-    return OwnRoute(polyline, canHide = current != null && !flights.isRunning(HIDE), zoneAdded, error) { start ->
+    return OwnRoute(current, polyline, canHide = current != null && !flights.isRunning(HIDE), zoneAdded, error) { start ->
         if (current != null) {
             error = null
             flights.launch(HIDE) {

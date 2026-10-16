@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.app.detail.ActivityDetailState
 import io.github.solcott.activitytracker.app.detail.CommentsPaging
 import io.github.solcott.activitytracker.app.detail.LikesList
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
+import io.github.solcott.activitytracker.data.activity.ActivityExporter
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.ActivityZonesStore
@@ -88,6 +89,15 @@ open class ActivityDetailTestBase {
     /** Holds `getComments` requests for a thread's replies until completed, while set. */
     protected var repliesGate: CompletableDeferred<Unit>? = null
 
+    /** Every request answers InternalServerError while set. */
+    protected var offline = false
+
+    /** `getActivityStreams` requests so far. */
+    protected var streamsRequests = 0
+
+    /** Holds `getActivityStreams` requests until completed, while set. */
+    protected var streamsGate: CompletableDeferred<Unit>? = null
+
     /** Holds `getComments` pages (not lookups) until completed, while set. */
     protected var commentsGate: CompletableDeferred<Unit>? = null
 
@@ -123,6 +133,7 @@ open class ActivityDetailTestBase {
         HttpClient(
             MockEngine { request ->
                 val json = headersOf("Content-Type", "application/json")
+                if (offline) return@MockEngine respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
                 when (request.url.encodedPath) {
                     "/xrpc/com.atproto.server.getServiceAuth" -> {
                         respond("""{"token":"service-jwt"}""", headers = json)
@@ -154,6 +165,8 @@ open class ActivityDetailTestBase {
                     }
 
                     "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" -> {
+                        streamsRequests++
+                        streamsGate?.await()
                         streams?.let { respond(it, headers = json) }
                             ?: respond("""{"error":"NotFound","message":"none"}""", HttpStatusCode.NotFound, json)
                     }
@@ -231,6 +244,7 @@ open class ActivityDetailTestBase {
         val activities: ActivityRepository,
         val profiles: ProfileRepository,
         val manager: ActivityManager,
+        val exporter: ActivityExporter,
     )
 
     protected suspend fun repos(scope: String = OAuthClientConfig.DEFAULT_SCOPE): Repos {
@@ -264,6 +278,7 @@ open class ActivityDetailTestBase {
             activities,
             ProfileRepository(clients, Clock.System, Logger, zones),
             ActivityManager(db, clients, outbox, writer, streams, tracks, feed),
+            ActivityExporter(db, clients, tracks, feed),
         )
     }
 
@@ -287,7 +302,7 @@ open class ActivityDetailTestBase {
 
     protected suspend fun detail(r: Repos, block: suspend CircuitReceiveTurbine<ActivityDetailState>.() -> Unit) =
         presenterTestOf(
-            { ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager) },
+            { ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter) },
             block = block,
         )
 

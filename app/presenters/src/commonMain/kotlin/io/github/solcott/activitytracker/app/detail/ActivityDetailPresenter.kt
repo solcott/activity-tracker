@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.settings.TrainingZonesScreen
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.data.activity.ActivityExporter
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -49,6 +50,7 @@ fun ActivityDetailPresenter(
     profiles: ProfileRepository,
     localLikes: LocalLikes,
     manager: ActivityManager,
+    exporter: ActivityExporter,
 ): ActivityDetailState {
     // The activity as loaded, and how far the viewer's comment actions have moved its count since: one value, so a reload replaces both.
     var loaded by remember { mutableStateOf<CountedActivity?>(null) }
@@ -88,6 +90,9 @@ fun ActivityDetailPresenter(
     val expansion = rememberExpansion(sections)
     val manage = rememberManage(activity.takeIf { isOwn }, loadKey, feed, manager, navigator, flights) { loadKey++ }
     val ownRoute = rememberOwnRoute(activity?.uri?.takeIf { isOwn }, activities, flights)
+    val hasStreams = charts.charts != null
+    val formats = remember(ownRoute.track, hasStreams) { exportFormats(ownRoute.track, hasStreams) }
+    val export = rememberExport(shown?.takeIf { isOwn }, formats, exporter, flights)
 
     val sink: (ActivityDetailEvent) -> Unit = { event ->
         val current = activity
@@ -156,6 +161,10 @@ fun ActivityDetailPresenter(
             ActivityDetailEvent.HideStart -> ownRoute.hide(true)
 
             ActivityDetailEvent.HideEnd -> ownRoute.hide(false)
+
+            is ActivityDetailEvent.Export -> export.export(event.format)
+
+            ActivityDetailEvent.ExportHandedOff -> export.handedOff()
         }
     }
 
@@ -184,6 +193,7 @@ fun ActivityDetailPresenter(
             canHideRouteEnds = ownRoute.canHide,
             zoneAdded = ownRoute.zoneAdded,
             routeError = ownRoute.error,
+            export = export.state,
         )
     }
 }

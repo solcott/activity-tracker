@@ -23,7 +23,9 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
     fun showsHidesAndOpensLikingAthletes() = runTest {
         val navigator = FakeNavigator(screen)
         val r = repos()
-        presenterTestOf({ ActivityDetailPresenter(screen, navigator, r.feed, r.activities, r.profiles, localLikes, r.manager) }) {
+        presenterTestOf({
+            ActivityDetailPresenter(screen, navigator, r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
+        }) {
             val loaded = awaitLoaded()
             assertNull(loaded.likesList)
 
@@ -46,7 +48,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
         visibility = "followers"
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
         }) {
             val loaded = awaitLoaded()
             assertEquals(1, loaded.activity.likeCount)
@@ -63,7 +65,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
         // Signed in before the interactions space's declaration listed likes.
         val r = repos(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}")
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
         }) {
             val loaded = awaitLoaded()
             assertNull(loaded.likeError)
@@ -80,7 +82,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
     fun viewersOwnToggleShowsBeforeTheAppViewCatchesUp() = runTest {
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
         }) {
             awaitLoaded().eventSink(ActivityDetailEvent.ToggleLikesList)
             awaitLikes { it.athletes.isNotEmpty() }
@@ -99,7 +101,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
         val r = repos()
         localLikes.set(AtUri(activityUri), null)
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
         }) {
             awaitLoaded().eventSink(ActivityDetailEvent.ToggleLikesList)
             val shown = awaitLikes { it.athletes.isNotEmpty() }
@@ -116,7 +118,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 """"heartRateZones":{"model":"cogganHeartRate","lows":[0,138,154,164,176]}}"""
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
         }) {
             var state = awaitLoaded()
             while (state.charts == null) state = awaitLoaded()
@@ -135,7 +137,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 """"data":{"time":[0,1,2,3],"heartRate":[100,150,160,null],"power":[200,250,300,null]}}"""
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
         }) {
             var state = awaitLoaded()
             while (state.charts == null) state = awaitLoaded()
@@ -160,7 +162,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
     fun noStreamsMeansNoCharts() = runTest {
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager)
+            ActivityDetailPresenter(screen, FakeNavigator(screen), r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter)
         }) {
             assertNull(awaitLoaded().charts)
             cancelAndIgnoreRemainingEvents()
