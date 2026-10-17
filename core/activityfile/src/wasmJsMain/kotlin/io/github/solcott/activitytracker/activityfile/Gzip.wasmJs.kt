@@ -36,3 +36,10 @@ private fun decompress(bytes: JsAny, max: Int): Promise<JsAny?> =
   return out;
 })()"""
     )
+
+internal actual suspend fun gzip(bytes: ByteArray): ByteArray = uint8ArrayToByteArray(compress(bytes.toUint8Array()).await<JsAny>())
+
+// The browser's gzip deflater, collected into one array.
+@Suppress("UnusedParameter") // Used by the JS body.
+private fun compress(bytes: JsAny): Promise<JsAny> =
+    js("new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer().then(b => new Uint8Array(b))")

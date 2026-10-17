@@ -4,6 +4,7 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.util.zip.GZIPInputStream
+import java.util.zip.GZIPOutputStream
 
 internal actual suspend fun gunzip(bytes: ByteArray, maxBytes: Int): ByteArray =
     try {
@@ -21,5 +22,8 @@ internal actual suspend fun gunzip(bytes: ByteArray, maxBytes: Int): ByteArray =
     } catch (e: IOException) {
         activityFileError("Corrupt or truncated gzip file", e)
     }
+
+internal actual suspend fun gzip(bytes: ByteArray): ByteArray =
+    ByteArrayOutputStream().also { out -> GZIPOutputStream(out).use { it.write(bytes) } }.toByteArray()
 
 private const val CHUNK_BYTES = 64 * 1024

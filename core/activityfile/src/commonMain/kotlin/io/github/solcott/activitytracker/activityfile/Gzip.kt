@@ -9,6 +9,12 @@ internal fun ByteArray.isGzip(): Boolean = size >= 2 && this[0] == 0x1f.toByte()
  */
 internal expect suspend fun gunzip(bytes: ByteArray, maxBytes: Int): ByteArray
 
+/**
+ * Compresses [bytes] as gzip with the platform's own deflater: `java.util.zip` on the JVM, zlib on iOS, the browser's `CompressionStream`
+ * on web.
+ */
+internal expect suspend fun gzip(bytes: ByteArray): ByteArray
+
 internal fun tooLargeError(maxBytes: Int): Nothing = activityFileError("File is larger than ${maxBytes / BYTES_PER_MB} MB once unzipped")
 
 private const val BYTES_PER_MB = 1024 * 1024

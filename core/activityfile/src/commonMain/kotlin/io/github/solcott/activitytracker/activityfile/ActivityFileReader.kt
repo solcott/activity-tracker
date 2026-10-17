@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.activityfile
 
 import dev.zacsweers.metro.Inject
+import io.github.solcott.activitytracker.lexicon.app.SourceFormat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -15,22 +16,27 @@ class ActivityFileReader(private val fitDecoder: FitDecoder) {
      * One activity per file, except a logbook (UDDF, Subsurface), which gives one per dive in the file's order. Throws
      * [UnsupportedActivityFileException] for other files and [ActivityFileException] for unreadable ones.
      */
+    suspend fun read(bytes: ByteArray): List<ImportedActivity> = readFile(bytes).activities
+
+    /** Like [read], and also says which format the file is in and whether it came gzipped. */
     @Suppress("InjectDispatcher") // CPU-bound parsing; a constructor param would break the `ActivityFileReader { … }` SAM form tests use.
-    suspend fun read(bytes: ByteArray): List<ImportedActivity> =
+    suspend fun readFile(bytes: ByteArray): ImportedFile =
         withContext(Dispatchers.Default) {
-            val plain = if (bytes.isGzip()) gunzip(bytes, MAX_UNZIPPED_BYTES) else bytes
-            decode(plain).map(DecodedActivityMapper::map)
+            val gzipped = bytes.isGzip()
+            val plain = if (gzipped) gunzip(bytes, MAX_UNZIPPED_BYTES) else bytes
+            val (format, decoded) = decode(plain)
+            ImportedFile(format, gzipped, decoded.map(DecodedActivityMapper::map))
         }
 
-    private fun decode(bytes: ByteArray): List<DecodedActivity> {
-        if (bytes.isFit()) return listOf(fitDecoder.decode(bytes))
+    private fun decode(bytes: ByteArray): Pair<ActivityFileFormat, List<DecodedActivity>> {
+        if (bytes.isFit()) return ActivityFileFormat.FIT to listOf(fitDecoder.decode(bytes))
         val xml = decodeText(bytes)
         return when (xmlRootElement(xml)) {
-            "gpx" -> listOf(GpxParser.parse(xml))
-            "TrainingCenterDatabase" -> listOf(TcxParser.parse(xml))
-            "dive" -> listOf(ShearwaterXmlParser.parse(xml))
-            "uddf" -> UddfParser.parse(xml)
-            "divelog" -> SubsurfaceXmlParser.parse(xml)
+            "gpx" -> ActivityFileFormat.GPX to listOf(GpxParser.parse(xml))
+            "TrainingCenterDatabase" -> ActivityFileFormat.TCX to listOf(TcxParser.parse(xml))
+            "dive" -> ActivityFileFormat.SHEARWATER to listOf(ShearwaterXmlParser.parse(xml))
+            "uddf" -> ActivityFileFormat.UDDF to UddfParser.parse(xml)
+            "divelog" -> ActivityFileFormat.SUBSURFACE to SubsurfaceXmlParser.parse(xml)
             else -> throw UnsupportedActivityFileException()
         }
     }
@@ -59,9 +65,6 @@ class ActivityFileReader(private val fitDecoder: FitDecoder) {
 
         private fun ByteArray.startsWith(first: Int, second: Int) = size >= 2 && this[0] == first.toByte() && this[1] == second.toByte()
 
-        /** Far beyond any real activity (a 24-hour, 1 Hz GPX is about 20 MB); stops a gzip bomb. */
-        const val MAX_UNZIPPED_BYTES = 100 * 1024 * 1024
-
         /** FIT files carry ".FIT" at bytes 8 to 11 of their header. */
         private val FIT_SIGNATURE = ".FIT".encodeToByteArray()
         private const val FIT_SIGNATURE_OFFSET = 8
@@ -69,5 +72,30 @@ class ActivityFileReader(private val fitDecoder: FitDecoder) {
         fun ByteArray.isFit(): Boolean =
             size >= FIT_SIGNATURE_OFFSET + FIT_SIGNATURE.size &&
                 FIT_SIGNATURE.indices.all { this[FIT_SIGNATURE_OFFSET + it] == FIT_SIGNATURE[it] }
+    }
+}
+
+/** Far beyond any real activity (a 24-hour, 1 Hz GPX is about 20 MB); stops a gzip bomb. */
+internal const val MAX_UNZIPPED_BYTES = 100 * 1024 * 1024
+
+/** What [ActivityFileReader.readFile] read: the file's [format], whether it came [gzipped], and its [activities]. */
+class ImportedFile(val format: ActivityFileFormat, val gzipped: Boolean, val activities: List<ImportedActivity>)
+
+/** The formats [ActivityFileReader] reads, each with its `feed.activitySource#format` [token]. */
+enum class ActivityFileFormat(val token: String) {
+    FIT(SourceFormat.FIT),
+    GPX(SourceFormat.GPX),
+    TCX(SourceFormat.TCX),
+    SHEARWATER(SourceFormat.SHEARWATER),
+    UDDF(SourceFormat.UDDF),
+    SUBSURFACE(SourceFormat.SUBSURFACE);
+
+    /** Whether one file can hold several dives, each imported as its own activity. */
+    val isLogbook: Boolean
+        get() = this == UDDF || this == SUBSURFACE
+
+    companion object {
+        /** The format with [token], or null for one this app doesn't read. */
+        fun of(token: String): ActivityFileFormat? = entries.firstOrNull { it.token == token }
     }
 }

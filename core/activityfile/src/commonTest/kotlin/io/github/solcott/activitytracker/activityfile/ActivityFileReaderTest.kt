@@ -114,6 +114,34 @@ class ActivityFileReaderTest {
     }
 
     @Test
+    fun reportsEachFilesFormatAndWhetherItCameGzipped() = runTest {
+        val fit = fitHeader + ByteArray(4)
+        val gpx =
+            """<gpx version="1.1"><trk><trkseg><trkpt lat="47.6" lon="-122.3"><time>2026-09-20T07:00:00Z</time></trkpt></trkseg></trk></gpx>"""
+        val tcx =
+            """<TrainingCenterDatabase><Activities><Activity Sport="Running"><Id>2026-09-20T07:00:00Z</Id>
+              <Lap StartTime="2026-09-20T07:00:00Z"><TotalTimeSeconds>60</TotalTimeSeconds></Lap></Activity></Activities>
+              </TrainingCenterDatabase>"""
+        val cases =
+            listOf(
+                fit to (ActivityFileFormat.FIT to false),
+                gzip(fit) to (ActivityFileFormat.FIT to true),
+                gzippedGpx to (ActivityFileFormat.GPX to true),
+                gpx.encodeToByteArray() to (ActivityFileFormat.GPX to false),
+                tcx.encodeToByteArray() to (ActivityFileFormat.TCX to false),
+                ShearwaterFixtures.dive().encodeToByteArray() to (ActivityFileFormat.SHEARWATER to false),
+                UddfFixtures.logbook().encodeToByteArray() to (ActivityFileFormat.UDDF to false),
+                SubsurfaceFixtures.logbook().encodeToByteArray() to (ActivityFileFormat.SUBSURFACE to false),
+            )
+        for ((bytes, expected) in cases) {
+            val file = reader.readFile(bytes)
+            assertEquals(expected, file.format to file.gzipped)
+            assertEquals(reader.read(bytes).size, file.activities.size)
+        }
+        assertEquals(2, reader.readFile(UddfFixtures.logbook().encodeToByteArray()).activities.size)
+    }
+
+    @Test
     fun rejectsOtherFiles() = runTest {
         assertFailsWith<UnsupportedActivityFileException> { reader.read("hello".encodeToByteArray()) }
         assertFailsWith<UnsupportedActivityFileException> { reader.read("<html><body/></html>".encodeToByteArray()) }
