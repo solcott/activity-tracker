@@ -53,6 +53,12 @@ data class UiError(val kind: Kind, val detail: String?) {
 
         /** The activity still has writes waiting to be sent, so it can't be exported yet. */
         ExportNotSent,
+
+        /** The activity's original file couldn't be read for download. */
+        DownloadOriginal,
+
+        /** The activity's original file is still waiting to be sent, so it can't be downloaded yet. */
+        OriginalNotSent,
     }
 
     companion object {

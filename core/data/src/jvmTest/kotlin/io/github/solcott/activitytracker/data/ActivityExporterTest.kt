@@ -1,10 +1,14 @@
 package io.github.solcott.activitytracker.data
 
+import io.github.solcott.activitytracker.activityfile.ActivityFileFormat
 import io.github.solcott.activitytracker.activityfile.ActivityFileReader
 import io.github.solcott.activitytracker.activityfile.DiveGas
 import io.github.solcott.activitytracker.activityfile.GarminJavaFitDecoder
+import io.github.solcott.activitytracker.activityfile.ImportedFile
+import io.github.solcott.activitytracker.activityfile.SourceFile
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityExporter
+import io.github.solcott.activitytracker.data.activity.DraftSource
 import io.github.solcott.activitytracker.data.activity.ExportFormat
 import io.github.solcott.activitytracker.data.activity.ExportUnreadableException
 import io.github.solcott.activitytracker.data.activity.NotSentYetException
@@ -27,7 +31,10 @@ import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.location.Gpx
 import io.github.solcott.activitytracker.location.LocationSample
+import java.io.ByteArrayOutputStream
+import java.util.zip.GZIPOutputStream
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -313,5 +320,59 @@ class ActivityExporterTest {
         assertEquals("Xc ski 2026-10-14.gpx", ActivityExporter.fileName(view(uri, Sport.XC_SKI, title = null), ExportFormat.GPX, utc))
         val long = ActivityExporter.fileName(view(uri, title = "a".repeat(300)), ExportFormat.GPX, utc)
         assertTrue(long.length < 100)
+    }
+
+    private val fit = byteArrayOf(14, 16, 0, 0, 0, 0, 0, 0) + ".FIT".encodeToByteArray() + ByteArray(64) { it.toByte() }
+
+    private suspend fun imported(bytes: ByteArray, name: String, gzipped: Boolean = false): ActivityDraft {
+        val file = ImportedFile(ActivityFileFormat.FIT, gzipped, activities = emptyList())
+        return draft(gpx = false).copy(source = DraftSource(requireNotNull(SourceFile.prepare(bytes, name, file))))
+    }
+
+    @Test
+    fun aFitOriginalComesBackByteForByteUnderItsName() = runTest {
+        val s = pds.session()
+        val uri = s.activities.publish(imported(fit, "Morning_Ride.fit"))
+
+        val file = s.exporter.original(view(uri))
+
+        assertEquals("Morning_Ride.fit", file.name)
+        assertEquals(ExportFormat.FIT.mimeType, file.mimeType)
+        assertContentEquals(fit, file.bytes)
+    }
+
+    @Test
+    fun aGzippedOriginalComesBackStillGzipped() = runTest {
+        val s = pds.session()
+        val gzipped = ByteArrayOutputStream().also { out -> GZIPOutputStream(out).use { it.write(fit) } }.toByteArray()
+        val uri = s.activities.publish(imported(gzipped, "12345.fit.gz", gzipped = true))
+
+        val file = s.exporter.original(view(uri))
+
+        assertEquals("12345.fit.gz", file.name)
+        assertEquals("application/gzip", file.mimeType)
+        assertContentEquals(gzipped, file.bytes)
+    }
+
+    @Test
+    fun aQueuedOriginalIsNotSentYet() = runTest {
+        val s = pds.session()
+        pds.offline = true
+        val uri = s.activities.publish(imported(fit, "Morning_Ride.fit"))
+        pds.offline = false
+
+        assertFailsWith<NotSentYetException> { s.exporter.original(view(uri)) }
+    }
+
+    @Test
+    fun anUnreadableOriginalFails() = runTest {
+        val s = pds.session()
+        val uri = s.activities.publish(imported(fit, "Morning_Ride.fit"))
+        pds.blobs.clear()
+
+        assertFailsWith<ExportUnreadableException> { s.exporter.original(view(uri)) }
+        assertFailsWith<ExportUnreadableException>("a recorded activity has none") {
+            s.exporter.original(view(s.activities.publish(draft(gpx = false))))
+        }
     }
 }

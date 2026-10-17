@@ -79,7 +79,10 @@ sealed interface ActivityDetailState : CircuitUiState {
         /** A zone was just added from this activity. */
         val zoneAdded: Boolean = false,
         val routeError: UiError? = null,
-        /** Exporting the activity as a file; null on someone else's activity or when it has no track or streams to export. */
+        /**
+         * Exporting the activity as a file; null on someone else's activity, or when it has no track or streams to rebuild a file from and
+         * no original file.
+         */
         val export: ActivityExportState? = null,
     ) : ActivityDetailState {
         val anyExpanded: Boolean
@@ -121,10 +124,13 @@ data class ActivityManage(
     val error: UiError?,
 )
 
-/** Exporting the signed-in athlete's own activity as a file rebuilt from its record, streams and full track. */
+/**
+ * Exporting the signed-in athlete's own activity as a file rebuilt from its record, streams and full track, or as the [original] file it
+ * was imported from.
+ */
 @Immutable
 data class ActivityExportState(
-    /** What the stored data allows, in [ExportFormat] order; never empty. */
+    /** What the stored data allows, in [ExportFormat] order; empty only when there's an [original]. */
     val formats: ImmutableList<ExportFormat>,
     /** An export is being built. */
     val busy: Boolean = false,
@@ -134,7 +140,12 @@ data class ActivityExportState(
     val file: ExportedFile? = null,
     /** The activity's streams hold laps, so the file has them and the note doesn't say it lacks them. */
     val hasLaps: Boolean = false,
+    /** The file the activity was imported from, stored or still queued; null for one recorded in the app or entered by hand. */
+    val original: OriginalFile? = null,
 )
+
+/** An imported activity's original file: its [name] as picked and its [format] (a `feed.activitySource#format` token). */
+@Immutable data class OriginalFile(val name: String, val format: String)
 
 /** An activity's comment threads, loaded a page at a time as the viewer scrolls to the end. */
 @Immutable
@@ -260,6 +271,9 @@ sealed interface ActivityDetailEvent {
 
     /** The owner exports the activity as [format]: see [ActivityExportState]. */
     data class Export(val format: ExportFormat) : ActivityDetailEvent
+
+    /** The owner downloads the file the activity was imported from ([ActivityExportState.original]), byte for byte. */
+    data object DownloadOriginal : ActivityDetailEvent
 
     /** The UI handed [ActivityExportState.file] to the platform, whether it was shared, saved or cancelled. */
     data object ExportHandedOff : ActivityDetailEvent

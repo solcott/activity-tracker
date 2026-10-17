@@ -45,6 +45,8 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
+import java.io.ByteArrayOutputStream
+import java.util.zip.GZIPOutputStream
 import kotlin.time.Clock
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.serialization.json.jsonObject
@@ -67,6 +69,15 @@ open class ActivityDetailTestBase {
 
     /** The full track in Alice's `self` space for the activity's rkey; null for none. */
     protected var track: List<LocationSample>? = null
+
+    /** The activity's original file in Alice's `self` space, as (name as picked, bytes as picked); null for none. Stored gzipped. */
+    protected var original: Pair<String, ByteArray>? = null
+
+    /** `space.getBlob` requests for the original so far. */
+    protected var originalReads = 0
+
+    /** Holds `space.getBlob` requests for the original until completed, while set. */
+    protected var originalGate: CompletableDeferred<Unit>? = null
 
     /** Alice's `actor.privacyZones` record as last saved, as JSON; null for none. */
     protected var privacyZones: String? = null
@@ -193,6 +204,14 @@ open class ActivityDetailTestBase {
                                     val value = """{"activity":"$activityUri","createdAt":"2026-09-30T10:31:00Z","track":$blob}"""
                                     respond("""{"uri":"at://did:plc:alice/x/y","cid":"bafyrec","value":$value}""", headers = json)
                                 }
+                            Nsid.FEED_ACTIVITY_SOURCE ->
+                                original?.let { (name, bytes) ->
+                                    val blob = $$"""{"$type":"blob","ref":{"$link":"bafysource"},"mimeType":"application/gzip","size":10}"""
+                                    val value =
+                                        """{"activity":"$activityUri","format":"fit","fileName":"$name","size":${bytes.size},""" +
+                                            """"compressed":true,"createdAt":"2026-09-30T10:31:00Z","file":$blob}"""
+                                    respond("""{"uri":"at://did:plc:alice/x/y","cid":"bafyrec","value":$value}""", headers = json)
+                                } ?: notFound
                             Nsid.ACTOR_PRIVACY_ZONES ->
                                 privacyZones?.let {
                                     respond("""{"uri":"at://did:plc:alice/x/self","cid":"bafyrec","value":$it}""", headers = json)
@@ -202,6 +221,13 @@ open class ActivityDetailTestBase {
                     }
 
                     "/xrpc/com.atproto.space.getBlob" -> {
+                        val source = original
+                        if (request.url.parameters["cid"] == "bafysource" && source != null) {
+                            originalReads++
+                            originalGate?.await()
+                            val gzipped = ByteArrayOutputStream().also { out -> GZIPOutputStream(out).use { it.write(source.second) } }
+                            return@MockEngine respond(gzipped.toByteArray(), headers = headersOf("Content-Type", "application/gzip"))
+                        }
                         track?.let { respond(Gpx.write("Run", "run", it), headers = headersOf("Content-Type", "application/gpx+xml")) }
                             ?: respond("""{"error":"BlobNotFound"}""", HttpStatusCode.BadRequest, json)
                     }

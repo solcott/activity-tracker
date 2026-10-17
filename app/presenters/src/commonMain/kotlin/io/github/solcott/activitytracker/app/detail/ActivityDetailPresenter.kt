@@ -170,6 +170,8 @@ fun ActivityDetailPresenter(
 
             is ActivityDetailEvent.Export -> export.export(event.format)
 
+            ActivityDetailEvent.DownloadOriginal -> export.downloadOriginal()
+
             ActivityDetailEvent.ExportHandedOff -> export.handedOff()
         }
     }

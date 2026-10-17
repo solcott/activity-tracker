@@ -37,6 +37,8 @@
     <string name="error_writes_pending">Some of your changes haven't been sent yet. Try again once you're back online.</string>
     <string name="error_export_activity">Couldn't export this activity. Check your connection and try again.</string>
     <string name="error_export_not_sent">This activity can be exported once it's sent.</string>
+    <string name="error_download_original">Couldn't download the original file. Check your connection and try again.</string>
+    <string name="error_original_not_sent">The original file can be downloaded once it's sent.</string>
     <string name="error_sign_in_again">Sign in again to share activities or details with Followers, Mutuals or Only me, to like or comment on activities that aren't public, or to decline follow requests</string>
     <string name="action_sign_in_again">Sign in again</string>
     <string name="error_delete_activity">Couldn't delete activity</string>
@@ -753,6 +755,10 @@
     <string name="export_note">The file is rebuilt from what the app keeps, so it has no laps, sub-second timing or other fields the app doesn't store. It holds your full route, including any parts your privacy zones hide from others.</string>
     <string name="export_note_with_laps">The file is rebuilt from what the app keeps, so it has no sub-second timing or other fields the app doesn't store. It holds your full route, including any parts your privacy zones hide from others.</string>
     <string name="export_preparing">Preparing the file…</string>
+    <string name="export_original">Original file</string>
+    <string name="export_original_explained">The file you imported, exactly as it was.</string>
+    <string name="export_original_download">Download</string>
+    <string name="export_rebuilt">Rebuilt file</string>
     <string name="edit_activity_title">Edit activity</string>
     <string name="details_title_label">Title</string>
     <string name="details_description_label">Description</string>

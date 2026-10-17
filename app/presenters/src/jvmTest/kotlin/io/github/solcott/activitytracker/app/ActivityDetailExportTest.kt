@@ -1,11 +1,13 @@
 package io.github.solcott.activitytracker.app
 
 import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent
+import io.github.solcott.activitytracker.app.detail.OriginalFile
 import io.github.solcott.activitytracker.data.activity.ExportFormat
 import io.github.solcott.activitytracker.data.db.OutboxEntity
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
@@ -171,6 +173,94 @@ class ActivityDetailExportTest : ActivityDetailTestBase() {
             ready.eventSink(ActivityDetailEvent.Export(ExportFormat.GPX))
             val export = awaitUntil { it.loaded()?.export?.error != null }.loaded()!!.export!!
             assertEquals(UiError.Kind.ExportActivity, export.error!!.kind)
+            assertNull(export.file)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    private val fit = byteArrayOf(14, 16, 0, 0, 0, 0, 0, 0) + ".FIT".encodeToByteArray() + ByteArray(32) { it.toByte() }
+
+    @Test
+    fun anImportedActivityOffersItsOriginalFile() = runTest {
+        author = staleAlice
+        track = route
+        streams = heartRate
+        original = "Morning_Ride.fit" to fit
+        detail(repos()) {
+            val export = awaitUntil { it.loaded()?.export?.original != null && it.loaded()?.export?.formats?.size == 3 }.loaded()!!.export!!
+            assertEquals(OriginalFile("Morning_Ride.fit", "fit"), export.original)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aRecordedActivityOffersNoOriginal() = runTest {
+        author = staleAlice
+        track = route
+        streams = heartRate
+        detail(repos()) {
+            val loaded = awaitUntil { it.loaded()?.export?.formats?.size == 3 && it.loaded()?.charts != null }.loaded()!!
+            assertNull(loaded.export!!.original)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun anImportWithNeitherTrackNorStreamsStillOffersExport() = runTest {
+        author = staleAlice
+        original = "Summary.fit" to fit
+        detail(repos()) {
+            val export = awaitUntil { it.loaded()?.export != null }.loaded()!!.export!!
+            assertEquals(persistentListOf(), export.formats, "nothing to rebuild a file from")
+            assertEquals("Summary.fit", export.original?.name)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun someoneElsesImportOffersNoOriginal() = runTest {
+        track = route
+        streams = heartRate
+        original = "Bobs_Ride.fit" to fit
+        detail(repos()) {
+            val loaded = awaitUntil { it.loaded()?.charts != null }.loaded()!!
+            assertNull(loaded.export)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun downloadingTwiceWhileTheFirstRunsDownloadsOnce() = runTest {
+        author = staleAlice
+        original = "Morning_Ride.fit" to fit
+        detail(repos()) {
+            val ready = awaitUntil { it.loaded()?.export?.original != null }
+            val gate = CompletableDeferred<Unit>()
+            originalGate = gate
+            ready.eventSink(ActivityDetailEvent.DownloadOriginal)
+            ready.eventSink(ActivityDetailEvent.DownloadOriginal)
+            awaitUntil { it.loaded()?.export?.busy == true }
+            gate.complete(Unit)
+            val done = awaitUntil { it.loaded()?.export?.let { e -> e.file != null && !e.busy } == true }.loaded()!!.export!!
+            assertEquals(1, originalReads, "one download read the file")
+            val file = done.file!!
+            assertEquals("Morning_Ride.fit", file.name)
+            assertEquals("application/vnd.ant.fit", file.mimeType)
+            assertContentEquals(fit, file.bytes)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun anOriginalThatCantBeReadFails() = runTest {
+        author = staleAlice
+        original = "Morning_Ride.fit" to fit
+        detail(repos()) {
+            val ready = awaitUntil { it.loaded()?.export?.original != null }
+            offline = true
+            ready.eventSink(ActivityDetailEvent.DownloadOriginal)
+            val export = awaitUntil { it.loaded()?.export?.error != null }.loaded()!!.export!!
+            assertEquals(UiError.Kind.DownloadOriginal, export.error!!.kind)
             assertNull(export.file)
             cancelAndIgnoreRemainingEvents()
         }

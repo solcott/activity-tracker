@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_training
 import io.github.solcott.activitytracker.composeApp.resources.error_answer_follow_request
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_comment
+import io.github.solcott.activitytracker.composeApp.resources.error_download_original
 import io.github.solcott.activitytracker.composeApp.resources.error_export_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_export_not_sent
 import io.github.solcott.activitytracker.composeApp.resources.error_hide_comment
@@ -26,6 +27,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_privacy
 import io.github.solcott.activitytracker.composeApp.resources.error_load_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_load_replies
 import io.github.solcott.activitytracker.composeApp.resources.error_no_location
+import io.github.solcott.activitytracker.composeApp.resources.error_original_not_sent
 import io.github.solcott.activitytracker.composeApp.resources.error_read_activity_file
 import io.github.solcott.activitytracker.composeApp.resources.error_remove_follower
 import io.github.solcott.activitytracker.composeApp.resources.error_save_activity
@@ -121,6 +123,8 @@ fun errorText(error: UiError): String =
                 UiError.Kind.WritesPending -> Res.string.error_writes_pending
                 UiError.Kind.ExportActivity -> Res.string.error_export_activity
                 UiError.Kind.ExportNotSent -> Res.string.error_export_not_sent
+                UiError.Kind.DownloadOriginal -> Res.string.error_download_original
+                UiError.Kind.OriginalNotSent -> Res.string.error_original_not_sent
             }
         )
 

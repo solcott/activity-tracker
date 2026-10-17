@@ -22,6 +22,7 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
+import io.github.solcott.activitytracker.lexicon.app.SourceFormat
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.location.Gpx
@@ -64,7 +65,8 @@ class ExportUnreadableException(cause: Throwable? = null) : IllegalStateExceptio
 
 /**
  * Rebuilds the signed-in athlete's own activity as a GPX, TCX, FIT or (for a dive) UDDF file from its record, its streams (from the
- * AppView, as charts read them) and its full track (from the `self` space, untrimmed by privacy zones: it's the athlete's own data).
+ * AppView, as charts read them) and its full track (from the `self` space, untrimmed by privacy zones: it's the athlete's own data), or
+ * hands back the file it was imported from ([original]).
  */
 @SingleIn(SessionScope::class)
 @Inject
@@ -86,6 +88,27 @@ class ActivityExporter(
         if (format !in formats(track, streams != null, view.record.sport == Sport.DIVE)) throw ExportUnreadableException()
         return build(view, format, track, streams?.data, streams?.trainingLoad)
     }
+
+    /**
+     * [view]'s original file, byte for byte as imported, under its name as picked (a logbook dive's is the whole logbook). Throws
+     * [NotSentYetException] while the file waits in the outbox, and [ExportUnreadableException] when it can't be read or there's none.
+     */
+    suspend fun original(view: ActivityView): ExportedFile {
+        val info = sentOriginal(view)
+        val bytes = runSuspendCatching { sources.read(view.uri) }.getOrElse { throw ExportUnreadableException(it) }
+        val name = info.fileName.replace(INVALID_FILE_NAME_CHARS, "_").ifBlank { "activity" }
+        return ExportedFile(name, originalMimeType(info.format, bytes), bytes)
+    }
+
+    /** [view]'s original file once it's sent; throws as [original] does when it isn't, or there's none. */
+    private suspend fun sentOriginal(view: ActivityView): SourceInfo {
+        val info = runSuspendCatching { sources.info(view.uri) }.getOrNull() ?: throw ExportUnreadableException()
+        if (info.queued) throw NotSentYetException()
+        return info
+    }
+
+    /** [view]'s original file, stored or queued; null for none, and when it can't be read (offline, say), as charts are. */
+    suspend fun originalInfo(view: ActivityView): SourceInfo? = runSuspendCatching { sources.info(view.uri) }.getOrNull()
 
     private suspend fun requireSent(view: ActivityView) {
         val rkey = requireNotNull(view.uri.rkey)
@@ -163,6 +186,8 @@ class ActivityExporter(
         private const val MAX_NAME_LENGTH = 80
         private const val MILLI = 1000.0
         private const val DECI = 10.0
+        private const val GZIP_MAGIC_0 = 0x1f.toByte()
+        private const val GZIP_MAGIC_1 = 0x8b.toByte()
 
         /**
          * What [track] and streams allow: GPX needs a track of two points or more, TCX and FIT a track or streams, and UDDF the same on a
@@ -176,6 +201,20 @@ class ActivityExporter(
                 if (isDive) add(ExportFormat.UDDF)
             }
         }
+
+        /**
+         * A FIT, GPX, TCX or UDDF original has its export's type, the other XML logs `application/xml`, and one that came gzipped gzip's.
+         */
+        fun originalMimeType(format: String, bytes: ByteArray): String =
+            when {
+                bytes.size >= 2 && bytes[0] == GZIP_MAGIC_0 && bytes[1] == GZIP_MAGIC_1 -> "application/gzip"
+                format == SourceFormat.FIT -> ExportFormat.FIT.mimeType
+                format == SourceFormat.GPX -> ExportFormat.GPX.mimeType
+                format == SourceFormat.TCX -> ExportFormat.TCX.mimeType
+                format == SourceFormat.UDDF -> ExportFormat.UDDF.mimeType
+                format == SourceFormat.SHEARWATER || format == SourceFormat.SUBSURFACE -> "application/xml"
+                else -> "application/octet-stream"
+            }
 
         /** TCX knows only running and biking; everything else is `Other`. */
         fun tcxSport(sport: String): TcxSport =
