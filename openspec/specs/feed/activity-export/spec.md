@@ -22,7 +22,7 @@ The Export action SHALL be offered only on the signed-in athlete's own activitie
 - **THEN** its detail screen offers Export
 
 ### Requirement: Formats offered follow the data stored
-Export SHALL offer GPX when the activity has a stored track of at least two points, and TCX and FIT when it has a stored track or streams. A dive SHALL also offer UDDF whenever it offers TCX; no other activity SHALL offer UDDF. An activity with neither a track nor streams SHALL NOT offer Export.
+Export SHALL offer GPX when the activity has a stored track of at least two points, and TCX and FIT when it has a stored track or streams. A dive SHALL also offer UDDF whenever it offers TCX; no other activity SHALL offer UDDF. An activity with a stored or queued original file SHALL also offer it, first. An activity with neither a track, streams nor an original file SHALL NOT offer Export.
 
 #### Scenario: Outdoor GPS activity
 - **WHEN** an athlete exports an activity with a track and streams
@@ -47,6 +47,18 @@ Export SHALL offer GPX when the activity has a stored track of at least two poin
 #### Scenario: Run
 - **WHEN** an athlete exports a run with a track and streams
 - **THEN** UDDF is not offered
+
+#### Scenario: Imported activity
+- **WHEN** an athlete exports a ride imported from a FIT file
+- **THEN** the original file is offered first, then GPX, TCX and FIT
+
+#### Scenario: Imported file with only a summary
+- **WHEN** an athlete opens their own activity imported from a file that gave neither a track nor streams
+- **THEN** Export is offered, with only the original file
+
+#### Scenario: Recorded in the app
+- **WHEN** an athlete exports a run they recorded in the app
+- **THEN** no original file is offered
 
 ### Requirement: Export waits until the activity is sent
 An activity whose record, streams or track are still queued to be sent SHALL NOT be exported. The app SHALL say it can be exported once it's sent, rather than export a file missing data.
@@ -193,7 +205,7 @@ Importing a FIT export SHALL give back the activity's type, start, elapsed and m
 - **THEN** the imported dive has the same depth profile, summary and first gas
 
 ### Requirement: Rebuilt files say what they lack
-Before exporting, the app SHALL say that the file is rebuilt from what the app stores and lacks sub-second timing and fields the app doesn't keep, and also laps when the activity has none stored.
+Before exporting, the app SHALL say that the file is rebuilt from what the app stores and lacks sub-second timing and fields the app doesn't keep, and also laps when the activity has none stored. The note SHALL be about the rebuilt formats only and SHALL NOT apply to the original file.
 
 #### Scenario: Choose a format
 - **WHEN** an athlete opens Export on an activity with no stored laps
@@ -202,6 +214,10 @@ Before exporting, the app SHALL say that the file is rebuilt from what the app s
 #### Scenario: Activity with laps
 - **WHEN** an athlete opens Export on an activity with stored laps
 - **THEN** the note says the file is rebuilt and lacks fields the app doesn't keep, and doesn't say it lacks laps
+
+#### Scenario: Activity with an original
+- **WHEN** an athlete opens Export on an imported activity
+- **THEN** the original file is listed apart from the rebuilt formats, as the file they imported, and the rebuilt note sits with the rebuilt formats
 
 ### Requirement: The file is handed to the platform
 An exported file SHALL open the share sheet on Android and iOS, a save dialog on desktop, and download in the browser on the web. Its name SHALL be the activity's title (or sport) and start date, with the format's extension.
