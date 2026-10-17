@@ -27,9 +27,24 @@ class MigrationTest {
         db.close()
     }
 
-    /** The version 1 schema, from the committed schema export, with one queued write. */
-    private fun createVersion1(file: File) {
-        val schema = File("schemas/io.github.solcott.activitytracker.data.db.AppDatabase/1.json").readText()
+    @Test
+    fun version2OutboxRowsSurviveWithoutASharedBlob() = runTest {
+        val file = File(createTempDirectory("migration").toFile(), DATABASE_NAME)
+        createVersion(file, 2)
+
+        val db = Room.databaseBuilder<AppDatabase>(file.path).addAppMigrations().setDriver(BundledSQLiteDriver()).build()
+        val pending = db.outbox().pending("did:plc:alice")
+        assertEquals(listOf("3kold"), pending.map { it.rkey })
+        assertEquals(null, pending.single().blobKey)
+        assertEquals(emptyList(), db.outbox().blobs())
+        db.close()
+    }
+
+    private fun createVersion1(file: File) = createVersion(file, 1)
+
+    /** The [version] schema, from the committed schema export, with one queued write. */
+    private fun createVersion(file: File, version: Int) {
+        val schema = File("schemas/io.github.solcott.activitytracker.data.db.AppDatabase/$version.json").readText()
         val database = Json.parseToJsonElement(schema).jsonObject.getValue("database").jsonObject
         val connection = BundledSQLiteDriver().open(file.path)
         database.getValue("entities").jsonArray.forEach { entity ->
@@ -41,7 +56,7 @@ class MigrationTest {
             "INSERT INTO outbox (did, operation, collection, rkey, recordJson, attempts, createdAt) " +
                 "VALUES ('did:plc:alice', 'put', 'app.activitytracker.feed.activity', '3kold', '{}', 0, 0)"
         )
-        connection.execSQL("PRAGMA user_version = 1")
+        connection.execSQL("PRAGMA user_version = $version")
         connection.close()
     }
 }

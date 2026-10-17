@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.data.activity
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.data.db.AppDatabase
+import io.github.solcott.activitytracker.data.db.OutboxBlobEntity
 import io.github.solcott.activitytracker.data.db.OutboxEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -28,11 +29,17 @@ class OutboxWriter(private val db: AppDatabase, private val clients: SessionClie
         space: SpaceUri? = null,
     ) {
         val json = AtJson.encodeToString(serializer, record)
-        db.outbox()
-            .insert(
-                entity(OutboxProcessor.OP_PUT, collection, rkey, json, space)
-                    .copy(blob = blob?.bytes, blobMimeType = blob?.mimeType, blobField = blob?.field)
-            )
+        val row = entity(OutboxProcessor.OP_PUT, collection, rkey, json, space)
+        val key = blob?.key
+        if (key != null) {
+            db.outbox()
+                .insert(
+                    row.copy(blobKey = key, blobMimeType = blob.mimeType, blobField = blob.field),
+                    OutboxBlobEntity(key = key, did = clients.did.value, bytes = blob.bytes, mimeType = blob.mimeType),
+                )
+        } else {
+            db.outbox().insert(row.copy(blob = blob?.bytes, blobMimeType = blob?.mimeType, blobField = blob?.field))
+        }
     }
 
     suspend fun delete(collection: String, rkey: String, space: SpaceUri? = null) {
@@ -51,5 +58,8 @@ class OutboxWriter(private val db: AppDatabase, private val clients: SessionClie
         )
 }
 
-/** A blob uploaded before the record; its ref is written into the record's [field]. */
-class PendingBlob(val bytes: ByteArray, val mimeType: String, val field: String)
+/**
+ * A blob uploaded before the record; its ref is written into the record's [field]. Writes sharing a [key] share one stored copy, uploaded
+ * once (a logbook's original file, named by each of its dives' sources); without one the bytes are stored on the write.
+ */
+class PendingBlob(val bytes: ByteArray, val mimeType: String, val field: String, val key: String? = null)

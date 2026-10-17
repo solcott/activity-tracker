@@ -95,6 +95,12 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
     /** Uploaded blobs by CID. */
     val blobs = mutableMapOf<String, ByteArray>()
 
+    /** How many `uploadBlob` calls there were. */
+    var uploads = 0
+
+    /** Refuse uploads larger than this many bytes with `413 PayloadTooLarge`, while set. */
+    var blobUploadLimit: Int? = null
+
     val http =
         HttpClient(
             MockEngine { request ->
@@ -111,9 +117,17 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                         )
                     path == "/xrpc/com.atproto.repo.uploadBlob" -> {
                         val bytes = (request.body as OutgoingContent.ByteArrayContent).bytes()
-                        // GPX tracks get a CID of their own so they read back ([blobs]); everything else shares one.
+                        uploads++
+                        if (bytes.size > (blobUploadLimit ?: Int.MAX_VALUE))
+                            return@MockEngine error("PayloadTooLarge", HttpStatusCode.PayloadTooLarge)
+                        // GPX tracks and gzipped originals get a CID of their own so they read back ([blobs]); everything else shares one.
                         val cid =
-                            if (bytes.decodeToString().startsWith("<?xml")) "bafyblobgpx${bytes.contentHashCode().toUInt()}" else "bafyblob"
+                            when {
+                                bytes.decodeToString().startsWith("<?xml") -> "bafyblobgpx${bytes.contentHashCode().toUInt()}"
+                                bytes.size >= 2 && bytes[0] == 0x1f.toByte() && bytes[1] == 0x8b.toByte() ->
+                                    "bafyblobgz${bytes.contentHashCode().toUInt()}"
+                                else -> "bafyblob"
+                            }
                         blobs[cid] = bytes
                         json($$"""{"blob":{"$type":"blob","ref":{"$link":"$$cid"},"mimeType":"application/json","size":10}}""")
                     }
@@ -135,6 +149,13 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                         val place = placeOf(input)
                         if (place != repo && failSpacePuts) return@MockEngine error("RateLimitExceeded", HttpStatusCode.TooManyRequests)
                         if (input.getValue("collection").jsonPrimitive.content == failPutsOf) return@MockEngine error("InvalidRecord")
+                        // An original names its blob by CID; the PDS refuses one it doesn't hold (never uploaded, or reclaimed).
+                        val source =
+                            input.getValue("record").jsonObject.takeIf {
+                                input["collection"]?.jsonPrimitive?.content == Nsid.FEED_ACTIVITY_SOURCE
+                            }
+                        val sourceCid = source?.get("file")?.jsonObject?.get("ref")?.jsonObject?.get("\$link")?.jsonPrimitive?.content
+                        if (source != null && sourceCid !in blobs) return@MockEngine error("BlobNotFound")
                         val key = "${input.getValue("collection").jsonPrimitive.content}/${input.getValue("rkey").jsonPrimitive.content}"
                         stored.getOrPut(place) { mutableMapOf() }[key] = input.getValue("record").jsonObject
                         writes += "put $place $key"

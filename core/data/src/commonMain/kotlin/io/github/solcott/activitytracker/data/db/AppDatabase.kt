@@ -5,6 +5,7 @@ import androidx.room3.Dao
 import androidx.room3.Database
 import androidx.room3.Entity
 import androidx.room3.Insert
+import androidx.room3.OnConflictStrategy
 import androidx.room3.PrimaryKey
 import androidx.room3.Query
 import androidx.room3.RoomDatabase
@@ -21,13 +22,23 @@ const val DATABASE_NAME = "activity-tracker.db"
  * Adds every schema migration to a platform's builder. Hand-written rather than `@Database(autoMigrations = ...)`: Kotlin/Native's backend
  * crashes lowering the `AutoMigration` annotation.
  */
-fun <T : RoomDatabase> RoomDatabase.Builder<T>.addAppMigrations(): RoomDatabase.Builder<T> = addMigrations(MIGRATION_1_2)
+fun <T : RoomDatabase> RoomDatabase.Builder<T>.addAppMigrations(): RoomDatabase.Builder<T> = addMigrations(MIGRATION_1_2, MIGRATION_2_3)
 
 /** Runs one statement: `execSQL` blocks on most platforms and suspends on the web, so it has no common form. */
 internal expect suspend fun SQLiteConnection.runSql(sql: String)
 
 /** 1 → 2: an outbox write can target one of the athlete's tier spaces. */
 private val MIGRATION_1_2 = Migration(1, 2) { it.runSql("ALTER TABLE outbox ADD COLUMN space TEXT") }
+
+/** 2 → 3: one blob shared by several outbox writes (a logbook's original file, named by each of its dives' sources). */
+private val MIGRATION_2_3 =
+    Migration(2, 3) {
+        it.runSql(
+            "CREATE TABLE IF NOT EXISTS `outbox_blob` (`key` TEXT NOT NULL, `did` TEXT NOT NULL, `bytes` BLOB NOT NULL, " +
+                "`mimeType` TEXT NOT NULL, `ref` TEXT, PRIMARY KEY(`key`))"
+        )
+        it.runSql("ALTER TABLE outbox ADD COLUMN blobKey TEXT")
+    }
 
 @Database(
     entities =
@@ -36,8 +47,9 @@ private val MIGRATION_1_2 = Migration(1, 2) { it.runSql("ALTER TABLE outbox ADD 
             PendingAuthEntity::class,
             FeedItemEntity::class,
             OutboxEntity::class,
+            OutboxBlobEntity::class,
         ],
-    version = 2,
+    version = 3,
 )
 @ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -142,6 +154,21 @@ data class OutboxEntity(
     val createdAt: Long,
     /** The athlete's tier space to write to (a space URI), or null for their repo. */
     val space: String? = null,
+    /** A shared blob ([OutboxBlobEntity.key]) to write into [blobField] instead of an inline [blob]. */
+    val blobKey: String? = null,
+)
+
+/**
+ * A blob several outbox writes share, stored once ([OutboxEntity.blobKey]). [ref] is its `BlobRef` JSON once a write naming it succeeded,
+ * so later writes reuse it rather than upload it again. Deleted once no pending write names it.
+ */
+@Entity(tableName = "outbox_blob")
+data class OutboxBlobEntity(
+    @PrimaryKey val key: String,
+    val did: String,
+    val bytes: ByteArray,
+    val mimeType: String,
+    val ref: String? = null,
 )
 
 @Dao
@@ -155,4 +182,23 @@ interface OutboxDao {
     @Query("UPDATE outbox SET attempts = attempts + 1, lastError = :error WHERE id = :id") suspend fun markFailed(id: Long, error: String)
 
     @Query("DELETE FROM outbox WHERE id = :id") suspend fun delete(id: Long)
+
+    /** Stores a shared blob; a blob already stored under its key is kept, so each write naming it adds nothing. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertBlob(blob: OutboxBlobEntity)
+
+    /** Queues [entity] naming [blob], storing the blob first if it isn't yet. */
+    @Transaction
+    suspend fun insert(entity: OutboxEntity, blob: OutboxBlobEntity): Long {
+        insertBlob(blob)
+        return insert(entity)
+    }
+
+    @Query("SELECT * FROM outbox_blob WHERE `key` = :key") suspend fun blob(key: String): OutboxBlobEntity?
+
+    @Query("SELECT * FROM outbox_blob") suspend fun blobs(): List<OutboxBlobEntity>
+
+    @Query("UPDATE outbox_blob SET ref = :ref WHERE `key` = :key") suspend fun setBlobRef(key: String, ref: String?)
+
+    @Query("DELETE FROM outbox_blob WHERE `key` NOT IN (SELECT blobKey FROM outbox WHERE blobKey IS NOT NULL)")
+    suspend fun deleteUnreferencedBlobs()
 }
