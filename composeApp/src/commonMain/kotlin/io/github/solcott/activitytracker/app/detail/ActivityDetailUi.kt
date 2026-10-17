@@ -43,7 +43,9 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
+import io.github.solcott.activitytracker.app.ui.distanceStat
 import io.github.solcott.activitytracker.app.ui.diveOverviewStats
+import io.github.solcott.activitytracker.app.ui.elevationStat
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.app.ui.rememberFileHandOff
@@ -65,8 +67,6 @@ import io.github.solcott.activitytracker.composeApp.resources.stat_avg_cadence
 import io.github.solcott.activitytracker.composeApp.resources.stat_avg_power
 import io.github.solcott.activitytracker.composeApp.resources.stat_calories
 import io.github.solcott.activitytracker.composeApp.resources.stat_descent
-import io.github.solcott.activitytracker.composeApp.resources.stat_distance
-import io.github.solcott.activitytracker.composeApp.resources.stat_elevation
 import io.github.solcott.activitytracker.composeApp.resources.stat_flow
 import io.github.solcott.activitytracker.composeApp.resources.stat_ftp
 import io.github.solcott.activitytracker.composeApp.resources.stat_grit
@@ -245,9 +245,9 @@ private fun overviewStats(record: ActivityRecord, charts: ActivityCharts?, poolL
     }
     val time = record.movingTime ?: record.elapsedTime
     return listOfNotNull(
-            Stat(stringResource(Res.string.stat_distance), Format.distance(record.distance?.toDouble())),
+            distanceStat(record.sport, record.distance?.toDouble()),
             Stat(stringResource(Res.string.stat_moving_time), Format.duration(time)),
-            Stat(stringResource(Res.string.stat_elevation), Format.elevation(record.elevationGain?.toDouble())),
+            elevationStat(record.sport, record.elevationGain?.toDouble()),
             Format.rateStat(record.sport, record.distance?.toDouble(), time),
             record.avgTemperature?.let { Stat(stringResource(Res.string.stat_temperature), Format.temperature(it)) },
             poolLength?.let {
