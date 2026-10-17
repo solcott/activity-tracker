@@ -2,9 +2,11 @@
 
 ## Purpose
 
+
 Keeps the summary fields, training load, extra per-sample channels and laps that an imported FIT activity records, each at a visibility suited to what it reveals, and shows them on the activity's page.
 
 ## Requirements
+
 
 ### Requirement: Imported summary fields are published
 An activity imported from FIT SHALL publish, where the file records them: elevation loss, average and maximum cadence, average, maximum and normalized power, work, calories, front and rear shift counts, and jump count, grit and flow. These SHALL be on the activity record, at the activity's visibility.
@@ -47,7 +49,7 @@ An activity imported from FIT SHALL store, where the file records them per sampl
 - **THEN** its streams hold the percent of power from the right leg
 
 ### Requirement: Laps are kept
-An activity imported from FIT SHALL store each lap with its start, elapsed and moving time, distance, average and maximum speed and heart rate, average power and cadence, and ascent and descent, where recorded. Laps SHALL be stored with the streams, at their visibility. A file with a single lap spanning the activity SHALL store none.
+An activity imported from FIT or TCX SHALL store each lap with its start, elapsed and moving time, distance, average and maximum speed and heart rate, average power and cadence, ascent and descent, calories, intensity (active, rest, warm-up, cool-down, recovery or another the file names) and trigger (manual, distance, time, position or another the file names), where recorded. Laps SHALL be stored with the streams, at their visibility. A file with a single lap spanning the activity SHALL store none.
 
 #### Scenario: Interval run
 - **WHEN** an athlete imports a FIT run with eight laps
@@ -56,6 +58,18 @@ An activity imported from FIT SHALL store each lap with its start, elapsed and m
 #### Scenario: One automatic lap
 - **WHEN** an athlete imports a FIT ride with one lap spanning the ride
 - **THEN** its streams hold no laps
+
+#### Scenario: TCX intervals
+- **WHEN** an athlete imports a TCX run with eight laps alternating Active and Resting intensity
+- **THEN** its streams hold eight laps in order, each with its own time, distance, calories and intensity
+
+#### Scenario: Lap triggers
+- **WHEN** an athlete imports a FIT run with automatic laps every kilometer and one manual lap
+- **THEN** its stored laps' triggers are distance, except the manual one's
+
+#### Scenario: TCX with one lap
+- **WHEN** an athlete imports a TCX ride with one lap spanning the ride
+- **THEN** its streams hold no laps, and the lap's totals are the activity's
 
 ### Requirement: Activity page shows the new data
 The activity's page SHALL show the new summary fields among its stats, a chart for each new channel stored, and a lap table when laps are stored, each only where stored and admitted.
@@ -81,3 +95,36 @@ Activities imported before this data was kept SHALL keep showing as before, with
 #### Scenario: Ride imported earlier
 - **WHEN** a viewer opens a ride imported before power was published
 - **THEN** its page shows the stats and charts it showed before
+
+### Requirement: Lap table shows intensity
+An activity's lap table SHALL mark each lap's intensity when the laps record one, so rests and warm-ups stand apart from work intervals.
+
+#### Scenario: Intervals with rests
+- **WHEN** a viewer opens a run whose stored laps alternate active and rest
+- **THEN** the lap table marks each rest lap as a rest
+
+#### Scenario: Laps without intensity
+- **WHEN** a viewer opens a ride whose stored laps record no intensity
+- **THEN** the lap table shows no intensity marks
+
+### Requirement: Ski runs and lifts are kept
+A ski or snowboard activity imported from FIT SHALL store each run and each lift ride it records as a lap, in order, with a lift as a rest lap, its time and its ascent or descent. These SHALL replace the file's own laps when the file records runs.
+
+#### Scenario: Resort day
+- **WHEN** an athlete imports a FIT resort ski day of eight runs and eight lift rides
+- **THEN** its streams hold sixteen laps in order, the eight lift rides as rest laps
+
+#### Scenario: Backcountry ski without runs
+- **WHEN** an athlete imports a FIT backcountry ski with laps and no run splits
+- **THEN** its streams hold the file's laps
+
+### Requirement: Ski activities show their runs
+A ski or snowboard activity's page SHALL show its run count among its stats, to viewers the streams admit, and its lap table SHALL label laps as runs and lifts, with each run's descent.
+
+#### Scenario: Resort day page
+- **WHEN** a viewer who may see the streams opens a ski day with eight runs stored
+- **THEN** its stats show 8 runs and the lap table lists each run with its descent and each lift
+
+#### Scenario: Viewer who may not see streams
+- **WHEN** a viewer opens a Public ski day whose streams are Only me
+- **THEN** no run count or lap table is shown
