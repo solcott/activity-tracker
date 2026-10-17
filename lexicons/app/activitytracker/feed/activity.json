@@ -42,6 +42,7 @@
           "normalizedPower": { "type": "integer", "minimum": 0, "description": "Watts." },
           "work": { "type": "integer", "minimum": 0, "description": "Kilojoules." },
           "calories": { "type": "integer", "minimum": 0, "description": "Kilocalories." },
+          "poolLength": { "type": "integer", "minimum": 0, "description": "A pool swim's pool length, in centimeters." },
           "frontShifts": { "type": "integer", "minimum": 0, "description": "Front derailleur shifts by electronic shifting." },
           "rearShifts": { "type": "integer", "minimum": 0, "description": "Rear derailleur shifts by electronic shifting." },
           "jumps": { "type": "integer", "minimum": 0, "description": "Mountain bike jumps." },

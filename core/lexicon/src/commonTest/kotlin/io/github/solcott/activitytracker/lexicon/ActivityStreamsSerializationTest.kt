@@ -8,10 +8,17 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityZonesRecord
 import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.Lap
+import io.github.solcott.activitytracker.lexicon.app.LapIntensity
+import io.github.solcott.activitytracker.lexicon.app.LapTrigger
+import io.github.solcott.activitytracker.lexicon.app.Leg
+import io.github.solcott.activitytracker.lexicon.app.Length
 import io.github.solcott.activitytracker.lexicon.app.SourceFormat
+import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.StreamChannel
+import io.github.solcott.activitytracker.lexicon.app.SwimStroke
 import io.github.solcott.activitytracker.lexicon.app.TankPressure
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
+import io.github.solcott.activitytracker.lexicon.app.WorkoutSet
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
 import kotlin.test.Test
@@ -76,6 +83,38 @@ class ActivityStreamsSerializationTest {
             ),
             dive.channels,
         )
+    }
+
+    @Test
+    fun lengthsSetsLegsAndLapDetailsRoundTrip() {
+        val structured =
+            ActivityStreamData(
+                time = listOf(0, 30),
+                laps = listOf(Lap(start = 0, elapsed = 30, calories = 12, intensity = LapIntensity.REST, trigger = LapTrigger.DISTANCE)),
+                lengths = listOf(Length(0, 25, SwimStroke.FREESTYLE, strokes = 14), Length(25, 20, rest = true)),
+                sets =
+                    listOf(
+                        WorkoutSet(0, 40, category = "bench_press", exercise = "bench_press", reps = 8, weight = 60_000),
+                        WorkoutSet(40, 90, rest = true),
+                    ),
+                legs = listOf(Leg(0, 1800, Sport.SWIM, distance = 1500), Leg(1800, 120, Sport.MULTISPORT, transition = true)),
+            )
+        val json = AtJson.encodeToJsonElement(ActivityStreamData.serializer(), structured).jsonObject
+        assertEquals("rest", json["laps"]!!.jsonArray[0].jsonObject["intensity"]!!.jsonPrimitive.content)
+        assertFalse("stroke" in json["lengths"]!!.jsonArray[1].jsonObject)
+        assertFalse("weight" in json["sets"]!!.jsonArray[1].jsonObject)
+        assertEquals(structured, AtJson.decodeFromJsonElement(ActivityStreamData.serializer(), json))
+        assertEquals(listOf(StreamChannel.LAPS, StreamChannel.LENGTHS, StreamChannel.SETS, StreamChannel.LEGS), structured.channels)
+    }
+
+    @Test
+    fun olderDataWithoutStructureStillDecodes() {
+        val older = """{"time":[0,1],"laps":[{"start":0,"elapsed":1,"distance":5}]}"""
+        val decoded = AtJson.decodeFromString(ActivityStreamData.serializer(), older)
+        assertNull(decoded.lengths)
+        assertNull(decoded.sets)
+        assertNull(decoded.legs)
+        assertEquals(Lap(start = 0, elapsed = 1, distance = 5), decoded.laps!!.single())
     }
 
     @Test

@@ -287,6 +287,8 @@ data class ActivityRecord(
     val grit: Int? = null,
     /** Garmin's mountain bike flow (smoothness), in tenths. */
     val flow: Int? = null,
+    /** A pool swim's pool length, in centimeters. */
+    val poolLength: Int? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_ACTIVITY,
 )
 
@@ -495,6 +497,12 @@ data class ActivityStreamData(
     val tankPressures: List<TankPressure>? = null,
     /** The recording's laps, in order; null when its only lap spans the activity. */
     val laps: List<Lap>? = null,
+    /** A pool swim's lengths, in order, rests included. */
+    val lengths: List<Length>? = null,
+    /** A workout's sets, in order, rests included. */
+    val sets: List<WorkoutSet>? = null,
+    /** A multisport activity's legs, in order, transitions included; null when the recording has one sport. */
+    val legs: List<Leg>? = null,
 ) {
     /** The [StreamChannel]s this holds. */
     val channels: List<String>
@@ -505,6 +513,9 @@ data class ActivityStreamData(
                     StreamChannel.GAS_SWITCHES.takeIf { gasSwitches != null },
                     StreamChannel.TANK_PRESSURES.takeIf { tankPressures != null },
                     StreamChannel.LAPS.takeIf { laps != null },
+                    StreamChannel.LENGTHS.takeIf { lengths != null },
+                    StreamChannel.SETS.takeIf { sets != null },
+                    StreamChannel.LEGS.takeIf { legs != null },
                 )
 
     /**
@@ -601,6 +612,117 @@ data class Lap(
     val ascent: Int? = null,
     /** Meters. */
     val descent: Int? = null,
+    /** Kilocalories. */
+    val calories: Int? = null,
+    /** A [LapIntensity] value. */
+    val intensity: String? = null,
+    /** A [LapTrigger] value: what ended the lap. */
+    val trigger: String? = null,
+)
+
+/** Known values of [Lap.intensity], an open string. */
+object LapIntensity {
+    const val ACTIVE = "active"
+    const val REST = "rest"
+    const val WARMUP = "warmup"
+    const val COOLDOWN = "cooldown"
+    const val RECOVERY = "recovery"
+    const val INTERVAL = "interval"
+}
+
+/** Known values of [Lap.trigger], an open string. */
+object LapTrigger {
+    const val MANUAL = "manual"
+    const val TIME = "time"
+    const val DISTANCE = "distance"
+    const val POSITION = "position"
+    const val HEART_RATE = "heartRate"
+    const val SESSION_END = "sessionEnd"
+    const val FITNESS_EQUIPMENT = "fitnessEquipment"
+}
+
+/** `app.activitytracker.feed.activityStreams#length`: one length of a pool swim. */
+@Immutable
+@Serializable
+data class Length(
+    /** Seconds since the activity's `startedAt`. */
+    val start: Int,
+    /** Seconds. */
+    val elapsed: Int,
+    /** A [SwimStroke] value. */
+    val stroke: String? = null,
+    /** Stroke count. */
+    val strokes: Int? = null,
+    /** True for an idle length (a rest at the wall). */
+    val rest: Boolean? = null,
+)
+
+/** Known values of [Length.stroke], an open string. */
+object SwimStroke {
+    const val FREESTYLE = "freestyle"
+    const val BACKSTROKE = "backstroke"
+    const val BREASTSTROKE = "breaststroke"
+    const val BUTTERFLY = "butterfly"
+    const val DRILL = "drill"
+    const val MIXED = "mixed"
+    const val IM = "im"
+}
+
+/**
+ * `app.activitytracker.feed.activityStreams#set`: one set of a strength, HIIT or cardio workout, or a rest between sets. [category] and
+ * [exercise] are the FIT profile's tokens in snake case (`bench_press`, `single_arm_cable_row`), open strings.
+ */
+@Immutable
+@Serializable
+data class WorkoutSet(
+    /** Seconds since the activity's `startedAt`. */
+    val start: Int,
+    /** Seconds. */
+    val elapsed: Int,
+    /** True for a rest between sets. */
+    val rest: Boolean? = null,
+    val category: String? = null,
+    /** The exercise within [category]. */
+    val exercise: String? = null,
+    val reps: Int? = null,
+    /** Grams. */
+    val weight: Int? = null,
+)
+
+/** `app.activitytracker.feed.activityStreams#leg`: one leg of a multisport activity, or a transition between legs. */
+@Immutable
+@Serializable
+data class Leg(
+    /** Seconds since the activity's `startedAt`. */
+    val start: Int,
+    /** Seconds. */
+    val elapsed: Int,
+    /** A [Sport] value; [Sport.MULTISPORT] for a transition. */
+    val sport: String,
+    /** A [SubSport] value refining [sport]. */
+    val subSport: String? = null,
+    /** True for a transition between legs. */
+    val transition: Boolean? = null,
+    /** Seconds spent moving. */
+    val moving: Int? = null,
+    /** Meters. */
+    val distance: Int? = null,
+    /** Millimeters per second. */
+    val avgSpeed: Int? = null,
+    /** Millimeters per second. */
+    val maxSpeed: Int? = null,
+    val avgHeartRate: Int? = null,
+    val maxHeartRate: Int? = null,
+    /** Watts. */
+    val avgPower: Int? = null,
+    /** Revolutions or steps per minute. */
+    val avgCadence: Int? = null,
+    /** Meters. */
+    val ascent: Int? = null,
+    /** Meters. */
+    val descent: Int? = null,
+    /** Kilocalories. */
+    val calories: Int? = null,
 )
 
 /** Known values of [ActivityStreamsRecord.channels], an open string. */
@@ -631,6 +753,9 @@ object StreamChannel {
     const val GAS_SWITCHES = "gasSwitches"
     const val TANK_PRESSURES = "tankPressures"
     const val LAPS = "laps"
+    const val LENGTHS = "lengths"
+    const val SETS = "sets"
+    const val LEGS = "legs"
 }
 
 /** `app.activitytracker.feed.activity#sensor`: a sensor paired with the recording device. */

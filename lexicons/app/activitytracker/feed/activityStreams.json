@@ -17,7 +17,7 @@
             "items": {
               "type": "string",
               "maxLength": 32,
-              "knownValues": ["distance", "altitude", "speed", "heartRate", "power", "cadence", "temperature", "depth", "gears", "respirationRate", "verticalOscillation", "stanceTime", "stepLength", "verticalRatio", "stanceTimeBalance", "leftRightBalance", "ppO2", "cns", "n2Load", "ndl", "decoStopDepth", "decoStopTime", "tts", "gasSwitches", "tankPressures", "laps"]
+              "knownValues": ["distance", "altitude", "speed", "heartRate", "power", "cadence", "temperature", "depth", "gears", "respirationRate", "verticalOscillation", "stanceTime", "stepLength", "verticalRatio", "stanceTimeBalance", "leftRightBalance", "ppO2", "cns", "n2Load", "ndl", "decoStopDepth", "decoStopTime", "tts", "gasSwitches", "tankPressures", "laps", "lengths", "sets", "legs"]
             },
             "description": "The channels #streamData holds, so a client knows which charts exist without fetching it."
           },
@@ -62,7 +62,10 @@
         "gears": { "type": "array", "items": { "type": "ref", "ref": "#gearChange" } },
         "gasSwitches": { "type": "array", "items": { "type": "ref", "ref": "#gasSwitch" }, "description": "Each switch of breathing gas, in time order. The first gas breathed is a switch at time 0." },
         "tankPressures": { "type": "array", "items": { "type": "ref", "ref": "#tankPressure" }, "description": "One pressure series per tank, in the order of the activity's dive.tanks." },
-        "laps": { "type": "array", "items": { "type": "ref", "ref": "#lap" }, "description": "The recording's laps, in order. Absent when its only lap spans the activity." }
+        "laps": { "type": "array", "items": { "type": "ref", "ref": "#lap" }, "description": "The recording's laps, in order. Absent when its only lap spans the activity. A ski or snowboard activity's laps are its runs and lift rides, a lift as a rest lap." },
+        "lengths": { "type": "array", "items": { "type": "ref", "ref": "#length" }, "description": "A pool swim's lengths, in order, rests included." },
+        "sets": { "type": "array", "items": { "type": "ref", "ref": "#set" }, "description": "A workout's sets, in order, rests included." },
+        "legs": { "type": "array", "items": { "type": "ref", "ref": "#leg" }, "description": "A multisport activity's legs, in order, transitions included. Absent when the recording has one sport." }
       }
     },
     "gasSwitch": {
@@ -99,7 +102,72 @@
         "avgPower": { "type": "integer", "minimum": 0, "description": "Watts." },
         "avgCadence": { "type": "integer", "minimum": 0, "description": "Revolutions or steps per minute." },
         "ascent": { "type": "integer", "minimum": 0, "description": "Meters." },
-        "descent": { "type": "integer", "minimum": 0, "description": "Meters." }
+        "descent": { "type": "integer", "minimum": 0, "description": "Meters." },
+        "calories": { "type": "integer", "minimum": 0, "description": "Kilocalories." },
+        "intensity": {
+          "type": "string",
+          "maxLength": 32,
+          "knownValues": ["active", "rest", "warmup", "cooldown", "recovery", "interval"]
+        },
+        "trigger": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "What ended the lap.",
+          "knownValues": ["manual", "time", "distance", "position", "heartRate", "sessionEnd", "fitnessEquipment"]
+        }
+      }
+    },
+    "length": {
+      "type": "object",
+      "description": "One length of a pool swim.",
+      "required": ["start", "elapsed"],
+      "properties": {
+        "start": { "type": "integer", "description": "Seconds since the activity's startedAt." },
+        "elapsed": { "type": "integer", "minimum": 0, "description": "Seconds." },
+        "stroke": {
+          "type": "string",
+          "maxLength": 32,
+          "knownValues": ["freestyle", "backstroke", "breaststroke", "butterfly", "drill", "mixed", "im"]
+        },
+        "strokes": { "type": "integer", "minimum": 0, "description": "Stroke count." },
+        "rest": { "type": "boolean", "description": "True for an idle length (a rest at the wall)." }
+      }
+    },
+    "set": {
+      "type": "object",
+      "description": "One set of a strength, HIIT or cardio workout, or a rest between sets. Category and exercise are the FIT profile's tokens in snake case (bench_press, single_arm_cable_row).",
+      "required": ["start", "elapsed"],
+      "properties": {
+        "start": { "type": "integer", "description": "Seconds since the activity's startedAt." },
+        "elapsed": { "type": "integer", "minimum": 0, "description": "Seconds." },
+        "rest": { "type": "boolean", "description": "True for a rest between sets." },
+        "category": { "type": "string", "maxLength": 64, "description": "Exercise category, such as bench_press or squat." },
+        "exercise": { "type": "string", "maxLength": 64, "description": "Exercise name within its category." },
+        "reps": { "type": "integer", "minimum": 0 },
+        "weight": { "type": "integer", "minimum": 0, "description": "Grams." }
+      }
+    },
+    "leg": {
+      "type": "object",
+      "description": "One leg of a multisport activity, or a transition between legs. The #lap fields plus its sport.",
+      "required": ["start", "elapsed", "sport"],
+      "properties": {
+        "start": { "type": "integer", "description": "Seconds since the activity's startedAt." },
+        "elapsed": { "type": "integer", "minimum": 0, "description": "Seconds." },
+        "moving": { "type": "integer", "minimum": 0, "description": "Seconds spent moving." },
+        "distance": { "type": "integer", "minimum": 0, "description": "Meters." },
+        "avgSpeed": { "type": "integer", "minimum": 0, "description": "Millimeters per second." },
+        "maxSpeed": { "type": "integer", "minimum": 0, "description": "Millimeters per second." },
+        "avgHeartRate": { "type": "integer", "minimum": 0, "maximum": 300 },
+        "maxHeartRate": { "type": "integer", "minimum": 0, "maximum": 300 },
+        "avgPower": { "type": "integer", "minimum": 0, "description": "Watts." },
+        "avgCadence": { "type": "integer", "minimum": 0, "description": "Revolutions or steps per minute." },
+        "ascent": { "type": "integer", "minimum": 0, "description": "Meters." },
+        "descent": { "type": "integer", "minimum": 0, "description": "Meters." },
+        "calories": { "type": "integer", "minimum": 0, "description": "Kilocalories." },
+        "sport": { "type": "string", "maxLength": 64, "description": "The leg's activity type, an app.activitytracker.feed.activity sport token; multisport for a transition." },
+        "subSport": { "type": "string", "maxLength": 64, "description": "Refines sport, as on app.activitytracker.feed.activity." },
+        "transition": { "type": "boolean", "description": "True for a transition between legs." }
       }
     },
     "gearChange": {

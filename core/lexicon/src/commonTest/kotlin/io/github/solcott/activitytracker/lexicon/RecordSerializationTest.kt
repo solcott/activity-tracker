@@ -195,6 +195,15 @@ class RecordSerializationTest {
     }
 
     @Test
+    fun poolLengthRoundTripsAndOlderRecordsLackIt() {
+        val swim = record.copy(sport = Sport.SWIM, subSport = SubSport.POOL, poolLength = 2286)
+        val json = AtJson.encodeToString(ActivityRecord.serializer(), swim)
+        assertTrue(""""poolLength":2286""" in json, json)
+        assertEquals(swim, AtJson.decodeFromString(ActivityRecord.serializer(), json))
+        assertFalse("poolLength" in AtJson.encodeToString(ActivityRecord.serializer(), record))
+    }
+
+    @Test
     fun negativeTemperatureRoundTrips() {
         val cold = record.copy(avgTemperature = -55)
         val json = AtJson.encodeToString(ActivityRecord.serializer(), cold)
