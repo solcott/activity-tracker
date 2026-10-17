@@ -72,6 +72,7 @@ class ActivityExporter(
     private val db: AppDatabase,
     private val clients: SessionClients,
     private val tracks: ActivityTrackStore,
+    private val sources: ActivitySourceStore,
     private val feed: FeedRepository,
 ) {
     /**

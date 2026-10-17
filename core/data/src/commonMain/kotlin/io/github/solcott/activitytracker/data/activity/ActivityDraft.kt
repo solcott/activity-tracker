@@ -79,6 +79,8 @@ data class ActivityDraft(
     val flow: Double? = null,
     /** The recording device's training load, kept with the zones (it reveals thresholds), never on the record. */
     val trainingLoad: TrainingLoad? = null,
+    /** The file it was imported from, kept as is in the `self` space ([ActivitySourceStore]); null for a recording or a manual entry. */
+    val source: DraftSource? = null,
 ) {
     /**
      * This draft with what the athlete wrote about it: [description], [photos], and for a dive its [diveSite] (blank clears the logbook's;

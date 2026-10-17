@@ -41,8 +41,8 @@ import kotlinx.coroutines.sync.withLock
 /**
  * Writes the signed-in athlete's records. Everything goes through the outbox so writes survive offline periods and app restarts; the
  * AppView picks them up from the firehose, or for a non-public activity from the athlete's tier space, afterwards. An activity is queued to
- * the place its visibility says ([placeOf]), its streams to theirs, and its full track to the athlete's `self` space
- * ([ActivityTrackStore]).
+ * the place its visibility says ([placeOf]), its streams to theirs, and its full track and imported file to the athlete's `self` space
+ * ([ActivityTrackStore], [ActivitySourceStore]).
  */
 @SingleIn(SessionScope::class)
 @Inject
@@ -54,6 +54,7 @@ class ActivityRepository(
     private val writer: OutboxWriter,
     private val streams: ActivityStreamsStore,
     private val tracks: ActivityTrackStore,
+    private val sources: ActivitySourceStore,
     private val zones: ActivityZonesStore,
     private val privacy: PrivacyZones,
     private val routes: RouteTrimmer,
@@ -70,7 +71,7 @@ class ActivityRepository(
     /** Publishes [draft]. Its photos upload first, so one with photos needs a connection; one without waits in the outbox if offline. */
     suspend fun publish(draft: ActivityDraft): AtUri {
         clients.requireSpacesFor(draft.visibility)
-        if (draft.gpx != null) clients.requireTrackSpace()
+        requireSelfSpaceFor(listOf(draft))
         val photos = draft.photos.map { clients.upload(it, feed.heldPhotos) }
         val uri = queue(draft, photos, privacy.forPublish())
         outbox.drain()
@@ -85,7 +86,7 @@ class ActivityRepository(
      */
     suspend fun publishAll(drafts: List<ActivityDraft>): List<AtUri> {
         drafts.forEach { clients.requireSpacesFor(it.visibility) }
-        if (drafts.any { it.gpx != null }) clients.requireTrackSpace()
+        requireSelfSpaceFor(drafts)
         val uris = privacy.withReadOnce {
             zones.withTrainingReadOnce { drafts.map { queue(it, photos = emptyList(), trim = privacy.forPublish()) } }
         }
@@ -96,13 +97,14 @@ class ActivityRepository(
 
     /**
      * Fills the gaps in the athlete's [existing] activity from [draft], another recording of it ([ActivityMerge]): its summary fields, its
-     * track, and its streams' channels. Doesn't drain the outbox, so a batch can queue several before [publishAll] or [sync] sends them.
+     * track, its original file, and its streams' channels. Doesn't drain the outbox, so a batch can queue several before [publishAll] or
+     * [sync] sends them.
      *
      * An activity still in the outbox ([OwnActivity.cid] null) gets its record and track merged but not its streams: those aren't readable
      * until the AppView indexes them, and writing ours would replace them.
      */
     suspend fun mergeInto(existing: OwnActivity, draft: ActivityDraft) {
-        if (draft.gpx != null) clients.requireTrackSpace()
+        requireSelfSpaceFor(listOf(draft))
         val rkey = requireNotNull(existing.uri.rkey)
         val indexed = existing.cid != null
         val place = clients.placeOf(existing.visibility)
@@ -120,8 +122,7 @@ class ActivityRepository(
             }
         writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), merged, space = place)
         trim?.let { privacy.published(existing.uri, existing.visibility, draft.route, it) }
-        // The track's place doesn't depend on the activity being sent, so unlike its streams an unsent activity's is checked too.
-        draft.gpx?.let { if (!tracks.has(existing.uri)) tracks.put(existing.uri, it) }
+        fillSelfRecords(existing.uri, draft)
         val imported = draft.streams
         // The draft's stream times count from its own start.
         val offsetSeconds = (draft.startedAt - current.startedAt).inWholeSeconds.toInt()
@@ -160,6 +161,21 @@ class ActivityRepository(
         )
     }
 
+    /** Refuses a session that can't write the full tracks or original files of [drafts] to the `self` space, before anything is queued. */
+    private fun requireSelfSpaceFor(drafts: List<ActivityDraft>) {
+        if (drafts.any { it.gpx != null }) clients.requireTrackSpace()
+        if (drafts.any { it.source != null }) clients.requireSourceSpace()
+    }
+
+    /**
+     * Gives [activity] [draft]'s track and original file where it has none, stored or queued. Their place doesn't depend on the activity
+     * being sent, so unlike its streams an unsent activity's are checked too.
+     */
+    private suspend fun fillSelfRecords(activity: AtUri, draft: ActivityDraft) {
+        draft.gpx?.let { if (!tracks.has(activity)) tracks.put(activity, it) }
+        draft.source?.let { if (sources.info(activity) == null) sources.put(activity, it) }
+    }
+
     /** [photos] are [draft]'s, uploaded; its route is trimmed by [trim] for the record's polyline. */
     private suspend fun queue(draft: ActivityDraft, photos: List<ActivityMedia>, trim: PublishTrim): AtUri {
         val rkey = Tid.next(clock)
@@ -179,6 +195,7 @@ class ActivityRepository(
                 ActivityStreams(it, draft.publishedStreamsVisibility, draft.heartRateZones, draft.powerZones, draft.trainingLoad),
             )
         }
+        draft.source?.let { sources.put(uri, it) }
         return uri
     }
 

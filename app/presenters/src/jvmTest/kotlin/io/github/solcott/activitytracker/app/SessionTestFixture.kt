@@ -324,6 +324,7 @@ class SessionTestFixture {
                 zones.writer,
                 zones.streams,
                 zones.tracks,
+                zones.sources,
                 zones.store,
                 privacy,
                 RouteTrimmer(db, clients, zones.writer, zones.outbox, privacy, zones.tracks, feed, Clock.System, Logger),

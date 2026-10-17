@@ -150,6 +150,7 @@ class ActivityDetailManageTest {
                 writer,
                 streams,
                 tracks,
+                zones.sources,
                 zones.store,
                 privacy,
                 RouteTrimmer(db, clients, writer, outbox, privacy, tracks, feed, Clock.System, Logger),
@@ -159,7 +160,7 @@ class ActivityDetailManageTest {
                 Clock.System,
             )
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
-        val manager = ActivityManager(db, clients, outbox, writer, streams, tracks, feed)
+        val manager = ActivityManager(db, clients, outbox, writer, streams, tracks, zones.sources, feed)
         return {
             ActivityDetailPresenter(
                 ActivityDetailScreen(uri),
@@ -169,7 +170,7 @@ class ActivityDetailManageTest {
                 profiles,
                 localLikes,
                 manager,
-                ActivityExporter(db, clients, tracks, feed),
+                ActivityExporter(db, clients, tracks, zones.sources, feed),
                 UnitsRepository(profiles, Clock.System, Logger, UnitSystem.Metric),
             )
         }

@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.data.activity.NewPhoto
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.OwnActivity
+import io.github.solcott.activitytracker.data.activity.PdsActivitySourceStore
 import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.activity.PdsActivityTrackStore
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
@@ -196,7 +197,8 @@ class ActivityRepositoryTest {
         val zones = ActivityZonesStore(db, writer, outbox, clients, Clock.System, logger)
         val streams = PdsActivityStreamsStore(writer, clients, Clock.System, zones)
         val tracks = PdsActivityTrackStore(db, writer, clients, Clock.System)
-        manager = ActivityManager(db, clients, outbox, writer, streams, tracks, feed)
+        val sources = PdsActivitySourceStore(db, writer, clients, Clock.System)
+        manager = ActivityManager(db, clients, outbox, writer, streams, tracks, sources, feed)
         val privacy = PrivacyZones(clients, Clock.System, Logger)
         return ActivityRepository(
             db,
@@ -205,6 +207,7 @@ class ActivityRepositoryTest {
             writer,
             streams,
             tracks,
+            sources,
             zones,
             privacy,
             RouteTrimmer(db, clients, writer, outbox, privacy, tracks, feed, Clock.System, Logger),

@@ -159,7 +159,7 @@ class EditActivityPresenterTest {
         val (db, _, clients) = signedInTestSession(http, did = alice)
         val feed = FeedRepository(db, clients, LocalLikes(), Logger)
         val zones = TestZones(db, clients)
-        val manager = ActivityManager(db, clients, zones.outbox, zones.writer, zones.streams, zones.tracks, feed)
+        val manager = ActivityManager(db, clients, zones.outbox, zones.writer, zones.streams, zones.tracks, zones.sources, feed)
         val defaults = ActivityDefaults(clients)
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
         return { EditActivityPresenter(EditActivityScreen(uri), navigator, feed, manager, defaults, profiles) }
