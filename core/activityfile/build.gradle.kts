@@ -26,3 +26,13 @@ kotlin {
         jvmTest.dependencies { implementation(libs.garmin.fit) }
     }
 }
+
+// `-PworkoutSamples` lets WriteWorkoutSamples write the sample activity files to build/workout-fixtures (see the activity-files rule);
+// without it that test skips, so `check` writes nothing.
+if (providers.gradleProperty("workoutSamples").isPresent) {
+    val samples = isolated.rootProject.projectDirectory.dir("build/workout-fixtures")
+    tasks.named<Test>("jvmTest") {
+        systemProperty("workoutSamples", samples.asFile.absolutePath)
+        outputs.dir(samples)
+    }
+}
