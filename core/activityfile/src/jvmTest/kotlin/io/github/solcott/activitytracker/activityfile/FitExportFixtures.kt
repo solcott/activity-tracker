@@ -9,10 +9,16 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityDiveTank
 import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.Lap
+import io.github.solcott.activitytracker.lexicon.app.LapIntensity
+import io.github.solcott.activitytracker.lexicon.app.LapTrigger
+import io.github.solcott.activitytracker.lexicon.app.Leg
+import io.github.solcott.activitytracker.lexicon.app.Length
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
+import io.github.solcott.activitytracker.lexicon.app.SwimStroke
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.WaterType
+import io.github.solcott.activitytracker.lexicon.app.WorkoutSet
 import java.io.ByteArrayInputStream
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -183,6 +189,110 @@ object FitExportFixtures {
                     anaerobicTrainingEffect = 12,
                 ),
         )
+
+    /** [intervalRide]'s laps as an interval run's: active and rest, with calories and what ended each. */
+    val intervalRun =
+        intervalRide.copy(
+            sport = Sport.RUN,
+            subSport = null,
+            tcxSport = TcxSport.Running,
+            laps =
+                listOf(
+                    intervalRide.laps[0].copy(calories = 12, intensity = LapIntensity.ACTIVE, trigger = LapTrigger.DISTANCE),
+                    intervalRide.laps[1].copy(calories = 3, intensity = LapIntensity.REST, trigger = LapTrigger.MANUAL),
+                ),
+        )
+
+    /** A point every [every] seconds of [seconds], with heart rate only. */
+    private fun points(seconds: Int, every: Int = 10) =
+        (0..seconds step every).map { ExportPoint(time = start + it.seconds, heartRate = 120 + it % 20) }
+
+    const val POOL_LENGTHS = 40
+
+    /**
+     * 40 lengths of a 25 m pool: twenty of freestyle (30 s, 15 strokes), a 20 s rest at the wall, then nineteen of breaststroke (35 s, 12
+     * strokes); its laps are the freestyle and the rest with the breaststroke.
+     */
+    val poolSwim: ExportActivity = run {
+        var t = 0
+        val lengths =
+            (0 until POOL_LENGTHS).map { i ->
+                when {
+                    i < 20 -> Length(t, 30, SwimStroke.FREESTYLE, 15)
+                    i == 20 -> Length(t, 20, rest = true)
+                    else -> Length(t, 35, SwimStroke.BREASTSTROKE, 12)
+                }.also { t += it.elapsed }
+            }
+        ExportActivity(
+            name = "Pool Swim",
+            sport = Sport.SWIM,
+            subSport = SubSport.POOL,
+            tcxSport = TcxSport.Other,
+            startedAt = start,
+            elapsed = t.seconds,
+            distanceMeters = 975.0,
+            avgHeartRate = 130,
+            maxHeartRate = 139,
+            isDive = false,
+            points = points(t),
+            laps = listOf(Lap(0, 600, moving = 600, distance = 500), Lap(600, t - 600, moving = t - 600, distance = 475)),
+            lengths = lengths,
+            poolLengthCentimeters = 2500,
+        )
+    }
+
+    /** Three 40 s sets of 8 barbell bench presses at 60 kg, with 90 s rests between. */
+    val benchWorkout: ExportActivity = run {
+        fun bench(start: Int) = WorkoutSet(start, 40, category = "bench_press", exercise = "barbell_bench_press", reps = 8, weight = 60_000)
+        val sets = listOf(bench(0), WorkoutSet(40, 90, rest = true), bench(130), WorkoutSet(170, 90, rest = true), bench(260))
+        ExportActivity(
+            name = "Strength",
+            sport = Sport.STRENGTH,
+            tcxSport = TcxSport.Other,
+            startedAt = start,
+            elapsed = 300.seconds,
+            distanceMeters = null,
+            avgHeartRate = 110,
+            maxHeartRate = 139,
+            isDive = false,
+            points = points(300, every = 30),
+            sets = sets,
+        )
+    }
+
+    /** An Olympic triathlon of five legs, the run with five laps of 2 km. */
+    val triathlon: ExportActivity = run {
+        val legs =
+            listOf(
+                Leg(0, 1800, Sport.SWIM, SubSport.OPEN_WATER, moving = 1800, distance = 1500, avgHeartRate = 140),
+                Leg(1800, 120, Sport.MULTISPORT, transition = true, moving = 120),
+                Leg(1920, 3600, Sport.RIDE, SubSport.ROAD, moving = 3600, distance = 40_000, avgHeartRate = 150, maxHeartRate = 170),
+                Leg(5520, 90, Sport.MULTISPORT, transition = true, moving = 90),
+                Leg(5610, 2700, Sport.RUN, moving = 2700, distance = 10_000, avgHeartRate = 160, calories = 700),
+            )
+        val laps =
+            listOf(
+                Lap(0, 1800, moving = 1800, distance = 1500),
+                Lap(1800, 120, moving = 120),
+                Lap(1920, 3600, moving = 3600, distance = 40_000),
+                Lap(5520, 90, moving = 90),
+            ) + (0 until 5).map { Lap(5610 + it * 540, 540, moving = 540, distance = 2000, trigger = LapTrigger.DISTANCE) }
+        ExportActivity(
+            name = "Triathlon",
+            sport = Sport.MULTISPORT,
+            subSport = SubSport.TRIATHLON,
+            tcxSport = TcxSport.Other,
+            startedAt = start,
+            elapsed = 8310.seconds,
+            distanceMeters = 51_500.0,
+            avgHeartRate = 150,
+            maxHeartRate = 170,
+            isDive = false,
+            points = points(8310, every = 30),
+            laps = laps,
+            legs = legs,
+        )
+    }
 
     fun write(activity: ExportActivity): ByteArray = FitWriter.write(activity, TimeZone.UTC, createdAt = start)
 

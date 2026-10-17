@@ -168,6 +168,10 @@ class ActivityExporter(
                     totals = ExportTotals.of(record),
                     trainingLoad = trainingLoad,
                     device = record.device,
+                    lengths = streams?.lengths.orEmpty(),
+                    sets = streams?.sets.orEmpty(),
+                    legs = streams?.legs.orEmpty(),
+                    poolLengthCentimeters = record.poolLength,
                 )
             val zone = TimeZone.currentSystemDefault()
             val bytes =

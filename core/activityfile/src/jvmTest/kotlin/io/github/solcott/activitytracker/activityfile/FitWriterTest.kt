@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.activityfile
 
 import com.garmin.fit.ActivityMesg
+import com.garmin.fit.BenchPressExerciseName
+import com.garmin.fit.DisplayMeasure
 import com.garmin.fit.DiveGasMesg
 import com.garmin.fit.DiveGasMode
 import com.garmin.fit.DiveGasStatus
@@ -9,27 +11,38 @@ import com.garmin.fit.DiveSummaryMesg
 import com.garmin.fit.Event
 import com.garmin.fit.EventMesg
 import com.garmin.fit.EventType
+import com.garmin.fit.ExerciseCategory
 import com.garmin.fit.File
 import com.garmin.fit.FileIdMesg
+import com.garmin.fit.Intensity
 import com.garmin.fit.LapMesg
 import com.garmin.fit.LapTrigger
 import com.garmin.fit.LeftRightBalance
+import com.garmin.fit.LengthMesg
+import com.garmin.fit.LengthType
 import com.garmin.fit.Mesg
 import com.garmin.fit.MesgNum
 import com.garmin.fit.RecordMesg
 import com.garmin.fit.SessionMesg
+import com.garmin.fit.SetMesg
+import com.garmin.fit.SetType
 import com.garmin.fit.Sport as GarminSport
 import com.garmin.fit.SubSport as GarminSubSport
+import com.garmin.fit.SwimStroke
 import com.garmin.fit.TankSummaryMesg
 import com.garmin.fit.TankUpdateMesg
 import com.garmin.fit.WaterType
+import io.github.solcott.activitytracker.activityfile.FitExportFixtures.benchWorkout
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.decoDive
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.decode
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.dive
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.indoorRide
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.intervalRide
+import io.github.solcott.activitytracker.activityfile.FitExportFixtures.intervalRun
+import io.github.solcott.activitytracker.activityfile.FitExportFixtures.poolSwim
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.ride
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.start
+import io.github.solcott.activitytracker.activityfile.FitExportFixtures.triathlon
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.write
 import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -249,8 +262,80 @@ class FitWriterTest {
         assertEquals(listOf(220, null), laps.map { it.avgPower })
         assertEquals(listOf(null, 92), laps.map { it.avgCadence?.toInt() })
         assertEquals(listOf(4, null), laps.map { it.totalAscent })
-        assertTrue(laps.all { it.lapTrigger == LapTrigger.MANUAL })
+        assertTrue(laps.all { it.lapTrigger == null && it.intensity == null }, "nothing the app didn't store")
         assertEquals(2, messages.of(MesgNum.SESSION, ::SessionMesg).single().numLaps)
+    }
+
+    @Test
+    fun aLapsCaloriesIntensityAndTriggerAreWritten() {
+        val laps = decode(write(intervalRun)).of(MesgNum.LAP, ::LapMesg)
+        assertEquals(listOf(12, 3), laps.map { it.totalCalories })
+        assertEquals(listOf(Intensity.ACTIVE, Intensity.REST), laps.map { it.intensity })
+        assertEquals(listOf(LapTrigger.DISTANCE, LapTrigger.MANUAL), laps.map { it.lapTrigger })
+        assertEquals(listOf(GarminSport.RUNNING, GarminSport.RUNNING), laps.map { it.sport })
+    }
+
+    @Test
+    fun aPoolSwimCarriesItsPoolLengthAndLengths() {
+        val messages = decode(write(poolSwim))
+        val session = messages.of(MesgNum.SESSION, ::SessionMesg).single()
+        assertEquals(25f, session.poolLength)
+        assertEquals(DisplayMeasure.METRIC, session.poolLengthUnit)
+        assertEquals(FitExportFixtures.POOL_LENGTHS, session.numLengths)
+        assertEquals(FitExportFixtures.POOL_LENGTHS - 1, session.numActiveLengths)
+        val lengths = messages.of(MesgNum.LENGTH, ::LengthMesg)
+        assertEquals(FitExportFixtures.POOL_LENGTHS, lengths.size)
+        assertEquals((0 until FitExportFixtures.POOL_LENGTHS).toList(), lengths.map { it.messageIndex })
+        assertEquals(SwimStroke.FREESTYLE, lengths.first().swimStroke)
+        assertEquals(15, lengths.first().totalStrokes)
+        assertEquals(30f, lengths.first().totalElapsedTime)
+        assertEquals(start, lengths.first().startTime.date.toInstant().toKotlinInstant())
+        assertEquals(LengthType.IDLE, lengths[20].lengthType)
+        assertNull(lengths[20].swimStroke)
+        assertEquals(SwimStroke.BREASTSTROKE, lengths.last().swimStroke)
+        val laps = messages.of(MesgNum.LAP, ::LapMesg)
+        assertEquals(listOf(0, 20), laps.map { it.firstLengthIndex })
+        assertEquals(listOf(20, 20), laps.map { it.numLengths })
+        assertEquals(listOf(20, 19), laps.map { it.numActiveLengths })
+    }
+
+    @Test
+    fun aYardPoolIsStatute() {
+        val session = decode(write(poolSwim.copy(poolLengthCentimeters = 2286))).of(MesgNum.SESSION, ::SessionMesg).single()
+        assertEquals(22.86, session.poolLength.toDouble(), 1e-4)
+        assertEquals(DisplayMeasure.STATUTE, session.poolLengthUnit)
+    }
+
+    @Test
+    fun aWorkoutsSetsAreSetMessages() {
+        val sets = decode(write(benchWorkout)).of(MesgNum.SET, ::SetMesg)
+        assertEquals(listOf(SetType.ACTIVE, SetType.REST, SetType.ACTIVE, SetType.REST, SetType.ACTIVE), sets.map { it.setType })
+        val active = sets.filter { it.setType == SetType.ACTIVE }
+        assertTrue(active.all { it.getCategory(0) == ExerciseCategory.BENCH_PRESS })
+        assertTrue(active.all { it.getCategorySubtype(0) == BenchPressExerciseName.BARBELL_BENCH_PRESS })
+        assertEquals(listOf(8, 8, 8), active.map { it.repetitions })
+        assertEquals(listOf(60f, 60f, 60f), active.map { it.weight })
+        assertEquals(listOf(40f, 90f, 40f, 90f, 40f), sets.map { it.duration })
+        assertEquals(start + 40.seconds, sets[1].startTime.date.toInstant().toKotlinInstant())
+        assertNull(sets[1].getCategory(0))
+    }
+
+    @Test
+    fun aTriathlonHasASessionPerLeg() {
+        val messages = decode(write(triathlon))
+        val sessions = messages.of(MesgNum.SESSION, ::SessionMesg)
+        assertEquals(
+            listOf(GarminSport.SWIMMING, GarminSport.TRANSITION, GarminSport.CYCLING, GarminSport.TRANSITION, GarminSport.RUNNING),
+            sessions.map { it.sport },
+        )
+        assertEquals(listOf(1800f, 120f, 3600f, 90f, 2700f), sessions.map { it.totalElapsedTime })
+        assertEquals(listOf(1500f, null, 40_000f, null, 10_000f), sessions.map { it.totalDistance })
+        assertEquals(listOf(0, 1, 2, 3, 4), sessions.map { it.firstLapIndex })
+        assertEquals(listOf(1, 1, 1, 1, 5), sessions.map { it.numLaps })
+        assertEquals(5, messages.of(MesgNum.ACTIVITY, ::ActivityMesg).single().numSessions)
+        val laps = messages.of(MesgNum.LAP, ::LapMesg)
+        assertEquals(List(5) { GarminSport.RUNNING }, laps.takeLast(5).map { it.sport }, "each lap with its leg's sport")
+        assertEquals(GarminSport.TRANSITION, laps[1].sport)
     }
 
     @Test

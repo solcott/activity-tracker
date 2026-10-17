@@ -6,7 +6,11 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.Lap
+import io.github.solcott.activitytracker.lexicon.app.Leg
+import io.github.solcott.activitytracker.lexicon.app.Length
 import io.github.solcott.activitytracker.lexicon.app.WaterType
+import io.github.solcott.activitytracker.lexicon.app.WorkoutSet
+import kotlin.math.abs
 import kotlin.math.roundToLong
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -16,8 +20,10 @@ import kotlinx.datetime.offsetAt
 /**
  * Writes an [ExportActivity] as a FIT activity file, encoded in common code by [FitOutput] with field numbers and scales from Garmin's
  * profile ([FitProfile], checked against Garmin's Java SDK in tests). The file holds a timer start, a `record` per whole second (the first
- * point in it), gear change events, a dive's settings, gases, gas switches, tank readings, tanks and summary, a timer stop, the stored laps
- * (or one spanning the activity), one session and the activity message, in the order Garmin's activity file guidance gives.
+ * point in it), gear change events, a dive's settings, gases, gas switches, tank readings, tanks and summary, a pool swim's lengths, a
+ * workout's sets, a timer stop, the stored laps (or one spanning the activity), a session per stored leg (or one spanning the activity) and
+ * the activity message, in the order Garmin's activity file guidance gives. A lap carries its leg's sport and, on a pool swim, the lengths
+ * in its time, which Garmin Connect groups by lap.
  *
  * A dive stored without switch times (one imported before they were kept) lists its later gases as enabled slots with no switch to them:
  * the file doesn't invent when.
@@ -36,16 +42,123 @@ object FitWriter {
         writeRecords(out, activity, start)
         writeGearChanges(out, activity.gearChanges, start)
         activity.dive?.let { writeDive(out, it, activity, start, end) }
+        activity.lengths.forEachIndexed { index, length -> out.write(length(index, length, start)) }
+        activity.sets.forEachIndexed { index, set -> out.write(set(index, set, start)) }
         out.write(timerEvent(end, FitProfile.EventMessage.TYPE_STOP_ALL))
         if (activity.laps.isEmpty()) {
             out.write(summary(FitProfile.Lap, activity, start, end))
         } else {
-            activity.laps.forEachIndexed { index, lap -> out.write(storedLap(index, lap, start)) }
+            activity.laps.forEachIndexed { index, lap -> out.write(storedLap(index, lap, activity, start)) }
         }
-        out.write(summary(FitProfile.Session, activity, start, end))
+        if (activity.legs.isEmpty()) {
+            out.write(summary(FitProfile.Session, activity, start, end))
+        } else {
+            activity.legs.forEachIndexed { index, leg -> out.write(legSession(index, leg, activity, start)) }
+        }
         out.write(activityMessage(activity, end, zone))
         return out.finish()
     }
+
+    /** A pool length: an active one with its stroke and stroke count, a rest as FIT's idle length. */
+    private fun length(index: Int, length: Length, start: Long) =
+        with(FitProfile.Length) {
+            val lengthStart = start + length.start
+            val rest = length.rest == true
+            FitMessage(
+                NUM,
+                listOf(
+                    TIMESTAMP(lengthStart + length.elapsed),
+                    MESSAGE_INDEX(index.toLong()),
+                    FitProfile.EVENT(EVENT_LENGTH),
+                    FitProfile.EVENT_TYPE(FitProfile.EventMessage.TYPE_STOP),
+                    FitProfile.START_TIME(lengthStart),
+                    TOTAL_ELAPSED_TIME(length.elapsed * MILLI.toLong()),
+                    TOTAL_TIMER_TIME(length.elapsed * MILLI.toLong()),
+                    TOTAL_STROKES(length.strokes?.toLong()?.takeUnless { rest }),
+                    SWIM_STROKE(length.stroke?.let(STROKES::get)?.takeUnless { rest }),
+                    LENGTH_TYPE(if (rest) TYPE_IDLE else TYPE_ACTIVE),
+                ),
+            )
+        }
+
+    /** A set, its category and exercise as the FIT profile numbers them (left out when the profile has no such token). */
+    private fun set(index: Int, set: WorkoutSet, start: Long) =
+        with(FitProfile.Set) {
+            val setStart = start + set.start
+            val categoryToken = set.category
+            val exerciseToken = set.exercise
+            val category = if (categoryToken == null) null else FitExercises.category(categoryToken)
+            val exercise = if (categoryToken == null || exerciseToken == null) null else FitExercises.exercise(categoryToken, exerciseToken)
+            FitMessage(
+                NUM,
+                listOf(
+                    TIMESTAMP(setStart + set.elapsed),
+                    DURATION(set.elapsed * MILLI.toLong()),
+                    REPETITIONS(set.reps?.toLong()),
+                    WEIGHT(set.weight?.let { (it * WEIGHT_SCALE / MILLI).roundToLong() }),
+                    SET_TYPE(if (set.rest == true) TYPE_REST else TYPE_ACTIVE),
+                    START_TIME(setStart),
+                    CATEGORY(category?.toLong()),
+                    CATEGORY_SUBTYPE(exercise?.toLong()),
+                    MESSAGE_INDEX(index.toLong()),
+                ),
+            )
+        }
+
+    /** The leg [lap] falls in (by its start), if the activity has legs. */
+    private fun legOf(lap: Lap, legs: List<Leg>): Leg? = legs.lastOrNull { it.start <= lap.start }
+
+    private fun fitSport(leg: Leg): FitSport =
+        if (leg.transition == true) FitSport(FitProfile.Session.SPORT_TRANSITION.toInt(), 0)
+        else FitSports.of(ActivityType(leg.sport, leg.subSport))
+
+    /** A leg of a multisport activity as a session of its own, with the laps in its time. */
+    private fun legSession(index: Int, leg: Leg, activity: ExportActivity, start: Long): FitMessage =
+        with(FitProfile.Session) {
+            val legStart = start + leg.start
+            val sport = fitSport(leg)
+            val laps = activity.laps.withIndex().filter { (_, lap) -> legOf(lap, activity.legs) == leg }
+            FitMessage(
+                num,
+                listOf(
+                    MESSAGE_INDEX(index.toLong()),
+                    TIMESTAMP(legStart + leg.elapsed),
+                    FitProfile.EVENT(event),
+                    FitProfile.EVENT_TYPE(FitProfile.EventMessage.TYPE_STOP),
+                    FitProfile.START_TIME(legStart),
+                    sport(sport.sport.toLong()),
+                    subSport(sport.subSport.toLong()),
+                    FitProfile.TOTAL_ELAPSED_TIME(leg.elapsed * MILLI.toLong()),
+                    FitProfile.TOTAL_TIMER_TIME((leg.moving ?: leg.elapsed) * MILLI.toLong()),
+                    FitProfile.TOTAL_DISTANCE(leg.distance?.let { it * CENTI.toLong() }),
+                    avgHeartRate(leg.avgHeartRate?.toLong()),
+                    maxHeartRate(leg.maxHeartRate?.toLong()),
+                    totalAscent(leg.ascent?.toLong()),
+                    totalDescent(leg.descent?.toLong()),
+                    enhancedAvgSpeed(leg.avgSpeed?.toLong()),
+                    enhancedMaxSpeed(leg.maxSpeed?.toLong()),
+                    totalCalories(leg.calories?.toLong()),
+                    avgPower(leg.avgPower?.toLong()),
+                    avgCadence(leg.avgCadence?.toLong()),
+                    FIRST_LAP_INDEX(laps.firstOrNull()?.index?.toLong()),
+                    NUM_LAPS(laps.size.toLong()),
+                ) + if (index == 0) sessionOnly(activity) + poolFields(activity) else emptyList(),
+            )
+        }
+
+    /** A pool swim's pool length (in the unit it's a whole number of, meters first) and length counts, on its session. */
+    private fun poolFields(activity: ExportActivity): List<FitField> =
+        with(FitProfile.Session) {
+            val pool = activity.poolLengthCentimeters
+            val yards = pool?.let { it / CM_PER_YARD }
+            val statute = pool != null && pool % CENTI.toInt() != 0 && yards != null && abs(yards - yards.roundToLong()) < YARD_TOLERANCE
+            listOf(
+                POOL_LENGTH(pool?.toLong()),
+                POOL_LENGTH_UNIT(pool?.let { if (statute) UNIT_STATUTE else UNIT_METRIC }),
+                NUM_LENGTHS(activity.lengths.size.toLong().takeIf { it > 0 }),
+                NUM_ACTIVE_LENGTHS(activity.lengths.count { it.rest != true }.toLong().takeIf { activity.lengths.isNotEmpty() }),
+            )
+        }
 
     private fun fileId(created: Long) =
         with(FitProfile.FileId) {
@@ -303,7 +416,7 @@ object FitWriter {
                     totalDescent(totals.elevationLossMeters),
                 ) +
                     trailer(activity.laps.size.coerceAtLeast(1)) +
-                    if (message == FitProfile.Session) sessionOnly(activity) else emptyList(),
+                    if (message == FitProfile.Session) sessionOnly(activity) + poolFields(activity) else emptyList(),
             )
         }
     }
@@ -327,10 +440,12 @@ object FitWriter {
             )
         }
 
-    /** A lap as the streams store it, [index] in order, triggered by hand as far as the file knows. */
-    private fun storedLap(index: Int, lap: Lap, start: Long): FitMessage =
+    /** A lap as the streams store it, [index] in order, with its leg's sport (or the activity's) and the lengths in its time. */
+    private fun storedLap(index: Int, lap: Lap, activity: ExportActivity, start: Long): FitMessage =
         with(FitProfile.Lap) {
             val lapStart = start + lap.start
+            val sport = legOf(lap, activity.legs)?.let(::fitSport) ?: FitSports.of(ActivityType(activity.sport, activity.subSport))
+            val lengths = activity.lengths.withIndex().filter { (_, l) -> l.start >= lap.start && l.start < lap.start + lap.elapsed }
             FitMessage(
                 num,
                 listOf(
@@ -350,7 +465,14 @@ object FitWriter {
                     enhancedMaxSpeed(lap.maxSpeed?.toLong()),
                     avgPower(lap.avgPower?.toLong()),
                     avgCadence(lap.avgCadence?.toLong()),
-                    MANUAL_TRIGGER,
+                    sport(sport.sport.toLong()),
+                    subSport(sport.subSport.toLong()),
+                    totalCalories(lap.calories?.toLong()),
+                    INTENSITY(lap.intensity?.let(INTENSITIES::get)),
+                    LAP_TRIGGER(lap.trigger?.let(TRIGGERS::get)),
+                    FIRST_LENGTH_INDEX(lengths.firstOrNull()?.index?.toLong()),
+                    NUM_LENGTHS(lengths.size.toLong().takeIf { activity.lengths.isNotEmpty() }),
+                    NUM_ACTIVE_LENGTHS(lengths.count { it.value.rest != true }.toLong().takeIf { activity.lengths.isNotEmpty() }),
                 ),
             )
         }
@@ -363,7 +485,7 @@ object FitWriter {
                 listOf(
                     TIMESTAMP(end),
                     TOTAL_TIMER_TIME((activity.moving ?: activity.elapsed).inWholeMilliseconds),
-                    NUM_SESSIONS(1),
+                    NUM_SESSIONS(activity.legs.size.coerceAtLeast(1).toLong()),
                     TYPE(TYPE_MANUAL),
                     EVENT(FitProfile.EventMessage.ACTIVITY),
                     EVENT_TYPE(FitProfile.EventMessage.TYPE_STOP),
@@ -385,4 +507,7 @@ object FitWriter {
     private const val MM_PER_CM = 10L
     private const val MBAR_PER_HUNDREDTH_BAR = 10L
     private const val SEMICIRCLES_PER_DEGREE = 2_147_483_648.0 / 180.0
+    private const val CM_PER_YARD = 91.44
+    /** A pool length within this of a whole number of yards (and not of meters) is a yard pool. */
+    private const val YARD_TOLERANCE = 0.02
 }

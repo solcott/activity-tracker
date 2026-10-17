@@ -1,5 +1,8 @@
 package io.github.solcott.activitytracker.activityfile
 
+import io.github.solcott.activitytracker.lexicon.app.Lap
+import io.github.solcott.activitytracker.lexicon.app.LapIntensity
+import io.github.solcott.activitytracker.lexicon.app.LapTrigger
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -156,5 +159,51 @@ class ExportWritersTest {
         assertTrue("<TotalTimeSeconds>60</TotalTimeSeconds>" in TcxWriter.write(swim.copy(moving = null)))
         val read = reader.read(tcx.encodeToByteArray()).single()
         assertEquals(listOf(100, 101), read.streams!!.heartRate)
+    }
+
+    /** Eight 60 s laps alternating 400 m of work and 100 m of rest, a point every 10 s. */
+    private val intervalRun =
+        activity(
+                Sport.RUN,
+                TcxSport.Running,
+                (0..480 step 10).map { ExportPoint(start + it.seconds, distanceMeters = it * 2.5, heartRate = 140 + it % 30) },
+            )
+            .copy(
+                elapsed = 480.seconds,
+                moving = 480.seconds,
+                distanceMeters = 2000.0,
+                laps =
+                    (0 until 8).map { i ->
+                        val rest = i % 2 == 1
+                        Lap(
+                            start = i * 60,
+                            elapsed = 60,
+                            moving = 60,
+                            distance = if (rest) 100 else 400,
+                            maxSpeed = if (rest) 2_000 else 7_250,
+                            avgHeartRate = if (rest) 140 else 170,
+                            calories = if (rest) 5 else 25,
+                            intensity = if (rest) LapIntensity.REST else LapIntensity.ACTIVE,
+                            trigger = if (rest) LapTrigger.MANUAL else LapTrigger.DISTANCE,
+                        )
+                    },
+            )
+
+    @Test
+    fun tcxHasALapPerStoredLap() {
+        val tcx = TcxWriter.write(intervalRun)
+        assertEquals(8, Regex("<Lap StartTime=").findAll(tcx).count())
+        assertEquals(4, Regex("<Intensity>Resting</Intensity>").findAll(tcx).count())
+        assertTrue("""<Lap StartTime="2026-09-20T07:01:00Z">""" in tcx)
+        assertTrue("<Calories>25</Calories>" in tcx && "<TriggerMethod>Distance</TriggerMethod>" in tcx)
+        assertTrue("<MaximumSpeed>7.25</MaximumSpeed>" in tcx)
+        assertEquals(intervalRun.points.size, Regex("<Trackpoint>").findAll(tcx).count(), "each point in one lap")
+    }
+
+    @Test
+    fun tcxLapsComeBack() = runTest {
+        val read = reader.read(TcxWriter.write(intervalRun).encodeToByteArray()).single()
+        assertEquals(intervalRun.laps, read.streams?.laps)
+        assertEquals(2000.0, read.distanceMeters)
     }
 }

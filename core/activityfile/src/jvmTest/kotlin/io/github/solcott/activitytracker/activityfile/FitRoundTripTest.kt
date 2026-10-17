@@ -1,10 +1,14 @@
 package io.github.solcott.activitytracker.activityfile
 
+import io.github.solcott.activitytracker.activityfile.FitExportFixtures.benchWorkout
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.decoDive
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.dive
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.intervalRide
+import io.github.solcott.activitytracker.activityfile.FitExportFixtures.intervalRun
+import io.github.solcott.activitytracker.activityfile.FitExportFixtures.poolSwim
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.ride
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.start
+import io.github.solcott.activitytracker.activityfile.FitExportFixtures.triathlon
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.write
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
@@ -139,4 +143,34 @@ class FitRoundTripTest {
     }
 
     private fun Double.round7() = kotlin.math.round(this * 1e7) / 1e7
+
+    @Test
+    fun aRunsLapDetailsComeBack() = runTest {
+        val read = reader.read(write(intervalRun.copy(points = ExportPoints.join(start, track, streams)))).single()
+        // FIT always carries timer time: a lap stored without moving time comes back with its elapsed time.
+        assertEquals(intervalRun.laps.map { it.copy(moving = it.moving ?: it.elapsed) }, read.streams?.laps)
+    }
+
+    @Test
+    fun aPoolSwimsLengthsAndPoolLengthComeBack() = runTest {
+        val read = reader.read(write(poolSwim)).single()
+        assertEquals(ActivityType(Sport.SWIM, SubSport.POOL), read.type)
+        assertEquals(2500, read.poolLengthCentimeters)
+        assertEquals(poolSwim.lengths, read.streams?.lengths)
+        assertEquals(poolSwim.laps, read.streams?.laps)
+    }
+
+    @Test
+    fun aWorkoutsSetsComeBack() = runTest {
+        val read = reader.read(write(benchWorkout)).single()
+        assertEquals(benchWorkout.sets, read.streams?.sets)
+    }
+
+    @Test
+    fun aTriathlonsLegsAndLapsComeBack() = runTest {
+        val read = reader.read(write(triathlon)).single()
+        assertEquals(ActivityType(Sport.MULTISPORT, SubSport.TRIATHLON), read.type)
+        assertEquals(triathlon.legs, read.streams?.legs)
+        assertEquals(triathlon.laps, read.streams?.laps)
+    }
 }

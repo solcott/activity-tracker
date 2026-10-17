@@ -165,8 +165,25 @@ internal object FitProfile {
 
         override fun trailer(laps: Int) = listOf(TRIGGER_SESSION_END)
 
-        /** A stored lap's trigger: the athlete's (manual), as the app doesn't keep what split it. */
-        val MANUAL_TRIGGER = FitField(24, ENUM, 0)
+        val INTENSITY = FitFieldDef(23, ENUM)
+        val LAP_TRIGGER = FitFieldDef(24, ENUM)
+        val FIRST_LENGTH_INDEX = FitFieldDef(35, UINT16)
+        val NUM_LENGTHS = FitFieldDef(32, UINT16)
+        val NUM_ACTIVE_LENGTHS = FitFieldDef(40, UINT16)
+
+        /** FIT `intensity` values by lexicon token. */
+        val INTENSITIES = mapOf("active" to 0L, "rest" to 1L, "warmup" to 2L, "cooldown" to 3L, "recovery" to 4L, "interval" to 5L)
+
+        /** FIT `lap_trigger` values by lexicon token; a lap ended at a position is FIT's `position_lap`. */
+        val TRIGGERS =
+            mapOf(
+                "manual" to 0L,
+                "time" to 1L,
+                "distance" to 2L,
+                "position" to 4L,
+                "sessionEnd" to 7L,
+                "fitnessEquipment" to 8L,
+            )
     }
 
     object Session : Summary {
@@ -190,11 +207,21 @@ internal object FitProfile {
         override val totalDescent = FitFieldDef(23, UINT16)
 
         // first_lap_index 0, num_laps, trigger activity_end
-        private val FIRST_LAP_INDEX = FitField(25, UINT16, 0)
-        private val NUM_LAPS = FitFieldDef(26, UINT16)
+        val FIRST_LAP_INDEX = FitFieldDef(25, UINT16)
+        val NUM_LAPS = FitFieldDef(26, UINT16)
         private val TRIGGER_ACTIVITY_END = FitField(28, ENUM, 0)
 
-        override fun trailer(laps: Int) = listOf(FIRST_LAP_INDEX, NUM_LAPS(laps.toLong()), TRIGGER_ACTIVITY_END)
+        override fun trailer(laps: Int) = listOf(FIRST_LAP_INDEX(0), NUM_LAPS(laps.toLong()), TRIGGER_ACTIVITY_END)
+
+        /** Centimeters (meters × 100). */
+        val POOL_LENGTH = FitFieldDef(44, UINT16)
+        val POOL_LENGTH_UNIT = FitFieldDef(46, ENUM)
+        val NUM_LENGTHS = FitFieldDef(33, UINT16)
+        val NUM_ACTIVE_LENGTHS = FitFieldDef(47, UINT16)
+        const val UNIT_METRIC = 0L
+        const val UNIT_STATUTE = 1L
+        /** FIT's `transition` sport, a multisport file's time between legs. */
+        const val SPORT_TRANSITION = 3L
 
         /** Training effect × 10. */
         val TOTAL_TRAINING_EFFECT = FitFieldDef(24, UINT8)
@@ -210,6 +237,51 @@ internal object FitProfile {
         /** Kilograms of grit. */
         val TOTAL_GRIT = FitFieldDef(181, FLOAT32)
         val AVG_FLOW = FitFieldDef(187, FLOAT32)
+    }
+
+    object Length {
+        const val NUM = 101
+        /** Milliseconds (seconds × 1000), as are the timer time's. */
+        val TOTAL_ELAPSED_TIME = FitFieldDef(3, UINT32)
+        val TOTAL_TIMER_TIME = FitFieldDef(4, UINT32)
+        val TOTAL_STROKES = FitFieldDef(5, UINT16)
+        val SWIM_STROKE = FitFieldDef(7, ENUM)
+        val LENGTH_TYPE = FitFieldDef(12, ENUM)
+        const val EVENT_LENGTH = 28L
+        const val TYPE_IDLE = 0L
+        const val TYPE_ACTIVE = 1L
+
+        /** FIT `swim_stroke` values by lexicon token. */
+        val STROKES =
+            mapOf(
+                "freestyle" to 0L,
+                "backstroke" to 1L,
+                "breaststroke" to 2L,
+                "butterfly" to 3L,
+                "drill" to 4L,
+                "mixed" to 5L,
+                "im" to 6L,
+            )
+    }
+
+    /** `set` numbers its timestamp 254 and its message index 10, unlike other messages. */
+    object Set {
+        const val NUM = 225
+        val TIMESTAMP = FitFieldDef(254, UINT32)
+        /** Milliseconds. */
+        val DURATION = FitFieldDef(0, UINT32)
+        val REPETITIONS = FitFieldDef(3, UINT16)
+        /** Kilograms × 16. */
+        val WEIGHT = FitFieldDef(4, UINT16)
+        val SET_TYPE = FitFieldDef(5, UINT8)
+        val START_TIME = FitFieldDef(6, UINT32)
+        /** The first of an array; [FitOutput] writes it as a one-value array. */
+        val CATEGORY = FitFieldDef(7, UINT16)
+        val CATEGORY_SUBTYPE = FitFieldDef(8, UINT16)
+        val MESSAGE_INDEX = FitFieldDef(10, UINT16)
+        const val TYPE_REST = 0L
+        const val TYPE_ACTIVE = 1L
+        const val WEIGHT_SCALE = 16
     }
 
     object Activity {

@@ -6,7 +6,10 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.Lap
+import io.github.solcott.activitytracker.lexicon.app.Leg
+import io.github.solcott.activitytracker.lexicon.app.Length
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
+import io.github.solcott.activitytracker.lexicon.app.WorkoutSet
 import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.math.roundToInt
 import kotlin.time.Duration
@@ -50,6 +53,12 @@ data class ExportActivity(
     val trainingLoad: TrainingLoad? = null,
     /** The record's device ("Shearwater Perdix 2"); only UDDF writes it, as the dive computer. */
     val device: String? = null,
+    /** As the streams store them; only FIT writes them. */
+    val lengths: List<Length> = emptyList(),
+    val sets: List<WorkoutSet> = emptyList(),
+    val legs: List<Leg> = emptyList(),
+    /** The record's pool length, in centimeters; only FIT writes it. */
+    val poolLengthCentimeters: Int? = null,
 )
 
 /** The record's summary fields only FIT has a place for, in lexicon units. */
