@@ -207,10 +207,20 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
         const val MAX_GAS_SWITCHES = 1_000
         const val MAX_TANKS = 8
         const val MAX_LAPS = 10_000
+        const val MAX_LENGTHS = 2_000
+        const val MAX_SETS = 500
+        const val MAX_LEGS = 20
         private const val MAX_PERCENT = 100
         private const val MAX_HEART_RATE = 300
 
-        /** [data] capped at [MAX_SAMPLES], with any channel or tank series that doesn't line up with its times dropped. */
+        /** The lexicon's `maxLength` for a lap's, length's or set's short tokens, and for an exercise or sport token. */
+        private const val MAX_TOKEN = 32
+        private const val MAX_LONG_TOKEN = 64
+
+        /**
+         * [data] capped at [MAX_SAMPLES], with any channel or tank series that doesn't line up with its times dropped, each list capped,
+         * counts and durations no lower than 0, heart rates within range, and tokens no longer than the lexicon allows.
+         */
         fun bounded(data: ActivityStreamData): ActivityStreamData {
             fun List<Int?>?.aligned() = this?.takeIf { it.size == data.time.size }?.take(MAX_SAMPLES)
             val base =
@@ -230,6 +240,38 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
                             it.copy(
                                 avgHeartRate = it.avgHeartRate?.coerceIn(0, MAX_HEART_RATE),
                                 maxHeartRate = it.maxHeartRate?.coerceIn(0, MAX_HEART_RATE),
+                                calories = it.calories?.coerceAtLeast(0),
+                                intensity = it.intensity?.take(MAX_TOKEN),
+                                trigger = it.trigger?.take(MAX_TOKEN),
+                            )
+                        },
+                    lengths =
+                        data.lengths?.take(MAX_LENGTHS)?.map {
+                            it.copy(
+                                elapsed = it.elapsed.coerceAtLeast(0),
+                                stroke = it.stroke?.take(MAX_TOKEN),
+                                strokes = it.strokes?.coerceAtLeast(0),
+                            )
+                        },
+                    sets =
+                        data.sets?.take(MAX_SETS)?.map {
+                            it.copy(
+                                elapsed = it.elapsed.coerceAtLeast(0),
+                                category = it.category?.take(MAX_LONG_TOKEN),
+                                exercise = it.exercise?.take(MAX_LONG_TOKEN),
+                                reps = it.reps?.coerceAtLeast(0),
+                                weight = it.weight?.coerceAtLeast(0),
+                            )
+                        },
+                    legs =
+                        data.legs?.take(MAX_LEGS)?.map {
+                            it.copy(
+                                elapsed = it.elapsed.coerceAtLeast(0),
+                                sport = it.sport.take(MAX_LONG_TOKEN),
+                                subSport = it.subSport?.take(MAX_LONG_TOKEN),
+                                avgHeartRate = it.avgHeartRate?.coerceIn(0, MAX_HEART_RATE),
+                                maxHeartRate = it.maxHeartRate?.coerceIn(0, MAX_HEART_RATE),
+                                calories = it.calories?.coerceAtLeast(0),
                             )
                         },
                 )

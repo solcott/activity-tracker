@@ -18,10 +18,16 @@ import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.Lap
+import io.github.solcott.activitytracker.lexicon.app.LapIntensity
+import io.github.solcott.activitytracker.lexicon.app.Leg
+import io.github.solcott.activitytracker.lexicon.app.Length
+import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.StreamChannel
+import io.github.solcott.activitytracker.lexicon.app.SwimStroke
 import io.github.solcott.activitytracker.lexicon.app.TankPressure
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.lexicon.app.WorkoutSet
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
@@ -390,5 +396,57 @@ class ActivityStreamsTest {
         val bounded = ActivityStreamsViews.bounded(data.copy(power = listOf(1)))
         assertNull(bounded.power)
         assertEquals(data.heartRate, bounded.heartRate)
+    }
+
+    @Test
+    fun lengthsSetsLegsAndLapDetailsAreServed() = testApplication {
+        start()
+        val workout =
+            data.copy(
+                laps = listOf(Lap(0, 20, calories = 12, intensity = LapIntensity.REST, trigger = "distance")),
+                lengths = listOf(Length(0, 30, SwimStroke.FREESTYLE, 15), Length(30, 20, rest = true)),
+                sets = listOf(WorkoutSet(0, 40, category = "bench_press", exercise = "barbell_bench_press", reps = 8, weight = 60_000)),
+                legs = listOf(Leg(0, 1800, Sport.SWIM, distance = 1500), Leg(1800, 120, Sport.MULTISPORT, transition = true)),
+            )
+        blobs["bafkworkout"] = AtJson.encodeToString(ActivityStreamData.serializer(), workout).encodeToByteArray()
+        streams(Visibility.PUBLIC, blob = "bafkworkout", channels = workout.channels)
+
+        val output = client.streamsFor(alice).output()
+        assertEquals(workout, output.data, "a valid blob is served unchanged")
+        assertTrue(
+            StreamChannel.LENGTHS in output.channels && StreamChannel.SETS in output.channels && StreamChannel.LEGS in output.channels
+        )
+    }
+
+    @Test
+    fun oversizedOrMalformedStructureIsBounded() {
+        val long = "x".repeat(500)
+        val bounded =
+            ActivityStreamsViews.bounded(
+                data.copy(
+                    laps = listOf(Lap(0, 20, calories = -5, intensity = long, trigger = long)),
+                    lengths = List(ActivityStreamsViews.MAX_LENGTHS + 10) { Length(it, -1, long, strokes = -3) },
+                    sets =
+                        List(ActivityStreamsViews.MAX_SETS + 10) {
+                            WorkoutSet(it, -1, category = long, exercise = long, reps = -1, weight = -1)
+                        },
+                    legs =
+                        List(ActivityStreamsViews.MAX_LEGS + 10) { Leg(it, -1, long, subSport = long, avgHeartRate = 999, calories = -1) },
+                )
+            )
+        val lap = bounded.laps!!.single()
+        assertEquals(0, lap.calories)
+        assertEquals(32, lap.intensity!!.length)
+        assertEquals(32, lap.trigger!!.length)
+        assertEquals(ActivityStreamsViews.MAX_LENGTHS, bounded.lengths!!.size)
+        assertEquals(Length(0, 0, "x".repeat(32), strokes = 0), bounded.lengths!!.first())
+        assertEquals(ActivityStreamsViews.MAX_SETS, bounded.sets!!.size)
+        assertEquals(WorkoutSet(0, 0, category = "x".repeat(64), exercise = "x".repeat(64), reps = 0, weight = 0), bounded.sets!!.first())
+        assertEquals(ActivityStreamsViews.MAX_LEGS, bounded.legs!!.size)
+        val leg = bounded.legs!!.first()
+        assertEquals(64, leg.sport.length)
+        assertEquals(300, leg.avgHeartRate)
+        assertEquals(0, leg.elapsed)
+        assertEquals(0, leg.calories)
     }
 }
