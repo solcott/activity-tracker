@@ -6,6 +6,11 @@ package io.github.solcott.activitytracker.activityfile
 
 internal external class Stream(arrayBuffer: JsAny) : JsAny
 
+/** The SDK's profile: `types` maps each FIT type's name to its values' names, the per-category exercise-name types among them. */
+internal external object Profile : JsAny {
+    val types: JsAny
+}
+
 internal external class Decoder(stream: Stream) : JsAny {
     fun isFIT(): Boolean
 
@@ -34,6 +39,9 @@ internal external interface FitMessages : JsAny {
     val jumpMesgs: JsArray<JsJumpMesg>?
     val zonesTargetMesgs: JsArray<JsZonesTargetMesg>?
     val userProfileMesgs: JsArray<JsUserProfileMesg>?
+    val lengthMesgs: JsArray<JsLengthMesg>?
+    val setMesgs: JsArray<JsSetMesg>?
+    val splitMesgs: JsArray<JsSplitMesg>?
 }
 
 // Everything is typed JsAny? and converted in GarminJsFitDecoder: an absent field is undefined, which a Double? property reads as NaN
@@ -77,6 +85,11 @@ internal external interface JsSummaryMesg : JsAny {
     val totalCalories: JsAny?
     val totalTrainingEffect: JsAny?
     val totalAnaerobicTrainingEffect: JsAny?
+    // Lap only.
+    val intensity: JsAny?
+    val lapTrigger: JsAny?
+    // Session only: a pool swim's pool length, in meters.
+    val poolLength: JsAny?
     // Session only: the FTP that intensity factor and TSS are relative to.
     val thresholdPower: JsAny?
     val intensityFactor: JsAny?
@@ -211,4 +224,39 @@ internal external interface JsZonesTargetMesg : JsAny {
 
 internal external interface JsUserProfileMesg : JsAny {
     val restingHeartRate: JsAny?
+}
+
+internal external interface JsLengthMesg : JsAny {
+    val startTime: JsAny?
+    val totalElapsedTime: JsAny?
+    val swimStroke: JsAny?
+    val totalStrokes: JsAny?
+    val lengthType: JsAny?
+}
+
+/** [category] and [categorySubtype] are arrays (a value each, the subtype's meaning set by its category); a set uses the first. */
+internal external interface JsSetMesg : JsAny {
+    val startTime: JsAny?
+    val timestamp: JsAny?
+    val duration: JsAny?
+    val setType: JsAny?
+    val category: JsAny?
+    val categorySubtype: JsAny?
+    val repetitions: JsAny?
+    val weight: JsAny?
+}
+
+internal external interface JsSplitMesg : JsAny {
+    val splitType: JsAny?
+    val startTime: JsAny?
+    val totalElapsedTime: JsAny?
+    val totalTimerTime: JsAny?
+    val totalDistance: JsAny?
+    val totalAscent: JsAny?
+    val totalDescent: JsAny?
+    val avgSpeed: JsAny?
+    val maxSpeed: JsAny?
+    val avgHeartRate: JsAny?
+    val maxHeartRate: JsAny?
+    val totalCalories: JsAny?
 }

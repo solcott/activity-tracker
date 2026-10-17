@@ -58,6 +58,8 @@ data class ImportedActivity(
     val anaerobicTrainingEffect: Double? = null,
     /** The file's own notes on the activity (a logbook's), for the import screen to start the description from. */
     val description: String? = null,
+    /** A pool swim's pool length, in centimeters (a 25 yd pool is 2286); null for any other activity. */
+    val poolLengthCentimeters: Int? = null,
 ) {
     /** This activity with [localStart] read in [zone], every time moved together. Unchanged if the file's times had a zone. */
     fun inZone(zone: TimeZone): ImportedActivity {

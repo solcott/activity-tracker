@@ -16,7 +16,8 @@ object StreamBuilder {
     /**
      * [records] are sorted and all have a timestamp. A dive's [gases] (in order of first use) start its [gasSwitches] at time 0, and its
      * [tanks]' [tankUpdates] become a pressure series each, in the tanks' order. [laps] are kept unless there's only one, spanning the
-     * [elapsedSeconds]. Null when no sample has anything to chart.
+     * [elapsedSeconds]; [lengths], [sets] and [legs] (a multisport file's sessions) are kept in time order. Null when nothing is left to
+     * chart or list. A workout's sets are kept even without a sample.
      */
     @Suppress("LongParameterList") // Everything a file holds over time.
     fun fromRecords(
@@ -29,8 +30,11 @@ object StreamBuilder {
         tankUpdates: List<DecodedTankUpdate> = emptyList(),
         laps: List<DecodedSummary> = emptyList(),
         elapsedSeconds: Double? = null,
+        lengths: List<DecodedLength> = emptyList(),
+        sets: List<DecodedSet> = emptyList(),
+        legs: List<DecodedSummary> = emptyList(),
     ): ActivityStreamData? {
-        if (records.isEmpty()) return null
+        if (listOf(records, laps, lengths, sets, legs).all { it.isEmpty() }) return null
         fun seconds(millis: Long) = ((millis - startedAtMillis) / MILLIS_PER_SECOND).roundToInt()
         val time = records.map { seconds(requireNotNull(it.timestampMillis)) }
         val distance = records.channel { it.distanceMeters?.times(CENTI) } ?: positionDistance(records)
@@ -67,6 +71,9 @@ object StreamBuilder {
                 tankPressures =
                     tankPressures(time, tanks, tankUpdates.map { Triple(seconds(it.timestampMillis), it.sensor, it.pressureBar) }),
                 laps = laps(laps, ::seconds, elapsedSeconds),
+                lengths = lengths.mapNotNull { WorkoutStructure.length(it, ::seconds) }.sortedBy { it.start }.ifEmpty { null },
+                sets = sets.mapNotNull { WorkoutStructure.set(it, ::seconds) }.sortedBy { it.start }.ifEmpty { null },
+                legs = legs.mapNotNull { WorkoutStructure.leg(it, ::seconds) }.sortedBy { it.start }.ifEmpty { null },
             )
         return data.takeIf { it.channels.isNotEmpty() }
     }
@@ -130,27 +137,7 @@ object StreamBuilder {
 
     /** The laps in order, or null for one lap spanning the activity (within a second), which says nothing the summary doesn't. */
     private fun laps(laps: List<DecodedSummary>, seconds: (Long) -> Int, elapsedSeconds: Double?): List<Lap>? {
-        val kept =
-            laps
-                .mapNotNull { lap ->
-                    val start = lap.startTimeMillis?.let(seconds) ?: return@mapNotNull null
-                    val elapsed = lap.totalElapsedSeconds?.roundToInt() ?: return@mapNotNull null
-                    Lap(
-                        start = start,
-                        elapsed = elapsed,
-                        moving = lap.totalTimerSeconds?.roundToInt(),
-                        distance = lap.totalDistanceMeters?.roundToInt(),
-                        avgSpeed = lap.avgSpeedMps?.times(MILLI)?.roundToInt(),
-                        maxSpeed = lap.maxSpeedMps?.times(MILLI)?.roundToInt(),
-                        avgHeartRate = lap.avgHeartRate,
-                        maxHeartRate = lap.maxHeartRate,
-                        avgPower = lap.avgPowerWatts,
-                        avgCadence = lap.avgCadence,
-                        ascent = lap.totalAscentMeters?.roundToInt(),
-                        descent = lap.totalDescentMeters?.roundToInt(),
-                    )
-                }
-                .sortedBy { it.start }
+        val kept = laps.mapNotNull { WorkoutStructure.lap(it, seconds) }.sortedBy { it.start }
         val only = kept.singleOrNull()
         val spans = only != null && abs(only.start) <= 1 && (elapsedSeconds == null || abs(only.elapsed - elapsedSeconds) <= 1)
         return kept.takeIf { it.isNotEmpty() && !spans }

@@ -2,10 +2,12 @@ package io.github.solcott.activitytracker.activityfile
 
 import com.garmin.fit.AntplusDeviceType
 import com.garmin.fit.BatteryStatus
+import com.garmin.fit.BenchPressExerciseName
 import com.garmin.fit.BleDeviceType
 import com.garmin.fit.BufferEncoder
 import com.garmin.fit.DateTime
 import com.garmin.fit.DeviceInfoMesg
+import com.garmin.fit.DisplayMeasure
 import com.garmin.fit.DiveGasMesg
 import com.garmin.fit.DiveGasMode
 import com.garmin.fit.DiveGasStatus
@@ -14,21 +16,32 @@ import com.garmin.fit.DiveSummaryMesg
 import com.garmin.fit.Event
 import com.garmin.fit.EventMesg
 import com.garmin.fit.EventType
+import com.garmin.fit.ExerciseCategory
 import com.garmin.fit.File
 import com.garmin.fit.FileIdMesg
 import com.garmin.fit.Fit
 import com.garmin.fit.GarminProduct
+import com.garmin.fit.Intensity
 import com.garmin.fit.JumpMesg
 import com.garmin.fit.LapMesg
+import com.garmin.fit.LapTrigger
+import com.garmin.fit.LengthMesg
+import com.garmin.fit.LengthType
 import com.garmin.fit.LocalDeviceType
 import com.garmin.fit.Manufacturer
 import com.garmin.fit.Mesg
 import com.garmin.fit.MesgNum
+import com.garmin.fit.PushUpExerciseName
 import com.garmin.fit.RecordMesg
 import com.garmin.fit.SessionMesg
+import com.garmin.fit.SetMesg
+import com.garmin.fit.SetType
 import com.garmin.fit.SourceType
+import com.garmin.fit.SplitMesg
+import com.garmin.fit.SplitType
 import com.garmin.fit.Sport as FitSport
 import com.garmin.fit.SubSport
+import com.garmin.fit.SwimStroke
 import com.garmin.fit.TankSummaryMesg
 import com.garmin.fit.TankUpdateMesg
 import com.garmin.fit.UserProfileMesg
@@ -315,6 +328,250 @@ object FitFixtures {
     }
 
     const val DIVE_POINTS = 10
+
+    /**
+     * A pool swim in a [poolLength] m pool (22.86 for 25 yd, with [unit] statute): four freestyle lengths of 30 s and 15 strokes, a 20 s
+     * idle length at the wall, then four breaststroke lengths of 35 s and 10 strokes. Its laps are the two sets and the rest between.
+     */
+    fun poolSwim(start: Instant, poolLength: Float = 25f, unit: DisplayMeasure = DisplayMeasure.METRIC): ByteArray {
+        val startedAt = DateTime(start.toJavaInstant())
+        fun at(seconds: Long) = DateTime(startedAt).apply { add(seconds) }
+        var t = 0L
+        val lengths = POOL_LENGTHS.map { (stroke, seconds, strokes) ->
+            LengthMesg().apply {
+                startTime = at(t)
+                timestamp = at(t + seconds)
+                totalElapsedTime = seconds.toFloat()
+                totalTimerTime = seconds.toFloat()
+                if (stroke == null) {
+                    lengthType = LengthType.IDLE
+                } else {
+                    lengthType = LengthType.ACTIVE
+                    swimStroke = stroke
+                    totalStrokes = strokes
+                }
+                t += seconds
+            }
+        }
+        return encode(
+            start,
+            FitSport.SWIMMING,
+            SubSport.LAP_SWIMMING,
+            distance = poolLength * 8,
+            avgHr = 130,
+            points = (t / 10 + 1).toInt(),
+            interval = 10,
+            extra = lengths,
+            laps =
+                listOf(
+                    FitLap(0, 120f, poolLength * 4) { intensity = Intensity.ACTIVE },
+                    FitLap(120, 20f, 0f) { intensity = Intensity.REST },
+                    FitLap(140, 140f, poolLength * 4) { intensity = Intensity.ACTIVE },
+                ),
+            session = {
+                this.poolLength = poolLength
+                poolLengthUnit = unit
+                numLengths = POOL_LENGTHS.size
+            },
+        ) { i, record ->
+            record.heartRate = (120 + i % 15).toShort()
+        }
+    }
+
+    /** Each length of [poolSwim]: its stroke (null when idle), seconds and stroke count. */
+    val POOL_LENGTHS: List<Triple<SwimStroke?, Long, Int>> =
+        List(4) { Triple(SwimStroke.FREESTYLE, 30L, 15) } + Triple(null, 20L, 0) + List(4) { Triple(SwimStroke.BREASTSTROKE, 35L, 10) }
+
+    /**
+     * A strength workout: three 40 s sets of 8 barbell bench presses at 60 kg with 90 s rests between, a 60 s rest, a 30 s set of 20
+     * push-ups with no weight, a 60 s rest, and a 30 s set logged only as the squat category.
+     */
+    fun strengthWorkout(start: Instant): ByteArray {
+        val startedAt = DateTime(start.toJavaInstant())
+        var t = 0L
+        fun set(seconds: Long, configure: SetMesg.() -> Unit) =
+            SetMesg().apply {
+                startTime = DateTime(startedAt).apply { add(t) }
+                timestamp = DateTime(startedAt).apply { add(t + seconds) }
+                duration = seconds.toFloat()
+                setType = SetType.ACTIVE
+                configure()
+                t += seconds
+            }
+        fun rest(seconds: Long) = set(seconds) { setType = SetType.REST }
+        fun bench() =
+            set(40) {
+                setCategory(0, ExerciseCategory.BENCH_PRESS)
+                setCategorySubtype(0, BenchPressExerciseName.BARBELL_BENCH_PRESS)
+                repetitions = 8
+                weight = 60f
+            }
+        val sets =
+            listOf(
+                bench(),
+                rest(90),
+                bench(),
+                rest(90),
+                bench(),
+                rest(60),
+                set(30) {
+                    setCategory(0, ExerciseCategory.PUSH_UP)
+                    setCategorySubtype(0, PushUpExerciseName.PUSH_UP)
+                    repetitions = 20
+                },
+                rest(60),
+                set(30) { setCategory(0, ExerciseCategory.SQUAT) },
+            )
+        return encode(
+            start,
+            FitSport.TRAINING,
+            SubSport.STRENGTH_TRAINING,
+            distance = 0f,
+            avgHr = 110,
+            points = (t / 30 + 1).toInt(),
+            extra = sets,
+        ) { i, record ->
+            record.heartRate = (100 + i * 2).toShort()
+        }
+    }
+
+    const val SKI_RUNS = 8
+
+    /**
+     * A resort ski day: eight times a 300 s lift ride up 300 m, then a 240 s run of 1500 m down 300 m, as Garmin's run and lift splits, and
+     * the watch's own lap per lift and run pair.
+     */
+    fun resortSkiDay(start: Instant): ByteArray {
+        val startedAt = DateTime(start.toJavaInstant())
+        fun at(seconds: Long) = DateTime(startedAt).apply { add(seconds) }
+        val splits =
+            (0 until SKI_RUNS).flatMap { i ->
+                val lift = i * 540L
+                listOf(
+                    SplitMesg().apply {
+                        splitType = SplitType.SKI_LIFT_SPLIT
+                        startTime = at(lift)
+                        timestamp = at(lift + 300)
+                        totalElapsedTime = 300f
+                        totalTimerTime = 300f
+                        totalDistance = 800f
+                        totalAscent = 300
+                    },
+                    SplitMesg().apply {
+                        splitType = SplitType.SKI_RUN_SPLIT
+                        startTime = at(lift + 300)
+                        timestamp = at(lift + 540)
+                        totalElapsedTime = 240f
+                        totalTimerTime = 240f
+                        totalDistance = 1500f
+                        totalDescent = 300
+                        maxSpeed = 18f
+                    },
+                )
+            }
+        return encode(
+            start,
+            FitSport.ALPINE_SKIING,
+            SubSport.GENERIC,
+            distance = SKI_RUNS * 2300f,
+            avgHr = 115,
+            points = SKI_RUNS * 9 + 1,
+            interval = 60,
+            extra = splits,
+            laps = (0 until SKI_RUNS).map { FitLap(it * 540L, 540f, 2300f) },
+        ) { i, record ->
+            record.enhancedAltitude = 2000f + (if (i % 9 <= 5) i % 9 * 60f else (9 - i % 9) * 100f)
+        }
+    }
+
+    /** A backcountry ski tour with three laps of its own and no run splits. */
+    fun backcountrySki(start: Instant): ByteArray =
+        encode(
+            start,
+            FitSport.ALPINE_SKIING,
+            SubSport.BACKCOUNTRY,
+            distance = 6000f,
+            avgHr = 140,
+            points = 61,
+            interval = 60,
+            laps = listOf(FitLap(0, 1800f, 3000f), FitLap(1800, 1200f, 2000f), FitLap(3000, 600f, 1000f)),
+        ) { i, record ->
+            record.enhancedAltitude = 2000f + i * 10f
+        }
+
+    /** Each leg of [triathlon]: its sport and sub-sport, start and seconds, meters, and laps of equal length. */
+    class TriLeg(val sport: FitSport, val subSport: SubSport, val start: Long, val seconds: Long, val meters: Float, val laps: Int = 1)
+
+    val TRI_LEGS =
+        listOf(
+            TriLeg(FitSport.SWIMMING, SubSport.OPEN_WATER, 0, 1800, 1500f),
+            TriLeg(FitSport.TRANSITION, SubSport.GENERIC, 1800, 120, 0f),
+            TriLeg(FitSport.CYCLING, SubSport.ROAD, 1920, 3600, 40_000f),
+            TriLeg(FitSport.TRANSITION, SubSport.GENERIC, 5520, 90, 0f),
+            TriLeg(FitSport.RUNNING, SubSport.GENERIC, 5610, 2700, 10_000f, laps = 5),
+        )
+
+    /**
+     * An Olympic triathlon as a multisport watch writes it: a session per leg and transition ([TRI_LEGS]), each leg's laps (the run's five
+     * of 2 km, by distance), and a record every 30 s.
+     */
+    fun triathlon(start: Instant): ByteArray {
+        val startedAt = DateTime(start.toJavaInstant())
+        fun at(seconds: Long) = DateTime(startedAt).apply { add(seconds) }
+        val end = TRI_LEGS.last().let { it.start + it.seconds }
+        val encoder = BufferEncoder(Fit.ProtocolVersion.V2_0)
+        encoder.write(
+            FileIdMesg().apply {
+                type = File.ACTIVITY
+                manufacturer = Manufacturer.GARMIN
+                product = GarminProduct.FENIX7
+                timeCreated = startedAt
+            }
+        )
+        for (t in 0..end step 30) {
+            val leg = TRI_LEGS.last { it.start <= t }
+            val before = TRI_LEGS.filter { it.start < leg.start }.sumOf { it.meters.toDouble() }
+            encoder.write(
+                RecordMesg().apply {
+                    timestamp = at(t)
+                    distance = (before + leg.meters * (t - leg.start).coerceAtMost(leg.seconds) / leg.seconds).toFloat()
+                    heartRate = (130 + t % 30).toShort()
+                }
+            )
+        }
+        for (leg in TRI_LEGS) {
+            val lapSeconds = leg.seconds / leg.laps
+            repeat(leg.laps) { i ->
+                encoder.write(
+                    LapMesg().apply {
+                        startTime = at(leg.start + i * lapSeconds)
+                        timestamp = at(leg.start + (i + 1) * lapSeconds)
+                        sport = leg.sport
+                        subSport = leg.subSport
+                        totalElapsedTime = lapSeconds.toFloat()
+                        totalTimerTime = lapSeconds.toFloat()
+                        totalDistance = leg.meters / leg.laps
+                        lapTrigger = if (leg.laps > 1) LapTrigger.DISTANCE else LapTrigger.SESSION_END
+                    }
+                )
+            }
+        }
+        for (leg in TRI_LEGS) {
+            encoder.write(
+                SessionMesg().apply {
+                    startTime = at(leg.start)
+                    timestamp = at(leg.start + leg.seconds)
+                    sport = leg.sport
+                    subSport = leg.subSport
+                    totalElapsedTime = leg.seconds.toFloat()
+                    totalTimerTime = leg.seconds.toFloat()
+                    totalDistance = leg.meters
+                    avgHeartRate = 140.toShort()
+                }
+            )
+        }
+        return encoder.close()
+    }
 
     /** A lap the encoder writes, [startSeconds] after the activity's start. */
     class FitLap(val startSeconds: Long, val elapsedSeconds: Float, val distanceMeters: Float, val configure: LapMesg.() -> Unit = {})

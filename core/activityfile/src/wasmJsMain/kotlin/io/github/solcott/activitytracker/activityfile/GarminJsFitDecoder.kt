@@ -55,6 +55,9 @@ class GarminJsFitDecoder : FitDecoder {
                 },
             jumps = messages.jumpMesgs?.toList().orEmpty().map { DecodedJump(number(it.hangTime), number(it.distance)) },
             athlete = athleteSettings(messages),
+            lengths = messages.lengthMesgs?.toList().orEmpty().map { it.toLength() },
+            sets = messages.setMesgs?.toList().orEmpty().map { it.toSet() },
+            splits = messages.splitMesgs?.toList().orEmpty().map { it.toSplit() },
         )
     }
 
@@ -213,16 +216,70 @@ class GarminJsFitDecoder : FitDecoder {
             totalCalories = number(totalCalories)?.roundToInt(),
             aerobicTrainingEffect = number(totalTrainingEffect),
             anaerobicTrainingEffect = number(totalAnaerobicTrainingEffect),
+            poolLengthMeters = number(poolLength),
+            intensity = intensity?.let(::jsString),
+            lapTrigger = lapTrigger?.let(::jsString),
         )
 
     private fun <T : JsAny> JsArray<T>.toList(): List<T> = (0 until length).mapNotNull { get(it) }
 }
+
+private fun JsLengthMesg.toLength() =
+    DecodedLength(
+        startTimeMillis = startTime?.let(::dateMillis),
+        totalElapsedSeconds = number(totalElapsedTime),
+        swimStroke = swimStroke?.let(::jsString),
+        totalStrokes = number(totalStrokes)?.roundToInt(),
+        lengthType = lengthType?.let(::jsString),
+    )
+
+private fun JsSetMesg.toSet(): DecodedSet {
+    val category = category?.let(::firstOf)
+    // A category newer than the profile stays a number, which names no exercise-name type.
+    val categoryName = category?.let(::jsString)
+    val subtype = number(categorySubtype?.let(::firstOf))?.roundToInt()
+    return DecodedSet(
+        startTimeMillis = startTime?.let(::dateMillis),
+        timestampMillis = timestamp?.let(::dateMillis),
+        durationSeconds = number(duration),
+        setType = setType?.let(::jsString),
+        category = categoryName,
+        exercise = if (categoryName != null && subtype != null) exerciseName(Profile.types, categoryName, subtype) else null,
+        repetitions = number(repetitions)?.roundToInt(),
+        weightKg = number(weight),
+    )
+}
+
+private fun JsSplitMesg.toSplit() =
+    DecodedSplit(
+        splitType = splitType?.let(::jsString),
+        startTimeMillis = startTime?.let(::dateMillis),
+        totalElapsedSeconds = number(totalElapsedTime),
+        totalTimerSeconds = number(totalTimerTime),
+        totalDistanceMeters = number(totalDistance),
+        totalAscentMeters = number(totalAscent),
+        totalDescentMeters = number(totalDescent),
+        avgSpeedMps = number(avgSpeed),
+        maxSpeedMps = number(maxSpeed),
+        avgHeartRate = number(avgHeartRate)?.roundToInt(),
+        maxHeartRate = number(maxHeartRate)?.roundToInt(),
+        totalCalories = number(totalCalories)?.roundToInt(),
+    )
 
 @Suppress("UnusedParameter") // Used by the JS body.
 private fun bufferOf(array: JsAny): JsAny = js("array.buffer")
 
 @Suppress("UnusedParameter") // Used by the JS body.
 private fun jsString(value: JsAny): String = js("String(value)")
+
+/** An array field's first value; a single value as is. Null when the array is empty. */
+@Suppress("UnusedParameter") // Used by the JS body.
+private fun firstOf(value: JsAny): JsAny? = js("Array.isArray(value) ? (value.length > 0 ? value[0] : null) : value")
+
+/** The name of exercise [subtype] in [category]'s exercise-name type (`benchPressExerciseName`), or null when it has none. */
+@Suppress("UnusedParameter") // Used by the JS body.
+private fun exerciseName(types: JsAny, category: String, subtype: Int): String? =
+    js("(types[category + 'ExerciseName'] || {})[subtype] ?? null")
 
 /** A numeric field, or null when it's absent (undefined) or not a number. */
 private fun number(value: JsAny?): Double? = if (value == null) null else jsNumberOrNaN(value).takeUnless { it.isNaN() }

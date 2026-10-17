@@ -11,18 +11,23 @@ import com.garmin.fit.DiveSettingsMesg
 import com.garmin.fit.DiveSummaryMesg
 import com.garmin.fit.Event
 import com.garmin.fit.EventMesg
+import com.garmin.fit.ExerciseCategory
 import com.garmin.fit.FileIdMesg
 import com.garmin.fit.FitRuntimeException
 import com.garmin.fit.GarminProduct
 import com.garmin.fit.JumpMesg
 import com.garmin.fit.LapMesg
+import com.garmin.fit.LengthMesg
 import com.garmin.fit.LocalDeviceType
 import com.garmin.fit.Manufacturer
 import com.garmin.fit.MesgBroadcaster
 import com.garmin.fit.MesgNum
 import com.garmin.fit.RecordMesg
 import com.garmin.fit.SessionMesg
+import com.garmin.fit.SetMesg
+import com.garmin.fit.SetType
 import com.garmin.fit.SourceType
+import com.garmin.fit.SplitMesg
 import com.garmin.fit.TankSummaryMesg
 import com.garmin.fit.TankUpdateMesg
 import com.garmin.fit.UserProfileMesg
@@ -68,6 +73,7 @@ class GarminJavaFitDecoder : FitDecoder {
             sessions += m.toSummary()
         }
         broadcaster.addListener { m: LapMesg -> laps += m.toSummary() }
+        val workout = WorkoutListeners(broadcaster)
         var zonesTarget: ZonesTargetMesg? = null
         var userProfile: UserProfileMesg? = null
         broadcaster.addListener { m: ZonesTargetMesg -> if (zonesTarget == null) zonesTarget = m }
@@ -91,6 +97,9 @@ class GarminJavaFitDecoder : FitDecoder {
             gearChanges = ride.gearChanges,
             jumps = ride.jumps,
             athlete = athleteSettings(zonesTarget, userProfile),
+            lengths = workout.lengths,
+            sets = workout.sets,
+            splits = workout.splits,
         )
     }
 
@@ -169,6 +178,7 @@ class GarminJavaFitDecoder : FitDecoder {
             totalCalories = totalCalories,
             aerobicTrainingEffect = totalTrainingEffect?.toDouble(),
             anaerobicTrainingEffect = totalAnaerobicTrainingEffect?.toDouble(),
+            poolLengthMeters = poolLength?.toDouble(),
         )
 
     private fun LapMesg.toSummary() =
@@ -198,6 +208,61 @@ class GarminJavaFitDecoder : FitDecoder {
             totalGrit = totalGrit?.toDouble(),
             avgFlow = avgFlow?.toDouble(),
             totalCalories = totalCalories,
+            intensity = intensity?.name,
+            lapTrigger = lapTrigger?.name,
+        )
+}
+
+/** Collects a pool swim's lengths, a workout's sets and a ski day's splits as the decoder reads them. */
+private class WorkoutListeners(broadcaster: MesgBroadcaster) {
+    val lengths = mutableListOf<DecodedLength>()
+    val sets = mutableListOf<DecodedSet>()
+    val splits = mutableListOf<DecodedSplit>()
+
+    init {
+        broadcaster.addListener { m: LengthMesg -> lengths += m.toLength() }
+        broadcaster.addListener { m: SetMesg -> sets += m.toSet() }
+        broadcaster.addListener { m: SplitMesg -> splits += m.toSplit() }
+    }
+
+    private fun LengthMesg.toLength() =
+        DecodedLength(
+            startTimeMillis = startTime?.instant?.toEpochMilli(),
+            totalElapsedSeconds = totalElapsedTime?.toDouble(),
+            swimStroke = swimStroke?.name,
+            totalStrokes = totalStrokes,
+            lengthType = lengthType?.name,
+        )
+
+    private fun SetMesg.toSet(): DecodedSet {
+        val category = getCategory(0)
+        val subtype = getCategorySubtype(0)
+        return DecodedSet(
+            startTimeMillis = startTime?.instant?.toEpochMilli(),
+            timestampMillis = timestamp?.instant?.toEpochMilli(),
+            durationSeconds = duration?.toDouble(),
+            setType = setType?.let(SetType::getStringFromValue)?.ifEmpty { null },
+            category = category?.let(ExerciseCategory::getStringFromValue)?.ifEmpty { null },
+            exercise = if (category != null && subtype != null) exerciseName(category, subtype) else null,
+            repetitions = repetitions,
+            weightKg = weight?.toDouble(),
+        )
+    }
+
+    private fun SplitMesg.toSplit() =
+        DecodedSplit(
+            splitType = splitType?.name,
+            startTimeMillis = startTime?.instant?.toEpochMilli(),
+            totalElapsedSeconds = totalElapsedTime?.toDouble(),
+            totalTimerSeconds = totalTimerTime?.toDouble(),
+            totalDistanceMeters = totalDistance?.toDouble(),
+            totalAscentMeters = totalAscent?.toDouble(),
+            totalDescentMeters = totalDescent?.toDouble(),
+            avgSpeedMps = avgSpeed?.toDouble(),
+            maxSpeedMps = maxSpeed?.toDouble(),
+            avgHeartRate = avgHeartRate?.toInt(),
+            maxHeartRate = maxHeartRate?.toInt(),
+            totalCalories = totalCalories?.toInt(),
         )
 }
 

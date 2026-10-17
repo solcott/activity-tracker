@@ -47,7 +47,113 @@ final class SwiftFitDecoder: FitDecoder {
             athlete: Self.athlete(messages),
             gasSwitches: FitDives.shared.gasSwitches(messages: diveMessages),
             tankUpdates: FitDives.shared.tankUpdates(messages: diveMessages),
-            notes: nil
+            notes: nil,
+            lengths: messages.lengthMesgs.map(Self.length),
+            sets: messages.setMesgs.map(Self.set),
+            splits: messages.splitMesgs.map(Self.split)
+        )
+    }
+
+    private static func length(_ m: LengthMesg) -> DecodedLength {
+        DecodedLength(
+            startTimeMillis: m.getStartTime().map { KotlinLong(value: millis($0)) },
+            totalElapsedSeconds: double(m.getTotalElapsedTime()),
+            swimStroke: m.getSwimStroke().map { String(describing: $0) },
+            totalStrokes: int(m.getTotalStrokes().map(Int32.init)),
+            lengthType: m.getLengthType().map { String(describing: $0) }
+        )
+    }
+
+    private static func set(_ m: SetMesg) -> DecodedSet {
+        // The SDK reads a value newer than its profile as .invalid.
+        let category = m.getCategory()?.first.flatMap { $0 }.flatMap { $0 == .invalid ? nil : $0 }
+        let subtype = m.getCategorySubtype()?.first.flatMap { $0 }
+        return DecodedSet(
+            startTimeMillis: m.getStartTime().map { KotlinLong(value: millis($0)) },
+            timestampMillis: m.getTimestamp().map { KotlinLong(value: millis($0)) },
+            durationSeconds: double(m.getDuration()),
+            setType: m.getSetType().map { String(describing: $0) },
+            category: category.map { String(describing: $0) },
+            exercise: category.flatMap { c in subtype.flatMap { exerciseName(c, $0) } },
+            repetitions: int(m.getRepetitions().map(Int32.init)),
+            weightKg: double(m.getWeight())
+        )
+    }
+
+    /// The name of exercise subtype in its category's exercise-name enum (a benchPress set's subtype is a BenchPressExerciseName).
+    private static func exerciseName(_ category: ExerciseCategory, _ subtype: UInt16) -> String? {
+        let name: Any? =
+            switch category {
+            case .bandedExercises: BandedExercisesExerciseName(rawValue: subtype)
+            case .battleRope: BattleRopeExerciseName(rawValue: subtype)
+            case .benchPress: BenchPressExerciseName(rawValue: subtype)
+            case .bike: BikeExerciseName(rawValue: subtype)
+            case .bikeOutdoor: BikeOutdoorExerciseName(rawValue: subtype)
+            case .calfRaise: CalfRaiseExerciseName(rawValue: subtype)
+            case .cardio: CardioExerciseName(rawValue: subtype)
+            case .carry: CarryExerciseName(rawValue: subtype)
+            case .chop: ChopExerciseName(rawValue: subtype)
+            case .core: CoreExerciseName(rawValue: subtype)
+            case .crunch: CrunchExerciseName(rawValue: subtype)
+            case .curl: CurlExerciseName(rawValue: subtype)
+            case .deadlift: DeadliftExerciseName(rawValue: subtype)
+            case .elliptical: EllipticalExerciseName(rawValue: subtype)
+            case .floorClimb: FloorClimbExerciseName(rawValue: subtype)
+            case .flye: FlyeExerciseName(rawValue: subtype)
+            case .hipRaise: HipRaiseExerciseName(rawValue: subtype)
+            case .hipStability: HipStabilityExerciseName(rawValue: subtype)
+            case .hipSwing: HipSwingExerciseName(rawValue: subtype)
+            case .hyperextension: HyperextensionExerciseName(rawValue: subtype)
+            case .indoorBike: IndoorBikeExerciseName(rawValue: subtype)
+            case .indoorRow: IndoorRowExerciseName(rawValue: subtype)
+            case .ladder: LadderExerciseName(rawValue: subtype)
+            case .lateralRaise: LateralRaiseExerciseName(rawValue: subtype)
+            case .legCurl: LegCurlExerciseName(rawValue: subtype)
+            case .legRaise: LegRaiseExerciseName(rawValue: subtype)
+            case .lunge: LungeExerciseName(rawValue: subtype)
+            case .move: MoveExerciseName(rawValue: subtype)
+            case .olympicLift: OlympicLiftExerciseName(rawValue: subtype)
+            case .plank: PlankExerciseName(rawValue: subtype)
+            case .plyo: PlyoExerciseName(rawValue: subtype)
+            case .pose: PoseExerciseName(rawValue: subtype)
+            case .pullUp: PullUpExerciseName(rawValue: subtype)
+            case .pushUp: PushUpExerciseName(rawValue: subtype)
+            case .row: RowExerciseName(rawValue: subtype)
+            case .run: RunExerciseName(rawValue: subtype)
+            case .runIndoor: RunIndoorExerciseName(rawValue: subtype)
+            case .sandbag: SandbagExerciseName(rawValue: subtype)
+            case .shoulderPress: ShoulderPressExerciseName(rawValue: subtype)
+            case .shoulderStability: ShoulderStabilityExerciseName(rawValue: subtype)
+            case .shrug: ShrugExerciseName(rawValue: subtype)
+            case .sitUp: SitUpExerciseName(rawValue: subtype)
+            case .sled: SledExerciseName(rawValue: subtype)
+            case .sledgeHammer: SledgeHammerExerciseName(rawValue: subtype)
+            case .squat: SquatExerciseName(rawValue: subtype)
+            case .stairStepper: StairStepperExerciseName(rawValue: subtype)
+            case .suspension: SuspensionExerciseName(rawValue: subtype)
+            case .tire: TireExerciseName(rawValue: subtype)
+            case .totalBody: TotalBodyExerciseName(rawValue: subtype)
+            case .tricepsExtension: TricepsExtensionExerciseName(rawValue: subtype)
+            case .warmUp: WarmUpExerciseName(rawValue: subtype)
+            default: nil
+            }
+        return name.map { String(describing: $0) }
+    }
+
+    private static func split(_ m: SplitMesg) -> DecodedSplit {
+        DecodedSplit(
+            splitType: m.getSplitType().map { String(describing: $0) },
+            startTimeMillis: m.getStartTime().map { KotlinLong(value: millis($0)) },
+            totalElapsedSeconds: double(m.getTotalElapsedTime()),
+            totalTimerSeconds: double(m.getTotalTimerTime()),
+            totalDistanceMeters: double(m.getTotalDistance()),
+            totalAscentMeters: double(m.getTotalAscent().map(Double.init)),
+            totalDescentMeters: double(m.getTotalDescent().map(Double.init)),
+            avgSpeedMps: double(m.getAvgSpeed()),
+            maxSpeedMps: double(m.getMaxSpeed()),
+            avgHeartRate: int(m.getAvgHeartRate().map(Int32.init)),
+            maxHeartRate: int(m.getMaxHeartRate().map(Int32.init)),
+            totalCalories: int(m.getTotalCalories().map(Int32.init(truncatingIfNeeded:)))
         )
     }
 
@@ -227,7 +333,10 @@ final class SwiftFitDecoder: FitDecoder {
             avgFlow: double(m.getAvgFlow().map(Double.init)),
             totalCalories: int(m.getTotalCalories().map(Int32.init)),
             aerobicTrainingEffect: double(m.getTotalTrainingEffect()),
-            anaerobicTrainingEffect: double(m.getTotalAnaerobicTrainingEffect())
+            anaerobicTrainingEffect: double(m.getTotalAnaerobicTrainingEffect()),
+            poolLengthMeters: double(m.getPoolLength()),
+            intensity: nil,
+            lapTrigger: nil
         )
     }
 
@@ -262,7 +371,10 @@ final class SwiftFitDecoder: FitDecoder {
             avgFlow: double(m.getAvgFlow().map(Double.init)),
             totalCalories: int(m.getTotalCalories().map(Int32.init)),
             aerobicTrainingEffect: nil,
-            anaerobicTrainingEffect: nil
+            anaerobicTrainingEffect: nil,
+            poolLengthMeters: nil,
+            intensity: m.getIntensity().map { String(describing: $0) },
+            lapTrigger: m.getLapTrigger().map { String(describing: $0) }
         )
     }
 

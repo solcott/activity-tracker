@@ -3,7 +3,11 @@ package io.github.solcott.activitytracker.activityfile
 import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.Lap
+import io.github.solcott.activitytracker.lexicon.app.Length
+import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.StreamChannel
+import io.github.solcott.activitytracker.lexicon.app.SwimStroke
+import io.github.solcott.activitytracker.lexicon.app.WorkoutSet
 import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -225,6 +229,49 @@ class StreamBuilderTest {
             "one lap that stops short is a lap",
         )
     }
+
+    @Test
+    fun keepsLengthsSetsAndLegsInTimeOrder() {
+        val data =
+            assertNotNull(
+                StreamBuilder.fromRecords(
+                    listOf(sample(0, hr = 100)),
+                    at(0),
+                    emptyList(),
+                    lengths =
+                        listOf(DecodedLength(at(30), 25.0, null, null, "idle"), DecodedLength(at(0), 30.0, "freestyle", 14, "active")),
+                    sets = listOf(DecodedSet(at(0), at(40), 40.0, "active", "bench_press", "bench_press", 8, 60.0)),
+                    legs =
+                        listOf(
+                            summary("transition", at(600), 60.0),
+                            summary("running", at(0), 600.0),
+                            summary("cycling", at(660), 1200.0),
+                        ),
+                )
+            )
+        assertEquals(listOf(Length(0, 30, SwimStroke.FREESTYLE, 14), Length(30, 25, rest = true)), data.lengths)
+        assertEquals(listOf(WorkoutSet(0, 40, category = "bench_press", exercise = "bench_press", reps = 8, weight = 60_000)), data.sets)
+        assertEquals(listOf(Sport.RUN, Sport.MULTISPORT, Sport.RIDE), data.legs?.map { it.sport })
+        assertEquals(listOf(StreamChannel.HEART_RATE, StreamChannel.LENGTHS, StreamChannel.SETS, StreamChannel.LEGS), data.channels)
+    }
+
+    @Test
+    fun keepsAWorkoutsSetsWithoutSamples() {
+        val data =
+            assertNotNull(
+                StreamBuilder.fromRecords(
+                    emptyList(),
+                    at(0),
+                    emptyList(),
+                    sets = listOf(DecodedSet(at(0), null, 40.0, "rest", null, null, null, null)),
+                )
+            )
+        assertEquals(listOf(WorkoutSet(0, 40, rest = true)), data.sets)
+        assertEquals(emptyList(), data.time)
+    }
+
+    private fun summary(sport: String, startMillis: Long, elapsed: Double) =
+        DecodedSummary(sport, null, startMillis, elapsed, elapsed, null, null, null, null, null, null, null, null, null)
 
     @Test
     fun nullWithNothingToChart() {

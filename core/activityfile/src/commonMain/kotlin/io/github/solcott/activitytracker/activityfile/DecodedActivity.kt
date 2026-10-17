@@ -32,6 +32,55 @@ data class DecodedActivity(
     val tankUpdates: List<DecodedTankUpdate> = emptyList(),
     /** The diver's notes on the dive, from a logbook that keeps them. */
     val notes: String? = null,
+    /** A pool swim's FIT `length` messages, in file order. */
+    val lengths: List<DecodedLength> = emptyList(),
+    /** A workout's FIT `set` messages, in file order. */
+    val sets: List<DecodedSet> = emptyList(),
+    /** FIT `split` messages, in file order: a ski day's runs and lift rides among them. */
+    val splits: List<DecodedSplit> = emptyList(),
+)
+
+/** A FIT `length`: one length of a pool swim. [lengthType] is "idle" for a rest at the wall, else "active". */
+data class DecodedLength(
+    val startTimeMillis: Long?,
+    val totalElapsedSeconds: Double?,
+    val swimStroke: String?,
+    val totalStrokes: Int?,
+    val lengthType: String?,
+)
+
+/**
+ * A FIT `set`: one set of a workout, or a rest. [setType] is "active" or "rest". [category] and [exercise] are the SDK's names for the
+ * set's first `category` and, resolved through it, its `category_subtype` ("BENCH_PRESS", "barbellBenchPress"); null when unset or newer
+ * than the SDK's profile.
+ */
+data class DecodedSet(
+    val startTimeMillis: Long?,
+    /** The message's own timestamp: when the set ended. */
+    val timestampMillis: Long?,
+    val durationSeconds: Double?,
+    val setType: String?,
+    val category: String?,
+    val exercise: String?,
+    val repetitions: Int?,
+    val weightKg: Double?,
+)
+
+/** A FIT `split`. [splitType] is the SDK's name ("SKI_RUN_SPLIT", "skiLiftSplit"). */
+data class DecodedSplit(
+    val splitType: String?,
+    val startTimeMillis: Long?,
+    val totalElapsedSeconds: Double?,
+    val totalTimerSeconds: Double?,
+    val totalDistanceMeters: Double?,
+    val totalAscentMeters: Double?,
+    val totalDescentMeters: Double?,
+    val avgSpeedMps: Double?,
+    val maxSpeedMps: Double?,
+    val avgHeartRate: Int?,
+    val maxHeartRate: Int?,
+    /** Kilocalories. */
+    val totalCalories: Int?,
 )
 
 /** A switch to [gas] at [timestampMillis]. */
@@ -134,6 +183,12 @@ data class DecodedSummary(
     val aerobicTrainingEffect: Double? = null,
     /** Anaerobic training effect, 0 to 5. */
     val anaerobicTrainingEffect: Double? = null,
+    /** A pool swim session's pool length, in meters (a 25 yd pool is 22.86). */
+    val poolLengthMeters: Double? = null,
+    /** A lap's intensity in the SDK's or TCX's spelling ("ACTIVE", "warmup", "Resting"). */
+    val intensity: String? = null,
+    /** What ended a lap, in the SDK's or TCX's spelling ("POSITION_LAP", "distance", "Location"). */
+    val lapTrigger: String? = null,
 )
 
 /** One sample of the activity's record stream. */

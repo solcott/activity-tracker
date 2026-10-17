@@ -9,6 +9,10 @@ package io.github.solcott.activitytracker.activityfile
  *
  * Every field the decoders read is in each pinned SDK's profile (Java and JS 21.218, Swift 21.217), dive state, running dynamics, power
  * balance, `tank_update` and the dive summary's N₂, rates and descent time included; a field an SDK lacked would be passed as null there.
+ * So are `length`, `set` (its `category`, `category_subtype` and every per-category exercise-name type), `split` (with `ski_run_split` and
+ * `ski_lift_split`), the session's `pool_length` and the lap's `intensity`, `lap_trigger` and `total_calories`. Exercise names resolve per
+ * SDK: Java through each `<Category>ExerciseName` class, JS through `Profile.types.<category>ExerciseName`, Swift through each
+ * `<Category>ExerciseName` enum; a category without a name type leaves the exercise null.
  */
 fun interface FitDecoder {
     /**

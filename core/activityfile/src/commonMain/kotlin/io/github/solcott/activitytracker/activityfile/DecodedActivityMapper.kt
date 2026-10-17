@@ -16,7 +16,9 @@ import kotlin.time.Instant
 /**
  * Turns a decoded FIT, GPX or TCX file into an [ImportedActivity]. Summary totals win because the device computed them from data we don't
  * see (auto-pause, barometric altitude): FIT sessions, else laps (all TCX has). Anything the summaries leave out, which is everything for
- * GPX, is computed from the samples. A multi-session file of several sports (a triathlon, say) imports as one multisport activity.
+ * GPX, is computed from the samples. A multi-session file of several sports (a triathlon, say) imports as one multisport activity, its
+ * sessions kept as its legs. Laps (FIT's and TCX's alike), a pool swim's lengths and a workout's sets go into the streams; a ski day's run
+ * and lift splits take the place of its laps.
  */
 object DecodedActivityMapper {
     fun map(fit: DecodedActivity): ImportedActivity {
@@ -31,9 +33,10 @@ object DecodedActivityMapper {
         val samples = records.toSamples()
         val elapsed = elapsed(sessions, records)
         val (avgCadence, maxCadence) = RideMetrics.cadence(sessions, records)
+        val activityType = activityType(sessions).forGasesBreathed(fit.dive)
 
         return ImportedActivity(
-            type = activityType(sessions).forGasesBreathed(fit.dive),
+            type = activityType,
             startedAt = Instant.fromEpochMilliseconds(startedAtMillis),
             elapsed = elapsed,
             movingSeconds = (sessions.total { it.totalTimerSeconds } ?: samples.movingSeconds())?.roundToLong(),
@@ -65,21 +68,32 @@ object DecodedActivityMapper {
             anaerobicTrainingEffect = sessions.mapNotNull { it.anaerobicTrainingEffect }.maxOrNull()?.takeIf { it > 0 },
             description = fit.notes?.trim()?.ifEmpty { null },
             deviceThresholds = DeviceThresholds.interpret(fit.athlete, fit.sessions),
-            streams =
-                StreamBuilder.fromRecords(
-                    records,
-                    startedAtMillis,
-                    fit.gearChanges,
-                    gasSwitches = fit.gasSwitches,
-                    gases = fit.dive?.gases.orEmpty(),
-                    tanks = fit.dive?.tanks.orEmpty(),
-                    tankUpdates = fit.tankUpdates,
-                    // A TCX file's laps are its only summaries; only a file with sessions has laps of its own to keep.
-                    laps = fit.laps.takeIf { fit.sessions.isNotEmpty() }.orEmpty(),
-                    elapsedSeconds = elapsed.inWholeMilliseconds / MILLIS_PER_SECOND,
-                ),
+            streams = streams(fit, records, startedAtMillis, elapsed, activityType),
+            poolLengthCentimeters =
+                fit.sessions.firstNotNullOfOrNull { it.poolLengthMeters?.takeIf { m -> m > 0 } }?.let { (it * CENTI).roundToInt() },
         )
     }
+
+    /** Everything [fit] holds over time; a multi-session file's sessions are its legs. [records] are sorted and all have a timestamp. */
+    private fun streams(fit: DecodedActivity, records: List<DecodedSample>, startedAtMillis: Long, elapsed: Duration, type: ActivityType) =
+        StreamBuilder.fromRecords(
+            records,
+            startedAtMillis,
+            fit.gearChanges,
+            gasSwitches = fit.gasSwitches,
+            gases = fit.dive?.gases.orEmpty(),
+            tanks = fit.dive?.tanks.orEmpty(),
+            tankUpdates = fit.tankUpdates,
+            // A ski or snowboard day's runs and lift rides, when the file split it into them, take the place of its laps.
+            laps =
+                if (type.sport == Sport.SKI || type.sport == Sport.SNOWBOARD)
+                    fit.splits.mapNotNull(WorkoutStructure::skiLap).ifEmpty { fit.laps }
+                else fit.laps,
+            elapsedSeconds = elapsed.inWholeMilliseconds / MILLIS_PER_SECOND,
+            lengths = fit.lengths,
+            sets = fit.sets,
+            legs = fit.sessions.takeIf { it.size > 1 }.orEmpty(),
+        )
 
     /** [records] are sorted and all have a timestamp. */
     private fun dive(dive: DecodedDive, records: List<DecodedSample>, startedAtMillis: Long): ImportedDive {
@@ -485,6 +499,8 @@ private fun List<LocationSample>.movingSeconds(): Double? = takeIf {
     ?.sum()
 
 private const val MILLIS_PER_SECOND = 1000.0
+
+private const val CENTI = 100.0
 
 /**
  * Mean depth while under water, each sample weighted by the time to the next one, so the surface time a computer logs before and after the
