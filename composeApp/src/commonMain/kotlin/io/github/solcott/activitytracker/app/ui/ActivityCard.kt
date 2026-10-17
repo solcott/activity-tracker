@@ -27,7 +27,6 @@ import io.github.solcott.activitytracker.composeApp.resources.activity_card_coun
 import io.github.solcott.activitytracker.composeApp.resources.comments_count
 import io.github.solcott.activitytracker.composeApp.resources.like_content_description
 import io.github.solcott.activitytracker.composeApp.resources.like_count
-import io.github.solcott.activitytracker.composeApp.resources.stat_distance
 import io.github.solcott.activitytracker.composeApp.resources.stat_time
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -76,7 +75,7 @@ fun ActivityCard(
                 if (record.sport == Sport.DIVE) diveCardStats(record)
                 else
                     listOfNotNull(
-                            Stat(stringResource(Res.string.stat_distance), Format.distance(record.distance?.toDouble())),
+                            distanceStat(record.sport, record.distance?.toDouble()),
                             Stat(stringResource(Res.string.stat_time), Format.duration(record.movingTime ?: record.elapsedTime)),
                             Format.rateStat(record.sport, record.distance?.toDouble(), record.movingTime ?: record.elapsedTime),
                         )

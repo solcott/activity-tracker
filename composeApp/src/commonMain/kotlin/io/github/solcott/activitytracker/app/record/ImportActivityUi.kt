@@ -32,6 +32,8 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
+import io.github.solcott.activitytracker.app.ui.distanceStat
+import io.github.solcott.activitytracker.app.ui.elevationStat
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.sportLabel
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -67,9 +69,7 @@ import io.github.solcott.activitytracker.composeApp.resources.import_threshold_c
 import io.github.solcott.activitytracker.composeApp.resources.import_thresholds_heading
 import io.github.solcott.activitytracker.composeApp.resources.import_title
 import io.github.solcott.activitytracker.composeApp.resources.stat_avg_depth
-import io.github.solcott.activitytracker.composeApp.resources.stat_distance
 import io.github.solcott.activitytracker.composeApp.resources.stat_dive_time
-import io.github.solcott.activitytracker.composeApp.resources.stat_elevation
 import io.github.solcott.activitytracker.composeApp.resources.stat_heart_rate
 import io.github.solcott.activitytracker.composeApp.resources.stat_max_depth
 import io.github.solcott.activitytracker.composeApp.resources.stat_time
@@ -92,6 +92,7 @@ import io.github.vinceglb.filekit.readBytes
 import kotlin.math.roundToLong
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import kotlinx.io.bytestring.ByteString
 import org.jetbrains.compose.resources.stringResource
@@ -162,15 +163,20 @@ private fun PreviewForm(state: ImportActivityState, preview: ImportPreview, modi
             DiveDetails(dive, preview.elapsed.inWholeSeconds)
         } else {
             StatsRow(
-                persistentListOf(
-                    Stat(stringResource(Res.string.stat_distance), Format.distance(preview.distanceMeters)),
-                    Stat(stringResource(Res.string.stat_time), Format.duration(preview.movingSeconds ?: preview.elapsed.inWholeSeconds)),
-                    Stat(stringResource(Res.string.stat_elevation), Format.elevation(preview.elevationGainMeters)),
-                    Stat(
-                        stringResource(Res.string.stat_heart_rate),
-                        preview.avgHeartRate?.let { stringResource(Res.string.unit_bpm, it) } ?: stringResource(Res.string.value_missing),
-                    ),
-                )
+                listOfNotNull(
+                        distanceStat(state.type.sport, preview.distanceMeters),
+                        Stat(
+                            stringResource(Res.string.stat_time),
+                            Format.duration(preview.movingSeconds ?: preview.elapsed.inWholeSeconds),
+                        ),
+                        elevationStat(state.type.sport, preview.elevationGainMeters),
+                        Stat(
+                            stringResource(Res.string.stat_heart_rate),
+                            preview.avgHeartRate?.let { stringResource(Res.string.unit_bpm, it) }
+                                ?: stringResource(Res.string.value_missing),
+                        ),
+                    )
+                    .toImmutableList()
             )
         }
         preview.polyline?.let { ActivityMap(it) }
