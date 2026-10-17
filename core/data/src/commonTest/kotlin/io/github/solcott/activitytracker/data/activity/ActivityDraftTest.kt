@@ -17,10 +17,13 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveTank
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
+import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.Length
 import io.github.solcott.activitytracker.lexicon.app.SensorType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
+import io.github.solcott.activitytracker.lexicon.app.SwimStroke
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.WaterType
 import io.github.solcott.activitytracker.location.LocationSample
@@ -81,6 +84,16 @@ class ActivityDraftTest {
         assertNull(record.polyline, "the repository adds the trimmed polyline")
         assertEquals(3, draft.route.size)
         assertTrue("<trkpt" in draft.gpx!!.decodeToString())
+    }
+
+    @Test
+    fun aPoolSwimsLengthsGoInTheStreamsAndItsPoolLengthOnTheRecord() {
+        val streams = ActivityStreamData(time = listOf(0, 30), lengths = listOf(Length(0, 30, SwimStroke.FREESTYLE, 15)))
+        val swim = imported(emptyList()).copy(poolLengthCentimeters = 2500, streams = streams)
+        val draft = ActivityDraft.fromImport(swim, ActivityType(Sport.SWIM, SubSport.POOL), null)
+        assertEquals(streams, draft.streams)
+        assertEquals(2500, draft.toRecord(start).poolLength)
+        assertNull(ActivityDraft.fromImport(imported(emptyList()), ActivityType(Sport.RUN), null).toRecord(start).poolLength)
     }
 
     @Test

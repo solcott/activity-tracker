@@ -36,6 +36,7 @@ object ActivityMerge {
             jumps = existing.jumps ?: other.jumps,
             grit = existing.grit ?: other.grit,
             flow = existing.flow ?: other.flow,
+            poolLength = existing.poolLength ?: other.poolLength,
             polyline = existing.polyline ?: other.polyline,
             device = existing.device ?: other.device,
             sensors = existing.sensors ?: other.sensors,
@@ -45,9 +46,10 @@ object ActivityMerge {
 
     /**
      * [existing]'s channels, plus each one only [other] has, resampled onto [existing]'s times. [other]'s times are [offsetSeconds] after
-     * [existing]'s start; a sample with nothing of [other]'s within [MAX_GAP_SECONDS] stays empty. Gas switches and laps come over, shifted
-     * onto [existing]'s start, when it has none. Tank pressure comes over only when it can line up with the record's tanks: the dive has
-     * none of its own ([existingTanks] is 0; it takes [other]'s too) or as many as [other] has ([otherTanks], else its series).
+     * [existing]'s start; a sample with nothing of [other]'s within [MAX_GAP_SECONDS] stays empty. Gas switches, laps, lengths, sets and
+     * legs come over, shifted onto [existing]'s start, each when it has none. Tank pressure comes over only when it can line up with the
+     * record's tanks: the dive has none of its own ([existingTanks] is 0; it takes [other]'s too) or as many as [other] has ([otherTanks],
+     * else its series).
      */
     fun fillMissing(
         existing: ActivityStreamData,
@@ -66,6 +68,9 @@ object ActivityMerge {
         return filled.copy(
             gasSwitches = existing.gasSwitches ?: shiftedOther.gasSwitches,
             laps = existing.laps ?: shiftedOther.laps,
+            lengths = existing.lengths ?: shiftedOther.lengths,
+            sets = existing.sets ?: shiftedOther.sets,
+            legs = existing.legs ?: shiftedOther.legs,
             tankPressures =
                 existing.tankPressures
                     ?: other.tankPressures
@@ -77,9 +82,9 @@ object ActivityMerge {
     /** Whether [fillMissing] would add any of [other]'s channels to [existing]: all of them when there's no [existing] to fill. */
     fun addsChannels(existing: ActivityStreamData?, other: ActivityStreamData, existingTanks: Int = 0, otherTanks: Int? = null): Boolean {
         if (existing == null) return true
+        val lists = listOf<(ActivityStreamData) -> List<*>?>({ it.gasSwitches }, { it.laps }, { it.lengths }, { it.sets }, { it.legs })
         return ActivityStreamData.INT_CHANNELS.any { it.get(existing) == null && it.get(other) != null } ||
-            (existing.gasSwitches == null && other.gasSwitches != null) ||
-            (existing.laps == null && other.laps != null) ||
+            lists.any { it(existing) == null && it(other) != null } ||
             (existing.tankPressures == null && other.tankPressures?.let { tanksLineUp(existingTanks, otherTanks ?: it.size) } == true)
     }
 
@@ -87,7 +92,7 @@ object ActivityMerge {
 
     /**
      * [data] with its times moved [offsetSeconds] later, for an activity that starts that much earlier; samples before it start go. The gas
-     * breathed at the new start is a switch at 0, and a lap that started before it starts at 0.
+     * breathed at the new start is a switch at 0, and a lap, length, set or leg that started before it starts at 0.
      */
     fun shifted(data: ActivityStreamData, offsetSeconds: Int): ActivityStreamData {
         if (offsetSeconds == 0) return data
@@ -103,14 +108,19 @@ object ActivityMerge {
                         val before = moved.lastOrNull { it.time <= 0 }?.copy(time = 0)
                         listOfNotNull(before) + moved.filter { it.time > 0 }
                     },
-                laps =
-                    data.laps?.mapNotNull { lap ->
-                        val start = lap.start + offsetSeconds
-                        if (start + lap.elapsed <= 0) null else lap.copy(start = start.coerceAtLeast(0))
-                    },
+                laps = data.laps?.mapNotNull { shift(it.start, it.elapsed, offsetSeconds)?.let { start -> it.copy(start = start) } },
+                lengths = data.lengths?.mapNotNull { shift(it.start, it.elapsed, offsetSeconds)?.let { start -> it.copy(start = start) } },
+                sets = data.sets?.mapNotNull { shift(it.start, it.elapsed, offsetSeconds)?.let { start -> it.copy(start = start) } },
+                legs = data.legs?.mapNotNull { shift(it.start, it.elapsed, offsetSeconds)?.let { start -> it.copy(start = start) } },
                 tankPressures = data.tankPressures?.map { it.copy(pressure = it.pressure.kept()) },
             )
         return ActivityStreamData.INT_CHANNELS.fold(moved) { shifted, channel -> channel.with(shifted, channel.get(data)?.kept()) }
+    }
+
+    /** A span's start moved [offsetSeconds] later, at 0 if it began before the new start; null if it ended by then. */
+    private fun shift(start: Int, elapsed: Int, offsetSeconds: Int): Int? {
+        val moved = start + offsetSeconds
+        return if (moved + elapsed <= 0) null else moved.coerceAtLeast(0)
     }
 
     /** The index in sorted [times] closest to [t], if within [MAX_GAP_SECONDS]. */

@@ -6,9 +6,13 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.Lap
+import io.github.solcott.activitytracker.lexicon.app.Leg
+import io.github.solcott.activitytracker.lexicon.app.Length
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.SwimStroke
 import io.github.solcott.activitytracker.lexicon.app.TankPressure
 import io.github.solcott.activitytracker.lexicon.app.WaterType
+import io.github.solcott.activitytracker.lexicon.app.WorkoutSet
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -153,6 +157,52 @@ class ActivityMergeTest {
         assertEquals(own.laps, ActivityMerge.fillMissing(own, other, 30).laps)
         assertEquals(listOf(Lap(0, 300, distance = 1800)), ActivityMerge.shifted(other, -300).laps, "a lap ended before the start goes")
     }
+
+    private val watchSwim =
+        ActivityStreamData(
+            time = listOf(0, 30, 60),
+            lengths = listOf(Length(0, 30, SwimStroke.FREESTYLE, 15), Length(30, 30, SwimStroke.FREESTYLE, 16)),
+        )
+
+    @Test
+    fun aWatchsPoolLengthAndLengthsFillAManualSwim() {
+        val manual = ActivityRecord(Sport.SWIM, Instant.parse("2026-09-20T07:00:00Z"), 1800, Instant.parse("2026-09-20T08:00:00Z"))
+        assertEquals(2500, ActivityMerge.fillGaps(manual, manual.copy(poolLength = 2500)).poolLength)
+        assertEquals(2286, ActivityMerge.fillGaps(manual.copy(poolLength = 2286), manual.copy(poolLength = 2500)).poolLength)
+        // A manual entry has no streams: the watch's come over shifted onto its start.
+        assertEquals(listOf(10, 40), ActivityMerge.shifted(watchSwim, 10).lengths?.map { it.start })
+    }
+
+    @Test
+    fun lengthsSetsAndLegsComeOverOnlyWhenTheActivityHasNone() {
+        val strap = ActivityStreamData(time = listOf(0, 60, 120), heartRate = listOf(100, 120, 110))
+        val sets = listOf(WorkoutSet(0, 40, category = "bench_press", reps = 8, weight = 60_000), WorkoutSet(40, 60, rest = true))
+        val legs = listOf(Leg(0, 60, Sport.RUN, distance = 200), Leg(60, 10, Sport.MULTISPORT, transition = true))
+        val watch = ActivityStreamData(time = listOf(0, 60, 120), heartRate = listOf(90, 90, 90), sets = sets, legs = legs)
+
+        val merged = ActivityMerge.fillMissing(strap, watch + watchSwim.lengths, 5)
+        assertEquals(strap.heartRate, merged.heartRate, "keeps its own heart rate")
+        assertEquals(listOf(5, 45), merged.sets?.map { it.start })
+        assertEquals(sets.map { it.copy(start = it.start + 5) }, merged.sets)
+        assertEquals(listOf(5, 65), merged.legs?.map { it.start })
+        assertEquals(listOf(5, 35), merged.lengths?.map { it.start })
+        assertTrue(ActivityMerge.addsChannels(strap, watch))
+
+        val own = strap.copy(sets = listOf(WorkoutSet(0, 30)), legs = listOf(Leg(0, 120, Sport.RIDE)), lengths = listOf(Length(0, 120)))
+        val kept = ActivityMerge.fillMissing(own, watch + watchSwim.lengths, 5)
+        assertEquals(own.sets, kept.sets, "existing sets are never replaced")
+        assertEquals(own.legs, kept.legs)
+        assertEquals(own.lengths, kept.lengths)
+        assertFalse(ActivityMerge.addsChannels(own.copy(heartRate = listOf(1, 1, 1)), watch.copy(heartRate = null)))
+    }
+
+    @Test
+    fun aSetThatEndedBeforeTheStartGoes() {
+        val watch = ActivityStreamData(time = listOf(0), sets = listOf(WorkoutSet(0, 40), WorkoutSet(40, 60, rest = true)))
+        assertEquals(listOf(WorkoutSet(0, 60, rest = true)), ActivityMerge.shifted(watch, -40).sets)
+    }
+
+    private operator fun ActivityStreamData.plus(lengths: List<Length>?) = copy(lengths = lengths)
 
     @Test
     fun aLogbooksTankPressureFillsADiveWithoutIt() {

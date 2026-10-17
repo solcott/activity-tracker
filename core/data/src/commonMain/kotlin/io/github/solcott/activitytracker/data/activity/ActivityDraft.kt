@@ -81,6 +81,8 @@ data class ActivityDraft(
     val trainingLoad: TrainingLoad? = null,
     /** The file it was imported from, kept as is in the `self` space ([ActivitySourceStore]); null for a recording or a manual entry. */
     val source: DraftSource? = null,
+    /** A pool swim's pool length, in centimeters. */
+    val poolLengthCentimeters: Int? = null,
 ) {
     /**
      * This draft with what the athlete wrote about it: [description], [photos], and for a dive its [diveSite] (blank clears the logbook's;
@@ -152,6 +154,7 @@ data class ActivityDraft(
             jumps = jumps,
             grit = grit?.let { (it * TENTHS).roundToInt().coerceAtLeast(0) },
             flow = flow?.let { (it * TENTHS).roundToInt().coerceAtLeast(0) },
+            poolLength = poolLengthCentimeters,
         )
 
     // Generated equals/hashCode compare arrays by identity; compare gpx by content instead.
@@ -194,6 +197,7 @@ data class ActivityDraft(
             grit,
             flow,
             trainingLoad,
+            poolLengthCentimeters,
         )
 
     override fun equals(other: Any?): Boolean =
@@ -279,6 +283,7 @@ data class ActivityDraft(
                 grit = imported.mtb?.grit,
                 flow = imported.mtb?.flow,
                 trainingLoad = trainingLoadOf(imported),
+                poolLengthCentimeters = imported.poolLengthCentimeters,
             )
         }
 
