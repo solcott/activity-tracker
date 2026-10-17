@@ -57,6 +57,7 @@ import io.github.solcott.activitytracker.composeApp.resources.dive_surface_inter
 import io.github.solcott.activitytracker.composeApp.resources.dive_tank
 import io.github.solcott.activitytracker.composeApp.resources.dive_tank_numbered
 import io.github.solcott.activitytracker.composeApp.resources.import_hint
+import io.github.solcott.activitytracker.composeApp.resources.import_original_too_large
 import io.github.solcott.activitytracker.composeApp.resources.import_pick
 import io.github.solcott.activitytracker.composeApp.resources.import_pick_another
 import io.github.solcott.activitytracker.composeApp.resources.import_reading
@@ -137,6 +138,9 @@ fun ImportActivityUi(state: ImportActivityState, modifier: Modifier = Modifier) 
                     Text(stringResource(Res.string.import_reading))
                 }
                 state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+                if (picked && state.originalTooLarge) {
+                    Text(stringResource(Res.string.import_original_too_large), style = MaterialTheme.typography.bodySmall)
+                }
                 if (preview != null) PreviewForm(state, preview)
                 if (dives != null) DiveBatchForm(state, dives)
             }

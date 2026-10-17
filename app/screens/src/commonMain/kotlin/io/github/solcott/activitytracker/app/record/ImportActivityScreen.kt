@@ -50,6 +50,8 @@ data class ImportActivityState(
     val details: ActivityDetailsFields? = null,
     /** The athlete approves followers, so Followers means only the ones they approved. */
     val approvesFollowers: Boolean = false,
+    /** The file is over 10 MB even compressed, so it imports without its original file. */
+    val originalTooLarge: Boolean = false,
     val eventSink: (ImportActivityEvent) -> Unit,
 ) : CircuitUiState
 

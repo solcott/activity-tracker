@@ -24,8 +24,10 @@ import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -190,6 +192,37 @@ class ImportLogbookPresenterTest {
     }
 
     @Test
+    fun eachPickedDiveKeepsTheLogbookNamingItsEntry() = runTest {
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ImportActivityScreen)
+        presenterTestOf({
+            ImportActivityPresenter(
+                navigator,
+                repos.activities,
+                ActivityFileReader { error("not FIT") },
+                repos.recentTypes,
+                repos.profiles,
+                repos.feed,
+                repos.defaults,
+            )
+        }) {
+            awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
+            val read = awaitUntil { it.dives != null }
+            assertFalse(read.originalTooLarge)
+            read.eventSink(ImportActivityEvent.DiveToggled(1))
+            awaitUntil { it.dives?.selectedCount == 2 }.eventSink(ImportActivityEvent.SaveDives(persistentMapOf(2 to "Evening Dive")))
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val sources = fixture.spacePuts.filter { (_, put) -> put.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY_SOURCE }
+        assertEquals(listOf(Visibility.SELF, Visibility.SELF), sources.map { it.first })
+        assertEquals(listOf("0", "2"), sources.map { it.second.getValue("entry").jsonPrimitive.content })
+        assertEquals(setOf("uddf"), sources.map { it.second.getValue("format").jsonPrimitive.content }.toSet())
+        assertEquals(1, sources.map { it.second.getValue("file").toString() }.toSet().size, "both name the one stored logbook")
+    }
+
+    @Test
     fun aDiveAlreadyLoggedStartsUncheckedWithAWarning() = runTest {
         val repos = fixture.repos()
         fixture.ownActivities = listOf(loggedDive("2026-09-20T10:00:00Z"))
@@ -344,6 +377,11 @@ class ImportLogbookPresenterTest {
         val recording = AtJson.decodeFromJsonElement(ActivityRecord.serializer(), saved.single())
         assertEquals(logged.uri, recording.recordingOf)
         assertEquals(Instant.parse("2026-09-20T10:02:00Z"), recording.startedAt, "a recording of its own, not a merge")
+
+        val source = fixture.spacePuts.single { (_, put) -> put.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY_SOURCE }
+        assertEquals(Visibility.SELF, source.first)
+        assertEquals("logbook.uddf", source.second.getValue("fileName").jsonPrimitive.content)
+        assertEquals("0", source.second.getValue("entry").jsonPrimitive.content, "a logbook of one dive still names its entry")
     }
 
     @Test

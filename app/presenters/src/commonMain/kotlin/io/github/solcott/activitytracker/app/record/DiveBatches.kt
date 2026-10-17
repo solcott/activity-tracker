@@ -1,9 +1,11 @@
 package io.github.solcott.activitytracker.app.record
 
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
+import io.github.solcott.activitytracker.activityfile.SourceFile
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.DiveMatch
+import io.github.solcott.activitytracker.data.activity.DraftSource
 import io.github.solcott.activitytracker.data.activity.DuplicateOf
 import io.github.solcott.activitytracker.data.activity.OwnActivity
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
@@ -112,8 +114,8 @@ internal class DiveImport(
 internal class RecordingDraft(val draft: ActivityDraft, val ofLogged: AtUri?, val ofIndex: Int?, val loggedVisibility: String? = null)
 
 /**
- * The selected [dives] ready to save, oldest first, each with its own type and its site as the title, else its [defaultTitles] entry. Dives
- * carry no thresholds to update.
+ * The selected [dives] ready to save, oldest first, each with its own type and its site as the title, else its [defaultTitles] entry, and
+ * the logbook ([source]) naming its entry. Dives carry no thresholds to update.
  */
 @Suppress("LongParameterList") // Each is a part of the draft.
 internal fun diveImport(
@@ -123,6 +125,7 @@ internal fun diveImport(
     defaultTitles: Map<Int, String>,
     training: TrainingDetails?,
     visibility: VisibilityChoice,
+    source: SourceFile?,
 ): DiveImport {
     val drafts = mutableListOf<Pair<Int, ActivityDraft>>()
     val merges = mutableListOf<Pair<OwnActivity, ActivityDraft>>()
@@ -132,7 +135,10 @@ internal fun diveImport(
         if (!selection.isSelected(index, match)) continue
         val title = dive.title ?: defaultTitles[index]?.ifBlank { null }
         // A logbook's notes are personal and the batch never shows them, so none are published unseen.
-        val draft = importDraft(dive, dive.type, title, training, emptyList()).copy(description = null).withVisibility(visibility)
+        val draft =
+            importDraft(dive, dive.type, title, training, emptyList(), source?.let { DraftSource(it, entry = index) })
+                .copy(description = null)
+                .withVisibility(visibility)
         val action = selection.action(index)
         val into = mergeTarget(match, action)
         when {

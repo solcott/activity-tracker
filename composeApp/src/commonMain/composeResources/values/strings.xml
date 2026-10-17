@@ -675,6 +675,7 @@
     <string name="import_pick">Choose file</string>
     <string name="import_pick_another">Choose another file</string>
     <string name="import_reading">Reading file…</string>
+    <string name="import_original_too_large">This file is over 10 MB even compressed, so its original file won't be kept and you can't download it later. Everything read from it still imports.</string>
     <plurals name="import_dives_found">
         <item quantity="one">%1$d dive in this logbook</item>
         <item quantity="other">%1$d dives in this logbook</item>

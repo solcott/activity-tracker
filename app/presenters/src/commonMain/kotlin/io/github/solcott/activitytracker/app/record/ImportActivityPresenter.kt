@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.activityfile.ImportedActivity
 import io.github.solcott.activitytracker.activityfile.ImportedDive
 import io.github.solcott.activitytracker.activityfile.ImportedPower
 import io.github.solcott.activitytracker.activityfile.ImportedShifting
+import io.github.solcott.activitytracker.activityfile.SourceFile
 import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.activityfile.UnsupportedActivityFileException
 import io.github.solcott.activitytracker.app.UiError
@@ -66,6 +67,9 @@ fun ImportActivityPresenter(
 ): ImportActivityState {
     // The parsed file isn't saveable; after process death the athlete picks it again. A logbook holds many dives.
     var file by remember { mutableStateOf<Pair<String, ImmutableList<ImportedActivity>>?>(null) }
+    // The file as it's kept with every activity saved from it; null when it's too large to keep (originalTooLarge).
+    var source by remember { mutableStateOf<SourceFile?>(null) }
+    var originalTooLarge by remember { mutableStateOf(false) }
     // Which of the file's dives import, and what to do with duplicates.
     var selection by remember { mutableStateOf(DiveSelection()) }
     var type by rememberSaveable(stateSaver = ActivityTypeSaver) { mutableStateOf(ActivityType(Sport.OTHER)) }
@@ -123,20 +127,26 @@ fun ImportActivityPresenter(
         own.check,
         placed?.let { details.fields(isDive = type.sport == Sport.DIVE) },
         approvesFollowers = athlete?.followPolicy == FollowPolicy.APPROVE,
+        originalTooLarge = originalTooLarge,
     ) { event ->
         when (event) {
             is ImportActivityEvent.FilePicked -> {
                 // Drop the previous file first, so a failed pick can't leave its preview (and Save) behind.
                 file = null
+                source = null
+                originalTooLarge = false
                 selection = DiveSelection()
                 zoneId = null
                 error = null
                 // A newer pick replaces one still being read.
                 flights.launchLatest(ImportActivityEvent.FilePicked::class) {
                     // The format comes from the file's content, not its name.
-                    runSuspendCatching { reader.read(event.bytes.toByteArray()) }
-                        .onSuccess { read ->
+                    runSuspendCatching { reader.readKeeping(event.name, event.bytes.toByteArray()) }
+                        .onSuccess { (readFile, prepared) ->
+                            val read = readFile.activities
                             file = event.name to read.toImmutableList()
+                            source = prepared
+                            originalTooLarge = prepared == null
                             // A logbook's dives keep their own types and titles; these fields are for a single activity.
                             val first = read.first()
                             type = first.type
@@ -184,7 +194,7 @@ fun ImportActivityPresenter(
 
             is ImportActivityEvent.SaveDives ->
                 flights.launch(ImportActivityEvent.Save::class) {
-                    val import = diveImport(placedDives, selection, matches, event.defaultTitles, training, visibility.current)
+                    val import = diveImport(placedDives, selection, matches, event.defaultTitles, training, visibility.current, source)
                     runSuspendCatching { activities.saveDives(import, onPublished = { navigator.pop() }) }
                         .onFailure { e -> error = uiErrorOf(UiError.Kind.SaveActivity, e) }
                 }
@@ -196,7 +206,7 @@ fun ImportActivityPresenter(
                     runSuspendCatching {
                         val text = title.text.toString().ifBlank { event.defaultTitle?.ifBlank { null } }
                         activities.saveSingle(
-                            importDraft(activity, type, text, training, thresholdChanges)
+                            importDraft(activity, type, text, training, thresholdChanges, source?.single())
                                 .withDetails(
                                     description = details.description.text.toString(),
                                     diveSite = details.diveSite.text.toString().takeIf { type.sport == Sport.DIVE },
