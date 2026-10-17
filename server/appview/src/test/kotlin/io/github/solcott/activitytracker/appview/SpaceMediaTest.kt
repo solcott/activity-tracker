@@ -178,6 +178,37 @@ class SpaceMediaTest {
     }
 
     @Test
+    fun anOriginalFileInTheSelfSpaceIsNeitherStoredNorServed() = testApplication {
+        startSigning()
+        postSpace("3ksrc", Visibility.SELF, record(1))
+        val source =
+            """{"activity":"${uri("3ksrc")}","format":"fit","fileName":"Morning_Ride.fit","size":4,"compressed":true,""" +
+                """"createdAt":"2026-10-01T07:31:00Z",""" +
+                """"file":{"${'$'}type":"blob","ref":{"${'$'}link":"$photoCid"},"mimeType":"application/gzip","size":4}}"""
+        runBlocking {
+            indexer.spaceWrite(
+                space(Visibility.SELF),
+                Nsid.FEED_ACTIVITY_SOURCE,
+                "3ksrc",
+                "bafysrc",
+                AtJson.parseToJsonElement(source).jsonObject,
+            )
+        }
+
+        assertTrue(Nsid.FEED_ACTIVITY_SOURCE !in Nsid.indexedCollections)
+        assertTrue(
+            listOf(Visibility.FOLLOWERS, Visibility.MUTUALS, Visibility.SELF, AthleteSpace.INTERACTIONS).none {
+                Nsid.FEED_ACTIVITY_SOURCE in Indexer.spaceCollections(it)
+            }
+        )
+        val response = client.raw(GetActivity.method.nsid, alice, "?uri=${uri("3ksrc").encodeURLParameter()}")
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertFalse(photoCid in body, "the athlete's own view doesn't link the original")
+        assertFalse("Morning_Ride.fit" in body)
+    }
+
+    @Test
     fun privacyZonesAndTheirTrimMarkerInTheSelfSpaceAreIgnored() = testApplication {
         startSigning()
         postSpace("3kzon", Visibility.SELF, record(1))

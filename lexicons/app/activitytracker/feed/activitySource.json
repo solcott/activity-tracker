@@ -1,0 +1,42 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.activitySource",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "The file an activity was imported from, kept as it was. Its rkey is its activity's. It can hold device serial numbers and exact positions, so it is stored only in the athlete's app.activitytracker.space.athlete self space, whatever the activity's visibility, and never in the repo. Only the athlete reads it: the AppView neither indexes nor serves it. Several activities imported from one logbook file each have their own record naming the same blob.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["activity", "file", "format", "fileName", "size", "compressed", "createdAt"],
+        "properties": {
+          "activity": { "type": "string", "format": "at-uri", "description": "The activity's URI; it shares this record's rkey." },
+          "file": {
+            "type": "blob",
+            "accept": ["application/gzip"],
+            "maxSize": 10000000,
+            "description": "The imported file, gzipped. When compressed is false it came gzipped and is stored as picked."
+          },
+          "format": {
+            "type": "string",
+            "maxLength": 64,
+            "knownValues": ["fit", "gpx", "tcx", "shearwater", "uddf", "subsurface"],
+            "description": "The file's format, as read at import."
+          },
+          "fileName": { "type": "string", "maxLength": 1000, "description": "The file's name as picked." },
+          "size": { "type": "integer", "minimum": 0, "description": "The file's size as picked, in bytes." },
+          "compressed": {
+            "type": "boolean",
+            "description": "True when the app gzipped the file to store it, so the original is the blob unzipped; false when the file came gzipped and the blob is the original."
+          },
+          "entry": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "For a logbook file (UDDF, Subsurface): the index, in file order, of the dive this activity was read from."
+          },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

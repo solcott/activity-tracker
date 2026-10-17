@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.lexicon
 
+import io.github.solcott.activitytracker.lexicon.app.ActivitySourceRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityTrackRecord
@@ -7,6 +8,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityZonesRecord
 import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.Lap
+import io.github.solcott.activitytracker.lexicon.app.SourceFormat
 import io.github.solcott.activitytracker.lexicon.app.StreamChannel
 import io.github.solcott.activitytracker.lexicon.app.TankPressure
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
@@ -114,6 +116,30 @@ class ActivityStreamsSerializationTest {
         val json = AtJson.encodeToJsonElement(ActivityTrackRecord.serializer(), record).jsonObject
         assertEquals(Nsid.FEED_ACTIVITY_TRACK, json["\$type"]?.jsonPrimitive?.content)
         assertEquals(record, AtJson.decodeFromJsonElement(ActivityTrackRecord.serializer(), json))
+    }
+
+    @Test
+    fun sourceRecordRoundTripsWithAndWithoutEntry() {
+        val record =
+            ActivitySourceRecord(
+                activity = AtUri("at://did:plc:a/${Nsid.FEED_ACTIVITY}/3k"),
+                format = SourceFormat.SUBSURFACE,
+                fileName = "log.ssrf",
+                size = 12_345,
+                compressed = true,
+                createdAt = Instant.parse("2026-10-08T12:00:00Z"),
+                entry = 2,
+                file = BlobRef(ref = BlobRef.Link("bafysource"), mimeType = ActivitySourceRecord.MIME_TYPE, size = 1_000),
+            )
+        val json = AtJson.encodeToJsonElement(ActivitySourceRecord.serializer(), record).jsonObject
+        assertEquals(Nsid.FEED_ACTIVITY_SOURCE, json["\$type"]?.jsonPrimitive?.content)
+        assertEquals(2, json["entry"]?.jsonPrimitive?.content?.toInt())
+        assertEquals(record, AtJson.decodeFromJsonElement(ActivitySourceRecord.serializer(), json))
+
+        val single = record.copy(format = SourceFormat.FIT, fileName = "Morning_Ride.fit", entry = null)
+        val singleJson = AtJson.encodeToJsonElement(ActivitySourceRecord.serializer(), single).jsonObject
+        assertFalse("entry" in singleJson, "a single file names no entry")
+        assertEquals(single, AtJson.decodeFromJsonElement(ActivitySourceRecord.serializer(), singleJson))
     }
 
     @Test

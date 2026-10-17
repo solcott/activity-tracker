@@ -338,6 +338,51 @@ data class ActivityTrackRecord(
 }
 
 /**
+ * `app.activitytracker.feed.activitySource`: the file an activity was imported from, gzipped, under its activity's rkey. It can hold device
+ * serial numbers and exact positions, so it's stored only in the athlete's [AthleteSpace.SELF] space, whatever the activity's visibility,
+ * and only the athlete reads it: the AppView ignores it. Activities imported from one logbook file each have their own record naming the
+ * same blob, and their [entry].
+ */
+@Serializable
+data class ActivitySourceRecord(
+    /** The activity's URI; it shares this record's rkey. */
+    val activity: AtUri,
+    /** A [SourceFormat] value. */
+    val format: String,
+    /** The file's name as picked. */
+    val fileName: String,
+    /** The file's size as picked, in bytes. */
+    val size: Long,
+    /** True when the app gzipped the file to store it; false when it came gzipped and [file] is the file as picked. */
+    val compressed: Boolean,
+    val createdAt: Instant,
+    /** For a logbook file (UDDF, Subsurface): the index, in file order, of the dive this activity was read from. */
+    val entry: Int? = null,
+    /** Required by the lexicon: null only in the outbox, which uploads the blob and fills it in before `putRecord`. */
+    val file: BlobRef? = null,
+    @SerialName($$"$type") val type: String = Nsid.FEED_ACTIVITY_SOURCE,
+) {
+    companion object {
+        /** The record's blob field, for [file]. */
+        const val FILE_FIELD = "file"
+        const val MIME_TYPE = "application/gzip"
+
+        /** The lexicon's `maxSize` for [file]. */
+        const val MAX_FILE_BYTES = 10_000_000L
+    }
+}
+
+/** Known values of [ActivitySourceRecord.format], an open string. */
+object SourceFormat {
+    const val FIT = "fit"
+    const val GPX = "gpx"
+    const val TCX = "tcx"
+    const val SHEARWATER = "shearwater"
+    const val UDDF = "uddf"
+    const val SUBSURFACE = "subsurface"
+}
+
+/**
  * `app.activitytracker.feed.activityZones`: the athlete's zones for an activity, under its activity's rkey, so later threshold changes
  * don't change its time in zone, and the activity's [trainingLoad].
  *
