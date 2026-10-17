@@ -42,9 +42,12 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_section_dev
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_expanded
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_gears
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_laps
+import io.github.solcott.activitytracker.composeApp.resources.detail_section_legs
+import io.github.solcott.activitytracker.composeApp.resources.detail_section_lengths
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_oxygen
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_respiration
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_running_dynamics
+import io.github.solcott.activitytracker.composeApp.resources.detail_section_sets
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_tank_pressure
 import io.github.solcott.activitytracker.composeApp.resources.detail_sections_heading
 import io.github.solcott.activitytracker.composeApp.resources.detail_sensor_count
@@ -140,6 +143,9 @@ private fun sectionTitle(section: DetailSection): String =
             DetailSection.Respiration -> Res.string.detail_section_respiration
             DetailSection.RunningDynamics -> Res.string.detail_section_running_dynamics
             DetailSection.Gears -> Res.string.detail_section_gears
+            DetailSection.Legs -> Res.string.detail_section_legs
+            DetailSection.Lengths -> Res.string.detail_section_lengths
+            DetailSection.Sets -> Res.string.detail_section_sets
             DetailSection.Laps -> Res.string.detail_section_laps
             DetailSection.Device -> Res.string.detail_section_device
         }

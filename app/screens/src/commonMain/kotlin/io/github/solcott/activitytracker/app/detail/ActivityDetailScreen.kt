@@ -57,6 +57,8 @@ sealed interface ActivityDetailState : CircuitUiState {
         override val eventSink: (ActivityDetailEvent) -> Unit,
         /** Null while loading, and when there are no streams or the viewer may not see them. */
         val charts: ActivityCharts? = null,
+        /** A pool swim's pool length, published with the activity, so shown to anyone who may see it; null for anything else. */
+        val poolLength: PoolLength? = null,
         /** The viewer's own activity has heart rate or power but no zones, because they hadn't set thresholds. */
         val chartsMissingZones: Boolean = false,
         /** The owner is changing who may see the charts. */
@@ -107,6 +109,12 @@ enum class DetailSection {
     /** Vertical oscillation, stance time and its balance, step length and vertical ratio. */
     RunningDynamics,
     Gears,
+    /** A multisport activity's legs and transitions. */
+    Legs,
+    /** A pool swim's lengths. */
+    Lengths,
+    /** A workout's sets. */
+    Sets,
     Laps,
     /** The recording device and its sensors. */
     Device,

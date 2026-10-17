@@ -88,6 +88,9 @@ open class ActivityDetailTestBase {
     /** The activity's sport token. */
     protected var sport = "run"
 
+    /** More of the activity's record, as JSON members each followed by a comma (`"poolLength":2500,`). */
+    protected var recordExtra = ""
+
     /** The comments the AppView lists, as JSON objects, oldest first. */
     protected var commentsFromAppView = listOf<String>()
 
@@ -143,7 +146,7 @@ open class ActivityDetailTestBase {
     protected val activity
         get() =
             """{"uri":"$activityUri","cid":"bafy3kbob1","author":$author,"visibility":"$visibility",""" +
-                """"record":{"sport":"$sport","startedAt":"2026-09-30T10:00:00Z",""" +
+                """"record":{"sport":"$sport",$recordExtra"startedAt":"2026-09-30T10:00:00Z",""" +
                 """"elapsedTime":1800,"createdAt":"2026-09-30T10:31:00Z"},""" +
                 """"likeCount":${likesFromAppView.size},"commentCount":${commentsFromAppView.count { "\"hidden\"" !in it }},"indexedAt":"2026-09-30T10:31:01Z","viewer":{}}"""
 

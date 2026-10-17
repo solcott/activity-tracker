@@ -76,12 +76,16 @@ import io.github.solcott.activitytracker.composeApp.resources.stat_max_cadence
 import io.github.solcott.activitytracker.composeApp.resources.stat_max_power
 import io.github.solcott.activitytracker.composeApp.resources.stat_moving_time
 import io.github.solcott.activitytracker.composeApp.resources.stat_normalized_power
+import io.github.solcott.activitytracker.composeApp.resources.stat_pool_length
+import io.github.solcott.activitytracker.composeApp.resources.stat_runs
 import io.github.solcott.activitytracker.composeApp.resources.stat_shifts
 import io.github.solcott.activitytracker.composeApp.resources.stat_temperature
 import io.github.solcott.activitytracker.composeApp.resources.stat_tss
 import io.github.solcott.activitytracker.composeApp.resources.stat_work
 import io.github.solcott.activitytracker.composeApp.resources.unit_kcal
 import io.github.solcott.activitytracker.composeApp.resources.unit_kj
+import io.github.solcott.activitytracker.composeApp.resources.unit_pool_m
+import io.github.solcott.activitytracker.composeApp.resources.unit_pool_yd
 import io.github.solcott.activitytracker.composeApp.resources.unit_rpm
 import io.github.solcott.activitytracker.composeApp.resources.unit_watts
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -201,7 +205,7 @@ private fun Overview(state: ActivityDetailState.Loaded, modifier: Modifier = Mod
                 record.dive?.site?.let { DiveSite(it, Modifier.padding(top = 2.dp)) }
                 record.description?.let { Text(it, Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium) }
             }
-            StatTiles(overviewStats(record, state.charts))
+            StatTiles(overviewStats(record, state.charts, state.poolLength))
             val media = remember(state.activity) { state.activity.mediaItems() }
             MediaRow(
                 media,
@@ -234,7 +238,7 @@ private fun ChartSharing(visibility: String, state: ActivityDetailState.Loaded, 
 }
 
 @Composable
-private fun overviewStats(record: ActivityRecord, charts: ActivityCharts?): ImmutableList<Stat> {
+private fun overviewStats(record: ActivityRecord, charts: ActivityCharts?, poolLength: PoolLength?): ImmutableList<Stat> {
     if (record.sport == Sport.DIVE) {
         val depth = charts?.lines?.firstOrNull { it.kind == StreamKind.Depth }
         return diveOverviewStats(record, depth?.max, depth?.average)
@@ -246,6 +250,13 @@ private fun overviewStats(record: ActivityRecord, charts: ActivityCharts?): Immu
             Stat(stringResource(Res.string.stat_elevation), Format.elevation(record.elevationGain?.toDouble())),
             Format.rateStat(record.sport, record.distance?.toDouble(), time),
             record.avgTemperature?.let { Stat(stringResource(Res.string.stat_temperature), Format.temperature(it)) },
+            poolLength?.let {
+                Stat(
+                    stringResource(Res.string.stat_pool_length),
+                    stringResource(if (it.yards) Res.string.unit_pool_yd else Res.string.unit_pool_m, it.value),
+                )
+            },
+            charts?.skiRuns?.let { Stat(stringResource(Res.string.stat_runs), "$it") },
         )
         .plus(fileStats(record))
         .plus(trainingLoadStats(charts?.trainingLoad))

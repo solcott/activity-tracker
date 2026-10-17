@@ -30,6 +30,14 @@ data class ActivityCharts(
     val tankPressures: ImmutableList<LineSeries> = persistentListOf(),
     /** The recording's laps, in the viewer's units; empty when it stored none. */
     val laps: ImmutableList<LapRow> = persistentListOf(),
+    /** A pool swim's lengths, rests included; empty when it stored none. */
+    val lengths: ImmutableList<LengthRow> = persistentListOf(),
+    /** A workout's sets, rests included; empty when it stored none. */
+    val sets: ImmutableList<SetRow> = persistentListOf(),
+    /** A multisport activity's legs, transitions included; empty when it stored none. */
+    val legs: ImmutableList<LegRow> = persistentListOf(),
+    /** A ski or snowboard day's runs, its laps that aren't lift rides; null for other activities or a day without laps. */
+    val skiRuns: Int? = null,
     /** The activity's training load, only when the viewer may see its zones record. */
     val trainingLoad: TrainingLoadStats? = null,
 )
@@ -147,7 +155,43 @@ data class LapRow(
     val avgPower: Int?,
     val avgCadence: Int?,
     val ascent: Double?,
+    /** A `LapIntensity` token; null when the recording didn't say. */
+    val intensity: String? = null,
+    /** In meters or feet, like [ascent]. */
+    val descent: Double? = null,
+) {
+    val isRest: Boolean
+        get() = intensity == "rest"
+}
+
+/** A length of a pool swim: an active one numbered from 1, its [stroke] a `SwimStroke` token; a rest has only its time. */
+@Immutable
+data class LengthRow(val number: Int?, val stroke: String?, val seconds: Int, val strokes: Int?, val rest: Boolean) {
+    /** Swim golf: the length's seconds plus its strokes, lower is more efficient. Null for a rest or without a stroke count. */
+    val swolf: Int?
+        get() = strokes?.takeUnless { rest }?.let { seconds + it }
+}
+
+/**
+ * A set of a workout: an active one numbered from 1, with its [exercise] and [category] tokens (the FIT profile's, in snake case), reps and
+ * weight in grams as recorded; a rest has only its time.
+ */
+@Immutable
+data class SetRow(
+    val number: Int?,
+    val rest: Boolean,
+    val category: String?,
+    val exercise: String?,
+    val reps: Int?,
+    val weightGrams: Int?,
+    val seconds: Int,
 )
+
+/** A leg of a multisport activity: its [sport] and [subSport] tokens, time and distance in meters; a transition has only its time. */
+@Immutable data class LegRow(val sport: String, val subSport: String?, val transition: Boolean, val seconds: Int, val distanceMeters: Int?)
+
+/** A pool's length as its pool is measured: whole meters, or whole yards for a yard pool. */
+@Immutable data class PoolLength(val value: Int, val yards: Boolean)
 
 /** Training load in display units: watts, IF as a ratio, TSS, and training effect from 0 to 5. */
 @Immutable

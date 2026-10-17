@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.Lap
+import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import kotlinx.collections.immutable.ImmutableList
@@ -54,8 +55,19 @@ internal object ChartsBuilder {
                     .toImmutableList(),
             laps = data.laps.orEmpty().mapIndexed { i, lap -> lapRow(i + 1, lap, units) }.toImmutableList(),
             trainingLoad = streams.trainingLoad?.let(::trainingLoad),
+            lengths = StructureRows.lengths(data.lengths.orEmpty()),
+            sets = StructureRows.sets(data.sets.orEmpty()),
+            legs = StructureRows.legs(data.legs.orEmpty()),
         )
     }
+
+    /** [charts] for an activity of [sport]: a ski or snowboard day counts its runs, the laps that aren't lift rides. */
+    fun forSport(charts: ActivityCharts, sport: String): ActivityCharts =
+        if ((sport == Sport.SKI || sport == Sport.SNOWBOARD) && charts.laps.isNotEmpty()) {
+            charts.copy(skiRuns = charts.laps.count { !it.isRest })
+        } else {
+            charts
+        }
 
     /** Lines in the order Strava draws them, then Garmin's extras, then a dive's. */
     private fun lines(data: ActivityStreamData): List<LineSeries> {
@@ -103,6 +115,8 @@ internal object ChartsBuilder {
             avgPower = lap.avgPower,
             avgCadence = lap.avgCadence,
             ascent = lap.ascent?.let { UnitConversions.toElevationUnit(it.toDouble(), units) },
+            intensity = lap.intensity,
+            descent = lap.descent?.let { UnitConversions.toElevationUnit(it.toDouble(), units) },
         )
 
     private fun trainingLoad(load: TrainingLoad) =

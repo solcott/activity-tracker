@@ -36,12 +36,16 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_max
 import io.github.solcott.activitytracker.composeApp.resources.detail_max_grade
 import io.github.solcott.activitytracker.composeApp.resources.detail_most_used_gear
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_laps
+import io.github.solcott.activitytracker.composeApp.resources.detail_section_legs
+import io.github.solcott.activitytracker.composeApp.resources.detail_section_lengths
+import io.github.solcott.activitytracker.composeApp.resources.detail_section_sets
 import io.github.solcott.activitytracker.composeApp.resources.detail_sensor_count
 import io.github.solcott.activitytracker.composeApp.resources.detail_shifts
 import io.github.solcott.activitytracker.composeApp.resources.stat_avg_depth
 import io.github.solcott.activitytracker.composeApp.resources.stat_highest_ppo2
 import io.github.solcott.activitytracker.composeApp.resources.stat_max_depth
 import io.github.solcott.activitytracker.composeApp.resources.stat_normalized_power
+import io.github.solcott.activitytracker.composeApp.resources.stat_runs
 import io.github.solcott.activitytracker.composeApp.resources.unit_duration_minutes
 import io.github.solcott.activitytracker.composeApp.resources.unit_watts
 import kotlinx.collections.immutable.ImmutableList
@@ -165,7 +169,17 @@ internal fun chartOverview(section: DetailSection, state: ActivityDetailState.Lo
 
             DetailSection.RunningDynamics -> runningDynamicsOverview(charts)
 
-            DetailSection.Laps -> listOf(Stat(stringResource(Res.string.detail_section_laps), "${charts.laps.size}"))
+            DetailSection.Laps ->
+                listOf(
+                    charts.skiRuns?.let { Stat(stringResource(Res.string.stat_runs), "$it") }
+                        ?: Stat(stringResource(Res.string.detail_section_laps), "${charts.laps.size}")
+                )
+
+            DetailSection.Legs -> listOf(Stat(stringResource(Res.string.detail_section_legs), "${charts.legs.count { !it.transition }}"))
+
+            DetailSection.Lengths -> listOf(Stat(stringResource(Res.string.detail_section_lengths), "${charts.lengths.count { !it.rest }}"))
+
+            DetailSection.Sets -> listOf(Stat(stringResource(Res.string.detail_section_sets), "${charts.sets.count { !it.rest }}"))
 
             else -> {
                 val kind = StreamKind.entries.firstOrNull { it.name == section.name }

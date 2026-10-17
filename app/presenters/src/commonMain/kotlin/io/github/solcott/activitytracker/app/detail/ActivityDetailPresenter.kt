@@ -37,6 +37,8 @@ import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
@@ -91,7 +93,8 @@ fun ActivityDetailPresenter(
         if (isOwn)
             runSuspendCatching { profiles.ownProfileRecord() }.onSuccess { approvesFollowers = it?.followPolicy == FollowPolicy.APPROVE }
     }
-    val sections = shown?.let { detailSections(it, charts.charts) } ?: persistentListOf()
+    val shownCharts = chartsFor(shown, charts.charts)
+    val sections = shown?.let { detailSections(it, shownCharts) } ?: persistentListOf()
     val expansion = rememberExpansion(sections)
     val manage = rememberManage(activity.takeIf { isOwn }, loadKey, feed, manager, navigator, flights) { loadKey++ }
     val ownRoute = rememberOwnRoute(activity?.uri?.takeIf { isOwn }, activities, flights)
@@ -190,7 +193,8 @@ fun ActivityDetailPresenter(
             likeError = likeError,
             commentError = commentError,
             eventSink = sink,
-            charts = charts.charts,
+            charts = shownCharts,
+            poolLength = poolLength(it.record.poolLength),
             chartsMissingZones = charts.missingZones(isOwn),
             savingChartsVisibility = charts.saving,
             approvesFollowers = approvesFollowers,
@@ -321,12 +325,32 @@ internal fun detailSections(activity: ActivityView, charts: ActivityCharts?): Im
                 DetailSection.Respiration -> StreamKind.RespirationRate in kinds
                 DetailSection.RunningDynamics -> RUNNING_DYNAMICS.any { it in kinds }
                 DetailSection.Gears -> charts != null && charts.gears.size >= 2
+                DetailSection.Legs -> !charts?.legs.isNullOrEmpty()
+                DetailSection.Lengths -> !charts?.lengths.isNullOrEmpty()
+                DetailSection.Sets -> !charts?.sets.isNullOrEmpty()
                 DetailSection.Laps -> !charts?.laps.isNullOrEmpty()
                 DetailSection.Device -> record.device != null || !record.sensors.isNullOrEmpty()
             }
         }
         .toImmutableList()
 }
+
+/** [charts] as [view] shows them: a ski day's count its runs. Null until both have loaded. */
+private fun chartsFor(view: ActivityView?, charts: ActivityCharts?): ActivityCharts? =
+    if (view == null || charts == null) null else ChartsBuilder.forSport(charts, view.record.sport)
+
+/** A pool length of [centimeters] in whole meters, or in whole yards when it's a yard pool; null for none. */
+internal fun poolLength(centimeters: Int?): PoolLength? {
+    centimeters?.takeIf { it > 0 } ?: return null
+    val yards = centimeters / CM_PER_YARD
+    val wholeYards = yards.roundToInt()
+    return if (centimeters % CM_PER_M != 0 && abs(yards - wholeYards) < YARD_TOLERANCE) PoolLength(wholeYards, yards = true)
+    else PoolLength((centimeters / CM_PER_M.toDouble()).roundToInt(), yards = false)
+}
+
+private const val CM_PER_M = 100
+private const val CM_PER_YARD = 91.44
+private const val YARD_TOLERANCE = 0.02
 
 /** The lines the running dynamics section charts. */
 internal val RUNNING_DYNAMICS =

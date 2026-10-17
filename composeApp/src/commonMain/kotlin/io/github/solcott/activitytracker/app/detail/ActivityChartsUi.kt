@@ -97,7 +97,13 @@ internal fun SectionCharts(section: DetailSection, state: ActivityDetailState.Lo
 
             DetailSection.TankPressure -> TankPressures(charts.tankPressures, charts.durationSeconds)
 
-            DetailSection.Laps -> LapTable(charts.laps)
+            DetailSection.Laps -> LapTable(charts.laps, ski = charts.skiRuns != null)
+
+            DetailSection.Legs -> LegTable(charts.legs)
+
+            DetailSection.Lengths -> LengthTable(charts.lengths)
+
+            DetailSection.Sets -> SetTable(charts.sets)
 
             else -> {}
         }
