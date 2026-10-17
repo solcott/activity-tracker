@@ -24,6 +24,7 @@ import androidx.compose.material3.TopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -36,13 +37,15 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.layoutId
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeInput
-import dev.chrisbanes.haze.HazeProgressive
+import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.blur.HazeBlurStyle
 import dev.chrisbanes.haze.blur.HazeColorEffect
 import dev.chrisbanes.haze.blur.hazeBlur
@@ -91,77 +94,83 @@ private fun IosNavigationBar(
     // cross-fade in which the outgoing title blurs away and the incoming one sharpens, rather than a fade tied to the scroll.
     val collapsed by remember(scrollState) { derivedStateOf { (scrollState?.collapsedFraction ?: 0f) >= INLINE_TITLE_THRESHOLD } }
     val inlineTitle by animateFloatAsState(if (!large || collapsed) 1f else 0f, tween(TITLE_SWAP_MILLIS), label = "inlineTitle")
-    Column(
-        modifier
-            .fillMaxWidth()
-            .then(
-                if (backdrop == null) {
-                    Modifier.background(colors.surface)
-                } else {
-                    Modifier.hazeBlur(HazeInput.Sources(backdrop), barMaterial(colors.surface, material, edgeEffect = usesLiquidGlass))
-                }
-            )
-            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-    ) {
-        CenteredBar(
-            leading = { onBack?.let { AppIconButton(AppIcon.Back, stringResource(Res.string.action_back), it) } },
-            title = {
-                Column(
-                    Modifier.titleSwap(rise = INLINE_TITLE_RISE) { inlineTitle },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    TopBarTitle(title, MaterialTheme.typography.titleMedium, titleMenu)
-                    subtitle?.let {
-                        Text(
-                            it,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = colors.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            textAlign = TextAlign.Center,
-                        )
+    var barHeight by remember { mutableIntStateOf(0) }
+    Box(modifier.fillMaxWidth().onSizeChanged { barHeight = it.height }) {
+        backdrop?.let { BarEffect(it, material, barHeight, Modifier.matchParentSize()) }
+        Column(
+            Modifier.fillMaxWidth()
+                .then(if (backdrop == null) Modifier.background(colors.surface) else Modifier)
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+        ) {
+            CenteredBar(
+                leading = { onBack?.let { AppIconButton(AppIcon.Back, stringResource(Res.string.action_back), it) } },
+                title = {
+                    Column(
+                        Modifier.titleSwap(rise = INLINE_TITLE_RISE) { inlineTitle },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        TopBarTitle(title, MaterialTheme.typography.titleMedium, titleMenu)
+                        subtitle?.let {
+                            Text(
+                                it,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = colors.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
                     }
+                },
+                trailing = { Row(verticalAlignment = Alignment.CenterVertically, content = actions) },
+                modifier = Modifier.fillMaxWidth().height(IOS_BAR_HEIGHT).padding(horizontal = 4.dp),
+            )
+            if (large) {
+                Column(Modifier.collapsing(scrollState).padding(start = 16.dp, end = 16.dp, bottom = 8.dp).titleSwap { 1f - inlineTitle }) {
+                    TopBarTitle(title, MaterialTheme.typography.headlineLarge, titleMenu)
+                    subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant) }
                 }
-            },
-            trailing = { Row(verticalAlignment = Alignment.CenterVertically, content = actions) },
-            modifier = Modifier.fillMaxWidth().height(IOS_BAR_HEIGHT).padding(horizontal = 4.dp),
-        )
-        if (large) {
-            Column(Modifier.collapsing(scrollState).padding(start = 16.dp, end = 16.dp, bottom = 8.dp).titleSwap { 1f - inlineTitle }) {
-                TopBarTitle(title, MaterialTheme.typography.headlineLarge, titleMenu)
-                subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant) }
             }
+            HorizontalDivider(
+                Modifier.graphicsLayer { alpha = if (usesLiquidGlass) 0f else material },
+                thickness = HAIRLINE,
+                color = colors.outlineVariant,
+            )
         }
-        HorizontalDivider(
-            Modifier.graphicsLayer { alpha = if (usesLiquidGlass) 0f else material },
-            thickness = HAIRLINE,
-            color = colors.outlineVariant,
-        )
     }
 }
 
 /**
- * UIKit's bar background over content scrolled under it, faded in by [alpha]. With [edgeEffect] it's iOS 26's soft scroll edge effect: the
- * content blurs and washes into the bar's [color] behind the title and buttons, fading to untouched at the bar's bottom edge. Otherwise
- * it's the earlier bar material: a uniform blur, mostly opaque in [color], so titles stay legible over busy content.
+ * The bar's [barMaterial] over [backdrop], laid out over a bar [barHeight] px tall. Like UIKit's scroll edge effect, iOS 26's soft edge
+ * runs a little past the bar into the content, so it's at full strength behind the title and buttons and fades out below them.
  */
-private fun barMaterial(color: Color, alpha: Float, edgeEffect: Boolean): HazeBlurStyle = HazeBlurStyle {
+@Composable
+private fun BarEffect(backdrop: HazeState, material: Float, barHeight: Int, modifier: Modifier = Modifier) {
+    val overhang = if (usesLiquidGlass) EDGE_OVERHANG else 0.dp
+    val overhangPx = with(LocalDensity.current) { overhang.toPx() }
+    // Where the fade starts, as a fraction of the effect's height: the bar's bottom edge.
+    val fadeStart = if (barHeight > 0) barHeight / (barHeight + overhangPx) else 1f
+    Box(
+        modifier
+            .overhang(overhang)
+            .hazeBlur(HazeInput.Sources(backdrop), barMaterial(MaterialTheme.colorScheme.surface, material, fadeStart, usesLiquidGlass))
+    )
+}
+
+/**
+ * UIKit's bar background over content scrolled under it, faded in by [alpha]: a blur, mostly opaque in [color], so text behind the title
+ * and buttons isn't legible. With [edgeEffect] it's iOS 26's soft scroll edge effect, which fades out from [fadeStart] (a fraction of the
+ * effect's height) to untouched content at the bottom of its area.
+ */
+private fun barMaterial(color: Color, alpha: Float, fadeStart: Float, edgeEffect: Boolean): HazeBlurStyle = HazeBlurStyle {
     blurRadius(BAR_BLUR)
     alpha(alpha)
+    backgroundColor(color)
+    colorEffects(listOf(HazeColorEffect.tint(color.copy(alpha = BAR_TINT_ALPHA))))
     if (edgeEffect) {
-        // Full strength behind the title and buttons, fading out over the bar's last stretch.
-        progressive(
-            HazeProgressive.verticalGradient(
-                easing = { ((it - EDGE_FADE_START) / (1f - EDGE_FADE_START)).coerceIn(0f, 1f) },
-                startIntensity = 1f,
-                endIntensity = 0f,
-            )
-        )
-        val tint = color.copy(alpha = BAR_TINT_ALPHA)
-        colorEffects(listOf(HazeColorEffect.tint(Brush.verticalGradient(0f to tint, EDGE_FADE_START to tint, 1f to Color.Transparent))))
-    } else {
-        backgroundColor(color)
-        colorEffects(listOf(HazeColorEffect.tint(color.copy(alpha = BAR_TINT_ALPHA))))
+        // A mask rather than Haze's progressive blur, which leaves text sharp at full intensity on iOS. Its stops are fractions because
+        // Haze's gradients with absolute offsets draw nothing on iOS.
+        mask(Brush.verticalGradient(0f to Color.Black, fadeStart to Color.Black, 1f to Color.Transparent))
     }
 }
 
@@ -175,6 +184,14 @@ private fun Modifier.titleSwap(rise: Dp = 0.dp, shown: () -> Float): Modifier = 
     translationY = gone * rise.toPx()
     val radius = gone * TITLE_SWAP_BLUR.toPx()
     renderEffect = if (radius > 0f) BlurEffect(radius, radius, TileMode.Decal) else null
+}
+
+/** Lays the effect out [by] taller than the bar, hanging below it, without making the bar any taller. */
+private fun Modifier.overhang(by: Dp): Modifier = layout { measurable, constraints ->
+    val extra = by.roundToPx()
+    val placeable =
+        measurable.measure(constraints.copy(minHeight = constraints.minHeight + extra, maxHeight = constraints.maxHeight + extra))
+    layout(placeable.width, placeable.height - extra) { placeable.place(0, 0) }
 }
 
 /**
@@ -233,7 +250,8 @@ private val IOS_BAR_HEIGHT = 44.dp
 private val HAIRLINE = 0.5.dp
 private val BAR_BLUR = 24.dp
 private const val BAR_TINT_ALPHA = 0.8f
-private const val EDGE_FADE_START = 0.7f
+/** How far iOS 26's soft edge runs past the bar into the content as it fades out. */
+private val EDGE_OVERHANG = 12.dp
 /** How far the large title has collapsed when the inline one takes over. */
 private const val INLINE_TITLE_THRESHOLD = 0.6f
 private const val TITLE_SWAP_MILLIS = 220
