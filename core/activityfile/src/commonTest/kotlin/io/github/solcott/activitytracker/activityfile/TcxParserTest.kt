@@ -9,6 +9,8 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
 class TcxParserTest {
+    private val start = TcxFixtures.START.toEpochMilliseconds()
+
     /** Garmin's TCX shape: two laps, TPX speed and power on track points, LX averages on laps. */
     private val ride =
         """${"﻿"}<?xml version="1.0" encoding="UTF-8"?>
@@ -69,6 +71,35 @@ class TcxParserTest {
         assertEquals(180, activity.maxHeartRate)
         assertEquals(20.0, activity.elevationGainMeters)
         assertEquals("Edge 530", activity.device, "Creator, not the exporting Author")
+    }
+
+    @Test
+    fun lapsKeepTheirCaloriesIntensityAndTrigger() {
+        val decoded = TcxParser.parse(TcxFixtures.intervalRun)
+        assertEquals(TcxFixtures.INTERVAL_LAPS, decoded.laps.size)
+        assertEquals(List(4) { listOf("Active", "Resting") }.flatten(), decoded.laps.map { it.intensity })
+        assertEquals(List(4) { listOf("Distance", "Manual") }.flatten(), decoded.laps.map { it.lapTrigger })
+        assertEquals(List(4) { listOf(25, 5) }.flatten(), decoded.laps.map { it.totalCalories })
+        assertEquals(List(TcxFixtures.INTERVAL_LAPS) { 60.0 }, decoded.laps.map { it.totalElapsedSeconds }, "to the next lap's start")
+        assertTrue(decoded.sessions.isEmpty())
+    }
+
+    @Test
+    fun aMultisportSessionKeepsEveryActivityAndTransition() {
+        val decoded = TcxParser.parse(TcxFixtures.duathlon)
+        assertEquals(listOf("Running", "transition", "Biking", "transition", "Running"), decoded.sessions.map { it.sport })
+        assertEquals(TcxFixtures.DUATHLON_LEGS.map { it.start * 1000L }, decoded.sessions.map { it.startTimeMillis!! - start })
+        assertEquals(listOf(900.0, 60.0, 1800.0, 45.0), decoded.sessions.dropLast(1).map { it.totalElapsedSeconds })
+        assertEquals(listOf(3000.0, 0.0, 15_000.0, 0.0, 2000.0), decoded.sessions.map { it.totalDistanceMeters })
+        assertEquals(TcxFixtures.DUATHLON_POINTS, decoded.records.size, "every activity's points")
+        assertEquals(4, decoded.laps.size, "the activities' laps, not the transitions")
+        assertEquals(listOf("Running", "Biking", "Running", "Running"), decoded.laps.map { it.sport })
+        assertEquals(decoded.laps.sortedBy { it.startTimeMillis }, decoded.laps)
+    }
+
+    @Test
+    fun aPlainFileHasNoSessions() {
+        assertTrue(TcxParser.parse(ride.removePrefix("\uFEFF")).sessions.isEmpty())
     }
 
     @Test

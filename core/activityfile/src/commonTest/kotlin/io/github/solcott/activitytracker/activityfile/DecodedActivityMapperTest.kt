@@ -2,11 +2,18 @@ package io.github.solcott.activitytracker.activityfile
 
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.GasSwitch
+import io.github.solcott.activitytracker.lexicon.app.Lap
+import io.github.solcott.activitytracker.lexicon.app.LapIntensity
+import io.github.solcott.activitytracker.lexicon.app.LapTrigger
+import io.github.solcott.activitytracker.lexicon.app.Length
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
+import io.github.solcott.activitytracker.lexicon.app.SwimStroke
+import io.github.solcott.activitytracker.lexicon.app.WorkoutSet
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -330,7 +337,279 @@ class DecodedActivityMapperTest {
         val oneLap = DecodedActivityMapper.map(DecodedActivity(fileId(), listOf(session), listOf(summary(elapsed = 600.0)), records))
         assertEquals(null, oneLap.streams?.laps, "one lap spanning the activity isn't kept")
         val tcx = DecodedActivityMapper.map(DecodedActivity(fileId(), emptyList(), listOf(lap(0), lap(300)), records))
-        assertEquals(null, tcx.streams?.laps, "a file whose laps are its only summaries keeps none")
+        assertEquals(listOf(0, 300), tcx.streams?.laps?.map { it.start }, "laps that are the file's only summaries are kept too")
+    }
+
+    private fun at(sec: Long) = (start + sec.seconds).toEpochMilliseconds()
+
+    @Test
+    fun tcxIntervalLapsKeepTheirCaloriesAndIntensity() {
+        val activity = DecodedActivityMapper.map(TcxParser.parse(TcxFixtures.intervalRun))
+        val laps = activity.streams?.laps.orEmpty()
+        assertEquals(TcxFixtures.INTERVAL_LAPS, laps.size)
+        assertEquals(List(4) { listOf(LapIntensity.ACTIVE, LapIntensity.REST) }.flatten(), laps.map { it.intensity })
+        assertEquals(List(4) { listOf(25, 5) }.flatten(), laps.map { it.calories })
+        assertEquals(List(4) { listOf(LapTrigger.DISTANCE, LapTrigger.MANUAL) }.flatten(), laps.map { it.trigger })
+        assertEquals(List(4) { listOf(400, 100) }.flatten(), laps.map { it.distance })
+        assertEquals((0 until TcxFixtures.INTERVAL_LAPS).map { it * 60 }, laps.map { it.start })
+    }
+
+    @Test
+    fun aOneLapTcxRideKeepsNoLapsAndItsTotals() {
+        val activity = DecodedActivityMapper.map(TcxParser.parse(TcxFixtures.oneLapRide))
+        assertNull(activity.streams?.laps)
+        assertEquals(5000.0, activity.distanceMeters)
+        assertEquals(600L, activity.movingSeconds)
+        assertEquals(120, activity.calories)
+    }
+
+    @Test
+    fun lapTriggersAndIntensitiesBecomeTheLexiconsTokens() {
+        fun lap(sec: Long, trigger: String?, intensity: String? = null) =
+            summary(elapsed = 300.0).copy(startTimeMillis = at(sec), lapTrigger = trigger, intensity = intensity)
+        val laps =
+            listOf(
+                lap(0, "DISTANCE", "WARMUP"),
+                lap(300, "distance", "active"),
+                lap(600, "MANUAL", "COOLDOWN"),
+                lap(900, "POSITION_LAP"),
+                lap(1200, "positionMarked", "OTHER"),
+                lap(1500, "Location", "Resting"),
+                lap(1800, "FITNESS_EQUIPMENT", "NEW_KIND"),
+            )
+        val activity =
+            DecodedActivityMapper.map(DecodedActivity(fileId(), listOf(summary(elapsed = 2100.0)), laps, listOf(record(0), record(2100))))
+        val stored = activity.streams?.laps.orEmpty()
+        assertEquals(
+            listOf(
+                LapTrigger.DISTANCE,
+                LapTrigger.DISTANCE,
+                LapTrigger.MANUAL,
+                LapTrigger.POSITION,
+                LapTrigger.POSITION,
+                LapTrigger.POSITION,
+                LapTrigger.FITNESS_EQUIPMENT,
+            ),
+            stored.map { it.trigger },
+        )
+        assertEquals(
+            listOf(LapIntensity.WARMUP, LapIntensity.ACTIVE, LapIntensity.COOLDOWN, null, "other", LapIntensity.REST, "newKind"),
+            stored.map { it.intensity },
+            "unknown values are kept, in camelCase",
+        )
+    }
+
+    private fun poolSwim(poolLength: Double?, subSport: String = "lap_swimming", lengths: List<DecodedLength> = poolLengths()) =
+        DecodedActivity(
+            fileId(),
+            listOf(summary("swimming", subSport, elapsed = 260.0, distance = 200.0).copy(poolLengthMeters = poolLength)),
+            emptyList(),
+            listOf(record(0, lat = null, lon = null, hr = 120), record(260, lat = null, lon = null, hr = 130)),
+            lengths = lengths,
+        )
+
+    /** Four 30 s freestyle lengths, a 20 s rest, four 30 s breaststroke lengths. */
+    private fun poolLengths(): List<DecodedLength> {
+        var t = 0L
+        return (0 until 9).map { i ->
+            val idle = i == 4
+            val seconds = if (idle) 20L else 30L
+            DecodedLength(
+                    at(t),
+                    seconds.toDouble(),
+                    if (idle) null else if (i < 4) "FREESTYLE" else "breaststroke",
+                    15,
+                    if (idle) "IDLE" else "active",
+                )
+                .also { t += seconds }
+        }
+    }
+
+    @Test
+    fun aPoolSwimKeepsItsLengthsAndPoolLength() {
+        val activity = DecodedActivityMapper.map(poolSwim(25.0))
+        assertEquals(2500, activity.poolLengthCentimeters)
+        val lengths = activity.streams?.lengths.orEmpty()
+        assertEquals(9, lengths.size)
+        assertEquals(Length(0, 30, SwimStroke.FREESTYLE, 15), lengths.first())
+        assertEquals(Length(120, 20, rest = true), lengths[4], "an idle length is a rest, without a stroke")
+        assertEquals(SwimStroke.BREASTSTROKE, lengths.last().stroke)
+        assertEquals(lengths.sortedBy { it.start }, lengths)
+    }
+
+    @Test
+    fun aYardPoolIsKeptInCentimeters() {
+        assertEquals(2286, DecodedActivityMapper.map(poolSwim(22.86)).poolLengthCentimeters)
+    }
+
+    @Test
+    fun anOpenWaterSwimHasNoPoolLength() {
+        val activity = DecodedActivityMapper.map(poolSwim(null, subSport = "open_water", lengths = emptyList()))
+        assertNull(activity.poolLengthCentimeters)
+        assertNull(activity.streams?.lengths)
+    }
+
+    @Test
+    fun aSwimWithoutLengthsStoresNone() {
+        val activity = DecodedActivityMapper.map(poolSwim(25.0, lengths = emptyList()))
+        assertEquals(2500, activity.poolLengthCentimeters)
+        assertNull(activity.streams?.lengths)
+    }
+
+    @Test
+    fun aStrengthWorkoutKeepsItsSets() {
+        fun set(
+            sec: Long,
+            seconds: Double,
+            type: String,
+            category: String? = null,
+            exercise: String? = null,
+            reps: Int? = null,
+            kg: Double? = null,
+        ) = DecodedSet(at(sec), at(sec) + (seconds * 1000).toLong(), seconds, type, category, exercise, reps, kg)
+        val sets =
+            listOf(
+                set(0, 40.0, "ACTIVE", "BENCH_PRESS", "BARBELL_BENCH_PRESS", 8, 60.0),
+                set(40, 90.0, "REST"),
+                set(130, 40.0, "active", "benchPress", "barbellBenchPress", 8, 60.0),
+                set(170, 30.0, "ACTIVE", "PUSH_UP", "PUSH_UP", 20),
+                set(200, 30.0, "ACTIVE", "ROW", "SINGLE_ARM_CABLE_ROW", 12, 20.0),
+                set(230, 30.0, "ACTIVE", "SQUAT"),
+                set(260, 30.0, "ACTIVE", "UNKNOWN"),
+                // A set with only its end and duration.
+                DecodedSet(null, at(320), 30.0, "ACTIVE", "plank", null, null, null),
+            )
+        val workout =
+            DecodedActivity(
+                fileId(),
+                listOf(summary("training", "strength_training", elapsed = 320.0, distance = null)),
+                emptyList(),
+                emptyList(),
+                sets = sets,
+            )
+        val stored = DecodedActivityMapper.map(workout).streams?.sets.orEmpty()
+        assertEquals(WorkoutSet(0, 40, category = "bench_press", exercise = "barbell_bench_press", reps = 8, weight = 60_000), stored[0])
+        assertEquals(WorkoutSet(40, 90, rest = true), stored[1])
+        assertEquals(stored[0].copy(start = 130), stored[2], "every SDK's spelling gives the same tokens")
+        assertEquals(WorkoutSet(170, 30, category = "push_up", exercise = "push_up", reps = 20), stored[3], "bodyweight: no weight")
+        assertEquals("single_arm_cable_row", stored[4].exercise, "an exercise the app has no label for is kept")
+        assertEquals(WorkoutSet(230, 30, category = "squat"), stored[5], "a category without a name")
+        assertEquals(WorkoutSet(260, 30), stored[6], "FIT's unknown category is no category")
+        assertEquals(WorkoutSet(290, 30, category = "plank"), stored[7])
+    }
+
+    @Test
+    fun aWorkoutWithoutSetsStoresNone() {
+        val cardio = DecodedActivity(fileId(), listOf(summary("training", "cardio_training")), emptyList(), listOf(record(0), record(60)))
+        assertNull(DecodedActivityMapper.map(cardio).streams?.sets)
+    }
+
+    /** A FIT triathlon: swim, transition, ride, transition, run, the run with five laps. */
+    private fun triathlon(): DecodedActivity {
+        val legs =
+            listOf(
+                Triple("SWIMMING", 0L, 1800.0) to 1500.0,
+                Triple("TRANSITION", 1800L, 120.0) to 0.0,
+                Triple("CYCLING", 1920L, 3600.0) to 40_000.0,
+                Triple("TRANSITION", 5520L, 90.0) to 0.0,
+                Triple("RUNNING", 5610L, 2700.0) to 10_000.0,
+            )
+        val sessions = legs.map { (leg, meters) ->
+            summary(leg.first, elapsed = leg.third, timer = leg.third, distance = meters).copy(startTimeMillis = at(leg.second))
+        }
+        val laps =
+            sessions.take(4) +
+                (0 until 5).map { i ->
+                    summary("RUNNING", elapsed = 540.0, timer = 540.0, distance = 2000.0).copy(startTimeMillis = at(5610L + i * 540))
+                }
+        return DecodedActivity(fileId(), sessions, laps, listOf(record(0), record(8310)))
+    }
+
+    @Test
+    fun aTriathlonKeepsItsLegsAndTheRunsLaps() {
+        val activity = DecodedActivityMapper.map(triathlon())
+        assertEquals(ActivityType(Sport.MULTISPORT, SubSport.TRIATHLON), activity.type)
+        val legs = activity.streams?.legs.orEmpty()
+        assertEquals(listOf(Sport.SWIM, Sport.MULTISPORT, Sport.RIDE, Sport.MULTISPORT, Sport.RUN), legs.map { it.sport })
+        assertEquals(listOf(null, true, null, true, null), legs.map { it.transition })
+        assertEquals(listOf(1800, 120, 3600, 90, 2700), legs.map { it.elapsed })
+        assertEquals(listOf(1500, 0, 40_000, 0, 10_000), legs.map { it.distance })
+        val run = legs.last()
+        val runLaps = activity.streams?.laps.orEmpty().filter { it.start >= run.start }
+        assertEquals(5, runLaps.size)
+        assertTrue(runLaps.all { it.start + it.elapsed <= run.start + run.elapsed }, "each lap within its leg")
+    }
+
+    @Test
+    fun aTcxDuathlonKeepsItsLegs() {
+        val activity = DecodedActivityMapper.map(TcxParser.parse(TcxFixtures.duathlon))
+        assertEquals(ActivityType(Sport.MULTISPORT, SubSport.DUATHLON), activity.type)
+        val legs = activity.streams?.legs.orEmpty()
+        assertEquals(listOf(Sport.RUN, Sport.MULTISPORT, Sport.RIDE, Sport.MULTISPORT, Sport.RUN), legs.map { it.sport })
+        assertEquals(TcxFixtures.DUATHLON_LEGS.map { it.start }, legs.map { it.start })
+        assertEquals(TcxFixtures.DUATHLON_POINTS, activity.streams?.time?.size, "the streams span every leg")
+        assertEquals(20_000.0, activity.distanceMeters)
+    }
+
+    @Test
+    fun aSingleSportFileHasNoLegs() {
+        val run = DecodedActivityMapper.map(DecodedActivity(fileId(), listOf(summary()), emptyList(), listOf(record(0), record(1800))))
+        assertNull(run.streams?.legs)
+    }
+
+    private fun skiDay(sport: String, subSport: String?, splits: List<DecodedSplit>): DecodedActivity {
+        val laps = (0 until 3).map { summary(sport, subSport, elapsed = 1440.0).copy(startTimeMillis = at(it * 1440L)) }
+        return DecodedActivity(
+            fileId(),
+            listOf(summary(sport, subSport, elapsed = 4320.0)),
+            laps,
+            listOf(record(0), record(4320)),
+            splits = splits,
+        )
+    }
+
+    @Test
+    fun aResortDaysRunsAndLiftsReplaceItsLaps() {
+        val splits =
+            (0 until 8).flatMap { i ->
+                listOf(
+                    DecodedSplit("SKI_LIFT_SPLIT", at(i * 540L), 300.0, 300.0, 800.0, 300.0, null, null, null, null, null, null),
+                    DecodedSplit("skiRunSplit", at(i * 540L + 300), 240.0, 240.0, 1500.0, null, 300.0, null, 18.0, 150, 170, 40),
+                )
+            }
+        val activity =
+            DecodedActivityMapper.map(
+                skiDay(
+                    "ALPINE_SKIING",
+                    null,
+                    splits + DecodedSplit("CLIMB_ACTIVE", at(0), 60.0, null, null, null, null, null, null, null, null, null),
+                )
+            )
+        val laps = activity.streams?.laps.orEmpty()
+        assertEquals(16, laps.size, "other split types are left out")
+        assertEquals(List(8) { listOf(LapIntensity.REST, LapIntensity.ACTIVE) }.flatten(), laps.map { it.intensity })
+        assertEquals(
+            Lap(
+                300,
+                240,
+                moving = 240,
+                distance = 1500,
+                maxSpeed = 18_000,
+                avgHeartRate = 150,
+                maxHeartRate = 170,
+                descent = 300,
+                calories = 40,
+                intensity = LapIntensity.ACTIVE,
+            ),
+            laps[1],
+        )
+        assertEquals(300, laps[0].ascent)
+    }
+
+    @Test
+    fun aBackcountrySkiWithoutRunsKeepsItsLaps() {
+        val activity = DecodedActivityMapper.map(skiDay("ALPINE_SKIING", "BACKCOUNTRY", emptyList()))
+        assertEquals(listOf(0, 1440, 2880), activity.streams?.laps?.map { it.start })
     }
 
     @Test
