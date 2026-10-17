@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.lexicon.app.Lap
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
+import kotlin.math.roundToLong
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -110,7 +111,10 @@ internal object ChartsBuilder {
             elapsedSeconds = lap.elapsed,
             movingSeconds = lap.moving,
             distance = lap.distance?.let { UnitConversions.toDistanceUnit(it.toDouble(), units) },
-            speed = lap.avgSpeed?.let { UnitConversions.toSpeedUnit(it.toLong(), units) },
+            // TCX laps carry speed only in the optional LX extension, so without it derive mm/s from distance and time.
+            speed =
+                (lap.avgSpeed?.toLong() ?: lap.distance?.let { (it * MILLI / (lap.moving ?: lap.elapsed).coerceAtLeast(1)).roundToLong() })
+                    ?.let { UnitConversions.toSpeedUnit(it, units) },
             avgHeartRate = lap.avgHeartRate,
             avgPower = lap.avgPower,
             avgCadence = lap.avgCadence,

@@ -129,6 +129,21 @@ class ActivityFileDataChartsTest : ActivityDetailTestBase() {
     }
 
     @Test
+    fun aLapWithoutSpeedShowsItsDistanceOverTime() = runTest {
+        // TCX laps without the LX AvgSpeed extension: moving time when the lap has it, else elapsed.
+        streamsOf(
+            """"time":[0,300,600],"laps":[{"start":0,"elapsed":300,"distance":1000},""" +
+                """{"start":300,"elapsed":320,"moving":300,"distance":1000},{"start":620,"elapsed":60}]"""
+        )
+        val laps = loaded().second.laps
+        assertEquals(12.0, laps[0].speed!!, 0.01, "km/h")
+        assertEquals(12.0, laps[1].speed!!, 0.01, "km/h")
+        assertNull(laps[2].speed, "no distance")
+
+        assertEquals(7.46, loaded(UnitSystem.Imperial).second.laps.first().speed!!, 0.01, "mph")
+    }
+
+    @Test
     fun trainingLoadShowsOnlyWhenTheAppViewServesIt() = runTest {
         // The AppView leaves it out for a viewer its zones record doesn't admit, like the zones themselves.
         streamsOf(""""time":[0,10,20],"power":[200,210,220]""")
