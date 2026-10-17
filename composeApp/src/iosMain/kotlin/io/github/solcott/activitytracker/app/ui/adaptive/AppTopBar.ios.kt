@@ -150,10 +150,15 @@ private fun BarEffect(backdrop: HazeState, material: Float, barHeight: Int, modi
     val overhangPx = with(LocalDensity.current) { overhang.toPx() }
     // Where the fade starts, as a fraction of the effect's height: the bar's bottom edge.
     val fadeStart = if (barHeight > 0) barHeight / (barHeight + overhangPx) else 1f
+    val color = MaterialTheme.colorScheme.surface
     Box(
         modifier
+            // A native view under the list, like the route map, shows through the canvas's cut-out, which Haze copies into its layer
+            // along with the content and so clears out the material's opaque fill. Filling the bar in the canvas itself covers that
+            // cut-out; Compose content, already behind an opaque material there, looks the same.
+            .background(color.copy(alpha = material))
             .overhang(overhang)
-            .hazeBlur(HazeInput.Sources(backdrop), barMaterial(MaterialTheme.colorScheme.surface, material, fadeStart, usesLiquidGlass))
+            .hazeBlur(HazeInput.Sources(backdrop), barMaterial(color, material, fadeStart, usesLiquidGlass))
     )
 }
 
