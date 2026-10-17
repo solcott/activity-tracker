@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Lets an athlete take any of their own activities out of the app as a GPX, TCX or FIT file (or, for a dive, UDDF), rebuilt from the record, streams and full track the app stores, including activities recorded in the app that have no original file.
+Lets an athlete take any of their own activities out of the app as a GPX, TCX or FIT file (or, for a dive, UDDF), rebuilt from the record, streams and full track the app stores, including activities recorded in the app that have no original file, or, for an imported activity, as the very file it was imported from.
 
 ## Requirements
 
