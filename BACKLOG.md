@@ -53,9 +53,10 @@ FIT, GPX, TCX, Shearwater dive XML, and UDDF and Subsurface logbook import (opti
 
 - **Ride data.** Time in each gear and the longest jump's hang time and distance show on the import screen (`ImportedActivity.shifting`, `mtb`), but records don't carry them. Power, cadence, calories, shift counts, jumps, Grit and Flow publish on the activity, training load on its zones record, and laps in its streams.
 - **Gear teeth.** FIT gear changes carry teeth from the device's gearing setup, which is often a default: an Edge 840 with SRAM AXS on a 10–52T Eagle bike reports a 39T ring and 10–26T cassette. The import screen shows gear numbers only. Showing teeth needs the athlete's own gearing, for example on a bike in a future gear list.
-- **Left out of `store-dive-gas-switches`.** Device alerts, dive computer settings beyond water type, swim lengths, HRV, laps in TCX and GPX exports, and the extra dive data in Shearwater and Subsurface files (only their switch times are in scope). Planned in `keep-remaining-file-data`.
+- **Left out of `store-dive-gas-switches`.** Device alerts, dive computer settings beyond water type, swim lengths, HRV, laps in TCX and GPX exports, and the extra dive data in Shearwater and Subsurface files (only their switch times are in scope). Planned in `keep-remaining-file-data` (only its proposal is written so far).
 - **Duplicates beyond dives.** Imports flag duplicates of dives only (`DiveMatcher`); runs and rides imported twice (a watch and a bike computer on one ride) could use the same check and the same merge or group actions. A logbook dive twice in the file can't be merged into the other yet, only imported, grouped or ignored.
 - **Bulk import.** Strava's account export is a zip of gzipped files plus `activities.csv` with titles. Reading the zip and importing many activities at once would reuse `ActivityFileReader`.
+- **Re-read stored originals.** Imports keep their file (`feed.activitySource`, in `self`), so a newer parser could re-read an activity's original to fill in data an older import dropped, rather than asking the athlete to import it again.
 - **Track blob MIME type.** The local PDS stores the GPX blob of a `feed.activityTrack` as `application/xml`, not the lexicon's `application/gpx+xml`. Check whether a stricter PDS rejects it.
 
 ## Before deploying anywhere shared (QA, staging, prod)
@@ -85,16 +86,7 @@ Activities carry photos (`feed.activity#media`, an open union with `#image` only
 - **Compression.** Phones re-encode to 720p H.264/AAC before upload: Media3 Transformer on Android, `AVAssetExportSession` on iOS. Desktop and web have no encoder, so they upload only a file already under the cap and refuse a larger one.
 - **Playback.** `ComposeMediaPlayer` (`io.github.kdroidfilter:composemediaplayer`) covers Android, iOS, desktop and web. The feed row shows the poster frame with a play badge, and the gallery plays it.
 - **Uploads.** A video is too big to hold as a `ByteArray` in memory or in the Room outbox. Upload from a file path, streamed, and let the outbox carry several file-backed blobs per write, so a video posts even after the app restarts.
-- **PDS limit.** The reference PDS caps blobs with `PDS_BLOB_UPLOAD_LIMIT`; raise it in `docker/compose.yaml` and expect other PDSes to refuse large videos with a clear error.
-
-## Spaces and route privacy: order of the open changes
-
-Four OpenSpec changes in `openspec/changes/` cover file export, building on the archived `export-activity-files` and `export-fit-files` (GPX, TCX and FIT export, `feed/activity-export`). Implement them in this order, and delete each entry when its change is archived.
-
-1. `export-dives-as-uddf`: dives also export as UDDF for logbook software, with summary, gases, samples and site.
-2. `keep-original-activity-files`: imports keep the original file in a `feed.activitySource` in `self`, for "Download original". Reuses export's file hand-off (`rememberFileHandOff`).
-3. `store-dive-gas-switches`: dives keep when each gas was switched to (a `gasSwitches` stream channel), mark switches on the depth chart, and FIT (and UDDF) exports write them, so a re-imported FIT keeps every gas. It also keeps the rest of what FIT and UDDF files hold that we drop: dive deco state and tank pressure over time, more dive summary, power, cadence and calories, training load (on the zones record), running dynamics and laps. A lexicon change.
-4. `keep-remaining-file-data`: what 3 leaves out: device alerts, dive computer settings, swim lengths, HRV, TCX and GPX laps, and Shearwater and Subsurface deco state. A lexicon change. After 3.
+- **PDS limit.** The reference PDS caps blobs with `PDS_BLOB_UPLOAD_LIMIT`; `docker/compose.yaml` sets it to 10 MB for imported originals; raise it further and expect other PDSes to refuse large videos with a clear error.
 
 ## Loose ends from `store-dive-gas-switches`
 
