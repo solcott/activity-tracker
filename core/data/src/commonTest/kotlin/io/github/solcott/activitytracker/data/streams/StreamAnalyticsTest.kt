@@ -14,6 +14,14 @@ class StreamAnalyticsTest {
     }
 
     @Test
+    fun timeInZonesCountsSteadyThirtySecondRecordingInFull() {
+        // An 8:00 run with heart rate logged every 30 s, all in zone 3.
+        val time = (0..480 step 30).toList()
+        val heartRate = List(time.size) { 155 }
+        assertEquals(listOf(0, 0, 481, 0), StreamAnalytics.timeInZones(time, heartRate, lows = listOf(0, 120, 150, 170)))
+    }
+
+    @Test
     fun aMissingSampleHoldsThePreviousValue() {
         assertEquals(listOf(0, 3), StreamAnalytics.timeInZones(listOf(0, 1, 2), listOf(160, null, 165), lows = listOf(0, 150)))
     }
