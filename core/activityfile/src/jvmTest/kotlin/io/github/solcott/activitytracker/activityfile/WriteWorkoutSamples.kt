@@ -24,7 +24,9 @@ import org.junit.Assume.assumeTrue
 /**
  * Writes sample activity files for checking by hand how imports, the activity page and exports show workout structure: a pool swim, a
  * strength workout, a triathlon, a ski day and a mountain bike ride as FIT, and an interval run, a duathlon and a run sampled every 30 s as
- * TCX. Only on request (see the activity-files rule): `./gradlew :core-activityfile:jvmTest --tests "*.WriteWorkoutSamples"
+ * TCX. Three more FIT files, written with Garmin's encoder ([SensorFitFixtures]), carry sensor data: a pool swim whose heart rate is only
+ * in `hr` messages, a run with HRV, Stryd developer fields and a UTC+2 clock, and an e-bike ride with cycling dynamics, CORE and Moxy
+ * channels. Only on request (see the activity-files rule): `./gradlew :core-activityfile:jvmTest --tests "*.WriteWorkoutSamples"
  * -PworkoutSamples` writes them to `build/workout-fixtures`, and without the property it's skipped. Each sample is built from steady
  * stretches, one value per second, and every lap, leg and summary average is taken from the points written, so they agree; each file is
  * read back through [ActivityFileReader] and checked before it's written.
@@ -46,6 +48,9 @@ class WriteWorkoutSamples {
                 "interval-run.tcx" to TcxWriter.write(intervalRun()).encodeToByteArray(),
                 "duathlon.tcx" to duathlon().encodeToByteArray(),
                 "sparse-run.tcx" to TcxWriter.write(sparseRun()).encodeToByteArray(),
+                "strap-swim.fit" to SensorFitFixtures.strapSwim(START),
+                "sensor-run.fit" to SensorFitFixtures.sensorRun(START),
+                "dynamics-ride.fit" to SensorFitFixtures.dynamicsRide(START),
             )
         for ((name, bytes) in samples) checkConsistent(name, bytes)
         val out = File(dir).apply { mkdirs() }
