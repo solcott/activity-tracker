@@ -148,6 +148,51 @@ class StreamBuilderTest {
     }
 
     @Test
+    fun keepsCyclingDynamicsPhysiologyEBikeAndStrydChannelsInLexiconUnits() {
+        val records =
+            listOf(
+                sample(0, hr = 140)
+                    .copy(
+                        leftTorqueEffectiveness = 80.0,
+                        rightTorqueEffectiveness = 76.5,
+                        leftPedalSmoothness = 22.0,
+                        rightPedalSmoothness = 20.5,
+                        leftPcoMm = -2,
+                        rightPcoMm = 3,
+                        coreTemperatureCelsius = 38.25,
+                        saturatedHemoglobinPercent = 65.5,
+                        totalHemoglobinConc = 12.34,
+                        ebikeBatteryPercent = 90,
+                        ebikeAssistMode = 2,
+                        ebikeAssistLevelPercent = 50,
+                        formPowerWatts = 70.0,
+                        legSpringStiffnessKnPerM = 9.5,
+                    )
+            )
+        val data = build(records)
+        assertEquals(listOf(8000), data.torqueEffectivenessLeft, "hundredths of a percent")
+        assertEquals(listOf(7650), data.torqueEffectivenessRight)
+        assertEquals(listOf(2200), data.pedalSmoothnessLeft)
+        assertEquals(listOf(2050), data.pedalSmoothnessRight)
+        assertEquals(listOf(-2), data.pcoLeft)
+        assertEquals(listOf(3), data.pcoRight)
+        assertEquals(listOf(3825), data.coreTemperature, "hundredths of a degree")
+        assertEquals(listOf(655), data.smO2, "tenths of a percent")
+        assertEquals(listOf(1234), data.totalHemoglobin, "hundredths of g/dL")
+        assertEquals(listOf(90), data.ebikeBattery)
+        assertEquals(listOf(2), data.ebikeAssistMode)
+        assertEquals(listOf(50), data.ebikeAssistLevel)
+        assertEquals(listOf(70), data.formPower)
+        assertEquals(listOf(950), data.legSpringStiffness, "hundredths of kN/m")
+    }
+
+    @Test
+    fun aFileWithoutTheNewChannelsLeavesThemOut() {
+        val data = build(listOf(sample(0, hr = 140), sample(1, hr = 141)))
+        assertEquals(listOf(StreamChannel.HEART_RATE), data.channels)
+    }
+
+    @Test
     fun theFirstGasIsASwitchAtZero() {
         val records = listOf(dive(0), dive(1920), dive(2400))
         val air = DiveGas(21, 0)

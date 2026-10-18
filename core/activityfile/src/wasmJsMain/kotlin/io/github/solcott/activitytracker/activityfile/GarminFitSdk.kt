@@ -16,7 +16,8 @@ internal external class Decoder(stream: Stream) : JsAny {
 
     fun checkIntegrity(): Boolean
 
-    fun read(): FitReadResult
+    /** [options] is a JS object of the SDK's decode options (`mergeHeartRates`, ...). */
+    fun read(options: JsAny): FitReadResult
 }
 
 internal external interface FitReadResult : JsAny {
@@ -42,6 +43,10 @@ internal external interface FitMessages : JsAny {
     val lengthMesgs: JsArray<JsLengthMesg>?
     val setMesgs: JsArray<JsSetMesg>?
     val splitMesgs: JsArray<JsSplitMesg>?
+    val hrMesgs: JsArray<JsHrMesg>?
+    val hrvMesgs: JsArray<JsHrvMesg>?
+    val activityMesgs: JsArray<JsActivityMesg>?
+    val fieldDescriptionMesgs: JsArray<JsFieldDescriptionMesg>?
 }
 
 // Everything is typed JsAny? and converted in GarminJsFitDecoder: an absent field is undefined, which a Double? property reads as NaN
@@ -90,6 +95,9 @@ internal external interface JsSummaryMesg : JsAny {
     val lapTrigger: JsAny?
     // Session only: a pool swim's pool length, in meters.
     val poolLength: JsAny?
+    // Session only: strides, strokes or revolutions, and the average stroke distance.
+    val totalCycles: JsAny?
+    val avgStrokeDistance: JsAny?
     // Session only: the FTP that intensity factor and TSS are relative to.
     val thresholdPower: JsAny?
     val intensityFactor: JsAny?
@@ -133,6 +141,49 @@ internal external interface JsRecordMesg : JsAny {
     val verticalRatio: JsAny?
     val stanceTimeBalance: JsAny?
     val leftRightBalance: JsAny?
+    val leftTorqueEffectiveness: JsAny?
+    val rightTorqueEffectiveness: JsAny?
+    val leftPedalSmoothness: JsAny?
+    val rightPedalSmoothness: JsAny?
+    val leftPco: JsAny?
+    val rightPco: JsAny?
+    val coreTemperature: JsAny?
+    val saturatedHemoglobinPercent: JsAny?
+    val totalHemoglobinConc: JsAny?
+    val ebikeBatteryLevel: JsAny?
+    val ebikeAssistMode: JsAny?
+    val ebikeAssistLevelPercent: JsAny?
+    /** Developer fields' values, keyed by their `field_description`'s `key`. */
+    val developerFields: JsAny?
+}
+
+/** [eventTimestamp] and [filteredBpm] are arrays, or single values in a message with one reading. */
+internal external interface JsHrMesg : JsAny {
+    val timestamp: JsAny?
+    val fractionalTimestamp: JsAny?
+    val eventTimestamp: JsAny?
+    val filteredBpm: JsAny?
+}
+
+/** [time] is an array of RR intervals in seconds, or a single value. */
+internal external interface JsHrvMesg : JsAny {
+    val time: JsAny?
+}
+
+/** [localTimestamp] stays a number of seconds since the FIT epoch: the SDK converts only UTC date fields to Dates. */
+internal external interface JsActivityMesg : JsAny {
+    val timestamp: JsAny?
+    val localTimestamp: JsAny?
+}
+
+/** A developer field's description; the SDK gives it a [key] that records' `developerFields` are keyed by. */
+internal external interface JsFieldDescriptionMesg : JsAny {
+    val key: JsAny?
+    val fieldName: JsAny?
+    val units: JsAny?
+    /** The field's scale and offset, which the SDK doesn't apply to developer field values. */
+    val scale: JsAny?
+    val offset: JsAny?
 }
 
 internal external interface JsDiveSummaryMesg : JsAny {

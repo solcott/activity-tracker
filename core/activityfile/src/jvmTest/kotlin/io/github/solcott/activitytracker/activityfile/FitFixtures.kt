@@ -586,7 +586,7 @@ object FitFixtures {
         }
 
     @Suppress("LongParameterList")
-    private fun encode(
+    internal fun encode(
         start: Instant,
         sport: FitSport,
         subSport: SubSport,
@@ -594,6 +594,7 @@ object FitFixtures {
         avgHr: Int,
         points: Int,
         interval: Long = 30,
+        before: List<Mesg> = emptyList(),
         extra: List<Mesg> = emptyList(),
         laps: List<FitLap>? = null,
         session: SessionMesg.() -> Unit = {},
@@ -612,6 +613,7 @@ object FitFixtures {
                 serialNumber = 1234L
             }
         )
+        before.forEach(encoder::write)
         repeat(points) { i ->
             encoder.write(
                 RecordMesg().apply {
@@ -642,7 +644,7 @@ object FitFixtures {
                 totalElapsedTime = elapsed
                 totalTimerTime = elapsed
                 totalDistance = distance
-                avgHeartRate = avgHr.toShort()
+                if (avgHr > 0) avgHeartRate = avgHr.toShort()
                 session()
             }
         )

@@ -13,6 +13,12 @@ package io.github.solcott.activitytracker.activityfile
  * `ski_lift_split`), the session's `pool_length` and the lap's `intensity`, `lap_trigger` and `total_calories`. Exercise names resolve per
  * SDK: Java through each `<Category>ExerciseName` class, JS through `Profile.types.<category>ExerciseName`, Swift through each
  * `<Category>ExerciseName` enum; a category without a name type leaves the exercise null.
+ *
+ * Each SDK also has `hr` (its `event_timestamp_12` expanded into `event_timestamp` by component expansion, on all three), `hrv`, the
+ * `activity` message's `local_timestamp`, the record's cycling dynamics, CORE, Moxy and e-bike fields, the session's `total_cycles` and
+ * `avg_stroke_distance`, and developer fields with their `field_description` name and units. Heart rate from `hr` messages is merged in
+ * common code ([HrMessages]), so the JS decoder turns off its SDK's own `mergeHeartRates`, the only one that merges by default. The JS SDK
+ * also leaves developer field values unscaled, so its decoder scales them by their description ([FitDeveloperFieldDescription]).
  */
 fun interface FitDecoder {
     /**

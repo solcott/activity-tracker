@@ -50,8 +50,49 @@ final class SwiftFitDecoder: FitDecoder {
             notes: nil,
             lengths: messages.lengthMesgs.map(Self.length),
             sets: messages.setMesgs.map(Self.set),
-            splits: messages.splitMesgs.map(Self.split)
+            splits: messages.splitMesgs.map(Self.split),
+            hrMessages: messages.hrMesgs.map(Self.hrMessage),
+            rrIntervalsSeconds: messages.hrvMesgs.flatMap { m in
+                (m.getTime() ?? []).compactMap { $0 }.filter { FitHeart.shared.isValidRr(seconds: $0) }.map { KotlinDouble(value: $0) }
+            },
+            activityTimestampMillis: messages.activityMesgs.first?.getTimestamp().map { KotlinLong(value: Self.millis($0)) },
+            activityLocalTimestampSeconds: messages.activityMesgs.first?.getLocalTimestamp().map { KotlinLong(value: Int64($0)) }
         )
+    }
+
+    /// An hr message's readings, padding (invalid values) dropped; HrMessages (Kotlin) anchors and merges them.
+    private static func hrMessage(_ m: HrMesg) -> DecodedHrMessage {
+        let readings = zip(m.getEventTimestamp() ?? [], m.getFilteredBpm() ?? []).compactMap { time, bpm -> (Double, Int32)? in
+            guard let time, let bpm, FitHeart.shared.isValidReading(eventTimestamp: time, bpm: Int32(bpm)) else { return nil }
+            return (time, Int32(bpm))
+        }
+        return DecodedHrMessage(
+            timestampMillis: m.getTimestamp().map { KotlinLong(value: millis($0)) },
+            fractionalSeconds: double(m.getFractionalTimestamp()),
+            eventTimestamps: readings.map { KotlinDouble(value: $0.0) },
+            filteredBpm: readings.map { KotlinInt(value: $0.1) }
+        )
+    }
+
+    /// A record's developer fields, named and united by their field descriptions, for DeveloperFields (Kotlin) to recognize.
+    private static func developerFields(_ m: RecordMesg) -> [DecodedDeveloperField] {
+        m.developerFields.map { field in
+            DecodedDeveloperField(
+                name: field.getName().isEmpty ? nil : field.getName(),
+                units: field.getUnits().isEmpty ? nil : field.getUnits(),
+                value: double(number(field.getValue()))
+            )
+        }
+    }
+
+    /// A field value of any numeric type the SDK returns, as a Double.
+    private static func number(_ value: Any?) -> Double? {
+        switch value {
+        case let v as Double: v
+        case let v as Float: Double(v)
+        case let v as any BinaryInteger: Double(v)
+        default: nil
+        }
     }
 
     private static func length(_ m: LengthMesg) -> DecodedLength {
@@ -336,7 +377,9 @@ final class SwiftFitDecoder: FitDecoder {
             anaerobicTrainingEffect: double(m.getTotalAnaerobicTrainingEffect()),
             poolLengthMeters: double(m.getPoolLength()),
             intensity: nil,
-            lapTrigger: nil
+            lapTrigger: nil,
+            totalCycles: m.getTotalCycles().map { KotlinLong(value: Int64($0)) },
+            avgStrokeDistanceMeters: double(m.getAvgStrokeDistance())
         )
     }
 
@@ -374,7 +417,9 @@ final class SwiftFitDecoder: FitDecoder {
             anaerobicTrainingEffect: nil,
             poolLengthMeters: nil,
             intensity: m.getIntensity().map { String(describing: $0) },
-            lapTrigger: m.getLapTrigger().map { String(describing: $0) }
+            lapTrigger: m.getLapTrigger().map { String(describing: $0) },
+            totalCycles: nil,
+            avgStrokeDistanceMeters: nil
         )
     }
 
@@ -405,7 +450,22 @@ final class SwiftFitDecoder: FitDecoder {
             stepLengthMm: double(m.getStepLength()),
             verticalRatioPercent: double(m.getVerticalRatio()),
             stanceTimeBalancePercent: double(m.getStanceTimeBalance()),
-            leftRightBalance: int(m.getLeftRightBalance().map(Int32.init))
+            leftRightBalance: int(m.getLeftRightBalance().map(Int32.init)),
+            leftTorqueEffectiveness: double(m.getLeftTorqueEffectiveness()),
+            rightTorqueEffectiveness: double(m.getRightTorqueEffectiveness()),
+            leftPedalSmoothness: double(m.getLeftPedalSmoothness()),
+            rightPedalSmoothness: double(m.getRightPedalSmoothness()),
+            leftPcoMm: int(m.getLeftPco().map(Int32.init)),
+            rightPcoMm: int(m.getRightPco().map(Int32.init)),
+            coreTemperatureCelsius: double(m.getCoreTemperature()),
+            saturatedHemoglobinPercent: double(m.getSaturatedHemoglobinPercent()),
+            totalHemoglobinConc: double(m.getTotalHemoglobinConc()),
+            ebikeBatteryPercent: int(m.getEbikeBatteryLevel().map(Int32.init)),
+            ebikeAssistMode: int(m.getEbikeAssistMode().map(Int32.init)),
+            ebikeAssistLevelPercent: int(m.getEbikeAssistLevelPercent().map(Int32.init)),
+            developerFields: developerFields(m),
+            formPowerWatts: nil,
+            legSpringStiffnessKnPerM: nil
         )
     }
 

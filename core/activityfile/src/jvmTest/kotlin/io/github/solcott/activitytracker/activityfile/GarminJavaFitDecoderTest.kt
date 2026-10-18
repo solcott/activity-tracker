@@ -3,11 +3,13 @@ package io.github.solcott.activitytracker.activityfile
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
+import kotlin.math.roundToLong
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 class GarminJavaFitDecoderTest {
@@ -112,6 +114,85 @@ class GarminJavaFitDecoderTest {
     }
 
     @Test
+    fun decodesHeartRateAStrapStoredInHrMessages() {
+        val fit = decoder.decode(SensorFitFixtures.strapSwim(start))
+
+        assertTrue(fit.records.all { it.heartRate == null })
+        val anchor = fit.hrMessages.first()
+        assertEquals(start.toEpochMilliseconds(), anchor.timestampMillis)
+        assertEquals(listOf(1000.0), anchor.eventTimestamps)
+        assertEquals(listOf(120), anchor.filteredBpm)
+        assertTrue(fit.hrMessages.drop(1).all { it.timestampMillis == null })
+        assertEquals(SensorFitFixtures.STRAP_SWIM_SECONDS.toInt() + 1, fit.hrMessages.sumOf { it.eventTimestamps.size })
+        assertEquals(1001.0, fit.hrMessages[1].eventTimestamps.first(), 1e-3)
+    }
+
+    @Test
+    fun decodesHrvActivityTimeDeveloperFieldsAndStrides() {
+        val fit = decoder.decode(SensorFitFixtures.sensorRun(start))
+
+        assertEquals(
+            SensorFitFixtures.SENSOR_RUN_RR.map { (it * 1000).roundToLong() },
+            fit.rrIntervalsSeconds.map { (it * 1000).roundToLong() },
+        )
+        val end = start + ((FitFixtures.RUN_POINTS - 1) * 30).seconds
+        assertEquals(end.toEpochMilliseconds(), fit.activityTimestampMillis)
+        assertEquals(end.epochSeconds - FIT_EPOCH_SECONDS + SensorFitFixtures.SENSOR_RUN_OFFSET_SECONDS, fit.activityLocalTimestampSeconds)
+        assertEquals(SensorFitFixtures.SENSOR_RUN_STRIDES, fit.sessions.single().totalCycles)
+        val fields = fit.records.first().developerFields.associateBy { it.name }
+        assertEquals(setOf("Power", "Form Power", "Leg Spring Stiffness"), fields.keys)
+        assertEquals("Watts", fields.getValue("Power").units)
+        assertEquals(250.0, fields.getValue("Power").value!!, 1e-6)
+        assertEquals(70.0, fields.getValue("Form Power").value!!, 1e-6)
+        assertEquals("KN/m", fields.getValue("Leg Spring Stiffness").units)
+        assertEquals(9.5, fields.getValue("Leg Spring Stiffness").value!!, 1e-6)
+    }
+
+    @Test
+    fun decodesCyclingDynamicsPhysiologyAndEBikeFields() {
+        val fit = decoder.decode(SensorFitFixtures.dynamicsRide(start))
+
+        val first = fit.records.first()
+        assertEquals(80.0, first.leftTorqueEffectiveness!!, 1e-6)
+        assertEquals(76.5, first.rightTorqueEffectiveness!!, 1e-6)
+        assertEquals(22.0, first.leftPedalSmoothness!!, 1e-6)
+        assertEquals(20.5, first.rightPedalSmoothness!!, 1e-6)
+        assertEquals(-2, first.leftPcoMm)
+        assertEquals(3, first.rightPcoMm)
+        assertEquals(38.25, first.coreTemperatureCelsius!!, 1e-6)
+        assertEquals(65.5, first.saturatedHemoglobinPercent!!, 1e-6)
+        assertEquals(12.34, first.totalHemoglobinConc!!, 1e-6)
+        assertEquals(90, first.ebikeBatteryPercent)
+        assertEquals(2, first.ebikeAssistMode)
+        assertEquals(50, first.ebikeAssistLevelPercent)
+        assertEquals(1500L, fit.sessions.single().totalCycles)
+    }
+
+    @Test
+    fun aStrapSwimImportsWithHeartRate() {
+        val activity = DecodedActivityMapper.map(decoder.decode(SensorFitFixtures.strapSwim(start)))
+
+        val hr = activity.streams!!.heartRate!!
+        assertTrue(hr.all { it != null }, "every record gets the strap's heart rate")
+        assertEquals(120, hr.first())
+        assertEquals(149, activity.maxHeartRate, "the last record averages its 10 s: 149 bpm until the 150 at 300 s")
+        assertTrue(activity.avgHeartRate!! in 134..136)
+    }
+
+    @Test
+    fun aSensorRunImportsItsHrvStepsOffsetAndStrydFields() {
+        val activity = DecodedActivityMapper.map(decoder.decode(SensorFitFixtures.sensorRun(start)))
+
+        assertEquals(20, activity.hrvRmssd)
+        assertEquals((SensorFitFixtures.SENSOR_RUN_STRIDES * 2).toInt(), activity.cycles)
+        assertEquals(120, activity.utcOffsetMinutes)
+        val streams = activity.streams!!
+        assertEquals(List(FitFixtures.RUN_POINTS - 1) { 250 } + 300, streams.power)
+        assertEquals(70, streams.formPower!!.first())
+        assertEquals(950, streams.legSpringStiffness!!.first())
+    }
+
+    @Test
     fun rejectsATruncatedFile() {
         val bytes = FitFixtures.run(start)
         assertFailsWith<ActivityFileException> { decoder.decode(bytes.copyOf(bytes.size - 20)) }
@@ -122,3 +203,5 @@ class GarminJavaFitDecoderTest {
         assertFailsWith<ActivityFileException> { decoder.decode("<gpx></gpx>".encodeToByteArray()) }
     }
 }
+
+private const val FIT_EPOCH_SECONDS = 631_065_600L

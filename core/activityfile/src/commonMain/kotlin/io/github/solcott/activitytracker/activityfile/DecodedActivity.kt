@@ -38,7 +38,39 @@ data class DecodedActivity(
     val sets: List<DecodedSet> = emptyList(),
     /** FIT `split` messages, in file order: a ski day's runs and lift rides among them. */
     val splits: List<DecodedSplit> = emptyList(),
+    /** FIT `hr` messages, in file order: heart rate a strap stored apart from the records, for [HrMessages] to merge into them. */
+    val hrMessages: List<DecodedHrMessage> = emptyList(),
+    /** Every beat-to-beat (RR) interval from FIT `hrv` messages, in seconds and file order, invalid values dropped. */
+    val rrIntervalsSeconds: List<Double> = emptyList(),
+    /** The FIT `activity` message's `timestamp`. */
+    val activityTimestampMillis: Long? = null,
+    /** The FIT `activity` message's `local_timestamp`: the same moment on the device's clock, in seconds since the FIT epoch. */
+    val activityLocalTimestampSeconds: Long? = null,
 )
+
+/**
+ * A FIT `hr` message. One with a [timestampMillis] anchors the device-relative [eventTimestamps] (seconds, already expanded from
+ * `event_timestamp_12` by the SDK) to UTC; the others carry only event timestamps, each with its reading in [filteredBpm].
+ */
+data class DecodedHrMessage(
+    val timestampMillis: Long?,
+    /** Seconds to add to [timestampMillis]'s whole second. */
+    val fractionalSeconds: Double? = null,
+    val eventTimestamps: List<Double>,
+    val filteredBpm: List<Int>,
+)
+
+/** A developer field on a record, named and united by its `field_description` ("Form Power", "Watts"), its value scaled. */
+data class DecodedDeveloperField(val name: String?, val units: String?, val value: Double?)
+
+/**
+ * A developer field's `field_description`, for a decoder whose SDK hands back developer field values raw (the JS SDK's): [field] scales a
+ * raw value as the description says, raw / scale - offset, as the Java and Swift SDKs do themselves.
+ */
+data class FitDeveloperFieldDescription(val name: String?, val units: String?, val scale: Double?, val offset: Double?) {
+    fun field(raw: Double): DecodedDeveloperField =
+        DecodedDeveloperField(name, units, raw / (scale?.takeIf { it != 0.0 } ?: 1.0) - (offset ?: 0.0))
+}
 
 /** A FIT `length`: one length of a pool swim. [lengthType] is "idle" for a rest at the wall, else "active". */
 data class DecodedLength(
@@ -189,6 +221,9 @@ data class DecodedSummary(
     val intensity: String? = null,
     /** What ended a lap, in the SDK's or TCX's spelling ("POSITION_LAP", "distance", "Location"). */
     val lapTrigger: String? = null,
+    /** FIT's `total_cycles`: strides on foot (half the steps), strokes swimming, rowing or paddling, crank revolutions on a ride. */
+    val totalCycles: Long? = null,
+    val avgStrokeDistanceMeters: Double? = null,
 )
 
 /** One sample of the activity's record stream. */
@@ -231,7 +266,48 @@ data class DecodedSample(
     val stanceTimeBalancePercent: Double? = null,
     /** FIT `left_right_balance` as recorded: the low 7 bits are a percent, from the right leg when [FitBalance.RIGHT] is set. */
     val leftRightBalance: Int? = null,
+    /** Percent. */
+    val leftTorqueEffectiveness: Double? = null,
+    val rightTorqueEffectiveness: Double? = null,
+    /** Percent. */
+    val leftPedalSmoothness: Double? = null,
+    val rightPedalSmoothness: Double? = null,
+    /** Platform centre offset, in millimeters; negative is inboard. */
+    val leftPcoMm: Int? = null,
+    val rightPcoMm: Int? = null,
+    val coreTemperatureCelsius: Double? = null,
+    /** Muscle oxygen saturation (SmO₂), in percent. */
+    val saturatedHemoglobinPercent: Double? = null,
+    /** Grams per deciliter. */
+    val totalHemoglobinConc: Double? = null,
+    val ebikeBatteryPercent: Int? = null,
+    /** The bike's own mode number; 0 is off. */
+    val ebikeAssistMode: Int? = null,
+    val ebikeAssistLevelPercent: Int? = null,
+    /** Developer fields that have a `field_description`, for [DeveloperFields] to recognize. */
+    val developerFields: List<DecodedDeveloperField> = emptyList(),
+    /** Stryd's form power, from a developer field ([DeveloperFields] fills it; decoders leave it null). */
+    val formPowerWatts: Double? = null,
+    /** Stryd's leg spring stiffness, in kN/m, from a developer field ([DeveloperFields] fills it; decoders leave it null). */
+    val legSpringStiffnessKnPerM: Double? = null,
 )
+
+/** FIT `hrv` times and `hr` readings: a message's last arrays are padded with invalid values, which SDKs give raw. */
+object FitHeart {
+    /** An `hrv` time's 0xFFFF at a scale of 1000. */
+    private const val INVALID_RR_SECONDS = 65.535
+
+    /** `event_timestamp` is 32 bits at a scale of 1024: 2²² seconds, where it rolls over. */
+    const val EVENT_TIMESTAMP_ROLLOVER = 4_194_304.0
+
+    /** A `filtered_bpm`'s 0xFF. */
+    private const val INVALID_BPM = 255
+
+    fun isValidRr(seconds: Double): Boolean = seconds > 0 && seconds < INVALID_RR_SECONDS
+
+    fun isValidReading(eventTimestamp: Double, bpm: Int): Boolean =
+        eventTimestamp.isFinite() && eventTimestamp >= 0 && eventTimestamp < EVENT_TIMESTAMP_ROLLOVER && bpm in 1 until INVALID_BPM
+}
 
 /** FIT's `left_right_balance` bits. */
 object FitBalance {

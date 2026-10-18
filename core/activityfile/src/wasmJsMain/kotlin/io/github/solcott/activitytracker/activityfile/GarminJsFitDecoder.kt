@@ -13,11 +13,14 @@ class GarminJsFitDecoder : FitDecoder {
         val decoder = Decoder(Stream(bufferOf(bytes.toUint8Array())))
         if (!decoder.isFIT()) activityFileError("Not a FIT file")
         if (!decoder.checkIntegrity()) activityFileError("FIT file is corrupt or truncated")
-        val result = decoder.read()
+        // Heart rate from hr messages is merged in common code (HrMessages), as on every platform.
+        val result = decoder.read(decodeOptions())
         if (result.errors.length > 0) activityFileError("Couldn't read FIT file: ${jsString(result.errors[0]!!)}")
         val messages = result.messages
         val sessions = messages.sessionMesgs?.toList().orEmpty()
         val diveMessages = diveMessages(messages, sessions.firstOrNull())
+        val developerFields = developerFieldDescriptions(messages)
+        val activity = messages.activityMesgs?.toList()?.firstOrNull()
         return DecodedActivity(
             fileId =
                 messages.fileIdMesgs?.toList()?.firstOrNull()?.let {
@@ -30,7 +33,7 @@ class GarminJsFitDecoder : FitDecoder {
                 },
             sessions = sessions.map { it.toSummary() },
             laps = messages.lapMesgs?.toList().orEmpty().map { it.toSummary() },
-            records = messages.recordMesgs?.toList().orEmpty().map { it.toSample() },
+            records = messages.recordMesgs?.toList().orEmpty().map { it.toSample(developerFields) },
             dive =
                 FitDives.interpret(
                     diveMessages,
@@ -58,8 +61,29 @@ class GarminJsFitDecoder : FitDecoder {
             lengths = messages.lengthMesgs?.toList().orEmpty().map { it.toLength() },
             sets = messages.setMesgs?.toList().orEmpty().map { it.toSet() },
             splits = messages.splitMesgs?.toList().orEmpty().map { it.toSplit() },
+            hrMessages = messages.hrMesgs?.toList().orEmpty().map { it.toHrMessage() },
+            rrIntervalsSeconds = messages.hrvMesgs?.toList().orEmpty().flatMap { m -> numbers(m.time).filter(FitHeart::isValidRr) },
+            activityTimestampMillis = activity?.timestamp?.let(::dateMillis),
+            activityLocalTimestampSeconds = number(activity?.localTimestamp)?.toLong(),
         )
     }
+
+    /** Each developer field's description, by the key records' `developerFields` use. The SDK leaves their values unscaled. */
+    private fun developerFieldDescriptions(messages: FitMessages): Map<String, FitDeveloperFieldDescription> =
+        messages.fieldDescriptionMesgs
+            ?.toList()
+            .orEmpty()
+            .mapNotNull { d ->
+                val key = d.key?.let(::jsString) ?: return@mapNotNull null
+                key to
+                    FitDeveloperFieldDescription(
+                        name = d.fieldName?.let(::firstOf)?.let(::jsString),
+                        units = d.units?.let(::firstOf)?.let(::jsString),
+                        scale = number(d.scale),
+                        offset = number(d.offset),
+                    )
+            }
+            .toMap()
 
     private fun athleteSettings(messages: FitMessages): DecodedAthleteSettings? {
         val zones = messages.zonesTargetMesgs?.toList()?.firstOrNull()
@@ -125,7 +149,7 @@ class GarminJsFitDecoder : FitDecoder {
         )
     }
 
-    private fun JsRecordMesg.toSample() =
+    private fun JsRecordMesg.toSample(descriptions: Map<String, FitDeveloperFieldDescription>) =
         DecodedSample(
             timestampMillis = timestamp?.let(::dateMillis),
             latitude = number(positionLat)?.let { s -> FitUnits.semicirclesToDegrees(s.toInt()) },
@@ -152,6 +176,26 @@ class GarminJsFitDecoder : FitDecoder {
             verticalRatioPercent = number(verticalRatio),
             stanceTimeBalancePercent = number(stanceTimeBalance),
             leftRightBalance = number(leftRightBalance)?.roundToInt(),
+            leftTorqueEffectiveness = number(leftTorqueEffectiveness),
+            rightTorqueEffectiveness = number(rightTorqueEffectiveness),
+            leftPedalSmoothness = number(leftPedalSmoothness),
+            rightPedalSmoothness = number(rightPedalSmoothness),
+            leftPcoMm = number(leftPco)?.roundToInt(),
+            rightPcoMm = number(rightPco)?.roundToInt(),
+            coreTemperatureCelsius = number(coreTemperature),
+            saturatedHemoglobinPercent = number(saturatedHemoglobinPercent),
+            totalHemoglobinConc = number(totalHemoglobinConc),
+            ebikeBatteryPercent = number(ebikeBatteryLevel)?.roundToInt(),
+            ebikeAssistMode = number(ebikeAssistMode)?.roundToInt(),
+            ebikeAssistLevelPercent = number(ebikeAssistLevelPercent)?.roundToInt(),
+            developerFields =
+                developerFields
+                    ?.let { fields ->
+                        descriptions.mapNotNull { (key, description) ->
+                            number(fieldOf(fields, key)?.let(::firstOf))?.let(description::field)
+                        }
+                    }
+                    .orEmpty(),
         )
 
     private fun JsDiveSummaryMesg.toDiveSummary() =
@@ -217,6 +261,8 @@ class GarminJsFitDecoder : FitDecoder {
             aerobicTrainingEffect = number(totalTrainingEffect),
             anaerobicTrainingEffect = number(totalAnaerobicTrainingEffect),
             poolLengthMeters = number(poolLength),
+            totalCycles = number(totalCycles)?.toLong(),
+            avgStrokeDistanceMeters = number(avgStrokeDistance),
             intensity = intensity?.let(::jsString),
             lapTrigger = lapTrigger?.let(::jsString),
         )
@@ -282,12 +328,12 @@ private fun exerciseName(types: JsAny, category: String, subtype: Int): String? 
     js("(types[category + 'ExerciseName'] || {})[subtype] ?? null")
 
 /** A numeric field, or null when it's absent (undefined) or not a number. */
-private fun number(value: JsAny?): Double? = if (value == null) null else jsNumberOrNaN(value).takeUnless { it.isNaN() }
+internal fun number(value: JsAny?): Double? = if (value == null) null else jsNumberOrNaN(value).takeUnless { it.isNaN() }
 
 @Suppress("UnusedParameter") // Used by the JS body.
 private fun jsNumberOrNaN(value: JsAny): Double = js("typeof value === 'number' ? value : NaN")
 
-private fun dateMillis(date: JsAny): Long = jsDateMillis(date).toLong()
+internal fun dateMillis(date: JsAny): Long = jsDateMillis(date).toLong()
 
 @Suppress("UnusedParameter") // Used by the JS body.
 private fun jsDateMillis(date: JsAny): Double = js("date instanceof Date ? date.getTime() : Number(date)")

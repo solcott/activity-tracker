@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.activityfile
 
+import com.garmin.fit.ActivityMesg
 import com.garmin.fit.AntplusDeviceType
 import com.garmin.fit.BatteryStatus
 import com.garmin.fit.BleDeviceType
@@ -15,6 +16,8 @@ import com.garmin.fit.ExerciseCategory
 import com.garmin.fit.FileIdMesg
 import com.garmin.fit.FitRuntimeException
 import com.garmin.fit.GarminProduct
+import com.garmin.fit.HrMesg
+import com.garmin.fit.HrvMesg
 import com.garmin.fit.JumpMesg
 import com.garmin.fit.LapMesg
 import com.garmin.fit.LengthMesg
@@ -79,28 +82,31 @@ class GarminJavaFitDecoder : FitDecoder {
         broadcaster.addListener { m: ZonesTargetMesg -> if (zonesTarget == null) zonesTarget = m }
         broadcaster.addListener { m: UserProfileMesg -> if (userProfile == null) userProfile = m }
         broadcaster.addListener { m: RecordMesg -> records += m.toSample() }
+        val heart = HeartListeners(broadcaster)
         try {
             decode.read(ByteArrayInputStream(bytes), broadcaster, broadcaster)
         } catch (e: FitRuntimeException) {
             activityFileError("Couldn't read FIT file: ${e.message}", e)
         }
         val diveMessages = dive.messages(firstSession)
-        return DecodedActivity(
-            fileId = fileId,
-            sessions = sessions,
-            laps = laps,
-            records = records,
-            dive = FitDives.interpret(diveMessages, sport = firstSession?.sport?.name, subSport = firstSession?.subSport?.name),
-            gasSwitches = FitDives.gasSwitches(diveMessages),
-            tankUpdates = FitDives.tankUpdates(diveMessages),
-            sensors = ride.sensors,
-            gearChanges = ride.gearChanges,
-            jumps = ride.jumps,
-            athlete = athleteSettings(zonesTarget, userProfile),
-            lengths = workout.lengths,
-            sets = workout.sets,
-            splits = workout.splits,
-        )
+        val decoded =
+            DecodedActivity(
+                fileId = fileId,
+                sessions = sessions,
+                laps = laps,
+                records = records,
+                dive = FitDives.interpret(diveMessages, sport = firstSession?.sport?.name, subSport = firstSession?.subSport?.name),
+                gasSwitches = FitDives.gasSwitches(diveMessages),
+                tankUpdates = FitDives.tankUpdates(diveMessages),
+                sensors = ride.sensors,
+                gearChanges = ride.gearChanges,
+                jumps = ride.jumps,
+                athlete = athleteSettings(zonesTarget, userProfile),
+                lengths = workout.lengths,
+                sets = workout.sets,
+                splits = workout.splits,
+            )
+        return heart.into(decoded)
     }
 
     private fun athleteSettings(zones: ZonesTargetMesg?, profile: UserProfileMesg?): DecodedAthleteSettings? =
@@ -142,6 +148,19 @@ class GarminJavaFitDecoder : FitDecoder {
             verticalRatioPercent = verticalRatio?.toDouble(),
             stanceTimeBalancePercent = stanceTimeBalance?.toDouble(),
             leftRightBalance = leftRightBalance?.toInt(),
+            leftTorqueEffectiveness = leftTorqueEffectiveness?.toDouble(),
+            rightTorqueEffectiveness = rightTorqueEffectiveness?.toDouble(),
+            leftPedalSmoothness = leftPedalSmoothness?.toDouble(),
+            rightPedalSmoothness = rightPedalSmoothness?.toDouble(),
+            leftPcoMm = leftPco?.toInt(),
+            rightPcoMm = rightPco?.toInt(),
+            coreTemperatureCelsius = coreTemperature?.toDouble(),
+            saturatedHemoglobinPercent = saturatedHemoglobinPercent?.toDouble(),
+            totalHemoglobinConc = totalHemoglobinConc?.toDouble(),
+            ebikeBatteryPercent = ebikeBatteryLevel?.toInt(),
+            ebikeAssistMode = ebikeAssistMode?.toInt(),
+            ebikeAssistLevelPercent = ebikeAssistLevelPercent?.toInt(),
+            developerFields = developerFields.map { DecodedDeveloperField(it.name, it.units, it.doubleValue) },
         )
 
     private fun DateTime.millis(): Long = instant.toEpochMilli()
@@ -179,6 +198,8 @@ class GarminJavaFitDecoder : FitDecoder {
             aerobicTrainingEffect = totalTrainingEffect?.toDouble(),
             anaerobicTrainingEffect = totalAnaerobicTrainingEffect?.toDouble(),
             poolLengthMeters = poolLength?.toDouble(),
+            totalCycles = totalCycles,
+            avgStrokeDistanceMeters = avgStrokeDistance?.toDouble(),
         )
 
     private fun LapMesg.toSummary() =
@@ -211,6 +232,48 @@ class GarminJavaFitDecoder : FitDecoder {
             intensity = intensity?.name,
             lapTrigger = lapTrigger?.name,
         )
+}
+
+/**
+ * Collects heart rate a strap stored in `hr` messages, the beat-to-beat intervals in `hrv` messages, and the `activity` message's UTC and
+ * local times.
+ */
+private class HeartListeners(broadcaster: MesgBroadcaster) {
+    private val hrMessages = mutableListOf<DecodedHrMessage>()
+    private val rrIntervals = mutableListOf<Double>()
+    private var activity: ActivityMesg? = null
+
+    /** [decoded] with what these collected. */
+    fun into(decoded: DecodedActivity) =
+        decoded.copy(
+            hrMessages = hrMessages,
+            rrIntervalsSeconds = rrIntervals,
+            activityTimestampMillis = activity?.timestamp?.instant?.toEpochMilli(),
+            activityLocalTimestampSeconds = activity?.localTimestamp,
+        )
+
+    init {
+        broadcaster.addListener { m: HrMesg ->
+            // The last message's arrays are padded with invalid values: keep only valid pairs.
+            val readings =
+                m.eventTimestamp.orEmpty().zip(m.filteredBpm.orEmpty()).mapNotNull { (time, bpm) ->
+                    val seconds = time?.toDouble() ?: return@mapNotNull null
+                    val reading = bpm?.toInt() ?: return@mapNotNull null
+                    (seconds to reading).takeIf { FitHeart.isValidReading(seconds, reading) }
+                }
+            hrMessages +=
+                DecodedHrMessage(
+                    timestampMillis = m.timestamp?.instant?.toEpochMilli(),
+                    fractionalSeconds = m.fractionalTimestamp?.toDouble(),
+                    eventTimestamps = readings.map { it.first },
+                    filteredBpm = readings.map { it.second },
+                )
+        }
+        broadcaster.addListener { m: ActivityMesg -> if (activity == null) activity = m }
+        broadcaster.addListener { m: HrvMesg ->
+            m.time.orEmpty().forEach { time -> time?.toDouble()?.takeIf(FitHeart::isValidRr)?.let { rrIntervals += it } }
+        }
+    }
 }
 
 /** Collects a pool swim's lengths, a workout's sets and a ski day's splits as the decoder reads them. */

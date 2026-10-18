@@ -17,6 +17,7 @@ import kotlinx.datetime.FixedOffsetTimeZone
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.UtcOffset
+import kotlinx.datetime.offsetAt
 
 class ShearwaterXmlParserTest {
     /** Where the sample dive was logged: its clock read 5:30 PM at UTC-6. */
@@ -60,6 +61,12 @@ class ShearwaterXmlParserTest {
         assertEquals(Instant.parse("2024-10-16T22:30:57Z"), cozumel.startedAt)
         assertEquals(activity.elapsed, cozumel.elapsed)
         assertSame(activity, activity.inZone(zone), "already there")
+        assertEquals(-300, cozumel.utcOffsetMinutes, "where the dive was placed")
+        assertEquals(
+            zone.offsetAt(activity.startedAt).totalSeconds / 60,
+            activity.utcOffsetMinutes,
+            "read in the device's zone until placed",
+        )
     }
 
     @Test

@@ -74,6 +74,20 @@ object StreamBuilder {
                 lengths = lengths.mapNotNull { WorkoutStructure.length(it, ::seconds) }.sortedBy { it.start }.ifEmpty { null },
                 sets = sets.mapNotNull { WorkoutStructure.set(it, ::seconds) }.sortedBy { it.start }.ifEmpty { null },
                 legs = legs.mapNotNull { WorkoutStructure.leg(it, ::seconds) }.sortedBy { it.start }.ifEmpty { null },
+                torqueEffectivenessLeft = records.channel { it.leftTorqueEffectiveness?.times(CENTI) },
+                torqueEffectivenessRight = records.channel { it.rightTorqueEffectiveness?.times(CENTI) },
+                pedalSmoothnessLeft = records.channel { it.leftPedalSmoothness?.times(CENTI) },
+                pedalSmoothnessRight = records.channel { it.rightPedalSmoothness?.times(CENTI) },
+                pcoLeft = records.channel { it.leftPcoMm?.toDouble() },
+                pcoRight = records.channel { it.rightPcoMm?.toDouble() },
+                coreTemperature = records.channel { it.coreTemperatureCelsius?.times(CENTI) },
+                smO2 = records.channel { it.saturatedHemoglobinPercent?.times(DECI) },
+                totalHemoglobin = records.channel { it.totalHemoglobinConc?.times(CENTI) },
+                ebikeBattery = records.channel { it.ebikeBatteryPercent?.toDouble() },
+                ebikeAssistMode = records.channel { it.ebikeAssistMode?.toDouble() },
+                ebikeAssistLevel = records.channel { it.ebikeAssistLevelPercent?.toDouble() },
+                formPower = records.channel { it.formPowerWatts },
+                legSpringStiffness = records.channel { it.legSpringStiffnessKnPerM?.times(CENTI) },
             )
         return data.takeIf { it.channels.isNotEmpty() }
     }

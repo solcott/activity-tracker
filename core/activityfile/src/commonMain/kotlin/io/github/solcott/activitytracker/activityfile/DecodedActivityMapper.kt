@@ -25,7 +25,12 @@ object DecodedActivityMapper {
         val type = fit.fileId?.type?.fitKey()
         if (type != null && type != "activity") activityFileError("Not an activity file: ${fit.fileId.type}")
 
-        val records = fit.records.filter { it.timestampMillis != null }.sortedBy { it.timestampMillis }
+        // Stryd's developer fields, then heart rate a strap stored in hr messages, fill what the records lack.
+        val records =
+            HrMessages.merge(
+                fit.hrMessages,
+                fit.records.filter { it.timestampMillis != null }.sortedBy { it.timestampMillis }.map(DeveloperFields::apply),
+            )
         val sessions = fit.sessions.ifEmpty { fit.laps }
         if (sessions.isEmpty() && records.isEmpty()) activityFileError("No activity data in file")
 
@@ -71,6 +76,10 @@ object DecodedActivityMapper {
             streams = streams(fit, records, startedAtMillis, elapsed, activityType),
             poolLengthCentimeters =
                 fit.sessions.firstNotNullOfOrNull { it.poolLengthMeters?.takeIf { m -> m > 0 } }?.let { (it * CENTI).roundToInt() },
+            hrvRmssd = Hrv.rmssd(fit.rrIntervalsSeconds),
+            cycles = SessionExtras.cycles(fit.sessions, activityType),
+            avgStrokeDistanceCentimeters = SessionExtras.avgStrokeDistanceCentimeters(fit.sessions),
+            utcOffsetMinutes = SessionExtras.utcOffsetMinutes(fit, startedAtMillis),
         )
     }
 

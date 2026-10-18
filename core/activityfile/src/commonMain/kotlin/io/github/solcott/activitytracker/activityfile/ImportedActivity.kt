@@ -5,8 +5,11 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.time.Duration
 import kotlin.time.Instant
+import kotlinx.datetime.FixedOffsetTimeZone
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.UtcOffset
+import kotlinx.datetime.offsetAt
 import kotlinx.datetime.toInstant
 
 /** An activity read from a file, whatever its format. Units match `ActivityDraft`: SI, as Doubles. */
@@ -60,14 +63,36 @@ data class ImportedActivity(
     val description: String? = null,
     /** A pool swim's pool length, in centimeters (a 25 yd pool is 2286); null for any other activity. */
     val poolLengthCentimeters: Int? = null,
+    /** The RMSSD of the file's beat-to-beat intervals, in milliseconds ([Hrv]); stored with the training load, never on the record. */
+    val hrvRmssd: Int? = null,
+    /** The device's cycle count, a run's strides doubled to steps (see `ActivityRecord.cycles`). */
+    val cycles: Int? = null,
+    val avgStrokeDistanceCentimeters: Int? = null,
+    /**
+     * The UTC offset where the activity started, in minutes east of UTC: the FIT activity message's, or for a file whose times have no
+     * zone, the zone [inZone] placed it in (the importing device's until then).
+     */
+    val utcOffsetMinutes: Int? = null,
 ) {
-    /** This activity with [localStart] read in [zone], every time moved together. Unchanged if the file's times had a zone. */
+    /**
+     * This activity with [localStart] read in [zone], every time moved together, and that zone's offset at the start as its UTC offset.
+     * Unchanged if the file's times had a zone.
+     */
     fun inZone(zone: TimeZone): ImportedActivity {
-        val shift = localStart?.toInstant(zone)?.minus(startedAt) ?: Duration.ZERO
-        return if (shift == Duration.ZERO) this
-        else copy(startedAt = startedAt + shift, samples = samples.map { it.copy(time = it.time + shift) })
+        val local = localStart ?: return this
+        val placed = local.toInstant(zone)
+        val shift = placed - startedAt
+        val offset = zone.offsetAt(placed).totalSeconds / SECONDS_PER_MINUTE
+        return if (shift == Duration.ZERO && offset == utcOffsetMinutes) this
+        else copy(startedAt = placed, samples = samples.map { it.copy(time = it.time + shift) }, utcOffsetMinutes = offset)
     }
 }
+
+private const val SECONDS_PER_MINUTE = 60
+
+/** Where this activity's clock was: its UTC offset as a fixed zone, else [fallback] (the zone the athlete placed a zone-less file in). */
+fun ImportedActivity.localZone(fallback: TimeZone): TimeZone =
+    utcOffsetMinutes?.let { FixedOffsetTimeZone(UtcOffset(seconds = it * SECONDS_PER_MINUTE)) } ?: fallback
 
 /** A dive's depths, gases and decompression state, in SI units. */
 data class ImportedDive(
