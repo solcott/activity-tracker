@@ -155,6 +155,7 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
                 trainingStressScore = load.trainingStressScore.within(MAX_LOAD_VALUE),
                 aerobicTrainingEffect = load.aerobicTrainingEffect.within(MAX_TRAINING_EFFECT),
                 anaerobicTrainingEffect = load.anaerobicTrainingEffect.within(MAX_TRAINING_EFFECT),
+                hrvRmssd = load.hrvRmssd.within(MAX_HRV_RMSSD),
             )
         }
         ?.takeUnless { it.isEmpty }
@@ -204,6 +205,9 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
 
         /** Training effect runs from 0 to 5.0, in tenths. */
         const val MAX_TRAINING_EFFECT = 50
+
+        /** RMSSD in milliseconds: a few hundred at most at rest, far less in exercise. */
+        private const val MAX_HRV_RMSSD = 500
         const val MAX_GAS_SWITCHES = 1_000
         const val MAX_TANKS = 8
         const val MAX_LAPS = 10_000

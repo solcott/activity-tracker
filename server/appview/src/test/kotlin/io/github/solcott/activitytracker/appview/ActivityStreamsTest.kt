@@ -385,6 +385,40 @@ class ActivityStreamsTest {
     }
 
     @Test
+    fun trainingLoadServesItsHrvToViewersTheZonesAdmit() = testApplication {
+        start()
+        streams(Visibility.PUBLIC)
+        zones(Visibility.SELF, trainingLoad = ""","trainingLoad":{"ftp":250,"hrvRmssd":42}""")
+
+        assertEquals(TrainingLoad(ftp = 250, hrvRmssd = 42), client.streamsFor(alice).output().trainingLoad)
+        assertNull(client.streamsFor(bob).output().trainingLoad)
+    }
+
+    @Test
+    fun anHrvOutOfRangeIsDropped() = testApplication {
+        start()
+        streams(Visibility.PUBLIC)
+        zones(Visibility.SELF, trainingLoad = ""","trainingLoad":{"hrvRmssd":90000}""")
+
+        assertNull(client.streamsFor(alice).output().trainingLoad, "a load with nothing left in range is none")
+    }
+
+    @Test
+    fun theNewChannelsAreAlignedLikeTheRest() {
+        val bounded =
+            ActivityStreamsViews.bounded(
+                data.copy(
+                    torqueEffectivenessLeft = listOf(8000, 8100, 7900),
+                    smO2 = listOf(655),
+                    legSpringStiffness = listOf(950, 951, 952),
+                )
+            )
+        assertEquals(listOf(8000, 8100, 7900), bounded.torqueEffectivenessLeft)
+        assertEquals(listOf(950, 951, 952), bounded.legSpringStiffness)
+        assertNull(bounded.smO2, "misaligned")
+    }
+
+    @Test
     fun misalignedTankSeriesKeepTheirPlaceEmpty() {
         val bounded =
             ActivityStreamsViews.bounded(data.copy(tankPressures = listOf(TankPressure(listOf(1)), TankPressure(listOf(1, 2, 3)))))

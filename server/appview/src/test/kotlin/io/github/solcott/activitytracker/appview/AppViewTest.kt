@@ -39,6 +39,7 @@ import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -359,6 +360,34 @@ class AppViewTest {
         assertEquals(ActivitySensor.MAX, sensors.size)
         assertEquals(ActivitySensor(SensorType.HEART_RATE, "Garmin", "HRM 200"), sensors.first())
         assertEquals(128, sensors[1].model?.length, "an overlong model is clamped")
+    }
+
+    @Test
+    fun servesCountsAndTheUtcOffsetDroppingImpossibleOnes() = testApplication {
+        application { appView(config, db, verifier) }
+        fun commitRun(rkey: String, fields: String) =
+            commit(
+                bob,
+                Nsid.FEED_ACTIVITY,
+                rkey,
+                """{"sport":"run","startedAt":"2026-09-30T10:00:00Z","elapsedTime":1800,"createdAt":"2026-09-30T10:31:00Z",$fields}""",
+            )
+        suspend fun record(rkey: String) =
+            AtJson.decodeFromString(
+                    GetActivity.Output.serializer(),
+                    client.get("/xrpc/${GetActivity.method.nsid}?uri=at://$bob/${Nsid.FEED_ACTIVITY}/$rkey").bodyAsText(),
+                )
+                .activity
+                .record
+        commitRun("3krun", """"cycles":8400,"avgStrokeDistance":0,"utcOffset":120""")
+        commitRun("3kodd", """"cycles":-5,"utcOffset":1200""")
+
+        val run = record("3krun")
+        assertEquals(8400, run.cycles)
+        assertEquals(120, run.utcOffset)
+        val odd = record("3kodd")
+        assertNull(odd.cycles)
+        assertNull(odd.utcOffset, "no zone is 20 hours ahead")
     }
 
     @Test

@@ -198,7 +198,15 @@ private fun JdbcTransaction.upsertActivity(
         it[Activities.record] =
             AtJson.encodeToString(
                 ActivityRecord.serializer(),
-                record.copy(sensors = boundedSensors(record.sensors), dive = boundedDive(record.dive), media = photos),
+                record.copy(
+                    sensors = boundedSensors(record.sensors),
+                    dive = boundedDive(record.dive),
+                    media = photos,
+                    // Untrusted: an offset no zone has is dropped, counts that can't be are too.
+                    utcOffset = record.utcOffset?.takeIf { o -> o in ActivityRecord.MIN_UTC_OFFSET..ActivityRecord.MAX_UTC_OFFSET },
+                    cycles = record.cycles?.takeIf { c -> c >= 0 },
+                    avgStrokeDistance = record.avgStrokeDistance?.takeIf { d -> d >= 0 },
+                ),
             )
         it[sport] = record.sport.take(MAX_SPORT_LENGTH)
         it[subSport] = record.subSport?.take(MAX_SPORT_LENGTH)
