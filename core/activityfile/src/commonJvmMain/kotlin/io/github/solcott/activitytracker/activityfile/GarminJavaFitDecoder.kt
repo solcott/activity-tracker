@@ -4,9 +4,11 @@ import com.garmin.fit.ActivityMesg
 import com.garmin.fit.AntplusDeviceType
 import com.garmin.fit.BatteryStatus
 import com.garmin.fit.BleDeviceType
+import com.garmin.fit.Bool
 import com.garmin.fit.DateTime
 import com.garmin.fit.Decode
 import com.garmin.fit.DeviceInfoMesg
+import com.garmin.fit.DiveAlert
 import com.garmin.fit.DiveGasMesg
 import com.garmin.fit.DiveSettingsMesg
 import com.garmin.fit.DiveSummaryMesg
@@ -33,6 +35,7 @@ import com.garmin.fit.SourceType
 import com.garmin.fit.SplitMesg
 import com.garmin.fit.TankSummaryMesg
 import com.garmin.fit.TankUpdateMesg
+import com.garmin.fit.TissueModelType
 import com.garmin.fit.UserProfileMesg
 import com.garmin.fit.ZonesTargetMesg
 import dev.zacsweers.metro.AppScope
@@ -77,10 +80,7 @@ class GarminJavaFitDecoder : FitDecoder {
         }
         broadcaster.addListener { m: LapMesg -> laps += m.toSummary() }
         val workout = WorkoutListeners(broadcaster)
-        var zonesTarget: ZonesTargetMesg? = null
-        var userProfile: UserProfileMesg? = null
-        broadcaster.addListener { m: ZonesTargetMesg -> if (zonesTarget == null) zonesTarget = m }
-        broadcaster.addListener { m: UserProfileMesg -> if (userProfile == null) userProfile = m }
+        val athlete = AthleteListeners(broadcaster)
         broadcaster.addListener { m: RecordMesg -> records += m.toSample() }
         val heart = HeartListeners(broadcaster)
         try {
@@ -97,29 +97,18 @@ class GarminJavaFitDecoder : FitDecoder {
                 records = records,
                 dive = FitDives.interpret(diveMessages, sport = firstSession?.sport?.name, subSport = firstSession?.subSport?.name),
                 gasSwitches = FitDives.gasSwitches(diveMessages),
+                diveAlerts = FitDives.diveAlerts(diveMessages),
                 tankUpdates = FitDives.tankUpdates(diveMessages),
                 sensors = ride.sensors,
                 gearChanges = ride.gearChanges,
                 jumps = ride.jumps,
-                athlete = athleteSettings(zonesTarget, userProfile),
+                athlete = athlete.settings(),
                 lengths = workout.lengths,
                 sets = workout.sets,
                 splits = workout.splits,
             )
         return heart.into(decoded)
     }
-
-    private fun athleteSettings(zones: ZonesTargetMesg?, profile: UserProfileMesg?): DecodedAthleteSettings? =
-        if (zones == null && profile == null) {
-            null
-        } else {
-            DecodedAthleteSettings(
-                maxHeartRate = zones?.maxHeartRate?.toInt(),
-                thresholdHeartRate = zones?.thresholdHeartRate?.toInt(),
-                functionalThresholdPower = zones?.functionalThresholdPower,
-                restingHeartRate = profile?.restingHeartRate?.toInt(),
-            )
-        }
 
     private fun RecordMesg.toSample() =
         DecodedSample(
@@ -376,6 +365,32 @@ private class RideListeners(broadcaster: MesgBroadcaster) {
 internal fun productName(manufacturer: Int?, garminProduct: Int?, productName: String?, product: Int?): String? =
     if (manufacturer == Manufacturer.GARMIN) garminProduct?.let(GarminProduct::getStringFromValue) else productName ?: product?.toString()
 
+/** Keeps the first `zones_target` and `user_profile`: the athlete's settings on the device. */
+private class AthleteListeners(broadcaster: MesgBroadcaster) {
+    private var zones: ZonesTargetMesg? = null
+    private var profile: UserProfileMesg? = null
+
+    init {
+        broadcaster.addListener { m: ZonesTargetMesg -> if (zones == null) zones = m }
+        broadcaster.addListener { m: UserProfileMesg -> if (profile == null) profile = m }
+    }
+
+    fun settings(): DecodedAthleteSettings? {
+        val zones = zones
+        val profile = profile
+        return if (zones == null && profile == null) {
+            null
+        } else {
+            DecodedAthleteSettings(
+                maxHeartRate = zones?.maxHeartRate?.toInt(),
+                thresholdHeartRate = zones?.thresholdHeartRate?.toInt(),
+                functionalThresholdPower = zones?.functionalThresholdPower,
+                restingHeartRate = profile?.restingHeartRate?.toInt(),
+            )
+        }
+    }
+}
+
 /** Collects a dive log's dive messages as the decoder reads them, for [FitDives] to interpret. */
 private class DiveListeners(broadcaster: MesgBroadcaster) {
     private var settings: DiveSettingsMesg? = null
@@ -384,6 +399,7 @@ private class DiveListeners(broadcaster: MesgBroadcaster) {
     private val gasSwitches = mutableListOf<FitGasSwitch>()
     private val tanks = mutableListOf<FitTankSummary>()
     private val tankUpdates = mutableListOf<FitTankUpdate>()
+    private val diveAlerts = mutableListOf<FitDiveAlert>()
 
     init {
         broadcaster.addListener { m: DiveSettingsMesg -> if (settings == null) settings = m }
@@ -392,8 +408,16 @@ private class DiveListeners(broadcaster: MesgBroadcaster) {
             gases += FitDiveGas(m.messageIndex, m.oxygenContent?.toInt(), m.heliumContent?.toInt(), m.status?.name, m.mode?.name)
         }
         broadcaster.addListener { m: EventMesg ->
-            if (m.event == Event.DIVE_GAS_SWITCHED)
-                m.data?.let { gasSwitches += FitGasSwitch(m.timestamp?.instant?.toEpochMilli(), it.toInt()) }
+            val time = m.timestamp?.instant?.toEpochMilli()
+            when (m.event) {
+                Event.DIVE_GAS_SWITCHED -> m.data?.let { gasSwitches += FitGasSwitch(time, it.toInt()) }
+                Event.DIVE_ALERT ->
+                    m.data?.let {
+                        val name = DiveAlert.getByValue(it.toShort()).takeIf { a -> a != DiveAlert.INVALID }?.name
+                        diveAlerts += FitDiveAlert(time, it.toInt(), name)
+                    }
+                else -> Unit
+            }
         }
         broadcaster.addListener { m: TankSummaryMesg ->
             tanks += FitTankSummary(m.startPressure?.toDouble(), m.endPressure?.toDouble(), m.volumeUsed?.toDouble(), m.sensor)
@@ -420,6 +444,15 @@ private class DiveListeners(broadcaster: MesgBroadcaster) {
             waterType = settings?.waterType?.name,
             waterDensityKgPerM3 = settings?.waterDensity?.toDouble(),
             tankUpdates = tankUpdates,
+            diveAlerts = diveAlerts,
+            decoModel = settings?.model?.takeIf { it != TissueModelType.INVALID }?.name,
+            ppO2WarnBar = settings?.po2Warn?.toDouble(),
+            ppO2CriticalBar = settings?.po2Critical?.toDouble(),
+            ppO2DecoBar = settings?.po2Deco?.toDouble(),
+            safetyStopEnabled = settings?.safetyStopEnabled?.let { it == Bool.TRUE },
+            safetyStopTimeSeconds = settings?.safetyStopTime?.toInt(),
+            lowSetpointBar = settings?.ccrLowSetpoint?.toDouble(),
+            highSetpointBar = settings?.ccrHighSetpoint?.toDouble(),
         )
 
     private fun position(lat: Int?, lon: Int?): DivePosition? =

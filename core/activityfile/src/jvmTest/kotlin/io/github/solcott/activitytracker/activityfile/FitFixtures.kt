@@ -4,10 +4,12 @@ import com.garmin.fit.AntplusDeviceType
 import com.garmin.fit.BatteryStatus
 import com.garmin.fit.BenchPressExerciseName
 import com.garmin.fit.BleDeviceType
+import com.garmin.fit.Bool
 import com.garmin.fit.BufferEncoder
 import com.garmin.fit.DateTime
 import com.garmin.fit.DeviceInfoMesg
 import com.garmin.fit.DisplayMeasure
+import com.garmin.fit.DiveAlert
 import com.garmin.fit.DiveGasMesg
 import com.garmin.fit.DiveGasMode
 import com.garmin.fit.DiveGasStatus
@@ -44,6 +46,7 @@ import com.garmin.fit.SubSport
 import com.garmin.fit.SwimStroke
 import com.garmin.fit.TankSummaryMesg
 import com.garmin.fit.TankUpdateMesg
+import com.garmin.fit.TissueModelType
 import com.garmin.fit.UserProfileMesg
 import com.garmin.fit.WaterType
 import com.garmin.fit.ZonesTargetMesg
@@ -243,7 +246,9 @@ object FitFixtures {
     /**
      * What the sample Descent files lack: RMV, a tank with its gas used and its readings every two minutes, a backup-only gas, a switch to
      * a slot that doesn't exist, a lap summary written before the session's, ppO₂ and a deco stop on the records, and the dive summary's N₂
-     * loading and rates. Ten minutes at 0-20-0 m in fresh water on air, then nitrox 50 from the backup slot at 7 min; GF 35/75.
+     * loading and rates. Ten minutes at 0-20-0 m in fresh water on air, then nitrox 50 from the backup slot at 7 min; GF 35/75. Its
+     * settings are ZHL-16C, ppO₂ limits of 1.4/1.6/1.6, setpoints of 0.7 and 1.3 and a 3-minute safety stop; it alerts the no-deco limit
+     * reached at 5 min (dismissed by a key 5 s later) and the safety stop complete at 9 min.
      */
     @Suppress("CyclomaticComplexMethod") // One file, message by message.
     fun dive(start: Instant): ByteArray {
@@ -270,12 +275,10 @@ object FitFixtures {
             }
         val extra =
             listOf<Mesg>(
-                DiveSettingsMesg().apply {
-                    gfLow = 35.toShort()
-                    gfHigh = 75.toShort()
-                    waterType = WaterType.FRESH
-                    waterDensity = 1000f
-                },
+                diveSettings(),
+                alert(at(300), DiveAlert.NDL_REACHED),
+                alert(at(305), DiveAlert.ALERT_DISMISSED_BY_KEY),
+                alert(at(540), DiveAlert.SAFETY_STOP_COMPLETE),
                 gas(0, 21, DiveGasStatus.ENABLED),
                 gas(1, 50, DiveGasStatus.BACKUP_ONLY),
                 gas(2, 21, DiveGasStatus.DISABLED),
@@ -328,6 +331,33 @@ object FitFixtures {
     }
 
     const val DIVE_POINTS = 10
+
+    /**
+     * [dive]'s settings: GF 35/75 in fresh water, ZHL-16C, ppO₂ limits of 1.4/1.6/1.6, setpoints of 0.7 and 1.3, a 3-minute safety stop.
+     */
+    private fun diveSettings() =
+        DiveSettingsMesg().apply {
+            gfLow = 35.toShort()
+            gfHigh = 75.toShort()
+            waterType = WaterType.FRESH
+            waterDensity = 1000f
+            model = TissueModelType.ZHL_16C
+            po2Warn = 1.4f
+            po2Critical = 1.6f
+            po2Deco = 1.6f
+            safetyStopEnabled = Bool.TRUE
+            safetyStopTime = 180
+            ccrLowSetpoint = 0.7f
+            ccrHighSetpoint = 1.3f
+        }
+
+    private fun alert(time: DateTime, alert: DiveAlert) =
+        EventMesg().apply {
+            timestamp = time
+            event = Event.DIVE_ALERT
+            eventType = EventType.MARKER
+            data = alert.value.toLong()
+        }
 
     /**
      * A pool swim in a [poolLength] m pool (22.86 for 25 yd, with [unit] statute): four freestyle lengths of 30 s and 15 strokes, a 20 s

@@ -213,6 +213,15 @@ internal external interface JsDiveSettingsMesg : JsAny {
     val gfHigh: JsAny?
     val waterType: JsAny?
     val waterDensity: JsAny?
+    val model: JsAny?
+    val po2Warn: JsAny?
+    val po2Critical: JsAny?
+    val po2Deco: JsAny?
+    /** FIT's bool: the SDK leaves it a number (or, in a later SDK, a boolean). */
+    val safetyStopEnabled: JsAny?
+    val safetyStopTime: JsAny?
+    val ccrLowSetpoint: JsAny?
+    val ccrHighSetpoint: JsAny?
 }
 
 internal external interface JsDiveGasMesg : JsAny {
@@ -224,6 +233,8 @@ internal external interface JsDiveGasMesg : JsAny {
 }
 
 internal external interface JsEventMesg : JsAny {
+    /** `data`'s subfield for a `dive_alert` event, as the SDK names the value. */
+    val diveAlert: JsAny?
     val timestamp: JsAny?
     val event: JsAny?
     val data: JsAny?

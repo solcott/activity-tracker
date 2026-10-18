@@ -41,6 +41,7 @@ class GarminJsFitDecoder : FitDecoder {
                     subSport = sessions.firstOrNull()?.subSport?.let(::jsString),
                 ),
             gasSwitches = FitDives.gasSwitches(diveMessages),
+            diveAlerts = FitDives.diveAlerts(diveMessages),
             tankUpdates = FitDives.tankUpdates(diveMessages),
             sensors = messages.deviceInfoMesgs?.toList().orEmpty().map { it.toSensor() },
             gearChanges =
@@ -146,6 +147,22 @@ class GarminJsFitDecoder : FitDecoder {
                 messages.tankUpdateMesgs?.toList().orEmpty().map {
                     FitTankUpdate(it.timestamp?.let(::dateMillis), number(it.sensor)?.toLong(), number(it.pressure))
                 },
+            // The raw data, whatever the SDK names it: FitDives resolves it by FIT value.
+            diveAlerts =
+                messages.eventMesgs?.toList().orEmpty().mapNotNull { e ->
+                    number(e.data)
+                        ?.roundToInt()
+                        ?.takeIf { e.event?.let(::jsString) == "diveAlert" }
+                        ?.let { FitDiveAlert(e.timestamp?.let(::dateMillis), it, e.diveAlert?.let(::jsString)) }
+                },
+            decoModel = settings?.model?.let(::jsString),
+            ppO2WarnBar = number(settings?.po2Warn),
+            ppO2CriticalBar = number(settings?.po2Critical),
+            ppO2DecoBar = number(settings?.po2Deco),
+            safetyStopEnabled = settings?.safetyStopEnabled?.let { jsString(it) in setOf("true", "1") },
+            safetyStopTimeSeconds = number(settings?.safetyStopTime)?.roundToInt(),
+            lowSetpointBar = number(settings?.ccrLowSetpoint),
+            highSetpointBar = number(settings?.ccrHighSetpoint),
         )
     }
 

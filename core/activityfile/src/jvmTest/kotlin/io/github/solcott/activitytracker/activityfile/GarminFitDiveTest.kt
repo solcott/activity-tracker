@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.activityfile
 
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.DecoModel
+import io.github.solcott.activitytracker.lexicon.app.DiveAlertKind
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.lexicon.app.WaterType
@@ -175,5 +177,24 @@ class GarminFitDiveTest {
         assertEquals(3.0, deco.nextStopDepthMeters!!, 1e-3)
         assertEquals(120L to 240L, deco.nextStopSeconds to deco.ttsSeconds)
         assertEquals(8 to 42, deco.cnsPercent to deco.n2LoadPercent)
+    }
+
+    @Test
+    fun anEncodedDivesAlertsAndSettings() {
+        val start = Instant.parse("2026-09-20T07:00:00Z")
+        val decoded = GarminJavaFitDecoder().decode(FitFixtures.dive(start))
+        assertEquals(
+            listOf(300L to DiveAlertKind.NDL_REACHED, 540L to DiveAlertKind.SAFETY_STOP_COMPLETE),
+            decoded.diveAlerts.map { decoded.secondsOf(it.timestampMillis) to it.kind },
+            "the dismissal is dropped",
+        )
+        val dive = assertNotNull(decoded.dive)
+        assertEquals(DecoModel.ZHL16C, dive.decoModel)
+        assertEquals(1.4, dive.ppO2WarnBar!!, 1e-3)
+        assertEquals(1.6, dive.ppO2CriticalBar!!, 1e-3)
+        assertEquals(1.6, dive.ppO2DecoBar!!, 1e-3)
+        assertEquals(0.7, dive.lowSetpointBar!!, 1e-3)
+        assertEquals(1.3, dive.highSetpointBar!!, 1e-3)
+        assertEquals(180, dive.safetyStopSeconds)
     }
 }

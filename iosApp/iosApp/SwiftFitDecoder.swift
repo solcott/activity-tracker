@@ -47,6 +47,7 @@ final class SwiftFitDecoder: FitDecoder {
             athlete: Self.athlete(messages),
             gasSwitches: FitDives.shared.gasSwitches(messages: diveMessages),
             tankUpdates: FitDives.shared.tankUpdates(messages: diveMessages),
+            diveAlerts: FitDives.shared.diveAlerts(messages: diveMessages),
             notes: nil,
             lengths: messages.lengthMesgs.map(Self.length),
             sets: messages.setMesgs.map(Self.set),
@@ -317,7 +318,24 @@ final class SwiftFitDecoder: FitDecoder {
                     sensor: m.getSensor().map { KotlinLong(value: Int64($0)) },
                     pressureBar: double(m.getPressure())
                 )
-            }
+            },
+            // The raw data, whatever the SDK names it: FitDives resolves it by FIT value.
+            diveAlerts: messages.eventMesgs.compactMap { m in
+                guard m.getEvent() == .diveAlert, let data = m.getData() else { return nil }
+                return FitDiveAlert(
+                    timestampMillis: m.getTimestamp().map { KotlinLong(value: millis($0)) },
+                    value: Int32(truncatingIfNeeded: data),
+                    sdkName: DiveAlert(rawValue: UInt8(truncatingIfNeeded: data)).map { String(describing: $0) }
+                )
+            },
+            decoModel: settings?.getModel().map { String(describing: $0) },
+            ppO2WarnBar: double(settings?.getPo2Warn()),
+            ppO2CriticalBar: double(settings?.getPo2Critical()),
+            ppO2DecoBar: double(settings?.getPo2Deco()),
+            safetyStopEnabled: settings?.getSafetyStopEnabled().map { KotlinBoolean(value: $0) },
+            safetyStopTimeSeconds: int(settings?.getSafetyStopTime().map(Int32.init)),
+            lowSetpointBar: double(settings?.getCcrLowSetpoint()),
+            highSetpointBar: double(settings?.getCcrHighSetpoint())
         )
     }
 

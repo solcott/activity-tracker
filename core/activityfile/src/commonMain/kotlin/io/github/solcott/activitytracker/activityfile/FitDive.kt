@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.activityfile
 
+import io.github.solcott.activitytracker.lexicon.app.DecoModel
 import io.github.solcott.activitytracker.lexicon.app.WaterType
 
 /**
@@ -28,7 +29,26 @@ data class FitDiveMessages(
     val waterDensityKgPerM3: Double? = null,
     /** Each `tank_update`, in file order. */
     val tankUpdates: List<FitTankUpdate> = emptyList(),
+    /** Each `dive_alert` event, in file order, dismissals included. */
+    val diveAlerts: List<FitDiveAlert> = emptyList(),
+    /** From the first `dive_settings`: its `model` in the SDK's spelling ("ZHL_16C", "zhl16c"). */
+    val decoModel: String? = null,
+    /** From the first `dive_settings`, in bar. */
+    val ppO2WarnBar: Double? = null,
+    val ppO2CriticalBar: Double? = null,
+    val ppO2DecoBar: Double? = null,
+    val safetyStopEnabled: Boolean? = null,
+    val safetyStopTimeSeconds: Int? = null,
+    /** From the first `dive_settings`: a rebreather's setpoints, in bar. */
+    val lowSetpointBar: Double? = null,
+    val highSetpointBar: Double? = null,
 )
+
+/**
+ * A `dive_alert` event: [value] is its raw `data`, the FIT `dive_alert` value, whatever the SDK names it. [sdkName] is the SDK's name for
+ * it, if any, for a value [DiveAlerts] doesn't know.
+ */
+data class FitDiveAlert(val timestampMillis: Long?, val value: Int, val sdkName: String? = null)
 
 /** A `dive_gas_switched` event: [gasIndex] is its `data`, the `dive_gas` message index of the gas switched to. */
 data class FitGasSwitch(val timestampMillis: Long?, val gasIndex: Int)
@@ -115,8 +135,22 @@ object FitDives {
             descentTimeSeconds = summary?.descentTimeSeconds?.takeIf { it > 0 },
             waterType = messages.waterType?.fitKey()?.let(WATER_TYPES::get),
             waterDensityKgPerM3 = messages.waterDensityKgPerM3?.takeIf { it > 0 },
+            decoModel = messages.decoModel?.fitKey()?.let(DECO_MODELS::get),
+            ppO2WarnBar = messages.ppO2WarnBar?.takeIf { it > 0 },
+            ppO2CriticalBar = messages.ppO2CriticalBar?.takeIf { it > 0 },
+            ppO2DecoBar = messages.ppO2DecoBar?.takeIf { it > 0 },
+            lowSetpointBar = messages.lowSetpointBar?.takeIf { it > 0 },
+            highSetpointBar = messages.highSetpointBar?.takeIf { it > 0 },
+            safetyStopSeconds = messages.safetyStopTimeSeconds?.takeIf { messages.safetyStopEnabled == true && it > 0 },
         )
     }
+
+    /** Each `dive_alert` event with a time, as a [DiveAlerts] token; dismissals are dropped. */
+    fun diveAlerts(messages: FitDiveMessages): List<DecodedDiveAlert> =
+        messages.diveAlerts.mapNotNull { alert ->
+            val time = alert.timestampMillis ?: return@mapNotNull null
+            DiveAlerts.fitToken(alert.value, alert.sdkName)?.let { DecodedDiveAlert(time, it) }
+        }
 
     /**
      * Each `dive_gas_switched` event with a time, as the gas it names. A switch to a slot the file doesn't define (or that's disabled) is
@@ -195,5 +229,7 @@ object FitDives {
     /** FIT `water_type`, keyed as [fitKey] spells it. */
     private val WATER_TYPES =
         mapOf("fresh" to WaterType.FRESH, "salt" to WaterType.SALT, "en13319" to WaterType.EN13319, "custom" to WaterType.CUSTOM)
+    /** FIT `tissue_model_type`, keyed as [fitKey] spells it: it names only Bühlmann ZHL-16C. */
+    private val DECO_MODELS = mapOf("zhl16c" to DecoModel.ZHL16C)
     private const val SECONDS_PER_MINUTE = 60
 }

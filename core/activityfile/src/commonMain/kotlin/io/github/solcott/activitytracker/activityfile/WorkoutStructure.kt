@@ -153,7 +153,7 @@ internal object WorkoutStructure {
      */
     fun snakeCase(raw: String): String = words(raw).joinToString("_")
 
-    private fun camelCase(raw: String): String =
+    internal fun camelCase(raw: String): String =
         words(raw).mapIndexed { i, w -> if (i == 0) w else w.replaceFirstChar { it.uppercase() } }.joinToString("")
 
     /** Lowercase words, split at underscores, spaces and hyphens, camelCase humps, and where letters meet digits. */

@@ -1,5 +1,7 @@
 package io.github.solcott.activitytracker.activityfile
 
+import io.github.solcott.activitytracker.lexicon.app.DecoModel
+import io.github.solcott.activitytracker.lexicon.app.DiveAlertKind
 import io.github.solcott.activitytracker.lexicon.app.WaterType
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -165,6 +167,53 @@ class FitDivesTest {
         assertEquals(WaterType.EN13319, dive.waterType)
         assertEquals(1020.0, dive.waterDensityKgPerM3)
         assertNull(FitDives.interpret(messages().copy(waterType = "invalid"), "diving", null)!!.waterType)
+    }
+
+    @Test
+    fun readsTheDiveComputersSettings() {
+        val settings =
+            messages()
+                .copy(
+                    decoModel = "ZHL_16C",
+                    ppO2WarnBar = 1.4,
+                    ppO2CriticalBar = 1.6,
+                    ppO2DecoBar = 1.6,
+                    safetyStopEnabled = true,
+                    safetyStopTimeSeconds = 180,
+                    lowSetpointBar = 0.7,
+                    highSetpointBar = 1.3,
+                )
+        val dive = FitDives.interpret(settings, "diving", null)!!
+        assertEquals(DecoModel.ZHL16C, dive.decoModel)
+        assertEquals(Triple(1.4, 1.6, 1.6), Triple(dive.ppO2WarnBar, dive.ppO2CriticalBar, dive.ppO2DecoBar))
+        assertEquals(0.7 to 1.3, dive.lowSetpointBar to dive.highSetpointBar)
+        assertEquals(180, dive.safetyStopSeconds)
+
+        val off = FitDives.interpret(settings.copy(safetyStopEnabled = false, decoModel = "invalid"), "diving", null)!!
+        assertNull(off.safetyStopSeconds, "a safety stop that was off has no time")
+        assertNull(off.decoModel)
+        assertNull(FitDives.interpret(messages(), "diving", null)!!.ppO2WarnBar)
+    }
+
+    @Test
+    fun alertsResolveTheirKindAndDropDismissalsAndUntimedOnes() {
+        val alerts =
+            listOf(
+                FitDiveAlert(1_500_000, 0),
+                FitDiveAlert(1_510_000, 18),
+                FitDiveAlert(1_520_000, 19, "ALERT_DISMISSED_BY_TIMEOUT"),
+                FitDiveAlert(null, 3),
+                FitDiveAlert(1_600_000, 120),
+                FitDiveAlert(1_700_000, 121, "SOME_NEW_ALERT"),
+            )
+        assertEquals(
+            listOf(
+                DecodedDiveAlert(1_500_000, DiveAlertKind.NDL_REACHED),
+                DecodedDiveAlert(1_600_000, "120"),
+                DecodedDiveAlert(1_700_000, "someNewAlert"),
+            ),
+            FitDives.diveAlerts(messages().copy(diveAlerts = alerts)),
+        )
     }
 
     @Test

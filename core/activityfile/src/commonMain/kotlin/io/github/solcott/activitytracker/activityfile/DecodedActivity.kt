@@ -30,6 +30,8 @@ data class DecodedActivity(
     val gasSwitches: List<DecodedGasSwitch> = emptyList(),
     /** Tank pressure readings during the dive, in time order, each naming its tank by [DiveTank.sensor]. */
     val tankUpdates: List<DecodedTankUpdate> = emptyList(),
+    /** Each alert the dive computer raised, in file order, its kind a [DiveAlerts] token or the file's own name for it. */
+    val diveAlerts: List<DecodedDiveAlert> = emptyList(),
     /** The diver's notes on the dive, from a logbook that keeps them. */
     val notes: String? = null,
     /** A pool swim's FIT `length` messages, in file order. */
@@ -117,6 +119,9 @@ data class DecodedSplit(
 
 /** A switch to [gas] at [timestampMillis]. */
 data class DecodedGasSwitch(val timestampMillis: Long, val gas: DiveGas)
+
+/** An alert the dive computer raised at [timestampMillis]: [kind] is a `DiveAlertKind` token, or the file's own name for one it lacks. */
+data class DecodedDiveAlert(val timestampMillis: Long, val kind: String)
 
 /** A tank pressure reading: [sensor] is the [DiveTank.sensor] of the tank it's from. */
 data class DecodedTankUpdate(val timestampMillis: Long, val sensor: String, val pressureBar: Double)
@@ -374,6 +379,17 @@ data class DecodedDive(
     /** Time after the dive until fully desaturated. */
     val desaturationTimeSeconds: Double? = null,
     val highestPpO2Bar: Double? = null,
+    /** A `DecoModel` token. */
+    val decoModel: String? = null,
+    /** The dive computer's ppO₂ limits. */
+    val ppO2WarnBar: Double? = null,
+    val ppO2CriticalBar: Double? = null,
+    val ppO2DecoBar: Double? = null,
+    /** A rebreather's setpoints. */
+    val lowSetpointBar: Double? = null,
+    val highSetpointBar: Double? = null,
+    /** The safety stop the computer was set for; null when it was off. */
+    val safetyStopSeconds: Int? = null,
 )
 
 /**
