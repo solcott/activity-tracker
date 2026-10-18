@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.activityfile
 
 import io.github.solcott.activitytracker.activityfile.SubsurfaceFixtures.ccrDive
+import io.github.solcott.activitytracker.activityfile.SubsurfaceFixtures.decoDive
 import io.github.solcott.activitytracker.activityfile.SubsurfaceFixtures.logbook
 import io.github.solcott.activitytracker.activityfile.SubsurfaceFixtures.trip
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -45,7 +46,7 @@ class SubsurfaceXmlParserTest {
         assertEquals(14.1, dive.avgDepthMeters)
         assertEquals(27.0, dive.minWaterTempCelsius!!, 0.01, "samples without temp don't count as 0")
         assertEquals(listOf(DiveGas(32, 0)), dive.gases)
-        assertEquals(listOf(DiveTank(206.8, 68.9, null)), dive.tanks)
+        assertEquals(listOf(DiveTank(206.8, 68.9, null, sensor = "0")), dive.tanks)
         assertEquals(DivePosition(20.354, -87.026), dive.entry)
         assertEquals(listOf(10L, 600L, 1800L, 3140L), dive.profile.map { it.seconds })
     }
@@ -90,6 +91,42 @@ class SubsurfaceXmlParserTest {
         assertEquals(listOf(DiveGas(100, 0), DiveGas(21, 35)), dive.gases)
         assertEquals(emptyList(), dive.tanks, "no pressures logged")
         assertEquals(3, dive.profile.size)
+    }
+
+    @Test
+    fun carriesEachDecoValueForwardUntilTheNextSampleThatCarriesIt() {
+        val records = SubsurfaceXmlParser.parse(logbook(decoDive), zone).single().records
+        assertEquals(listOf(null, 720L, 720L, 0L, 0L, 0L, 0L, 0L), records.map { it.ndlSeconds })
+        val stop = records[4]
+        assertEquals(3.0, stop.nextStopDepthMeters)
+        assertEquals(120L, stop.nextStopSeconds)
+        assertEquals(300L, stop.ttsSeconds)
+        assertEquals(14, stop.cnsPercent)
+        assertEquals(1.4, stop.ppO2Bar)
+        assertEquals(3.0, records[5].nextStopDepthMeters, "carried forward")
+        assertEquals(listOf(null, null), records.drop(6).map { it.nextStopDepthMeters }, "in_deco='0' clears the stop")
+        assertEquals(listOf(null, null), records.drop(6).map { it.nextStopSeconds })
+        assertEquals(1.4, records.last().ppO2Bar, "only the stop clears")
+
+        val streams = read(logbook(decoDive)).single().streams!!
+        assertEquals(listOf(null, null, null, null, 300, 300, null, null), streams.decoStopDepth)
+        assertEquals(1400, streams.ppO2!![4])
+    }
+
+    @Test
+    fun readsEachCylindersPressureInCylinderOrder() {
+        val decoded = SubsurfaceXmlParser.parse(logbook(decoDive), zone).single()
+        assertEquals(
+            listOf(DiveTank(210.0, 90.0, null, sensor = "0"), DiveTank(200.0, 150.0, null, sensor = "1")),
+            decoded.dive!!.tanks,
+            "cylinders without start and end take them from their readings",
+        )
+        val start = decoded.sessions.single().startTimeMillis!!
+        assertEquals(
+            listOf(10L to "0", 10L to "1", 600L to "0", 1200L to "1", 1800L to "0"),
+            decoded.tankUpdates.map { (it.timestampMillis - start) / 1000 to it.sensor },
+        )
+        assertEquals(2, read(logbook(decoDive)).single().streams!!.tankPressures!!.size)
     }
 
     @Test

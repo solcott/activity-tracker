@@ -1,12 +1,16 @@
 package io.github.solcott.activitytracker.activityfile
 
+import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 
 /**
  * Reads Subsurface's own logbook (`.ssrf` or `.xml`): a `divelog` root with `divesites` and `dives`, the dives either directly under
  * `dives` or grouped into `trip`s. Nearly everything is in attributes, each value with its unit ("30.1 m", "24.0 C", "45:30 min", "200.0
- * bar", "32.0%"). A dive merged from several computers lists each one's `divecomputer`; the first is the one Subsurface shows.
+ * bar", "32.0%"). A dive merged from several computers lists each one's `divecomputer`; the first is the one Subsurface shows. Samples
+ * write their deco state (`ndl`, `tts`, `stopdepth`, `stoptime`, `cns`, `po2`, `in_deco`) only when it changes, so each value holds until
+ * the next sample that carries it.
  *
  * Times are the dive computer's wall clock with no zone, read in [timeZone] and kept as [DecodedActivity.localStart].
  */
@@ -24,7 +28,41 @@ internal object SubsurfaceXmlParser {
 
     private class Cylinder(val gas: DiveGas?, val startBar: Double?, val endBar: Double?)
 
-    private class Sample(val seconds: Double?, val depth: Double?, val temperature: Double?)
+    /** One `sample`'s attributes; the deco state is null where the sample doesn't carry it. */
+    private class Sample(val seconds: Double?, val depth: Double?, val temperature: Double?) {
+        var ndlSeconds: Double? = null
+        var ttsSeconds: Double? = null
+        var stopDepth: Double? = null
+        var stopSeconds: Double? = null
+        var cnsPercent: Double? = null
+        var ppO2Bar: Double? = null
+        var inDeco: Boolean? = null
+        /** Bar, by cylinder index. */
+        val pressures = mutableMapOf<Int, Double>()
+    }
+
+    /** A sample's deco state with each value carried forward from the sample that last set it. */
+    private class DecoState(
+        val ndlSeconds: Double? = null,
+        val ttsSeconds: Double? = null,
+        val stopDepth: Double? = null,
+        val stopSeconds: Double? = null,
+        val cnsPercent: Double? = null,
+        val ppO2Bar: Double? = null,
+    ) {
+        fun after(s: Sample): DecoState {
+            // Leaving deco clears the stop until a sample names another.
+            val cleared = s.inDeco == false
+            return DecoState(
+                ndlSeconds = s.ndlSeconds ?: ndlSeconds,
+                ttsSeconds = s.ttsSeconds ?: ttsSeconds,
+                stopDepth = s.stopDepth ?: stopDepth.takeUnless { cleared },
+                stopSeconds = s.stopSeconds ?: stopSeconds.takeUnless { cleared },
+                cnsPercent = s.cnsPercent ?: cnsPercent,
+                ppO2Bar = s.ppO2Bar ?: ppO2Bar,
+            )
+        }
+    }
 
     private class Dive(val attribute: Map<String, String>) {
         val cylinders = mutableListOf<Cylinder>()
@@ -37,6 +75,8 @@ internal object SubsurfaceXmlParser {
         var maxDepth: Double? = null
         var meanDepth: Double? = null
         var waterTemperature: Double? = null
+        /** The cylinder each sample's `pressureN` reads, as the last `sensorN` set it. */
+        val sensors = mutableMapOf<Int, Int>()
 
         fun decode(sites: Map<String, Site>, timeZone: TimeZone): DecodedActivity? {
             val text = listOfNotNull(attribute["date"], attribute["time"]).joinToString(" ")
@@ -63,33 +103,68 @@ internal object SubsurfaceXmlParser {
                     gases = gases,
                     closedCircuit = closedCircuit,
                     avgDepthMeters = meanDepth,
-                    tanks = cylinders.filter { it.startBar != null || it.endBar != null }.map { DiveTank(it.startBar, it.endBar, null) },
+                    tanks = tanks(),
                     entry = site?.position,
                     siteName = site?.name,
                 )
             val elapsed =
                 attribute["duration"]?.let(::seconds)?.takeIf { it > 0 } ?: samples.mapNotNull { it.seconds }.maxOrNull()?.takeIf { it > 0 }
-            val records = samples.map { s ->
-                SampleBuilder()
-                    .apply {
-                        time = s.seconds?.let { start + (it * DiveLogs.MILLIS_PER_SECOND).toLong() }
-                        depth = s.depth
-                        temperature = s.temperature
-                    }
-                    .build()
-            }
             return DecodedActivity(
                 fileId = DiveLogs.source(model),
                 // Samples carry a temperature only when it changes; with none, the computer's header value stands in.
                 sessions =
                     listOf(DiveLogs.summary(dive, start, elapsed, waterTemperature.takeIf { samples.none { s -> s.temperature != null } })),
                 laps = emptyList(),
-                records = records,
+                records = records(start),
                 dive = dive,
                 localStart = localStart,
                 title = site?.name,
                 gasSwitches = gasSwitches,
+                tankUpdates = tankUpdates(start),
             )
+        }
+
+        private fun timeOf(start: Long, s: Sample) = s.seconds?.let { start + (it * DiveLogs.MILLIS_PER_SECOND).toLong() }
+
+        /** Each sample with its deco state carried forward. */
+        private fun records(start: Long): List<DecodedSample> {
+            var deco = DecoState()
+            return samples.map { s ->
+                deco = deco.after(s)
+                SampleBuilder()
+                    .apply {
+                        time = timeOf(start, s)
+                        depth = s.depth
+                        temperature = s.temperature
+                    }
+                    .build()
+                    .copy(
+                        ppO2Bar = deco.ppO2Bar,
+                        cnsPercent = deco.cnsPercent?.roundToInt(),
+                        ndlSeconds = deco.ndlSeconds?.roundToLong(),
+                        nextStopDepthMeters = deco.stopDepth?.takeIf { it > 0 },
+                        nextStopSeconds = deco.stopSeconds?.roundToLong(),
+                        ttsSeconds = deco.ttsSeconds?.roundToLong(),
+                    )
+            }
+        }
+
+        /** Each cylinder reading, named by the cylinder's index. */
+        private fun tankUpdates(start: Long): List<DecodedTankUpdate> = samples.flatMap { s ->
+            val time = timeOf(start, s) ?: return@flatMap emptyList()
+            s.pressures.entries
+                .sortedBy { it.key }
+                .mapNotNull { (cylinder, bar) -> bar.takeIf { it > 0 }?.let { DecodedTankUpdate(time, cylinder.toString(), it) } }
+        }
+
+        /**
+         * A tank per cylinder with a start or end pressure or readings over time, named by its index for [DecodedActivity.tankUpdates]. A
+         * cylinder without start and end pressures takes them from its readings.
+         */
+        private fun tanks(): List<DiveTank> = cylinders.mapIndexedNotNull { i, cylinder ->
+            val readings = samples.mapNotNull { it.pressures[i]?.takeIf { bar -> bar > 0 } }
+            if (cylinder.startBar == null && cylinder.endBar == null && readings.isEmpty()) return@mapIndexedNotNull null
+            DiveTank(cylinder.startBar ?: readings.firstOrNull(), cylinder.endBar ?: readings.lastOrNull(), null, sensor = i.toString())
         }
     }
 
@@ -140,10 +215,28 @@ internal object SubsurfaceXmlParser {
                                 attribute("time")?.let(::seconds),
                             )
                     }
-                "sample" ->
-                    dive.samples +=
-                        Sample(attribute("time")?.let(::seconds), attribute("depth")?.let(::meters), attribute("temp")?.let(::celsius))
+                "sample" -> dive.samples += sample(dive, attribute)
             }
+        }
+
+        private fun sample(dive: Dive, attribute: (String) -> String?): Sample {
+            val sample =
+                Sample(attribute("time")?.let(::seconds), attribute("depth")?.let(::meters), attribute("temp")?.let(::celsius)).apply {
+                    ndlSeconds = attribute("ndl")?.let(::seconds)
+                    ttsSeconds = attribute("tts")?.let(::seconds)
+                    stopDepth = attribute("stopdepth")?.let(::meters)
+                    stopSeconds = attribute("stoptime")?.let(::seconds)
+                    cnsPercent = attribute("cns")?.let(::percent)
+                    ppO2Bar = attribute("po2")?.let(::bar)
+                    inDeco = attribute("in_deco")?.trim()?.let { it == "1" }
+                }
+            // `pressure` is an older file's first cylinder; `pressureN` is the cylinder `sensorN` names, which holds until changed.
+            attribute("pressure")?.let(::bar)?.let { sample.pressures[0] = it }
+            for (n in 0 until MAX_SENSORS) {
+                attribute("sensor$n")?.toIntOrNull()?.let { dive.sensors[n] = it }
+                attribute("pressure$n")?.let(::bar)?.let { sample.pressures[dive.sensors[n] ?: n] = it }
+            }
+            return sample
         }
 
         fun end(path: List<String>) {
@@ -194,6 +287,7 @@ internal object SubsurfaceXmlParser {
 
     private val NUMBER = Regex("""(-?\d+(?:\.\d+)?)\s*(.*)""")
     private const val AIR_PERCENT = 21.0
+    private const val MAX_SENSORS = 8
     private const val SIXTY = 60
     private const val METERS_PER_FOOT = 0.3048
     private const val FAHRENHEIT_OFFSET = 32.0
