@@ -147,16 +147,19 @@ class ActivityRepository(
         val data =
             have?.data?.let { ActivityMerge.fillMissing(it, imported, offsetSeconds, existingTanks, otherTanks) }
                 ?: ActivityMerge.shifted(imported, offsetSeconds)
-        if (data == have?.data) return
+        // A zones record already stored stays as it is, unless its training load gains what it lacks (an HRV, say): then it's rewritten
+        // with its own zones and the fuller load. Without one, the draft's zones and load are stored.
+        val stored = !have.hasNoZonesRecord()
+        val filled = ActivityMerge.fillGaps(have?.trainingLoad, draft.trainingLoad).takeIf { stored && it != have?.trainingLoad }
+        if (data == have?.data && filled == null) return
         streams.put(
             activity,
             ActivityStreams(
                 data,
                 have?.visibility ?: Visibility.capped(draft.streamsVisibility, existing.visibility),
-                // Zones and training load already stored stay as they are.
-                draft.heartRateZones.takeIf { have.hasNoZonesRecord() },
-                draft.powerZones.takeIf { have.hasNoZonesRecord() },
-                draft.trainingLoad.takeIf { have.hasNoZonesRecord() },
+                if (!stored) draft.heartRateZones else have?.heartRateZones?.takeIf { filled != null },
+                if (!stored) draft.powerZones else have?.powerZones?.takeIf { filled != null },
+                if (!stored) draft.trainingLoad else filled,
             ),
         )
     }

@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.lexicon.app.Length
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SwimStroke
 import io.github.solcott.activitytracker.lexicon.app.TankPressure
+import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.WaterType
 import io.github.solcott.activitytracker.lexicon.app.WorkoutSet
 import kotlin.test.Test
@@ -104,6 +105,45 @@ class ActivityMergeTest {
         assertEquals(listOf(200, 210, 220), streams.power)
         assertEquals(listOf(51, 52, 50), streams.leftRightBalance, "every channel in the table, not just the first ones")
         assertTrue(ActivityMerge.addsChannels(watchStreams, bikeStreams))
+    }
+
+    @Test
+    fun pedalsAddCyclingDynamicsAndTheWatchKeepsItsHeartRate() {
+        val watch = ActivityStreamData(time = listOf(0, 1, 2), heartRate = listOf(140, 141, 142))
+        val pedals =
+            ActivityStreamData(
+                time = listOf(0, 1, 2),
+                heartRate = listOf(100, 100, 100),
+                torqueEffectivenessLeft = listOf(8000, 8000, 8000),
+                pedalSmoothnessRight = listOf(2050, 2050, 2050),
+                pcoLeft = listOf(-2, -2, -2),
+            )
+        val merged = ActivityMerge.fillMissing(watch, pedals, offsetSeconds = 0)
+
+        assertEquals(watch.heartRate, merged.heartRate)
+        assertEquals(pedals.torqueEffectivenessLeft, merged.torqueEffectivenessLeft)
+        assertEquals(pedals.pedalSmoothnessRight, merged.pedalSmoothnessRight)
+        assertEquals(pedals.pcoLeft, merged.pcoLeft)
+    }
+
+    @Test
+    fun countsAndTheUtcOffsetFillOnlyWhenMissing() {
+        val existing = ActivityRecord(Sport.RUN, Instant.parse("2026-09-20T07:00:00Z"), 1800, Instant.parse("2026-09-20T08:00:00Z"))
+        val other = existing.copy(cycles = 8400, avgStrokeDistance = 0, utcOffset = 120)
+
+        assertEquals(other, ActivityMerge.fillGaps(existing, other))
+        val own = existing.copy(cycles = 8200, utcOffset = -300)
+        assertEquals(own.copy(avgStrokeDistance = 0), ActivityMerge.fillGaps(own, other))
+    }
+
+    @Test
+    fun aTrainingLoadGainsOnlyWhatItLacks() {
+        val stored = TrainingLoad(ftp = 250, trainingStressScore = 800)
+        val strap = TrainingLoad(ftp = 260, hrvRmssd = 42)
+
+        assertEquals(TrainingLoad(ftp = 250, trainingStressScore = 800, hrvRmssd = 42), ActivityMerge.fillGaps(stored, strap))
+        assertEquals(strap, ActivityMerge.fillGaps(null, strap))
+        assertEquals(stored, ActivityMerge.fillGaps(stored, null))
     }
 
     @Test

@@ -27,6 +27,8 @@ import io.github.solcott.activitytracker.lexicon.app.SwimStroke
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.WaterType
 import io.github.solcott.activitytracker.location.LocationSample
+import io.github.solcott.activitytracker.location.RecordingResult
+import io.github.solcott.activitytracker.location.RecordingState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -35,6 +37,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlinx.datetime.TimeZone
 
 class ActivityDraftTest {
     private val start = Instant.parse("2026-09-20T07:00:00Z")
@@ -261,6 +264,38 @@ class ActivityDraftTest {
         assertNull(record.avgPower)
         assertNull(record.normalizedPower)
         assertNull(draft.trainingLoad)
+    }
+
+    @Test
+    fun hrvGoesWithTheTrainingLoadNeverOnTheRecordOrStreams() {
+        val run = imported(emptyList()).copy(hrvRmssd = 42, streams = ActivityStreamData(time = listOf(0, 1), heartRate = listOf(150, 151)))
+        val draft = ActivityDraft.fromImport(run, ActivityType(Sport.RUN), null)
+
+        assertEquals(TrainingLoad(hrvRmssd = 42), draft.trainingLoad, "an HRV alone is a load to store")
+        val record = AtJson.encodeToString(ActivityRecord.serializer(), draft.toRecord(start))
+        assertFalse("hrv" in record.lowercase(), record)
+        assertFalse("hrv" in AtJson.encodeToString(ActivityStreamData.serializer(), draft.streams!!).lowercase())
+    }
+
+    @Test
+    fun countsAndTheUtcOffsetArePublishedOnTheRecord() {
+        val row = imported(emptyList()).copy(cycles = 1850, avgStrokeDistanceCentimeters = 1020, utcOffsetMinutes = -300)
+        val record = ActivityDraft.fromImport(row, ActivityType(Sport.ROW), null).toRecord(start)
+
+        assertEquals(1850, record.cycles)
+        assertEquals(1020, record.avgStrokeDistance)
+        assertEquals(-300, record.utcOffset)
+        val bare = ActivityDraft.fromImport(imported(emptyList()), ActivityType(Sport.RUN), null).toRecord(start)
+        assertNull(bare.cycles)
+        assertNull(bare.utcOffset, "a GPX or TCX import has none")
+    }
+
+    @Test
+    fun aRecordingTakesTheDevicesOffsetAtItsStart() {
+        val result = RecordingResult(RecordingState(startedAt = start), endedAt = start + 30.minutes)
+        val draft = ActivityDraft.fromRecording(result, ActivityType(Sport.RUN), null, null, zone = TimeZone.of("Europe/Paris"))
+
+        assertEquals(120, draft.toRecord(start).utcOffset, "Paris in September is on summer time")
     }
 
     @Test

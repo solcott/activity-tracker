@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.data.activity
 import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
+import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import kotlin.math.abs
 
 /**
@@ -37,12 +38,28 @@ object ActivityMerge {
             grit = existing.grit ?: other.grit,
             flow = existing.flow ?: other.flow,
             poolLength = existing.poolLength ?: other.poolLength,
+            cycles = existing.cycles ?: other.cycles,
+            avgStrokeDistance = existing.avgStrokeDistance ?: other.avgStrokeDistance,
+            utcOffset = existing.utcOffset ?: other.utcOffset,
             polyline = existing.polyline ?: other.polyline,
             device = existing.device ?: other.device,
             sensors = existing.sensors ?: other.sensors,
             dive = DiveSummary.fillGaps(existing.dive, other.dive),
             media = (existing.media.orEmpty() + other.media.orEmpty()).take(ActivityMedia.MAX).ifEmpty { null },
         )
+
+    /** [existing]'s training load with each field it lacks taken from [other]'s; null when neither has one. */
+    fun fillGaps(existing: TrainingLoad?, other: TrainingLoad?): TrainingLoad? {
+        if (existing == null || other == null) return existing ?: other
+        return existing.copy(
+            ftp = existing.ftp ?: other.ftp,
+            intensityFactor = existing.intensityFactor ?: other.intensityFactor,
+            trainingStressScore = existing.trainingStressScore ?: other.trainingStressScore,
+            aerobicTrainingEffect = existing.aerobicTrainingEffect ?: other.aerobicTrainingEffect,
+            anaerobicTrainingEffect = existing.anaerobicTrainingEffect ?: other.anaerobicTrainingEffect,
+            hrvRmssd = existing.hrvRmssd ?: other.hrvRmssd,
+        )
+    }
 
     /**
      * [existing]'s channels, plus each one only [other] has, resampled onto [existing]'s times. [other]'s times are [offsetSeconds] after

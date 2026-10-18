@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.data.activity
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
 import io.github.solcott.activitytracker.activityfile.ImportedDive
 import io.github.solcott.activitytracker.activityfile.StreamBuilder
+import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
@@ -21,6 +22,8 @@ import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 import kotlin.time.Duration
 import kotlin.time.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.offsetAt
 
 /** An activity ready to publish, from a GPS recording, an imported file or manual entry. */
 data class ActivityDraft(
@@ -83,6 +86,11 @@ data class ActivityDraft(
     val source: DraftSource? = null,
     /** A pool swim's pool length, in centimeters. */
     val poolLengthCentimeters: Int? = null,
+    /** The device's cycle count: steps, strokes or pushes by sport ([ActivityRecord.cycles]). */
+    val cycles: Int? = null,
+    val avgStrokeDistanceCentimeters: Int? = null,
+    /** The UTC offset where the activity started, in minutes east of UTC. */
+    val utcOffsetMinutes: Int? = null,
 ) {
     /**
      * This draft with what the athlete wrote about it: [description], [photos], and for a dive its [diveSite] (blank clears the logbook's;
@@ -155,6 +163,9 @@ data class ActivityDraft(
             grit = grit?.let { (it * TENTHS).roundToInt().coerceAtLeast(0) },
             flow = flow?.let { (it * TENTHS).roundToInt().coerceAtLeast(0) },
             poolLength = poolLengthCentimeters,
+            cycles = cycles,
+            avgStrokeDistance = avgStrokeDistanceCentimeters,
+            utcOffset = utcOffsetMinutes?.takeIf { it in ActivityRecord.MIN_UTC_OFFSET..ActivityRecord.MAX_UTC_OFFSET },
         )
 
     // Generated equals/hashCode compare arrays by identity; compare gpx by content instead.
@@ -198,6 +209,9 @@ data class ActivityDraft(
             flow,
             trainingLoad,
             poolLengthCentimeters,
+            cycles,
+            avgStrokeDistanceCentimeters,
+            utcOffsetMinutes,
         )
 
     override fun equals(other: Any?): Boolean =
@@ -214,20 +228,25 @@ data class ActivityDraft(
         private const val TENTHS = 10
         private const val HUNDREDTHS = 100
         private const val J_PER_KJ = 1000.0
+        private const val SECONDS_PER_MINUTE = 60
 
+        /** A recording in the app; its UTC offset is [zone]'s (this device's) at the start. */
         fun fromRecording(
             result: RecordingResult,
             type: ActivityType,
             title: String?,
             description: String?,
+            zone: TimeZone = TimeZones.device(),
         ): ActivityDraft {
             val state = result.state
             val samples = state.samples
+            val startedAt = state.startedAt ?: result.endedAt
             return ActivityDraft(
                 type = type,
                 title = title,
                 description = description,
-                startedAt = state.startedAt ?: result.endedAt,
+                startedAt = startedAt,
+                utcOffsetMinutes = zone.offsetAt(startedAt).totalSeconds / SECONDS_PER_MINUTE,
                 elapsed = state.activeBeforeSegment,
                 movingSeconds = state.movingSeconds,
                 distanceMeters = state.distanceMeters,
@@ -235,7 +254,7 @@ data class ActivityDraft(
                 maxSpeedMps = state.maxSpeedMps,
                 route = samples,
                 gpx = gpxOf(samples, title, type.sport),
-                streams = StreamBuilder.fromLocations(samples, state.startedAt ?: result.endedAt),
+                streams = StreamBuilder.fromLocations(samples, startedAt),
             )
         }
 
@@ -284,10 +303,13 @@ data class ActivityDraft(
                 flow = imported.mtb?.flow,
                 trainingLoad = trainingLoadOf(imported),
                 poolLengthCentimeters = imported.poolLengthCentimeters,
+                cycles = imported.cycles,
+                avgStrokeDistanceCentimeters = imported.avgStrokeDistanceCentimeters,
+                utcOffsetMinutes = imported.utcOffsetMinutes,
             )
         }
 
-        /** The device's FTP, IF, TSS and training effect, or null without any. */
+        /** The device's FTP, IF, TSS and training effect, and the file's HRV, or null without any. */
         private fun trainingLoadOf(imported: ImportedActivity): TrainingLoad? =
             TrainingLoad(
                     ftp = imported.power?.ftpWatts?.takeIf { it > 0 },
@@ -295,6 +317,7 @@ data class ActivityDraft(
                     trainingStressScore = imported.power?.trainingStressScore?.let { (it * TENTHS).roundToInt() }?.takeIf { it > 0 },
                     aerobicTrainingEffect = imported.aerobicTrainingEffect?.let { (it * TENTHS).roundToInt() },
                     anaerobicTrainingEffect = imported.anaerobicTrainingEffect?.let { (it * TENTHS).roundToInt() },
+                    hrvRmssd = imported.hrvRmssd?.takeIf { it > 0 },
                 )
                 .takeUnless { it.isEmpty }
 
