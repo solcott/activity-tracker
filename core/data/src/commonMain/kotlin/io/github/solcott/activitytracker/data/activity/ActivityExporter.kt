@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.sport.SportCatalog
 import io.github.solcott.activitytracker.data.sport.SportCategory
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
@@ -30,7 +31,9 @@ import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.FixedOffsetTimeZone
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.UtcOffset
 import kotlinx.datetime.toLocalDateTime
 
 /** A file format an activity exports as. */
@@ -173,7 +176,7 @@ class ActivityExporter(
                     legs = streams?.legs.orEmpty(),
                     poolLengthCentimeters = record.poolLength,
                 )
-            val zone = TimeZone.currentSystemDefault()
+            val zone = zoneOf(view.record)
             val bytes =
                 when (format) {
                     ExportFormat.GPX -> GpxWriter.write(activity).encodeToByteArray()
@@ -188,6 +191,7 @@ class ActivityExporter(
         private val EXPORTED_COLLECTIONS = setOf(Nsid.FEED_ACTIVITY, Nsid.FEED_ACTIVITY_STREAMS, Nsid.FEED_ACTIVITY_TRACK)
         private val INVALID_FILE_NAME_CHARS = Regex("""[/\\:*?"<>|\u0000-\u001F]""")
         private const val MAX_NAME_LENGTH = 80
+        private const val SECONDS_PER_MINUTE = 60
         private const val MILLI = 1000.0
         private const val DECI = 10.0
         private const val GZIP_MAGIC_0 = 0x1f.toByte()
@@ -232,6 +236,10 @@ class ActivityExporter(
          * The title, or the sport's name, and the local start date, e.g. `Morning Run 2026-10-15.gpx`, without characters any platform
          * refuses in a file name.
          */
+        /** Where the activity's clock was: its stored UTC offset as a fixed zone, else this device's zone. */
+        fun zoneOf(record: ActivityRecord): TimeZone =
+            record.utcOffset?.let { FixedOffsetTimeZone(UtcOffset(seconds = it * SECONDS_PER_MINUTE)) } ?: TimeZone.currentSystemDefault()
+
         fun fileName(view: ActivityView, format: ExportFormat, zone: TimeZone): String {
             val date = view.record.startedAt.toLocalDateTime(zone).date
             val name = displayName(view).replace(INVALID_FILE_NAME_CHARS, "_").trim().trimEnd('.').take(MAX_NAME_LENGTH).trim()

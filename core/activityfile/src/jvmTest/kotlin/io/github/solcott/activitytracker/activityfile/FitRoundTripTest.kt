@@ -21,6 +21,7 @@ import kotlin.math.roundToInt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.test.runTest
 
@@ -143,6 +144,60 @@ class FitRoundTripTest {
     }
 
     private fun Double.round7() = kotlin.math.round(this * 1e7) / 1e7
+
+    @Test
+    fun aRidesCyclingDynamicsPhysiologyAndEBikeChannelsComeBack() = runTest {
+        val sensors =
+            streams.copy(
+                torqueEffectivenessLeft = (0 until 10).map { 8000 },
+                torqueEffectivenessRight = (0 until 10).map { 7650 },
+                pedalSmoothnessLeft = (0 until 10).map { 2200 },
+                pedalSmoothnessRight = (0 until 10).map { 2050 },
+                pcoLeft = (0 until 10).map { -2 },
+                pcoRight = (0 until 10).map { 3 },
+                coreTemperature = (0 until 10).map { 3825 },
+                smO2 = (0 until 10).map { 655 },
+                totalHemoglobin = (0 until 10).map { 1234 },
+                ebikeBattery = (0 until 10).map { 90 - it },
+                ebikeAssistMode = (0 until 10).map { 2 },
+                ebikeAssistLevel = (0 until 10).map { 50 },
+                formPower = (0 until 10).map { 70 },
+                legSpringStiffness = (0 until 10).map { 950 },
+            )
+        val back = reader.read(write(ride.copy(points = ExportPoints.join(start, track, sensors)))).single().streams!!
+
+        assertEquals(sensors.torqueEffectivenessLeft, back.torqueEffectivenessLeft)
+        assertEquals(sensors.torqueEffectivenessRight, back.torqueEffectivenessRight)
+        assertEquals(sensors.pedalSmoothnessLeft, back.pedalSmoothnessLeft)
+        assertEquals(sensors.pedalSmoothnessRight, back.pedalSmoothnessRight)
+        assertEquals(sensors.pcoLeft, back.pcoLeft)
+        assertEquals(sensors.pcoRight, back.pcoRight)
+        assertEquals(sensors.coreTemperature, back.coreTemperature)
+        assertEquals(sensors.smO2, back.smO2)
+        assertEquals(sensors.totalHemoglobin, back.totalHemoglobin)
+        assertEquals(sensors.ebikeBattery, back.ebikeBattery)
+        assertEquals(sensors.ebikeAssistMode, back.ebikeAssistMode)
+        assertEquals(sensors.ebikeAssistLevel, back.ebikeAssistLevel)
+        assertNull(back.formPower, "FIT has no native field for it")
+        assertNull(back.legSpringStiffness)
+    }
+
+    @Test
+    fun aRunsStepsAndARowsStrokesComeBack() = runTest {
+        val run = intervalRun.copy(points = ExportPoints.join(start, track, streams), totals = ExportTotals(cycles = 8400))
+        assertEquals(8400, reader.read(write(run)).single().cycles, "written as 4,200 strides")
+
+        val row =
+            ride.copy(
+                sport = Sport.ROW,
+                subSport = null,
+                points = ExportPoints.join(start, track, streams),
+                totals = ExportTotals(cycles = 1850, avgStrokeDistance = 1020),
+            )
+        val read = reader.read(write(row)).single()
+        assertEquals(1850, read.cycles)
+        assertEquals(1020, read.avgStrokeDistanceCentimeters)
+    }
 
     @Test
     fun aRunsLapDetailsComeBack() = runTest {

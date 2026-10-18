@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.activityfile.FitProfile.MESSAGE_INDEX
 import io.github.solcott.activitytracker.activityfile.FitProfile.TIMESTAMP
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.CycleCount
 import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.Lap
 import io.github.solcott.activitytracker.lexicon.app.Leg
@@ -209,6 +210,18 @@ object FitWriter {
                 NEXT_STOP_DEPTH to { p -> p.nextStopDepthMeters?.let { (it * MILLI).roundToLong() } },
                 NEXT_STOP_TIME to { p -> p.nextStopSeconds },
                 TIME_TO_SURFACE to { p -> p.ttsSeconds },
+                LEFT_TORQUE_EFFECTIVENESS to { p -> p.leftTorqueEffectiveness?.let { (it * HALF_PERCENT).roundToLong() } },
+                RIGHT_TORQUE_EFFECTIVENESS to { p -> p.rightTorqueEffectiveness?.let { (it * HALF_PERCENT).roundToLong() } },
+                LEFT_PEDAL_SMOOTHNESS to { p -> p.leftPedalSmoothness?.let { (it * HALF_PERCENT).roundToLong() } },
+                RIGHT_PEDAL_SMOOTHNESS to { p -> p.rightPedalSmoothness?.let { (it * HALF_PERCENT).roundToLong() } },
+                LEFT_PCO to { p -> p.leftPcoMm?.toLong() },
+                RIGHT_PCO to { p -> p.rightPcoMm?.toLong() },
+                CORE_TEMPERATURE to { p -> p.coreTemperatureCelsius?.let { (it * CENTI).roundToLong() } },
+                SATURATED_HEMOGLOBIN_PERCENT to { p -> p.saturatedHemoglobinPercent?.let { (it * DECI).roundToLong() } },
+                TOTAL_HEMOGLOBIN_CONC to { p -> p.totalHemoglobinConc?.let { (it * CENTI).roundToLong() } },
+                EBIKE_BATTERY_LEVEL to { p -> p.ebikeBatteryPercent?.toLong() },
+                EBIKE_ASSIST_MODE to { p -> p.ebikeAssistMode?.toLong() },
+                EBIKE_ASSIST_LEVEL_PERCENT to { p -> p.ebikeAssistLevelPercent?.toLong() },
             )
         }
 
@@ -437,6 +450,12 @@ object FitWriter {
                 TRAINING_STRESS_SCORE(load?.trainingStressScore?.toLong()),
                 TOTAL_TRAINING_EFFECT(load?.aerobicTrainingEffect?.toLong()),
                 TOTAL_ANAEROBIC_TRAINING_EFFECT(load?.anaerobicTrainingEffect?.toLong()),
+                // FIT counts strides on foot, where the record counts steps.
+                TOTAL_CYCLES(
+                    activity.totals.cycles?.let { if (CycleCount.unitOf(activity.sport) == CycleCount.STEPS) it / 2 else it }?.toLong()
+                ),
+                // Centimeters, as the lexicon keeps them.
+                AVG_STROKE_DISTANCE(activity.totals.avgStrokeDistance?.toLong()),
             )
         }
 

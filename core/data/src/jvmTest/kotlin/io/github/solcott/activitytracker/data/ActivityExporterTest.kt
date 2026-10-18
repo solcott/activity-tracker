@@ -305,6 +305,43 @@ class ActivityExporterTest {
     }
 
     @Test
+    fun aStoredOffsetSetsTheExportsLocalTimes() = runTest {
+        val s = pds.session()
+        val uri = s.activities.publish(draft(ActivityType(Sport.RIDE, SubSport.ROAD), gpx = false))
+        serveStreams(uri, ActivityStreamData(time = listOf(0, 60, 120), power = listOf(200, 250, 270)))
+        val ride = view(uri, Sport.RIDE).let { it.copy(record = it.record.copy(subSport = SubSport.ROAD, utcOffset = 120)) }
+
+        val file = s.exporter.export(ride, ExportFormat.FIT)
+        assertEquals(120, ActivityFileReader(GarminJavaFitDecoder()).read(file.bytes).single().utcOffsetMinutes, "local timestamp at +2:00")
+        // 07:00 UTC is 09:00 there, still the 14th; 23:30 UTC at +1:00 is the 15th.
+        val late = ride.copy(record = ride.record.copy(startedAt = Instant.parse("2026-10-14T23:30:00Z"), utcOffset = 60))
+        assertEquals(
+            "2026-10-15",
+            ActivityExporter.fileName(late, ExportFormat.GPX, ActivityExporter.zoneOf(late.record)).takeLast(14).take(10),
+        )
+    }
+
+    @Test
+    fun aDiveWithAStoredOffsetStartsAtItsLocalTimeInUddf() = runTest {
+        val s = pds.session()
+        val uri = s.activities.publish(draft(ActivityType(Sport.DIVE), title = "Blue Hole", gpx = false))
+        serveStreams(uri, ActivityStreamData(time = listOf(0, 60, 120), depth = listOf(0, 1800, 0)))
+        val dive =
+            view(uri, Sport.DIVE, title = "Blue Hole").let {
+                it.copy(record = it.record.copy(distance = null, utcOffset = -300, dive = ActivityDive(maxDepth = 1800)))
+            }
+
+        val xml = s.exporter.export(dive, ExportFormat.UDDF).bytes.decodeToString()
+        assertTrue("<datetime>2026-10-14T02:00:00</datetime>" in xml, "07:00 UTC at UTC−5")
+    }
+
+    @Test
+    fun withoutAStoredOffsetTheDevicesZoneIsUsed() {
+        val record = ActivityRecord(Sport.RUN, start, 1800, start)
+        assertEquals(TimeZone.currentSystemDefault(), ActivityExporter.zoneOf(record))
+    }
+
+    @Test
     fun fileNamesAreTheTitleAndLocalDateWithoutInvalidCharacters() {
         val uri = AtUri("at://${pds.did.value}/app.activitytracker.feed.activity/3kabc")
         val utc = TimeZone.UTC

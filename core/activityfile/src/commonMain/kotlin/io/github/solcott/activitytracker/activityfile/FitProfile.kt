@@ -101,6 +101,26 @@ internal object FitProfile {
         val ENHANCED_RESPIRATION_RATE = FitFieldDef(108, UINT16)
         /** Bar × 100. */
         val PO2 = FitFieldDef(129, UINT8)
+        /** Percent × 2. */
+        val LEFT_TORQUE_EFFECTIVENESS = FitFieldDef(43, UINT8)
+        val RIGHT_TORQUE_EFFECTIVENESS = FitFieldDef(44, UINT8)
+        val LEFT_PEDAL_SMOOTHNESS = FitFieldDef(45, UINT8)
+        val RIGHT_PEDAL_SMOOTHNESS = FitFieldDef(46, UINT8)
+        /** Millimeters. */
+        val LEFT_PCO = FitFieldDef(67, SINT8)
+        val RIGHT_PCO = FitFieldDef(68, SINT8)
+        /** Grams per deciliter × 100. */
+        val TOTAL_HEMOGLOBIN_CONC = FitFieldDef(54, UINT16)
+        /** Percent × 10. */
+        val SATURATED_HEMOGLOBIN_PERCENT = FitFieldDef(57, UINT16)
+        /** Percent. */
+        val EBIKE_BATTERY_LEVEL = FitFieldDef(118, UINT8)
+        val EBIKE_ASSIST_MODE = FitFieldDef(119, UINT8)
+        val EBIKE_ASSIST_LEVEL_PERCENT = FitFieldDef(120, UINT8)
+        /** °C × 100. */
+        val CORE_TEMPERATURE = FitFieldDef(139, UINT16)
+        /** Torque effectiveness and pedal smoothness are in half percents. */
+        const val HALF_PERCENT = 2.0
         const val BALANCE_RIGHT = 0x80L
         const val ALTITUDE_OFFSET = 500.0
         const val ALTITUDE_SCALE = 5.0
@@ -234,6 +254,10 @@ internal object FitProfile {
         val FRONT_GEAR_SHIFT_COUNT = FitFieldDef(107, UINT16)
         val REAR_GEAR_SHIFT_COUNT = FitFieldDef(108, UINT16)
         val JUMP_COUNT = FitFieldDef(183, UINT16)
+        /** Strides on foot (half the steps), strokes swimming, rowing or paddling. */
+        val TOTAL_CYCLES = FitFieldDef(10, UINT32)
+        /** Meters × 100. */
+        val AVG_STROKE_DISTANCE = FitFieldDef(42, UINT16)
         /** Kilograms of grit. */
         val TOTAL_GRIT = FitFieldDef(181, FLOAT32)
         val AVG_FLOW = FitFieldDef(187, FLOAT32)

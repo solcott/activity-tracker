@@ -80,6 +80,10 @@ data class ExportTotals(
     val grit: Int? = null,
     /** Tenths. */
     val flow: Int? = null,
+    /** Steps, strokes or pushes, as the record counts them (`ActivityRecord.cycles`). */
+    val cycles: Int? = null,
+    /** Centimeters. */
+    val avgStrokeDistance: Int? = null,
 ) {
     companion object {
         fun of(record: ActivityRecord) =
@@ -97,6 +101,8 @@ data class ExportTotals(
                 jumps = record.jumps,
                 grit = record.grit,
                 flow = record.flow,
+                cycles = record.cycles,
+                avgStrokeDistance = record.avgStrokeDistance,
             )
     }
 }
@@ -142,6 +148,23 @@ data class ExportPoint(
     val ttsSeconds: Long? = null,
     /** Each tank's pressure here, in the dive's tank order; null where a tank has no reading. Empty without tank pressure. */
     val tankPressuresBar: List<Double?> = emptyList(),
+    /** Percent. */
+    val leftTorqueEffectiveness: Double? = null,
+    val rightTorqueEffectiveness: Double? = null,
+    /** Percent. */
+    val leftPedalSmoothness: Double? = null,
+    val rightPedalSmoothness: Double? = null,
+    /** Platform centre offset, in millimeters. */
+    val leftPcoMm: Int? = null,
+    val rightPcoMm: Int? = null,
+    val coreTemperatureCelsius: Double? = null,
+    /** Percent. */
+    val saturatedHemoglobinPercent: Double? = null,
+    /** Grams per deciliter. */
+    val totalHemoglobinConc: Double? = null,
+    val ebikeBatteryPercent: Int? = null,
+    val ebikeAssistMode: Int? = null,
+    val ebikeAssistLevelPercent: Int? = null,
 ) {
     val hasPosition: Boolean
         get() = latitude != null && longitude != null
@@ -202,6 +225,18 @@ object ExportPoints {
             nextStopSeconds = decoStopTime?.getOrNull(i)?.toLong(),
             ttsSeconds = tts?.getOrNull(i)?.toLong(),
             tankPressuresBar = tankPressures.orEmpty().map { it.pressure.getOrNull(i)?.div(MILLI) },
+            leftTorqueEffectiveness = torqueEffectivenessLeft.at(i)?.div(CENTI),
+            rightTorqueEffectiveness = torqueEffectivenessRight.at(i)?.div(CENTI),
+            leftPedalSmoothness = pedalSmoothnessLeft.at(i)?.div(CENTI),
+            rightPedalSmoothness = pedalSmoothnessRight.at(i)?.div(CENTI),
+            leftPcoMm = pcoLeft?.getOrNull(i),
+            rightPcoMm = pcoRight?.getOrNull(i),
+            coreTemperatureCelsius = coreTemperature.at(i)?.div(CENTI),
+            saturatedHemoglobinPercent = smO2.at(i)?.div(DECI),
+            totalHemoglobinConc = totalHemoglobin.at(i)?.div(CENTI),
+            ebikeBatteryPercent = ebikeBattery?.getOrNull(i),
+            ebikeAssistMode = ebikeAssistMode?.getOrNull(i),
+            ebikeAssistLevelPercent = ebikeAssistLevel?.getOrNull(i),
         )
 
     private fun List<Int?>?.at(i: Int): Double? = this?.getOrNull(i)?.toDouble()
