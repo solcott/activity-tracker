@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "The athlete's heart rate and power zones for an activity, so its time in zone doesn't change with later thresholds, and the activity's training load. Its rkey is its activity's. Zone bounds and training load reveal training thresholds, so it is stored at the narrower of the activity's charts visibility and the athlete's training visibility: in the athlete's repo when both are public, otherwise in their app.activitytracker.space.athlete space for that tier. Where it's stored is its only visibility. The AppView serves it only to the viewers its place allows.",
+      "description": "The athlete's heart rate and power zones for an activity, so its time in zone doesn't change with later thresholds, and the activity's training load. Its rkey is its activity's. Zone bounds and training load reveal training thresholds, so it is stored at the narrowest of the activity's heart rate visibility, its power visibility and the athlete's training visibility: in the athlete's repo when all three are public, otherwise in their app.activitytracker.space.athlete space for that tier. Where it's stored is its only visibility. The AppView serves it only to the viewers its place allows.",
       "key": "tid",
       "record": {
         "type": "object",

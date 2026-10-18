@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "Per-sample data recorded during an activity, for charts. Its rkey is its activity's. Where it's stored is who may see it: public streams are a record in the athlete's repo; followers, mutuals or self streams are a record in the athlete's app.activitytracker.space.athlete space for that tier. Never more visible than its activity. The AppView serves it only to the viewers its place allows. Its zones are a separate app.activitytracker.feed.activityZones record, since they can be narrower.",
+      "description": "Per-sample data recorded during an activity, for charts. Its rkey is its activity's. An activity has one per tier that holds any of its channels: each holds time plus the channels and lap and leg fields whose detail category is at its tier, and the activity's own tier also holds the core channels, lengths, sets and lap and leg structure. A record holding any field of a lap or leg also holds its start and elapsed. Where it's stored is who may see it: public streams are a record in the athlete's repo; followers, mutuals or self streams are a record in the athlete's app.activitytracker.space.athlete space for that tier. Never more visible than its activity. The AppView serves it only to the viewers its place allows. Its zones are a separate app.activitytracker.feed.activityZones record, since they can be narrower.",
       "key": "tid",
       "record": {
         "type": "object",

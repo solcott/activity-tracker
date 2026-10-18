@@ -308,11 +308,51 @@ data class ActivityRecord(
 }
 
 /**
+ * `app.activitytracker.feed.activityDetails`: an activity's summary fields whose [DetailCategory] is narrower than the activity, under its
+ * activity's rkey. The fields have the same names and units as on [ActivityRecord], which leaves them out.
+ *
+ * It's stored only in the athlete's tier space ([AthleteSpace]) for those categories' visibility, at most one per tier, and never in the
+ * repo (the AppView ignores a repo copy). Where it's stored is its only visibility.
+ */
+@Serializable
+data class ActivityDetailsRecord(
+    /** The activity's URI; it shares this record's rkey. */
+    val activity: AtUri,
+    val createdAt: Instant,
+    /** The exact start, when the activity's own `startedAt` is only the start of its local day. */
+    val startedAt: Instant? = null,
+    /** The trimmed polyline, when the map is narrower than the activity. */
+    val polyline: String? = null,
+    /** Millimeters per second. */
+    val avgSpeed: Long? = null,
+    /** Millimeters per second. */
+    val maxSpeed: Long? = null,
+    val avgHeartRate: Int? = null,
+    val maxHeartRate: Int? = null,
+    /** Revolutions or steps per minute. */
+    val avgCadence: Int? = null,
+    /** Revolutions or steps per minute. */
+    val maxCadence: Int? = null,
+    /** Watts. */
+    val avgPower: Int? = null,
+    /** Watts. */
+    val maxPower: Int? = null,
+    /** Watts. */
+    val normalizedPower: Int? = null,
+    /** Kilojoules. */
+    val work: Long? = null,
+    /** Kilocalories. */
+    val calories: Int? = null,
+    @SerialName($$"$type") val type: String = Nsid.FEED_ACTIVITY_DETAILS,
+)
+
+/**
  * `app.activitytracker.feed.activityStreams`: an activity's per-sample data, for charts, under its activity's rkey. Its [data] blob holds
  * an [ActivityStreamData] as JSON.
  *
- * Where it's stored is who may see it: public streams in the athlete's repo, the others in their tier space ([AthleteSpace]), never wider
- * than the activity. The record carries no visibility of its own, and no zones: those are an [ActivityZonesRecord], which can be narrower.
+ * An activity has one per tier that holds any of its channels ([DetailCategory.streamsFor]). Where each is stored is who may see it: public
+ * streams in the athlete's repo, the others in their tier space ([AthleteSpace]), never wider than the activity. The record carries no
+ * visibility of its own, and no zones: those are an [ActivityZonesRecord], which can be narrower.
  */
 @Serializable
 data class ActivityStreamsRecord(
@@ -403,9 +443,9 @@ object SourceFormat {
  * `app.activitytracker.feed.activityZones`: the athlete's zones for an activity, under its activity's rkey, so later threshold changes
  * don't change its time in zone, and the activity's [trainingLoad].
  *
- * Zone bounds and training load reveal thresholds, so it's stored at the narrower of the activity's charts visibility and the athlete's
- * training visibility: in the repo when both are public, otherwise in their tier space ([AthleteSpace]). Where it's stored is its only
- * visibility.
+ * Zone bounds and training load reveal thresholds, so it's stored at the narrowest of the activity's heart rate and power visibilities and
+ * the athlete's training visibility: in the repo when all are public, otherwise in their tier space ([AthleteSpace]). Where it's stored is
+ * its only visibility.
  */
 @Serializable
 data class ActivityZonesRecord(
@@ -1185,24 +1225,76 @@ data class PrivateDetailsRecord(
 }
 
 /**
- * `app.activitytracker.actor.activityDefaults`: the [Visibility] values an athlete's new activities and their charts start with. It lives
- * only in their [AthleteSpace.SELF] space. A missing record or field means [Visibility.PUBLIC]; read it through [resolved], which also caps
- * the charts at the activity.
+ * `app.activitytracker.actor.activityDefaults`: the [Visibility] values an athlete's new activities and their [DetailCategory]s start with.
+ * It lives only in their [AthleteSpace.SELF] space. A missing record or [visibility] means [Visibility.PUBLIC], and a category with no
+ * default starts at the activity's; read it through [resolved], which also caps each category at the activity. A `chartsVisibility` left by
+ * older clients is ignored.
  */
 @Serializable
 data class ActivityDefaultsRecord(
     val visibility: String? = null,
-    val chartsVisibility: String? = null,
+    val details: DetailVisibilities? = null,
     @SerialName($$"$type") val type: String = Nsid.ACTOR_ACTIVITY_DEFAULTS,
 ) {
-    /** (activity, charts), each a known [Visibility] value, with the charts never wider than the activity. */
-    fun resolved(): Pair<String, String> {
+    /** (activity, each [DetailCategory.all] to its visibility), each a known [Visibility] value, no category wider than the activity. */
+    fun resolved(): Pair<String, Map<String, String>> {
         val activity = Visibility.known(visibility)
-        return activity to Visibility.capped(Visibility.known(chartsVisibility), activity)
+        return activity to
+            DetailCategory.all.associateWith { category ->
+                details?.get(category)?.let { Visibility.capped(Visibility.known(it), activity) } ?: activity
+            }
     }
 
     companion object {
         const val RKEY = "self"
+    }
+}
+
+/**
+ * `app.activitytracker.actor.activityDefaults#details`: one optional [Visibility] value per [DetailCategory], named by its token. Read and
+ * build it through [get] and [of].
+ */
+@Serializable
+data class DetailVisibilities(
+    val startTime: String? = null,
+    val heartRate: String? = null,
+    val power: String? = null,
+    val speed: String? = null,
+    val calories: String? = null,
+    val map: String? = null,
+    val physiology: String? = null,
+    val cadence: String? = null,
+    val dive: String? = null,
+) {
+    /** [category]'s value, or null when it's unset or not a known category. */
+    operator fun get(category: String): String? =
+        when (category) {
+            DetailCategory.START_TIME -> startTime
+            DetailCategory.HEART_RATE -> heartRate
+            DetailCategory.POWER -> power
+            DetailCategory.SPEED -> speed
+            DetailCategory.CALORIES -> calories
+            DetailCategory.MAP -> map
+            DetailCategory.PHYSIOLOGY -> physiology
+            DetailCategory.CADENCE -> cadence
+            DetailCategory.DIVE -> dive
+            else -> null
+        }
+
+    companion object {
+        /** [values] by category token; unknown tokens are dropped. */
+        fun of(values: Map<String, String>): DetailVisibilities =
+            DetailVisibilities(
+                startTime = values[DetailCategory.START_TIME],
+                heartRate = values[DetailCategory.HEART_RATE],
+                power = values[DetailCategory.POWER],
+                speed = values[DetailCategory.SPEED],
+                calories = values[DetailCategory.CALORIES],
+                map = values[DetailCategory.MAP],
+                physiology = values[DetailCategory.PHYSIOLOGY],
+                cadence = values[DetailCategory.CADENCE],
+                dive = values[DetailCategory.DIVE],
+            )
     }
 }
 
@@ -1502,10 +1594,10 @@ object Visibility {
     /** The narrower of [a] and [b]. */
     fun narrower(a: String, b: String): String = if (rank(a) >= rank(b)) a else b
 
-    /** [value], narrowed to [cap] if it's wider: charts are never more visible than their activity. */
+    /** [value], narrowed to [cap] if it's wider: a detail category is never more visible than its activity. */
     fun capped(value: String, cap: String): String = narrower(value, cap)
 
-    /** The values no wider than [cap], widest first: what a charts picker offers for an activity at [cap]. */
+    /** The values no wider than [cap], widest first: what a category picker offers for an activity at [cap]. */
     fun atMost(cap: String): List<String> = all.drop(rank(cap))
 
     /** [value] if it's a known value, [PUBLIC] when it's absent, else [SELF]. */

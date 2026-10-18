@@ -1,0 +1,36 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.activityDetails",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "An activity's summary fields whose detail category (start time, heart rate, power, pace/speed, calories, map, cadence) the athlete made narrower than the activity. Its rkey is its activity's. It is stored only in the athlete's app.activitytracker.space.athlete space for that category's tier (followers, mutuals or self), at most one per tier, and never in the repo: the AppView ignores a copy in a repo. Where it's stored is its only visibility. Its fields have the same names and units as on app.activitytracker.feed.activity, which leaves them out; a viewer admitted to this tier gets them on top of the activity's.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["activity", "createdAt"],
+        "properties": {
+          "activity": { "type": "string", "format": "at-uri", "description": "The activity's URI; it shares this record's rkey." },
+          "startedAt": { "type": "string", "format": "datetime", "description": "The exact start, when the activity record's startedAt is only the start of its local day." },
+          "polyline": {
+            "type": "string",
+            "maxLength": 50000,
+            "description": "The activity's simplified route, as on app.activitytracker.feed.activity, when the map is narrower than the activity. Trimmed by the athlete's privacy zones and hidden start and end."
+          },
+          "avgSpeed": { "type": "integer", "minimum": 0, "description": "Millimeters per second." },
+          "maxSpeed": { "type": "integer", "minimum": 0, "description": "Millimeters per second." },
+          "avgHeartRate": { "type": "integer", "minimum": 0, "maximum": 300 },
+          "maxHeartRate": { "type": "integer", "minimum": 0, "maximum": 300 },
+          "avgCadence": { "type": "integer", "minimum": 0, "description": "Revolutions or steps per minute." },
+          "maxCadence": { "type": "integer", "minimum": 0, "description": "Revolutions or steps per minute." },
+          "avgPower": { "type": "integer", "minimum": 0, "description": "Watts." },
+          "maxPower": { "type": "integer", "minimum": 0, "description": "Watts." },
+          "normalizedPower": { "type": "integer", "minimum": 0, "description": "Watts." },
+          "work": { "type": "integer", "minimum": 0, "description": "Kilojoules." },
+          "calories": { "type": "integer", "minimum": 0, "description": "Kilocalories." },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

@@ -31,7 +31,20 @@
           "type": "array",
           "items": { "type": "union", "refs": ["#imageView"] },
           "description": "The record's media, with URLs to load them from; absent when it has none."
+        },
+        "details": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "#detailsView" },
+          "description": "The activity's app.activitytracker.feed.activityDetails records from the tiers the viewer is admitted to, widest first; absent when there are none. Their fields go on top of record's, a narrower tier's last."
         }
+      }
+    },
+    "detailsView": {
+      "type": "object",
+      "required": ["visibility", "record"],
+      "properties": {
+        "visibility": { "type": "string", "knownValues": ["public", "followers", "mutuals", "self"], "description": "The tier the record is stored in." },
+        "record": { "type": "ref", "ref": "app.activitytracker.feed.activityDetails" }
       }
     },
     "imageView": {

@@ -98,15 +98,21 @@ object GetActivityStreams {
     @Serializable
     data class Output(
         val uri: AtUri,
-        /** A [Visibility] value. */
+        /** A [Visibility] value: the widest of [parts]. */
         val visibility: String,
         val channels: List<String>,
+        /** Merged from every part, a narrower part's channels winning ([ActivityStreamData.overlaid]). */
         val data: ActivityStreamData,
         val heartRateZones: ZoneSnapshot? = null,
         val powerZones: ZoneSnapshot? = null,
         /** From the activity's zones record: left out, like the zones, unless the viewer may see that record. */
         val trainingLoad: TrainingLoad? = null,
+        /** Each streams record served, widest first. Null from an AppView that predates detail categories: one part at [visibility]. */
+        val parts: List<StreamsPart>? = null,
     )
+
+    /** `#part`: one streams record served, by the tier ([Visibility] value) it's stored in, and the channels it holds. */
+    @Serializable data class StreamsPart(val visibility: String, val channels: List<String>)
 
     val method = XrpcQuery(Nsid.FEED_GET_ACTIVITY_STREAMS, Params.serializer(), Output.serializer())
 }

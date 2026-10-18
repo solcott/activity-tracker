@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "A recorded or manually entered athletic activity. Where it is stored is its visibility: a public activity is a record in the athlete's repo, and a followers, mutuals or self activity is a record in the athlete's app.activitytracker.space.athlete space for that tier, never in the repo. Its URI is at://{did}/app.activitytracker.feed.activity/{rkey} wherever it is stored. Repo records are public: never include private locations. At every visibility, polyline leaves out the athlete's privacy zones and hidden start and end (app.activitytracker.actor.privacyZones). The full-resolution track is never part of this record: it is an app.activitytracker.feed.activityTrack in the athlete's self space.",
+      "description": "A recorded or manually entered athletic activity. Where it is stored is its visibility: a public activity is a record in the athlete's repo, and a followers, mutuals or self activity is a record in the athlete's app.activitytracker.space.athlete space for that tier, never in the repo. Its URI is at://{did}/app.activitytracker.feed.activity/{rkey} wherever it is stored. Repo records are public: never include private locations. It holds only the fields whose detail category is at the activity's visibility: the others are on app.activitytracker.feed.activityDetails records in narrower tiers. When the start time is narrower, startedAt is the start of the activity's local day (by utcOffset); when the map is narrower, there is no polyline. At every visibility, polyline leaves out the athlete's privacy zones and hidden start and end (app.activitytracker.actor.privacyZones). The full-resolution track is never part of this record: it is an app.activitytracker.feed.activityTrack in the athlete's self space.",
       "key": "tid",
       "record": {
         "type": "object",
@@ -24,7 +24,7 @@
           },
           "title": { "type": "string", "maxLength": 1000, "maxGraphemes": 100 },
           "description": { "type": "string", "maxLength": 10000, "maxGraphemes": 1000 },
-          "startedAt": { "type": "string", "format": "datetime" },
+          "startedAt": { "type": "string", "format": "datetime", "description": "The start, or the start of its local day when the start time is narrower than the activity." },
           "elapsedTime": { "type": "integer", "minimum": 0, "description": "Wall-clock duration in seconds." },
           "movingTime": { "type": "integer", "minimum": 0, "description": "Seconds spent moving." },
           "distance": { "type": "integer", "minimum": 0, "description": "Meters." },

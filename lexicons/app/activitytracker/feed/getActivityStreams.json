@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "query",
-      "description": "An activity's per-sample streams, if its visibility lets the viewer see them. NotFound when there are none or the viewer may not see them. Zones and training load are left out unless the viewer may also see the activity's feed.activityZones record where it's stored.",
+      "description": "An activity's per-sample streams: the union of its app.activitytracker.feed.activityStreams records in the tiers the viewer is admitted to, a narrower tier's channel winning, and each lap and leg merged by index. NotFound when there are none or the viewer may see none of them. Zones and training load are left out unless the viewer may also see the activity's feed.activityZones record where it's stored.",
       "parameters": {
         "type": "params",
         "required": ["uri"],
@@ -19,7 +19,12 @@
           "required": ["uri", "visibility", "channels", "data"],
           "properties": {
             "uri": { "type": "string", "format": "at-uri", "description": "The activity's URI." },
-            "visibility": { "type": "string", "knownValues": ["public", "followers", "mutuals", "self"] },
+            "visibility": { "type": "string", "knownValues": ["public", "followers", "mutuals", "self"], "description": "The widest tier among parts." },
+            "parts": {
+              "type": "array",
+              "items": { "type": "ref", "ref": "#part" },
+              "description": "Each streams record served, widest first, with the channels it holds."
+            },
             "channels": { "type": "array", "items": { "type": "string" } },
             "heartRateZones": { "type": "ref", "ref": "app.activitytracker.feed.activityZones#zoneSnapshot" },
             "powerZones": { "type": "ref", "ref": "app.activitytracker.feed.activityZones#zoneSnapshot" },
@@ -29,6 +34,14 @@
         }
       },
       "errors": [{ "name": "NotFound" }]
+    },
+    "part": {
+      "type": "object",
+      "required": ["visibility", "channels"],
+      "properties": {
+        "visibility": { "type": "string", "knownValues": ["public", "followers", "mutuals", "self"], "description": "The tier the streams record is stored in." },
+        "channels": { "type": "array", "items": { "type": "string" } }
+      }
     }
   }
 }

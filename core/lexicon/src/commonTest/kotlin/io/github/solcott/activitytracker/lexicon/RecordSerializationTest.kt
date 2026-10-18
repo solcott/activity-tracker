@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.lexicon
 
-import io.github.solcott.activitytracker.lexicon.app.ActivityDefaultsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveTank
@@ -364,22 +363,6 @@ class RecordSerializationTest {
         val trimJson = AtJson.encodeToJsonElement(RouteTrimRecord.serializer(), trim).jsonObject
         assertEquals(Nsid.ACTOR_ROUTE_TRIM, trimJson["\$type"]?.jsonPrimitive?.content)
         assertEquals(trim, AtJson.decodeFromJsonElement(RouteTrimRecord.serializer(), trimJson))
-    }
-
-    @Test
-    fun activityDefaultsRoundTripAndResolve() {
-        val record = ActivityDefaultsRecord(visibility = Visibility.MUTUALS, chartsVisibility = Visibility.SELF)
-        val json = AtJson.encodeToJsonElement(ActivityDefaultsRecord.serializer(), record).jsonObject
-        assertEquals(Nsid.ACTOR_ACTIVITY_DEFAULTS, json["\$type"]?.jsonPrimitive?.content)
-        assertEquals("mutuals", json["visibility"]?.jsonPrimitive?.content)
-        assertEquals(record, AtJson.decodeFromJsonElement(ActivityDefaultsRecord.serializer(), json))
-        assertEquals(Visibility.MUTUALS to Visibility.SELF, record.resolved())
-
-        val empty = AtJson.decodeFromString(ActivityDefaultsRecord.serializer(), """{"${'$'}type":"${Nsid.ACTOR_ACTIVITY_DEFAULTS}"}""")
-        assertEquals(Visibility.PUBLIC to Visibility.PUBLIC, empty.resolved())
-        val wideCharts = ActivityDefaultsRecord(visibility = Visibility.FOLLOWERS, chartsVisibility = Visibility.PUBLIC)
-        assertEquals(Visibility.FOLLOWERS to Visibility.FOLLOWERS, wideCharts.resolved())
-        assertEquals(Visibility.SELF to Visibility.SELF, ActivityDefaultsRecord(visibility = "friends").resolved())
     }
 
     @Test

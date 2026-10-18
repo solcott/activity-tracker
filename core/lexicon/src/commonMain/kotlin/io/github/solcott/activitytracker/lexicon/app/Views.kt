@@ -72,6 +72,11 @@ data class ActivityView(
     val recordings: List<RecordingView>? = null,
     /** [record]'s media, with URLs to load them from; null when it has none. */
     val media: List<ActivityMediaView>? = null,
+    /**
+     * The activity's [ActivityDetailsRecord]s from the tiers the viewer is admitted to, widest first; null when there are none. Read the
+     * activity through [effectiveRecord], which lays them over [record].
+     */
+    val details: List<DetailsView>? = null,
 ) {
     /** [visibility] as a known value: [Visibility.PUBLIC] when absent, [Visibility.SELF] when unknown. */
     val visibilityOrPublic: String
@@ -79,6 +84,9 @@ data class ActivityView(
 }
 
 @Immutable @Serializable data class ActivityViewerState(val like: AtUri? = null)
+
+/** `app.activitytracker.feed.defs#detailsView`: a details record and the tier ([Visibility] value) it's stored in. */
+@Immutable @Serializable data class DetailsView(val visibility: String, val record: ActivityDetailsRecord)
 
 /** `app.activitytracker.feed.defs#recordingView`: another device's recording of an activity. */
 @Immutable @Serializable data class RecordingView(val uri: AtUri, val startedAt: Instant, val device: String? = null)

@@ -36,6 +36,11 @@ object Nsid {
     const val FEED_GET_LIKES = "$NAMESPACE.feed.getLikes"
     const val FEED_GET_COMMENTS = "$NAMESPACE.feed.getComments"
     const val FEED_ACTIVITY_STREAMS = "$NAMESPACE.feed.activityStreams"
+    /**
+     * An activity's summary fields in a detail category narrower than the activity, kept only in the athlete's tier space for that
+     * category's visibility ([SPACE_ATHLETE]).
+     */
+    const val FEED_ACTIVITY_DETAILS = "$NAMESPACE.feed.activityDetails"
     /** An activity's zone snapshots, apart from its streams because they can be narrower (the training's visibility). */
     const val FEED_ACTIVITY_ZONES = "$NAMESPACE.feed.activityZones"
     /** An activity's full-resolution track, kept only in the athlete's `self` tier space ([SPACE_ATHLETE]) and never indexed. */
@@ -68,6 +73,7 @@ object Nsid {
         listOf(
             ACTOR_PROFILE,
             FEED_ACTIVITY,
+            FEED_ACTIVITY_DETAILS,
             FEED_ACTIVITY_STREAMS,
             FEED_ACTIVITY_ZONES,
             FEED_LIKE,

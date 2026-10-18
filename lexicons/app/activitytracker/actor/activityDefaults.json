@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "The visibilities an athlete's new activities start with. Lives only in the athlete's self space (app.activitytracker.space.athlete, key self), never in the public repo. Both default to public when the record or a field is absent.",
+      "description": "The visibilities an athlete's new activities and their detail categories start with. Lives only in the athlete's self space (app.activitytracker.space.athlete, key self), never in the public repo. The activity defaults to public when the record or visibility is absent, and a category with no default starts at the activity's. A reader ignores a chartsVisibility left by older clients.",
       "key": "literal:self",
       "record": {
         "type": "object",
@@ -15,13 +15,27 @@
             "knownValues": ["public", "followers", "mutuals", "self"],
             "description": "Who may see a new activity by default (app.activitytracker.actor.defs#visibility)."
           },
-          "chartsVisibility": {
-            "type": "string",
-            "maxLength": 16,
-            "knownValues": ["public", "followers", "mutuals", "self"],
-            "description": "Who may see a new activity's charts by default. Never wider than visibility: a reader narrows it to visibility if it is."
+          "details": {
+            "type": "ref",
+            "ref": "#details",
+            "description": "A default visibility per detail category. Never wider than visibility: a reader narrows each to visibility if it is."
           }
         }
+      }
+    },
+    "details": {
+      "type": "object",
+      "description": "One optional visibility (app.activitytracker.actor.defs#visibility) per detail category. A category left out starts at the activity default.",
+      "properties": {
+        "startTime": { "type": "string", "maxLength": 16, "knownValues": ["public", "followers", "mutuals", "self"], "description": "The exact start time." },
+        "heartRate": { "type": "string", "maxLength": 16, "knownValues": ["public", "followers", "mutuals", "self"], "description": "Heart rate: summary, chart, and lap and leg values." },
+        "power": { "type": "string", "maxLength": 16, "knownValues": ["public", "followers", "mutuals", "self"], "description": "Power, work and pedaling dynamics: summary, charts, and lap and leg values." },
+        "speed": { "type": "string", "maxLength": 16, "knownValues": ["public", "followers", "mutuals", "self"], "description": "Pace and speed: summary, chart, and lap and leg values." },
+        "calories": { "type": "string", "maxLength": 16, "knownValues": ["public", "followers", "mutuals", "self"], "description": "Calories: summary and lap and leg values." },
+        "map": { "type": "string", "maxLength": 16, "knownValues": ["public", "followers", "mutuals", "self"], "description": "The route's polyline." },
+        "physiology": { "type": "string", "maxLength": 16, "knownValues": ["public", "followers", "mutuals", "self"], "description": "Respiration rate, core temperature, SmO2 and total hemoglobin charts." },
+        "cadence": { "type": "string", "maxLength": 16, "knownValues": ["public", "followers", "mutuals", "self"], "description": "Cadence and running form: summary, charts, and lap and leg values." },
+        "dive": { "type": "string", "maxLength": 16, "knownValues": ["public", "followers", "mutuals", "self"], "description": "A dive's depth, ppO2, CNS, N2 load, NDL, deco, TTS, gas switch, dive alert and tank pressure data. The dive summary is core." }
       }
     }
   }

@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.lexicon.atproto
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.NoOutput
 import io.github.solcott.activitytracker.lexicon.XrpcProcedure
 import io.github.solcott.activitytracker.lexicon.XrpcQuery
 import kotlinx.serialization.SerialName
@@ -117,4 +118,11 @@ object UploadBlob {
     const val NSID = "com.atproto.repo.uploadBlob"
 
     @Serializable data class Output(val blob: BlobRef)
+}
+
+/** Returns the blob's bytes (any content type), not JSON: here, the signed-in athlete's own blobs in their repo. */
+object SyncGetBlob {
+    @Serializable data class Params(val did: Did, val cid: Cid)
+
+    val method = XrpcQuery("com.atproto.sync.getBlob", Params.serializer(), NoOutput.serializer())
 }
