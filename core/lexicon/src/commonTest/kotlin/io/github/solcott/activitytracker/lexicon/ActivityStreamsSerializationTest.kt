@@ -5,6 +5,8 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityTrackRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityZonesRecord
+import io.github.solcott.activitytracker.lexicon.app.DiveAlert
+import io.github.solcott.activitytracker.lexicon.app.DiveAlertKind
 import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.Lap
@@ -83,6 +85,21 @@ class ActivityStreamsSerializationTest {
             ),
             dive.channels,
         )
+    }
+
+    @Test
+    fun diveAlertsRoundTripKeepUnknownKindsAndListTheirChannel() {
+        val dive =
+            ActivityStreamData(
+                time = listOf(0, 10),
+                gasSwitches = listOf(GasSwitch(0, 21, 0)),
+                diveAlerts = listOf(DiveAlert(5, DiveAlertKind.NDL_REACHED), DiveAlert(10, "someNewerAlert")),
+            )
+        val json = AtJson.encodeToJsonElement(ActivityStreamData.serializer(), dive).jsonObject
+        assertEquals("ndlReached", json["diveAlerts"]!!.jsonArray[0].jsonObject["kind"]!!.jsonPrimitive.content)
+        assertEquals(dive, AtJson.decodeFromJsonElement(ActivityStreamData.serializer(), json))
+        assertEquals(listOf(StreamChannel.GAS_SWITCHES, StreamChannel.DIVE_ALERTS), dive.channels)
+        assertNull(AtJson.decodeFromString(ActivityStreamData.serializer(), """{"time":[0]}""").diveAlerts)
     }
 
     @Test

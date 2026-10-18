@@ -17,7 +17,7 @@
             "items": {
               "type": "string",
               "maxLength": 32,
-              "knownValues": ["distance", "altitude", "speed", "heartRate", "power", "cadence", "temperature", "depth", "gears", "respirationRate", "verticalOscillation", "stanceTime", "stepLength", "verticalRatio", "stanceTimeBalance", "leftRightBalance", "ppO2", "cns", "n2Load", "ndl", "decoStopDepth", "decoStopTime", "tts", "torqueEffectivenessLeft", "torqueEffectivenessRight", "pedalSmoothnessLeft", "pedalSmoothnessRight", "pcoLeft", "pcoRight", "coreTemperature", "smO2", "totalHemoglobin", "ebikeBattery", "ebikeAssistMode", "ebikeAssistLevel", "formPower", "legSpringStiffness", "gasSwitches", "tankPressures", "laps", "lengths", "sets", "legs"]
+              "knownValues": ["distance", "altitude", "speed", "heartRate", "power", "cadence", "temperature", "depth", "gears", "respirationRate", "verticalOscillation", "stanceTime", "stepLength", "verticalRatio", "stanceTimeBalance", "leftRightBalance", "ppO2", "cns", "n2Load", "ndl", "decoStopDepth", "decoStopTime", "tts", "torqueEffectivenessLeft", "torqueEffectivenessRight", "pedalSmoothnessLeft", "pedalSmoothnessRight", "pcoLeft", "pcoRight", "coreTemperature", "smO2", "totalHemoglobin", "ebikeBattery", "ebikeAssistMode", "ebikeAssistLevel", "formPower", "legSpringStiffness", "gasSwitches", "diveAlerts", "tankPressures", "laps", "lengths", "sets", "legs"]
             },
             "description": "The channels #streamData holds, so a client knows which charts exist without fetching it."
           },
@@ -75,6 +75,7 @@
         "legSpringStiffness": { "type": "array", "items": { "type": "integer" }, "description": "Leg spring stiffness from a Stryd, in hundredths of a kilonewton per meter." },
         "gears": { "type": "array", "items": { "type": "ref", "ref": "#gearChange" } },
         "gasSwitches": { "type": "array", "items": { "type": "ref", "ref": "#gasSwitch" }, "description": "Each switch of breathing gas, in time order. The first gas breathed is a switch at time 0." },
+        "diveAlerts": { "type": "array", "items": { "type": "ref", "ref": "#diveAlert" }, "description": "Each alert the dive computer raised, in time order." },
         "tankPressures": { "type": "array", "items": { "type": "ref", "ref": "#tankPressure" }, "description": "One pressure series per tank, in the order of the activity's dive.tanks." },
         "laps": { "type": "array", "items": { "type": "ref", "ref": "#lap" }, "description": "The recording's laps, in order. Absent when its only lap spans the activity. A ski or snowboard activity's laps are its runs and lift rides, a lift as a rest lap." },
         "lengths": { "type": "array", "items": { "type": "ref", "ref": "#length" }, "description": "A pool swim's lengths, in order, rests included." },
@@ -90,6 +91,20 @@
         "time": { "type": "integer", "description": "Seconds since the activity's startedAt." },
         "oxygen": { "type": "integer", "minimum": 0, "maximum": 100 },
         "helium": { "type": "integer", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "diveAlert": {
+      "type": "object",
+      "description": "An alert the dive computer raised, such as a no-deco limit reached or a fast ascent.",
+      "required": ["time", "kind"],
+      "properties": {
+        "time": { "type": "integer", "description": "Seconds since the activity's startedAt." },
+        "kind": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "What the alert was: FIT's dive_alert names in lower camel case, plus UDDF alarms FIT has no name for. A kind the file names but these don't is kept as the file names it.",
+          "knownValues": ["ndlReached", "gasSwitchPrompted", "nearSurface", "approachingNdl", "po2Warn", "po2CritHigh", "po2CritLow", "timeAlert", "depthAlert", "decoCeilingBroken", "decoComplete", "safetyStopBroken", "safetyStopComplete", "cnsWarning", "cnsCritical", "otuWarning", "otuCritical", "ascentCritical", "batteryLow", "batteryCritical", "safetyStopStarted", "approachingFirstDecoStop", "setpointSwitchAutoLow", "setpointSwitchAutoHigh", "setpointSwitchManualLow", "setpointSwitchManualHigh", "autoSetpointSwitchIgnored", "switchedToOpenCircuit", "switchedToClosedCircuit", "tankBatteryLow", "po2CcrDilLow", "decoStopCleared", "apneaNeutralBuoyancy", "apneaTargetDepth", "apneaSurface", "apneaHighSpeed", "apneaLowSpeed", "breath", "error", "link", "microbubbles", "rbt", "skinCooling"]
+        }
       }
     },
     "tankPressure": {

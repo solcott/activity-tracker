@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityZonesRecord
+import io.github.solcott.activitytracker.lexicon.app.DiveAlert
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.TankPressure
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
@@ -209,6 +210,7 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
         /** RMSSD in milliseconds: a few hundred at most at rest, far less in exercise. */
         private const val MAX_HRV_RMSSD = 500
         const val MAX_GAS_SWITCHES = 1_000
+        const val MAX_DIVE_ALERTS = 500
         const val MAX_TANKS = 8
         const val MAX_LAPS = 10_000
         const val MAX_LENGTHS = 2_000
@@ -235,6 +237,7 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
                         data.gasSwitches?.take(MAX_GAS_SWITCHES)?.map {
                             it.copy(oxygen = it.oxygen.coerceIn(0, MAX_PERCENT), helium = it.helium.coerceIn(0, MAX_PERCENT))
                         },
+                    diveAlerts = data.diveAlerts?.take(MAX_DIVE_ALERTS)?.map { it.copy(kind = it.kind.take(DiveAlert.MAX_KIND_LENGTH)) },
                     tankPressures =
                         data.tankPressures?.take(MAX_TANKS)?.map { tank ->
                             TankPressure(tank.pressure.aligned() ?: List(minOf(data.time.size, MAX_SAMPLES)) { null })

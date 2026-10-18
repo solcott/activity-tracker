@@ -510,6 +510,8 @@ data class ActivityStreamData(
     val tts: List<Int?>? = null,
     /** Each switch of breathing gas, in time order; the first gas breathed is a switch at time 0. */
     val gasSwitches: List<GasSwitch>? = null,
+    /** Each alert the dive computer raised, in time order. */
+    val diveAlerts: List<DiveAlert>? = null,
     /** One pressure series per tank, in the order of the activity's `dive.tanks`. */
     val tankPressures: List<TankPressure>? = null,
     /** The recording's laps, in order; null when its only lap spans the activity. */
@@ -556,6 +558,7 @@ data class ActivityStreamData(
                 listOfNotNull(
                     StreamChannel.GEARS.takeIf { gears != null },
                     StreamChannel.GAS_SWITCHES.takeIf { gasSwitches != null },
+                    StreamChannel.DIVE_ALERTS.takeIf { diveAlerts != null },
                     StreamChannel.TANK_PRESSURES.takeIf { tankPressures != null },
                     StreamChannel.LAPS.takeIf { laps != null },
                     StreamChannel.LENGTHS.takeIf { lengths != null },
@@ -640,6 +643,68 @@ data class GasSwitch(
     val oxygen: Int,
     val helium: Int,
 )
+
+/** `app.activitytracker.feed.activityStreams#diveAlert`: an alert the dive computer raised. */
+@Immutable
+@Serializable
+data class DiveAlert(
+    /** Seconds since the activity's `startedAt`. */
+    val time: Int,
+    /** A [DiveAlertKind] value, or the file's own name for one it doesn't list. At most [MAX_KIND_LENGTH]. */
+    val kind: String,
+) {
+    companion object {
+        /** The lexicon's `maxLength` for [kind]. */
+        const val MAX_KIND_LENGTH = 64
+    }
+}
+
+/** Known values of [DiveAlert.kind], an open string: FIT's `dive_alert` names in lower camel case, then UDDF alarms FIT doesn't name. */
+object DiveAlertKind {
+    const val NDL_REACHED = "ndlReached"
+    const val GAS_SWITCH_PROMPTED = "gasSwitchPrompted"
+    const val NEAR_SURFACE = "nearSurface"
+    const val APPROACHING_NDL = "approachingNdl"
+    const val PO2_WARN = "po2Warn"
+    const val PO2_CRIT_HIGH = "po2CritHigh"
+    const val PO2_CRIT_LOW = "po2CritLow"
+    const val TIME_ALERT = "timeAlert"
+    const val DEPTH_ALERT = "depthAlert"
+    const val DECO_CEILING_BROKEN = "decoCeilingBroken"
+    const val DECO_COMPLETE = "decoComplete"
+    const val SAFETY_STOP_BROKEN = "safetyStopBroken"
+    const val SAFETY_STOP_COMPLETE = "safetyStopComplete"
+    const val CNS_WARNING = "cnsWarning"
+    const val CNS_CRITICAL = "cnsCritical"
+    const val OTU_WARNING = "otuWarning"
+    const val OTU_CRITICAL = "otuCritical"
+    const val ASCENT_CRITICAL = "ascentCritical"
+    const val BATTERY_LOW = "batteryLow"
+    const val BATTERY_CRITICAL = "batteryCritical"
+    const val SAFETY_STOP_STARTED = "safetyStopStarted"
+    const val APPROACHING_FIRST_DECO_STOP = "approachingFirstDecoStop"
+    const val SETPOINT_SWITCH_AUTO_LOW = "setpointSwitchAutoLow"
+    const val SETPOINT_SWITCH_AUTO_HIGH = "setpointSwitchAutoHigh"
+    const val SETPOINT_SWITCH_MANUAL_LOW = "setpointSwitchManualLow"
+    const val SETPOINT_SWITCH_MANUAL_HIGH = "setpointSwitchManualHigh"
+    const val AUTO_SETPOINT_SWITCH_IGNORED = "autoSetpointSwitchIgnored"
+    const val SWITCHED_TO_OPEN_CIRCUIT = "switchedToOpenCircuit"
+    const val SWITCHED_TO_CLOSED_CIRCUIT = "switchedToClosedCircuit"
+    const val TANK_BATTERY_LOW = "tankBatteryLow"
+    const val PO2_CCR_DIL_LOW = "po2CcrDilLow"
+    const val DECO_STOP_CLEARED = "decoStopCleared"
+    const val APNEA_NEUTRAL_BUOYANCY = "apneaNeutralBuoyancy"
+    const val APNEA_TARGET_DEPTH = "apneaTargetDepth"
+    const val APNEA_SURFACE = "apneaSurface"
+    const val APNEA_HIGH_SPEED = "apneaHighSpeed"
+    const val APNEA_LOW_SPEED = "apneaLowSpeed"
+    const val BREATH = "breath"
+    const val ERROR = "error"
+    const val LINK = "link"
+    const val MICROBUBBLES = "microbubbles"
+    const val RBT = "rbt"
+    const val SKIN_COOLING = "skinCooling"
+}
 
 /** `app.activitytracker.feed.activityStreams#tankPressure`: one tank's pressure over the dive. */
 @Immutable
@@ -828,6 +893,7 @@ object StreamChannel {
     const val FORM_POWER = "formPower"
     const val LEG_SPRING_STIFFNESS = "legSpringStiffness"
     const val GAS_SWITCHES = "gasSwitches"
+    const val DIVE_ALERTS = "diveAlerts"
     const val TANK_PRESSURES = "tankPressures"
     const val LAPS = "laps"
     const val LENGTHS = "lengths"
@@ -906,6 +972,20 @@ data class ActivityDive(
     val waterType: String? = null,
     /** Kilograms per cubic meter. */
     val waterDensity: Int? = null,
+    /** A [DecoModel] value: the decompression model the dive computer was set to. */
+    val decoModel: String? = null,
+    /** The ppO₂ the dive computer warns at, in millibar. */
+    val ppO2Warn: Int? = null,
+    /** The ppO₂ the dive computer treats as critical, in millibar. */
+    val ppO2Critical: Int? = null,
+    /** The ppO₂ limit for decompression gases, in millibar. */
+    val ppO2Deco: Int? = null,
+    /** A closed-circuit rebreather's low setpoint, in millibar. */
+    val lowSetpoint: Int? = null,
+    /** A closed-circuit rebreather's high setpoint, in millibar. */
+    val highSetpoint: Int? = null,
+    /** The safety stop the dive computer was set for, in seconds; null when the safety stop was off. */
+    val safetyStopTime: Int? = null,
     /** Tenths of a degree Celsius; may be negative. */
     val airTemperature: Long? = null,
     /** Centimeters. */
@@ -956,6 +1036,15 @@ object WaterType {
     const val SALT = "salt"
     const val EN13319 = "en13319"
     const val CUSTOM = "custom"
+}
+
+/** Known values of [ActivityDive.decoModel], an open string. */
+object DecoModel {
+    /** Bühlmann ZHL-16C with [ActivityDive.gradientFactorLow] and [ActivityDive.gradientFactorHigh]. */
+    const val ZHL16C = "zhl16c"
+    const val VPM_B = "vpmB"
+    const val VPM_B_GFS = "vpmBGfs"
+    const val DCIEM = "dciem"
 }
 
 /** Known values of [ActivitySensor.kind], an open string. */

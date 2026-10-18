@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityDiveTank
 import io.github.solcott.activitytracker.lexicon.app.ActivityMediaView
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.AspectRatio
+import io.github.solcott.activitytracker.lexicon.app.DecoModel
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
@@ -463,7 +464,7 @@ class AppViewTest {
             Nsid.FEED_ACTIVITY,
             "3kdive",
             """{"sport":"dive","startedAt":"2026-09-30T10:00:00Z","elapsedTime":2700,"createdAt":"2026-09-30T10:50:00Z",""" +
-                """"normalizedPower":5,"dive":{"endN2":64,"waterType":"salt","highestPpO2":1400,""" +
+                """"normalizedPower":5,"dive":{"endN2":64,"waterType":"salt","highestPpO2":1400,"decoModel":"zhl16c","lowSetpoint":700,""" +
                 """"tanks":[{"volume":12000,"gas":{"oxygen":320,"helium":0}}]}}""",
         )
 
@@ -473,6 +474,8 @@ class AppViewTest {
         assertEquals(64, record.dive?.endN2)
         assertEquals(WaterType.SALT, record.dive?.waterType)
         assertEquals(1400, record.dive?.highestPpO2)
+        assertEquals(DecoModel.ZHL16C, record.dive?.decoModel)
+        assertEquals(700, record.dive?.lowSetpoint)
         assertEquals(
             ActivityDiveTank(volume = 12_000, gas = ActivityDiveGas(100, 0)),
             record.dive?.tanks?.single(),

@@ -15,6 +15,8 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.activitytracker.lexicon.app.DiveAlert
+import io.github.solcott.activitytracker.lexicon.app.DiveAlertKind
 import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.Lap
@@ -370,6 +372,27 @@ class ActivityStreamsTest {
         assertEquals(dive, output.data)
         assertEquals(dive.channels, output.channels)
         assertTrue(StreamChannel.PP_O2 in output.channels)
+    }
+
+    @Test
+    fun diveAlertsAreServedAndCapped() = testApplication {
+        start()
+        val dive =
+            ActivityStreamData(
+                time = listOf(0, 10, 20),
+                depth = listOf(0, 1800, 2100),
+                diveAlerts = listOf(DiveAlert(10, DiveAlertKind.NDL_REACHED), DiveAlert(20, "x".repeat(100))),
+            )
+        blobs["bafkalerts"] = AtJson.encodeToString(ActivityStreamData.serializer(), dive).encodeToByteArray()
+        streams(Visibility.PUBLIC, blob = "bafkalerts", channels = dive.channels)
+
+        val output = client.streamsFor(alice).output()
+        assertEquals(DiveAlert(10, DiveAlertKind.NDL_REACHED), output.data.diveAlerts!!.first())
+        assertEquals(DiveAlert.MAX_KIND_LENGTH, output.data.diveAlerts!![1].kind.length, "a kind is cut to the lexicon's length")
+        assertTrue(StreamChannel.DIVE_ALERTS in output.channels)
+
+        val many = ActivityStreamsViews.bounded(data.copy(diveAlerts = List(600) { DiveAlert(it, DiveAlertKind.PO2_WARN) }))
+        assertEquals(ActivityStreamsViews.MAX_DIVE_ALERTS, many.diveAlerts!!.size)
     }
 
     @Test
