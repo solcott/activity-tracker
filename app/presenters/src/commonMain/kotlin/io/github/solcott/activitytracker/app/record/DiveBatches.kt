@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.record
 
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
 import io.github.solcott.activitytracker.activityfile.SourceFile
+import io.github.solcott.activitytracker.activityfile.localZone
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.DiveMatch
@@ -54,7 +55,8 @@ internal fun singlePreview(
     streams: LoggedStreams,
 ): ImportPreview? {
     val (name, activity) = placed ?: return null
-    val duplicate = duplicateInfo(activity, matches.firstOrNull(), selection.action(0), zone, streams)
+    // An existing activity's start reads in the file's own zone, as the file's does.
+    val duplicate = duplicateInfo(activity, matches.firstOrNull(), selection.action(0), activity.localZone(zone), streams)
     return activity.toPreview(name, zone, zones).copy(duplicate = duplicate)
 }
 

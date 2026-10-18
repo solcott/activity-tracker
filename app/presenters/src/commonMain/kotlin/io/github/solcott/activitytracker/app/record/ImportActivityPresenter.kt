@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.activityfile.ImportedShifting
 import io.github.solcott.activitytracker.activityfile.SourceFile
 import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.activityfile.UnsupportedActivityFileException
+import io.github.solcott.activitytracker.activityfile.localZone
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.edit.rememberDetailsForm
 import io.github.solcott.activitytracker.app.rememberSingleFlight
@@ -106,7 +107,10 @@ fun ImportActivityPresenter(
     val thresholdChanges = remember(placed, training, type.sport) { pendingThresholds(training, placed?.second, type.sport) }
     val quickTypes = quickActivityTypes(recentTypes)
     val defaultTitle =
-        placed?.second?.takeIf { it.title == null }?.let { DefaultTitle(partOfDay(it.startedAt.toLocalDateTime(zone).hour), type) }
+        placed
+            ?.second
+            ?.takeIf { it.title == null }
+            ?.let { DefaultTitle(partOfDay(it.startedAt.toLocalDateTime(it.localZone(zone)).hour), type) }
     val dives =
         remember(logbook, placedDives, selection, matches, zones, zone, loggedStreams) {
             diveBatch(logbook?.first, placedDives, selection, matches, zone, zones, loggedStreams)
@@ -156,7 +160,8 @@ fun ImportActivityPresenter(
                                 fileTitle != null && title.text.toString() == fileTitle -> title.clearText()
                             }
                             fileTitle = named
-                            // A logbook's notes start the description, for the athlete to keep, change or clear before saving.
+                            // The file's notes (a logbook's, GPX `desc`, TCX `Notes`) start the description, for the athlete to keep,
+                            // change or clear.
                             details.seed(
                                 description = first.description.takeIf { read.size == 1 },
                                 diveSite = first.dive?.siteName.takeIf { read.size == 1 },
