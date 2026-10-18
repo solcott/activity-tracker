@@ -35,14 +35,8 @@ A UDDF export of a dive with stored alerts SHALL put an `alarm` on the first way
 - **WHEN** an athlete exports as UDDF a dive with a `batteryLow` alert
 - **THEN** the file has no alarm for it
 
-## MODIFIED Requirements
-
-### Requirement: An exported FIT imports back as the same activity
-Importing a FIT export SHALL give back the activity's type, start, elapsed and moving time, distance, summary fields, streams (to the second), gear changes, laps with their calories, intensity and trigger, pool length and lengths, sets, legs, and dive data including every gas, each gas switch, each alert FIT can name and each dive computer setting FIT can hold, as the app stored them. A dive stored without switch times SHALL list its later gases in the file without switching to them, and MAY come back with only its first gas.
-
-#### Scenario: Round trip of a ride
-- **WHEN** an athlete exports a ride as FIT and imports the file
-- **THEN** the imported activity has the ride's type, summary, streams, gear changes and laps
+### Requirement: An exported FIT dive imports back with its dive data
+Importing a FIT export of a dive SHALL give back every gas, each gas switch, each alert FIT can name and each dive computer setting FIT can hold, as the app stored them. A dive stored without switch times SHALL list its later gases in the file without switching to them, and MAY come back with only its first gas.
 
 #### Scenario: Round trip of a dive
 - **WHEN** an athlete exports as FIT a dive with switches from 21/0 to 50/0 and imports the file
@@ -55,6 +49,15 @@ Importing a FIT export SHALL give back the activity's type, start, elapsed and m
 #### Scenario: Older dive without switches
 - **WHEN** an athlete exports as FIT a dive breathed on 21/0 and 50/0 with no stored switches and imports the file
 - **THEN** the imported dive has the same depth profile, summary and first gas
+
+## MODIFIED Requirements
+
+### Requirement: An exported FIT imports back as the same activity
+Importing a FIT export SHALL give back the activity's type, start, elapsed and moving time, distance, summary fields, streams (to the second), gear changes, laps with their calories, intensity and trigger, pool length and lengths, sets and legs, as the app stored them. A dive's own data comes back as the next requirement says.
+
+#### Scenario: Round trip of a ride
+- **WHEN** an athlete exports a ride as FIT and imports the file
+- **THEN** the imported activity has the ride's type, summary, streams, gear changes and laps
 
 #### Scenario: Round trip of a pool swim
 - **WHEN** an athlete exports as FIT a pool swim with its pool length and 40 lengths stored and imports the file
