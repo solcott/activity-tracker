@@ -79,8 +79,8 @@ fun RecordPresenter(
                 visibility.activityChanged(event.visibility)
             }
 
-            is RecordEvent.ChartsVisibilityChanged -> {
-                visibility.chartsChanged(event.visibility)
+            is RecordEvent.CategoryVisibilityChanged -> {
+                visibility.categoryChanged(event.category, event.visibility)
             }
 
             is RecordEvent.TypeChanged -> {

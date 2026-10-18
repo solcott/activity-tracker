@@ -23,6 +23,7 @@ fun LazyListScope.activityItems(
             onAuthorClick = { onEvent(ActivityListEvent.OpenAuthor(activity)) }.takeIf { authorClickable },
             onOpenMedia = { onEvent(ActivityListEvent.OpenMedia(activity, it)) },
             onLike = { onEvent(ActivityListEvent.ToggleLike(activity)) }.takeUnless { activity.author.did.value == viewerDid },
+            isOwn = activity.author.did.value == viewerDid,
         )
     }
 }

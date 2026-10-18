@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.app.detail.LikesList
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.activity.ActivityExporter
 import io.github.solcott.activitytracker.data.activity.ActivityManager
+import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.ActivityZonesStore
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
@@ -305,6 +306,7 @@ open class ActivityDetailTestBase {
                 tracks,
                 sources,
                 zones,
+                ActivityPlaces(clients, Clock.System, Logger),
                 privacy,
                 RouteTrimmer(db, clients, writer, outbox, privacy, tracks, feed, Clock.System, Logger),
                 feed,
@@ -318,7 +320,18 @@ open class ActivityDetailTestBase {
             feed,
             activities,
             profiles,
-            ActivityManager(db, clients, outbox, writer, streams, tracks, sources, feed),
+            ActivityManager(
+                db,
+                clients,
+                outbox,
+                writer,
+                streams,
+                tracks,
+                sources,
+                zones,
+                ActivityPlaces(clients, Clock.System, Logger),
+                feed,
+            ),
             ActivityExporter(db, clients, tracks, sources, feed),
             UnitsRepository(profiles, Clock.System, Logger, units),
         )

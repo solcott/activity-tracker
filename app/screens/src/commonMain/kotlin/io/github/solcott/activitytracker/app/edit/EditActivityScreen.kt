@@ -24,12 +24,15 @@ data class EditActivityState(
     val error: UiError?,
     /** The athlete went back with unsaved changes; ask before dropping them. */
     val confirmDiscard: Boolean,
-    /** Who may see the activity and its charts; null while it loads. */
+    /** Who may see the activity and each detail category it has data for; null while it loads. */
     val visibility: VisibilityFields? = null,
-    /** The activity has charts, so their visibility can be chosen. */
-    val hasCharts: Boolean = false,
     /** Saving would narrow a Public activity: copies already published (on the firehose, in other apps) can't be recalled, so ask first. */
     val confirmNarrowing: Boolean = false,
+    /**
+     * Saving an activity from before detail categories would make its core charts (elevation, distance) as visible as the activity (a
+     * `Visibility` value), wider than its charts are now: ask first. Null when it wouldn't.
+     */
+    val confirmCoreCharts: String? = null,
     val eventSink: (EditActivityEvent) -> Unit,
 ) : CircuitUiState
 
@@ -46,15 +49,21 @@ sealed interface EditActivityEvent {
     /** Retries a failed load. */
     data object Retry : EditActivityEvent
 
-    /** Who may see the activity: a `Visibility` value. Narrows the charts with it. */
+    /** Who may see the activity: a `Visibility` value. Narrows wider categories with it. */
     data class VisibilityChanged(val visibility: String) : EditActivityEvent
 
-    /** Who may see the activity's charts: a `Visibility` value, no wider than the activity's. */
-    data class ChartsVisibilityChanged(val visibility: String) : EditActivityEvent
+    /** Who may see one detail category (a `DetailCategory` token): a `Visibility` value, no wider than the activity's. */
+    data class CategoryVisibilityChanged(val category: String, val visibility: String) : EditActivityEvent
 
     /** Saves after the warning that narrowing a Public activity can't recall published copies. */
     data object ConfirmNarrowing : EditActivityEvent
 
     /** Back to editing without saving, from that warning. */
     data object CancelNarrowing : EditActivityEvent
+
+    /** Saves after the warning that the core charts will become as visible as the activity ([EditActivityState.confirmCoreCharts]). */
+    data object ConfirmCoreCharts : EditActivityEvent
+
+    /** Back to editing without saving, from that warning. */
+    data object CancelCoreCharts : EditActivityEvent
 }

@@ -8,7 +8,9 @@ import io.github.solcott.activitytracker.app.record.ManualActivityPresenter
 import io.github.solcott.activitytracker.app.record.ManualActivityScreen
 import io.github.solcott.activitytracker.data.sport.SportCatalog
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -149,8 +151,35 @@ class ManualActivityPresenterTest {
             cancelAndIgnoreRemainingEvents()
         }
         assertEquals(1, fixture.putRecords.size, "published to the repo")
-        assertTrue(fixture.spacePuts.isEmpty())
+        // Widening the activity leaves its categories at the Followers default: its exact start goes to the followers space.
+        val (tier, details) = fixture.spacePuts.single()
+        assertEquals(Visibility.FOLLOWERS, tier)
+        assertEquals(Nsid.FEED_ACTIVITY_DETAILS, details.getValue("\$type").jsonPrimitive.content)
+        assertTrue("startedAt" in details)
         assertEquals("""{"visibility":"followers","chartsVisibility":"followers"}""", fixture.activityDefaults, "the default stays")
+    }
+
+    @Test
+    fun everyCategoryCanBeMadePublicWithTheActivity() = runTest {
+        fixture.activityDefaults = """{"visibility":"followers"}"""
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ManualActivityScreen)
+        presenterTestOf({
+            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, repos.defaults, Clock.System)
+        }) {
+            awaitUntil { it.visibility.activity == Visibility.FOLLOWERS }
+                .eventSink(ManualActivityEvent.VisibilityChanged(Visibility.PUBLIC))
+            var state = awaitUntil { it.visibility.activity == Visibility.PUBLIC }
+            assertEquals(Visibility.FOLLOWERS, state.visibility.tierOf(DetailCategory.START_TIME), "widening leaves categories")
+            state.eventSink(ManualActivityEvent.CategoryVisibilityChanged(DetailCategory.START_TIME, Visibility.PUBLIC))
+            state = awaitUntil { it.visibility.tierOf(DetailCategory.START_TIME) == Visibility.PUBLIC }
+            state.durationMinutes.setTextAndPlaceCursorAtEnd("30")
+            state.eventSink(ManualActivityEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(1, fixture.putRecords.size)
+        assertTrue(fixture.spacePuts.isEmpty(), "nothing narrower than the activity has data")
     }
 
     @Test

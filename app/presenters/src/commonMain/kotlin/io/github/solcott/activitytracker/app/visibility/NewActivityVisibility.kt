@@ -12,12 +12,14 @@ import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.PendingWritesException
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * The visibility choice of a form for a new activity (record, manual entry, import). It starts at the athlete's defaults once they load,
- * unless the athlete chose already, and changing the activity's visibility narrows the charts with it. Changing it affects only this
+ * unless the athlete chose already, and narrowing the activity's visibility narrows wider categories with it. Changing it affects only this
  * activity (or import), never the defaults.
  */
 @Stable
@@ -27,7 +29,7 @@ class NewActivityVisibility internal constructor(private val canChoose: Boolean,
 
     /** What the form shows. */
     val fields: VisibilityFields
-        get() = VisibilityFields(choice.activity, choice.charts, canChoose, approvesFollowers())
+        get() = fieldsOf(choice, canChoose, approvesFollowers())
 
     /** What to publish with. */
     val current: VisibilityChoice
@@ -36,13 +38,13 @@ class NewActivityVisibility internal constructor(private val canChoose: Boolean,
     fun activityChanged(visibility: String) {
         if (!canChoose) return
         chosen = true
-        choice = choice.copy(activity = Visibility.known(visibility)).capped()
+        choice = choice.withActivity(visibility)
     }
 
-    fun chartsChanged(visibility: String) {
+    fun categoryChanged(category: String, visibility: String) {
         if (!canChoose) return
         chosen = true
-        choice = choice.copy(charts = Visibility.known(visibility)).capped()
+        choice = choice.withCategory(category, visibility)
     }
 }
 
@@ -54,6 +56,22 @@ fun rememberNewActivityVisibility(defaults: ActivityDefaults, approvesFollowers:
         if (!state.chosen) state.choice = loaded
     }
     return state
+}
+
+/** [choice] as a form shows it: each of [offered] (every category unless said) at its visibility, capped at the activity's. */
+fun fieldsOf(
+    choice: VisibilityChoice,
+    canChoose: Boolean,
+    approvesFollowers: Boolean = false,
+    offered: List<String> = DetailCategory.all,
+): VisibilityFields {
+    val tiers = choice.tiers
+    return VisibilityFields(
+        activity = Visibility.known(choice.activity),
+        categories = offered.map { CategoryVisibility(it, tiers.getValue(it)) }.toImmutableList(),
+        canChoose = canChoose,
+        approvesFollowers = approvesFollowers,
+    )
 }
 
 /**

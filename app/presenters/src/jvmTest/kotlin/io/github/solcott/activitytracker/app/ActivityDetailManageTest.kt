@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.detail.ActivityDetailState
 import io.github.solcott.activitytracker.data.activity.ActivityExporter
 import io.github.solcott.activitytracker.data.activity.ActivityManager
+import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
@@ -152,6 +153,7 @@ class ActivityDetailManageTest {
                 tracks,
                 zones.sources,
                 zones.store,
+                ActivityPlaces(clients, Clock.System, Logger),
                 privacy,
                 RouteTrimmer(db, clients, writer, outbox, privacy, tracks, feed, Clock.System, Logger),
                 feed,
@@ -160,7 +162,19 @@ class ActivityDetailManageTest {
                 Clock.System,
             )
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
-        val manager = ActivityManager(db, clients, outbox, writer, streams, tracks, zones.sources, feed)
+        val manager =
+            ActivityManager(
+                db,
+                clients,
+                outbox,
+                writer,
+                streams,
+                tracks,
+                zones.sources,
+                zones.store,
+                ActivityPlaces(clients, Clock.System, Logger),
+                feed,
+            )
         return {
             ActivityDetailPresenter(
                 ActivityDetailScreen(uri),

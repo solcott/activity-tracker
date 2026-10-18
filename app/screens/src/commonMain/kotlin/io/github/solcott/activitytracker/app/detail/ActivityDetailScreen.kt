@@ -6,6 +6,7 @@ import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.visibility.CategoryVisibility
 import io.github.solcott.activitytracker.data.activity.ExportFormat
 import io.github.solcott.activitytracker.data.activity.ExportedFile
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -61,8 +62,11 @@ sealed interface ActivityDetailState : CircuitUiState {
         val poolLength: PoolLength? = null,
         /** The viewer's own activity has heart rate or power but no zones, because they hadn't set thresholds. */
         val chartsMissingZones: Boolean = false,
-        /** The owner is changing who may see the charts. */
-        val savingChartsVisibility: Boolean = false,
+        /**
+         * On the owner's own activity, each detail category with data stored narrower than the activity, with its tier, so its stats and
+         * charts show a lock; empty on anyone else's.
+         */
+        val narrowerCategories: ImmutableList<CategoryVisibility> = persistentListOf(),
         /** The owner approves followers, so Followers means only the ones they approved. */
         val approvesFollowers: Boolean = false,
         /** The collapsible sections this activity has data for, in the order they show. */
@@ -255,9 +259,6 @@ sealed interface ActivityDetailEvent {
 
     /** The owner unhides a comment [uri] they hid. */
     data class UnhideComment(val uri: AtUri) : ActivityDetailEvent
-
-    /** The owner changes who may see the charts: a `Visibility` value. */
-    data class SetChartsVisibility(val visibility: String) : ActivityDetailEvent
 
     /** Opens the training zones screen, to set the thresholds zone charts need. */
     data object OpenTrainingZones : ActivityDetailEvent

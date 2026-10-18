@@ -31,6 +31,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.media.mediaItems
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
+import io.github.solcott.activitytracker.app.ui.CategoryLocks
 import io.github.solcott.activitytracker.app.ui.DiveSite
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.MediaRow
@@ -51,7 +52,6 @@ import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.app.ui.rememberFileHandOff
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_retry
-import io.github.solcott.activitytracker.composeApp.resources.charts_visibility_heading
 import io.github.solcott.activitytracker.composeApp.resources.detail_hide_likes
 import io.github.solcott.activitytracker.composeApp.resources.detail_like
 import io.github.solcott.activitytracker.composeApp.resources.detail_liked
@@ -99,7 +99,6 @@ import io.github.solcott.activitytracker.data.units.formatDecimal
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.CycleCount
 import io.github.solcott.activitytracker.lexicon.app.Sport
-import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.activityType
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -213,6 +212,7 @@ private fun Overview(state: ActivityDetailState.Loaded, modifier: Modifier = Mod
                 record.description?.let { Text(it, Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium) }
             }
             StatTiles(overviewStats(record, state.charts, state.poolLength))
+            CategoryLocks(state.narrowerCategories)
             val media = remember(state.activity) { state.activity.mediaItems() }
             MediaRow(
                 media,
@@ -229,18 +229,7 @@ private fun Overview(state: ActivityDetailState.Loaded, modifier: Modifier = Mod
             state.routeError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
             if (state.zoneAdded) Text(stringResource(Res.string.detail_zone_added), style = MaterialTheme.typography.bodySmall)
             Likes(state)
-            if (state.isOwn) state.charts?.let { ChartSharing(it.visibility, state) }
         }
-    }
-}
-
-/** The owner's choice of who may see the activity's charts. */
-@Composable
-private fun ChartSharing(visibility: String, state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(Res.string.charts_visibility_heading), style = MaterialTheme.typography.titleSmall)
-        val options = remember(state.activity.visibilityOrPublic) { Visibility.atMost(state.activity.visibilityOrPublic).toImmutableList() }
-        ChartsVisibility(visibility, state.savingChartsVisibility, state.approvesFollowers, state.eventSink, options)
     }
 }
 

@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
 import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
+import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
@@ -81,6 +82,7 @@ class FeedPresenterTest {
                 zones.tracks,
                 zones.sources,
                 zones.store,
+                ActivityPlaces(clients, Clock.System, Logger),
                 privacy,
                 RouteTrimmer(db, clients, zones.writer, zones.outbox, privacy, zones.tracks, feed, Clock.System, Logger),
                 feed,
@@ -183,6 +185,7 @@ class FeedPresenterTest {
                 zones.tracks,
                 zones.sources,
                 zones.store,
+                ActivityPlaces(clients, Clock.System, Logger),
                 privacy,
                 RouteTrimmer(db, clients, zones.writer, zones.outbox, privacy, zones.tracks, feed, Clock.System, Logger),
                 feed,

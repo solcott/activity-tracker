@@ -17,7 +17,7 @@ data class SettingsState(
     val units: UnitSystem,
     val saving: Boolean,
     val error: UiError?,
-    /** Who new activities and their charts are shown to unless the athlete chooses otherwise; null while they load. */
+    /** Who new activities and each detail category are shown to unless the athlete chooses otherwise; null while they load. */
     val defaults: VisibilityFields? = null,
     val savingDefaults: Boolean = false,
     /** How many privacy zones the athlete keeps; null until read. */
@@ -32,11 +32,13 @@ sealed interface SettingsEvent {
 
     data class UnitsChanged(val units: UnitSystem) : SettingsEvent
 
-    /** The default visibility of new activities: a `Visibility` value. Narrows the charts default with it. */
+    /** The default visibility of new activities: a `Visibility` value. Narrows wider category defaults with it. */
     data class DefaultVisibilityChanged(val visibility: String) : SettingsEvent
 
-    /** The default visibility of new activities' charts: a `Visibility` value, no wider than the activity default. */
-    data class DefaultChartsVisibilityChanged(val visibility: String) : SettingsEvent
+    /**
+     * The default visibility of one detail category (a `DetailCategory` token): a `Visibility` value, no wider than the activity default.
+     */
+    data class DefaultCategoryVisibilityChanged(val category: String, val visibility: String) : SettingsEvent
 
     data object OpenZones : SettingsEvent
 

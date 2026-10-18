@@ -26,6 +26,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.app.ui.visibilityLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.action_retry
@@ -34,6 +35,9 @@ import io.github.solcott.activitytracker.composeApp.resources.action_saving
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_narrowing_body
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_narrowing_confirm
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_narrowing_title
+import io.github.solcott.activitytracker.composeApp.resources.core_charts_widening_body
+import io.github.solcott.activitytracker.composeApp.resources.core_charts_widening_confirm
+import io.github.solcott.activitytracker.composeApp.resources.core_charts_widening_title
 import io.github.solcott.activitytracker.composeApp.resources.edit_activity_title
 import io.github.solcott.activitytracker.composeApp.resources.edit_discard
 import io.github.solcott.activitytracker.composeApp.resources.edit_discard_message
@@ -77,9 +81,10 @@ fun EditActivityUi(state: EditActivityState, modifier: Modifier = Modifier) {
                     state.visibility?.let { visibility ->
                         ActivityVisibilityForm(
                             visibility,
-                            hasCharts = state.hasCharts,
                             onActivityChange = { state.eventSink(EditActivityEvent.VisibilityChanged(it)) },
-                            onChartsChange = { state.eventSink(EditActivityEvent.ChartsVisibilityChanged(it)) },
+                            onCategoryChange = { category, tier ->
+                                state.eventSink(EditActivityEvent.CategoryVisibilityChanged(category, tier))
+                            },
                             enabled = !state.saving,
                         )
                     }
@@ -117,6 +122,20 @@ fun EditActivityUi(state: EditActivityState, modifier: Modifier = Modifier) {
                 ),
             cancelLabel = stringResource(Res.string.action_cancel),
             onDismiss = { state.eventSink(EditActivityEvent.CancelNarrowing) },
+        )
+    }
+    state.confirmCoreCharts?.let { visibility ->
+        AppAlertDialog(
+            title = stringResource(Res.string.core_charts_widening_title),
+            message = stringResource(Res.string.core_charts_widening_body, visibilityLabel(visibility)),
+            actions =
+                persistentListOf(
+                    AppDialogAction(stringResource(Res.string.core_charts_widening_confirm)) {
+                        state.eventSink(EditActivityEvent.ConfirmCoreCharts)
+                    }
+                ),
+            cancelLabel = stringResource(Res.string.action_cancel),
+            onDismiss = { state.eventSink(EditActivityEvent.CancelCoreCharts) },
         )
     }
 }

@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.app.profile.ProfileEvent
 import io.github.solcott.activitytracker.app.profile.ProfilePresenter
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.profile.ProfileState
+import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
@@ -154,6 +155,7 @@ class ProfilePresenterTest {
                 zones.tracks,
                 zones.sources,
                 zones.store,
+                ActivityPlaces(clients, Clock.System, Logger),
                 privacy,
                 RouteTrimmer(db, clients, zones.writer, zones.outbox, privacy, zones.tracks, feed, Clock.System, Logger),
                 feed,

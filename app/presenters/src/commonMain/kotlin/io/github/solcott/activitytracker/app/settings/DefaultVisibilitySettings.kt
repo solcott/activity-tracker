@@ -10,11 +10,11 @@ import androidx.compose.runtime.setValue
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
+import io.github.solcott.activitytracker.app.visibility.fieldsOf
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
-import io.github.solcott.activitytracker.lexicon.app.Visibility
 
 /**
  * The default visibilities in Settings: read again on opening (another device may have changed them), and saved as soon as one changes,
@@ -27,17 +27,17 @@ internal constructor(private val defaults: ActivityDefaults, private val flights
     internal var shown by mutableStateOf<VisibilityChoice?>(null)
 
     val fields: VisibilityFields?
-        get() = shown?.let { VisibilityFields(it.activity, it.charts, defaults.canChoose) }
+        get() = shown?.let { fieldsOf(it, defaults.canChoose) }
 
     val saving: Boolean
         get() = flights.isRunning(KEY)
 
     fun activityChanged(visibility: String) {
-        shown?.let { save(it.copy(activity = Visibility.known(visibility)).capped()) }
+        shown?.let { save(it.withActivity(visibility)) }
     }
 
-    fun chartsChanged(visibility: String) {
-        shown?.let { save(it.copy(charts = Visibility.known(visibility)).capped()) }
+    fun categoryChanged(category: String, visibility: String) {
+        shown?.let { save(it.withCategory(category, visibility)) }
     }
 
     private fun save(choice: VisibilityChoice) {
@@ -55,7 +55,7 @@ internal constructor(private val defaults: ActivityDefaults, private val flights
     }
 
     private companion object {
-        /** Both defaults save as one. */
+        /** Every default saves as one. */
         val KEY = SettingsEvent.DefaultVisibilityChanged::class
     }
 }

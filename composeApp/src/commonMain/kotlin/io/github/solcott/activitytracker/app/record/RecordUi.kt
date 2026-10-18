@@ -76,9 +76,8 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
             )
             ActivityVisibilityForm(
                 state.visibility,
-                hasCharts = true,
                 onActivityChange = { state.eventSink(RecordEvent.VisibilityChanged(it)) },
-                onChartsChange = { state.eventSink(RecordEvent.ChartsVisibilityChanged(it)) },
+                onCategoryChange = { category, tier -> state.eventSink(RecordEvent.CategoryVisibilityChanged(category, tier)) },
                 enabled = !state.saving,
             )
             state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }

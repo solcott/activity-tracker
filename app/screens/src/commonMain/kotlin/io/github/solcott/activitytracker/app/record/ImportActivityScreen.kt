@@ -40,7 +40,7 @@ data class ImportActivityState(
     val error: UiError?,
     /** Thresholds that saving updates from the recording device's settings, where the athlete lets imports update them. */
     val thresholdChanges: ImmutableList<ThresholdChange> = persistentListOf(),
-    /** Who may see the activity (or, for a logbook, every dive) and its charts; starts at the athlete's defaults. */
+    /** Who may see the activity (or, for a logbook, every dive) and each detail category; starts at the athlete's defaults. */
     val visibility: VisibilityFields = VisibilityFields(),
     /** A logbook (UDDF, Subsurface) of several dives, once read; the athlete picks which to import. */
     val dives: DiveBatch? = null,
@@ -341,10 +341,10 @@ sealed interface ImportActivityEvent {
     /** Selects or clears every dive in the [DiveBatch] that isn't a duplicate. */
     data class AllDivesSelected(val selected: Boolean) : ImportActivityEvent
 
-    /** Who may see the activity's charts: a `Visibility` value. */
-    data class ChartsVisibilityChanged(val visibility: String) : ImportActivityEvent
+    /** Who may see one detail category (a `DetailCategory` token) of the activity (every dive of a logbook): a `Visibility` value. */
+    data class CategoryVisibilityChanged(val category: String, val visibility: String) : ImportActivityEvent
 
-    /** Who may see the activity (every dive of a logbook): a `Visibility` value. Narrows the charts with it. */
+    /** Who may see the activity (every dive of a logbook): a `Visibility` value. Narrows wider categories with it. */
     data class VisibilityChanged(val visibility: String) : ImportActivityEvent
 
     data object Back : ImportActivityEvent

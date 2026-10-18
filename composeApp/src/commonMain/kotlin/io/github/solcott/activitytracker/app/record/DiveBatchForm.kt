@@ -78,9 +78,8 @@ internal fun DiveBatchForm(state: ImportActivityState, batch: DiveBatch, modifie
         // One choice for every dive in the batch.
         ActivityVisibilityForm(
             state.visibility,
-            hasCharts = true,
             onActivityChange = { state.eventSink(ImportActivityEvent.VisibilityChanged(it)) },
-            onChartsChange = { state.eventSink(ImportActivityEvent.ChartsVisibilityChanged(it)) },
+            onCategoryChange = { category, tier -> state.eventSink(ImportActivityEvent.CategoryVisibilityChanged(category, tier)) },
             enabled = !state.saving,
         )
         val defaultTitles =

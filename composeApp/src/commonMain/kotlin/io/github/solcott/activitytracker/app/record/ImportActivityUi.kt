@@ -193,9 +193,8 @@ private fun PreviewForm(state: ImportActivityState, preview: ImportPreview, modi
         if (state.thresholdChanges.isNotEmpty()) ThresholdChanges(state.thresholdChanges)
         ActivityVisibilityForm(
             state.visibility,
-            hasCharts = preview.hasStreams,
             onActivityChange = { state.eventSink(ImportActivityEvent.VisibilityChanged(it)) },
-            onChartsChange = { state.eventSink(ImportActivityEvent.ChartsVisibilityChanged(it)) },
+            onCategoryChange = { category, tier -> state.eventSink(ImportActivityEvent.CategoryVisibilityChanged(category, tier)) },
             enabled = !state.saving,
         )
         AppButton(onClick = { state.eventSink(ImportActivityEvent.Save(defaultTitle)) }, enabled = state.canSave(preview)) {

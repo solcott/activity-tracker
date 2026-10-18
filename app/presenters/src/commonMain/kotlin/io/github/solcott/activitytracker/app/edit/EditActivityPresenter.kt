@@ -53,15 +53,15 @@ fun EditActivityPresenter(
         error = null
         runSuspendCatching {
             val view = feed.activity(AtUri(screen.uri))
-            // Charts are extra: without them (or when they can't load) only the activity's visibility is offered.
-            val charts = runSuspendCatching { feed.streams(view.uri)?.visibility }.getOrNull()
-            view to charts
+            // Charts are extra: without them (or when they can't load) only the categories its summary has are offered.
+            val streams = runSuspendCatching { feed.streams(view.uri) }.getOrNull()
+            view to streams
         }
-            .onSuccess { (view, charts) ->
+            .onSuccess { (view, streams) ->
                 seededTitle = view.record.title.orEmpty()
                 title.setTextAndPlaceCursorAtEnd(seededTitle)
                 form.seed(view.record.description, view.record.dive?.site, existingMedia(view))
-                visibility.seed(view, charts)
+                visibility.seed(view, streams)
                 activity = view
             }
             .onFailure { error = UiError.of(UiError.Kind.LoadActivity, it) }
@@ -82,10 +82,14 @@ fun EditActivityPresenter(
                     media = form.mediaEdits(),
                 )
             runSuspendCatching {
+                // An activity from before categories keeps its core charts with its one streams record; saving moves them to the
+                // activity's tier, so a wider one is the athlete's call.
+                if (visibility.asksAboutCoreCharts(current, manager)) return@runSuspendCatching false
                 manager.edit(current, edit)
                 visibility.changed?.let { manager.setVisibility(current, it) }
+                true
             }
-                .onSuccess { navigator.pop() }
+                .onSuccess { saved -> if (saved) navigator.pop() }
                 .onFailure { error = uiErrorOf(UiError.Kind.SaveActivity, it) }
         }
     }
@@ -100,8 +104,8 @@ fun EditActivityPresenter(
         error = error,
         confirmDiscard = confirmDiscard,
         visibility = visibility.fields,
-        hasCharts = visibility.hasCharts,
         confirmNarrowing = visibility.confirmingNarrowing,
+        confirmCoreCharts = visibility.confirmingCoreCharts,
     ) { event ->
         val saveLoaded = { activity?.let(::save) ?: Unit }
         when (event) {
@@ -114,7 +118,11 @@ fun EditActivityPresenter(
 
             is EditActivityEvent.VisibilityChanged -> visibility.activityChanged(event.visibility)
 
-            is EditActivityEvent.ChartsVisibilityChanged -> visibility.chartsChanged(event.visibility)
+            is EditActivityEvent.CategoryVisibilityChanged -> visibility.categoryChanged(event.category, event.visibility)
+
+            EditActivityEvent.ConfirmCoreCharts -> visibility.coreChartsAnswered(confirmed = true, saveLoaded)
+
+            EditActivityEvent.CancelCoreCharts -> visibility.coreChartsAnswered(confirmed = false, saveLoaded)
 
             EditActivityEvent.Back -> {
                 if (isChanged(activity, title.text.toString() != seededTitle, form.isChanged, visibility)) confirmDiscard = true

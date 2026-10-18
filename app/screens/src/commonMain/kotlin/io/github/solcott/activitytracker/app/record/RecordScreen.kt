@@ -29,7 +29,7 @@ data class RecordState(
     val hasPermission: Boolean,
     val saving: Boolean,
     val error: UiError?,
-    /** Who may see the activity and its charts; starts at the athlete's defaults. */
+    /** Who may see the activity and each detail category; starts at the athlete's defaults. */
     val visibility: VisibilityFields = VisibilityFields(),
     val eventSink: (RecordEvent) -> Unit,
 ) : CircuitUiState
@@ -39,11 +39,11 @@ sealed interface RecordEvent {
 
     data class PermissionResult(val granted: Boolean) : RecordEvent
 
-    /** Who may see this activity: a `Visibility` value. Narrows the charts with it. */
+    /** Who may see this activity: a `Visibility` value. Narrows wider categories with it. */
     data class VisibilityChanged(val visibility: String) : RecordEvent
 
-    /** Who may see this activity's charts: a `Visibility` value, no wider than the activity's. */
-    data class ChartsVisibilityChanged(val visibility: String) : RecordEvent
+    /** Who may see one detail category (a `DetailCategory` token): a `Visibility` value, no wider than the activity's. */
+    data class CategoryVisibilityChanged(val category: String, val visibility: String) : RecordEvent
 
     data object Start : RecordEvent
 

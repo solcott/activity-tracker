@@ -31,6 +31,7 @@ import io.github.solcott.activitytracker.composeApp.resources.stat_time
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.activityType
+import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.pluralStringResource
@@ -47,8 +48,11 @@ fun ActivityCard(
     /** Opens the activity's media full screen, at an index. */
     onOpenMedia: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    /** The viewer's own activity: each detail category stored narrower than it shows a lock. */
+    isOwn: Boolean = false,
 ) {
-    val record = activity.record
+    // Every detail the viewer was served, with what they weren't left out.
+    val record = remember(activity) { activity.effectiveRecord() }
     Card(modifier.fillMaxWidth().clickable(onClick = onClick).handCursor()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             val author = activity.author.displayName ?: activity.author.handle.value
@@ -77,10 +81,14 @@ fun ActivityCard(
                     listOfNotNull(
                             distanceStat(record.sport, record.distance?.toDouble()),
                             Stat(stringResource(Res.string.stat_time), Format.duration(record.movingTime ?: record.elapsedTime)),
-                            Format.rateStat(record.sport, record.distance?.toDouble(), record.movingTime ?: record.elapsedTime),
+                            // Pace follows the Pace/Speed category: a viewer not served the speed isn't shown it.
+                            record.avgSpeed?.let {
+                                Format.rateStat(record.sport, record.distance?.toDouble(), record.movingTime ?: record.elapsedTime)
+                            },
                         )
                         .toImmutableList()
             )
+            if (isOwn) CategoryLocks(remember(activity) { narrowerCategories(activity) })
             MediaRow(
                 remember(activity) { activity.mediaItems() },
                 onOpen = { onOpenMedia(it) },

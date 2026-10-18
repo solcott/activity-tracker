@@ -6,12 +6,13 @@ import io.github.solcott.activitytracker.app.settings.SettingsEvent
 import io.github.solcott.activitytracker.app.settings.SettingsPresenter
 import io.github.solcott.activitytracker.app.settings.SettingsScreen
 import io.github.solcott.activitytracker.app.settings.TrainingZonesScreen
-import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.test.runTest
@@ -77,39 +78,44 @@ class SettingsPresenterTest {
         val repos = fixture.repos()
         presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy) }) {
             val loaded = awaitUntil { it.defaults != null }
-            assertEquals(VisibilityFields(), loaded.defaults, "never set: Public")
-            loaded.eventSink(SettingsEvent.DefaultChartsVisibilityChanged(Visibility.SELF))
+            assertEquals(Visibility.PUBLIC, loaded.defaults?.activity, "never set: Public")
+            assertEquals(DetailCategory.all.map { Visibility.PUBLIC }, loaded.defaults?.categories?.map { it.visibility })
+            loaded.eventSink(SettingsEvent.DefaultCategoryVisibilityChanged(DetailCategory.HEART_RATE, Visibility.SELF))
             awaitUntil { it.savingDefaults }
             awaitUntil { !it.savingDefaults }.eventSink(SettingsEvent.DefaultVisibilityChanged(Visibility.MUTUALS))
             awaitUntil { it.savingDefaults }
             val saved = awaitUntil { !it.savingDefaults }
             assertEquals(Visibility.MUTUALS, saved.defaults?.activity)
-            assertEquals(Visibility.SELF, saved.defaults?.charts, "narrower charts stay")
-            assertEquals(persistentListOf(Visibility.MUTUALS, Visibility.SELF), saved.defaults?.chartsOptions)
+            assertEquals(Visibility.SELF, saved.defaults?.tierOf(DetailCategory.HEART_RATE), "a narrower category stays")
+            assertEquals(Visibility.MUTUALS, saved.defaults?.tierOf(DetailCategory.POWER), "a wider one is capped")
+            assertEquals(persistentListOf(Visibility.MUTUALS, Visibility.SELF), saved.defaults?.categoryOptions)
             cancelAndIgnoreRemainingEvents()
         }
         val record = AtJson.parseToJsonElement(fixture.activityDefaults!!).jsonObject
         assertEquals(Visibility.MUTUALS, record.getValue("visibility").jsonPrimitive.content)
-        assertEquals(Visibility.SELF, record.getValue("chartsVisibility").jsonPrimitive.content)
+        assertEquals(Visibility.SELF, record.getValue("details").jsonObject.getValue("heartRate").jsonPrimitive.content)
+        assertFalse("chartsVisibility" in record, "no charts default")
 
         // Opening Settings again, in a new session, reads them back.
         val again = fixture.repos()
         presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), again.units, again.auth, again.defaults, again.privacy) }) {
-            assertEquals(VisibilityFields(Visibility.MUTUALS, Visibility.SELF), awaitUntil { it.defaults != null }.defaults)
+            val reloaded = awaitUntil { it.defaults != null }.defaults
+            assertEquals(Visibility.MUTUALS, reloaded?.activity)
+            assertEquals(Visibility.SELF, reloaded?.tierOf(DetailCategory.HEART_RATE))
             cancelAndIgnoreRemainingEvents()
         }
     }
 
     @Test
-    fun wideningTheActivityDefaultKeepsTheChartsAndNarrowingCapsThem() = runTest {
-        fixture.activityDefaults = """{"visibility":"followers","chartsVisibility":"followers"}"""
+    fun narrowingTheActivityDefaultCapsTheCategories() = runTest {
+        fixture.activityDefaults = """{"visibility":"followers","details":{"calories":"followers"}}"""
         val repos = fixture.repos()
         presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy) }) {
             awaitUntil { it.defaults != null }.eventSink(SettingsEvent.DefaultVisibilityChanged(Visibility.SELF))
             awaitUntil { it.savingDefaults }
             val narrowed = awaitUntil { !it.savingDefaults }
             assertEquals(Visibility.SELF, narrowed.defaults?.activity)
-            assertEquals(Visibility.SELF, narrowed.defaults?.charts, "charts default capped")
+            assertEquals(Visibility.SELF, narrowed.defaults?.tierOf(DetailCategory.CALORIES), "category default capped")
             cancelAndIgnoreRemainingEvents()
         }
     }

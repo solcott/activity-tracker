@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.app.edit.EditMedia
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityManager
+import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.cid
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -24,9 +25,11 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
@@ -75,6 +78,27 @@ class EditActivityPresenterTest {
                 } +
                 "]}"
 
+    /** From before detail categories: one streams record, in the `self` space, holding the depth and temperature charts. */
+    private var oldStreams = false
+    private val oldData = """{"time":[0,1],"depth":[100,200],"temperature":[200,210]}"""
+
+    /** The places holding the activity record: where [visibility] says, until a save moves it. */
+    private val held = mutableSetOf<String>()
+    private var heldSeeded = false
+
+    private fun held(): MutableSet<String> {
+        if (!heldSeeded) held += if (visibility == Visibility.PUBLIC) "repo" else visibility
+        heldSeeded = true
+        return held
+    }
+
+    private fun MockRequestHandleScope.activityAt(place: String, collection: String?) =
+        if (collection == Nsid.FEED_ACTIVITY && place in held()) {
+            respond("""{"uri":"$uri","cid":"bafyact","value":$record}""", headers = headersOf("Content-Type", "application/json"))
+        } else {
+            respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, headersOf("Content-Type", "application/json"))
+        }
+
     /** Every upload and write the PDS took, in order. */
     private val writes = mutableListOf<String>()
     private val putRecords = mutableListOf<ActivityRecord>()
@@ -92,7 +116,7 @@ class EditActivityPresenterTest {
 
                     "/xrpc/${Nsid.FEED_GET_ACTIVITY}" -> respond("""{"activity":$view,"comments":[]}""", headers = json)
 
-                    "/xrpc/com.atproto.repo.getRecord" -> respond("""{"uri":"$uri","cid":"bafyact","value":$record}""", headers = json)
+                    "/xrpc/com.atproto.repo.getRecord" -> activityAt("repo", request.url.parameters["collection"])
 
                     "/xrpc/com.atproto.repo.uploadBlob" ->
                         if (failUpload) {
@@ -105,11 +129,30 @@ class EditActivityPresenterTest {
                             )
                         }
 
-                    "/xrpc/com.atproto.space.getRecord" ->
-                        if (request.url.parameters["collection"] == Nsid.FEED_ACTIVITY) {
-                            respond("""{"uri":"$uri","cid":"bafyact","value":$record}""", headers = json)
+                    "/xrpc/com.atproto.space.getRecord" -> {
+                        val place = request.url.parameters["space"].orEmpty().substringAfterLast('/')
+                        if (oldStreams && place == Visibility.SELF && request.url.parameters["collection"] == Nsid.FEED_ACTIVITY_STREAMS) {
+                            val streams =
+                                """{"activity":"$uri","channels":["depth","temperature"],"createdAt":"2026-09-30T10:31:00Z",""" +
+                                    """"data":{"${'$'}type":"blob","ref":{"${'$'}link":"bafkstreams"},"mimeType":"application/json","size":9}}"""
+                            respond("""{"uri":"$uri","cid":"bafystr","value":$streams}""", headers = json)
                         } else {
-                            respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, json)
+                            activityAt(place, request.url.parameters["collection"])
+                        }
+                    }
+
+                    "/xrpc/com.atproto.space.getBlob" ->
+                        if (oldStreams && request.url.parameters["cid"] == "bafkstreams") respond(oldData, headers = json)
+                        else respond("""{"error":"BlobNotFound"}""", HttpStatusCode.BadRequest, json)
+
+                    "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" ->
+                        if (oldStreams) {
+                            respond(
+                                """{"uri":"$uri","visibility":"self","channels":["depth","temperature"],"data":$oldData}""",
+                                headers = json,
+                            )
+                        } else {
+                            respond("""{"error":"NotFound"}""", HttpStatusCode.BadRequest, json)
                         }
 
                     "/.well-known/did.json" ->
@@ -131,6 +174,9 @@ class EditActivityPresenterTest {
                     "/xrpc/com.atproto.repo.deleteRecord" -> {
                         val input = AtJson.parseToJsonElement(body(request)).jsonObject
                         val place = input["space"]?.jsonPrimitive?.content?.substringAfterLast('/') ?: "repo"
+                        if (input["collection"]?.jsonPrimitive?.content == Nsid.FEED_ACTIVITY) {
+                            if (input["record"] != null) held() += place else held() -= place
+                        }
                         writes += (if (input["record"] != null) "put " else "delete ") + place
                         respond("""{"uri":"$uri","cid":"bafyrec"}""", headers = json)
                     }
@@ -138,8 +184,14 @@ class EditActivityPresenterTest {
                     "/xrpc/com.atproto.repo.putRecord" -> {
                         gate.await()
                         val body = AtJson.parseToJsonElement((request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString())
-                        putRecords += AtJson.decodeFromJsonElement(ActivityRecord.serializer(), body.jsonObject.getValue("record"))
-                        writes += "put"
+                        val collection = body.jsonObject["collection"]?.jsonPrimitive?.content
+                        if (collection == Nsid.FEED_ACTIVITY) {
+                            putRecords += AtJson.decodeFromJsonElement(ActivityRecord.serializer(), body.jsonObject.getValue("record"))
+                            held() += "repo"
+                            writes += "put"
+                        } else {
+                            writes += "put repo $collection"
+                        }
                         respond("""{"uri":"$uri","cid":"bafyrec"}""", headers = json)
                     }
 
@@ -159,7 +211,19 @@ class EditActivityPresenterTest {
         val (db, _, clients) = signedInTestSession(http, did = alice)
         val feed = FeedRepository(db, clients, LocalLikes(), Logger)
         val zones = TestZones(db, clients)
-        val manager = ActivityManager(db, clients, zones.outbox, zones.writer, zones.streams, zones.tracks, zones.sources, feed)
+        val manager =
+            ActivityManager(
+                db,
+                clients,
+                zones.outbox,
+                zones.writer,
+                zones.streams,
+                zones.tracks,
+                zones.sources,
+                zones.store,
+                ActivityPlaces(clients, Clock.System, Logger),
+                feed,
+            )
         val defaults = ActivityDefaults(clients)
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
         return { EditActivityPresenter(EditActivityScreen(uri), navigator, feed, manager, defaults, profiles) }
@@ -255,6 +319,34 @@ class EditActivityPresenterTest {
     }
 
     @Test
+    fun theFirstEditOfAnOldActivityWarnsBeforeWideningItsCoreCharts() = runTest {
+        oldStreams = true
+        val navigator = FakeNavigator(EditActivityScreen(uri))
+        presenterTestOf(presenter(navigator)) {
+            val loaded = awaitUntil { it.visibility != null }
+            // Each category shows where its data is served now: the dive's channels Only me, the rest Public.
+            assertEquals(Visibility.SELF, loaded.visibility?.tierOf(DetailCategory.DIVE))
+            assertEquals(Visibility.PUBLIC, loaded.visibility?.tierOf(DetailCategory.START_TIME))
+            assertEquals(null, loaded.visibility?.tierOf(DetailCategory.HEART_RATE), "no data, not offered")
+
+            loaded.eventSink(EditActivityEvent.CategoryVisibilityChanged(DetailCategory.START_TIME, Visibility.SELF))
+            awaitUntil { it.visibility?.tierOf(DetailCategory.START_TIME) == Visibility.SELF }.eventSink(EditActivityEvent.Save)
+            val warned = awaitUntil { it.confirmCoreCharts != null }
+            assertEquals(Visibility.PUBLIC, warned.confirmCoreCharts)
+            assertEquals(emptyList(), writes, "nothing saved before the athlete confirms")
+
+            warned.eventSink(EditActivityEvent.CancelCoreCharts)
+            awaitUntil { it.confirmCoreCharts == null }.eventSink(EditActivityEvent.Save)
+            awaitUntil { it.confirmCoreCharts != null }.eventSink(EditActivityEvent.ConfirmCoreCharts)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        // The temperature chart went with the activity to the repo, the dive's stayed in self, with its exact start.
+        assertTrue("put repo ${Nsid.FEED_ACTIVITY_STREAMS}" in writes, writes.toString())
+        assertTrue("put self" in writes, writes.toString())
+    }
+
+    @Test
     fun movingBetweenNonPublicTiersNeedsNoWarning() = runTest {
         visibility = Visibility.FOLLOWERS
         val navigator = FakeNavigator(EditActivityScreen(uri))
@@ -263,8 +355,8 @@ class EditActivityPresenterTest {
             val mutuals = awaitUntil { it.visibility?.activity == Visibility.MUTUALS }
             assertEquals(
                 persistentListOf(Visibility.MUTUALS, Visibility.SELF),
-                mutuals.visibility?.chartsOptions,
-                "wider charts not offered",
+                mutuals.visibility?.categoryOptions,
+                "wider categories not offered",
             )
             mutuals.eventSink(EditActivityEvent.Save)
             navigator.awaitPop()

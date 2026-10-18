@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.ui.DetailVisibilityPicker
 import io.github.solcott.activitytracker.app.ui.UnitSystemPicker
 import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
@@ -26,7 +27,6 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.profile_sign_out
 import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_activity
-import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_charts
 import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_heading
 import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_help
 import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_zones
@@ -99,7 +99,7 @@ fun SettingsUi(state: SettingsState, modifier: Modifier = Modifier) {
     }
 }
 
-/** Who new activities and their charts start out shown to; the charts' choices are capped at the activity's. */
+/** Who new activities and each detail category start out shown to; the categories' choices are capped at the activity's. */
 @Composable
 private fun DefaultVisibility(
     defaults: VisibilityFields,
@@ -118,14 +118,11 @@ private fun DefaultVisibility(
             modifier = Modifier.fillMaxWidth(),
             enabled = enabled,
         )
-        Text(stringResource(Res.string.settings_defaults_charts), style = MaterialTheme.typography.labelLarge)
-        VisibilityPicker(
-            defaults.charts,
-            onSelect = { eventSink(SettingsEvent.DefaultChartsVisibilityChanged(it)) },
-            approvesFollowers = defaults.approvesFollowers,
+        DetailVisibilityPicker(
+            defaults,
+            onCategoryChange = { category, tier -> eventSink(SettingsEvent.DefaultCategoryVisibilityChanged(category, tier)) },
             modifier = Modifier.fillMaxWidth(),
             enabled = enabled,
-            options = defaults.chartsOptions,
         )
         Text(
             stringResource(

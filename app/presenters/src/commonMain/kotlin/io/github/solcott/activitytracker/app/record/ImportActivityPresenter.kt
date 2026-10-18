@@ -187,7 +187,7 @@ fun ImportActivityPresenter(
                 navigator.pop()
             }
 
-            is ImportActivityEvent.ChartsVisibilityChanged -> visibility.chartsChanged(event.visibility)
+            is ImportActivityEvent.CategoryVisibilityChanged -> visibility.categoryChanged(event.category, event.visibility)
 
             is ImportActivityEvent.VisibilityChanged -> visibility.activityChanged(event.visibility)
 

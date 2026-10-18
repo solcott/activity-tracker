@@ -14,7 +14,6 @@ import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.settings.zoneName
 import io.github.solcott.activitytracker.app.ui.DiveFormat
 import io.github.solcott.activitytracker.app.ui.Format
-import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.chart.SeriesLabel
 import io.github.solcott.activitytracker.app.ui.chart.SeriesPoint
@@ -47,7 +46,6 @@ import io.github.solcott.activitytracker.composeApp.resources.chart_zone_range
 import io.github.solcott.activitytracker.composeApp.resources.chart_zone_range_open
 import io.github.solcott.activitytracker.composeApp.resources.charts_missing_zones
 import io.github.solcott.activitytracker.composeApp.resources.charts_set_thresholds
-import io.github.solcott.activitytracker.composeApp.resources.charts_visibility_help
 import io.github.solcott.activitytracker.composeApp.resources.unit_bpm
 import io.github.solcott.activitytracker.composeApp.resources.unit_duration_hours
 import io.github.solcott.activitytracker.composeApp.resources.unit_duration_minutes
@@ -154,33 +152,6 @@ private fun sectionOf(kind: StreamKind): DetailSection =
         StreamKind.EbikeAssistMode,
         StreamKind.EbikeAssistLevel -> DetailSection.EBike
     }
-
-/** The owner's choice of who may see the charts, under a heading that asks the question: [options] stop at the activity's visibility. */
-@Composable
-internal fun ChartsVisibility(
-    visibility: String,
-    saving: Boolean,
-    approvesFollowers: Boolean,
-    eventSink: (ActivityDetailEvent) -> Unit,
-    options: ImmutableList<String>,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(HEADER_GAP)) {
-        VisibilityPicker(
-            visibility,
-            onSelect = { eventSink(ActivityDetailEvent.SetChartsVisibility(it)) },
-            approvesFollowers = approvesFollowers,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !saving,
-            options = options,
-        )
-        Text(
-            stringResource(Res.string.charts_visibility_help),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
 
 @Composable
 private fun MissingZones(eventSink: (ActivityDetailEvent) -> Unit) {

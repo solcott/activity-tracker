@@ -43,8 +43,10 @@ import io.github.solcott.activitytracker.data.training.ZoneModels
 import io.github.solcott.activitytracker.data.training.Zones
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.HeartRateZoneModel
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.StreamChannel
 import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
@@ -254,15 +256,17 @@ class ImportActivityPresenterTest {
             // Threshold changes show once the athlete's training has loaded.
             val read = awaitUntil { it.preview != null && it.thresholdChanges.isNotEmpty() }
             assertTrue(read.preview!!.hasStreams)
-            read.eventSink(ImportActivityEvent.ChartsVisibilityChanged(Visibility.MUTUALS))
-            awaitUntil { it.visibility.charts == Visibility.MUTUALS }.eventSink(ImportActivityEvent.Save(defaultTitle = "Morning Run"))
+            read.eventSink(ImportActivityEvent.CategoryVisibilityChanged(DetailCategory.HEART_RATE, Visibility.MUTUALS))
+            val mutuals = awaitUntil { it.visibility.tierOf(DetailCategory.HEART_RATE) == Visibility.MUTUALS }
+            mutuals.eventSink(ImportActivityEvent.Save(defaultTitle = "Morning Run"))
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
         }
-        // Mutuals charts live in the mutuals space, not the repo.
-        assertTrue(fixture.putRecords.none { it.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY_STREAMS })
+        // The heart rate lives in the mutuals space, not the repo.
+        assertTrue(fixture.putRecords.none { StreamChannel.HEART_RATE in it["channels"].toString() })
         val (tier, streams) = fixture.spacePuts.single { it.second.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY_STREAMS }
         assertEquals(Visibility.MUTUALS, tier)
+        assertTrue(StreamChannel.HEART_RATE in streams.getValue("channels").toString())
         assertFalse("heartRateZones" in streams, "zones are a record of their own")
         // Zones go to the narrower of the charts (Mutuals) and the training (Only me).
         val (zonesTier, zonesRecord) =

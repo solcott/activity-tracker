@@ -31,6 +31,7 @@ import kotlin.time.Clock
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.datetime.todayIn
 
 @CircuitInject(FeedScreen::class, SessionScope::class)
@@ -64,10 +65,10 @@ fun FeedPresenter(
     var syncedFor by remember { mutableIntStateOf(-1) }
     val activityEvents = rememberActivityListEventSink(navigator, activities) { error = it }
 
-    // Apart from the feed load, which mustn't wait on it.
+    // Apart from the feed load, which mustn't wait on them, and from each other: each is best effort and slow for a long history.
     LaunchedEffect(Unit) {
-        activities.repairZones()
-        activities.repairRoutes()
+        launch { activities.repairZones() }
+        launch { activities.repairRoutes() }
     }
 
     LaunchedEffect(refreshKey, mine, query) {

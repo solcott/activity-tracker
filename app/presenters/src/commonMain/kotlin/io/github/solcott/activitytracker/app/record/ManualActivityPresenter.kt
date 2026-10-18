@@ -55,6 +55,10 @@ fun ManualActivityPresenter(
                 visibility.activityChanged(event.visibility)
             }
 
+            is ManualActivityEvent.CategoryVisibilityChanged -> {
+                visibility.categoryChanged(event.category, event.visibility)
+            }
+
             is ManualActivityEvent.TypeChanged -> {
                 type = event.value
             }

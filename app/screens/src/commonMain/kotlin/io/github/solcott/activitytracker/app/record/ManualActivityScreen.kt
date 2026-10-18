@@ -31,7 +31,7 @@ data class ManualActivityState(
     val units: UnitSystem,
     val saving: Boolean,
     val error: UiError?,
-    /** Who may see the activity; starts at the athlete's default. A manual entry has no charts. */
+    /** Who may see the activity and each detail category; starts at the athlete's defaults. */
     val visibility: VisibilityFields = VisibilityFields(),
     val eventSink: (ManualActivityEvent) -> Unit,
 ) : CircuitUiState {
@@ -44,8 +44,11 @@ sealed interface ManualActivityEvent {
 
     data class UnitsChanged(val value: UnitSystem) : ManualActivityEvent
 
-    /** Who may see this activity: a `Visibility` value. */
+    /** Who may see this activity: a `Visibility` value. Narrows wider categories with it. */
     data class VisibilityChanged(val visibility: String) : ManualActivityEvent
+
+    /** Who may see one detail category (a `DetailCategory` token): a `Visibility` value, no wider than the activity's. */
+    data class CategoryVisibilityChanged(val category: String, val visibility: String) : ManualActivityEvent
 
     data object Save : ManualActivityEvent
 

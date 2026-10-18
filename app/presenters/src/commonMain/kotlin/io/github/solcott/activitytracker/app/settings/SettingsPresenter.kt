@@ -49,7 +49,7 @@ fun SettingsPresenter(
         when (event) {
             is SettingsEvent.DefaultVisibilityChanged -> defaultVisibility.activityChanged(event.visibility)
 
-            is SettingsEvent.DefaultChartsVisibilityChanged -> defaultVisibility.chartsChanged(event.visibility)
+            is SettingsEvent.DefaultCategoryVisibilityChanged -> defaultVisibility.categoryChanged(event.category, event.visibility)
 
             SettingsEvent.Back -> {
                 navigator.pop()

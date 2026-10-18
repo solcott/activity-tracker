@@ -7,34 +7,41 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
+import io.github.solcott.activitytracker.app.visibility.fieldsOf
+import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
+import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 
 /**
- * Who may see an activity being edited: as saved ([saved], once [seed]ed) and as the athlete has it now ([choice]), with the charts capped
- * at the activity. Without charts, only the activity's visibility is offered.
+ * Who may see an activity being edited: as saved ([saved], once [seed]ed) and as the athlete has it now ([choice]), each category capped at
+ * the activity. Only the categories it has data in are offered.
  */
 @Stable
 class EditVisibility internal constructor(private val canChoose: Boolean) {
     private var saved by mutableStateOf<VisibilityChoice?>(null)
     private var choice by mutableStateOf<VisibilityChoice?>(null)
-    var hasCharts by mutableStateOf(false)
-        private set
+    private var offered by mutableStateOf(emptyList<String>())
 
     var approvesFollowers by mutableStateOf(false)
 
-    /** [view] as loaded, with its charts' visibility ([charts], null when it has none). */
-    fun seed(view: ActivityView, charts: String?) {
+    /**
+     * [view] as loaded, with its [streams] (null when it has none or they can't load): each category with data at the tier it's served at
+     * now, read from where it appears ([DetailCategory.currentTiers]).
+     */
+    fun seed(view: ActivityView, streams: GetActivityStreams.Output?) {
         val visibility = view.visibilityOrPublic
-        saved = VisibilityChoice(visibility, charts ?: visibility)
+        val tiers = DetailCategory.currentTiers(visibility, view, streams)
+        saved = VisibilityChoice(visibility, tiers)
         choice = saved
-        hasCharts = charts != null
+        offered = DetailCategory.all.filter { it in tiers }
     }
 
     /** What the form shows; null until loaded. */
     val fields: VisibilityFields?
-        get() = choice?.let { VisibilityFields(it.activity, it.charts, canChoose, approvesFollowers) }
+        get() = choice?.let { fieldsOf(it, canChoose, approvesFollowers, offered) }
 
     /** The choice to save, if the athlete changed it. */
     val changed: VisibilityChoice?
@@ -58,12 +65,38 @@ class EditVisibility internal constructor(private val canChoose: Boolean) {
         if (confirmed) save()
     }
 
-    fun activityChanged(visibility: String) {
-        if (canChoose) choice = choice?.copy(activity = Visibility.known(visibility))?.capped()
+    /**
+     * While the athlete is asked whether the core charts of an activity from before categories may become as visible as it, that
+     * visibility; null otherwise.
+     */
+    var confirmingCoreCharts by mutableStateOf<String?>(null)
+        private set
+
+    private var coreChartsConfirmed = false
+
+    /**
+     * Whether saving the [changed] choice for [activity] must first ask ([confirmingCoreCharts]): it would widen the core charts of an
+     * activity from before categories ([ActivityManager.coreChartsWiden]), and the athlete hasn't agreed yet.
+     */
+    suspend fun asksAboutCoreCharts(activity: ActivityView, manager: ActivityManager): Boolean {
+        val widening = changed?.takeIf { !coreChartsConfirmed && manager.coreChartsWiden(activity, it) }
+        confirmingCoreCharts = widening?.capped()?.activity
+        return widening != null
     }
 
-    fun chartsChanged(visibility: String) {
-        if (canChoose) choice = choice?.copy(charts = Visibility.known(visibility))?.capped()
+    /** The athlete agreed to widen the core charts ([asksAboutCoreCharts]), so [save] runs, or went back to editing. */
+    fun coreChartsAnswered(confirmed: Boolean, save: () -> Unit) {
+        confirmingCoreCharts = null
+        coreChartsConfirmed = confirmed
+        if (confirmed) save()
+    }
+
+    fun activityChanged(visibility: String) {
+        if (canChoose) choice = choice?.withActivity(visibility)
+    }
+
+    fun categoryChanged(category: String, visibility: String) {
+        if (canChoose && category in offered) choice = choice?.withCategory(category, visibility)
     }
 }
 

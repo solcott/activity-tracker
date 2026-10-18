@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
@@ -66,6 +67,7 @@ enum class AppIcon(
     Export(Icons.Filled.Share, CupertinoIcons.squareArrowUp, "square.and.arrow.up"),
     Close(Icons.Filled.Close, CupertinoIcons.xmark, "xmark"),
     Location(Icons.Filled.Place, CupertinoIcons.location, "location"),
+    Lock(Icons.Filled.Lock, CupertinoIcons.lockFill, "lock.fill"),
     AddPhoto(Icons.Filled.Add, CupertinoIcons.photoOnRectangle, "photo.badge.plus"),
     DropDown(Icons.Filled.ArrowDropDown, CupertinoIcons.chevronUpChevronDown, "chevron.up.chevron.down"),
     ExpandAll(MaterialIcons.UnfoldMore, CupertinoIcons.rectangleExpandVertical, "rectangle.expand.vertical"),

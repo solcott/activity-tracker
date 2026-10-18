@@ -35,8 +35,10 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
+import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.collections.immutable.ImmutableList
@@ -84,9 +86,12 @@ fun ActivityDetailPresenter(
     val rewrite by remember(screen.uri) { feed.rewrites.observe(AtUri(screen.uri)) }.collectAsState(null)
 
     val unitSystem by units.units.collectAsState()
-    val charts = rememberCharts(AtUri(screen.uri), activity, loadKey, unitSystem, feed, activities, flights) { error = it }
+    val charts = rememberCharts(AtUri(screen.uri), loadKey, unitSystem, feed)
     val comments = rememberComments(AtUri(screen.uri), loadKey, feed, flights)
-    val shown = loaded?.shown(rewrite?.let { r -> { a: ActivityView -> feed.rewrites.rewritten(a, r) } }, likeOverrides)
+    // As served: the record without fields of narrower categories, and the details records of the tiers the viewer is admitted to.
+    val served = loaded?.shown(rewrite?.let { r -> { a: ActivityView -> feed.rewrites.rewritten(a, r) } }, likeOverrides)
+    // As shown: every detail the viewer was served on the record, with what they weren't left out.
+    val shown = remember(served) { served?.let { it.copy(record = it.effectiveRecord()) } }
     val isOwn = shown?.author?.did == profiles.did
     var approvesFollowers by remember { mutableStateOf(false) }
     LaunchedEffect(isOwn) {
@@ -133,8 +138,6 @@ fun ActivityDetailPresenter(
                     }
                 }
             }
-
-            is ActivityDetailEvent.SetChartsVisibility -> charts.setVisibility(event.visibility)
 
             is ActivityDetailEvent.ToggleSection,
             ActivityDetailEvent.ToggleAll -> expansion.toggle(event)
@@ -196,7 +199,7 @@ fun ActivityDetailPresenter(
             charts = shownCharts,
             poolLength = poolLength(it.record.poolLength),
             chartsMissingZones = charts.missingZones(isOwn),
-            savingChartsVisibility = charts.saving,
+            narrowerCategories = narrowerCategories(served?.takeIf { isOwn }, charts.streams),
             approvesFollowers = approvesFollowers,
             sections = sections,
             expanded = expansion.expanded,
@@ -374,42 +377,28 @@ internal val PHYSIOLOGY = setOf(StreamKind.CoreTemperature, StreamKind.SmO2, Str
 internal val E_BIKE = setOf(StreamKind.EbikeBattery, StreamKind.EbikeAssistMode, StreamKind.EbikeAssistLevel)
 
 /** The activity's charts, and the owner's control over who sees them. */
-private class Charts(val charts: ActivityCharts?, val saving: Boolean, val setVisibility: (String) -> Unit) {
+private class Charts(val charts: ActivityCharts?, val streams: GetActivityStreams.Output?) {
     /** The [own] activity has heart rate or power but no zones to split it into. */
     fun missingZones(own: Boolean): Boolean = own && charts?.missingZones() == true
 }
 
 /**
- * [activity]'s charts, reloaded with [loadKey]. They're extra: without streams, or when they fail to load, the activity shows without them.
- * Changing who sees them (once [view] has loaded, since they're never shown wider than it) reports a failure through [onError].
+ * [activity]'s charts, reloaded with [loadKey], from its streams merged from every tier the viewer is admitted to. They're extra: without
+ * streams, or when they fail to load, the activity shows without them.
  */
 @Composable
-@Suppress("LongParameterList") // The activity, and what loads and saves its charts.
-private fun rememberCharts(
-    activity: AtUri,
-    view: ActivityView?,
-    loadKey: Int,
-    units: UnitSystem,
-    feed: FeedRepository,
-    activities: ActivityRepository,
-    flights: SingleFlight,
-    onError: (UiError) -> Unit,
-): Charts {
+private fun rememberCharts(activity: AtUri, loadKey: Int, units: UnitSystem, feed: FeedRepository): Charts {
+    var streams by remember { mutableStateOf<GetActivityStreams.Output?>(null) }
     var charts by remember { mutableStateOf<ActivityCharts?>(null) }
     // The lap table is in the viewer's units, so a change of units rebuilds it.
     LaunchedEffect(loadKey, units) {
         runSuspendCatching { feed.streams(activity) }
-            .onSuccess { streams -> charts = streams?.let { ChartsBuilder.buildOffMain(it, units) } }
-    }
-    val key = ActivityDetailEvent.SetChartsVisibility::class
-    return Charts(charts, flights.isRunning(key)) { visibility ->
-        if (view != null && charts?.visibility.let { it != null && it != visibility }) {
-            flights.launch(key) {
-                runSuspendCatching { activities.setStreamsVisibility(view, visibility) }
-                    .fold({ charts = charts?.copy(visibility = visibility) }, { onError(UiError.of(UiError.Kind.SaveActivity, it)) })
+            .onSuccess { loaded ->
+                streams = loaded
+                charts = loaded?.let { ChartsBuilder.buildOffMain(it, units) }
             }
-        }
     }
+    return Charts(charts, streams)
 }
 
 /** Heart rate or power without the zones to split it into. */

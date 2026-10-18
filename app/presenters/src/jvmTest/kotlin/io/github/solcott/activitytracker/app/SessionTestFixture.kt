@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app
 
 import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
+import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
@@ -326,6 +327,7 @@ class SessionTestFixture {
                 zones.tracks,
                 zones.sources,
                 zones.store,
+                ActivityPlaces(clients, Clock.System, Logger),
                 privacy,
                 RouteTrimmer(db, clients, zones.writer, zones.outbox, privacy, zones.tracks, feed, Clock.System, Logger),
                 feed,

@@ -62,3 +62,13 @@ fun VisibilityPicker(
 }
 
 private val ALL: ImmutableList<String> = Visibility.all.toImmutableList()
+
+/** A [Visibility] value's name, as pickers show it. */
+@Composable
+fun visibilityLabel(visibility: String): String =
+    when (Visibility.known(visibility)) {
+        Visibility.PUBLIC -> stringResource(Res.string.visibility_public)
+        Visibility.FOLLOWERS -> stringResource(Res.string.visibility_followers)
+        Visibility.MUTUALS -> stringResource(Res.string.visibility_mutuals)
+        else -> stringResource(Res.string.visibility_self)
+    }
