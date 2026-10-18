@@ -84,22 +84,6 @@ internal suspend fun SessionClients.deleteOwn(collection: String, rkey: String, 
     }
 }
 
-/**
- * Moves the athlete's [collection]/[rkey] from [from] to [to]: the new place is written before the old one is deleted, so a failure
- * part-way leaves it stored at least once, and a retry finishes the job. Returns false if it's in neither.
- */
-internal suspend fun SessionClients.moveOwn(
-    collection: String,
-    rkey: String,
-    from: SpaceUri?,
-    to: SpaceUri?,
-): Boolean {
-    val record = readOwn(collection, rkey, from) ?: readOwn(collection, rkey, to) ?: return false
-    writeOwn(collection, rkey, record, to)
-    if (from != to) deleteOwn(collection, rkey, from)
-    return true
-}
-
 /** The athlete's own [collection] records at [place] (null: the repo), by rkey. A tier space that doesn't exist yet holds none. */
 internal suspend fun SessionClients.listOwn(collection: String, place: SpaceUri?): Map<String, JsonObject> {
     if (place == null) {

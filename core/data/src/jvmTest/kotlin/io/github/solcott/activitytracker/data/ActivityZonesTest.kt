@@ -6,15 +6,22 @@ import io.github.solcott.activitytracker.data.FakeAthletePds.Session
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.PendingWritesException
+import io.github.solcott.activitytracker.data.activity.VisibilityChoice
 import io.github.solcott.activitytracker.data.activity.ZonesPlacement
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.profile.saveTraining
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Cid
+import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.PowerZoneModel
+import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
@@ -33,8 +40,9 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 
 /**
- * Where an activity's zones are stored (`feed/activity-zones`): at the narrower of its charts' and the athlete's training's visibility,
- * following charts moves, narrowed before the training is, and repaired once a session. The fake PDS holds Alice's repo and tier spaces.
+ * Where an activity's zones are stored (`feed/activity-zones`): at the narrowest of its heart rate and power visibilities and the athlete's
+ * training's, following moves of those, narrowed before the training is, and repaired once a session. The fake PDS holds Alice's repo and
+ * tier spaces.
  */
 class ActivityZonesTest {
     private val pds = FakeAthletePds()
@@ -77,16 +85,31 @@ class ActivityZonesTest {
         }
     }
 
-    private fun draft(charts: String) =
+    /** A ride with heart rate at [heartRate] and power at [charts], capped at its activity's visibility. */
+    private fun draft(charts: String, heartRate: String = charts) =
         ActivityDraft(
             type = ActivityType(Sport.RIDE),
             title = "Ride",
             description = null,
             startedAt = Instant.parse("2026-10-14T07:00:00Z"),
             elapsed = 30.minutes,
+            calories = 500,
             streams = ActivityStreamData(time = listOf(0, 1), power = listOf(200, 210)),
-            streamsVisibility = charts,
+            categories = mapOf(DetailCategory.POWER to charts, DetailCategory.HEART_RATE to heartRate),
             powerZones = power,
+        )
+
+    /** The view of Alice's activity [uri] at [visibility], as her feed would have it. */
+    private fun view(uri: AtUri, visibility: String = Visibility.PUBLIC) =
+        ActivityView(
+            uri = uri,
+            cid = Cid("bafyrec"),
+            author = ProfileViewBasic(did, Handle("alice.test")),
+            record = ActivityRecord(Sport.RIDE, Instant.parse("2026-10-14T07:00:00Z"), 1800, Clock.System.now()),
+            likeCount = 0,
+            commentCount = 0,
+            indexedAt = Clock.System.now(),
+            visibility = visibility,
         )
 
     private fun profiles(s: Session) = ProfileRepository(s.clients, Clock.System, Logger, s.zones)
@@ -142,21 +165,42 @@ class ActivityZonesTest {
     }
 
     @Test
-    fun narrowingChartsMovesZonesWithThem() = runTest {
+    fun followersPowerWithPublicHeartRateAndTrainingPutsZonesInTheFollowersSpace() = runTest {
         trainingAt(Visibility.PUBLIC)
-        storedZones("3kride", repo, charts = repo)
-        val s = pds.session()
-        s.streams.move(AtUri.of(did, Nsid.FEED_ACTIVITY, "3kride"), Visibility.PUBLIC, Visibility.SELF)
-        assertEquals(setOf(Visibility.SELF), zonesAt("3kride"))
+        val uri = pds.session().activities.publish(draft(Visibility.FOLLOWERS, heartRate = Visibility.PUBLIC))
+        assertEquals(setOf(Visibility.FOLLOWERS), zonesAt(uri.rkey!!))
     }
 
     @Test
-    fun wideningChartsWidensZonesOnlyUpToTheTraining() = runTest {
-        trainingAt(Visibility.FOLLOWERS)
-        storedZones("3kride", Visibility.SELF, charts = Visibility.SELF)
+    fun narrowingHeartRateMovesZonesWithIt() = runTest {
+        trainingAt(Visibility.PUBLIC)
         val s = pds.session()
-        s.streams.move(AtUri.of(did, Nsid.FEED_ACTIVITY, "3kride"), Visibility.SELF, Visibility.PUBLIC)
-        assertEquals(setOf(Visibility.FOLLOWERS), zonesAt("3kride"))
+        val uri = s.activities.publish(draft(Visibility.PUBLIC))
+        assertEquals(setOf(repo), zonesAt(uri.rkey!!))
+        s.manager.setVisibility(view(uri), VisibilityChoice(Visibility.PUBLIC, mapOf(DetailCategory.HEART_RATE to Visibility.SELF)))
+        assertEquals(setOf(Visibility.SELF), zonesAt(uri.rkey!!))
+    }
+
+    @Test
+    fun wideningHeartRateAndPowerWidensZonesOnlyUpToTheTraining() = runTest {
+        trainingAt(Visibility.FOLLOWERS)
+        val s = pds.session()
+        val uri = s.activities.publish(draft(Visibility.SELF))
+        assertEquals(setOf(Visibility.SELF), zonesAt(uri.rkey!!))
+        s.manager.setVisibility(view(uri), VisibilityChoice(Visibility.PUBLIC))
+        assertEquals(setOf(Visibility.FOLLOWERS), zonesAt(uri.rkey!!))
+    }
+
+    @Test
+    fun otherCategoriesDontMoveZones() = runTest {
+        trainingAt(Visibility.PUBLIC)
+        val s = pds.session()
+        val uri = s.activities.publish(draft(Visibility.PUBLIC))
+        pds.writes.clear()
+        s.manager.setVisibility(view(uri), VisibilityChoice(Visibility.PUBLIC, mapOf(DetailCategory.CALORIES to Visibility.SELF)))
+        assertEquals(setOf(repo), zonesAt(uri.rkey!!))
+        assertTrue(pds.writes.none { Nsid.FEED_ACTIVITY_ZONES in it }, pds.writes.toString())
+        assertTrue(pds.writes.any { it == "put self ${Nsid.FEED_ACTIVITY_DETAILS}/${uri.rkey}" }, pds.writes.toString())
     }
 
     @Test
@@ -279,13 +323,18 @@ class ActivityZonesTest {
     }
 
     @Test
-    fun aChartsMoveTheSessionCantFollowWithZonesFailsBeforeMovingCharts() = runTest {
+    fun aMoveTheSessionCantFollowWithZonesFailsBeforeMovingCharts() = runTest {
         trainingAt(Visibility.PUBLIC)
-        storedZones("3kride", repo, charts = repo)
         // Granted the space, but not the zones collection in it.
-        val s = pds.session(scope = "atproto transition:generic space:${Nsid.SPACE_ATHLETE}?collection=${Nsid.FEED_ACTIVITY_STREAMS}")
-        assertFailsWith<XrpcException> { s.streams.move(AtUri.of(did, Nsid.FEED_ACTIVITY, "3kride"), Visibility.PUBLIC, Visibility.SELF) }
-        assertEquals(setOf(repo), pds.placesOf(Nsid.FEED_ACTIVITY_STREAMS, "3kride"), "the charts didn't move past their zones")
+        val scope =
+            "atproto transition:generic space:${Nsid.SPACE_ATHLETE}?collection=${Nsid.FEED_ACTIVITY_STREAMS}" +
+                "&collection=${Nsid.FEED_ACTIVITY_DETAILS}&collection=${Nsid.FEED_ACTIVITY}"
+        val s = pds.session(scope = scope)
+        val uri = s.activities.publish(draft(Visibility.PUBLIC))
+        assertFailsWith<XrpcException> {
+            s.manager.setVisibility(view(uri), VisibilityChoice(Visibility.PUBLIC, mapOf(DetailCategory.POWER to Visibility.SELF)))
+        }
+        assertEquals(setOf(repo), pds.placesOf(Nsid.FEED_ACTIVITY_STREAMS, uri.rkey!!), "the charts didn't move past their zones")
     }
 
     @Test
@@ -335,6 +384,29 @@ class ActivityZonesTest {
         s.activities.repairZones()
         assertEquals(setOf(Visibility.SELF), zonesAt("3kride"))
         assertTrue(pds.writes.none { Nsid.FEED_ACTIVITY_ZONES in it })
+    }
+
+    @Test
+    fun sessionStartPlacesAnOldActivitysZonesByItsStreams() = runTest {
+        trainingAt(Visibility.PUBLIC)
+        // From before categories: one streams record, in followers, and zones in the repo.
+        storedZones("3kride", repo, charts = Visibility.FOLLOWERS)
+        pds.session().activities.repairZones()
+        assertEquals(setOf(Visibility.FOLLOWERS), zonesAt("3kride"))
+    }
+
+    @Test
+    fun sessionStartPlacesZonesByDetailsToo() = runTest {
+        trainingAt(Visibility.PUBLIC)
+        storedZones("3kride", repo)
+        val activity = AtUri.of(did, Nsid.FEED_ACTIVITY, "3kride")
+        stored.getOrPut(Visibility.MUTUALS) { mutableMapOf() }["${Nsid.FEED_ACTIVITY_DETAILS}/3kride"] =
+            json(
+                """{"${'$'}type":"${Nsid.FEED_ACTIVITY_DETAILS}","activity":"$activity","avgHeartRate":140,""" +
+                    """"createdAt":"2026-10-01T00:00:00Z"}"""
+            )
+        pds.session().activities.repairZones()
+        assertEquals(setOf(Visibility.MUTUALS), zonesAt("3kride"))
     }
 
     @Test

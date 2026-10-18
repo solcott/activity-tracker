@@ -12,9 +12,12 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.AthleteSpaces
 import io.github.solcott.activitytracker.data.profile.TrainingNarrowing
 import io.github.solcott.activitytracker.data.profile.ownTrainingVisibility
+import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityDetailsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityZonesRecord
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
@@ -27,12 +30,15 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonPrimitive
 
-/** Where an activity's zones go: the narrower of its charts' visibility and the athlete's training's. */
+/** Where an activity's zones go: the narrowest of its heart rate visibility, its power visibility and the athlete's training's. */
 object ZonesPlacement {
     /**
-     * The visibility for zones of charts at [charts] when training is at [training]. Without training details (null), zones can't be placed
-     * wider than [current], where they are now, or Only me for new ones.
+     * The visibility for zones of an activity whose heart rate and power are at most at [charts] (the narrower of the two, [zonesTier])
+     * when training is at [training]. Without training details (null), zones can't be placed wider than [current], where they are now, or
+     * Only me for new ones.
      */
     fun target(charts: String, training: String?, current: String? = null): String =
         Visibility.narrower(Visibility.known(charts), Visibility.known(training ?: current ?: Visibility.SELF))
@@ -40,9 +46,9 @@ object ZonesPlacement {
 
 /**
  * The signed-in athlete's `feed.activityZones` records. Zone bounds reveal thresholds, so each is stored at [ZonesPlacement.target] of its
- * activity's charts and the athlete's training, read fresh for every write. Every write that could leave zones too wide fails toward
- * narrower: narrowing training moves zones first ([narrowTo]), and a sweep once a session ([sweepOnce]) moves any another device left wide
- * and drops copies an interrupted move left behind. All of it runs under one lock, so two moves never race on a record.
+ * activity's heart rate and power tiers and the athlete's training, read fresh for every write. Every write that could leave zones too wide
+ * fails toward narrower: narrowing training moves zones first ([narrowTo]), and a sweep once a session ([sweepOnce]) moves any another
+ * device left wide and drops copies an interrupted move left behind. All of it runs under one lock, so two moves never race on a record.
  */
 @SingleIn(SessionScope::class)
 @ContributesBinding(SessionScope::class)
@@ -77,9 +83,9 @@ class ActivityZonesStore(
     }
 
     /**
-     * Queues [activity]'s zones and [trainingLoad] at the place for charts at [charts] and the training as saved now: a record with only
-     * the training load when there are no zones. Doesn't drain the outbox. When the training can't be read (offline), they go to Only me;
-     * when the session can't write zones to the space they need, they're dropped rather than published wider.
+     * Queues [activity]'s zones and [trainingLoad] at the place for heart rate and power at most at [charts] and the training as saved now:
+     * a record with only the training load when there are no zones. Doesn't drain the outbox. When the training can't be read (offline),
+     * they go to Only me; when the session can't write zones to the space they need, they're dropped rather than published wider.
      */
     suspend fun put(activity: AtUri, charts: String, heartRate: ZoneSnapshot?, power: ZoneSnapshot?, trainingLoad: TrainingLoad? = null) {
         val load = trainingLoad?.takeUnless { it.isEmpty }
@@ -95,9 +101,9 @@ class ActivityZonesStore(
     }
 
     /**
-     * Moves [activity]'s zones, now, to the place for charts at [charts] and the training as saved now: wider only up to the training,
-     * never wider than they are without training details. Copies left elsewhere by an earlier interrupted move go too. Throws, moving
-     * nothing, when the session can't write zones to that place, rather than leaving them wider than the charts.
+     * Moves [activity]'s zones, now, to the place for heart rate and power at most at [charts] and the training as saved now: wider only up
+     * to the training, never wider than they are without training details. Copies left elsewhere by an earlier interrupted move go too.
+     * Throws, moving nothing, when the session can't write zones to that place, rather than leaving them wider than the charts.
      */
     suspend fun move(activity: AtUri, charts: String) = mutex.withLock {
         val rkey = requireNotNull(activity.rkey)
@@ -143,9 +149,9 @@ class ActivityZonesStore(
     }
 
     /**
-     * Once a session, moves any zones stored wider than their charts and the training as saved now allow (another device may have published
-     * at an old training tier), and drops copies an interrupted move left in a second place. Never widens. Best effort: a failure is logged
-     * and left for the next session, and the moves it queued drain with the outbox.
+     * Once a session, moves any zones stored wider than their heart rate and power tiers and the training as saved now allow (another
+     * device may have published at an old training tier), and drops copies an interrupted move left in a second place. Never widens. Best
+     * effort: a failure is logged and left for the next session, and the moves it queued drain with the outbox.
      */
     suspend fun sweepOnce() {
         if (swept || !clients.canUseSpaces) return
@@ -156,9 +162,7 @@ class ActivityZonesStore(
     private suspend fun sweep() {
         val training = clients.ownTrainingVisibility()
         val zones = PLACES.associateWith { list(Nsid.FEED_ACTIVITY_ZONES, it) }
-        // Charts held in two places mid-move count at the narrower.
-        val charts = mutableMapOf<String, String>()
-        for (at in PLACES) list(Nsid.FEED_ACTIVITY_STREAMS, at).keys.forEach { charts[it] = at }
+        val charts = chartsTiers()
         val queued = queuedRkeys()
         for (rkey in zones.values.flatMap { it.keys }.toSet() - queued) {
             val copies = PLACES.filter { rkey in zones.getValue(it) }
@@ -176,6 +180,31 @@ class ActivityZonesStore(
                 )
             for (at in copies) if (at != target) writer.delete(Nsid.FEED_ACTIVITY_ZONES, rkey, place(at))
         }
+    }
+
+    /**
+     * By activity rkey, the narrower of where its heart rate and its power are stored: the narrowest streams record whose channels hold
+     * either, or details record whose fields do. Data held in two places mid-move counts at the narrower. An activity from before detail
+     * categories has one streams record, which so stands for both, as do streams holding neither. One with no streams or details is absent.
+     */
+    private suspend fun chartsTiers(): Map<String, String> {
+        val charts = mutableMapOf<String, String>()
+        val anyStreams = mutableMapOf<String, String>()
+        for (at in PLACES) {
+            for ((rkey, record) in list(Nsid.FEED_ACTIVITY_STREAMS, at)) {
+                anyStreams[rkey] = at
+                val channels = record["channels"]?.let { runCatching { it.jsonArray.map { c -> c.jsonPrimitive.content } }.getOrNull() }
+                if (channels.orEmpty().any { DetailCategory.ofChannel(it) in ZONE_CATEGORIES }) charts[rkey] = at
+            }
+            if (at == Visibility.PUBLIC || !clients.canWriteToSpaces(Nsid.FEED_ACTIVITY_DETAILS)) continue
+            for ((rkey, record) in list(Nsid.FEED_ACTIVITY_DETAILS, at)) {
+                val details =
+                    runCatching { AtJson.decodeFromJsonElement(ActivityDetailsRecord.serializer(), record) }.getOrNull() ?: continue
+                if (DetailCategory.SUMMARY_FIELDS.any { it.category in ZONE_CATEGORIES && it.inDetails(details) }) charts[rkey] = at
+            }
+        }
+        // Streams with neither (an old activity's one record, say) stand for both, as they did before categories.
+        return anyStreams + charts
     }
 
     private suspend fun queueMove(rkey: String, record: JsonObject, from: String, to: String) {
@@ -207,6 +236,9 @@ class ActivityZonesStore(
     private companion object {
         /** Widest first, so the last copy of a record is its narrowest. */
         val PLACES = listOf(Visibility.PUBLIC) + AthleteSpaces.TIERS
+
+        /** The categories zones reveal: heart rate zones and power zones. */
+        val ZONE_CATEGORIES = setOf(DetailCategory.HEART_RATE, DetailCategory.POWER)
         const val SCOPE_MISSING_STATUS = 403
     }
 }

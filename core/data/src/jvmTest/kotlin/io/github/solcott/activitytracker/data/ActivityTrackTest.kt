@@ -75,7 +75,7 @@ class ActivityTrackTest {
 
     @Test
     fun aFollowersActivitysTrackGoesToTheSelfSpaceToo() = runTest {
-        val uri = pds.session().activities.publish(draft(VisibilityChoice(Visibility.FOLLOWERS, Visibility.FOLLOWERS)))
+        val uri = pds.session().activities.publish(draft(VisibilityChoice(Visibility.FOLLOWERS)))
 
         assertEquals(setOf(Visibility.FOLLOWERS), pds.placesOf(Nsid.FEED_ACTIVITY, uri.rkey!!))
         assertEquals(setOf(Visibility.SELF), tracksOf(uri.rkey!!))
@@ -153,7 +153,7 @@ class ActivityTrackTest {
         val rkey = uri.rkey!!
         val writesBefore = pds.writes.size
 
-        s.manager.setVisibility(view(uri), VisibilityChoice(Visibility.SELF, Visibility.SELF))
+        s.manager.setVisibility(view(uri), VisibilityChoice(Visibility.SELF))
 
         assertEquals(setOf(Visibility.SELF), tracksOf(rkey))
         assertTrue(pds.writes.drop(writesBefore).none { Nsid.FEED_ACTIVITY_TRACK in it }, "the track isn't touched")

@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
@@ -53,8 +54,11 @@ data class ActivityDraft(
     val streams: ActivityStreamData? = null,
     /** Who may see the activity: a [Visibility] value, which decides where it's stored. */
     val visibility: String = Visibility.PUBLIC,
-    /** Who may see [streams]: a [Visibility] value, never wider than [visibility] once published. */
-    val streamsVisibility: String = Visibility.PUBLIC,
+    /**
+     * Who may see each [DetailCategory] of it, by token: [Visibility] values, each capped at [visibility] once published ([tiers]). A
+     * category left out is at [visibility].
+     */
+    val categories: Map<String, String> = emptyMap(),
     /** The athlete's zones for this activity, kept with [streams]. */
     val heartRateZones: ZoneSnapshot? = null,
     val powerZones: ZoneSnapshot? = null,
@@ -106,20 +110,20 @@ data class ActivityDraft(
                 } ?: dive,
         )
 
-    /** This draft shown to [choice]'s viewers: the activity at its visibility, the charts capped at it. */
+    /** This draft shown to [choice]'s viewers: the activity at its visibility, each category capped at it. */
     fun withVisibility(choice: VisibilityChoice): ActivityDraft =
-        choice.capped().let { copy(visibility = it.activity, streamsVisibility = it.charts) }
+        choice.capped().let { copy(visibility = it.activity, categories = it.details) }
 
-    /** This draft as another recording of [primary]: it takes the primary's visibility, its charts capped at it. */
+    /** This draft as another recording of [primary]: it takes the primary's visibility, its categories capped at it. */
     fun recordingOf(primary: OwnActivity): ActivityDraft = recordingOf(primary.uri, primary.visibility)
 
     /** This draft as another recording of the activity at [primary], whose visibility is [visibility]. */
     fun recordingOf(primary: AtUri, visibility: String): ActivityDraft =
-        copy(recordingOf = primary, visibility = visibility, streamsVisibility = Visibility.capped(streamsVisibility, visibility))
+        copy(recordingOf = primary, visibility = visibility, categories = DetailCategory.tiers(visibility, tiers))
 
-    /** [streamsVisibility] as published: never wider than the activity. */
-    val publishedStreamsVisibility: String
-        get() = Visibility.capped(streamsVisibility, visibility)
+    /** Every category's visibility as published: never wider than the activity. */
+    val tiers: Map<String, String>
+        get() = DetailCategory.tiers(visibility, categories)
 
     /** The record, holding [media] ([photos] once uploaded) and [polyline] ([route] as trimmed for it). */
     fun toRecord(createdAt: Instant, media: List<ActivityMedia> = emptyList(), polyline: String? = null): ActivityRecord =
@@ -188,7 +192,7 @@ data class ActivityDraft(
             route,
             streams,
             visibility,
-            streamsVisibility,
+            categories,
             heartRateZones,
             powerZones,
             recordingOf,

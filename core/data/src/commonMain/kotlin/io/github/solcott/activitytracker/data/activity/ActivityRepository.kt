@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.Tid
+import io.github.solcott.activitytracker.lexicon.app.ActivityDetailsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
@@ -24,11 +25,14 @@ import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.CommentHideRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentView
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.LikeRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.ReplyRef
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
+import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.time.Clock
@@ -41,8 +45,9 @@ import kotlinx.coroutines.sync.withLock
 /**
  * Writes the signed-in athlete's records. Everything goes through the outbox so writes survive offline periods and app restarts; the
  * AppView picks them up from the firehose, or for a non-public activity from the athlete's tier space, afterwards. An activity is queued to
- * the place its visibility says ([placeOf]), its streams to theirs, and its full track and imported file to the athlete's `self` space
- * ([ActivityTrackStore], [ActivitySourceStore]).
+ * the place its visibility says ([placeOf]), split by its detail categories ([ActivityLayout]): fields and channels of a narrower category
+ * go to that tier's details and streams records. Its full track and imported file go to the athlete's `self` space ([ActivityTrackStore],
+ * [ActivitySourceStore]).
  */
 @SingleIn(SessionScope::class)
 @Inject
@@ -56,6 +61,7 @@ class ActivityRepository(
     private val tracks: ActivityTrackStore,
     private val sources: ActivitySourceStore,
     private val zones: ActivityZonesStore,
+    private val places: ActivityPlaces,
     private val privacy: PrivacyZones,
     private val routes: RouteTrimmer,
     private val feed: FeedRepository,
@@ -71,6 +77,7 @@ class ActivityRepository(
     /** Publishes [draft]. Its photos upload first, so one with photos needs a connection; one without waits in the outbox if offline. */
     suspend fun publish(draft: ActivityDraft): AtUri {
         clients.requireSpacesFor(draft.visibility)
+        clients.requireDetailsSpaceFor(listOf(draft))
         requireSelfSpaceFor(listOf(draft))
         val photos = draft.photos.map { clients.upload(it, feed.heldPhotos) }
         val uri = queue(draft, photos, privacy.forPublish())
@@ -86,6 +93,7 @@ class ActivityRepository(
      */
     suspend fun publishAll(drafts: List<ActivityDraft>): List<AtUri> {
         drafts.forEach { clients.requireSpacesFor(it.visibility) }
+        clients.requireDetailsSpaceFor(drafts)
         requireSelfSpaceFor(drafts)
         val uris = privacy.withReadOnce {
             zones.withTrainingReadOnce { drafts.map { queue(it, photos = emptyList(), trim = privacy.forPublish()) } }
@@ -108,8 +116,9 @@ class ActivityRepository(
         val rkey = requireNotNull(existing.uri.rkey)
         val indexed = existing.cid != null
         val place = clients.placeOf(existing.visibility)
-        val current =
-            db.queuedActivityRecord(clients, rkey) ?: if (indexed) clients.ownActivityRecord(rkey, existing.visibility) else existing.record
+        // Read from the PDS, every place, so the hidden fields fill gaps too and stay hidden.
+        val stored = if (indexed) places.read(existing.uri) else null
+        val current = wholeRecord(existing, stored)
         val photos =
             draft.photos.take((ActivityMedia.MAX - current.media.orEmpty().size).coerceAtLeast(0)).map {
                 clients.upload(it, feed.heldPhotos)
@@ -120,46 +129,88 @@ class ActivityRepository(
             ActivityMerge.fillGaps(current, draft.toRecord(clock.now(), photos, trim?.trim?.polylineOf(draft.route))).let {
                 if (it.description == null) it.copy(description = draft.description?.takeIf(String::isNotBlank)) else it
             }
-        writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), merged, space = place)
+        // Categories keep where they're stored; one the activity had no data in takes the draft's, capped at the activity.
+        val (summaryNow, channelsNow) = stored?.narrowestTiers() ?: (emptyMap<String, String>() to emptyMap())
+        val fallback = DetailCategory.tiers(existing.visibility, draft.tiers)
+        val layout =
+            ActivityLayout.split(
+                merged,
+                null,
+                existing.uri,
+                existing.visibility,
+                DetailCategory.tiers(existing.visibility, fallback + summaryNow),
+            )
+        queueRecords(rkey, layout, stored, place)
         trim?.let { privacy.published(existing.uri, existing.visibility, draft.route, it) }
         fillSelfRecords(existing.uri, draft)
         val imported = draft.streams
         // The draft's stream times count from its own start.
         val offsetSeconds = (draft.startedAt - current.startedAt).inWholeSeconds.toInt()
-        if (indexed && imported != null) {
+        if (stored != null && imported != null) {
+            val tiers = DetailCategory.tiers(existing.visibility, fallback + channelsNow)
             // A record that had no tanks takes the draft's (fillGaps), so its tank pressure series line up with them.
-            mergeStreams(existing, draft, imported, offsetSeconds, existingTanks = current.dive?.tanks?.size ?: 0)
+            mergeStreams(existing, stored, tiers, draft, imported, offsetSeconds, existingTanks = current.dive?.tanks?.size ?: 0)
         }
-        feed.rewrites.set(existing.uri, merged)
-        feed.updateCached(existing.uri) { feed.rewrites.rewritten(it, merged) }
+        feed.rewrites.set(existing.uri, layout.record)
+        feed.updateCached(existing.uri) { feed.rewrites.rewritten(it, layout.record) }
     }
 
+    /** [existing]'s whole record: its last queued put, else as [stored] (or as the view had it), with every details record over it. */
+    private suspend fun wholeRecord(existing: OwnActivity, stored: StoredActivity?): ActivityRecord {
+        val record =
+            db.queuedActivityRecord(clients, requireNotNull(existing.uri.rkey))
+                ?: stored?.places?.get(existing.visibility)?.activity
+                ?: existing.record
+        return effectiveRecord(record, Visibility.all.mapNotNull { stored?.places?.get(it)?.details })
+    }
+
+    /** Queues [layout]'s details records that differ from [stored]'s, narrowest first, then its activity record at [place]. */
+    private suspend fun queueRecords(rkey: String, layout: ActivityLayout, stored: StoredActivity?, place: SpaceUri?) {
+        if (layout.details.isNotEmpty()) clients.requireSpacesFor(Visibility.SELF, Nsid.FEED_ACTIVITY_DETAILS)
+        for (tier in layout.tiersNarrowestFirst) {
+            val details = layout.details[tier]?.takeIf { it != stored?.places?.get(tier)?.details } ?: continue
+            writer.put(Nsid.FEED_ACTIVITY_DETAILS, rkey, ActivityDetailsRecord.serializer(), details, space = clients.placeOf(tier))
+        }
+        writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), layout.record, space = place)
+    }
+
+    /**
+     * [existing]'s streams, as [stored], with the channels [imported] has and they lack, each category at [tiers]. An activity from before
+     * categories keeps its core channels where its one streams record is, so a merge never makes them more visible.
+     */
+    @Suppress("LongParameterList") // The activity as stored, and the other recording.
     private suspend fun mergeStreams(
         existing: OwnActivity,
+        stored: StoredActivity,
+        tiers: Map<String, String>,
         draft: ActivityDraft,
         imported: ActivityStreamData,
         offsetSeconds: Int,
         existingTanks: Int,
     ) {
         val activity = existing.uri
-        val have = feed.streams(activity)
+        val have = stored.data
+        // The zones record's state comes from the AppView: only the athlete's own session reads it there.
+        val served = feed.streams(activity)
         val otherTanks = draft.dive?.tanks?.size ?: 0
         val data =
-            have?.data?.let { ActivityMerge.fillMissing(it, imported, offsetSeconds, existingTanks, otherTanks) }
+            have?.let { ActivityMerge.fillMissing(it, imported, offsetSeconds, existingTanks, otherTanks) }
                 ?: ActivityMerge.shifted(imported, offsetSeconds)
         // A zones record already stored stays as it is, unless its training load gains what it lacks (an HRV, say): then it's rewritten
         // with its own zones and the fuller load. Without one, the draft's zones and load are stored.
-        val stored = !have.hasNoZonesRecord()
-        val filled = ActivityMerge.fillGaps(have?.trainingLoad, draft.trainingLoad).takeIf { stored && it != have?.trainingLoad }
-        if (data == have?.data && filled == null) return
+        val storedZones = !served.hasNoZonesRecord()
+        val filled = ActivityMerge.fillGaps(served?.trainingLoad, draft.trainingLoad).takeIf { storedZones && it != served?.trainingLoad }
+        if (data == have && filled == null) return
         streams.put(
             activity,
             ActivityStreams(
                 data,
-                have?.visibility ?: Visibility.capped(draft.streamsVisibility, existing.visibility),
-                if (!stored) draft.heartRateZones else have?.heartRateZones?.takeIf { filled != null },
-                if (!stored) draft.powerZones else have?.powerZones?.takeIf { filled != null },
-                if (!stored) draft.trainingLoad else filled,
+                existing.visibility,
+                tiers,
+                if (!storedZones) draft.heartRateZones else served?.heartRateZones?.takeIf { filled != null },
+                if (!storedZones) draft.powerZones else served?.powerZones?.takeIf { filled != null },
+                if (!storedZones) draft.trainingLoad else filled,
+                core = stored.coreTier ?: existing.visibility,
             ),
         )
     }
@@ -179,15 +230,30 @@ class ActivityRepository(
         draft.source?.let { if (sources.info(activity) == null) sources.put(activity, it) }
     }
 
-    /** [photos] are [draft]'s, uploaded; its route is trimmed by [trim] for the record's polyline. */
+    /**
+     * [photos] are [draft]'s, uploaded; its route is trimmed by [trim] for the record's polyline. Split by its categories
+     * ([ActivityLayout]): its details records are queued narrowest first, then the activity record, then its streams, narrowest first.
+     */
     private suspend fun queue(draft: ActivityDraft, photos: List<ActivityMedia>, trim: PublishTrim): AtUri {
         val rkey = Tid.next(clock)
         val uri = AtUri.of(clients.did, Nsid.FEED_ACTIVITY, rkey)
+        val layout =
+            ActivityLayout.split(
+                draft.toRecord(clock.now(), photos, trim.trim.polylineOf(draft.route)),
+                null,
+                uri,
+                draft.visibility,
+                draft.categories,
+            )
+        for (tier in layout.tiersNarrowestFirst) {
+            val details = layout.details[tier] ?: continue
+            writer.put(Nsid.FEED_ACTIVITY_DETAILS, rkey, ActivityDetailsRecord.serializer(), details, space = clients.placeOf(tier))
+        }
         writer.put(
             collection = Nsid.FEED_ACTIVITY,
             rkey = rkey,
             serializer = ActivityRecord.serializer(),
-            record = draft.toRecord(clock.now(), photos, trim.trim.polylineOf(draft.route)),
+            record = layout.record,
             space = clients.placeOf(draft.visibility),
         )
         privacy.published(uri, draft.visibility, draft.route, trim)
@@ -195,22 +261,11 @@ class ActivityRepository(
         draft.streams?.let {
             streams.put(
                 uri,
-                ActivityStreams(it, draft.publishedStreamsVisibility, draft.heartRateZones, draft.powerZones, draft.trainingLoad),
+                ActivityStreams(it, draft.visibility, draft.categories, draft.heartRateZones, draft.powerZones, draft.trainingLoad),
             )
         }
         draft.source?.let { sources.put(uri, it) }
         return uri
-    }
-
-    /**
-     * Changes who may see the signed-in athlete's [activity]'s streams, never wider than the activity: moves the streams record to the
-     * place for the new visibility, now, rather than through the outbox.
-     */
-    suspend fun setStreamsVisibility(activity: ActivityView, visibility: String) {
-        val to = Visibility.capped(visibility, activity.visibilityOrPublic)
-        clients.requireSpacesFor(to)
-        val from = feed.streams(activity.uri)?.visibility ?: return
-        streams.move(activity.uri, from, to)
     }
 
     /**
@@ -393,11 +448,13 @@ class ActivityRepository(
     }
 
     /**
-     * Once a session, moves any zones left wider than they should be and drops copies an interrupted move left behind
+     * Once a session, finishes any split activity an interrupted save left stored in two places ([ActivityPlaces.repairOnce], never
+     * widening), moves any zones left wider than they should be and drops copies an interrupted move left behind
      * ([ActivityZonesStore.sweepOnce]), then sends the moves. Best effort, and slow for an athlete with many activities, so callers run it
      * apart from anything the athlete waits on.
      */
     suspend fun repairZones() {
+        places.repairOnce()
         zones.sweepOnce()
         outbox.drain()
     }
@@ -439,6 +496,16 @@ private inline fun <T> undoingOnFailure(undo: () -> Unit, block: () -> T): T {
     } finally {
         if (!done) undo()
     }
+}
+
+/**
+ * Refuses a session whose grant doesn't cover `feed.activityDetails` when any of [drafts] has a category narrower than its activity, before
+ * anything is queued: the PDS would refuse the details record at the head of the outbox. With every category at the activity's visibility,
+ * nothing goes in a details record and such a session can still publish.
+ */
+internal fun SessionClients.requireDetailsSpaceFor(drafts: List<ActivityDraft>) {
+    if (drafts.any { d -> d.tiers.values.any { it != Visibility.known(d.visibility) } })
+        requireSpacesFor(Visibility.SELF, Nsid.FEED_ACTIVITY_DETAILS)
 }
 
 /** No zones record is stored for these streams (or there are none): a merge may add the other recording's. */

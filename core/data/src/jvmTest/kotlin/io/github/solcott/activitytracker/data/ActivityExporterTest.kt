@@ -12,15 +12,21 @@ import io.github.solcott.activitytracker.data.activity.DraftSource
 import io.github.solcott.activitytracker.data.activity.ExportFormat
 import io.github.solcott.activitytracker.data.activity.ExportUnreadableException
 import io.github.solcott.activitytracker.data.activity.NotSentYetException
+import io.github.solcott.activitytracker.data.activity.VisibilityChoice
+import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Handle
+import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityDetailsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
+import io.github.solcott.activitytracker.lexicon.app.DetailsView
 import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.Lap
@@ -209,6 +215,35 @@ class ActivityExporterTest {
         assertFalse("<Position>" in text)
         assertTrue("<ns3:Watts>210</ns3:Watts>" in text)
         assertFailsWith<ExportUnreadableException> { s.exporter.export(ride, ExportFormat.GPX) }
+    }
+
+    @Test
+    fun aRunWithOnlyMeHeartRateExportsItsHeartRate() = runTest {
+        val s = pds.session()
+        val streams = ActivityStreamData(time = listOf(0, 1, 2), heartRate = listOf(140, 141, 142), speed = listOf(3000, 3000, 3000))
+        val draft =
+            draft()
+                .copy(avgHeartRate = 141, streams = streams)
+                .withVisibility(VisibilityChoice(Visibility.PUBLIC, mapOf(DetailCategory.HEART_RATE to Visibility.SELF)))
+        val uri = s.activities.publish(draft)
+        // The owner's view: the repo record without heart rate, and the self details over it. The streams are merged from every tier.
+        val record =
+            AtJson.decodeFromJsonElement(
+                ActivityRecord.serializer(),
+                pds.stored.getValue(pds.repo).getValue("${Nsid.FEED_ACTIVITY}/${uri.rkey}"),
+            )
+        val details =
+            AtJson.decodeFromJsonElement(
+                ActivityDetailsRecord.serializer(),
+                pds.stored.getValue(Visibility.SELF).getValue("${Nsid.FEED_ACTIVITY_DETAILS}/${uri.rkey}"),
+            )
+        assertEquals(null, record.avgHeartRate)
+        val own = view(uri).copy(record = record, details = listOf(DetailsView(Visibility.SELF, details)))
+
+        val fit = s.exporter.export(own, ExportFormat.FIT)
+        val read = ActivityFileReader(GarminJavaFitDecoder()).read(fit.bytes).single()
+        assertEquals(listOf(140, 141, 142), read.streams?.heartRate)
+        assertEquals(141, read.avgHeartRate)
     }
 
     @Test

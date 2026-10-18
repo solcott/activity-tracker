@@ -13,12 +13,15 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
+import io.github.solcott.activitytracker.lexicon.app.DetailsView
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 
 /**
  * Edits, deletes and ungroups the signed-in athlete's activities, through the outbox like every write, at the place each one's visibility
- * says. Changing who may see an activity ([setVisibility]) is the exception: it moves the records now, as profile saves do. The feed shows
- * what changed at once ([FeedRepository.rewrites], [FeedRepository.deletes]), since the AppView serves it as it was until it catches up.
+ * says. Changing who may see an activity or its detail categories ([setVisibility]) is the exception: it moves the records now, as profile
+ * saves do. The feed shows what changed at once ([FeedRepository.rewrites], [FeedRepository.deletes]), since the AppView serves it as it
+ * was until it catches up.
  */
 @SingleIn(SessionScope::class)
 @Inject
@@ -31,6 +34,8 @@ class ActivityManager(
     private val streams: ActivityStreamsStore,
     private val tracks: ActivityTrackStore,
     private val sources: ActivitySourceStore,
+    private val zones: ActivityZonesStore,
+    private val places: ActivityPlaces,
     private val feed: FeedRepository,
 ) {
     /**
@@ -84,32 +89,55 @@ class ActivityManager(
     }
 
     /**
-     * Shows [activity] and its charts to [choice]'s viewers, the charts capped at the activity: moves the activity, and its other
-     * recordings, which share its visibility, to the new place (writing it before deleting the old, so an interrupted move leaves it stored
-     * and a retry finishes it), then moves each one's charts that are now wider than the activity, or [activity]'s to the chosen ones.
-     * Pending outbox writes go first, so the move reads what the athlete last saved. Throws on failure.
+     * Shows [activity] and each of its detail categories to [choice]'s viewers, each category capped at the activity, now rather than
+     * through the outbox, so a failure shows. Its other recordings, which share its visibility, move with it, each keeping its categories
+     * where they are unless they're now wider than the activity. Each activity is read from every place it could be ([ActivityPlaces]) and
+     * rewritten narrowest place first, then cut down widest first ([ActivityPlaces.save]), so an interrupted save leaves everything stored
+     * at least once and saving again finishes it. Zones move first when the heart rate or power tier changes. Pending outbox writes go
+     * first, so the save reads what the athlete last saved. Throws on failure.
      */
     suspend fun setVisibility(activity: ActivityView, choice: VisibilityChoice) {
         val capped = choice.capped()
-        val from = activity.visibilityOrPublic
         val to = Visibility.known(capped.activity)
         clients.requireSpacesFor(to)
-        clients.requireSpacesFor(capped.charts)
+        if (capped.splits) clients.requireSpacesFor(Visibility.SELF, Nsid.FEED_ACTIVITY_DETAILS)
         outbox.drain()
         val targets = listOf(activity.uri) + activity.recordings.orEmpty().map { it.uri }
-        if (from != to) {
-            for (uri in targets) {
-                val moved = clients.moveOwn(Nsid.FEED_ACTIVITY, requireNotNull(uri.rkey), clients.placeOf(from), clients.placeOf(to))
-                // Neither where this view says it is nor where it's going: it was moved elsewhere since, so moving nothing isn't success.
-                if (!moved) throw XrpcException(NOT_FOUND_STATUS, "RecordNotFound", "Activity $uri isn't at $from or $to")
-            }
-        }
         for (uri in targets) {
-            val have = feed.streams(uri)?.visibility ?: continue
-            val want = if (uri == activity.uri) capped.charts else Visibility.capped(have, to)
-            if (have != want) streams.move(uri, have, want)
+            val stored = places.read(uri)
+            // Nowhere at all: it was deleted since, so saving nothing isn't success.
+            val from = stored.recordTiers.lastOrNull() ?: throw XrpcException(NOT_FOUND_STATUS, "RecordNotFound", "No activity $uri")
+            val (summary, channels) = stored.narrowestTiers()
+            val desired =
+                if (uri == activity.uri) {
+                    Shares.of(to, capped.tiers)
+                } else {
+                    fun capped(tiers: Map<String, String>) = DetailCategory.tiers(to, tiers)
+                    Shares.of(to, capped(summary), capped(channels), Visibility.narrower(stored.coreTier ?: to, to))
+                }
+            val before = zonesTier(DetailCategory.tiers(from, summary + channels))
+            val after = if (uri == activity.uri) zonesTier(capped.tiers) else zonesTier(DetailCategory.tiers(to, summary + channels))
+            // Zones first: a session that can't move them stops here, before the charts are narrower than their zones.
+            if (before != after) zones.move(uri, after)
+            places.save(stored, desired)
+            val full = stored.full ?: continue
+            val saved = Visibility.all.associateWith { desired[it].records(full, stored.data, uri) }
+            val record = saved[to]?.activity
+            val details = Visibility.all.mapNotNull { tier -> saved[tier]?.details?.let { DetailsView(tier, it) } }.ifEmpty { null }
+            if (record != null) feed.rewrites.set(uri, record)
+            feed.updateCached(uri) { view -> view.copy(visibility = to, record = record ?: view.record, details = details) }
         }
-        targets.forEach { uri -> feed.updateCached(uri) { it.withVisibility(to) } }
+    }
+
+    /**
+     * Whether saving [activity] with [choice] would make its core charts (elevation, distance and the like) more visible than they are: it
+     * was published before detail categories, with its one streams record narrower than the activity is to be, and core charts always go
+     * with the activity. The athlete is asked first.
+     */
+    suspend fun coreChartsWiden(activity: ActivityView, choice: VisibilityChoice): Boolean {
+        val stored = places.read(activity.uri)
+        val core = stored.coreTier ?: return false
+        return !stored.isSplit && Visibility.rank(Visibility.known(choice.capped().activity)) < Visibility.rank(core)
     }
 
     /** Splits [recording] off the activity it records, [from], at [visibility] (both's), to stand as an activity of its own. */
@@ -138,8 +166,5 @@ class ActivityManager(
         feed.updateCached(from, feed.deletes::applyTo)
     }
 }
-
-/** This view at [visibility]. Its likes and comments stay until the AppView recounts them for the new audience. */
-private fun ActivityView.withVisibility(visibility: String): ActivityView = copy(visibility = visibility)
 
 private const val NOT_FOUND_STATUS = 400

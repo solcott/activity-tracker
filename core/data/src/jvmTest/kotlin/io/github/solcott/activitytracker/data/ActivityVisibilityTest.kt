@@ -22,11 +22,13 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentView
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.RecordingView
 import io.github.solcott.activitytracker.lexicon.app.ReplyRef
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.StreamChannel
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import kotlin.test.Test
@@ -40,6 +42,7 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -99,7 +102,7 @@ class ActivityVisibilityTest {
     @Test
     fun followersActivityIsPublishedToTheFollowersSpace() = runTest {
         val s = session()
-        val uri = s.activities.publish(draft(VisibilityChoice(Visibility.FOLLOWERS, Visibility.SELF)))
+        val uri = s.activities.publish(draft(VisibilityChoice(Visibility.FOLLOWERS, mapOf(DetailCategory.HEART_RATE to Visibility.SELF))))
         val rkey = uri.rkey!!
         assertEquals(setOf(Visibility.FOLLOWERS), placesOf(Nsid.FEED_ACTIVITY, rkey), "never in the repo")
         assertEquals(setOf(Visibility.SELF), placesOf(Nsid.FEED_ACTIVITY_STREAMS, rkey))
@@ -111,7 +114,7 @@ class ActivityVisibilityTest {
     @Test
     fun publicActivityIsPublishedToTheRepoOnly() = runTest {
         val s = session()
-        val uri = s.activities.publish(draft(VisibilityChoice(Visibility.PUBLIC, Visibility.MUTUALS)))
+        val uri = s.activities.publish(draft(VisibilityChoice(Visibility.PUBLIC, mapOf(DetailCategory.HEART_RATE to Visibility.MUTUALS))))
         assertEquals(setOf(repo), placesOf(Nsid.FEED_ACTIVITY, uri.rkey!!))
         assertEquals(setOf(Visibility.MUTUALS), placesOf(Nsid.FEED_ACTIVITY_STREAMS, uri.rkey!!), "public run, private heart rate")
         val streams = stored.getValue(Visibility.MUTUALS).getValue("${Nsid.FEED_ACTIVITY_STREAMS}/${uri.rkey}")
@@ -121,14 +124,17 @@ class ActivityVisibilityTest {
     @Test
     fun chartsAreNeverPublishedWiderThanTheActivity() = runTest {
         val s = session()
-        val uri = s.activities.publish(draft().copy(visibility = Visibility.MUTUALS, streamsVisibility = Visibility.PUBLIC))
+        val uri =
+            s.activities.publish(
+                draft().copy(visibility = Visibility.MUTUALS, categories = mapOf(DetailCategory.HEART_RATE to Visibility.PUBLIC))
+            )
         assertEquals(setOf(Visibility.MUTUALS), placesOf(Nsid.FEED_ACTIVITY_STREAMS, uri.rkey!!))
     }
 
     @Test
     fun batchImportPublishesEveryActivityAtTheChosenVisibility() = runTest {
         val s = session()
-        val choice = VisibilityChoice(Visibility.MUTUALS, Visibility.MUTUALS)
+        val choice = VisibilityChoice(Visibility.MUTUALS)
         val uris = s.activities.publishAll(List(3) { draft(choice, withStreams = false).copy(title = "Dive $it") })
         uris.forEach { assertEquals(setOf(Visibility.MUTUALS), placesOf(Nsid.FEED_ACTIVITY, it.rkey!!)) }
         assertEquals(listOf(Visibility.MUTUALS), created, "the space is created once")
@@ -138,7 +144,7 @@ class ActivityVisibilityTest {
     fun aSessionWithoutTheSpaceScopePublishesPublicOnly() = runTest {
         val s = session(scope = "atproto")
         assertEquals(false, s.clients.canUseSpaces)
-        val e = assertFailsWith<XrpcException> { s.activities.publish(draft(VisibilityChoice(Visibility.FOLLOWERS, Visibility.FOLLOWERS))) }
+        val e = assertFailsWith<XrpcException> { s.activities.publish(draft(VisibilityChoice(Visibility.FOLLOWERS))) }
         assertEquals(SpaceErrors.SCOPE_MISSING, e.error)
         assertEquals(emptyList(), writes, "nothing written, so nothing published wider than chosen")
         s.activities.publish(draft())
@@ -154,18 +160,23 @@ class ActivityVisibilityTest {
         streamsVisibility[rkey] = Visibility.PUBLIC
         writes.clear()
 
-        s.manager.setVisibility(view(uri, Visibility.PUBLIC), VisibilityChoice(Visibility.FOLLOWERS, Visibility.PUBLIC))
+        s.manager.setVisibility(
+            view(uri, Visibility.PUBLIC),
+            VisibilityChoice(Visibility.FOLLOWERS, mapOf(DetailCategory.HEART_RATE to Visibility.PUBLIC)),
+        )
         assertEquals(setOf(Visibility.FOLLOWERS), placesOf(Nsid.FEED_ACTIVITY, rkey))
         assertEquals(setOf(Visibility.FOLLOWERS), placesOf(Nsid.FEED_ACTIVITY_STREAMS, rkey), "charts narrowed to the activity")
         val streams = stored.getValue(Visibility.FOLLOWERS).getValue("${Nsid.FEED_ACTIVITY_STREAMS}/$rkey")
         assertFalse("visibility" in streams)
-        assertEquals("bafyblob", streams.getValue("data").jsonObject.getValue("ref").jsonObject.getValue("\$link").jsonPrimitive.content)
-        // Each record is written to its new place before it leaves the old one.
+        assertTrue(
+            streams.getValue("data").jsonObject.getValue("ref").jsonObject.getValue("\$link").jsonPrimitive.content.startsWith("bafyblob")
+        )
+        // Every record is written to its new place before any leaves the old one.
         assertEquals(
             listOf(
                 "put followers ${Nsid.FEED_ACTIVITY}/$rkey",
-                "delete repo ${Nsid.FEED_ACTIVITY}/$rkey",
                 "put followers ${Nsid.FEED_ACTIVITY_STREAMS}/$rkey",
+                "delete repo ${Nsid.FEED_ACTIVITY}/$rkey",
                 "delete repo ${Nsid.FEED_ACTIVITY_STREAMS}/$rkey",
             ),
             writes,
@@ -175,31 +186,37 @@ class ActivityVisibilityTest {
     @Test
     fun anInterruptedMoveLeavesTheActivityStoredAndARetryFinishesIt() = runTest {
         val s = session()
-        val uri = s.activities.publish(draft(VisibilityChoice(Visibility.MUTUALS, Visibility.MUTUALS), withStreams = false))
+        val uri = s.activities.publish(draft(VisibilityChoice(Visibility.MUTUALS), withStreams = false))
         val rkey = uri.rkey!!
         failSpaceDeletes = true
-        assertFailsWith<XrpcException> {
-            s.manager.setVisibility(view(uri, Visibility.MUTUALS), VisibilityChoice(Visibility.SELF, Visibility.SELF))
-        }
+        assertFailsWith<XrpcException> { s.manager.setVisibility(view(uri, Visibility.MUTUALS), VisibilityChoice(Visibility.SELF)) }
         assertEquals(setOf(Visibility.MUTUALS, Visibility.SELF), placesOf(Nsid.FEED_ACTIVITY, rkey), "stored, in both for now")
 
         failSpaceDeletes = false
-        s.manager.setVisibility(view(uri, Visibility.MUTUALS), VisibilityChoice(Visibility.SELF, Visibility.SELF))
+        s.manager.setVisibility(view(uri, Visibility.MUTUALS), VisibilityChoice(Visibility.SELF))
         assertEquals(setOf(Visibility.SELF), placesOf(Nsid.FEED_ACTIVITY, rkey))
     }
 
     @Test
-    fun aMoveFromAnOutdatedVisibilityFailsAndChangesNothing() = runTest {
+    fun aMoveFromAnOutdatedViewMovesItFromWhereItIsNow() = runTest {
         val s = session()
-        // Moved to Mutuals elsewhere; this view still says Followers.
-        val uri = s.activities.publish(draft(VisibilityChoice(Visibility.MUTUALS, Visibility.MUTUALS), withStreams = false))
+        // Moved to Mutuals elsewhere; this view still says Followers. Every place is read, so it moves from Mutuals.
+        val uri = s.activities.publish(draft(VisibilityChoice(Visibility.MUTUALS), withStreams = false))
         val rkey = uri.rkey!!
-        writes.clear()
+        s.manager.setVisibility(view(uri, Visibility.FOLLOWERS), VisibilityChoice(Visibility.SELF))
+        assertEquals(setOf(Visibility.SELF), placesOf(Nsid.FEED_ACTIVITY, rkey))
+    }
 
+    @Test
+    fun aMoveOfAnActivityStoredNowhereFailsAndChangesNothing() = runTest {
+        val s = session()
+        writes.clear()
         assertFailsWith<XrpcException> {
-            s.manager.setVisibility(view(uri, Visibility.FOLLOWERS), VisibilityChoice(Visibility.SELF, Visibility.SELF))
+            s.manager.setVisibility(
+                view(AtUri.of(did, Nsid.FEED_ACTIVITY, "3kgone"), Visibility.FOLLOWERS),
+                VisibilityChoice(Visibility.SELF),
+            )
         }
-        assertEquals(setOf(Visibility.MUTUALS), placesOf(Nsid.FEED_ACTIVITY, rkey))
         assertEquals(emptyList(), writes)
     }
 
@@ -220,7 +237,7 @@ class ActivityVisibilityTest {
             )
         s.manager.setVisibility(
             view(primary, Visibility.PUBLIC, recordings = listOf(recording)),
-            VisibilityChoice(Visibility.SELF, Visibility.SELF),
+            VisibilityChoice(Visibility.SELF),
         )
         assertEquals(setOf(Visibility.SELF), placesOf(Nsid.FEED_ACTIVITY, primary.rkey!!))
         assertEquals(setOf(Visibility.SELF), placesOf(Nsid.FEED_ACTIVITY, recording.rkey!!))
@@ -238,30 +255,33 @@ class ActivityVisibilityTest {
             )
         val grouped = draft(VisibilityChoice.PUBLIC).recordingOf(primary)
         assertEquals(Visibility.FOLLOWERS, grouped.visibility)
-        assertEquals(Visibility.FOLLOWERS, grouped.publishedStreamsVisibility, "charts capped too")
+        assertTrue(grouped.tiers.values.all { it == Visibility.FOLLOWERS }, "categories capped too")
         val uri = s.activities.publish(grouped)
         assertEquals(setOf(Visibility.FOLLOWERS), placesOf(Nsid.FEED_ACTIVITY, uri.rkey!!))
     }
 
     @Test
-    fun streamsMoveBetweenTheRepoAndASpaceAndBack() = runTest {
+    fun streamsAreSplitIntoOneRecordPerTier() = runTest {
         val s = session()
         val uri = AtUri.of(did, Nsid.FEED_ACTIVITY, "3kstreams")
-        s.streams.put(uri, ActivityStreams(ActivityStreamData(time = listOf(0)), Visibility.PUBLIC))
+        val data = ActivityStreamData(time = listOf(0, 1), speed = listOf(1, 2), heartRate = listOf(120, 121))
+        s.streams.put(uri, ActivityStreams(data, Visibility.PUBLIC, mapOf(DetailCategory.HEART_RATE to Visibility.SELF)))
         s.activities.sync()
-        assertEquals(setOf(repo), placesOf(Nsid.FEED_ACTIVITY_STREAMS, "3kstreams"))
-        s.streams.move(uri, Visibility.PUBLIC, Visibility.FOLLOWERS)
-        assertEquals(setOf(Visibility.FOLLOWERS), placesOf(Nsid.FEED_ACTIVITY_STREAMS, "3kstreams"))
-        s.streams.move(uri, Visibility.FOLLOWERS, Visibility.PUBLIC)
-        assertEquals(setOf(repo), placesOf(Nsid.FEED_ACTIVITY_STREAMS, "3kstreams"))
+        assertEquals(setOf(repo, Visibility.SELF), placesOf(Nsid.FEED_ACTIVITY_STREAMS, "3kstreams"))
+        // The narrower tier is queued first.
+        assertEquals(
+            listOf("put self ${Nsid.FEED_ACTIVITY_STREAMS}/3kstreams", "put repo ${Nsid.FEED_ACTIVITY_STREAMS}/3kstreams"),
+            writes.filter { Nsid.FEED_ACTIVITY_STREAMS in it },
+        )
         val record = stored.getValue(repo).getValue("${Nsid.FEED_ACTIVITY_STREAMS}/3kstreams")
         assertFalse("visibility" in record)
+        assertEquals(listOf(StreamChannel.SPEED), record.getValue("channels").jsonArray.map { it.jsonPrimitive.content })
     }
 
     @Test
     fun deletingASpaceActivityClearsItAndItsStreamsWhereverTheyAre() = runTest {
         val s = session()
-        val uri = s.activities.publish(draft(VisibilityChoice(Visibility.MUTUALS, Visibility.SELF)))
+        val uri = s.activities.publish(draft(VisibilityChoice(Visibility.MUTUALS, mapOf(DetailCategory.HEART_RATE to Visibility.SELF))))
         s.manager.delete(view(uri, Visibility.MUTUALS), withRecordings = false)
         assertEquals(emptySet(), placesOf(Nsid.FEED_ACTIVITY, uri.rkey!!))
         assertEquals(emptySet(), placesOf(Nsid.FEED_ACTIVITY_STREAMS, uri.rkey!!))
@@ -273,14 +293,16 @@ class ActivityVisibilityTest {
         val s = session()
         assertEquals(VisibilityChoice.PUBLIC, s.defaults.load(), "never set")
         assertEquals(
-            VisibilityChoice(Visibility.MUTUALS, Visibility.MUTUALS),
-            s.defaults.save(VisibilityChoice(Visibility.MUTUALS, Visibility.PUBLIC)),
+            VisibilityChoice(Visibility.MUTUALS),
+            s.defaults.save(VisibilityChoice(Visibility.MUTUALS, mapOf(DetailCategory.HEART_RATE to Visibility.PUBLIC))),
         )
         val record = stored.getValue(Visibility.SELF).getValue("${Nsid.ACTOR_ACTIVITY_DEFAULTS}/self")
-        assertEquals(Visibility.MUTUALS, record.getValue("chartsVisibility").jsonPrimitive.content, "charts default capped")
+        val details = record.getValue("details").jsonObject
+        assertEquals(Visibility.MUTUALS, details.getValue("heartRate").jsonPrimitive.content, "category default capped")
+        assertFalse("chartsVisibility" in record)
 
         // Another device signs in: it reads the same defaults.
-        assertEquals(VisibilityChoice(Visibility.MUTUALS, Visibility.MUTUALS), session().defaults.load())
+        assertEquals(VisibilityChoice(Visibility.MUTUALS), session().defaults.load())
 
         offline = true
         assertEquals(VisibilityChoice.PUBLIC, session().defaults.load(), "unreadable: Public, without blocking")
@@ -528,7 +550,7 @@ class ActivityVisibilityTest {
         val own = view(uri, Visibility.PUBLIC).copy(viewer = ActivityViewerState())
         s.db.feed().upsert(listOf(FeedItemEntity("timeline", uri.value, 0, AtJson.encodeToString(ActivityView.serializer(), own))))
 
-        s.manager.setVisibility(own, VisibilityChoice(Visibility.FOLLOWERS, Visibility.FOLLOWERS))
+        s.manager.setVisibility(own, VisibilityChoice(Visibility.FOLLOWERS))
         val cached = s.cached(own)
         assertEquals(Visibility.FOLLOWERS, cached.visibility)
         assertEquals(2, cached.likeCount)

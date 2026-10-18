@@ -10,6 +10,8 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityDefaultsRecord
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
+import io.github.solcott.activitytracker.lexicon.app.DetailVisibilities
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,21 +19,46 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
 
-/** Who a new activity and its charts are shown to: [Visibility] values, the charts never wider than the activity. */
-data class VisibilityChoice(val activity: String = Visibility.PUBLIC, val charts: String = Visibility.PUBLIC) {
-    /** This choice with the charts narrowed to the activity if they're wider. */
-    fun capped(): VisibilityChoice = copy(charts = Visibility.capped(charts, activity))
+/**
+ * Who an activity and each of its [DetailCategory]s are shown to: [Visibility] values, no category wider than the activity. A category
+ * missing from [details] is at the activity's visibility ([tiers]).
+ */
+data class VisibilityChoice(val activity: String = Visibility.PUBLIC, val details: Map<String, String> = emptyMap()) {
+    /** Every [DetailCategory.all] at its visibility, capped at the activity's. */
+    val tiers: Map<String, String>
+        get() = DetailCategory.tiers(activity, details)
+
+    /** This choice with every category narrowed to the activity if it's wider. */
+    fun capped(): VisibilityChoice = copy(activity = Visibility.known(activity), details = tiers)
+
+    /** This choice with the activity at [visibility]: wider categories are narrowed with it, and a widening leaves them as they are. */
+    fun withActivity(visibility: String): VisibilityChoice = copy(activity = Visibility.known(visibility), details = tiers).capped()
+
+    /** This choice with [category] at [visibility], capped at the activity. */
+    fun withCategory(category: String, visibility: String): VisibilityChoice =
+        copy(details = tiers + (category to Visibility.capped(Visibility.known(visibility), activity)))
+
+    /** Whether some category is narrower than the activity, so publishing needs details records in the tier spaces. */
+    val splits: Boolean
+        get() = tiers.values.any { it != Visibility.known(activity) }
+
+    // Two choices that show everything to the same viewers are equal, however their categories are spelled out.
+    override fun equals(other: Any?): Boolean =
+        other is VisibilityChoice && Visibility.known(activity) == Visibility.known(other.activity) && tiers == other.tiers
+
+    override fun hashCode(): Int = Visibility.known(activity).hashCode() * HASH_PRIME + tiers.hashCode()
 
     companion object {
         val PUBLIC = VisibilityChoice()
+        private const val HASH_PRIME = 31
     }
 }
 
 /**
- * The athlete's default visibilities for new activities: the `actor.activityDefaults` record in their `self` space, so every device they
- * sign in on starts from the same ones. Read with the owner's session and kept for the session; anything that goes wrong reading it
- * (offline, no record, a session without the `space:` scope) means Public, and never stops the athlete publishing. Saves are direct calls,
- * like profile saves: a privacy setting that silently applied later would be the wrong failure.
+ * The athlete's default visibilities for new activities and their detail categories: the `actor.activityDefaults` record in their `self`
+ * space, so every device they sign in on starts from the same ones. Read with the owner's session and kept for the session; anything that
+ * goes wrong reading it (offline, no record, a session without the `space:` scope) means Public, and never stops the athlete publishing.
+ * Saves are direct calls, like profile saves: a privacy setting that silently applied later would be the wrong failure.
  */
 @SingleIn(SessionScope::class)
 @Inject
@@ -56,10 +83,10 @@ class ActivityDefaults(private val clients: SessionClients) {
         current.value ?: read()?.also { current.value = it } ?: VisibilityChoice.PUBLIC
     }
 
-    /** Saves [choice] (its charts capped at the activity) and returns what was saved. Throws if the PDS can't be reached. */
+    /** Saves [choice] (each category capped at the activity) and returns what was saved. Throws if the PDS can't be reached. */
     suspend fun save(choice: VisibilityChoice): VisibilityChoice = mutex.withLock {
         val capped = choice.capped()
-        val record = ActivityDefaultsRecord(visibility = capped.activity, chartsVisibility = capped.charts)
+        val record = ActivityDefaultsRecord(visibility = capped.activity, details = DetailVisibilities.of(capped.details))
         val space = clients.tiers.ensure(AthleteSpace.SELF)
         clients.spaces.putRecord(
             space,
@@ -90,12 +117,15 @@ class ActivityDefaults(private val clients: SessionClients) {
         }
     }
 
-    /** The record's choice, Public where it says nothing or doesn't decode (any client can write it). */
+    /**
+     * The record's choice, Public where it says nothing or doesn't decode (any client can write it). A category with no default starts at
+     * the activity's, and an old `chartsVisibility` is ignored ([ActivityDefaultsRecord.resolved]).
+     */
     private fun decode(value: JsonObject): VisibilityChoice =
         runCatching { AtJson.decodeFromJsonElement(ActivityDefaultsRecord.serializer(), value) }
             .getOrNull()
             ?.resolved()
-            ?.let { (activity, charts) -> VisibilityChoice(activity, charts) } ?: VisibilityChoice.PUBLIC
+            ?.let { (activity, details) -> VisibilityChoice(activity, details) } ?: VisibilityChoice.PUBLIC
 
     private companion object {
         const val RKEY = ActivityDefaultsRecord.RKEY

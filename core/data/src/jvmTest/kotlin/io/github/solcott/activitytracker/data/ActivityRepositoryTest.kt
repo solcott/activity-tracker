@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityEdit
 import io.github.solcott.activitytracker.data.activity.ActivityManager
+import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.ActivityZonesStore
 import io.github.solcott.activitytracker.data.activity.HeldPhotos
@@ -198,7 +199,8 @@ class ActivityRepositoryTest {
         val streams = PdsActivityStreamsStore(writer, clients, Clock.System, zones)
         val tracks = PdsActivityTrackStore(db, writer, clients, Clock.System)
         val sources = PdsActivitySourceStore(db, writer, clients, Clock.System)
-        manager = ActivityManager(db, clients, outbox, writer, streams, tracks, sources, feed)
+        val places = ActivityPlaces(clients, Clock.System, logger)
+        manager = ActivityManager(db, clients, outbox, writer, streams, tracks, sources, zones, places, feed)
         val privacy = PrivacyZones(clients, Clock.System, Logger)
         return ActivityRepository(
             db,
@@ -209,6 +211,7 @@ class ActivityRepositoryTest {
             tracks,
             sources,
             zones,
+            places,
             privacy,
             RouteTrimmer(db, clients, writer, outbox, privacy, tracks, feed, Clock.System, Logger),
             feed,
@@ -409,7 +412,6 @@ class ActivityRepositoryTest {
                 startedAt = Instant.parse("2026-09-30T07:00:00Z"),
                 elapsed = 30.minutes,
                 streams = ActivityStreamData(time = listOf(0, 1), power = listOf(200, 210)),
-                streamsVisibility = Visibility.PUBLIC,
                 powerZones = ZoneSnapshot(PowerZoneModel.COGGAN_6, listOf(0, 138, 188, 225, 263, 300)),
             )
 
@@ -423,7 +425,7 @@ class ActivityRepositoryTest {
         assertEquals(uri, record.activity)
         assertFalse("visibility" in streams.getValue("record").jsonObject, "the repo is who may see them")
         assertEquals(listOf(StreamChannel.POWER), record.channels)
-        assertEquals("bafyblob", record.data?.ref?.link)
+        assertTrue(record.data?.ref?.link.orEmpty().startsWith("bafyblob"))
         assertFalse("powerZones" in streams.getValue("record").jsonObject, "zones are a record of their own")
     }
 

@@ -26,6 +26,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.SourceFormat
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
+import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
 import io.github.solcott.activitytracker.location.Gpx
 import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.time.Duration.Companion.seconds
@@ -145,7 +146,8 @@ class ActivityExporter(
         trainingLoad: TrainingLoad?,
     ): ExportedFile =
         withContext(Dispatchers.Default) {
-            val record = view.record
+            // Every category, whatever its visibility: the owner's own view has every tier's details.
+            val record = view.effectiveRecord()
             val activity =
                 ExportActivity(
                     name = displayName(view),
@@ -189,7 +191,8 @@ class ActivityExporter(
         }
 
     companion object {
-        private val EXPORTED_COLLECTIONS = setOf(Nsid.FEED_ACTIVITY, Nsid.FEED_ACTIVITY_STREAMS, Nsid.FEED_ACTIVITY_TRACK)
+        private val EXPORTED_COLLECTIONS =
+            setOf(Nsid.FEED_ACTIVITY, Nsid.FEED_ACTIVITY_DETAILS, Nsid.FEED_ACTIVITY_STREAMS, Nsid.FEED_ACTIVITY_TRACK)
         private val INVALID_FILE_NAME_CHARS = Regex("""[/\\:*?"<>|\u0000-\u001F]""")
         private const val MAX_NAME_LENGTH = 80
         private const val SECONDS_PER_MINUTE = 60

@@ -159,7 +159,7 @@ class ActivitySourceTest {
         val uri = s.activities.publish(draft(DraftSource(sourceFile())))
         val writesBefore = pds.writes.size
 
-        s.manager.setVisibility(view(uri), VisibilityChoice(Visibility.FOLLOWERS, Visibility.FOLLOWERS))
+        s.manager.setVisibility(view(uri), VisibilityChoice(Visibility.FOLLOWERS))
 
         assertEquals(setOf(Visibility.SELF), sourcesOf(uri.rkey!!))
         assertTrue(pds.writes.drop(writesBefore).none { Nsid.FEED_ACTIVITY_SOURCE in it }, "the source isn't touched")

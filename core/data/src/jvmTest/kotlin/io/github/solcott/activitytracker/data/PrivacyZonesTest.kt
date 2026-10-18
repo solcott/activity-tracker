@@ -210,7 +210,7 @@ class PrivacyZonesTest {
         s.privacy.save(PrivacySettings(listOf(home)))
 
         val public = s.activities.publish(draft())
-        val onlyMe = s.activities.publish(draft(VisibilityChoice(Visibility.SELF, Visibility.SELF)))
+        val onlyMe = s.activities.publish(draft(VisibilityChoice(Visibility.SELF)))
 
         assertTrue(startOf(stored(public.rkey!!).polyline) >= 199)
         assertTrue(startOf(stored(onlyMe.rkey!!, Visibility.SELF).polyline) >= 199)
@@ -275,7 +275,7 @@ class PrivacyZonesTest {
     fun addingAZoneReTrimsEveryVisibility() = runTest {
         val s = pds.session()
         val public = s.activities.publish(draft())
-        val onlyMe = s.activities.publish(draft(VisibilityChoice(Visibility.SELF, Visibility.SELF)))
+        val onlyMe = s.activities.publish(draft(VisibilityChoice(Visibility.SELF)))
         val before = stored(public.rkey!!)
 
         val revision = s.privacy.save(PrivacySettings(listOf(home))).let { zonesRecord()!!.revision }

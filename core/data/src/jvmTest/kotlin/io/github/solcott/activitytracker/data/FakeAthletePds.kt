@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityExporter
 import io.github.solcott.activitytracker.data.activity.ActivityManager
+import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.ActivityZonesStore
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
@@ -31,6 +32,8 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
+import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.lexicon.app.mergeStreams
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -121,17 +124,20 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                         uploads++
                         if (bytes.size > (blobUploadLimit ?: Int.MAX_VALUE))
                             return@MockEngine error("PayloadTooLarge", HttpStatusCode.PayloadTooLarge)
-                        // GPX tracks and gzipped originals get a CID of their own so they read back ([blobs]); everything else shares one.
+                        // Every blob gets a CID from its content, so each reads back ([blobs]); all start with "bafyblob".
                         val cid =
                             when {
                                 bytes.decodeToString().startsWith("<?xml") -> "bafyblobgpx${bytes.contentHashCode().toUInt()}"
                                 bytes.size >= 2 && bytes[0] == 0x1f.toByte() && bytes[1] == 0x8b.toByte() ->
                                     "bafyblobgz${bytes.contentHashCode().toUInt()}"
-                                else -> "bafyblob"
+                                else -> "bafyblob${bytes.contentHashCode().toUInt()}"
                             }
                         blobs[cid] = bytes
                         json($$"""{"blob":{"$type":"blob","ref":{"$link":"$$cid"},"mimeType":"application/json","size":10}}""")
                     }
+                    path == "/xrpc/com.atproto.sync.getBlob" ->
+                        blobs[request.url.parameters["cid"]]?.let { respond(it, headers = headersOf("Content-Type", "application/json")) }
+                            ?: error("BlobNotFound")
                     path == "/xrpc/com.atproto.space.getBlob" ->
                         blobs[request.url.parameters["cid"]]?.let {
                             respond(it, headers = headersOf("Content-Type", "application/gpx+xml"))
@@ -217,7 +223,11 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                     path == "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" -> {
                         if (failStreams) return@MockEngine error("InternalServerError", HttpStatusCode.InternalServerError)
                         val uri = AtUri(request.url.parameters["uri"]!!)
-                        val visibility = streamsVisibility[uri.rkey] ?: return@MockEngine error("NotFound")
+                        val visibility =
+                            streamsVisibility[uri.rkey]
+                                ?: return@MockEngine servedFromStored(uri)?.let {
+                                    json(AtJson.encodeToString(GetActivityStreams.Output.serializer(), it))
+                                } ?: error("NotFound")
                         json(
                             AtJson.encodeToString(
                                 GetActivityStreams.Output.serializer(),
@@ -238,6 +248,29 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
             expectSuccess = false
         }
 
+    /**
+     * What the AppView serves the athlete of [uri]'s streams when the test set none ([streamsVisibility]): every place's streams record,
+     * merged widest first, as the real one does for their owner.
+     */
+    private fun servedFromStored(uri: AtUri): GetActivityStreams.Output? {
+        val parts = placesWidestFirst.mapNotNull { tier ->
+            val record = stored[tier]?.get("${Nsid.FEED_ACTIVITY_STREAMS}/${uri.rkey}") ?: return@mapNotNull null
+            val cid = record["data"]?.jsonObject?.get("ref")?.jsonObject?.get("\$link")?.jsonPrimitive?.content
+            val bytes = blobs[cid] ?: return@mapNotNull null
+            tier to AtJson.decodeFromString(ActivityStreamData.serializer(), bytes.decodeToString())
+        }
+        val data = mergeStreams(parts.map { it.second }) ?: return null
+        val tier = { t: String -> if (t == repo) Visibility.PUBLIC else t }
+        return GetActivityStreams.Output(
+            uri,
+            tier(parts.first().first),
+            data.channels,
+            data,
+            trainingLoad = streamsLoad[uri.rkey],
+            parts = parts.map { (t, d) -> GetActivityStreams.StreamsPart(tier(t), d.channels) },
+        )
+    }
+
     private fun placeOf(input: JsonObject) = input["space"]?.jsonPrimitive?.content?.substringAfterLast('/') ?: repo
 
     private fun body(request: HttpRequestData): JsonObject =
@@ -247,6 +280,9 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
 
     private fun MockRequestHandleScope.error(name: String, status: HttpStatusCode = HttpStatusCode.BadRequest) =
         respond("""{"error":"$name"}""", status, headersOf("Content-Type", "application/json"))
+
+    /** Every place, widest first, as [stored] names them. */
+    private val placesWidestFirst = listOf(repo, Visibility.FOLLOWERS, Visibility.MUTUALS, Visibility.SELF)
 
     /** The places holding [collection]/[rkey] now. */
     fun placesOf(collection: String, rkey: String): Set<String> = stored.filterValues { "$collection/$rkey" in it }.keys
@@ -275,6 +311,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
         val feed = FeedRepository(db, clients, LocalLikes(), Logger)
         val writer = OutboxWriter(db, clients, Clock.System)
         val zones = ActivityZonesStore(db, writer, outbox, clients, Clock.System, Logger)
+        val places = ActivityPlaces(clients, Clock.System, Logger)
         val streams = PdsActivityStreamsStore(writer, clients, Clock.System, zones)
         val tracks = PdsActivityTrackStore(db, writer, clients, Clock.System)
         val sources = PdsActivitySourceStore(db, writer, clients, Clock.System)
@@ -290,6 +327,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                 tracks,
                 sources,
                 zones,
+                places,
                 privacy,
                 routes,
                 feed,
@@ -302,7 +340,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
             clients,
             feed,
             activities,
-            ActivityManager(db, clients, outbox, writer, streams, tracks, sources, feed),
+            ActivityManager(db, clients, outbox, writer, streams, tracks, sources, zones, places, feed),
             streams,
             tracks,
             sources,
