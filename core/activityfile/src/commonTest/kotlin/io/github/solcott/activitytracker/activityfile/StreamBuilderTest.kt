@@ -1,5 +1,7 @@
 package io.github.solcott.activitytracker.activityfile
 
+import io.github.solcott.activitytracker.lexicon.app.DiveAlert
+import io.github.solcott.activitytracker.lexicon.app.DiveAlertKind
 import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.Lap
@@ -13,6 +15,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
@@ -213,6 +216,28 @@ class StreamBuilderTest {
             "a switch to the first gas once under way moves to 0; a switch back stays",
         )
         assertNull(build(records).gasSwitches, "no gases, no switches")
+    }
+
+    @Test
+    fun alertsAreKeptInTimeOrderInSecondsSinceTheStart() {
+        val records = listOf(dive(0), dive(1500), dive(2400))
+        val alerts =
+            listOf(
+                DecodedDiveAlert(at(2400), DiveAlertKind.ASCENT_CRITICAL),
+                DecodedDiveAlert(at(1500), DiveAlertKind.NDL_REACHED),
+                DecodedDiveAlert(at(1500), "someNewAlert"),
+            )
+        val data = assertNotNull(StreamBuilder.fromRecords(records, at(0), emptyList(), diveAlerts = alerts))
+        assertEquals(
+            listOf(
+                DiveAlert(1500, DiveAlertKind.NDL_REACHED),
+                DiveAlert(1500, "someNewAlert"),
+                DiveAlert(2400, DiveAlertKind.ASCENT_CRITICAL),
+            ),
+            data.diveAlerts,
+        )
+        assertTrue(StreamChannel.DIVE_ALERTS in data.channels)
+        assertNull(build(records).diveAlerts, "no alerts")
     }
 
     @Test

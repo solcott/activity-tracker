@@ -17,6 +17,9 @@ object DiveSummary {
     private const val MM_PER_M = 1000
     private const val KG_PER_M3_MAX = 2000
 
+    /** The lexicon's `maxLength` for `decoModel`. */
+    private const val MAX_TOKEN = 64
+
     @Suppress("CyclomaticComplexMethod") // A conversion per field.
     fun of(dive: ImportedDive): ActivityDive =
         ActivityDive(
@@ -63,8 +66,17 @@ object DiveSummary {
             altitude = dive.altitudeMeters?.roundToLong(),
             noFlyTime = dive.noFlyTimeSeconds?.count(),
             desaturationTime = dive.desaturationTimeSeconds?.count(),
-            highestPpO2 = dive.highestPpO2Bar?.let { (it * MBAR_PER_BAR).count().toInt() },
+            highestPpO2 = dive.highestPpO2Bar?.let(::millibar),
+            decoModel = dive.decoModel?.take(MAX_TOKEN),
+            ppO2Warn = dive.ppO2WarnBar?.let(::millibar),
+            ppO2Critical = dive.ppO2CriticalBar?.let(::millibar),
+            ppO2Deco = dive.ppO2DecoBar?.let(::millibar),
+            lowSetpoint = dive.lowSetpointBar?.let(::millibar),
+            highSetpoint = dive.highSetpointBar?.let(::millibar),
+            safetyStopTime = dive.safetyStopSeconds?.takeIf { it > 0 },
         )
+
+    private fun millibar(bar: Double): Int = (bar * MBAR_PER_BAR).count().toInt()
 
     private fun gas(gas: DiveGas) =
         ActivityDiveGas(
@@ -78,7 +90,7 @@ object DiveSummary {
     /** [existing] with each field it lacks taken from [other]. */
     fun fillGaps(existing: ActivityDive?, other: ActivityDive?): ActivityDive? {
         if (existing == null || other == null) return existing ?: other
-        return fillConditionGaps(fillGasGaps(fillDepthGaps(existing, other), other), other)
+        return fillSettingGaps(fillConditionGaps(fillGasGaps(fillDepthGaps(existing, other), other), other), other)
     }
 
     private fun fillDepthGaps(existing: ActivityDive, other: ActivityDive): ActivityDive =
@@ -123,5 +135,16 @@ object DiveSummary {
             altitude = existing.altitude ?: other.altitude,
             noFlyTime = existing.noFlyTime ?: other.noFlyTime,
             desaturationTime = existing.desaturationTime ?: other.desaturationTime,
+        )
+
+    private fun fillSettingGaps(existing: ActivityDive, other: ActivityDive): ActivityDive =
+        existing.copy(
+            decoModel = existing.decoModel ?: other.decoModel,
+            ppO2Warn = existing.ppO2Warn ?: other.ppO2Warn,
+            ppO2Critical = existing.ppO2Critical ?: other.ppO2Critical,
+            ppO2Deco = existing.ppO2Deco ?: other.ppO2Deco,
+            lowSetpoint = existing.lowSetpoint ?: other.lowSetpoint,
+            highSetpoint = existing.highSetpoint ?: other.highSetpoint,
+            safetyStopTime = existing.safetyStopTime ?: other.safetyStopTime,
         )
 }

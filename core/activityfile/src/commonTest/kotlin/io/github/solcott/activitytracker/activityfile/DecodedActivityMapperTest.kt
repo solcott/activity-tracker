@@ -1,6 +1,9 @@
 package io.github.solcott.activitytracker.activityfile
 
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.DecoModel
+import io.github.solcott.activitytracker.lexicon.app.DiveAlert
+import io.github.solcott.activitytracker.lexicon.app.DiveAlertKind
 import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.Lap
 import io.github.solcott.activitytracker.lexicon.app.LapIntensity
@@ -262,6 +265,47 @@ class DecodedActivityMapperTest {
         assertEquals(18.0, dive.maxDepthMeters)
         assertEquals(null, activity.distanceMeters, "a dive computer's 0 m is no distance")
         assertEquals(ActivityType(Sport.DIVE, SubSport.SINGLE_GAS), activity.type, "one gas breathed, whatever the watch's dive mode")
+    }
+
+    @Test
+    fun carriesTheDivesSettingsAndAlerts() {
+        val header =
+            DecodedDive(
+                18.0,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                listOf(DiveGas(32, 0)),
+                false,
+                decoModel = DecoModel.ZHL16C,
+                ppO2WarnBar = 1.4,
+                ppO2CriticalBar = 1.6,
+                ppO2DecoBar = 1.6,
+                lowSetpointBar = 0.7,
+                highSetpointBar = 1.3,
+                safetyStopSeconds = 180,
+            )
+        val records = listOf(0L, 60L, 120L).map { record(it).copy(depthMeters = 10.0) }
+        val activity =
+            DecodedActivityMapper.map(
+                DecodedActivity(
+                    null,
+                    listOf(summary("diving", elapsed = 120.0)),
+                    emptyList(),
+                    records,
+                    header,
+                    diveAlerts = listOf(DecodedDiveAlert((start + 60.seconds).toEpochMilliseconds(), DiveAlertKind.NDL_REACHED)),
+                )
+            )
+        val dive = activity.dive!!
+        assertEquals(DecoModel.ZHL16C, dive.decoModel)
+        assertEquals(Triple(1.4, 1.6, 1.6), Triple(dive.ppO2WarnBar, dive.ppO2CriticalBar, dive.ppO2DecoBar))
+        assertEquals(0.7 to 1.3, dive.lowSetpointBar to dive.highSetpointBar)
+        assertEquals(180, dive.safetyStopSeconds)
+        assertEquals(listOf(DiveAlert(60, DiveAlertKind.NDL_REACHED)), activity.streams?.diveAlerts)
     }
 
     @Test

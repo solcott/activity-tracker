@@ -4,6 +4,9 @@ import io.github.solcott.activitytracker.data.activity.ActivityMerge
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
+import io.github.solcott.activitytracker.lexicon.app.DecoModel
+import io.github.solcott.activitytracker.lexicon.app.DiveAlert
+import io.github.solcott.activitytracker.lexicon.app.DiveAlertKind
 import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.Lap
 import io.github.solcott.activitytracker.lexicon.app.Leg
@@ -175,6 +178,40 @@ class ActivityMergeTest {
         assertEquals(own.gasSwitches, ActivityMerge.fillMissing(own, logbook, offsetSeconds = 60).gasSwitches, "a dive's own switches stay")
         assertTrue(ActivityMerge.addsChannels(logged, logbook))
         assertFalse(ActivityMerge.addsChannels(own, logbook.copy(depth = null)))
+    }
+
+    @Test
+    fun aLogbooksAlertsFillADiveWithoutAnyShiftedOntoItsStart() {
+        val logged = ActivityStreamData(time = listOf(0, 600, 1200, 2400), depth = listOf(0, 3000, 1800, 0))
+        val logbook =
+            ActivityStreamData(
+                time = listOf(0, 1500, 2300),
+                depth = listOf(0, 600, 0),
+                diveAlerts = listOf(DiveAlert(1500, DiveAlertKind.MICROBUBBLES), DiveAlert(2300, DiveAlertKind.ASCENT_CRITICAL)),
+            )
+        val merged = ActivityMerge.fillMissing(logged, logbook, offsetSeconds = 60)
+        assertEquals(listOf(DiveAlert(1560, DiveAlertKind.MICROBUBBLES), DiveAlert(2360, DiveAlertKind.ASCENT_CRITICAL)), merged.diveAlerts)
+        assertTrue(ActivityMerge.addsChannels(logged, logbook.copy(depth = null)))
+
+        val own = logged.copy(diveAlerts = listOf(DiveAlert(1500, DiveAlertKind.NDL_REACHED)))
+        assertEquals(own.diveAlerts, ActivityMerge.fillMissing(own, logbook, offsetSeconds = 60).diveAlerts, "a dive's own alerts stay")
+        assertFalse(ActivityMerge.addsChannels(own, logbook.copy(depth = null)))
+        assertEquals(
+            listOf(DiveAlert(799, DiveAlertKind.ASCENT_CRITICAL)),
+            ActivityMerge.shifted(logbook, -1501).diveAlerts,
+            "an alert before the new start goes",
+        )
+    }
+
+    @Test
+    fun aDiveKeepsItsOwnSettingsAndGainsTheOnesItLacks() {
+        val fit = ride.copy(sport = Sport.DIVE, dive = ActivityDive(decoModel = DecoModel.ZHL16C, ppO2Warn = 1400))
+        val shearwater =
+            fit.copy(dive = ActivityDive(decoModel = DecoModel.VPM_B, ppO2Warn = 1200, lowSetpoint = 700, safetyStopTime = 180))
+        assertEquals(
+            ActivityDive(decoModel = DecoModel.ZHL16C, ppO2Warn = 1400, lowSetpoint = 700, safetyStopTime = 180),
+            ActivityMerge.fillGaps(fit, shearwater).dive,
+        )
     }
 
     @Test

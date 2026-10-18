@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.activityfile
 
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
+import io.github.solcott.activitytracker.lexicon.app.DiveAlert
 import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.Lap
@@ -14,10 +15,10 @@ import kotlin.time.Instant
 /** Builds an activity's [ActivityStreamData] from a file's samples or a recording, in the lexicon's integer units. */
 object StreamBuilder {
     /**
-     * [records] are sorted and all have a timestamp. A dive's [gases] (in order of first use) start its [gasSwitches] at time 0, and its
-     * [tanks]' [tankUpdates] become a pressure series each, in the tanks' order. [laps] are kept unless there's only one, spanning the
-     * [elapsedSeconds]; [lengths], [sets] and [legs] (a multisport file's sessions) are kept in time order. Null when nothing is left to
-     * chart or list. A workout's sets are kept even without a sample.
+     * [records] are sorted and all have a timestamp. A dive's [gases] (in order of first use) start its [gasSwitches] at time 0, its
+     * [diveAlerts] are kept in time order, and its [tanks]' [tankUpdates] become a pressure series each, in the tanks' order. [laps] are
+     * kept unless there's only one, spanning the [elapsedSeconds]; [lengths], [sets] and [legs] (a multisport file's sessions) are kept in
+     * time order. Null when nothing is left to chart or list. A workout's sets are kept even without a sample.
      */
     @Suppress("LongParameterList") // Everything a file holds over time.
     fun fromRecords(
@@ -33,6 +34,7 @@ object StreamBuilder {
         lengths: List<DecodedLength> = emptyList(),
         sets: List<DecodedSet> = emptyList(),
         legs: List<DecodedSummary> = emptyList(),
+        diveAlerts: List<DecodedDiveAlert> = emptyList(),
     ): ActivityStreamData? {
         if (listOf(records, laps, lengths, sets, legs).all { it.isEmpty() }) return null
         fun seconds(millis: Long) = ((millis - startedAtMillis) / MILLIS_PER_SECOND).roundToInt()
@@ -68,6 +70,11 @@ object StreamBuilder {
                 decoStopTime = records.channel { r -> r.nextStopSeconds?.takeIf { stop(r) != null }?.toDouble() },
                 tts = records.channel { it.ttsSeconds?.toDouble() },
                 gasSwitches = gasSwitches(gasSwitches.map { seconds(it.timestampMillis) to it.gas }, gases.firstOrNull()),
+                diveAlerts =
+                    diveAlerts
+                        .map { DiveAlert(seconds(it.timestampMillis).coerceAtLeast(0), it.kind) }
+                        .sortedBy { it.time }
+                        .ifEmpty { null },
                 tankPressures =
                     tankPressures(time, tanks, tankUpdates.map { Triple(seconds(it.timestampMillis), it.sensor, it.pressureBar) }),
                 laps = laps(laps, ::seconds, elapsedSeconds),

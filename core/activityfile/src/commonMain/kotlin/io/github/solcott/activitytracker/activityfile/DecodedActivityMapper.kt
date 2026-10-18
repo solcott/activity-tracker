@@ -93,6 +93,7 @@ object DecodedActivityMapper {
             gases = fit.dive?.gases.orEmpty(),
             tanks = fit.dive?.tanks.orEmpty(),
             tankUpdates = fit.tankUpdates,
+            diveAlerts = fit.diveAlerts,
             // A ski or snowboard day's runs and lift rides, when the file split it into them, take the place of its laps.
             laps =
                 if (type.sport == Sport.SKI || type.sport == Sport.SNOWBOARD)
@@ -146,6 +147,13 @@ object DecodedActivityMapper {
             noFlyTimeSeconds = dive.noFlyTimeSeconds,
             desaturationTimeSeconds = dive.desaturationTimeSeconds,
             highestPpO2Bar = dive.highestPpO2Bar,
+            decoModel = dive.decoModel,
+            ppO2WarnBar = dive.ppO2WarnBar,
+            ppO2CriticalBar = dive.ppO2CriticalBar,
+            ppO2DecoBar = dive.ppO2DecoBar,
+            lowSetpointBar = dive.lowSetpointBar,
+            highSetpointBar = dive.highSetpointBar,
+            safetyStopSeconds = dive.safetyStopSeconds,
         )
     }
 

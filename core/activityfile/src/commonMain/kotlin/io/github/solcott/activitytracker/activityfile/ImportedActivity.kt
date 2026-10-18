@@ -139,6 +139,17 @@ data class ImportedDive(
     val noFlyTimeSeconds: Double? = null,
     val desaturationTimeSeconds: Double? = null,
     val highestPpO2Bar: Double? = null,
+    /** A `DecoModel` token. */
+    val decoModel: String? = null,
+    /** The dive computer's ppO₂ limits. */
+    val ppO2WarnBar: Double? = null,
+    val ppO2CriticalBar: Double? = null,
+    val ppO2DecoBar: Double? = null,
+    /** A rebreather's setpoints. */
+    val lowSetpointBar: Double? = null,
+    val highSetpointBar: Double? = null,
+    /** The safety stop the computer was set for; null when it was off. */
+    val safetyStopSeconds: Int? = null,
 )
 
 data class DepthPoint(val seconds: Long, val depthMeters: Double)

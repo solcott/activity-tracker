@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.DecoModel
 import io.github.solcott.activitytracker.lexicon.app.Length
 import io.github.solcott.activitytracker.lexicon.app.SensorType
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -199,6 +200,29 @@ class ActivityDraftTest {
             desaturationTimeSeconds = 72_000.0,
             highestPpO2Bar = 1.4,
         )
+
+    @Test
+    fun aDivesComputerSettingsPublishInMillibar() {
+        val settings =
+            diveFields.copy(
+                decoModel = DecoModel.ZHL16C,
+                ppO2WarnBar = 1.4,
+                ppO2CriticalBar = 1.6,
+                ppO2DecoBar = 1.6,
+                lowSetpointBar = 0.7,
+                highSetpointBar = 1.3,
+                safetyStopSeconds = 180,
+            )
+        val dive =
+            ActivityDraft.fromImport(imported(emptyList()).copy(dive = settings), ActivityType(Sport.DIVE), null).toRecord(start).dive!!
+        assertEquals(DecoModel.ZHL16C, dive.decoModel)
+        assertEquals(listOf(1400, 1600, 1600), listOf(dive.ppO2Warn, dive.ppO2Critical, dive.ppO2Deco))
+        assertEquals(700 to 1300, dive.lowSetpoint to dive.highSetpoint)
+        assertEquals(180, dive.safetyStopTime)
+        val older =
+            ActivityDraft.fromImport(imported(emptyList()).copy(dive = diveFields), ActivityType(Sport.DIVE), null).toRecord(start).dive!!
+        assertEquals(null, older.decoModel ?: older.ppO2Warn ?: older.lowSetpoint ?: older.safetyStopTime, "none where the file had none")
+    }
 
     @Test
     fun aDivesNewerSummaryAndTanksAreInLexiconUnits() {
