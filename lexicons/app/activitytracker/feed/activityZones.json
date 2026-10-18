@@ -20,13 +20,14 @@
     },
     "trainingLoad": {
       "type": "object",
-      "description": "The activity's training load as the recording device computed it. Every field is optional.",
+      "description": "The activity's training load as the recording device computed it, and its HRV. Every field is optional.",
       "properties": {
         "ftp": { "type": "integer", "minimum": 0, "description": "Functional threshold power, in watts." },
         "intensityFactor": { "type": "integer", "minimum": 0, "description": "Normalized power over FTP, in hundredths." },
         "trainingStressScore": { "type": "integer", "minimum": 0, "description": "Tenths." },
         "aerobicTrainingEffect": { "type": "integer", "minimum": 0, "description": "Tenths, from 0 to 50." },
-        "anaerobicTrainingEffect": { "type": "integer", "minimum": 0, "description": "Tenths, from 0 to 50." }
+        "anaerobicTrainingEffect": { "type": "integer", "minimum": 0, "description": "Tenths, from 0 to 50." },
+        "hrvRmssd": { "type": "integer", "minimum": 0, "description": "Heart rate variability over the activity: the RMSSD of its beat-to-beat intervals, in milliseconds, computed at import." }
       }
     },
     "zoneSnapshot": {

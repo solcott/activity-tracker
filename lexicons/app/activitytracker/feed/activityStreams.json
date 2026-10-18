@@ -13,11 +13,11 @@
           "activity": { "type": "string", "format": "at-uri", "description": "The activity's URI; it shares this record's rkey." },
           "channels": {
             "type": "array",
-            "maxLength": 32,
+            "maxLength": 64,
             "items": {
               "type": "string",
               "maxLength": 32,
-              "knownValues": ["distance", "altitude", "speed", "heartRate", "power", "cadence", "temperature", "depth", "gears", "respirationRate", "verticalOscillation", "stanceTime", "stepLength", "verticalRatio", "stanceTimeBalance", "leftRightBalance", "ppO2", "cns", "n2Load", "ndl", "decoStopDepth", "decoStopTime", "tts", "gasSwitches", "tankPressures", "laps", "lengths", "sets", "legs"]
+              "knownValues": ["distance", "altitude", "speed", "heartRate", "power", "cadence", "temperature", "depth", "gears", "respirationRate", "verticalOscillation", "stanceTime", "stepLength", "verticalRatio", "stanceTimeBalance", "leftRightBalance", "ppO2", "cns", "n2Load", "ndl", "decoStopDepth", "decoStopTime", "tts", "torqueEffectivenessLeft", "torqueEffectivenessRight", "pedalSmoothnessLeft", "pedalSmoothnessRight", "pcoLeft", "pcoRight", "coreTemperature", "smO2", "totalHemoglobin", "ebikeBattery", "ebikeAssistMode", "ebikeAssistLevel", "formPower", "legSpringStiffness", "gasSwitches", "tankPressures", "laps", "lengths", "sets", "legs"]
             },
             "description": "The channels #streamData holds, so a client knows which charts exist without fetching it."
           },
@@ -59,6 +59,20 @@
         "decoStopDepth": { "type": "array", "items": { "type": "integer" }, "description": "The next decompression stop's depth (the ceiling), in centimeters; null when not in deco." },
         "decoStopTime": { "type": "array", "items": { "type": "integer" }, "description": "The next decompression stop's duration, in seconds." },
         "tts": { "type": "array", "items": { "type": "integer" }, "description": "Time to surface, in seconds." },
+        "torqueEffectivenessLeft": { "type": "array", "items": { "type": "integer" }, "description": "The left leg's torque effectiveness, in hundredths of a percent." },
+        "torqueEffectivenessRight": { "type": "array", "items": { "type": "integer" }, "description": "The right leg's torque effectiveness, in hundredths of a percent." },
+        "pedalSmoothnessLeft": { "type": "array", "items": { "type": "integer" }, "description": "The left leg's pedal smoothness, in hundredths of a percent." },
+        "pedalSmoothnessRight": { "type": "array", "items": { "type": "integer" }, "description": "The right leg's pedal smoothness, in hundredths of a percent." },
+        "pcoLeft": { "type": "array", "items": { "type": "integer" }, "description": "The left pedal's platform centre offset, in millimeters; negative is inboard." },
+        "pcoRight": { "type": "array", "items": { "type": "integer" }, "description": "The right pedal's platform centre offset, in millimeters; negative is inboard." },
+        "coreTemperature": { "type": "array", "items": { "type": "integer" }, "description": "Core body temperature, in hundredths of a degree Celsius." },
+        "smO2": { "type": "array", "items": { "type": "integer" }, "description": "Muscle oxygen saturation, in tenths of a percent." },
+        "totalHemoglobin": { "type": "array", "items": { "type": "integer" }, "description": "Total hemoglobin concentration, in hundredths of a gram per deciliter." },
+        "ebikeBattery": { "type": "array", "items": { "type": "integer" }, "description": "An e-bike's battery level, in percent." },
+        "ebikeAssistMode": { "type": "array", "items": { "type": "integer" }, "description": "An e-bike's assist mode, as the bike numbers it (0 is off)." },
+        "ebikeAssistLevel": { "type": "array", "items": { "type": "integer" }, "description": "An e-bike's assist level, in percent." },
+        "formPower": { "type": "array", "items": { "type": "integer" }, "description": "Running form power from a Stryd, in watts." },
+        "legSpringStiffness": { "type": "array", "items": { "type": "integer" }, "description": "Leg spring stiffness from a Stryd, in hundredths of a kilonewton per meter." },
         "gears": { "type": "array", "items": { "type": "ref", "ref": "#gearChange" } },
         "gasSwitches": { "type": "array", "items": { "type": "ref", "ref": "#gasSwitch" }, "description": "Each switch of breathing gas, in time order. The first gas breathed is a switch at time 0." },
         "tankPressures": { "type": "array", "items": { "type": "ref", "ref": "#tankPressure" }, "description": "One pressure series per tank, in the order of the activity's dive.tanks." },

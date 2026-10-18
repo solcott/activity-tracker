@@ -229,4 +229,13 @@ class ActivityStreamsSerializationTest {
         assertNull(AtJson.decodeFromString(ActivityZonesRecord.serializer(), older).trainingLoad)
         assertTrue(TrainingLoad().isEmpty)
     }
+
+    @Test
+    fun trainingLoadCarriesHrv() {
+        val load = TrainingLoad(hrvRmssd = 42)
+        val json = AtJson.encodeToJsonElement(TrainingLoad.serializer(), load).jsonObject
+        assertEquals(setOf("hrvRmssd"), json.keys)
+        assertEquals(load, AtJson.decodeFromJsonElement(TrainingLoad.serializer(), json))
+        assertFalse(load.isEmpty, "an HRV alone is still a load to store")
+    }
 }

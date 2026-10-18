@@ -204,6 +204,16 @@ class RecordSerializationTest {
     }
 
     @Test
+    fun countsAndUtcOffsetRoundTripAndOlderRecordsLackThem() {
+        val row = record.copy(sport = Sport.ROW, cycles = 1850, avgStrokeDistance = 1020, utcOffset = -300)
+        val json = AtJson.encodeToString(ActivityRecord.serializer(), row)
+        assertTrue(""""cycles":1850""" in json && """"avgStrokeDistance":1020""" in json && """"utcOffset":-300""" in json, json)
+        assertEquals(row, AtJson.decodeFromString(ActivityRecord.serializer(), json))
+        val older = AtJson.encodeToString(ActivityRecord.serializer(), record)
+        assertFalse("cycles" in older || "avgStrokeDistance" in older || "utcOffset" in older, older)
+    }
+
+    @Test
     fun negativeTemperatureRoundTrips() {
         val cold = record.copy(avgTemperature = -55)
         val json = AtJson.encodeToString(ActivityRecord.serializer(), cold)

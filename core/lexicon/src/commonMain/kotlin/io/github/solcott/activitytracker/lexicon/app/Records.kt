@@ -289,8 +289,23 @@ data class ActivityRecord(
     val flow: Int? = null,
     /** A pool swim's pool length, in centimeters. */
     val poolLength: Int? = null,
+    /**
+     * The recording device's cycle count: steps on foot (a run's strides doubled), strokes swimming, rowing or paddling, pushes in a
+     * wheelchair, crank revolutions on a ride.
+     */
+    val cycles: Int? = null,
+    /** Average distance per stroke, in centimeters. */
+    val avgStrokeDistance: Int? = null,
+    /** The UTC offset where the activity started, in minutes east of UTC, from [MIN_UTC_OFFSET] to [MAX_UTC_OFFSET]. */
+    val utcOffset: Int? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_ACTIVITY,
-)
+) {
+    companion object {
+        /** Minutes east of UTC: UTC−12:00 to UTC+14:00. */
+        const val MIN_UTC_OFFSET = -720
+        const val MAX_UTC_OFFSET = 840
+    }
+}
 
 /**
  * `app.activitytracker.feed.activityStreams`: an activity's per-sample data, for charts, under its activity's rkey. Its [data] blob holds
@@ -311,7 +326,7 @@ data class ActivityStreamsRecord(
     @SerialName($$"$type") val type: String = Nsid.FEED_ACTIVITY_STREAMS,
 ) {
     companion object {
-        const val MAX_CHANNELS = 32
+        const val MAX_CHANNELS = 64
         const val MIME_TYPE = "application/json"
 
         /** The lexicon's `maxSize` for [data]. */
@@ -403,7 +418,7 @@ data class ActivityZonesRecord(
     @SerialName($$"$type") val type: String = Nsid.FEED_ACTIVITY_ZONES,
 )
 
-/** `app.activitytracker.feed.activityZones#trainingLoad`: the activity's training load as the recording device computed it. */
+/** `app.activitytracker.feed.activityZones#trainingLoad`: the activity's training load as the recording device computed it, and its HRV. */
 @Immutable
 @Serializable
 data class TrainingLoad(
@@ -417,6 +432,8 @@ data class TrainingLoad(
     val aerobicTrainingEffect: Int? = null,
     /** Tenths, from 0 to 50. */
     val anaerobicTrainingEffect: Int? = null,
+    /** Heart rate variability: the RMSSD of the activity's beat-to-beat intervals, in milliseconds, computed at import. */
+    val hrvRmssd: Int? = null,
 ) {
     /** Whether this holds nothing, so there's no load to store. */
     val isEmpty: Boolean
@@ -503,6 +520,34 @@ data class ActivityStreamData(
     val sets: List<WorkoutSet>? = null,
     /** A multisport activity's legs, in order, transitions included; null when the recording has one sport. */
     val legs: List<Leg>? = null,
+    /** The left leg's torque effectiveness, in hundredths of a percent. */
+    val torqueEffectivenessLeft: List<Int?>? = null,
+    /** The right leg's torque effectiveness, in hundredths of a percent. */
+    val torqueEffectivenessRight: List<Int?>? = null,
+    /** The left leg's pedal smoothness, in hundredths of a percent. */
+    val pedalSmoothnessLeft: List<Int?>? = null,
+    /** The right leg's pedal smoothness, in hundredths of a percent. */
+    val pedalSmoothnessRight: List<Int?>? = null,
+    /** The left pedal's platform centre offset, in millimeters; negative is inboard. */
+    val pcoLeft: List<Int?>? = null,
+    /** The right pedal's platform centre offset, in millimeters; negative is inboard. */
+    val pcoRight: List<Int?>? = null,
+    /** Core body temperature, in hundredths of a degree Celsius. */
+    val coreTemperature: List<Int?>? = null,
+    /** Muscle oxygen saturation, in tenths of a percent. */
+    val smO2: List<Int?>? = null,
+    /** Total hemoglobin concentration, in hundredths of a gram per deciliter. */
+    val totalHemoglobin: List<Int?>? = null,
+    /** An e-bike's battery level, in percent. */
+    val ebikeBattery: List<Int?>? = null,
+    /** An e-bike's assist mode, as the bike numbers it (0 is off). */
+    val ebikeAssistMode: List<Int?>? = null,
+    /** An e-bike's assist level, in percent. */
+    val ebikeAssistLevel: List<Int?>? = null,
+    /** Running form power from a Stryd, in watts. */
+    val formPower: List<Int?>? = null,
+    /** Leg spring stiffness from a Stryd, in hundredths of a kilonewton per meter. */
+    val legSpringStiffness: List<Int?>? = null,
 ) {
     /** The [StreamChannel]s this holds. */
     val channels: List<String>
@@ -554,6 +599,24 @@ data class ActivityStreamData(
                 IntChannel(StreamChannel.DECO_STOP_DEPTH, { it.decoStopDepth }) { d, v -> d.copy(decoStopDepth = v) },
                 IntChannel(StreamChannel.DECO_STOP_TIME, { it.decoStopTime }) { d, v -> d.copy(decoStopTime = v) },
                 IntChannel(StreamChannel.TTS, { it.tts }) { d, v -> d.copy(tts = v) },
+                IntChannel(StreamChannel.TORQUE_EFFECTIVENESS_LEFT, { it.torqueEffectivenessLeft }) { d, v ->
+                    d.copy(torqueEffectivenessLeft = v)
+                },
+                IntChannel(StreamChannel.TORQUE_EFFECTIVENESS_RIGHT, { it.torqueEffectivenessRight }) { d, v ->
+                    d.copy(torqueEffectivenessRight = v)
+                },
+                IntChannel(StreamChannel.PEDAL_SMOOTHNESS_LEFT, { it.pedalSmoothnessLeft }) { d, v -> d.copy(pedalSmoothnessLeft = v) },
+                IntChannel(StreamChannel.PEDAL_SMOOTHNESS_RIGHT, { it.pedalSmoothnessRight }) { d, v -> d.copy(pedalSmoothnessRight = v) },
+                IntChannel(StreamChannel.PCO_LEFT, { it.pcoLeft }) { d, v -> d.copy(pcoLeft = v) },
+                IntChannel(StreamChannel.PCO_RIGHT, { it.pcoRight }) { d, v -> d.copy(pcoRight = v) },
+                IntChannel(StreamChannel.CORE_TEMPERATURE, { it.coreTemperature }) { d, v -> d.copy(coreTemperature = v) },
+                IntChannel(StreamChannel.SM_O2, { it.smO2 }) { d, v -> d.copy(smO2 = v) },
+                IntChannel(StreamChannel.TOTAL_HEMOGLOBIN, { it.totalHemoglobin }) { d, v -> d.copy(totalHemoglobin = v) },
+                IntChannel(StreamChannel.EBIKE_BATTERY, { it.ebikeBattery }) { d, v -> d.copy(ebikeBattery = v) },
+                IntChannel(StreamChannel.EBIKE_ASSIST_MODE, { it.ebikeAssistMode }) { d, v -> d.copy(ebikeAssistMode = v) },
+                IntChannel(StreamChannel.EBIKE_ASSIST_LEVEL, { it.ebikeAssistLevel }) { d, v -> d.copy(ebikeAssistLevel = v) },
+                IntChannel(StreamChannel.FORM_POWER, { it.formPower }) { d, v -> d.copy(formPower = v) },
+                IntChannel(StreamChannel.LEG_SPRING_STIFFNESS, { it.legSpringStiffness }) { d, v -> d.copy(legSpringStiffness = v) },
             )
     }
 }
@@ -750,6 +813,20 @@ object StreamChannel {
     const val DECO_STOP_DEPTH = "decoStopDepth"
     const val DECO_STOP_TIME = "decoStopTime"
     const val TTS = "tts"
+    const val TORQUE_EFFECTIVENESS_LEFT = "torqueEffectivenessLeft"
+    const val TORQUE_EFFECTIVENESS_RIGHT = "torqueEffectivenessRight"
+    const val PEDAL_SMOOTHNESS_LEFT = "pedalSmoothnessLeft"
+    const val PEDAL_SMOOTHNESS_RIGHT = "pedalSmoothnessRight"
+    const val PCO_LEFT = "pcoLeft"
+    const val PCO_RIGHT = "pcoRight"
+    const val CORE_TEMPERATURE = "coreTemperature"
+    const val SM_O2 = "smO2"
+    const val TOTAL_HEMOGLOBIN = "totalHemoglobin"
+    const val EBIKE_BATTERY = "ebikeBattery"
+    const val EBIKE_ASSIST_MODE = "ebikeAssistMode"
+    const val EBIKE_ASSIST_LEVEL = "ebikeAssistLevel"
+    const val FORM_POWER = "formPower"
+    const val LEG_SPRING_STIFFNESS = "legSpringStiffness"
     const val GAS_SWITCHES = "gasSwitches"
     const val TANK_PRESSURES = "tankPressures"
     const val LAPS = "laps"
