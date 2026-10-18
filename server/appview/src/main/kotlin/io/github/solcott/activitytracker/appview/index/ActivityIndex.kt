@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.appview.index
 
 import io.github.solcott.activitytracker.appview.ProfileDetailRules
 import io.github.solcott.activitytracker.appview.db.Activities
+import io.github.solcott.activitytracker.appview.db.ActivityDetails
 import io.github.solcott.activitytracker.appview.db.ActivityMediaBlobs
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.appview.db.ActivityZones
@@ -19,7 +20,6 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
 import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
-import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityZonesRecord
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
@@ -34,11 +34,11 @@ import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.upsert
 
-// Indexing of `feed.activity` records, and the placing of activities and their streams by origin, which the Indexer hands off here.
+// Indexing of `feed.activity` records, and the placing of activities and their zones by origin, which the Indexer hands off here.
 
 /**
- * [placement]'s copy of an activity, its streams or its zones: decoded, then indexed as the row unless another origin's narrower copy holds
- * it ([place]).
+ * [placement]'s copy of an activity or its zones: decoded, then indexed as the row unless another origin's narrower copy holds it
+ * ([place]). Streams and details aren't placed: each tier's copy is a row of its own.
  */
 @Suppress("LongParameterList") // The record, and where it's from.
 internal fun JdbcTransaction.upsertPlaced(
@@ -59,11 +59,7 @@ internal fun JdbcTransaction.upsertPlaced(
             upsertZones(record, author, uri, cid, json, placement, now)
         }
     } else {
-        val record = AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), json)
-        // Like an activity, where it's stored is who may see it; a `visibility` the record still carries is ignored.
-        place(collection, uri, cid, json, placement, placement.visibility, now) {
-            upsertStreams(record, author, uri, cid, json, placement, now)
-        }
+        error("$collection isn't placed by origin")
     }
 }
 
@@ -98,7 +94,6 @@ private fun JdbcTransaction.place(
             shadow(uri, placement.origin, collection, visibility, cid, AtJson.encodeToString(JsonObject.serializer(), json), now)
             return
         }
-        // Rows indexed before V15 kept no raw streams record; that copy is the repo's, whose own delete follows the move.
         held.record?.let { shadow(uri, held.origin, collection, held.visibility, held.cid, it, now) }
     }
     RecordShadows.deleteWhere { (RecordShadows.uri eq uri.value) and (origin eq placement.origin) }
@@ -120,6 +115,7 @@ internal fun JdbcTransaction.spaceRkeys(space: SpaceUri, collection: String): Se
                     when (collection) {
                         Nsid.FEED_ACTIVITY -> Activities.uri to Activities.origin
                         Nsid.FEED_ACTIVITY_ZONES -> ActivityZones.uri to ActivityZones.origin
+                        Nsid.FEED_ACTIVITY_DETAILS -> ActivityDetails.uri to ActivityDetails.origin
                         else -> ActivityStreams.uri to ActivityStreams.origin
                     }
                 val held = uriColumn.table.select(uriColumn).where { originColumn eq origin }.map { it[uriColumn] }
@@ -140,18 +136,6 @@ internal fun JdbcTransaction.heldCopy(collection: String, uri: AtUri): HeldCopy?
                 .where { Activities.uri eq uri.value }
                 .singleOrNull()
                 ?.let { HeldCopy(it[Activities.origin], it[Activities.visibility], it[Activities.cid], it[Activities.record]) }
-        Nsid.FEED_ACTIVITY_STREAMS ->
-            ActivityStreams.selectAll()
-                .where { ActivityStreams.uri eq uri.value }
-                .singleOrNull()
-                ?.let {
-                    HeldCopy(
-                        it[ActivityStreams.origin],
-                        it[ActivityStreams.visibility],
-                        it[ActivityStreams.cid],
-                        it[ActivityStreams.record],
-                    )
-                }
         Nsid.FEED_ACTIVITY_ZONES ->
             ActivityZones.selectAll()
                 .where { ActivityZones.uri eq uri.value }

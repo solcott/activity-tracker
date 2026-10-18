@@ -152,9 +152,29 @@ object ActivityStreams : Table("activity_streams") {
     val indexedAt = long("indexed_at")
     /** As [Activities.origin]. */
     val origin = varchar("origin", 512).default(Origins.REPO)
-    /** The raw record JSON, so the row can become a [RecordShadows] copy mid-move; null on rows indexed before V15. */
+    /** The raw record JSON; null on rows indexed before V15. */
     val record = text("record").nullable()
-    override val primaryKey = PrimaryKey(uri)
+    /** An activity has one streams record per tier holding its channels, all under one URI, so each origin's copy is a row. */
+    override val primaryKey = PrimaryKey(uri, origin)
+}
+
+/**
+ * `feed.activityDetails` records: an activity's summary fields in a detail category narrower than it, one per tier, all under the
+ * activity's rkey, so each origin's copy is a row. Indexed only from tier spaces, and served at [visibility], where the record is stored
+ * (`Views.hydrate`).
+ */
+object ActivityDetails : Table("activity_details") {
+    val uri = varchar("uri", 512)
+    /** As [Activities.origin]; never [Origins.REPO]. */
+    val origin = varchar("origin", 512)
+    val cid = varchar("cid", 255)
+    val authorDid = varchar("author_did", 255)
+    val activityUri = varchar("activity_uri", 512)
+    val visibility = varchar("visibility", 16)
+    /** The record as indexed: the shared `AtJson` model, re-encoded with only the fields it knows. */
+    val record = text("record")
+    val indexedAt = long("indexed_at")
+    override val primaryKey = PrimaryKey(uri, origin)
 }
 
 /**

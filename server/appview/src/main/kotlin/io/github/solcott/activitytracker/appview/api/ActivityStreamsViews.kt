@@ -17,7 +17,9 @@ import io.github.solcott.activitytracker.lexicon.app.DiveAlert
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.TankPressure
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
+import io.github.solcott.activitytracker.lexicon.app.mergeStreams
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
@@ -80,50 +82,69 @@ class PdsBlobStreamSource(private val http: HttpClient, private val pds: PdsLook
 /**
  * Serves `feed.getActivityStreams`, the only way clients read streams, so visibility holds here: `public` for anyone, `followers` for the
  * athlete's effective followers, `mutuals` for accounts the athlete and the viewer both follow, and anything else (`self`, unknown) for the
- * athlete only. A row's visibility is where its record is stored: `public` in the repo, the tier in a space. Streams are never shown to a
- * viewer who may not see their activity, when it's indexed. Zones reveal thresholds, so they're a record of their own
- * (`feed.activityZones`), which the athlete stores at the narrower of the charts' and the training's visibility, and which needs the viewer
- * admitted to its tier too.
+ * athlete only. An activity has one streams record per tier holding its channels, and a viewer gets the union of those they're admitted to.
+ * A row's visibility is where its record is stored: `public` in the repo, the tier in a space. Streams are never shown to a viewer who may
+ * not see their activity, when it's indexed. Zones reveal thresholds, so they're a record of their own (`feed.activityZones`), which the
+ * athlete stores at the narrowest of the heart rate, power and training visibilities, and which needs the viewer admitted to its tier too.
  */
 class ActivityStreamsViews(private val db: Database, private val source: StreamSource, private val clock: Clock = Clock.System) {
     private val log = LoggerFactory.getLogger(ActivityStreamsViews::class.java)
 
+    /**
+     * The union of the activity's streams records in the tiers [viewer] is admitted to, widest first, each narrower one's channels and lap
+     * and leg fields laid over the wider ([mergeStreams]). A part whose blob can't be had is left out; with none left it's `NotFound`.
+     */
     suspend fun streams(viewer: Did?, params: GetActivityStreams.Params): GetActivityStreams.Output {
         val visible = db.tx { visibleStreams(viewer, params.uri) } ?: notFound()
-        val data = cached(visible.blobCid) ?: fetch(Did(visible.author), visible.blobCid, visible.origin) ?: notFound()
+        val parts =
+            visible.parts.mapNotNull { part ->
+                (cached(part.blobCid) ?: fetch(Did(part.author), part.blobCid, part.origin))?.let { part to it }
+            }
+        val data = mergeStreams(parts.map { it.second }) ?: notFound()
         return GetActivityStreams.Output(
             uri = params.uri,
-            visibility = visible.visibility,
-            channels = visible.channels,
+            visibility = parts.first().first.visibility,
+            channels = data.channels,
             data = data,
             heartRateZones = visible.heartRateZones,
             powerZones = visible.powerZones,
             trainingLoad = visible.trainingLoad,
+            parts = parts.map { (part, _) -> GetActivityStreams.StreamsPart(part.visibility, part.channels) },
         )
     }
 
-    @Suppress("LongParameterList") // One per part of the output, and where the data is.
+    /** One streams record the viewer may see: where its blob is, and the tier it's served at. */
+    private class Part(val author: String, val origin: String, val visibility: String, val channels: List<String>, val blobCid: String)
+
     private class Visible(
-        val author: String,
-        val origin: String,
-        val visibility: String,
-        val channels: List<String>,
-        val blobCid: String,
+        /** Widest first. */
+        val parts: List<Part>,
         val heartRateZones: ZoneSnapshot?,
         val powerZones: ZoneSnapshot?,
         val trainingLoad: TrainingLoad?,
     )
 
     private fun JdbcTransaction.visibleStreams(viewer: Did?, activity: AtUri): Visible? {
-        val row =
+        val parts =
             ActivityStreams.selectAll()
                 .where {
                     (ActivityStreams.activityUri eq activity.value) and
                         visibleTo(viewer, ActivityStreams.visibility, ActivityStreams.authorDid) and
                         activityVisible(activity, viewer)
                 }
-                .singleOrNull() ?: return null
-        // Zones are their own record, stored (and so served) at the narrower of the charts' and the training's visibility.
+                .map { row ->
+                    Part(
+                        author = row[ActivityStreams.authorDid],
+                        origin = row[ActivityStreams.origin],
+                        visibility = row[ActivityStreams.visibility],
+                        channels = AtJson.decodeFromString(ListSerializer(String.serializer()), row[ActivityStreams.channels]),
+                        blobCid = row[ActivityStreams.blobCid],
+                    )
+                }
+                // Several origins never share a tier, but sort by origin too so the order is stable.
+                .sortedWith(compareBy({ Visibility.rank(it.visibility) }, { it.origin }))
+                .takeIf { it.isNotEmpty() } ?: return null
+        // Zones are their own record, stored (and so served) at the narrowest of the heart rate, power and training visibilities.
         val zonesRow =
             ActivityZones.selectAll()
                 .where {
@@ -132,11 +153,7 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
                 .singleOrNull()
         fun zones(json: String?) = json?.let { AtJson.decodeFromString(ZoneSnapshot.serializer(), it) }
         return Visible(
-            author = row[ActivityStreams.authorDid],
-            origin = row[ActivityStreams.origin],
-            visibility = row[ActivityStreams.visibility],
-            channels = AtJson.decodeFromString(ListSerializer(String.serializer()), row[ActivityStreams.channels]),
-            blobCid = row[ActivityStreams.blobCid],
+            parts = parts,
             heartRateZones = zones(zonesRow?.get(ActivityZones.heartRateZones)),
             powerZones = zones(zonesRow?.get(ActivityZones.powerZones)),
             trainingLoad = zonesRow?.let { trainingLoad(it[ActivityZones.record]) },

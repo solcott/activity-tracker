@@ -242,6 +242,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
 
         val recordings =
             recordingsOf(rows.filter { it[Activities.recordingOf] == null }.associate { it[Activities.uri] to it[Activities.visibility] })
+        val details = detailsOf(uris, viewer)
 
         return rows.mapNotNull { row ->
             val uri = row[Activities.uri]
@@ -259,6 +260,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 viewer = viewer?.let { ActivityViewerState(like = viewerLikes[uri]?.let(::AtUri)) },
                 recordings = recordings[uri],
                 media = mediaViews(mediaUrls, row[Activities.authorDid], record.media, visibility, viewer),
+                details = details[uri],
             )
         }
     }

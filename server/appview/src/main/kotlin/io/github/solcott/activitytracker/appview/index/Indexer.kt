@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.appview.index
 
 import io.github.solcott.activitytracker.appview.ProfileDetailRules
 import io.github.solcott.activitytracker.appview.db.Activities
+import io.github.solcott.activitytracker.appview.db.ActivityDetails
 import io.github.solcott.activitytracker.appview.db.ActivityMediaBlobs
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.appview.db.ActivityZones
@@ -19,6 +20,8 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityDetailsRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.CommentHideRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
@@ -51,10 +54,11 @@ import org.slf4j.LoggerFactory
  * by AT-URI, so replaying events (e.g. after rewinding the Jetstream cursor) is safe. Records that fail to decode are dropped: repos are
  * untrusted input.
  *
- * Activities and their streams come from the repo (public) or a tier space, each an origin ([Placement]). Mid-move one URI can be held by
- * two origins: the narrower tier's copy is the indexed row, the other waits in [RecordShadows], and a delete removes only its own origin's
- * copy, promoting a shadow left behind. Likes come from the repo (on public activities) or the giver's interactions space, and are never
- * moved, so they need no shadows: a like's row just records its origin, and only that origin's delete removes it.
+ * Activities and their zones come from the repo (public) or a tier space, each an origin ([Placement]). Mid-move one URI can be held by two
+ * origins: the narrower tier's copy is the indexed row, the other waits in [RecordShadows], and a delete removes only its own origin's
+ * copy, promoting a shadow left behind. An activity's streams and details are split by tier, so each origin's copy is a row of its own.
+ * Likes come from the repo (on public activities) or the giver's interactions space, and are never moved, so they need no shadows: a like's
+ * row just records its origin, and only that origin's delete removes it.
  */
 class Indexer(
     private val db: Database,
@@ -150,9 +154,25 @@ class Indexer(
         val now = clock.now().toEpochMilliseconds()
         when (collection) {
             Nsid.FEED_ACTIVITY,
-            Nsid.FEED_ACTIVITY_STREAMS,
             Nsid.FEED_ACTIVITY_ZONES -> {
                 upsertPlaced(collection, author, uri, cid, json, placement, now)
+            }
+
+            // Each tier's copy is a row of its own: where it's stored is who may see it, and a `visibility` it carries is ignored.
+            Nsid.FEED_ACTIVITY_STREAMS -> {
+                upsertStreams(
+                    AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), json),
+                    author,
+                    uri,
+                    cid,
+                    json,
+                    placement,
+                    now,
+                )
+            }
+
+            Nsid.FEED_ACTIVITY_DETAILS -> {
+                upsertDetails(AtJson.decodeFromJsonElement(ActivityDetailsRecord.serializer(), json), author, uri, cid, placement, now)
             }
 
             Nsid.FEED_LIKE -> {
@@ -215,20 +235,25 @@ class Indexer(
     private fun JdbcTransaction.delete(collection: String, uri: AtUri, placement: Placement) {
         when (collection) {
             Nsid.FEED_ACTIVITY,
-            Nsid.FEED_ACTIVITY_STREAMS,
             Nsid.FEED_ACTIVITY_ZONES -> {
                 RecordShadows.deleteWhere { (RecordShadows.uri eq uri.value) and (origin eq placement.origin) }
                 if (heldCopy(collection, uri)?.origin != placement.origin) return
-                when (collection) {
-                    Nsid.FEED_ACTIVITY -> {
-                        Activities.deleteWhere { Activities.uri eq uri.value }
-                        ActivityMediaBlobs.deleteWhere { activityUri eq uri.value }
-                    }
-                    Nsid.FEED_ACTIVITY_ZONES -> ActivityZones.deleteWhere { ActivityZones.uri eq uri.value }
-                    else -> ActivityStreams.deleteWhere { ActivityStreams.uri eq uri.value }
+                if (collection == Nsid.FEED_ACTIVITY) {
+                    Activities.deleteWhere { Activities.uri eq uri.value }
+                    ActivityMediaBlobs.deleteWhere { activityUri eq uri.value }
+                } else {
+                    ActivityZones.deleteWhere { ActivityZones.uri eq uri.value }
                 }
                 promoteShadow(collection, uri)
+            }
+
+            Nsid.FEED_ACTIVITY_STREAMS -> {
+                ActivityStreams.deleteWhere { (ActivityStreams.uri eq uri.value) and (origin eq placement.origin) }
                 dropOrphanedStreamData()
+            }
+
+            Nsid.FEED_ACTIVITY_DETAILS -> {
+                ActivityDetails.deleteWhere { (ActivityDetails.uri eq uri.value) and (origin eq placement.origin) }
             }
 
             Nsid.FEED_LIKE -> {
@@ -281,6 +306,7 @@ class Indexer(
         Activities.deleteWhere { authorDid eq did.value }
         ActivityMediaBlobs.deleteWhere { authorDid eq did.value }
         ActivityStreams.deleteWhere { authorDid eq did.value }
+        ActivityDetails.deleteWhere { authorDid eq did.value }
         ActivityZones.deleteWhere { authorDid eq did.value }
         dropOrphanedStreamData()
         Likes.deleteWhere { authorDid eq did.value }
@@ -294,20 +320,22 @@ class Indexer(
     }
 
     companion object {
-        private val TIER_COLLECTIONS = setOf(Nsid.FEED_ACTIVITY, Nsid.FEED_ACTIVITY_STREAMS, Nsid.FEED_ACTIVITY_ZONES)
+        private val TIER_COLLECTIONS =
+            setOf(Nsid.FEED_ACTIVITY, Nsid.FEED_ACTIVITY_DETAILS, Nsid.FEED_ACTIVITY_STREAMS, Nsid.FEED_ACTIVITY_ZONES)
 
-        /** The tables of records placed by origin: each one's URI and origin columns, and its collection. */
+        /** The tables of records held by origin: each one's URI and origin columns, and its collection. */
         private val PLACED =
             listOf(
                 Triple(Activities.uri, Activities.origin, Nsid.FEED_ACTIVITY),
                 Triple(ActivityStreams.uri, ActivityStreams.origin, Nsid.FEED_ACTIVITY_STREAMS),
+                Triple(ActivityDetails.uri, ActivityDetails.origin, Nsid.FEED_ACTIVITY_DETAILS),
                 Triple(ActivityZones.uri, ActivityZones.origin, Nsid.FEED_ACTIVITY_ZONES),
             )
         private val INTERACTION_COLLECTIONS = setOf(Nsid.FEED_LIKE, Nsid.FEED_COMMENT, Nsid.FEED_COMMENT_HIDE)
 
         /**
          * What the AppView indexes from the athlete space with key [skey]: likes, comments and comment hides from the interactions space,
-         * and activities, their streams and their zones from a tier (an unknown key is a tier only the athlete sees). Private details,
+         * and activities, their details, streams and zones from a tier (an unknown key is a tier only the athlete sees). Private details,
          * follow declines, defaults, full tracks and imported files (`feed.activityTrack`, `feed.activitySource`, in `self`), privacy zones
          * and their trim marker (`actor.privacyZones`, `actor.routeTrim`, in `self`) are never stored.
          */
