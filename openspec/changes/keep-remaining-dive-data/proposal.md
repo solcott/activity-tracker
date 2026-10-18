@@ -12,14 +12,10 @@ Data other activity types lose is split into `keep-workout-structure` (sets, leg
 
 ## What Changes
 
-- **Dive alerts:** a new `streamData.diveAlerts` event channel (`{ time, kind }`, an open enum of alert kinds), read from FIT `dive_alert` events and UDDF `alarm`s, and marked on the depth chart.
+- **Dive alerts:** a new `streamData.diveAlerts` event channel (`{ time, kind }`, an open enum of alert kinds), read from FIT `dive_alert` events and UDDF `alarm`s, warnings marked on the depth chart, and written back as FIT `dive_alert` events and UDDF `alarm`s on export.
 - **Dive settings:** new `activity#dive` fields for the deco model and the ppO₂ limits and setpoints, read from FIT `dive_settings` and Shearwater's header, shown with the dive's stats and written back to FIT `dive_settings` on export.
 - **Shearwater and Subsurface dive state:** both parsers fill the ppO₂, NDL, TTS, deco stop, CNS and tank pressure channels from the fields above, so a dive from either shows the same charts as a FIT or UDDF dive.
 - Only new imports get the new data; nothing is backfilled.
-
-## Open questions
-
-- **Alert kinds.** FIT's `dive_alert` enum and UDDF's alarm types differ; settle the open enum's tokens and which alerts the chart shows (all, or only warnings).
 
 ## Capabilities
 
@@ -28,12 +24,13 @@ None.
 
 ### Modified Capabilities
 - `feed/dive-data`: dive alerts, dive computer settings and Shearwater and Subsurface dive state.
-- `feed/activity-export`: FIT dive settings.
+- `feed/activity-export`: FIT dive settings, FIT and UDDF dive alerts.
 
 ## Impact
 
 - Lexicons: `feed/activityStreams.json` (`diveAlerts`), `feed/activity.json` (dive settings fields); `core/lexicon` models. Use the `lexicon-change` skill.
-- `:core-activityfile`: the three FIT decoders (including `iosApp/iosApp/SwiftFitDecoder.swift`) for `dive_alert` events and `dive_settings`; `UddfParser` alarms; `ShearwaterXmlParser` and `SubsurfaceXmlParser` dive state; `StreamBuilder`; `FitWriter`.
+- `:core-activityfile`: the three FIT decoders (including `iosApp/iosApp/SwiftFitDecoder.swift`) for `dive_alert` events and `dive_settings`; `UddfParser` alarms; `ShearwaterXmlParser` and `SubsurfaceXmlParser` dive state; `StreamBuilder`; `FitWriter`; `UddfWriter`.
 - `core/data`: `ActivityDraft.fromImport`, `DiveSummary`, `ActivityMerge`.
+- AppView: `ActivityStreamsViews.bounded` caps the alert list and its tokens.
 - UI: alert markers on the depth chart, dive settings in the dive's stats.
-- `keep-workout-structure` and `keep-sensor-data` also change `feed/activityStreams.json`; implement the three one at a time.
+- `keep-workout-structure` and `keep-sensor-data`, which also changed `feed/activityStreams.json`, have landed, so nothing else is changing it.

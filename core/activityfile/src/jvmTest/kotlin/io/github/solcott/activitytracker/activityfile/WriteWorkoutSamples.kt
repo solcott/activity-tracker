@@ -26,10 +26,11 @@ import org.junit.Assume.assumeTrue
  * strength workout, a triathlon, a ski day and a mountain bike ride as FIT, and an interval run, a duathlon and a run sampled every 30 s as
  * TCX. Three more FIT files, written with Garmin's encoder ([SensorFitFixtures]), carry sensor data: a pool swim whose heart rate is only
  * in `hr` messages, a run with HRV, Stryd developer fields and a UTC+2 clock, and an e-bike ride with cycling dynamics, CORE and Moxy
- * channels. Only on request (see the activity-files rule): `./gradlew :core-activityfile:jvmTest --tests "*.WriteWorkoutSamples"
- * -PworkoutSamples` writes them to `build/workout-fixtures`, and without the property it's skipped. Each sample is built from steady
- * stretches, one value per second, and every lap, leg and summary average is taken from the points written, so they agree; each file is
- * read back through [ActivityFileReader] and checked before it's written.
+ * channels. A FIT dive from Garmin's encoder ([FitFixtures.dive]) carries alerts and computer settings, and a Shearwater dive and a
+ * Subsurface logbook carry deco state and tank pressure. Only on request (see the activity-files rule): `./gradlew
+ * :core-activityfile:jvmTest --tests "*.WriteWorkoutSamples" -PworkoutSamples` writes them to `build/workout-fixtures`, and without the
+ * property it's skipped. Each sample is built from steady stretches, one value per second, and every lap, leg and summary average is taken
+ * from the points written, so they agree; each file is read back through [ActivityFileReader] and checked before it's written.
  */
 class WriteWorkoutSamples {
     private val reader = ActivityFileReader(GarminJavaFitDecoder())
@@ -51,6 +52,9 @@ class WriteWorkoutSamples {
                 "strap-swim.fit" to SensorFitFixtures.strapSwim(START),
                 "sensor-run.fit" to SensorFitFixtures.sensorRun(START),
                 "dynamics-ride.fit" to SensorFitFixtures.dynamicsRide(START),
+                "alert-dive.fit" to FitFixtures.dive(START),
+                "shearwater-dive.xml" to shearwaterDive().encodeToByteArray(),
+                "subsurface-dive.ssrf" to SubsurfaceFixtures.logbook(SubsurfaceFixtures.decoDive).encodeToByteArray(),
             )
         for ((name, bytes) in samples) checkConsistent(name, bytes)
         val out = File(dir).apply { mkdirs() }
@@ -272,6 +276,29 @@ class WriteWorkoutSamples {
             append("</MultiSportSession></Activities></TrainingCenterDatabase>")
         }
     }
+
+    /** A metric Shearwater dive into deco on one reporting transmitter, a second slot reading `AI is off`. */
+    private fun shearwaterDive(): String =
+        ShearwaterFixtures.dive(
+            (0..30).map { i ->
+                val seconds = i * 60
+                val depth = if (i == 0 || i == 30) 0.0 else if (i < 15) 30.0 else 6.0
+                val deco = i in 12..27
+                ShearwaterFixtures.record(
+                    seconds * 1000L,
+                    depth,
+                    20.0,
+                    firstStopDepth = if (deco) "6" else "0",
+                    tts = if (deco) "9" else "1",
+                    ppO2 = if (i < 15) "0.84" else "1.2",
+                    ndl = if (deco) "0" else "${(25 - i).coerceAtLeast(0)}",
+                    tank0 = "${3000 - i * 60}",
+                )
+            },
+            imperial = false,
+            maxDepth = "30.0",
+            maxTime = "1800",
+        )
 
     private fun fit(activity: ExportActivity) = FitWriter.write(activity, TimeZone.UTC, createdAt = START)
 
