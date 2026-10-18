@@ -79,7 +79,7 @@ fun diveOverviewStats(record: ActivityRecord, streamMaxMeters: Double?, streamAv
             dive?.let { airUsed(it) },
             record.avgHeartRate?.let { Stat(stringResource(Res.string.stat_heart_rate), stringResource(Res.string.unit_bpm, it)) },
         )
-        .plus(dive?.let { conditions(it) }.orEmpty())
+        .plus(dive?.let { conditions(it) + diveSettingsStats(it) }.orEmpty())
         .toImmutableList()
 }
 

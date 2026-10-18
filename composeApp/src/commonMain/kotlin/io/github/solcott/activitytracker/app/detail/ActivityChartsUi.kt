@@ -21,9 +21,11 @@ import io.github.solcott.activitytracker.app.ui.chart.SeriesPoint
 import io.github.solcott.activitytracker.app.ui.chart.TimeSeriesChart
 import io.github.solcott.activitytracker.app.ui.chart.ZoneBar
 import io.github.solcott.activitytracker.app.ui.chart.ZoneBars
+import io.github.solcott.activitytracker.app.ui.diveAlertLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.chart_avg_max
 import io.github.solcott.activitytracker.composeApp.resources.chart_avg_np_max
+import io.github.solcott.activitytracker.composeApp.resources.chart_depth_alerts
 import io.github.solcott.activitytracker.composeApp.resources.chart_depth_ceiling
 import io.github.solcott.activitytracker.composeApp.resources.chart_depth_switch
 import io.github.solcott.activitytracker.composeApp.resources.chart_depth_switches
@@ -205,8 +207,8 @@ private fun ChartHeader(title: String?, detail: String?) {
 }
 
 /**
- * A dive's depth, with each gas switch marked by the gas's name at its time and the deco ceiling, where the computer logged one, drawn as a
- * second line under the depth.
+ * A dive's depth, with each gas switch marked by the gas's name at its time, each warning the computer raised marked by its name in the
+ * error colour, and the deco ceiling, where the computer logged one, drawn as a second line under the depth.
  */
 @Composable
 private fun DepthChart(series: LineSeries, charts: ActivityCharts) {
@@ -221,9 +223,19 @@ private fun DepthChart(series: LineSeries, charts: ActivityCharts) {
         charts.gasSwitches.zip(names) { switch, name ->
             stringResource(Res.string.chart_depth_switch, name, Format.duration(switch.seconds.toLong()))
         }
+    val alertNames = charts.alerts.map { diveAlertLabel(it.kind) }
+    val warnings =
+        remember(charts.alerts, alertNames) {
+            charts.alerts.mapIndexed { i, alert -> SeriesLabel(alert.seconds.toDouble(), 0.0, alertNames[i]) }.toImmutableList()
+        }
+    val alertText =
+        charts.alerts.zip(alertNames) { alert, name ->
+            stringResource(Res.string.chart_depth_switch, name, Format.duration(alert.seconds.toLong()))
+        }
     val extra =
         listOfNotNull(
             switchText.takeIf { it.isNotEmpty() }?.let { stringResource(Res.string.chart_depth_switches, it.joinToString(", ")) },
+            alertText.takeIf { it.isNotEmpty() }?.let { stringResource(Res.string.chart_depth_alerts, it.joinToString(", ")) },
             stringResource(Res.string.chart_depth_ceiling).takeIf { ceiling.isNotEmpty() },
         )
     LineChart(
@@ -233,6 +245,7 @@ private fun DepthChart(series: LineSeries, charts: ActivityCharts) {
         titled = false,
         others = if (ceiling.isEmpty()) persistentListOf() else persistentListOf(ceiling.toImmutableList()),
         events = events,
+        warnings = warnings,
         extraDescription = extra.joinToString(" "),
     )
 }
@@ -264,6 +277,7 @@ private fun LineChart(
     normalizedPower: Int? = null,
     others: ImmutableList<ImmutableList<SeriesPoint>> = persistentListOf(),
     events: ImmutableList<SeriesLabel> = persistentListOf(),
+    warnings: ImmutableList<SeriesLabel> = persistentListOf(),
     extraDescription: String? = null,
     detailOverride: String? = null,
     step: Boolean = false,
@@ -309,6 +323,7 @@ private fun LineChart(
             inverted = series.kind == StreamKind.Depth,
             others = lines,
             events = events,
+            warnings = warnings,
             step = step,
         )
     }

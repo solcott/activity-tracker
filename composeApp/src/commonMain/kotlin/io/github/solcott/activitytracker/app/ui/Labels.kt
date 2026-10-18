@@ -68,6 +68,9 @@ fun sportLabel(sport: String): String =
 fun activityTypeLabel(type: ActivityType): String =
     type.subSport?.let { Res.allStringResources["sub_sport_${type.sport}_$it"] }?.let { stringResource(it) } ?: sportLabel(type.sport)
 
+/** A dive computer's alert ("No-deco limit reached"), by its `DiveAlertKind` token; one the app doesn't name reads as its token. */
+@Composable fun diveAlertLabel(kind: String): String = Res.allStringResources["dive_alert_$kind"]?.let { stringResource(it) } ?: kind
+
 /** What a sensor is ("Power meter"), by its lexicon kind; an open enum, so an unknown kind is just a sensor. */
 @Composable
 fun sensorTypeLabel(kind: String): String =

@@ -6,11 +6,13 @@ import io.github.solcott.activitytracker.app.detail.ActivityCharts
 import io.github.solcott.activitytracker.app.detail.ActivityDetailPresenter
 import io.github.solcott.activitytracker.app.detail.ActivityDetailState
 import io.github.solcott.activitytracker.app.detail.DetailSection
+import io.github.solcott.activitytracker.app.detail.DiveAlertPoint
 import io.github.solcott.activitytracker.app.detail.GasKind
 import io.github.solcott.activitytracker.app.detail.GasSwitchPoint
 import io.github.solcott.activitytracker.app.detail.StreamKind
 import io.github.solcott.activitytracker.app.detail.TrainingLoadStats
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.lexicon.app.DiveAlertKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -67,12 +69,28 @@ class ActivityFileDataChartsTest : ActivityDetailTestBase() {
     }
 
     @Test
+    fun onlyWarningsAreMarkedOnTheDepthChart() = runTest {
+        streamsOf(
+            """"time":[0,1500,2400],"depth":[0,3000,0],"diveAlerts":[{"time":2400,"kind":"ascentCritical"},""" +
+                """{"time":1500,"kind":"ndlReached"},{"time":1600,"kind":"safetyStopComplete"},{"time":1700,"kind":"someNewAlert"}]"""
+        )
+        val (_, charts) = loaded()
+
+        assertEquals(
+            listOf(DiveAlertPoint(1500, DiveAlertKind.NDL_REACHED), DiveAlertPoint(2400, DiveAlertKind.ASCENT_CRITICAL)),
+            charts.alerts,
+            "informational alerts and kinds the app doesn't name aren't marked",
+        )
+    }
+
+    @Test
     fun aDiveWithDepthAndTemperatureOnlyHasNoneOfIt() = runTest {
         streamsOf(""""time":[0,600,1200],"depth":[0,1800,0],"temperature":[240,220,230]""")
         val (state, charts) = loaded()
 
         assertTrue(charts.ceiling.isEmpty())
         assertTrue(charts.gasSwitches.isEmpty(), "a dive imported before switches were stored has no markers")
+        assertTrue(charts.alerts.isEmpty())
         assertTrue(charts.tankPressures.isEmpty())
         assertEquals(listOf(DetailSection.Temperature, DetailSection.Depth), state.sections)
     }

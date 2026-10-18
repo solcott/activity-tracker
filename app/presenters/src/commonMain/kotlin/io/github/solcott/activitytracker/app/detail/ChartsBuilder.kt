@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.detail
 
+import io.github.solcott.activitytracker.activityfile.DiveAlerts
 import io.github.solcott.activitytracker.activityfile.PerSecond
 import io.github.solcott.activitytracker.data.streams.StreamAnalytics
 import io.github.solcott.activitytracker.data.training.ZoneModel
@@ -48,6 +49,13 @@ internal object ChartsBuilder {
             powerCurve = StreamAnalytics.meanMax(powerBySecond).map { (seconds, watts) -> CurvePoint(seconds, watts) }.toImmutableList(),
             gears = data.gears.orEmpty().map { GearPoint(it.time, it.front, it.rear) }.toImmutableList(),
             gasSwitches = data.gasSwitches.orEmpty().map { GasSwitchPoint(it.time, it.oxygen, it.helium) }.toImmutableList(),
+            alerts =
+                data.diveAlerts
+                    .orEmpty()
+                    .filter { DiveAlerts.isWarning(it.kind) }
+                    .sortedBy { it.time }
+                    .map { DiveAlertPoint(it.time, it.kind) }
+                    .toImmutableList(),
             ceiling = ceiling(data),
             tankPressures =
                 data.tankPressures

@@ -39,7 +39,8 @@ import kotlinx.collections.immutable.persistentListOf
  * silhouette behind the line on a scale of its own, as Strava draws elevation behind its charts; it has no axis and the marker skips it.
  * Hovering, tapping or dragging across the chart shows [markerLabel] for the nearest point. [inverted] puts zero at the top and larger
  * values further down, filled up to the top, as a dive's depth reads. [others] are more lines on the same scale, unfilled and in their own
- * colours (another tank, or a dive's ceiling under its depth). [events] mark moments with a labelled vertical line, like a gas switch.
+ * colours (another tank, or a dive's ceiling under its depth). [events] mark moments with a labelled vertical line, like a gas switch, and
+ * [warnings] mark them in the error colour, labelled along the bottom, like a dive computer's alert.
  */
 @Composable
 internal fun TimeSeriesChart(
@@ -58,6 +59,7 @@ internal fun TimeSeriesChart(
     inverted: Boolean = false,
     others: ImmutableList<ImmutableList<SeriesPoint>> = persistentListOf(),
     events: ImmutableList<SeriesLabel> = persistentListOf(),
+    warnings: ImmutableList<SeriesLabel> = persistentListOf(),
     height: Dp = 140.dp,
 ) {
     if (points.size < 2) return
@@ -96,6 +98,13 @@ internal fun TimeSeriesChart(
     val labelsAbove = remember(pointLabels, label) { PointLabels(pointLabels.map { PointLabel(it.x, it.y, it.text, label) }, gap = 4.dp) }
     val eventLine = rememberLineComponent(Fill(MaterialTheme.colorScheme.tertiary), thickness = 1.dp)
     val eventMarks = remember(events, label, eventLine) { EventMarks(events.map { EventMark(it.x, it.text) }, eventLine, label) }
+    val warningColor = MaterialTheme.colorScheme.error
+    val warningLine = rememberLineComponent(Fill(warningColor), thickness = 1.dp)
+    val warningLabel = rememberTextComponent(labelStyle.copy(color = warningColor))
+    val warningMarks =
+        remember(warnings, warningLabel, warningLine) {
+            EventMarks(warnings.map { EventMark(it.x, it.text) }, warningLine, warningLabel, atBottom = true)
+        }
     val chart =
         rememberCartesianChart(
             layers =
@@ -140,13 +149,14 @@ internal fun TimeSeriesChart(
                         },
                 ),
             decorations =
-                remember(average, averageLine, labelsAbove, eventMarks, inverted) {
+                remember(average, averageLine, labelsAbove, eventMarks, warningMarks, inverted) {
                     listOfNotNull(
                         average?.let { avg ->
                             HorizontalLine(y = { flip(avg) }, line = averageLine, verticalAxisPosition = Axis.Position.Vertical.Start)
                         },
                         labelsAbove,
                         eventMarks.takeIf { events.isNotEmpty() },
+                        warningMarks.takeIf { warnings.isNotEmpty() },
                     )
                 },
             marker = rememberValueMarker(remember(markerLabel, inverted) { { x, y -> markerLabel(x, flip(y)) } }),

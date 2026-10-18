@@ -24,6 +24,11 @@ data class ActivityCharts(
     val gears: ImmutableList<GearPoint>,
     /** Each switch of breathing gas, in time order, for markers on the depth chart; empty when the dive stored none. */
     val gasSwitches: ImmutableList<GasSwitchPoint> = persistentListOf(),
+    /**
+     * Each warning the dive computer raised, in time order, for markers on the depth chart; informational alerts and unknown kinds aren't
+     * here.
+     */
+    val alerts: ImmutableList<DiveAlertPoint> = persistentListOf(),
     /** The deco ceiling (the next stop's depth) in meters, drawn under the depth line; empty outside deco and without deco data. */
     val ceiling: ImmutableList<ChartSample> = persistentListOf(),
     /** One line per tank, in the dive's tank order, in bar. */
@@ -161,6 +166,9 @@ data class GasSwitchPoint(val seconds: Int, val oxygen: Int, val helium: Int) {
     val kind: GasKind
         get() = GasKind.of(oxygen, helium)
 }
+
+/** A warning at [seconds]: [kind] is a `DiveAlertKind` token the UI names. */
+@Immutable data class DiveAlertPoint(val seconds: Int, val kind: String)
 
 /** How a breathing gas is named: Air for 21/0, EAN and its oxygen for nitrox, Oxygen for pure, Tx oxygen/helium for trimix. */
 enum class GasKind {
