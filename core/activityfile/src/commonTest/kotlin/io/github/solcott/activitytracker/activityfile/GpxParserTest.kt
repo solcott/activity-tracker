@@ -65,6 +65,15 @@ class GpxParserTest {
     }
 
     @Test
+    fun theTrackDescriptionStartsTheDescription() {
+        val strava = garmin.replace("<name>Morning Run</name>", "<name>Morning Run</name><desc>Hill repeats</desc>")
+
+        assertEquals("Hill repeats", GpxParser.parse(strava).notes)
+        assertEquals("Hill repeats", DecodedActivityMapper.map(GpxParser.parse(strava)).description)
+        assertNull(DecodedActivityMapper.map(GpxParser.parse(garmin)).description, "no desc, no description")
+    }
+
+    @Test
     fun readsPowerAndUnprefixedExtensions() {
         val strava =
             """<gpx creator="StravaGPX" version="1.1" xmlns="http://www.topografix.com/GPX/1/1"><trk><type>cycling</type><trkseg>

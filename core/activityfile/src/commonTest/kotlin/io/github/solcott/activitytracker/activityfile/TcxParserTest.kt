@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.lexicon.app.Sport
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
@@ -95,6 +96,15 @@ class TcxParserTest {
         assertEquals(4, decoded.laps.size, "the activities' laps, not the transitions")
         assertEquals(listOf("Running", "Biking", "Running", "Running"), decoded.laps.map { it.sport })
         assertEquals(decoded.laps.sortedBy { it.startTimeMillis }, decoded.laps)
+    }
+
+    @Test
+    fun theActivitysNotesStartTheDescription() {
+        val noted = TcxFixtures.intervalRun.replace("</Activity>", "<Notes>Track 8x400</Notes></Activity>")
+
+        assertEquals("Track 8x400", TcxParser.parse(noted).notes)
+        assertEquals("Track 8x400", DecodedActivityMapper.map(TcxParser.parse(noted)).description)
+        assertNull(DecodedActivityMapper.map(TcxParser.parse(TcxFixtures.intervalRun)).description, "no Notes, no description")
     }
 
     @Test
