@@ -96,18 +96,26 @@ sealed interface ActivityDetailState : CircuitUiState {
 enum class DetailSection {
     HeartRate,
     Power,
+    /** Torque effectiveness, pedal smoothness and platform centre offset, each left and right. */
+    CyclingDynamics,
     Speed,
     Cadence,
     /** Elevation and grade. */
     Elevation,
     Temperature,
+    /** Core temperature, SmO₂ and total hemoglobin. */
+    Physiology,
     Depth,
     /** A dive's ppO₂ and CNS. */
     Oxygen,
     TankPressure,
     Respiration,
-    /** Vertical oscillation, stance time and its balance, step length and vertical ratio. */
+    /**
+     * Vertical oscillation, stance time and its balance, step length and vertical ratio, and Stryd's form power and leg spring stiffness.
+     */
     RunningDynamics,
+    /** An e-bike's battery, assist mode and assist level. */
+    EBike,
     Gears,
     /** A multisport activity's legs and transitions. */
     Legs,

@@ -97,10 +97,53 @@ enum class StreamKind {
 
     /** Bar; one line per tank. */
     TankPressure,
+
+    /** Percent; the left leg, with the right as [LineSeries.right]. */
+    TorqueEffectiveness,
+
+    /** Percent; the left leg, with the right as [LineSeries.right]. */
+    PedalSmoothness,
+
+    /** Platform centre offset in millimeters, negative inboard; the left pedal, with the right as [LineSeries.right]. */
+    PlatformCentreOffset,
+
+    /** Tenths of a degree Celsius, like [Temperature]. */
+    CoreTemperature,
+
+    /** Muscle oxygen saturation, percent. */
+    SmO2,
+
+    /** Total hemoglobin concentration, grams per deciliter. */
+    TotalHemoglobin,
+
+    /** An e-bike's battery, percent. */
+    EbikeBattery,
+
+    /** An e-bike's assist mode, as the bike numbers it; drawn as steps. */
+    EbikeAssistMode,
+
+    /** An e-bike's assist level, percent. */
+    EbikeAssistLevel,
+
+    /** Stryd's running form power, watts. */
+    FormPower,
+
+    /** Stryd's leg spring stiffness, kN/m. */
+    LegSpringStiffness,
 }
 
-/** [points] in [kind]'s unit; [average] and [max] are over every sample, not just the thinned points. */
-@Immutable data class LineSeries(val kind: StreamKind, val points: ImmutableList<ChartSample>, val average: Double?, val max: Double?)
+/**
+ * [points] in [kind]'s unit; [average] and [max] are over every sample, not just the thinned points. For a left/right pair (torque
+ * effectiveness, pedal smoothness, platform centre offset) this is the left leg and [right] the right, drawn on one chart.
+ */
+@Immutable
+data class LineSeries(
+    val kind: StreamKind,
+    val points: ImmutableList<ChartSample>,
+    val average: Double?,
+    val max: Double?,
+    val right: LineSeries? = null,
+)
 
 @Immutable data class ChartSample(val seconds: Int, val value: Double)
 
@@ -201,4 +244,6 @@ data class TrainingLoadStats(
     val trainingStressScore: Double?,
     val aerobicTrainingEffect: Double?,
     val anaerobicTrainingEffect: Double?,
+    /** Heart rate variability: the RMSSD of the activity's beat-to-beat intervals, in milliseconds. */
+    val hrvRmssd: Int? = null,
 )

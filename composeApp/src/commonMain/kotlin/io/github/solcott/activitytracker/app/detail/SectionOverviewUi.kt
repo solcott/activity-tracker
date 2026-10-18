@@ -167,7 +167,13 @@ internal fun chartOverview(section: DetailSection, state: ActivityDetailState.Lo
 
             DetailSection.Respiration -> averageAndMax(lines[StreamKind.RespirationRate], avg, max)
 
-            DetailSection.RunningDynamics -> runningDynamicsOverview(charts)
+            DetailSection.RunningDynamics -> averages(charts, RUNNING_DYNAMICS_STATS)
+
+            DetailSection.CyclingDynamics -> cyclingDynamicsOverview(charts)
+
+            DetailSection.Physiology -> averages(charts, PHYSIOLOGY_STATS)
+
+            DetailSection.EBike -> eBikeOverview(charts)
 
             DetailSection.Laps ->
                 listOf(
@@ -206,17 +212,28 @@ private fun diveStateOverview(section: DetailSection, charts: ActivityCharts): L
         }
     }
 
-/** The figures a runner compares run to run: bounce, contact and stride. */
+/** [kinds]' averages, each where stored. */
 @Composable
-private fun runningDynamicsOverview(charts: ActivityCharts): List<Stat> =
-    listOf(StreamKind.VerticalOscillation, StreamKind.StanceTime, StreamKind.StepLength).mapNotNull { kind ->
-        charts.line(kind)?.average?.let { value ->
-            val unit = streamUnit(kind)
-            Stat(stringResource(streamTitle(kind)), unit.text(unit.convert(value)))
-        }
+internal fun averages(charts: ActivityCharts, kinds: ImmutableList<StreamKind>): List<Stat> = kinds.mapNotNull { kind ->
+    charts.line(kind)?.average?.let { value ->
+        val unit = streamUnit(kind)
+        Stat(stringResource(streamTitle(kind)), unit.text(unit.convert(value)))
     }
+}
 
-private fun ActivityCharts.line(kind: StreamKind) = lines.firstOrNull { it.kind == kind }
+internal fun ActivityCharts.line(kind: StreamKind) = lines.firstOrNull { it.kind == kind }
+
+/** The figures a runner compares run to run: bounce, contact and stride, and a Stryd's form power and leg spring stiffness. */
+private val RUNNING_DYNAMICS_STATS =
+    persistentListOf(
+        StreamKind.VerticalOscillation,
+        StreamKind.StanceTime,
+        StreamKind.StepLength,
+        StreamKind.FormPower,
+        StreamKind.LegSpringStiffness,
+    )
+
+private val PHYSIOLOGY_STATS = persistentListOf(StreamKind.CoreTemperature, StreamKind.SmO2, StreamKind.TotalHemoglobin)
 
 @Composable
 private fun averageAndMax(series: LineSeries?, avgLabel: String, maxLabel: String): List<Stat> {

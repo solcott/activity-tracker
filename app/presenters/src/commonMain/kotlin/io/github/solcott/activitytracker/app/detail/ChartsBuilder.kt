@@ -94,7 +94,31 @@ internal object ChartsBuilder {
             line(StreamKind.Depth, data.time, ints(data.depth, CENTI)),
             line(StreamKind.PpO2, data.time, ints(data.ppO2, MILLI)),
             line(StreamKind.Cns, data.time, ints(data.cns)),
+            pair(
+                StreamKind.TorqueEffectiveness,
+                data.time,
+                ints(data.torqueEffectivenessLeft, CENTI),
+                ints(data.torqueEffectivenessRight, CENTI),
+            ),
+            pair(StreamKind.PedalSmoothness, data.time, ints(data.pedalSmoothnessLeft, CENTI), ints(data.pedalSmoothnessRight, CENTI)),
+            pair(StreamKind.PlatformCentreOffset, data.time, ints(data.pcoLeft), ints(data.pcoRight)),
+            // Tenths of a degree, as the temperature line takes them.
+            line(StreamKind.CoreTemperature, data.time, ints(data.coreTemperature, DECI)),
+            line(StreamKind.SmO2, data.time, ints(data.smO2, DECI)),
+            line(StreamKind.TotalHemoglobin, data.time, ints(data.totalHemoglobin, CENTI)),
+            line(StreamKind.FormPower, data.time, ints(data.formPower)),
+            line(StreamKind.LegSpringStiffness, data.time, ints(data.legSpringStiffness, CENTI)),
+            line(StreamKind.EbikeBattery, data.time, ints(data.ebikeBattery)),
+            line(StreamKind.EbikeAssistMode, data.time, ints(data.ebikeAssistMode)),
+            line(StreamKind.EbikeAssistLevel, data.time, ints(data.ebikeAssistLevel)),
         )
+    }
+
+    /** The left leg's line with the right's as its [LineSeries.right]; the right alone when the left is missing. */
+    private fun pair(kind: StreamKind, time: List<Int>, left: List<Double?>?, right: List<Double?>?): LineSeries? {
+        val leftLine = line(kind, time, left)
+        val rightLine = line(kind, time, right)
+        return leftLine?.copy(right = rightLine) ?: rightLine
     }
 
     /** The deco stop's depth, in meters, wherever it's set: a gap in the data is a gap in the line. */
@@ -130,6 +154,7 @@ internal object ChartsBuilder {
             trainingStressScore = load.trainingStressScore?.div(DECI),
             aerobicTrainingEffect = load.aerobicTrainingEffect?.div(DECI),
             anaerobicTrainingEffect = load.anaerobicTrainingEffect?.div(DECI),
+            hrvRmssd = load.hrvRmssd,
         )
 
     private fun line(kind: StreamKind, time: List<Int>, values: List<Double?>?): LineSeries? {

@@ -157,6 +157,62 @@ class ActivityFileDataChartsTest : ActivityDetailTestBase() {
     }
 
     @Test
+    fun aRidesCyclingDynamicsAreChartedLeftAndRight() = runTest {
+        streamsOf(
+            """"time":[0,10,20],"power":[200,210,220],"torqueEffectivenessLeft":[8000,8000,8000],""" +
+                """"torqueEffectivenessRight":[7650,7650,7650],"pedalSmoothnessLeft":[2200,2200,2200],""" +
+                """"pedalSmoothnessRight":[2050,2050,2050],"pcoLeft":[-2,-2,-2],"pcoRight":[3,3,3]"""
+        )
+        val (state, charts) = loaded()
+
+        val torque = charts.lines.single { it.kind == StreamKind.TorqueEffectiveness }
+        assertEquals(80.0, torque.average, "percent")
+        assertEquals(76.5, torque.right?.average, "the right leg on the same chart")
+        val smoothness = charts.lines.single { it.kind == StreamKind.PedalSmoothness }
+        assertEquals(22.0 to 20.5, smoothness.average to smoothness.right?.average)
+        val pco = charts.lines.single { it.kind == StreamKind.PlatformCentreOffset }
+        assertEquals(-2.0 to 3.0, pco.average to pco.right?.average, "millimeters")
+        assertEquals(listOf(DetailSection.Power, DetailSection.CyclingDynamics), state.sections)
+    }
+
+    @Test
+    fun physiologyEBikeAndStrydChannelsAreCharted() = runTest {
+        streamsOf(
+            """"time":[0,10,20],"coreTemperature":[3825,3830,3835],"smO2":[655,650,645],"totalHemoglobin":[1234,1234,1234],""" +
+                """"ebikeBattery":[90,89,88],"ebikeAssistMode":[2,2,3],"ebikeAssistLevel":[50,50,50],""" +
+                """"formPower":[70,70,70],"legSpringStiffness":[950,950,950]"""
+        )
+        val (state, charts) = loaded()
+        fun line(kind: StreamKind) = charts.lines.single { it.kind == kind }
+
+        assertEquals(383.0, line(StreamKind.CoreTemperature).average, "tenths of a degree, like temperature")
+        assertEquals(65.0, line(StreamKind.SmO2).average!!, 1e-9)
+        assertEquals(12.34, line(StreamKind.TotalHemoglobin).average!!, 1e-9)
+        assertEquals(90.0, line(StreamKind.EbikeBattery).max)
+        assertEquals(3.0, line(StreamKind.EbikeAssistMode).max)
+        assertEquals(70.0, line(StreamKind.FormPower).average)
+        assertEquals(9.5, line(StreamKind.LegSpringStiffness).average)
+        assertEquals(listOf(DetailSection.Physiology, DetailSection.RunningDynamics, DetailSection.EBike), state.sections)
+    }
+
+    @Test
+    fun anAppRecordingHasNoneOfTheSensorCharts() = runTest {
+        streamsOf(""""time":[0,10,20],"distance":[0,3000,6000],"speed":[3000,3000,3000]""")
+        val (state, charts) = loaded()
+
+        assertTrue(
+            charts.lines.none { it.kind in setOf(StreamKind.TorqueEffectiveness, StreamKind.CoreTemperature, StreamKind.EbikeBattery) }
+        )
+        assertTrue(state.sections.none { it in setOf(DetailSection.CyclingDynamics, DetailSection.Physiology, DetailSection.EBike) })
+    }
+
+    @Test
+    fun theTrainingLoadCarriesItsHrv() = runTest {
+        streamsOf(""""time":[0,10,20],"heartRate":[150,151,152]""", ""","trainingLoad":{"hrvRmssd":42}""")
+        assertEquals(42, loaded().second.trainingLoad?.hrvRmssd)
+    }
+
+    @Test
     fun gasKindsNameEachMix() {
         assertEquals(GasKind.Air, GasKind.of(21, 0))
         assertEquals(GasKind.Nitrox, GasKind.of(50, 0))

@@ -32,6 +32,8 @@ import io.github.solcott.activitytracker.composeApp.resources.chart_gear_value
 import io.github.solcott.activitytracker.composeApp.resources.chart_gears
 import io.github.solcott.activitytracker.composeApp.resources.chart_gears_help
 import io.github.solcott.activitytracker.composeApp.resources.chart_heart_rate_zones
+import io.github.solcott.activitytracker.composeApp.resources.chart_left_right
+import io.github.solcott.activitytracker.composeApp.resources.chart_left_right_help
 import io.github.solcott.activitytracker.composeApp.resources.chart_marker
 import io.github.solcott.activitytracker.composeApp.resources.chart_power_curve
 import io.github.solcott.activitytracker.composeApp.resources.chart_power_curve_help
@@ -73,10 +75,17 @@ internal fun SectionCharts(section: DetailSection, state: ActivityDetailState.Lo
             // The section's title already names its own line; grade under elevation needs one.
             val titled = series.kind.name != section.name
             val normalized = charts.normalizedPower.takeIf { series.kind == StreamKind.Power }
-            if (series.kind == StreamKind.Depth) {
-                DepthChart(series, charts)
-            } else {
-                LineChart(series, charts.durationSeconds, elevation?.takeIf { series.kind in OVER_ELEVATION }, titled, normalized)
+            when {
+                series.kind == StreamKind.Depth -> DepthChart(series, charts)
+                else ->
+                    LineChart(
+                        series,
+                        charts.durationSeconds,
+                        elevation?.takeIf { series.kind in OVER_ELEVATION },
+                        titled,
+                        normalized,
+                        step = series.kind == StreamKind.EbikeAssistMode,
+                    )
             }
         }
         when (section) {
@@ -130,7 +139,18 @@ private fun sectionOf(kind: StreamKind): DetailSection =
         StreamKind.StanceTime,
         StreamKind.StepLength,
         StreamKind.VerticalRatio,
-        StreamKind.StanceTimeBalance -> DetailSection.RunningDynamics
+        StreamKind.StanceTimeBalance,
+        StreamKind.FormPower,
+        StreamKind.LegSpringStiffness -> DetailSection.RunningDynamics
+        StreamKind.TorqueEffectiveness,
+        StreamKind.PedalSmoothness,
+        StreamKind.PlatformCentreOffset -> DetailSection.CyclingDynamics
+        StreamKind.CoreTemperature,
+        StreamKind.SmO2,
+        StreamKind.TotalHemoglobin -> DetailSection.Physiology
+        StreamKind.EbikeBattery,
+        StreamKind.EbikeAssistMode,
+        StreamKind.EbikeAssistLevel -> DetailSection.EBike
     }
 
 /** The owner's choice of who may see the charts, under a heading that asks the question: [options] stop at the activity's visibility. */
@@ -246,14 +266,20 @@ private fun LineChart(
     events: ImmutableList<SeriesLabel> = persistentListOf(),
     extraDescription: String? = null,
     detailOverride: String? = null,
+    step: Boolean = false,
 ) {
     val unit = streamUnit(series.kind)
     val title = stringResource(streamTitle(series.kind))
     val average = series.average?.let { unit.text(unit.convert(it)) }
     val max = series.max?.let { unit.text(unit.convert(it)) }
+    // A left/right pair draws the right leg as a second line, and each leg's average in the header.
+    val right = series.right
+    val rightPoints = right?.let { rememberPoints(it) }
+    val lines = if (rightPoints == null) others else persistentListOf(rightPoints)
     val detail =
         when {
             average == null || max == null -> null
+            right != null -> stringResource(Res.string.chart_left_right, average, right.average?.let { unit.text(unit.convert(it)) } ?: "–")
             detailOverride != null -> detailOverride
             normalizedPower != null ->
                 stringResource(Res.string.chart_avg_np_max, average, stringResource(Res.string.unit_watts, normalizedPower), max)
@@ -262,13 +288,18 @@ private fun LineChart(
     val points = rememberPoints(series)
     val backdrop = elevation?.let { rememberPoints(it) }
     val markerLabel = rememberMarkerLabel(backdrop) { unit.text(it) }
+    val pairDescription = stringResource(Res.string.chart_left_right_help).takeIf { right != null }
     Column(verticalArrangement = Arrangement.spacedBy(HEADER_GAP)) {
         if (titled || detail != null) ChartHeader(title.takeIf { titled }, detail)
         TimeSeriesChart(
             points = points,
             xRange = 0.0..durationSeconds.toDouble(),
             description =
-                listOfNotNull(stringResource(Res.string.chart_description, title, average.orEmpty(), max.orEmpty()), extraDescription)
+                listOfNotNull(
+                        stringResource(Res.string.chart_description, title, average.orEmpty(), max.orEmpty()),
+                        extraDescription,
+                        pairDescription,
+                    )
                     .joinToString(" "),
             yLabel = unit.axis,
             xLabel = { Format.duration(it.roundToLong()) },
@@ -276,8 +307,9 @@ private fun LineChart(
             average = series.average?.let(unit.convert),
             backdrop = backdrop,
             inverted = series.kind == StreamKind.Depth,
-            others = others,
+            others = lines,
             events = events,
+            step = step,
         )
     }
 }

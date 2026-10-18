@@ -8,30 +8,45 @@ import io.github.solcott.activitytracker.app.ui.chart.SeriesPoint
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.chart_cadence
 import io.github.solcott.activitytracker.composeApp.resources.chart_cns
+import io.github.solcott.activitytracker.composeApp.resources.chart_core_temperature
 import io.github.solcott.activitytracker.composeApp.resources.chart_depth
+import io.github.solcott.activitytracker.composeApp.resources.chart_ebike_assist_level
+import io.github.solcott.activitytracker.composeApp.resources.chart_ebike_assist_mode
+import io.github.solcott.activitytracker.composeApp.resources.chart_ebike_battery
 import io.github.solcott.activitytracker.composeApp.resources.chart_elevation
+import io.github.solcott.activitytracker.composeApp.resources.chart_form_power
 import io.github.solcott.activitytracker.composeApp.resources.chart_grade
 import io.github.solcott.activitytracker.composeApp.resources.chart_heart_rate
 import io.github.solcott.activitytracker.composeApp.resources.chart_left_right_balance
+import io.github.solcott.activitytracker.composeApp.resources.chart_leg_spring_stiffness
 import io.github.solcott.activitytracker.composeApp.resources.chart_marker
 import io.github.solcott.activitytracker.composeApp.resources.chart_marker_elevation
+import io.github.solcott.activitytracker.composeApp.resources.chart_pedal_smoothness
+import io.github.solcott.activitytracker.composeApp.resources.chart_platform_center_offset
 import io.github.solcott.activitytracker.composeApp.resources.chart_power
 import io.github.solcott.activitytracker.composeApp.resources.chart_ppo2
 import io.github.solcott.activitytracker.composeApp.resources.chart_respiration_rate
+import io.github.solcott.activitytracker.composeApp.resources.chart_smo2
 import io.github.solcott.activitytracker.composeApp.resources.chart_speed
 import io.github.solcott.activitytracker.composeApp.resources.chart_stance_time
 import io.github.solcott.activitytracker.composeApp.resources.chart_stance_time_balance
 import io.github.solcott.activitytracker.composeApp.resources.chart_step_length
 import io.github.solcott.activitytracker.composeApp.resources.chart_tank_pressure
 import io.github.solcott.activitytracker.composeApp.resources.chart_temperature
+import io.github.solcott.activitytracker.composeApp.resources.chart_torque_effectiveness
+import io.github.solcott.activitytracker.composeApp.resources.chart_total_hemoglobin
 import io.github.solcott.activitytracker.composeApp.resources.chart_vertical_oscillation
 import io.github.solcott.activitytracker.composeApp.resources.chart_vertical_ratio
+import io.github.solcott.activitytracker.composeApp.resources.unit_assist_mode
 import io.github.solcott.activitytracker.composeApp.resources.unit_bpm
 import io.github.solcott.activitytracker.composeApp.resources.unit_breaths
 import io.github.solcott.activitytracker.composeApp.resources.unit_cm
 import io.github.solcott.activitytracker.composeApp.resources.unit_elevation_ft
 import io.github.solcott.activitytracker.composeApp.resources.unit_elevation_m
+import io.github.solcott.activitytracker.composeApp.resources.unit_g_per_dl
 import io.github.solcott.activitytracker.composeApp.resources.unit_in
+import io.github.solcott.activitytracker.composeApp.resources.unit_kn_per_m
+import io.github.solcott.activitytracker.composeApp.resources.unit_mm
 import io.github.solcott.activitytracker.composeApp.resources.unit_ms
 import io.github.solcott.activitytracker.composeApp.resources.unit_percent
 import io.github.solcott.activitytracker.composeApp.resources.unit_pressure_bar
@@ -103,6 +118,17 @@ internal fun streamTitle(kind: StreamKind): StringResource =
         StreamKind.PpO2 -> Res.string.chart_ppo2
         StreamKind.Cns -> Res.string.chart_cns
         StreamKind.TankPressure -> Res.string.chart_tank_pressure
+        StreamKind.TorqueEffectiveness -> Res.string.chart_torque_effectiveness
+        StreamKind.PedalSmoothness -> Res.string.chart_pedal_smoothness
+        StreamKind.PlatformCentreOffset -> Res.string.chart_platform_center_offset
+        StreamKind.CoreTemperature -> Res.string.chart_core_temperature
+        StreamKind.SmO2 -> Res.string.chart_smo2
+        StreamKind.TotalHemoglobin -> Res.string.chart_total_hemoglobin
+        StreamKind.EbikeBattery -> Res.string.chart_ebike_battery
+        StreamKind.EbikeAssistMode -> Res.string.chart_ebike_assist_mode
+        StreamKind.EbikeAssistLevel -> Res.string.chart_ebike_assist_level
+        StreamKind.FormPower -> Res.string.chart_form_power
+        StreamKind.LegSpringStiffness -> Res.string.chart_leg_spring_stiffness
     }
 
 /**
@@ -118,15 +144,22 @@ internal fun streamUnit(kind: StreamKind): StreamUnit {
         stringResource(
             when (kind) {
                 StreamKind.HeartRate -> Res.string.unit_bpm
-                StreamKind.Power -> Res.string.unit_watts
+                StreamKind.Power,
+                StreamKind.FormPower -> Res.string.unit_watts
                 StreamKind.Cadence -> Res.string.unit_rpm
                 StreamKind.Grade,
                 StreamKind.VerticalRatio,
                 StreamKind.StanceTimeBalance,
                 StreamKind.LeftRightBalance,
+                StreamKind.TorqueEffectiveness,
+                StreamKind.PedalSmoothness,
+                StreamKind.SmO2,
+                StreamKind.EbikeBattery,
+                StreamKind.EbikeAssistLevel,
                 StreamKind.Cns -> Res.string.unit_percent
                 StreamKind.Speed -> if (metric) Res.string.unit_speed_kmh else Res.string.unit_speed_mph
-                StreamKind.Temperature -> if (metric) Res.string.unit_temperature_c else Res.string.unit_temperature_f
+                StreamKind.Temperature,
+                StreamKind.CoreTemperature -> if (metric) Res.string.unit_temperature_c else Res.string.unit_temperature_f
                 StreamKind.Elevation,
                 StreamKind.Depth,
                 StreamKind.StepLength -> if (metric) Res.string.unit_elevation_m else Res.string.unit_elevation_ft
@@ -136,6 +169,10 @@ internal fun streamUnit(kind: StreamKind): StreamUnit {
                 // ppO₂ reads in bar whatever the units: it's how divers and their computers give it.
                 StreamKind.PpO2 -> Res.string.unit_pressure_bar
                 StreamKind.TankPressure -> if (metric) Res.string.unit_pressure_bar else Res.string.unit_pressure_psi
+                StreamKind.PlatformCentreOffset -> Res.string.unit_mm
+                StreamKind.TotalHemoglobin -> Res.string.unit_g_per_dl
+                StreamKind.EbikeAssistMode -> Res.string.unit_assist_mode
+                StreamKind.LegSpringStiffness -> Res.string.unit_kn_per_m
             },
             "%s",
         )
@@ -145,7 +182,8 @@ internal fun streamUnit(kind: StreamKind): StreamUnit {
                 StreamKind.Speed -> { mm ->
                     mm / MM_PER_M * SECONDS_PER_HOUR / UnitConversions.metersPerDistanceUnit(units)
                 }
-                StreamKind.Temperature -> { tenths ->
+                StreamKind.Temperature,
+                StreamKind.CoreTemperature -> { tenths ->
                     UnitConversions.toTemperatureUnit(tenths.roundToLong(), units)
                 }
                 StreamKind.Elevation,
@@ -170,8 +208,12 @@ internal fun streamUnit(kind: StreamKind): StreamUnit {
                 StreamKind.RespirationRate,
                 StreamKind.VerticalOscillation,
                 StreamKind.VerticalRatio,
-                StreamKind.StanceTimeBalance -> 1
+                StreamKind.StanceTimeBalance,
+                StreamKind.CoreTemperature,
+                StreamKind.SmO2,
+                StreamKind.LegSpringStiffness -> 1
                 StreamKind.StepLength,
+                StreamKind.TotalHemoglobin,
                 StreamKind.PpO2 -> 2
                 else -> 0
             }

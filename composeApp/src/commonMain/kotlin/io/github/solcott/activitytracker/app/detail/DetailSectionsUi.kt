@@ -38,13 +38,16 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_device
 import io.github.solcott.activitytracker.composeApp.resources.detail_device_unknown
 import io.github.solcott.activitytracker.composeApp.resources.detail_expand_all
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_collapsed
+import io.github.solcott.activitytracker.composeApp.resources.detail_section_cycling_dynamics
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_device
+import io.github.solcott.activitytracker.composeApp.resources.detail_section_ebike
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_expanded
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_gears
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_laps
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_legs
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_lengths
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_oxygen
+import io.github.solcott.activitytracker.composeApp.resources.detail_section_physiology
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_respiration
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_running_dynamics
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_sets
@@ -133,15 +136,18 @@ private fun sectionTitle(section: DetailSection): String =
         when (section) {
             DetailSection.HeartRate -> Res.string.chart_heart_rate
             DetailSection.Power -> Res.string.chart_power
+            DetailSection.CyclingDynamics -> Res.string.detail_section_cycling_dynamics
             DetailSection.Speed -> Res.string.chart_speed
             DetailSection.Cadence -> Res.string.chart_cadence
             DetailSection.Elevation -> Res.string.chart_elevation
             DetailSection.Temperature -> Res.string.chart_temperature
+            DetailSection.Physiology -> Res.string.detail_section_physiology
             DetailSection.Depth -> Res.string.chart_depth
             DetailSection.Oxygen -> Res.string.detail_section_oxygen
             DetailSection.TankPressure -> Res.string.detail_section_tank_pressure
             DetailSection.Respiration -> Res.string.detail_section_respiration
             DetailSection.RunningDynamics -> Res.string.detail_section_running_dynamics
+            DetailSection.EBike -> Res.string.detail_section_ebike
             DetailSection.Gears -> Res.string.detail_section_gears
             DetailSection.Legs -> Res.string.detail_section_legs
             DetailSection.Lengths -> Res.string.detail_section_lengths

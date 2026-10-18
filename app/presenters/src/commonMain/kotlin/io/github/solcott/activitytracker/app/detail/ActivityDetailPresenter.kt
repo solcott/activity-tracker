@@ -315,15 +315,18 @@ internal fun detailSections(activity: ActivityView, charts: ActivityCharts?): Im
             when (section) {
                 DetailSection.HeartRate -> StreamKind.HeartRate in kinds
                 DetailSection.Power -> StreamKind.Power in kinds
+                DetailSection.CyclingDynamics -> CYCLING_DYNAMICS.any { it in kinds }
                 DetailSection.Speed -> StreamKind.Speed in kinds
                 DetailSection.Cadence -> StreamKind.Cadence in kinds
                 DetailSection.Elevation -> StreamKind.Elevation in kinds || StreamKind.Grade in kinds
                 DetailSection.Temperature -> StreamKind.Temperature in kinds
+                DetailSection.Physiology -> PHYSIOLOGY.any { it in kinds }
                 DetailSection.Depth -> StreamKind.Depth in kinds
                 DetailSection.Oxygen -> StreamKind.PpO2 in kinds || StreamKind.Cns in kinds
                 DetailSection.TankPressure -> !charts?.tankPressures.isNullOrEmpty()
                 DetailSection.Respiration -> StreamKind.RespirationRate in kinds
                 DetailSection.RunningDynamics -> RUNNING_DYNAMICS.any { it in kinds }
+                DetailSection.EBike -> E_BIKE.any { it in kinds }
                 DetailSection.Gears -> charts != null && charts.gears.size >= 2
                 DetailSection.Legs -> !charts?.legs.isNullOrEmpty()
                 DetailSection.Lengths -> !charts?.lengths.isNullOrEmpty()
@@ -360,7 +363,15 @@ internal val RUNNING_DYNAMICS =
         StreamKind.StanceTimeBalance,
         StreamKind.StepLength,
         StreamKind.VerticalRatio,
+        StreamKind.FormPower,
+        StreamKind.LegSpringStiffness,
     )
+
+internal val CYCLING_DYNAMICS = setOf(StreamKind.TorqueEffectiveness, StreamKind.PedalSmoothness, StreamKind.PlatformCentreOffset)
+
+internal val PHYSIOLOGY = setOf(StreamKind.CoreTemperature, StreamKind.SmO2, StreamKind.TotalHemoglobin)
+
+internal val E_BIKE = setOf(StreamKind.EbikeBattery, StreamKind.EbikeAssistMode, StreamKind.EbikeAssistLevel)
 
 /** The activity's charts, and the owner's control over who sees them. */
 private class Charts(val charts: ActivityCharts?, val saving: Boolean, val setVisibility: (String) -> Unit) {
