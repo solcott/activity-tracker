@@ -2,7 +2,9 @@ package io.github.solcott.activitytracker.activityfile
 
 import com.garmin.fit.ActivityMesg
 import com.garmin.fit.BenchPressExerciseName
+import com.garmin.fit.Bool
 import com.garmin.fit.DisplayMeasure
+import com.garmin.fit.DiveAlert
 import com.garmin.fit.DiveGasMesg
 import com.garmin.fit.DiveGasMode
 import com.garmin.fit.DiveGasStatus
@@ -31,7 +33,9 @@ import com.garmin.fit.SubSport as GarminSubSport
 import com.garmin.fit.SwimStroke
 import com.garmin.fit.TankSummaryMesg
 import com.garmin.fit.TankUpdateMesg
+import com.garmin.fit.TissueModelType
 import com.garmin.fit.WaterType
+import io.github.solcott.activitytracker.activityfile.FitExportFixtures.alertingDive
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.benchWorkout
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.decoDive
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.decode
@@ -44,6 +48,7 @@ import io.github.solcott.activitytracker.activityfile.FitExportFixtures.ride
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.start
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.triathlon
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.write
+import io.github.solcott.activitytracker.lexicon.app.DecoModel
 import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
@@ -206,6 +211,32 @@ class FitWriterTest {
             listOf(start, start + 60.seconds, start + 100.seconds),
             switches.map { it.timestamp.date.toInstant().toKotlinInstant() },
         )
+    }
+
+    @Test
+    fun aDivesComputerSettingsAreInItsDiveSettings() {
+        val settings = decode(write(alertingDive)).of(MesgNum.DIVE_SETTINGS, ::DiveSettingsMesg).single()
+        assertEquals(TissueModelType.ZHL_16C, settings.model)
+        assertEquals(1.4f, settings.po2Warn)
+        assertEquals(1.6f, settings.po2Critical)
+        assertEquals(1.6f, settings.po2Deco)
+        assertEquals(Bool.TRUE, settings.safetyStopEnabled)
+        assertEquals(180, settings.safetyStopTime)
+        assertEquals(0.7f, settings.ccrLowSetpoint)
+        assertEquals(1.3f, settings.ccrHighSetpoint)
+
+        val vpm = decode(write(alertingDive.copy(dive = alertingDive.dive!!.copy(decoModel = DecoModel.VPM_B))))
+        val vpmSettings = vpm.of(MesgNum.DIVE_SETTINGS, ::DiveSettingsMesg).single()
+        assertNull(vpmSettings.model, "FIT names only ZHL-16C")
+        assertEquals(1.4f, vpmSettings.po2Warn)
+        assertNull(decode(write(decoDive)).of(MesgNum.DIVE_SETTINGS, ::DiveSettingsMesg).single().safetyStopEnabled)
+    }
+
+    @Test
+    fun alertsFitNamesAreDiveAlertEvents() {
+        val alerts = decode(write(alertingDive)).of(MesgNum.EVENT, ::EventMesg).filter { it.event == Event.DIVE_ALERT }
+        assertEquals(listOf(DiveAlert.NDL_REACHED, DiveAlert.SAFETY_STOP_COMPLETE), alerts.map { DiveAlert.getByValue(it.data.toShort()) })
+        assertEquals(listOf(start + 60.seconds, start + 100.seconds), alerts.map { it.timestamp.date.toInstant().toKotlinInstant() })
     }
 
     @Test

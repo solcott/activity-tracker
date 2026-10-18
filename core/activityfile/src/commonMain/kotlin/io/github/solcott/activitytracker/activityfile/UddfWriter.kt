@@ -27,6 +27,7 @@ object UddfWriter {
         val dive = activity.dive
         val waypoints = waypoints(activity)
         val switches = switches(activity, waypoints)
+        val alarms = alarms(activity, waypoints)
         val site = SiteInfo(dive?.site, activity.points.firstOrNull { it.hasPosition })
         appendLine("""<?xml version="1.0" encoding="UTF-8"?>""")
         appendLine("""<uddf xmlns="$UDDF_NS" version="3.2.3">""")
@@ -39,7 +40,13 @@ object UddfWriter {
         appendBefore(activity, zone, site.present)
         appendLine("    <samples>")
         waypoints.forEachIndexed { index, point ->
-            appendWaypoint(activity, point, switches[index], closedCircuit = index == 0 && dive?.closedCircuit == true)
+            appendWaypoint(
+                activity,
+                point,
+                switches[index],
+                alarms[index].orEmpty(),
+                closedCircuit = index == 0 && dive?.closedCircuit == true,
+            )
         }
         appendLine("    </samples>")
         dive?.tanks.orEmpty().forEachIndexed { index, tank ->
@@ -131,8 +138,15 @@ object UddfWriter {
      * Children in the schema's sequence. `heartrate` isn't in the 3.2.1 schema; it's written after `divetime`, where the readers we know of
      * take it.
      */
-    private fun StringBuilder.appendWaypoint(activity: ExportActivity, p: ExportPoint, switchTo: Pair<Int, Int>?, closedCircuit: Boolean) {
+    private fun StringBuilder.appendWaypoint(
+        activity: ExportActivity,
+        p: ExportPoint,
+        switchTo: Pair<Int, Int>?,
+        alarms: List<String>,
+        closedCircuit: Boolean,
+    ) {
         append("      <waypoint>")
+        alarms.forEach { append("<alarm>$it</alarm>") }
         p.cnsPercent?.let { append("<cns>$it</cns>") }
         p.nextStopDepthMeters?.let { depth ->
             val duration = p.nextStopSeconds ?: 0
@@ -189,6 +203,17 @@ object UddfWriter {
                     }
                 }
         }
+    }
+
+    /** The UDDF alarms each waypoint carries, by index: each alert UDDF names, at the first waypoint at or after its second. */
+    private fun alarms(activity: ExportActivity, waypoints: List<ExportPoint>): Map<Int, List<String>> {
+        val seconds = waypoints.map { second(activity, it) }
+        return activity.diveAlerts
+            .mapNotNull { alert ->
+                val alarm = DiveAlerts.byToken(alert.kind)?.uddfAlarm ?: return@mapNotNull null
+                seconds.indexOfFirst { it >= alert.time }.takeIf { it >= 0 }?.let { it to alarm }
+            }
+            .groupBy({ it.first }, { it.second })
     }
 
     private fun second(activity: ExportActivity, point: ExportPoint) =

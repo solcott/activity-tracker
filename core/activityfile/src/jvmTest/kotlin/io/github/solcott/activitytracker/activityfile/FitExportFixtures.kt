@@ -6,6 +6,9 @@ import com.garmin.fit.MesgListener
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveTank
+import io.github.solcott.activitytracker.lexicon.app.DecoModel
+import io.github.solcott.activitytracker.lexicon.app.DiveAlert
+import io.github.solcott.activitytracker.lexicon.app.DiveAlertKind
 import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.Lap
@@ -112,6 +115,28 @@ object FitExportFixtures {
      * [dive] as a decompression dive: air, then 50% nitrox at 60 s and oxygen at 100 s (a gas the record doesn't list, as from a merged
      * file), two tanks with transmitters, deco state on every record, in salt water.
      */
+    /** [decoDive] with its computer's settings and an alert of each sort: FIT names the first two, only UDDF the third. */
+    val alertingDive by lazy {
+        decoDive.copy(
+            dive =
+                decoDive.dive!!.copy(
+                    decoModel = DecoModel.ZHL16C,
+                    ppO2Warn = 1400,
+                    ppO2Critical = 1600,
+                    ppO2Deco = 1600,
+                    lowSetpoint = 700,
+                    highSetpoint = 1300,
+                    safetyStopTime = 180,
+                ),
+            diveAlerts =
+                listOf(
+                    DiveAlert(60, DiveAlertKind.NDL_REACHED),
+                    DiveAlert(90, DiveAlertKind.MICROBUBBLES),
+                    DiveAlert(100, DiveAlertKind.SAFETY_STOP_COMPLETE),
+                ),
+        )
+    }
+
     val decoDive =
         dive.copy(
             subSport = SubSport.MULTI_GAS,

@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.activityfile
 
+import io.github.solcott.activitytracker.activityfile.FitExportFixtures.alertingDive
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.benchWorkout
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.decoDive
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.dive
@@ -12,6 +13,9 @@ import io.github.solcott.activitytracker.activityfile.FitExportFixtures.triathlo
 import io.github.solcott.activitytracker.activityfile.FitExportFixtures.write
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.DecoModel
+import io.github.solcott.activitytracker.lexicon.app.DiveAlert
+import io.github.solcott.activitytracker.lexicon.app.DiveAlertKind
 import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
@@ -112,6 +116,24 @@ class FitRoundTripTest {
         assertEquals(10 to 58, back.startN2 to back.endN2)
         assertEquals(20.0, back.descentTimeSeconds)
         assertEquals(0.15, back.avgAscentRateMps!!, 1e-6)
+    }
+
+    @Test
+    fun aDivesAlertsAndSettingsComeBack() = runTest {
+        val read = reader.read(write(alertingDive)).single()
+        assertEquals(
+            listOf(DiveAlert(60, DiveAlertKind.NDL_REACHED), DiveAlert(100, DiveAlertKind.SAFETY_STOP_COMPLETE)),
+            read.streams!!.diveAlerts,
+            "every alert FIT can name",
+        )
+        val back = assertNotNull(read.dive)
+        assertEquals(DecoModel.ZHL16C, back.decoModel)
+        assertEquals(1.4, back.ppO2WarnBar!!, 1e-6)
+        assertEquals(1.6, back.ppO2CriticalBar!!, 1e-6)
+        assertEquals(1.6, back.ppO2DecoBar!!, 1e-6)
+        assertEquals(0.7, back.lowSetpointBar!!, 1e-6)
+        assertEquals(1.3, back.highSetpointBar!!, 1e-6)
+        assertEquals(180, back.safetyStopSeconds)
     }
 
     @Test

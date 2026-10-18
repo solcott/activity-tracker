@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.activityfile.FitProfile.TIMESTAMP
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.CycleCount
+import io.github.solcott.activitytracker.lexicon.app.DecoModel
 import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.Lap
 import io.github.solcott.activitytracker.lexicon.app.Leg
@@ -259,11 +260,21 @@ object FitWriter {
                         GF_HIGH(dive.gradientFactorHigh?.toLong()),
                         WATER_TYPE(dive.waterType?.let(WATER_TYPES::get)),
                         WATER_DENSITY(dive.waterDensity?.let { FitBaseType.floatBits(it.toDouble()) }),
+                        // FIT names only Bühlmann ZHL-16C.
+                        MODEL(MODEL_ZHL_16C.takeIf { dive.decoModel == DecoModel.ZHL16C }),
+                        PO2_WARN(hundredthsOfBar(dive.ppO2Warn)),
+                        PO2_CRITICAL(hundredthsOfBar(dive.ppO2Critical)),
+                        PO2_DECO(hundredthsOfBar(dive.ppO2Deco)),
+                        SAFETY_STOP_ENABLED(dive.safetyStopTime?.let { 1L }),
+                        SAFETY_STOP_TIME(dive.safetyStopTime?.toLong()?.takeIf { it in 1..MAX_UINT16 }),
+                        CCR_LOW_SETPOINT(hundredthsOfBar(dive.lowSetpoint)),
+                        CCR_HIGH_SETPOINT(hundredthsOfBar(dive.highSetpoint)),
                     ),
                 )
             )
         }
         writeGases(out, dive, activity, start)
+        writeAlerts(out, activity, start)
         writeTankUpdates(out, activity, start)
         with(FitProfile.TankSummary) {
             dive.tanks.orEmpty().forEachIndexed { index, tank ->
@@ -326,6 +337,30 @@ object FitWriter {
             }
         }
     }
+
+    /** A `dive_alert` event per alert FIT has a value for; the rest (UDDF's own alarms, unknown kinds) aren't written. */
+    private fun writeAlerts(out: FitOutput, activity: ExportActivity, start: Long) =
+        with(FitProfile.EventMessage) {
+            for (alert in activity.diveAlerts) {
+                val value = DiveAlerts.byToken(alert.kind)?.fitValue ?: continue
+                out.write(
+                    FitMessage(
+                        NUM,
+                        listOf(
+                            TIMESTAMP(start + alert.time),
+                            EVENT(DIVE_ALERT),
+                            EVENT_TYPE(TYPE_MARKER),
+                            DATA(value.toLong()),
+                            EVENT_GROUP(0),
+                        ),
+                    )
+                )
+            }
+        }
+
+    /** Millibar as FIT's bar × 100, null outside its one byte. */
+    private fun hundredthsOfBar(millibar: Int?): Long? =
+        millibar?.let { (it.toDouble() / MBAR_PER_HUNDREDTH_BAR).roundToLong() }?.takeIf { it in 1..MAX_UINT8 }
 
     /** A `tank_update` for each tank at each second it has a reading, the tanks told apart by a sensor id of their own. */
     private fun writeTankUpdates(out: FitOutput, activity: ExportActivity, start: Long) =
@@ -525,6 +560,9 @@ object FitWriter {
     private const val J_PER_KJ = 1000L
     private const val MM_PER_CM = 10L
     private const val MBAR_PER_HUNDREDTH_BAR = 10L
+    /** The largest valid value of a FIT uint8 and uint16 (all ones is invalid). */
+    private const val MAX_UINT8 = 254L
+    private const val MAX_UINT16 = 65_534L
     private const val SEMICIRCLES_PER_DEGREE = 2_147_483_648.0 / 180.0
     private const val CM_PER_YARD = 91.44
     /** A pool length within this of a whole number of yards (and not of meters) is a yard pool. */

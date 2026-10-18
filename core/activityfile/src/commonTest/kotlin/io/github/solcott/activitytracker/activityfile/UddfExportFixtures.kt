@@ -4,6 +4,8 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveTank
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
+import io.github.solcott.activitytracker.lexicon.app.DiveAlert
+import io.github.solcott.activitytracker.lexicon.app.DiveAlertKind
 import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
@@ -38,6 +40,14 @@ object UddfExportFixtures {
             decoStopDepth = seconds.map { s -> if (s in (SWITCH - 2 * STEP)..(ELAPSED - STEP)) 600 else null },
             decoStopTime = seconds.map { s -> if (s in (SWITCH - 2 * STEP)..(ELAPSED - STEP)) 180 else null },
             gasSwitches = listOf(GasSwitch(0, 21, 0), GasSwitch(SWITCH, 50, 0)),
+            // UDDF names all but the battery; the last falls between waypoints.
+            diveAlerts =
+                listOf(
+                    DiveAlert(600, DiveAlertKind.MICROBUBBLES),
+                    DiveAlert(1200, DiveAlertKind.BATTERY_LOW),
+                    DiveAlert(2400, DiveAlertKind.ASCENT_CRITICAL),
+                    DiveAlert(2410, DiveAlertKind.NEAR_SURFACE),
+                ),
             tankPressures =
                 listOf(
                     TankPressure(seconds.map { s -> 200_000 - s * 40 }),
@@ -89,6 +99,7 @@ object UddfExportFixtures {
             points = ExportPoints.join(start, track, streams),
             dive = record,
             gasSwitches = streams.gasSwitches.orEmpty(),
+            diveAlerts = streams.diveAlerts.orEmpty(),
             device = "Shearwater Perdix 2",
         )
 
@@ -103,6 +114,7 @@ object UddfExportFixtures {
                 ),
             dive = record.copy(tanks = null, site = null),
             gasSwitches = emptyList(),
+            diveAlerts = emptyList(),
             device = null,
         )
 

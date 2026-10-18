@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.activityfile
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
+import io.github.solcott.activitytracker.lexicon.app.DiveAlert
 import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.GearChange
 import io.github.solcott.activitytracker.lexicon.app.Lap
@@ -46,6 +47,8 @@ data class ExportActivity(
     val dive: ActivityDive? = null,
     /** As the streams store them, in lexicon units; only FIT and UDDF write them. */
     val gasSwitches: List<GasSwitch> = emptyList(),
+    /** As the streams store them; FIT and UDDF write the ones they can name. */
+    val diveAlerts: List<DiveAlert> = emptyList(),
     val laps: List<Lap> = emptyList(),
     /** The record's power, cadence, calories, descent and shift counts, in lexicon units; only FIT writes them. */
     val totals: ExportTotals = ExportTotals(),

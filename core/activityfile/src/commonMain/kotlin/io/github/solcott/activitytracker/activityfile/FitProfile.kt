@@ -52,6 +52,8 @@ internal object FitProfile {
         const val REAR_GEAR_CHANGE = 43L
         /** Its data is the `dive_gas` message index of the gas switched to. */
         const val DIVE_GAS_SWITCHED = 57L
+        /** Its data is the FIT `dive_alert` value. */
+        const val DIVE_ALERT = 56L
         const val TYPE_START = 0L
         const val TYPE_STOP = 1L
         const val TYPE_MARKER = 3L
@@ -322,11 +324,25 @@ internal object FitProfile {
 
     object DiveSettings {
         const val NUM = 258
+        val MODEL = FitFieldDef(1, ENUM)
         val GF_LOW = FitFieldDef(2, UINT8)
         val GF_HIGH = FitFieldDef(3, UINT8)
         val WATER_TYPE = FitFieldDef(4, ENUM)
         /** Kilograms per cubic meter. */
         val WATER_DENSITY = FitFieldDef(5, FLOAT32)
+        /** Bar × 100. */
+        val PO2_WARN = FitFieldDef(6, UINT8)
+        val PO2_CRITICAL = FitFieldDef(7, UINT8)
+        val PO2_DECO = FitFieldDef(8, UINT8)
+        /** FIT's bool. */
+        val SAFETY_STOP_ENABLED = FitFieldDef(9, ENUM)
+        /** Seconds. */
+        val SAFETY_STOP_TIME = FitFieldDef(18, UINT16)
+        /** Bar × 100. */
+        val CCR_LOW_SETPOINT = FitFieldDef(23, UINT8)
+        val CCR_HIGH_SETPOINT = FitFieldDef(26, UINT8)
+        /** `tissue_model_type`'s only value. */
+        const val MODEL_ZHL_16C = 0L
         const val WATER_FRESH = 0L
         const val WATER_SALT = 1L
         const val WATER_EN13319 = 2L

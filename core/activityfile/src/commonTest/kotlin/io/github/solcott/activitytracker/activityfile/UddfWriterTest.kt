@@ -7,6 +7,8 @@ import io.github.solcott.activitytracker.activityfile.UddfExportFixtures.streams
 import io.github.solcott.activitytracker.activityfile.UddfExportFixtures.write
 import io.github.solcott.activitytracker.activityfile.UddfExportFixtures.zone
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
+import io.github.solcott.activitytracker.lexicon.app.DiveAlert
+import io.github.solcott.activitytracker.lexicon.app.DiveAlertKind
 import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import kotlin.test.Test
@@ -69,6 +71,23 @@ class UddfWriterTest {
         assertEquals(streams.decoStopTime, back.decoStopTime)
         assertEquals(streams.gasSwitches, back.gasSwitches)
         assertEquals(streams.tankPressures, back.tankPressures)
+    }
+
+    @Test
+    fun alertsUddfNamesComeBackAtTheirWaypoints() = runTest {
+        val xml = write(decoDive)
+        assertTrue("<waypoint><alarm>ascent</alarm>" in xml, "alarm leads its waypoint")
+        assertFalse("battery" in xml, "FIT-only alerts aren't written")
+        assertEquals(
+            listOf(
+                DiveAlert(600, DiveAlertKind.MICROBUBBLES),
+                DiveAlert(2400, DiveAlertKind.ASCENT_CRITICAL),
+                DiveAlert(2460, DiveAlertKind.NEAR_SURFACE),
+            ),
+            readBack(decoDive).streams?.diveAlerts,
+            "each on the first waypoint at or after it",
+        )
+        assertNull(readBack(olderDive).streams?.diveAlerts)
     }
 
     @Test

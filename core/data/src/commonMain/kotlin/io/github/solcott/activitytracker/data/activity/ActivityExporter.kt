@@ -167,6 +167,7 @@ class ActivityExporter(
                     gearChanges = streams?.gears.orEmpty(),
                     dive = record.dive,
                     gasSwitches = streams?.gasSwitches.orEmpty(),
+                    diveAlerts = streams?.diveAlerts.orEmpty(),
                     laps = streams?.laps.orEmpty(),
                     totals = ExportTotals.of(record),
                     trainingLoad = trainingLoad,
