@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.activityfile.UddfFixtures.decoDive
 import io.github.solcott.activitytracker.activityfile.UddfFixtures.logbook
 import io.github.solcott.activitytracker.activityfile.UddfFixtures.nitroxDive
 import io.github.solcott.activitytracker.activityfile.UddfFixtures.richDive
+import io.github.solcott.activitytracker.lexicon.app.DiveAlertKind
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
 import kotlin.test.Test
@@ -96,6 +97,18 @@ class UddfParserTest {
         assertEquals(3.0, stop.nextStopDepthMeters)
         assertEquals(180L, stop.nextStopSeconds)
         assertNull(rich.records[0].nextStopDepthMeters)
+    }
+
+    @Test
+    fun readsEachWaypointsAlarmsAsAlertsAtItsTime() {
+        val rich = decode(richDive)
+        val start = rich.sessions.single().startTimeMillis!!
+        assertEquals(
+            listOf(600L to DiveAlertKind.RBT, 2400L to DiveAlertKind.ASCENT_CRITICAL, 2400L to "wetnotes"),
+            rich.diveAlerts.map { (it.timestampMillis - start) / 1000 to it.kind },
+            "an alarm UDDF doesn't name keeps its text",
+        )
+        assertTrue(decode(nitroxDive()).diveAlerts.isEmpty())
     }
 
     @Test

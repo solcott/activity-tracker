@@ -101,6 +101,8 @@ internal object UddfParser {
         val tankPressures = mutableListOf<Pair<String?, Double>>()
         /** The `ref` of the `tankpressure` being read, which its text belongs to. */
         var tankRef: String? = null
+        /** Each `alarm`'s text: `ascent`, `deco`, `rbt`, ... */
+        val alarms = mutableListOf<String>()
 
         override fun read(name: String, parent: String?, text: String) {
             val number = text.toDoubleOrNull()
@@ -114,6 +116,7 @@ internal object UddfParser {
                 "cns" -> cns = number
                 "nodecotime" -> noDecoSeconds = number
                 "tankpressure" -> number?.let { tankPressures += tankRef to it }
+                "alarm" -> alarms += text
             }
         }
     }
@@ -205,6 +208,7 @@ internal object UddfParser {
                         if (gas == null || time == null) null else DecodedGasSwitch(time, gas)
                     },
                 tankUpdates = tankUpdates,
+                diveAlerts = alerts(::timeOf),
                 notes = notes.joinToString("\n\n").trim().ifEmpty { null },
             )
         }
@@ -226,6 +230,12 @@ internal object UddfParser {
                     nextStopDepthMeters = w.decoStopDepth,
                     nextStopSeconds = w.decoStopSeconds?.toLong(),
                 )
+        }
+
+        /** Each waypoint `alarm` at its waypoint's time; one [DiveAlerts] doesn't name keeps its text. */
+        private fun alerts(timeOf: (Waypoint) -> Long?) = waypoints.flatMap { w ->
+            val time = timeOf(w) ?: return@flatMap emptyList()
+            w.alarms.mapNotNull { alarm -> DiveAlerts.uddfToken(alarm)?.let { DecodedDiveAlert(time, it) } }
         }
 
         private fun tankUpdates(sensors: List<String>, timeOf: (Waypoint) -> Long?) = waypoints.flatMap { w ->

@@ -98,12 +98,16 @@ internal object UddfFixtures {
               <depth>25</depth><divetime>600</divetime><tankpressure ref="tank_main">15000000</tankpressure><heartrate>95</heartrate>
               <calculatedpo2>130000</calculatedpo2><measuredpo2 ref="c1">118000</measuredpo2><measuredpo2 ref="c2">120000</measuredpo2>
               <measuredpo2 ref="c3">122000</measuredpo2><cns>12</cns><nodecotime>840</nodecotime>
+              <alarm>rbt</alarm>
             </waypoint>
             <waypoint>
               <switchmix ref="ean50"/><depth>6</depth><divetime>1500</divetime><decostop kind="mandatory" decodepth="3" duration="180"/>
               <heartrate>90</heartrate>
             </waypoint>
-            <waypoint><depth>0</depth><divetime>2400</divetime><tankpressure ref="tank_main">6000000</tankpressure></waypoint>
+            <waypoint>
+              <alarm>ascent</alarm><alarm>wetnotes</alarm><depth>0</depth><divetime>2400</divetime>
+              <tankpressure ref="tank_main">6000000</tankpressure>
+            </waypoint>
           </samples>
           <informationafterdive>
             <greatestdepth>25</greatestdepth>
