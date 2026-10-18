@@ -61,50 +61,16 @@ When an athlete changes a Public activity to any other visibility, the client SH
 - **WHEN** an athlete changes an activity from Followers to Mutuals
 - **THEN** no warning is shown
 
-### Requirement: Charts are never more visible than their activity
-An activity's charts SHALL have their own visibility, which SHALL be the activity's or narrower, in the order Public, Followers, Mutuals, Only me. Narrowing the activity below its charts' visibility SHALL narrow the charts to match.
-
-#### Scenario: Public run, private heart rate
-- **WHEN** an athlete publishes a Public activity with charts set to Only me
-- **THEN** any viewer sees the activity, and only the athlete sees its charts
-
-#### Scenario: Wider charts not offered
-- **WHEN** an athlete picks charts visibility for a Mutuals activity
-- **THEN** only Mutuals and Only me are offered
-
-#### Scenario: Narrowing the activity drags charts
-- **WHEN** an activity is Public with Public charts, and the athlete changes the activity to Followers
-- **THEN** the charts become Followers too
-
-### Requirement: Non-public charts stored by visibility
-An activity's charts (`feed.activityStreams`) whose visibility isn't Public SHALL be stored in the athlete's tier space for that visibility, not in the repo. Moving charts SHALL write them to the new place before removing them from the old one. Where a streams record is stored SHALL be its only visibility: one in the repo SHALL be Public, and one in a tier space SHALL be that tier. The record SHALL NOT carry a visibility of its own, and any it carries SHALL be ignored.
-
-#### Scenario: Followers charts
-- **WHEN** an athlete publishes charts with visibility Followers
-- **THEN** the streams record and its data are in the `followers` space, and the repo has no streams record with the activity's rkey
-
-#### Scenario: Record carries no visibility
-- **WHEN** an athlete publishes charts with any visibility
-- **THEN** the streams record has no `visibility` field
-
-#### Scenario: Repo charts are Public whatever they claim
-- **WHEN** a streams record in an athlete's repo has a `visibility` field saying Only me
-- **THEN** any viewer who may see its activity gets its charts, and `getActivityStreams` reports them as Public
-
-#### Scenario: Space charts take their tier
-- **WHEN** a streams record in an athlete's `mutuals` space has a `visibility` field saying Public
-- **THEN** only the athlete and their mutuals get its charts, and `getActivityStreams` reports them as Mutuals
-
 ### Requirement: Default visibilities
-An athlete SHALL be able to set a default activity visibility and a default charts visibility in Settings. The default charts visibility SHALL never be wider than the default activity visibility. Both SHALL be Public until the athlete sets them.
+An athlete SHALL be able to set a default activity visibility in Settings, alongside the per-category defaults in `feed/detail-visibility`. It SHALL be Public until the athlete sets it.
 
 #### Scenario: Never set
 - **WHEN** an athlete who never set defaults starts a new activity
-- **THEN** the activity and its charts start as Public
+- **THEN** the activity starts as Public
 
 #### Scenario: Charts default capped
-- **WHEN** an athlete sets the default activity visibility to Mutuals while the default charts visibility is Public
-- **THEN** the default charts visibility becomes Mutuals
+- **WHEN** an athlete sets the default activity visibility to Mutuals while the Heart rate default is Public
+- **THEN** the Heart rate default becomes Mutuals
 
 ### Requirement: Defaults follow the athlete across devices
 The defaults SHALL be stored in a record in the athlete's `self` space, so every client the athlete signs in on uses the same defaults.
@@ -118,7 +84,7 @@ The defaults SHALL be stored in a record in the athlete's `self` space, so every
 - **THEN** new activities start as Public, without blocking the athlete from publishing
 
 ### Requirement: Visibility chosen for each new activity
-Recording, manual entry and import (including batch import) SHALL each show a visibility picker for the activity and one for its charts, prefilled from the defaults, on every platform. Changing them SHALL affect only that activity (or batch).
+Recording, manual entry and import (including batch import) SHALL each show a visibility picker for the activity, prefilled from the defaults, on every platform, together with the category pickers in `feed/detail-visibility`. Changing it SHALL affect only that activity (or batch).
 
 #### Scenario: Override the default
 - **WHEN** an athlete whose default is Followers sets one manual entry to Public
@@ -128,12 +94,16 @@ Recording, manual entry and import (including batch import) SHALL each show a vi
 - **WHEN** an athlete imports several dives at once with visibility Mutuals
 - **THEN** every activity in the batch is published as Mutuals
 
+#### Scenario: No charts picker
+- **WHEN** an athlete imports a ride with heart rate and power
+- **THEN** no single "who can see these charts" picker is shown, and the Heart rate and Power pickers are
+
 ### Requirement: Visibility editable after publishing
-Editing an activity SHALL let the athlete change its visibility and its charts visibility, subject to the charts cap.
+Editing an activity SHALL let the athlete change its visibility and each category's visibility, subject to the category cap.
 
 #### Scenario: Edit visibility
 - **WHEN** an athlete opens edit for their Public activity and saves it as Only me
-- **THEN** after confirming the warning, the activity is stored in their `self` space and other viewers no longer see it
+- **THEN** after confirming the warning, the activity is stored in their `self` space, every category is Only me, and other viewers no longer see it
 
 ### Requirement: Recordings share their primary's visibility
 An activity that is another recording of a primary (`recordingOf`) SHALL have the primary's visibility. Grouping a recording SHALL change its visibility to the primary's, and changing a primary's visibility SHALL change its recordings' to match. A `recordingOf` link between activities of different visibilities SHALL be ignored.
