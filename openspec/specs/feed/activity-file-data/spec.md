@@ -49,7 +49,7 @@ An activity imported from FIT SHALL store, where the file records them per sampl
 - **THEN** its streams hold the percent of power from the right leg
 
 ### Requirement: Laps are kept
-An activity imported from FIT or TCX SHALL store each lap with its start, elapsed and moving time, distance, average and maximum speed and heart rate, average power and cadence, ascent and descent, calories, intensity (active, rest, warm-up, cool-down, recovery or another the file names) and trigger (manual, distance, time, position or another the file names), where recorded. Laps SHALL be stored with the streams, at their visibility. A file with a single lap spanning the activity SHALL store none.
+An activity imported from FIT or TCX SHALL store each lap with its start, elapsed and moving time, distance, average and maximum speed and heart rate, average power and cadence, ascent and descent, calories, intensity and trigger, where recorded. Laps SHALL be stored with the streams, at their visibility. A file with a single lap spanning the activity SHALL store none.
 
 #### Scenario: Interval run
 - **WHEN** an athlete imports a FIT run with eight laps
@@ -63,13 +63,20 @@ An activity imported from FIT or TCX SHALL store each lap with its start, elapse
 - **WHEN** an athlete imports a TCX run with eight laps alternating Active and Resting intensity
 - **THEN** its streams hold eight laps in order, each with its own time, distance, calories and intensity
 
+#### Scenario: TCX with one lap
+- **WHEN** an athlete imports a TCX ride with one lap spanning the ride
+- **THEN** its streams hold no laps, and the lap's totals are the activity's
+
+### Requirement: Laps keep their intensity and trigger
+A stored lap's intensity SHALL be active, rest, warm-up, cool-down, recovery or another the file names, and its trigger manual, distance, time, position or another the file names.
+
 #### Scenario: Lap triggers
 - **WHEN** an athlete imports a FIT run with automatic laps every kilometer and one manual lap
 - **THEN** its stored laps' triggers are distance, except the manual one's
 
-#### Scenario: TCX with one lap
-- **WHEN** an athlete imports a TCX ride with one lap spanning the ride
-- **THEN** its streams hold no laps, and the lap's totals are the activity's
+#### Scenario: Lap intensities
+- **WHEN** an athlete imports a FIT run with a warm-up lap, active and recovery laps, and a cool-down lap
+- **THEN** each stored lap's intensity is the one its file names
 
 ### Requirement: Activity page shows the new data
 The activity's page SHALL show the new summary fields among its stats, a chart for each new channel stored, and a lap table when laps are stored, each only where stored and admitted. The channels this applies to include cycling dynamics, core temperature, SmO₂, total hemoglobin, e-bike battery and assist, form power and leg spring stiffness.

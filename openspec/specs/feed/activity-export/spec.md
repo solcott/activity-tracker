@@ -130,7 +130,7 @@ A FIT export SHALL be a valid FIT activity file that Garmin Connect and Strava i
 - **THEN** the file passes Garmin's FIT SDK integrity check and holds five sessions, each with its leg's sport, times, distance and heart rate, the transitions with FIT's transition sport
 
 ### Requirement: FIT records carry the activity's channels
-Each point of a FIT export SHALL be a record with its time and, where stored, position, altitude, distance, speed, heart rate, cadence, power, temperature, depth, respiration rate, running dynamics, left/right balance, left and right torque effectiveness and pedal smoothness, left and right platform centre offset, core temperature, SmO₂, total hemoglobin, e-bike battery level, assist mode and assist level, ppO₂, CNS, N₂ load, no-deco limit, deco stop depth and time, and time to surface, in FIT's own units and scales. Form power and leg spring stiffness, which FIT has no native field for, SHALL NOT be written.
+Each point of a FIT export SHALL be a record with its time and, where stored, position, altitude, distance, speed, heart rate, cadence, power, temperature, respiration rate, running dynamics and left/right balance, in FIT's own units and scales.
 
 #### Scenario: Ride with power
 - **WHEN** an athlete exports a ride with a track and heart rate, cadence and power streams as FIT
@@ -140,9 +140,15 @@ Each point of a FIT export SHALL be a record with its time and, where stored, po
 - **WHEN** an athlete exports an indoor ride with no track as FIT
 - **THEN** its records carry the streams' channels and no position
 
+### Requirement: FIT records carry a dive's channels
+Each record of a FIT export SHALL carry, where stored, depth, ppO₂, CNS, N₂ load, no-deco limit, deco stop depth and time, and time to surface, in FIT's own units and scales.
+
 #### Scenario: Deco dive
 - **WHEN** an athlete exports as FIT a dive with ppO₂, no-deco limit and deco stop streams
 - **THEN** each record carries its depth, ppO₂, no-deco limit and next stop depth and time
+
+### Requirement: FIT records carry sensor channels
+Each record of a FIT export SHALL carry, where stored, left and right torque effectiveness and pedal smoothness, left and right platform centre offset, core temperature, SmO₂, total hemoglobin, e-bike battery level, assist mode and assist level, in FIT's own units and scales. Form power and leg spring stiffness, which FIT has no native field for, SHALL NOT be written.
 
 #### Scenario: Ride with cycling dynamics
 - **WHEN** an athlete exports as FIT a ride with torque effectiveness, pedal smoothness and platform centre offset streams
@@ -153,7 +159,7 @@ Each point of a FIT export SHALL be a record with its time and, where stored, po
 - **THEN** each record carries the power, and no record carries form power or leg spring stiffness
 
 ### Requirement: FIT session carries the summary and sport
-The FIT session and lap SHALL hold the activity's sport and sub-sport, elapsed time, moving time (its elapsed time when it has none), distance, elevation gain and loss, average and maximum speed, heart rate summary, cadence summary, power summary (average, maximum, normalized, work), calories, shift counts, average temperature, cycle count (strides, half the stored steps, on a run, walk or hike), average stroke distance and, for the owner's file, training load, where stored. An activity type FIT has no sport for SHALL be written with FIT's nearest sport, or generic when there is none.
+The FIT session and lap SHALL hold the activity's sport and sub-sport, elapsed time, moving time (its elapsed time when it has none), distance, elevation gain and loss, average and maximum speed, heart rate summary, cadence summary, power summary (average, maximum, normalized, work), calories, shift counts and average temperature, where stored. An activity type FIT has no sport for SHALL be written with FIT's nearest sport, or generic when there is none.
 
 #### Scenario: Trail run
 - **WHEN** an athlete exports a trail run as FIT
@@ -166,6 +172,9 @@ The FIT session and lap SHALL hold the activity's sport and sub-sport, elapsed t
 #### Scenario: Type FIT doesn't know
 - **WHEN** an athlete exports as FIT an activity whose type has no FIT sport
 - **THEN** its session's sport is generic
+
+### Requirement: FIT session carries counts and training load
+The FIT session and lap SHALL hold, where stored, the cycle count (strides, half the stored steps, on a run, walk or hike), the average stroke distance and, for the owner's file, the training load.
 
 #### Scenario: Ride with power and training load
 - **WHEN** an athlete exports as FIT a ride with a stored power summary, calories, FTP and TSS
