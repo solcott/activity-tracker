@@ -14,6 +14,7 @@ internal object ShearwaterFixtures {
         maxDepth: String = "71.6",
         maxTime: String = "2754",
         product: String = "13",
+        decoModel: String = "0",
     ) =
         """<?xml version="1.0" encoding="utf-16"?>
         <dive xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3">
@@ -36,7 +37,7 @@ internal object ShearwaterFixtures {
             <computerSerial>9DA7AB33</computerSerial>
             <computerModel>2</computerModel>
             <logVersion>14</logVersion>
-            <decoModel>0</decoModel>
+            <decoModel>$decoModel</decoModel>
             <startSurfacePressure>1010</startSurfacePressure>
             <product>$product</product>
             <diveLogRecords>
@@ -45,20 +46,38 @@ internal object ShearwaterFixtures {
           </diveLog>
         </dive>"""
 
+    /**
+     * A record as Shearwater Cloud writes it: the first stop depth in the file's units (0 outside deco), NDL and TTS in minutes, and each
+     * tank's pressure in PSI, or text when no transmitter reports.
+     */
     @Suppress("LongParameterList")
-    fun record(timeMillis: Long, depth: Double, waterTemp: Double, o2: Double = 0.32, he: Double = 0.0, circuit: String = "OC/BO") =
+    fun record(
+        timeMillis: Long,
+        depth: Double,
+        waterTemp: Double,
+        o2: Double = 0.32,
+        he: Double = 0.0,
+        circuit: String = "OC/BO",
+        firstStopDepth: String = "0",
+        tts: String = "1",
+        ppO2: String = "0.399999976",
+        ndl: String = "99",
+        tank0: String = "AI is off",
+        tank1: String = "AI is off",
+    ) =
         """<diveLogRecord>
             <currentTime>$timeMillis</currentTime>
             <currentDepth>$depth</currentDepth>
-            <firstStopDepth>0</firstStopDepth>
-            <ttsMins>1</ttsMins>
-            <averagePPO2>0.399999976</averagePPO2>
+            <firstStopDepth>$firstStopDepth</firstStopDepth>
+            <ttsMins>$tts</ttsMins>
+            <averagePPO2>$ppO2</averagePPO2>
             <fractionO2>$o2</fractionO2>
             <fractionHe>$he</fractionHe>
-            <currentNdl>99</currentNdl>
+            <currentNdl>$ndl</currentNdl>
             <currentCircuitSetting>$circuit</currentCircuitSetting>
             <waterTemp>$waterTemp</waterTemp>
-            <tank0pressurePSI>AI is off</tank0pressurePSI>
+            <tank0pressurePSI>$tank0</tank0pressurePSI>
+            <tank1pressurePSI>$tank1</tank1pressurePSI>
             <tank2pressurePSI>N/A</tank2pressurePSI>
             <gasTime>Not paired</gasTime>
             <sac>AI is off</sac>

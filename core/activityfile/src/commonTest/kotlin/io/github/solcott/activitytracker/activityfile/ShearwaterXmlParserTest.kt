@@ -2,12 +2,14 @@ package io.github.solcott.activitytracker.activityfile
 
 import io.github.solcott.activitytracker.activityfile.ShearwaterFixtures.dive
 import io.github.solcott.activitytracker.activityfile.ShearwaterFixtures.record
+import io.github.solcott.activitytracker.lexicon.app.DecoModel
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
@@ -138,6 +140,73 @@ class ShearwaterXmlParserTest {
             "the first gas, then each change, a switch back included",
         )
         assertEquals(listOf(DiveGas(21, 0), DiveGas(50, 0)), decoded.dive?.gases, "each gas once")
+    }
+
+    @Test
+    fun readsEachRecordsDecoStateInTheFilesUnits() {
+        val metric =
+            ShearwaterXmlParser.parse(
+                dive(
+                    listOf(
+                        record(0, 20.0, 20.0, ndl = "25"),
+                        record(10_000, 30.0, 20.0, firstStopDepth = "6", tts = "9", ppO2 = "1.2", ndl = "0"),
+                    ),
+                    imperial = false,
+                ),
+                zone,
+            )
+        val outside = metric.records[0]
+        assertNull(outside.nextStopDepthMeters, "0 is not in deco")
+        assertEquals(1500L, outside.ndlSeconds)
+        val deco = metric.records[1]
+        assertEquals(1.2, deco.ppO2Bar)
+        assertEquals(0L, deco.ndlSeconds)
+        assertEquals(6.0, deco.nextStopDepthMeters)
+        assertNull(deco.nextStopSeconds, "the file has no stop time")
+        assertEquals(540L, deco.ttsSeconds)
+        val streams = DecodedActivityMapper.map(metric).streams!!
+        assertEquals(listOf(null, 600), streams.decoStopDepth)
+        assertEquals(listOf(400, 1200), streams.ppO2)
+
+        val imperial = ShearwaterXmlParser.parse(dive(listOf(record(0, 60.0, 70.0, firstStopDepth = "20"))), zone)
+        assertEquals(6.096, imperial.records.single().nextStopDepthMeters!!, 1e-6, "feet to meters")
+    }
+
+    @Test
+    fun aReportingTransmitterIsATankWithItsReadings() {
+        val decoded =
+            ShearwaterXmlParser.parse(
+                dive(
+                    listOf(
+                        record(0, 3.5, 83.0, tank0 = "3000"),
+                        record(10_000, 30.0, 82.0, tank0 = "2000"),
+                        record(20_000, 0.0, 83.0, tank0 = "1000"),
+                    )
+                ),
+                zone,
+            )
+        val tank = decoded.dive!!.tanks.single()
+        assertEquals("0", tank.sensor)
+        assertEquals(206.84, tank.startPressureBar!!, 0.01)
+        assertEquals(68.95, tank.endPressureBar!!, 0.01)
+        assertEquals(listOf("0", "0", "0"), decoded.tankUpdates.map { it.sensor })
+        val pressures = DecodedActivityMapper.map(decoded).streams!!.tankPressures!!.single().pressure
+        assertEquals(206_843, pressures.first())
+    }
+
+    @Test
+    fun withoutAirIntegrationThereAreNoTanks() {
+        val decoded = ShearwaterXmlParser.parse(dive(), zone)
+        assertTrue(decoded.dive!!.tanks.isEmpty())
+        assertTrue(decoded.tankUpdates.isEmpty())
+        assertNull(DecodedActivityMapper.map(decoded).streams!!.tankPressures)
+    }
+
+    @Test
+    fun readsTheDecoModel() {
+        assertEquals(DecoModel.ZHL16C, ShearwaterXmlParser.parse(dive(), zone).dive!!.decoModel)
+        assertEquals(DecoModel.VPM_B, ShearwaterXmlParser.parse(dive(decoModel = "1"), zone).dive!!.decoModel)
+        assertNull(ShearwaterXmlParser.parse(dive(decoModel = "7"), zone).dive!!.decoModel)
     }
 
     @Test
