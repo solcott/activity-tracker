@@ -259,8 +259,9 @@ data class ActivityRecord(
     /** The dive computer's summary, for a dive. */
     val dive: ActivityDive? = null,
     /**
-     * Another recording (a backup dive computer's, say) of the athlete's own activity at this URI, which isn't itself a recording. Feeds
-     * show the activity once and list this among its [ActivityView.recordings].
+     * Legacy: another recording (a backup dive computer's, say) of the athlete's own activity at this URI, which isn't itself a recording.
+     * Feeds show the activity once and list this among its [ActivityView.recordings]. Clients no longer write it: other recordings are
+     * combined ([combined]), and `LegacyGroupMigration` turns existing groups into combined activities.
      */
     val recordingOf: AtUri? = null,
     /** Photos, in the athlete's order. At most [ActivityMedia.MAX]. */
