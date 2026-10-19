@@ -1194,6 +1194,7 @@
     <string name="error_split_activity">Couldn't change the combined activity</string>
     <string name="error_load_combine_candidates">Couldn't load your other activities</string>
     <string name="detail_combine">Combine with…</string>
+    <string name="detail_add_recording">Add a recording…</string>
     <string name="detail_split">Split into separate activities</string>
     <string name="detail_members">Combined from</string>
     <string name="detail_member_of">Part of a combined activity</string>

@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.app.edit.EditActivityScreen
 import io.github.solcott.activitytracker.app.media.MediaGalleryScreen
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.profile.rememberApprovesFollowers
+import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.settings.TrainingZonesScreen
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -128,6 +129,7 @@ fun ActivityDetailPresenter(
             ActivityDetailEvent.OpenTrainingZones,
             ActivityDetailEvent.Edit,
             ActivityDetailEvent.Combine,
+            ActivityDetailEvent.AddRecording,
             is ActivityDetailEvent.OpenMedia -> navigator.open(event, screen.uri, current)
 
             ActivityDetailEvent.ToggleLikesList -> {
@@ -494,6 +496,7 @@ private fun Navigator.open(event: ActivityDetailEvent, uri: String, current: Act
         ActivityDetailEvent.Edit -> goTo(EditActivityScreen(uri))
         is ActivityDetailEvent.OpenMedia -> goTo(MediaGalleryScreen(uri, event.index))
         ActivityDetailEvent.Combine -> goTo(CombinePickerScreen(uri))
+        ActivityDetailEvent.AddRecording -> goTo(ImportActivityScreen(combineInto = uri))
         else -> Unit
     }
 }

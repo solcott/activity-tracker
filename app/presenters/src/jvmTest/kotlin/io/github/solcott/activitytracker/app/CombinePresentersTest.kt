@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.app.detail.CombinePickerEvent
 import io.github.solcott.activitytracker.app.detail.CombinePickerPresenter
 import io.github.solcott.activitytracker.app.detail.CombinePickerScreen
 import io.github.solcott.activitytracker.app.detail.CombinePickerState
+import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.data.activity.ActivityExporter
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
@@ -323,6 +324,8 @@ class CombinePresentersTest {
             assertTrue(loaded.manage?.canCombine == true)
             loaded.eventSink(ActivityDetailEvent.Combine)
             assertEquals(CombinePickerScreen(uri("3kwatch")), navigator.awaitNextScreen())
+            loaded.eventSink(ActivityDetailEvent.AddRecording)
+            assertEquals(ImportActivityScreen(combineInto = uri("3kwatch")), navigator.awaitNextScreen(), "a file to combine with it")
             cancelAndIgnoreRemainingEvents()
         }
         presenterTestOf(detail(uri("3kother"), FakeNavigator(ActivityDetailScreen(uri("3kother"))))) {
