@@ -194,43 +194,26 @@ class ActivityTrackTest {
     }
 
     @Test
-    fun mergingFillsAMissingTrack() = runTest {
-        val s = pds.session()
-        val uri = s.activities.publish(draft(gpx = null))
-        val record = ownRecord(uri)
-
-        s.activities.mergeInto(OwnActivity(uri, Cid("bafyrec"), record), draft())
-        assertEquals(0, s.activities.sync())
-
-        assertEquals(setOf(Visibility.SELF), tracksOf(uri.rkey!!))
-    }
-
-    @Test
-    fun mergingKeepsAnExistingTrack() = runTest {
+    fun combiningAnImportKeepsEachMembersTrackAndSplittingLeavesThem() = runTest {
         val s = pds.session()
         val uri = s.activities.publish(draft())
         val writesBefore = pds.writes.size
 
-        s.activities.mergeInto(OwnActivity(uri, Cid("bafyrec"), ownRecord(uri)), draft(gpx = "<gpx>other</gpx>".encodeToByteArray()))
-        assertEquals(0, s.activities.sync())
+        val combined =
+            s.manager.combine(OwnActivity(uri, Cid("bafyrec"), ownRecord(uri)), draft(gpx = "<gpx>other</gpx>".encodeToByteArray()))
+        val imported = ownRecord(combined).combined!!.members.single { it != uri }
 
-        assertTrue(pds.writes.drop(writesBefore).none { Nsid.FEED_ACTIVITY_TRACK in it }, "the stored track isn't replaced")
-    }
+        assertEquals(setOf(Visibility.SELF), tracksOf(imported.rkey!!), "the import keeps its own track")
+        assertTrue(pds.writes.drop(writesBefore).none { "${Nsid.FEED_ACTIVITY_TRACK}/${uri.rkey}" in it }, "the logged one's is untouched")
 
-    @Test
-    fun mergingIntoAnUnsentActivityKeepsItsQueuedTrack() = runTest {
-        val s = pds.session()
-        pds.offline = true
-        val uri = s.activities.publish(draft())
-
-        s.activities.mergeInto(OwnActivity(uri, cid = null, ownRecordQueued()), draft(gpx = "<gpx>other</gpx>".encodeToByteArray()))
-        pds.offline = false
-        assertEquals(0, s.activities.sync())
-
-        assertEquals(
-            1,
-            pds.writes.count { it.startsWith("put ${Visibility.SELF} ${Nsid.FEED_ACTIVITY_TRACK}/") },
-            "one track, the queued one",
+        val beforeSplit = pds.writes.size
+        s.manager.split(view(combined).copy(record = ownRecord(combined)))
+        assertEquals(setOf(Visibility.SELF), tracksOf(uri.rkey!!))
+        assertEquals(setOf(Visibility.SELF), tracksOf(imported.rkey!!))
+        assertTrue(
+            pds.writes.drop(beforeSplit).none {
+                "${Nsid.FEED_ACTIVITY_TRACK}/${uri.rkey}" in it || "${Nsid.FEED_ACTIVITY_TRACK}/${imported.rkey}" in it
+            }
         )
     }
 
@@ -254,6 +237,4 @@ class ActivityTrackTest {
             ActivityRecord.serializer(),
             pds.stored.getValue(pds.repo).getValue("${Nsid.FEED_ACTIVITY}/${uri.rkey}"),
         )
-
-    private fun ownRecordQueued() = ActivityRecord(sport = Sport.RUN, startedAt = start, elapsedTime = 1800, createdAt = Clock.System.now())
 }

@@ -162,6 +162,41 @@ object ActivityCombiner {
             !streams?.tankPressures.isNullOrEmpty()
     }
 
+    /**
+     * [data] with its times moved [offsetSeconds] later, for an activity that starts that much earlier; samples before it start go. The gas
+     * breathed at the new start is a switch at 0, an alert before it goes, and a lap, length, set or leg that started before it starts
+     * at 0.
+     */
+    internal fun shifted(data: ActivityStreamData, offsetSeconds: Int): ActivityStreamData {
+        if (offsetSeconds == 0) return data
+        val keep = data.time.indices.filter { data.time[it] + offsetSeconds >= 0 }
+        fun <T> List<T>.kept() = keep.map { this[it] }
+        val moved =
+            data.copy(
+                time = keep.map { data.time[it] + offsetSeconds },
+                gears = data.gears?.mapNotNull { gear -> gear.copy(time = gear.time + offsetSeconds).takeIf { it.time >= 0 } },
+                gasSwitches =
+                    data.gasSwitches?.let { switches ->
+                        val moved = switches.map { it.copy(time = it.time + offsetSeconds) }
+                        val before = moved.lastOrNull { it.time <= 0 }?.copy(time = 0)
+                        listOfNotNull(before) + moved.filter { it.time > 0 }
+                    },
+                diveAlerts = data.diveAlerts?.mapNotNull { alert -> alert.copy(time = alert.time + offsetSeconds).takeIf { it.time >= 0 } },
+                laps = data.laps?.mapNotNull { shift(it.start, it.elapsed, offsetSeconds)?.let { start -> it.copy(start = start) } },
+                lengths = data.lengths?.mapNotNull { shift(it.start, it.elapsed, offsetSeconds)?.let { start -> it.copy(start = start) } },
+                sets = data.sets?.mapNotNull { shift(it.start, it.elapsed, offsetSeconds)?.let { start -> it.copy(start = start) } },
+                legs = data.legs?.mapNotNull { shift(it.start, it.elapsed, offsetSeconds)?.let { start -> it.copy(start = start) } },
+                tankPressures = data.tankPressures?.map { it.copy(pressure = it.pressure.kept()) },
+            )
+        return ActivityStreamData.INT_CHANNELS.fold(moved) { shifted, channel -> channel.with(shifted, channel.get(data)?.kept()) }
+    }
+
+    /** A span's start moved [offsetSeconds] later, at 0 if it began before the new start; null if it ended by then. */
+    private fun shift(start: Int, elapsed: Int, offsetSeconds: Int): Int? {
+        val moved = start + offsetSeconds
+        return if (moved + elapsed <= 0) null else moved.coerceAtLeast(0)
+    }
+
     /** Seconds from [start] to [member]'s start. */
     internal fun offsetOf(member: CombineMember, start: Instant): Int = (member.start - start).inWholeSeconds.toInt()
 

@@ -5,7 +5,6 @@ import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.FakeAthletePds.Session
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityStreams
-import io.github.solcott.activitytracker.data.activity.OwnActivity
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
 import io.github.solcott.activitytracker.data.db.FeedItemEntity
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -224,40 +223,14 @@ class ActivityVisibilityTest {
     fun recordingsMoveWithTheirPrimary() = runTest {
         val s = session()
         val primary = s.activities.publish(draft(withStreams = false))
-        val recording =
-            s.activities.publish(
-                draft(withStreams = false)
-                    .recordingOf(
-                        OwnActivity(
-                            primary,
-                            null,
-                            ActivityRecord(Sport.RUN, startedAt = Clock.System.now(), elapsedTime = 1, createdAt = Clock.System.now()),
-                        )
-                    )
-            )
+        // A legacy group's recording, at its primary's visibility.
+        val recording = s.activities.publish(draft(withStreams = false))
         s.manager.setVisibility(
             view(primary, Visibility.PUBLIC, recordings = listOf(recording)),
             VisibilityChoice(Visibility.SELF),
         )
         assertEquals(setOf(Visibility.SELF), placesOf(Nsid.FEED_ACTIVITY, primary.rkey!!))
         assertEquals(setOf(Visibility.SELF), placesOf(Nsid.FEED_ACTIVITY, recording.rkey!!))
-    }
-
-    @Test
-    fun groupingIntoAFollowersActivityMakesTheRecordingFollowers() = runTest {
-        val s = session()
-        val primary =
-            OwnActivity(
-                AtUri.of(did, Nsid.FEED_ACTIVITY, "3kprimary"),
-                Cid("bafyrec"),
-                view(AtUri("at://x/y/z"), Visibility.FOLLOWERS).record,
-                Visibility.FOLLOWERS,
-            )
-        val grouped = draft(VisibilityChoice.PUBLIC).recordingOf(primary)
-        assertEquals(Visibility.FOLLOWERS, grouped.visibility)
-        assertTrue(grouped.tiers.values.all { it == Visibility.FOLLOWERS }, "categories capped too")
-        val uri = s.activities.publish(grouped)
-        assertEquals(setOf(Visibility.FOLLOWERS), placesOf(Nsid.FEED_ACTIVITY, uri.rkey!!))
     }
 
     @Test

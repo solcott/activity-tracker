@@ -5,7 +5,6 @@ import io.github.solcott.activitytracker.activityfile.ImportedDevices
 import io.github.solcott.activitytracker.activityfile.ImportedDive
 import io.github.solcott.activitytracker.activityfile.StreamBuilder
 import io.github.solcott.activitytracker.activityfile.TimeZones
-import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
@@ -63,8 +62,6 @@ data class ActivityDraft(
     /** The athlete's zones for this activity, kept with [streams]. */
     val heartRateZones: ZoneSnapshot? = null,
     val powerZones: ZoneSnapshot? = null,
-    /** The athlete's own activity this is another recording of ([ActivityRecord.recordingOf]). */
-    val recordingOf: AtUri? = null,
     /** The dive computer's summary, for a dive. */
     val dive: ActivityDive? = null,
     /** Photos to upload with it, in order. */
@@ -117,13 +114,6 @@ data class ActivityDraft(
     fun withVisibility(choice: VisibilityChoice): ActivityDraft =
         choice.capped().let { copy(visibility = it.activity, categories = it.details) }
 
-    /** This draft as another recording of [primary]: it takes the primary's visibility, its categories capped at it. */
-    fun recordingOf(primary: OwnActivity): ActivityDraft = recordingOf(primary.uri, primary.visibility)
-
-    /** This draft as another recording of the activity at [primary], whose visibility is [visibility]. */
-    fun recordingOf(primary: AtUri, visibility: String): ActivityDraft =
-        copy(recordingOf = primary, visibility = visibility, categories = DetailCategory.tiers(visibility, tiers))
-
     /** This draft at [visibility] (a combined activity's, which its members share), its categories capped at it. */
     fun atVisibility(visibility: String): ActivityDraft =
         copy(visibility = visibility, categories = DetailCategory.tiers(visibility, tiers))
@@ -157,7 +147,6 @@ data class ActivityDraft(
             device = device,
             sensors = sensors.take(ActivitySensor.MAX).ifEmpty { null },
             dive = dive,
-            recordingOf = recordingOf,
             media = media.take(ActivityMedia.MAX).ifEmpty { null },
             createdAt = createdAt,
             elevationLoss = elevationLossMeters?.roundToLong()?.coerceAtLeast(0),
@@ -202,7 +191,6 @@ data class ActivityDraft(
             categories,
             heartRateZones,
             powerZones,
-            recordingOf,
             dive,
             photos,
             elevationLossMeters,

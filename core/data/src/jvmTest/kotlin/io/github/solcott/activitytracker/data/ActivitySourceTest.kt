@@ -166,41 +166,22 @@ class ActivitySourceTest {
     }
 
     @Test
-    fun mergingIntoASourcelessDiveAddsTheImportsFile() = runTest {
-        val s = pds.session()
-        val uri = s.activities.publish(draft())
-
-        s.activities.mergeInto(OwnActivity(uri, Cid("bafyrec"), ownRecord(uri)), draft(DraftSource(sourceFile(name = "dive.xml"))))
-        assertEquals(0, s.activities.sync())
-
-        assertEquals("dive.xml", storedSource(uri.rkey!!).getValue("fileName").jsonPrimitive.content)
-    }
-
-    @Test
-    fun mergingKeepsAnExistingSource() = runTest {
+    fun combiningAnImportKeepsEachMembersSource() = runTest {
         val s = pds.session()
         val uri = s.activities.publish(draft(DraftSource(sourceFile(name = "log.uddf", format = ActivityFileFormat.UDDF))))
         val writesBefore = pds.writes.size
 
-        s.activities.mergeInto(OwnActivity(uri, Cid("bafyrec"), ownRecord(uri)), draft(DraftSource(sourceFile())))
-        assertEquals(0, s.activities.sync())
+        val combined =
+            s.manager.combine(OwnActivity(uri, Cid("bafyrec"), ownRecord(uri)), draft(DraftSource(sourceFile(name = "dive.fit"))))
+        val imported = ownRecord(combined).combined!!.members.single { it != uri }
 
-        assertTrue(pds.writes.drop(writesBefore).none { Nsid.FEED_ACTIVITY_SOURCE in it }, "the stored source isn't replaced")
+        assertEquals("dive.fit", storedSource(imported.rkey!!).getValue("fileName").jsonPrimitive.content)
         assertEquals("log.uddf", storedSource(uri.rkey!!).getValue("fileName").jsonPrimitive.content)
-    }
-
-    @Test
-    fun mergingIntoAnUnsentActivityKeepsItsQueuedSource() = runTest {
-        val s = pds.session()
-        pds.offline = true
-        val uri = s.activities.publish(draft(DraftSource(sourceFile(name = "first.fit"))))
-
-        s.activities.mergeInto(OwnActivity(uri, cid = null, ownRecordQueued()), draft(DraftSource(sourceFile(name = "second.fit"))))
-        pds.offline = false
-        assertEquals(0, s.activities.sync())
-
-        assertEquals(1, pds.writes.count { it.startsWith("put ${Visibility.SELF} ${Nsid.FEED_ACTIVITY_SOURCE}/") })
-        assertEquals("first.fit", storedSource(uri.rkey!!).getValue("fileName").jsonPrimitive.content)
+        assertTrue(
+            pds.writes.drop(writesBefore).none { "${Nsid.FEED_ACTIVITY_SOURCE}/${uri.rkey}" in it },
+            "the logged one's isn't replaced",
+        )
+        assertEquals(emptySet(), sourcesOf(combined.rkey!!), "the combined activity has no source of its own")
     }
 
     @Test
@@ -271,7 +252,4 @@ class ActivitySourceTest {
             ActivityRecord.serializer(),
             pds.stored.getValue(pds.repo).getValue("${Nsid.FEED_ACTIVITY}/${uri.rkey}"),
         )
-
-    private fun ownRecordQueued() =
-        ActivityRecord(sport = Sport.RIDE, startedAt = start, elapsedTime = 1800, createdAt = Clock.System.now())
 }

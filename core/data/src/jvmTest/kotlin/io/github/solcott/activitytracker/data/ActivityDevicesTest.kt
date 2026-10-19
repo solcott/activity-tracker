@@ -260,37 +260,16 @@ class ActivityDevicesTest {
     }
 
     @Test
-    fun mergingIntoAnAppRecordingAddsTheImportsDevices() = runTest {
+    fun combinedRecordingsKeepTheirOwnDevices() = runTest {
         val s = pds.session()
-        val uri = s.activities.publish(draft(devices = null, source = false))
+        val fenixRide = s.activities.publish(draft(devices = fenix, source = false))
 
-        s.activities.mergeInto(OwnActivity(uri, Cid("bafyrec"), ownRecord(uri)), draft())
-        assertEquals(0, s.activities.sync())
+        val combined = s.manager.combine(OwnActivity(fenixRide, Cid("bafyrec"), ownRecord(fenixRide)), draft())
+        val edgeRide = ownRecord(combined).combined!!.members.single { it != fenixRide }
 
-        assertEquals("3510682071", storedDevices(uri.rkey!!).devices.first().serialNumber)
-    }
-
-    @Test
-    fun mergingKeepsDevicesTheActivityHas() = runTest {
-        val s = pds.session()
-        val uri = s.activities.publish(draft(devices = fenix, source = false))
-        val writesBefore = pds.writes.size
-
-        s.activities.mergeInto(OwnActivity(uri, Cid("bafyrec"), ownRecord(uri)), draft())
-        assertEquals(0, s.activities.sync())
-
-        assertTrue(pds.writes.drop(writesBefore).none { Nsid.FEED_ACTIVITY_DEVICES in it }, "the stored devices aren't replaced")
-        assertEquals("Fenix 7", storedDevices(uri.rkey!!).devices.single().model)
-    }
-
-    @Test
-    fun aGroupedRecordingKeepsItsOwnDevices() = runTest {
-        val s = pds.session()
-        val main = s.activities.publish(draft(devices = fenix, source = false))
-        val recording = s.activities.publish(draft().copy(recordingOf = main))
-
-        assertEquals("Fenix 7", storedDevices(main.rkey!!).devices.single().model)
-        assertEquals("Edge 840", storedDevices(recording.rkey!!).devices.first().model)
+        assertEquals("Fenix 7", storedDevices(fenixRide.rkey!!).devices.single().model)
+        assertEquals("Edge 840", storedDevices(edgeRide.rkey!!).devices.first().model)
+        assertEquals(emptySet(), devicesOf(combined.rkey!!), "the combined activity has no devices of its own")
     }
 
     @Test

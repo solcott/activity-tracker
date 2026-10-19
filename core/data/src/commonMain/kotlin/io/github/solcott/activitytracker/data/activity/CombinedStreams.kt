@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.data.activity
 import io.github.solcott.activitytracker.data.activity.ActivityCombiner.SAMPLE_TOLERANCE_SECONDS
 import io.github.solcott.activitytracker.data.activity.ActivityCombiner.nearest
 import io.github.solcott.activitytracker.data.activity.ActivityCombiner.offsetOf
+import io.github.solcott.activitytracker.data.activity.ActivityCombiner.shifted
 import io.github.solcott.activitytracker.data.activity.ActivityCombiner.usualInterval
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
@@ -30,7 +31,7 @@ internal object CombinedStreams {
             members
                 .mapNotNull { member ->
                     val data = member.streams ?: return@mapNotNull null
-                    val moved = ActivityMerge.shifted(data, offsetOf(member, start))
+                    val moved = shifted(data, offsetOf(member, start))
                     Placed(member, moved, pieces[member.uri].orEmpty(), maxOf(SAMPLE_TOLERANCE_SECONDS, usualInterval(moved.time)))
                 }
                 .associateBy { it.member.uri }
