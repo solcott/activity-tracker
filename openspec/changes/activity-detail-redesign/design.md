@@ -119,8 +119,9 @@ Changing the type in the panel rebuilds the content, because the hero depends on
 |---|---|---|
 | Desktop (JVM, M-series Mac) | 3.9 / 6.3 / 8.4 ms (n=35) | 2.7 / 3.5 / 7.6 ms (n=35) |
 | Android release build (emulator, signed with the debug key) | 15.2 / 24.6 / 30.0 ms (n=56; 26 over 16 ms) | 8.5 / 20.1 / 31.1 ms (n=66; 10 over 16 ms) |
+| Android release build (Pixel 9 Pro XL, 120 Hz, signed with the debug key) | 9.7 / 18.9 / 24.6 ms (n=98; 25 over 16 ms, 58 over 8.3 ms) | 7.7 / 15.3 / 17.5 ms (n=120; 7 over 16 ms, 53 over 8.3 ms) |
 
-The backdrop costs about 1.2 ms a chart on desktop, nowhere near 16 ms, but on Android it nearly doubled a chart's draw time and pushed half the draws past a frame. **Decision:** the page and the import preview draw no elevation backdrop below 600dp (each screen passes `elevationBehind` from its `WindowWidth` down to `CardCharts`), on every platform alike, since layout follows width. Medium and expanded windows keep it. The emulator overstates a phone's cost, and some draws pass 16 ms even without the backdrop there, so it's worth measuring on a real device before bringing it back to phones.
+The backdrop costs about 1.2 ms a chart on desktop, nowhere near 16 ms, but on Android it nearly doubled a chart's draw time and pushed half the draws past a frame. **Decision:** the page and the import preview draw no elevation backdrop below 600dp (each screen passes `elevationBehind` from its `WindowWidth` down to `CardCharts`), on every platform alike, since layout follows width. Medium and expanded windows keep it. On a real phone (the Pixel 9 Pro XL, 448dp wide, with the backdrop forced on below 600dp for the test) the cost is smaller than the emulator's but still real: about 2 ms a chart at the median and 3.6 ms at p90, and a quarter of draws past 16 ms against 6% without. At the phone's 120 Hz an 8.3 ms frame is already tight without it. The decision stands.
 
 ## Migration Plan
 
