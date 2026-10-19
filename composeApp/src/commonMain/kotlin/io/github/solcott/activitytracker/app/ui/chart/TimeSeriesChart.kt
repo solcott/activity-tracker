@@ -33,6 +33,7 @@ import kotlin.math.ceil
 import kotlin.math.floor
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * Values over an activity, filled beneath, with a few y labels from [yLabel] and, when [xLabel] is set, time labels at whole-minute steps
@@ -42,7 +43,8 @@ import kotlinx.collections.immutable.persistentListOf
  * Hovering, tapping or dragging across the chart shows [markerLabel] for the nearest point. [inverted] puts zero at the top and larger
  * values further down, filled up to the top, as a dive's depth reads. [others] are more lines on the same scale, unfilled and in their own
  * colours (another tank, or a dive's ceiling under its depth). [events] mark moments with a labelled vertical line, like a gas switch, and
- * [warnings] mark them in the error colour, labelled along the bottom, like a dive computer's alert.
+ * [warnings] mark them in the error colour, labelled along the bottom, like a dive computer's alert. Every line, its fill and the backdrop
+ * break, drawing nothing, into a point that follows a gap in the samples ([SeriesPoint.gapBefore]).
  */
 @Composable
 internal fun TimeSeriesChart(
@@ -74,10 +76,19 @@ internal fun TimeSeriesChart(
     val flip: (Double) -> Double = if (inverted) { y -> 0.0 - y } else { y -> y }
     val plotted = remember(points, inverted) { if (inverted) points.map { it.copy(y = flip(it.y)) } else points }
     val plottedExtra = remember(extra, inverted) { extra.map { line -> if (inverted) line.map { it.copy(y = flip(it.y)) } else line } }
-    // Line layers take their models in order, so the backdrop's comes first and draws underneath.
+    val gaps = remember(points) { gapsIn(points) }
+    // A line with gaps draws its fill in a layer of its own under it, which drops to the fill's edge across each gap (see GapConnector).
+    val separateFill = gaps.isNotEmpty()
+    // Line layers take their models in order, so the backdrop's comes first and draws underneath, then the fill's.
     val model =
-        remember(plotted, plottedExtra, behind) {
-            CartesianChartModel(listOfNotNull(behind?.let(::lineModel), linesModel(listOf(plotted) + plottedExtra)))
+        remember(plotted, plottedExtra, behind, separateFill) {
+            CartesianChartModel(
+                listOfNotNull(
+                    behind?.let(::lineModel),
+                    plotted.takeIf { separateFill }?.let(::lineModel),
+                    linesModel(listOf(plotted) + plottedExtra),
+                )
+            )
         }
     val yAxis =
         remember(points, extra, pointLabels.isEmpty(), inverted, timeValues) {
@@ -85,17 +96,27 @@ internal fun TimeSeriesChart(
         }
     val minY = yAxis.min
     val maxY = yAxis.max
+    val connector = if (step) StepConnector else LineCartesianLayer.PointConnector.Sharp
+    val areaFill =
+        remember(colors, minY, maxY, fillAbove) {
+            LineCartesianLayer.AreaFill.single(Fill(colors.area), splitY = { if (fillAbove) maxY else minY })
+        }
     val line =
         LineCartesianLayer.rememberLine(
             fill = remember(colors) { LineCartesianLayer.LineFill.single(Fill(colors.line)) },
             stroke = LineCartesianLayer.LineStroke.Continuous(thickness = 1.5.dp, cap = StrokeCap.Round),
-            areaFill =
-                remember(colors, minY, maxY, fillAbove) {
-                    LineCartesianLayer.AreaFill.single(Fill(colors.area), splitY = { if (fillAbove) maxY else minY })
-                },
-            pointConnector = if (step) StepConnector else LineCartesianLayer.PointConnector.Sharp,
+            areaFill = areaFill.takeIf { !separateFill },
+            pointConnector = remember(connector, gaps) { if (gaps.isEmpty()) connector else GapConnector(connector, gaps) },
         )
-    val otherLines = rememberOtherLines(extra.size)
+    val rangeProvider =
+        remember(minY, maxY, xRange) {
+            CartesianLayerRangeProvider.fixed(minX = xRange.start, maxX = xRange.endInclusive, minY = minY, maxY = maxY)
+        }
+    val fillLayer =
+        remember(separateFill, areaFill, connector, gaps, fillAbove, rangeProvider) {
+            if (separateFill) fillLayer(areaFill, connector, gaps, fillAbove, rangeProvider) else null
+        }
+    val otherLines = rememberOtherLines(remember(extra) { extra.map(::gapsIn).toImmutableList() })
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
     val label = rememberTextComponent(labelStyle)
     val grid = rememberLineComponent(Fill(colors.grid), thickness = 1.dp)
@@ -129,17 +150,10 @@ internal fun TimeSeriesChart(
             layers =
                 listOfNotNull(
                         behind?.let { rememberBackdropLayer(it, xRange) },
+                        fillLayer,
                         rememberLineCartesianLayer(
                             LineCartesianLayer.LineProvider.series(listOf(line) + otherLines),
-                            rangeProvider =
-                                remember(minY, maxY, xRange) {
-                                    CartesianLayerRangeProvider.fixed(
-                                        minX = xRange.start,
-                                        maxX = xRange.endInclusive,
-                                        minY = minY,
-                                        maxY = maxY,
-                                    )
-                                },
+                            rangeProvider = rangeProvider,
                             // Its own scale, apart from the backdrop's.
                             verticalAxisPosition = Axis.Position.Vertical.Start,
                         ),
@@ -211,19 +225,43 @@ private fun linesModel(lines: List<List<SeriesPoint>>) = LineCartesianLayerModel
     lines.forEach { points -> series(points.map { it.x }, points.map { it.y }) }
 }
 
-/** [count] more lines, unfilled, each in the next of the theme's other colours. */
+/** More lines, one breaking at each of [gaps], unfilled, each in the next of the theme's other colours. */
 @Composable
-private fun rememberOtherLines(count: Int): List<LineCartesianLayer.Line> {
+private fun rememberOtherLines(gaps: ImmutableList<ImmutableList<Double>>): List<LineCartesianLayer.Line> {
     val palette = listOf(MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.secondary, MaterialTheme.colorScheme.error)
-    return remember(count, palette) {
-        List(count) { i ->
+    return remember(gaps, palette) {
+        gaps.mapIndexed { i, at ->
             LineCartesianLayer.Line(
                 fill = LineCartesianLayer.LineFill.single(Fill(palette[i % palette.size])),
                 stroke = LineCartesianLayer.LineStroke.Continuous(thickness = 1.5.dp, cap = StrokeCap.Round),
+                pointConnector =
+                    if (at.isEmpty()) LineCartesianLayer.PointConnector.Sharp
+                    else GapConnector(LineCartesianLayer.PointConnector.Sharp, at),
             )
         }
     }
 }
+
+/** [areaFill] in a layer of its own on the start axis's scale, dropping to its edge (the top when [fillAbove]) across each of [gaps]. */
+private fun fillLayer(
+    areaFill: LineCartesianLayer.AreaFill,
+    connector: LineCartesianLayer.PointConnector,
+    gaps: List<Double>,
+    fillAbove: Boolean,
+    rangeProvider: CartesianLayerRangeProvider,
+): LineCartesianLayer {
+    val baseline = if (fillAbove) GapConnector.Baseline.Top else GapConnector.Baseline.Bottom
+    return UnmarkedLayer(fillOnly(areaFill, GapConnector(connector, gaps, baseline)), rangeProvider, Axis.Position.Vertical.Start)
+}
+
+/** A line that draws only [areaFill], joined by [connector]: no stroke, so a connector running along the fill's edge isn't seen. */
+private fun fillOnly(areaFill: LineCartesianLayer.AreaFill, connector: LineCartesianLayer.PointConnector) =
+    LineCartesianLayer.Line(
+        fill = LineCartesianLayer.LineFill.single(Fill(Color.Transparent)),
+        stroke = LineCartesianLayer.LineStroke.Continuous(thickness = 0.dp),
+        areaFill = areaFill,
+        pointConnector = connector,
+    )
 
 /**
  * [points] as a grey area on the end axis's scale, filling about [BACKDROP_HEIGHT] of the chart from the bottom so the line in front stays
@@ -235,13 +273,12 @@ private fun rememberBackdropLayer(points: ImmutableList<SeriesPoint>, xRange: Cl
     return remember(points, xRange, color) {
         val low = points.minOf { it.y }
         val span = (points.maxOf { it.y } - low).coerceAtLeast(MIN_BACKDROP_SPAN)
-        val line =
-            LineCartesianLayer.Line(
-                fill = LineCartesianLayer.LineFill.single(Fill(Color.Transparent)),
-                stroke = LineCartesianLayer.LineStroke.Continuous(thickness = 0.dp),
-                areaFill = LineCartesianLayer.AreaFill.single(Fill(color.copy(alpha = BACKDROP_ALPHA)), splitY = { low }),
-            )
-        BackdropLayer(
+        val gaps = gapsIn(points)
+        val connector =
+            if (gaps.isEmpty()) LineCartesianLayer.PointConnector.Sharp
+            else GapConnector(LineCartesianLayer.PointConnector.Sharp, gaps, GapConnector.Baseline.Bottom)
+        val line = fillOnly(LineCartesianLayer.AreaFill.single(Fill(color.copy(alpha = BACKDROP_ALPHA)), splitY = { low }), connector)
+        UnmarkedLayer(
             line,
             CartesianLayerRangeProvider.fixed(
                 minX = xRange.start,
@@ -249,13 +286,17 @@ private fun rememberBackdropLayer(points: ImmutableList<SeriesPoint>, xRange: Cl
                 minY = low,
                 maxY = low + span / BACKDROP_HEIGHT,
             ),
+            Axis.Position.Vertical.End,
         )
     }
 }
 
-/** A line layer on the end axis's scale with no marker targets, so the marker's dot and readout stay on the line in front. */
-private class BackdropLayer(line: LineCartesianLayer.Line, rangeProvider: CartesianLayerRangeProvider) :
-    LineCartesianLayer(LineProvider.series(line), rangeProvider = rangeProvider, verticalAxisPosition = Axis.Position.Vertical.End) {
+/** A line layer with no marker targets, so the marker's dot and readout stay on the line in front: the backdrop, or a line's own fill. */
+private class UnmarkedLayer(
+    line: LineCartesianLayer.Line,
+    rangeProvider: CartesianLayerRangeProvider,
+    verticalAxisPosition: Axis.Position.Vertical,
+) : LineCartesianLayer(LineProvider.series(line), rangeProvider = rangeProvider, verticalAxisPosition = verticalAxisPosition) {
     override val markerTargets: Map<Double, List<CartesianMarker.Target>> = emptyMap()
 }
 

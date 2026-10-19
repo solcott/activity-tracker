@@ -83,7 +83,9 @@ internal fun rememberPoints(
     ceiling: Double = Double.MAX_VALUE,
 ): ImmutableList<SeriesPoint> =
     remember(series, unit, ceiling) {
-        series.points.map { SeriesPoint(it.seconds.toDouble(), unit.convert(it.value).coerceAtMost(ceiling)) }.toImmutableList()
+        series.points
+            .map { SeriesPoint(it.seconds.toDouble(), unit.convert(it.value).coerceAtMost(ceiling), it.gapBefore) }
+            .toImmutableList()
     }
 
 /**

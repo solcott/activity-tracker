@@ -168,7 +168,8 @@ private fun ChartHeader(title: String?, detail: String?) {
 @Composable
 private fun DepthChart(series: LineSeries, charts: ActivityCharts) {
     val unit = streamUnit(StreamKind.Depth)
-    val ceiling = remember(charts.ceiling, unit) { charts.ceiling.map { SeriesPoint(it.seconds.toDouble(), unit.convert(it.value)) } }
+    val ceiling =
+        remember(charts.ceiling, unit) { charts.ceiling.map { SeriesPoint(it.seconds.toDouble(), unit.convert(it.value), it.gapBefore) } }
     val names = charts.gasSwitches.map { DiveFormat.gasName(it.oxygen, it.helium) }
     val events =
         remember(charts.gasSwitches, names) {
