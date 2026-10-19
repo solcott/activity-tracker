@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_hide_comment
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_load_combine_candidates
 import io.github.solcott.activitytracker.composeApp.resources.error_load_comments
+import io.github.solcott.activitytracker.composeApp.resources.error_load_data_sources
 import io.github.solcott.activitytracker.composeApp.resources.error_load_feed
 import io.github.solcott.activitytracker.composeApp.resources.error_load_follow_requests
 import io.github.solcott.activitytracker.composeApp.resources.error_load_followers
@@ -33,6 +34,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_original_not
 import io.github.solcott.activitytracker.composeApp.resources.error_read_activity_file
 import io.github.solcott.activitytracker.composeApp.resources.error_remove_follower
 import io.github.solcott.activitytracker.composeApp.resources.error_save_activity
+import io.github.solcott.activitytracker.composeApp.resources.error_save_data_source
 import io.github.solcott.activitytracker.composeApp.resources.error_save_privacy_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_save_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_save_settings
@@ -118,6 +120,8 @@ fun errorText(error: UiError): String =
                 UiError.Kind.UngroupActivity -> Res.string.error_ungroup_activity
                 UiError.Kind.CombineActivity -> Res.string.error_combine_activity
                 UiError.Kind.SplitActivity -> Res.string.error_split_activity
+                UiError.Kind.LoadDataSources -> Res.string.error_load_data_sources
+                UiError.Kind.SaveDataSource -> Res.string.error_save_data_source
                 UiError.Kind.LoadCombineCandidates -> Res.string.error_load_combine_candidates
                 UiError.Kind.ReadActivityFile -> Res.string.error_read_activity_file
                 UiError.Kind.UnsupportedActivityFile -> Res.string.error_unsupported_activity_file

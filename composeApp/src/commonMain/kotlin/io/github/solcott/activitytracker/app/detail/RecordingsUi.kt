@@ -129,7 +129,7 @@ internal fun Members(activity: ActivityView, onOpen: (AtUri) -> Unit, onRemove: 
  * midnight, so it would read as hours away from the combined activity.
  */
 @Composable
-private fun memberName(member: MemberView): String =
+internal fun memberName(member: MemberView): String =
     member.device ?: member.sport?.let { sportLabel(it) } ?: stringResource(Res.string.detail_recording_unnamed)
 
 @Composable

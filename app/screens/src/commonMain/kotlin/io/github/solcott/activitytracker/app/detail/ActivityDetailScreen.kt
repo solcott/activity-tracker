@@ -8,6 +8,7 @@ import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.RouteEnds
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.visibility.CategoryVisibility
+import io.github.solcott.activitytracker.data.activity.DataKind
 import io.github.solcott.activitytracker.data.activity.ExportFormat
 import io.github.solcott.activitytracker.data.activity.ExportedFile
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -16,6 +17,7 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
+import io.github.solcott.activitytracker.lexicon.app.MemberView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -93,6 +95,10 @@ sealed interface ActivityDetailState : CircuitUiState {
          * no original file.
          */
         val export: ActivityExportState? = null,
+        /** On the owner's combined activity, where each kind of its data comes from, to choose or leave out; null otherwise. */
+        val dataSources: DataSources? = null,
+        /** On a combined activity, the members each card's data came from, in time order; empty otherwise. */
+        val chartSources: ImmutableList<ChartSource> = persistentListOf(),
     ) : ActivityDetailState
 }
 
@@ -131,6 +137,36 @@ enum class DetailSection {
     /** The recording device and its sensors. */
     Device,
 }
+
+/**
+ * Where each kind of a combined activity's data comes from (`feed/combined-sources`), on its owner's page: every kind any member recorded,
+ * included by default.
+ */
+@Immutable
+data class DataSources(
+    /** In [DataKind] order; empty while loading. */
+    val kinds: ImmutableList<DataSourceRow> = persistentListOf(),
+    val isLoading: Boolean = false,
+    /** The kind whose rebuild is running. */
+    val saving: DataKind? = null,
+    /** Why the sources couldn't be read, or the last choice couldn't be saved; [ActivityDetailEvent.RetrySources] tries it again. */
+    val error: UiError? = null,
+)
+
+/** One kind of a combined activity's data, as its owner chooses it. */
+@Immutable
+data class DataSourceRow(
+    val kind: DataKind,
+    /** It's part of the combined activity; off when the owner left it out. */
+    val included: Boolean,
+    /** The member it comes from; null when it's left out. */
+    val chosen: MemberView?,
+    /** The members that recorded it, to choose from; empty when only one did. */
+    val offered: ImmutableList<MemberView>,
+)
+
+/** The members [section]'s card on a combined activity came from, in time order, so its caption names their devices. */
+@Immutable data class ChartSource(val section: DetailSection, val members: ImmutableList<MemberView>)
 
 /** Deleting or ungrouping the signed-in athlete's own activity. */
 @Immutable
@@ -284,6 +320,15 @@ sealed interface ActivityDetailEvent {
 
     /** The owner splits this combined activity back into its members. */
     data object Split : ActivityDetailEvent
+
+    /** The owner takes [kind] of this combined activity's data from [member], the others filling in where it has none. */
+    data class ChooseSource(val kind: DataKind, val member: AtUri) : ActivityDetailEvent
+
+    /** The owner includes [kind] of this combined activity's data again, ranked by default, or leaves it out. */
+    data class SetIncluded(val kind: DataKind, val included: Boolean) : ActivityDetailEvent
+
+    /** Reads the data sources again, or repeats the choice that failed: see [DataSources.error]. */
+    data object RetrySources : ActivityDetailEvent
 
     /** The owner edits the activity's title, description, dive site and photos. */
     data object Edit : ActivityDetailEvent

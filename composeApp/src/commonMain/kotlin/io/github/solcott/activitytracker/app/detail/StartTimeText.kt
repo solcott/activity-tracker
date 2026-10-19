@@ -32,7 +32,7 @@ internal fun startTime(value: FigureValue.StartTime): String {
 
 /** "07:00" on a 24-hour clock, "7:00 AM" on a 12-hour one, as the viewer's device reads times. */
 @Composable
-private fun timeFormat(): DateTimeFormat<LocalDateTime> {
+internal fun timeFormat(): DateTimeFormat<LocalDateTime> {
     val twentyFour = uses24HourClock()
     val am = stringResource(Res.string.time_am)
     val pm = stringResource(Res.string.time_pm)

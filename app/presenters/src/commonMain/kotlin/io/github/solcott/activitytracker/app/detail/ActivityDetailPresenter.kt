@@ -103,6 +103,8 @@ fun ActivityDetailPresenter(
     val narrower = narrowerCategories(served?.takeIf { isOwn }, charts.streams)
     val page = rememberPage(shown, shownCharts, narrower)
     val manage = rememberManage(activity.takeIf { isOwn }, loadKey, feed, manager, navigator, flights) { loadKey++ }
+    val dataSources = rememberDataSources(activity.takeIf { isOwn }, loadKey, manager, flights) { loadKey++ }
+    val chartSources = remember(shown, sections) { chartSources(shown, sections) }
     val ownRoute = rememberOwnRoute(activity?.uri?.takeIf { isOwn }, activities, flights, combined = activity?.record?.combined != null)
     val hasStreams = charts.charts != null
     val isDive = shown?.record?.sport == Sport.DIVE
@@ -170,6 +172,10 @@ fun ActivityDetailPresenter(
             is ActivityDetailEvent.RemoveMember,
             ActivityDetailEvent.Split -> manage.on(event)
 
+            is ActivityDetailEvent.ChooseSource,
+            is ActivityDetailEvent.SetIncluded,
+            ActivityDetailEvent.RetrySources -> dataSources.on(event)
+
             ActivityDetailEvent.HideStart -> ownRoute.hide(true)
 
             ActivityDetailEvent.HideEnd -> ownRoute.hide(false)
@@ -211,6 +217,8 @@ fun ActivityDetailPresenter(
             zoneAdded = ownRoute.zoneAdded,
             routeError = ownRoute.error,
             export = export.state,
+            dataSources = dataSources.state,
+            chartSources = chartSources,
         )
     }
 }

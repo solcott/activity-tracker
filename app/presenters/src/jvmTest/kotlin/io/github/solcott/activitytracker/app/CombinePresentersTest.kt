@@ -18,6 +18,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityExporter
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
+import io.github.solcott.activitytracker.data.activity.DataKind
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.di.signedInTestSession
@@ -32,6 +33,9 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
+import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
+import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -68,6 +72,33 @@ class CombinePresentersTest {
     private var failReads = false
     private var failByStart = false
 
+    /** Alice's `feed.activityStreams` records, by rkey, and the blobs they name, by CID. */
+    private val streamsRecords = mutableMapOf<String, JsonObject>()
+    private val blobs = mutableMapOf<String, ByteArray>()
+
+    /** Activities the AppView serves as Bob's, not Alice's own. */
+    private val bobs = mutableSetOf<String>()
+
+    /** Stores [data] as [rkey]'s streams, in the repo. */
+    private fun streams(rkey: String, data: ActivityStreamData) {
+        val bytes = AtJson.encodeToString(ActivityStreamData.serializer(), data).encodeToByteArray()
+        val cid = "bafyblob${blobs.size}"
+        blobs[cid] = bytes
+        val record =
+            ActivityStreamsRecord(
+                activity = AtUri(uri(rkey)),
+                channels = data.channels,
+                createdAt = Clock.System.now(),
+                data = BlobRef(ref = BlobRef.Link(cid), mimeType = ActivityStreamsRecord.MIME_TYPE, size = bytes.size.toLong()),
+            )
+        streamsRecords[rkey] = AtJson.encodeToJsonElement(ActivityStreamsRecord.serializer(), record).jsonObject
+    }
+
+    private fun streamsOf(rkey: String): ActivityStreamData? {
+        val cid = streamsRecords[rkey]?.let { AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), it) }?.data?.ref?.link
+        return cid?.let { AtJson.decodeFromString(ActivityStreamData.serializer(), blobs.getValue(it).decodeToString()) }
+    }
+
     private fun ride(start: String, minutes: Int = 60, members: List<String> = emptyList()): JsonObject {
         val combined =
             members
@@ -93,7 +124,8 @@ class CombinePresentersTest {
                     val r = AtJson.decodeFromJsonElement(ActivityRecord.serializer(), records.getValue(m.substringAfterLast('/')))
                     """{"uri":"$m","startedAt":"${r.startedAt}","elapsedTime":${r.elapsedTime}}"""
                 }
-        return """{"uri":"${uri(rkey)}","cid":"bafy$rkey","author":$aliceProfile,"record":$record,""" +
+        val author = if (rkey in bobs) """{"did":"did:plc:bob","handle":"bob.test"}""" else aliceProfile
+        return """{"uri":"${uri(rkey)}","cid":"bafy$rkey","author":$author,"record":$record,""" +
             """"likeCount":0,"commentCount":0,"indexedAt":"2026-10-14T12:00:00Z","viewer":{}${combinedInto.orEmpty()}${members.orEmpty()}}"""
     }
 
@@ -125,7 +157,12 @@ class CombinePresentersTest {
                         if (failReads)
                             return@MockEngine respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
                         val rkey = request.url.parameters["rkey"]!!
-                        val record = records[rkey]?.takeIf { request.url.parameters["collection"] == Nsid.FEED_ACTIVITY }
+                        val record =
+                            when (request.url.parameters["collection"]) {
+                                Nsid.FEED_ACTIVITY -> records[rkey]
+                                Nsid.FEED_ACTIVITY_STREAMS -> streamsRecords[rkey]
+                                else -> null
+                            }
                         if (record == null) respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, json)
                         else respond("""{"uri":"${uri(rkey)}","cid":"bafy$rkey","value":$record}""", headers = json)
                     }
@@ -139,7 +176,25 @@ class CombinePresentersTest {
                         val rkey = body.getValue("rkey").jsonPrimitive.content
                         writes += "put $collection/$rkey"
                         if (collection == Nsid.FEED_ACTIVITY) records[rkey] = body.getValue("record").jsonObject
+                        if (collection == Nsid.FEED_ACTIVITY_STREAMS) streamsRecords[rkey] = body.getValue("record").jsonObject
                         respond("""{"uri":"${uri(rkey)}","cid":"bafyrec"}""", headers = json)
+                    }
+
+                    "/xrpc/com.atproto.repo.uploadBlob" -> {
+                        val bytes = (request.body as OutgoingContent.ByteArrayContent).bytes()
+                        val cid = "bafyblob${blobs.size}"
+                        blobs[cid] = bytes
+                        respond(
+                            """{"blob":{"${'$'}type":"blob","ref":{"${'$'}link":"$cid"},""" +
+                                """"mimeType":"application/json","size":${bytes.size}}}""",
+                            headers = json,
+                        )
+                    }
+
+                    "/xrpc/com.atproto.sync.getBlob" -> {
+                        if (failReads)
+                            return@MockEngine respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
+                        blobs[request.url.parameters["cid"]]?.let { respond(it, headers = json) } ?: notFound()
                     }
 
                     "/xrpc/com.atproto.repo.deleteRecord" -> {
@@ -150,6 +205,7 @@ class CombinePresentersTest {
                         val rkey = body.getValue("rkey").jsonPrimitive.content
                         writes += "delete $collection/$rkey"
                         if (collection == Nsid.FEED_ACTIVITY) records -= rkey
+                        if (collection == Nsid.FEED_ACTIVITY_STREAMS) streamsRecords -= rkey
                         respond("{}", headers = json)
                     }
 
@@ -366,6 +422,112 @@ class CombinePresentersTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    /** A watch with heart rate and a bike computer with heart rate and power, combined as 3kride. */
+    private fun ride() {
+        val time = (0..3600 step 2).toList()
+        records["3kwatch"] = ride("2026-10-14T09:00:00Z")
+        records["3kedge"] = ride("2026-10-14T09:00:00Z")
+        streams("3kwatch", ActivityStreamData(time = time, heartRate = time.map { 150 }))
+        streams("3kedge", ActivityStreamData(time = time, heartRate = time.map { 140 }, power = time.map { 250 }))
+        records["3kride"] = ride("2026-10-14T09:00:00Z", members = listOf("3kwatch", "3kedge"))
+    }
+
+    private suspend fun ReceiveTurbine<ActivityDetailState>.awaitSources() =
+        (awaitUntil { (it as? ActivityDetailState.Loaded)?.dataSources?.kinds?.isNotEmpty() == true } as ActivityDetailState.Loaded)
+
+    @Test
+    fun theOwnerSeesEachKindOfDataAndWhereItComesFrom() = runTest {
+        ride()
+        presenterTestOf(detail(uri("3kride"), FakeNavigator(ActivityDetailScreen(uri("3kride"))))) {
+            val sources = awaitSources().dataSources!!
+            assertEquals(listOf(DataKind.HeartRate, DataKind.Power), sources.kinds.map { it.kind })
+            val heartRate = sources.kinds.first()
+            assertTrue(heartRate.included)
+            assertEquals(setOf(uri("3kwatch"), uri("3kedge")), heartRate.offered.map { it.uri.value }.toSet())
+            val power = sources.kinds.last()
+            assertTrue(power.included, "power, recorded by one member, is included by default")
+            assertEquals(uri("3kedge"), power.chosen?.uri?.value)
+            assertTrue(power.offered.isEmpty(), "nothing to choose between")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun anotherAthleteSeesNoDataSources() = runTest {
+        ride()
+        bobs += "3kride"
+        presenterTestOf(detail(uri("3kride"), FakeNavigator(ActivityDetailScreen(uri("3kride"))))) {
+            val loaded = awaitLoaded()
+            assertEquals(null, loaded.dataSources)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun excludingThenIncludingUpdatesTheSourcesAfterEachRebuild() = runTest {
+        ride()
+        presenterTestOf(detail(uri("3kride"), FakeNavigator(ActivityDetailScreen(uri("3kride"))))) {
+            awaitSources().eventSink(ActivityDetailEvent.SetIncluded(DataKind.Power, included = false))
+            val excluded = awaitUntil { s -> s.powerRow()?.included == false && s.saving() == null }
+            assertEquals(null, excluded.powerRow()?.chosen)
+            assertEquals(null, streamsOf("3kride")?.power, "rebuilt without power")
+            assertEquals("150|140", "${streamsOf("3kwatch")?.heartRate?.first()}|${streamsOf("3kedge")?.heartRate?.first()}")
+            assertEquals(250, streamsOf("3kedge")?.power?.first(), "the member keeps its power")
+
+            (excluded as ActivityDetailState.Loaded).eventSink(ActivityDetailEvent.SetIncluded(DataKind.Power, included = true))
+            awaitUntil { s -> s.powerRow()?.included == true && s.saving() == null }
+            assertEquals(250, streamsOf("3kride")?.power?.first(), "power is back")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun choosingASourceOnceRebuildsOnce() = runTest {
+        ride()
+        presenterTestOf(detail(uri("3kride"), FakeNavigator(ActivityDetailScreen(uri("3kride"))))) {
+            val loaded = awaitSources()
+            val before = writes.count { it == "put ${Nsid.FEED_ACTIVITY}/3kride" }
+            gate = CompletableDeferred()
+            loaded.eventSink(ActivityDetailEvent.ChooseSource(DataKind.HeartRate, AtUri(uri("3kwatch"))))
+            awaitUntil { it.saving() == DataKind.HeartRate }
+            loaded.eventSink(ActivityDetailEvent.ChooseSource(DataKind.HeartRate, AtUri(uri("3kwatch"))))
+            gate.complete(Unit)
+            val chosen = awaitUntil { s -> s.saving() == null && s.heartRateRow()?.chosen?.uri?.value == uri("3kwatch") }
+            assertEquals(before + 1, writes.count { it == "put ${Nsid.FEED_ACTIVITY}/3kride" }, "a second tap does nothing")
+            assertTrue(streamsOf("3kride")!!.heartRate!!.all { it == 150 })
+            assertEquals(150, AtJson.decodeFromJsonElement(ActivityRecord.serializer(), records.getValue("3kride")).avgHeartRate)
+            assertTrue((chosen as ActivityDetailState.Loaded).dataSources?.error == null)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aFailedRebuildShowsAnErrorAndRetries() = runTest {
+        ride()
+        presenterTestOf(detail(uri("3kride"), FakeNavigator(ActivityDetailScreen(uri("3kride"))))) {
+            val loaded = awaitSources()
+            failReads = true
+            loaded.eventSink(ActivityDetailEvent.SetIncluded(DataKind.Power, included = false))
+            val failed = awaitUntil { (it as? ActivityDetailState.Loaded)?.dataSources?.error != null } as ActivityDetailState.Loaded
+            assertEquals(UiError.Kind.SaveDataSource, failed.dataSources?.error?.kind)
+            assertEquals(true, failed.powerRow()?.included, "nothing changed")
+
+            failReads = false
+            failed.eventSink(ActivityDetailEvent.RetrySources)
+            awaitUntil { s -> s.powerRow()?.included == false && (s as ActivityDetailState.Loaded).dataSources?.error == null }
+            assertEquals(null, streamsOf("3kride")?.power)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    private fun ActivityDetailState.rows() = (this as? ActivityDetailState.Loaded)?.dataSources?.kinds
+
+    private fun ActivityDetailState.powerRow() = rows()?.firstOrNull { it.kind == DataKind.Power }
+
+    private fun ActivityDetailState.heartRateRow() = rows()?.firstOrNull { it.kind == DataKind.HeartRate }
+
+    private fun ActivityDetailState.saving() = (this as? ActivityDetailState.Loaded)?.dataSources?.saving
 
     private suspend fun ReceiveTurbine<ActivityDetailState>.awaitLoaded() =
         awaitUntil { it is ActivityDetailState.Loaded } as ActivityDetailState.Loaded

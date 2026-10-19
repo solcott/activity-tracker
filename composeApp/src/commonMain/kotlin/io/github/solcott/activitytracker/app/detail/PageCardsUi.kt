@@ -26,6 +26,7 @@ import io.github.solcott.activitytracker.composeApp.resources.page_all_stats
 import io.github.solcott.activitytracker.composeApp.resources.page_avg_max_heading
 import io.github.solcott.activitytracker.composeApp.resources.page_training_load
 import io.github.solcott.activitytracker.composeApp.resources.value_missing
+import io.github.solcott.activitytracker.lexicon.app.MemberView
 import kotlinx.collections.immutable.ImmutableList
 import org.jetbrains.compose.resources.stringResource
 
@@ -41,10 +42,13 @@ internal fun MetricCardUi(
     missingZones: Boolean = false,
     onSetThresholds: (() -> Unit)? = null,
     elevationBehind: Boolean = true,
+    /** On a combined activity, the members the card's data came from, named in its caption. */
+    sources: ImmutableList<MemberView>? = null,
 ) {
     AppCard(modifier) {
         Column(Modifier.padding(CARD_PADDING), verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
             CardTitle(if (card.pace != null) stringResource(Res.string.chart_pace) else sectionTitle(card.section), card.mark)
+            sources?.let { ChartSourceCaption(it) }
             if (card.headline.isNotEmpty()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(ROW_GAP)) {
                     card.headline.forEach { FigureBlock(it, MaterialTheme.typography.titleLarge, Modifier.weight(1f)) }

@@ -30,6 +30,8 @@ data class UiError(val kind: Kind, val detail: String?) {
         UngroupActivity,
         CombineActivity,
         SplitActivity,
+        LoadDataSources,
+        SaveDataSource,
         LoadCombineCandidates,
         ReadActivityFile,
         UnsupportedActivityFile,

@@ -1192,6 +1192,25 @@
     <!-- Combined activities (feed/combined-activities) -->
     <string name="error_combine_activity">Couldn't combine the activities</string>
     <string name="error_split_activity">Couldn't change the combined activity</string>
+    <string name="data_sources">Data sources</string>
+    <string name="data_source_comes_from">Comes from</string>
+    <string name="data_source_left_out">Left out</string>
+    <string name="data_source_include">Include %1$s</string>
+    <string name="data_source_started">Recording started %1$s</string>
+    <string name="data_kind_map">Map and GPS</string>
+    <string name="data_kind_distance_speed">Distance and speed</string>
+    <string name="data_kind_elevation">Elevation</string>
+    <string name="data_kind_heart_rate">Heart rate</string>
+    <string name="data_kind_power">Power</string>
+    <string name="data_kind_cadence">Cadence</string>
+    <string name="data_kind_temperature">Temperature</string>
+    <string name="data_kind_running_dynamics">Running dynamics</string>
+    <string name="data_kind_laps">Laps, sets and lengths</string>
+    <string name="data_kind_dive">Depth and dive data</string>
+    <string name="chart_source_from">From %1$s</string>
+    <string name="chart_source_then">%1$s, then %2$s</string>
+    <string name="error_load_data_sources">Couldn't read where this activity's data comes from</string>
+    <string name="error_save_data_source">Couldn't change where this activity's data comes from</string>
     <string name="error_load_combine_candidates">Couldn't load your other activities</string>
     <string name="detail_combine">Combine with…</string>
     <string name="detail_add_recording">Add a recording…</string>

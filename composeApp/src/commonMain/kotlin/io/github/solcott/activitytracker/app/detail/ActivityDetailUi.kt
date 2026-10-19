@@ -233,7 +233,8 @@ private fun LazyListScope.metricCards(state: ActivityDetailState.Loaded, columns
         Row(horizontalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
             row.forEach { card ->
                 val modifier = if (card.section in FULL_WIDTH) Modifier.fillMaxWidth() else Modifier.weight(1f)
-                MetricCardUi(card, charts, modifier, state.chartsMissingZones, onSetThresholds, elevationBehind)
+                val sources = state.chartSources.firstOrNull { it.section == card.section }?.members
+                MetricCardUi(card, charts, modifier, state.chartsMissingZones, onSetThresholds, elevationBehind, sources)
             }
             if (row.none { it.section in FULL_WIDTH }) repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
         }
@@ -278,6 +279,7 @@ private fun Header(state: ActivityDetailState.Loaded, modifier: Modifier = Modif
             onOpen = { state.eventSink(ActivityDetailEvent.OpenActivity(it)) },
             onRemove = { uri: AtUri -> state.eventSink(ActivityDetailEvent.RemoveMember(uri)) }.takeIf { state.manage != null },
         )
+        state.dataSources?.let { DataSourcesSection(it, state.eventSink) }
         state.manage?.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
         state.routeError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
         if (state.zoneAdded) Text(stringResource(Res.string.detail_zone_added), style = MaterialTheme.typography.bodySmall)
