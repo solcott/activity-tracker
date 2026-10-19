@@ -150,15 +150,23 @@ class RouteTrimmer(
             db.queuedActivityRecord(clients, rkey)
                 ?: listed?.let { runCatching { AtJson.decodeFromJsonElement(ActivityRecord.serializer(), it) }.getOrNull() }
                 ?: clients.ownActivityRecord(rkey, at)
-        val polyline = zones.polylineOf(route)
-        if (polyline == current.polyline) return false
-        val record = current.copy(polyline = polyline)
+        val record = retrimmed(current, route, zones)
+        if (record == current) return false
         writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), record, space = clients.placeOf(at))
         val uri = AtUri.of(clients.did, Nsid.FEED_ACTIVITY, rkey)
         feed.rewrites.set(uri, record)
         feed.updateCached(uri) { feed.rewrites.rewritten(it, record) }
         return true
     }
+
+    /** [current] with its polyline rebuilt from [route] by [zones]; a combined activity's broken between its members' recordings. */
+    private fun retrimmed(current: ActivityRecord, route: List<LocationSample>, zones: RouteTrim.Known): ActivityRecord =
+        if (current.combined != null) {
+            val line = zones.segmentedPolylineOf(route)
+            current.copy(polyline = line?.polyline, polylineGaps = line?.gaps)
+        } else {
+            current.copy(polyline = zones.polylineOf(route))
+        }
 
     /** Sends the queued activity writes, skipping the rest of the outbox; returns how many are left. */
     private suspend fun drainActivities(): Int = outbox.drain { it.collection == Nsid.FEED_ACTIVITY }
