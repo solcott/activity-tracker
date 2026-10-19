@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.app.edit.EditActivityScreen
 import io.github.solcott.activitytracker.app.edit.EditActivityState
 import io.github.solcott.activitytracker.app.edit.EditMedia
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
+import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
@@ -301,7 +302,7 @@ class EditActivityPresenterTest {
         presenterTestOf(presenter(navigator)) {
             val loaded = awaitUntil { it.visibility != null }
             assertEquals(Visibility.PUBLIC, loaded.visibility?.activity)
-            loaded.eventSink(EditActivityEvent.VisibilityChanged(Visibility.SELF))
+            loaded.visibility!!.eventSink(VisibilityEvent.ActivityChanged(Visibility.SELF))
             awaitUntil { it.visibility?.activity == Visibility.SELF }.eventSink(EditActivityEvent.Save)
             val warned = awaitUntil { it.confirmNarrowing }
             assertEquals(emptyList(), writes, "nothing saved before the athlete confirms")
@@ -329,7 +330,7 @@ class EditActivityPresenterTest {
             assertEquals(Visibility.PUBLIC, loaded.visibility?.tierOf(DetailCategory.START_TIME))
             assertEquals(null, loaded.visibility?.tierOf(DetailCategory.HEART_RATE), "no data, not offered")
 
-            loaded.eventSink(EditActivityEvent.CategoryVisibilityChanged(DetailCategory.START_TIME, Visibility.SELF))
+            loaded.visibility!!.eventSink(VisibilityEvent.CategoryChanged(DetailCategory.START_TIME, Visibility.SELF))
             awaitUntil { it.visibility?.tierOf(DetailCategory.START_TIME) == Visibility.SELF }.eventSink(EditActivityEvent.Save)
             val warned = awaitUntil { it.confirmCoreCharts != null }
             assertEquals(Visibility.PUBLIC, warned.confirmCoreCharts)
@@ -351,7 +352,7 @@ class EditActivityPresenterTest {
         visibility = Visibility.FOLLOWERS
         val navigator = FakeNavigator(EditActivityScreen(uri))
         presenterTestOf(presenter(navigator)) {
-            awaitUntil { it.visibility != null }.eventSink(EditActivityEvent.VisibilityChanged(Visibility.MUTUALS))
+            awaitUntil { it.visibility != null }.visibility!!.eventSink(VisibilityEvent.ActivityChanged(Visibility.MUTUALS))
             val mutuals = awaitUntil { it.visibility?.activity == Visibility.MUTUALS }
             assertEquals(
                 persistentListOf(Visibility.MUTUALS, Visibility.SELF),

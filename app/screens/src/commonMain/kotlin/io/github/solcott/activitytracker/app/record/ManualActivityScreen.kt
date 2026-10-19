@@ -44,12 +44,6 @@ sealed interface ManualActivityEvent {
 
     data class UnitsChanged(val value: UnitSystem) : ManualActivityEvent
 
-    /** Who may see this activity: a `Visibility` value. Narrows wider categories with it. */
-    data class VisibilityChanged(val visibility: String) : ManualActivityEvent
-
-    /** Who may see one detail category (a `DetailCategory` token): a `Visibility` value, no wider than the activity's. */
-    data class CategoryVisibilityChanged(val category: String, val visibility: String) : ManualActivityEvent
-
     data object Save : ManualActivityEvent
 
     data object Back : ManualActivityEvent

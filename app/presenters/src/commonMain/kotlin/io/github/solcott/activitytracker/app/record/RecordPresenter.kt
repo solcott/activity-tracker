@@ -75,14 +75,6 @@ fun RecordPresenter(
         visibility = visibility.fields,
     ) { event ->
         when (event) {
-            is RecordEvent.VisibilityChanged -> {
-                visibility.activityChanged(event.visibility)
-            }
-
-            is RecordEvent.CategoryVisibilityChanged -> {
-                visibility.categoryChanged(event.category, event.visibility)
-            }
-
             is RecordEvent.TypeChanged -> {
                 type = event.type
             }

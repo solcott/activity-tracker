@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.app.visibility.fieldsOf
 import io.github.solcott.activitytracker.data.activity.ActivityManager
@@ -41,7 +42,7 @@ class EditVisibility internal constructor(private val canChoose: Boolean) {
 
     /** What the form shows; null until loaded. */
     val fields: VisibilityFields?
-        get() = choice?.let { fieldsOf(it, canChoose, approvesFollowers, offered) }
+        get() = choice?.let { fieldsOf(it, canChoose, ::onEvent, approvesFollowers, offered) }
 
     /** The choice to save, if the athlete changed it. */
     val changed: VisibilityChoice?
@@ -91,12 +92,13 @@ class EditVisibility internal constructor(private val canChoose: Boolean) {
         if (confirmed) save()
     }
 
-    fun activityChanged(visibility: String) {
-        if (canChoose) choice = choice?.withActivity(visibility)
-    }
-
-    fun categoryChanged(category: String, visibility: String) {
-        if (canChoose && category in offered) choice = choice?.withCategory(category, visibility)
+    fun onEvent(event: VisibilityEvent) {
+        if (!canChoose) return
+        when (event) {
+            is VisibilityEvent.ActivityChanged -> choice = choice?.withActivity(event.visibility)
+            is VisibilityEvent.CategoryChanged ->
+                if (event.category in offered) choice = choice?.withCategory(event.category, event.visibility)
+        }
     }
 }
 

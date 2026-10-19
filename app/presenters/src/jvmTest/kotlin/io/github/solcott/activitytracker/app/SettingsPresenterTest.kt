@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.app.settings.SettingsEvent
 import io.github.solcott.activitytracker.app.settings.SettingsPresenter
 import io.github.solcott.activitytracker.app.settings.SettingsScreen
 import io.github.solcott.activitytracker.app.settings.TrainingZonesScreen
+import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
@@ -80,9 +81,9 @@ class SettingsPresenterTest {
             val loaded = awaitUntil { it.defaults != null }
             assertEquals(Visibility.PUBLIC, loaded.defaults?.activity, "never set: Public")
             assertEquals(DetailCategory.all.map { Visibility.PUBLIC }, loaded.defaults?.categories?.map { it.visibility })
-            loaded.eventSink(SettingsEvent.DefaultCategoryVisibilityChanged(DetailCategory.HEART_RATE, Visibility.SELF))
+            loaded.defaults!!.eventSink(VisibilityEvent.CategoryChanged(DetailCategory.HEART_RATE, Visibility.SELF))
             awaitUntil { it.savingDefaults }
-            awaitUntil { !it.savingDefaults }.eventSink(SettingsEvent.DefaultVisibilityChanged(Visibility.MUTUALS))
+            awaitUntil { !it.savingDefaults }.defaults!!.eventSink(VisibilityEvent.ActivityChanged(Visibility.MUTUALS))
             awaitUntil { it.savingDefaults }
             val saved = awaitUntil { !it.savingDefaults }
             assertEquals(Visibility.MUTUALS, saved.defaults?.activity)
@@ -111,7 +112,7 @@ class SettingsPresenterTest {
         fixture.activityDefaults = """{"visibility":"followers","details":{"calories":"followers"}}"""
         val repos = fixture.repos()
         presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy) }) {
-            awaitUntil { it.defaults != null }.eventSink(SettingsEvent.DefaultVisibilityChanged(Visibility.SELF))
+            awaitUntil { it.defaults != null }.defaults!!.eventSink(VisibilityEvent.ActivityChanged(Visibility.SELF))
             awaitUntil { it.savingDefaults }
             val narrowed = awaitUntil { !it.savingDefaults }
             assertEquals(Visibility.SELF, narrowed.defaults?.activity)

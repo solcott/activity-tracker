@@ -38,6 +38,7 @@ import io.github.solcott.activitytracker.app.record.PartOfDay
 import io.github.solcott.activitytracker.app.record.PowerPreview
 import io.github.solcott.activitytracker.app.record.SensorPreview
 import io.github.solcott.activitytracker.app.record.TimeZoneOption
+import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.data.training.ThresholdChange
 import io.github.solcott.activitytracker.data.training.ZoneModels
 import io.github.solcott.activitytracker.data.training.Zones
@@ -256,7 +257,7 @@ class ImportActivityPresenterTest {
             // Threshold changes show once the athlete's training has loaded.
             val read = awaitUntil { it.preview != null && it.thresholdChanges.isNotEmpty() }
             assertTrue(read.preview!!.hasStreams)
-            read.eventSink(ImportActivityEvent.CategoryVisibilityChanged(DetailCategory.HEART_RATE, Visibility.MUTUALS))
+            read.visibility.eventSink(VisibilityEvent.CategoryChanged(DetailCategory.HEART_RATE, Visibility.MUTUALS))
             val mutuals = awaitUntil { it.visibility.tierOf(DetailCategory.HEART_RATE) == Visibility.MUTUALS }
             mutuals.eventSink(ImportActivityEvent.Save(defaultTitle = "Morning Run"))
             navigator.awaitPop()

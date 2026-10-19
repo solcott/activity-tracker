@@ -98,8 +98,6 @@ fun ManualActivityUi(state: ManualActivityState, modifier: Modifier = Modifier) 
             )
             ActivityVisibilityForm(
                 state.visibility,
-                onActivityChange = { state.eventSink(ManualActivityEvent.VisibilityChanged(it)) },
-                onCategoryChange = { category, tier -> state.eventSink(ManualActivityEvent.CategoryVisibilityChanged(category, tier)) },
                 enabled = !state.saving,
             )
             state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }

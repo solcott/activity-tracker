@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.app.visibility.fieldsOf
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
@@ -27,17 +28,19 @@ internal constructor(private val defaults: ActivityDefaults, private val flights
     internal var shown by mutableStateOf<VisibilityChoice?>(null)
 
     val fields: VisibilityFields?
-        get() = shown?.let { fieldsOf(it, defaults.canChoose) }
+        get() = shown?.let { fieldsOf(it, defaults.canChoose, ::onEvent) }
 
     val saving: Boolean
         get() = flights.isRunning(KEY)
 
-    fun activityChanged(visibility: String) {
-        shown?.let { save(it.withActivity(visibility)) }
-    }
-
-    fun categoryChanged(category: String, visibility: String) {
-        shown?.let { save(it.withCategory(category, visibility)) }
+    fun onEvent(event: VisibilityEvent) {
+        val shown = shown ?: return
+        save(
+            when (event) {
+                is VisibilityEvent.ActivityChanged -> shown.withActivity(event.visibility)
+                is VisibilityEvent.CategoryChanged -> shown.withCategory(event.category, event.visibility)
+            }
+        )
     }
 
     private fun save(choice: VisibilityChoice) {
@@ -56,7 +59,7 @@ internal constructor(private val defaults: ActivityDefaults, private val flights
 
     private companion object {
         /** Every default saves as one. */
-        val KEY = SettingsEvent.DefaultVisibilityChanged::class
+        val KEY = VisibilityEvent::class
     }
 }
 

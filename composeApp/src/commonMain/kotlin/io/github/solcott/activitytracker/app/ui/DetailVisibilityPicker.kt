@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.visibility.CategoryVisibility
+import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_badge_followers
@@ -51,7 +52,6 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun DetailVisibilityPicker(
     fields: VisibilityFields,
-    onCategoryChange: (category: String, visibility: String) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
@@ -71,7 +71,7 @@ fun DetailVisibilityPicker(
                 }
                 VisibilityPicker(
                     category.visibility,
-                    onSelect = { onCategoryChange(category.category, it) },
+                    onSelect = { fields.eventSink(VisibilityEvent.CategoryChanged(category.category, it)) },
                     approvesFollowers = fields.approvesFollowers,
                     modifier = Modifier.fillMaxWidth(),
                     enabled = enabled && fields.canChoose,

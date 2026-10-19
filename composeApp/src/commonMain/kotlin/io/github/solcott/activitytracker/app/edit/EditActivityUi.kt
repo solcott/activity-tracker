@@ -81,10 +81,6 @@ fun EditActivityUi(state: EditActivityState, modifier: Modifier = Modifier) {
                     state.visibility?.let { visibility ->
                         ActivityVisibilityForm(
                             visibility,
-                            onActivityChange = { state.eventSink(EditActivityEvent.VisibilityChanged(it)) },
-                            onCategoryChange = { category, tier ->
-                                state.eventSink(EditActivityEvent.CategoryVisibilityChanged(category, tier))
-                            },
                             enabled = !state.saving,
                         )
                     }

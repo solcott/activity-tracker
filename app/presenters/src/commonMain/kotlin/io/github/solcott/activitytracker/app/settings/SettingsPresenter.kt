@@ -47,10 +47,6 @@ fun SettingsPresenter(
         hidesRouteEnds = (privacySettings?.hideEndsMeters ?: 0) > 0,
     ) { event ->
         when (event) {
-            is SettingsEvent.DefaultVisibilityChanged -> defaultVisibility.activityChanged(event.visibility)
-
-            is SettingsEvent.DefaultCategoryVisibilityChanged -> defaultVisibility.categoryChanged(event.category, event.visibility)
-
             SettingsEvent.Back -> {
                 navigator.pop()
             }

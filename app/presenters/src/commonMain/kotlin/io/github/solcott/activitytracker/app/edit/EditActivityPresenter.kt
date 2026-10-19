@@ -116,10 +116,6 @@ fun EditActivityPresenter(
 
             EditActivityEvent.CancelNarrowing -> visibility.narrowingAnswered(confirmed = false, saveLoaded)
 
-            is EditActivityEvent.VisibilityChanged -> visibility.activityChanged(event.visibility)
-
-            is EditActivityEvent.CategoryVisibilityChanged -> visibility.categoryChanged(event.category, event.visibility)
-
             EditActivityEvent.ConfirmCoreCharts -> visibility.coreChartsAnswered(confirmed = true, saveLoaded)
 
             EditActivityEvent.CancelCoreCharts -> visibility.coreChartsAnswered(confirmed = false, saveLoaded)

@@ -32,14 +32,6 @@ sealed interface SettingsEvent {
 
     data class UnitsChanged(val units: UnitSystem) : SettingsEvent
 
-    /** The default visibility of new activities: a `Visibility` value. Narrows wider category defaults with it. */
-    data class DefaultVisibilityChanged(val visibility: String) : SettingsEvent
-
-    /**
-     * The default visibility of one detail category (a `DetailCategory` token): a `Visibility` value, no wider than the activity default.
-     */
-    data class DefaultCategoryVisibilityChanged(val category: String, val visibility: String) : SettingsEvent
-
     data object OpenZones : SettingsEvent
 
     data object OpenPrivacyZones : SettingsEvent

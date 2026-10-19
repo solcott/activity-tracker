@@ -29,22 +29,20 @@ class NewActivityVisibility internal constructor(private val canChoose: Boolean,
 
     /** What the form shows. */
     val fields: VisibilityFields
-        get() = fieldsOf(choice, canChoose, approvesFollowers())
+        get() = fieldsOf(choice, canChoose, ::onEvent, approvesFollowers())
 
     /** What to publish with. */
     val current: VisibilityChoice
         get() = choice
 
-    fun activityChanged(visibility: String) {
+    fun onEvent(event: VisibilityEvent) {
         if (!canChoose) return
         chosen = true
-        choice = choice.withActivity(visibility)
-    }
-
-    fun categoryChanged(category: String, visibility: String) {
-        if (!canChoose) return
-        chosen = true
-        choice = choice.withCategory(category, visibility)
+        choice =
+            when (event) {
+                is VisibilityEvent.ActivityChanged -> choice.withActivity(event.visibility)
+                is VisibilityEvent.CategoryChanged -> choice.withCategory(event.category, event.visibility)
+            }
     }
 }
 
@@ -58,10 +56,14 @@ fun rememberNewActivityVisibility(defaults: ActivityDefaults, approvesFollowers:
     return state
 }
 
-/** [choice] as a form shows it: each of [offered] (every category unless said) at its visibility, capped at the activity's. */
+/**
+ * [choice] as a form shows it: each of [offered] (every category unless said) at its visibility, capped at the activity's. Changes go to
+ * [eventSink].
+ */
 fun fieldsOf(
     choice: VisibilityChoice,
     canChoose: Boolean,
+    eventSink: (VisibilityEvent) -> Unit,
     approvesFollowers: Boolean = false,
     offered: List<String> = DetailCategory.all,
 ): VisibilityFields {
@@ -71,6 +73,7 @@ fun fieldsOf(
         categories = offered.map { CategoryVisibility(it, tiers.getValue(it)) }.toImmutableList(),
         canChoose = canChoose,
         approvesFollowers = approvesFollowers,
+        eventSink = eventSink,
     )
 }
 

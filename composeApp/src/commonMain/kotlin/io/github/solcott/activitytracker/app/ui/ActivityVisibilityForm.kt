@@ -8,6 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_heading
@@ -17,13 +18,11 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * Who may see an activity and each of its detail categories ([DetailVisibilityPicker]), which offers only the activity's visibility or
- * narrower. A session that can't choose shows Public, disabled, and says to sign in again.
+ * narrower. Changes go to the fields' sink. A session that can't choose shows Public, disabled, and says to sign in again.
  */
 @Composable
 fun ActivityVisibilityForm(
     fields: VisibilityFields,
-    onActivityChange: (String) -> Unit,
-    onCategoryChange: (category: String, visibility: String) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
@@ -32,13 +31,13 @@ fun ActivityVisibilityForm(
         Text(stringResource(Res.string.activity_visibility_heading), style = MaterialTheme.typography.labelLarge)
         VisibilityPicker(
             fields.activity,
-            onSelect = onActivityChange,
+            onSelect = { fields.eventSink(VisibilityEvent.ActivityChanged(it)) },
             approvesFollowers = fields.approvesFollowers,
             modifier = Modifier.fillMaxWidth(),
             enabled = canChoose,
         )
         Note(stringResource(if (fields.canChoose) Res.string.activity_visibility_help else Res.string.activity_visibility_sign_in_again))
-        DetailVisibilityPicker(fields, onCategoryChange, Modifier.fillMaxWidth(), enabled = enabled)
+        DetailVisibilityPicker(fields, Modifier.fillMaxWidth(), enabled = enabled)
     }
 }
 

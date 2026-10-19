@@ -341,11 +341,5 @@ sealed interface ImportActivityEvent {
     /** Selects or clears every dive in the [DiveBatch] that isn't a duplicate. */
     data class AllDivesSelected(val selected: Boolean) : ImportActivityEvent
 
-    /** Who may see one detail category (a `DetailCategory` token) of the activity (every dive of a logbook): a `Visibility` value. */
-    data class CategoryVisibilityChanged(val category: String, val visibility: String) : ImportActivityEvent
-
-    /** Who may see the activity (every dive of a logbook): a `Visibility` value. Narrows wider categories with it. */
-    data class VisibilityChanged(val visibility: String) : ImportActivityEvent
-
     data object Back : ImportActivityEvent
 }

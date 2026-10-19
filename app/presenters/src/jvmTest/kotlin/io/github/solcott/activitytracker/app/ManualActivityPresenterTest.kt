@@ -6,6 +6,7 @@ import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.record.ManualActivityEvent
 import io.github.solcott.activitytracker.app.record.ManualActivityPresenter
 import io.github.solcott.activitytracker.app.record.ManualActivityScreen
+import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.data.sport.SportCatalog
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -143,7 +144,7 @@ class ManualActivityPresenterTest {
             ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, repos.defaults, Clock.System)
         }) {
             val defaulted = awaitUntil { it.visibility.activity == Visibility.FOLLOWERS }
-            defaulted.eventSink(ManualActivityEvent.VisibilityChanged(Visibility.PUBLIC))
+            defaulted.visibility.eventSink(VisibilityEvent.ActivityChanged(Visibility.PUBLIC))
             val public = awaitUntil { it.visibility.activity == Visibility.PUBLIC }
             public.durationMinutes.setTextAndPlaceCursorAtEnd("30")
             public.eventSink(ManualActivityEvent.Save)
@@ -168,10 +169,11 @@ class ManualActivityPresenterTest {
             ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, repos.defaults, Clock.System)
         }) {
             awaitUntil { it.visibility.activity == Visibility.FOLLOWERS }
-                .eventSink(ManualActivityEvent.VisibilityChanged(Visibility.PUBLIC))
+                .visibility
+                .eventSink(VisibilityEvent.ActivityChanged(Visibility.PUBLIC))
             var state = awaitUntil { it.visibility.activity == Visibility.PUBLIC }
             assertEquals(Visibility.FOLLOWERS, state.visibility.tierOf(DetailCategory.START_TIME), "widening leaves categories")
-            state.eventSink(ManualActivityEvent.CategoryVisibilityChanged(DetailCategory.START_TIME, Visibility.PUBLIC))
+            state.visibility.eventSink(VisibilityEvent.CategoryChanged(DetailCategory.START_TIME, Visibility.PUBLIC))
             state = awaitUntil { it.visibility.tierOf(DetailCategory.START_TIME) == Visibility.PUBLIC }
             state.durationMinutes.setTextAndPlaceCursorAtEnd("30")
             state.eventSink(ManualActivityEvent.Save)

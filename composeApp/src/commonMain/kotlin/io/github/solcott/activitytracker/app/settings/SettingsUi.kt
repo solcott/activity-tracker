@@ -22,6 +22,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_sign_in_again
@@ -77,7 +78,7 @@ fun SettingsUi(state: SettingsState, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.bodySmall,
             )
             HorizontalDivider()
-            state.defaults?.let { defaults -> DefaultVisibility(defaults, state.savingDefaults, state.eventSink) }
+            state.defaults?.let { defaults -> DefaultVisibility(defaults, state.savingDefaults) }
             state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
             HorizontalDivider()
             AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.OpenZones) }) { Text(stringResource(Res.string.settings_zones)) }
@@ -104,7 +105,6 @@ fun SettingsUi(state: SettingsState, modifier: Modifier = Modifier) {
 private fun DefaultVisibility(
     defaults: VisibilityFields,
     saving: Boolean,
-    eventSink: (SettingsEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val enabled = defaults.canChoose && !saving
@@ -113,14 +113,13 @@ private fun DefaultVisibility(
         Text(stringResource(Res.string.settings_defaults_activity), style = MaterialTheme.typography.labelLarge)
         VisibilityPicker(
             defaults.activity,
-            onSelect = { eventSink(SettingsEvent.DefaultVisibilityChanged(it)) },
+            onSelect = { defaults.eventSink(VisibilityEvent.ActivityChanged(it)) },
             approvesFollowers = defaults.approvesFollowers,
             modifier = Modifier.fillMaxWidth(),
             enabled = enabled,
         )
         DetailVisibilityPicker(
             defaults,
-            onCategoryChange = { category, tier -> eventSink(SettingsEvent.DefaultCategoryVisibilityChanged(category, tier)) },
             modifier = Modifier.fillMaxWidth(),
             enabled = enabled,
         )

@@ -51,14 +51,6 @@ fun ManualActivityPresenter(
 
     return ManualActivityState(type, quickTypes, title, distance, duration, temperature, units, saving, error, visibility.fields) { event ->
         when (event) {
-            is ManualActivityEvent.VisibilityChanged -> {
-                visibility.activityChanged(event.visibility)
-            }
-
-            is ManualActivityEvent.CategoryVisibilityChanged -> {
-                visibility.categoryChanged(event.category, event.visibility)
-            }
-
             is ManualActivityEvent.TypeChanged -> {
                 type = event.value
             }

@@ -49,12 +49,6 @@ sealed interface EditActivityEvent {
     /** Retries a failed load. */
     data object Retry : EditActivityEvent
 
-    /** Who may see the activity: a `Visibility` value. Narrows wider categories with it. */
-    data class VisibilityChanged(val visibility: String) : EditActivityEvent
-
-    /** Who may see one detail category (a `DetailCategory` token): a `Visibility` value, no wider than the activity's. */
-    data class CategoryVisibilityChanged(val category: String, val visibility: String) : EditActivityEvent
-
     /** Saves after the warning that narrowing a Public activity can't recall published copies. */
     data object ConfirmNarrowing : EditActivityEvent
 

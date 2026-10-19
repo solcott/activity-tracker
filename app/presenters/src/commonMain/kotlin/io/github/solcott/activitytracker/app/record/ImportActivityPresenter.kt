@@ -187,10 +187,6 @@ fun ImportActivityPresenter(
                 navigator.pop()
             }
 
-            is ImportActivityEvent.CategoryVisibilityChanged -> visibility.categoryChanged(event.category, event.visibility)
-
-            is ImportActivityEvent.VisibilityChanged -> visibility.activityChanged(event.visibility)
-
             is ImportActivityEvent.DiveToggled -> selection = selection.toggled(event.index, matches.getOrNull(event.index))
 
             is ImportActivityEvent.AllDivesSelected -> selection = selection.all(event.selected, placedDives.orEmpty().size)
