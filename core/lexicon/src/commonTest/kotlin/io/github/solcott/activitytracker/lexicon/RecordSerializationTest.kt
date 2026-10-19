@@ -6,6 +6,9 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityDiveTank
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.ChannelSource
+import io.github.solcott.activitytracker.lexicon.app.CombinedActivity
+import io.github.solcott.activitytracker.lexicon.app.CombinedChannel
 import io.github.solcott.activitytracker.lexicon.app.CommentHideRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentView
@@ -102,6 +105,36 @@ class RecordSerializationTest {
         assertTrue("\"recordingOf\":\"at://did:plc:alice/${Nsid.FEED_ACTIVITY}/3kprimary\"" in json, json)
         assertEquals(recording, AtJson.decodeFromString(ActivityRecord.serializer(), json))
         assertFalse("recordingOf" in AtJson.encodeToString(ActivityRecord.serializer(), record))
+    }
+
+    @Test
+    fun combinedRoundTripsAndSurvivesAnEditCopy() {
+        val watch = AtUri("at://did:plc:alice/${Nsid.FEED_ACTIVITY}/3kwatch")
+        val edge = AtUri("at://did:plc:alice/${Nsid.FEED_ACTIVITY}/3kedge")
+        val combined =
+            record.copy(
+                polyline = "_p~iF~ps|U_ulLnnqC",
+                polylineGaps = listOf(1),
+                combined =
+                    CombinedActivity(
+                        members = listOf(watch, edge),
+                        sources =
+                            listOf(ChannelSource("heartRate", listOf(edge, watch)), ChannelSource(CombinedChannel.POSITION, listOf(watch))),
+                    ),
+            )
+        val json = AtJson.encodeToString(ActivityRecord.serializer(), combined)
+        assertTrue(
+            """"combined":{"members":["$watch","$edge"],"sources":[{"channel":"heartRate","members":["$edge","$watch"]}""" in json,
+            json,
+        )
+        assertTrue(""""polylineGaps":[1]""" in json, json)
+        assertEquals(combined, AtJson.decodeFromString(ActivityRecord.serializer(), json))
+        // An edit copies the record and changes its own fields only.
+        val edited = AtJson.decodeFromString(ActivityRecord.serializer(), json).copy(title = "Lunch loop")
+        assertEquals(combined.combined, edited.combined)
+        assertEquals(listOf(edge, watch), edited.combined?.sourcesOf("heartRate"))
+        assertFalse("combined" in AtJson.encodeToString(ActivityRecord.serializer(), record))
+        assertFalse("polylineGaps" in AtJson.encodeToString(ActivityRecord.serializer(), record))
     }
 
     @Test

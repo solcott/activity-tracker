@@ -249,6 +249,8 @@ data class ActivityRecord(
     val avgTemperature: Long? = null,
     /** Simplified Google encoded polyline (precision 5). */
     val polyline: String? = null,
+    /** Indices of [polyline]'s decoded points after which its line breaks, ascending: a [combined] activity's back-to-back members. */
+    val polylineGaps: List<Int>? = null,
     val device: String? = null,
     /** A [SubSport] value refining [sport]; null for the sport's generic form. */
     val subSport: String? = null,
@@ -263,6 +265,8 @@ data class ActivityRecord(
     val recordingOf: AtUri? = null,
     /** Photos, in the athlete's order. At most [ActivityMedia.MAX]. */
     val media: List<ActivityMedia>? = null,
+    /** Set when this activity combines several of the athlete's own recordings of one activity, which feeds then show only as this. */
+    val combined: CombinedActivity? = null,
     /** Revolutions or steps per minute. */
     val avgCadence: Int? = null,
     /** Revolutions or steps per minute. */
@@ -308,6 +312,46 @@ data class ActivityRecord(
 }
 
 /**
+ * `app.activitytracker.feed.activity#combined`: the athlete's own recordings an activity combines, at the same time on different devices or
+ * one after another, and for each channel which of them it's taken from. Members are never rewritten; the combined activity's figures,
+ * streams and track are built from theirs.
+ */
+@Immutable
+@Serializable
+data class CombinedActivity(
+    /** [MIN_MEMBERS] to [MAX_MEMBERS] of the athlete's activities. */
+    val members: List<AtUri>,
+    /** Per channel, the members it comes from, best first. */
+    val sources: List<ChannelSource> = emptyList(),
+) {
+    /** The ranking for [channel], or null when none is stored. */
+    fun sourcesOf(channel: String): List<AtUri>? = sources.firstOrNull { it.channel == channel }?.members
+
+    companion object {
+        const val MIN_MEMBERS = 2
+        const val MAX_MEMBERS = 10
+    }
+}
+
+/** `app.activitytracker.feed.activity#channelSource`: [members] of a combined activity that [channel] comes from, best first. */
+@Immutable @Serializable data class ChannelSource(val channel: String, val members: List<AtUri>)
+
+/**
+ * [ChannelSource.channel] values beyond the stream channels (`feed.activityStreams#streamData`'s names, such as `heartRate`), an open set:
+ * the data a combined activity takes whole from one member rather than sample by sample.
+ */
+object CombinedChannel {
+    /** The track and polyline. */
+    const val POSITION = "position"
+    const val LAPS = "laps"
+    const val LEGS = "legs"
+    const val SETS = "sets"
+    const val LENGTHS = "lengths"
+    /** The dive summary, alerts, gas switches and tank pressures. */
+    const val DIVE = "dive"
+}
+
+/**
  * `app.activitytracker.feed.activityDetails`: an activity's summary fields whose [DetailCategory] is narrower than the activity, under its
  * activity's rkey. The fields have the same names and units as on [ActivityRecord], which leaves them out.
  *
@@ -323,6 +367,8 @@ data class ActivityDetailsRecord(
     val startedAt: Instant? = null,
     /** The trimmed polyline, when the map is narrower than the activity. */
     val polyline: String? = null,
+    /** [polyline]'s breaks ([ActivityRecord.polylineGaps]), with it. */
+    val polylineGaps: List<Int>? = null,
     /** Millimeters per second. */
     val avgSpeed: Long? = null,
     /** Millimeters per second. */

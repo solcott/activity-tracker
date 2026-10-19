@@ -65,6 +65,15 @@ object DetailCategory {
                 { it.polyline != null },
             ),
             SummaryField(
+                "polylineGaps",
+                MAP,
+                { it.polylineGaps != null },
+                { it.copy(polylineGaps = null) },
+                { d, r -> d.copy(polylineGaps = r.polylineGaps) },
+                { r, d -> d.polylineGaps?.let { r.copy(polylineGaps = it) } ?: r },
+                { it.polylineGaps != null },
+            ),
+            SummaryField(
                 "avgSpeed",
                 SPEED,
                 { it.avgSpeed != null },
@@ -182,6 +191,7 @@ object DetailCategory {
             "sensors",
             "dive",
             "recordingOf",
+            "combined",
             "media",
             "frontShifts",
             "rearShifts",

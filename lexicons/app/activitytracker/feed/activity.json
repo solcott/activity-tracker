@@ -56,6 +56,12 @@
             "maxLength": 50000,
             "description": "Simplified route as a Google encoded polyline (precision 5), for feed/map previews. Trimmed by the athlete's privacy zones and hidden start and end; absent when nothing is left."
           },
+          "polylineGaps": {
+            "type": "array",
+            "maxLength": 10,
+            "items": { "type": "integer", "minimum": 0 },
+            "description": "Indices of the decoded polyline's points after which its line breaks, in ascending order: a combined activity's members recorded one after another, with no route between them. Absent when the line is unbroken."
+          },
           "device": { "type": "string", "maxLength": 256 },
           "sensors": {
             "type": "array",
@@ -75,7 +81,50 @@
             "format": "at-uri",
             "description": "Another recording of the activity at this URI, such as a backup dive computer's: the same athlete's, and not itself a recording. Feeds show the activity once, and its view lists the recordings. A link to anyone else's activity, or to a recording, is ignored."
           },
+          "combined": {
+            "type": "ref",
+            "ref": "#combined",
+            "description": "Present when this activity combines several of the athlete's own recordings of what was one activity, at the same time on different devices or one after another. Its figures, streams and track are built from its members, which are never rewritten. Feeds show it in place of its members."
+          },
           "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    },
+    "combined": {
+      "type": "object",
+      "description": "The recordings an activity combines, and which of them each channel comes from.",
+      "required": ["members", "sources"],
+      "properties": {
+        "members": {
+          "type": "array",
+          "minLength": 2,
+          "maxLength": 10,
+          "items": { "type": "string", "format": "at-uri" },
+          "description": "The member activities, by the same athlete. A member that is someone else's, is itself combined, is claimed by an earlier-created combined activity, or has another visibility is ignored, and shows as an activity in its own right."
+        },
+        "sources": {
+          "type": "array",
+          "maxLength": 64,
+          "items": { "type": "ref", "ref": "#channelSource" },
+          "description": "For each channel, the members it is taken from, best first: at each moment the first member with a sample supplies it."
+        }
+      }
+    },
+    "channelSource": {
+      "type": "object",
+      "required": ["channel", "members"],
+      "properties": {
+        "channel": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "A #streamData channel of app.activitytracker.feed.activityStreams, or one of position (the track and polyline), laps, legs, sets, lengths or dive (the dive summary, alerts, gas switches and tank pressures).",
+          "knownValues": ["position", "laps", "legs", "sets", "lengths", "dive", "distance", "altitude", "speed", "heartRate", "power", "cadence", "temperature", "depth"]
+        },
+        "members": {
+          "type": "array",
+          "maxLength": 10,
+          "items": { "type": "string", "format": "at-uri" },
+          "description": "Members of the combined activity, best first."
         }
       }
     },

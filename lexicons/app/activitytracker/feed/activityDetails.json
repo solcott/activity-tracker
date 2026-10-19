@@ -17,6 +17,12 @@
             "maxLength": 50000,
             "description": "The activity's simplified route, as on app.activitytracker.feed.activity, when the map is narrower than the activity. Trimmed by the athlete's privacy zones and hidden start and end."
           },
+          "polylineGaps": {
+            "type": "array",
+            "maxLength": 10,
+            "items": { "type": "integer", "minimum": 0 },
+            "description": "The polyline's breaks, as on app.activitytracker.feed.activity, with it."
+          },
           "avgSpeed": { "type": "integer", "minimum": 0, "description": "Millimeters per second." },
           "maxSpeed": { "type": "integer", "minimum": 0, "description": "Millimeters per second." },
           "avgHeartRate": { "type": "integer", "minimum": 0, "maximum": 300 },

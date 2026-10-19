@@ -27,6 +27,16 @@
           "items": { "type": "ref", "ref": "#recordingView" },
           "description": "Other recordings of this activity (feed.activity#recordingOf), oldest first; absent when it has none."
         },
+        "members": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "#memberView" },
+          "description": "A combined activity's members (feed.activity#combined) the AppView admits, oldest first; absent on an activity that combines nothing. likeCount and commentCount include the likes and comments on them."
+        },
+        "combinedInto": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "On a member, the combined activity it is part of; absent otherwise."
+        },
         "media": {
           "type": "array",
           "items": { "type": "union", "refs": ["#imageView"] },
@@ -63,6 +73,18 @@
       "properties": {
         "uri": { "type": "string", "format": "at-uri" },
         "startedAt": { "type": "string", "format": "datetime" },
+        "device": { "type": "string", "maxLength": 256 }
+      }
+    },
+    "memberView": {
+      "type": "object",
+      "description": "One recording a combined activity is built from, which feeds don't show on its own.",
+      "required": ["uri", "startedAt", "elapsedTime"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "startedAt": { "type": "string", "format": "datetime" },
+        "elapsedTime": { "type": "integer", "minimum": 0, "description": "Seconds." },
+        "sport": { "type": "string", "maxLength": 64 },
         "device": { "type": "string", "maxLength": 256 }
       }
     },

@@ -70,6 +70,13 @@ data class ActivityView(
     val viewer: ActivityViewerState? = null,
     /** Other recordings of this activity ([ActivityRecord.recordingOf]), oldest first; null when it has none. */
     val recordings: List<RecordingView>? = null,
+    /**
+     * A combined activity's members ([ActivityRecord.combined]) the AppView admits, oldest first; null on an activity that combines
+     * nothing. [likeCount] and [commentCount] include the likes and comments on them.
+     */
+    val members: List<MemberView>? = null,
+    /** On a member, the combined activity it's part of; null otherwise. */
+    val combinedInto: AtUri? = null,
     /** [record]'s media, with URLs to load them from; null when it has none. */
     val media: List<ActivityMediaView>? = null,
     /**
@@ -87,6 +94,19 @@ data class ActivityView(
 
 /** `app.activitytracker.feed.defs#detailsView`: a details record and the tier ([Visibility] value) it's stored in. */
 @Immutable @Serializable data class DetailsView(val visibility: String, val record: ActivityDetailsRecord)
+
+/** `app.activitytracker.feed.defs#memberView`: one recording a combined activity is built from. */
+@Immutable
+@Serializable
+data class MemberView(
+    val uri: AtUri,
+    val startedAt: Instant,
+    /** Seconds. */
+    val elapsedTime: Long,
+    /** A [Sport] value. */
+    val sport: String? = null,
+    val device: String? = null,
+)
 
 /** `app.activitytracker.feed.defs#recordingView`: another device's recording of an activity. */
 @Immutable @Serializable data class RecordingView(val uri: AtUri, val startedAt: Instant, val device: String? = null)
