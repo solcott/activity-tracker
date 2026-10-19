@@ -1189,5 +1189,8 @@
     <string name="page_group_counts">Counts</string>
     <string name="page_group_dive">Dive</string>
     <string name="page_group_device">Device</string>
-    <string name="page_start_value">%1$s %2$s</string>
+    <string name="page_start_date">%1$s %2$d, %3$d</string>
+    <string name="page_start_value">%1$s, %2$s</string>
+    <string name="time_am">AM</string>
+    <string name="time_pm">PM</string>
 </resources>

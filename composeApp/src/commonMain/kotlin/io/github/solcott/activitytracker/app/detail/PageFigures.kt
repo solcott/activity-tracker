@@ -74,7 +74,6 @@ import io.github.solcott.activitytracker.composeApp.resources.page_rear_shifts
 import io.github.solcott.activitytracker.composeApp.resources.page_reps
 import io.github.solcott.activitytracker.composeApp.resources.page_sensor
 import io.github.solcott.activitytracker.composeApp.resources.page_start_time
-import io.github.solcott.activitytracker.composeApp.resources.page_start_value
 import io.github.solcott.activitytracker.composeApp.resources.page_tank_pressure
 import io.github.solcott.activitytracker.composeApp.resources.page_tss
 import io.github.solcott.activitytracker.composeApp.resources.page_water_type
@@ -143,14 +142,6 @@ import io.github.solcott.activitytracker.composeApp.resources.value_missing
 import io.github.solcott.activitytracker.data.units.UnitConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.formatDecimal
-import kotlin.time.Instant
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.UtcOffset
-import kotlinx.datetime.asTimeZone
-import kotlinx.datetime.format
-import kotlinx.datetime.format.char
-import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -431,23 +422,6 @@ private fun decoModel(value: FigureValue.DecoModel): String {
     }
 }
 
-/** On the activity's own clock: its date, and its time when the viewer was served it. */
-@Composable
-private fun startTime(value: FigureValue.StartTime): String {
-    val minutes = value.utcOffsetMinutes ?: 0
-    val offset = UtcOffset(hours = minutes / MINUTES_PER_HOUR, minutes = minutes % MINUTES_PER_HOUR)
-    val local = Instant.fromEpochSeconds(value.epochSeconds).toLocalDateTime(offset.asTimeZone())
-    val date = local.date.format(LocalDate.Formats.ISO)
-    return if (value.dateOnly) date else stringResource(Res.string.page_start_value, date, local.format(TIME))
-}
-
-private val TIME = LocalDateTime.Format {
-    hour()
-    char(':')
-    minute()
-}
-
 private const val PACE_METERS = 1000.0
 private const val MM_PER_M = 1000.0
 private const val SECONDS_PER_MINUTE = 60
-private const val MINUTES_PER_HOUR = 60
