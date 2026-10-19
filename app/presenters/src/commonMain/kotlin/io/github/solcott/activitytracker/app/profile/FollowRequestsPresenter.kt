@@ -12,14 +12,13 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
-import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.FollowRequestsRepository
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
-import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -79,7 +78,7 @@ fun FollowRequestsPresenter(navigator: Navigator, answers: FollowRequestsReposit
                             requests = requests.without(event.did)
                             declined = declined.without(event.did)
                         }
-                        .onFailure { error = answerError(it) }
+                        .onFailure { error = uiErrorOf(UiError.Kind.AnswerFollowRequest, it) }
                 }
             }
 
@@ -91,7 +90,7 @@ fun FollowRequestsPresenter(navigator: Navigator, answers: FollowRequestsReposit
                             requests = requests.without(event.did)
                             if (account != null) declined = (listOf(account) + declined).toImmutableList()
                         }
-                        .onFailure { error = answerError(it) }
+                        .onFailure { error = uiErrorOf(UiError.Kind.AnswerFollowRequest, it) }
                 }
             }
 
@@ -114,8 +113,3 @@ private fun ImmutableList<ProfileViewBasic>.without(did: Did): ImmutableList<Pro
     it.did == did
 }
     .toImmutableList()
-
-/** A session without the decline scope can't decline until the athlete signs in again. */
-private fun answerError(cause: Throwable): UiError =
-    if (cause is XrpcException && cause.error == SpaceErrors.SCOPE_MISSING) UiError(UiError.Kind.SignInAgain, null)
-    else UiError.of(UiError.Kind.AnswerFollowRequest, cause)

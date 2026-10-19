@@ -14,10 +14,12 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.activitylist.interactionErrorOf
+import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
+import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEventSink
 import io.github.solcott.activitytracker.app.edit.EditActivityScreen
 import io.github.solcott.activitytracker.app.media.MediaGalleryScreen
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
+import io.github.solcott.activitytracker.app.profile.rememberApprovesFollowers
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.settings.TrainingZonesScreen
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -34,7 +36,6 @@ import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
-import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -93,11 +94,7 @@ fun ActivityDetailPresenter(
     // As shown: every detail the viewer was served on the record, with what they weren't left out.
     val shown = remember(served) { served?.let { it.copy(record = it.effectiveRecord()) } }
     val isOwn = shown?.author?.did == profiles.did
-    var approvesFollowers by remember { mutableStateOf(false) }
-    LaunchedEffect(isOwn) {
-        if (isOwn)
-            runSuspendCatching { profiles.ownProfileRecord() }.onSuccess { approvesFollowers = it?.followPolicy == FollowPolicy.APPROVE }
-    }
+    val approvesFollowers = rememberApprovesFollowers(profiles, enabled = isOwn)
     val shownCharts = chartsFor(shown, charts.charts)
     val sections = shown?.let { detailSections(it, shownCharts) } ?: persistentListOf()
     val expansion = rememberExpansion(sections)
@@ -107,6 +104,9 @@ fun ActivityDetailPresenter(
     val isDive = shown?.record?.sport == Sport.DIVE
     val formats = remember(ownRoute.track, hasStreams, isDive) { exportFormats(ownRoute.track, hasStreams, isDive) }
     val export = rememberExport(shown?.takeIf { isOwn }, formats, !charts.charts?.laps.isNullOrEmpty(), exporter, flights)
+
+    // A like toggles as it does in a list, one at a time per activity.
+    val likes = rememberActivityListEventSink(navigator, activities) { likeError = it }
 
     val sink: (ActivityDetailEvent) -> Unit = { event ->
         val current = activity
@@ -131,12 +131,8 @@ fun ActivityDetailPresenter(
             }
 
             ActivityDetailEvent.ToggleLike -> {
-                current?.let {
-                    flights.launch(it.uri) {
-                        likeError = null
-                        runSuspendCatching { activities.toggleLike(it) }.onFailure { e -> likeError = interactionErrorOf(e) }
-                    }
-                }
+                likeError = null
+                current?.let { likes(ActivityListEvent.ToggleLike(it)) }
             }
 
             is ActivityDetailEvent.ToggleSection,

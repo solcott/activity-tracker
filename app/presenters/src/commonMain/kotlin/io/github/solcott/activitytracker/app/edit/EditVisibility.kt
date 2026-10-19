@@ -21,12 +21,10 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
  * the activity. Only the categories it has data in are offered.
  */
 @Stable
-class EditVisibility internal constructor(private val canChoose: Boolean) {
+class EditVisibility internal constructor(private val canChoose: Boolean, private val approvesFollowers: () -> Boolean) {
     private var saved by mutableStateOf<VisibilityChoice?>(null)
     private var choice by mutableStateOf<VisibilityChoice?>(null)
     private var offered by mutableStateOf(emptyList<String>())
-
-    var approvesFollowers by mutableStateOf(false)
 
     /**
      * [view] as loaded, with its [streams] (null when it has none or they can't load): each category with data at the tier it's served at
@@ -42,7 +40,7 @@ class EditVisibility internal constructor(private val canChoose: Boolean) {
 
     /** What the form shows; null until loaded. */
     val fields: VisibilityFields?
-        get() = choice?.let { fieldsOf(it, canChoose, ::onEvent, approvesFollowers, offered) }
+        get() = choice?.let { fieldsOf(it, canChoose, ::onEvent, approvesFollowers(), offered) }
 
     /** The choice to save, if the athlete changed it. */
     val changed: VisibilityChoice?
@@ -102,4 +100,7 @@ class EditVisibility internal constructor(private val canChoose: Boolean) {
     }
 }
 
-@Composable internal fun rememberEditVisibility(canChoose: Boolean): EditVisibility = remember { EditVisibility(canChoose) }
+@Composable
+internal fun rememberEditVisibility(canChoose: Boolean, approvesFollowers: () -> Boolean): EditVisibility = remember {
+    EditVisibility(canChoose, approvesFollowers)
+}

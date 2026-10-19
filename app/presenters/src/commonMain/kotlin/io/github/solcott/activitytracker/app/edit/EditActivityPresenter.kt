@@ -8,10 +8,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.profile.rememberApprovesFollowers
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -23,7 +25,6 @@ import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
-import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.activityType
 
@@ -46,7 +47,9 @@ fun EditActivityPresenter(
     var seededTitle by remember { mutableStateOf("") }
     val form = rememberDetailsForm()
     val flights = rememberSingleFlight()
-    val visibility = rememberEditVisibility(defaults.canChoose)
+    // Read through state: the visibility holder is remembered once and asks for it as it changes.
+    val approvesFollowers by rememberUpdatedState(rememberApprovesFollowers(profiles))
+    val visibility = rememberEditVisibility(defaults.canChoose) { approvesFollowers }
 
     LaunchedEffect(loadKey) {
         if (activity != null) return@LaunchedEffect
@@ -65,10 +68,6 @@ fun EditActivityPresenter(
                 activity = view
             }
             .onFailure { error = UiError.of(UiError.Kind.LoadActivity, it) }
-    }
-    LaunchedEffect(Unit) {
-        runSuspendCatching { profiles.ownProfileRecord() }
-            .onSuccess { visibility.approvesFollowers = it?.followPolicy == FollowPolicy.APPROVE }
     }
 
     fun save(current: ActivityView) {

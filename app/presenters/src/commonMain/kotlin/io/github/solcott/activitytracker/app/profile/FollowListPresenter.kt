@@ -1,7 +1,6 @@
 package io.github.solcott.activitytracker.app.profile
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -16,7 +15,6 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.FollowRequestsRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
-import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import kotlinx.collections.immutable.toImmutableSet
 
@@ -91,19 +89,11 @@ fun FollowListPresenter(
     }
 }
 
-/**
- * Whether the athlete can remove followers from this list: it's their own followers and they approve followers. Their policy comes from
- * their record, since the AppView may lag a change they just made.
- */
+/** Whether the athlete can remove followers from this list: it's their own followers and they approve followers. */
 @Composable
 private fun rememberCanRemove(kind: FollowListKind, subject: ProfileViewBasic?, profiles: ProfileRepository): Boolean {
     val ownFollowers = kind == FollowListKind.Followers && subject?.did == profiles.did
-    var approves by remember { mutableStateOf(false) }
-    LaunchedEffect(ownFollowers) {
-        if (ownFollowers)
-            approves = runSuspendCatching { profiles.ownProfileRecord()?.followPolicy == FollowPolicy.APPROVE }.getOrDefault(false)
-    }
-    return ownFollowers && approves
+    return ownFollowers && rememberApprovesFollowers(profiles, enabled = ownFollowers)
 }
 
 private class Page(val subject: ProfileViewBasic, val accounts: List<ProfileViewBasic>, val cursor: String?)
