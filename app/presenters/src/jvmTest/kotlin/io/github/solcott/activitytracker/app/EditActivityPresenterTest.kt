@@ -221,6 +221,7 @@ class EditActivityPresenterTest {
                 zones.streams,
                 zones.tracks,
                 zones.sources,
+                zones.devices,
                 zones.store,
                 ActivityPlaces(clients, Clock.System, Logger),
                 feed,

@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.ActivityZonesStore
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
+import io.github.solcott.activitytracker.data.activity.PdsActivityDevicesStore
 import io.github.solcott.activitytracker.data.activity.PdsActivitySourceStore
 import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.activity.PdsActivityTrackStore
@@ -297,6 +298,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
         val streams: PdsActivityStreamsStore,
         val tracks: PdsActivityTrackStore,
         val sources: PdsActivitySourceStore,
+        val devices: PdsActivityDevicesStore,
         val defaults: ActivityDefaults,
         val zones: ActivityZonesStore,
         val privacy: PrivacyZones,
@@ -315,6 +317,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
         val streams = PdsActivityStreamsStore(writer, clients, Clock.System, zones)
         val tracks = PdsActivityTrackStore(db, writer, clients, Clock.System)
         val sources = PdsActivitySourceStore(db, writer, clients, Clock.System)
+        val devices = PdsActivityDevicesStore(db, writer, clients, Clock.System)
         val privacy = PrivacyZones(clients, Clock.System, Logger)
         val routes = RouteTrimmer(db, clients, writer, outbox, privacy, tracks, feed, Clock.System, Logger)
         val activities =
@@ -326,6 +329,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                 streams,
                 tracks,
                 sources,
+                devices,
                 zones,
                 places,
                 privacy,
@@ -340,10 +344,11 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
             clients,
             feed,
             activities,
-            ActivityManager(db, clients, outbox, writer, streams, tracks, sources, zones, places, feed),
+            ActivityManager(db, clients, outbox, writer, streams, tracks, sources, devices, zones, places, feed),
             streams,
             tracks,
             sources,
+            devices,
             ActivityDefaults(clients),
             zones,
             privacy,

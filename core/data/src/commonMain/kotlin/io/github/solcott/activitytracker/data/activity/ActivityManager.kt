@@ -34,6 +34,7 @@ class ActivityManager(
     private val streams: ActivityStreamsStore,
     private val tracks: ActivityTrackStore,
     private val sources: ActivitySourceStore,
+    private val devices: ActivityDevicesStore,
     private val zones: ActivityZonesStore,
     private val places: ActivityPlaces,
     private val feed: FeedRepository,
@@ -151,6 +152,7 @@ class ActivityManager(
         streams.delete(uri)
         tracks.delete(uri)
         sources.delete(uri)
+        devices.delete(uri)
         feed.deletes.delete(uri)
         db.feed().deleteByUri(uri.value)
         recordingOf?.let { feed.updateCached(it, feed.deletes::applyTo) }

@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.data.activity.ActivityZonesStore
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
+import io.github.solcott.activitytracker.data.activity.PdsActivityDevicesStore
 import io.github.solcott.activitytracker.data.activity.PdsActivitySourceStore
 import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.activity.PdsActivityTrackStore
@@ -19,4 +20,5 @@ internal class TestZones(db: AppDatabase, clients: SessionClients) {
     val streams = PdsActivityStreamsStore(writer, clients, Clock.System, store)
     val tracks = PdsActivityTrackStore(db, writer, clients, Clock.System)
     val sources = PdsActivitySourceStore(db, writer, clients, Clock.System)
+    val devices = PdsActivityDevicesStore(db, writer, clients, Clock.System)
 }

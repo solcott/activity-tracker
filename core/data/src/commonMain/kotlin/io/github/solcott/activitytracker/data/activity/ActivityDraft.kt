@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.data.activity
 
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
+import io.github.solcott.activitytracker.activityfile.ImportedDevices
 import io.github.solcott.activitytracker.activityfile.ImportedDive
 import io.github.solcott.activitytracker.activityfile.StreamBuilder
 import io.github.solcott.activitytracker.activityfile.TimeZones
@@ -88,6 +89,8 @@ data class ActivityDraft(
     val trainingLoad: TrainingLoad? = null,
     /** The file it was imported from, kept as is in the `self` space ([ActivitySourceStore]); null for a recording or a manual entry. */
     val source: DraftSource? = null,
+    /** The file's devices and their serial numbers, kept privately in the `self` space ([ActivityDevicesStore]); null for none. */
+    val devices: ImportedDevices? = null,
     /** A pool swim's pool length, in centimeters. */
     val poolLengthCentimeters: Int? = null,
     /** The device's cycle count: steps, strokes or pushes by sport ([ActivityRecord.cycles]). */
@@ -288,6 +291,7 @@ data class ActivityDraft(
                 maxHeartRate = imported.maxHeartRate,
                 device = imported.device,
                 sensors = imported.sensors.map { ActivitySensor(it.kind.token, it.manufacturer, it.model) },
+                devices = imported.devices,
                 route = imported.samples,
                 gpx = gpxOf(imported.samples.ifEmpty { diveFixes }, title, type.sport),
                 streams = imported.streams,

@@ -60,6 +60,7 @@ class ActivityRepository(
     private val streams: ActivityStreamsStore,
     private val tracks: ActivityTrackStore,
     private val sources: ActivitySourceStore,
+    private val devices: ActivityDevicesStore,
     private val zones: ActivityZonesStore,
     private val places: ActivityPlaces,
     private val privacy: PrivacyZones,
@@ -222,12 +223,13 @@ class ActivityRepository(
     }
 
     /**
-     * Gives [activity] [draft]'s track and original file where it has none, stored or queued. Their place doesn't depend on the activity
-     * being sent, so unlike its streams an unsent activity's are checked too.
+     * Gives [activity] [draft]'s track, original file and devices where it has none, stored or queued. Their place doesn't depend on the
+     * activity being sent, so unlike its streams an unsent activity's are checked too.
      */
     private suspend fun fillSelfRecords(activity: AtUri, draft: ActivityDraft) {
         draft.gpx?.let { if (!tracks.has(activity)) tracks.put(activity, it) }
         draft.source?.let { if (sources.info(activity) == null) sources.put(activity, it) }
+        draft.devices?.let { if (!devices.has(activity)) devices.put(activity, it) }
     }
 
     /**
@@ -265,6 +267,7 @@ class ActivityRepository(
             )
         }
         draft.source?.let { sources.put(uri, it) }
+        draft.devices?.let { devices.put(uri, it) }
         return uri
     }
 
