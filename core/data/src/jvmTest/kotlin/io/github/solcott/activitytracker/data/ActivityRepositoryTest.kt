@@ -202,8 +202,9 @@ class ActivityRepositoryTest {
         val sources = PdsActivitySourceStore(db, writer, clients, Clock.System)
         val devices = PdsActivityDevicesStore(db, writer, clients, Clock.System)
         val places = ActivityPlaces(clients, Clock.System, logger)
-        manager = ActivityManager(db, clients, outbox, writer, streams, tracks, sources, devices, zones, places, feed)
         val privacy = PrivacyZones(clients, Clock.System, Logger)
+        manager =
+            ActivityManager(db, clients, outbox, writer, streams, tracks, sources, devices, zones, places, feed, privacy, Clock.System)
         return ActivityRepository(
             db,
             clients,

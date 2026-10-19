@@ -344,7 +344,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
             clients,
             feed,
             activities,
-            ActivityManager(db, clients, outbox, writer, streams, tracks, sources, devices, zones, places, feed),
+            ActivityManager(db, clients, outbox, writer, streams, tracks, sources, devices, zones, places, feed, privacy, Clock.System),
             streams,
             tracks,
             sources,

@@ -37,6 +37,7 @@ import kotlinx.serialization.builtins.serializer
 /** AppView reads, cached in Room so feeds render offline and instantly on launch. */
 @SingleIn(SessionScope::class)
 @Inject
+@Suppress("TooManyFunctions") // Every read of the feed, with the athlete's own changes laid over it.
 class FeedRepository(
     private val db: AppDatabase,
     private val clients: SessionClients,
@@ -161,6 +162,26 @@ class FeedRepository(
                     uri !in known && record.startedAt >= since && record.startedAt < until && (sport == null || record.sport == sport)
                 }
         return (indexed + pending).sortedBy { it.record.startedAt }
+    }
+
+    /**
+     * The signed-in athlete's own activities as the AppView serves them, that started in [since, until), oldest first, every page it has,
+     * without those deleted or combined into another this session. Members of a combined activity come too, naming it (`combinedInto`).
+     */
+    suspend fun ownViewsStartedBetween(since: Instant, until: Instant): List<ActivityView> {
+        val views = mutableListOf<ActivityView>()
+        var cursor: String? = null
+        var pages = 0
+        do {
+            val page =
+                clients.appView.query(
+                    GetAuthorActivitiesByStart.method,
+                    GetAuthorActivitiesByStart.Params(clients.did.value, since, until, null, Paging.MAX_LIMIT, cursor),
+                )
+            views += page.activities
+            cursor = page.cursor
+        } while (cursor != null && ++pages < MAX_RANGE_PAGES)
+        return deletes.filter(views)
     }
 
     /** Optimistically rewrites every cached copy of [uri]. */

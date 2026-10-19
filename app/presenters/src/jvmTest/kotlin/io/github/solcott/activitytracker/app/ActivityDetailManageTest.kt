@@ -176,6 +176,8 @@ class ActivityDetailManageTest {
                 zones.store,
                 ActivityPlaces(clients, Clock.System, Logger),
                 feed,
+                privacy,
+                Clock.System,
             )
         return {
             ActivityDetailPresenter(

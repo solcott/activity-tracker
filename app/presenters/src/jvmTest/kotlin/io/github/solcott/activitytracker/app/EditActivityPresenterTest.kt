@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
+import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.activity.cid
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -225,6 +226,8 @@ class EditActivityPresenterTest {
                 zones.store,
                 ActivityPlaces(clients, Clock.System, Logger),
                 feed,
+                PrivacyZones(clients, Clock.System, Logger),
+                Clock.System,
             )
         val defaults = ActivityDefaults(clients)
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
