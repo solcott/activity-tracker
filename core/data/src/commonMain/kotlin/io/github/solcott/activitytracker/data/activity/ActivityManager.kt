@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.ChannelSource
 import io.github.solcott.activitytracker.lexicon.app.CombinedActivity
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.DetailsView
@@ -281,6 +282,33 @@ class ActivityManager(
         outbox.drain()
     }
 
+    /**
+     * Each kind of data [combined]'s members recorded and where it comes from ([DataKinds.of]), from the members as stored and the ranking
+     * [combined] has (`feed/combined-sources`).
+     */
+    suspend fun sources(combined: ActivityView): CombinedSources {
+        val members = requireNotNull(combined.record.combined) { "Not a combined activity" }.members.map { read(it).member }
+        val stored = places.read(combined.uri).full?.combined?.sources ?: combined.record.combined?.sources.orEmpty()
+        return CombinedSources(DataKinds.of(members, stored), DataKinds.views(members))
+    }
+
+    /**
+     * Takes [kind] of [combined]'s data from [choice]: a member first, left out, or ranked by default again (`feed/combined-sources`). The
+     * combined activity is rebuilt from the new ranking and written like any other change to it, keeping its title, photos and categories;
+     * its members are never rewritten. Returns the kinds as they now stand.
+     */
+    suspend fun setSources(combined: ActivityView, kind: DataKind, choice: SourceChoice): CombinedSources {
+        val members = requireNotNull(combined.record.combined) { "Not a combined activity" }.members
+        if (choice is SourceChoice.Member) require(choice.uri in members) { "Not a member" }
+        outbox.drain()
+        val data = members.map { read(it) }
+        val stored = places.read(combined.uri).full?.combined?.sources ?: combined.record.combined?.sources.orEmpty()
+        val sources = DataKinds.choose(data.map { it.member }, stored, kind, choice)
+        build(combined.uri, base = members.first(), data, combined.visibilityOrPublic, sources)
+        outbox.drain()
+        return CombinedSources(DataKinds.of(data.map { it.member }, sources), DataKinds.views(data.map { it.member }))
+    }
+
     /** Takes [member] out of [combined], which is rebuilt without it, or split when only one member would be left. */
     suspend fun removeMember(combined: ActivityView, member: AtUri) {
         outbox.drain()
@@ -324,12 +352,19 @@ class ActivityManager(
 
     /**
      * Queues the combined activity at [uri] built from [members] ([ActivityCombiner]): its record and details at [visibility], its streams
-     * and zones, and its track. A rebuild keeps the ranking, title, description, photos and categories it has; a new one starts from
-     * [base].
+     * and zones, and its track. A rebuild keeps the ranking (unless given [sources]), title, description, photos and categories it has; a
+     * new one starts from [base].
      */
-    private suspend fun build(uri: AtUri, base: AtUri, members: List<MemberData>, visibility: String) {
+    private suspend fun build(
+        uri: AtUri,
+        base: AtUri,
+        members: List<MemberData>,
+        visibility: String,
+        sources: List<ChannelSource>? = null,
+    ) {
         val current = places.read(uri).takeIf { it.full != null }
-        val built = ActivityCombiner.combine(base, members.map { it.member }, clock.now(), current?.full?.combined?.sources.orEmpty())
+        val ranking = sources ?: current?.full?.combined?.sources.orEmpty()
+        val built = ActivityCombiner.combine(base, members.map { it.member }, clock.now(), ranking)
         val trim = privacy.forPublish()
         val record = keptFrom(current?.full, built.record, trim.trim.segmentedPolylineOf(built.route))
         val categories =
@@ -345,12 +380,15 @@ class ActivityManager(
             tracks.delete(uri)
         }
         built.streams?.let { data ->
-            // Zones from the member whose heart rate the combined activity takes: a draft's own, else as the AppView serves them.
+            // Zones from the member whose heart rate the combined activity takes (its power's, when heart rate is left out): a draft's
+            // own, else as the AppView serves them.
+            val combined = built.record.combined
             val zones =
-                built.record.combined?.sourcesOf(StreamChannel.HEART_RATE)?.firstOrNull()?.let { source ->
-                    members.firstOrNull { it.member.uri == source }?.zones
-                        ?: feed.streams(source)?.let { LocalZones(it.heartRateZones, it.powerZones, it.trainingLoad) }
-                }
+                (combined?.sourcesOf(StreamChannel.HEART_RATE)?.firstOrNull() ?: combined?.sourcesOf(StreamChannel.POWER)?.firstOrNull())
+                    ?.let { source ->
+                        members.firstOrNull { it.member.uri == source }?.zones
+                            ?: feed.streams(source)?.let { LocalZones(it.heartRateZones, it.powerZones, it.trainingLoad) }
+                    }
             streams.put(uri, ActivityStreams(data, visibility, categories, zones?.heartRate, zones?.power, zones?.trainingLoad))
         }
         feed.rewrites.set(uri, layout.record)

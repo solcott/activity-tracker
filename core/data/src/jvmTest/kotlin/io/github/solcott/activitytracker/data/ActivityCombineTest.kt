@@ -3,7 +3,9 @@ package io.github.solcott.activitytracker.data
 import io.github.solcott.activitytracker.data.FakeAthletePds.Session
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityEdit
+import io.github.solcott.activitytracker.data.activity.DataKind
 import io.github.solcott.activitytracker.data.activity.OwnActivity
+import io.github.solcott.activitytracker.data.activity.SourceChoice
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -196,6 +198,48 @@ class ActivityCombineTest {
         assertNull(streamsOf(combined))
         assertEquals(emptySet(), pds.placesOf(Nsid.FEED_ACTIVITY_TRACK, combined.rkey!!))
         for ((uri, kept) in members) assertEquals(kept, record(uri) to streamsOf(uri))
+    }
+
+    @Test
+    fun choosingASourceRebuildsFromItAndLeavesTheMembersAsTheyWere() = runTest {
+        val s = pds.session()
+        val (watch, edge) = s.two()
+        val combined = s.manager.combine(view(watch), view(edge))
+        s.manager.edit(view(combined), ActivityEdit(title = "Saturday loop", description = "", diveSite = null, media = emptyList()))
+        val members = listOf(watch, edge).associateWith { record(it) to streamsOf(it) }
+        assertEquals(140, view(combined).record.avgHeartRate, "by default the bike computer, with more samples")
+
+        val kinds = s.manager.setSources(view(combined), DataKind.HeartRate, SourceChoice.Member(watch)).kinds
+
+        assertEquals(watch, kinds.single { it.kind == DataKind.HeartRate }.chosen)
+        val made = view(combined).record
+        assertEquals(120, made.avgHeartRate)
+        assertEquals(120, made.maxHeartRate)
+        assertTrue(streamsOf(combined)!!.heartRate!!.filterNotNull().all { it == 120 })
+        assertEquals("Saturday loop", made.title, "the title is kept")
+        assertEquals(setOf(watch, edge), made.combined?.members?.toSet())
+        for ((uri, kept) in members) assertEquals(kept, record(uri) to streamsOf(uri), "member $uri is untouched")
+    }
+
+    @Test
+    fun excludingPowerDropsItAndIncludingItAgainBringsItBack() = runTest {
+        val s = pds.session()
+        val (watch, edge) = s.two()
+        val combined = s.manager.combine(view(watch), view(edge))
+        val members = listOf(watch, edge).associateWith { record(it) to streamsOf(it) }
+
+        val kinds = s.manager.setSources(view(combined), DataKind.Power, SourceChoice.Exclude).kinds
+
+        assertTrue(kinds.single { it.kind == DataKind.Power }.excluded)
+        assertNull(streamsOf(combined)?.power)
+        assertNull(view(combined).record.avgPower)
+        assertEquals(listOf(), view(combined).record.combined?.sourcesOf(StreamChannel.POWER))
+        assertEquals(kinds, s.manager.sources(view(combined)).kinds, "the page reads back what was saved")
+        for ((uri, kept) in members) assertEquals(kept, record(uri) to streamsOf(uri), "member $uri is untouched")
+
+        s.manager.setSources(view(combined), DataKind.Power, SourceChoice.Default)
+        assertTrue(streamsOf(combined)!!.power!!.all { it == 210 }, "power comes back from the bike computer")
+        assertEquals(210, view(combined).record.avgPower)
     }
 
     @Test
