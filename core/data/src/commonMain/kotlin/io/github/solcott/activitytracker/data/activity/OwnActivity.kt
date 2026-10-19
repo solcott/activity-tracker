@@ -12,9 +12,15 @@ import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 
 /**
  * One of the signed-in athlete's activities, as an import compares against it. [cid] is null while it waits in the outbox. [visibility] is
- * where it's stored, which another recording grouped into it takes too.
+ * where it's stored, which a recording combined with it takes too. [combinedInto] is the combined activity it's a member of, if any.
  */
-data class OwnActivity(val uri: AtUri, val cid: Cid?, val record: ActivityRecord, val visibility: String = Visibility.PUBLIC)
+data class OwnActivity(
+    val uri: AtUri,
+    val cid: Cid?,
+    val record: ActivityRecord,
+    val visibility: String = Visibility.PUBLIC,
+    val combinedInto: AtUri? = null,
+)
 
 /** The activity this outbox write publishes for [did], or null when it's another kind of write. */
 internal fun OutboxEntity.pendingActivity(did: Did): OwnActivity? {

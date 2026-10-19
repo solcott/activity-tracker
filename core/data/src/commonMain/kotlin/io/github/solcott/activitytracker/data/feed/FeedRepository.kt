@@ -150,7 +150,7 @@ class FeedRepository(
                     GetAuthorActivitiesByStart.method,
                     GetAuthorActivitiesByStart.Params(clients.did.value, since, until, sport, Paging.MAX_LIMIT, cursor),
                 )
-            indexed += page.activities.map { OwnActivity(it.uri, it.cid, it.record, it.visibilityOrPublic) }
+            indexed += page.activities.map { OwnActivity(it.uri, it.cid, it.record, it.visibilityOrPublic, it.combinedInto) }
             cursor = page.cursor
         } while (cursor != null && ++pages < MAX_RANGE_PAGES)
         val known = indexed.mapTo(mutableSetOf()) { it.uri }
