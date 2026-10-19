@@ -34,12 +34,62 @@ class ActivityDetailRouteTest : ActivityDetailTestBase() {
     }
 
     @Test
+    fun withNothingHiddenTheMarkersAreAtTheTracksEnds() = runTest {
+        author = staleAlice
+        track = route
+        detail(repos()) {
+            val ends = awaitUntil { it.loaded()?.ownRouteEnds?.start != null }.loaded()!!.ownRouteEnds!!
+            assertEquals(
+                RouteEnds(route.first().let { it.latitude to it.longitude }, route.last().let { it.latitude to it.longitude }),
+                ends,
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun hiddenEndsMoveTheMarkersOffTheTracksEnds() = runTest {
+        author = staleAlice
+        track = route
+        privacyZones = AtJson.encodeToString(PrivacyZonesRecord.serializer(), PrivacyZonesRecord("3m3ygsw4ngk2c", hideEndsMeters = 200))
+        detail(repos()) {
+            val loaded = awaitUntil { it.loaded()?.ownRouteEnds?.start != null }.loaded()!!
+            // The line is still the whole track; only its markers move to where the route others see starts and ends.
+            assertEquals(ActivityDraft.polylineOf(route)?.polyline, loaded.ownRoute)
+            val (start, end) = loaded.ownRouteEnds!!
+            val first = route.first()
+            val last = route.last()
+            assertEquals(
+                200.0,
+                TrackMath.distanceMeters(first.latitude, first.longitude, start!!.first, start.second),
+                absoluteTolerance = 8.0,
+            )
+            assertEquals(200.0, TrackMath.distanceMeters(last.latitude, last.longitude, end!!.first, end.second), absoluteTolerance = 8.0)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aRouteHiddenWhollyHasNoStartOrEndMarker() = runTest {
+        author = staleAlice
+        track = route
+        privacyZones = AtJson.encodeToString(PrivacyZonesRecord.serializer(), PrivacyZonesRecord("3m3ygsw4ngk2c", hideEndsMeters = 5000))
+        detail(repos()) {
+            // Wait for the zones' read: the ends are hidden until then too.
+            val loaded = awaitUntil { it.loaded()?.ownRoute != null }.loaded()!!
+            assertEquals(RouteEnds.HIDDEN, loaded.ownRouteEnds)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun someoneElsesActivityShowsOnlyItsPolyline() = runTest {
         track = route
         detail(repos()) {
             val loaded = awaitLoaded()
             assertFalse(loaded.isOwn)
             assertNull(loaded.ownRoute)
+            assertNull(loaded.ownRouteEnds)
             assertFalse(loaded.canHideRouteEnds)
             cancelAndIgnoreRemainingEvents()
         }

@@ -5,6 +5,7 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
+import io.github.solcott.activitytracker.app.RouteEnds
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.visibility.CategoryVisibility
 import io.github.solcott.activitytracker.data.activity.ExportFormat
@@ -80,6 +81,8 @@ sealed interface ActivityDetailState : CircuitUiState {
         val ownRoute: String? = null,
         /** Where [ownRoute] breaks, on a combined activity; null otherwise. */
         val ownRouteGaps: ImmutableList<Int>? = null,
+        /** Where [ownRoute]'s start and end are marked: those of the route others see, inside none of the owner's privacy zones. */
+        val ownRouteEnds: RouteEnds? = null,
         /** The owner can add a privacy zone at the route's start or end: the track was read. */
         val canHideRouteEnds: Boolean = false,
         /** A zone was just added from this activity. */

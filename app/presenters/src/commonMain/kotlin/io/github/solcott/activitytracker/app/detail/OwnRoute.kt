@@ -2,10 +2,12 @@ package io.github.solcott.activitytracker.app.detail
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import io.github.solcott.activitytracker.app.RouteEnds
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
@@ -17,23 +19,31 @@ import io.github.solcott.activitytracker.data.activity.SegmentedPolyline
 import io.github.solcott.activitytracker.data.activity.TooManyZonesException
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.location.LocationSample
+import kotlinx.coroutines.flow.flowOf
 
 /**
- * The owner's view of their own route: [line] is the full track, untrimmed, which only they read; null on someone else's activity, or when
+ * The owner's view of their own route: [map] is the full track, untrimmed, which only they read; null on someone else's activity, or when
  * the track can't be read (the trimmed polyline shows then). [hide] adds a privacy zone at its start or end.
  */
 internal class OwnRoute(
-    /** The full track's points, two or more; null like [line]. */
+    /** The full track's points, two or more; null like [map]. */
     val track: List<LocationSample>?,
-    /**
-     * Broken where a combined activity's members were recorded one after another, or a single one's positions far apart
-     * ([SegmentedPolyline]).
-     */
-    val line: SegmentedPolyline?,
+    val map: OwnMap?,
     val canHide: Boolean,
     val zoneAdded: Boolean,
     val error: UiError?,
     val hide: (start: Boolean) -> Unit,
+)
+
+/** The owner's map of their route. */
+internal class OwnMap(
+    /**
+     * The full track, broken where a combined activity's members were recorded one after another, or a single one's positions far apart
+     * ([SegmentedPolyline]).
+     */
+    val line: SegmentedPolyline,
+    /** Where [line]'s start and end are marked: the ends of the route as trimmed by the owner's privacy settings. */
+    val ends: RouteEnds,
 )
 
 @Composable
@@ -52,10 +62,21 @@ internal fun rememberOwnRoute(
         remember(route, combined) {
             route?.let { if (combined) SegmentedPolyline.of(CombinedRoute.segments(it)) else ActivityDraft.polylineOf(it) }
         }
+    // Read only on the owner's own activity.
+    val settings by remember(activity) { if (activity == null) flowOf(null) else activities.privacySettings() }.collectAsState(null)
+    val map =
+        remember(route, line, settings, combined) {
+            val track = route ?: return@remember null
+            val ends =
+                settings?.shownEnds(track, combined)?.let { (start, end) ->
+                    RouteEnds(start.latitude to start.longitude, end.latitude to end.longitude)
+                } ?: RouteEnds.HIDDEN
+            line?.let { OwnMap(it, ends) }
+        }
     val current = route
     return OwnRoute(
         current,
-        line,
+        map,
         canHide = current != null && !flights.isRunning(HIDE),
         zoneAdded,
         error,
