@@ -38,7 +38,9 @@ import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.time.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -432,6 +434,15 @@ class ActivityRepository(
 
     /** The signed-in athlete's own [activity]'s full route, from its track in `self`; null when it has none or it can't be read now. */
     suspend fun ownRoute(activity: AtUri): List<LocationSample>? = tracks.read(activity)
+
+    /**
+     * The athlete's privacy settings as last read or saved this session, read first when none has been, so the owner's map can mark where
+     * the route others see starts and ends ([PrivacySettings.shownEnds]); null while they can't be read.
+     */
+    fun privacySettings(): Flow<PrivacySettings?> = flow {
+        if (privacy.current.value == null) privacy.forPublish()
+        emitAll(privacy.current)
+    }
 
     /**
      * Adds a privacy zone of [HIDE_ROUTE_END_METERS] at [route]'s first point ([start]) or its last, offset as every new zone is. Its
