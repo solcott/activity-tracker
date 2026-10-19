@@ -50,17 +50,12 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * The form's activity type: a field showing the chosen type, which opens a searchable sheet of every type, and chips for the chosen sport's
- * sub-sports. [outdoorOnly] leaves out types that can't use GPS, for recording.
+ * sub-sports. A pick goes to the field's sink. [outdoorOnly] leaves out types that can't use GPS, for recording.
  */
 @Composable
-fun ActivityTypePicker(
-    selected: ActivityType,
-    quickTypes: ImmutableList<ActivityType>,
-    onSelect: (ActivityType) -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    outdoorOnly: Boolean = false,
-) {
+fun ActivityTypePicker(field: ActivityTypeField, modifier: Modifier = Modifier, enabled: Boolean = true, outdoorOnly: Boolean = false) {
+    val selected = field.selected
+    val onSelect: (ActivityType) -> Unit = { field.eventSink(ActivityTypeEvent.Select(it)) }
     var sheetOpen by rememberSaveable { mutableStateOf(false) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box {
@@ -79,7 +74,7 @@ fun ActivityTypePicker(
         SubSportChips(selected, onSelect, enabled, outdoorOnly)
     }
     if (sheetOpen) {
-        ActivityTypeSheet(selected, quickTypes, outdoorOnly, onSelect = onSelect, onDismiss = { sheetOpen = false })
+        ActivityTypeSheet(selected, field.quickTypes, outdoorOnly, onSelect = onSelect, onDismiss = { sheetOpen = false })
     }
 }
 

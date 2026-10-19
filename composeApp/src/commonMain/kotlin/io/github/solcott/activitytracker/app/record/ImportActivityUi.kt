@@ -164,12 +164,12 @@ private fun PreviewForm(state: ImportActivityState, preview: ImportPreview, modi
         } else {
             StatsRow(
                 listOfNotNull(
-                        distanceStat(state.type.sport, preview.distanceMeters),
+                        distanceStat(state.type.selected.sport, preview.distanceMeters),
                         Stat(
                             stringResource(Res.string.stat_time),
                             Format.duration(preview.movingSeconds ?: preview.elapsed.inWholeSeconds),
                         ),
-                        elevationStat(state.type.sport, preview.elevationGainMeters),
+                        elevationStat(state.type.selected.sport, preview.elevationGainMeters),
                         Stat(
                             stringResource(Res.string.stat_heart_rate),
                             preview.avgHeartRate?.let { stringResource(Res.string.unit_bpm, it) }
@@ -183,8 +183,6 @@ private fun PreviewForm(state: ImportActivityState, preview: ImportPreview, modi
         if (dive == null) RideDetails(preview)
         ActivityTypePicker(
             state.type,
-            state.quickTypes,
-            { state.eventSink(ImportActivityEvent.TypeChanged(it)) },
             enabled = !state.saving,
         )
         val defaultTitle = state.defaultTitle?.let { defaultTitleLabel(it) }

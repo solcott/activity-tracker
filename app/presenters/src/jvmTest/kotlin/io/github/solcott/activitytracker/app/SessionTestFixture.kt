@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app
 
 import co.touchlab.kermit.Logger
+import io.github.solcott.activitytracker.app.record.ActivityTypeChoices
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
@@ -308,7 +309,11 @@ class SessionTestFixture {
         val feed: FeedRepository,
         val defaults: ActivityDefaults,
         val privacy: PrivacyZones,
-    )
+    ) {
+        /** The type picker's producer, as Metro injects it into the record, manual entry and import presenters. */
+        val typeChoices: ActivityTypeChoices
+            get() = ActivityTypeChoices(recentTypes)
+    }
 
     suspend fun repos(defaultUnits: UnitSystem = UnitSystem.Metric): Repos {
         val (db, manager, clients) = signedInTestSession(http, did = did)

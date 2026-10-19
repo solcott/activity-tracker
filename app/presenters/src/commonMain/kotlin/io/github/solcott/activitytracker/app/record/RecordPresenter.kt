@@ -7,7 +7,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
@@ -20,7 +19,6 @@ import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.location.ActivityRecorder
@@ -37,12 +35,11 @@ fun RecordPresenter(
     recorder: ActivityRecorder,
     tracker: LocationTracker,
     activities: ActivityRepository,
-    recentTypes: RecentActivityTypes,
+    typeChoices: ActivityTypeChoices,
     defaults: ActivityDefaults,
     clock: Clock,
 ): RecordState {
     val recording by recorder.state.collectAsState()
-    var type by rememberSaveable(stateSaver = ActivityTypeSaver) { mutableStateOf(ActivityType(Sport.RUN)) }
     val title = rememberTextFieldState()
     var hasPermission by remember { mutableStateOf(tracker.hasPermission()) }
     var error by remember { mutableStateOf<UiError?>(null) }
@@ -50,7 +47,7 @@ fun RecordPresenter(
     val flights = rememberSingleFlight()
     val saving = flights.isRunning(RecordEvent.Finish)
     // GPS recording: indoor types are for manual entry and import.
-    val quickTypes = quickActivityTypes(recentTypes, outdoorOnly = true)
+    val type = typeChoices.produce(ActivityType(Sport.RUN), outdoorOnly = true)
     val visibility = rememberNewActivityVisibility(defaults)
 
     LaunchedEffect(recording.status) {
@@ -66,8 +63,7 @@ fun RecordPresenter(
         distanceMeters = recording.distanceMeters,
         movingSeconds = recording.movingSeconds,
         elevationGainMeters = recording.elevationGainMeters,
-        type = type,
-        quickTypes = quickTypes,
+        type = type.field,
         title = title,
         hasPermission = hasPermission,
         saving = saving,
@@ -75,10 +71,6 @@ fun RecordPresenter(
         visibility = visibility.fields,
     ) { event ->
         when (event) {
-            is RecordEvent.TypeChanged -> {
-                type = event.type
-            }
-
             is RecordEvent.PermissionResult -> {
                 hasPermission = event.granted
                 if (event.granted) recorder.start()
@@ -108,7 +100,7 @@ fun RecordPresenter(
                         activities.publish(
                             ActivityDraft.fromRecording(
                                     result,
-                                    type,
+                                    type.selected,
                                     title.text.toString().ifBlank { null },
                                     null,
                                 )

@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
+import io.github.solcott.activitytracker.app.record.ActivityTypeEvent
 import io.github.solcott.activitytracker.app.record.ManualActivityEvent
 import io.github.solcott.activitytracker.app.record.ManualActivityPresenter
 import io.github.solcott.activitytracker.app.record.ManualActivityScreen
@@ -31,7 +32,7 @@ class ManualActivityPresenterTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Imperial)
         val navigator = FakeNavigator(ManualActivityScreen)
         presenterTestOf({
-            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, repos.defaults, Clock.System)
+            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.typeChoices, repos.defaults, Clock.System)
         }) {
             val initial = awaitItem()
             assertEquals(UnitSystem.Imperial, initial.units)
@@ -54,7 +55,7 @@ class ManualActivityPresenterTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Imperial)
         val navigator = FakeNavigator(ManualActivityScreen)
         presenterTestOf({
-            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, repos.defaults, Clock.System)
+            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.typeChoices, repos.defaults, Clock.System)
         }) {
             awaitItem().eventSink(ManualActivityEvent.UnitsChanged(UnitSystem.Metric))
             val metric = awaitItem()
@@ -77,7 +78,7 @@ class ManualActivityPresenterTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
         val navigator = FakeNavigator(ManualActivityScreen)
         presenterTestOf({
-            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, repos.defaults, Clock.System)
+            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.typeChoices, repos.defaults, Clock.System)
         }) {
             val form = awaitItem()
             form.distance.setTextAndPlaceCursorAtEnd("5,2")
@@ -101,14 +102,14 @@ class ManualActivityPresenterTest {
         val navigator = FakeNavigator(ManualActivityScreen)
         val gravel = ActivityType(Sport.RIDE, SubSport.GRAVEL)
         presenterTestOf({
-            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, repos.defaults, Clock.System)
+            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.typeChoices, repos.defaults, Clock.System)
         }) {
-            val initial = awaitUntil { it.quickTypes.isNotEmpty() }
-            assertEquals(SportCatalog.common, initial.quickTypes, "nothing tracked yet")
-            assertEquals(ActivityType(Sport.RUN), initial.type)
+            val initial = awaitUntil { it.type.quickTypes.isNotEmpty() }
+            assertEquals(SportCatalog.common, initial.type.quickTypes, "nothing tracked yet")
+            assertEquals(ActivityType(Sport.RUN), initial.type.selected)
 
-            initial.eventSink(ManualActivityEvent.TypeChanged(gravel))
-            val chosen = awaitUntil { it.type == gravel }
+            initial.type.eventSink(ActivityTypeEvent.Select(gravel))
+            val chosen = awaitUntil { it.type.selected == gravel }
             chosen.durationMinutes.setTextAndPlaceCursorAtEnd("90")
             chosen.eventSink(ManualActivityEvent.Save)
             navigator.awaitPop()
@@ -124,13 +125,13 @@ class ManualActivityPresenterTest {
                 FakeNavigator(ManualActivityScreen),
                 repos.activities,
                 repos.units,
-                repos.recentTypes,
+                repos.typeChoices,
                 repos.defaults,
                 Clock.System,
             )
         }) {
-            val next = awaitUntil { it.quickTypes.firstOrNull() == gravel }
-            assertEquals(listOf(gravel) + SportCatalog.common, next.quickTypes)
+            val next = awaitUntil { it.type.quickTypes.firstOrNull() == gravel }
+            assertEquals(listOf(gravel) + SportCatalog.common, next.type.quickTypes)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -141,7 +142,7 @@ class ManualActivityPresenterTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ManualActivityScreen)
         presenterTestOf({
-            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, repos.defaults, Clock.System)
+            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.typeChoices, repos.defaults, Clock.System)
         }) {
             val defaulted = awaitUntil { it.visibility.activity == Visibility.FOLLOWERS }
             defaulted.visibility.eventSink(VisibilityEvent.ActivityChanged(Visibility.PUBLIC))
@@ -166,7 +167,7 @@ class ManualActivityPresenterTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ManualActivityScreen)
         presenterTestOf({
-            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, repos.defaults, Clock.System)
+            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.typeChoices, repos.defaults, Clock.System)
         }) {
             awaitUntil { it.visibility.activity == Visibility.FOLLOWERS }
                 .visibility
@@ -190,7 +191,7 @@ class ManualActivityPresenterTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ManualActivityScreen)
         presenterTestOf({
-            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.recentTypes, repos.defaults, Clock.System)
+            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.typeChoices, repos.defaults, Clock.System)
         }) {
             val defaulted = awaitUntil { it.visibility.activity == Visibility.FOLLOWERS }
             defaulted.durationMinutes.setTextAndPlaceCursorAtEnd("30")

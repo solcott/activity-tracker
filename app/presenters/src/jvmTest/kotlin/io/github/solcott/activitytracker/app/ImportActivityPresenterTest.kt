@@ -23,6 +23,7 @@ import io.github.solcott.activitytracker.activityfile.SensorKind
 import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.app.edit.DetailsEvent
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
+import io.github.solcott.activitytracker.app.record.ActivityTypeEvent
 import io.github.solcott.activitytracker.app.record.CadencePreview
 import io.github.solcott.activitytracker.app.record.DefaultTitle
 import io.github.solcott.activitytracker.app.record.DepthPreviewPoint
@@ -126,7 +127,7 @@ class ImportActivityPresenterTest {
                 navigator,
                 repos.activities,
                 ActivityFileReader { run },
-                repos.recentTypes,
+                repos.typeChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -145,7 +146,7 @@ class ImportActivityPresenterTest {
             assertNotNull(preview.polyline)
             assertNull(preview.dive)
             assertNull(preview.clock, "a FIT file's times are UTC")
-            assertEquals(ActivityType(Sport.RUN), read.type)
+            assertEquals(ActivityType(Sport.RUN), read.type.selected)
 
             read.title.setTextAndPlaceCursorAtEnd("Lunch loop")
             read.eventSink(ImportActivityEvent.Save(defaultTitle = "Morning Run"))
@@ -176,7 +177,7 @@ class ImportActivityPresenterTest {
                 navigator,
                 repos.activities,
                 ActivityFileReader { run },
-                repos.recentTypes,
+                repos.typeChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -215,7 +216,7 @@ class ImportActivityPresenterTest {
                 navigator,
                 repos.activities,
                 ActivityFileReader { withSettings },
-                repos.recentTypes,
+                repos.typeChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -247,7 +248,7 @@ class ImportActivityPresenterTest {
                 navigator,
                 repos.activities,
                 ActivityFileReader { withSettings },
-                repos.recentTypes,
+                repos.typeChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -290,7 +291,7 @@ class ImportActivityPresenterTest {
                 navigator,
                 repos.activities,
                 ActivityFileReader { withSettings },
-                repos.recentTypes,
+                repos.typeChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -377,7 +378,7 @@ class ImportActivityPresenterTest {
                 navigator,
                 repos.activities,
                 ActivityFileReader { dive },
-                repos.recentTypes,
+                repos.typeChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -385,7 +386,7 @@ class ImportActivityPresenterTest {
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("dive.fit", bytes))
             val read = awaitUntil { it.preview != null }
-            assertEquals(ActivityType(Sport.DIVE, SubSport.MULTI_GAS), read.type)
+            assertEquals(ActivityType(Sport.DIVE, SubSport.MULTI_GAS), read.type.selected)
             val preview = assertNotNull(read.preview?.dive)
             assertEquals(31.0, preview.maxDepthMeters)
             assertEquals(listOf(DiveGasPreview(21, 35), DiveGasPreview(50, 0)), preview.gases)
@@ -461,7 +462,7 @@ class ImportActivityPresenterTest {
                 navigator,
                 repos.activities,
                 ActivityFileReader { ride },
-                repos.recentTypes,
+                repos.typeChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -498,7 +499,7 @@ class ImportActivityPresenterTest {
                 navigator,
                 repos.activities,
                 ActivityFileReader { stepping },
-                repos.recentTypes,
+                repos.typeChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -531,7 +532,7 @@ class ImportActivityPresenterTest {
                 navigator,
                 repos.activities,
                 ActivityFileReader { dive },
-                repos.recentTypes,
+                repos.typeChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -547,7 +548,7 @@ class ImportActivityPresenterTest {
             read.eventSink(ImportActivityEvent.TimeZoneChanged("America/Cancun"))
             val placed = awaitUntil { it.preview?.clock?.zone?.id == "America/Cancun" }
             assertEquals(TimeZoneOption("America/Cancun", "UTC-05:00"), placed.preview?.clock?.zone)
-            assertEquals(DefaultTitle(PartOfDay.Morning, placed.type), placed.defaultTitle, "7 AM where the dive was")
+            assertEquals(DefaultTitle(PartOfDay.Morning, placed.type.selected), placed.defaultTitle, "7 AM where the dive was")
 
             placed.eventSink(ImportActivityEvent.TimeZoneChanged("Asia/Tokyo"))
             val tokyo = awaitUntil { it.preview?.clock?.zone?.id == "Asia/Tokyo" }
@@ -574,7 +575,7 @@ class ImportActivityPresenterTest {
                 navigator,
                 repos.activities,
                 ActivityFileReader { file },
-                repos.recentTypes,
+                repos.typeChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -598,8 +599,11 @@ class ImportActivityPresenterTest {
             val again = awaitUntil { it.preview?.fileName == "Again.fit" }
             assertEquals("Tempo", again.title.text.toString())
 
-            again.eventSink(ImportActivityEvent.TypeChanged(ActivityType(Sport.RIDE, SubSport.MOUNTAIN)))
-            assertEquals(ActivityType(Sport.RIDE, SubSport.MOUNTAIN), awaitUntil { it.type.sport == Sport.RIDE }.defaultTitle?.type)
+            again.type.eventSink(ActivityTypeEvent.Select(ActivityType(Sport.RIDE, SubSport.MOUNTAIN)))
+            assertEquals(
+                ActivityType(Sport.RIDE, SubSport.MOUNTAIN),
+                awaitUntil { it.type.selected.sport == Sport.RIDE }.defaultTitle?.type,
+            )
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -614,7 +618,7 @@ class ImportActivityPresenterTest {
                 navigator,
                 repos.activities,
                 ActivityFileReader(decoder),
-                repos.recentTypes,
+                repos.typeChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -640,7 +644,7 @@ class ImportActivityPresenterTest {
                 navigator,
                 repos.activities,
                 ActivityFileReader(decoder),
-                repos.recentTypes,
+                repos.typeChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -671,7 +675,7 @@ class ImportActivityPresenterTest {
                 navigator,
                 repos.activities,
                 ActivityFileReader { error("not FIT") },
-                repos.recentTypes,
+                repos.typeChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -679,7 +683,7 @@ class ImportActivityPresenterTest {
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("export.dat", ByteString(gpx.encodeToByteArray())))
             val read = awaitUntil { it.preview != null }
-            assertEquals(ActivityType(Sport.RIDE), read.type)
+            assertEquals(ActivityType(Sport.RIDE), read.type.selected)
             assertEquals(1112.0, read.preview!!.distanceMeters!!, 1.0)
             cancelAndIgnoreRemainingEvents()
         }
@@ -694,7 +698,7 @@ class ImportActivityPresenterTest {
                 navigator,
                 repos.activities,
                 ActivityFileReader { error("not called") },
-                repos.recentTypes,
+                repos.typeChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,

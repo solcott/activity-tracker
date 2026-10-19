@@ -58,7 +58,7 @@ fun ManualActivityUi(state: ManualActivityState, modifier: Modifier = Modifier) 
             Modifier.verticalScroll(rememberScrollState()).padding(padding).readableWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            ActivityTypePicker(state.type, state.quickTypes, { state.eventSink(ManualActivityEvent.TypeChanged(it)) })
+            ActivityTypePicker(state.type)
             AppTextField(
                 state.title,
                 label = stringResource(Res.string.field_title),

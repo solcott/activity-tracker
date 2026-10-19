@@ -8,10 +8,8 @@ import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.location.RecordingState
 import kotlin.time.Duration
-import kotlinx.collections.immutable.ImmutableList
 
 @CircuitSerializable(SessionScope::class) data object RecordScreen : Screen
 
@@ -22,9 +20,7 @@ data class RecordState(
     val distanceMeters: Double,
     val movingSeconds: Long,
     val elevationGainMeters: Double,
-    val type: ActivityType,
-    /** Recently tracked types, then the common ones, for the picker's quick row. */
-    val quickTypes: ImmutableList<ActivityType>,
+    val type: ActivityTypeField,
     val title: TextFieldState,
     val hasPermission: Boolean,
     val saving: Boolean,
@@ -35,8 +31,6 @@ data class RecordState(
 ) : CircuitUiState
 
 sealed interface RecordEvent {
-    data class TypeChanged(val type: ActivityType) : RecordEvent
-
     data class PermissionResult(val granted: Boolean) : RecordEvent
 
     data object Start : RecordEvent

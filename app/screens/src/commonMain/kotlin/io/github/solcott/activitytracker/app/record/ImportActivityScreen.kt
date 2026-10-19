@@ -29,9 +29,7 @@ data class ImportActivityState(
     /** What the file holds, once read; null for a logbook of several dives, which is [dives] instead. */
     val preview: ImportPreview?,
     /** Starts as the file's type; the athlete can correct it. */
-    val type: ActivityType,
-    /** Recently tracked types, then the common ones, for the picker's quick row. */
-    val quickTypes: ImmutableList<ActivityType>,
+    val type: ActivityTypeField,
     /** Starts as the file's own title, if it has one. */
     val title: TextFieldState,
     /** What a blank [title] saves as, when the file has no title of its own; follows [type] and the clock's zone. */
@@ -320,8 +318,6 @@ data class DivePreview(
 sealed interface ImportActivityEvent {
     /** The athlete picked a file. [name] is shown in the preview; the format comes from the content. */
     data class FilePicked(val name: String, val bytes: ByteString) : ImportActivityEvent
-
-    data class TypeChanged(val value: ActivityType) : ImportActivityEvent
 
     /** Where a zone-less file's clock was ([ImportClock]); a [TimeZoneOption.id]. */
     data class TimeZoneChanged(val id: String) : ImportActivityEvent

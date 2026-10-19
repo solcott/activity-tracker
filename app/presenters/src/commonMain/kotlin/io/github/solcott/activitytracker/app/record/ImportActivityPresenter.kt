@@ -35,7 +35,6 @@ import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.profile.OwnProfile
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.profile.applyDeviceThresholds
-import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.data.streams.StreamAnalytics
 import io.github.solcott.activitytracker.data.training.ThresholdChange
 import io.github.solcott.activitytracker.data.training.ThresholdUpdates
@@ -61,7 +60,7 @@ fun ImportActivityPresenter(
     navigator: Navigator,
     activities: ActivityRepository,
     reader: ActivityFileReader,
-    recentTypes: RecentActivityTypes,
+    typeChoices: ActivityTypeChoices,
     profiles: ProfileRepository,
     feed: FeedRepository,
     defaults: ActivityDefaults,
@@ -73,7 +72,8 @@ fun ImportActivityPresenter(
     var originalTooLarge by remember { mutableStateOf(false) }
     // Which of the file's dives import, and what to do with duplicates.
     var selection by remember { mutableStateOf(DiveSelection()) }
-    var type by rememberSaveable(stateSaver = ActivityTypeSaver) { mutableStateOf(ActivityType(Sport.OTHER)) }
+    val typeChoice = typeChoices.produce(ActivityType(Sport.OTHER))
+    val type = typeChoice.selected
     val title = rememberTextFieldState()
     val details = rememberDetailsForm()
     // The title the last file filled in, so a file without one clears it but not what the athlete typed.
@@ -105,7 +105,6 @@ fun ImportActivityPresenter(
     val visibility = rememberNewActivityVisibility(defaults) { athlete?.followPolicy == FollowPolicy.APPROVE }
     val training = athlete?.details?.training
     val thresholdChanges = remember(placed, training, type.sport) { pendingThresholds(training, placed?.second, type.sport) }
-    val quickTypes = quickActivityTypes(recentTypes)
     val defaultTitle =
         placed
             ?.second
@@ -119,8 +118,7 @@ fun ImportActivityPresenter(
     return ImportActivityState(
         reading,
         preview,
-        type,
-        quickTypes,
+        typeChoice.field,
         title,
         defaultTitle,
         saving,
@@ -153,7 +151,7 @@ fun ImportActivityPresenter(
                             originalTooLarge = prepared == null
                             // A logbook's dives keep their own types and titles; these fields are for a single activity.
                             val first = read.first()
-                            type = first.type
+                            typeChoice.select(first.type)
                             val named = first.title.takeIf { read.size == 1 }
                             when {
                                 named != null -> title.setTextAndPlaceCursorAtEnd(named)
@@ -173,10 +171,6 @@ fun ImportActivityPresenter(
                                 else UiError.of(UiError.Kind.ReadActivityFile, e)
                         }
                 }
-            }
-
-            is ImportActivityEvent.TypeChanged -> {
-                type = event.value
             }
 
             is ImportActivityEvent.TimeZoneChanged -> {

@@ -60,7 +60,7 @@ class ImportLocalTimeTest {
                 FakeNavigator(ImportActivityScreen),
                 repos.activities,
                 ActivityFileReader { run },
-                repos.recentTypes,
+                repos.typeChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,

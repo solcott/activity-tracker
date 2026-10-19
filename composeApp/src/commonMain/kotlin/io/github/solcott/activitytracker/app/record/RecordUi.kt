@@ -55,8 +55,6 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
         ) {
             ActivityTypePicker(
                 state.type,
-                state.quickTypes,
-                { state.eventSink(RecordEvent.TypeChanged(it)) },
                 enabled = state.status == RecordingState.Status.Idle,
                 outdoorOnly = true,
             )
@@ -64,7 +62,7 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
             StatsRow(
                 listOfNotNull(
                         Stat(stringResource(Res.string.stat_distance), Format.distance(state.distanceMeters)),
-                        Format.rateStat(state.type.sport, state.distanceMeters, state.movingSeconds),
+                        Format.rateStat(state.type.selected.sport, state.distanceMeters, state.movingSeconds),
                         Stat(stringResource(Res.string.stat_elevation), Format.elevation(state.elevationGainMeters)),
                     )
                     .toImmutableList()
