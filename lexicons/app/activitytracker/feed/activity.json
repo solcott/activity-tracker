@@ -60,7 +60,7 @@
             "type": "array",
             "maxLength": 10,
             "items": { "type": "integer", "minimum": 0 },
-            "description": "Indices of the decoded polyline's points after which its line breaks, in ascending order: a combined activity's members recorded one after another, with no route between them. Absent when the line is unbroken."
+            "description": "Indices of the decoded polyline's points after which its line breaks, in ascending order: where no route was recorded between them, such as a combined activity's members recorded one after another or a stretch where a single recording lost its position. Absent when the line is unbroken."
           },
           "device": { "type": "string", "maxLength": 256 },
           "sensors": {

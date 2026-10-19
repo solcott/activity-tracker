@@ -249,7 +249,10 @@ data class ActivityRecord(
     val avgTemperature: Long? = null,
     /** Simplified Google encoded polyline (precision 5). */
     val polyline: String? = null,
-    /** Indices of [polyline]'s decoded points after which its line breaks, ascending: a [combined] activity's back-to-back members. */
+    /**
+     * Indices of [polyline]'s decoded points after which its line breaks, ascending: where no route was recorded, between a [combined]
+     * activity's back-to-back members or where a single recording lost its position.
+     */
     val polylineGaps: List<Int>? = null,
     val device: String? = null,
     /** A [SubSport] value refining [sport]; null for the sport's generic form. */
