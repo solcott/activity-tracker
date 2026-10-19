@@ -21,7 +21,7 @@
   Add a small separate fixture with one Bluetooth sensor without a serial and one ANT+ sensor with ANT device number and transmission type. Verify: existing `:core-activityfile:jvmTest` still passes.
 - [x] 2.3 Read the new fields in `GarminJavaFitDecoder`, mapping invalid values to null, and assert them in its tests (`GarminFitRideTest`, `GarminJavaFitDecoderTest`). Verify: `./gradlew :core-activityfile:jvmTest`.
 - [x] 2.4 Read the same fields in `GarminJsFitDecoder`, adding the externals to `GarminFitSdk.kt`. Wasm tests are disabled, so check it by decoding the fixture bytes in the web app or by a browser test harness if one exists, and say which in the task note. Verify: `./gradlew :core-activityfile:compileKotlinWasmJs`, plus that manual decode. *Done by decoding the athlete's real Edge 840 ride with the npm SDK the externals bind (`build/wasm/node_modules/@garmin/fitsdk`): every field name matched, and the SDK names `device_info` index 0 `"creator"`, which the decoder now maps to 0.*
-- [ ] 2.5 Read the same fields in `iosApp/iosApp/SwiftFitDecoder.swift`. Verify: the iOS build (`xcodebuild ... build` from CLAUDE.md), and an import of the fixture ride in the simulator whose decoded devices match the JVM test's.
+- [x] 2.5 Read the same fields in `iosApp/iosApp/SwiftFitDecoder.swift`. Verify: the iOS build (`xcodebuild ... build` from CLAUDE.md), and an import of the fixture ride in the simulator whose decoded devices match the JVM test's.
 
 ## 3. Interpreting devices
 
@@ -51,7 +51,7 @@
 
 - [x] 5.1 Run `./gradlew check` and `./gradlew composeStabilityCheck`. Both pass.
 - [x] 5.2 Run the `lexicon-auditor` agent on `feed.activityDevices` and `space.athlete`, and fix any mismatch it reports.
-- [ ] 5.3 End to end on the local stack (`scripts/dev.sh`): sign in again, import the fixture FIT ride on desktop, then read the `feed.activityDevices` record from alice's `self` space. Check it has the recorder and sensors with serials, and that the AppView's `getActivity` response carries none.
+- [x] 5.3 End to end on the local stack (`scripts/dev.sh`): sign in again, import the fixture FIT ride on desktop, then read the `feed.activityDevices` record from alice's `self` space. Check it has the recorder and sensors with serials, and that the AppView's `getActivity` response carries none. *Done on the iOS simulator with the athlete's real Edge 840 ride (covering 2.5 too): the record held all four devices with their serials, firmware, voltages and operating times and `MOUNTAIN`, beside its source; the repo record and the AppView's view carried no serial.*
 
 ## Workflow follow-up
 
