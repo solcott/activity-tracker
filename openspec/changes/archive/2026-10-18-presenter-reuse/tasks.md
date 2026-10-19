@@ -64,7 +64,7 @@ Each group leaves `./gradlew check` green and is its own small commit. Run Gradl
   - when to choose a SubCircuit instead (the child needs nothing pushed from the host after creation).
 
   Verify: `scripts/check-agent-sync.sh` passes.
-- [ ] 5.2 Run `./gradlew check` and verify it passes. Then check by hand that these still work in the desktop app (`:desktopApp:hotRun`, following `hot-reload.md`): picking a visibility on manual entry, a default visibility in Settings, an athlete search with load-more, and a type pick on manual entry.
+- [x] 5.2 Run `./gradlew check` and verify it passes. Then check by hand that these still work in the desktop app (`:desktopApp:hotRun`, following `hot-reload.md`): picking a visibility on manual entry, a default visibility in Settings, an athlete search with load-more, and a type pick on manual entry.
 
 ## Workflow follow-up
 
