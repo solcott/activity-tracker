@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.data.streams
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class StreamAnalyticsTest {
     @Test
@@ -47,7 +48,57 @@ class StreamAnalyticsTest {
         val values = listOf(0.0, 600.0, 0.0, 0.0, null, null, null, null, null)
         val points = StreamAnalytics.averaged(time = (0..8).toList(), values = values, max = 3)
         // Each run sits at the mean time of its present samples, not its start, so the line lines up with the time axis.
-        assertEquals(listOf(1 to 200.0, 3 to 0.0), points)
+        assertEquals(listOf(ChartPoint(1, 200.0), ChartPoint(3, 0.0)), points)
+    }
+
+    @Test
+    fun averagedBreaksAtALongGapAndKeepsNoPointInsideIt() {
+        // One sample a second for 10 minutes, a 10-minute auto-pause, then 10 minutes more.
+        val time = (0 until 600).toList() + (1200 until 1800).toList()
+        val points = StreamAnalytics.averaged(time, time.map { 150.0 }, max = 50)
+        assertEquals(listOf(points.indexOfFirst { it.seconds >= 1200 }), points.indices.filter { points[it].gapBefore })
+        assertTrue(points.none { it.seconds in 600 until 1200 }, "no point inside the gap")
+    }
+
+    @Test
+    fun averagedDoesNotLetARunStraddleAGap() {
+        // A 3-minute gap two samples into what would be a 10-sample run: thinned naively, its point would sit in the middle of the gap.
+        val time = (0 until 102).toList() + (282 until 380).toList()
+        val points = StreamAnalytics.averaged(time, time.map { 1.0 }, max = 20)
+        assertTrue(points.none { it.seconds in 102 until 282 }, "no point inside the gap: $points")
+        assertEquals(1, points.count { it.gapBefore })
+    }
+
+    @Test
+    fun averagedJoinsShortStopsAndSmartRecording() {
+        // A 90 s stop at one sample a second, then smart recording 1–8 s apart.
+        val smart = generateSequence(400) { it + (it % 8) + 1 }.takeWhile { it < 4000 }.toList()
+        val time = (0 until 300).toList() + (390 until 400).toList() + smart
+        assertTrue(StreamAnalytics.averaged(time, time.map { 1.0 }).none { it.gapBefore })
+    }
+
+    @Test
+    fun averagedJoinsSparseSteadyRecording() {
+        // Heart rate every 60 s for an hour.
+        val time = (0..3600 step 60).toList()
+        assertTrue(StreamAnalytics.averaged(time, time.map { 140.0 }).none { it.gapBefore })
+    }
+
+    @Test
+    fun aDroppedOutSensorIsAGapThoughTimeRunsOn() {
+        // Samples every second for 15 minutes, heart rate missing for minutes 5 to 10; the first point after is the mean of 600..602.
+        val time = (0 until 900).toList()
+        val heartRate = time.map { if (it in 300 until 600) null else 140.0 }
+        val points = StreamAnalytics.averaged(time, heartRate)
+        assertEquals(listOf(601), points.filter { it.gapBefore }.map { it.seconds })
+        assertTrue(StreamAnalytics.averaged(time, time.map { 200.0 }).none { it.gapBefore })
+    }
+
+    @Test
+    fun gapLimitIsTwoMinutesOrFourUsualIntervals() {
+        assertEquals(120, StreamAnalytics.gapLimit((0..100).toList()))
+        assertEquals(240, StreamAnalytics.gapLimit((0..3600 step 60).toList()))
+        assertEquals(120, StreamAnalytics.gapLimit(emptyList()))
     }
 
     @Test

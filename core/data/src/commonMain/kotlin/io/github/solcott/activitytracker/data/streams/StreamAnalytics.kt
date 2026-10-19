@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.data.streams
 
 import io.github.solcott.activitytracker.activityfile.PerSecond
+import io.github.solcott.activitytracker.data.activity.CombinedRoute
 import kotlin.math.roundToInt
 
 /** What the activity detail charts show, worked out from an activity's streams (`ActivityStreamData`). */
@@ -66,14 +67,50 @@ object StreamAnalytics {
     /**
      * At most about [max] points for a line chart: the mean of each run of samples, at the mean of their times so the line doesn't lead the
      * time axis, and a short spike still moves the line where every-nth thinning would drop it. Null samples are skipped; a run of only
-     * nulls gives no point.
+     * nulls gives no point. A run never spans a gap longer than [gapLimit]: the first point after one is [ChartPoint.gapBefore], so the
+     * chart breaks its line there and no point lands inside the gap.
      */
-    fun averaged(time: List<Int>, values: List<Double?>, max: Int = MAX_CHART_POINTS): List<Pair<Int, Double>> {
+    fun averaged(time: List<Int>, values: List<Double?>, max: Int = MAX_CHART_POINTS): List<ChartPoint> {
         val step = ((time.size + max - 1) / max).coerceAtLeast(1)
-        return time.indices.chunked(step).mapNotNull { run ->
-            val present = run.mapNotNull { i -> values.getOrNull(i)?.let { time[i] to it } }
-            if (present.isEmpty()) null else present.map { it.first }.average().roundToInt() to present.map { it.second }.average()
+        val limit = gapLimit(time.indices.mapNotNull { i -> values.getOrNull(i)?.let { time[i] } })
+        val points = mutableListOf<ChartPoint>()
+        val run = mutableListOf<Pair<Int, Double>>()
+        var runLength = 0
+        var gapBefore = false
+        var lastAt: Int? = null
+        fun flush() {
+            if (run.isNotEmpty()) {
+                points += ChartPoint(run.map { it.first }.average().roundToInt(), run.map { it.second }.average(), gapBefore)
+                gapBefore = false
+            }
+            run.clear()
+            runLength = 0
         }
+        for (i in time.indices) {
+            val value = values.getOrNull(i)
+            val at = time[i]
+            if (value != null && lastAt != null && at - lastAt > limit) {
+                flush()
+                gapBefore = true
+            }
+            if (value != null) {
+                run += at to value
+                lastAt = at
+            }
+            if (++runLength == step) flush()
+        }
+        flush()
+        return points
+    }
+
+    /**
+     * The longest stretch between samples at [times] (seconds, in order) that a chart joins with a line: the map's
+     * [CombinedRoute.BREAK_SECONDS], or [GAP_INTERVALS] of the usual gap between samples when that's longer, so a stream logged every 30 s
+     * or 60 s still draws as one line.
+     */
+    internal fun gapLimit(times: List<Int>): Int {
+        val gaps = times.zipWithNext { a, b -> b - a }.filter { it > 0 }.sorted()
+        return maxOf(CombinedRoute.BREAK_SECONDS, GAP_INTERVALS * (gaps.getOrNull(gaps.size / 2) ?: 0))
     }
 
     /** Every nth item so about [max] remain, keeping the last so a chart ends where the activity did. */
@@ -87,7 +124,11 @@ object StreamAnalytics {
     /** About this many points draw a smooth line; a four-hour ride at one sample a second logs 14,400. */
     const val MAX_CHART_POINTS = 300
 
+    private const val GAP_INTERVALS = 4
     private const val GRADE_WINDOW_CM = 5_000
     private const val PERCENT = 100.0
     private const val MAX_GRADE = 40.0
 }
+
+/** A point of a line chart: the mean [value] of a run of samples at the mean of their [seconds]; [gapBefore] when a gap precedes it. */
+data class ChartPoint(val seconds: Int, val value: Double, val gapBefore: Boolean = false)
