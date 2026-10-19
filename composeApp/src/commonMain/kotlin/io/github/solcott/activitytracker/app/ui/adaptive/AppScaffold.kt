@@ -30,7 +30,8 @@ val LocalFloatingBottomBarHeight = compositionLocalOf { 0.dp }
 val LocalBarBackdrop = compositionLocalOf<HazeState?> { null }
 
 /**
- * A screen's frame: [topBar] (an [AppTopBar]) over [content]. [content] gets the padding that clears the bars, including a floating tab bar
+ * A screen's frame: [topBar] (an [AppTopBar]) over [content], with an optional [bottomBar] pinned under it (an action bar, like a form's
+ * Save on Android, desktop and web). [content] gets the padding that clears the bars, including a floating tab bar
  * ([LocalFloatingBottomBarHeight]). Give it to a list or scrolling column as its content padding, inside the scroll, so content starts
  * clear of the bars but scrolls under them. On iOS the top bar blurs the content scrolled under it ([LocalBarBackdrop]).
  */
@@ -39,6 +40,7 @@ fun AppScaffold(
     topBar: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     floatingActionButton: @Composable () -> Unit = {},
+    bottomBar: @Composable () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val backdrop = rememberBarBackdrop()
@@ -46,6 +48,7 @@ fun AppScaffold(
         Scaffold(
             modifier = modifier,
             topBar = topBar,
+            bottomBar = bottomBar,
             floatingActionButton = floatingActionButton,
             contentWindowInsets = ScaffoldDefaults.contentWindowInsets.add(WindowInsets(bottom = LocalFloatingBottomBarHeight.current)),
         ) { padding ->
