@@ -1,0 +1,72 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.activityDevices",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "The recording device and the sensors an imported activity's file names, with the identifiers that tell one device from another across activities. Its rkey is its activity's. It holds serial numbers, so it is stored only in the athlete's app.activitytracker.space.athlete self space, whatever the activity's visibility, and never in the repo. Only the athlete reads it: the AppView neither indexes nor serves it.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["activity", "devices", "createdAt"],
+        "properties": {
+          "activity": { "type": "string", "format": "at-uri", "description": "The activity's URI; it shares this record's rkey." },
+          "devices": {
+            "type": "array",
+            "maxLength": 32,
+            "items": { "type": "ref", "ref": "#device" },
+            "description": "The recording device first, then each paired sensor in the order the file first lists them. The recorder's built-in sensors aren't listed."
+          },
+          "activityProfile": {
+            "type": "string",
+            "maxLength": 128,
+            "description": "The activity profile the device recorded under, as the device names it (FIT session sport_profile_name), e.g. 'MOUNTAIN'."
+          },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    },
+    "device": {
+      "type": "object",
+      "description": "A recording device or a paired sensor, as the file names it. Every field but role is optional: a file may name a device without identifying it.",
+      "required": ["role"],
+      "properties": {
+        "role": { "type": "string", "maxLength": 32, "knownValues": ["recorder", "sensor"] },
+        "kind": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "For a sensor, what it measures or does: an app.activitytracker.feed.activity#sensor kind."
+        },
+        "manufacturer": { "type": "string", "maxLength": 128, "description": "Its maker, e.g. \"SRAM\"." },
+        "model": { "type": "string", "maxLength": 128, "description": "Its model, e.g. \"HRM 200\", or the file's product number when it has no name." },
+        "serialNumber": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Its serial number as the file writes it: decimal for FIT and TCX, as written for dive logs."
+        },
+        "antDeviceNumber": { "type": "integer", "minimum": 1, "maximum": 65535, "description": "Its ANT device number." },
+        "antTransmissionType": { "type": "integer", "minimum": 0, "maximum": 255, "description": "Its ANT transmission type." },
+        "connection": {
+          "type": "string",
+          "maxLength": 64,
+          "knownValues": ["antPlus", "ant", "bluetoothLowEnergy", "bluetooth", "wifi", "local"],
+          "description": "How the recording device reached it; local for the recording device itself."
+        },
+        "softwareVersion": { "type": "string", "maxLength": 64, "description": "Its firmware version, e.g. \"31.33\"." },
+        "battery": {
+          "type": "string",
+          "maxLength": 32,
+          "knownValues": ["new", "good", "ok", "low", "critical", "charging"],
+          "description": "Its battery as the activity ended."
+        },
+        "batteryPercent": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "batteryVoltage": { "type": "integer", "minimum": 0, "description": "Its battery's voltage as the activity ended, in millivolts." },
+        "operatingTime": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Its total operating time over its life as the activity ended, in seconds (FIT cum_operating_time)."
+        }
+      }
+    }
+  }
+}

@@ -440,6 +440,98 @@ object SourceFormat {
 }
 
 /**
+ * `app.activitytracker.feed.activityDevices`: the recording device and the sensors an imported activity's file names, with the identifiers
+ * that tell one device from another across activities, under its activity's rkey. It holds serial numbers, so it's stored only in the
+ * athlete's [AthleteSpace.SELF] space, whatever the activity's visibility, and only the athlete reads it: the AppView ignores it.
+ */
+@Serializable
+data class ActivityDevicesRecord(
+    /** The activity's URI; it shares this record's rkey. */
+    val activity: AtUri,
+    /** The recording device first, then each paired sensor in the order the file first lists them. */
+    val devices: List<ActivityDevice>,
+    val createdAt: Instant,
+    /** The activity profile the device recorded under, as the device names it (FIT session `sport_profile_name`), e.g. "MOUNTAIN". */
+    val activityProfile: String? = null,
+    @SerialName($$"$type") val type: String = Nsid.FEED_ACTIVITY_DEVICES,
+) {
+    companion object {
+        /** The lexicon's `maxLength` for [devices]. */
+        const val MAX_DEVICES = 32
+    }
+}
+
+/** `app.activitytracker.feed.activityDevices#device`: a recording device or a paired sensor, as the file names it. */
+@Serializable
+data class ActivityDevice(
+    /** A [DeviceRole] value. */
+    val role: String,
+    /** For a sensor, a [SensorType] value. */
+    val kind: String? = null,
+    /** "SRAM". */
+    val manufacturer: String? = null,
+    /** "HRM 200", or the file's product number when it has no name. */
+    val model: String? = null,
+    /** As the file writes it: decimal for FIT and TCX, as written for dive logs. */
+    val serialNumber: String? = null,
+    /** 1 to 65535. */
+    val antDeviceNumber: Int? = null,
+    /** 0 to 255. */
+    val antTransmissionType: Int? = null,
+    /** A [DeviceConnection] value. */
+    val connection: String? = null,
+    /** "31.33". */
+    val softwareVersion: String? = null,
+    /** A [DeviceBattery] value, as the activity ended. */
+    val battery: String? = null,
+    /** 0 to 100. */
+    val batteryPercent: Int? = null,
+    /** Millivolts, as the activity ended. */
+    val batteryVoltage: Int? = null,
+    /** Seconds the device has operated over its life, as the activity ended (FIT `cum_operating_time`). */
+    val operatingTime: Long? = null,
+) {
+    companion object {
+        /** The lexicon's `maxLength` for [manufacturer], [model] and [ActivityDevicesRecord.activityProfile]. */
+        const val MAX_NAME = 128
+
+        /** The lexicon's `maxLength` for [serialNumber] and [softwareVersion]. */
+        const val MAX_IDENTIFIER = 64
+        const val MAX_PERCENT = 100
+
+        /** The lexicon's bounds for [antDeviceNumber] and [antTransmissionType]. */
+        val ANT_DEVICE_NUMBERS = 1..65_535
+        val ANT_TRANSMISSION_TYPES = 0..255
+    }
+}
+
+/** Known values of [ActivityDevice.role], an open string. */
+object DeviceRole {
+    const val RECORDER = "recorder"
+    const val SENSOR = "sensor"
+}
+
+/** Known values of [ActivityDevice.connection], an open string. */
+object DeviceConnection {
+    const val ANT_PLUS = "antPlus"
+    const val ANT = "ant"
+    const val BLUETOOTH_LOW_ENERGY = "bluetoothLowEnergy"
+    const val BLUETOOTH = "bluetooth"
+    const val WIFI = "wifi"
+    const val LOCAL = "local"
+}
+
+/** Known values of [ActivityDevice.battery], an open string. */
+object DeviceBattery {
+    const val NEW = "new"
+    const val GOOD = "good"
+    const val OK = "ok"
+    const val LOW = "low"
+    const val CRITICAL = "critical"
+    const val CHARGING = "charging"
+}
+
+/**
  * `app.activitytracker.feed.activityZones`: the athlete's zones for an activity, under its activity's rkey, so later threshold changes
  * don't change its time in zone, and the activity's [trainingLoad].
  *

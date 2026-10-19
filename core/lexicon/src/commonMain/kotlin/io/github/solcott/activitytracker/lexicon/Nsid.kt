@@ -47,6 +47,11 @@ object Nsid {
     const val FEED_ACTIVITY_TRACK = "$NAMESPACE.feed.activityTrack"
     /** The file an activity was imported from, kept only in the athlete's `self` tier space ([SPACE_ATHLETE]) and never indexed. */
     const val FEED_ACTIVITY_SOURCE = "$NAMESPACE.feed.activitySource"
+    /**
+     * An imported activity's devices and their serial numbers, kept only in the athlete's `self` tier space ([SPACE_ATHLETE]) and never
+     * indexed.
+     */
+    const val FEED_ACTIVITY_DEVICES = "$NAMESPACE.feed.activityDevices"
     /** Not a record or a query: the views' definitions, named in a union member's `$type`. */
     const val FEED_DEFS = "$NAMESPACE.feed.defs"
     const val FEED_GET_ACTIVITY_STREAMS = "$NAMESPACE.feed.getActivityStreams"

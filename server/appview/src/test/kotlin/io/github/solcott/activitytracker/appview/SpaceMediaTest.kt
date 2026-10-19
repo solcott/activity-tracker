@@ -209,6 +209,36 @@ class SpaceMediaTest {
     }
 
     @Test
+    fun devicesInTheSelfSpaceAreNeitherStoredNorServed() = testApplication {
+        startSigning()
+        postSpace("3kdev", Visibility.SELF, record(1))
+        val devices =
+            """{"activity":"${uri("3kdev")}","createdAt":"2026-10-01T07:31:00Z","activityProfile":"MOUNTAIN",""" +
+                """"devices":[{"role":"recorder","manufacturer":"Garmin","model":"Edge 840","serialNumber":"3510682071"}]}"""
+        runBlocking {
+            indexer.spaceWrite(
+                space(Visibility.SELF),
+                Nsid.FEED_ACTIVITY_DEVICES,
+                "3kdev",
+                "bafydev",
+                AtJson.parseToJsonElement(devices).jsonObject,
+            )
+        }
+
+        assertTrue(Nsid.FEED_ACTIVITY_DEVICES !in Nsid.indexedCollections)
+        assertTrue(
+            listOf(Visibility.FOLLOWERS, Visibility.MUTUALS, Visibility.SELF, AthleteSpace.INTERACTIONS).none {
+                Nsid.FEED_ACTIVITY_DEVICES in Indexer.spaceCollections(it)
+            }
+        )
+        val response = client.raw(GetActivity.method.nsid, alice, "?uri=${uri("3kdev").encodeURLParameter()}")
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertFalse("3510682071" in body, "the athlete's own view carries no serial number")
+        assertFalse("MOUNTAIN" in body)
+    }
+
+    @Test
     fun privacyZonesAndTheirTrimMarkerInTheSelfSpaceAreIgnored() = testApplication {
         startSigning()
         postSpace("3kzon", Visibility.SELF, record(1))

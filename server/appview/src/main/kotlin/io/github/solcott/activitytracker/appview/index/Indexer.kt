@@ -336,8 +336,9 @@ class Indexer(
         /**
          * What the AppView indexes from the athlete space with key [skey]: likes, comments and comment hides from the interactions space,
          * and activities, their details, streams and zones from a tier (an unknown key is a tier only the athlete sees). Private details,
-         * follow declines, defaults, full tracks and imported files (`feed.activityTrack`, `feed.activitySource`, in `self`), privacy zones
-         * and their trim marker (`actor.privacyZones`, `actor.routeTrim`, in `self`) are never stored.
+         * follow declines, defaults, full tracks, imported files and their devices (`feed.activityTrack`, `feed.activitySource`,
+         * `feed.activityDevices`, in `self`), privacy zones and their trim marker (`actor.privacyZones`, `actor.routeTrim`, in `self`) are
+         * never stored.
          */
         fun spaceCollections(skey: String): Set<String> =
             if (skey == AthleteSpace.INTERACTIONS) INTERACTION_COLLECTIONS else TIER_COLLECTIONS
