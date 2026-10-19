@@ -252,6 +252,31 @@ class ActivityPageTest {
         )
     }
 
+    @Test
+    fun `a card's chart marks the average its headline gives`() {
+        // The stream's samples average 805 mm/s; the swim stores 800, as the headline shows.
+        val swim = record(Sport.SWIM).copy(distance = 1000, movingTime = 1250, avgSpeed = 800)
+        val page = ActivityPage.build(swim, charts().copy(lines = persistentListOf(line(StreamKind.Speed, 800.0))))
+        val series = page.cards.single().series.single()
+        assertEquals(800.0, series.average)
+        assertEquals(FigureValue.Pace(800, true), page.cards.single().headline.first().value)
+        // Nothing stored for the maximum, so the stream's stays.
+        assertEquals(810.0, series.max)
+        // The page's own lines keep the stream's figures.
+        assertEquals(805.0, page.charts?.lines?.single()?.average)
+    }
+
+    @Test
+    fun `a card without a stored figure keeps the stream's`() {
+        val ride = record(Sport.RIDE).copy(avgTemperature = 200)
+        val lines = persistentListOf(line(StreamKind.HeartRate, 140.0), line(StreamKind.Temperature, 180.0))
+        val cards = ActivityPage.build(ride, charts().copy(lines = lines)).cards
+        assertEquals(145.0, cards.single { it.section == DetailSection.HeartRate }.series.single().average)
+        val temperature = cards.single { it.section == DetailSection.Temperature }.series.single()
+        assertEquals(200.0, temperature.average)
+        assertEquals(190.0, temperature.max)
+    }
+
     private fun record(sport: String) = ActivityRecord(sport, START, 3600, START)
 
     private val mtb =

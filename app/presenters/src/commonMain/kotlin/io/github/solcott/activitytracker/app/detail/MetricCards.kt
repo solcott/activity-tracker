@@ -10,7 +10,7 @@ internal object MetricCards {
     fun card(section: DetailSection, charts: ActivityCharts, figures: Figures, mark: String?): MetricCard? {
         val series =
             if (section == DetailSection.TankPressure) charts.tankPressures
-            else charts.lines.filter { sectionOf(it.kind) == section }.toImmutableList()
+            else charts.lines.filter { sectionOf(it.kind) == section }.map { withHeadline(it, figures) }.toImmutableList()
         val (headline, rows) = figuresOf(section, charts, figures)
         val card =
             MetricCard(
@@ -202,6 +202,17 @@ internal object MetricCards {
     private const val BEST_POWER_SECONDS = 1200
     private const val SECONDS_PER_MINUTE = 60
 }
+
+/** [series] with the average and maximum its card's headline gives, so its chart marks the same ones; the stream's where none is stored. */
+private fun withHeadline(series: LineSeries, figures: Figures): LineSeries =
+    if (series.kind in STORED) {
+        series.copy(average = figures.average(series.kind) ?: series.average, max = figures.max(series.kind) ?: series.max)
+    } else {
+        series
+    }
+
+/** Lines whose average and maximum an activity can store, which its headline prefers to the stream's. */
+private val STORED = setOf(StreamKind.HeartRate, StreamKind.Power, StreamKind.Speed, StreamKind.Cadence, StreamKind.Temperature)
 
 /** The section each line belongs in. */
 internal fun sectionOf(kind: StreamKind): DetailSection =
