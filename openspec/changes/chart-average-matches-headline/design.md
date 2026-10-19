@@ -27,6 +27,10 @@
 
 Temperature has `avgTemperature` but no stored maximum, so its chart keeps `LineSeries.max`, which the headline also falls back to. The copy replaces each figure only where `Figures` returns a value, so the stream's figure stays whenever the record has none.
 
+### 3. A pace is rounded once, from the speed
+
+The value now matches, but the text could still differ by a second. The page's pace figure truncated the seconds per kilometer, then converted to the athlete's unit and rounded, while the chart converts the speed to seconds per unit and rounds once. On the interval run's best pace that gave 5:57 /mi in the headline and 5:58 /mi in the chart's description. The page's figure now rounds once from the speed, as the chart does, so the same speed always reads the same.
+
 ## Risks / Trade-offs
 
 - [A stored average outside the plotted range, from a file whose summary disagrees with its samples] → The dashed line still sits on the axis's range, since that's computed from the points; it can sit near an edge. It's the figure the headline already shows, so the card is at least consistent with itself.

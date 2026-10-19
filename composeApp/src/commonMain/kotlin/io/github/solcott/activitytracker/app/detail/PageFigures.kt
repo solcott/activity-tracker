@@ -395,8 +395,9 @@ private fun unitOf(unit: FigureUnit): StringResource =
 @Composable
 private fun pace(value: FigureValue.Pace): String {
     if (value.mmPerSecond <= 0) return stringResource(Res.string.value_missing)
-    val seconds = (PACE_METERS * MM_PER_M / value.mmPerSecond).toLong()
-    return if (value.swim) Format.swimPace(PACE_METERS, seconds) else Format.pace(PACE_METERS, seconds)
+    // The distance covered in an hour at that speed, so the pace is rounded once, per the athlete's unit, as a pace chart rounds it.
+    val meters = value.mmPerSecond / MM_PER_M * SECONDS_PER_HOUR
+    return if (value.swim) Format.swimPace(meters, SECONDS_PER_HOUR) else Format.pace(meters, SECONDS_PER_HOUR)
 }
 
 @Composable
@@ -424,6 +425,6 @@ private fun decoModel(value: FigureValue.DecoModel): String {
     }
 }
 
-private const val PACE_METERS = 1000.0
+private const val SECONDS_PER_HOUR = 3600L
 private const val MM_PER_M = 1000.0
 private const val SECONDS_PER_MINUTE = 60
