@@ -49,10 +49,3 @@ The dive's depth chart SHALL mark each stored switch at its time with the gas's 
 #### Scenario: Older dive
 - **WHEN** a viewer opens a dive imported before switch times were stored
 - **THEN** the depth chart shows no gas markers
-
-### Requirement: Merging fills missing switches
-Merging another recording into a dive SHALL add the other recording's gas switches when the dive has none, shifted onto the dive's start, and SHALL leave the dive's own switches when it has them.
-
-#### Scenario: Logbook switches added to a dive without them
-- **WHEN** an athlete merges a UDDF dive with gas switches into a logged dive whose streams have none
-- **THEN** the logged dive's streams hold the UDDF dive's switches at their times relative to the logged dive's start

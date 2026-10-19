@@ -47,13 +47,6 @@ An activity's page SHALL show a sets table, to viewers the streams admit, when s
 - **WHEN** a viewer opens a workout with a set whose exercise token is `single_arm_cable_row`
 - **THEN** the set's exercise shows as "Single arm cable row"
 
-### Requirement: Merging fills missing sets
-Merging another recording into an activity SHALL add its sets when the activity has none, and SHALL NOT replace sets it has.
-
-#### Scenario: Watch adds sets
-- **WHEN** an athlete merges a watch's FIT strength workout into a chest strap's recording of it with no sets
-- **THEN** the chest strap's recording gains the watch's sets and keeps its own heart rate
-
 ### Requirement: Older workouts are unchanged
 Activities imported before sets were kept SHALL show as before, with no sets table, and SHALL NOT be backfilled.
 

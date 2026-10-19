@@ -2,11 +2,9 @@
 
 ## Purpose
 
-
 Keeps the summary fields, training load, extra per-sample channels and laps that an imported FIT activity records, each at a visibility suited to what it reveals, and shows them on the activity's page.
 
 ## Requirements
-
 
 ### Requirement: Imported summary fields are published
 An activity imported from FIT SHALL publish, where the file records them: elevation loss, average and maximum cadence, average, maximum and normalized power, work, calories, front and rear shift counts, and jump count, grit and flow. These SHALL be on the activity record, at the activity's visibility.
@@ -92,13 +90,6 @@ The activity's page SHALL show the new summary fields among its stats, a chart f
 #### Scenario: Ride with cycling dynamics
 - **WHEN** a viewer who may see the streams opens a ride with torque effectiveness and pedal smoothness stored
 - **THEN** the page shows a torque effectiveness chart and a pedal smoothness chart, each with its left and right values
-
-### Requirement: Merging fills missing activity data
-Merging another recording into an activity SHALL add each new summary field, channel and the laps that the activity lacks, and SHALL NOT overwrite any it has.
-
-#### Scenario: Bike computer adds power
-- **WHEN** an athlete merges a bike computer's FIT ride with power into their watch's recording without power
-- **THEN** the watch's recording gains the power summary and power-based channels, and keeps its own heart rate
 
 ### Requirement: Older activities are unchanged
 Activities imported before this data was kept SHALL keep showing as before, with no new stats, charts or laps, and SHALL NOT be backfilled. This includes activities imported before heart rate from `hr` messages, HRV, step counts and the UTC offset were kept.
@@ -276,10 +267,3 @@ The import screen SHALL use a FIT file's UTC offset, when it has one, for the de
 #### Scenario: Morning run imported at night elsewhere
 - **WHEN** an athlete in UTC−7 imports a FIT run started at 07:00 in UTC+9, with no title
 - **THEN** the default title is a morning run
-
-### Requirement: New data merges like other channels
-Merging another recording into an activity SHALL add each new channel, `cycles`, average stroke distance, UTC offset and RMSSD that the activity lacks, and SHALL NOT overwrite any it has.
-
-#### Scenario: Pedals add cycling dynamics
-- **WHEN** an athlete merges a bike computer's FIT ride with cycling dynamics into their watch's recording
-- **THEN** the watch's recording gains the cycling dynamics channels and keeps its own heart rate

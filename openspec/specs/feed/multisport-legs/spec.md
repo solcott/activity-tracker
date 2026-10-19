@@ -42,13 +42,6 @@ A multisport activity's page SHALL show a legs table, to viewers the streams adm
 - **WHEN** a viewer opens a Public triathlon whose streams are Only me
 - **THEN** its stats show the combined totals and no legs table is shown
 
-### Requirement: Merging fills missing legs
-Merging another recording into a multisport activity SHALL add its legs when the activity has none, and SHALL NOT replace legs it has.
-
-#### Scenario: Watch adds legs
-- **WHEN** an athlete merges a watch's FIT triathlon into a manual entry of the race
-- **THEN** the manual entry gains the watch's legs
-
 ### Requirement: Older multisport activities are unchanged
 Multisport activities imported before legs were kept SHALL show as before, with no legs table, and SHALL NOT be backfilled.
 

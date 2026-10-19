@@ -106,10 +106,14 @@ Editing an activity SHALL let the athlete change its visibility and each categor
 - **THEN** after confirming the warning, the activity is stored in their `self` space, every category is Only me, and other viewers no longer see it
 
 ### Requirement: Recordings share their primary's visibility
-An activity that is another recording of a primary (`recordingOf`) SHALL have the primary's visibility. Grouping a recording SHALL change its visibility to the primary's, and changing a primary's visibility SHALL change its recordings' to match. A `recordingOf` link between activities of different visibilities SHALL be ignored.
+An activity that is another recording of a primary (`recordingOf`, a legacy group not yet migrated to a combined activity) SHALL have the primary's visibility, and changing a primary's visibility SHALL change its recordings' to match. A `recordingOf` link between activities of different visibilities SHALL be ignored. Clients SHALL NOT create new `recordingOf` links.
+
+#### Scenario: Legacy group follows its primary
+- **WHEN** an athlete narrows a not-yet-migrated primary with one recording from Public to Followers
+- **THEN** the recording becomes Followers
 
 #### Scenario: Group into a Followers activity
-- **WHEN** an athlete groups a Public activity as a recording of their Followers activity
+- **WHEN** a not-yet-migrated legacy group links a recording to the athlete's Followers activity
 - **THEN** the recording becomes Followers
 
 #### Scenario: Mismatched link

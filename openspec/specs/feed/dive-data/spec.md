@@ -129,13 +129,6 @@ The dive's page SHALL show the deco stop as a ceiling under the depth line, ppO�
 - **WHEN** a viewer opens a dive with depth and temperature only
 - **THEN** its page shows no ceiling and no ppO₂, CNS or tank pressure chart
 
-### Requirement: Merging fills missing dive data
-Merging another recording into a dive SHALL add each dive state channel, tank pressure series and summary field the dive lacks from the other, and SHALL NOT overwrite any the dive has.
-
-#### Scenario: Logbook adds tank pressure
-- **WHEN** an athlete merges a UDDF dive with tank pressure into a FIT dive without it
-- **THEN** the FIT dive gains the tank pressure series, and its own channels are unchanged
-
 ### Requirement: Dive computer alerts are kept with their times
 Importing a FIT or UDDF dive SHALL store each alert the dive computer raised in the activity's streams, with its time since the dive's start and its kind as an open-enum token. FIT `dive_alert` events and UDDF waypoint `alarm`s SHALL each become one alert. Dismissals of an alert SHALL NOT be stored.
 
@@ -198,14 +191,3 @@ The dive's stats SHALL show its deco model, ppO₂ limits, setpoints and safety 
 #### Scenario: Older dive
 - **WHEN** a viewer opens a dive imported before settings were kept
 - **THEN** its stats show its gradient factors and water type as before, and no other settings
-
-### Requirement: Merging fills missing alerts and settings
-Merging another recording into a dive SHALL add the other recording's alerts when the dive has none, shifted onto the dive's start, and each dive computer setting the dive lacks. It SHALL NOT replace any alerts or settings the dive has.
-
-#### Scenario: Logbook alerts added
-- **WHEN** an athlete merges a UDDF dive with alarms into a dive whose streams hold no alerts
-- **THEN** the dive's streams hold the UDDF dive's alerts at their times relative to the dive's start
-
-#### Scenario: Dive with its own settings
-- **WHEN** an athlete merges a Shearwater dive with deco model `vpmB` into a FIT dive with deco model `zhl16c`
-- **THEN** the FIT dive keeps deco model `zhl16c`

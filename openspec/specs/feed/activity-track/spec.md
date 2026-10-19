@@ -72,28 +72,17 @@ Deleting an activity SHALL delete its full track. Deleting a main activity with 
 - **WHEN** an athlete deletes a main activity and keeps its recordings
 - **THEN** the main activity's track is gone and each recording's track stays
 
-### Requirement: Merging fills a missing track
-Merging another recording into an athlete's activity SHALL give the activity that recording's track when the activity has none, and SHALL NOT replace a track the activity already has.
-
-#### Scenario: Activity without a track
-- **WHEN** an athlete merges an imported dive with samples into a logged dive that has no track
-- **THEN** the logged dive gets a `feed.activityTrack` from the import
-
-#### Scenario: Activity with a track
-- **WHEN** an athlete merges a recording into an activity that already has a track
-- **THEN** the activity's track is unchanged
-
-#### Scenario: Activity still unsent
-- **WHEN** an athlete merges a recording into an activity whose track is still waiting to be sent
-- **THEN** the waiting track is the one written, and the merge adds no other
-
 ### Requirement: Edits and ungroups keep the track
-Editing an activity's title, description, dive site or photos, and splitting a recording off its group, SHALL leave its full track as it is.
+Editing an activity's title, description, dive site or photos, combining it with other activities, splitting a combined activity, and removing a member SHALL leave each member's full track as it is.
 
 #### Scenario: Edit title
 - **WHEN** an athlete changes a GPS activity's title
 - **THEN** its `feed.activityTrack` is unchanged
 
+#### Scenario: Split a combined activity
+- **WHEN** an athlete splits a combined activity into its members
+- **THEN** each member's `feed.activityTrack` is unchanged
+
 #### Scenario: Ungroup a recording
-- **WHEN** an athlete splits a recording off its main activity
+- **WHEN** an athlete splits a recording off a legacy group's main activity
 - **THEN** the recording's `feed.activityTrack` is unchanged

@@ -120,23 +120,12 @@ When the athlete's session can't write devices to their `self` space (it signed 
 - **WHEN** an athlete signed in before devices were kept imports a FIT ride
 - **THEN** the ride publishes with its source and no devices
 
-### Requirement: Merging fills missing devices
-Merging an imported activity into one of the athlete's logged activities SHALL give the logged activity the import's devices when it has none, stored or queued, and SHALL NOT replace devices it already has.
-
-#### Scenario: Merge into an app recording
-- **WHEN** an athlete merges an imported FIT ride into a ride they recorded in the app
-- **THEN** the recorded ride gets the FIT ride's devices
-
-#### Scenario: Merge into an import with devices
-- **WHEN** an athlete merges a FIT file into a dive that already has devices
-- **THEN** the dive's devices stay as they were
-
 ### Requirement: Grouped recordings keep their own devices
-An imported activity grouped as another recording of a logged activity SHALL keep its own devices. Splitting a recording off its group, and editing an activity, SHALL leave each activity's devices as they are.
+An imported activity combined with a logged activity SHALL keep its own devices as a member, and a combined activity SHALL have no devices record of its own. Splitting a combined activity, removing a member, and editing an activity SHALL leave each activity's devices as they are.
 
 #### Scenario: Two recordings of one ride
-- **WHEN** an athlete groups an Edge 840 recording of a ride with a Fenix 7 recording of the same ride
-- **THEN** each recording keeps its own devices, naming its own recorder
+- **WHEN** an athlete combines an Edge 840 recording of a ride with a Fenix 7 recording of the same ride
+- **THEN** each member keeps its own devices, naming its own recorder
 
 ### Requirement: Deleting an activity deletes its devices
 Deleting an activity SHALL delete its devices. Deleting a main activity with its recordings SHALL delete each recording's devices too. Recordings split off instead SHALL keep theirs.
