@@ -13,6 +13,8 @@ import io.github.solcott.activitytracker.app.detail.CombinePickerEvent
 import io.github.solcott.activitytracker.app.detail.CombinePickerPresenter
 import io.github.solcott.activitytracker.app.detail.CombinePickerScreen
 import io.github.solcott.activitytracker.app.detail.CombinePickerState
+import io.github.solcott.activitytracker.app.detail.DetailSection
+import io.github.solcott.activitytracker.app.detail.StreamKind
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.data.activity.ActivityExporter
 import io.github.solcott.activitytracker.data.activity.ActivityManager
@@ -35,6 +37,8 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
+import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -75,6 +79,12 @@ class CombinePresentersTest {
     /** Alice's `feed.activityStreams` records, by rkey, and the blobs they name, by CID. */
     private val streamsRecords = mutableMapOf<String, JsonObject>()
     private val blobs = mutableMapOf<String, ByteArray>()
+
+    /**
+     * The streams the AppView serves, by rkey: set by the test alone, so they lag what the PDS holds, as the real one does until Jetstream
+     * brings it a rebuild.
+     */
+    private val servedStreams = mutableMapOf<String, ActivityStreamData>()
 
     /** Activities the AppView serves as Bob's, not Alice's own. */
     private val bobs = mutableSetOf<String>()
@@ -143,6 +153,13 @@ class CombinePresentersTest {
                     "/xrpc/${Nsid.FEED_GET_ACTIVITY}" -> {
                         val rkey = request.url.parameters["uri"]!!.substringAfterLast('/')
                         if (rkey in records) respond("""{"activity":${view(rkey)},"comments":[]}""", headers = json) else notFound()
+                    }
+
+                    "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" -> {
+                        val uri = AtUri(request.url.parameters["uri"]!!)
+                        val data = servedStreams[uri.rkey] ?: return@MockEngine notFound()
+                        val output = GetActivityStreams.Output(uri, Visibility.PUBLIC, data.channels, data)
+                        respond(AtJson.encodeToString(GetActivityStreams.Output.serializer(), output), headers = json)
                     }
 
                     "/xrpc/${Nsid.FEED_GET_AUTHOR_ACTIVITIES_BY_START}" -> {
@@ -481,6 +498,27 @@ class CombinePresentersTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    @Test
+    fun theChartsFollowARebuildBeforeTheAppViewIndexesIt() = runTest {
+        ride()
+        servedStreams["3kride"] = streamsOf("3kedge")!!
+        presenterTestOf(detail(uri("3kride"), FakeNavigator(ActivityDetailScreen(uri("3kride"))))) {
+            val loaded = awaitUntil { it.hasPowerChart() && it.powerRow() != null } as ActivityDetailState.Loaded
+            assertTrue(DetailSection.Power in loaded.sections)
+
+            loaded.eventSink(ActivityDetailEvent.SetIncluded(DataKind.Power, included = false))
+            val rebuilt = awaitUntil { s -> s.powerRow()?.included == false && s.saving() == null && !s.hasPowerChart() }
+            assertTrue(DetailSection.Power !in (rebuilt as ActivityDetailState.Loaded).sections, "no Power card beside figures without it")
+            assertTrue(rebuilt.charts!!.lines.any { it.kind == StreamKind.HeartRate }, "the rebuilt streams, not none")
+            assertEquals(250, servedStreams.getValue("3kride").power?.first(), "the AppView still serves the old streams")
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    private fun ActivityDetailState.hasPowerChart() =
+        (this as? ActivityDetailState.Loaded)?.charts?.lines?.any { it.kind == StreamKind.Power } == true
 
     @Test
     fun choosingASourceOnceRebuildsOnce() = runTest {
