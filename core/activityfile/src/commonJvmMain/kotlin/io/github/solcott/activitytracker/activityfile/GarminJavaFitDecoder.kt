@@ -71,6 +71,7 @@ class GarminJavaFitDecoder : FitDecoder {
                         manufacturer = m.manufacturer?.let(Manufacturer::getStringFromValue),
                         product = productName(m.manufacturer, m.garminProduct, m.productName, m.product),
                         timeCreatedMillis = m.timeCreated?.millis(),
+                        serialNumber = m.serialNumber?.takeIf { it != 0L }?.toString(),
                     )
             }
         }
@@ -189,6 +190,7 @@ class GarminJavaFitDecoder : FitDecoder {
             poolLengthMeters = poolLength?.toDouble(),
             totalCycles = totalCycles,
             avgStrokeDistanceMeters = avgStrokeDistance?.toDouble(),
+            sportProfileName = sportProfileName?.ifEmpty { null },
         )
 
     private fun LapMesg.toSummary() =
@@ -358,6 +360,12 @@ private class RideListeners(broadcaster: MesgBroadcaster) {
             product = productName(manufacturer, garminProduct, productName, product)?.ifEmpty { null },
             batteryStatus = batteryStatus?.let(BatteryStatus::getStringFromValue)?.ifEmpty { null },
             batteryLevelPercent = batteryLevel?.toInt(),
+            serialNumber = serialNumber?.takeIf { it != 0L },
+            antDeviceNumber = antDeviceNumber?.takeIf { it != 0 },
+            antTransmissionType = antTransmissionType?.toInt(),
+            softwareVersion = softwareVersion?.toDouble(),
+            batteryVolts = batteryVoltage?.toDouble(),
+            cumulativeOperatingSeconds = cumOperatingTime,
         )
 }
 

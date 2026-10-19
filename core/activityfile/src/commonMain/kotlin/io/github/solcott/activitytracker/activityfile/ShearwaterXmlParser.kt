@@ -32,7 +32,14 @@ internal object ShearwaterXmlParser {
         val tankUpdates = tankUpdates(state.records, start)
         val dive = dive(header, state.records, tankUpdates)
         return DecodedActivity(
-            fileId = DiveLogs.source(MODELS.getOrNull(header.int("product") ?: -1), MANUFACTURER),
+            // Shearwater Cloud writes the computer's serial in hex ("9DA7AB33") and its firmware as a build number.
+            fileId =
+                DiveLogs.source(
+                    MODELS.getOrNull(header.int("product") ?: -1),
+                    MANUFACTURER,
+                    serial = header["computerSerial"],
+                    firmware = header["computerFirmware"],
+                ),
             sessions = listOf(DiveLogs.summary(dive, start, elapsedSeconds)),
             laps = emptyList(),
             records =

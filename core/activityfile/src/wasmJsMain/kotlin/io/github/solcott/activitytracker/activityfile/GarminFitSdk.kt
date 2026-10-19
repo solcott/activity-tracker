@@ -58,6 +58,7 @@ internal external interface JsFileIdMesg : JsAny {
     val product: JsAny?
     val productName: String?
     val timeCreated: JsAny?
+    val serialNumber: JsAny?
 }
 
 internal external interface JsSummaryMesg : JsAny {
@@ -98,6 +99,7 @@ internal external interface JsSummaryMesg : JsAny {
     // Session only: strides, strokes or revolutions, and the average stroke distance.
     val totalCycles: JsAny?
     val avgStrokeDistance: JsAny?
+    val sportProfileName: JsAny?
     // Session only: the FTP that intensity factor and TSS are relative to.
     val thresholdPower: JsAny?
     val intensityFactor: JsAny?
@@ -258,6 +260,12 @@ internal external interface JsDeviceInfoMesg : JsAny {
     val productName: String?
     val batteryStatus: JsAny?
     val batteryLevel: JsAny?
+    val serialNumber: JsAny?
+    val antDeviceNumber: JsAny?
+    val antTransmissionType: JsAny?
+    val softwareVersion: JsAny?
+    val batteryVoltage: JsAny?
+    val cumOperatingTime: JsAny?
 }
 
 internal external interface JsJumpMesg : JsAny {

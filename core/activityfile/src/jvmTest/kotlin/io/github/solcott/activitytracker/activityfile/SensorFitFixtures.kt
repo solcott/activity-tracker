@@ -1,14 +1,19 @@
 package io.github.solcott.activitytracker.activityfile
 
 import com.garmin.fit.ActivityMesg
+import com.garmin.fit.AntplusDeviceType
+import com.garmin.fit.BleDeviceType
 import com.garmin.fit.DateTime
 import com.garmin.fit.DeveloperDataIdMesg
 import com.garmin.fit.DeveloperField
+import com.garmin.fit.DeviceInfoMesg
 import com.garmin.fit.FieldDescriptionMesg
 import com.garmin.fit.FitBaseType
 import com.garmin.fit.HrMesg
 import com.garmin.fit.HrvMesg
+import com.garmin.fit.Manufacturer
 import com.garmin.fit.MesgNum
+import com.garmin.fit.SourceType
 import com.garmin.fit.Sport as FitSport
 import com.garmin.fit.SubSport
 import kotlin.time.Instant
@@ -19,6 +24,45 @@ import kotlin.time.toJavaInstant
  */
 object SensorFitFixtures {
     const val STRAP_SWIM_SECONDS = 300L
+
+    /**
+     * Two minutes of riding on a Fenix 7 with what [FitFixtures.mtbRide] lacks: an ANT+ speed sensor with its ANT device number 51234,
+     * transmission type 5 and serial 3912345678, and a Bluetooth heart rate strap that gives no serial. No session profile name.
+     */
+    fun antSensorRide(start: Instant): ByteArray {
+        val startedAt = DateTime(start.toJavaInstant())
+        val sensors =
+            listOf(
+                DeviceInfoMesg().apply {
+                    timestamp = startedAt
+                    deviceIndex = 1.toShort()
+                    sourceType = SourceType.ANTPLUS
+                    manufacturer = Manufacturer.WAHOO_FITNESS
+                    antplusDeviceType = AntplusDeviceType.BIKE_SPEED
+                    antDeviceNumber = 51_234
+                    antTransmissionType = 5.toShort()
+                    serialNumber = 3_912_345_678L
+                },
+                DeviceInfoMesg().apply {
+                    timestamp = startedAt
+                    deviceIndex = 2.toShort()
+                    sourceType = SourceType.BLUETOOTH_LOW_ENERGY
+                    manufacturer = Manufacturer.POLAR_ELECTRO
+                    bleDeviceType = BleDeviceType.HEART_RATE
+                },
+            )
+        return FitFixtures.encode(
+            start,
+            FitSport.CYCLING,
+            SubSport.ROAD,
+            distance = 1000f,
+            avgHr = 130,
+            points = 3,
+            interval = 60,
+            extra = sensors,
+        ) { _, _ ->
+        }
+    }
 
     /**
      * A 5-minute pool swim whose records (every 10 s) have no heart rate: a chest strap stored it in `hr` messages, one reading a second at

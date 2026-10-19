@@ -35,11 +35,23 @@ internal object DiveLogs {
      * A device name the mapper keeps as written: a model with its maker ("Shearwater Petrel") has a space, which stops the mapper
      * lowercasing it as a lone FIT product name.
      */
-    fun source(model: String?, manufacturer: String? = null): DecodedSource? {
+    fun source(model: String?, manufacturer: String? = null, serial: String? = null, firmware: String? = null): DecodedSource? {
         val name = listOfNotNull(manufacturer?.trim()?.ifEmpty { null }, model?.trim()?.ifEmpty { null }).distinct().joinToString(" ")
         if (name.isEmpty()) return null
-        return if (' ' in name) DecodedSource(type = null, manufacturer = null, product = name, timeCreatedMillis = null)
-        else DecodedSource(type = null, manufacturer = name, product = null, timeCreatedMillis = null)
+        val serialNumber = serial?.trim()?.ifEmpty { null }
+        val softwareVersion = firmware?.trim()?.ifEmpty { null }
+        return if (' ' in name) {
+            DecodedSource(
+                null,
+                null,
+                product = name,
+                timeCreatedMillis = null,
+                serialNumber = serialNumber,
+                softwareVersion = softwareVersion,
+            )
+        } else {
+            DecodedSource(null, manufacturer = name, product = null, timeCreatedMillis = null, serialNumber, softwareVersion)
+        }
     }
 
     /** A gas from oxygen and helium fractions (0.32), or null without oxygen. */

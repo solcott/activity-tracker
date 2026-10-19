@@ -4,7 +4,8 @@ package io.github.solcott.activitytracker.activityfile
  * Reads a Garmin TCX file: its first activity, or every activity of its first `MultiSportSession`. Each `Lap` becomes a summary (its
  * `TotalTimeSeconds` is timer time, so moving time) with its calories, intensity and trigger, and each `Trackpoint` a sample, including the
  * `TPX` speed and power extensions (and the lap's `LX` power and cadence). TCX has no ascent total, so climb is computed from the samples.
- * The device is `Creator/Name` ("Forerunner 965"), and the notes the first activity's `Notes`.
+ * The device is `Creator/Name` ("Forerunner 965"), with its serial number `Creator/UnitId` and firmware `Creator/Version`, and the notes
+ * the first activity's `Notes`.
  *
  * A multisport session gives a session per activity (its sport, and its laps' sums) and per `NextSport` `Transition` (FIT's transition
  * sport), each lasting until the next begins, so the mapper builds legs from them as from a FIT file's sessions. A plain file has none.
@@ -19,7 +20,7 @@ internal object TcxParser {
             )
         }
         return DecodedActivity(
-            fileId = state.device?.let { DecodedSource(type = null, manufacturer = null, product = it, timeCreatedMillis = null) },
+            fileId = state.source(),
             sessions = state.sessions(),
             laps = state.laps(),
             records = state.samples,
@@ -40,6 +41,9 @@ internal object TcxParser {
         var inMultisport = false
         var sawMultisport = false
         var device: String? = null
+        var unitId: String? = null
+        var versionMajor: String? = null
+        var versionMinor: String? = null
         var notes: String? = null
         var lap: LapBuilder? = null
         var point: SampleBuilder? = null
@@ -93,16 +97,38 @@ internal object TcxParser {
                     lap = null
                 }
                 currentLap != null -> currentLap.read(name, path.parent, text)
-                else -> readActivity(name, path.parent, text)
+                else -> readActivity(name, path, text)
             }
         }
 
-        /** The activity's own fields outside its laps: the device's name and the first activity's notes. */
-        private fun readActivity(name: String, parent: String?, text: String) {
+        /** The activity's own fields outside its laps: the device's name, serial and firmware, and the first activity's notes. */
+        private fun readActivity(name: String, path: List<String>, text: String) {
+            val parent = path.parent
+            val inCreator = parent == "Version" && path.getOrNull(path.size - 3) == "Creator"
             when {
                 name == "Name" && parent == "Creator" -> device = text.ifEmpty { null }
+                name == "UnitId" && parent == "Creator" -> unitId = text.takeUnless { it.isEmpty() || it == "0" }
+                name == "VersionMajor" && inCreator -> versionMajor = text.ifEmpty { null }
+                name == "VersionMinor" && inCreator -> versionMinor = text.ifEmpty { null }
                 name == "Notes" && parent == "Activity" && notes == null -> notes = text.ifEmpty { null }
             }
+        }
+
+        /**
+         * The `Creator` device, or null when the file names none. Minor versions are hundredths, as Garmin writes them: 19 and 2 is 19.02.
+         */
+        fun source(): DecodedSource? {
+            val name = device ?: return null
+            val minor = versionMinor?.toIntOrNull()?.toString()?.padStart(2, '0')?.trimEnd('0')
+            val version = versionMajor?.let { major -> if (minor.isNullOrEmpty()) major else "$major.$minor" }
+            return DecodedSource(
+                type = null,
+                manufacturer = null,
+                product = name,
+                timeCreatedMillis = null,
+                serialNumber = unitId,
+                softwareVersion = version,
+            )
         }
 
         /** Every activity's laps in time order, each lasting until the next lap or transition starts. */

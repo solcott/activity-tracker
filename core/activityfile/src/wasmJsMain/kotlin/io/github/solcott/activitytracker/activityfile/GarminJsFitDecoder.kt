@@ -29,6 +29,7 @@ class GarminJsFitDecoder : FitDecoder {
                         manufacturer = it.manufacturer?.let(::jsString),
                         product = (it.garminProduct ?: it.product)?.let(::jsString) ?: it.productName,
                         timeCreatedMillis = it.timeCreated?.let(::dateMillis),
+                        serialNumber = number(it.serialNumber)?.toLong()?.takeIf { serial -> serial != 0L }?.toString(),
                     )
                 },
             sessions = sessions.map { it.toSummary() },
@@ -100,13 +101,20 @@ class GarminJsFitDecoder : FitDecoder {
 
     private fun JsDeviceInfoMesg.toSensor() =
         DecodedSensor(
-            deviceIndex = number(deviceIndex)?.roundToInt(),
+            // The SDK names index 0, the recording device, "creator" rather than giving its number.
+            deviceIndex = if (deviceIndex?.let(::jsString) == CREATOR) 0 else number(deviceIndex)?.roundToInt(),
             sourceType = sourceType?.let(::jsString),
             deviceType = (antplusDeviceType ?: bleDeviceType ?: localDeviceType)?.let(::jsString),
             manufacturer = manufacturer?.let(::jsString),
             product = garminProduct?.let(::jsString) ?: productName ?: product?.let(::jsString),
             batteryStatus = batteryStatus?.let(::jsString),
             batteryLevelPercent = number(batteryLevel)?.roundToInt(),
+            serialNumber = number(serialNumber)?.toLong()?.takeIf { it != 0L },
+            antDeviceNumber = number(antDeviceNumber)?.roundToInt()?.takeIf { it != 0 },
+            antTransmissionType = number(antTransmissionType)?.roundToInt(),
+            softwareVersion = number(softwareVersion),
+            batteryVolts = number(batteryVoltage),
+            cumulativeOperatingSeconds = number(cumOperatingTime)?.toLong(),
         )
 
     private fun diveMessages(messages: FitMessages, session: JsSummaryMesg?): FitDiveMessages {
@@ -280,6 +288,7 @@ class GarminJsFitDecoder : FitDecoder {
             poolLengthMeters = number(poolLength),
             totalCycles = number(totalCycles)?.toLong(),
             avgStrokeDistanceMeters = number(avgStrokeDistance),
+            sportProfileName = sportProfileName?.let(::jsString)?.ifEmpty { null },
             intensity = intensity?.let(::jsString),
             lapTrigger = lapTrigger?.let(::jsString),
         )
@@ -334,6 +343,9 @@ private fun bufferOf(array: JsAny): JsAny = js("array.buffer")
 
 @Suppress("UnusedParameter") // Used by the JS body.
 private fun jsString(value: JsAny): String = js("String(value)")
+
+/** The JS SDK's name for `device_info` index 0. */
+private const val CREATOR = "creator"
 
 /** An array field's first value; a single value as is. Null when the array is empty. */
 @Suppress("UnusedParameter") // Used by the JS body.

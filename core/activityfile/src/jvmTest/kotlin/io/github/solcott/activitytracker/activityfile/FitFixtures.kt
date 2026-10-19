@@ -1,13 +1,9 @@
 package io.github.solcott.activitytracker.activityfile
 
-import com.garmin.fit.AntplusDeviceType
-import com.garmin.fit.BatteryStatus
 import com.garmin.fit.BenchPressExerciseName
-import com.garmin.fit.BleDeviceType
 import com.garmin.fit.Bool
 import com.garmin.fit.BufferEncoder
 import com.garmin.fit.DateTime
-import com.garmin.fit.DeviceInfoMesg
 import com.garmin.fit.DisplayMeasure
 import com.garmin.fit.DiveAlert
 import com.garmin.fit.DiveGasMesg
@@ -29,7 +25,6 @@ import com.garmin.fit.LapMesg
 import com.garmin.fit.LapTrigger
 import com.garmin.fit.LengthMesg
 import com.garmin.fit.LengthType
-import com.garmin.fit.LocalDeviceType
 import com.garmin.fit.Manufacturer
 import com.garmin.fit.Mesg
 import com.garmin.fit.MesgNum
@@ -38,7 +33,6 @@ import com.garmin.fit.RecordMesg
 import com.garmin.fit.SessionMesg
 import com.garmin.fit.SetMesg
 import com.garmin.fit.SetType
-import com.garmin.fit.SourceType
 import com.garmin.fit.SplitMesg
 import com.garmin.fit.SplitType
 import com.garmin.fit.Sport as FitSport
@@ -119,34 +113,14 @@ object FitFixtures {
     const val MTB_POINTS = 11
 
     /**
-     * Ten minutes of mountain biking on an Edge (a point a minute) with a Garmin HRM over Bluetooth, and an SRAM power meter (battery low)
-     * and AXS derailleur over ANT+. Each device writes `device_info` at the start and the end. Rear shifts to gear 5 (21T) at the start,
+     * Ten minutes of mountain biking on an Edge 840 (a point a minute) with a Garmin HRM over Bluetooth, and an SRAM power meter (battery
+     * low) and AXS derailleur over ANT+ ([Edge840Devices]), under the Edge's `MOUNTAIN` profile. Rear shifts to gear 5 (21T) at the start,
      * gear 7 (17T) at 1 min and gear 6 (19T) at 2 min; two jumps; the session's power, shifting and trail totals.
      */
     @Suppress("LongMethod") // One file, message by message.
     fun mtbRide(start: Instant): ByteArray {
         val startedAt = DateTime(start.toJavaInstant())
         fun at(seconds: Long) = DateTime(startedAt).apply { add(seconds) }
-        fun devices(seconds: Long, hrmBattery: Int) =
-            listOf<Mesg>(
-                device(at(seconds), 0, SourceType.LOCAL, Manufacturer.GARMIN, GarminProduct.EDGE_840),
-                device(at(seconds), 1, SourceType.LOCAL, Manufacturer.GARMIN, GarminProduct.EDGE_840) {
-                    localDeviceType = LocalDeviceType.BAROMETER
-                },
-                device(at(seconds), 2, SourceType.BLUETOOTH_LOW_ENERGY, Manufacturer.GARMIN, GarminProduct.HRM_200) {
-                    bleDeviceType = BleDeviceType.HEART_RATE
-                    batteryStatus = BatteryStatus.GOOD
-                    batteryLevel = hrmBattery.toShort()
-                },
-                device(at(seconds), 3, SourceType.ANTPLUS, Manufacturer.SRAM, 1052) {
-                    antplusDeviceType = AntplusDeviceType.BIKE_POWER
-                    batteryStatus = BatteryStatus.LOW
-                },
-                device(at(seconds), 4, SourceType.ANTPLUS, Manufacturer.SRAM, 1060) {
-                    antplusDeviceType = AntplusDeviceType.SHIFTING
-                    batteryStatus = BatteryStatus.OK
-                },
-            )
         fun shift(seconds: Long, gear: Int, teeth: Int) =
             EventMesg().apply {
                 timestamp = at(seconds)
@@ -172,9 +146,8 @@ object FitFixtures {
                     eventType = EventType.STOP
                 }
             ) +
-                devices(0, hrmBattery = 80) +
-                listOf(shift(0, 5, 21), shift(60, 7, 17), shift(120, 6, 19), jump(200, 0.4f, 3.5f), jump(400, 0.9f, 8.2f)) +
-                devices((MTB_POINTS - 1) * 60L, hrmBattery = 75)
+                Edge840Devices.messages(startedAt, (MTB_POINTS - 1) * 60L, hrmBattery = 80 to 75) +
+                listOf(shift(0, 5, 21), shift(60, 7, 17), shift(120, 6, 19), jump(200, 0.4f, 3.5f), jump(400, 0.9f, 8.2f))
         return encode(
             start,
             FitSport.CYCLING,
@@ -216,6 +189,11 @@ object FitFixtures {
                 jumpCount = 2
                 totalGrit = 12.5f
                 avgFlow = 2.5f
+                sportProfileName = "MOUNTAIN"
+            },
+            fileId = {
+                product = GarminProduct.EDGE_840
+                serialNumber = Edge840Devices.EDGE_SERIAL
             },
         ) { _, record ->
             record.power = 180
@@ -224,24 +202,6 @@ object FitFixtures {
             record.leftRightBalance = (0x80 or 52).toShort()
         }
     }
-
-    @Suppress("LongParameterList")
-    private fun device(
-        timestamp: DateTime,
-        index: Int,
-        source: SourceType,
-        manufacturer: Int,
-        product: Int,
-        configure: DeviceInfoMesg.() -> Unit = {},
-    ) =
-        DeviceInfoMesg().apply {
-            this.timestamp = timestamp
-            deviceIndex = index.toShort()
-            sourceType = source
-            this.manufacturer = manufacturer
-            this.product = product
-            configure()
-        }
 
     /**
      * What the sample Descent files lack: RMV, a tank with its gas used and its readings every two minutes, a backup-only gas, a switch to
@@ -628,6 +588,7 @@ object FitFixtures {
         extra: List<Mesg> = emptyList(),
         laps: List<FitLap>? = null,
         session: SessionMesg.() -> Unit = {},
+        fileId: FileIdMesg.() -> Unit = {},
         fill: (Int, RecordMesg) -> Unit,
     ): ByteArray {
         val startedAt = DateTime(start.toJavaInstant())
@@ -641,6 +602,7 @@ object FitFixtures {
                 product = GarminProduct.FENIX7
                 timeCreated = startedAt
                 serialNumber = 1234L
+                fileId()
             }
         )
         before.forEach(encoder::write)

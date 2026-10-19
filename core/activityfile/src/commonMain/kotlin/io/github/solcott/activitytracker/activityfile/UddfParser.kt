@@ -47,9 +47,11 @@ internal object UddfParser {
         var name: String? = null
         var model: String? = null
         var manufacturer: String? = null
+        var serialNumber: String? = null
 
         override fun read(name: String, parent: String?, text: String) {
             when {
+                name == "serialnumber" -> serialNumber = text
                 // UDDF nests the maker's own name: manufacturer/name.
                 name == "name" && parent == "manufacturer" -> manufacturer = text
                 name == "name" && parent == "divecomputer" -> this.name = text
@@ -194,7 +196,7 @@ internal object UddfParser {
                 )
             val elapsed = duration?.takeIf { it > 0 } ?: waypoints.mapNotNull { it.seconds }.maxOrNull()?.takeIf { it > 0 }
             return DecodedActivity(
-                fileId = computer?.let { DiveLogs.source(it.model ?: it.name, it.manufacturer) },
+                fileId = computer?.let { DiveLogs.source(it.model ?: it.name, it.manufacturer, serial = it.serialNumber) },
                 sessions = listOf(DiveLogs.summary(dive, start, elapsed)),
                 laps = emptyList(),
                 records = records(::timeOf),

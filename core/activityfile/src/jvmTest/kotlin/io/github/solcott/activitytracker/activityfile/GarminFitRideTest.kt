@@ -5,6 +5,8 @@ import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 /** A mountain bike ride's power, shifting, trail dynamics and sensors, decoded by the Java SDK. */
@@ -51,7 +53,37 @@ class GarminFitRideTest {
             ),
             ride.sensors,
         )
-        assertEquals("Garmin Fenix 7", ride.device, "the file_id's device, not the device_info list")
+        assertEquals("Garmin Edge 840", ride.device)
+    }
+
+    @Test
+    fun decodesEachDevicesIdentifiersFirmwareAndOperatingTime() {
+        val decoded = GarminJavaFitDecoder().decode(FitFixtures.mtbRide(Instant.parse("2026-10-02T19:52:33Z")))
+        assertEquals(Edge840Devices.EDGE_SERIAL.toString(), decoded.fileId?.serialNumber)
+        assertEquals("MOUNTAIN", decoded.sessions.single().sportProfileName)
+        val power = decoded.sensors.filter { it.deviceIndex == 3 }
+        assertEquals(listOf(null, Edge840Devices.POWER_METER_SERIAL, Edge840Devices.POWER_METER_SERIAL), power.map { it.serialNumber })
+        assertEquals(listOf(2_215_232L, 2_215_232L, 2_221_408L), power.map { it.cumulativeOperatingSeconds })
+        assertEquals(1.574, power.last().batteryVolts!!, 1e-3)
+        assertEquals(1.4, power.last().softwareVersion!!, 1e-3)
+        assertTrue(decoded.sensors.all { it.antDeviceNumber == null && it.antTransmissionType == null }, "the Edge 840 writes no ANT IDs")
+        val edge = decoded.sensors.first { it.deviceIndex == 0 }
+        assertEquals(Edge840Devices.EDGE_SERIAL, edge.serialNumber)
+        assertEquals(31.33, edge.softwareVersion!!, 1e-3)
+        assertEquals(Edge840Devices.DERAILLEUR_SERIAL, decoded.sensors.last { it.deviceIndex == 4 }.serialNumber)
+    }
+
+    @Test
+    fun decodesAnAntSensorsIdsAndABluetoothSensorWithoutASerial() {
+        val decoded = GarminJavaFitDecoder().decode(SensorFitFixtures.antSensorRide(Instant.parse("2026-10-02T19:52:33Z")))
+        val speed = decoded.sensors.single { it.deviceIndex == 1 }
+        assertEquals(51_234, speed.antDeviceNumber)
+        assertEquals(5, speed.antTransmissionType)
+        assertEquals(3_912_345_678L, speed.serialNumber)
+        val strap = decoded.sensors.single { it.deviceIndex == 2 }
+        assertNull(strap.serialNumber)
+        assertNull(strap.antDeviceNumber)
+        assertNull(decoded.sessions.single().sportProfileName)
     }
 
     @Test

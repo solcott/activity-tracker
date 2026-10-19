@@ -156,6 +156,16 @@ data class DecodedSensor(
     /** "new", "good", "ok", "low", "critical" or "charging". */
     val batteryStatus: String?,
     val batteryLevelPercent: Int?,
+    /** Null for FIT's invalid 0. */
+    val serialNumber: Long? = null,
+    /** Null for FIT's wildcard 0. */
+    val antDeviceNumber: Int? = null,
+    val antTransmissionType: Int? = null,
+    /** Firmware version as FIT scales it, 31.33. */
+    val softwareVersion: Double? = null,
+    val batteryVolts: Double? = null,
+    /** FIT's `cum_operating_time`: seconds the device has operated over its life. */
+    val cumulativeOperatingSeconds: Long? = null,
 )
 
 /**
@@ -179,6 +189,10 @@ data class DecodedSource(
     val manufacturer: String?,
     val product: String?,
     val timeCreatedMillis: Long?,
+    /** FIT `file_id`'s serial number (null for its invalid 0), TCX's `UnitId`, or a dive computer's serial as the log writes it. */
+    val serialNumber: String? = null,
+    /** TCX `Creator/Version`, "31.33". */
+    val softwareVersion: String? = null,
 )
 
 /** A session or lap message. */
@@ -229,6 +243,8 @@ data class DecodedSummary(
     /** FIT's `total_cycles`: strides on foot (half the steps), strokes swimming, rowing or paddling, crank revolutions on a ride. */
     val totalCycles: Long? = null,
     val avgStrokeDistanceMeters: Double? = null,
+    /** A session's FIT `sport_profile_name`: the device's activity profile, "MOUNTAIN". */
+    val sportProfileName: String? = null,
 )
 
 /** One sample of the activity's record stream. */

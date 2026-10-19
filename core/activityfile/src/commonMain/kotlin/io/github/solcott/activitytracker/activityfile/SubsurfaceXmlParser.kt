@@ -71,6 +71,8 @@ internal object SubsurfaceXmlParser {
         val switches = mutableListOf<GasChange>()
         var computers = 0
         var model: String? = null
+        /** Subsurface's ID for the computer, a hash of its model and serial number. */
+        var deviceId: String? = null
         var closedCircuit = false
         var maxDepth: Double? = null
         var meanDepth: Double? = null
@@ -110,7 +112,7 @@ internal object SubsurfaceXmlParser {
             val elapsed =
                 attribute["duration"]?.let(::seconds)?.takeIf { it > 0 } ?: samples.mapNotNull { it.seconds }.maxOrNull()?.takeIf { it > 0 }
             return DecodedActivity(
-                fileId = DiveLogs.source(model),
+                fileId = DiveLogs.source(model, serial = deviceId),
                 // Samples carry a temperature only when it changes; with none, the computer's header value stands in.
                 sessions =
                     listOf(DiveLogs.summary(dive, start, elapsed, waterTemperature.takeIf { samples.none { s -> s.temperature != null } })),
@@ -192,6 +194,7 @@ internal object SubsurfaceXmlParser {
                         current.computers++
                         if (current.computers == 1) {
                             current.model = attribute("model")
+                            current.deviceId = attribute("deviceid")
                             current.closedCircuit = attribute("dctype")?.uppercase() == "CCR"
                         }
                     }

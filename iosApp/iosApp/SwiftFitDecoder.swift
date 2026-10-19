@@ -228,7 +228,13 @@ final class SwiftFitDecoder: FitDecoder {
             manufacturer: m.getManufacturer().map { String(describing: $0) },
             product: product(m.getManufacturer(), garmin: try? m.getGarminProduct(), name: m.getProductName(), number: m.getProduct()),
             batteryStatus: m.getBatteryStatus().map { String(describing: $0) },
-            batteryLevelPercent: int(m.getBatteryLevel().map(Int32.init))
+            batteryLevelPercent: int(m.getBatteryLevel().map(Int32.init)),
+            serialNumber: m.getSerialNumber().flatMap { $0 == 0 ? nil : KotlinLong(value: Int64($0)) },
+            antDeviceNumber: m.getAntDeviceNumber().flatMap { $0 == 0 ? nil : KotlinInt(value: Int32($0)) },
+            antTransmissionType: int(m.getAntTransmissionType().map(Int32.init)),
+            softwareVersion: double(m.getSoftwareVersion()),
+            batteryVolts: double(m.getBatteryVoltage()),
+            cumulativeOperatingSeconds: long(m.getCumOperatingTime())
         )
     }
 
@@ -357,7 +363,9 @@ final class SwiftFitDecoder: FitDecoder {
             type: m.getType().map { String(describing: $0) },
             manufacturer: manufacturer.map { String(describing: $0) },
             product: product(manufacturer, garmin: try? m.getGarminProduct(), name: m.getProductName(), number: m.getProduct()),
-            timeCreatedMillis: m.getTimeCreated().map { KotlinLong(value: millis($0)) }
+            timeCreatedMillis: m.getTimeCreated().map { KotlinLong(value: millis($0)) },
+            serialNumber: m.getSerialNumber().flatMap { $0 == 0 ? nil : String($0) },
+            softwareVersion: nil
         )
     }
 
@@ -397,7 +405,8 @@ final class SwiftFitDecoder: FitDecoder {
             intensity: nil,
             lapTrigger: nil,
             totalCycles: m.getTotalCycles().map { KotlinLong(value: Int64($0)) },
-            avgStrokeDistanceMeters: double(m.getAvgStrokeDistance())
+            avgStrokeDistanceMeters: double(m.getAvgStrokeDistance()),
+            sportProfileName: m.getSportProfileName().flatMap { $0.isEmpty ? nil : $0 }
         )
     }
 
@@ -437,7 +446,8 @@ final class SwiftFitDecoder: FitDecoder {
             intensity: m.getIntensity().map { String(describing: $0) },
             lapTrigger: m.getLapTrigger().map { String(describing: $0) },
             totalCycles: nil,
-            avgStrokeDistanceMeters: nil
+            avgStrokeDistanceMeters: nil,
+            sportProfileName: nil
         )
     }
 
