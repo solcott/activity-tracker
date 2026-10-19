@@ -10,6 +10,8 @@ import io.github.solcott.activitytracker.composeApp.resources.chart_cadence
 import io.github.solcott.activitytracker.composeApp.resources.chart_cns
 import io.github.solcott.activitytracker.composeApp.resources.chart_core_temperature
 import io.github.solcott.activitytracker.composeApp.resources.chart_depth
+import io.github.solcott.activitytracker.composeApp.resources.chart_description
+import io.github.solcott.activitytracker.composeApp.resources.chart_description_pace
 import io.github.solcott.activitytracker.composeApp.resources.chart_ebike_assist_level
 import io.github.solcott.activitytracker.composeApp.resources.chart_ebike_assist_mode
 import io.github.solcott.activitytracker.composeApp.resources.chart_ebike_battery
@@ -21,6 +23,7 @@ import io.github.solcott.activitytracker.composeApp.resources.chart_left_right_b
 import io.github.solcott.activitytracker.composeApp.resources.chart_leg_spring_stiffness
 import io.github.solcott.activitytracker.composeApp.resources.chart_marker
 import io.github.solcott.activitytracker.composeApp.resources.chart_marker_elevation
+import io.github.solcott.activitytracker.composeApp.resources.chart_pace
 import io.github.solcott.activitytracker.composeApp.resources.chart_pedal_smoothness
 import io.github.solcott.activitytracker.composeApp.resources.chart_platform_center_offset
 import io.github.solcott.activitytracker.composeApp.resources.chart_power
@@ -48,6 +51,10 @@ import io.github.solcott.activitytracker.composeApp.resources.unit_in
 import io.github.solcott.activitytracker.composeApp.resources.unit_kn_per_m
 import io.github.solcott.activitytracker.composeApp.resources.unit_mm
 import io.github.solcott.activitytracker.composeApp.resources.unit_ms
+import io.github.solcott.activitytracker.composeApp.resources.unit_pace_per_100m
+import io.github.solcott.activitytracker.composeApp.resources.unit_pace_per_100yd
+import io.github.solcott.activitytracker.composeApp.resources.unit_pace_per_km
+import io.github.solcott.activitytracker.composeApp.resources.unit_pace_per_mi
 import io.github.solcott.activitytracker.composeApp.resources.unit_percent
 import io.github.solcott.activitytracker.composeApp.resources.unit_pressure_bar
 import io.github.solcott.activitytracker.composeApp.resources.unit_pressure_psi
@@ -70,10 +77,65 @@ import org.jetbrains.compose.resources.stringResource
 
 /** [series] in the athlete's units, ready to chart. */
 @Composable
-internal fun rememberPoints(series: LineSeries): ImmutableList<SeriesPoint> {
-    val unit = streamUnit(series.kind)
-    return remember(series, unit) { series.points.map { SeriesPoint(it.seconds.toDouble(), unit.convert(it.value)) }.toImmutableList() }
+internal fun rememberPoints(
+    series: LineSeries,
+    unit: StreamUnit = streamUnit(series.kind),
+    ceiling: Double = Double.MAX_VALUE,
+): ImmutableList<SeriesPoint> =
+    remember(series, unit, ceiling) {
+        series.points.map { SeriesPoint(it.seconds.toDouble(), unit.convert(it.value).coerceAtMost(ceiling)) }.toImmutableList()
+    }
+
+/**
+ * Speed (mm/s) as pace: the seconds a kilometer or mile takes, or 100 m or yd swimming. A standstill's pace is infinite, so a chart caps it
+ * (`PACE_CEILING`).
+ */
+@Composable
+internal fun paceUnit(kind: PaceKind): StreamUnit {
+    val units = LocalUnitSystem.current
+    val metric = units == UnitSystem.Metric
+    val template =
+        stringResource(
+            when (kind) {
+                PaceKind.Distance -> if (metric) Res.string.unit_pace_per_km else Res.string.unit_pace_per_mi
+                PaceKind.Swim -> if (metric) Res.string.unit_pace_per_100m else Res.string.unit_pace_per_100yd
+            },
+            "%s",
+        )
+    return remember(kind, units, template) {
+        val meters =
+            when (kind) {
+                PaceKind.Distance -> UnitConversions.metersPerDistanceUnit(units)
+                PaceKind.Swim -> if (metric) SWIM_PACE_LENGTH else SWIM_PACE_LENGTH * UnitConversions.METERS_PER_YARD
+            }
+        StreamUnit(
+            convert = { mm -> if (mm > 0) meters * MM_PER_M / mm else Double.MAX_VALUE },
+            text = { template.replace("%s", Format.duration(it.roundToLong())) },
+            axis = { Format.duration(it.roundToLong()) },
+        )
+    }
 }
+
+// A paced sport's speed reads as pace, drawn inverted so the faster (lower) pace is at the top.
+@Composable internal fun lineUnit(kind: StreamKind, pace: PaceKind?): StreamUnit = pace?.let { paceUnit(it) } ?: streamUnit(kind)
+
+@Composable
+internal fun lineTitle(kind: StreamKind, pace: PaceKind?): String =
+    stringResource(if (pace != null) Res.string.chart_pace else streamTitle(kind))
+
+/** What a line's chart shows, for a screen reader: a pace's fastest is its best, not its maximum. */
+@Composable
+internal fun lineDescription(title: String, average: String, max: String, pace: PaceKind?): String =
+    if (pace != null) stringResource(Res.string.chart_description_pace, average, max)
+    else stringResource(Res.string.chart_description, title, average, max)
+
+/** A pace line's cap, [PACE_CEILING] times its average, so stops don't dwarf the rest; none for other lines. */
+internal fun paceCeiling(series: LineSeries, unit: StreamUnit, pace: PaceKind?): Double =
+    series.average?.takeIf { pace != null }?.let { unit.convert(it) * PACE_CEILING } ?: Double.MAX_VALUE
+
+/** How much slower than its average a pace chart goes: past it, a stop would flatten the rest of the line. */
+internal const val PACE_CEILING = 1.5
+private const val SWIM_PACE_LENGTH = 100.0
 
 /** The marker's text: the time and [value], then the elevation there when the chart has it [behind]. */
 @Composable

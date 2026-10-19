@@ -28,7 +28,6 @@ import io.github.solcott.activitytracker.composeApp.resources.chart_depth_alerts
 import io.github.solcott.activitytracker.composeApp.resources.chart_depth_ceiling
 import io.github.solcott.activitytracker.composeApp.resources.chart_depth_switch
 import io.github.solcott.activitytracker.composeApp.resources.chart_depth_switches
-import io.github.solcott.activitytracker.composeApp.resources.chart_description
 import io.github.solcott.activitytracker.composeApp.resources.chart_gear_value
 import io.github.solcott.activitytracker.composeApp.resources.chart_gears
 import io.github.solcott.activitytracker.composeApp.resources.chart_gears_help
@@ -62,99 +61,86 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * [section]'s charts in full: its lines, then zones (or how to get them) after heart rate and power, and the power curve before power
- * zones. Elevation sits behind the effort lines, as Strava draws it, so effort reads against the climbs.
+ * [card]'s charts in full: its lines, then zones (or how to get them, [onSetThresholds], when the owner has none) after heart rate and
+ * power, and the power curve before power zones. With [elevationBehind] (from 600dp: on phones it roughly doubled a chart's draw time, past
+ * a frame; design.md, Measurements) elevation sits faintly behind the effort lines, as Strava draws it, so effort reads against the climbs;
+ * a chart without an elevation series draws none.
  */
 @Composable
-internal fun SectionCharts(section: DetailSection, state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
-    val charts = state.charts ?: return
-    val elevation = charts.lines.firstOrNull { it.kind == StreamKind.Elevation }
+internal fun CardCharts(
+    card: MetricCard,
+    charts: ActivityCharts,
+    missingZones: Boolean,
+    onSetThresholds: (() -> Unit)?,
+    elevationBehind: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val section = card.section
+    val elevation = charts.lines.firstOrNull { it.kind == StreamKind.Elevation }.takeIf { elevationBehind }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(CHART_GAP)) {
-        for (series in charts.lines) {
-            if (sectionOf(series.kind) != section) continue
-            // The section's title already names its own line; grade under elevation needs one.
-            val titled = series.kind.name != section.name
-            val normalized = charts.normalizedPower.takeIf { series.kind == StreamKind.Power }
-            when {
-                series.kind == StreamKind.Depth -> DepthChart(series, charts)
-                else ->
+        if (section == DetailSection.TankPressure) {
+            TankPressures(card.series, charts.durationSeconds)
+        } else {
+            for (series in card.series) {
+                // The card's title and headline already name and sum up its own line; a second (grade under elevation) needs a title.
+                val titled = series.kind.name != section.name && card.series.size > 1
+                if (series.kind == StreamKind.Depth) {
+                    DepthChart(series, charts)
+                } else {
                     LineChart(
                         series,
                         charts.durationSeconds,
                         elevation?.takeIf { series.kind in OVER_ELEVATION },
                         titled,
-                        normalized,
                         step = series.kind == StreamKind.EbikeAssistMode,
+                        pace = card.pace.takeIf { series.kind == StreamKind.Speed },
                     )
+                }
             }
         }
-        when (section) {
-            DetailSection.HeartRate -> {
-                val zones = charts.heartRateZones
-                if (zones != null) Zones(Res.string.chart_heart_rate_zones, zones, Res.string.unit_bpm)
-                else if (state.chartsMissingZones) MissingZones(state.eventSink)
-            }
-
-            DetailSection.Power -> {
-                if (charts.powerCurve.size >= 2) PowerCurve(charts.powerCurve)
-                val zones = charts.powerZones
-                if (zones != null) Zones(Res.string.chart_power_zones, zones, Res.string.unit_watts)
-                else if (state.chartsMissingZones) MissingZones(state.eventSink)
-            }
-
-            DetailSection.Gears -> Gears(charts.gears, charts.durationSeconds, elevation)
-
-            DetailSection.TankPressure -> TankPressures(charts.tankPressures, charts.durationSeconds)
-
-            DetailSection.Laps -> LapTable(charts.laps, ski = charts.skiRuns != null)
-
-            DetailSection.Legs -> LegTable(charts.legs)
-
-            DetailSection.Lengths -> LengthTable(charts.lengths)
-
-            DetailSection.Sets -> SetTable(charts.sets)
-
-            else -> {}
-        }
+        CardExtras(card, charts, elevation, missingZones, onSetThresholds)
     }
 }
 
-/** The section each line belongs in. */
-private fun sectionOf(kind: StreamKind): DetailSection =
-    when (kind) {
-        StreamKind.HeartRate -> DetailSection.HeartRate
-        StreamKind.Power,
-        StreamKind.LeftRightBalance -> DetailSection.Power
-        StreamKind.Speed -> DetailSection.Speed
-        StreamKind.Cadence -> DetailSection.Cadence
-        StreamKind.Elevation,
-        StreamKind.Grade -> DetailSection.Elevation
-        StreamKind.Temperature -> DetailSection.Temperature
-        StreamKind.Depth -> DetailSection.Depth
-        StreamKind.PpO2,
-        StreamKind.Cns -> DetailSection.Oxygen
-        StreamKind.TankPressure -> DetailSection.TankPressure
-        StreamKind.RespirationRate -> DetailSection.Respiration
-        StreamKind.VerticalOscillation,
-        StreamKind.StanceTime,
-        StreamKind.StepLength,
-        StreamKind.VerticalRatio,
-        StreamKind.StanceTimeBalance,
-        StreamKind.FormPower,
-        StreamKind.LegSpringStiffness -> DetailSection.RunningDynamics
-        StreamKind.TorqueEffectiveness,
-        StreamKind.PedalSmoothness,
-        StreamKind.PlatformCentreOffset -> DetailSection.CyclingDynamics
-        StreamKind.CoreTemperature,
-        StreamKind.SmO2,
-        StreamKind.TotalHemoglobin -> DetailSection.Physiology
-        StreamKind.EbikeBattery,
-        StreamKind.EbikeAssistMode,
-        StreamKind.EbikeAssistLevel -> DetailSection.EBike
+/** What follows [card]'s lines: zones (or how to get them) and the power curve, the gears, or its table. */
+@Composable
+private fun CardExtras(
+    card: MetricCard,
+    charts: ActivityCharts,
+    elevation: LineSeries?,
+    missingZones: Boolean,
+    onSetThresholds: (() -> Unit)?,
+) {
+    when (card.section) {
+        DetailSection.HeartRate -> {
+            val zones = card.zones
+            if (zones != null) Zones(Res.string.chart_heart_rate_zones, zones, Res.string.unit_bpm)
+            else if (missingZones && onSetThresholds != null) MissingZones(onSetThresholds)
+        }
+
+        DetailSection.Power -> {
+            if (card.powerCurve.size >= 2) PowerCurve(card.powerCurve)
+            val zones = card.zones
+            if (zones != null) Zones(Res.string.chart_power_zones, zones, Res.string.unit_watts)
+            else if (missingZones && onSetThresholds != null) MissingZones(onSetThresholds)
+        }
+
+        DetailSection.Gears -> Gears(card.gears, charts.durationSeconds, elevation)
+
+        DetailSection.Laps -> LapTable(charts.laps, ski = charts.skiRuns != null)
+
+        DetailSection.Legs -> LegTable(charts.legs)
+
+        DetailSection.Lengths -> LengthTable(charts.lengths)
+
+        DetailSection.Sets -> SetTable(charts.sets)
+
+        else -> {}
     }
+}
 
 @Composable
-private fun MissingZones(eventSink: (ActivityDetailEvent) -> Unit) {
+private fun MissingZones(onSetThresholds: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             stringResource(Res.string.charts_missing_zones),
@@ -162,9 +148,7 @@ private fun MissingZones(eventSink: (ActivityDetailEvent) -> Unit) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        AppTextButton(onClick = { eventSink(ActivityDetailEvent.OpenTrainingZones) }) {
-            Text(stringResource(Res.string.charts_set_thresholds))
-        }
+        AppTextButton(onClick = onSetThresholds) { Text(stringResource(Res.string.charts_set_thresholds)) }
     }
 }
 
@@ -252,9 +236,10 @@ private fun LineChart(
     extraDescription: String? = null,
     detailOverride: String? = null,
     step: Boolean = false,
+    pace: PaceKind? = null,
 ) {
-    val unit = streamUnit(series.kind)
-    val title = stringResource(streamTitle(series.kind))
+    val unit = lineUnit(series.kind, pace)
+    val title = lineTitle(series.kind, pace)
     val average = series.average?.let { unit.text(unit.convert(it)) }
     val max = series.max?.let { unit.text(unit.convert(it)) }
     // A left/right pair draws the right leg as a second line, and each leg's average in the header.
@@ -270,18 +255,19 @@ private fun LineChart(
                 stringResource(Res.string.chart_avg_np_max, average, stringResource(Res.string.unit_watts, normalizedPower), max)
             else -> stringResource(Res.string.chart_avg_max, average, max)
         }
-    val points = rememberPoints(series)
+    val points = rememberPoints(series, unit, paceCeiling(series, unit, pace))
     val backdrop = elevation?.let { rememberPoints(it) }
     val markerLabel = rememberMarkerLabel(backdrop) { unit.text(it) }
     val pairDescription = stringResource(Res.string.chart_left_right_help).takeIf { right != null }
     Column(verticalArrangement = Arrangement.spacedBy(HEADER_GAP)) {
-        if (titled || detail != null) ChartHeader(title.takeIf { titled }, detail)
+        // A card's headline already gives a lone line's average and maximum; a titled line, a leg pair or several tanks give their own.
+        if (titled || right != null || detailOverride != null) ChartHeader(title.takeIf { titled }, detail)
         TimeSeriesChart(
             points = points,
             xRange = 0.0..durationSeconds.toDouble(),
             description =
                 listOfNotNull(
-                        stringResource(Res.string.chart_description, title, average.orEmpty(), max.orEmpty()),
+                        lineDescription(title, average.orEmpty(), max.orEmpty(), pace),
                         extraDescription,
                         pairDescription,
                     )
@@ -291,7 +277,9 @@ private fun LineChart(
             markerLabel = markerLabel,
             average = series.average?.let(unit.convert),
             backdrop = backdrop,
-            inverted = series.kind == StreamKind.Depth,
+            inverted = series.kind == StreamKind.Depth || pace != null,
+            fillAbove = series.kind == StreamKind.Depth,
+            timeValues = pace != null,
             others = lines,
             events = events,
             warnings = warnings,

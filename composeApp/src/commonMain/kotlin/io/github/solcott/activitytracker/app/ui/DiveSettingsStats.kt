@@ -65,11 +65,12 @@ private fun decoModel(dive: ActivityDive): Stat? {
 }
 
 /** Millibar as "1.40 bar". */
-@Composable private fun bar(millibar: Int): String = stringResource(Res.string.unit_pressure_bar, formatDecimal(millibar / MBAR_PER_BAR, 2))
+@Composable
+internal fun bar(millibar: Int): String = stringResource(Res.string.unit_pressure_bar, formatDecimal(millibar / MBAR_PER_BAR, 2))
 
 /** A deco model's name; one the app doesn't know reads as its token. */
 @Composable
-private fun decoModelName(model: String): String =
+internal fun decoModelName(model: String): String =
     when (model) {
         DecoModel.ZHL16C -> stringResource(Res.string.deco_model_zhl16c)
         DecoModel.VPM_B -> stringResource(Res.string.deco_model_vpm_b)

@@ -8,6 +8,7 @@ import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.activityfile.SensorBattery
 import io.github.solcott.activitytracker.activityfile.SensorKind
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.detail.ActivityPageContent
 import io.github.solcott.activitytracker.app.edit.ActivityDetailsFields
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -50,6 +51,11 @@ data class ImportActivityState(
     val approvesFollowers: Boolean = false,
     /** The file is over 10 MB even compressed, so it imports without its original file. */
     val originalTooLarge: Boolean = false,
+    /**
+     * What the activity's page will show the athlete once saved, built from the file as it would publish: every category, each narrower
+     * than the activity marked. Rebuilt when the type or visibility changes; null until built, and for a logbook.
+     */
+    val page: ActivityPageContent? = null,
     val eventSink: (ImportActivityEvent) -> Unit,
 ) : CircuitUiState
 
@@ -175,16 +181,11 @@ enum class PartOfDay {
     Night,
 }
 
-/** The read file's summary, in SI units like the records it becomes. */
+/** The read file's own details beyond what [ImportActivityState.page] shows, in SI units like the records it becomes. */
 @Immutable
 data class ImportPreview(
     val fileName: String,
     val elapsed: Duration,
-    val movingSeconds: Long?,
-    val distanceMeters: Double?,
-    val elevationGainMeters: Double?,
-    val avgHeartRate: Int?,
-    val maxHeartRate: Int?,
     val device: String?,
     /** Null for indoor activities. */
     val polyline: String?,

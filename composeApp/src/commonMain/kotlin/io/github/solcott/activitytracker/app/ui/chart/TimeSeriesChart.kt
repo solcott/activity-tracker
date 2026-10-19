@@ -24,9 +24,11 @@ import com.patrykandpatrick.vico.multiplatform.cartesian.layer.rememberLine
 import com.patrykandpatrick.vico.multiplatform.cartesian.layer.rememberLineCartesianLayer
 import com.patrykandpatrick.vico.multiplatform.cartesian.marker.CartesianMarker
 import com.patrykandpatrick.vico.multiplatform.cartesian.rememberCartesianChart
+import com.patrykandpatrick.vico.multiplatform.common.DashedShape
 import com.patrykandpatrick.vico.multiplatform.common.Fill
 import com.patrykandpatrick.vico.multiplatform.common.component.rememberLineComponent
 import com.patrykandpatrick.vico.multiplatform.common.component.rememberTextComponent
+import io.github.solcott.activitytracker.data.units.formatDecimal
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlinx.collections.immutable.ImmutableList
@@ -57,6 +59,8 @@ internal fun TimeSeriesChart(
     pointLabels: ImmutableList<SeriesLabel> = persistentListOf(),
     backdrop: ImmutableList<SeriesPoint>? = null,
     inverted: Boolean = false,
+    fillAbove: Boolean = inverted,
+    timeValues: Boolean = false,
     others: ImmutableList<ImmutableList<SeriesPoint>> = persistentListOf(),
     events: ImmutableList<SeriesLabel> = persistentListOf(),
     warnings: ImmutableList<SeriesLabel> = persistentListOf(),
@@ -76,7 +80,9 @@ internal fun TimeSeriesChart(
             CartesianChartModel(listOfNotNull(behind?.let(::lineModel), linesModel(listOf(plotted) + plottedExtra)))
         }
     val yAxis =
-        remember(points, extra, pointLabels.isEmpty(), inverted) { yAxisOf(points + extra.flatten(), pointLabels.isNotEmpty(), inverted) }
+        remember(points, extra, pointLabels.isEmpty(), inverted, timeValues) {
+            yAxisOf(points + extra.flatten(), pointLabels.isNotEmpty(), inverted, timeValues)
+        }
     val minY = yAxis.min
     val maxY = yAxis.max
     val line =
@@ -84,16 +90,29 @@ internal fun TimeSeriesChart(
             fill = remember(colors) { LineCartesianLayer.LineFill.single(Fill(colors.line)) },
             stroke = LineCartesianLayer.LineStroke.Continuous(thickness = 1.5.dp, cap = StrokeCap.Round),
             areaFill =
-                remember(colors, minY) { LineCartesianLayer.AreaFill.single(Fill(colors.area), splitY = { if (inverted) maxY else minY }) },
+                remember(colors, minY, maxY, fillAbove) {
+                    LineCartesianLayer.AreaFill.single(Fill(colors.area), splitY = { if (fillAbove) maxY else minY })
+                },
             pointConnector = if (step) StepConnector else LineCartesianLayer.PointConnector.Sharp,
         )
     val otherLines = rememberOtherLines(extra.size)
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
     val label = rememberTextComponent(labelStyle)
     val grid = rememberLineComponent(Fill(colors.grid), thickness = 1.dp)
-    val averageLine = rememberLineComponent(Fill(colors.baseline), thickness = 1.dp)
-    val yFormatter = remember(yLabel, inverted) { CartesianValueFormatter { _, value, _ -> yLabel(flip(value)) } }
-    val xFormatter = remember(xLabel) { CartesianValueFormatter { _, value, _ -> xLabel?.invoke(value).orEmpty() } }
+    // Dashed, so the average reads as a reference rather than another series.
+    val averageLine =
+        rememberLineComponent(
+            Fill(colors.baseline),
+            thickness = 1.dp,
+            shape = remember { DashedShape(dashLength = 4.dp, gapLength = 3.dp) },
+        )
+    // Vico rejects an empty label, and on web a label built from a string resource is empty until resources load: show the number then.
+    val yFormatter =
+        remember(yLabel, inverted) {
+            CartesianValueFormatter { _, value, _ -> yLabel(flip(value)).ifEmpty { formatDecimal(flip(value), 0) } }
+        }
+    val xFormatter =
+        remember(xLabel) { CartesianValueFormatter { _, value, _ -> xLabel?.invoke(value)?.ifEmpty { null } ?: formatDecimal(value, 0) } }
     val xStep = if (xLabelsAt != null) xRange.endInclusive - xRange.start else timeStep(xRange.endInclusive - xRange.start)
     val labelsAbove = remember(pointLabels, label) { PointLabels(pointLabels.map { PointLabel(it.x, it.y, it.text, label) }, gap = 4.dp) }
     val eventLine = rememberLineComponent(Fill(MaterialTheme.colorScheme.tertiary), thickness = 1.dp)
@@ -168,14 +187,16 @@ internal fun TimeSeriesChart(
 
 /**
  * A little headroom over [values] (more when [labelled] points carry labels above them), and a floor at zero for values that start there,
- * like power or speed; [inverted] for a chart plotted below zero.
+ * like power or speed; [inverted] for a chart plotted below zero. [timeValues] (a pace) step by whole seconds or minutes and have no floor.
  */
-private fun yAxisOf(values: List<SeriesPoint>, labelled: Boolean, inverted: Boolean): YAxis {
+private fun yAxisOf(values: List<SeriesPoint>, labelled: Boolean, inverted: Boolean, timeValues: Boolean): YAxis {
     val low = values.minOf { it.y }
     val high = values.maxOf { it.y }
     val pad = ((high - low) * Y_PADDING).coerceAtLeast(1.0)
     val top = if (labelled) (high - low) * LABELLED_Y_PADDING else pad
-    val axis = YAxis.around(if (low >= 0 && low - pad < 0) 0.0 else low - pad, high + top)
+    val axis =
+        if (timeValues) YAxis.aroundTime(low - pad, high + top)
+        else YAxis.around(if (low >= 0 && low - pad < 0) 0.0 else low - pad, high + top)
     return if (inverted) YAxis(-axis.max, -axis.min, axis.step) else axis
 }
 
@@ -262,7 +283,18 @@ private data class YAxis(val min: Double, val max: Double, val step: Double) {
             }
         }
 
+        /** Like [around], on a step a clock reads easily: 5, 10, 15 or 30 seconds, or 1, 2, 5, 10, 15 or 30 minutes. */
+        fun aroundTime(low: Double, high: Double): YAxis {
+            for (step in TIME_VALUE_STEPS) {
+                val min = floor(low / step) * step
+                val max = ceil(high / step) * step
+                if ((max - min) / step <= Y_LABELS) return YAxis(min, max.coerceAtLeast(min + step), step)
+            }
+            return around(low, high)
+        }
+
         private val NICE_STEPS = listOf(1.0, 2.0, 5.0)
+        private val TIME_VALUE_STEPS = listOf(5.0, 10.0, 15.0, 30.0, 60.0, 120.0, 300.0, 600.0, 900.0, 1800.0)
         private const val DECADE = 10
     }
 }

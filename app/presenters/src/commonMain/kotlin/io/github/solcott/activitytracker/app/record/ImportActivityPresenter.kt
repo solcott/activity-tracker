@@ -5,8 +5,10 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -22,6 +24,8 @@ import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.activityfile.UnsupportedActivityFileException
 import io.github.solcott.activitytracker.activityfile.localZone
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.detail.ActivityPage
+import io.github.solcott.activitytracker.app.detail.ActivityPageContent
 import io.github.solcott.activitytracker.app.edit.rememberDetailsForm
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.visibility.rememberNewActivityVisibility
@@ -38,6 +42,7 @@ import io.github.solcott.activitytracker.data.profile.applyDeviceThresholds
 import io.github.solcott.activitytracker.data.streams.StreamAnalytics
 import io.github.solcott.activitytracker.data.training.ThresholdChange
 import io.github.solcott.activitytracker.data.training.ThresholdUpdates
+import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -64,6 +69,7 @@ fun ImportActivityPresenter(
     profiles: ProfileRepository,
     feed: FeedRepository,
     defaults: ActivityDefaults,
+    units: UnitsRepository,
 ): ImportActivityState {
     // The parsed file isn't saveable; after process death the athlete picks it again. A logbook holds many dives.
     var file by remember { mutableStateOf<Pair<String, ImmutableList<ImportedActivity>>?>(null) }
@@ -110,6 +116,15 @@ fun ImportActivityPresenter(
             ?.second
             ?.takeIf { it.title == null }
             ?.let { DefaultTitle(partOfDay(it.startedAt.toLocalDateTime(it.localZone(zone)).hour), type) }
+    val unitSystem by units.units.collectAsState()
+    // What the activity's page will show its owner, rebuilt for the type and visibility chosen: the hero follows the sport.
+    val page by
+        produceState<ActivityPageContent?>(null, placed, type, training, thresholdChanges, visibility.current, unitSystem) {
+            value = placed?.let { (_, activity) ->
+                val draft = importDraft(activity, type, title = null, training, thresholdChanges, source = null)
+                ActivityPage.fromDraft(draft.withVisibility(visibility.current), unitSystem)
+            }
+        }
     val dives =
         remember(logbook, placedDives, selection, matches, zones, zone, loggedStreams) {
             diveBatch(logbook?.first, placedDives, selection, matches, zone, zones, loggedStreams)
@@ -130,6 +145,7 @@ fun ImportActivityPresenter(
         placed?.let { details.fields(isDive = type.sport == Sport.DIVE) },
         approvesFollowers = athlete?.followPolicy == FollowPolicy.APPROVE,
         originalTooLarge = originalTooLarge,
+        page = page.takeIf { placed != null },
     ) { event ->
         when (event) {
             is ImportActivityEvent.FilePicked -> {
@@ -264,11 +280,6 @@ internal fun ImportedActivity.toPreview(fileName: String, zone: TimeZone, zones:
     ImportPreview(
         fileName = fileName,
         elapsed = elapsed,
-        movingSeconds = movingSeconds,
-        distanceMeters = distanceMeters,
-        elevationGainMeters = elevationGainMeters,
-        avgHeartRate = avgHeartRate,
-        maxHeartRate = maxHeartRate,
         device = device,
         polyline = ActivityDraft.polylineOf(samples),
         dive = dive?.toPreview(),

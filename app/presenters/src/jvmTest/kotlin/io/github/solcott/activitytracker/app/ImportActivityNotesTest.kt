@@ -83,6 +83,7 @@ class ImportActivityNotesTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Dive.fit", bytes))
@@ -111,6 +112,7 @@ class ImportActivityNotesTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Dive.fit", bytes))

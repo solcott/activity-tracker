@@ -189,14 +189,17 @@ class WriteWorkoutSamples {
         return w.activity("Mountain Bike Ride", Sport.RIDE, SubSport.MOUNTAIN, TcxSport.Biking).copy(laps = laps, totals = w.totals())
     }
 
-    /** A 10-minute warm-up, five 4-minute intervals with 2-minute jogs between, and a cool-down. */
+    /**
+     * A 10-minute flat warm-up, five 4-minute hill repeats (60 m up each) with 2-minute jogs back down, and a cool-down that climbs 30 m,
+     * so pace and elevation rise together on the repeats and part on the cool-down.
+     */
     private fun intervalRun(): ExportActivity {
-        val hard = Stretch(240, 4.5, 150 to 175, cadence = 90)
-        val jog = Stretch(120, 2.0, 170 to 140, cadence = 78)
+        val hard = Stretch(240, 4.5, 150 to 175, cadence = 90, climb = 0.25)
+        val jog = Stretch(120, 2.0, 170 to 140, cadence = 78, climb = -0.5)
         val stretches =
             listOf(Stretch(600, 2.8, 110 to 140, cadence = 80)) +
                 List(5) { listOf(hard, jog) }.flatten() +
-                Stretch(300, 2.5, 140 to 125, cadence = 78)
+                Stretch(300, 2.5, 140 to 125, cadence = 78, climb = 0.1)
         val w = Workout(stretches, every = 2, gps = true)
         var t = 0
         val laps = stretches.map { s ->

@@ -1,18 +1,23 @@
 package io.github.solcott.activitytracker.app.detail
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
@@ -26,27 +31,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.media.mediaItems
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
-import io.github.solcott.activitytracker.app.ui.CategoryLocks
+import io.github.solcott.activitytracker.app.ui.CategoryLock
 import io.github.solcott.activitytracker.app.ui.DiveSite
-import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.MediaRow
-import io.github.solcott.activitytracker.app.ui.Stat
 import io.github.solcott.activitytracker.app.ui.VisibilityBadge
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
+import io.github.solcott.activitytracker.app.ui.adaptive.AppVerticalScrollbar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
+import io.github.solcott.activitytracker.app.ui.adaptive.WindowWidth
+import io.github.solcott.activitytracker.app.ui.adaptive.WithWindowWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.distanceStat
-import io.github.solcott.activitytracker.app.ui.diveOverviewStats
-import io.github.solcott.activitytracker.app.ui.elevationStat
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.app.ui.rememberFileHandOff
@@ -60,48 +64,9 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_show_likes
 import io.github.solcott.activitytracker.composeApp.resources.detail_title
 import io.github.solcott.activitytracker.composeApp.resources.detail_zone_added
 import io.github.solcott.activitytracker.composeApp.resources.like_count
-import io.github.solcott.activitytracker.composeApp.resources.shifting_front_rear
-import io.github.solcott.activitytracker.composeApp.resources.stat_aerobic_effect
-import io.github.solcott.activitytracker.composeApp.resources.stat_anaerobic_effect
-import io.github.solcott.activitytracker.composeApp.resources.stat_avg_cadence
-import io.github.solcott.activitytracker.composeApp.resources.stat_avg_power
-import io.github.solcott.activitytracker.composeApp.resources.stat_avg_stroke_distance
-import io.github.solcott.activitytracker.composeApp.resources.stat_calories
-import io.github.solcott.activitytracker.composeApp.resources.stat_descent
-import io.github.solcott.activitytracker.composeApp.resources.stat_flow
-import io.github.solcott.activitytracker.composeApp.resources.stat_ftp
-import io.github.solcott.activitytracker.composeApp.resources.stat_grit
-import io.github.solcott.activitytracker.composeApp.resources.stat_hrv
-import io.github.solcott.activitytracker.composeApp.resources.stat_intensity_factor
-import io.github.solcott.activitytracker.composeApp.resources.stat_jumps
-import io.github.solcott.activitytracker.composeApp.resources.stat_max_cadence
-import io.github.solcott.activitytracker.composeApp.resources.stat_max_power
-import io.github.solcott.activitytracker.composeApp.resources.stat_moving_time
-import io.github.solcott.activitytracker.composeApp.resources.stat_normalized_power
-import io.github.solcott.activitytracker.composeApp.resources.stat_pool_length
-import io.github.solcott.activitytracker.composeApp.resources.stat_pushes
-import io.github.solcott.activitytracker.composeApp.resources.stat_runs
-import io.github.solcott.activitytracker.composeApp.resources.stat_shifts
-import io.github.solcott.activitytracker.composeApp.resources.stat_steps
-import io.github.solcott.activitytracker.composeApp.resources.stat_strokes
-import io.github.solcott.activitytracker.composeApp.resources.stat_temperature
-import io.github.solcott.activitytracker.composeApp.resources.stat_tss
-import io.github.solcott.activitytracker.composeApp.resources.stat_work
-import io.github.solcott.activitytracker.composeApp.resources.unit_kcal
-import io.github.solcott.activitytracker.composeApp.resources.unit_kj
-import io.github.solcott.activitytracker.composeApp.resources.unit_ms
-import io.github.solcott.activitytracker.composeApp.resources.unit_pool_m
-import io.github.solcott.activitytracker.composeApp.resources.unit_pool_yd
-import io.github.solcott.activitytracker.composeApp.resources.unit_rpm
-import io.github.solcott.activitytracker.composeApp.resources.unit_watts
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.data.units.formatDecimal
-import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
-import io.github.solcott.activitytracker.lexicon.app.CycleCount
-import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.activityType
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -160,164 +125,176 @@ private fun LoadedContent(state: ActivityDetailState.Loaded, contentPadding: Pad
             state.eventSink(ActivityDetailEvent.ExportHandedOff)
         }
     }
+    WithWindowWidth(modifier.fillMaxSize()) { width ->
+        if (width == WindowWidth.Expanded) PanedPage(state, contentPadding) else ColumnPage(state, contentPadding, width)
+    }
+}
+
+/**
+ * Under 840dp: one list. Compact windows stack the hero, map, training load, cards, stats and comments; medium ones put the hero and the
+ * map side by side, add the avg/max table, and set the cards and stats two to a row.
+ */
+@Composable
+private fun ColumnPage(state: ActivityDetailState.Loaded, contentPadding: PaddingValues, width: WindowWidth) {
+    val page = state.page
+    val medium = width == WindowWidth.Medium
     val listState = rememberLazyListState()
-    ReadableList(listState, modifier.fillMaxSize(), contentPadding) { listPadding ->
+    ReadableList(listState, Modifier.fillMaxSize(), contentPadding) { listPadding ->
         LazyColumn(
             Modifier.fillMaxSize(),
             state = listState,
             contentPadding = listPadding + PaddingValues(vertical = CARD_PADDING),
             verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
         ) {
-            item(key = "overview") { Overview(state, Modifier.animateContentSize()) }
-            if (state.sections.isNotEmpty()) {
-                item(key = "sections") { SectionsHeader(state) }
-                items(state.sections, key = { "section/${it.name}" }) { section ->
-                    SectionCard(section, state, Modifier.animateContentSize())
+            item(key = "header") { Header(state) }
+            if (medium) {
+                item(key = "summary") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
+                        HeroRow(page.hero, Modifier.weight(1f))
+                        PageMedia(state, Modifier.weight(1f), height = 200.dp)
+                    }
                 }
+                item(key = "avgMax") { AvgMaxTable(page.avgMax) }
+            } else {
+                item(key = "hero") { HeroRow(page.hero) }
+                item(key = "media") { PageMedia(state) }
             }
+            item(key = "likes") { Likes(state) }
+            item(key = "trainingLoad") { TrainingLoadCard(page.trainingLoad) }
+            metricCards(state, columns = if (medium) 2 else 1, elevationBehind = medium)
+            item(key = "stats") { StatsList(page.stats, columns = if (medium) 2 else 1) }
             comments(state)
         }
     }
     LoadMoreNearTheEnd(listState, state)
 }
 
-/** What always shows: who and what, the headline figures, the map, and likes. */
-@Composable
-private fun Overview(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
-    val record = state.activity.record
-    DetailCard(modifier) {
-        Column(Modifier.padding(CARD_PADDING), verticalArrangement = Arrangement.spacedBy(CARD_PADDING)) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        state.activity.author.displayName ?: state.activity.author.handle.value,
-                        Modifier.clickable(role = Role.Button) { state.eventSink(ActivityDetailEvent.OpenAuthor) },
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    VisibilityBadge(state.activity.visibilityOrPublic)
-                }
-                Text(record.title ?: activityTypeLabel(record.activityType), style = MaterialTheme.typography.headlineSmall)
-                if (record.title != null) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        ActivityTypeIcon(record.activityType, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
-                        Text(
-                            activityTypeLabel(record.activityType),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                }
-                record.dive?.site?.let { DiveSite(it, Modifier.padding(top = 2.dp)) }
-                record.description?.let { Text(it, Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium) }
-            }
-            StatTiles(overviewStats(record, state.charts, state.poolLength))
-            CategoryLocks(state.narrowerCategories)
-            val media = remember(state.activity) { state.activity.mediaItems() }
-            MediaRow(
-                media,
-                onOpen = { state.eventSink(ActivityDetailEvent.OpenMedia(it)) },
-                height = 240.dp,
-                // The owner sees their whole route; everyone else the polyline trimmed by the owner's privacy zones.
-                map =
-                    (state.ownRoute ?: record.polyline)?.let { polyline ->
-                        { mapModifier, mapHeight -> ActivityMap(polyline, mapModifier, mapHeight) }
-                    },
-            )
-            Recordings(state.activity, onOpen = { state.eventSink(ActivityDetailEvent.OpenActivity(it)) })
-            state.manage?.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
-            state.routeError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
-            if (state.zoneAdded) Text(stringResource(Res.string.detail_zone_added), style = MaterialTheme.typography.bodySmall)
-            Likes(state)
-        }
-    }
-}
-
-@Composable
-private fun overviewStats(record: ActivityRecord, charts: ActivityCharts?, poolLength: PoolLength?): ImmutableList<Stat> {
-    if (record.sport == Sport.DIVE) {
-        val depth = charts?.lines?.firstOrNull { it.kind == StreamKind.Depth }
-        return diveOverviewStats(record, depth?.max, depth?.average)
-    }
-    val time = record.movingTime ?: record.elapsedTime
-    return listOfNotNull(
-            distanceStat(record.sport, record.distance?.toDouble()),
-            Stat(stringResource(Res.string.stat_moving_time), Format.duration(time)),
-            elevationStat(record.sport, record.elevationGain?.toDouble()),
-            Format.rateStat(record.sport, record.distance?.toDouble(), time),
-            record.avgTemperature?.let { Stat(stringResource(Res.string.stat_temperature), Format.temperature(it)) },
-            poolLength?.let {
-                Stat(
-                    stringResource(Res.string.stat_pool_length),
-                    stringResource(if (it.yards) Res.string.unit_pool_yd else Res.string.unit_pool_m, it.value),
-                )
-            },
-            charts?.skiRuns?.let { Stat(stringResource(Res.string.stat_runs), "$it") },
-        )
-        .plus(fileStats(record))
-        .plus(countStats(record))
-        .plus(trainingLoadStats(charts?.trainingLoad))
-        .toImmutableList()
-}
-
-/** What a FIT file adds to the summary: power, cadence, calories, descent, shifts and trail dynamics, each only where stored. */
-@Composable
-private fun fileStats(record: ActivityRecord): List<Stat> {
-    val watts = stringResource(Res.string.unit_watts, "%s")
-    return listOfNotNull(
-        record.avgPower?.let { Stat(stringResource(Res.string.stat_avg_power), watts.replace("%s", "$it")) },
-        record.normalizedPower?.let { Stat(stringResource(Res.string.stat_normalized_power), watts.replace("%s", "$it")) },
-        record.maxPower?.let { Stat(stringResource(Res.string.stat_max_power), watts.replace("%s", "$it")) },
-        record.work?.let { Stat(stringResource(Res.string.stat_work), stringResource(Res.string.unit_kj, it)) },
-        record.avgCadence?.let { Stat(stringResource(Res.string.stat_avg_cadence), stringResource(Res.string.unit_rpm, it)) },
-        record.maxCadence?.let { Stat(stringResource(Res.string.stat_max_cadence), stringResource(Res.string.unit_rpm, it)) },
-        record.calories?.let { Stat(stringResource(Res.string.stat_calories), stringResource(Res.string.unit_kcal, it)) },
-        record.elevationLoss?.let { Stat(stringResource(Res.string.stat_descent), Format.elevation(it.toDouble())) },
-        record.rearShifts?.let { rear ->
-            Stat(stringResource(Res.string.stat_shifts), stringResource(Res.string.shifting_front_rear, record.frontShifts ?: 0, rear))
-        },
-        record.jumps?.let { Stat(stringResource(Res.string.stat_jumps), "$it") },
-        record.grit?.let { Stat(stringResource(Res.string.stat_grit), formatDecimal(it / TENTHS, 1)) },
-        record.flow?.let { Stat(stringResource(Res.string.stat_flow), formatDecimal(it / TENTHS, 1)) },
-    )
-}
-
-/** FTP, IF, TSS, training effect and HRV: only for a viewer the activity's zones record admits, as the AppView serves them. */
-@Composable
-private fun trainingLoadStats(load: TrainingLoadStats?): List<Stat> {
-    load ?: return emptyList()
-    return listOfNotNull(
-        load.ftp?.let { Stat(stringResource(Res.string.stat_ftp), stringResource(Res.string.unit_watts, it)) },
-        load.intensityFactor?.let { Stat(stringResource(Res.string.stat_intensity_factor), formatDecimal(it, 2)) },
-        load.trainingStressScore?.let { Stat(stringResource(Res.string.stat_tss), formatDecimal(it, 0)) },
-        load.aerobicTrainingEffect?.let { Stat(stringResource(Res.string.stat_aerobic_effect), formatDecimal(it, 1)) },
-        load.anaerobicTrainingEffect?.let { Stat(stringResource(Res.string.stat_anaerobic_effect), formatDecimal(it, 1)) },
-        load.hrvRmssd?.let { Stat(stringResource(Res.string.stat_hrv), stringResource(Res.string.unit_ms, it)) },
-    )
-}
-
-private const val TENTHS = 10.0
-private const val CENTIMETERS_PER_METER = 100.0
-
 /**
- * The activity's cycle count, named for its sport (steps, strokes or pushes; none for a sport whose count isn't shown), and its average
- * stroke distance.
+ * From 840dp: a side pane with the map, hero, avg/max table, training load, stats and comments, scrolling on its own so the map stays in
+ * view, beside the cards, two to a row once their pane has room.
  */
 @Composable
-private fun countStats(record: ActivityRecord): List<Stat> {
-    val label =
-        when (CycleCount.unitOf(record.sport)) {
-            CycleCount.STEPS -> Res.string.stat_steps
-            CycleCount.STROKES -> Res.string.stat_strokes
-            CycleCount.PUSHES -> Res.string.stat_pushes
-            else -> null
+private fun PanedPage(state: ActivityDetailState.Loaded, contentPadding: PaddingValues) {
+    val page = state.page
+    val paneState = rememberLazyListState()
+    val cardsState = rememberLazyListState()
+    val padding = contentPadding + PaddingValues(CARD_PADDING)
+    Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.Center) {
+        Box(Modifier.width(SIDE_PANE_WIDTH).fillMaxHeight()) {
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                state = paneState,
+                contentPadding = padding,
+                verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
+            ) {
+                item(key = "media") { PageMedia(state) }
+                item(key = "header") { Header(state) }
+                item(key = "hero") { HeroRow(page.hero) }
+                item(key = "likes") { Likes(state) }
+                item(key = "avgMax") { AvgMaxTable(page.avgMax) }
+                item(key = "trainingLoad") { TrainingLoadCard(page.trainingLoad) }
+                item(key = "stats") { StatsList(page.stats) }
+                comments(state)
+            }
+            AppVerticalScrollbar(paneState, Modifier.align(Alignment.CenterEnd).padding(contentPadding).fillMaxHeight())
         }
-    return listOfNotNull(
-        record.cycles?.let { cycles -> label?.let { Stat(stringResource(it), "$cycles") } },
-        record.avgStrokeDistance
-            ?.takeIf { it > 0 }
-            ?.let { Stat(stringResource(Res.string.stat_avg_stroke_distance), Format.depth(it / CENTIMETERS_PER_METER)) },
-    )
+        BoxWithConstraints(Modifier.weight(1f, fill = false).widthIn(max = CARDS_MAX_WIDTH).fillMaxHeight()) {
+            val columns = if (maxWidth >= TWO_CARD_COLUMNS) 2 else 1
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                state = cardsState,
+                contentPadding = padding,
+                verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
+            ) {
+                metricCards(state, columns, elevationBehind = true)
+            }
+            AppVerticalScrollbar(cardsState, Modifier.align(Alignment.CenterEnd).padding(contentPadding).fillMaxHeight())
+        }
+    }
+    LoadMoreNearTheEnd(paneState, state)
+}
+
+/** The metric cards, [columns] to a row; laps and the other tables take a row of their own. */
+private fun LazyListScope.metricCards(state: ActivityDetailState.Loaded, columns: Int, elevationBehind: Boolean) {
+    val charts = state.page.charts ?: return
+    val rows = mutableListOf<List<MetricCard>>()
+    for (card in state.page.cards) {
+        val last = rows.lastOrNull()
+        when {
+            card.section in FULL_WIDTH || columns == 1 -> rows += listOf(card)
+            last != null && last.size < columns && last.none { it.section in FULL_WIDTH } -> rows[rows.lastIndex] = last + card
+            else -> rows += listOf(card)
+        }
+    }
+    val onSetThresholds = { state.eventSink(ActivityDetailEvent.OpenTrainingZones) }
+    items(rows, key = { row -> "cards/" + row.joinToString("+") { it.section.name } }) { row ->
+        Row(horizontalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
+            row.forEach { card ->
+                val modifier = if (card.section in FULL_WIDTH) Modifier.fillMaxWidth() else Modifier.weight(1f)
+                MetricCardUi(card, charts, modifier, state.chartsMissingZones, onSetThresholds, elevationBehind)
+            }
+            if (row.none { it.section in FULL_WIDTH }) repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+        }
+    }
+}
+
+private val FULL_WIDTH = setOf(DetailSection.Laps, DetailSection.Legs, DetailSection.Lengths, DetailSection.Sets)
+private val SIDE_PANE_WIDTH = 400.dp
+private val CARDS_MAX_WIDTH = 1040.dp
+private val TWO_CARD_COLUMNS = 640.dp
+
+/** Who and what: the author, the title and type, the dive site and description, the other recordings, and what an action reported. */
+@Composable
+private fun Header(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
+    val record = state.activity.record
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                state.activity.author.displayName ?: state.activity.author.handle.value,
+                Modifier.clickable(role = Role.Button) { state.eventSink(ActivityDetailEvent.OpenAuthor) },
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            VisibilityBadge(state.activity.visibilityOrPublic)
+        }
+        Text(record.title ?: activityTypeLabel(record.activityType), style = MaterialTheme.typography.headlineSmall)
+        if (record.title != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                ActivityTypeIcon(record.activityType, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                Text(
+                    activityTypeLabel(record.activityType),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+        record.dive?.site?.let { DiveSite(it, Modifier.padding(top = 2.dp)) }
+        record.description?.let { Text(it, Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium) }
+        Recordings(state.activity, onOpen = { state.eventSink(ActivityDetailEvent.OpenActivity(it)) })
+        state.manage?.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+        state.routeError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+        if (state.zoneAdded) Text(stringResource(Res.string.detail_zone_added), style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+/** The map and photos, the map marked with the Map category's visibility on the owner's page when it's narrower than the activity. */
+@Composable
+private fun PageMedia(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier, height: Dp = 240.dp) {
+    val record = state.activity.record
+    val media = remember(state.activity) { state.activity.mediaItems() }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        MediaRow(
+            media,
+            onOpen = { state.eventSink(ActivityDetailEvent.OpenMedia(it)) },
+            height = height,
+            // The owner sees their whole route; everyone else the polyline trimmed by the owner's privacy zones.
+            map =
+                (state.ownRoute ?: record.polyline)?.let { polyline ->
+                    { mapModifier, mapHeight -> ActivityMap(polyline, mapModifier, mapHeight) }
+                },
+        )
+        state.page.mapMark?.let { CategoryLock(DetailCategory.MAP, it) }
+    }
 }
 
 /** The like count or button, the toggle for who liked it, why a like couldn't be given, and the list once shown. */

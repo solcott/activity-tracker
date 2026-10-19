@@ -8,7 +8,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
@@ -34,6 +33,7 @@ import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
@@ -43,10 +43,8 @@ import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.collections.immutable.toImmutableSet
 
 @CircuitInject(ActivityDetailScreen::class, SessionScope::class)
 @Composable
@@ -97,7 +95,8 @@ fun ActivityDetailPresenter(
     val approvesFollowers = rememberApprovesFollowers(profiles, enabled = isOwn)
     val shownCharts = chartsFor(shown, charts.charts)
     val sections = shown?.let { detailSections(it, shownCharts) } ?: persistentListOf()
-    val expansion = rememberExpansion(sections)
+    val narrower = narrowerCategories(served?.takeIf { isOwn }, charts.streams)
+    val page = rememberPage(shown, shownCharts, narrower)
     val manage = rememberManage(activity.takeIf { isOwn }, loadKey, feed, manager, navigator, flights) { loadKey++ }
     val ownRoute = rememberOwnRoute(activity?.uri?.takeIf { isOwn }, activities, flights)
     val hasStreams = charts.charts != null
@@ -134,9 +133,6 @@ fun ActivityDetailPresenter(
                 likeError = null
                 current?.let { likes(ActivityListEvent.ToggleLike(it)) }
             }
-
-            is ActivityDetailEvent.ToggleSection,
-            ActivityDetailEvent.ToggleAll -> expansion.toggle(event)
 
             ActivityDetailEvent.LoadMoreComments,
             ActivityDetailEvent.RetryComments,
@@ -195,10 +191,10 @@ fun ActivityDetailPresenter(
             charts = shownCharts,
             poolLength = poolLength(it.record.poolLength),
             chartsMissingZones = charts.missingZones(isOwn),
-            narrowerCategories = narrowerCategories(served?.takeIf { isOwn }, charts.streams),
+            narrowerCategories = narrower,
             approvesFollowers = approvesFollowers,
             sections = sections,
-            expanded = expansion.expanded,
+            page = page,
             manage = manage.state,
             ownRoute = ownRoute.polyline,
             canHideRouteEnds = ownRoute.canHide,
@@ -286,29 +282,13 @@ private fun rememberManage(
     )
 }
 
-/** Which of the screen's sections show in full, and how [toggle] changes that. */
-private class Expansion(val expanded: ImmutableSet<DetailSection>, val toggle: (ActivityDetailEvent) -> Unit)
-
-/** Every one of [sections] starts collapsed; one toggles alone, or all collapse when any is open and expand when none is. */
-@Composable
-private fun rememberExpansion(sections: ImmutableList<DetailSection>): Expansion {
-    // Names, so they save in a Bundle.
-    var expanded by rememberSaveable { mutableStateOf(emptyList<String>()) }
-    return Expansion(sections.filter { it.name in expanded }.toImmutableSet()) { event ->
-        val all = sections.map { it.name }
-        expanded =
-            when (event) {
-                is ActivityDetailEvent.ToggleSection -> event.section.name.let { if (it in expanded) expanded - it else expanded + it }
-                ActivityDetailEvent.ToggleAll -> if (expanded.any { it in all }) emptyList() else all
-                else -> expanded
-            }
-    }
-}
-
 /** The sections [activity] has data for: one per kind of chart, and the device. */
-internal fun detailSections(activity: ActivityView, charts: ActivityCharts?): ImmutableList<DetailSection> {
+internal fun detailSections(activity: ActivityView, charts: ActivityCharts?): ImmutableList<DetailSection> =
+    detailSections(activity.record, charts)
+
+/** The sections [record] has data for: one per kind of chart, and the device. */
+internal fun detailSections(record: ActivityRecord, charts: ActivityCharts?): ImmutableList<DetailSection> {
     val kinds = charts?.lines.orEmpty().map { it.kind }.toSet()
-    val record = activity.record
     return DetailSection.entries
         .filter { section ->
             when (section) {
