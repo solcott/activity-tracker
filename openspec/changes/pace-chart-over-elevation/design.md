@@ -20,7 +20,7 @@
 
 ### 1. Hills go into the interval run sample rather than a new file
 
-The intervals become hill repeats: each 4-minute hard stretch climbs (about 0.25 m/s, so 60 m each) and each 2-minute jog comes back down. The warm-up and cool-down stay flat, so the run ends near where it started. A hill repeat is a common run workout, and pace and elevation then move against each other, which is the case to check. The samples' consistency checks already derive every average from the points written, so adding a climb keeps them consistent.
+The intervals become hill repeats: each 4-minute hard stretch climbs (0.25 m/s, so 60 m each) and each 2-minute jog comes back down. The hard stretches are also the fastest, so on the repeats pace and elevation rise together, the way heart rate does. A cool-down that climbs 30 m slowly gives the opposite case, where pace drops while the ground rises. A hill repeat is a common run workout, so the sample stays realistic and covers both cases. The samples' consistency checks already derive every average from the points written, so adding a climb keeps them consistent.
 
 - *Alternative:* add a separate hilly run file. That means one more sample to keep, plus a change to `dev/sample-activity-files`' list, just to vary a stream the interval run already has.
 
