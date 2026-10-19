@@ -279,16 +279,25 @@ internal class Figures(private val record: ActivityRecord, private val charts: A
     private fun stream(kind: StreamKind, value: Double?) = value?.let { FigureValue.Stream(kind, it) }
 
     /** The distance, a dash for a sport with a rate that has none, or nothing for one without a rate and no distance (`activity-stats`). */
-    fun distance(): Figure? = length(FigureKey.Distance, record.distance) { FigureValue.Distance(it) }
-
-    fun elevationGain(): Figure? = length(FigureKey.ElevationGain, record.elevationGain) { FigureValue.Elevation(it) }
-
-    private fun length(key: FigureKey, meters: Long?, value: (Double) -> FigureValue): Figure? =
-        when {
-            meters != null && meters > 0 -> Figure(key, value(meters.toDouble()))
-            rate != RateKind.None -> Figure(key, meters?.let { value(it.toDouble()) } ?: FigureValue.Missing)
-            else -> null
+    fun distance(): Figure? =
+        record.distance.let { meters ->
+            when {
+                meters != null && meters > 0 -> Figure(FigureKey.Distance, FigureValue.Distance(meters.toDouble()))
+                rate != RateKind.None ->
+                    Figure(FigureKey.Distance, meters?.let { FigureValue.Distance(it.toDouble()) } ?: FigureValue.Missing)
+                else -> null
+            }
         }
+
+    /**
+     * The elevation gain when there is some, or a recorded 0 for a sport with a rate that can climb. Unlike distance it's never a dash: a
+     * missing one, or a swim's 0, says nothing.
+     */
+    fun elevationGain(): Figure? {
+        val meters = record.elevationGain ?: return null
+        val shown = meters > 0 || (rate != RateKind.None && SportFamily.of(sport) != SportFamily.Swim)
+        return Figure(FigureKey.ElevationGain, FigureValue.Elevation(meters.toDouble())).takeIf { shown }
+    }
 
     private fun movingTime() = Figure(FigureKey.MovingTime, FigureValue.Duration(time))
 

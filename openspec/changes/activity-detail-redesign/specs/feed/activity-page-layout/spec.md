@@ -95,6 +95,13 @@ The page SHALL list every summary figure the viewer was served, including the he
 - **WHEN** an activity recorded on a Garmin Edge with a heart rate strap is opened
 - **THEN** the stats list's Device group names the Edge and the heart rate sensor
 
+### Requirement: Elevation gain only when it says something
+The hero and the stats list SHALL show elevation gain only when it is recorded, and for a swim only when it is above zero. Unlike distance, a missing elevation gain SHALL NOT be shown as a dash.
+
+#### Scenario: Pool swim
+- **WHEN** a pool swim with no elevation gain is opened
+- **THEN** the stats list has no Elevation group
+
 ### Requirement: Layout by window width
 The page SHALL arrange the same content by its window's width, on every platform alike. Below 600dp: one column of hero, map, training load card, metric cards, stats list and comments. From 600dp to under 840dp: hero and map side by side, cards two to a row, laps full width. From 840dp: a side pane with the map, hero and avg/max table beside the cards, the map staying in view as the cards scroll.
 

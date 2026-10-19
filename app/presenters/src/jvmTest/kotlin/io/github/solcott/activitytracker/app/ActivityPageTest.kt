@@ -189,9 +189,10 @@ class ActivityPageTest {
 
     @Test
     fun `groups without figures are left out`() {
+        // No elevation gain recorded, so no Elevation group: unlike distance, it isn't shown as a dash.
         val walk = record(Sport.WALK).copy(distance = 3000, movingTime = 2400)
         assertEquals(
-            listOf(StatsGroupKind.Timing, StatsGroupKind.DistanceSpeed, StatsGroupKind.Elevation),
+            listOf(StatsGroupKind.Timing, StatsGroupKind.DistanceSpeed),
             ActivityPage.build(walk, null).stats.map { it.kind },
         )
     }
@@ -213,6 +214,24 @@ class ActivityPageTest {
                 .copy(dive = ActivityDive(maxDepth = 2450, bottomTime = 2400, surfaceInterval = 5400, startCns = 2, endCns = 9))
         val rows = ActivityPage.build(dive, null).stats.first { it.kind == StatsGroupKind.Dive }.rows.map { it.key }
         assertEquals(listOf(FigureKey.MaxDepth, FigureKey.BottomTime, FigureKey.SurfaceInterval, FigureKey.Cns), rows)
+    }
+
+    @Test
+    fun `a pool swim lists no elevation`() {
+        val pool = record(Sport.SWIM).copy(subSport = "pool", distance = 1000, movingTime = 1200)
+        assertTrue(ActivityPage.build(pool, null).stats.none { it.kind == StatsGroupKind.Elevation })
+        assertTrue(ActivityPage.build(pool.copy(elevationGain = 0), null).stats.none { it.kind == StatsGroupKind.Elevation })
+    }
+
+    @Test
+    fun `a ride without an elevation gain shows none, and one of 0 shows it`() {
+        val flat = mtb.copy(elevationGain = null, elevationLoss = null)
+        assertTrue(ActivityPage.build(flat, null).hero.none { it.key == FigureKey.ElevationGain })
+        assertTrue(ActivityPage.build(flat, null).stats.none { it.kind == StatsGroupKind.Elevation })
+        assertEquals(
+            FigureValue.Elevation(0.0),
+            ActivityPage.build(flat.copy(elevationGain = 0), null).hero.single { it.key == FigureKey.ElevationGain }.value,
+        )
     }
 
     private fun record(sport: String) = ActivityRecord(sport, START, 3600, START)
