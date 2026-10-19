@@ -64,6 +64,7 @@ class ImportLocalTimeTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Run.fit", bytes))

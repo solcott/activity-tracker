@@ -102,6 +102,7 @@ class ImportLogbookPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
@@ -136,6 +137,7 @@ class ImportLogbookPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
@@ -170,6 +172,7 @@ class ImportLogbookPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
@@ -204,6 +207,7 @@ class ImportLogbookPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
@@ -236,6 +240,7 @@ class ImportLogbookPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
@@ -284,6 +289,7 @@ class ImportLogbookPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook("10:02")))
@@ -327,6 +333,7 @@ class ImportLogbookPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook("10:02")))
@@ -363,6 +370,7 @@ class ImportLogbookPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook("10:02")))
@@ -397,6 +405,7 @@ class ImportLogbookPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("two-computers.uddf", logbook("10:02", "10:03")))
@@ -438,6 +447,7 @@ class ImportLogbookPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
@@ -465,6 +475,7 @@ class ImportLogbookPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("two-computers.uddf", logbook("10:02", "10:03", "14:30")))
@@ -491,6 +502,7 @@ class ImportLogbookPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             // Both computers' copies of the logged dive: one matches the log, the other the log too.

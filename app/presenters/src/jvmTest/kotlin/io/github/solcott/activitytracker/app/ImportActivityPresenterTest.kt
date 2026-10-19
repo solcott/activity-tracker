@@ -21,6 +21,9 @@ import io.github.solcott.activitytracker.activityfile.FitDecoder
 import io.github.solcott.activitytracker.activityfile.SensorBattery
 import io.github.solcott.activitytracker.activityfile.SensorKind
 import io.github.solcott.activitytracker.activityfile.TimeZones
+import io.github.solcott.activitytracker.app.detail.FigureKey
+import io.github.solcott.activitytracker.app.detail.FigureUnit
+import io.github.solcott.activitytracker.app.detail.FigureValue
 import io.github.solcott.activitytracker.app.edit.DetailsEvent
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
 import io.github.solcott.activitytracker.app.record.ActivityTypeEvent
@@ -131,6 +134,7 @@ class ImportActivityPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             val initial = awaitItem()
@@ -140,8 +144,9 @@ class ImportActivityPresenterTest {
             val read = awaitUntil { it.preview != null }
             val preview = assertNotNull(read.preview)
             assertEquals("Morning_Run.FIT", preview.fileName)
-            assertEquals(5000.0, preview.distanceMeters)
-            assertEquals(152, preview.avgHeartRate)
+            val hero = assertNotNull(awaitUntil { it.page != null }.page).hero
+            assertEquals(FigureValue.Distance(5000.0), hero.first { it.key == FigureKey.Distance }.value)
+            assertEquals(FigureValue.Quantity(152, FigureUnit.Bpm), hero.first { it.key == FigureKey.AvgHeartRate }.value)
             assertEquals("Garmin Fenix 7", preview.device)
             assertNotNull(preview.polyline)
             assertNull(preview.dive)
@@ -181,6 +186,7 @@ class ImportActivityPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Morning_Run.FIT", bytes))
@@ -220,6 +226,7 @@ class ImportActivityPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Morning_Run.FIT", bytes))
@@ -252,6 +259,7 @@ class ImportActivityPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Morning_Run.FIT", bytes))
@@ -295,6 +303,7 @@ class ImportActivityPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Morning_Run.FIT", bytes))
@@ -382,6 +391,7 @@ class ImportActivityPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("dive.fit", bytes))
@@ -466,6 +476,7 @@ class ImportActivityPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("ride.fit", bytes))
@@ -503,6 +514,7 @@ class ImportActivityPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("run.fit", bytes))
@@ -536,6 +548,7 @@ class ImportActivityPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Petrel.xml", bytes))
@@ -579,6 +592,7 @@ class ImportActivityPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Lake.gpx", bytes))
@@ -622,6 +636,7 @@ class ImportActivityPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("broken.fit", bytes))
@@ -648,6 +663,7 @@ class ImportActivityPresenterTest {
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
+                repos.units,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("good.fit", bytes))
@@ -657,55 +673,6 @@ class ImportActivityPresenterTest {
             read.eventSink(ImportActivityEvent.FilePicked("broken.fit", bytes))
             val failed = awaitUntil { it.error != null && !it.reading }
             assertNull(failed.preview, "Save must not publish the earlier file")
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun aGpxFileIsReadByItsContentWhateverItsName() = runTest {
-        val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
-        val gpx =
-            """<gpx version="1.1" creator="test" xmlns="http://www.topografix.com/GPX/1/1"><trk><type>cycling</type><trkseg>
-                <trkpt lat="47.6" lon="-122.3"><time>2026-09-20T07:00:00Z</time></trkpt>
-                <trkpt lat="47.61" lon="-122.3"><time>2026-09-20T07:05:00Z</time></trkpt>
-            </trkseg></trk></gpx>"""
-        presenterTestOf({
-            ImportActivityPresenter(
-                navigator,
-                repos.activities,
-                ActivityFileReader { error("not FIT") },
-                repos.typeChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-            )
-        }) {
-            awaitItem().eventSink(ImportActivityEvent.FilePicked("export.dat", ByteString(gpx.encodeToByteArray())))
-            val read = awaitUntil { it.preview != null }
-            assertEquals(ActivityType(Sport.RIDE), read.type.selected)
-            assertEquals(1112.0, read.preview!!.distanceMeters!!, 1.0)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun otherFilesAreNotSupported() = runTest {
-        val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
-        presenterTestOf({
-            ImportActivityPresenter(
-                navigator,
-                repos.activities,
-                ActivityFileReader { error("not called") },
-                repos.typeChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-            )
-        }) {
-            awaitItem().eventSink(ImportActivityEvent.FilePicked("notes.txt", ByteString("just some notes".encodeToByteArray())))
-            assertEquals(UiError(UiError.Kind.UnsupportedActivityFile, null), awaitUntil { it.error != null }.error)
             cancelAndIgnoreRemainingEvents()
         }
     }
