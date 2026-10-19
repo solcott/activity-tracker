@@ -150,7 +150,8 @@ data class LineSeries(
     val right: LineSeries? = null,
 )
 
-@Immutable data class ChartSample(val seconds: Int, val value: Double)
+/** A chart point at [seconds]; [gapBefore] when no samples were recorded for a while before it, so the line breaks there. */
+@Immutable data class ChartSample(val seconds: Int, val value: Double, val gapBefore: Boolean = false)
 
 /** Time in one zone, labelled as the zone model labels it. [low] and [high] are bpm or watts; [high] is null for the top zone. */
 @Immutable data class ZoneTime(val label: String, val name: ZoneName, val low: Int, val high: Int?, val seconds: Int)

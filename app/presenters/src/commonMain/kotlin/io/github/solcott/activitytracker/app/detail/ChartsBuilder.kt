@@ -133,7 +133,7 @@ internal object ChartsBuilder {
     private fun ceiling(data: ActivityStreamData): ImmutableList<ChartSample> {
         val stops = data.decoStopDepth?.takeIf { depths -> depths.any { (it ?: 0) > 0 } } ?: return persistentListOf()
         return StreamAnalytics.averaged(data.time, stops.map { it?.div(CENTI) })
-            .map { (seconds, value) -> ChartSample(seconds, value) }
+            .map { (seconds, value, gapBefore) -> ChartSample(seconds, value, gapBefore) }
             .toImmutableList()
     }
 
@@ -167,7 +167,7 @@ internal object ChartsBuilder {
 
     private fun line(kind: StreamKind, time: List<Int>, values: List<Double?>?): LineSeries? {
         val present = values?.filterNotNull()?.takeIf { it.size >= 2 } ?: return null
-        val points = StreamAnalytics.averaged(time, values).map { (seconds, value) -> ChartSample(seconds, value) }
+        val points = StreamAnalytics.averaged(time, values).map { (seconds, value, gapBefore) -> ChartSample(seconds, value, gapBefore) }
         return LineSeries(kind, points.toImmutableList(), present.average(), present.max())
     }
 
