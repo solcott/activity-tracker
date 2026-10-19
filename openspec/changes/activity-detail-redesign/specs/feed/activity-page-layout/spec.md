@@ -80,6 +80,13 @@ When the viewer was served the activity's training load, the page SHALL show it 
 - **WHEN** a viewer not admitted to the activity's zones opens it
 - **THEN** there is no training load card
 
+### Requirement: Pace card
+For a sport timed by pace (runs, walks, hikes and swims), the speed card SHALL be a Pace card. Its headline SHALL give the average and best pace, per kilometer or mile, or per 100 m or yd swimming, and its chart SHALL plot pace with the faster pace at the top.
+
+#### Scenario: Pace card
+- **WHEN** a pool swim with a speed stream is opened
+- **THEN** it shows a Pace card with the average and best pace per 100 and a pace chart, and no speed card
+
 ### Requirement: All stats list
 The page SHALL list every summary figure the viewer was served, including the hero's, as label and value rows in named groups: Timing, Distance & speed, Heart rate, Power, Cadence, Elevation, Work & energy, Temperature, Counts (steps, strokes, jumps, shifts, runs, and a mountain bike ride's grit and flow beside its jumps), Dive (the dive computer's summary: bottom time, gases, surface interval, CNS, nitrogen, ascent and descent, conditions and its settings) and Device (the recording device and each sensor). A group with no figures SHALL be left out.
 

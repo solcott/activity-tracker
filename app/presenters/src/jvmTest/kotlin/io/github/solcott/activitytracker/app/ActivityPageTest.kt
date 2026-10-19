@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.app.detail.DetailSection
 import io.github.solcott.activitytracker.app.detail.FigureKey
 import io.github.solcott.activitytracker.app.detail.FigureValue
 import io.github.solcott.activitytracker.app.detail.LineSeries
+import io.github.solcott.activitytracker.app.detail.PaceKind
 import io.github.solcott.activitytracker.app.detail.SetRow
 import io.github.solcott.activitytracker.app.detail.StatsGroupKind
 import io.github.solcott.activitytracker.app.detail.StreamKind
@@ -214,6 +215,23 @@ class ActivityPageTest {
                 .copy(dive = ActivityDive(maxDepth = 2450, bottomTime = 2400, surfaceInterval = 5400, startCns = 2, endCns = 9))
         val rows = ActivityPage.build(dive, null).stats.first { it.kind == StatsGroupKind.Dive }.rows.map { it.key }
         assertEquals(listOf(FigureKey.MaxDepth, FigureKey.BottomTime, FigureKey.SurfaceInterval, FigureKey.Cns), rows)
+    }
+
+    @Test
+    fun `a run's speed card gives its pace`() {
+        val run = record(Sport.RUN).copy(distance = 10_000, movingTime = 3000, avgSpeed = 3330, maxSpeed = 4500)
+        val card = ActivityPage.build(run, charts().copy(lines = persistentListOf(line(StreamKind.Speed, 3300.0)))).cards.single()
+        assertEquals(PaceKind.Distance, card.pace)
+        assertEquals(listOf(FigureKey.Avg, FigureKey.Best), card.headline.map { it.key })
+        assertEquals(listOf(FigureValue.Pace(3330, false), FigureValue.Pace(4500, false)), card.headline.map { it.value })
+    }
+
+    @Test
+    fun `a swim's speed card paces per 100 and a ride's stays a speed`() {
+        val swim = record(Sport.SWIM).copy(distance = 1000, movingTime = 1200)
+        val speed = charts().copy(lines = persistentListOf(line(StreamKind.Speed, 800.0)))
+        assertEquals(PaceKind.Swim, ActivityPage.build(swim, speed).cards.single().pace)
+        assertNull(ActivityPage.build(mtb, rideCharts()).cards.single { it.section == DetailSection.Speed }.pace)
     }
 
     @Test

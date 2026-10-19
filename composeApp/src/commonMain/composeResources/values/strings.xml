@@ -945,6 +945,7 @@
     <string name="chart_marker_elevation">%1$s · %2$s · %3$s</string>
     <string name="chart_gear_value">Gear %1$s</string>
     <string name="chart_description">%1$s over the activity: average %2$s, maximum %3$s</string>
+    <string name="chart_description_pace">Pace over the activity: average %1$s, best %2$s</string>
     <string name="chart_zone_label">Z%1$s</string>
     <string name="chart_zone_range">%1$s–%2$s</string>
     <string name="chart_zone_range_open">%1$s+</string>
@@ -1167,6 +1168,7 @@
     <string name="page_anaerobic_effect">Anaerobic training effect</string>
     <string name="page_hrv">Heart rate variability (RMSSD)</string>
     <string name="page_average">Average</string>
+    <string name="page_best">Best</string>
     <string name="page_maximum">Maximum</string>
     <string name="page_best_power">Best %1$d min power</string>
     <string name="page_highest">Highest point</string>
@@ -1191,6 +1193,7 @@
     <string name="page_group_device">Device</string>
     <string name="page_start_date">%1$s %2$d, %3$d</string>
     <string name="page_start_value">%1$s, %2$s</string>
+    <string name="chart_pace">Pace</string>
     <string name="time_am">AM</string>
     <string name="time_pm">PM</string>
 </resources>

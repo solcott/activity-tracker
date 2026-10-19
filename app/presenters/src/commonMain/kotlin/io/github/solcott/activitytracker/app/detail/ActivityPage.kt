@@ -152,6 +152,14 @@ internal class Figures(private val record: ActivityRecord, private val charts: A
 
     fun line(kind: StreamKind): LineSeries? = charts?.lines?.firstOrNull { it.kind == kind }
 
+    /** What the sport's pace is per; null for a sport timed by speed or without a rate. */
+    fun paceKind(): PaceKind? =
+        when (rate) {
+            RateKind.Pace -> PaceKind.Distance
+            RateKind.SwimPace -> PaceKind.Swim
+            else -> null
+        }
+
     fun hero(): ImmutableList<Figure> =
         when (SportFamily.of(sport)) {
                 SportFamily.Ride -> listOf(distance(), movingTime(), elevationGain(), rateAvg(), avgPower(), calories())

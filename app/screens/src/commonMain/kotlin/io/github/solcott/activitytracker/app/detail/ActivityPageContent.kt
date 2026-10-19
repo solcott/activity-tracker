@@ -107,6 +107,8 @@ enum class FigureKey {
     /** A card headline's average or maximum, under its metric's title. */
     Avg,
     Max,
+    /** A pace card's fastest pace, in place of its maximum. */
+    Best,
     /** The best average power over [Figure.index] minutes. */
     BestPower,
     /** The highest point on the elevation stream. */
@@ -238,7 +240,17 @@ data class MetricCard(
     /** The gears card's shifts; empty elsewhere. */
     val gears: ImmutableList<GearPoint> = persistentListOf(),
     val mark: String? = null,
+    /** The speed card's, on a sport timed by pace: it's titled Pace, and its figures and chart give pace. Null elsewhere. */
+    val pace: PaceKind? = null,
 )
+
+/** What a pace is per. */
+enum class PaceKind {
+    /** A kilometer or mile. */
+    Distance,
+    /** 100 meters or yards, swimming. */
+    Swim,
+}
 
 @Immutable data class StatsGroup(val kind: StatsGroupKind, val rows: ImmutableList<Figure>)
 

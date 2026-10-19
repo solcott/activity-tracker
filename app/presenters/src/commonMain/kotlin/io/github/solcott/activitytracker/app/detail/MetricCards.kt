@@ -27,6 +27,7 @@ internal object MetricCards {
                 powerCurve = if (section == DetailSection.Power && charts.powerCurve.size >= 2) charts.powerCurve else EMPTY_CURVE,
                 gears = if (section == DetailSection.Gears) charts.gears else EMPTY_GEARS,
                 mark = mark,
+                pace = figures.paceKind().takeIf { section == DetailSection.Speed },
             )
         return card.takeUnless { it.isEmpty(section) }
     }
@@ -60,7 +61,7 @@ internal object MetricCards {
                     figures.line(kind)?.let { Figure(FigureKey.LeftRight, FigureValue.LeftRight(kind, it.average, it.right?.average)) }
                 } to listOfNotNull(averageOf(StreamKind.PlatformCentreOffset, figures))
 
-            DetailSection.Speed -> avgMax(StreamKind.Speed, figures) to emptyList()
+            DetailSection.Speed -> (figures.paceKind()?.let { paces(it, figures) } ?: avgMax(StreamKind.Speed, figures)) to emptyList()
 
             DetailSection.Cadence -> avgMax(StreamKind.Cadence, figures) to emptyList()
 
@@ -137,6 +138,15 @@ internal object MetricCards {
             figures.average(kind)?.let { Figure(FigureKey.Avg, FigureValue.Stream(kind, it)) },
             figures.max(kind)?.let { Figure(FigureKey.Max, FigureValue.Stream(kind, it)) },
         )
+
+    /** A paced sport's headline: its average pace and its best, from the average and maximum speed. */
+    private fun paces(kind: PaceKind, figures: Figures): List<Figure> {
+        fun pace(mmPerSecond: Double) = FigureValue.Pace(mmPerSecond.toLong(), kind == PaceKind.Swim)
+        return listOfNotNull(
+            figures.average(StreamKind.Speed)?.let { Figure(FigureKey.Avg, pace(it)) },
+            figures.max(StreamKind.Speed)?.let { Figure(FigureKey.Best, pace(it)) },
+        )
+    }
 
     private fun averageOf(kind: StreamKind, figures: Figures): Figure? =
         figures.line(kind)?.average?.let { Figure(FigureKey.StreamAverage, FigureValue.Stream(kind, it)) }

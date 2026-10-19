@@ -37,6 +37,7 @@ import io.github.solcott.activitytracker.composeApp.resources.page_avg_pace
 import io.github.solcott.activitytracker.composeApp.resources.page_avg_speed
 import io.github.solcott.activitytracker.composeApp.resources.page_avg_stroke_distance
 import io.github.solcott.activitytracker.composeApp.resources.page_avg_temperature
+import io.github.solcott.activitytracker.composeApp.resources.page_best
 import io.github.solcott.activitytracker.composeApp.resources.page_best_power
 import io.github.solcott.activitytracker.composeApp.resources.page_desaturation_time
 import io.github.solcott.activitytracker.composeApp.resources.page_dive_number
@@ -234,6 +235,7 @@ private val LABELS: Map<FigureKey, StringResource> =
         FigureKey.Hrv to Res.string.page_hrv,
         FigureKey.Avg to Res.string.page_average,
         FigureKey.Max to Res.string.page_maximum,
+        FigureKey.Best to Res.string.page_best,
         FigureKey.Highest to Res.string.page_highest,
         FigureKey.MaxGrade to Res.string.detail_max_grade,
         FigureKey.MostUsedGear to Res.string.page_most_used_gear,

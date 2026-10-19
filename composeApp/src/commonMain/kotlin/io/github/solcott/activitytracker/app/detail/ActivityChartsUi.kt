@@ -28,7 +28,6 @@ import io.github.solcott.activitytracker.composeApp.resources.chart_depth_alerts
 import io.github.solcott.activitytracker.composeApp.resources.chart_depth_ceiling
 import io.github.solcott.activitytracker.composeApp.resources.chart_depth_switch
 import io.github.solcott.activitytracker.composeApp.resources.chart_depth_switches
-import io.github.solcott.activitytracker.composeApp.resources.chart_description
 import io.github.solcott.activitytracker.composeApp.resources.chart_gear_value
 import io.github.solcott.activitytracker.composeApp.resources.chart_gears
 import io.github.solcott.activitytracker.composeApp.resources.chart_gears_help
@@ -94,6 +93,7 @@ internal fun CardCharts(
                         elevation?.takeIf { series.kind in OVER_ELEVATION },
                         titled,
                         step = series.kind == StreamKind.EbikeAssistMode,
+                        pace = card.pace.takeIf { series.kind == StreamKind.Speed },
                     )
                 }
             }
@@ -236,9 +236,10 @@ private fun LineChart(
     extraDescription: String? = null,
     detailOverride: String? = null,
     step: Boolean = false,
+    pace: PaceKind? = null,
 ) {
-    val unit = streamUnit(series.kind)
-    val title = stringResource(streamTitle(series.kind))
+    val unit = lineUnit(series.kind, pace)
+    val title = lineTitle(series.kind, pace)
     val average = series.average?.let { unit.text(unit.convert(it)) }
     val max = series.max?.let { unit.text(unit.convert(it)) }
     // A left/right pair draws the right leg as a second line, and each leg's average in the header.
@@ -254,7 +255,7 @@ private fun LineChart(
                 stringResource(Res.string.chart_avg_np_max, average, stringResource(Res.string.unit_watts, normalizedPower), max)
             else -> stringResource(Res.string.chart_avg_max, average, max)
         }
-    val points = rememberPoints(series)
+    val points = rememberPoints(series, unit, paceCeiling(series, unit, pace))
     val backdrop = elevation?.let { rememberPoints(it) }
     val markerLabel = rememberMarkerLabel(backdrop) { unit.text(it) }
     val pairDescription = stringResource(Res.string.chart_left_right_help).takeIf { right != null }
@@ -266,7 +267,7 @@ private fun LineChart(
             xRange = 0.0..durationSeconds.toDouble(),
             description =
                 listOfNotNull(
-                        stringResource(Res.string.chart_description, title, average.orEmpty(), max.orEmpty()),
+                        lineDescription(title, average.orEmpty(), max.orEmpty(), pace),
                         extraDescription,
                         pairDescription,
                     )
@@ -276,7 +277,9 @@ private fun LineChart(
             markerLabel = markerLabel,
             average = series.average?.let(unit.convert),
             backdrop = backdrop,
-            inverted = series.kind == StreamKind.Depth,
+            inverted = series.kind == StreamKind.Depth || pace != null,
+            fillAbove = series.kind == StreamKind.Depth,
+            timeValues = pace != null,
             others = lines,
             events = events,
             warnings = warnings,
