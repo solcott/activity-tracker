@@ -16,6 +16,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
 class ActivityDetailPresenterTest : ActivityDetailTestBase() {
@@ -181,7 +182,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
     }
 
     @Test
-    fun sectionsStartCollapsedAndToggleOneOrAll() = runTest {
+    fun eachChartedMetricIsAnOpenCard() = runTest {
         streams =
             """{"uri":"$activityUri","visibility":"public","channels":["heartRate","power"],""" +
                 """"data":{"time":[0,1,2,3],"heartRate":[100,150,160,null],"power":[200,250,300,null]}}"""
@@ -202,18 +203,9 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
             var state = awaitLoaded()
             while (state.charts == null) state = awaitLoaded()
             assertEquals(listOf(DetailSection.HeartRate, DetailSection.Power), state.sections)
-            assertEquals(emptySet(), state.expanded)
-
-            state.eventSink(ActivityDetailEvent.ToggleSection(DetailSection.HeartRate))
-            state = awaitUntil { (it as? ActivityDetailState.Loaded)?.anyExpanded == true } as ActivityDetailState.Loaded
-            assertEquals(setOf(DetailSection.HeartRate), state.expanded)
-
-            // Something open, so all collapse; then nothing open, so all expand.
-            state.eventSink(ActivityDetailEvent.ToggleAll)
-            state = awaitUntil { (it as? ActivityDetailState.Loaded)?.anyExpanded == false } as ActivityDetailState.Loaded
-            state.eventSink(ActivityDetailEvent.ToggleAll)
-            state = awaitUntil { (it as? ActivityDetailState.Loaded)?.anyExpanded == true } as ActivityDetailState.Loaded
-            assertEquals(state.sections.toSet(), state.expanded)
+            // Each is an open card, its chart in it: there's nothing to expand.
+            assertEquals(listOf(DetailSection.HeartRate, DetailSection.Power), state.page.cards.map { it.section })
+            assertTrue(state.page.cards.all { it.series.isNotEmpty() })
             cancelAndIgnoreRemainingEvents()
         }
     }

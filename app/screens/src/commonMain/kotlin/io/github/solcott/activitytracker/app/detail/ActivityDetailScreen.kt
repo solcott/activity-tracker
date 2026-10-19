@@ -17,9 +17,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.persistentSetOf
 
 @CircuitSerializable(SessionScope::class) data class ActivityDetailScreen(val uri: String) : Screen
 
@@ -69,10 +67,10 @@ sealed interface ActivityDetailState : CircuitUiState {
         val narrowerCategories: ImmutableList<CategoryVisibility> = persistentListOf(),
         /** The owner approves followers, so Followers means only the ones they approved. */
         val approvesFollowers: Boolean = false,
-        /** The collapsible sections this activity has data for, in the order they show. */
+        /** The sections this activity has data for, in the order they show. */
         val sections: ImmutableList<DetailSection> = persistentListOf(),
-        /** The sections showing in full; the rest show an overview. */
-        val expanded: ImmutableSet<DetailSection> = persistentSetOf(),
+        /** What the page shows of the activity's data: its hero, cards, training load, stats and avg/max table. */
+        val page: ActivityPageContent = ActivityPageContent(),
         /** What the owner can do to the activity; null on someone else's. */
         val manage: ActivityManage? = null,
         /**
@@ -90,13 +88,10 @@ sealed interface ActivityDetailState : CircuitUiState {
          * no original file.
          */
         val export: ActivityExportState? = null,
-    ) : ActivityDetailState {
-        val anyExpanded: Boolean
-            get() = sections.any { it in expanded }
-    }
+    ) : ActivityDetailState
 }
 
-/** A collapsible part of the detail screen, below the overview that always shows. In the order they show. */
+/** A part of the detail screen with data of its own: a metric's card, or the device. In the order they show. */
 enum class DetailSection {
     HeartRate,
     Power,
@@ -262,11 +257,6 @@ sealed interface ActivityDetailEvent {
 
     /** Opens the training zones screen, to set the thresholds zone charts need. */
     data object OpenTrainingZones : ActivityDetailEvent
-
-    data class ToggleSection(val section: DetailSection) : ActivityDetailEvent
-
-    /** Expand every section when none is expanded, else collapse them all. */
-    data object ToggleAll : ActivityDetailEvent
 
     /** The owner deletes the activity, confirmed, and its other recordings too [withRecordings] or else leaves them as activities. */
     data class Delete(val withRecordings: Boolean) : ActivityDetailEvent
