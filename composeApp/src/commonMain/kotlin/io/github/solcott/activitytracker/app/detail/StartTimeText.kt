@@ -36,12 +36,14 @@ private fun timeFormat(): DateTimeFormat<LocalDateTime> {
     val twentyFour = uses24HourClock()
     val am = stringResource(Res.string.time_am)
     val pm = stringResource(Res.string.time_pm)
-    return remember(twentyFour, am, pm) {
+    // Resources load asynchronously on the web, so the markers can be empty for a frame; a format can't have an empty one.
+    val twelve = !twentyFour && am.isNotEmpty() && pm.isNotEmpty()
+    return remember(twelve, am, pm) {
         LocalDateTime.Format {
-            if (twentyFour) hour() else amPmHour(Padding.NONE)
+            if (twelve) amPmHour(Padding.NONE) else hour()
             char(':')
             minute()
-            if (!twentyFour) {
+            if (twelve) {
                 char(' ')
                 amPmMarker(am, pm)
             }
