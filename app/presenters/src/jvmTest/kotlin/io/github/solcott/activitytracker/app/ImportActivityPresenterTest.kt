@@ -124,11 +124,13 @@ class ImportActivityPresenterTest {
     @Test
     fun readsAFitFileAndPublishesIt() = runTest {
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { run },
                 repos.typeChoices,
                 repos.profiles,
@@ -176,11 +178,13 @@ class ImportActivityPresenterTest {
     @Test
     fun aDescriptionAndPhotosPublishWithTheActivity() = runTest {
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { run },
                 repos.typeChoices,
                 repos.profiles,
@@ -216,11 +220,13 @@ class ImportActivityPresenterTest {
             """{"details":{"training":{"maxHeartRate":190,"functionalThresholdPower":231,"autoUpdate":["maxHeartRate"],""" +
                 """"setAt":{"maxHeartRate":"2020-01-01T00:00:00Z"}}},"visibility":{"training":"self"}}"""
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { withSettings },
                 repos.typeChoices,
                 repos.profiles,
@@ -249,11 +255,13 @@ class ImportActivityPresenterTest {
                 """"heartRateZoneModel":"percentMaxHeartRate","setAt":{"maxHeartRate":"2020-01-01T00:00:00Z"}}},""" +
                 """"visibility":{"training":"self"}}"""
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { withSettings },
                 repos.typeChoices,
                 repos.profiles,
@@ -293,11 +301,13 @@ class ImportActivityPresenterTest {
     fun deviceSettingsChangeNothingUnlessChosen() = runTest {
         fixture.privateDetails = """{"details":{"training":{"maxHeartRate":190}},"visibility":{"training":"self"}}"""
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { withSettings },
                 repos.typeChoices,
                 repos.profiles,
@@ -380,12 +390,14 @@ class ImportActivityPresenterTest {
     @Test
     fun aDiveShowsItsDepthsAndGases() = runTest {
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         val dive = diveLog()
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { dive },
                 repos.typeChoices,
                 repos.profiles,
@@ -465,12 +477,14 @@ class ImportActivityPresenterTest {
     @Test
     fun aRideShowsItsPowerShiftingTrailAndSensors() = runTest {
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         val ride = mtbRide()
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { ride },
                 repos.typeChoices,
                 repos.profiles,
@@ -503,12 +517,14 @@ class ImportActivityPresenterTest {
     @Test
     fun aRunHasNoPedallingCadence() = runTest {
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         val stepping = run.copy(records = run.records.map { it.copy(cadence = 85) })
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { stepping },
                 repos.typeChoices,
                 repos.profiles,
@@ -530,7 +546,7 @@ class ImportActivityPresenterTest {
     @Test
     fun aZonelessClockIsPlacedInThePickedZone() = runTest {
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         // As a dive computer logs it: 7 AM local, which the parser read as if this device were on UTC.
         val dive =
             run.copy(
@@ -541,8 +557,10 @@ class ImportActivityPresenterTest {
             )
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { dive },
                 repos.typeChoices,
                 repos.profiles,
@@ -581,12 +599,14 @@ class ImportActivityPresenterTest {
     @Test
     fun theFilesOwnTitleFillsTheField() = runTest {
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         var file = run.copy(title = "Lake loop")
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { file },
                 repos.typeChoices,
                 repos.profiles,
@@ -625,12 +645,14 @@ class ImportActivityPresenterTest {
     @Test
     fun anUnreadableFileShowsAnError() = runTest {
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         val decoder = FitDecoder { throw ActivityFileException("FIT file is corrupt or truncated") }
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader(decoder),
                 repos.typeChoices,
                 repos.profiles,
@@ -651,13 +673,15 @@ class ImportActivityPresenterTest {
     @Test
     fun aFailedPickDropsThePreviousFile() = runTest {
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         var fail = false
         val decoder = FitDecoder { if (fail) throw ActivityFileException("FIT file is corrupt or truncated") else run }
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader(decoder),
                 repos.typeChoices,
                 repos.profiles,

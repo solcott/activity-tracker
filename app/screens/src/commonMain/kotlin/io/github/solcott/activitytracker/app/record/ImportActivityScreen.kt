@@ -20,8 +20,12 @@ import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.io.bytestring.ByteString
 
-/** Import activities from a FIT, GPX, TCX or Shearwater dive file, or a UDDF or Subsurface logbook (optionally gzipped). */
-@CircuitSerializable(SessionScope::class) data object ImportActivityScreen : Screen
+/**
+ * Import activities from a FIT, GPX, TCX or Shearwater dive file, or a UDDF or Subsurface logbook (optionally gzipped). With [combineInto],
+ * the AT-URI of the athlete's own activity, the file is another recording of it ("Add a recording…"): it's saved and combined with that
+ * activity.
+ */
+@CircuitSerializable(SessionScope::class) data class ImportActivityScreen(val combineInto: String? = null) : Screen
 
 @Immutable
 data class ImportActivityState(
@@ -43,7 +47,7 @@ data class ImportActivityState(
     val visibility: VisibilityFields = VisibilityFields(),
     /** A logbook (UDDF, Subsurface) of several dives, once read; the athlete picks which to import. */
     val dives: DiveBatch? = null,
-    /** How the search for dives already in the athlete's log is going; saving waits for it. */
+    /** How the search for activities already in the athlete's log is going; saving waits for it. */
     val duplicateCheck: DuplicateCheck = DuplicateCheck.Done,
     /** The description, dive site and photos of a single activity; null until a file is read, and for a logbook. */
     val details: ActivityDetailsFields? = null,
@@ -56,6 +60,15 @@ data class ImportActivityState(
      * than the activity marked. Rebuilt when the type or visibility changes; null until built, and for a logbook.
      */
     val page: ActivityPageContent? = null,
+    /**
+     * Adding a recording to an activity ([ImportActivityScreen.combineInto]): it takes that activity's visibility, so there are no
+     * visibility fields, and there's no duplicate search.
+     */
+    val addsRecording: Boolean = false,
+    /** The activity the recording is added to; null until it loads, and when not [addsRecording]. */
+    val addingTo: ExistingActivityPreview? = null,
+    /** The file's activity starts more than 12 hours from [addingTo]'s, so it isn't another recording of it and can't be saved. */
+    val tooFarFromTarget: Boolean = false,
     val eventSink: (ImportActivityEvent) -> Unit,
 ) : CircuitUiState
 
@@ -94,37 +107,20 @@ enum class DuplicateCheck {
     Failed,
 }
 
-/** What the athlete does with a dive that's already in their log, or twice in the file. */
+/** What the athlete does with an activity that's already in their log, or twice in the file. */
 enum class DuplicateAction {
-    /** Leave it out; the default. */
+    /** Leave it out. */
     Ignore,
-    /** Import it as another activity anyway. */
+    /** Import it as an activity of its own anyway. */
     ImportAnyway,
-    /** Fill what the logged dive lacks from this one (its device, say, or charts), changing nothing it has. Only for a logged dive. */
-    Merge,
     /**
-     * Import it as another recording (a backup computer's, say) of the dive it repeats: feeds show that dive once, and its page lists both
-     * recordings.
+     * Import it and combine it with the activity it repeats (or that one's combined activity), keeping both recordings as one activity; the
+     * default.
      */
-    Group,
+    Combine,
 }
 
-/** What merging a dive into the logged one would add to it. */
-enum class MergeGain {
-    Device,
-    SubSport,
-    WaterTemperature,
-    /** Depths, gases and the rest of the dive computer's summary. */
-    DiveDetails,
-    HeartRate,
-    Track,
-    /** Charts (depth, temperature…) the logged dive lacks; only channels it doesn't have are added. */
-    Charts,
-    /** The file's charts, for whichever the logged dive lacks: its own charts haven't loaded (or couldn't) to tell. */
-    AnyCharts,
-}
-
-/** Why a dive looks like a duplicate, and what the athlete chose to do with it. Exactly one of [existing] and [inFileIndex] is set. */
+/** Why an activity looks like a duplicate, and what the athlete chose to do with it. Exactly one of [existing] and [inFileIndex] is set. */
 @Immutable
 data class DuplicateInfo(
     /** The dive already in the athlete's log. */
@@ -136,11 +132,11 @@ data class DuplicateInfo(
     val action: DuplicateAction,
     /** What the athlete can do with it, [action] among them. */
     val actions: ImmutableList<DuplicateAction>,
-    /** What [DuplicateAction.Merge] would add to the logged dive; empty when it would add nothing. */
-    val mergeGains: ImmutableList<MergeGain> = persistentListOf(),
+    /** The logged activity is still uploading, so [DuplicateAction.Combine] can't be chosen yet; Import anyway can. */
+    val stillUploading: Boolean = false,
 )
 
-/** An activity already in the athlete's log, as a duplicate warning names it. */
+/** An activity already in the athlete's log, as a duplicate warning (or the recording it's added to) names it. */
 @Immutable
 data class ExistingActivityPreview(
     val title: String?,
@@ -166,7 +162,7 @@ data class DiveRow(
     val diveNumber: Int?,
     val device: String?,
     val selected: Boolean,
-    /** Null unless it's already in the athlete's log or earlier in this file; such a dive starts unselected. */
+    /** Null unless it's already in the athlete's log or earlier in this file; such a dive starts set to combine with it. */
     val duplicate: DuplicateInfo? = null,
 )
 
@@ -206,7 +202,7 @@ data class ImportPreview(
     val sensors: ImmutableList<SensorPreview> = persistentListOf(),
     /** The file has per-sample data to chart, published with the activity. */
     val hasStreams: Boolean = false,
-    /** Null unless it's a dive already in the athlete's log; saving then follows [DuplicateInfo.action]. */
+    /** Null unless it's already in the athlete's log; saving then follows [DuplicateInfo.action]. */
     val duplicate: DuplicateInfo? = null,
 )
 
@@ -329,7 +325,7 @@ sealed interface ImportActivityEvent {
     /** Imports a [DiveBatch]'s selected dives. [defaultTitles] has each untitled dive's [DiveRow.defaultTitle] in words, by index. */
     data class SaveDives(val defaultTitles: ImmutableMap<Int, String>) : ImportActivityEvent
 
-    /** What to do with a duplicate dive: a [DiveRow.index], or 0 for a single [ImportPreview]. */
+    /** What to do with a duplicate: a [DiveRow.index], or 0 for a single [ImportPreview]. */
     data class DuplicateActionChanged(val index: Int, val action: DuplicateAction) : ImportActivityEvent
 
     /** Selects or clears one of a [DiveBatch]'s dives, by [DiveRow.index]; a duplicate's [DuplicateAction] follows. */

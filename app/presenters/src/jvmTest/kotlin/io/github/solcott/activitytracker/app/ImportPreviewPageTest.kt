@@ -35,8 +35,10 @@ class ImportPreviewPageTest {
         val ride = mtbRide()
         presenterTestOf({
             ImportActivityPresenter(
-                FakeNavigator(ImportActivityScreen),
+                ImportActivityScreen(),
+                FakeNavigator(ImportActivityScreen()),
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { ride },
                 repos.typeChoices,
                 repos.profiles,

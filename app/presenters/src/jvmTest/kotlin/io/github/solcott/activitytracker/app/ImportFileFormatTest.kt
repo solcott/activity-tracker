@@ -23,7 +23,7 @@ class ImportFileFormatTest {
     @Test
     fun aGpxFileIsReadByItsContentWhateverItsName() = runTest {
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         val gpx =
             """<gpx version="1.1" creator="test" xmlns="http://www.topografix.com/GPX/1/1"><trk><type>cycling</type><trkseg>
                 <trkpt lat="47.6" lon="-122.3"><time>2026-09-20T07:00:00Z</time></trkpt>
@@ -31,8 +31,10 @@ class ImportFileFormatTest {
             </trkseg></trk></gpx>"""
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { error("not FIT") },
                 repos.typeChoices,
                 repos.profiles,
@@ -53,11 +55,13 @@ class ImportFileFormatTest {
     @Test
     fun otherFilesAreNotSupported() = runTest {
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { error("not called") },
                 repos.typeChoices,
                 repos.profiles,

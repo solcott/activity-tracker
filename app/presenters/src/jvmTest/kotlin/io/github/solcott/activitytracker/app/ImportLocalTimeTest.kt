@@ -57,8 +57,10 @@ class ImportLocalTimeTest {
             )
         presenterTestOf({
             ImportActivityPresenter(
-                FakeNavigator(ImportActivityScreen),
+                ImportActivityScreen(),
+                FakeNavigator(ImportActivityScreen()),
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { run },
                 repos.typeChoices,
                 repos.profiles,

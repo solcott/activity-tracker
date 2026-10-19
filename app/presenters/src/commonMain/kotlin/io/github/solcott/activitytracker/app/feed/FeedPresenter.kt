@@ -123,7 +123,7 @@ fun FeedPresenter(
             }
 
             FeedEvent.Import -> {
-                navigator.goTo(ImportActivityScreen)
+                navigator.goTo(ImportActivityScreen())
             }
         }
     }

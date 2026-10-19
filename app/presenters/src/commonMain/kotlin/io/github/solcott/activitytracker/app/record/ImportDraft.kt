@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.activityfile.ActivityFileReader
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
 import io.github.solcott.activitytracker.activityfile.ImportedFile
 import io.github.solcott.activitytracker.activityfile.SourceFile
+import io.github.solcott.activitytracker.app.edit.DetailsForm
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.DraftSource
 import io.github.solcott.activitytracker.data.training.ThresholdChange
@@ -42,3 +43,11 @@ internal suspend fun ActivityFileReader.readKeeping(name: String, bytes: ByteArr
 
 /** This file as a single activity's source; a logbook of one dive still names its entry. */
 internal fun SourceFile.single(): DraftSource = DraftSource(this, entry = if (format.isLogbook) 0 else null)
+
+/** This draft with what the athlete wrote in [form]: its description and photos, and for a dive ([isDive]) its site. */
+internal fun ActivityDraft.withDetails(form: DetailsForm, isDive: Boolean): ActivityDraft =
+    withDetails(
+        description = form.description.text.toString(),
+        diveSite = form.diveSite.text.toString().takeIf { isDive },
+        photos = form.newPhotos(),
+    )
