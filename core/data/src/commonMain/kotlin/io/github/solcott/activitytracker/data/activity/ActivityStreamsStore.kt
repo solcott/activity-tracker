@@ -12,9 +12,11 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
+import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
+import io.github.solcott.activitytracker.lexicon.app.mergeStreams
 import kotlin.time.Clock
 
 /**
@@ -49,6 +51,23 @@ data class ActivityStreams(
     /** Where the zones go, before the training caps them: the narrower of the heart rate and power tiers ([ActivityZonesStore]). */
     val zonesTier: String
         get() = zonesTier(tiers)
+
+    /** These streams as the AppView serves them to their owner once it has indexed what [ActivityStreamsStore.put] wrote for [activity]. */
+    fun servedAs(activity: AtUri): GetActivityStreams.Output? {
+        val parts = copy(data = PdsActivityStreamsStore.fitted(data)).parts
+        val widestFirst = Visibility.all.mapNotNull { tier -> parts[tier]?.let { tier to it } }
+        val merged = mergeStreams(widestFirst.map { it.second }) ?: return null
+        return GetActivityStreams.Output(
+            uri = activity,
+            visibility = widestFirst.first().first,
+            channels = merged.channels,
+            data = merged,
+            heartRateZones = heartRateZones,
+            powerZones = powerZones,
+            trainingLoad = trainingLoad,
+            parts = widestFirst.map { (tier, part) -> GetActivityStreams.StreamsPart(tier, part.channels) },
+        )
+    }
 }
 
 /** The narrower of [tiers]' heart rate and power visibilities: what an activity's zones reveal, and so where they go at most. */

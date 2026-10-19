@@ -389,7 +389,10 @@ class ActivityManager(
                         members.firstOrNull { it.member.uri == source }?.zones
                             ?: feed.streams(source)?.let { LocalZones(it.heartRateZones, it.powerZones, it.trainingLoad) }
                     }
-            streams.put(uri, ActivityStreams(data, visibility, categories, zones?.heartRate, zones?.power, zones?.trainingLoad))
+            val rebuilt = ActivityStreams(data, visibility, categories, zones?.heartRate, zones?.power, zones?.trainingLoad)
+            streams.put(uri, rebuilt)
+            // The detail page's charts show these at once, as its figures show the record, until the AppView indexes them.
+            rebuilt.servedAs(uri)?.let { feed.localStreams.set(uri, it) }
         }
         feed.rewrites.set(uri, layout.record)
         feed.updateCached(uri) { feed.rewrites.rewritten(it, layout.record) }

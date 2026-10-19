@@ -52,6 +52,9 @@ class FeedRepository(
     /** Records the athlete rewrote this session, shown over the AppView's until it catches up: write one with [updateCached] too. */
     val rewrites = LocalRewrites(heldPhotos) { cid -> ownBlobUrl(clients.pdsUrl, clients.did, cid) }
 
+    /** Streams the athlete rebuilt this session, shown over the AppView's until it catches up ([streams]). */
+    val localStreams = LocalStreams()
+
     /** Activities the athlete deleted and recordings they split off this session, left out until the AppView catches up. */
     val deletes = LocalDeletes()
 
@@ -119,14 +122,18 @@ class FeedRepository(
 
     /**
      * [uri]'s streams, or null when it has none or the viewer may not see them. Always from the AppView, never the author's PDS, so it's
-     * the same wherever they're stored (the repo, or a tier space; see `ActivityStreamsStore`).
+     * the same wherever they're stored (the repo, or a tier space; see `ActivityStreamsStore`), with any the athlete rebuilt this session
+     * laid over them until it serves those ([localStreams]).
      */
-    suspend fun streams(uri: AtUri): GetActivityStreams.Output? =
-        try {
-            clients.appView.query(GetActivityStreams.method, GetActivityStreams.Params(uri))
-        } catch (e: XrpcException) {
-            if (e.error == NOT_FOUND) null else throw e
-        }
+    suspend fun streams(uri: AtUri): GetActivityStreams.Output? {
+        val served =
+            try {
+                clients.appView.query(GetActivityStreams.method, GetActivityStreams.Params(uri))
+            } catch (e: XrpcException) {
+                if (e.error == NOT_FOUND) null else throw e
+            }
+        return localStreams.applyTo(uri, served)
+    }
 
     /**
      * The first [Paging.MAX_LIMIT] athletes who liked [uri], straight from the AppView, so it lags the viewer's own toggles (see
