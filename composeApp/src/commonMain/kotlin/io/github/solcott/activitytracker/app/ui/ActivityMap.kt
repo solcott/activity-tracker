@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.RouteEnds
 import kotlinx.collections.immutable.ImmutableList
 
 /**
@@ -11,8 +12,18 @@ import kotlinx.collections.immutable.ImmutableList
  * yet (maplibre/maplibre-compose#209, waiting on Compose Multiplatform 1.13; see BACKLOG.md), so web falls back to [RoutePreview]. Keep
  * MapLibre's pre-1.0 API inside the nonWeb actual so its churn stays in one file.
  */
-/** The route on a map; [gaps] are where the line breaks (`feed.activity#polylineGaps`), for a combined activity's separate recordings. */
-@Composable expect fun ActivityMap(polyline: String, modifier: Modifier = Modifier, height: Dp = 240.dp, gaps: ImmutableList<Int>? = null)
+/**
+ * The route on a map, with its [RouteMarkers]; [gaps] are where the line breaks (`feed.activity#polylineGaps`), and [ends] where its start
+ * and end are marked when not at the line's own ends.
+ */
+@Composable
+expect fun ActivityMap(
+    polyline: String,
+    modifier: Modifier = Modifier,
+    height: Dp = 240.dp,
+    gaps: ImmutableList<Int>? = null,
+    ends: RouteEnds? = null,
+)
 
 /** OpenFreeMap styles: free, no API key or request limits. Swap the URLs to change tile provider. */
 internal object MapStyles {

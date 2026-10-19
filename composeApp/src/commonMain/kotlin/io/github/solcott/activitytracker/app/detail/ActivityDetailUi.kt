@@ -294,15 +294,17 @@ private fun PageMedia(state: ActivityDetailState.Loaded, modifier: Modifier = Mo
         remember(state.ownRoute, state.ownRouteGaps, record) {
             if (state.ownRoute != null) state.ownRouteGaps else record.polylineGaps?.toImmutableList()
         }
+    val ends = state.ownRouteEnds.takeIf { state.ownRoute != null }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         MediaRow(
             media,
             onOpen = { state.eventSink(ActivityDetailEvent.OpenMedia(it)) },
             height = height,
-            // The owner sees their whole route; everyone else the polyline trimmed by the owner's privacy zones.
+            // The owner sees their whole route, marked where it starts and ends outside their privacy zones; everyone else the polyline
+            // trimmed by them, marked at its own ends.
             map =
                 (state.ownRoute ?: record.polyline)?.let { polyline ->
-                    { mapModifier, mapHeight -> ActivityMap(polyline, mapModifier, mapHeight, gaps) }
+                    { mapModifier, mapHeight -> ActivityMap(polyline, mapModifier, mapHeight, gaps, ends) }
                 },
         )
         state.page.mapMark?.let { CategoryLock(DetailCategory.MAP, it) }
