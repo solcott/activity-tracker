@@ -116,7 +116,7 @@ private fun conditions(dive: ActivityDive): List<Stat> {
     )
 }
 
-private fun waterName(type: String) =
+internal fun waterName(type: String) =
     when (type) {
         WaterType.FRESH -> Res.string.water_fresh
         WaterType.SALT -> Res.string.water_salt

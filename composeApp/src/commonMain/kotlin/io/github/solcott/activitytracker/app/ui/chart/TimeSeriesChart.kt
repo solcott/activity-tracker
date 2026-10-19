@@ -24,9 +24,11 @@ import com.patrykandpatrick.vico.multiplatform.cartesian.layer.rememberLine
 import com.patrykandpatrick.vico.multiplatform.cartesian.layer.rememberLineCartesianLayer
 import com.patrykandpatrick.vico.multiplatform.cartesian.marker.CartesianMarker
 import com.patrykandpatrick.vico.multiplatform.cartesian.rememberCartesianChart
+import com.patrykandpatrick.vico.multiplatform.common.DashedShape
 import com.patrykandpatrick.vico.multiplatform.common.Fill
 import com.patrykandpatrick.vico.multiplatform.common.component.rememberLineComponent
 import com.patrykandpatrick.vico.multiplatform.common.component.rememberTextComponent
+import io.github.solcott.activitytracker.data.units.formatDecimal
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlinx.collections.immutable.ImmutableList
@@ -91,9 +93,20 @@ internal fun TimeSeriesChart(
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
     val label = rememberTextComponent(labelStyle)
     val grid = rememberLineComponent(Fill(colors.grid), thickness = 1.dp)
-    val averageLine = rememberLineComponent(Fill(colors.baseline), thickness = 1.dp)
-    val yFormatter = remember(yLabel, inverted) { CartesianValueFormatter { _, value, _ -> yLabel(flip(value)) } }
-    val xFormatter = remember(xLabel) { CartesianValueFormatter { _, value, _ -> xLabel?.invoke(value).orEmpty() } }
+    // Dashed, so the average reads as a reference rather than another series.
+    val averageLine =
+        rememberLineComponent(
+            Fill(colors.baseline),
+            thickness = 1.dp,
+            shape = remember { DashedShape(dashLength = 4.dp, gapLength = 3.dp) },
+        )
+    // Vico rejects an empty label, and on web a label built from a string resource is empty until resources load: show the number then.
+    val yFormatter =
+        remember(yLabel, inverted) {
+            CartesianValueFormatter { _, value, _ -> yLabel(flip(value)).ifEmpty { formatDecimal(flip(value), 0) } }
+        }
+    val xFormatter =
+        remember(xLabel) { CartesianValueFormatter { _, value, _ -> xLabel?.invoke(value)?.ifEmpty { null } ?: formatDecimal(value, 0) } }
     val xStep = if (xLabelsAt != null) xRange.endInclusive - xRange.start else timeStep(xRange.endInclusive - xRange.start)
     val labelsAbove = remember(pointLabels, label) { PointLabels(pointLabels.map { PointLabel(it.x, it.y, it.text, label) }, gap = 4.dp) }
     val eventLine = rememberLineComponent(Fill(MaterialTheme.colorScheme.tertiary), thickness = 1.dp)
