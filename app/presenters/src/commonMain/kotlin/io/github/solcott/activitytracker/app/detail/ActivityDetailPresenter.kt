@@ -34,6 +34,7 @@ import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
@@ -306,9 +307,12 @@ private fun rememberExpansion(sections: ImmutableList<DetailSection>): Expansion
 }
 
 /** The sections [activity] has data for: one per kind of chart, and the device. */
-internal fun detailSections(activity: ActivityView, charts: ActivityCharts?): ImmutableList<DetailSection> {
+internal fun detailSections(activity: ActivityView, charts: ActivityCharts?): ImmutableList<DetailSection> =
+    detailSections(activity.record, charts)
+
+/** The sections [record] has data for: one per kind of chart, and the device. */
+internal fun detailSections(record: ActivityRecord, charts: ActivityCharts?): ImmutableList<DetailSection> {
     val kinds = charts?.lines.orEmpty().map { it.kind }.toSet()
-    val record = activity.record
     return DetailSection.entries
         .filter { section ->
             when (section) {
