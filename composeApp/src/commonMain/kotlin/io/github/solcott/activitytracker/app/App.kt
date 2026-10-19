@@ -62,6 +62,8 @@ fun App(graph: AppGraph, modifier: Modifier = Modifier, onRootPop: () -> Unit = 
                 LaunchedEffect(Unit) { sessionGraph.unitsRepository.refresh() }
                 // Session-long, so a re-trim after a privacy zones save outlives the settings screen.
                 LaunchedEffect(Unit) { sessionGraph.activityRepository.repairRoutesOnSave() }
+                // Once per account: legacy `recordingOf` groups become combined activities (retried each sign-in until all succeed).
+                LaunchedEffect(Unit) { sessionGraph.legacyGroupMigration.runOncePerSession() }
                 // So the AppView knows this athlete (and others can find them) before they post anything.
                 LaunchedEffect(Unit) { sessionGraph.profileSetup.ensureProfile() }
                 val units by sessionGraph.unitsRepository.units.collectAsState()

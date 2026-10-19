@@ -229,6 +229,47 @@ class ActivityManager(
         return uri
     }
 
+    /**
+     * Turns a legacy group, [primary] and its [recordings] (`recordingOf`, which share its visibility), into a new combined activity of
+     * them all, starting from [primary]'s title, description, photos, sport and visibility ([LegacyGroupMigration]). The recordings keep
+     * their `recordingOf` until [clearRecordingOf]: hidden by both rules meanwhile. Returns the combined activity's URI.
+     */
+    suspend fun combineGroup(primary: ActivityView, recordings: List<AtUri>): AtUri {
+        require(primary.record.combined == null && primary.combinedInto == null) { "Already combined" }
+        val members = (listOf(primary.uri) + recordings).distinct()
+        require(members.size in CombinedActivity.MIN_MEMBERS..CombinedActivity.MAX_MEMBERS) {
+            "A combined activity has ${CombinedActivity.MIN_MEMBERS} to ${CombinedActivity.MAX_MEMBERS} members"
+        }
+        outbox.drain()
+        val uri = AtUri.of(clients.did, Nsid.FEED_ACTIVITY, Tid.next(clock))
+        build(uri, base = primary.uri, members.map { read(it) }, primary.visibilityOrPublic)
+        hideMembers(members)
+        return uri
+    }
+
+    /**
+     * Rewrites [recording], stored at [visibility], without its legacy `recordingOf`, leaving the rest of its record as it is; nothing when
+     * it has none. Unlike [ungroup], the feed shows no change: the recording is a combined activity's member by now.
+     */
+    suspend fun clearRecordingOf(recording: AtUri, visibility: String) {
+        rewriteWithoutRecordingOf(recording, visibility)
+        outbox.drain()
+    }
+
+    /**
+     * Queues [recording]'s record at [visibility] without `recordingOf`, starting from its last queued put, and returns it; unless
+     * [always], nothing is queued for a record that has none.
+     */
+    private suspend fun rewriteWithoutRecordingOf(recording: AtUri, visibility: String, always: Boolean = false): ActivityRecord {
+        val rkey = requireNotNull(recording.rkey)
+        val current = db.queuedActivityRecord(clients, rkey) ?: clients.ownActivityRecord(rkey, visibility)
+        val record = current.copy(recordingOf = null)
+        if (always || current.recordingOf != null) {
+            writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), record, space = clients.placeOf(visibility))
+        }
+        return record
+    }
+
     /** Publishes [drafts], one with its photos, several as a batch. */
     private suspend fun publish(drafts: List<ActivityDraft>): List<AtUri> =
         drafts.singleOrNull()?.let { listOf(activities.publish(it)) } ?: activities.publishAll(drafts)
@@ -370,9 +411,7 @@ class ActivityManager(
     }
 
     private suspend fun queueUngroup(recording: AtUri, from: AtUri, visibility: String) {
-        val rkey = requireNotNull(recording.rkey)
-        val record = (db.queuedActivityRecord(clients, rkey) ?: clients.ownActivityRecord(rkey, visibility)).copy(recordingOf = null)
-        writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), record, space = clients.placeOf(visibility))
+        val record = rewriteWithoutRecordingOf(recording, visibility, always = true)
         feed.rewrites.set(recording, record)
         feed.updateCached(recording) { it.copy(record = record) }
         feed.deletes.ungroup(recording)
