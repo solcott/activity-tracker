@@ -31,6 +31,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
+import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -81,6 +82,15 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
      * while null. A comment naming a root is a reply in that thread, and a thread with no top-level comment listed is a placeholder.
      */
     var served: GetActivity.Output? = null
+
+    /** What the AppView's `getAuthorActivities` serves, in one page; an error while null. */
+    var authorActivities: List<ActivityView>? = emptyList()
+
+    /** Fail every read of this `collection/rkey`, while set. */
+    var failReadsOf: String? = null
+
+    /** Called with each record put, as `collection/rkey`, after it's stored. */
+    var onPut: ((key: String, record: JsonObject) -> Unit)? = null
 
     /** The `uris` of each `getComments` lookup, in order. */
     val lookups = mutableListOf<List<String>>()
@@ -167,6 +177,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                         val key = "${input.getValue("collection").jsonPrimitive.content}/${input.getValue("rkey").jsonPrimitive.content}"
                         stored.getOrPut(place) { mutableMapOf() }[key] = input.getValue("record").jsonObject
                         writes += "put $place $key"
+                        onPut?.invoke(key, input.getValue("record").jsonObject)
                         json("""{"uri":"at://$did/x/y","cid":"bafyrec"}""")
                     }
                     path == "/xrpc/com.atproto.repo.deleteRecord" || path == "/xrpc/com.atproto.space.deleteRecord" -> {
@@ -184,6 +195,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                         val params = request.url.parameters
                         val place = params["space"]?.substringAfterLast('/') ?: repo
                         val key = "${params["collection"]}/${params["rkey"]}"
+                        if (key == failReadsOf) return@MockEngine error("InternalServerError", HttpStatusCode.InternalServerError)
                         val value = stored[place]?.get(key) ?: return@MockEngine error("RecordNotFound")
                         json("""{"uri":"at://$did/$key","cid":"bafyrec","value":$value}""")
                     }
@@ -202,6 +214,10 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                                 }
                         json("""{"records":[${records.joinToString(",")}]}""")
                     }
+                    path == "/xrpc/${Nsid.FEED_GET_AUTHOR_ACTIVITIES}" ->
+                        authorActivities?.let {
+                            json(AtJson.encodeToString(GetAuthorActivities.Output.serializer(), GetAuthorActivities.Output(it)))
+                        } ?: error("InternalServerError", HttpStatusCode.InternalServerError)
                     path == "/xrpc/${Nsid.FEED_GET_ACTIVITY}" ->
                         served?.let { json(AtJson.encodeToString(GetActivity.Output.serializer(), GetActivity.Output(it.activity))) }
                             ?: error("NotFound")
@@ -306,6 +322,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
         val exporter: ActivityExporter,
     )
 
+    @Suppress("LongMethod") // Builds every store a test reaches for.
     suspend fun session(scope: String? = null): Session {
         val (db, _, clients) =
             if (scope == null) signedInTestSession(http, did = did) else signedInTestSession(http, did = did, scope = scope)
@@ -344,7 +361,22 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
             clients,
             feed,
             activities,
-            ActivityManager(db, clients, outbox, writer, streams, tracks, sources, devices, zones, places, feed, privacy, Clock.System),
+            ActivityManager(
+                db,
+                clients,
+                outbox,
+                writer,
+                streams,
+                tracks,
+                sources,
+                devices,
+                zones,
+                places,
+                feed,
+                privacy,
+                Clock.System,
+                activities,
+            ),
             streams,
             tracks,
             sources,

@@ -337,6 +337,7 @@ open class ActivityDetailTestBase {
                 feed,
                 privacy,
                 Clock.System,
+                activities,
             ),
             ActivityExporter(db, clients, tracks, sources, feed),
             UnitsRepository(profiles, Clock.System, Logger, units),

@@ -51,6 +51,7 @@ import io.github.solcott.activitytracker.composeApp.resources.default_title_afte
 import io.github.solcott.activitytracker.composeApp.resources.default_title_evening
 import io.github.solcott.activitytracker.composeApp.resources.default_title_morning
 import io.github.solcott.activitytracker.composeApp.resources.default_title_night
+import io.github.solcott.activitytracker.composeApp.resources.import_add_recording_title
 import io.github.solcott.activitytracker.composeApp.resources.import_hint
 import io.github.solcott.activitytracker.composeApp.resources.import_original_too_large
 import io.github.solcott.activitytracker.composeApp.resources.import_pick
@@ -105,7 +106,7 @@ fun ImportActivityUi(state: ImportActivityState, modifier: Modifier = Modifier) 
             modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
             topBar = {
                 AppTopBar(
-                    title = stringResource(Res.string.import_title),
+                    title = stringResource(if (state.addsRecording) Res.string.import_add_recording_title else Res.string.import_title),
                     onBack = { state.eventSink(ImportActivityEvent.Back) },
                     scrollBehavior = scrollBehavior,
                     actions = {
@@ -193,7 +194,8 @@ private fun SavePanel(state: ImportActivityState, save: (() -> Unit)?) {
         // Present whenever a single activity is: the title, description, dive site and photos.
         state.details?.let { ActivityDetailsForm(state.title, titlePlaceholder = defaultTitle, fields = it, enabled = !state.saving) }
         if (state.thresholdChanges.isNotEmpty()) ThresholdChanges(state.thresholdChanges)
-        ActivityVisibilityForm(state.visibility, enabled = !state.saving)
+        // A recording added to an activity takes its visibility.
+        if (!state.addsRecording) ActivityVisibilityForm(state.visibility, enabled = !state.saving)
         val preview = state.preview
         if (save != null && preview != null) {
             AppButton(onClick = save, Modifier.fillMaxWidth(), enabled = state.canSave(preview)) { Text(saveLabel(state)) }

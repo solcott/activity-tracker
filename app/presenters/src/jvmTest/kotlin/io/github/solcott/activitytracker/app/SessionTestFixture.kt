@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app
 import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.app.record.ActivityTypeChoices
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
+import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
@@ -22,6 +23,7 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -83,6 +85,9 @@ class SessionTestFixture {
 
     /** Alice's activities as the AppView's `getAuthorActivitiesByStart` serves them, whatever the range; null to fail. */
     var ownActivities: List<ActivityView>? = emptyList()
+
+    /** What `getActivity` serves for any activity; null for none. */
+    var servedActivity: ActivityView? = null
 
     /** What `getActivityStreams` serves for any activity; null for none. */
     var activityStreams: ActivityStreamData? = null
@@ -158,6 +163,15 @@ class SessionTestFixture {
                                 ),
                                 headers = json,
                             )
+                        }
+                    }
+
+                    "/xrpc/${Nsid.FEED_GET_ACTIVITY}" -> {
+                        val view = servedActivity
+                        if (view == null) {
+                            respond("""{"error":"NotFound"}""", HttpStatusCode.BadRequest, json)
+                        } else {
+                            respond(AtJson.encodeToString(GetActivity.Output.serializer(), GetActivity.Output(view)), headers = json)
                         }
                     }
 
@@ -309,6 +323,7 @@ class SessionTestFixture {
         val feed: FeedRepository,
         val defaults: ActivityDefaults,
         val privacy: PrivacyZones,
+        val manager: ActivityManager,
     ) {
         /** The type picker's producer, as Metro injects it into the record, manual entry and import presenters. */
         val typeChoices: ActivityTypeChoices
@@ -322,6 +337,7 @@ class SessionTestFixture {
         val recentTypes = RecentActivityTypes(db, clients, feed)
         val zones = TestZones(db, clients)
         val privacy = PrivacyZones(clients, Clock.System, Logger)
+        val places = ActivityPlaces(clients, Clock.System, Logger)
         val activities =
             ActivityRepository(
                 db,
@@ -333,7 +349,7 @@ class SessionTestFixture {
                 zones.sources,
                 zones.devices,
                 zones.store,
-                ActivityPlaces(clients, Clock.System, Logger),
+                places,
                 privacy,
                 RouteTrimmer(db, clients, zones.writer, zones.outbox, privacy, zones.tracks, feed, Clock.System, Logger),
                 feed,
@@ -343,6 +359,33 @@ class SessionTestFixture {
             )
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
         val units = UnitsRepository(profiles, Clock.System, Logger, defaultUnits)
-        return Repos(activities, profiles, units, AuthRepository(manager, db, http), recentTypes, feed, ActivityDefaults(clients), privacy)
+        val activityManager =
+            ActivityManager(
+                db,
+                clients,
+                zones.outbox,
+                zones.writer,
+                zones.streams,
+                zones.tracks,
+                zones.sources,
+                zones.devices,
+                zones.store,
+                places,
+                feed,
+                privacy,
+                Clock.System,
+                activities,
+            )
+        return Repos(
+            activities,
+            profiles,
+            units,
+            AuthRepository(manager, db, http),
+            recentTypes,
+            feed,
+            ActivityDefaults(clients),
+            privacy,
+            activityManager,
+        )
     }
 }

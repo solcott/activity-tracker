@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.composeApp.resources.delete_activity_gr
 import io.github.solcott.activitytracker.composeApp.resources.delete_activity_message
 import io.github.solcott.activitytracker.composeApp.resources.delete_activity_only_this
 import io.github.solcott.activitytracker.composeApp.resources.delete_activity_title
+import io.github.solcott.activitytracker.composeApp.resources.detail_add_recording
 import io.github.solcott.activitytracker.composeApp.resources.detail_combine
 import io.github.solcott.activitytracker.composeApp.resources.detail_delete
 import io.github.solcott.activitytracker.composeApp.resources.detail_edit
@@ -64,12 +65,30 @@ internal fun ManageMenu(
     val hideEnd = stringResource(Res.string.detail_hide_end)
     val exportLabel = stringResource(Res.string.detail_export)
     val combine = stringResource(Res.string.detail_combine)
+    val addRecording = stringResource(Res.string.detail_add_recording)
     val split = stringResource(Res.string.detail_split)
     val items =
-        remember(manage, canHideRouteEnds, canExport, edit, ungroup, delete, hideStart, hideEnd, exportLabel, combine, split, eventSink) {
+        remember(
+            manage,
+            canHideRouteEnds,
+            canExport,
+            edit,
+            ungroup,
+            delete,
+            hideStart,
+            hideEnd,
+            exportLabel,
+            combine,
+            addRecording,
+            split,
+            eventSink,
+        ) {
             buildList {
                 add(AppMenuItem(edit, AppIcon.ManualEntry) { eventSink(ActivityDetailEvent.Edit) })
-                if (manage.canCombine) add(AppMenuItem(combine, AppIcon.Add) { eventSink(ActivityDetailEvent.Combine) })
+                if (manage.canCombine) {
+                    add(AppMenuItem(combine, AppIcon.Add) { eventSink(ActivityDetailEvent.Combine) })
+                    add(AppMenuItem(addRecording, AppIcon.Import) { eventSink(ActivityDetailEvent.AddRecording) })
+                }
                 if (manage.members > 0) add(AppMenuItem(split, AppIcon.Ungroup) { splitting = true })
                 if (manage.canUngroup) add(AppMenuItem(ungroup, AppIcon.Ungroup) { eventSink(ActivityDetailEvent.Ungroup) })
                 if (canHideRouteEnds) {

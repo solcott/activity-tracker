@@ -33,6 +33,7 @@ import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
+import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -62,8 +63,10 @@ import kotlinx.datetime.toLocalDateTime
 @CircuitInject(ImportActivityScreen::class, SessionScope::class)
 @Composable
 fun ImportActivityPresenter(
+    screen: ImportActivityScreen,
     navigator: Navigator,
     activities: ActivityRepository,
+    manager: ActivityManager,
     reader: ActivityFileReader,
     typeChoices: ActivityTypeChoices,
     profiles: ProfileRepository,
@@ -72,7 +75,7 @@ fun ImportActivityPresenter(
     units: UnitsRepository,
 ): ImportActivityState {
     // The parsed file isn't saveable; after process death the athlete picks it again. A logbook holds many dives.
-    var file by remember { mutableStateOf<Pair<String, ImmutableList<ImportedActivity>>?>(null) }
+    var file by remember { mutableStateOf<ImportFile?>(null) }
     // The file as it's kept with every activity saved from it; null when it's too large to keep (originalTooLarge).
     var source by remember { mutableStateOf<SourceFile?>(null) }
     var originalTooLarge by remember { mutableStateOf(false) }
@@ -92,21 +95,20 @@ fun ImportActivityPresenter(
     val reading = flights.isRunning(ImportActivityEvent.FilePicked::class)
 
     val zone = remember(zoneId) { zoneId?.let(TimeZone::of) ?: TimeZones.device() }
-    val imported = singleActivity(file)
-    val logbook = file?.takeIf { it.second.size > 1 }
+    // Adding a recording to an activity: it, once loaded, and of a logbook only the entry nearest it.
+    val adding = rememberAddingRecording(feed, screen, file, zone) { error = it }
+    val picked = adding.offered
+    val imported = singleActivity(picked)
+    val logbook = picked?.takeIf { it.second.size > 1 }
     val placed = remember(imported, zone) { imported?.let { (name, activity) -> name to activity.inZone(zone) } }
     val placedDives = remember(logbook, zone) { logbook?.second?.map { it.inZone(zone) } }
     val zones = remember(file) { file?.second?.firstNotNullOfOrNull { it.localStart }?.let(::zoneOptions) }
-    val own = rememberOwnDives(feed, file?.second)
+    val own = rememberOwnActivities(feed, picked?.second, search = !adding.requested)
     // Matched where the athlete placed the clock: a zone change can make or break a duplicate.
     val matches = remember(placed, placedDives, own) { importMatches(placed?.second, placedDives, own) }
-    // The logged dives' charts, once the athlete picks Merge, so the merge note can say whether it adds any.
-    val loggedStreams = rememberLoggedStreams(feed, remember(matches, selection) { mergeTargets(matches, selection) })
+    val tooFar = adding.tooFar(placed?.second)
     // Keyed on the zone too: a zone with the same offset leaves the activity as it was.
-    val preview =
-        remember(placed, zones, zone, matches, selection, loggedStreams) {
-            singlePreview(placed, zone, zones, matches, selection, loggedStreams)
-        }
+    val preview = remember(placed, zones, zone, matches, selection) { singlePreview(placed, zone, zones, matches, selection) }
     val athlete = rememberOwnProfile(profiles)
     val visibility = rememberNewActivityVisibility(defaults) { athlete?.followPolicy == FollowPolicy.APPROVE }
     val training = athlete?.details?.training
@@ -119,15 +121,15 @@ fun ImportActivityPresenter(
     val unitSystem by units.units.collectAsState()
     // What the activity's page will show its owner, rebuilt for the type and visibility chosen: the hero follows the sport.
     val page by
-        produceState<ActivityPageContent?>(null, placed, type, training, thresholdChanges, visibility.current, unitSystem) {
+        produceState<ActivityPageContent?>(null, placed, type, training, thresholdChanges, visibility.current, adding, unitSystem) {
             value = placed?.let { (_, activity) ->
                 val draft = importDraft(activity, type, title = null, training, thresholdChanges, source = null)
-                ActivityPage.fromDraft(draft.withVisibility(visibility.current), unitSystem)
+                ActivityPage.fromDraft(adding.placed(draft.withVisibility(visibility.current)), unitSystem)
             }
         }
     val dives =
-        remember(logbook, placedDives, selection, matches, zones, zone, loggedStreams) {
-            diveBatch(logbook?.first, placedDives, selection, matches, zone, zones, loggedStreams)
+        remember(logbook, placedDives, selection, matches, zones, zone) {
+            diveBatch(logbook?.first, placedDives, selection, matches, zone, zones)
         }
 
     return ImportActivityState(
@@ -146,6 +148,9 @@ fun ImportActivityPresenter(
         approvesFollowers = athlete?.followPolicy == FollowPolicy.APPROVE,
         originalTooLarge = originalTooLarge,
         page = page.takeIf { placed != null },
+        addsRecording = adding.requested,
+        addingTo = adding.preview(zone),
+        tooFarFromTarget = tooFar,
     ) { event ->
         when (event) {
             is ImportActivityEvent.FilePicked -> {
@@ -206,30 +211,24 @@ fun ImportActivityPresenter(
             is ImportActivityEvent.SaveDives ->
                 flights.launch(ImportActivityEvent.Save::class) {
                     val import = diveImport(placedDives, selection, matches, event.defaultTitles, training, visibility.current, source)
-                    runSuspendCatching { activities.saveDives(import, onPublished = { navigator.pop() }) }
+                    runSuspendCatching { saveDives(activities, manager, import, onPublished = { navigator.pop() }) }
                         .onFailure { e -> error = uiErrorOf(UiError.Kind.SaveActivity, e) }
                 }
 
             is ImportActivityEvent.Save -> {
-                // An ignored duplicate stays out.
-                val activity = placed?.second?.takeIf { selection.isSelected(0, matches.firstOrNull()) } ?: return@ImportActivityState
+                val match = matches.firstOrNull()
+                val activity = adding.saved(placed?.second, selection.isSelected(0, match)) ?: return@ImportActivityState
                 flights.launch(ImportActivityEvent.Save::class) {
                     runSuspendCatching {
                         val text = title.text.toString().ifBlank { event.defaultTitle?.ifBlank { null } }
-                        activities.saveSingle(
-                            importDraft(activity, type, text, training, thresholdChanges, source?.single())
-                                .withDetails(
-                                    description = details.description.text.toString(),
-                                    diveSite = details.diveSite.text.toString().takeIf { type.sport == Sport.DIVE },
-                                    photos = details.newPhotos(),
-                                )
-                                .withVisibility(visibility.current),
-                            into = mergeTarget(matches.firstOrNull(), selection.action(0)),
-                            recordingOf = groupTarget(matches.firstOrNull(), selection.action(0)),
-                            recordingOfVisibility = loggedVisibility(matches.firstOrNull()),
-                        )
+                        val draft =
+                            importDraft(activity, type, text, training, thresholdChanges, adding.sourceOf(source))
+                                .withDetails(details, isDive = type.sport == Sport.DIVE)
+                                .withVisibility(visibility.current)
+                        val combined = saveSingle(activities, manager, draft, adding.into(combineTarget(match, selection.action(0, match))))
                         updateThresholds(profiles, activity, type.sport, previewed = thresholdChanges)
                         navigator.pop()
+                        adding.opened(combined)?.let(navigator::goTo)
                     }
                         .onFailure { e -> error = uiErrorOf(UiError.Kind.SaveActivity, e) }
                 }

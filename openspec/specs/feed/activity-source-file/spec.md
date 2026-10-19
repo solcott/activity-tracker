@@ -76,26 +76,23 @@ A file whose stored form exceeds 10 MB SHALL import without a source, and the im
 - **WHEN** the athlete's PDS refuses a source's file as too large
 - **THEN** the activity, its streams and its track are written, the activity has no source, and later writes aren't held up
 
-### Requirement: Merging fills a missing source
-Merging an imported activity into one of the athlete's logged activities SHALL give the logged activity the import's source when it has none, stored or queued, and SHALL NOT replace a source it already has.
-
-#### Scenario: Logged dive without a source
-- **WHEN** an athlete merges an imported Shearwater dive into a dive they logged by hand
-- **THEN** the logged dive gets the Shearwater file as its source
-
-#### Scenario: Logged dive with a source
-- **WHEN** an athlete merges an imported FIT dive into a dive already imported from UDDF
-- **THEN** the dive's source is still the UDDF file
-
 ### Requirement: Grouped recordings keep their own source
-An imported activity grouped as another recording of a logged activity SHALL keep its own source. Splitting a recording off its group, and editing an activity's title, description, dive site or photos, SHALL leave each source as it is.
+An imported activity combined with a logged activity SHALL keep its own source as a member, and a combined activity SHALL have no source of its own. Splitting a combined activity, removing a member, and editing an activity's title, description, dive site or photos, SHALL leave each source as it is.
+
+#### Scenario: Combine a duplicate
+- **WHEN** an athlete imports a FIT dive and combines it with a logged dive
+- **THEN** the imported member has the FIT file as its source, and the logged dive's source is unchanged
+
+#### Scenario: Split
+- **WHEN** an athlete splits a combined activity into its members
+- **THEN** each member keeps its source
 
 #### Scenario: Group a duplicate
-- **WHEN** an athlete imports a FIT dive and groups it as another recording of a logged dive
+- **WHEN** an athlete's legacy group holds a FIT dive as another recording of a logged dive
 - **THEN** the recording has the FIT file as its source, and the logged dive's source is unchanged
 
 #### Scenario: Ungroup
-- **WHEN** an athlete splits a recording off its main activity
+- **WHEN** an athlete splits a recording off a legacy group's main activity
 - **THEN** the recording and the main activity keep their sources
 
 ### Requirement: Deleting an activity deletes its source

@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.data
 import io.github.solcott.activitytracker.data.FakeAthletePds.Session
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityEdit
+import io.github.solcott.activitytracker.data.activity.OwnActivity
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -76,6 +77,18 @@ class ActivityCombineTest {
             indexedAt = Clock.System.now(),
             visibility = visibility,
             combinedInto = combinedInto,
+        )
+
+    /** The athlete's own [uri] as an import compares against it: sent, unless [cid] is null. */
+    private fun own(uri: AtUri, visibility: String = Visibility.PUBLIC, cid: Cid? = Cid("bafyrec"), combinedInto: AtUri? = null) =
+        OwnActivity(uri, cid, view(uri, visibility).record, visibility, combinedInto)
+
+    private fun edgeDraft(start: String = "2026-10-14T08:58:00Z", minutes: Int = 63) =
+        draft(
+            "Morning Ride",
+            start = start,
+            minutes = minutes,
+            streams = samples(minutes = minutes) { it.copy(heartRate = it.time.map { 140 }, power = it.time.map { 210 }) },
         )
 
     private suspend fun Session.two(intoChoice: VisibilityChoice = VisibilityChoice.PUBLIC): Pair<AtUri, AtUri> {
@@ -250,5 +263,79 @@ class ActivityCombineTest {
         assertEquals("Big day", edited.title)
         assertEquals(setOf(watch, edge), edited.combined?.members?.toSet())
         assertTrue(edited.combined?.sourcesOf(StreamChannel.POWER) == listOf(edge))
+    }
+
+    @Test
+    fun anImportedEdgeRideCombinesWithTheStoredWatchRide() = runTest {
+        val s = pds.session()
+        val watch =
+            s.activities.publish(
+                draft(
+                    "Lunch loop",
+                    streams = samples(2) { it.copy(heartRate = it.time.map { 120 }) },
+                    choice = VisibilityChoice(Visibility.FOLLOWERS),
+                )
+            )
+
+        val combined = s.manager.combine(own(watch, Visibility.FOLLOWERS), edgeDraft())
+
+        val made = view(combined, Visibility.FOLLOWERS).record
+        val edge = made.combined!!.members.single { it != watch }
+        assertEquals("Lunch loop", made.title, "it starts from the logged ride")
+        assertEquals(Instant.parse("2026-10-14T08:58:00Z"), made.startedAt, "the Edge started first")
+        assertEquals(listOf(edge), made.combined?.sourcesOf(StreamChannel.POWER), "power comes from the Edge")
+        assertEquals(setOf(Visibility.FOLLOWERS), pds.placesOf(Nsid.FEED_ACTIVITY, edge.rkey!!), "the import takes the ride's visibility")
+        assertEquals("Morning Ride", view(edge, Visibility.FOLLOWERS).record.title, "the import is an activity of its own")
+        assertTrue(streamsOf(combined, Visibility.FOLLOWERS)!!.power!!.any { it == 210 })
+    }
+
+    @Test
+    fun aThirdImportJoinsTheCombinedRide() = runTest {
+        val s = pds.session()
+        val (watch, edge) = s.two()
+        val combined = s.manager.combine(view(watch), view(edge))
+        pds.served = GetActivity.Output(view(combined))
+
+        // The import matched the watch ride, a member: it joins the combined ride.
+        assertEquals(
+            combined,
+            s.manager.combine(own(watch, combinedInto = combined), draft("Phone", start = "2026-10-14T09:05:00Z", minutes = 50)),
+        )
+
+        val members = view(combined).record.combined!!.members
+        assertEquals(3, members.size)
+        assertTrue(watch in members && edge in members)
+        assertEquals("Lunch loop", view(combined).record.title)
+    }
+
+    @Test
+    fun twoLogbookDivesCombine() = runTest {
+        val s = pds.session()
+        val combined =
+            s.manager.combine(
+                listOf(
+                    draft("Blue Hole", streams = samples(10) { it.copy(depth = it.time.map { 1800 }) }),
+                    draft(
+                        "Backup",
+                        start = "2026-10-14T09:01:00Z",
+                        minutes = 58,
+                        streams = samples(5, 58) { it.copy(depth = it.time.map { 1810 }) },
+                    ),
+                )
+            )
+
+        val made = view(combined).record
+        assertEquals(2, made.combined?.members?.size)
+        assertEquals("Blue Hole", made.title, "it starts from the first copy")
+        for (member in made.combined!!.members) assertTrue(record(member) != null, "each copy is saved as its own activity")
+    }
+
+    @Test
+    fun anUnsentLoggedActivityIsRefused() = runTest {
+        val s = pds.session()
+        val watch = s.activities.publish(draft("Lunch loop"))
+
+        assertFailsWith<IllegalArgumentException> { s.manager.combine(own(watch, cid = null), edgeDraft()) }
+        assertEquals(1, stored[repo].orEmpty().keys.count { it.startsWith("${Nsid.FEED_ACTIVITY}/") }, "the import wasn't saved")
     }
 }

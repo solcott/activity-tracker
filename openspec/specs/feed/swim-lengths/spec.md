@@ -47,13 +47,6 @@ A pool swim's page SHALL show its pool length among its stats, to viewers the ac
 - **WHEN** a viewer opens a Public pool swim whose streams are Only me
 - **THEN** its stats show the pool length and no lengths table is shown
 
-### Requirement: Merging fills missing lengths
-Merging another recording into a pool swim SHALL add its pool length and lengths when the swim lacks them, and SHALL NOT replace lengths the swim has.
-
-#### Scenario: Watch adds lengths
-- **WHEN** an athlete merges a watch's FIT pool swim into a manual entry of the same swim
-- **THEN** the manual entry gains the pool length and the watch's lengths
-
 ### Requirement: Older swims are unchanged
 Swims imported before lengths were kept SHALL show as before, with no pool length or lengths table, and SHALL NOT be backfilled.
 

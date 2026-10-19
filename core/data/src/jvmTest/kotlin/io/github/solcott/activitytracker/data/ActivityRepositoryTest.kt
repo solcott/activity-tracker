@@ -17,7 +17,6 @@ import io.github.solcott.activitytracker.data.activity.MediaEdit
 import io.github.solcott.activitytracker.data.activity.NewPhoto
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
-import io.github.solcott.activitytracker.data.activity.OwnActivity
 import io.github.solcott.activitytracker.data.activity.PdsActivityDevicesStore
 import io.github.solcott.activitytracker.data.activity.PdsActivitySourceStore
 import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
@@ -53,7 +52,6 @@ import io.github.solcott.activitytracker.lexicon.app.RecordingView
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.StreamChannel
 import io.github.solcott.activitytracker.lexicon.app.SubSport
-import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
@@ -95,7 +93,7 @@ class ActivityRepositoryTest {
     private var storedRecord: String = "{}"
 
     /** The record the AppView's `getActivity` serves for any activity. */
-    private var indexedRecord: ActivityRecord? = null
+    private val indexedRecord: ActivityRecord? = null
 
     /** The session's feed, once [repository] made it. */
     private lateinit var feed: FeedRepository
@@ -104,7 +102,7 @@ class ActivityRepositoryTest {
     private lateinit var manager: ActivityManager
 
     /** What the AppView's `getActivityStreams` serves; null for none. */
-    private var storedStreams: GetActivityStreams.Output? = null
+    private val storedStreams: GetActivityStreams.Output? = null
     private val logs = TestLogWriter(Severity.Verbose)
     private val logger = Logger(loggerConfigInit(logs))
 
@@ -203,26 +201,43 @@ class ActivityRepositoryTest {
         val devices = PdsActivityDevicesStore(db, writer, clients, Clock.System)
         val places = ActivityPlaces(clients, Clock.System, logger)
         val privacy = PrivacyZones(clients, Clock.System, Logger)
+        val activities =
+            ActivityRepository(
+                db,
+                clients,
+                outbox,
+                writer,
+                streams,
+                tracks,
+                sources,
+                devices,
+                zones,
+                places,
+                privacy,
+                RouteTrimmer(db, clients, writer, outbox, privacy, tracks, feed, Clock.System, Logger),
+                feed,
+                localLikes,
+                RecentActivityTypes(db, clients, feed),
+                Clock.System,
+            )
         manager =
-            ActivityManager(db, clients, outbox, writer, streams, tracks, sources, devices, zones, places, feed, privacy, Clock.System)
-        return ActivityRepository(
-            db,
-            clients,
-            outbox,
-            writer,
-            streams,
-            tracks,
-            sources,
-            devices,
-            zones,
-            places,
-            privacy,
-            RouteTrimmer(db, clients, writer, outbox, privacy, tracks, feed, Clock.System, Logger),
-            feed,
-            localLikes,
-            RecentActivityTypes(db, clients, feed),
-            Clock.System,
-        )
+            ActivityManager(
+                db,
+                clients,
+                outbox,
+                writer,
+                streams,
+                tracks,
+                sources,
+                devices,
+                zones,
+                places,
+                feed,
+                privacy,
+                Clock.System,
+                activities,
+            )
+        return activities
     }
 
     private fun String.target(): String {
@@ -335,75 +350,6 @@ class ActivityRepositoryTest {
             subSport = SubSport.SINGLE_GAS,
             avgTemperature = 245,
         )
-
-    /** The same dive from a second computer, whose clock started 10 s later. */
-    private val secondComputer =
-        ActivityDraft(
-            type = ActivityType(Sport.DIVE, SubSport.MULTI_GAS),
-            title = "Morning Dive",
-            description = null,
-            startedAt = Instant.parse("2024-05-12T16:00:10Z"),
-            elapsed = 44.minutes,
-            avgTemperatureCelsius = 26.0,
-            device = "Shearwater Perdix",
-            streams = ActivityStreamData(time = listOf(0, 10, 20), temperature = listOf(260, 255, 250), depth = listOf(100, 900, 1800)),
-        )
-
-    @Test
-    fun mergeFillsOnlyTheGapsAndAddsTheStreamsChannelsMissing() = runTest {
-        val repo = repository()
-        val uri = AtUri.of(did, Nsid.FEED_ACTIVITY, "3kexisting")
-        storedRecord = AtJson.encodeToString(ActivityRecord.serializer(), existingDive)
-        storedStreams =
-            GetActivityStreams.Output(
-                uri,
-                Visibility.PUBLIC,
-                listOf(StreamChannel.DEPTH),
-                ActivityStreamData(time = listOf(0, 10, 20, 30), depth = listOf(0, 500, 1000, 1500)),
-            )
-
-        repo.mergeInto(OwnActivity(uri, Cid("bafyold"), existingDive), secondComputer)
-        assertEquals(0, repo.sync())
-
-        val (activity, streams) = putBodies.map { AtJson.parseToJsonElement(it).jsonObject }
-        assertEquals("3kexisting", activity["rkey"]?.jsonPrimitive?.content)
-        val merged = AtJson.decodeFromJsonElement(ActivityRecord.serializer(), activity["record"]!!)
-        assertEquals(existingDive.copy(device = "Shearwater Perdix"), merged, "only the device was missing")
-        assertEquals("3kexisting", streams["rkey"]?.jsonPrimitive?.content)
-        val record = AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), streams["record"]!!)
-        assertFalse("visibility" in streams.getValue("record").jsonObject, "the repo is who may see them")
-        assertEquals(listOf(StreamChannel.TEMPERATURE, StreamChannel.DEPTH), record.channels)
-    }
-
-    @Test
-    fun aMergeShowsOverTheAppViewsStaleCopyUntilItCatchesUp() = runTest {
-        val repo = repository()
-        val uri = activityBy(did).uri
-        storedRecord = AtJson.encodeToString(ActivityRecord.serializer(), existingDive)
-        indexedRecord = existingDive
-
-        repo.mergeInto(OwnActivity(uri, Cid("bafyold"), existingDive), secondComputer)
-        val merged = existingDive.copy(device = "Shearwater Perdix")
-        assertEquals(merged, feed.activity(uri).record, "Jetstream hasn't brought the AppView the merge yet")
-
-        indexedRecord = merged
-        assertEquals(merged, feed.activity(uri).record)
-        // Caught up, the AppView's copy is the one shown from now on, whatever later changes it.
-        indexedRecord = existingDive.copy(title = "Renamed elsewhere")
-        assertEquals("Renamed elsewhere", feed.activity(uri).record.title)
-    }
-
-    @Test
-    fun mergeIntoAnActivityStillInTheOutboxLeavesItsStreams() = runTest {
-        val repo = repository()
-        val uri = AtUri.of(did, Nsid.FEED_ACTIVITY, "3kpending")
-
-        repo.mergeInto(OwnActivity(uri, cid = null, existingDive.copy(subSport = null)), secondComputer)
-        repo.sync()
-
-        val record = AtJson.parseToJsonElement(putBodies.single()).jsonObject["record"]!!
-        assertEquals(SubSport.MULTI_GAS, AtJson.decodeFromJsonElement(ActivityRecord.serializer(), record).subSport)
-    }
 
     @Test
     fun publishWritesStreamsUnderTheActivitysRkeyAfterIt() = runTest {

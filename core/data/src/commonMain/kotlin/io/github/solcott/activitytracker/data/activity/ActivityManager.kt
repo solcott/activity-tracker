@@ -19,7 +19,9 @@ import io.github.solcott.activitytracker.lexicon.app.CombinedActivity
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.DetailsView
 import io.github.solcott.activitytracker.lexicon.app.StreamChannel
+import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import io.github.solcott.activitytracker.location.Gpx
 import kotlin.time.Clock
 
@@ -46,6 +48,7 @@ class ActivityManager(
     private val feed: FeedRepository,
     private val privacy: PrivacyZones,
     private val clock: Clock,
+    private val activities: ActivityRepository,
 ) {
     /**
      * Deletes [activity], its streams, its track and its original file. A main activity's other recordings go too [withRecordings], or else
@@ -163,11 +166,119 @@ class ActivityManager(
         outbox.drain()
         if (other.visibilityOrPublic != visibility) follow(other.uri, visibility)
         val uri = if (existing != null) into.uri else AtUri.of(clients.did, Nsid.FEED_ACTIVITY, Tid.next(clock))
-        build(uri, base = if (existing != null) into.record.combined?.members?.firstOrNull() ?: into.uri else into.uri, members, visibility)
+        build(
+            uri,
+            base = if (existing != null) into.record.combined?.members?.firstOrNull() ?: into.uri else into.uri,
+            members.map { read(it) },
+            visibility,
+        )
+        hideMembers(members)
+        return uri
+    }
+
+    /**
+     * Saves [draft], another device's recording of what the athlete's own [into] recorded, as an activity of its own, and combines it with
+     * [into] (`feed/import-duplicates`). See the list form.
+     */
+    suspend fun combine(into: OwnActivity, draft: ActivityDraft): AtUri = combine(into, listOf(draft))
+
+    /**
+     * Saves [drafts], other recordings of what the athlete's own [into] recorded, each as an activity of its own at [into]'s visibility,
+     * and combines them with it: added to its combined activity when [into] is one, or a member of one, and otherwise into a new combined
+     * activity starting from [into]'s title, description, photos, sport and visibility. The drafts' part is built from their own data, so
+     * nothing waits for the AppView to index them; [into]'s is read as stored, so it must be sent ([OwnActivity.cid]). Returns the combined
+     * activity's URI.
+     */
+    suspend fun combine(into: OwnActivity, drafts: List<ActivityDraft>): AtUri {
+        require(drafts.isNotEmpty()) { "Nothing to combine" }
+        requireNotNull(into.cid) { "The activity is still uploading" }
+        outbox.drain()
+        val target = into.combinedInto?.let { feed.activity(it) }
+        val existing = target?.record?.combined ?: into.record.combined
+        val visibility = target?.visibilityOrPublic ?: into.visibility
+        val stored = existing?.members ?: listOf(into.uri)
+        require(stored.size + drafts.size <= CombinedActivity.MAX_MEMBERS) { "At most ${CombinedActivity.MAX_MEMBERS} members" }
+        val uri =
+            when {
+                target != null -> target.uri
+                existing != null -> into.uri
+                else -> AtUri.of(clients.did, Nsid.FEED_ACTIVITY, Tid.next(clock))
+            }
+        val placed = drafts.map { it.atVisibility(visibility) }
+        val saved = publish(placed)
+        build(uri, base = stored.first(), stored.map { read(it) } + placed.zip(saved) { draft, at -> draft.member(at) }, visibility)
+        hideMembers(stored + saved)
+        return uri
+    }
+
+    /**
+     * Saves [drafts], one activity recorded more than once in a file (two dive computers, say), each as an activity of its own, and
+     * combines them into a new combined activity starting from the first one's title, description, sport and visibility, which the rest
+     * take. Built from the drafts' own data, so nothing waits for the AppView. Returns the combined activity's URI.
+     */
+    suspend fun combine(drafts: List<ActivityDraft>): AtUri {
+        require(drafts.size in CombinedActivity.MIN_MEMBERS..CombinedActivity.MAX_MEMBERS) {
+            "A combined activity has ${CombinedActivity.MIN_MEMBERS} to ${CombinedActivity.MAX_MEMBERS} members"
+        }
+        val visibility = drafts.first().visibility
+        val placed = drafts.map { it.atVisibility(visibility) }
+        val saved = publish(placed)
+        val uri = AtUri.of(clients.did, Nsid.FEED_ACTIVITY, Tid.next(clock))
+        build(uri, base = saved.first(), placed.zip(saved) { draft, at -> draft.member(at) }, visibility)
+        hideMembers(saved)
+        return uri
+    }
+
+    /**
+     * Turns a legacy group, [primary] and its [recordings] (`recordingOf`, which share its visibility), into a new combined activity of
+     * them all, starting from [primary]'s title, description, photos, sport and visibility ([LegacyGroupMigration]). The recordings keep
+     * their `recordingOf` until [clearRecordingOf]: hidden by both rules meanwhile. Returns the combined activity's URI.
+     */
+    suspend fun combineGroup(primary: ActivityView, recordings: List<AtUri>): AtUri {
+        require(primary.record.combined == null && primary.combinedInto == null) { "Already combined" }
+        val members = (listOf(primary.uri) + recordings).distinct()
+        require(members.size in CombinedActivity.MIN_MEMBERS..CombinedActivity.MAX_MEMBERS) {
+            "A combined activity has ${CombinedActivity.MIN_MEMBERS} to ${CombinedActivity.MAX_MEMBERS} members"
+        }
+        outbox.drain()
+        val uri = AtUri.of(clients.did, Nsid.FEED_ACTIVITY, Tid.next(clock))
+        build(uri, base = primary.uri, members.map { read(it) }, primary.visibilityOrPublic)
+        hideMembers(members)
+        return uri
+    }
+
+    /**
+     * Rewrites [recording], stored at [visibility], without its legacy `recordingOf`, leaving the rest of its record as it is; nothing when
+     * it has none. Unlike [ungroup], the feed shows no change: the recording is a combined activity's member by now.
+     */
+    suspend fun clearRecordingOf(recording: AtUri, visibility: String) {
+        rewriteWithoutRecordingOf(recording, visibility)
+        outbox.drain()
+    }
+
+    /**
+     * Queues [recording]'s record at [visibility] without `recordingOf`, starting from its last queued put, and returns it; unless
+     * [always], nothing is queued for a record that has none.
+     */
+    private suspend fun rewriteWithoutRecordingOf(recording: AtUri, visibility: String, always: Boolean = false): ActivityRecord {
+        val rkey = requireNotNull(recording.rkey)
+        val current = db.queuedActivityRecord(clients, rkey) ?: clients.ownActivityRecord(rkey, visibility)
+        val record = current.copy(recordingOf = null)
+        if (always || current.recordingOf != null) {
+            writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), record, space = clients.placeOf(visibility))
+        }
+        return record
+    }
+
+    /** Publishes [drafts], one with its photos, several as a batch. */
+    private suspend fun publish(drafts: List<ActivityDraft>): List<AtUri> =
+        drafts.singleOrNull()?.let { listOf(activities.publish(it)) } ?: activities.publishAll(drafts)
+
+    /** Hides [members] from lists until the AppView catches up with their combined activity, then sends what's queued. */
+    private suspend fun hideMembers(members: List<AtUri>) {
         feed.deletes.combine(members)
         members.forEach { db.feed().deleteByUri(it.value) }
         outbox.drain()
-        return uri
     }
 
     /** Takes [member] out of [combined], which is rebuilt without it, or split when only one member would be left. */
@@ -190,32 +301,40 @@ class ActivityManager(
         if (members.size < CombinedActivity.MIN_MEMBERS) {
             split(combined)
         } else {
-            build(combined.uri, base = members.first(), members, combined.visibilityOrPublic)
+            build(combined.uri, base = members.first(), members.map { read(it) }, combined.visibilityOrPublic)
             outbox.drain()
         }
     }
+
+    /** A member as stored, read from every place, with its track. */
+    private suspend fun read(uri: AtUri): MemberData {
+        val stored = places.read(uri)
+        val record = stored.full ?: throw XrpcException(NOT_FOUND_STATUS, "RecordNotFound", "No activity $uri")
+        val (summary, channels) = stored.narrowestTiers()
+        return MemberData(CombineMember(uri, record, stored.data, tracks.read(uri)), summary + channels)
+    }
+
+    /** This draft, just queued at [uri], as a member: its own data, not yet readable anywhere else. */
+    private fun ActivityDraft.member(uri: AtUri): MemberData =
+        MemberData(
+            CombineMember(uri, toRecord(clock.now()), streams, route.ifEmpty { null }),
+            tiers,
+            LocalZones(heartRateZones, powerZones, trainingLoad),
+        )
 
     /**
      * Queues the combined activity at [uri] built from [members] ([ActivityCombiner]): its record and details at [visibility], its streams
      * and zones, and its track. A rebuild keeps the ranking, title, description, photos and categories it has; a new one starts from
      * [base].
      */
-    private suspend fun build(uri: AtUri, base: AtUri, members: List<AtUri>, visibility: String) {
-        val stored = members.map { places.read(it) }
-        val read = stored.map { member ->
-            val record = member.full ?: throw XrpcException(NOT_FOUND_STATUS, "RecordNotFound", "No activity ${member.uri}")
-            CombineMember(member.uri, record, member.data, tracks.read(member.uri))
-        }
+    private suspend fun build(uri: AtUri, base: AtUri, members: List<MemberData>, visibility: String) {
         val current = places.read(uri).takeIf { it.full != null }
-        val built = ActivityCombiner.combine(base, read, clock.now(), current?.full?.combined?.sources.orEmpty())
+        val built = ActivityCombiner.combine(base, members.map { it.member }, clock.now(), current?.full?.combined?.sources.orEmpty())
         val trim = privacy.forPublish()
         val record = keptFrom(current?.full, built.record, trim.trim.segmentedPolylineOf(built.route))
         val categories =
             current?.narrowestTiers()?.let { (summary, channels) -> DetailCategory.tiers(visibility, summary + channels) }
-                ?: ActivityCombiner.narrowestTiers(
-                    visibility,
-                    stored.map { it.narrowestTiers().let { (summary, channels) -> summary + channels } },
-                )
+                ?: ActivityCombiner.narrowestTiers(visibility, members.map { it.tiers })
         val layout = ActivityLayout.split(record, null, uri, visibility, categories)
         queueLayout(layout, uri, visibility)
         privacy.published(uri, visibility, built.route, trim)
@@ -226,12 +345,13 @@ class ActivityManager(
             tracks.delete(uri)
         }
         built.streams?.let { data ->
-            // Zones from the member whose heart rate the combined activity takes.
-            val served = built.record.combined?.sourcesOf(StreamChannel.HEART_RATE)?.firstOrNull()?.let { feed.streams(it) }
-            streams.put(
-                uri,
-                ActivityStreams(data, visibility, categories, served?.heartRateZones, served?.powerZones, served?.trainingLoad),
-            )
+            // Zones from the member whose heart rate the combined activity takes: a draft's own, else as the AppView serves them.
+            val zones =
+                built.record.combined?.sourcesOf(StreamChannel.HEART_RATE)?.firstOrNull()?.let { source ->
+                    members.firstOrNull { it.member.uri == source }?.zones
+                        ?: feed.streams(source)?.let { LocalZones(it.heartRateZones, it.powerZones, it.trainingLoad) }
+                }
+            streams.put(uri, ActivityStreams(data, visibility, categories, zones?.heartRate, zones?.power, zones?.trainingLoad))
         }
         feed.rewrites.set(uri, layout.record)
         feed.updateCached(uri) { feed.rewrites.rewritten(it, layout.record) }
@@ -291,15 +411,18 @@ class ActivityManager(
     }
 
     private suspend fun queueUngroup(recording: AtUri, from: AtUri, visibility: String) {
-        val rkey = requireNotNull(recording.rkey)
-        val record = (db.queuedActivityRecord(clients, rkey) ?: clients.ownActivityRecord(rkey, visibility)).copy(recordingOf = null)
-        writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), record, space = clients.placeOf(visibility))
+        val record = rewriteWithoutRecordingOf(recording, visibility, always = true)
         feed.rewrites.set(recording, record)
         feed.updateCached(recording) { it.copy(record = record) }
         feed.deletes.ungroup(recording)
         feed.updateCached(from, feed.deletes::applyTo)
     }
 }
+
+/** A member to combine, with each detail category's narrowest tier, and, for a draft, its zones. */
+private class MemberData(val member: CombineMember, val tiers: Map<String, String>, val zones: LocalZones? = null)
+
+private class LocalZones(val heartRate: ZoneSnapshot?, val power: ZoneSnapshot?, val trainingLoad: TrainingLoad?)
 
 /**
  * [built] with [line] as its polyline, and what the athlete gave the combined activity so far ([kept], when it's rebuilt): its title,

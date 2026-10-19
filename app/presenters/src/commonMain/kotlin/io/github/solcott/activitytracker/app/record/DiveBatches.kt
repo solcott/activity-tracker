@@ -4,13 +4,15 @@ import io.github.solcott.activitytracker.activityfile.ImportedActivity
 import io.github.solcott.activitytracker.activityfile.SourceFile
 import io.github.solcott.activitytracker.activityfile.localZone
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
+import io.github.solcott.activitytracker.data.activity.ActivityManager
+import io.github.solcott.activitytracker.data.activity.ActivityMatch
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
-import io.github.solcott.activitytracker.data.activity.DiveMatch
 import io.github.solcott.activitytracker.data.activity.DraftSource
 import io.github.solcott.activitytracker.data.activity.DuplicateOf
 import io.github.solcott.activitytracker.data.activity.OwnActivity
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.app.CombinedActivity
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -21,42 +23,52 @@ import kotlinx.datetime.format
 import kotlinx.datetime.toLocalDateTime
 
 /**
- * Which of a file's dives import. A dive that isn't a duplicate imports unless the athlete cleared it ([deselected]); a duplicate only when
- * the athlete picked something other than [DuplicateAction.Ignore] for it ([actions]).
+ * Which of a file's activities import. One that isn't a duplicate imports unless the athlete cleared it ([deselected]); a duplicate unless
+ * the athlete picked [DuplicateAction.Ignore] for it ([actions]). A duplicate's action starts as Combine, or Ignore while what it repeats
+ * is still uploading.
  */
 internal data class DiveSelection(val deselected: Set<Int> = emptySet(), val actions: Map<Int, DuplicateAction> = emptyMap()) {
-    fun action(index: Int): DuplicateAction = actions[index] ?: DuplicateAction.Ignore
+    fun action(index: Int, match: ActivityMatch?): DuplicateAction =
+        actions[index]?.takeIf { it != DuplicateAction.Combine || canCombine(match) }
+            ?: if (canCombine(match)) DuplicateAction.Combine else DuplicateAction.Ignore
 
-    fun isSelected(index: Int, match: DiveMatch?): Boolean =
-        if (match == null) index !in deselected else action(index) != DuplicateAction.Ignore
+    fun isSelected(index: Int, match: ActivityMatch?): Boolean =
+        if (match == null) index !in deselected else action(index, match) != DuplicateAction.Ignore
 
-    /** Ticking a duplicate imports it anyway; unticking ignores it. */
-    fun toggled(index: Int, match: DiveMatch?): DiveSelection =
+    /** Ticking a duplicate combines it, or imports it anyway when it can't be combined yet; unticking ignores it. */
+    fun toggled(index: Int, match: ActivityMatch?): DiveSelection =
         when {
-            match != null -> withAction(index, if (isSelected(index, match)) DuplicateAction.Ignore else DuplicateAction.ImportAnyway)
+            match != null ->
+                withAction(
+                    index,
+                    when {
+                        isSelected(index, match) -> DuplicateAction.Ignore
+                        canCombine(match) -> DuplicateAction.Combine
+                        else -> DuplicateAction.ImportAnyway
+                    },
+                )
             index in deselected -> copy(deselected = deselected - index)
             else -> copy(deselected = deselected + index)
         }
 
-    /** Every dive that isn't a duplicate, of [count]; duplicates keep their actions. */
+    /** Every activity that isn't a duplicate, of [count]; duplicates keep their actions. */
     fun all(selected: Boolean, count: Int): DiveSelection = copy(deselected = if (selected) emptySet() else (0 until count).toSet())
 
     fun withAction(index: Int, action: DuplicateAction): DiveSelection = copy(actions = actions + (index to action))
 }
 
-/** The file's only activity ([placed] in [zone]), and whether it's a dive already in the athlete's log. */
-@Suppress("LongParameterList") // The preview is everything the screen knows about the file.
+/** The file's only activity ([placed] in [zone]), and whether it's already in the athlete's log. */
 internal fun singlePreview(
     placed: Pair<String, ImportedActivity>?,
     zone: TimeZone,
     zones: ImmutableList<TimeZoneOption>?,
-    matches: List<DiveMatch?>,
+    matches: List<ActivityMatch?>,
     selection: DiveSelection,
-    streams: LoggedStreams,
 ): ImportPreview? {
     val (name, activity) = placed ?: return null
+    val match = matches.firstOrNull()
     // An existing activity's start reads in the file's own zone, as the file's does.
-    val duplicate = duplicateInfo(activity, matches.firstOrNull(), selection.action(0), activity.localZone(zone), streams)
+    val duplicate = duplicateInfo(match, selection.action(0, match), activity.localZone(zone))
     return activity.toPreview(name, zone, zones).copy(duplicate = duplicate)
 }
 
@@ -66,10 +78,9 @@ internal fun diveBatch(
     fileName: String?,
     dives: List<ImportedActivity>?,
     selection: DiveSelection,
-    matches: List<DiveMatch?>,
+    matches: List<ActivityMatch?>,
     zone: TimeZone,
     zones: ImmutableList<TimeZoneOption>?,
-    streams: LoggedStreams,
 ): DiveBatch? {
     if (fileName == null || dives == null) return null
     return DiveBatch(
@@ -89,7 +100,7 @@ internal fun diveBatch(
                         diveNumber = dive.dive?.diveNumber,
                         device = dive.device,
                         selected = selection.isSelected(index, match),
-                        duplicate = duplicateInfo(dive, match, selection.action(index), zone, streams),
+                        duplicate = duplicateInfo(match, selection.action(index, match), zone),
                     )
                 }
                 .toImmutableList(),
@@ -100,20 +111,14 @@ internal fun diveBatch(
 internal fun importClock(start: LocalDateTime, zone: TimeZone, zones: ImmutableList<TimeZoneOption>?) =
     ImportClock(start.format(LOCAL_START), zones?.find { it.id == zone.id } ?: zoneOption(zone, start), zones ?: persistentListOf())
 
-/** A logbook's selected dives: new activities (by their index in the file), merges into logged dives, and other recordings of either. */
-internal class DiveImport(
-    val drafts: List<Pair<Int, ActivityDraft>>,
-    val merges: List<Pair<OwnActivity, ActivityDraft>>,
-    val recordings: List<RecordingDraft>,
-    /** For each dive in the file that duplicates a logged one, the activity a recording of it should point at instead. */
-    val logged: Map<Int, AtUri>,
-)
-
 /**
- * A dive to publish as another recording of a logged activity ([ofLogged], whose visibility is [loggedVisibility]) or of a dive earlier in
- * the file ([ofIndex]), which shares this one's.
+ * A logbook's selected dives: those saved on their own ([drafts]), and those combined ([combines]), each group either with a logged
+ * activity or among the file's copies of one dive.
  */
-internal class RecordingDraft(val draft: ActivityDraft, val ofLogged: AtUri?, val ofIndex: Int?, val loggedVisibility: String? = null)
+internal class DiveImport(val drafts: List<ActivityDraft>, val combines: List<CombineGroup>)
+
+/** Drafts to combine with the logged activity [into], or, without one, with each other: the first is the file's earliest copy. */
+internal class CombineGroup(val into: OwnActivity?, val drafts: List<ActivityDraft>)
 
 /**
  * The selected [dives] ready to save, oldest first, each with its own type and its site as the title, else its [defaultTitles] entry, and
@@ -123,15 +128,13 @@ internal class RecordingDraft(val draft: ActivityDraft, val ofLogged: AtUri?, va
 internal fun diveImport(
     dives: List<ImportedActivity>?,
     selection: DiveSelection,
-    matches: List<DiveMatch?>,
+    matches: List<ActivityMatch?>,
     defaultTitles: Map<Int, String>,
     training: TrainingDetails?,
     visibility: VisibilityChoice,
     source: SourceFile?,
 ): DiveImport {
-    val drafts = mutableListOf<Pair<Int, ActivityDraft>>()
-    val merges = mutableListOf<Pair<OwnActivity, ActivityDraft>>()
-    val recordings = mutableListOf<RecordingDraft>()
+    val roots = linkedMapOf<CombineRoot, MutableList<Pair<Int, ActivityDraft>>>()
     for ((index, dive) in dives.orEmpty().withIndex().sortedBy { it.value.startedAt }) {
         val match = matches.getOrNull(index)
         if (!selection.isSelected(index, match)) continue
@@ -141,26 +144,44 @@ internal fun diveImport(
             importDraft(dive, dive.type, title, training, emptyList(), source?.let { DraftSource(it, entry = index) })
                 .copy(description = null)
                 .withVisibility(visibility)
-        val action = selection.action(index)
-        val into = mergeTarget(match, action)
+        roots.getOrPut(rootOf(index, matches, selection)) { mutableListOf() } += index to draft
+    }
+    val drafts = mutableListOf<ActivityDraft>()
+    val combines = mutableListOf<CombineGroup>()
+    for ((root, group) in roots) {
+        // The file's earliest copy first: the combined dive starts from its title.
+        val ordered = group.sortedBy { it.first }.map { it.second }
         when {
-            into != null -> merges += into to draft
-            match != null && action == DuplicateAction.Group ->
-                recordings +=
-                    RecordingDraft(draft, groupTarget(match, action), recordedIndex(index, matches, selection), loggedVisibility(match))
-            else -> drafts += index to draft
+            root is CombineRoot.Logged ->
+                ordered.chunked(CombinedActivity.MAX_MEMBERS - 1).forEach { combines += CombineGroup(root.into, it) }
+            ordered.size == 1 -> drafts += ordered
+            else ->
+                ordered.chunked(CombinedActivity.MAX_MEMBERS).forEach {
+                    if (it.size == 1) drafts += it else combines += CombineGroup(null, it)
+                }
         }
     }
-    val logged = matches.withIndex().mapNotNull { (index, match) -> loggedTarget(match)?.let { index to it } }.toMap()
-    return DiveImport(drafts, merges, recordings, logged)
+    return DiveImport(drafts, combines)
 }
 
-/** The earliest dive in the file a chain of in-file recordings leads back to from [index], or null when it records a logged dive. */
-private fun recordedIndex(index: Int, matches: List<DiveMatch?>, selection: DiveSelection): Int? {
-    fun inFile(i: Int) = (matches.getOrNull(i)?.of as? DuplicateOf.InFile)?.index
-    var current = inFile(index)
-    while (current != null && selection.action(current) == DuplicateAction.Group) current = inFile(current) ?: break
-    return current
+/** What a selected dive is saved with: a logged activity it's combined with, or the earliest copy in the file of the dive it is. */
+private sealed interface CombineRoot {
+    data class Logged(val into: OwnActivity) : CombineRoot
+
+    data class InFile(val index: Int) : CombineRoot
+}
+
+/**
+ * Where a chain of Combine choices from [index] leads: to the logged activity a dive repeats, or back through earlier copies in the file to
+ * the first one not combined further. A dive that isn't combined is its own root.
+ */
+private tailrec fun rootOf(index: Int, matches: List<ActivityMatch?>, selection: DiveSelection): CombineRoot {
+    val match = matches.getOrNull(index)
+    return when (val of = match?.of.takeIf { selection.action(index, match) == DuplicateAction.Combine }) {
+        is DuplicateOf.InFile -> rootOf(of.index, matches, selection)
+        is DuplicateOf.Existing -> combineTarget(match, DuplicateAction.Combine)?.let(CombineRoot::Logged) ?: CombineRoot.InFile(index)
+        null -> CombineRoot.InFile(index)
+    }
 }
 
 /** The file's only activity, by its name; null for a logbook of several. */
@@ -169,35 +190,28 @@ internal fun singleActivity(file: Pair<String, List<ImportedActivity>>?): Pair<S
 }
 
 /**
- * Saves a logbook's selected dives (merges first, then one drain with the new ones), then [onPublished]; nothing when none are selected.
+ * Saves a logbook's selected dives (those on their own in one batch, then each combined group), then [onPublished]; nothing when none are
+ * selected.
  */
-internal suspend fun ActivityRepository.saveDives(import: DiveImport, onPublished: () -> Unit) {
-    if (import.drafts.isEmpty() && import.merges.isEmpty() && import.recordings.isEmpty()) return
-    import.merges.forEach { (into, draft) -> mergeInto(into, draft) }
-    // New activities first: a recording of one points at its URI.
-    val published = import.drafts.map { it.first }.zip(publishAll(import.drafts.map { it.second })).toMap()
-    val recordings =
-        import.recordings.map { recording ->
-            val of = recording.ofLogged ?: recording.ofIndex?.let { published[it] ?: import.logged[it] }
-            // A recording takes its primary's visibility: a logged dive's own, or the batch's for one in the file.
-            val visibility = recording.loggedVisibility.takeIf { recording.ofLogged != null } ?: recording.draft.visibility
-            of?.let { recording.draft.recordingOf(it, visibility) } ?: recording.draft
-        }
-    if (recordings.isNotEmpty()) publishAll(recordings)
+internal suspend fun saveDives(activities: ActivityRepository, manager: ActivityManager, import: DiveImport, onPublished: () -> Unit) {
+    if (import.drafts.isEmpty() && import.combines.isEmpty()) return
+    if (import.drafts.isNotEmpty()) activities.publishAll(import.drafts)
+    for (group in import.combines) {
+        if (group.into != null) manager.combine(group.into, group.drafts) else manager.combine(group.drafts)
+    }
     onPublished()
 }
 
-/** Publishes a single file's activity, maybe as another recording of a logged one, or merges it into the logged dive it duplicates. */
-internal suspend fun ActivityRepository.saveSingle(
+/** Publishes a single file's activity, or combines it with the logged activity [into]; returns the combined activity's URI then. */
+internal suspend fun saveSingle(
+    activities: ActivityRepository,
+    manager: ActivityManager,
     draft: ActivityDraft,
     into: OwnActivity?,
-    recordingOf: AtUri?,
-    recordingOfVisibility: String?,
-) {
+): AtUri? =
     if (into == null) {
-        publish(recordingOf?.let { draft.recordingOf(it, recordingOfVisibility ?: draft.visibility) } ?: draft)
+        activities.publish(draft)
+        null
     } else {
-        mergeInto(into, draft)
-        sync()
+        manager.combine(into, draft)
     }
-}

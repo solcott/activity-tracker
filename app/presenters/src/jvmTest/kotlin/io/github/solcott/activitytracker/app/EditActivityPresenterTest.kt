@@ -17,12 +17,15 @@ import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
+import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
+import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.activity.cid
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -213,6 +216,27 @@ class EditActivityPresenterTest {
         val (db, _, clients) = signedInTestSession(http, did = alice)
         val feed = FeedRepository(db, clients, LocalLikes(), Logger)
         val zones = TestZones(db, clients)
+        val privacy = PrivacyZones(clients, Clock.System, Logger)
+        val places = ActivityPlaces(clients, Clock.System, Logger)
+        val activities =
+            ActivityRepository(
+                db,
+                clients,
+                zones.outbox,
+                zones.writer,
+                zones.streams,
+                zones.tracks,
+                zones.sources,
+                zones.devices,
+                zones.store,
+                places,
+                privacy,
+                RouteTrimmer(db, clients, zones.writer, zones.outbox, privacy, zones.tracks, feed, Clock.System, Logger),
+                feed,
+                LocalLikes(),
+                RecentActivityTypes(db, clients, feed),
+                Clock.System,
+            )
         val manager =
             ActivityManager(
                 db,
@@ -224,10 +248,11 @@ class EditActivityPresenterTest {
                 zones.sources,
                 zones.devices,
                 zones.store,
-                ActivityPlaces(clients, Clock.System, Logger),
+                places,
                 feed,
-                PrivacyZones(clients, Clock.System, Logger),
+                privacy,
                 Clock.System,
+                activities,
             )
         val defaults = ActivityDefaults(clients)
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)

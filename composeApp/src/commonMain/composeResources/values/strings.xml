@@ -689,8 +689,8 @@
     <string name="import_dives_none">Import</string>
     <string name="import_duplicate_existing">Already in your log: %1$s</string>
     <string name="import_duplicate_shifted">Same length as one in your log, %2$d h apart (check the time zone): %1$s</string>
-    <string name="import_duplicate_in_file">Same dive as #%1$d in this file</string>
-    <string name="import_duplicate_untitled">Untitled dive</string>
+    <string name="import_duplicate_in_file">Same activity as #%1$d in this file</string>
+    <string name="import_duplicate_untitled">Untitled activity</string>
     <plurals name="import_duplicates_existing">
         <item quantity="one">%1$d dive is already in your log.</item>
         <item quantity="other">%1$d dives are already in your log.</item>
@@ -699,12 +699,17 @@
         <item quantity="one">%1$d appears twice in this file.</item>
         <item quantity="other">%1$d appear twice in this file.</item>
     </plurals>
-    <string name="import_duplicates_unchecked">Duplicates start unchecked; pick what to do with each.</string>
+    <string name="import_duplicates_unchecked">Duplicates are combined with what they repeat unless you pick otherwise.</string>
     <string name="import_duplicates_checking">Checking your log for duplicates…</string>
-    <string name="import_duplicates_failed">Couldn't check your log for duplicates. Dives repeated within this file are still flagged.</string>
+    <string name="import_duplicates_failed">Couldn't check your log for duplicates. Activities repeated within this file are still flagged.</string>
     <string name="duplicate_action_ignore">Ignore</string>
     <string name="duplicate_action_import_anyway">Import anyway</string>
-    <string name="duplicate_action_merge">Merge</string>
+    <string name="duplicate_action_combine">Combine</string>
+    <string name="import_add_recording_title">Add a recording</string>
+    <string name="import_adding_to">Adds this file as another recording of: %1$s</string>
+    <string name="import_too_far">This file starts more than 12 hours from that activity, so it can't be another recording of it.</string>
+    <string name="import_combine_explained">Keeps both recordings as one activity: your feed shows it once, built from the best of each, and each recording still opens on its own.</string>
+    <string name="import_combine_uploading">Combine is available once that activity has finished uploading.</string>
     <string name="detail_recordings">Also recorded by</string>
     <string name="detail_recording_unnamed">Another device</string>
     <!-- A recording whose file named no device, by when it started relative to the activity. -->
@@ -785,19 +790,6 @@
     </plurals>
     <string name="detail_recording_of">Another device's recording of an activity</string>
     <string name="detail_open_recorded">See the activity</string>
-    <string name="duplicate_action_group">Group</string>
-    <string name="import_group_explained">Imports it as another recording of that dive: your feed shows the dive once, and its page lists both recordings.</string>
-    <string name="import_merge_adds">Merging adds %1$s to the logged dive and changes nothing it has.</string>
-    <string name="import_merge_adds_nothing">The logged dive already has everything this one would add.</string>
-    <string name="merge_gain_device">the device</string>
-    <string name="merge_gain_sub_sport">the dive type</string>
-    <string name="merge_gain_water_temperature">water temperature</string>
-    <string name="merge_gain_dive_details">the dive computer's summary</string>
-    <string name="merge_gain_heart_rate">heart rate</string>
-    <string name="merge_gain_track">the GPS track</string>
-    <string name="merge_gain_charts">the charts it lacks</string>
-    <string name="merge_gain_any_charts">any charts it lacks</string>
-    <string name="merge_gains_last">%1$s and %2$s</string>
     <string name="import_recorded_with">Recorded with %1$s</string>
     <string name="import_time_zone_notice">This file logs local time with no time zone, so its start (%1$s) is read in the zone below. If it was recorded somewhere else, pick that zone so it saves at the right time.</string>
     <string name="import_time_zone">Time zone</string>
@@ -1202,6 +1194,7 @@
     <string name="error_split_activity">Couldn't change the combined activity</string>
     <string name="error_load_combine_candidates">Couldn't load your other activities</string>
     <string name="detail_combine">Combine with…</string>
+    <string name="detail_add_recording">Add a recording…</string>
     <string name="detail_split">Split into separate activities</string>
     <string name="detail_members">Combined from</string>
     <string name="detail_member_of">Part of a combined activity</string>

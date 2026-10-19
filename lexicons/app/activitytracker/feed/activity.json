@@ -79,7 +79,7 @@
           "recordingOf": {
             "type": "string",
             "format": "at-uri",
-            "description": "Another recording of the activity at this URI, such as a backup dive computer's: the same athlete's, and not itself a recording. Feeds show the activity once, and its view lists the recordings. A link to anyone else's activity, or to a recording, is ignored."
+            "description": "Legacy: another recording of the activity at this URI, such as a backup dive computer's: the same athlete's, and not itself a recording. Feeds show the activity once, and its view lists the recordings. A link to anyone else's activity, or to a recording, is ignored. Clients no longer write it: other recordings are combined (#combined), and existing groups are turned into combined activities."
           },
           "combined": {
             "type": "ref",

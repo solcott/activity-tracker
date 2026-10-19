@@ -14,12 +14,19 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ChannelSource
 import io.github.solcott.activitytracker.lexicon.app.CombinedChannel
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
+import io.github.solcott.activitytracker.lexicon.app.DiveAlert
+import io.github.solcott.activitytracker.lexicon.app.DiveAlertKind
 import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.Lap
+import io.github.solcott.activitytracker.lexicon.app.Leg
+import io.github.solcott.activitytracker.lexicon.app.Length
 import io.github.solcott.activitytracker.lexicon.app.PrivacyZone
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.StreamChannel
+import io.github.solcott.activitytracker.lexicon.app.SwimStroke
+import io.github.solcott.activitytracker.lexicon.app.TankPressure
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.lexicon.app.WorkoutSet
 import io.github.solcott.activitytracker.location.Gpx
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.TrackMath
@@ -358,5 +365,143 @@ class ActivityCombinerTest {
             )
         assertEquals(Visibility.SELF, tiers[DetailCategory.HEART_RATE])
         assertEquals(Visibility.PUBLIC, tiers[DetailCategory.POWER])
+    }
+
+    // What merging used to fill in (`combine-on-import` removed it): each now holds for the combined activity of both recordings.
+
+    @Test
+    fun aBikeComputerAddsPowerAndTheWatchKeepsItsHeartRate() {
+        val watch = member("watch", "19:00", "20:00", streams = { d -> d.copy(heartRate = d.time.map { 150 }) })
+        val bike =
+            member(
+                "bike",
+                "19:00",
+                "20:00",
+                every = 2,
+                record = { it.copy(rearShifts = 240) },
+                streams = { d -> d.copy(heartRate = d.time.map { 1 }, power = d.time.map { 210 }, leftRightBalance = d.time.map { 51 }) },
+            )
+        val built = ActivityCombiner.combine(uri("watch"), listOf(watch, bike), now)
+        val streams = built.streams!!
+        assertTrue(streams.heartRate!!.filterNotNull().all { it == 150 }, "the watch has more heart rate")
+        assertTrue(streams.power!!.filterNotNull().all { it == 210 })
+        assertTrue(streams.leftRightBalance!!.filterNotNull().all { it == 51 }, "every channel in the table, not just the first ones")
+        assertEquals(210, built.record.avgPower)
+        assertEquals(150, built.record.avgHeartRate)
+    }
+
+    @Test
+    fun pedalsAddCyclingDynamics() {
+        val watch = member("watch", "19:00", "20:00", streams = { d -> d.copy(heartRate = d.time.map { 140 }) })
+        val pedals =
+            member(
+                "pedals",
+                "19:00",
+                "20:00",
+                every = 2,
+                streams = { d ->
+                    d.copy(
+                        heartRate = d.time.map { 100 },
+                        torqueEffectivenessLeft = d.time.map { 8000 },
+                        pedalSmoothnessRight = d.time.map { 2050 },
+                        pcoLeft = d.time.map { -2 },
+                    )
+                },
+            )
+        val streams = ActivityCombiner.combine(uri("watch"), listOf(watch, pedals), now).streams!!
+        assertTrue(streams.heartRate!!.filterNotNull().all { it == 140 })
+        assertTrue(streams.torqueEffectivenessLeft!!.filterNotNull().all { it == 8000 })
+        assertTrue(streams.pedalSmoothnessRight!!.filterNotNull().all { it == 2050 })
+        assertTrue(streams.pcoLeft!!.filterNotNull().all { it == -2 })
+    }
+
+    @Test
+    fun theWatchAddsLengthsLegsAndSets() {
+        val strap = member("strap", "07:00", "08:00", streams = { d -> d.copy(heartRate = d.time.map { 120 }) })
+        val lengths = listOf(Length(60, 30, SwimStroke.FREESTYLE, 15), Length(90, 30, SwimStroke.FREESTYLE, 16))
+        val swim = member("swim", "07:00", "08:00", every = 5, sport = Sport.SWIM, streams = { d -> d.copy(lengths = lengths) })
+        assertEquals(lengths, ActivityCombiner.combine(uri("strap"), listOf(strap, swim), now).streams!!.lengths)
+
+        val sets = listOf(WorkoutSet(0, 40, category = "bench_press", reps = 8, weight = 60_000), WorkoutSet(40, 60, rest = true))
+        val gym = member("gym", "07:00", "08:00", every = 5, streams = { d -> d.copy(sets = sets) })
+        assertEquals(sets, ActivityCombiner.combine(uri("strap"), listOf(strap, gym), now).streams!!.sets)
+
+        val legs = listOf(Leg(0, 1800, Sport.RUN, distance = 5000), Leg(1800, 1800, Sport.RIDE, distance = 15000))
+        val multisport = member("multi", "07:00", "08:00", every = 5, sport = Sport.MULTISPORT, streams = { d -> d.copy(legs = legs) })
+        assertEquals(legs, ActivityCombiner.combine(uri("strap"), listOf(strap, multisport), now).streams!!.legs)
+    }
+
+    @Test
+    fun theLogbookAddsTankPressureAlertsAndGasSwitches() {
+        val fit =
+            member(
+                "fit",
+                "10:00",
+                "10:45",
+                record = { it.copy(dive = ActivityDive(maxDepth = 3000)) },
+                streams = { d -> d.copy(depth = d.time.map { 1000 }, ppO2 = d.time.map { 210 }) },
+                sport = Sport.DIVE,
+            )
+        val uddf =
+            member(
+                "uddf",
+                "10:01",
+                "10:44",
+                every = 10,
+                streams = { d ->
+                    d.copy(
+                        tankPressures = listOf(TankPressure(d.time.map { 200_000 - it * 10 })),
+                        diveAlerts = listOf(DiveAlert(1500, DiveAlertKind.MICROBUBBLES)),
+                        gasSwitches = listOf(GasSwitch(0, 21, 0), GasSwitch(1200, 50, 0)),
+                    )
+                },
+                sport = Sport.DIVE,
+            )
+        val streams = ActivityCombiner.combine(uri("fit"), listOf(fit, uddf), now).streams!!
+        assertTrue(streams.ppO2!!.filterNotNull().all { it == 210 }, "the FIT keeps its own")
+        assertEquals(listOf(DiveAlert(1560, DiveAlertKind.MICROBUBBLES)), streams.diveAlerts, "shifted onto the combined start")
+        assertEquals(listOf(GasSwitch(60, 21, 0), GasSwitch(1260, 50, 0)), streams.gasSwitches)
+        val pressure = streams.tankPressures!!.single().pressure
+        assertEquals(streams.time.size, pressure.size)
+        assertEquals(200_000, pressure[streams.time.indexOf(60)], "the logbook's first sample, at its own start")
+    }
+
+    @Test
+    fun shiftingMovesStreamsOntoAnEarlierStartAndDropsWhatWasBeforeIt() {
+        val data = ActivityStreamData(time = listOf(0, 10, 20), depth = listOf(1, 2, 3))
+        assertEquals(ActivityStreamData(time = listOf(10, 20, 30), depth = listOf(1, 2, 3)), ActivityCombiner.shifted(data, 10))
+        assertEquals(
+            ActivityStreamData(time = listOf(0, 10), depth = listOf(2, 3)),
+            ActivityCombiner.shifted(data, -10),
+            "nothing before the start",
+        )
+    }
+
+    @Test
+    fun shiftingOntoALaterStartKeepsTheGasBreathedThenAtZeroAndDropsWhatEnded() {
+        val gases =
+            ActivityStreamData(time = listOf(0, 10), gasSwitches = listOf(GasSwitch(0, 21, 0), GasSwitch(5, 50, 0), GasSwitch(30, 21, 0)))
+        assertEquals(listOf(GasSwitch(0, 50, 0), GasSwitch(20, 21, 0)), ActivityCombiner.shifted(gases, -10).gasSwitches)
+
+        val alerts =
+            ActivityStreamData(
+                time = listOf(0),
+                diveAlerts = listOf(DiveAlert(1500, DiveAlertKind.MICROBUBBLES), DiveAlert(2300, DiveAlertKind.ASCENT_CRITICAL)),
+            )
+        assertEquals(
+            listOf(DiveAlert(799, DiveAlertKind.ASCENT_CRITICAL)),
+            ActivityCombiner.shifted(alerts, -1501).diveAlerts,
+            "an alert before the new start goes",
+        )
+
+        val sets = ActivityStreamData(time = listOf(0), sets = listOf(WorkoutSet(0, 40), WorkoutSet(40, 60, rest = true)))
+        assertEquals(
+            listOf(WorkoutSet(0, 60, rest = true)),
+            ActivityCombiner.shifted(sets, -40).sets,
+            "a set that ended before the start goes",
+        )
+
+        val laps = ActivityStreamData(time = listOf(0), laps = listOf(Lap(0, 300, distance = 1200), Lap(300, 300, distance = 1800)))
+        assertEquals(listOf(Lap(0, 300, distance = 1800)), ActivityCombiner.shifted(laps, -300).laps)
     }
 }

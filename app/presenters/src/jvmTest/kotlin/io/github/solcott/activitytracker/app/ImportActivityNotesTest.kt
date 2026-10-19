@@ -73,11 +73,13 @@ class ImportActivityNotesTest {
     @Test
     fun theFilesNotesPrefillTheDescriptionForTheAthleteToEdit() = runTest {
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { run.copy(notes = "Turtle at the wall") },
                 repos.typeChoices,
                 repos.profiles,
@@ -102,11 +104,13 @@ class ImportActivityNotesTest {
     @Test
     fun clearedNotesAreNotPublished() = runTest {
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { run.copy(notes = "Turtle at the wall") },
                 repos.typeChoices,
                 repos.profiles,

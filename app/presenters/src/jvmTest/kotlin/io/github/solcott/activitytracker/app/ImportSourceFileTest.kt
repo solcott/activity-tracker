@@ -59,11 +59,13 @@ class ImportSourceFileTest {
     @Test
     fun theFileIsKeptAsTheActivitysSourceInTheSelfSpace() = runTest {
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { run },
                 repos.typeChoices,
                 repos.profiles,
@@ -97,13 +99,15 @@ class ImportSourceFileTest {
     @Test
     fun aFileTooLargeToKeepSaysSoAndImportsWithoutIt() = runTest {
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         // Random bytes don't compress, so this stays over the 10 MB a kept file may take.
         val huge = ByteString(bytes.toByteArray() + Random(3).nextBytes(10_500_000))
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { run },
                 repos.typeChoices,
                 repos.profiles,

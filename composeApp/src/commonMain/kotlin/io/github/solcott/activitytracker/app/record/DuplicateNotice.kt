@@ -12,10 +12,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.duplicate_action_group
+import io.github.solcott.activitytracker.composeApp.resources.duplicate_action_combine
 import io.github.solcott.activitytracker.composeApp.resources.duplicate_action_ignore
 import io.github.solcott.activitytracker.composeApp.resources.duplicate_action_import_anyway
-import io.github.solcott.activitytracker.composeApp.resources.duplicate_action_merge
+import io.github.solcott.activitytracker.composeApp.resources.import_combine_explained
+import io.github.solcott.activitytracker.composeApp.resources.import_combine_uploading
 import io.github.solcott.activitytracker.composeApp.resources.import_duplicate_existing
 import io.github.solcott.activitytracker.composeApp.resources.import_duplicate_in_file
 import io.github.solcott.activitytracker.composeApp.resources.import_duplicate_shifted
@@ -25,27 +26,15 @@ import io.github.solcott.activitytracker.composeApp.resources.import_duplicates_
 import io.github.solcott.activitytracker.composeApp.resources.import_duplicates_failed
 import io.github.solcott.activitytracker.composeApp.resources.import_duplicates_in_file
 import io.github.solcott.activitytracker.composeApp.resources.import_duplicates_unchecked
-import io.github.solcott.activitytracker.composeApp.resources.import_group_explained
-import io.github.solcott.activitytracker.composeApp.resources.import_merge_adds
-import io.github.solcott.activitytracker.composeApp.resources.import_merge_adds_nothing
-import io.github.solcott.activitytracker.composeApp.resources.merge_gain_any_charts
-import io.github.solcott.activitytracker.composeApp.resources.merge_gain_charts
-import io.github.solcott.activitytracker.composeApp.resources.merge_gain_device
-import io.github.solcott.activitytracker.composeApp.resources.merge_gain_dive_details
-import io.github.solcott.activitytracker.composeApp.resources.merge_gain_heart_rate
-import io.github.solcott.activitytracker.composeApp.resources.merge_gain_sub_sport
-import io.github.solcott.activitytracker.composeApp.resources.merge_gain_track
-import io.github.solcott.activitytracker.composeApp.resources.merge_gain_water_temperature
-import io.github.solcott.activitytracker.composeApp.resources.merge_gains_last
 import kotlin.math.abs
-import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Why a dive looks like a duplicate ("Already in your log: Blue Hole · 2024-05-12 10:02 · Garmin Descent Mk3") and what to do with it.
- * [inFileNumber] numbers the dive [DuplicateInfo.inFileIndex] names, as the list shows it.
+ * Why an activity looks like a duplicate ("Already in your log: Blue Hole · 2024-05-12 10:02 · Garmin Descent Mk3") and what to do with it.
+ * [inFileNumber] numbers the activity [DuplicateInfo.inFileIndex] names, as the list shows it. Combine is left out, with the reason, while
+ * the logged activity is still uploading.
  */
 @Composable
 internal fun DuplicateWarning(
@@ -57,25 +46,25 @@ internal fun DuplicateWarning(
 ) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(warningText(info, inFileNumber), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-        val labels = info.actions.map { actionLabel(it) }.toImmutableList()
+        val actions = info.actions.filter { it != DuplicateAction.Combine || !info.stillUploading }
         AppSegmentedControl(
-            labels,
-            selected = info.actions.indexOf(info.action),
-            onSelect = { onAction(info.actions[it]) },
+            actions.map { actionLabel(it) }.toImmutableList(),
+            selected = actions.indexOf(info.action),
+            onSelect = { onAction(actions[it]) },
             modifier = Modifier.fillMaxWidth(),
             enabled = enabled,
         )
         val explained =
-            when (info.action) {
-                DuplicateAction.Merge -> mergeText(info.mergeGains)
-                DuplicateAction.Group -> stringResource(Res.string.import_group_explained)
+            when {
+                info.stillUploading -> stringResource(Res.string.import_combine_uploading)
+                info.action == DuplicateAction.Combine -> stringResource(Res.string.import_combine_explained)
                 else -> null
             }
         explained?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
-/** A single file's dive: the search of the athlete's log while it runs, then what to do if the dive is already there. */
+/** A single file's activity: the search of the athlete's log while it runs, then what to do if the activity is already there. */
 @Composable
 internal fun PreviewDuplicate(state: ImportActivityState, preview: ImportPreview, modifier: Modifier = Modifier) {
     if (state.duplicateCheck == DuplicateCheck.Checking) DuplicatesBanner(state.duplicateCheck, existing = 0, inFile = 0, modifier)
@@ -84,9 +73,17 @@ internal fun PreviewDuplicate(state: ImportActivityState, preview: ImportPreview
     }
 }
 
-/** An ignored duplicate has nothing to save; nor has a dive until the athlete's log has been checked for it. */
+/**
+ * An ignored duplicate has nothing to save; nor has an activity until the athlete's log has been checked for it, nor a recording that can't
+ * be added to the activity it's for (too far from it, or that activity still loading).
+ */
 internal fun ImportActivityState.canSave(preview: ImportPreview): Boolean =
-    !saving && !reading && preview.duplicate?.action != DuplicateAction.Ignore && duplicateCheck != DuplicateCheck.Checking
+    !saving &&
+        !reading &&
+        preview.duplicate?.action != DuplicateAction.Ignore &&
+        duplicateCheck != DuplicateCheck.Checking &&
+        !tooFarFromTarget &&
+        (!addsRecording || addingTo != null)
 
 /** Above a logbook's dives: how many are duplicates, or that the search for them is running or failed. */
 @Composable
@@ -123,32 +120,5 @@ private fun actionLabel(action: DuplicateAction): String =
     when (action) {
         DuplicateAction.Ignore -> stringResource(Res.string.duplicate_action_ignore)
         DuplicateAction.ImportAnyway -> stringResource(Res.string.duplicate_action_import_anyway)
-        DuplicateAction.Merge -> stringResource(Res.string.duplicate_action_merge)
-        DuplicateAction.Group -> stringResource(Res.string.duplicate_action_group)
+        DuplicateAction.Combine -> stringResource(Res.string.duplicate_action_combine)
     }
-
-/** "Merging adds the device, water temperature and the charts it lacks to the logged dive…". */
-@Composable
-private fun mergeText(gains: ImmutableList<MergeGain>): String {
-    if (gains.isEmpty()) return stringResource(Res.string.import_merge_adds_nothing)
-    val names = gains.map { gainName(it) }
-    val list =
-        if (names.size == 1) names.single()
-        else stringResource(Res.string.merge_gains_last, names.dropLast(1).joinToString(", "), names.last())
-    return stringResource(Res.string.import_merge_adds, list)
-}
-
-@Composable
-private fun gainName(gain: MergeGain): String =
-    stringResource(
-        when (gain) {
-            MergeGain.Device -> Res.string.merge_gain_device
-            MergeGain.SubSport -> Res.string.merge_gain_sub_sport
-            MergeGain.WaterTemperature -> Res.string.merge_gain_water_temperature
-            MergeGain.DiveDetails -> Res.string.merge_gain_dive_details
-            MergeGain.HeartRate -> Res.string.merge_gain_heart_rate
-            MergeGain.Track -> Res.string.merge_gain_track
-            MergeGain.Charts -> Res.string.merge_gain_charts
-            MergeGain.AnyCharts -> Res.string.merge_gain_any_charts
-        }
-    )

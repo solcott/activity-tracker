@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app
 
+import androidx.compose.runtime.Composable
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.activityfile.ActivityFileReader
@@ -9,18 +10,16 @@ import io.github.solcott.activitytracker.app.record.ExistingActivityPreview
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
-import io.github.solcott.activitytracker.app.record.MergeGain
 import io.github.solcott.activitytracker.app.record.PartOfDay
+import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
-import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
-import io.github.solcott.activitytracker.lexicon.app.GasSwitch
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
@@ -92,11 +91,13 @@ class ImportLogbookPresenterTest {
     @Test
     fun aLogbookListsItsDivesAllSelected() = runTest {
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { error("not FIT") },
                 repos.typeChoices,
                 repos.profiles,
@@ -127,11 +128,13 @@ class ImportLogbookPresenterTest {
     @Test
     fun divesToggleOneByOneAndAllAtOnce() = runTest {
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { error("not FIT") },
                 repos.typeChoices,
                 repos.profiles,
@@ -162,11 +165,13 @@ class ImportLogbookPresenterTest {
     @Test
     fun savingALogbookImportsTheSelectedDivesInThePickedZone() = runTest {
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { error("not FIT") },
                 repos.typeChoices,
                 repos.profiles,
@@ -197,11 +202,13 @@ class ImportLogbookPresenterTest {
     @Test
     fun eachPickedDiveKeepsTheLogbookNamingItsEntry() = runTest {
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { error("not FIT") },
                 repos.typeChoices,
                 repos.profiles,
@@ -226,15 +233,18 @@ class ImportLogbookPresenterTest {
         assertEquals(1, sources.map { it.second.getValue("file").toString() }.toSet().size, "both name the one stored logbook")
     }
 
-    @Test
-    fun aDiveAlreadyLoggedStartsUncheckedWithAWarning() = runTest {
-        val repos = fixture.repos()
-        fixture.ownActivities = listOf(loggedDive("2026-09-20T10:00:00Z"))
-        val navigator = FakeNavigator(ImportActivityScreen)
-        presenterTestOf({
+    /** The import screen, reading every file as UDDF. */
+    private fun presenter(
+        repos: SessionTestFixture.Repos,
+        navigator: FakeNavigator,
+        screen: ImportActivityScreen = ImportActivityScreen(),
+    ) =
+        @Composable {
             ImportActivityPresenter(
+                screen,
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { error("not FIT") },
                 repos.typeChoices,
                 repos.profiles,
@@ -242,194 +252,157 @@ class ImportLogbookPresenterTest {
                 repos.defaults,
                 repos.units,
             )
-        }) {
+        }
+
+    private fun savedActivities() =
+        fixture.putRkeys
+            .zip(fixture.putRecords)
+            .filter { (_, record) -> record.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY }
+            .map { (rkey, record) ->
+                AtUri.of(fixture.did, Nsid.FEED_ACTIVITY, rkey) to AtJson.decodeFromJsonElement(ActivityRecord.serializer(), record)
+            }
+
+    @Test
+    fun aDiveAlreadyLoggedStartsSetToCombineAndCanBeIgnored() = runTest {
+        val repos = fixture.repos()
+        fixture.ownActivities = listOf(loggedDive("2026-09-20T10:00:00Z"))
+        val navigator = FakeNavigator(ImportActivityScreen())
+        presenterTestOf(presenter(repos, navigator)) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
             awaitUntil { it.dives != null }.eventSink(ImportActivityEvent.TimeZoneChanged("UTC"))
             val checked = awaitUntil { it.dives?.clock?.zone?.id == "UTC" && it.duplicateCheck == DuplicateCheck.Done }
             val batch = assertNotNull(checked.dives)
             val duplicate = assertNotNull(batch.dives[0].duplicate)
             assertEquals(ExistingActivityPreview("Blue Hole", "2026-09-20 10:00", "Garmin Descent Mk3"), duplicate.existing)
-            assertEquals(DuplicateAction.Ignore, duplicate.action)
-            assertEquals(listOf(false, true, true), batch.dives.map { it.selected })
+            assertEquals(DuplicateAction.Combine, duplicate.action, "Combine is the default")
+            assertEquals(
+                listOf(DuplicateAction.Ignore, DuplicateAction.ImportAnyway, DuplicateAction.Combine),
+                duplicate.actions.toList(),
+                "no merge, no group",
+            )
+            assertFalse(duplicate.stillUploading)
+            assertEquals(listOf(true, true, true), batch.dives.map { it.selected })
             assertEquals(1 to 0, batch.existingDuplicates to batch.inFileDuplicates)
             assertTrue(batch.allSelected, "duplicates aside")
             assertTrue(batch.hasNonDuplicates)
 
             checked.eventSink(ImportActivityEvent.AllDivesSelected(false))
-            val none = awaitUntil { it.dives?.selectedCount == 0 }
+            val none = awaitUntil { it.dives?.selectedCount == 1 }
+            assertEquals(true, none.dives?.dives?.get(0)?.selected, "Deselect all leaves duplicates as they are")
             none.eventSink(ImportActivityEvent.AllDivesSelected(true))
-            val all = awaitUntil { it.dives?.selectedCount == 2 }
-            assertEquals(false, all.dives?.dives?.get(0)?.selected, "Select all leaves duplicates out")
+            val all = awaitUntil { it.dives?.selectedCount == 3 }
 
             all.eventSink(ImportActivityEvent.DiveToggled(0))
-            val anyway = awaitUntil { it.dives?.selectedCount == 3 }
-            assertEquals(DuplicateAction.ImportAnyway, anyway.dives?.dives?.get(0)?.duplicate?.action)
-            anyway.eventSink(ImportActivityEvent.DuplicateActionChanged(0, DuplicateAction.Ignore))
+            val ignored = awaitUntil { it.dives?.selectedCount == 2 }
+            assertEquals(DuplicateAction.Ignore, ignored.dives?.dives?.get(0)?.duplicate?.action)
+            ignored.eventSink(ImportActivityEvent.DiveToggled(0))
+            assertEquals(DuplicateAction.Combine, awaitUntil { it.dives?.selectedCount == 3 }.dives?.dives?.get(0)?.duplicate?.action)
+            all.eventSink(ImportActivityEvent.DuplicateActionChanged(0, DuplicateAction.Ignore))
             awaitUntil { it.dives?.selectedCount == 2 }.eventSink(ImportActivityEvent.SaveDives(persistentMapOf()))
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
         }
-        val saved = fixture.putRecords.filter { it.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY }
-        assertEquals(listOf("2026-09-20T14:30:00Z", "2026-09-20T18:45:00Z"), saved.map { it.getValue("startedAt").jsonPrimitive.content })
+        val saved = savedActivities().map { it.second }
+        assertEquals(
+            listOf("2026-09-20T14:30:00Z", "2026-09-20T18:45:00Z"),
+            saved.map { it.startedAt.toString() },
+            "the ignored dive isn't saved",
+        )
+        assertTrue(saved.none { it.combined != null }, "and the log is unchanged")
     }
 
     @Test
-    fun aDuplicateMergesIntoTheLoggedDive() = runTest {
+    fun aDuplicateCombinesWithTheLoggedDive() = runTest {
         val repos = fixture.repos()
         val logged = loggedDive("2026-09-20T10:00:00Z")
         fixture.ownActivities = listOf(logged)
-        fixture.activityRecord = AtJson.encodeToString(ActivityRecord.serializer(), logged.record.copy(device = null))
-        val navigator = FakeNavigator(ImportActivityScreen)
-        presenterTestOf({
-            ImportActivityPresenter(
-                navigator,
-                repos.activities,
-                ActivityFileReader { error("not FIT") },
-                repos.typeChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-            )
-        }) {
+        fixture.activityRecord = AtJson.encodeToString(ActivityRecord.serializer(), logged.record)
+        val navigator = FakeNavigator(ImportActivityScreen())
+        presenterTestOf(presenter(repos, navigator)) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook("10:02")))
             awaitUntil { it.preview != null }.eventSink(ImportActivityEvent.TimeZoneChanged("UTC"))
             val checked = awaitUntil { it.preview?.clock?.zone?.id == "UTC" && it.duplicateCheck == DuplicateCheck.Done }
-            val duplicate = assertNotNull(checked.preview?.duplicate)
-            assertEquals(DuplicateAction.entries, duplicate.actions.toList(), "every action for a logged dive")
-
-            checked.eventSink(ImportActivityEvent.DuplicateActionChanged(0, DuplicateAction.Merge))
-            // The logged dive has no charts, so it takes the file's once that's known.
-            val merging = awaitUntil { MergeGain.Charts in it.preview?.duplicate?.mergeGains.orEmpty() }
-            merging.eventSink(ImportActivityEvent.Save("Morning Dive"))
+            assertEquals(DuplicateAction.Combine, checked.preview?.duplicate?.action)
+            checked.eventSink(ImportActivityEvent.Save("Morning Dive"))
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
         }
-        val saved = fixture.putRecords.filter { it.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY }
-        val merged = AtJson.decodeFromJsonElement(ActivityRecord.serializer(), saved.single())
-        assertEquals("Blue Hole", merged.title, "the logged dive's title stays")
-        assertEquals(Instant.parse("2026-09-20T10:00:00Z"), merged.startedAt)
-        assertNull(merged.device, "the UDDF names no computer, so there's none to add")
-        assertEquals(SubSport.SINGLE_GAS, merged.subSport)
-    }
-
-    @Test
-    fun aMergeAddsNoChartsTheLoggedDiveAlreadyHas() = runTest {
-        val repos = fixture.repos()
-        fixture.ownActivities = listOf(loggedDive("2026-09-20T10:00:00Z"))
-        fixture.activityStreams =
-            ActivityStreamData(
-                time = listOf(0, 2400),
-                temperature = listOf(260, 255),
-                depth = listOf(0, 0),
-                gasSwitches = listOf(GasSwitch(0, 21, 0)),
-            )
-        presenterTestOf({
-            ImportActivityPresenter(
-                FakeNavigator(ImportActivityScreen),
-                repos.activities,
-                ActivityFileReader { error("not FIT") },
-                repos.typeChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-            )
-        }) {
-            awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook("10:02")))
-            awaitUntil { it.preview != null }.eventSink(ImportActivityEvent.TimeZoneChanged("UTC"))
-            val checked = awaitUntil { it.preview?.duplicate != null && it.duplicateCheck == DuplicateCheck.Done }
-            // Its charts aren't looked up until the athlete picks Merge.
-            assertTrue(MergeGain.AnyCharts in checked.preview?.duplicate?.mergeGains.orEmpty())
-
-            checked.eventSink(ImportActivityEvent.DuplicateActionChanged(0, DuplicateAction.Merge))
-            val loaded = awaitUntil {
-                val duplicate = it.preview?.duplicate
-                duplicate?.action == DuplicateAction.Merge && MergeGain.AnyCharts !in duplicate.mergeGains
-            }
-            assertTrue(
-                MergeGain.Charts !in loaded.preview?.duplicate?.mergeGains.orEmpty(),
-                "it has depth, temperature and gas switches already",
-            )
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun aDuplicateGroupsWithTheLoggedDiveAsAnotherRecording() = runTest {
-        val repos = fixture.repos()
-        val logged = loggedDive("2026-09-20T10:00:00Z")
-        fixture.ownActivities = listOf(logged)
-        val navigator = FakeNavigator(ImportActivityScreen)
-        presenterTestOf({
-            ImportActivityPresenter(
-                navigator,
-                repos.activities,
-                ActivityFileReader { error("not FIT") },
-                repos.typeChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-            )
-        }) {
-            awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook("10:02")))
-            awaitUntil { it.preview != null }.eventSink(ImportActivityEvent.TimeZoneChanged("UTC"))
-            val checked = awaitUntil { it.preview?.clock?.zone?.id == "UTC" && it.duplicateCheck == DuplicateCheck.Done }
-            checked.eventSink(ImportActivityEvent.DuplicateActionChanged(0, DuplicateAction.Group))
-            awaitUntil { it.preview?.duplicate?.action == DuplicateAction.Group }.eventSink(ImportActivityEvent.Save("Morning Dive"))
-            navigator.awaitPop()
-            cancelAndIgnoreRemainingEvents()
-        }
-        val saved = fixture.putRecords.filter { it.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY }
-        val recording = AtJson.decodeFromJsonElement(ActivityRecord.serializer(), saved.single())
-        assertEquals(logged.uri, recording.recordingOf)
-        assertEquals(Instant.parse("2026-09-20T10:02:00Z"), recording.startedAt, "a recording of its own, not a merge")
+        val (imported, combined) = savedActivities()
+        assertEquals(Instant.parse("2026-09-20T10:02:00Z"), imported.second.startedAt, "the import is an activity of its own")
+        assertNull(imported.second.recordingOf)
+        assertEquals(setOf(logged.uri, imported.first), combined.second.combined?.members?.toSet())
+        assertEquals("Blue Hole", combined.second.title, "it starts from the logged dive's title")
+        assertEquals(Instant.parse("2026-09-20T10:00:00Z"), combined.second.startedAt)
 
         val source = fixture.spacePuts.single { (_, put) -> put.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY_SOURCE }
-        assertEquals(Visibility.SELF, source.first)
         assertEquals("logbook.uddf", source.second.getValue("fileName").jsonPrimitive.content)
         assertEquals("0", source.second.getValue("entry").jsonPrimitive.content, "a logbook of one dive still names its entry")
     }
 
     @Test
-    fun aDiveTwiceInTheFileGroupsWithItsFirstRecording() = runTest {
+    fun importAnywaySavesTheDiveOnItsOwn() = runTest {
         val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen)
-        presenterTestOf({
-            ImportActivityPresenter(
-                navigator,
-                repos.activities,
-                ActivityFileReader { error("not FIT") },
-                repos.typeChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-            )
-        }) {
-            awaitItem().eventSink(ImportActivityEvent.FilePicked("two-computers.uddf", logbook("10:02", "10:03")))
-            val read = awaitUntil { it.dives != null && it.duplicateCheck == DuplicateCheck.Done }
-            assertEquals(
-                listOf(DuplicateAction.Ignore, DuplicateAction.ImportAnyway, DuplicateAction.Group),
-                read.dives?.dives?.get(1)?.duplicate?.actions?.toList(),
-            )
-            read.eventSink(ImportActivityEvent.DuplicateActionChanged(1, DuplicateAction.Group))
-            awaitUntil { it.dives?.selectedCount == 2 }.eventSink(ImportActivityEvent.SaveDives(persistentMapOf(1 to "Morning Dive")))
+        fixture.ownActivities = listOf(loggedDive("2026-09-20T10:00:00Z"))
+        val navigator = FakeNavigator(ImportActivityScreen())
+        presenterTestOf(presenter(repos, navigator)) {
+            awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook("10:02")))
+            awaitUntil { it.preview != null }.eventSink(ImportActivityEvent.TimeZoneChanged("UTC"))
+            awaitUntil { it.preview?.clock?.zone?.id == "UTC" && it.duplicateCheck == DuplicateCheck.Done }
+                .eventSink(ImportActivityEvent.DuplicateActionChanged(0, DuplicateAction.ImportAnyway))
+            awaitUntil { it.preview?.duplicate?.action == DuplicateAction.ImportAnyway }.eventSink(ImportActivityEvent.Save("Morning Dive"))
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
         }
-        val activities =
-            fixture.putRkeys.zip(fixture.putRecords).filter { (_, record) ->
-                record.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY
-            }
-        val (first, second) = activities.map { (rkey, record) -> rkey to AtJson.decodeFromJsonElement(ActivityRecord.serializer(), record) }
-        assertEquals(null, first.second.recordingOf)
-        assertEquals(
-            AtUri.of(fixture.did, Nsid.FEED_ACTIVITY, first.first),
-            second.second.recordingOf,
-            "published after the dive it records",
+        val saved = savedActivities().single().second
+        assertEquals(Instant.parse("2026-09-20T10:02:00Z"), saved.startedAt)
+        assertNull(saved.combined)
+        assertNull(saved.recordingOf)
+    }
+
+    @Test
+    fun aDiveStillUploadingCantBeCombinedWithYet() = runTest {
+        val repos = fixture.repos()
+        fixture.failWrites = true
+        repos.activities.publish(
+            ActivityDraft(ActivityType(Sport.DIVE), "Blue Hole", null, Instant.parse("2026-09-20T10:00:00Z"), 2400.seconds)
         )
+        fixture.ownActivities = emptyList()
+        presenterTestOf(presenter(repos, FakeNavigator(ImportActivityScreen()))) {
+            awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook("10:02")))
+            awaitUntil { it.preview != null }.eventSink(ImportActivityEvent.TimeZoneChanged("UTC"))
+            val checked = awaitUntil { it.preview?.clock?.zone?.id == "UTC" && it.preview?.duplicate != null }
+            val duplicate = assertNotNull(checked.preview?.duplicate)
+            assertTrue(duplicate.stillUploading)
+            assertEquals(DuplicateAction.Ignore, duplicate.action, "not Combine while the logged dive is unsent")
+
+            checked.eventSink(ImportActivityEvent.DuplicateActionChanged(0, DuplicateAction.Combine))
+            checked.eventSink(ImportActivityEvent.DuplicateActionChanged(0, DuplicateAction.ImportAnyway))
+            assertEquals(
+                DuplicateAction.ImportAnyway,
+                awaitUntil { it.preview?.duplicate?.action != DuplicateAction.Ignore }.preview?.duplicate?.action,
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aDiveTwiceInTheFileIsSavedOnceAsACombinedDive() = runTest {
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ImportActivityScreen())
+        presenterTestOf(presenter(repos, navigator)) {
+            awaitItem().eventSink(ImportActivityEvent.FilePicked("two-computers.uddf", logbook("10:02", "10:03")))
+            val read = awaitUntil { it.dives != null && it.duplicateCheck == DuplicateCheck.Done }
+            assertEquals(DuplicateAction.Combine, read.dives?.dives?.get(1)?.duplicate?.action)
+            assertEquals(2, read.dives?.selectedCount)
+            read.eventSink(ImportActivityEvent.SaveDives(persistentMapOf(1 to "Morning Dive")))
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        val (first, second, combined) = savedActivities()
+        assertEquals(listOf(first.first, second.first), combined.second.combined?.members)
+        assertEquals("Blue Hole", combined.second.title, "it starts from the first copy's title")
+        assertNull(first.second.recordingOf)
+        assertNull(second.second.recordingOf)
     }
 
     @Test
@@ -437,11 +410,13 @@ class ImportLogbookPresenterTest {
         val repos = fixture.repos()
         // Logged at 10:00 UTC; the file's 10:02 clock read in Cancun (UTC-5) is 15:02 UTC: the same length, 5 hours off.
         fixture.ownActivities = listOf(loggedDive("2026-09-20T10:00:00Z"))
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { error("not FIT") },
                 repos.typeChoices,
                 repos.profiles,
@@ -465,11 +440,13 @@ class ImportLogbookPresenterTest {
     fun aDiveTwiceInTheFileIsFlaggedEvenWhenTheLogCantBeRead() = runTest {
         val repos = fixture.repos()
         fixture.ownActivities = null
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { error("not FIT") },
                 repos.typeChoices,
                 repos.profiles,
@@ -482,7 +459,7 @@ class ImportLogbookPresenterTest {
             val read = awaitUntil { it.duplicateCheck == DuplicateCheck.Failed && it.dives != null }
             val batch = assertNotNull(read.dives)
             assertEquals(listOf(null, 0, null), batch.dives.map { it.duplicate?.inFileIndex })
-            assertEquals(listOf(true, false, true), batch.dives.map { it.selected })
+            assertEquals(listOf(true, true, true), batch.dives.map { it.selected }, "the copy combines with the first")
             assertEquals(0 to 1, batch.existingDuplicates to batch.inFileDuplicates)
             cancelAndIgnoreRemainingEvents()
         }
@@ -492,11 +469,13 @@ class ImportLogbookPresenterTest {
     fun aLogbookOfOnlyDuplicatesHasNothingToSelectAll() = runTest {
         val repos = fixture.repos()
         fixture.ownActivities = listOf(loggedDive("2026-09-20T10:00:00Z"))
-        val navigator = FakeNavigator(ImportActivityScreen)
+        val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf({
             ImportActivityPresenter(
+                ImportActivityScreen(),
                 navigator,
                 repos.activities,
+                repos.manager,
                 ActivityFileReader { error("not FIT") },
                 repos.typeChoices,
                 repos.profiles,
@@ -510,7 +489,7 @@ class ImportLogbookPresenterTest {
             awaitUntil { it.dives != null }.eventSink(ImportActivityEvent.TimeZoneChanged("UTC"))
             val checked = awaitUntil { it.dives?.clock?.zone?.id == "UTC" && it.duplicateCheck == DuplicateCheck.Done }
             val batch = assertNotNull(checked.dives)
-            assertEquals(0, batch.selectedCount)
+            assertEquals(2, batch.selectedCount, "both combine with the logged dive")
             assertEquals(false, batch.hasNonDuplicates, "so the screen offers no Select all")
             cancelAndIgnoreRemainingEvents()
         }

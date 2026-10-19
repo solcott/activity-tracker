@@ -141,7 +141,7 @@ data class ActivityManage(
     val canUngroup: Boolean,
     /** A combined activity's members, which deleting it can take too or leave as activities of their own; 0 otherwise. */
     val members: Int = 0,
-    /** Another activity can be combined with this one: it isn't a member, and has room for another member. */
+    /** Another activity, or a recording from a file, can be combined with this one: it isn't a member, and has room for another member. */
     val canCombine: Boolean = false,
     /** A delete or ungroup is running. */
     val busy: Boolean,
@@ -275,6 +275,9 @@ sealed interface ActivityDetailEvent {
 
     /** The owner picks another of their activities to combine with this one ([CombinePickerScreen]). */
     data object Combine : ActivityDetailEvent
+
+    /** The owner picks a file, another device's recording of this activity, to combine with it (`ImportActivityScreen.combineInto`). */
+    data object AddRecording : ActivityDetailEvent
 
     /** The owner takes [uri] out of this combined activity, which is rebuilt without it, or split when one member would be left. */
     data class RemoveMember(val uri: AtUri) : ActivityDetailEvent
