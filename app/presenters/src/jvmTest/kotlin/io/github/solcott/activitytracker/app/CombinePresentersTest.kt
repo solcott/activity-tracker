@@ -212,6 +212,7 @@ class CombinePresentersTest {
                 feed,
                 privacy,
                 Clock.System,
+                activities,
             )
         return Graph(
             feed,

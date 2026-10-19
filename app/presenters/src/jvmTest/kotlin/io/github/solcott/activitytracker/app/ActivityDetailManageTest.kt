@@ -178,6 +178,7 @@ class ActivityDetailManageTest {
                 feed,
                 privacy,
                 Clock.System,
+                activities,
             )
         return {
             ActivityDetailPresenter(

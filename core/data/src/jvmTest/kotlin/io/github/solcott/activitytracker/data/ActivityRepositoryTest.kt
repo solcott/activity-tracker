@@ -203,26 +203,43 @@ class ActivityRepositoryTest {
         val devices = PdsActivityDevicesStore(db, writer, clients, Clock.System)
         val places = ActivityPlaces(clients, Clock.System, logger)
         val privacy = PrivacyZones(clients, Clock.System, Logger)
+        val activities =
+            ActivityRepository(
+                db,
+                clients,
+                outbox,
+                writer,
+                streams,
+                tracks,
+                sources,
+                devices,
+                zones,
+                places,
+                privacy,
+                RouteTrimmer(db, clients, writer, outbox, privacy, tracks, feed, Clock.System, Logger),
+                feed,
+                localLikes,
+                RecentActivityTypes(db, clients, feed),
+                Clock.System,
+            )
         manager =
-            ActivityManager(db, clients, outbox, writer, streams, tracks, sources, devices, zones, places, feed, privacy, Clock.System)
-        return ActivityRepository(
-            db,
-            clients,
-            outbox,
-            writer,
-            streams,
-            tracks,
-            sources,
-            devices,
-            zones,
-            places,
-            privacy,
-            RouteTrimmer(db, clients, writer, outbox, privacy, tracks, feed, Clock.System, Logger),
-            feed,
-            localLikes,
-            RecentActivityTypes(db, clients, feed),
-            Clock.System,
-        )
+            ActivityManager(
+                db,
+                clients,
+                outbox,
+                writer,
+                streams,
+                tracks,
+                sources,
+                devices,
+                zones,
+                places,
+                feed,
+                privacy,
+                Clock.System,
+                activities,
+            )
+        return activities
     }
 
     private fun String.target(): String {

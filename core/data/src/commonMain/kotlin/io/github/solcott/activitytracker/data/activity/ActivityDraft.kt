@@ -124,6 +124,10 @@ data class ActivityDraft(
     fun recordingOf(primary: AtUri, visibility: String): ActivityDraft =
         copy(recordingOf = primary, visibility = visibility, categories = DetailCategory.tiers(visibility, tiers))
 
+    /** This draft at [visibility] (a combined activity's, which its members share), its categories capped at it. */
+    fun atVisibility(visibility: String): ActivityDraft =
+        copy(visibility = visibility, categories = DetailCategory.tiers(visibility, tiers))
+
     /** Every category's visibility as published: never wider than the activity. */
     val tiers: Map<String, String>
         get() = DetailCategory.tiers(visibility, categories)
