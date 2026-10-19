@@ -78,7 +78,7 @@ object ActivityCombiner {
     /**
      * The combined activity of [members] (at least two), starting from [base]'s title, description, photos, sport and visibility-defining
      * fields. [sources] is the ranking stored so far, if any: each channel keeps its order there, and members it doesn't name follow by the
-     * default ranking ([rankings]).
+     * default ranking ([rankings]); a channel stored with no members is left out.
      */
     fun combine(base: AtUri, members: List<CombineMember>, now: Instant, sources: List<ChannelSource> = emptyList()): CombinedBuild {
         require(members.size >= CombinedActivity.MIN_MEMBERS) { "A combined activity has at least ${CombinedActivity.MIN_MEMBERS} members" }
@@ -117,7 +117,8 @@ object ActivityCombiner {
     /**
      * For each channel some member has, the members that have it, best first: [stored]'s order for the channel, then the default — the
      * member with more of the channel first (samples, track points, or simply having laps, legs, sets, lengths or dive data), an earlier
-     * start breaking a tie.
+     * start breaking a tie. A channel [stored] with no members is left out of the combined activity (`feed/combined-sources`): it ranks no
+     * member.
      */
     fun rankings(members: List<CombineMember>, stored: List<ChannelSource> = emptyList()): Map<String, List<AtUri>> {
         val byStart = members.sortedWith(compareBy<CombineMember> { it.start }.thenBy { it.uri.value })
@@ -125,7 +126,9 @@ object ActivityCombiner {
                 val amounts = byStart.associate { it.uri to amountOf(it, channel) }
                 val having = byStart.filter { amounts.getValue(it.uri) > 0 }.sortedByDescending { amounts.getValue(it.uri) }.map { it.uri }
                 if (having.isEmpty()) return@mapNotNull null
-                val chosen = stored.firstOrNull { it.channel == channel }?.members.orEmpty().filter { it in having }.distinct()
+                val entry = stored.firstOrNull { it.channel == channel }
+                if (entry != null && entry.members.isEmpty()) return@mapNotNull channel to emptyList()
+                val chosen = entry?.members.orEmpty().filter { it in having }.distinct()
                 channel to (chosen + (having - chosen.toSet()))
             }
             .toMap()

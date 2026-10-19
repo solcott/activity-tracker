@@ -337,7 +337,10 @@ data class CombinedActivity(
     }
 }
 
-/** `app.activitytracker.feed.activity#channelSource`: [members] of a combined activity that [channel] comes from, best first. */
+/**
+ * `app.activitytracker.feed.activity#channelSource`: [members] of a combined activity that [channel] comes from, best first; none when the
+ * athlete left it out.
+ */
 @Immutable @Serializable data class ChannelSource(val channel: String, val members: List<AtUri>)
 
 /**

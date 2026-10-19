@@ -124,7 +124,7 @@
           "type": "array",
           "maxLength": 10,
           "items": { "type": "string", "format": "at-uri" },
-          "description": "Members of the combined activity, best first."
+          "description": "Members of the combined activity, best first. Empty when the athlete left the channel out of the combined activity."
         }
       }
     },

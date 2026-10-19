@@ -33,18 +33,20 @@ internal object CombinedSummary {
     ): ActivityRecord {
         val shares = shares(groups)
         val recorded = recordedSeconds(groups)
-        fun total(channel: String, field: (ActivityRecord) -> Long?): Long? =
+        fun totalBy(ranking: List<AtUri>?, field: (ActivityRecord) -> Long?): Long? =
             groups
                 .zip(shares)
                 .mapNotNull { (group, share) ->
-                    pick(group, rankings[channel], field)?.let { (member, value) -> value * share * fraction(group, member, recorded) }
+                    pick(group, ranking, field)?.let { (member, value) -> value * share * fraction(group, member, recorded) }
                 }
                 .takeIf { it.isNotEmpty() }
                 ?.sum()
                 ?.roundToLong()
-        fun first(channel: String, field: (ActivityRecord) -> Int?): Int? = groups.firstNotNullOfOrNull { group ->
-            pick(group, rankings[channel], field)?.second
+        fun total(channel: String, field: (ActivityRecord) -> Long?): Long? = totalBy(rankings[channel], field)
+        fun firstBy(ranking: List<AtUri>?, field: (ActivityRecord) -> Int?): Int? = groups.firstNotNullOfOrNull { group ->
+            pick(group, ranking, field)?.second
         }
+        fun first(channel: String, field: (ActivityRecord) -> Int?): Int? = firstBy(rankings[channel], field)
         // Averages and maxima from the combined channel; without one, the groups' own, by time.
         fun mean(token: String): Double? = streams?.let { channel(it, token) }?.takeIf { it.isNotEmpty() }?.average()
         fun peak(token: String): Int? = streams?.let { channel(it, token) }?.maxOrNull()
@@ -57,7 +59,11 @@ internal object CombinedSummary {
         fun maxOf(channel: String, field: (ActivityRecord) -> Int?): Int? =
             groups.mapNotNull { pick(it, rankings[channel], field)?.second }.maxOrNull()
 
-        val movingTime = total(StreamChannel.DISTANCE) { it.movingTime ?: it.elapsedTime }
+        val elapsed = groups.maxOf { it.to }.toLong()
+        // Without distance and speed (left out), nothing tells moving from stopped.
+        val movingTime =
+            total(StreamChannel.DISTANCE) { it.movingTime ?: it.elapsedTime }
+                ?: elapsed.takeIf { excluded(rankings, StreamChannel.DISTANCE) }
         val distance =
             streams?.distance?.lastOrNull { it != null }?.let { it / CM_PER_M.toLong() } ?: total(StreamChannel.DISTANCE) { it.distance }
         val power = streams?.power?.let { StreamAnalytics.perSecond(streams.time, it) }
@@ -65,7 +71,7 @@ internal object CombinedSummary {
         return ActivityRecord(
             sport = record.sport,
             startedAt = start,
-            elapsedTime = groups.maxOf { it.to }.toLong(),
+            elapsedTime = elapsed,
             createdAt = now,
             title = record.title,
             description = record.description,
@@ -83,7 +89,7 @@ internal object CombinedSummary {
                 (mean(StreamChannel.TEMPERATURE)?.roundToInt() ?: weighted(StreamChannel.TEMPERATURE) { it.avgTemperature?.toInt() })
                     ?.toLong(),
             device =
-                ordered(members, rankings[CombinedChannel.POSITION] ?: rankings[StreamChannel.DISTANCE]).firstNotNullOfOrNull {
+                ordered(members, kept(rankings, CombinedChannel.POSITION) ?: kept(rankings, StreamChannel.DISTANCE)).firstNotNullOfOrNull {
                     it.record.device
                 },
             subSport = record.subSport,
@@ -98,15 +104,16 @@ internal object CombinedSummary {
                 power?.let(PerSecond::normalizedPower)
                     ?: groups.singleOrNull()?.let { pick(it, rankings[StreamChannel.POWER]) { r -> r.normalizedPower }?.second },
             work = total(StreamChannel.POWER) { it.work },
-            calories = total(StreamChannel.HEART_RATE) { it.calories?.toLong() }?.toInt(),
+            // The devices' own estimates, kept when heart rate is left out.
+            calories = totalBy(kept(rankings, StreamChannel.HEART_RATE)) { it.calories?.toLong() }?.toInt(),
             frontShifts = total(StreamChannel.GEARS) { it.frontShifts?.toLong() }?.toInt(),
             rearShifts = total(StreamChannel.GEARS) { it.rearShifts?.toLong() }?.toInt(),
             jumps = total(CombinedChannel.POSITION) { it.jumps?.toLong() }?.toInt(),
             grit = first(CombinedChannel.POSITION) { it.grit },
             flow = first(CombinedChannel.POSITION) { it.flow },
-            poolLength = first(CombinedChannel.LENGTHS) { it.poolLength },
+            poolLength = firstBy(kept(rankings, CombinedChannel.LENGTHS)) { it.poolLength },
             cycles = total(StreamChannel.CADENCE) { it.cycles?.toLong() }?.toInt(),
-            avgStrokeDistance = first(CombinedChannel.LENGTHS) { it.avgStrokeDistance },
+            avgStrokeDistance = firstBy(kept(rankings, CombinedChannel.LENGTHS)) { it.avgStrokeDistance },
             utcOffset = record.utcOffset ?: members.firstNotNullOfOrNull { it.record.utcOffset },
         )
     }
@@ -115,12 +122,19 @@ internal object CombinedSummary {
     fun <T : Any> pick(group: Group, ranking: List<AtUri>?, field: (ActivityRecord) -> T?): Pair<CombineMember, T>? =
         ordered(group.members, ranking).firstNotNullOfOrNull { member -> field(member.record)?.let { member to it } }
 
-    /** [members] best first by [ranking], then the rest in order of start. */
+    /** [members] best first by [ranking], then the rest in order of start; none when [ranking] is empty, a channel left out. */
     fun ordered(members: List<CombineMember>, ranking: List<AtUri>?): List<CombineMember> {
+        if (ranking != null && ranking.isEmpty()) return emptyList()
         val byUri = members.associateBy { it.uri }
         val ranked = ranking.orEmpty().mapNotNull { byUri[it] }
         return ranked + (members - ranked.toSet())
     }
+
+    /** [channel] was left out of the combined activity: it's ranked, by no member. */
+    fun excluded(rankings: Map<String, List<AtUri>>, channel: String): Boolean = rankings[channel]?.isEmpty() == true
+
+    /** [channel]'s ranking, or null (every member by start) when it was left out: for figures that aren't the channel's own data. */
+    fun kept(rankings: Map<String, List<AtUri>>, channel: String): List<AtUri>? = rankings[channel]?.ifEmpty { null }
 
     /** How long each member really recorded over all [groups], in seconds. */
     fun recordedSeconds(groups: List<Group>): Map<AtUri, Int> =
@@ -201,7 +215,9 @@ internal object CombinedLegs {
             avgCadence = pick(StreamChannel.CADENCE) { it.avgCadence },
             ascent = scaled(StreamChannel.ALTITUDE) { it.elevationGain },
             descent = scaled(StreamChannel.ALTITUDE) { it.elevationLoss },
-            calories = scaled(StreamChannel.HEART_RATE) { it.calories },
+            calories =
+                CombinedSummary.pick(group, CombinedSummary.kept(rankings, StreamChannel.HEART_RATE)) { it.calories }
+                    ?.let { (member, value) -> (value * CombinedSummary.fraction(group, member, recorded)).roundToInt() },
         )
     }
 
