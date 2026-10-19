@@ -27,7 +27,7 @@ class ActivityDetailRouteTest : ActivityDetailTestBase() {
         track = route
         detail(repos()) {
             val loaded = awaitUntil { it.loaded()?.ownRoute != null }.loaded()!!
-            assertEquals(ActivityDraft.polylineOf(route), loaded.ownRoute)
+            assertEquals(ActivityDraft.polylineOf(route)?.polyline, loaded.ownRoute)
             assertTrue(loaded.canHideRouteEnds)
             cancelAndIgnoreRemainingEvents()
         }

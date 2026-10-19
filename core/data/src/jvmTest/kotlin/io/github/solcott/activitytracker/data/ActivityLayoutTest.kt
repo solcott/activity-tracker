@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.data
 
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityLayout
+import io.github.solcott.activitytracker.data.activity.SegmentedPolyline
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -60,7 +61,7 @@ class ActivityLayoutTest {
 
     private fun split(visibility: String, categories: Map<String, String>, polyline: String? = null): ActivityLayout {
         val draft = draft(visibility, categories)
-        return ActivityLayout.split(draft, draft.toRecord(createdAt, polyline = polyline), uri)
+        return ActivityLayout.split(draft, draft.toRecord(createdAt, polyline = polyline?.let { SegmentedPolyline(it, null) }), uri)
     }
 
     @Test

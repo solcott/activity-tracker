@@ -297,7 +297,22 @@ class PrivacyZonesTest {
         s.privacy.save(PrivacySettings.NONE)
         s.activities.repairRoutes()
 
-        assertEquals(ActivityDraft.polylineOf(route), stored(uri.rkey!!).polyline)
+        assertEquals(ActivityDraft.polylineOf(route)?.polyline, stored(uri.rkey!!).polyline)
+    }
+
+    @Test
+    fun aSingleRouteBreaksWhereItLostItsPositionAfterTrimming() = runTest {
+        // The run loses its position for 550 m and resumes 6 minutes later.
+        val gapped = route.take(150) + route.drop(200).map { it.copy(time = it.time + 6.minutes) }
+        val s = pds.session()
+        s.privacy.save(PrivacySettings(listOf(home)))
+        val uri = s.activities.publish(draft(points = gapped))
+        assertEquals(1, stored(uri.rkey!!).polylineGaps?.size, "trimmed at home, then broken at the gap")
+
+        s.privacy.save(PrivacySettings.NONE)
+        s.activities.repairRoutes()
+        assertEquals(ActivityDraft.polylineOf(gapped)?.gaps, stored(uri.rkey!!).polylineGaps)
+        assertEquals(1, stored(uri.rkey!!).polylineGaps?.size)
     }
 
     @Test

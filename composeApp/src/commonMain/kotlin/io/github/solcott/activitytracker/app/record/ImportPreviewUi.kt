@@ -42,7 +42,7 @@ internal fun PreviewContent(state: ImportActivityState, preview: ImportPreview, 
             return@Column
         }
         HeroRow(page.hero)
-        preview.polyline?.let { ActivityMap(it) }
+        preview.polyline?.let { ActivityMap(it, gaps = preview.polylineGaps) }
         page.mapMark?.let { CategoryLock(DetailCategory.MAP, it) }
         if (medium) AvgMaxTable(page.avgMax)
         TrainingLoadCard(page.trainingLoad)

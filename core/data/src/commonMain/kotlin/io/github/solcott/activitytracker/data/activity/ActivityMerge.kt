@@ -42,6 +42,8 @@ object ActivityMerge {
             avgStrokeDistance = existing.avgStrokeDistance ?: other.avgStrokeDistance,
             utcOffset = existing.utcOffset ?: other.utcOffset,
             polyline = existing.polyline ?: other.polyline,
+            // Breaks go with the polyline they index.
+            polylineGaps = if (existing.polyline != null) existing.polylineGaps else other.polylineGaps,
             device = existing.device ?: other.device,
             sensors = existing.sensors ?: other.sensors,
             dive = DiveSummary.fillGaps(existing.dive, other.dive),

@@ -159,14 +159,14 @@ class RouteTrimmer(
         return true
     }
 
-    /** [current] with its polyline rebuilt from [route] by [zones]; a combined activity's broken between its members' recordings. */
-    private fun retrimmed(current: ActivityRecord, route: List<LocationSample>, zones: RouteTrim.Known): ActivityRecord =
-        if (current.combined != null) {
-            val line = zones.segmentedPolylineOf(route)
-            current.copy(polyline = line?.polyline, polylineGaps = line?.gaps)
-        } else {
-            current.copy(polyline = zones.polylineOf(route))
-        }
+    /**
+     * [current] with its polyline and breaks rebuilt from [route] by [zones]: a combined activity's broken between its members' recordings,
+     * a single one's where positions were recorded far apart.
+     */
+    private fun retrimmed(current: ActivityRecord, route: List<LocationSample>, zones: RouteTrim.Known): ActivityRecord {
+        val line = if (current.combined != null) zones.segmentedPolylineOf(route) else zones.polylineOf(route)
+        return current.copy(polyline = line?.polyline, polylineGaps = line?.gaps)
+    }
 
     /** Sends the queued activity writes, skipping the rest of the outbox; returns how many are left. */
     private suspend fun drainActivities(): Int = outbox.drain { it.collection == Nsid.FEED_ACTIVITY }

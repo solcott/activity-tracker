@@ -56,8 +56,8 @@ data class PrivacySettings(val zones: List<PrivacyZone> = emptyList(), val hideE
 
 /** How a route is trimmed when it's written: by settings read from the PDS ([Known]), or not yet known ([Unknown], so not drawn at all). */
 sealed interface RouteTrim {
-    /** The polyline [route] is published with: trimmed, or none. */
-    fun polylineOf(route: List<LocationSample>): String?
+    /** The polyline a single activity's [route] is published with: trimmed as a whole, then broken ([RouteBreaks]), or none. */
+    fun polylineOf(route: List<LocationSample>): SegmentedPolyline?
 
     /**
      * A combined activity's polyline: [route] broken into [CombinedRoute.segments] wherever no member recorded a position for a while, each
@@ -67,7 +67,7 @@ sealed interface RouteTrim {
 
     /** [settings] as saved at [revision] (null: never saved, so nothing is hidden). */
     data class Known(val settings: PrivacySettings, val revision: String?) : RouteTrim {
-        override fun polylineOf(route: List<LocationSample>): String? = ActivityDraft.polylineOf(settings.trim(route))
+        override fun polylineOf(route: List<LocationSample>): SegmentedPolyline? = ActivityDraft.polylineOf(settings.trim(route))
 
         override fun segmentedPolylineOf(route: List<LocationSample>): SegmentedPolyline? =
             SegmentedPolyline.of(CombinedRoute.segments(route).map { settings.trim(it) })
@@ -75,7 +75,7 @@ sealed interface RouteTrim {
 
     /** The zones couldn't be read this session: the route is written without a polyline, never an untrimmed one. */
     data object Unknown : RouteTrim {
-        override fun polylineOf(route: List<LocationSample>): String? = null
+        override fun polylineOf(route: List<LocationSample>): SegmentedPolyline? = null
 
         override fun segmentedPolylineOf(route: List<LocationSample>): SegmentedPolyline? = null
     }

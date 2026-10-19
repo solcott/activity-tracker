@@ -276,12 +276,14 @@ internal fun partOfDay(hour: Int) =
         else -> PartOfDay.Night
     }
 
-internal fun ImportedActivity.toPreview(fileName: String, zone: TimeZone, zones: ImmutableList<TimeZoneOption>?) =
-    ImportPreview(
+internal fun ImportedActivity.toPreview(fileName: String, zone: TimeZone, zones: ImmutableList<TimeZoneOption>?): ImportPreview {
+    val line = ActivityDraft.polylineOf(samples)
+    return ImportPreview(
         fileName = fileName,
         elapsed = elapsed,
         device = device,
-        polyline = ActivityDraft.polylineOf(samples),
+        polyline = line?.polyline,
+        polylineGaps = line?.gaps?.toImmutableList(),
         dive = dive?.toPreview(),
         elevationLossMeters = elevationLossMeters,
         // A run's cadence is strides, not revolutions.
@@ -294,6 +296,7 @@ internal fun ImportedActivity.toPreview(fileName: String, zone: TimeZone, zones:
         hasStreams = streams != null,
         clock = localStart?.let { importClock(it, zone, zones) },
     )
+}
 
 /** Every zone, with the offset in force when the activity started: a zone with daylight saving shows the one that applied. */
 private fun zoneOptions(localStart: LocalDateTime): ImmutableList<TimeZoneOption> {

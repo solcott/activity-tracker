@@ -189,6 +189,8 @@ data class ImportPreview(
     val device: String?,
     /** Null for indoor activities. */
     val polyline: String?,
+    /** Where [polyline] breaks (`feed.activity#polylineGaps`); null when it's one line. */
+    val polylineGaps: ImmutableList<Int>? = null,
     /** Null unless a dive computer recorded the file. */
     val dive: DivePreview?,
     /** Null unless the file's times have no zone, so the athlete has to say where it happened. */

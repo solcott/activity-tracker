@@ -25,7 +25,10 @@ import io.github.solcott.activitytracker.location.LocationSample
 internal class OwnRoute(
     /** The full track's points, two or more; null like [line]. */
     val track: List<LocationSample>?,
-    /** Broken where a combined activity's members were recorded one after another ([SegmentedPolyline]). */
+    /**
+     * Broken where a combined activity's members were recorded one after another, or a single one's positions far apart
+     * ([SegmentedPolyline]).
+     */
     val line: SegmentedPolyline?,
     val canHide: Boolean,
     val zoneAdded: Boolean,
@@ -47,10 +50,7 @@ internal fun rememberOwnRoute(
     LaunchedEffect(activity) { route = activity?.let { activities.ownRoute(it) }?.takeIf { it.size >= 2 } }
     val line =
         remember(route, combined) {
-            route?.let {
-                if (combined) SegmentedPolyline.of(CombinedRoute.segments(it))
-                else ActivityDraft.polylineOf(it)?.let { p -> SegmentedPolyline(p, null) }
-            }
+            route?.let { if (combined) SegmentedPolyline.of(CombinedRoute.segments(it)) else ActivityDraft.polylineOf(it) }
         }
     val current = route
     return OwnRoute(

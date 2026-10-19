@@ -19,7 +19,6 @@ import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
 import io.github.solcott.activitytracker.location.Gpx
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.RecordingResult
-import io.github.solcott.activitytracker.location.TrackMath
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 import kotlin.time.Duration
@@ -128,8 +127,8 @@ data class ActivityDraft(
     val tiers: Map<String, String>
         get() = DetailCategory.tiers(visibility, categories)
 
-    /** The record, holding [media] ([photos] once uploaded) and [polyline] ([route] as trimmed for it). */
-    fun toRecord(createdAt: Instant, media: List<ActivityMedia> = emptyList(), polyline: String? = null): ActivityRecord =
+    /** The record, holding [media] ([photos] once uploaded) and [polyline] ([route] as trimmed for it, with its breaks). */
+    fun toRecord(createdAt: Instant, media: List<ActivityMedia> = emptyList(), polyline: SegmentedPolyline? = null): ActivityRecord =
         ActivityRecord(
             sport = type.sport,
             subSport = type.subSport,
@@ -149,7 +148,8 @@ data class ActivityDraft(
             avgTemperature = avgTemperatureCelsius?.let { (it * TENTHS_PER_DEGREE).roundToLong() },
             avgHeartRate = avgHeartRate,
             maxHeartRate = maxHeartRate,
-            polyline = polyline,
+            polyline = polyline?.polyline,
+            polylineGaps = polyline?.gaps,
             device = device,
             sensors = sensors.take(ActivitySensor.MAX).ifEmpty { null },
             dive = dive,
@@ -340,11 +340,11 @@ data class ActivityDraft(
             )
 
         /**
-         * The polyline for a track: simplified, then encoded. Null below two points. Untrimmed: only the athlete's own screens draw it as
-         * it is; records get `RouteTrim.polylineOf`.
+         * The polyline for a single activity's track: broken where positions were recorded far apart ([RouteBreaks]), each piece
+         * simplified, then encoded. Null below two points. Untrimmed: only the athlete's own screens draw it as it is; records get
+         * `RouteTrim.polylineOf`.
          */
-        fun polylineOf(samples: List<LocationSample>): String? =
-            samples.takeIf { it.size >= 2 }?.let { TrackMath.encodePolyline(TrackMath.simplify(it)) }
+        fun polylineOf(samples: List<LocationSample>): SegmentedPolyline? = SegmentedPolyline.of(RouteBreaks.segments(samples))
 
         private fun gpxOf(samples: List<LocationSample>, title: String?, sport: String): ByteArray? =
             samples.takeIf { it.isNotEmpty() }?.let { Gpx.write(title ?: sport, sport, it).encodeToByteArray() }
