@@ -35,6 +35,7 @@ import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.CombinedActivity
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
@@ -84,6 +85,9 @@ fun ActivityDetailPresenter(
     // An edit shows as soon as it's saved, and stays over the AppView's copy until Jetstream brings it there.
     val rewrite by remember(screen.uri) { feed.rewrites.observe(AtUri(screen.uri)) }.collectAsState(null)
 
+    // An activity just written here (a combined one, say) isn't served until the AppView indexes it: try again for a while.
+    AwaitIndexed(failed = error != null && loaded == null, written = rewrite != null) { loadKey++ }
+
     val unitSystem by units.units.collectAsState()
     val charts = rememberCharts(AtUri(screen.uri), loadKey, unitSystem, feed)
     val comments = rememberComments(AtUri(screen.uri), loadKey, feed, flights)
@@ -98,7 +102,7 @@ fun ActivityDetailPresenter(
     val narrower = narrowerCategories(served?.takeIf { isOwn }, charts.streams)
     val page = rememberPage(shown, shownCharts, narrower)
     val manage = rememberManage(activity.takeIf { isOwn }, loadKey, feed, manager, navigator, flights) { loadKey++ }
-    val ownRoute = rememberOwnRoute(activity?.uri?.takeIf { isOwn }, activities, flights)
+    val ownRoute = rememberOwnRoute(activity?.uri?.takeIf { isOwn }, activities, flights, combined = activity?.record?.combined != null)
     val hasStreams = charts.charts != null
     val isDive = shown?.record?.sport == Sport.DIVE
     val formats = remember(ownRoute.track, hasStreams, isDive) { exportFormats(ownRoute.track, hasStreams, isDive) }
@@ -123,6 +127,7 @@ fun ActivityDetailPresenter(
             is ActivityDetailEvent.OpenActivity,
             ActivityDetailEvent.OpenTrainingZones,
             ActivityDetailEvent.Edit,
+            ActivityDetailEvent.Combine,
             is ActivityDetailEvent.OpenMedia -> navigator.open(event, screen.uri, current)
 
             ActivityDetailEvent.ToggleLikesList -> {
@@ -158,9 +163,10 @@ fun ActivityDetailPresenter(
                 }
             }
 
-            is ActivityDetailEvent.Delete -> manage.delete(event.withRecordings)
-
-            ActivityDetailEvent.Ungroup -> manage.ungroup()
+            is ActivityDetailEvent.Delete,
+            ActivityDetailEvent.Ungroup,
+            is ActivityDetailEvent.RemoveMember,
+            ActivityDetailEvent.Split -> manage.on(event)
 
             ActivityDetailEvent.HideStart -> ownRoute.hide(true)
 
@@ -196,7 +202,8 @@ fun ActivityDetailPresenter(
             sections = sections,
             page = page,
             manage = manage.state,
-            ownRoute = ownRoute.polyline,
+            ownRoute = ownRoute.line?.polyline,
+            ownRouteGaps = ownRoute.line?.gaps?.toImmutableList(),
             canHideRouteEnds = ownRoute.canHide,
             zoneAdded = ownRoute.zoneAdded,
             routeError = ownRoute.error,
@@ -217,8 +224,24 @@ private data class CountedActivity(val view: ActivityView, val commentMoves: Int
     }
 }
 
-/** The owner's delete and ungroup: [state] is null on someone else's activity. */
-private class Manage(val state: ActivityManage?, val delete: (withRecordings: Boolean) -> Unit, val ungroup: () -> Unit)
+/** The owner's delete, ungroup, split and member removal: [state] is null on someone else's activity. */
+private class Manage(
+    val state: ActivityManage?,
+    val delete: (withRecordings: Boolean) -> Unit,
+    val ungroup: () -> Unit,
+    val removeMember: (AtUri) -> Unit = {},
+    val split: () -> Unit = {},
+) {
+    fun on(event: ActivityDetailEvent) {
+        when (event) {
+            is ActivityDetailEvent.Delete -> delete(event.withRecordings)
+            ActivityDetailEvent.Ungroup -> ungroup()
+            is ActivityDetailEvent.RemoveMember -> removeMember(event.uri)
+            ActivityDetailEvent.Split -> split()
+            else -> Unit
+        }
+    }
+}
 
 /**
  * Deleting or ungrouping the signed-in athlete's own [activity] (null for someone else's). A recording loads the activity it records, to
@@ -246,13 +269,18 @@ private fun rememberManage(
     }
     val delete = ActivityDetailEvent.Delete::class
     val ungroup = ActivityDetailEvent.Ungroup
+    val split = ActivityDetailEvent.Split
+    val remove = ActivityDetailEvent.RemoveMember::class
     activity ?: return Manage(null, {}, {})
     val recordings = activity.recordings.orEmpty()
+    val members = activity.record.combined?.members.orEmpty()
     val state =
         ActivityManage(
             otherRecordings = recordings.size,
             canUngroup = if (recordingOf == null) recordings.size == 1 else siblings == 1,
-            busy = flights.isRunning(delete) || flights.isRunning(ungroup),
+            members = members.size,
+            canCombine = activity.combinedInto == null && members.size < CombinedActivity.MAX_MEMBERS,
+            busy = flights.isRunning(delete) || flights.isRunning(ungroup) || flights.isRunning(split) || flights.isRunning(remove),
             error = error,
         )
     return Manage(
@@ -277,6 +305,23 @@ private fun rememberManage(
                         .onSuccess { reload() }
                         .onFailure { error = UiError.of(UiError.Kind.UngroupActivity, it) }
                 }
+            }
+        },
+        removeMember = { member ->
+            flights.launch(remove) {
+                error = null
+                runSuspendCatching { manager.removeMember(activity, member) }
+                    // Taking out one of two members splits the combined activity, which is then gone.
+                    .onSuccess { if (members.size - 1 < CombinedActivity.MIN_MEMBERS) navigator.pop() else reload() }
+                    .onFailure { error = UiError.of(UiError.Kind.SplitActivity, it) }
+            }
+        },
+        split = {
+            flights.launch(split) {
+                error = null
+                runSuspendCatching { manager.split(activity) }
+                    .onSuccess { navigator.pop() }
+                    .onFailure { error = UiError.of(UiError.Kind.SplitActivity, it) }
             }
         },
     )
@@ -448,6 +493,7 @@ private fun Navigator.open(event: ActivityDetailEvent, uri: String, current: Act
         ActivityDetailEvent.OpenTrainingZones -> goTo(TrainingZonesScreen)
         ActivityDetailEvent.Edit -> goTo(EditActivityScreen(uri))
         is ActivityDetailEvent.OpenMedia -> goTo(MediaGalleryScreen(uri, event.index))
+        ActivityDetailEvent.Combine -> goTo(CombinePickerScreen(uri))
         else -> Unit
     }
 }

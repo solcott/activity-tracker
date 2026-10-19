@@ -12,18 +12,21 @@ import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
+import io.github.solcott.activitytracker.data.activity.CombinedRoute
+import io.github.solcott.activitytracker.data.activity.SegmentedPolyline
 import io.github.solcott.activitytracker.data.activity.TooManyZonesException
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.location.LocationSample
 
 /**
- * The owner's view of their own route: [polyline] is the full track, untrimmed, which only they read; null on someone else's activity, or
- * when the track can't be read (the trimmed polyline shows then). [hide] adds a privacy zone at its start or end.
+ * The owner's view of their own route: [line] is the full track, untrimmed, which only they read; null on someone else's activity, or when
+ * the track can't be read (the trimmed polyline shows then). [hide] adds a privacy zone at its start or end.
  */
 internal class OwnRoute(
-    /** The full track's points, two or more; null like [polyline]. */
+    /** The full track's points, two or more; null like [line]. */
     val track: List<LocationSample>?,
-    val polyline: String?,
+    /** Broken where a combined activity's members were recorded one after another ([SegmentedPolyline]). */
+    val line: SegmentedPolyline?,
     val canHide: Boolean,
     val zoneAdded: Boolean,
     val error: UiError?,
@@ -31,15 +34,32 @@ internal class OwnRoute(
 )
 
 @Composable
-internal fun rememberOwnRoute(activity: AtUri?, activities: ActivityRepository, flights: SingleFlight): OwnRoute {
+internal fun rememberOwnRoute(
+    activity: AtUri?,
+    activities: ActivityRepository,
+    flights: SingleFlight,
+    combined: Boolean = false,
+): OwnRoute {
     var route by remember(activity) { mutableStateOf<List<LocationSample>?>(null) }
     var zoneAdded by remember(activity) { mutableStateOf(false) }
     var error by remember(activity) { mutableStateOf<UiError?>(null) }
     // Apart from the activity's load: the map shows the trimmed polyline until the track arrives.
     LaunchedEffect(activity) { route = activity?.let { activities.ownRoute(it) }?.takeIf { it.size >= 2 } }
-    val polyline = remember(route) { route?.let(ActivityDraft::polylineOf) }
+    val line =
+        remember(route, combined) {
+            route?.let {
+                if (combined) SegmentedPolyline.of(CombinedRoute.segments(it))
+                else ActivityDraft.polylineOf(it)?.let { p -> SegmentedPolyline(p, null) }
+            }
+        }
     val current = route
-    return OwnRoute(current, polyline, canHide = current != null && !flights.isRunning(HIDE), zoneAdded, error) { start ->
+    return OwnRoute(
+        current,
+        line,
+        canHide = current != null && !flights.isRunning(HIDE),
+        zoneAdded,
+        error,
+    ) { start ->
         if (current != null) {
             error = null
             flights.launch(HIDE) {

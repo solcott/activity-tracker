@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_gender
 import io.github.solcott.activitytracker.composeApp.resources.detail_location
 import io.github.solcott.activitytracker.composeApp.resources.detail_training
 import io.github.solcott.activitytracker.composeApp.resources.error_answer_follow_request
+import io.github.solcott.activitytracker.composeApp.resources.error_combine_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_comment
 import io.github.solcott.activitytracker.composeApp.resources.error_download_original
@@ -17,6 +18,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_export_activ
 import io.github.solcott.activitytracker.composeApp.resources.error_export_not_sent
 import io.github.solcott.activitytracker.composeApp.resources.error_hide_comment
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activity
+import io.github.solcott.activitytracker.composeApp.resources.error_load_combine_candidates
 import io.github.solcott.activitytracker.composeApp.resources.error_load_comments
 import io.github.solcott.activitytracker.composeApp.resources.error_load_feed
 import io.github.solcott.activitytracker.composeApp.resources.error_load_follow_requests
@@ -37,6 +39,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_save_setting
 import io.github.solcott.activitytracker.composeApp.resources.error_save_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_search_athletes
 import io.github.solcott.activitytracker.composeApp.resources.error_sign_in_again
+import io.github.solcott.activitytracker.composeApp.resources.error_split_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_too_many_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_ungroup_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_unhide_comment
@@ -113,6 +116,9 @@ fun errorText(error: UiError): String =
                 UiError.Kind.HideComment -> Res.string.error_hide_comment
                 UiError.Kind.UnhideComment -> Res.string.error_unhide_comment
                 UiError.Kind.UngroupActivity -> Res.string.error_ungroup_activity
+                UiError.Kind.CombineActivity -> Res.string.error_combine_activity
+                UiError.Kind.SplitActivity -> Res.string.error_split_activity
+                UiError.Kind.LoadCombineCandidates -> Res.string.error_load_combine_candidates
                 UiError.Kind.ReadActivityFile -> Res.string.error_read_activity_file
                 UiError.Kind.UnsupportedActivityFile -> Res.string.error_unsupported_activity_file
                 UiError.Kind.SaveSettings -> Res.string.error_save_settings

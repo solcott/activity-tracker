@@ -13,12 +13,14 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.data.activity.SegmentedPolyline
 import io.github.solcott.activitytracker.location.TrackMath
 import kotlin.math.cos
+import kotlinx.collections.immutable.ImmutableList
 
-/** Draws an encoded polyline scaled to fit. Placeholder until a real map is integrated. */
+/** Draws an encoded polyline scaled to fit, broken at [gaps] (`feed.activity#polylineGaps`). Placeholder until a real map is integrated. */
 @Composable
-fun RoutePreview(polyline: String, modifier: Modifier = Modifier, height: Dp = 160.dp) {
+fun RoutePreview(polyline: String, modifier: Modifier = Modifier, height: Dp = 160.dp, gaps: ImmutableList<Int>? = null) {
     val points = remember(polyline) { runCatching { TrackMath.decodePolyline(polyline) }.getOrDefault(emptyList()) }
     if (points.size < 2) return
     val color = MaterialTheme.colorScheme.primary
@@ -42,8 +44,10 @@ fun RoutePreview(polyline: String, modifier: Modifier = Modifier, height: Dp = 1
             )
         val path =
             Path().apply {
-                moveTo(at(0).x, at(0).y)
-                for (i in 1 until points.size) lineTo(at(i).x, at(i).y)
+                for (piece in SegmentedPolyline.pieces(points.indices.toList(), gaps)) {
+                    moveTo(at(piece.first()).x, at(piece.first()).y)
+                    for (i in piece.drop(1)) lineTo(at(i).x, at(i).y)
+                }
             }
         drawPath(path, color, style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round))
     }

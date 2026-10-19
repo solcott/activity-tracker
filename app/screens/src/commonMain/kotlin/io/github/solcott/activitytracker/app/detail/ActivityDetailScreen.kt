@@ -78,6 +78,8 @@ sealed interface ActivityDetailState : CircuitUiState {
          * it loads. The map draws it over the record's trimmed polyline.
          */
         val ownRoute: String? = null,
+        /** Where [ownRoute] breaks, on a combined activity; null otherwise. */
+        val ownRouteGaps: ImmutableList<Int>? = null,
         /** The owner can add a privacy zone at the route's start or end: the track was read. */
         val canHideRouteEnds: Boolean = false,
         /** A zone was just added from this activity. */
@@ -134,6 +136,10 @@ data class ActivityManage(
     val otherRecordings: Int,
     /** The activity is grouped with exactly one other, its main activity or its one recording, so the two can be split apart. */
     val canUngroup: Boolean,
+    /** A combined activity's members, which deleting it can take too or leave as activities of their own; 0 otherwise. */
+    val members: Int = 0,
+    /** Another activity can be combined with this one: it isn't a member, and has room for another member. */
+    val canCombine: Boolean = false,
     /** A delete or ungroup is running. */
     val busy: Boolean,
     val error: UiError?,
@@ -263,6 +269,15 @@ sealed interface ActivityDetailEvent {
 
     /** The owner splits the two activities of a group apart: see [ActivityManage.canUngroup]. */
     data object Ungroup : ActivityDetailEvent
+
+    /** The owner picks another of their activities to combine with this one ([CombinePickerScreen]). */
+    data object Combine : ActivityDetailEvent
+
+    /** The owner takes [uri] out of this combined activity, which is rebuilt without it, or split when one member would be left. */
+    data class RemoveMember(val uri: AtUri) : ActivityDetailEvent
+
+    /** The owner splits this combined activity back into its members. */
+    data object Split : ActivityDetailEvent
 
     /** The owner edits the activity's title, description, dive site and photos. */
     data object Edit : ActivityDetailEvent

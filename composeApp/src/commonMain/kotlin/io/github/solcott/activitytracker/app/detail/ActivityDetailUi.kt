@@ -65,8 +65,10 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_title
 import io.github.solcott.activitytracker.composeApp.resources.detail_zone_added
 import io.github.solcott.activitytracker.composeApp.resources.like_count
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.activityType
+import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -271,6 +273,11 @@ private fun Header(state: ActivityDetailState.Loaded, modifier: Modifier = Modif
         record.dive?.site?.let { DiveSite(it, Modifier.padding(top = 2.dp)) }
         record.description?.let { Text(it, Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium) }
         Recordings(state.activity, onOpen = { state.eventSink(ActivityDetailEvent.OpenActivity(it)) })
+        Members(
+            state.activity,
+            onOpen = { state.eventSink(ActivityDetailEvent.OpenActivity(it)) },
+            onRemove = { uri: AtUri -> state.eventSink(ActivityDetailEvent.RemoveMember(uri)) }.takeIf { state.manage != null },
+        )
         state.manage?.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
         state.routeError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
         if (state.zoneAdded) Text(stringResource(Res.string.detail_zone_added), style = MaterialTheme.typography.bodySmall)
@@ -282,6 +289,11 @@ private fun Header(state: ActivityDetailState.Loaded, modifier: Modifier = Modif
 private fun PageMedia(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier, height: Dp = 240.dp) {
     val record = state.activity.record
     val media = remember(state.activity) { state.activity.mediaItems() }
+    // A combined activity's line breaks between its members recorded one after another.
+    val gaps =
+        remember(state.ownRoute, state.ownRouteGaps, record) {
+            if (state.ownRoute != null) state.ownRouteGaps else record.polylineGaps?.toImmutableList()
+        }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         MediaRow(
             media,
@@ -290,7 +302,7 @@ private fun PageMedia(state: ActivityDetailState.Loaded, modifier: Modifier = Mo
             // The owner sees their whole route; everyone else the polyline trimmed by the owner's privacy zones.
             map =
                 (state.ownRoute ?: record.polyline)?.let { polyline ->
-                    { mapModifier, mapHeight -> ActivityMap(polyline, mapModifier, mapHeight) }
+                    { mapModifier, mapHeight -> ActivityMap(polyline, mapModifier, mapHeight, gaps) }
                 },
         )
         state.page.mapMark?.let { CategoryLock(DetailCategory.MAP, it) }

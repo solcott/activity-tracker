@@ -11,7 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.data.activity.SegmentedPolyline
 import io.github.solcott.activitytracker.location.TrackMath
+import kotlinx.collections.immutable.ImmutableList
 import org.maplibre.compose.camera.CameraFit
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.LineCap
@@ -29,11 +31,11 @@ import org.maplibre.spatialk.geojson.BoundingBox
 private val FIT_PADDING = DpPadding(left = 24.dp, top = 24.dp, right = 24.dp, bottom = 24.dp)
 
 @Composable
-actual fun ActivityMap(polyline: String, modifier: Modifier, height: Dp) {
+actual fun ActivityMap(polyline: String, modifier: Modifier, height: Dp, gaps: ImmutableList<Int>?) {
     // (lat, lng) pairs, like RoutePreview.
     val points = remember(polyline) { runCatching { TrackMath.decodePolyline(polyline) }.getOrDefault(emptyList()) }
     if (points.size < 2) return
-    val routeJson = remember(points) { lineStringJson(points) }
+    val routeJson = remember(points, gaps) { lineJson(SegmentedPolyline.pieces(points, gaps)) }
     val bounds =
         remember(points) {
             BoundingBox(
@@ -76,6 +78,8 @@ actual fun ActivityMap(polyline: String, modifier: Modifier, height: Dp) {
     )
 }
 
-/** A GeoJSON LineString; GeoJSON orders each position longitude first. */
-private fun lineStringJson(points: List<Pair<Double, Double>>): String =
-    points.joinToString(",", prefix = """{"type":"LineString","coordinates":[""", postfix = "]}") { (lat, lng) -> "[$lng,$lat]" }
+/** A GeoJSON MultiLineString of [pieces]; GeoJSON orders each position longitude first. */
+private fun lineJson(pieces: List<List<Pair<Double, Double>>>): String =
+    pieces.joinToString(",", prefix = """{"type":"MultiLineString","coordinates":[""", postfix = "]}") { piece ->
+        piece.joinToString(",", prefix = "[", postfix = "]") { (lat, lng) -> "[$lng,$lat]" }
+    }

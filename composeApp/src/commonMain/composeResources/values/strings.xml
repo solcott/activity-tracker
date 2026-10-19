@@ -1196,4 +1196,22 @@
     <string name="chart_pace">Pace</string>
     <string name="time_am">AM</string>
     <string name="time_pm">PM</string>
+
+    <!-- Combined activities (feed/combined-activities) -->
+    <string name="error_combine_activity">Couldn't combine the activities</string>
+    <string name="error_split_activity">Couldn't change the combined activity</string>
+    <string name="error_load_combine_candidates">Couldn't load your other activities</string>
+    <string name="detail_combine">Combine with…</string>
+    <string name="detail_split">Split into separate activities</string>
+    <string name="detail_members">Combined from</string>
+    <string name="detail_member_of">Part of a combined activity</string>
+    <string name="detail_open_combined">See the combined activity</string>
+    <string name="detail_remove_member">Remove %1$s</string>
+    <string name="remove_member_message">It stays as an activity of its own, and this activity is rebuilt without it. With only one recording left, this activity is split.</string>
+    <string name="split_activity_title">Split this activity?</string>
+    <string name="split_activity_message">The combined activity is deleted, with its likes and comments. Each recording it was built from stays as an activity of its own.</string>
+    <string name="combine_title">Combine with</string>
+    <string name="combine_explained">Pick another recording of this activity, from a second device or after a break. Your feed then shows them as one activity, and each stays viewable on its own.</string>
+    <string name="combine_none">No other activities within 12 hours of this one.</string>
+    <string name="combine_row">%1$s · %2$s</string>
 </resources>

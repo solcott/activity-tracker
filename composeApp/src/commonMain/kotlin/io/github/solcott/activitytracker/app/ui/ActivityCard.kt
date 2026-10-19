@@ -89,11 +89,13 @@ fun ActivityCard(
                         .toImmutableList()
             )
             if (isOwn) CategoryLocks(remember(activity) { narrowerCategories(activity) })
+            val gaps = remember(record) { record.polylineGaps?.toImmutableList() }
             MediaRow(
                 remember(activity) { activity.mediaItems() },
                 onOpen = { onOpenMedia(it) },
                 height = 160.dp,
-                map = record.polyline?.let { polyline -> { mapModifier, mapHeight -> RoutePreview(polyline, mapModifier, mapHeight) } },
+                map =
+                    record.polyline?.let { polyline -> { mapModifier, mapHeight -> RoutePreview(polyline, mapModifier, mapHeight, gaps) } },
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (onLike != null) {
