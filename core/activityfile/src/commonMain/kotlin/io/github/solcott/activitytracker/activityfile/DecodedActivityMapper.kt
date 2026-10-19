@@ -68,6 +68,7 @@ object DecodedActivityMapper {
                 ),
             mtb = RideMetrics.mtb(sessions, fit.jumps),
             sensors = FitSensors.interpret(fit.sensors),
+            devices = FitDevices.interpret(fit.fileId, fit.sensors, fit.sessions),
             calories = sessions.mapNotNull { it.totalCalories }.takeIf { it.isNotEmpty() }?.sum()?.takeIf { it > 0 },
             aerobicTrainingEffect = sessions.mapNotNull { it.aerobicTrainingEffect }.maxOrNull()?.takeIf { it > 0 },
             anaerobicTrainingEffect = sessions.mapNotNull { it.anaerobicTrainingEffect }.maxOrNull()?.takeIf { it > 0 },

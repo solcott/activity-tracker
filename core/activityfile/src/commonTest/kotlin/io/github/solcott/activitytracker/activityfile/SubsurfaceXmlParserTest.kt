@@ -39,6 +39,7 @@ class SubsurfaceXmlParserTest {
         assertEquals(SubSport.SINGLE_GAS, activity.type.subSport)
         assertEquals(52.minutes + 30.seconds, activity.elapsed)
         assertEquals("Suunto D5", activity.device)
+        assertEquals(ImportedDevice(recorder = true, model = "Suunto D5", serialNumber = "1a2b"), activity.devices?.devices?.single())
         assertEquals("Palancar Gardens", activity.title)
 
         val dive = assertNotNull(activity.dive)
@@ -82,6 +83,11 @@ class SubsurfaceXmlParserTest {
         assertEquals(SubSport.CCR, activity.type.subSport)
         assertEquals(65.minutes, activity.elapsed, "hours in the duration")
         assertEquals("Shearwater Petrel", activity.device)
+        assertEquals(
+            ImportedDevice(recorder = true, model = "Shearwater Petrel"),
+            activity.devices?.devices?.single(),
+            "each dive keeps the computer that logged it, here one with no device ID",
+        )
         assertNull(activity.title)
         assertEquals(22.0, activity.avgTemperatureCelsius!!, 0.01, "the header's water temperature, with none in the samples")
 

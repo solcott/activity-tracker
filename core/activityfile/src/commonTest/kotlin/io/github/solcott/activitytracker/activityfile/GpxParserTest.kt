@@ -50,6 +50,7 @@ class GpxParserTest {
         assertEquals(140, activity.avgHeartRate)
         assertEquals(160, activity.maxHeartRate)
         assertEquals("Morning Run", activity.title)
+        assertNull(activity.devices, "a GPX file names no device")
     }
 
     @Test

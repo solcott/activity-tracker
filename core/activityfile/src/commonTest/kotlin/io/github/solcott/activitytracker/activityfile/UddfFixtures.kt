@@ -17,6 +17,7 @@ internal object UddfFixtures {
                   <name>My Perdix</name>
                   <manufacturer id="sw"><name>Shearwater</name></manufacturer>
                   <model>Perdix AI</model>
+                  <serialnumber>A1B2C3</serialnumber>
                 </divecomputer>
               </equipment>
             </owner>

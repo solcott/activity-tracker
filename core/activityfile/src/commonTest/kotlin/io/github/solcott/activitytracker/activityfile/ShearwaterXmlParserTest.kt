@@ -35,6 +35,10 @@ class ShearwaterXmlParserTest {
         assertEquals(Instant.parse("2024-10-16T23:30:57Z"), activity.startedAt)
         assertEquals(2754.seconds, activity.elapsed)
         assertEquals("Shearwater Peregrine TX", activity.device)
+        assertEquals(
+            ImportedDevice(recorder = true, model = "Shearwater Peregrine TX", serialNumber = "9DA7AB33", softwareVersion = "98"),
+            activity.devices?.devices?.single(),
+        )
         assertEquals(emptyList(), activity.samples, "no positions under water")
         assertEquals(null, activity.distanceMeters)
         assertEquals(null, activity.elevationGainMeters)

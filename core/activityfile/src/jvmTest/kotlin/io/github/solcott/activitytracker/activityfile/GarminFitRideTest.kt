@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.activityfile
 
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.DeviceConnection
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
 import kotlin.test.Test
@@ -71,6 +72,61 @@ class GarminFitRideTest {
         assertEquals(Edge840Devices.EDGE_SERIAL, edge.serialNumber)
         assertEquals(31.33, edge.softwareVersion!!, 1e-3)
         assertEquals(Edge840Devices.DERAILLEUR_SERIAL, decoded.sensors.last { it.deviceIndex == 4 }.serialNumber)
+    }
+
+    @Test
+    fun keepsEachDeviceOfTheEdge840RideWithItsIdentifiers() {
+        assertEquals(
+            ImportedDevices(
+                listOf(
+                    ImportedDevice(
+                        recorder = true,
+                        manufacturer = "Garmin",
+                        model = "Edge 840",
+                        serialNumber = "3510682071",
+                        connection = DeviceConnection.LOCAL,
+                        softwareVersion = "31.33",
+                    ),
+                    ImportedDevice(
+                        recorder = false,
+                        kind = SensorKind.HeartRate,
+                        manufacturer = "Garmin",
+                        model = "HRM 200",
+                        serialNumber = "3629252158",
+                        connection = DeviceConnection.BLUETOOTH_LOW_ENERGY,
+                        softwareVersion = "5.4",
+                        battery = SensorBattery.Good,
+                        batteryPercent = 75,
+                    ),
+                    ImportedDevice(
+                        recorder = false,
+                        kind = SensorKind.Power,
+                        manufacturer = "SRAM",
+                        model = "1052",
+                        serialNumber = "3236233426",
+                        connection = DeviceConnection.ANT_PLUS,
+                        softwareVersion = "1.4",
+                        battery = SensorBattery.Low,
+                        batteryMillivolts = 1574,
+                        operatingSeconds = 2_221_408,
+                    ),
+                    ImportedDevice(
+                        recorder = false,
+                        kind = SensorKind.Shifting,
+                        manufacturer = "SRAM",
+                        model = "1060",
+                        serialNumber = "1518497200",
+                        connection = DeviceConnection.ANT_PLUS,
+                        softwareVersion = "2.05",
+                        battery = SensorBattery.Ok,
+                        batteryMillivolts = 2559,
+                        operatingSeconds = 25_872,
+                    ),
+                ),
+                activityProfile = "MOUNTAIN",
+            ),
+            ride.devices,
+        )
     }
 
     @Test

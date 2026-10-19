@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.activityfile
 
+import io.github.solcott.activitytracker.lexicon.app.DeviceBattery
 import io.github.solcott.activitytracker.lexicon.app.SensorType
 
 /** What a paired sensor measures or does, and its lexicon [token] (a [SensorType] value). */
@@ -17,14 +18,16 @@ enum class SensorKind(val token: String) {
     Other(SensorType.OTHER),
 }
 
-/** How full a sensor's battery was when the activity ended, as the device reported it. */
-enum class SensorBattery {
-    New,
-    Good,
-    Ok,
-    Low,
-    Critical,
-    Charging,
+/**
+ * How full a sensor's battery was when the activity ended, as the device reported it, and its lexicon [token] (a [DeviceBattery] value).
+ */
+enum class SensorBattery(val token: String) {
+    New(DeviceBattery.NEW),
+    Good(DeviceBattery.GOOD),
+    Ok(DeviceBattery.OK),
+    Low(DeviceBattery.LOW),
+    Critical(DeviceBattery.CRITICAL),
+    Charging(DeviceBattery.CHARGING),
 }
 
 /** Turns a FIT file's `device_info` messages into the sensors paired with the recording device. */
@@ -52,11 +55,11 @@ object FitSensors {
         }
     }
 
-    private const val LOCAL = "local"
+    internal const val LOCAL = "local"
     private const val PERCENT = 100
 
     /** ANT+ and Bluetooth device types, by [fitKey]. */
-    private val KINDS: Map<String, SensorKind> =
+    internal val KINDS: Map<String, SensorKind> =
         mapOf(
             "heartrate" to SensorKind.HeartRate,
             "bikepower" to SensorKind.Power,
@@ -73,7 +76,7 @@ object FitSensors {
             "footpod" to SensorKind.Footpod,
         )
 
-    private val BATTERIES: Map<String, SensorBattery> =
+    internal val BATTERIES: Map<String, SensorBattery> =
         mapOf(
             "new" to SensorBattery.New,
             "good" to SensorBattery.Good,

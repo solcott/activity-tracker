@@ -50,6 +50,8 @@ data class ImportedActivity(
     val mtb: ImportedMtb? = null,
     /** The sensors paired with the recording device, in the order the file lists them. */
     val sensors: List<ImportedSensor> = emptyList(),
+    /** The recording device and paired sensors with what tells them apart, kept privately; null when the file names no device. */
+    val devices: ImportedDevices? = null,
     /** The athlete's thresholds as the recording device had them set (FIT only). */
     val deviceThresholds: DeviceThresholds? = null,
     /** Every sample's channels, indoor ones included, for charts; null when the file has none. Times are relative to [startedAt]. */
@@ -201,4 +203,31 @@ data class ImportedSensor(
     val model: String?,
     val battery: SensorBattery?,
     val batteryPercent: Int?,
+)
+
+/**
+ * The recording device and the sensors a file names ([FitDevices]), with their identifiers: private, unlike [ImportedActivity.sensors].
+ * [activityProfile] is the device's activity profile ("MOUNTAIN").
+ */
+data class ImportedDevices(val devices: List<ImportedDevice>, val activityProfile: String? = null)
+
+/**
+ * A recording device ([recorder]) or a paired sensor. [connection] is a `feed.activityDevices#device` connection token, [softwareVersion]
+ * as the device shows it ("31.33"), [batteryMillivolts] and [operatingSeconds] (its lifetime total) as the activity ended.
+ */
+data class ImportedDevice(
+    val recorder: Boolean,
+    val kind: SensorKind? = null,
+    val manufacturer: String? = null,
+    /** Its model name, else the file's product number. */
+    val model: String? = null,
+    val serialNumber: String? = null,
+    val antDeviceNumber: Int? = null,
+    val antTransmissionType: Int? = null,
+    val connection: String? = null,
+    val softwareVersion: String? = null,
+    val battery: SensorBattery? = null,
+    val batteryPercent: Int? = null,
+    val batteryMillivolts: Int? = null,
+    val operatingSeconds: Long? = null,
 )

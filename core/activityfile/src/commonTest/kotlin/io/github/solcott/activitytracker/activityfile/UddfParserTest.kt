@@ -40,6 +40,10 @@ class UddfParserTest {
         assertEquals(SubSport.SINGLE_GAS, activity.type.subSport)
         assertEquals(2730.seconds, activity.elapsed)
         assertEquals("Shearwater Perdix AI", activity.device, "the file's only computer, with its maker")
+        assertEquals(
+            ImportedDevice(recorder = true, model = "Shearwater Perdix AI", serialNumber = "A1B2C3"),
+            activity.devices?.devices?.single(),
+        )
         assertEquals("Blue Hole", activity.title)
         assertEquals(25.0, activity.avgTemperatureCelsius!!, 0.01, "Kelvin to °C, skipping a waypoint with none")
 

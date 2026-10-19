@@ -75,6 +75,30 @@ class TcxParserTest {
     }
 
     @Test
+    fun theCreatorIsTheRecorderWithItsUnitIdAndVersion() {
+        val run =
+            ride
+                .removePrefix("\uFEFF")
+                .replace(
+                    "<Name>Edge 530</Name><UnitId>1</UnitId>",
+                    "<Name>Forerunner 965</Name><UnitId>3456789012</UnitId><ProductID>4315</ProductID>" +
+                        "<Version><VersionMajor>19</VersionMajor><VersionMinor>2</VersionMinor><BuildMajor>0</BuildMajor></Version>",
+                )
+                .replace(
+                    "<Name>Garmin Connect API</Name>",
+                    "<Name>Garmin Connect API</Name>" +
+                        "<Build><Version><VersionMajor>25</VersionMajor><VersionMinor>8</VersionMinor></Version></Build>",
+                )
+        assertEquals(
+            ImportedDevices(
+                listOf(ImportedDevice(recorder = true, model = "Forerunner 965", serialNumber = "3456789012", softwareVersion = "19.02"))
+            ),
+            DecodedActivityMapper.map(TcxParser.parse(run)).devices,
+            "the Creator's version, not the exporting Author's",
+        )
+    }
+
+    @Test
     fun lapsKeepTheirCaloriesIntensityAndTrigger() {
         val decoded = TcxParser.parse(TcxFixtures.intervalRun)
         assertEquals(TcxFixtures.INTERVAL_LAPS, decoded.laps.size)
