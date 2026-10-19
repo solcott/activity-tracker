@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.appview.ProfileDetailRules
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityDetails
 import io.github.solcott.activitytracker.appview.db.ActivityMediaBlobs
+import io.github.solcott.activitytracker.appview.db.ActivityMembers
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.appview.db.ActivityZones
 import io.github.solcott.activitytracker.appview.db.CommentHides
@@ -21,6 +22,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivitySensor
 import io.github.solcott.activitytracker.lexicon.app.ActivityZonesRecord
+import io.github.solcott.activitytracker.lexicon.app.CombinedActivity
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import kotlinx.serialization.json.JsonObject
@@ -213,6 +215,23 @@ private fun JdbcTransaction.upsertActivity(
         this[ActivityMediaBlobs.authorDid] = author.value
         this[ActivityMediaBlobs.cid] = photo.image.ref.link
         this[ActivityMediaBlobs.mimeType] = photo.image.mimeType
+    }
+    ActivityMembers.deleteWhere { combinedUri eq uri.value }
+    // Untrusted: a combined activity claims only its author's own activities, other than itself, that fit the column, and at most
+    // CombinedActivity.MAX_MEMBERS of them. Whether each claim counts is decided when reading.
+    val members =
+        record.combined
+            ?.members
+            .orEmpty()
+            .filter { it.authority == author.value && it.collection == Nsid.FEED_ACTIVITY && it.rkey != null && it != uri }
+            .map { it.value }
+            .filter { it.length <= MAX_URI_LENGTH }
+            .distinct()
+            .take(CombinedActivity.MAX_MEMBERS)
+    ActivityMembers.batchInsert(members) { member ->
+        this[ActivityMembers.memberUri] = member
+        this[ActivityMembers.combinedUri] = uri.value
+        this[ActivityMembers.authorDid] = author.value
     }
 }
 

@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.appview.ProfileDetailRules
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityDetails
 import io.github.solcott.activitytracker.appview.db.ActivityMediaBlobs
+import io.github.solcott.activitytracker.appview.db.ActivityMembers
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.appview.db.ActivityZones
 import io.github.solcott.activitytracker.appview.db.Actors
@@ -241,6 +242,7 @@ class Indexer(
                 if (collection == Nsid.FEED_ACTIVITY) {
                     Activities.deleteWhere { Activities.uri eq uri.value }
                     ActivityMediaBlobs.deleteWhere { activityUri eq uri.value }
+                    ActivityMembers.deleteWhere { combinedUri eq uri.value }
                 } else {
                     ActivityZones.deleteWhere { ActivityZones.uri eq uri.value }
                 }
@@ -305,6 +307,7 @@ class Indexer(
     private suspend fun deleteActor(did: Did) = db.tx {
         Activities.deleteWhere { authorDid eq did.value }
         ActivityMediaBlobs.deleteWhere { authorDid eq did.value }
+        ActivityMembers.deleteWhere { authorDid eq did.value }
         ActivityStreams.deleteWhere { authorDid eq did.value }
         ActivityDetails.deleteWhere { authorDid eq did.value }
         ActivityZones.deleteWhere { authorDid eq did.value }

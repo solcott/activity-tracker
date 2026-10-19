@@ -38,7 +38,6 @@ import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.alias
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
-import org.jetbrains.exposed.v1.core.countDistinct
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
@@ -124,7 +123,8 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
             invalidRequest("At most ${GetComments.MAX_URIS} uris may be given, not ${uris.size}")
         if (uris != null && params.root != null) invalidRequest("uris and root can't be given together")
         val athlete = requireVisibleActivity(params.uri.value, viewer)
-        val listed = (Comments.subjectUri eq params.uri.value) and commentsListedFor(viewer)
+        // A combined activity's comments include those on its members.
+        val listed = (Comments.subjectUri inList interactionSubjects(params.uri.value)) and commentsListedFor(viewer)
         val root = params.root
         when {
             uris != null -> {
@@ -153,6 +153,8 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val uri = params.uri.value
         // An activity the viewer may not see answers as if it didn't exist, revealing none of its likes.
         requireVisibleActivity(uri, viewer)
+        // A combined activity's likes include those on its members.
+        val subjects = interactionSubjects(uri)
         val pageSize = Paging.clamp(params.limit)
         val latest = Likes.indexedAt.max()
         val after =
@@ -162,7 +164,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val rows =
             admittedLikes()
                 .select(Likes.authorDid, latest)
-                .where { (Likes.subjectUri eq uri) and visibleTo(Likes.authorDid) }
+                .where { (Likes.subjectUri inList subjects) and visibleTo(Likes.authorDid) }
                 .groupBy(Likes.authorDid)
                 .having { after }
                 .orderBy(latest to SortOrder.DESC, Likes.authorDid to SortOrder.DESC)
@@ -185,7 +187,9 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
             details = publicDetails(row),
             units = row[Actors.units],
             followPolicy = row[Actors.followPolicy] ?: FollowPolicy.OPEN,
-            activitiesCount = Activities.selectAll().where { (Activities.authorDid eq did) and visibleTo(viewer) }.count(),
+            // A member counts only as its combined activity.
+            activitiesCount =
+                Activities.selectAll().where { (Activities.authorDid eq did) and visibleTo(viewer) and not(isMember()) }.count(),
             followersCount = Follows.selectAll().where { (Follows.subjectDid eq did) and effectiveFollow() }.count(),
             followsCount = Follows.selectAll().where { (Follows.authorDid eq did) and effectiveFollow() }.count(),
             viewer = viewer?.let { v -> viewerState(v.value, did) },
@@ -214,22 +218,30 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         if (rows.isEmpty()) return emptyList()
         val uris = rows.map { it[Activities.uri] }
         val authors = basicProfiles(rows.map { it[Activities.authorDid] }, avatars)
-        // Every row is one the viewer may see, so a like counts once its giver may see the activity too.
-        // Distinct givers, not records, since repos may hold duplicates.
-        val likeCount = Likes.authorDid.countDistinct()
+        val members = membersOf(uris)
+        val combinedInto = combinedIntoOf(uris)
+        // A combined activity's likes and comments include its members': each subject counts toward the activity it's shown as.
+        val countedAs = uris.associateWith { it } + members.flatMap { (combined, its) -> its.map { it.uri.value to combined } }
+        val subjects = countedAs.keys
+        // Every row is one the viewer may see, and members share their combined activity's visibility, so a like counts once its giver
+        // may see the activity too. Distinct givers, not records, since repos may hold duplicates, and a giver may have liked a member too.
         val likeCounts =
             admittedLikes()
-                .select(Likes.subjectUri, likeCount)
-                .where { (Likes.subjectUri inList uris) and visibleTo(Likes.authorDid) }
-                .groupBy(Likes.subjectUri)
-                .associate { it[Likes.subjectUri] to it[likeCount] }
+                .select(Likes.subjectUri, Likes.authorDid)
+                .where { (Likes.subjectUri inList subjects) and visibleTo(Likes.authorDid) }
+                .withDistinct()
+                .toList()
+                .groupBy({ countedAs.getValue(it[Likes.subjectUri]) }) { it[Likes.authorDid] }
+                .mapValues { (_, givers) -> givers.toSet().size.toLong() }
         val commentCount = Comments.uri.count()
         val commentCounts =
             admittedComments()
                 .select(Comments.subjectUri, commentCount)
-                .where { (Comments.subjectUri inList uris) and commentsVisibleTo(viewer) and not(hiddenByAthlete()) }
+                .where { (Comments.subjectUri inList subjects) and commentsVisibleTo(viewer) and not(hiddenByAthlete()) }
                 .groupBy(Comments.subjectUri)
-                .associate { it[Comments.subjectUri] to it[commentCount] }
+                .toList()
+                .groupBy({ countedAs.getValue(it[Comments.subjectUri]) }) { it[commentCount] }
+                .mapValues { (_, counts) -> counts.sum() }
         // The viewer may see every row, so their own like is always admitted.
         val viewerLikes =
             viewer
@@ -259,6 +271,8 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 visibility = visibility,
                 viewer = viewer?.let { ActivityViewerState(like = viewerLikes[uri]?.let(::AtUri)) },
                 recordings = recordings[uri],
+                members = members[uri],
+                combinedInto = combinedInto[uri]?.let(::AtUri),
                 media = mediaViews(mediaUrls, row[Activities.authorDid], record.media, visibility, viewer),
                 details = details[uri],
             )
@@ -288,20 +302,23 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         }
 
     /**
-     * Leaves out another recording of an activity that's indexed, is an activity in its own right and has the same visibility: the feed
-     * shows that one, listing its recordings. A recording whose activity is gone, is itself a recording, or is at another visibility shows
-     * on its own.
+     * Leaves out a member of a combined activity ([isMember]): the feed shows the combined activity, listing its members. Leaves out
+     * another recording of an activity that's indexed, is an activity in its own right and has the same visibility too: the feed shows that
+     * one, listing its recordings. A recording whose activity is gone, is itself a recording, or is at another visibility shows on its own.
      */
     private fun shownInFeeds(): Op<Boolean> {
         val recorded = Activities.alias("recorded")
-        return Activities.recordingOf.isNull() or
-            NotExists(
-                recorded.select(recorded[Activities.uri]).where {
-                    (recorded[Activities.uri] eq Activities.recordingOf) and
-                        recorded[Activities.recordingOf].isNull() and
-                        (recorded[Activities.visibility] eq Activities.visibility)
-                }
-            )
+        val notRecording =
+            Activities.recordingOf.isNull() or
+                NotExists(
+                    recorded.select(recorded[Activities.uri]).where {
+                        (recorded[Activities.uri] eq Activities.recordingOf) and
+                            recorded[Activities.recordingOf].isNull() and
+                            (recorded[Activities.visibility] eq Activities.visibility)
+                    }
+                )
+        // A member of a combined activity shows only as that one.
+        return notRecording and not(isMember())
     }
 }
 

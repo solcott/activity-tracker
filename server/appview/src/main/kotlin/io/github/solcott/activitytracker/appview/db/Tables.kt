@@ -45,6 +45,17 @@ object Activities : Table("activities") {
     override val primaryKey = PrimaryKey(uri)
 }
 
+/**
+ * A combined activity's claim on a member ([io.github.solcott.activitytracker.lexicon.app.ActivityRecord.combined]), one row per listed
+ * member of the author's own. Whether it counts is checked at read time (`Views.validMembers`).
+ */
+object ActivityMembers : Table("activity_members") {
+    val memberUri = varchar("member_uri", 512)
+    val combinedUri = varchar("combined_uri", 512)
+    val authorDid = varchar("author_did", 255)
+    override val primaryKey = PrimaryKey(memberUri, combinedUri)
+}
+
 /** An activity's photos ([io.github.solcott.activitytracker.lexicon.app.ActivityRecord.media]), in order. */
 object ActivityMediaBlobs : Table("activity_media") {
     val activityUri = varchar("activity_uri", 512)
