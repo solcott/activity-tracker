@@ -6,12 +6,17 @@ import kotlin.math.roundToInt
 
 /** What the activity detail charts show, worked out from an activity's streams (`ActivityStreamData`). */
 object StreamAnalytics {
-    /** Durations a power curve is read at, in seconds, as Strava and Garmin show them. */
-    val CURVE_SECONDS = listOf(1, 5, 10, 15, 30, 60, 120, 300, 600, 1200, 1800, 3600, 7200, 10800, 18000)
+    /** Durations a power curve is read at, in seconds: Garmin Connect's, then 3 h and 5 h for longer days. */
+    val CURVE_SECONDS = listOf(1, 2, 5, 10, 20, 30, 60, 120, 300, 600, 1200, 1800, 3600, 7200, 10800, 18000)
 
     /** One value per second recorded, from samples at [time] seconds (see [PerSecond.hold]); null samples are skipped. */
-    fun perSecond(time: List<Int>, values: List<Int?>): List<Int> =
-        PerSecond.hold(time.indices.mapNotNull { i -> values.getOrNull(i)?.let { time[i].toDouble() to it } })
+    fun perSecond(time: List<Int>, values: List<Int?>): List<Int> = PerSecond.hold(samples(time, values))
+
+    /** One value per second of clock time from the first sample to the last (see [PerSecond.clock]); a pause counts its length at 0. */
+    fun clockSeconds(time: List<Int>, values: List<Int?>): List<Int> = PerSecond.clock(samples(time, values))
+
+    private fun samples(time: List<Int>, values: List<Int?>) =
+        time.indices.mapNotNull { i -> values.getOrNull(i)?.let { time[i].toDouble() to it } }
 
     /**
      * Seconds spent in each zone, lowest first, for zones starting at [lows] (ascending; each ends where the next begins). A value below
@@ -24,7 +29,10 @@ object StreamAnalytics {
         return seconds.toList()
     }
 
-    /** The best average of [perSecond] over each of [durations] it's long enough for, as (seconds, average). */
+    /**
+     * The best average of [perSecond] over each of [durations] it's long enough for, as (seconds, average). A power curve passes
+     * [clockSeconds], so no window joins efforts from either side of a pause.
+     */
     fun meanMax(perSecond: List<Int>, durations: List<Int> = CURVE_SECONDS): List<Pair<Int, Int>> =
         durations
             .filter { it in 1..perSecond.size }

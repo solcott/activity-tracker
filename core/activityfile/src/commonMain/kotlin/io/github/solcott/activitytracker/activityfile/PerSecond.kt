@@ -22,7 +22,16 @@ object PerSecond {
      * longer than [MAX_HOLD_SECONDS] or [HOLD_INTERVALS] median gaps, whichever is longer, counts once. One-second and smart recording
      * (median 1–2 s) keep the 5 s limit; a file logged every 30 s holds across 60 s.
      */
-    fun hold(samples: List<Pair<Double, Int>>): List<Int> {
+    fun hold(samples: List<Pair<Double, Int>>): List<Int> = resample(samples, pauseValue = null)
+
+    /**
+     * One value for each second of clock time from the first sample to the last, as [hold] but with a pause counting its real length at 0:
+     * what a power curve reads, so no window joins efforts from either side of a stop.
+     */
+    fun clock(samples: List<Pair<Double, Int>>): List<Int> = resample(samples, pauseValue = 0)
+
+    /** [hold] when [pauseValue] is null; otherwise a pause's seconds after its first take [pauseValue]. */
+    private fun resample(samples: List<Pair<Double, Int>>, pauseValue: Int?): List<Int> {
         val gaps = samples.zipWithNext { (at), (nextAt) -> (nextAt - at).roundToInt() }
         val positive = gaps.filter { it > 0 }
         val interval = if (positive.size >= MIN_GAPS_FOR_INTERVAL) median(positive) else 0
@@ -30,7 +39,14 @@ object PerSecond {
         val seconds = mutableListOf<Int>()
         samples.forEachIndexed { i, (_, value) ->
             val gap = gaps.getOrNull(i) ?: 1
-            repeat(if (gap in 1..limit) gap else 1) { seconds += value }
+            when {
+                gap in 1..limit -> repeat(gap) { seconds += value }
+                pauseValue != null && gap > limit -> {
+                    seconds += value
+                    repeat(gap - 1) { seconds += pauseValue }
+                }
+                else -> seconds += value
+            }
         }
         return seconds
     }

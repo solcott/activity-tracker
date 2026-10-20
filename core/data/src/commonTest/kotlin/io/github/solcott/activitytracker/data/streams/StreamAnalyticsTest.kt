@@ -28,6 +28,37 @@ class StreamAnalyticsTest {
     }
 
     @Test
+    fun clockSecondsMatchPerSecondForUnbrokenRecording() {
+        val time = (0..59).toList()
+        val watts = time.map { 100 + it }
+        assertEquals(StreamAnalytics.perSecond(time, watts), StreamAnalytics.clockSeconds(time, watts))
+    }
+
+    @Test
+    fun clockSecondsCountAPauseItsRealLengthAtZero() {
+        // 0..59 s at 200 W, a 10-minute auto-pause, then 660..719 s at 200 W.
+        val time = (0..59).toList() + (660..719).toList()
+        val seconds = StreamAnalytics.clockSeconds(time, time.map { 200 })
+        assertEquals(720, seconds.size)
+        assertEquals(600, seconds.count { it == 0 })
+        assertEquals(List(599) { 0 }, seconds.subList(60, 659))
+    }
+
+    @Test
+    fun clockSecondsHoldSmartRecordingWithoutZeros() {
+        // Gaps cycling 1 to 8 s, as smart recording logs.
+        val time = generateSequence(0 to 0) { (at, i) -> at + (i % 8 + 1) to i + 1 }.map { it.first }.takeWhile { it <= 600 }.toList()
+        val seconds = StreamAnalytics.clockSeconds(time, time.map { 180 })
+        assertEquals(time.last() + 1, seconds.size)
+        assertTrue(seconds.all { it == 180 })
+    }
+
+    @Test
+    fun clockSecondsSkipMissingSamples() {
+        assertEquals(listOf(160, 160, 165), StreamAnalytics.clockSeconds(listOf(0, 1, 2), listOf(160, null, 165)))
+    }
+
+    @Test
     fun meanMaxFindsTheBestWindowForEachDurationItFits() {
         val seconds = listOf(100, 100, 400, 300, 100, 100)
         assertEquals(listOf(1 to 400, 5 to 200), StreamAnalytics.meanMax(seconds, durations = listOf(1, 5, 10)))
