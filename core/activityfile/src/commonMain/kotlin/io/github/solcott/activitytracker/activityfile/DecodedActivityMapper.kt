@@ -50,7 +50,7 @@ object DecodedActivityMapper {
             maxSpeedMps = sessions.mapNotNull { it.maxSpeedMps }.maxOrNull() ?: records.mapNotNull { it.speedMps }.maxOrNull(),
             avgHeartRate = sessions.weightedAverage { it.avgHeartRate?.toDouble() }?.roundToInt() ?: records.averageOf { it.heartRate },
             maxHeartRate = sessions.mapNotNull { it.maxHeartRate }.maxOrNull() ?: records.mapNotNull { it.heartRate }.maxOrNull(),
-            avgTemperatureCelsius = avgTemperature(sessions, records),
+            avgTemperatureCelsius = avgTemperature(sessions, records, isDive = fit.dive != null),
             device = fit.fileId?.let { DeviceNames.device(it.manufacturer, it.product) },
             samples = samples,
             dive = fit.dive?.let { dive(it, records, startedAtMillis) },
@@ -164,9 +164,21 @@ object DecodedActivityMapper {
             ?: fit.fileId?.timeCreatedMillis
             ?: activityFileError("No start time in file")
 
-    private fun avgTemperature(sessions: List<DecodedSummary>, records: List<DecodedSample>): Double? =
-        sessions.weightedAverage { it.avgTemperatureCelsius }
-            ?: records.mapNotNull { it.temperatureCelsius }.takeIf { it.isNotEmpty() }?.average()
+    /**
+     * The records' temperatures averaged over the time each held ([PerSecond.hold], so a pause counts its sample once), else the sessions'
+     * average. Garmin writes a session's average in whole degrees, which the samples refine: 19.24 °C where the session says 19. A dive
+     * keeps its computer's average, else the plain mean of its samples, as dive logs' own apps report it.
+     */
+    private fun avgTemperature(sessions: List<DecodedSummary>, records: List<DecodedSample>, isDive: Boolean): Double? {
+        val summary = sessions.weightedAverage { it.avgTemperatureCelsius }
+        if (isDive) return summary ?: records.mapNotNull { it.temperatureCelsius }.takeIf { it.isNotEmpty() }?.average()
+        val samples = records.mapNotNull { r ->
+            val millis = r.timestampMillis ?: return@mapNotNull null
+            r.temperatureCelsius?.let { millis / MILLIS_PER_SECOND to (it * CENTI).roundToInt() }
+        }
+        val seconds = PerSecond.hold(samples)
+        return if (seconds.isEmpty()) summary else seconds.average() / CENTI
+    }
 
     /** [records] are sorted and all have a timestamp. */
     private fun elapsed(sessions: List<DecodedSummary>, records: List<DecodedSample>): Duration {
