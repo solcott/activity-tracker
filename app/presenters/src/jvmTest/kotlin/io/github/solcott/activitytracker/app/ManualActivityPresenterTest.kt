@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app
 
+import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
@@ -205,5 +206,41 @@ class ManualActivityPresenterTest {
         }
         assertTrue(fixture.putRecords.isEmpty(), "never in the repo")
         assertEquals(listOf(Visibility.FOLLOWERS), fixture.spacePuts.map { it.first })
+    }
+
+    @Test
+    fun offersStartTimeAndPaceOnlyOnceADistanceIsEntered() = runTest {
+        fixture.activityDefaults = """{"visibility":"public","details":{"dive":"self"}}"""
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ManualActivityScreen)
+        presenterTestOf({
+            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.typeChoices, repos.defaults, Clock.System)
+        }) {
+            var state = awaitUntil { it.visibility.tierOf(DetailCategory.START_TIME) != null }
+            assertEquals(listOf(DetailCategory.START_TIME), state.visibility.categories.map { it.category }, "no distance, no pace")
+            // A pace needs a time as well as a distance.
+            state.durationMinutes.setTextAndPlaceCursorAtEnd("30")
+
+            state.distance.setTextAndPlaceCursorAtEnd("5")
+            state = awaitUntil { it.visibility.tierOf(DetailCategory.SPEED) != null }
+            assertEquals(listOf(DetailCategory.START_TIME, DetailCategory.SPEED), state.visibility.categories.map { it.category })
+            state.visibility.eventSink(VisibilityEvent.CategoryChanged(DetailCategory.SPEED, Visibility.SELF))
+            state = awaitUntil { it.visibility.tierOf(DetailCategory.SPEED) == Visibility.SELF }
+
+            state.distance.clearText()
+            state = awaitUntil { it.visibility.tierOf(DetailCategory.SPEED) == null }
+            state.visibility.eventSink(VisibilityEvent.CategoryChanged(DetailCategory.SPEED, Visibility.PUBLIC))
+            state.distance.setTextAndPlaceCursorAtEnd("5")
+            state = awaitUntil { it.visibility.tierOf(DetailCategory.SPEED) != null }
+            assertEquals(Visibility.SELF, state.visibility.tierOf(DetailCategory.SPEED), "kept while hidden; changes to it ignored")
+
+            state.distance.clearText()
+            state = awaitUntil { it.visibility.tierOf(DetailCategory.SPEED) == null }
+            state.eventSink(ManualActivityEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(1, fixture.putRecords.size)
+        assertTrue(fixture.spacePuts.isEmpty(), "an Only-me dive default with no dive data publishes nothing there")
     }
 }

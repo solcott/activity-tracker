@@ -27,6 +27,7 @@ import io.github.solcott.activitytracker.location.LocationTracker
 import io.github.solcott.activitytracker.location.RecordingState
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.delay
 
 @CircuitInject(RecordScreen::class, SessionScope::class)
@@ -49,7 +50,8 @@ fun RecordPresenter(
     val saving = flights.isRunning(RecordEvent.Finish)
     // GPS recording: indoor types are for manual entry and import.
     val type = typeChoices.produce(ActivityType(Sport.RUN), outdoorOnly = true)
-    val visibility = rememberNewActivityVisibility(defaults)
+    // Offered before there's any data: what a GPS recording holds.
+    val visibility = rememberNewActivityVisibility(defaults, ActivityDraft.RECORDED_CATEGORIES.toImmutableSet())
 
     LaunchedEffect(recording.status) {
         while (recording.status == RecordingState.Status.Recording) {

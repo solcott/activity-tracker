@@ -12,6 +12,8 @@ import io.github.solcott.activitytracker.data.training.ThresholdUpdates
 import io.github.solcott.activitytracker.data.training.ZoneSnapshots
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.toImmutableSet
 
 /**
  * [activity] ready to publish, with its zones as the recording device had the thresholds, where the athlete lets imports update them
@@ -51,3 +53,22 @@ internal fun ActivityDraft.withDetails(form: DetailsForm, isDive: Boolean): Acti
         diveSite = form.diveSite.text.toString().takeIf { isDive },
         photos = form.newPhotos(),
     )
+
+/** The detail categories an import has data in ([ActivityDraft.heldCategories]), and whether its cadence comes with running form. */
+internal data class ImportCategories(val categories: ImmutableSet<String>, val runningForm: Boolean)
+
+/**
+ * What an import offers is what it will publish: the data of [single] as [type], or else of each of a logbook's [dives] that is [selected]
+ * (by index).
+ */
+internal fun importCategories(
+    single: ImportedActivity?,
+    type: ActivityType,
+    dives: List<ImportedActivity>?,
+    selected: (Int) -> Boolean,
+): ImportCategories {
+    val drafts =
+        single?.let { listOf(ActivityDraft.fromImport(it, type, null)) }
+            ?: dives.orEmpty().filterIndexed { i, _ -> selected(i) }.map { ActivityDraft.fromImport(it, it.type, null) }
+    return ImportCategories(drafts.flatMap { it.heldCategories() }.toImmutableSet(), drafts.any { it.hasRunningForm })
+}

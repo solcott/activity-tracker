@@ -256,6 +256,9 @@ object DetailCategory {
                 ),
         )
 
+    /** The [CADENCE] channels that are running form rather than cadence itself, which name the category "Cadence and running form". */
+    val RUNNING_FORM_CHANNELS: Set<String> = CHANNELS.getValue(CADENCE) - StreamChannel.CADENCE
+
     /**
      * Stream channels in no category, always in the activity's tier record. [StreamChannel.LAPS] and `legs` hold their core fields there.
      */

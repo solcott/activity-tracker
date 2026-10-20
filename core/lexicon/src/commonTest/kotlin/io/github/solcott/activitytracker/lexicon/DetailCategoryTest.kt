@@ -47,6 +47,21 @@ class DetailCategoryTest {
     }
 
     @Test
+    fun runningFormIsCadenceWithoutCadenceItself() {
+        assertEquals(
+            setOf(
+                StreamChannel.VERTICAL_OSCILLATION,
+                StreamChannel.STANCE_TIME,
+                StreamChannel.STEP_LENGTH,
+                StreamChannel.VERTICAL_RATIO,
+                StreamChannel.STANCE_TIME_BALANCE,
+                StreamChannel.LEG_SPRING_STIFFNESS,
+            ),
+            DetailCategory.RUNNING_FORM_CHANNELS,
+        )
+    }
+
+    @Test
     fun everyLapAndLegFieldHasOneCategoryOrIsCore() {
         val categorized = DetailCategory.LAP_FIELDS.values.flatten()
         assertEquals(categorized.size, categorized.toSet().size)

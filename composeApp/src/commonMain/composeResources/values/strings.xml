@@ -910,6 +910,7 @@
     <string name="detail_category_physiology">Physiology</string>
     <string name="detail_category_physiology_help">Respiration rate, core temperature and muscle oxygen.</string>
     <string name="detail_category_cadence">Cadence and running form</string>
+    <string name="detail_category_cadence_only">Cadence</string>
     <string name="detail_category_dive">Dive data</string>
     <string name="detail_category_dive_help">Depth, gases, deco and tank pressures. The dive summary shows with the activity.</string>
     <string name="detail_category_lock_description">%1$s: visible to %2$s</string>

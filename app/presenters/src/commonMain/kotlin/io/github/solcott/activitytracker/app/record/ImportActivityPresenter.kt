@@ -113,7 +113,14 @@ fun ImportActivityPresenter(
     // Keyed on the zone too: a zone with the same offset leaves the activity as it was.
     val preview = remember(placed, zones, zone, matches, selection) { singlePreview(placed, zone, zones, matches, selection) }
     val athlete = rememberOwnProfile(profiles)
-    val visibility = rememberNewActivityVisibility(defaults) { athlete?.followPolicy == FollowPolicy.APPROVE }
+    val held =
+        remember(placed, placedDives, selection, matches, type) {
+            importCategories(placed?.second, type, placedDives) { selection.isSelected(it, matches.getOrNull(it)) }
+        }
+    val visibility =
+        rememberNewActivityVisibility(defaults, held.categories, runningForm = held.runningForm) {
+            athlete?.followPolicy == FollowPolicy.APPROVE
+        }
     val training = athlete?.details?.training
     val thresholdChanges = remember(placed, training, type.sport) { pendingThresholds(training, placed?.second, type.sport) }
     val defaultTitle =

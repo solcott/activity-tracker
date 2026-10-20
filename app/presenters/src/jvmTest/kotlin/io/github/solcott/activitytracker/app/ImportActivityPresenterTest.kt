@@ -431,6 +431,9 @@ class ImportActivityPresenterTest {
             assertTrue(preview.profile.size <= 300, "thinned to ${preview.profile.size}")
             assertEquals(DepthPreviewPoint(7200, 0.0), preview.profile.last(), "still ends at the surface")
             assertNull(read.preview?.polyline)
+            val offered = read.visibility.categories.map { it.category }
+            assertTrue(DetailCategory.DIVE in offered, offered.toString())
+            assertTrue(DetailCategory.MAP !in offered, "no GPS track, no map: $offered")
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -505,8 +508,13 @@ class ImportActivityPresenterTest {
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("ride.fit", bytes))
-            val preview = assertNotNull(awaitUntil { it.preview != null }.preview)
+            val read = awaitUntil { it.preview != null }
+            val preview = assertNotNull(read.preview)
             assertEquals("Garmin Edge 840", preview.device)
+            val offered = read.visibility.categories.map { it.category }
+            assertTrue(DetailCategory.DIVE !in offered && DetailCategory.PHYSIOLOGY !in offered, offered.toString())
+            assertTrue(DetailCategory.POWER in offered && DetailCategory.CADENCE in offered, offered.toString())
+            assertEquals(false, read.visibility.runningForm, "pedalling cadence only")
             assertEquals(82.0, preview.elevationLossMeters)
             assertEquals(CadencePreview(75, 115), preview.cadence)
             assertEquals(PowerPreview(180, 640, 205, 108L, 250, 0.82, 11.2), preview.power)
