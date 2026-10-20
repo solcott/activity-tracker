@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.atproto
 
+import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
 import co.touchlab.kermit.TestLogWriter
@@ -99,7 +100,7 @@ class OAuthFlowTest {
             IdentityResolver(network.client, "http://plc.test", "http://pds.test"),
             config,
         )
-    private val logs = TestLogWriter(Severity.Verbose)
+    @OptIn(ExperimentalKermitApi::class) private val logs = TestLogWriter(Severity.Verbose)
     private val manager = OAuthSessionManager(oauth, store, logger = Logger(loggerConfigInit(logs)))
 
     @Test

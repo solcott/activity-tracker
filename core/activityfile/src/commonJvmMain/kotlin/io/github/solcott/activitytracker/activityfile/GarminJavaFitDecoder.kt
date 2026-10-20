@@ -458,7 +458,7 @@ private class DiveListeners(broadcaster: MesgBroadcaster) {
             ppO2CriticalBar = settings?.po2Critical?.toDouble(),
             ppO2DecoBar = settings?.po2Deco?.toDouble(),
             safetyStopEnabled = settings?.safetyStopEnabled?.let { it == Bool.TRUE },
-            safetyStopTimeSeconds = settings?.safetyStopTime?.toInt(),
+            safetyStopTimeSeconds = settings?.safetyStopTime,
             lowSetpointBar = settings?.ccrLowSetpoint?.toDouble(),
             highSetpointBar = settings?.ccrHighSetpoint?.toDouble(),
         )
