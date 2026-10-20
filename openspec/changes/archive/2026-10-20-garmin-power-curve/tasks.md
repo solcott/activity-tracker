@@ -16,5 +16,5 @@
 
 ## 3. Spec housekeeping and checks
 
-- [ ] 3.1 When archiving, update `openspec/specs/feed/stream-resampling/spec.md`'s Purpose so it no longer lists the power curve among the figures resampled by recorded time. Verify with `openspec validate --specs`.
+- [x] 3.1 When archiving, update `openspec/specs/feed/stream-resampling/spec.md`'s Purpose so it no longer lists the power curve among the figures resampled by recorded time. Verify with `openspec validate --specs`.
 - [x] 3.2 Run `./gradlew check` and verify it passes (detekt, ktfmt, stability and all targets).
