@@ -9,7 +9,7 @@ Markers on an activity's map that show where it starts and ends and where its li
 
 
 ### Requirement: The map marks the start and end
-Every route map of an activity (its detail page, its feed card and the import preview) SHALL mark the first position of its line with a start marker and the last with an end marker, the end drawn above the start.
+Every route map of an activity (its detail page, its enlarged map, its feed card and the import preview) SHALL mark the first position of its line with a start marker and the last with an end marker, the end drawn above the start.
 
 #### Scenario: Out-and-back run
 - **WHEN** a run that goes out 5 km and back by another street is shown
