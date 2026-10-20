@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Categories chosen for each activity
-Recording, manual entry, import and batch import SHALL each let the athlete set the visibility of each category the new activity has data in, prefilled from the defaults, on every platform. A batch SHALL offer each category any selected activity has data in. Recording SHALL offer Start time, Map, and Pace and speed. Start time SHALL always be offered. Changing them SHALL affect only that activity or batch. Editing an activity SHALL let the athlete change them, within the cap. A category with no data on the activity SHALL NOT be offered when creating or editing it.
+Recording, manual entry, import and batch import SHALL each let the athlete set the visibility of each category the new activity has data in (for a batch, any selected activity; for a recording, Start time, Map, and Pace and speed), prefilled from the defaults, on every platform. Changing them SHALL affect only that activity or batch. Editing SHALL let the athlete change them, within the cap. A category with no data SHALL NOT be offered.
 
 #### Scenario: Override for one activity
 - **WHEN** an athlete whose Power default is Only me sets one import's Power to Public
