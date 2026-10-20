@@ -63,4 +63,11 @@ class ActivityPairingTest {
         val phone = record(Sport.RUN, "2026-10-10T07:00:00Z", 45.minutes)
         assertEquals(Pairing.Overlap, ActivityMatcher.pairing(phone, watch))
     }
+
+    @Test
+    fun differentSportsAtTheSameTimeArentPaired() {
+        val ski = record(Sport.SKI, "2026-10-19T15:00:00Z", 2.hours + 45.minutes)
+        val dive = record(Sport.DIVE, "2026-10-19T16:00:00Z", 45.minutes, SubSport.SINGLE_GAS)
+        assertNull(ActivityMatcher.pairing(dive, ski))
+    }
 }

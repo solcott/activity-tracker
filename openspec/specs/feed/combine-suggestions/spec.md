@@ -7,11 +7,15 @@ Spots an athlete's activities that likely belong in one combined activity, eithe
 ## Requirements
 
 ### Requirement: Overlapping activities are suggested
-After an athlete saves an activity, the app SHALL suggest combining it with another of their activities whose time overlaps it by at least half of the shorter one, unless the save itself already combined it.
+After an athlete saves an activity, the app SHALL suggest combining it with another of their activities of the same sport whose time overlaps it by at least half of the shorter one, unless the save itself already combined it.
 
 #### Scenario: App recording and watch
 - **WHEN** an athlete saves an app recording of a run from 7:00 to 7:45 and already has a watch's run from 7:01 to 7:46
 - **THEN** the app asks whether to combine the two
+
+#### Scenario: Different sports at the same time
+- **WHEN** an athlete saves a dive from 16:00 to 16:45 and has a ski activity from 15:00 to 17:45
+- **THEN** no suggestion is made
 
 ### Requirement: Continuations are suggested
 After an athlete saves an activity, the app SHALL suggest combining it with another of their activities of the same sport where one starts no more than 2 hours after the other ends. Dives SHALL NOT be suggested as continuations.

@@ -60,12 +60,14 @@ object ActivityMatcher {
     }
 
     /**
-     * How [a] and [b], two of the athlete's saved activities, likely belong together, or null: they overlap as [match] would call them the
-     * same, or they're a [continuation].
+     * How [a] and [b], two of the athlete's saved activities, likely belong together, or null: they're of the same sport
+     * ([ActivityRecord.subSport] aside) and overlap as [match] would call them the same, or they're a [continuation]. Unlike [match], which
+     * lets the athlete decide whether an imported run that overlaps a walk is the same thing, a suggestion asks unprompted, so an overlap
+     * of two sports isn't one.
      */
     fun pairing(a: ActivityRecord, b: ActivityRecord): Pairing? =
         when {
-            a.span().sameAs(b.span()) -> Pairing.Overlap
+            a.sport == b.sport && a.span().sameAs(b.span()) -> Pairing.Overlap
             continuation(a, b) -> Pairing.Continuation
             else -> null
         }
