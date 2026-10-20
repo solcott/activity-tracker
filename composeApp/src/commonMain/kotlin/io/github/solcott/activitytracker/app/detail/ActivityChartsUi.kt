@@ -50,7 +50,6 @@ import io.github.solcott.activitytracker.composeApp.resources.unit_duration_hour
 import io.github.solcott.activitytracker.composeApp.resources.unit_duration_minutes
 import io.github.solcott.activitytracker.composeApp.resources.unit_duration_seconds
 import io.github.solcott.activitytracker.composeApp.resources.unit_watts
-import kotlin.math.log10
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
@@ -315,8 +314,14 @@ private fun Zones(title: StringResource, zones: ImmutableList<ZoneTime>, unit: S
 @Composable
 private fun PowerCurve(curve: ImmutableList<CurvePoint>) {
     val watts = stringResource(Res.string.unit_watts, "")
-    // A log scale, so 5 s and 1 h both get room.
-    val points = remember(curve) { curve.map { SeriesPoint(log10(it.seconds.toDouble()), it.watts.toDouble()) }.toImmutableList() }
+    // As Garmin draws it: each duration an equal step along the axis, so 1 s to 1 min takes no more room than 1 min to 1 h.
+    val points = remember(curve) { curve.mapIndexed { i, point -> SeriesPoint(i.toDouble(), point.watts.toDouble()) }.toImmutableList() }
+    // Between two durations the axis runs on a log scale, so a marker between points reads a duration between theirs.
+    val secondsAt = { x: Double ->
+        val i = x.toInt().coerceIn(0, curve.lastIndex)
+        val next = curve.getOrNull(i + 1)?.seconds ?: curve[i].seconds
+        (curve[i].seconds * (next.toDouble() / curve[i].seconds).pow(x - i)).roundToInt()
+    }
     val labelled = remember(curve) { curve.filter { it.seconds in CURVE_STATS } }
     val seconds = stringResource(Res.string.unit_duration_seconds, "%s")
     val minutes = stringResource(Res.string.unit_duration_minutes, "%s")
@@ -332,28 +337,20 @@ private fun PowerCurve(curve: ImmutableList<CurvePoint>) {
     val wattsTemplate = stringResource(Res.string.unit_watts, "%s")
     val wattsAt = labelled.map { durationLabel(it.seconds) to stringResource(Res.string.unit_watts, it.watts) }
     val described = wattsAt.map { (duration, w) -> stringResource(Res.string.chart_power_curve_point, duration, w) }
-    val pointLabels =
-        remember(labelled, wattsAt) {
-            labelled
-                .mapIndexed { i, point -> SeriesLabel(log10(point.seconds.toDouble()), point.watts.toDouble(), wattsAt[i].second) }
-                .toImmutableList()
-        }
     Column(verticalArrangement = Arrangement.spacedBy(HEADER_GAP)) {
         ChartHeader(stringResource(Res.string.chart_power_curve), null)
         TimeSeriesChart(
             points = points,
-            xRange = 0.0..points.last().x,
+            // Half a step either side: the axis gives a label only as much room as it has to the range's edge.
+            xRange = -CURVE_EDGE..points.last().x + CURVE_EDGE,
             description = stringResource(Res.string.chart_power_curve_help, described.joinToString("; ")),
             yLabel = { "${it.roundToInt()}${watts.trim().let { u -> " $u" }}" },
-            // A log axis, so durations sit only where the labelled points are.
-            xLabel = { durationLabel(10.0.pow(it).roundToInt()) },
+            xLabel = { durationLabel(secondsAt(it)) },
             markerLabel = { x, y ->
-                marker
-                    .replace("%1", durationLabel(10.0.pow(x).roundToInt()))
-                    .replace("%2", wattsTemplate.replace("%s", "${y.roundToInt()}"))
+                marker.replace("%1", durationLabel(secondsAt(x))).replace("%2", wattsTemplate.replace("%s", "${y.roundToInt()}"))
             },
-            xLabelsAt = pointLabels.map { it.x }.toImmutableList(),
-            pointLabels = pointLabels,
+            // A label at every duration; the chart leaves some out when they don't fit.
+            xLabelsAt = remember(points) { points.map { it.x }.toImmutableList() },
         )
     }
 }
@@ -388,6 +385,7 @@ private fun Gears(gears: ImmutableList<GearPoint>, durationSeconds: Int, elevati
 private val OVER_ELEVATION =
     setOf(StreamKind.HeartRate, StreamKind.Power, StreamKind.Speed, StreamKind.Cadence, StreamKind.Grade, StreamKind.Temperature)
 private val CURVE_STATS = setOf(5, 60, 300, 1200, 3600)
+private const val CURVE_EDGE = 0.5
 private val CHART_GAP = 24.dp
 private val HEADER_GAP = 8.dp
 private const val MINUTE = 60

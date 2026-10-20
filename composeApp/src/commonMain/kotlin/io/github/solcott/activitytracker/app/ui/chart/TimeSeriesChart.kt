@@ -345,16 +345,39 @@ private fun timeStep(seconds: Double): Double =
     TIME_STEPS.firstOrNull { it * X_LABELS >= seconds } ?: (ceil(seconds / X_LABELS / HOUR) * HOUR)
 
 private const val HOUR = 3600.0
+
+/** Room each fixed x label needs, as a share of the widest label's width, so neighbours keep a gap. */
+private const val LABEL_ROOM = 1.3
 private val TIME_STEPS = listOf(60.0, 120.0, 300.0, 600.0, 900.0, 1200.0, 1800.0, 3600.0, 7200.0)
 
-/** Labels exactly at [values], with half a label of room at each end so one at the edge isn't cut off. */
+/**
+ * Labels exactly at [values], with half a label of room at each end so one at the edge isn't cut off. When they don't all fit, every nth is
+ * kept, always the first and the last, so no two overlap.
+ */
 private class FixedXLabels(private val values: List<Double>) : HorizontalAxis.ItemPlacer {
     override fun getLabelValues(
         context: CartesianDrawingContext,
         visibleXRange: ClosedFloatingPointRange<Double>,
         fullXRange: ClosedFloatingPointRange<Double>,
         maxLabelWidth: Float,
-    ): List<Double> = values.filter { it in fullXRange }
+    ): List<Double> {
+        val shown = values.filter { it in fullXRange }
+        val span = fullXRange.endInclusive - fullXRange.start
+        val closest = shown.zipWithNext { a, b -> b - a }.minOrNull()?.takeIf { span > 0 }
+        val every = closest?.let { ceil(maxLabelWidth * LABEL_ROOM / (it * context.layerBounds.width / span)).toInt() } ?: 1
+        return everyNth(shown, every)
+    }
+
+    /** Every [n]th of [shown] from the first, and the last, which takes the place of a kept one too close before it. */
+    private fun everyNth(shown: List<Double>, n: Int): List<Double> {
+        if (n <= 1) return shown
+        val kept = shown.filterIndexed { i, _ -> i % n == 0 }.toMutableList()
+        if (kept.last() != shown.last()) {
+            if (kept.size > 1 && shown.size - 1 - shown.indexOf(kept.last()) < n) kept.removeAt(kept.lastIndex)
+            kept += shown.last()
+        }
+        return kept
+    }
 
     override fun getWidthMeasurementLabelValues(
         context: CartesianMeasuringContext,
