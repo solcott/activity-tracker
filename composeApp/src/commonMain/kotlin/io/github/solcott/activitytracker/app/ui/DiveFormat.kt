@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.composeApp.resources.value_missing
 import io.github.solcott.activitytracker.data.units.DiveConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.formatDecimal
+import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlin.math.roundToLong
 import org.jetbrains.compose.resources.stringResource
 
@@ -34,7 +35,7 @@ object DiveFormat {
     fun pressure(bar: Double?): String {
         if (bar == null) return stringResource(Res.string.value_missing)
         val units = LocalUnitSystem.current
-        val value = DiveConversions.toPressureUnit(bar, units).roundToLong()
+        val value = formatWhole(DiveConversions.toPressureUnit(bar, units).roundToLong())
         return when (units) {
             UnitSystem.Metric -> stringResource(Res.string.unit_pressure_bar, value)
             UnitSystem.Imperial -> stringResource(Res.string.unit_pressure_psi, value)
@@ -48,7 +49,7 @@ object DiveFormat {
         val value = DiveConversions.toPressureUnit(barPerMinute, units)
         return when (units) {
             UnitSystem.Metric -> stringResource(Res.string.unit_pressure_rate_bar, formatDecimal(value, RATE_DECIMALS))
-            UnitSystem.Imperial -> stringResource(Res.string.unit_pressure_rate_psi, value.roundToLong())
+            UnitSystem.Imperial -> stringResource(Res.string.unit_pressure_rate_psi, formatWhole(value.roundToLong()))
         }
     }
 
@@ -81,7 +82,7 @@ object DiveFormat {
     fun surfaceInterval(minutes: Int): String {
         val hours = minutes / MINUTES_PER_HOUR
         return if (hours < HOURS_PER_DAY) stringResource(Res.string.unit_hours_minutes, hours, minutes % MINUTES_PER_HOUR)
-        else stringResource(Res.string.unit_days_hours, hours / HOURS_PER_DAY, hours % HOURS_PER_DAY)
+        else stringResource(Res.string.unit_days_hours, formatWhole(hours / HOURS_PER_DAY), hours % HOURS_PER_DAY)
     }
 
     private const val MINUTES_PER_HOUR = 60

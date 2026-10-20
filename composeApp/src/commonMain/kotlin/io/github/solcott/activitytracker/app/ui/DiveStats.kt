@@ -40,6 +40,7 @@ import io.github.solcott.activitytracker.composeApp.resources.water_salt
 import io.github.solcott.activitytracker.data.units.UnitConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.formatDecimal
+import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.WaterType
@@ -77,7 +78,9 @@ fun diveOverviewStats(record: ActivityRecord, streamMaxMeters: Double?, streamAv
             },
             dive?.let { consumption(it) },
             dive?.let { airUsed(it) },
-            record.avgHeartRate?.let { Stat(stringResource(Res.string.stat_heart_rate), stringResource(Res.string.unit_bpm, it)) },
+            record.avgHeartRate?.let {
+                Stat(stringResource(Res.string.stat_heart_rate), stringResource(Res.string.unit_bpm, formatWhole(it)))
+            },
         )
         .plus(dive?.let { conditions(it) + diveSettingsStats(it) }.orEmpty())
         .toImmutableList()

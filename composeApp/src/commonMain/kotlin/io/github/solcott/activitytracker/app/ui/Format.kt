@@ -26,6 +26,7 @@ import io.github.solcott.activitytracker.data.units.UnitConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.WeightConversions
 import io.github.solcott.activitytracker.data.units.formatDecimal
+import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlin.math.roundToLong
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -129,7 +130,7 @@ object Format {
     fun elevation(meters: Double?): String {
         if (meters == null) return stringResource(Res.string.value_missing)
         val units = LocalUnitSystem.current
-        val value = UnitConversions.toElevationUnit(meters, units).roundToLong()
+        val value = formatWhole(UnitConversions.toElevationUnit(meters, units).roundToLong())
         return when (units) {
             UnitSystem.Metric -> stringResource(Res.string.unit_elevation_m, value)
             UnitSystem.Imperial -> stringResource(Res.string.unit_elevation_ft, value)
@@ -153,7 +154,7 @@ object Format {
     fun temperature(tenthsCelsius: Long?): String {
         if (tenthsCelsius == null) return stringResource(Res.string.value_missing)
         val units = LocalUnitSystem.current
-        val value = UnitConversions.toTemperatureUnit(tenthsCelsius, units).roundToLong()
+        val value = formatWhole(UnitConversions.toTemperatureUnit(tenthsCelsius, units).roundToLong())
         return when (units) {
             UnitSystem.Metric -> stringResource(Res.string.unit_temperature_c, value)
             UnitSystem.Imperial -> stringResource(Res.string.unit_temperature_f, value)

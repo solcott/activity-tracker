@@ -143,6 +143,7 @@ import io.github.solcott.activitytracker.composeApp.resources.value_missing
 import io.github.solcott.activitytracker.data.units.UnitConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.formatDecimal
+import io.github.solcott.activitytracker.data.units.formatWhole
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -290,9 +291,9 @@ internal fun figureText(value: FigureValue): String =
         is FigureValue.Speed -> Format.speed(value.mmPerSecond)
         is FigureValue.Pace -> pace(value)
         is FigureValue.Temperature -> Format.temperature(value.tenthsCelsius)
-        is FigureValue.Count -> "${value.value}"
+        is FigureValue.Count -> formatWhole(value.value)
         is FigureValue.Decimal -> formatDecimal(value.value, value.decimals)
-        is FigureValue.Quantity -> stringResource(unitOf(value.unit), value.value)
+        is FigureValue.Quantity -> stringResource(unitOf(value.unit), formatWhole(value.value))
         is FigureValue.Stream -> streamUnit(value.kind).let { it.text(it.convert(value.value)) }
         is FigureValue.LeftRight -> {
             val unit = streamUnit(value.kind)
@@ -308,7 +309,8 @@ internal fun figureText(value: FigureValue): String =
             )
         is FigureValue.Gear -> stringResource(Res.string.chart_gear_value, value.rear)
         is FigureValue.Shifts -> stringResource(Res.string.shifting_front_rear, value.front, value.rear)
-        is FigureValue.PoolLength -> stringResource(if (value.yards) Res.string.unit_pool_yd else Res.string.unit_pool_m, value.value)
+        is FigureValue.PoolLength ->
+            stringResource(if (value.yards) Res.string.unit_pool_yd else Res.string.unit_pool_m, formatWhole(value.value))
         is FigureValue.StartTime -> startTime(value)
         is FigureValue.Text -> value.text
         is FigureValue.Sensor -> sensorLabel(value.kind, value.manufacturer, value.model)
@@ -379,7 +381,8 @@ internal fun unbreakableUnit(value: String): String {
 
 private const val NO_BREAK_SPACE = '\u00A0'
 private const val WORD_JOINER = '\u2060'
-private val NUMBER = Regex("""[-−]?\d[\d.,:]*""")
+// Digits joined by decimal, grouping (including the no-break spaces some locales group with) and clock separators.
+private val NUMBER = Regex("""[-−]?\d(?:[.,:\u00A0\u202F]?\d)*""")
 
 private fun unitOf(unit: FigureUnit): StringResource =
     when (unit) {
