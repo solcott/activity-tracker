@@ -29,6 +29,7 @@ import io.github.solcott.activitytracker.composeApp.resources.set_unknown_exerci
 import io.github.solcott.activitytracker.composeApp.resources.set_weight
 import io.github.solcott.activitytracker.composeApp.resources.table_rest
 import io.github.solcott.activitytracker.composeApp.resources.value_missing
+import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -57,8 +58,8 @@ internal fun LengthTable(lengths: ImmutableList<LengthRow>) {
                 "${length.number}",
                 length.stroke?.let { strokeLabel(it) } ?: missing,
                 time,
-                filled(length.strokes) { "$it" },
-                filled(length.swolf) { "$it" },
+                filled(length.strokes) { formatWhole(it) },
+                filled(length.swolf) { formatWhole(it) },
             )
         }
     }
@@ -86,7 +87,7 @@ internal fun SetTable(sets: ImmutableList<SetRow>) {
             persistentListOf(
                 "${row.number}",
                 exerciseLabel(row),
-                filled(row.reps) { "$it" },
+                filled(row.reps) { formatWhole(it) },
                 filled(row.weightGrams) { Format.weight(it.toLong()) },
                 time,
             )

@@ -43,6 +43,7 @@ import io.github.solcott.activitytracker.composeApp.resources.unit_watts
 import io.github.solcott.activitytracker.composeApp.resources.value_missing
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.formatDecimal
+import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
@@ -128,9 +129,9 @@ private fun lapCells(lap: LapRow, columns: LapColumns): List<String> {
         Format.duration((lap.movingSeconds ?: lap.elapsedSeconds).toLong()),
         cell(lap.distance) { stringResource(distanceUnit, formatDecimal(it, 2)) },
         cell(lap.speed) { stringResource(speedUnit, formatDecimal(it, 1)) },
-        cell(lap.avgHeartRate, columns.heartRate) { stringResource(Res.string.unit_bpm, it) },
-        cell(lap.avgPower, columns.power) { stringResource(Res.string.unit_watts, it) },
-        cell(lap.avgCadence, columns.cadence) { stringResource(Res.string.unit_rpm, it) },
+        cell(lap.avgHeartRate, columns.heartRate) { stringResource(Res.string.unit_bpm, formatWhole(it)) },
+        cell(lap.avgPower, columns.power) { stringResource(Res.string.unit_watts, formatWhole(it)) },
+        cell(lap.avgCadence, columns.cadence) { stringResource(Res.string.unit_rpm, formatWhole(it)) },
         cell(lap.ascent, columns.ascent) { stringResource(heightUnit, formatDecimal(it, 0)) },
         // A lift ride has no descent worth showing.
         if (!columns.descent) null

@@ -50,6 +50,7 @@ import io.github.solcott.activitytracker.composeApp.resources.unit_duration_hour
 import io.github.solcott.activitytracker.composeApp.resources.unit_duration_minutes
 import io.github.solcott.activitytracker.composeApp.resources.unit_duration_seconds
 import io.github.solcott.activitytracker.composeApp.resources.unit_watts
+import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
@@ -252,7 +253,12 @@ private fun LineChart(
             right != null -> stringResource(Res.string.chart_left_right, average, right.average?.let { unit.text(unit.convert(it)) } ?: "–")
             detailOverride != null -> detailOverride
             normalizedPower != null ->
-                stringResource(Res.string.chart_avg_np_max, average, stringResource(Res.string.unit_watts, normalizedPower), max)
+                stringResource(
+                    Res.string.chart_avg_np_max,
+                    average,
+                    stringResource(Res.string.unit_watts, formatWhole(normalizedPower)),
+                    max,
+                )
             else -> stringResource(Res.string.chart_avg_max, average, max)
         }
     val points = rememberPoints(series, unit, paceCeiling(series, unit, pace))
@@ -298,8 +304,8 @@ private fun Zones(title: StringResource, zones: ImmutableList<ZoneTime>, unit: S
             range =
                 stringResource(
                     unit,
-                    zone.high?.let { stringResource(Res.string.chart_zone_range, zone.low, it) }
-                        ?: stringResource(Res.string.chart_zone_range_open, zone.low),
+                    zone.high?.let { stringResource(Res.string.chart_zone_range, formatWhole(zone.low), formatWhole(it)) }
+                        ?: stringResource(Res.string.chart_zone_range_open, formatWhole(zone.low)),
                 ),
             time = Format.duration(zone.seconds.toLong()),
             fraction = zone.seconds.toFloat() / total,
@@ -335,7 +341,7 @@ private fun PowerCurve(curve: ImmutableList<CurvePoint>) {
     }
     val marker = stringResource(Res.string.chart_marker, "%1", "%2")
     val wattsTemplate = stringResource(Res.string.unit_watts, "%s")
-    val wattsAt = labelled.map { durationLabel(it.seconds) to stringResource(Res.string.unit_watts, it.watts) }
+    val wattsAt = labelled.map { durationLabel(it.seconds) to stringResource(Res.string.unit_watts, formatWhole(it.watts)) }
     val described = wattsAt.map { (duration, w) -> stringResource(Res.string.chart_power_curve_point, duration, w) }
     Column(verticalArrangement = Arrangement.spacedBy(HEADER_GAP)) {
         ChartHeader(stringResource(Res.string.chart_power_curve), null)
@@ -344,10 +350,10 @@ private fun PowerCurve(curve: ImmutableList<CurvePoint>) {
             // Half a step either side: the axis gives a label only as much room as it has to the range's edge.
             xRange = -CURVE_EDGE..points.last().x + CURVE_EDGE,
             description = stringResource(Res.string.chart_power_curve_help, described.joinToString("; ")),
-            yLabel = { "${it.roundToInt()}${watts.trim().let { u -> " $u" }}" },
+            yLabel = { "${formatWhole(it.roundToInt())}${watts.trim().let { u -> " $u" }}" },
             xLabel = { durationLabel(secondsAt(it)) },
             markerLabel = { x, y ->
-                marker.replace("%1", durationLabel(secondsAt(x))).replace("%2", wattsTemplate.replace("%s", "${y.roundToInt()}"))
+                marker.replace("%1", durationLabel(secondsAt(x))).replace("%2", wattsTemplate.replace("%s", formatWhole(y.roundToInt())))
             },
             // A label at every duration; the chart leaves some out when they don't fit.
             xLabelsAt = remember(points) { points.map { it.x }.toImmutableList() },
