@@ -22,7 +22,8 @@ const val DATABASE_NAME = "activity-tracker.db"
  * Adds every schema migration to a platform's builder. Hand-written rather than `@Database(autoMigrations = ...)`: Kotlin/Native's backend
  * crashes lowering the `AutoMigration` annotation.
  */
-fun <T : RoomDatabase> RoomDatabase.Builder<T>.addAppMigrations(): RoomDatabase.Builder<T> = addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+fun <T : RoomDatabase> RoomDatabase.Builder<T>.addAppMigrations(): RoomDatabase.Builder<T> =
+    addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
 
 /** Runs one statement: `execSQL` blocks on most platforms and suspends on the web, so it has no common form. */
 internal expect suspend fun SQLiteConnection.runSql(sql: String)
@@ -40,6 +41,15 @@ private val MIGRATION_2_3 =
         it.runSql("ALTER TABLE outbox ADD COLUMN blobKey TEXT")
     }
 
+/** 3 → 4: pairs of activities the athlete said not to combine. */
+private val MIGRATION_3_4 =
+    Migration(3, 4) {
+        it.runSql(
+            "CREATE TABLE IF NOT EXISTS `combine_dismissals` (`did` TEXT NOT NULL, `uriA` TEXT NOT NULL, `uriB` TEXT NOT NULL, " +
+                "PRIMARY KEY(`did`, `uriA`, `uriB`))"
+        )
+    }
+
 @Database(
     entities =
         [
@@ -48,8 +58,9 @@ private val MIGRATION_2_3 =
             FeedItemEntity::class,
             OutboxEntity::class,
             OutboxBlobEntity::class,
+            CombineDismissalEntity::class,
         ],
-    version = 3,
+    version = 4,
 )
 @ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -60,6 +71,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun feed(): FeedDao
 
     abstract fun outbox(): OutboxDao
+
+    abstract fun combineDismissals(): CombineDismissalDao
 }
 
 @Suppress("KotlinNoActualForExpect")
@@ -202,3 +215,26 @@ interface OutboxDao {
     @Query("DELETE FROM outbox_blob WHERE `key` NOT IN (SELECT blobKey FROM outbox WHERE blobKey IS NOT NULL)")
     suspend fun deleteUnreferencedBlobs()
 }
+
+/**
+ * Two activities the athlete said not to combine (`feed/combine-suggestions`), stored on the device only: [uriA] sorts before [uriB], so
+ * either order finds it. Build one with [CombineDismissalEntity.of].
+ */
+@Entity(tableName = "combine_dismissals", primaryKeys = ["did", "uriA", "uriB"])
+data class CombineDismissalEntity(val did: String, val uriA: String, val uriB: String) {
+    companion object {
+        fun of(did: String, x: String, y: String) = if (x <= y) CombineDismissalEntity(did, x, y) else CombineDismissalEntity(did, y, x)
+    }
+}
+
+@Dao
+interface CombineDismissalDao {
+    @Upsert suspend fun put(entity: CombineDismissalEntity)
+
+    @Query("SELECT EXISTS(SELECT 1 FROM combine_dismissals WHERE did = :did AND uriA = :uriA AND uriB = :uriB)")
+    suspend fun exists(did: String, uriA: String, uriB: String): Boolean
+}
+
+/** Whether the athlete [did] said not to combine [x] and [y], in either order. */
+suspend fun CombineDismissalDao.dismissed(did: String, x: String, y: String): Boolean =
+    CombineDismissalEntity.of(did, x, y).let { exists(it.did, it.uriA, it.uriB) }
