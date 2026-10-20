@@ -39,7 +39,16 @@ class PageFiguresTest {
 
     @Test fun `a negative elevation keeps its sign before the groups`() = assertEquals("-1,234 ft", text(FigureValue.Elevation(-376.12)))
 
-    @Test fun `a temperature is grouped`() = assertEquals("1,000 °C", text(FigureValue.Temperature(10_000), UnitSystem.Metric))
+    @Test fun `a temperature is grouped`() = assertEquals("1,000.0 °C", text(FigureValue.Temperature(10_000), UnitSystem.Metric))
+
+    @Test fun `a whole-degree temperature reads exactly in fahrenheit`() = assertEquals("80.6 °F", text(FigureValue.Temperature(270)))
+
+    @Test fun `a session's whole-degree average reads to a tenth`() = assertEquals("66.2 °F", text(FigureValue.Temperature(190)))
+
+    @Test fun `a celsius temperature keeps its tenth`() = assertEquals("27.0 °C", text(FigureValue.Temperature(270), UnitSystem.Metric))
+
+    @Test
+    fun `a temperature line's figure reads to a tenth`() = assertEquals("66.6 °F", text(FigureValue.Stream(StreamKind.Temperature, 192.0)))
 
     @Test fun `a distance is grouped`() = assertEquals("1,013.94 mi", text(FigureValue.Distance(1_631_771.0)))
 

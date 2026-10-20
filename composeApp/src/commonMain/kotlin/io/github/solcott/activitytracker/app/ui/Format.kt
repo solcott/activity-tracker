@@ -44,6 +44,7 @@ object Format {
     private const val SPEED_DECIMALS = 1
     private const val WEIGHT_DECIMALS = 1
     private const val DEPTH_DECIMALS = 1
+    private const val TEMPERATURE_DECIMALS = 1
 
     /** Below this, pace is noise from GPS jitter. */
     private const val MIN_PACE_DISTANCE_M = 10
@@ -149,12 +150,12 @@ object Format {
         }
     }
 
-    /** A record temperature (tenths of °C), in whole °C or °F. */
+    /** A record temperature (tenths of °C), in °C or °F to one decimal, so a whole-degree sample reads exactly: 27 °C is 80.6 °F. */
     @Composable
     fun temperature(tenthsCelsius: Long?): String {
         if (tenthsCelsius == null) return stringResource(Res.string.value_missing)
         val units = LocalUnitSystem.current
-        val value = formatWhole(UnitConversions.toTemperatureUnit(tenthsCelsius, units).roundToLong())
+        val value = formatDecimal(UnitConversions.toTemperatureUnit(tenthsCelsius, units), TEMPERATURE_DECIMALS)
         return when (units) {
             UnitSystem.Metric -> stringResource(Res.string.unit_temperature_c, value)
             UnitSystem.Imperial -> stringResource(Res.string.unit_temperature_f, value)

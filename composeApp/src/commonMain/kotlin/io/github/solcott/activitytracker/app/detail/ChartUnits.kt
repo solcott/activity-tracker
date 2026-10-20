@@ -275,6 +275,7 @@ internal fun streamUnit(kind: StreamKind): StreamUnit {
         val decimals =
             when (kind) {
                 StreamKind.Speed,
+                StreamKind.Temperature,
                 StreamKind.Grade,
                 StreamKind.RespirationRate,
                 StreamKind.VerticalOscillation,
