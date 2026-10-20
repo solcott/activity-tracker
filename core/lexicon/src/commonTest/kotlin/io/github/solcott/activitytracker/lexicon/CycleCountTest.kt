@@ -15,7 +15,8 @@ class CycleCountTest {
         assertEquals(CycleCount.STROKES, CycleCount.unitOf(Sport.ROW))
         assertEquals(CycleCount.STROKES, CycleCount.unitOf(Sport.KAYAK))
         assertEquals(CycleCount.PUSHES, CycleCount.unitOf(Sport.WHEELCHAIR))
-        assertNull(CycleCount.unitOf(Sport.RIDE), "a ride's crank revolutions aren't shown")
+        assertEquals(CycleCount.PEDAL_STROKES, CycleCount.unitOf(Sport.RIDE))
+        assertNull(CycleCount.unitOf(Sport.HANDCYCLE), "crank revolutions by hand aren't pedal strokes")
         assertNull(CycleCount.unitOf(Sport.STRENGTH))
     }
 }

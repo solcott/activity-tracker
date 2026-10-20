@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.app.detail.ActivityPage
 import io.github.solcott.activitytracker.app.detail.AvgMaxMetric
 import io.github.solcott.activitytracker.app.detail.ChartSample
 import io.github.solcott.activitytracker.app.detail.DetailSection
+import io.github.solcott.activitytracker.app.detail.Figure
 import io.github.solcott.activitytracker.app.detail.FigureKey
 import io.github.solcott.activitytracker.app.detail.FigureValue
 import io.github.solcott.activitytracker.app.detail.LineSeries
@@ -187,6 +188,12 @@ class ActivityPageTest {
             "only temperature's minimum is part of its range",
         )
         assertEquals(FigureValue.Stream(StreamKind.Temperature, 160.0), page.avgMax.single { it.metric == AvgMaxMetric.Temperature }.min)
+    }
+
+    @Test
+    fun `a ride counts its pedal strokes`() {
+        val counts = ActivityPage.build(mtb.copy(cycles = 6676), null).stats.first { it.kind == StatsGroupKind.Counts }.rows
+        assertEquals(Figure(FigureKey.PedalStrokes, FigureValue.Count(6676)), counts.first())
     }
 
     @Test

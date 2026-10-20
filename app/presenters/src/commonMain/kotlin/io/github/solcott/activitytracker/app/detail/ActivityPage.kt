@@ -418,6 +418,7 @@ internal class Figures(private val record: ActivityRecord, private val charts: A
                 CycleCount.STEPS -> FigureKey.Steps
                 CycleCount.STROKES -> FigureKey.Strokes
                 CycleCount.PUSHES -> FigureKey.Pushes
+                CycleCount.PEDAL_STROKES -> FigureKey.PedalStrokes
                 else -> null
             }
         return listOf(

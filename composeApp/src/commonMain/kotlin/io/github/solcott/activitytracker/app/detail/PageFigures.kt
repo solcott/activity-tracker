@@ -110,6 +110,7 @@ import io.github.solcott.activitytracker.composeApp.resources.stat_max_depth
 import io.github.solcott.activitytracker.composeApp.resources.stat_max_power
 import io.github.solcott.activitytracker.composeApp.resources.stat_moving_time
 import io.github.solcott.activitytracker.composeApp.resources.stat_pace
+import io.github.solcott.activitytracker.composeApp.resources.stat_pedal_strokes
 import io.github.solcott.activitytracker.composeApp.resources.stat_ppo2_critical
 import io.github.solcott.activitytracker.composeApp.resources.stat_ppo2_deco
 import io.github.solcott.activitytracker.composeApp.resources.stat_ppo2_limits
@@ -197,6 +198,7 @@ private val LABELS: Map<FigureKey, StringResource> =
         FigureKey.AvgStrokeDistance to Res.string.page_avg_stroke_distance,
         FigureKey.Steps to Res.string.stat_steps,
         FigureKey.Strokes to Res.string.stat_strokes,
+        FigureKey.PedalStrokes to Res.string.stat_pedal_strokes,
         FigureKey.Pushes to Res.string.stat_pushes,
         FigureKey.Shifts to Res.string.stat_shifts,
         FigureKey.Jumps to Res.string.stat_jumps,

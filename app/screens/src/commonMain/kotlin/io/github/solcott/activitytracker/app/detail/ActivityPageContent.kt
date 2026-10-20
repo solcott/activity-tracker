@@ -61,6 +61,7 @@ enum class FigureKey {
     Steps,
     Strokes,
     Pushes,
+    PedalStrokes,
     Shifts,
     Jumps,
     Grit,

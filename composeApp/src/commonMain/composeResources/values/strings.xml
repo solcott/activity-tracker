@@ -1102,6 +1102,7 @@
     <string name="stat_hrv">HRV (RMSSD)</string>
     <string name="stat_steps">Steps</string>
     <string name="stat_strokes">Strokes</string>
+    <string name="stat_pedal_strokes">Pedal strokes</string>
     <string name="stat_pushes">Pushes</string>
     <string name="stat_avg_stroke_distance">Avg stroke</string>
     <string name="stat_end_n2">N₂ load</string>
