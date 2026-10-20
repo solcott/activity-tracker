@@ -22,7 +22,8 @@ object WeightConversions {
     fun fromWeightUnit(value: Double, units: UnitSystem): Long = (value * gramsPerUnit(units)).roundToLong()
 
     /** A profile weight as editable text: kg or lb with at most one decimal, like `61.5` (`61,5` in de) or `150`. */
-    fun toInputText(grams: Long, units: UnitSystem): String = formatDecimal(toWeightUnit(grams, units), decimals = 1, trimZeros = true)
+    fun toInputText(grams: Long, units: UnitSystem): String =
+        formatDecimal(toWeightUnit(grams, units), decimals = 1, trimZeros = true, grouping = null)
 
     /** Entered weight text (kg, or lb for imperial) in grams; null when it isn't a weight the lexicon allows. */
     fun fromInputText(text: String, units: UnitSystem): Long? =

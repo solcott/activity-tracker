@@ -20,7 +20,7 @@ object HeightConversions {
     }
 
     /** A profile height as editable text: whole or tenths of a cm, like `175` or `175.5` (`175,5` in de). */
-    fun toCentimetersText(mm: Long): String = formatDecimal(toCentimeters(mm), decimals = 1, trimZeros = true)
+    fun toCentimetersText(mm: Long): String = formatDecimal(toCentimeters(mm), decimals = 1, trimZeros = true, grouping = null)
 
     /** Entered cm in millimeters; null when blank or not a height the lexicon allows. */
     fun fromCentimetersText(text: String): Long? = parseDecimal(text)?.let { (it * MM_PER_CM).roundToLong() }?.takeIf(::inRange)
