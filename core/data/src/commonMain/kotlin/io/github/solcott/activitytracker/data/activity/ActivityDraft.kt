@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
+import io.github.solcott.activitytracker.lexicon.app.heldCategories
 import io.github.solcott.activitytracker.location.Gpx
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.RecordingResult
@@ -120,6 +121,24 @@ data class ActivityDraft(
     /** Every category's visibility as published: never wider than the activity. */
     val tiers: Map<String, String>
         get() = DetailCategory.tiers(visibility, categories)
+
+    /**
+     * The categories this draft has data in, as [DetailCategory.currentTiers] will see them once published: Start time, each summary
+     * field's category, Map when it has a [route] (its polyline is built at publish), and its streams' channel and lap and leg categories.
+     */
+    fun heldCategories(): Set<String> {
+        val record = toRecord(createdAt = startedAt)
+        return buildSet {
+            add(DetailCategory.START_TIME)
+            DetailCategory.SUMMARY_FIELDS.filter { it.isSet(record) }.forEach { add(it.category) }
+            if (route.isNotEmpty()) add(DetailCategory.MAP)
+            streams?.let { addAll(it.heldCategories()) }
+        }
+    }
+
+    /** Whether its streams have running form ([DetailCategory.RUNNING_FORM_CHANNELS]), beyond cadence itself. */
+    val hasRunningForm: Boolean
+        get() = streams?.channels.orEmpty().any { it in DetailCategory.RUNNING_FORM_CHANNELS }
 
     /** The record, holding [media] ([photos] once uploaded) and [polyline] ([route] as trimmed for it, with its breaks). */
     fun toRecord(createdAt: Instant, media: List<ActivityMedia> = emptyList(), polyline: SegmentedPolyline? = null): ActivityRecord =
@@ -228,6 +247,9 @@ data class ActivityDraft(
         private const val HUNDREDTHS = 100
         private const val J_PER_KJ = 1000.0
         private const val SECONDS_PER_MINUTE = 60
+
+        /** The categories a GPS recording ([fromRecording]) has data in, offered before it has any: its start, its map and its speed. */
+        val RECORDED_CATEGORIES: List<String> = listOf(DetailCategory.START_TIME, DetailCategory.SPEED, DetailCategory.MAP)
 
         /** A recording in the app; its UTC offset is [zone]'s (this device's) at the start. */
         fun fromRecording(
