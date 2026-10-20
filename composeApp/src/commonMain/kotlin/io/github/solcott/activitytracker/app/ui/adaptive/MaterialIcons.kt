@@ -9,6 +9,30 @@ import androidx.compose.ui.graphics.vector.PathParser
 
 /** Material icons the app needs from material-icons-extended, copied here rather than pulling in the whole set. */
 internal object MaterialIcons {
+    val Fullscreen: ImageVector =
+        materialIcon("Filled.Fullscreen") {
+            addPath(
+                PathParser()
+                    .parsePathString("M7,14L5,14v5h5v-2L7,17v-3zM5,10h2L7,7h3L10,5L5,5v5zM17,17h-3v2h5v-5h-2v3zM14,5v2h3v3h2L19,5h-5z")
+                    .toNodes(),
+                fill = SolidColor(Color.Black),
+            )
+        }
+
+    val CenterFocusStrong: ImageVector =
+        materialIcon("Filled.CenterFocusStrong") {
+            addPath(
+                PathParser()
+                    .parsePathString(
+                        "M12,8c-2.21,0 -4,1.79 -4,4s1.79,4 4,4 4,-1.79 4,-4 -1.79,-4 -4,-4z" +
+                            "M5,15L3,15v4c0,1.1 0.9,2 2,2h4v-2L5,19v-4zM5,5h4L9,3L5,3c-1.1,0 -2,0.9 -2,2v4h2L5,5z" +
+                            "M19,3h-4v2h4v4h2L21,5c0,-1.1 -0.9,-2 -2,-2zM19,19h-4v2h4c1.1,0 2,-0.9 2,-2v-4h-2v4z"
+                    )
+                    .toNodes(),
+                fill = SolidColor(Color.Black),
+            )
+        }
+
     val UnfoldMore: ImageVector =
         materialIcon("Filled.UnfoldMore") {
             materialPath {

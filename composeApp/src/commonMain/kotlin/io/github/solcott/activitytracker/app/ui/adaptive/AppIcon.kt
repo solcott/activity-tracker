@@ -72,6 +72,8 @@ enum class AppIcon(
     DropDown(Icons.Filled.ArrowDropDown, CupertinoIcons.chevronUpChevronDown, "chevron.up.chevron.down"),
     ExpandAll(MaterialIcons.UnfoldMore, CupertinoIcons.rectangleExpandVertical, "rectangle.expand.vertical"),
     CollapseAll(MaterialIcons.UnfoldLess, CupertinoIcons.rectangleCompressVertical, "rectangle.compress.vertical"),
+    Expand(MaterialIcons.Fullscreen, CupertinoIcons.arrowUpLeftArrowDownRight, "arrow.up.left.and.arrow.down.right"),
+    Recenter(MaterialIcons.CenterFocusStrong, CupertinoIcons.scope, "scope"),
     Like(
         Icons.Outlined.ThumbUp,
         CupertinoIcons.handThumbsup,
