@@ -1193,7 +1193,7 @@
     <string name="error_combine_activity">Couldn't combine the activities</string>
     <string name="error_split_activity">Couldn't change the combined activity</string>
     <string name="data_sources">Data sources</string>
-    <string name="data_source_comes_from">Comes from</string>
+    <string name="data_source_comes_from">%1$s comes from %2$s</string>
     <string name="data_source_left_out">Left out</string>
     <string name="data_source_include">Include %1$s</string>
     <string name="data_source_started">Recording started %1$s</string>

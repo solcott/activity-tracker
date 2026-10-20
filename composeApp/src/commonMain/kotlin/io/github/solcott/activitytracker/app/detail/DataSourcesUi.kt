@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.detail
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -8,16 +9,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import io.github.solcott.activitytracker.app.ui.MenuField
+import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
+import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_retry
@@ -49,7 +56,7 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * Where each kind of the owner's combined activity's data comes from (`feed/combined-sources`): one row per kind, switched off when it's
- * left out, with a menu of the members that recorded it when more than one did.
+ * left out, with a menu of the members that recorded it when more than one did. Shown in the owner's combination editor.
  */
 @Composable
 internal fun DataSourcesSection(sources: DataSources, eventSink: (ActivityDetailEvent) -> Unit, modifier: Modifier = Modifier) {
@@ -68,52 +75,65 @@ internal fun DataSourcesSection(sources: DataSources, eventSink: (ActivityDetail
 private fun SourceRow(row: DataSourceRow, saving: DataKind?, eventSink: (ActivityDetailEvent) -> Unit) {
     val label = dataKindLabel(row.kind)
     val idle = saving == null
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column(Modifier.weight(1f)) {
-                Text(label, style = MaterialTheme.typography.bodyMedium)
-                val chosen = row.chosen
-                when {
-                    !row.included ->
-                        Text(
-                            stringResource(Res.string.data_source_left_out),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    chosen != null && row.offered.isEmpty() ->
-                        Text(
-                            stringResource(Res.string.chart_source_from, sourceName(chosen)),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+    val chosen = row.chosen
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        when {
+            !row.included ->
+                Text(
+                    stringResource(Res.string.data_source_left_out),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            chosen != null && row.offered.isNotEmpty() -> SourceMenu(row, label, chosen, enabled = idle, eventSink)
+            chosen != null ->
+                Text(
+                    stringResource(Res.string.chart_source_from, sourceName(chosen)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+        }
+        if (saving == row.kind) AppProgressIndicator(small = true)
+        val include = stringResource(Res.string.data_source_include, label)
+        AppSwitch(
+            checked = row.included,
+            onCheckedChange = { eventSink(ActivityDetailEvent.SetIncluded(row.kind, it)) },
+            modifier = Modifier.semantics { contentDescription = include },
+            enabled = idle,
+        )
+    }
+}
+
+/** The member [row]'s kind comes from, as a compact trigger opening a menu of the members that recorded it. */
+@Composable
+private fun SourceMenu(
+    row: DataSourceRow,
+    label: String,
+    chosen: MemberView,
+    enabled: Boolean,
+    eventSink: (ActivityDetailEvent) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val shown = sourceName(chosen)
+    val description = stringResource(Res.string.data_source_comes_from, label, shown)
+    Box {
+        AppTextButton(
+            onClick = { expanded = true },
+            modifier = Modifier.semantics { contentDescription = description },
+            enabled = enabled,
+        ) {
+            Text(shown, style = MaterialTheme.typography.bodyMedium)
+            PlatformIcon(AppIcon.DropDown, null)
+        }
+        val items =
+            row.offered
+                .map { member ->
+                    AppMenuItem(sourceName(member), checked = member.uri == chosen.uri) {
+                        if (member.uri != chosen.uri) eventSink(ActivityDetailEvent.ChooseSource(row.kind, member.uri))
+                    }
                 }
-            }
-            if (saving == row.kind) AppProgressIndicator(small = true)
-            val include = stringResource(Res.string.data_source_include, label)
-            AppSwitch(
-                checked = row.included,
-                onCheckedChange = { eventSink(ActivityDetailEvent.SetIncluded(row.kind, it)) },
-                modifier = Modifier.semantics { contentDescription = include },
-                enabled = idle,
-            )
-        }
-        val chosen = row.chosen
-        if (row.included && chosen != null && row.offered.isNotEmpty()) {
-            val names = row.offered.map { it to sourceName(it) }
-            MenuField(
-                shown = sourceName(chosen),
-                label = stringResource(Res.string.data_source_comes_from),
-                items =
-                    names
-                        .map { (member, name) ->
-                            AppMenuItem(name, checked = member.uri == chosen.uri) {
-                                if (member.uri != chosen.uri) eventSink(ActivityDetailEvent.ChooseSource(row.kind, member.uri))
-                            }
-                        }
-                        .toImmutableList(),
-                enabled = idle,
-            )
-        }
+                .toImmutableList()
+        AppMenu(expanded = expanded, onDismiss = { expanded = false }, items = items)
     }
 }
 
