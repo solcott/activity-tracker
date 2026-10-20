@@ -1226,4 +1226,19 @@
     <string name="combine_explained">Pick another recording of this activity, from a second device or after a break. Your feed then shows them as one activity, and each stays viewable on its own.</string>
     <string name="combine_none">No other activities within 12 hours of this one.</string>
     <string name="combine_row">%1$s · %2$s</string>
+
+    <!-- Combine suggestions (feed/combine-suggestions) -->
+    <string name="combine_cue_same_activity">Same activity on another device?</string>
+    <string name="combine_cue_switched_devices">Switched devices?</string>
+    <string name="combine_cue_shuttle">Shuttle or lift between runs?</string>
+    <string name="combine_cue_break">Continue after a break?</string>
+    <string name="combine_suggestion_message">Combine this with %1$s (%2$s)?</string>
+    <string name="combine_suggestion_member_message">Add this to %1$s (%2$s)?</string>
+    <string name="combine_suggestion_combine">Combine</string>
+    <string name="combine_suggestion_not_now">Not now</string>
+    <string name="combine_suggestion_dont">Don't combine</string>
+    <string name="import_saved_suggestions_title">Combine with other activities?</string>
+    <string name="import_saved_suggestions_explained">These dives look like they belong with activities already in your log. Open one to combine it.</string>
+    <string name="import_saved_suggestion_row">%1$s → %2$s</string>
+    <string name="import_saved_suggestions_done">Done</string>
 </resources>

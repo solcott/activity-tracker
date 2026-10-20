@@ -130,6 +130,7 @@ private fun LoadedContent(state: ActivityDetailState.Loaded, contentPadding: Pad
     WithWindowWidth(modifier.fillMaxSize()) { width ->
         if (width == WindowWidth.Expanded) PanedPage(state, contentPadding) else ColumnPage(state, contentPadding, width)
     }
+    state.combineSuggestion?.takeIf { it.asPrompt }?.let { CombineSuggestionPrompt(it, state.eventSink) }
 }
 
 /**
@@ -279,6 +280,7 @@ private fun Header(state: ActivityDetailState.Loaded, modifier: Modifier = Modif
             onOpen = { state.eventSink(ActivityDetailEvent.OpenActivity(it)) },
             onRemove = { uri: AtUri -> state.eventSink(ActivityDetailEvent.RemoveMember(uri)) }.takeIf { state.manage != null },
         )
+        state.combineSuggestion?.takeIf { !it.asPrompt }?.let { CombineSuggestionBanner(it, state.eventSink) }
         state.dataSources?.let { DataSourcesSection(it, state.eventSink) }
         state.manage?.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
         state.routeError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }

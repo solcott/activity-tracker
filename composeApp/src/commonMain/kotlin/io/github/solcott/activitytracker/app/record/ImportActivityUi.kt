@@ -118,8 +118,12 @@ fun ImportActivityUi(state: ImportActivityState, modifier: Modifier = Modifier) 
             },
             bottomBar = { if (pinnedSave && !ios) SaveBar(state, preview, save) },
         ) { padding ->
-            if (wide && preview != null) WidePreview(state, preview, padding, save, pick::launch)
-            else NarrowContent(state, padding, width, pick::launch)
+            val saved = state.savedSuggestions
+            when {
+                saved != null -> SavedSuggestions(saved, state.eventSink, padding)
+                wide && preview != null -> WidePreview(state, preview, padding, save, pick::launch)
+                else -> NarrowContent(state, padding, width, pick::launch)
+            }
         }
     }
 }
