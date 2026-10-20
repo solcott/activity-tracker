@@ -25,7 +25,18 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
         val navigator = FakeNavigator(screen)
         val r = repos()
         presenterTestOf({
-            ActivityDetailPresenter(screen, navigator, r.feed, r.activities, r.profiles, localLikes, r.manager, r.exporter, r.units)
+            ActivityDetailPresenter(
+                screen,
+                navigator,
+                r.feed,
+                r.activities,
+                r.profiles,
+                localLikes,
+                r.manager,
+                r.exporter,
+                r.units,
+                r.suggestions,
+            )
         }) {
             val loaded = awaitLoaded()
             assertNull(loaded.likesList)
@@ -59,6 +70,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.manager,
                 r.exporter,
                 r.units,
+                r.suggestions,
             )
         }) {
             val loaded = awaitLoaded()
@@ -86,6 +98,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.manager,
                 r.exporter,
                 r.units,
+                r.suggestions,
             )
         }) {
             val loaded = awaitLoaded()
@@ -113,6 +126,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.manager,
                 r.exporter,
                 r.units,
+                r.suggestions,
             )
         }) {
             awaitLoaded().eventSink(ActivityDetailEvent.ToggleLikesList)
@@ -142,6 +156,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.manager,
                 r.exporter,
                 r.units,
+                r.suggestions,
             )
         }) {
             awaitLoaded().eventSink(ActivityDetailEvent.ToggleLikesList)
@@ -169,6 +184,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.manager,
                 r.exporter,
                 r.units,
+                r.suggestions,
             )
         }) {
             var state = awaitLoaded()
@@ -198,6 +214,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.manager,
                 r.exporter,
                 r.units,
+                r.suggestions,
             )
         }) {
             var state = awaitLoaded()
@@ -224,6 +241,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.manager,
                 r.exporter,
                 r.units,
+                r.suggestions,
             )
         }) {
             assertNull(awaitLoaded().charts)

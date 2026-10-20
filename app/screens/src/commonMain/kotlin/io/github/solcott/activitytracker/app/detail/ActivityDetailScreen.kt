@@ -8,6 +8,7 @@ import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.RouteEnds
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.visibility.CategoryVisibility
+import io.github.solcott.activitytracker.data.activity.CombineCue
 import io.github.solcott.activitytracker.data.activity.DataKind
 import io.github.solcott.activitytracker.data.activity.ExportFormat
 import io.github.solcott.activitytracker.data.activity.ExportedFile
@@ -22,7 +23,11 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
-@CircuitSerializable(SessionScope::class) data class ActivityDetailScreen(val uri: String) : Screen
+/**
+ * @property suggestOnOpen the activity was saved moments ago: a combine suggestion for it shows as a prompt
+ *   ([CombineSuggestionState.asPrompt]) rather than a banner, and the page waits for the AppView to index it.
+ */
+@CircuitSerializable(SessionScope::class) data class ActivityDetailScreen(val uri: String, val suggestOnOpen: Boolean = false) : Screen
 
 @Immutable
 sealed interface ActivityDetailState : CircuitUiState {
@@ -99,8 +104,29 @@ sealed interface ActivityDetailState : CircuitUiState {
         val dataSources: DataSources? = null,
         /** On a combined activity, the members each card's data came from, in time order; empty otherwise. */
         val chartSources: ImmutableList<ChartSource> = persistentListOf(),
+        /** On the owner's recent activity, another of theirs it likely belongs with in one combined activity; null otherwise. */
+        val combineSuggestion: CombineSuggestionState? = null,
     ) : ActivityDetailState
 }
+
+/**
+ * Another of the owner's activities this one likely belongs with (`feed/combine-suggestions`), until they combine them or say not to.
+ *
+ * @property cue what it looks like: the same activity on another device, a device switch, a shuttle or lift, or a break.
+ * @property other what combining joins this activity to: the other activity, or the combined one it's a member of.
+ * @property asPrompt asked right after a save, with Combine and Not now ([ActivityDetailEvent.CombineSuggested],
+ *   [ActivityDetailEvent.NotNowSuggestion]); otherwise a banner with Combine and Don't combine
+ *   ([ActivityDetailEvent.DontCombineSuggestion]).
+ * @property busy combining, or saving the dismissal.
+ */
+@Immutable
+data class CombineSuggestionState(
+    val cue: CombineCue,
+    val other: ActivityView,
+    val asPrompt: Boolean,
+    val busy: Boolean = false,
+    val error: UiError? = null,
+)
 
 /** A part of the detail screen with data of its own: a metric's card, or the device. In the order they show. */
 enum class DetailSection {
@@ -320,6 +346,15 @@ sealed interface ActivityDetailEvent {
 
     /** The owner splits this combined activity back into its members. */
     data object Split : ActivityDetailEvent
+
+    /** The owner accepts [ActivityDetailState.Loaded.combineSuggestion]: the page then shows the combined activity. */
+    data object CombineSuggested : ActivityDetailEvent
+
+    /** The owner puts the suggestion prompt off: it stays on the page as a banner. */
+    data object NotNowSuggestion : ActivityDetailEvent
+
+    /** The owner says not to combine the suggested pair: neither activity's page suggests it again. */
+    data object DontCombineSuggestion : ActivityDetailEvent
 
     /** The owner takes [kind] of this combined activity's data from [member], the others filling in where it has none. */
     data class ChooseSource(val kind: DataKind, val member: AtUri) : ActivityDetailEvent

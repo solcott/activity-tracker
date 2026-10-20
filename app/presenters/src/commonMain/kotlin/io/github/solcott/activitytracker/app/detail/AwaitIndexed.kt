@@ -10,14 +10,14 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
 
 /**
- * While an activity this device [written] moments ago (a combined one, say) [failed] to load, calls [retry] every so often, a few times:
- * the AppView serves it only once it has indexed it.
+ * While an activity this device [written] moments ago (a combined one, say), or [justSaved], [failed] to load, calls [retry] every so
+ * often, a few times: the AppView serves it only once it has indexed it.
  */
 @Composable
-internal fun AwaitIndexed(failed: Boolean, written: Boolean, retry: () -> Unit) {
+internal fun AwaitIndexed(failed: Boolean, written: Boolean, justSaved: Boolean = false, retry: () -> Unit) {
     var waits by remember { mutableIntStateOf(0) }
     val again by rememberUpdatedState(retry)
-    val waiting = failed && written
+    val waiting = failed && (written || justSaved)
     LaunchedEffect(waiting, waits) {
         if (waiting && waits < MAX_INDEX_WAITS) {
             delay(INDEX_WAIT_MILLIS)

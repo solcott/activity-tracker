@@ -26,6 +26,7 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityExporter
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
+import io.github.solcott.activitytracker.data.activity.CombineSuggestions
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
@@ -60,6 +61,7 @@ fun ActivityDetailPresenter(
     manager: ActivityManager,
     exporter: ActivityExporter,
     units: UnitsRepository,
+    suggestions: CombineSuggestions,
 ): ActivityDetailState {
     // The activity as loaded, and how far the viewer's comment actions have moved its count since: one value, so a reload replaces both.
     var loaded by remember { mutableStateOf<CountedActivity?>(null) }
@@ -86,8 +88,8 @@ fun ActivityDetailPresenter(
     // An edit shows as soon as it's saved, and stays over the AppView's copy until Jetstream brings it there.
     val rewrite by remember(screen.uri) { feed.rewrites.observe(AtUri(screen.uri)) }.collectAsState(null)
 
-    // An activity just written here (a combined one, say) isn't served until the AppView indexes it: try again for a while.
-    AwaitIndexed(failed = error != null && loaded == null, written = rewrite != null) { loadKey++ }
+    // An activity just written here (a combined one, or one just saved) isn't served until the AppView indexes it: try again for a while.
+    AwaitIndexed(failed = error != null && loaded == null, written = rewrite != null, justSaved = screen.suggestOnOpen) { loadKey++ }
 
     val unitSystem by units.units.collectAsState()
     val charts = rememberCharts(AtUri(screen.uri), loadKey, unitSystem, feed)
@@ -105,6 +107,7 @@ fun ActivityDetailPresenter(
     val manage = rememberManage(activity.takeIf { isOwn }, loadKey, feed, manager, navigator, flights) { loadKey++ }
     val dataSources = rememberDataSources(activity.takeIf { isOwn }, loadKey, manager, flights) { loadKey++ }
     val chartSources = remember(shown, sections) { chartSources(shown, sections) }
+    val suggestion = rememberCombineSuggestion(activity.takeIf { isOwn }, screen.suggestOnOpen, suggestions, manager, navigator, flights)
     val ownRoute = rememberOwnRoute(activity?.uri?.takeIf { isOwn }, activities, flights, combined = activity?.record?.combined != null)
     val hasStreams = charts.charts != null
     val isDive = shown?.record?.sport == Sport.DIVE
@@ -176,9 +179,12 @@ fun ActivityDetailPresenter(
             is ActivityDetailEvent.SetIncluded,
             ActivityDetailEvent.RetrySources -> dataSources.on(event)
 
-            ActivityDetailEvent.HideStart -> ownRoute.hide(true)
+            ActivityDetailEvent.CombineSuggested,
+            ActivityDetailEvent.NotNowSuggestion,
+            ActivityDetailEvent.DontCombineSuggestion -> suggestion.on(event)
 
-            ActivityDetailEvent.HideEnd -> ownRoute.hide(false)
+            ActivityDetailEvent.HideStart,
+            ActivityDetailEvent.HideEnd -> ownRoute.hide(event == ActivityDetailEvent.HideStart)
 
             is ActivityDetailEvent.Export -> export.export(event.format)
 
@@ -219,6 +225,7 @@ fun ActivityDetailPresenter(
             export = export.state,
             dataSources = dataSources.state,
             chartSources = chartSources,
+            combineSuggestion = suggestion.state,
         )
     }
 }

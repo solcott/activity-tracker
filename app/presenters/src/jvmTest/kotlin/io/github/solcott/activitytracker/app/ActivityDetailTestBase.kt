@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.ActivityZonesStore
+import io.github.solcott.activitytracker.data.activity.CombineSuggestions
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.PdsActivityDevicesStore
@@ -285,6 +286,7 @@ open class ActivityDetailTestBase {
         val manager: ActivityManager,
         val exporter: ActivityExporter,
         val units: UnitsRepository,
+        val suggestions: CombineSuggestions,
     )
 
     protected suspend fun repos(scope: String = OAuthClientConfig.DEFAULT_SCOPE, units: UnitSystem = UnitSystem.Metric): Repos {
@@ -341,6 +343,7 @@ open class ActivityDetailTestBase {
             ),
             ActivityExporter(db, clients, tracks, sources, feed),
             UnitsRepository(profiles, Clock.System, Logger, units),
+            CombineSuggestions(db, clients, feed, tracks, Clock.System),
         )
     }
 
@@ -375,6 +378,7 @@ open class ActivityDetailTestBase {
                     r.manager,
                     r.exporter,
                     r.units,
+                    r.suggestions,
                 )
             },
             block = block,

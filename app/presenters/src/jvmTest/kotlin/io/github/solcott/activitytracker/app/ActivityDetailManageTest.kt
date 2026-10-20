@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityExporter
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
+import io.github.solcott.activitytracker.data.activity.CombineSuggestions
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.di.signedInTestSession
@@ -191,6 +192,7 @@ class ActivityDetailManageTest {
                 manager,
                 ActivityExporter(db, clients, tracks, zones.sources, feed),
                 UnitsRepository(profiles, Clock.System, Logger, UnitSystem.Metric),
+                CombineSuggestions(db, clients, feed, tracks, Clock.System),
             )
         }
     }

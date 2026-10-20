@@ -20,6 +20,8 @@ import io.github.solcott.activitytracker.data.activity.ActivityExporter
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
+import io.github.solcott.activitytracker.data.activity.CombineCue
+import io.github.solcott.activitytracker.data.activity.CombineSuggestions
 import io.github.solcott.activitytracker.data.activity.DataKind
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
@@ -52,6 +54,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
@@ -75,6 +78,13 @@ class CombinePresentersTest {
     private var gate = CompletableDeferred(Unit)
     private var failReads = false
     private var failByStart = false
+    private var byStartQueries = 0
+
+    /** Suggestions look at the last week: a day after the activities here. */
+    private val suggestionClock =
+        object : Clock {
+            override fun now() = Instant.parse("2026-10-15T00:00:00Z")
+        }
 
     /** Alice's `feed.activityStreams` records, by rkey, and the blobs they name, by CID. */
     private val streamsRecords = mutableMapOf<String, JsonObject>()
@@ -163,6 +173,7 @@ class CombinePresentersTest {
                     }
 
                     "/xrpc/${Nsid.FEED_GET_AUTHOR_ACTIVITIES_BY_START}" -> {
+                        byStartQueries++
                         if (failByStart) {
                             respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
                         } else {
@@ -241,6 +252,7 @@ class CombinePresentersTest {
         val profiles: ProfileRepository,
         val manager: ActivityManager,
         val exporter: ActivityExporter,
+        val suggestions: CombineSuggestions,
     )
 
     /** A session that can write to the repo only, so the PDS here is just Alice's repo. */
@@ -294,6 +306,7 @@ class CombinePresentersTest {
             ProfileRepository(clients, Clock.System, Logger, zones.store),
             manager,
             ActivityExporter(db, clients, tracks, zones.sources, feed),
+            CombineSuggestions(db, clients, feed, tracks, suggestionClock),
         )
     }
 
@@ -302,12 +315,17 @@ class CombinePresentersTest {
         return { CombinePickerPresenter(CombinePickerScreen(uri), navigator, g.feed, g.manager) }
     }
 
-    private suspend fun detail(uri: String, navigator: FakeNavigator): @Composable () -> ActivityDetailState {
-        val g = graph()
+    private suspend fun detail(
+        uri: String,
+        navigator: FakeNavigator,
+        suggestOnOpen: Boolean = false,
+        shared: Graph? = null,
+    ): @Composable () -> ActivityDetailState {
+        val g = shared ?: graph()
         val units = UnitsRepository(g.profiles, Clock.System, Logger, UnitSystem.Metric)
         return {
             ActivityDetailPresenter(
-                ActivityDetailScreen(uri),
+                ActivityDetailScreen(uri, suggestOnOpen),
                 navigator,
                 g.feed,
                 g.activities,
@@ -316,6 +334,7 @@ class CombinePresentersTest {
                 g.manager,
                 g.exporter,
                 units,
+                g.suggestions,
             )
         }
     }
@@ -555,6 +574,84 @@ class CombinePresentersTest {
             failed.eventSink(ActivityDetailEvent.RetrySources)
             awaitUntil { s -> s.powerRow()?.included == false && (s as ActivityDetailState.Loaded).dataSources?.error == null }
             assertEquals(null, streamsOf("3kride")?.power)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** A morning ride and, after lunch, an afternoon one: the afternoon was just saved. */
+    private fun lunch() {
+        records["3kam"] = ride("2026-10-14T09:00:00Z", minutes = 165)
+        records["3kpm"] = ride("2026-10-14T13:00:00Z", minutes = 120)
+    }
+
+    private fun ActivityDetailState.suggestion() = (this as? ActivityDetailState.Loaded)?.combineSuggestion
+
+    @Test
+    fun aSaveAsksRightAwayAndNotNowLeavesABanner() = runTest {
+        lunch()
+        presenterTestOf(detail(uri("3kpm"), FakeNavigator(ActivityDetailScreen(uri("3kpm"), true)), suggestOnOpen = true)) {
+            val loaded = awaitUntil { it.suggestion() != null } as ActivityDetailState.Loaded
+            val prompt = loaded.combineSuggestion!!
+            assertTrue(prompt.asPrompt)
+            assertEquals(CombineCue.Break, prompt.cue)
+            assertEquals(uri("3kam"), prompt.other.uri.value)
+
+            loaded.eventSink(ActivityDetailEvent.NotNowSuggestion)
+            assertFalse(awaitUntil { it.suggestion()?.asPrompt == false }.suggestion()!!.asPrompt, "a banner now")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun openingThePageLaterShowsABanner() = runTest {
+        lunch()
+        presenterTestOf(detail(uri("3kam"), FakeNavigator(ActivityDetailScreen(uri("3kam"))))) {
+            val banner = awaitUntil { it.suggestion() != null }.suggestion()!!
+            assertFalse(banner.asPrompt)
+            assertEquals(uri("3kpm"), banner.other.uri.value)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun dontCombineHidesItOnBothPages() = runTest {
+        lunch()
+        val g = graph()
+        presenterTestOf(detail(uri("3kpm"), FakeNavigator(ActivityDetailScreen(uri("3kpm"))), shared = g)) {
+            (awaitUntil { it.suggestion() != null } as ActivityDetailState.Loaded).eventSink(ActivityDetailEvent.DontCombineSuggestion)
+            awaitUntil { it is ActivityDetailState.Loaded && it.suggestion() == null }
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(null, g.suggestions.forActivity(g.feed.activity(AtUri(uri("3kam")))), "nor on the morning's page")
+        assertEquals(null, g.suggestions.forActivity(g.feed.activity(AtUri(uri("3kpm")))))
+    }
+
+    @Test
+    fun aFollowerSeesNoSuggestion() = runTest {
+        lunch()
+        bobs += setOf("3kam", "3kpm")
+        presenterTestOf(detail(uri("3kpm"), FakeNavigator(ActivityDetailScreen(uri("3kpm"))))) {
+            assertEquals(null, awaitLoaded().combineSuggestion)
+            assertEquals(0, byStartQueries, "nothing is looked for on someone else's activity")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun combiningAddsToTheCombinedDayAndOpensIt() = runTest {
+        records["3km1"] = ride("2026-10-14T09:00:00Z")
+        records["3km2"] = ride("2026-10-14T10:30:00Z")
+        records["3kday"] = ride("2026-10-14T09:00:00Z", minutes = 150, members = listOf("3km1", "3km2"))
+        records["3klate"] = ride("2026-10-14T12:00:00Z")
+        val navigator = FakeNavigator(ActivityDetailScreen(uri("3km2")), ActivityDetailScreen(uri("3klate"), true))
+        presenterTestOf(detail(uri("3klate"), navigator, suggestOnOpen = true)) {
+            val loaded = awaitUntil { it.suggestion() != null } as ActivityDetailState.Loaded
+            assertEquals(uri("3kday"), loaded.combineSuggestion!!.other.uri.value, "offered as the combined day")
+            loaded.eventSink(ActivityDetailEvent.CombineSuggested)
+
+            navigator.awaitPop()
+            assertEquals(ActivityDetailScreen(uri("3kday")), navigator.awaitNextScreen())
+            assertEquals(listOf("3km1", "3km2", "3klate"), records.getValue("3kday").membersOf().map { it.substringAfterLast('/') })
             cancelAndIgnoreRemainingEvents()
         }
     }
