@@ -23,6 +23,7 @@ import io.github.solcott.activitytracker.composeApp.resources.activity_visibilit
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_badge_mutuals
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_badge_self
 import io.github.solcott.activitytracker.composeApp.resources.detail_category_cadence
+import io.github.solcott.activitytracker.composeApp.resources.detail_category_cadence_only
 import io.github.solcott.activitytracker.composeApp.resources.detail_category_calories
 import io.github.solcott.activitytracker.composeApp.resources.detail_category_dive
 import io.github.solcott.activitytracker.composeApp.resources.detail_category_dive_help
@@ -65,7 +66,13 @@ fun DetailVisibilityPicker(
         )
         for (category in fields.categories) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(detailCategoryLabel(category.category), style = MaterialTheme.typography.bodyMedium)
+                val label =
+                    if (category.category == DetailCategory.CADENCE && !fields.runningForm) {
+                        stringResource(Res.string.detail_category_cadence_only)
+                    } else {
+                        detailCategoryLabel(category.category)
+                    }
+                Text(label, style = MaterialTheme.typography.bodyMedium)
                 detailCategoryHelp(category.category)?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
