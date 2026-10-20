@@ -46,7 +46,13 @@ internal object ChartsBuilder {
             heartRateZones = data.heartRate?.let { zoneTimes(time, it, streams.heartRateZones, ZoneModels.heartRate) },
             powerZones = power?.let { zoneTimes(time, it, streams.powerZones, ZoneModels.power) },
             normalizedPower = PerSecond.normalizedPower(powerBySecond),
-            powerCurve = StreamAnalytics.meanMax(powerBySecond).map { (seconds, watts) -> CurvePoint(seconds, watts) }.toImmutableList(),
+            // Over clock time, as Garmin reads it: a pause counts at 0 W, so no window joins the efforts either side of a stop.
+            powerCurve =
+                power
+                    ?.let { StreamAnalytics.meanMax(StreamAnalytics.clockSeconds(time, it)) }
+                    .orEmpty()
+                    .map { (seconds, watts) -> CurvePoint(seconds, watts) }
+                    .toImmutableList(),
             gears = data.gears.orEmpty().map { GearPoint(it.time, it.front, it.rear) }.toImmutableList(),
             gasSwitches = data.gasSwitches.orEmpty().map { GasSwitchPoint(it.time, it.oxygen, it.helium) }.toImmutableList(),
             alerts =

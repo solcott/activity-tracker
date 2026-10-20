@@ -46,7 +46,7 @@ internal object MetricCards {
             DetailSection.Power -> {
                 val (avg, max) = avgMax(StreamKind.Power, figures).partition { it.key == FigureKey.Avg }
                 val normalized = charts.normalizedPower?.let { Figure(FigureKey.NormalizedPower, watts(it)) }
-                // The best 20-minute effort, or the longest under it when the ride is shorter.
+                // The best 20 minutes of clock time (stops at 0 W, as Garmin reads it), or the longest under it on a shorter ride.
                 val best = charts.powerCurve.lastOrNull { it.seconds in SECONDS_PER_MINUTE..BEST_POWER_SECONDS }
                 avg + listOfNotNull(normalized) + max to
                     listOfNotNull(

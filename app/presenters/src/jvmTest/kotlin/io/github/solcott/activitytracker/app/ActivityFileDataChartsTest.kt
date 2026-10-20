@@ -7,6 +7,9 @@ import io.github.solcott.activitytracker.app.detail.ActivityDetailPresenter
 import io.github.solcott.activitytracker.app.detail.ActivityDetailState
 import io.github.solcott.activitytracker.app.detail.DetailSection
 import io.github.solcott.activitytracker.app.detail.DiveAlertPoint
+import io.github.solcott.activitytracker.app.detail.FigureKey
+import io.github.solcott.activitytracker.app.detail.FigureUnit
+import io.github.solcott.activitytracker.app.detail.FigureValue
 import io.github.solcott.activitytracker.app.detail.GasKind
 import io.github.solcott.activitytracker.app.detail.GasSwitchPoint
 import io.github.solcott.activitytracker.app.detail.StreamKind
@@ -160,6 +163,22 @@ class ActivityFileDataChartsTest : ActivityDetailTestBase() {
         assertNull(laps[2].speed, "no distance")
 
         assertEquals(7.46, loaded(UnitSystem.Imperial).second.laps.first().speed!!, 0.01, "mph")
+    }
+
+    @Test
+    fun thePowerCurveCountsAStopAtZeroWatts() = runTest {
+        // 10 minutes at 300 W, a 10-minute timer stop, then 10 minutes more: no 20 minutes were ridden at 300 W.
+        val time = (0 until 600) + (1200 until 1800)
+        streamsOf(""""time":${time.joinToString(",", "[", "]")},"power":${time.joinToString(",", "[", "]") { "300" }}""")
+        val (state, charts) = loaded()
+
+        assertEquals(150, charts.powerCurve.single { it.seconds == 1200 }.watts, "the best 20 minutes of clock time")
+        assertEquals(300, charts.powerCurve.single { it.seconds == 600 }.watts)
+        assertEquals(1800, charts.powerCurve.maxOf { it.seconds }, "durations up to the clock span, 30 min")
+        assertEquals(300, charts.normalizedPower, "normalized power still leaves the stop out")
+        val best = state.page.cards.single { it.section == DetailSection.Power }.rows.single { it.key == FigureKey.BestPower }
+        assertEquals(FigureValue.Quantity(150, FigureUnit.Watts), best.value)
+        assertEquals(20, best.index)
     }
 
     @Test
