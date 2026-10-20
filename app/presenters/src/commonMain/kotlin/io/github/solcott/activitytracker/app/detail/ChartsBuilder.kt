@@ -174,7 +174,9 @@ internal object ChartsBuilder {
     private fun line(kind: StreamKind, time: List<Int>, values: List<Double?>?): LineSeries? {
         val present = values?.filterNotNull()?.takeIf { it.size >= 2 } ?: return null
         val points = StreamAnalytics.averaged(time, values).map { (seconds, value, gapBefore) -> ChartSample(seconds, value, gapBefore) }
-        return LineSeries(kind, points.toImmutableList(), present.average(), present.max())
+        // Averaged over time, grade weighs slow climbs over fast descents, so a loop reads as uphill: it gives its maximum only.
+        val average = present.average().takeUnless { kind == StreamKind.Grade }
+        return LineSeries(kind, points.toImmutableList(), average, present.max(), min = present.min())
     }
 
     /**

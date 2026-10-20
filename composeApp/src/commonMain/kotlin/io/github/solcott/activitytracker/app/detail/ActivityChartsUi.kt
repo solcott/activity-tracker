@@ -35,6 +35,7 @@ import io.github.solcott.activitytracker.composeApp.resources.chart_heart_rate_z
 import io.github.solcott.activitytracker.composeApp.resources.chart_left_right
 import io.github.solcott.activitytracker.composeApp.resources.chart_left_right_help
 import io.github.solcott.activitytracker.composeApp.resources.chart_marker
+import io.github.solcott.activitytracker.composeApp.resources.chart_max_only
 import io.github.solcott.activitytracker.composeApp.resources.chart_power_curve
 import io.github.solcott.activitytracker.composeApp.resources.chart_power_curve_help
 import io.github.solcott.activitytracker.composeApp.resources.chart_power_curve_point
@@ -249,7 +250,8 @@ private fun LineChart(
     val lines = if (rightPoints == null) others else persistentListOf(rightPoints)
     val detail =
         when {
-            average == null || max == null -> null
+            max == null -> null
+            average == null -> stringResource(Res.string.chart_max_only, max)
             right != null -> stringResource(Res.string.chart_left_right, average, right.average?.let { unit.text(unit.convert(it)) } ?: "–")
             detailOverride != null -> detailOverride
             normalizedPower != null ->
@@ -273,7 +275,7 @@ private fun LineChart(
             xRange = 0.0..durationSeconds.toDouble(),
             description =
                 listOfNotNull(
-                        lineDescription(title, average.orEmpty(), max.orEmpty(), pace),
+                        lineDescription(title, average, max.orEmpty(), pace),
                         extraDescription,
                         pairDescription,
                     )

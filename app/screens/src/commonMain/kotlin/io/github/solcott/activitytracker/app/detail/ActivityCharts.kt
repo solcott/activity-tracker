@@ -138,8 +138,9 @@ enum class StreamKind {
 }
 
 /**
- * [points] in [kind]'s unit; [average] and [max] are over every sample, not just the thinned points. For a left/right pair (torque
- * effectiveness, pedal smoothness, platform centre offset) this is the left leg and [right] the right, drawn on one chart.
+ * [points] in [kind]'s unit; [average], [max] and [min] are over every sample, not just the thinned points. A null [average] means the
+ * series has none worth giving, like grade, whose time average reads a loop as uphill. For a left/right pair (torque effectiveness, pedal
+ * smoothness, platform centre offset) this is the left leg and [right] the right, drawn on one chart.
  */
 @Immutable
 data class LineSeries(
@@ -148,6 +149,7 @@ data class LineSeries(
     val average: Double?,
     val max: Double?,
     val right: LineSeries? = null,
+    val min: Double? = null,
 )
 
 /** A chart point at [seconds]; [gapBefore] when no samples were recorded for a while before it, so the line breaks there. */

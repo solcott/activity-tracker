@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.composeApp.resources.chart_cns
 import io.github.solcott.activitytracker.composeApp.resources.chart_core_temperature
 import io.github.solcott.activitytracker.composeApp.resources.chart_depth
 import io.github.solcott.activitytracker.composeApp.resources.chart_description
+import io.github.solcott.activitytracker.composeApp.resources.chart_description_max
 import io.github.solcott.activitytracker.composeApp.resources.chart_description_pace
 import io.github.solcott.activitytracker.composeApp.resources.chart_ebike_assist_level
 import io.github.solcott.activitytracker.composeApp.resources.chart_ebike_assist_mode
@@ -125,11 +126,17 @@ internal fun paceUnit(kind: PaceKind): StreamUnit {
 internal fun lineTitle(kind: StreamKind, pace: PaceKind?): String =
     stringResource(if (pace != null) Res.string.chart_pace else streamTitle(kind))
 
-/** What a line's chart shows, for a screen reader: a pace's fastest is its best, not its maximum. */
+/**
+ * What a line's chart shows, for a screen reader: a pace's fastest is its best, not its maximum. A line without an average gives its
+ * maximum.
+ */
 @Composable
-internal fun lineDescription(title: String, average: String, max: String, pace: PaceKind?): String =
-    if (pace != null) stringResource(Res.string.chart_description_pace, average, max)
-    else stringResource(Res.string.chart_description, title, average, max)
+internal fun lineDescription(title: String, average: String?, max: String, pace: PaceKind?): String =
+    when {
+        pace != null -> stringResource(Res.string.chart_description_pace, average.orEmpty(), max)
+        average == null -> stringResource(Res.string.chart_description_max, title, max)
+        else -> stringResource(Res.string.chart_description, title, average, max)
+    }
 
 /** A pace line's cap, [PACE_CEILING] times its average, so stops don't dwarf the rest; none for other lines. */
 internal fun paceCeiling(series: LineSeries, unit: StreamUnit, pace: PaceKind?): Double =

@@ -120,6 +120,23 @@ class ActivityFileDataChartsTest : ActivityDetailTestBase() {
     }
 
     @Test
+    fun gradeGivesItsMaximumOnlyAndElevationItsLowest() = runTest {
+        // Up 10% slowly, then down faster and lower: a time average would read the loop as uphill.
+        val alts = listOf(0, 100, 200, 300, 400, 500, 400, 300, 200, 100, 0, -100, -200, -300, -400, -500).map { 100_000 + it }
+        val time = alts.indices.map { if (it <= 5) it * 30 else 150 + (it - 5) * 5 }
+        val distance = alts.indices.map { it * 1000 }
+        streamsOf(""""time":$time,"distance":$distance,"altitude":$alts""")
+        val (_, charts) = loaded()
+
+        val grade = charts.lines.single { it.kind == StreamKind.Grade }
+        assertNull(grade.average)
+        assertEquals(10.0, grade.max!!, 0.01)
+        val elevation = charts.lines.single { it.kind == StreamKind.Elevation }
+        assertEquals(995.0, elevation.min, "meters")
+        assertEquals(1005.0, elevation.max)
+    }
+
+    @Test
     fun aRunRecordedInTheAppHasNoLapsOrDynamics() = runTest {
         streamsOf(""""time":[0,10,20],"distance":[0,3000,6000],"speed":[3000,3000,3000]""")
         val (state, charts) = loaded()
