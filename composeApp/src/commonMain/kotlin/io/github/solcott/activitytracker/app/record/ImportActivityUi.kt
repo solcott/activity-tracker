@@ -70,6 +70,7 @@ import io.github.solcott.activitytracker.composeApp.resources.unit_watts
 import io.github.solcott.activitytracker.composeApp.resources.value_missing
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.training.ThresholdChange
+import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
@@ -256,8 +257,8 @@ private fun ThresholdChanges(changes: ImmutableList<ThresholdChange>, modifier: 
 private fun thresholdValue(threshold: String, value: Long?): String =
     when {
         value == null -> stringResource(Res.string.value_missing)
-        threshold == Threshold.FUNCTIONAL_THRESHOLD_POWER -> stringResource(Res.string.unit_watts, value.toString())
-        else -> stringResource(Res.string.unit_bpm, value.toString())
+        threshold == Threshold.FUNCTIONAL_THRESHOLD_POWER -> stringResource(Res.string.unit_watts, formatWhole(value))
+        else -> stringResource(Res.string.unit_bpm, formatWhole(value))
     }
 
 @Composable

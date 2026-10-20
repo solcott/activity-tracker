@@ -28,6 +28,7 @@ import io.github.solcott.activitytracker.composeApp.resources.import_dives_none
 import io.github.solcott.activitytracker.composeApp.resources.import_dives_save
 import io.github.solcott.activitytracker.composeApp.resources.import_dives_selected
 import io.github.solcott.activitytracker.composeApp.resources.import_select_all
+import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlinx.collections.immutable.toImmutableMap
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -38,7 +39,7 @@ internal fun DiveBatchForm(state: ImportActivityState, batch: DiveBatch, modifie
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(batch.fileName, style = MaterialTheme.typography.titleMedium)
         Text(
-            pluralStringResource(Res.plurals.import_dives_found, batch.dives.size, batch.dives.size),
+            pluralStringResource(Res.plurals.import_dives_found, batch.dives.size, formatWhole(batch.dives.size)),
             style = MaterialTheme.typography.bodySmall,
         )
         batch.clock?.let { clock ->
@@ -52,7 +53,7 @@ internal fun DiveBatchForm(state: ImportActivityState, batch: DiveBatch, modifie
         )
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                stringResource(Res.string.import_dives_selected, batch.selectedCount, batch.dives.size),
+                stringResource(Res.string.import_dives_selected, formatWhole(batch.selectedCount), formatWhole(batch.dives.size)),
                 Modifier.weight(1f),
                 style = MaterialTheme.typography.labelLarge,
             )
@@ -90,7 +91,7 @@ internal fun DiveBatchForm(state: ImportActivityState, batch: DiveBatch, modifie
                 when {
                     state.saving -> stringResource(Res.string.action_saving)
                     batch.selectedCount == 0 -> stringResource(Res.string.import_dives_none)
-                    else -> pluralStringResource(Res.plurals.import_dives_save, batch.selectedCount, batch.selectedCount)
+                    else -> pluralStringResource(Res.plurals.import_dives_save, batch.selectedCount, formatWhole(batch.selectedCount))
                 }
             )
         }

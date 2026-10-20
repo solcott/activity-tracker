@@ -43,6 +43,7 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_comment_pla
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_comments
 import io.github.solcott.activitytracker.composeApp.resources.detail_send_comment
 import io.github.solcott.activitytracker.data.feed.SentComment
+import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import kotlinx.collections.immutable.ImmutableSet
@@ -109,7 +110,7 @@ private fun CommentsHeader(state: ActivityDetailState.Loaded, modifier: Modifier
         Text(stringResource(Res.string.detail_section_comments), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
         val count = state.activity.commentCount.toInt()
         Text(
-            pluralStringResource(Res.plurals.detail_comment_count, count, count),
+            pluralStringResource(Res.plurals.detail_comment_count, count, formatWhole(count)),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

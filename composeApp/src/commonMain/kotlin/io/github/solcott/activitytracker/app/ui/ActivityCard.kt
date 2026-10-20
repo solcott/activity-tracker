@@ -28,6 +28,7 @@ import io.github.solcott.activitytracker.composeApp.resources.comments_count
 import io.github.solcott.activitytracker.composeApp.resources.like_content_description
 import io.github.solcott.activitytracker.composeApp.resources.like_count
 import io.github.solcott.activitytracker.composeApp.resources.stat_time
+import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.activityType
@@ -111,8 +112,8 @@ fun ActivityCard(
                 Text(
                     stringResource(
                         Res.string.activity_card_counts,
-                        pluralStringResource(Res.plurals.like_count, activity.likeCount.toInt(), activity.likeCount),
-                        pluralStringResource(Res.plurals.comments_count, activity.commentCount.toInt(), activity.commentCount),
+                        pluralStringResource(Res.plurals.like_count, activity.likeCount.toInt(), formatWhole(activity.likeCount)),
+                        pluralStringResource(Res.plurals.comments_count, activity.commentCount.toInt(), formatWhole(activity.commentCount)),
                     ),
                     style = MaterialTheme.typography.bodySmall,
                 )

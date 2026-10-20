@@ -56,6 +56,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.CalendarDate
 import io.github.solcott.activitytracker.data.units.HeightConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import kotlin.math.roundToLong
 import kotlin.time.Clock
@@ -119,7 +120,7 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
                             }
                             AppTextButton(onClick = { state.eventSink(ProfileEvent.OpenFollowing) }) {
                                 Text(
-                                    stringResource(Res.string.profile_following_count, p.followsCount ?: 0),
+                                    stringResource(Res.string.profile_following_count, formatWhole(p.followsCount ?: 0L)),
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             }
@@ -186,7 +187,7 @@ private fun FollowButton(following: Boolean, requested: Boolean, pending: Boolea
 @Composable
 private fun countLabel(resource: PluralStringResource, count: Long?): String {
     val n = count ?: 0
-    return pluralStringResource(resource, n.toInt(), n)
+    return pluralStringResource(resource, n.toInt(), formatWhole(n))
 }
 
 private const val HEADER_KEY = "header"

@@ -68,6 +68,7 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_title
 import io.github.solcott.activitytracker.composeApp.resources.detail_zone_added
 import io.github.solcott.activitytracker.composeApp.resources.like_count
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.activityType
 import org.jetbrains.compose.resources.pluralStringResource
@@ -345,7 +346,7 @@ private fun Likes(state: ActivityDetailState.Loaded, modifier: Modifier = Modifi
 private fun LikeButton(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
     val count = state.activity.likeCount
     if (state.isOwn) {
-        Text(pluralStringResource(Res.plurals.like_count, count.toInt(), count), modifier.padding(vertical = 12.dp))
+        Text(pluralStringResource(Res.plurals.like_count, count.toInt(), formatWhole(count)), modifier.padding(vertical = 12.dp))
     } else {
         Box(modifier) {
             AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.ToggleLike) }) {
