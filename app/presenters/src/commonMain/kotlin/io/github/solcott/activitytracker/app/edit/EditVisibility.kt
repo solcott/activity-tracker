@@ -25,6 +25,7 @@ class EditVisibility internal constructor(private val canChoose: Boolean, privat
     private var saved by mutableStateOf<VisibilityChoice?>(null)
     private var choice by mutableStateOf<VisibilityChoice?>(null)
     private var offered by mutableStateOf(emptyList<String>())
+    private var runningForm by mutableStateOf(false)
 
     /**
      * [view] as loaded, with its [streams] (null when it has none or they can't load): each category with data at the tier it's served at
@@ -36,11 +37,12 @@ class EditVisibility internal constructor(private val canChoose: Boolean, privat
         saved = VisibilityChoice(visibility, tiers)
         choice = saved
         offered = DetailCategory.all.filter { it in tiers }
+        runningForm = streams?.channels.orEmpty().any { it in DetailCategory.RUNNING_FORM_CHANNELS }
     }
 
     /** What the form shows; null until loaded. */
     val fields: VisibilityFields?
-        get() = choice?.let { fieldsOf(it, canChoose, ::onEvent, approvesFollowers(), offered) }
+        get() = choice?.let { fieldsOf(it, canChoose, ::onEvent, approvesFollowers(), offered).copy(runningForm = runningForm) }
 
     /** The choice to save, if the athlete changed it. */
     val changed: VisibilityChoice?

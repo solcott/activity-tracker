@@ -87,6 +87,9 @@ class EditActivityPresenterTest {
     private var oldStreams = false
     private val oldData = """{"time":[0,1],"depth":[100,200],"temperature":[200,210]}"""
 
+    /** Public streams the AppView serves with these channels, when set. */
+    private var servedChannels: List<String>? = null
+
     /** The places holding the activity record: where [visibility] says, until a save moves it. */
     private val held = mutableSetOf<String>()
     private var heldSeeded = false
@@ -151,7 +154,14 @@ class EditActivityPresenterTest {
                         else respond("""{"error":"BlobNotFound"}""", HttpStatusCode.BadRequest, json)
 
                     "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" ->
-                        if (oldStreams) {
+                        if (servedChannels != null) {
+                            val channels = servedChannels.orEmpty()
+                            val data = channels.joinToString(",", prefix = """{"time":[0,1],""", postfix = "}") { """"$it":[1,2]""" }
+                            respond(
+                                """{"uri":"$uri","visibility":"public","channels":${channels.map { "\"$it\"" }},"data":$data}""",
+                                headers = json,
+                            )
+                        } else if (oldStreams) {
                             respond(
                                 """{"uri":"$uri","visibility":"self","channels":["depth","temperature"],"data":$oldData}""",
                                 headers = json,
@@ -346,6 +356,26 @@ class EditActivityPresenterTest {
         }
         // The edit, then the move: into the self space before out of the repo.
         assertEquals(listOf("put", "put self", "delete repo"), writes)
+    }
+
+    @Test
+    fun cadenceWithoutRunningFormIsJustCadence() = runTest {
+        servedChannels = listOf("cadence")
+        presenterTestOf(presenter(FakeNavigator(EditActivityScreen(uri)))) {
+            val loaded = awaitUntil { it.visibility != null }
+            assertEquals(Visibility.PUBLIC, loaded.visibility?.tierOf(DetailCategory.CADENCE))
+            assertEquals(false, loaded.visibility?.runningForm)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun stanceTimeIsRunningForm() = runTest {
+        servedChannels = listOf("cadence", "stanceTime")
+        presenterTestOf(presenter(FakeNavigator(EditActivityScreen(uri)))) {
+            assertEquals(true, awaitUntil { it.visibility != null }.visibility?.runningForm)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test

@@ -22,6 +22,7 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
@@ -125,6 +126,44 @@ class ImportLogbookPresenterTest {
             assertEquals(18.0, batch.dives[0].maxDepthMeters)
             assertEquals(2400.seconds, batch.dives[0].elapsed)
             // Later states (the defaults and recent types loading) may still arrive; they're not this test's concern.
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun offersWhatAnySelectedDiveHolds() = runTest {
+        // Only the first dive has heart rate.
+        val withHeartRate =
+            ByteString(
+                logbook
+                    .toByteArray()
+                    .decodeToString()
+                    .replaceFirst("<waypoint><depth>18</depth>", "<waypoint><heartrate>120</heartrate><depth>18</depth>")
+                    .encodeToByteArray()
+            )
+        val repos = fixture.repos()
+        presenterTestOf({
+            ImportActivityPresenter(
+                ImportActivityScreen(),
+                FakeNavigator(ImportActivityScreen()),
+                repos.activities,
+                repos.manager,
+                ActivityFileReader { error("not FIT") },
+                repos.typeChoices,
+                repos.profiles,
+                repos.feed,
+                repos.defaults,
+                repos.units,
+                repos.suggestions,
+            )
+        }) {
+            awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", withHeartRate))
+            val read = awaitUntil { it.dives != null && it.visibility.tierOf(DetailCategory.HEART_RATE) != null }
+            assertTrue(read.visibility.tierOf(DetailCategory.DIVE) != null, "every dive has depths")
+
+            read.eventSink(ImportActivityEvent.DiveToggled(0))
+            val without = awaitUntil { it.dives?.selectedCount == 2 }
+            assertEquals(null, without.visibility.tierOf(DetailCategory.HEART_RATE), "no selected dive has heart rate")
             cancelAndIgnoreRemainingEvents()
         }
     }

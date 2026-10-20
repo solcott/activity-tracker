@@ -15,10 +15,15 @@ import kotlinx.collections.immutable.toImmutableList
 @Immutable
 data class VisibilityFields(
     val activity: String = Visibility.PUBLIC,
-    /** The categories offered, in `DetailCategory.all` order: every one for a new activity, those with data when editing. */
+    /**
+     * The categories offered, in `DetailCategory.all` order: those the activity has data in (a recording's, those it records), or every one
+     * for the defaults.
+     */
     val categories: ImmutableList<CategoryVisibility> = persistentListOf(),
     val canChoose: Boolean = true,
     val approvesFollowers: Boolean = false,
+    /** Whether the cadence category holds running form too, as for the defaults; false for an activity with only cadence itself. */
+    val runningForm: Boolean = true,
     val eventSink: (VisibilityEvent) -> Unit = {},
 ) {
     /** What a category may be shown to: the activity's visibility or narrower, widest first. */

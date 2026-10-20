@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.record.RecordEvent
 import io.github.solcott.activitytracker.app.record.RecordPresenter
 import io.github.solcott.activitytracker.app.record.RecordScreen
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.location.ActivityRecorder
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.LocationTracker
@@ -43,6 +44,29 @@ class RecordPresenterTest {
             val opened = navigator.awaitNextScreen() as ActivityDetailScreen
             assertEquals(fixture.putRkeys.first(), opened.uri.substringAfterLast('/'), "the saved activity opens")
             assertEquals(true, opened.suggestOnOpen)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun offersWhatARecordingHolds() = runTest {
+        val repos = fixture.repos()
+        val recorder = ActivityRecorder(tracker, Clock.System, StandardTestDispatcher(testScheduler))
+        presenterTestOf({
+            RecordPresenter(
+                FakeNavigator(RecordScreen),
+                recorder,
+                tracker,
+                repos.activities,
+                repos.typeChoices,
+                repos.defaults,
+                Clock.System,
+            )
+        }) {
+            assertEquals(
+                listOf(DetailCategory.START_TIME, DetailCategory.SPEED, DetailCategory.MAP),
+                awaitItem().visibility.categories.map { it.category },
+            )
             cancelAndIgnoreRemainingEvents()
         }
     }
