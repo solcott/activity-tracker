@@ -35,6 +35,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
+import io.github.solcott.activitytracker.data.activity.CombineSuggestions
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.profile.OwnProfile
@@ -73,6 +74,7 @@ fun ImportActivityPresenter(
     feed: FeedRepository,
     defaults: ActivityDefaults,
     units: UnitsRepository,
+    suggestions: CombineSuggestions,
 ): ImportActivityState {
     // The parsed file isn't saveable; after process death the athlete picks it again. A logbook holds many dives.
     var file by remember { mutableStateOf<ImportFile?>(null) }
@@ -90,6 +92,7 @@ fun ImportActivityPresenter(
     // Where a zone-less file's clock was; null for this device's zone.
     var zoneId by rememberSaveable { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<UiError?>(null) }
+    var savedSuggestions by remember { mutableStateOf<ImmutableList<SavedSuggestion>?>(null) }
     val flights = rememberSingleFlight()
     val saving = flights.isRunning(ImportActivityEvent.Save::class)
     val reading = flights.isRunning(ImportActivityEvent.FilePicked::class)
@@ -151,6 +154,7 @@ fun ImportActivityPresenter(
         addsRecording = adding.requested,
         addingTo = adding.preview(zone),
         tooFarFromTarget = tooFar,
+        savedSuggestions = savedSuggestions,
     ) { event ->
         when (event) {
             is ImportActivityEvent.FilePicked -> {
@@ -198,9 +202,8 @@ fun ImportActivityPresenter(
                 zoneId = event.id
             }
 
-            ImportActivityEvent.Back -> {
-                navigator.pop()
-            }
+            ImportActivityEvent.Back,
+            is ImportActivityEvent.Saved -> navigator.leave(event)
 
             is ImportActivityEvent.DiveToggled -> selection = selection.toggled(event.index, matches.getOrNull(event.index))
 
@@ -211,7 +214,11 @@ fun ImportActivityPresenter(
             is ImportActivityEvent.SaveDives ->
                 flights.launch(ImportActivityEvent.Save::class) {
                     val import = diveImport(placedDives, selection, matches, event.defaultTitles, training, visibility.current, source)
-                    runSuspendCatching { saveDives(activities, manager, import, onPublished = { navigator.pop() }) }
+                    runSuspendCatching {
+                        saveDives(activities, manager, import)?.let {
+                            navigator.afterDives(it, suggestions) { found -> savedSuggestions = found }
+                        }
+                    }
                         .onFailure { e -> error = uiErrorOf(UiError.Kind.SaveActivity, e) }
                 }
 
@@ -225,10 +232,9 @@ fun ImportActivityPresenter(
                             importDraft(activity, type, text, training, thresholdChanges, adding.sourceOf(source))
                                 .withDetails(details, isDive = type.sport == Sport.DIVE)
                                 .withVisibility(visibility.current)
-                        val combined = saveSingle(activities, manager, draft, adding.into(combineTarget(match, selection.action(0, match))))
+                        val saved = saveSingle(activities, manager, draft, adding.into(combineTarget(match, selection.action(0, match))))
                         updateThresholds(profiles, activity, type.sport, previewed = thresholdChanges)
-                        navigator.pop()
-                        adding.opened(combined)?.let(navigator::goTo)
+                        navigator.openSaved(saved, adding)
                     }
                         .onFailure { e -> error = uiErrorOf(UiError.Kind.SaveActivity, e) }
                 }

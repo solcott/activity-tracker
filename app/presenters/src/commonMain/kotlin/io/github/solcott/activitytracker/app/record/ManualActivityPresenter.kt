@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.visibility.rememberNewActivityVisibility
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
@@ -62,22 +63,27 @@ fun ManualActivityPresenter(
                 flights.launch(ManualActivityEvent.Save) {
                     runSuspendCatching {
                         val elapsed = (minutes * 60).toLong()
-                        activities.publish(
-                            ActivityDraft(
-                                    type = type.selected,
-                                    title = title.text.toString().ifBlank { null },
-                                    description = null,
-                                    startedAt = clock.now() - minutes.minutes,
-                                    elapsed = minutes.minutes,
-                                    movingSeconds = elapsed,
-                                    distanceMeters =
-                                        parseDecimal(distance.text.toString())?.let { UnitConversions.fromDistanceUnit(it, units) },
-                                    avgTemperatureCelsius =
-                                        parseDecimal(temperature.text.toString())?.let { UnitConversions.fromTemperatureUnit(it, units) },
-                                )
-                                .withVisibility(visibility.current)
-                        )
+                        val saved =
+                            activities.publish(
+                                ActivityDraft(
+                                        type = type.selected,
+                                        title = title.text.toString().ifBlank { null },
+                                        description = null,
+                                        startedAt = clock.now() - minutes.minutes,
+                                        elapsed = minutes.minutes,
+                                        movingSeconds = elapsed,
+                                        distanceMeters =
+                                            parseDecimal(distance.text.toString())?.let { UnitConversions.fromDistanceUnit(it, units) },
+                                        avgTemperatureCelsius =
+                                            parseDecimal(temperature.text.toString())?.let {
+                                                UnitConversions.fromTemperatureUnit(it, units)
+                                            },
+                                    )
+                                    .withVisibility(visibility.current)
+                            )
+                        // The saved activity opens, asking whether to combine it with another of the athlete's.
                         navigator.pop()
+                        navigator.goTo(ActivityDetailScreen(saved.value, suggestOnOpen = true))
                     }
                         .onFailure { e -> error = uiErrorOf(UiError.Kind.SaveActivity, e) }
                 }

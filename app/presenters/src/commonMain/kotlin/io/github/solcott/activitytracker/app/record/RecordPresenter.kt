@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.visibility.rememberNewActivityVisibility
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
@@ -97,16 +98,19 @@ fun RecordPresenter(
                 val result = recorder.stop() ?: return@RecordState
                 flights.launch(RecordEvent.Finish) {
                     runSuspendCatching {
-                        activities.publish(
-                            ActivityDraft.fromRecording(
-                                    result,
-                                    type.selected,
-                                    title.text.toString().ifBlank { null },
-                                    null,
-                                )
-                                .withVisibility(visibility.current)
-                        )
+                        val saved =
+                            activities.publish(
+                                ActivityDraft.fromRecording(
+                                        result,
+                                        type.selected,
+                                        title.text.toString().ifBlank { null },
+                                        null,
+                                    )
+                                    .withVisibility(visibility.current)
+                            )
+                        // The saved activity opens, asking whether to combine it with another of the athlete's.
                         navigator.pop()
+                        navigator.goTo(ActivityDetailScreen(saved.value, suggestOnOpen = true))
                     }
                         .onFailure { e -> error = uiErrorOf(UiError.Kind.SaveActivity, e) }
                 }

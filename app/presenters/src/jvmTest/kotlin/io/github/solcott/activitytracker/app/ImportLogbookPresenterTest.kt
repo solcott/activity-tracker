@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.activityfile.ActivityFileReader
+import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.record.DuplicateAction
 import io.github.solcott.activitytracker.app.record.DuplicateCheck
 import io.github.solcott.activitytracker.app.record.ExistingActivityPreview
@@ -12,6 +13,7 @@ import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.record.PartOfDay
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
+import io.github.solcott.activitytracker.data.activity.CombineCue
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -30,6 +32,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.collections.immutable.persistentMapOf
@@ -104,6 +107,7 @@ class ImportLogbookPresenterTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
@@ -141,6 +145,7 @@ class ImportLogbookPresenterTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
@@ -178,6 +183,7 @@ class ImportLogbookPresenterTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
@@ -215,6 +221,7 @@ class ImportLogbookPresenterTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
@@ -251,6 +258,7 @@ class ImportLogbookPresenterTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }
 
@@ -310,6 +318,51 @@ class ImportLogbookPresenterTest {
         )
         assertTrue(saved.none { it.combined != null }, "and the log is unchanged")
     }
+
+    @Test
+    fun aDiveImportedAnywayIsListedToCombineAfterSaving() = runTest {
+        val repos = fixture.repos(suggestionClock = fixedClock("2026-09-21T00:00:00Z"))
+        fixture.ownActivities = listOf(loggedDive("2026-09-20T10:00:00Z"))
+        val navigator = FakeNavigator(ImportActivityScreen())
+        presenterTestOf(presenter(repos, navigator)) {
+            awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
+            awaitUntil { it.dives != null }.eventSink(ImportActivityEvent.TimeZoneChanged("UTC"))
+            val checked = awaitUntil { it.dives?.clock?.zone?.id == "UTC" && it.duplicateCheck == DuplicateCheck.Done }
+            checked.eventSink(ImportActivityEvent.DuplicateActionChanged(0, DuplicateAction.ImportAnyway))
+            awaitUntil { it.dives?.dives?.get(0)?.duplicate?.action == DuplicateAction.ImportAnyway }
+                .eventSink(ImportActivityEvent.SaveDives(persistentMapOf()))
+
+            val listed = awaitUntil { it.savedSuggestions != null }
+            val suggestion = listed.savedSuggestions!!.single()
+            assertEquals(CombineCue.SameActivity, suggestion.cue)
+            assertEquals(AtUri.of(fixture.did, Nsid.FEED_ACTIVITY, "3klogged"), suggestion.other.uri)
+            assertEquals(Instant.parse("2026-09-20T10:02:00Z").epochSeconds, suggestion.startEpochSeconds)
+
+            listed.eventSink(ImportActivityEvent.Saved.Open(suggestion.uri))
+            assertEquals(ActivityDetailScreen(suggestion.uri.value, suggestOnOpen = true), navigator.awaitNextScreen())
+            listed.eventSink(ImportActivityEvent.Saved.Done)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aLogbookWithNothingToCombineLeavesAfterSaving() = runTest {
+        val repos = fixture.repos(suggestionClock = fixedClock("2026-09-21T00:00:00Z"))
+        val navigator = FakeNavigator(ImportActivityScreen())
+        presenterTestOf(presenter(repos, navigator)) {
+            awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
+            awaitUntil { it.dives != null && it.duplicateCheck == DuplicateCheck.Done }
+                .eventSink(ImportActivityEvent.SaveDives(persistentMapOf()))
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    private fun fixedClock(now: String) =
+        object : Clock {
+            override fun now() = Instant.parse(now)
+        }
 
     @Test
     fun aDuplicateCombinesWithTheLoggedDive() = runTest {
@@ -423,6 +476,7 @@ class ImportLogbookPresenterTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
@@ -453,6 +507,7 @@ class ImportLogbookPresenterTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("two-computers.uddf", logbook("10:02", "10:03", "14:30")))
@@ -482,6 +537,7 @@ class ImportLogbookPresenterTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             // Both computers' copies of the logged dive: one matches the log, the other the log too.

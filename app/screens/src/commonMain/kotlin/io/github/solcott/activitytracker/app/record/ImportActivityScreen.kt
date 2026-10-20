@@ -11,9 +11,12 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityPageContent
 import io.github.solcott.activitytracker.app.edit.ActivityDetailsFields
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
+import io.github.solcott.activitytracker.data.activity.CombineCue
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.training.ThresholdChange
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import kotlin.time.Duration
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
@@ -69,8 +72,17 @@ data class ImportActivityState(
     val addingTo: ExistingActivityPreview? = null,
     /** The file's activity starts more than 12 hours from [addingTo]'s, so it isn't another recording of it and can't be saved. */
     val tooFarFromTarget: Boolean = false,
+    /**
+     * A logbook's dives, just saved, that likely belong with another of the athlete's activities: each opens its page to combine it
+     * ([ImportActivityEvent.Saved.Open]). Null until a save finds any; a save that finds none leaves the screen.
+     */
+    val savedSuggestions: ImmutableList<SavedSuggestion>? = null,
     val eventSink: (ImportActivityEvent) -> Unit,
 ) : CircuitUiState
+
+/** A dive just saved from a logbook, and the activity it likely belongs with. */
+@Immutable
+data class SavedSuggestion(val uri: AtUri, val title: String?, val startEpochSeconds: Long, val cue: CombineCue, val other: ActivityView)
 
 /** A logbook's dives in the file's order, each imported with its own type and title. They start selected. */
 @Immutable
@@ -337,4 +349,13 @@ sealed interface ImportActivityEvent {
     data class AllDivesSelected(val selected: Boolean) : ImportActivityEvent
 
     data object Back : ImportActivityEvent
+
+    /** The athlete acts on [ImportActivityState.savedSuggestions]. */
+    sealed interface Saved : ImportActivityEvent {
+        /** Opens a just-saved dive's page, asking there whether to combine it. */
+        data class Open(val uri: AtUri) : Saved
+
+        /** Leaves the screen, combining nothing more. */
+        data object Done : Saved
+    }
 }

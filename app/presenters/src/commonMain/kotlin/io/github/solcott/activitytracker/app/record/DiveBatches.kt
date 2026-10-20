@@ -190,28 +190,31 @@ internal fun singleActivity(file: Pair<String, List<ImportedActivity>>?): Pair<S
 }
 
 /**
- * Saves a logbook's selected dives (those on their own in one batch, then each combined group), then [onPublished]; nothing when none are
- * selected.
+ * Saves a logbook's selected dives (those on their own in one batch, then each combined group); nothing, and null, when none are selected.
+ * Returns the dives published on their own, with their URIs: the combined ones need no suggestion.
  */
-internal suspend fun saveDives(activities: ActivityRepository, manager: ActivityManager, import: DiveImport, onPublished: () -> Unit) {
-    if (import.drafts.isEmpty() && import.combines.isEmpty()) return
-    if (import.drafts.isNotEmpty()) activities.publishAll(import.drafts)
+internal suspend fun saveDives(
+    activities: ActivityRepository,
+    manager: ActivityManager,
+    import: DiveImport,
+): List<Pair<AtUri, ActivityDraft>>? {
+    if (import.drafts.isEmpty() && import.combines.isEmpty()) return null
+    val published = if (import.drafts.isNotEmpty()) activities.publishAll(import.drafts).zip(import.drafts) else emptyList()
     for (group in import.combines) {
         if (group.into != null) manager.combine(group.into, group.drafts) else manager.combine(group.drafts)
     }
-    onPublished()
+    return published
 }
 
-/** Publishes a single file's activity, or combines it with the logged activity [into]; returns the combined activity's URI then. */
+/** What saving a single file did: published it as [uri], or [combined] it into an activity at [uri]. */
+internal data class SavedSingle(val uri: AtUri, val combined: Boolean)
+
+/** Publishes a single file's activity, or combines it with the logged activity [into]. */
 internal suspend fun saveSingle(
     activities: ActivityRepository,
     manager: ActivityManager,
     draft: ActivityDraft,
     into: OwnActivity?,
-): AtUri? =
-    if (into == null) {
-        activities.publish(draft)
-        null
-    } else {
-        manager.combine(into, draft)
-    }
+): SavedSingle =
+    if (into == null) SavedSingle(activities.publish(draft), combined = false)
+    else SavedSingle(manager.combine(into, draft), combined = true)

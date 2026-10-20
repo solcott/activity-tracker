@@ -2,7 +2,9 @@ package io.github.solcott.activitytracker.app
 
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
+import io.github.solcott.activitytracker.activityfile.ActivityFileException
 import io.github.solcott.activitytracker.activityfile.ActivityFileReader
+import io.github.solcott.activitytracker.activityfile.FitDecoder
 import io.github.solcott.activitytracker.app.detail.FigureKey
 import io.github.solcott.activitytracker.app.detail.FigureValue
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
@@ -13,6 +15,8 @@ import io.github.solcott.activitytracker.lexicon.app.Sport
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.bytestring.ByteString
 
@@ -41,6 +45,7 @@ class ImportFileFormatTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("export.dat", ByteString(gpx.encodeToByteArray())))
@@ -68,11 +73,44 @@ class ImportFileFormatTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("notes.txt", ByteString("just some notes".encodeToByteArray())))
             assertEquals(UiError(UiError.Kind.UnsupportedActivityFile, null), awaitUntil { it.error != null }.error)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    /** Just a FIT header: the reader picks the decoder by the ".FIT" signature at byte 8. */
+    private val fitHeader = ByteString(14, 16, 0, 0, 0, 0, 0, 0, '.'.code.toByte(), 'F'.code.toByte(), 'I'.code.toByte(), 'T'.code.toByte())
+
+    @Test
+    fun anUnreadableFileShowsAnError() = runTest {
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ImportActivityScreen())
+        val decoder = FitDecoder { throw ActivityFileException("FIT file is corrupt or truncated") }
+        presenterTestOf({
+            ImportActivityPresenter(
+                ImportActivityScreen(),
+                navigator,
+                repos.activities,
+                repos.manager,
+                ActivityFileReader(decoder),
+                repos.typeChoices,
+                repos.profiles,
+                repos.feed,
+                repos.defaults,
+                repos.units,
+                repos.suggestions,
+            )
+        }) {
+            awaitItem().eventSink(ImportActivityEvent.FilePicked("broken.fit", fitHeader))
+            val failed = awaitUntil { it.error != null && !it.reading }
+            assertEquals(UiError(UiError.Kind.ReadActivityFile, "FIT file is corrupt or truncated"), failed.error)
+            assertNull(failed.preview)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertTrue(fixture.putRecords.isEmpty())
     }
 }

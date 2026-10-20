@@ -134,6 +134,7 @@ class ImportCombinePresenterTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }
 

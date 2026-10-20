@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
+import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.record.ActivityTypeEvent
 import io.github.solcott.activitytracker.app.record.ManualActivityEvent
 import io.github.solcott.activitytracker.app.record.ManualActivityPresenter
@@ -42,6 +43,9 @@ class ManualActivityPresenterTest {
             initial.temperature.setTextAndPlaceCursorAtEnd("50")
             initial.eventSink(ManualActivityEvent.Save)
             navigator.awaitPop()
+            val opened = navigator.awaitNextScreen() as ActivityDetailScreen
+            assertEquals(fixture.putRkeys.single(), opened.uri.substringAfterLast('/'), "the saved activity opens")
+            assertEquals(true, opened.suggestOnOpen, "asking whether to combine it")
             cancelAndIgnoreRemainingEvents()
         }
 

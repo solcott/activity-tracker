@@ -72,6 +72,7 @@ class ImportSourceFileTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Morning_Run.FIT", bytes))
@@ -114,6 +115,7 @@ class ImportSourceFileTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Huge.fit", huge))

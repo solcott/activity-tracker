@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.activityfile.FitDecoder
 import io.github.solcott.activitytracker.activityfile.SensorBattery
 import io.github.solcott.activitytracker.activityfile.SensorKind
 import io.github.solcott.activitytracker.activityfile.TimeZones
+import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.detail.FigureKey
 import io.github.solcott.activitytracker.app.detail.FigureUnit
 import io.github.solcott.activitytracker.app.detail.FigureValue
@@ -137,6 +138,7 @@ class ImportActivityPresenterTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             val initial = awaitItem()
@@ -158,6 +160,9 @@ class ImportActivityPresenterTest {
             read.title.setTextAndPlaceCursorAtEnd("Lunch loop")
             read.eventSink(ImportActivityEvent.Save(defaultTitle = "Morning Run"))
             navigator.awaitPop()
+            val opened = navigator.awaitNextScreen() as ActivityDetailScreen
+            assertEquals(true, opened.suggestOnOpen, "the saved activity opens, asking whether to combine it")
+            assertEquals(fixture.putRkeys.first(), opened.uri.substringAfterLast('/'))
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -191,6 +196,7 @@ class ImportActivityPresenterTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Morning_Run.FIT", bytes))
@@ -233,6 +239,7 @@ class ImportActivityPresenterTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Morning_Run.FIT", bytes))
@@ -268,6 +275,7 @@ class ImportActivityPresenterTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Morning_Run.FIT", bytes))
@@ -314,6 +322,7 @@ class ImportActivityPresenterTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Morning_Run.FIT", bytes))
@@ -404,6 +413,7 @@ class ImportActivityPresenterTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("dive.fit", bytes))
@@ -491,6 +501,7 @@ class ImportActivityPresenterTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("ride.fit", bytes))
@@ -531,6 +542,7 @@ class ImportActivityPresenterTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("run.fit", bytes))
@@ -567,6 +579,7 @@ class ImportActivityPresenterTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Petrel.xml", bytes))
@@ -613,6 +626,7 @@ class ImportActivityPresenterTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Lake.gpx", bytes))
@@ -643,34 +657,6 @@ class ImportActivityPresenterTest {
     }
 
     @Test
-    fun anUnreadableFileShowsAnError() = runTest {
-        val repos = fixture.repos()
-        val navigator = FakeNavigator(ImportActivityScreen())
-        val decoder = FitDecoder { throw ActivityFileException("FIT file is corrupt or truncated") }
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader(decoder),
-                repos.typeChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-            )
-        }) {
-            awaitItem().eventSink(ImportActivityEvent.FilePicked("broken.fit", bytes))
-            val failed = awaitUntil { it.error != null && !it.reading }
-            assertEquals(UiError(UiError.Kind.ReadActivityFile, "FIT file is corrupt or truncated"), failed.error)
-            assertNull(failed.preview)
-            cancelAndIgnoreRemainingEvents()
-        }
-        assertTrue(fixture.putRecords.isEmpty())
-    }
-
-    @Test
     fun aFailedPickDropsThePreviousFile() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen())
@@ -688,6 +674,7 @@ class ImportActivityPresenterTest {
                 repos.feed,
                 repos.defaults,
                 repos.units,
+                repos.suggestions,
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("good.fit", bytes))
