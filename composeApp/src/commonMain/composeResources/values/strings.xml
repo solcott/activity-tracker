@@ -1216,6 +1216,8 @@
     <string name="detail_add_recording">Add a recording…</string>
     <string name="detail_split">Split into separate activities</string>
     <string name="detail_members">Combined from</string>
+    <string name="edit_combination_title">Edit combination</string>
+    <string name="edit_combination">Edit how this activity is combined</string>
     <string name="detail_member_of">Part of a combined activity</string>
     <string name="detail_open_combined">See the combined activity</string>
     <string name="detail_remove_member">Remove %1$s</string>

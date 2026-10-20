@@ -26,7 +26,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -65,7 +68,6 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_title
 import io.github.solcott.activitytracker.composeApp.resources.detail_zone_added
 import io.github.solcott.activitytracker.composeApp.resources.like_count
 import io.github.solcott.activitytracker.data.di.SessionScope
-import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.activityType
 import kotlinx.collections.immutable.toImmutableList
@@ -275,13 +277,18 @@ private fun Header(state: ActivityDetailState.Loaded, modifier: Modifier = Modif
         record.dive?.site?.let { DiveSite(it, Modifier.padding(top = 2.dp)) }
         record.description?.let { Text(it, Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium) }
         Recordings(state.activity, onOpen = { state.eventSink(ActivityDetailEvent.OpenActivity(it)) })
+        // The owner edits the combination in a sheet, which closes once a split leaves nothing combined.
+        val combined = !state.activity.members.isNullOrEmpty()
+        var editing by rememberSaveable(combined) { mutableStateOf(false) }
         Members(
             state.activity,
             onOpen = { state.eventSink(ActivityDetailEvent.OpenActivity(it)) },
-            onRemove = { uri: AtUri -> state.eventSink(ActivityDetailEvent.RemoveMember(uri)) }.takeIf { state.manage != null },
+            onEdit = if (state.manage != null) ({ editing = true }) else null,
         )
+        if (editing && combined) {
+            EditCombinationSheet(state.activity, state.dataSources, state.eventSink, onDismiss = { editing = false })
+        }
         state.combineSuggestion?.takeIf { !it.asPrompt }?.let { CombineSuggestionBanner(it, state.eventSink) }
-        state.dataSources?.let { DataSourcesSection(it, state.eventSink) }
         state.manage?.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
         state.routeError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
         if (state.zoneAdded) Text(stringResource(Res.string.detail_zone_added), style = MaterialTheme.typography.bodySmall)
