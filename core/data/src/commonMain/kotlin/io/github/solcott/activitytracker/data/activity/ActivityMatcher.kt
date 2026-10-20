@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.data.activity
 
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
+import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.Sport
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.time.Duration
@@ -20,6 +22,15 @@ sealed interface DuplicateOf {
 
 /** [hoursApart] is 0 for the same activity; otherwise it's one of the same length that many hours off, likely read in the wrong zone. */
 data class ActivityMatch(val of: DuplicateOf, val hoursApart: Int = 0)
+
+/** How two of an athlete's activities likely belong in one combined activity. */
+enum class Pairing {
+    /** Recorded at the same time, on two devices. */
+    Overlap,
+
+    /** One after the other: a device change, a shuttle or a break. */
+    Continuation,
+}
 
 /**
  * Finds the activities in an import that are already in the athlete's log, or appear twice in the file (two computers on one dive, say),
@@ -48,6 +59,30 @@ object ActivityMatcher {
         }
     }
 
+    /**
+     * How [a] and [b], two of the athlete's saved activities, likely belong together, or null: they overlap as [match] would call them the
+     * same, or they're a [continuation].
+     */
+    fun pairing(a: ActivityRecord, b: ActivityRecord): Pairing? =
+        when {
+            a.span().sameAs(b.span()) -> Pairing.Overlap
+            continuation(a, b) -> Pairing.Continuation
+            else -> null
+        }
+
+    /**
+     * Whether one of [a] and [b] starts no more than [MAX_BREAK] after the other ends, in the same sport ([ActivityRecord.subSport] aside,
+     * so a mountain ride continues a ride). Dives never do: repeat dives are separate dives.
+     */
+    fun continuation(a: ActivityRecord, b: ActivityRecord): Boolean {
+        if (a.sport != b.sport || a.sport == Sport.DIVE) return false
+        val (earlier, later) = if (a.startedAt <= b.startedAt) a.span() to b.span() else b.span() to a.span()
+        val gap = later.start - earlier.end
+        return gap >= -CLOCK_DRIFT && gap <= MAX_BREAK
+    }
+
+    private fun ActivityRecord.span() = Span(startedAt, elapsedTime.seconds)
+
     private class Span(val start: Instant, val length: Duration) {
         val end: Instant = start + length
 
@@ -70,6 +105,8 @@ object ActivityMatcher {
     }
 
     private val CLOCK_DRIFT = 3.minutes
+    /** A ski lunch, a shuttle or a device swap, but not a morning and evening double. */
+    val MAX_BREAK = 2.hours
     private const val LENGTH_TOLERANCE = 0.1
     private const val MINUTES_PER_HOUR = 60
     /** UTC-12 to UTC+14 apart, rounded: the most two zones differ by in practice. */
