@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -65,16 +66,29 @@ fun RoutePreview(
                 }
             }
         drawPath(path, color, style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round))
-        markers?.let { (start, end, breakEnds) ->
-            for (point in breakEnds) drawMarker(at(point), RouteMarkers.BREAK_RADIUS, fill = Color.White, ring = color)
+        markers?.let { (start, end, breaks) ->
+            val dashes = PathEffect.dashPathEffect(floatArrayOf(RouteMarkers.CONNECTOR_DASH.toPx(), RouteMarkers.CONNECTOR_SPACE.toPx()))
+            for ((stop, resume) in breaks) {
+                drawLine(RouteMarkers.BREAK_COLOR, at(stop), at(resume), RouteMarkers.CONNECTOR_WIDTH.toPx(), pathEffect = dashes)
+            }
+            for ((stop) in breaks) drawMarker(at(stop), RouteMarkers.BREAK_RADIUS, fill = RouteMarkers.BREAK_COLOR, ring = Color.White)
+            for ((_, resume) in breaks) {
+                drawMarker(
+                    at(resume),
+                    RouteMarkers.BREAK_RADIUS,
+                    fill = Color.White,
+                    ring = RouteMarkers.BREAK_COLOR,
+                    RouteMarkers.RESUME_RING,
+                )
+            }
             start?.let { drawMarker(at(it), RouteMarkers.END_RADIUS, fill = RouteMarkers.START_COLOR, ring = Color.White) }
             end?.let { drawMarker(at(it), RouteMarkers.END_RADIUS, fill = RouteMarkers.END_COLOR, ring = Color.White) }
         }
     }
 }
 
-/** A dot of [radius] filled with [fill] and ringed with [ring], [RouteMarkers.RING] wide, as `ActivityMap` draws its markers. */
-private fun DrawScope.drawMarker(center: Offset, radius: Dp, fill: Color, ring: Color) {
+/** A dot of [radius] filled with [fill] and ringed with [ring], [ringWidth] wide, as `ActivityMap` draws its markers. */
+private fun DrawScope.drawMarker(center: Offset, radius: Dp, fill: Color, ring: Color, ringWidth: Dp = RouteMarkers.RING) {
     drawCircle(ring, radius.toPx(), center)
-    drawCircle(fill, (radius - RouteMarkers.RING).toPx(), center)
+    drawCircle(fill, (radius - ringWidth).toPx(), center)
 }

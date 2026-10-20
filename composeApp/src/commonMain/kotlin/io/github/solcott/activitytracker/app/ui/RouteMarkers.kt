@@ -9,27 +9,42 @@ import kotlinx.collections.immutable.toImmutableList
 
 /**
  * Where a route map puts its markers: the [start] and [end] of the whole line (null where a privacy zone hides it, [shownAt]), and the
- * [breakEnds] either side of each break (`feed.activity#polylineGaps`), the last point before it and the first after, in order.
+ * [breaks] of the line (`feed.activity#polylineGaps`), in order.
  */
 @Immutable
-internal data class RouteMarkers<T>(val start: T?, val end: T?, val breakEnds: ImmutableList<T>) {
+internal data class RouteMarkers<T>(val start: T?, val end: T?, val breaks: ImmutableList<Break<T>>) {
+    /** A break in the line: the last point before it, where recording stopped, and the first after it, where it resumed. */
+    @Immutable data class Break<T>(val stop: T, val resume: T)
+
     companion object {
         /** The markers of a line drawn as [pieces] (`SegmentedPolyline.pieces`); null when there are no points. */
         fun <T> of(pieces: List<List<T>>): RouteMarkers<T>? {
             val drawn = pieces.filter { it.isNotEmpty() }
             if (drawn.isEmpty()) return null
-            val breakEnds = drawn.zipWithNext().flatMap { (before, after) -> listOf(before.last(), after.first()) }.toImmutableList()
-            return RouteMarkers(drawn.first().first(), drawn.last().last(), breakEnds)
+            val breaks = drawn.zipWithNext { before, after -> Break(before.last(), after.first()) }.toImmutableList()
+            return RouteMarkers(drawn.first().first(), drawn.last().last(), breaks)
         }
 
-        /** The start marker's fill; the end's is [END_COLOR]. Both are ringed in white, and break ends in the route's colour. */
+        /** The start marker's fill; the end's is [END_COLOR]. Both are ringed in white. */
         val START_COLOR = Color(0xFF43A047)
         val END_COLOR = Color(0xFFE53935)
 
-        /** The start and end markers' radius, and the smaller break ends', each including its [RING]. */
+        /**
+         * A break's colour, apart from the route's, the start's and the end's: the fill of its stop marker (ringed in white), the ring of
+         * its resume marker (filled white) and its dashed connector.
+         */
+        val BREAK_COLOR = Color(0xFFFFA000)
+
+        /** The start, end and break markers' radius, each including its ring: [RING], or [RESUME_RING] on a resume marker. */
         val END_RADIUS = 7.dp
-        val BREAK_RADIUS = 5.dp
+        val BREAK_RADIUS = END_RADIUS
         val RING = 2.dp
+        val RESUME_RING = 3.dp
+
+        /** The dashed line joining a break's stop and resume: its width, and the length of each dash and of the space after it. */
+        val CONNECTOR_WIDTH = 2.5.dp
+        val CONNECTOR_DASH = 8.dp
+        val CONNECTOR_SPACE = 5.dp
     }
 }
 

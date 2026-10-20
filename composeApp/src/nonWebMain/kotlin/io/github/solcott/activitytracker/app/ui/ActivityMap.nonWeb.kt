@@ -94,7 +94,7 @@ actual fun ActivityMap(
                 cap = const(LineCap.Round),
                 join = const(LineJoin.Round),
             )
-            markers?.let { RouteMarkerLayers(it, route = color) }
+            markers?.let { RouteMarkerLayers(it) }
         }
     // Jump straight to the route; cameraForBounds waits until the map has a viewport.
     LaunchedEffect(mapState, bounds) { mapState.setCameraPosition(mapState.cameraForBounds(bounds, CameraFit(fitPadding = FIT_PADDING))) }
@@ -158,10 +158,40 @@ private fun MapButton(icon: AppIcon, label: StringResource, onClick: () -> Unit,
 
 private const val BUTTON_ALPHA = 0.9f
 
-/** [markers] above the route: break ends ringed in [route], then the start, then the end on top, as `RoutePreview` draws them. */
+/**
+ * [markers] above the route, as `RoutePreview` draws them: each break's dashed connector, its stop and resume markers, then the start, then
+ * the end on top.
+ */
 @Composable
-private fun RouteMarkerLayers(markers: RouteMarkers<Pair<Double, Double>>, route: Color) {
-    MarkerLayer("route-breaks", markers.breakEnds, RouteMarkers.BREAK_RADIUS, fill = Color.White, ring = route)
+private fun RouteMarkerLayers(markers: RouteMarkers<Pair<Double, Double>>) {
+    val connectorJson = remember(markers.breaks) { lineJson(markers.breaks.map { listOf(it.stop, it.resume) }) }
+    val connectors = rememberGeoJsonSource(GeoJsonData.JsonString(connectorJson))
+    LineLayer(
+        id = "route-break-connectors",
+        source = connectors,
+        color = const(RouteMarkers.BREAK_COLOR),
+        width = const(RouteMarkers.CONNECTOR_WIDTH),
+        // MapLibre measures dashes in line widths.
+        dasharray =
+            const(
+                listOf(
+                    RouteMarkers.CONNECTOR_DASH / RouteMarkers.CONNECTOR_WIDTH,
+                    RouteMarkers.CONNECTOR_SPACE / RouteMarkers.CONNECTOR_WIDTH,
+                )
+            ),
+        cap = const(LineCap.Butt),
+    )
+    val stops = remember(markers.breaks) { markers.breaks.map { it.stop }.toImmutableList() }
+    val resumes = remember(markers.breaks) { markers.breaks.map { it.resume }.toImmutableList() }
+    MarkerLayer("route-break-stops", stops, RouteMarkers.BREAK_RADIUS, fill = RouteMarkers.BREAK_COLOR, ring = Color.White)
+    MarkerLayer(
+        "route-break-resumes",
+        resumes,
+        RouteMarkers.BREAK_RADIUS,
+        fill = Color.White,
+        ring = RouteMarkers.BREAK_COLOR,
+        ringWidth = RouteMarkers.RESUME_RING,
+    )
     // A hidden end still gets its (empty) layer, so the layers keep their order when it shows.
     val start = listOfNotNull(markers.start).toImmutableList()
     val end = listOfNotNull(markers.end).toImmutableList()
@@ -169,17 +199,24 @@ private fun RouteMarkerLayers(markers: RouteMarkers<Pair<Double, Double>>, route
     MarkerLayer("route-end", end, RouteMarkers.END_RADIUS, fill = RouteMarkers.END_COLOR, ring = Color.White)
 }
 
-/** A dot at each of [at] of [radius] (MapLibre strokes outside a circle's radius, so the ring is taken off it). */
+/** A dot at each of [at] of [radius], ringed [ringWidth] wide (MapLibre strokes outside a circle's radius, so the ring is taken off it). */
 @Composable
-private fun MarkerLayer(id: String, at: ImmutableList<Pair<Double, Double>>, radius: Dp, fill: Color, ring: Color) {
+private fun MarkerLayer(
+    id: String,
+    at: ImmutableList<Pair<Double, Double>>,
+    radius: Dp,
+    fill: Color,
+    ring: Color,
+    ringWidth: Dp = RouteMarkers.RING,
+) {
     val source = rememberGeoJsonSource(GeoJsonData.JsonString(pointsJson(at)))
     CircleLayer(
         id = id,
         source = source,
         color = const(fill),
-        radius = const(radius - RouteMarkers.RING),
+        radius = const(radius - ringWidth),
         strokeColor = const(ring),
-        strokeWidth = const(RouteMarkers.RING),
+        strokeWidth = const(ringWidth),
     )
 }
 
