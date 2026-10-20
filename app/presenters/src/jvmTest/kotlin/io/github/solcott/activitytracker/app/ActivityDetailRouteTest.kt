@@ -13,6 +13,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.test.runTest
 
 /** The owner's full route on their own activity (`profile/privacy-zones`), and adding a privacy zone at its start or end. */
@@ -26,8 +27,8 @@ class ActivityDetailRouteTest : ActivityDetailTestBase() {
         author = staleAlice
         track = route
         detail(repos()) {
-            val loaded = awaitUntil { it.loaded()?.ownRoute != null }.loaded()!!
-            assertEquals(ActivityDraft.polylineOf(route)?.polyline, loaded.ownRoute)
+            val loaded = awaitUntil { it.loaded()?.route?.ends != null }.loaded()!!
+            assertEquals(ActivityDraft.polylineOf(route)?.polyline, loaded.route?.polyline)
             assertTrue(loaded.canHideRouteEnds)
             cancelAndIgnoreRemainingEvents()
         }
@@ -38,7 +39,7 @@ class ActivityDetailRouteTest : ActivityDetailTestBase() {
         author = staleAlice
         track = route
         detail(repos()) {
-            val ends = awaitUntil { it.loaded()?.ownRouteEnds?.start != null }.loaded()!!.ownRouteEnds!!
+            val ends = awaitUntil { it.loaded()?.route?.ends?.start != null }.loaded()!!.route!!.ends!!
             assertEquals(
                 RouteEnds(route.first().let { it.latitude to it.longitude }, route.last().let { it.latitude to it.longitude }),
                 ends,
@@ -53,10 +54,10 @@ class ActivityDetailRouteTest : ActivityDetailTestBase() {
         track = route
         privacyZones = AtJson.encodeToString(PrivacyZonesRecord.serializer(), PrivacyZonesRecord("3m3ygsw4ngk2c", hideEndsMeters = 200))
         detail(repos()) {
-            val loaded = awaitUntil { it.loaded()?.ownRouteEnds?.start != null }.loaded()!!
+            val loaded = awaitUntil { it.loaded()?.route?.ends?.start != null }.loaded()!!
             // The line is still the whole track; only its markers move to where the route others see starts and ends.
-            assertEquals(ActivityDraft.polylineOf(route)?.polyline, loaded.ownRoute)
-            val (start, end) = loaded.ownRouteEnds!!
+            assertEquals(ActivityDraft.polylineOf(route)?.polyline, loaded.route?.polyline)
+            val (start, end) = loaded.route!!.ends!!
             val first = route.first()
             val last = route.last()
             assertEquals(
@@ -76,8 +77,8 @@ class ActivityDetailRouteTest : ActivityDetailTestBase() {
         privacyZones = AtJson.encodeToString(PrivacyZonesRecord.serializer(), PrivacyZonesRecord("3m3ygsw4ngk2c", hideEndsMeters = 5000))
         detail(repos()) {
             // Wait for the zones' read: the ends are hidden until then too.
-            val loaded = awaitUntil { it.loaded()?.ownRoute != null }.loaded()!!
-            assertEquals(RouteEnds.HIDDEN, loaded.ownRouteEnds)
+            val loaded = awaitUntil { it.loaded()?.route?.ends != null }.loaded()!!
+            assertEquals(RouteEnds.HIDDEN, loaded.route?.ends)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -88,9 +89,19 @@ class ActivityDetailRouteTest : ActivityDetailTestBase() {
         detail(repos()) {
             val loaded = awaitLoaded()
             assertFalse(loaded.isOwn)
-            assertNull(loaded.ownRoute)
-            assertNull(loaded.ownRouteEnds)
+            assertNull(loaded.route)
             assertFalse(loaded.canHideRouteEnds)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun someoneElsesMapDrawsTheServedPolylineMarkedAtItsOwnEnds() = runTest {
+        track = route
+        recordExtra = SERVED_ROUTE
+        detail(repos()) {
+            val loaded = awaitLoaded()
+            assertEquals(ShownRoute(SERVED_POLYLINE, persistentListOf(1), ends = null), loaded.route)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -100,7 +111,7 @@ class ActivityDetailRouteTest : ActivityDetailTestBase() {
         author = staleAlice
         detail(repos()) {
             val loaded = awaitUntil { it.loaded()?.isOwn == true }.loaded()!!
-            assertNull(loaded.ownRoute)
+            assertNull(loaded.route)
             assertFalse(loaded.canHideRouteEnds)
             cancelAndIgnoreRemainingEvents()
         }
@@ -120,5 +131,13 @@ class ActivityDetailRouteTest : ActivityDetailTestBase() {
         assertEquals(400, zone.radiusMeters)
         val first = route.first()
         assertTrue(TrackMath.distanceMeters(first.latitude, first.longitude, zone.latitudeE7 / 1e7, zone.longitudeE7 / 1e7) <= 200.0)
+    }
+
+    internal companion object {
+        /** A trimmed polyline of three points, as the AppView serves it. */
+        const val SERVED_POLYLINE = "_p~iF~ps|U_ulLnnqC_mqNvxq`@"
+
+        /** [SERVED_POLYLINE] on the activity's record, broken after its second point. */
+        const val SERVED_ROUTE = """"polyline":"$SERVED_POLYLINE","polylineGaps":[1],"""
     }
 }

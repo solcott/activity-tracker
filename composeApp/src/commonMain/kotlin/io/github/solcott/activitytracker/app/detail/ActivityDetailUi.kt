@@ -70,7 +70,6 @@ import io.github.solcott.activitytracker.composeApp.resources.like_count
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.activityType
-import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -298,14 +297,7 @@ private fun Header(state: ActivityDetailState.Loaded, modifier: Modifier = Modif
 /** The map and photos, the map marked with the Map category's visibility on the owner's page when it's narrower than the activity. */
 @Composable
 private fun PageMedia(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier, height: Dp = 240.dp) {
-    val record = state.activity.record
     val media = remember(state.activity) { state.activity.mediaItems() }
-    // A combined activity's line breaks between its members recorded one after another.
-    val gaps =
-        remember(state.ownRoute, state.ownRouteGaps, record) {
-            if (state.ownRoute != null) state.ownRouteGaps else record.polylineGaps?.toImmutableList()
-        }
-    val ends = state.ownRouteEnds.takeIf { state.ownRoute != null }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         MediaRow(
             media,
@@ -314,8 +306,8 @@ private fun PageMedia(state: ActivityDetailState.Loaded, modifier: Modifier = Mo
             // The owner sees their whole route, marked where it starts and ends outside their privacy zones; everyone else the polyline
             // trimmed by them, marked at its own ends.
             map =
-                (state.ownRoute ?: record.polyline)?.let { polyline ->
-                    { mapModifier, mapHeight -> ActivityMap(polyline, mapModifier, mapHeight, gaps, ends) }
+                state.route?.let { route ->
+                    { mapModifier, mapHeight -> ActivityMap(route.polyline, mapModifier, mapHeight, route.gaps, route.ends) }
                 },
         )
         state.page.mapMark?.let { CategoryLock(DetailCategory.MAP, it) }

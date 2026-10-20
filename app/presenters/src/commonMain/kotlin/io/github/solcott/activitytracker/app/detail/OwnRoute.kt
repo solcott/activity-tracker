@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import io.github.solcott.activitytracker.app.RouteEnds
+import io.github.solcott.activitytracker.app.ShownRoute
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
@@ -18,7 +19,9 @@ import io.github.solcott.activitytracker.data.activity.CombinedRoute
 import io.github.solcott.activitytracker.data.activity.SegmentedPolyline
 import io.github.solcott.activitytracker.data.activity.TooManyZonesException
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.location.LocationSample
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.flowOf
 
 /**
@@ -45,6 +48,14 @@ internal class OwnMap(
     /** Where [line]'s start and end are marked: the ends of the route as trimmed by the owner's privacy settings. */
     val ends: RouteEnds,
 )
+
+/**
+ * What [record]'s map draws: [own], the owner's full track marked at the route others see, once it's read; else the polyline the viewer was
+ * served, marked at its own ends.
+ */
+internal fun shownRoute(record: ActivityRecord, own: OwnMap?): ShownRoute? =
+    if (own != null) ShownRoute(own.line.polyline, own.line.gaps?.toImmutableList(), own.ends)
+    else record.polyline?.let { ShownRoute(it, record.polylineGaps?.toImmutableList(), ends = null) }
 
 @Composable
 internal fun rememberOwnRoute(

@@ -5,7 +5,7 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
-import io.github.solcott.activitytracker.app.RouteEnds
+import io.github.solcott.activitytracker.app.ShownRoute
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.visibility.CategoryVisibility
 import io.github.solcott.activitytracker.data.activity.CombineCue
@@ -82,14 +82,10 @@ sealed interface ActivityDetailState : CircuitUiState {
         /** What the owner can do to the activity; null on someone else's. */
         val manage: ActivityManage? = null,
         /**
-         * The owner's full route, untrimmed by their privacy zones, from the track only they read; null on someone else's activity or until
-         * it loads. The map draws it over the record's trimmed polyline.
+         * What the map draws: for the owner, once read, their full route untrimmed by their privacy zones, marked where the route others
+         * see starts and ends; else the record's trimmed polyline. Null with no route.
          */
-        val ownRoute: String? = null,
-        /** Where [ownRoute] breaks, on a combined activity; null otherwise. */
-        val ownRouteGaps: ImmutableList<Int>? = null,
-        /** Where [ownRoute]'s start and end are marked: those of the route others see, inside none of the owner's privacy zones. */
-        val ownRouteEnds: RouteEnds? = null,
+        val route: ShownRoute? = null,
         /** The owner can add a privacy zone at the route's start or end: the track was read. */
         val canHideRouteEnds: Boolean = false,
         /** A zone was just added from this activity. */
