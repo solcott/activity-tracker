@@ -54,6 +54,8 @@ enum class FigureKey {
     AvgCadence,
     MaxCadence,
     AvgTemperature,
+    MinTemperature,
+    MaxTemperature,
     PoolLength,
     AvgStrokeDistance,
     Steps,
@@ -104,15 +106,17 @@ enum class FigureKey {
     AerobicEffect,
     AnaerobicEffect,
     Hrv,
-    /** A card headline's average or maximum, under its metric's title. */
+    /** A card headline's average, minimum or maximum, under its metric's title. */
     Avg,
+    Min,
     Max,
     /** A pace card's fastest pace, in place of its maximum. */
     Best,
     /** The best average power over [Figure.index] minutes. */
     BestPower,
-    /** The highest point on the elevation stream. */
+    /** The highest and lowest points on the elevation stream. */
     Highest,
+    Lowest,
     MaxGrade,
     MostUsedGear,
     FrontShifts,
@@ -269,7 +273,8 @@ enum class StatsGroupKind {
     Device,
 }
 
-@Immutable data class AvgMaxRow(val metric: AvgMaxMetric, val avg: FigureValue?, val max: FigureValue?)
+/** A metric's average and maximum, and its minimum where that is part of its range rather than a stop (temperature). */
+@Immutable data class AvgMaxRow(val metric: AvgMaxMetric, val avg: FigureValue?, val max: FigureValue?, val min: FigureValue? = null)
 
 /** The avg/max table's rows, in order. A sport with a pace shows [Pace] in place of [Speed]. */
 enum class AvgMaxMetric {

@@ -70,6 +70,7 @@ internal object MetricCards {
                 listOfNotNull(
                     figures.elevationGain()?.takeUnless { it.value == FigureValue.Missing },
                     elevation?.max?.let { Figure(FigureKey.Highest, FigureValue.Stream(StreamKind.Elevation, it)) },
+                    elevation?.min?.let { Figure(FigureKey.Lowest, FigureValue.Stream(StreamKind.Elevation, it)) },
                     figures.line(StreamKind.Grade)?.max?.let { Figure(FigureKey.MaxGrade, FigureValue.Stream(StreamKind.Grade, it)) },
                 ) to listOfNotNull(figures.descent())
             }
@@ -80,7 +81,7 @@ internal object MetricCards {
     /** The other cards' figures: temperature, physiology, a dive's, running dynamics, an e-bike's, gears and the tables. */
     private fun otherFigures(section: DetailSection, charts: ActivityCharts, figures: Figures): Pair<List<Figure>, List<Figure>> =
         when (section) {
-            DetailSection.Temperature -> avgMax(StreamKind.Temperature, figures) to emptyList()
+            DetailSection.Temperature -> avgMax(StreamKind.Temperature, figures, withMin = true) to emptyList()
 
             DetailSection.Physiology -> averages(PHYSIOLOGY_STATS, figures) to emptyList()
 
@@ -97,7 +98,7 @@ internal object MetricCards {
                     tank.max?.let { Figure(FigureKey.TankPressure, FigureValue.Stream(StreamKind.TankPressure, it), index = i + 1) }
                 } to emptyList()
 
-            DetailSection.Respiration -> avgMax(StreamKind.RespirationRate, figures) to emptyList()
+            DetailSection.Respiration -> avgMax(StreamKind.RespirationRate, figures, withMin = true) to emptyList()
 
             DetailSection.RunningDynamics -> averages(RUNNING_DYNAMICS_STATS, figures) to emptyList()
 
@@ -132,10 +133,14 @@ internal object MetricCards {
             else -> emptyList<Figure>() to emptyList()
         }
 
-    /** The headline average and maximum, as the record has them, else over the stream. */
-    private fun avgMax(kind: StreamKind, figures: Figures): List<Figure> =
+    /**
+     * The headline average and maximum, as the record has them, else over the stream. [withMin] adds the stream's minimum between them, in
+     * Garmin's order, for a metric that ranges rather than peaks, like temperature.
+     */
+    private fun avgMax(kind: StreamKind, figures: Figures, withMin: Boolean = false): List<Figure> =
         listOfNotNull(
             figures.average(kind)?.let { Figure(FigureKey.Avg, FigureValue.Stream(kind, it)) },
+            figures.line(kind)?.min?.takeIf { withMin }?.let { Figure(FigureKey.Min, FigureValue.Stream(kind, it)) },
             figures.max(kind)?.let { Figure(FigureKey.Max, FigureValue.Stream(kind, it)) },
         )
 

@@ -153,9 +153,51 @@ class ActivityPageTest {
         assertTrue(page.hero.all { it.key in listed })
         val counts = page.stats.first { it.kind == StatsGroupKind.Counts }.rows.map { it.key }
         assertEquals(listOf(FigureKey.Shifts, FigureKey.Jumps), counts)
-        assertEquals(FigureKey.Descent, page.stats.first { it.kind == StatsGroupKind.Elevation }.rows.last().key)
+        assertEquals(
+            listOf(FigureKey.ElevationGain, FigureKey.Descent, FigureKey.Highest, FigureKey.Lowest),
+            page.stats.first { it.kind == StatsGroupKind.Elevation }.rows.map { it.key },
+        )
         val device = page.stats.first { it.kind == StatsGroupKind.Device }.rows
         assertEquals(listOf(FigureKey.Device, FigureKey.Sensor), device.map { it.key })
+    }
+
+    @Test
+    fun `ranging metrics give their minimum between average and maximum`() {
+        val lines = rideCharts().lines + line(StreamKind.Temperature, 160.0) + line(StreamKind.RespirationRate, 16.4)
+        val page = ActivityPage.build(mtb.copy(avgTemperature = 192), rideCharts().copy(lines = lines.toImmutableList()))
+        for (section in listOf(DetailSection.Temperature, DetailSection.Respiration)) {
+            val card = page.cards.first { it.section == section }
+            assertEquals(listOf(FigureKey.Avg, FigureKey.Min, FigureKey.Max), card.headline.map { it.key }, "$section")
+        }
+        val temperature = page.cards.first { it.section == DetailSection.Temperature }.headline
+        assertEquals(listOf(192.0, 160.0, 170.0), temperature.map { (it.value as FigureValue.Stream).value })
+        val elevation = page.cards.first { it.section == DetailSection.Elevation }.headline.map { it.key }
+        assertEquals(elevation.indexOf(FigureKey.Highest) + 1, elevation.indexOf(FigureKey.Lowest))
+        assertEquals(
+            listOf(
+                FigureKey.AvgTemperature to FigureValue.Temperature(192),
+                FigureKey.MinTemperature to FigureValue.Temperature(160),
+                FigureKey.MaxTemperature to FigureValue.Temperature(170),
+            ),
+            page.stats.first { it.kind == StatsGroupKind.Temperature }.rows.map { it.key to it.value },
+        )
+        assertEquals(
+            listOf(AvgMaxMetric.Temperature),
+            page.avgMax.filter { it.min != null }.map { it.metric },
+            "only temperature's minimum is part of its range",
+        )
+        assertEquals(FigureValue.Stream(StreamKind.Temperature, 160.0), page.avgMax.single { it.metric == AvgMaxMetric.Temperature }.min)
+    }
+
+    @Test
+    fun `a viewer not served the streams sees no minimums`() {
+        val page = ActivityPage.build(mtb.copy(avgTemperature = 192), null)
+        assertTrue(page.avgMax.all { it.min == null }, "no Min column without a temperature stream")
+        assertEquals(listOf(FigureKey.AvgTemperature), page.stats.first { it.kind == StatsGroupKind.Temperature }.rows.map { it.key })
+        assertEquals(
+            listOf(FigureKey.ElevationGain, FigureKey.Descent),
+            page.stats.first { it.kind == StatsGroupKind.Elevation }.rows.map { it.key },
+        )
     }
 
     @Test
@@ -336,7 +378,7 @@ class ActivityPageTest {
             )
 
     private fun line(kind: StreamKind, value: Double) =
-        LineSeries(kind, persistentListOf(ChartSample(0, value), ChartSample(60, value + 10)), value + 5, value + 10)
+        LineSeries(kind, persistentListOf(ChartSample(0, value), ChartSample(60, value + 10)), value + 5, value + 10, min = value)
 
     private val zones = persistentListOf(ZoneTime("1", ZoneName.entries.first(), 0, null, 3600))
 

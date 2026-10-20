@@ -22,6 +22,7 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.chart_pace
 import io.github.solcott.activitytracker.composeApp.resources.detail_avg
 import io.github.solcott.activitytracker.composeApp.resources.detail_max
+import io.github.solcott.activitytracker.composeApp.resources.detail_min
 import io.github.solcott.activitytracker.composeApp.resources.page_all_stats
 import io.github.solcott.activitytracker.composeApp.resources.page_avg_max_heading
 import io.github.solcott.activitytracker.composeApp.resources.page_training_load
@@ -114,16 +115,21 @@ private fun StatsGroupCard(group: StatsGroup, modifier: Modifier = Modifier) {
     }
 }
 
-/** A row per metric with an average or maximum, and columns for each. */
+/**
+ * A row per metric with an average or maximum, and columns for each. A Min column joins them when a row has a minimum (temperature); the
+ * other rows leave it empty, as their minimum is a stop rather than missing.
+ */
 @Composable
 internal fun AvgMaxTable(rows: ImmutableList<AvgMaxRow>, modifier: Modifier = Modifier) {
     if (rows.isEmpty()) return
+    val showsMin = rows.any { it.min != null }
     AppCard(modifier) {
         Column(Modifier.padding(CARD_PADDING), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             CardTitle(stringResource(Res.string.page_avg_max_heading), mark = null)
             AvgMaxLine(
                 null,
                 stringResource(Res.string.detail_avg),
+                stringResource(Res.string.detail_min).takeIf { showsMin },
                 stringResource(Res.string.detail_max),
                 MaterialTheme.typography.labelMedium,
             )
@@ -133,6 +139,7 @@ internal fun AvgMaxTable(rows: ImmutableList<AvgMaxRow>, modifier: Modifier = Mo
                 AvgMaxLine(
                     avgMaxLabel(row.metric),
                     row.avg?.let { figureText(it) } ?: missing,
+                    if (showsMin) row.min?.let { figureText(it) }.orEmpty() else null,
                     row.max?.let { figureText(it) } ?: missing,
                     MaterialTheme.typography.bodyMedium,
                 )
@@ -141,13 +148,18 @@ internal fun AvgMaxTable(rows: ImmutableList<AvgMaxRow>, modifier: Modifier = Mo
     }
 }
 
+/** A table line; [min] is null when the table has no Min column. */
 @Composable
-private fun AvgMaxLine(label: String?, avg: String, max: String, style: TextStyle) {
+private fun AvgMaxLine(label: String?, avg: String, min: String?, max: String, style: TextStyle) {
+    // Three value columns share the width, so each narrows and the metric's name keeps room for "Temperature".
+    val column = Modifier.widthIn(min = if (min != null) NARROW_TABLE_COLUMN else TABLE_COLUMN)
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(label.orEmpty(), Modifier.weight(1f), style = style)
-        Text(avg, Modifier.widthIn(min = TABLE_COLUMN), style = style, textAlign = TextAlign.End)
-        Text(max, Modifier.widthIn(min = TABLE_COLUMN), style = style, textAlign = TextAlign.End)
+        Text(avg, column, style = style, textAlign = TextAlign.End)
+        if (min != null) Text(min, column, style = style, textAlign = TextAlign.End)
+        Text(max, column, style = style, textAlign = TextAlign.End)
     }
 }
 
 private val TABLE_COLUMN = 72.dp
+private val NARROW_TABLE_COLUMN = 64.dp

@@ -357,6 +357,7 @@
         <item quantity="other">%1$d comments</item>
     </plurals>
     <string name="detail_avg">Avg</string>
+    <string name="detail_min">Min</string>
     <string name="detail_max">Max</string>
     <string name="detail_best_power">Best %1$s</string>
     <string name="detail_gain">Gain</string>
@@ -1146,6 +1147,8 @@
     <string name="page_max_heart_rate">Max heart rate</string>
     <string name="page_normalized_power">Normalized power</string>
     <string name="page_avg_temperature">Avg temperature</string>
+    <string name="page_min_temperature">Min temperature</string>
+    <string name="page_max_temperature">Max temperature</string>
     <string name="page_pool_length">Pool length</string>
     <string name="page_avg_stroke_distance">Avg stroke distance</string>
     <string name="page_reps">Reps</string>
@@ -1165,10 +1168,12 @@
     <string name="page_anaerobic_effect">Anaerobic training effect</string>
     <string name="page_hrv">Heart rate variability (RMSSD)</string>
     <string name="page_average">Average</string>
+    <string name="page_minimum">Minimum</string>
     <string name="page_best">Best</string>
     <string name="page_maximum">Maximum</string>
     <string name="page_best_power">Best %1$d min power</string>
     <string name="page_highest">Highest point</string>
+    <string name="page_lowest">Lowest point</string>
     <string name="page_most_used_gear">Most used gear</string>
     <string name="page_front_shifts">Front shifts</string>
     <string name="page_rear_shifts">Rear shifts</string>

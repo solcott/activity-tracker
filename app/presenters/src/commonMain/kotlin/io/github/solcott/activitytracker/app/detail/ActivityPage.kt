@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import kotlin.math.roundToLong
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
@@ -208,17 +209,13 @@ internal class Figures(private val record: ActivityRecord, private val charts: A
                         record.avgCadence?.let { Figure(FigureKey.AvgCadence, FigureValue.Quantity(it.toLong(), FigureUnit.Rpm)) },
                         record.maxCadence?.let { Figure(FigureKey.MaxCadence, FigureValue.Quantity(it.toLong(), FigureUnit.Rpm)) },
                     ),
-                StatsGroupKind.Elevation to listOf(elevationGain(), descent()),
+                StatsGroupKind.Elevation to elevationRows(),
                 StatsGroupKind.WorkEnergy to
                     listOf(
                         work(),
                         calories()?.copy(mark = marks[DetailCategory.CALORIES]),
                     ),
-                StatsGroupKind.Temperature to
-                    listOf(
-                        record.avgTemperature?.let { Figure(FigureKey.AvgTemperature, FigureValue.Temperature(it)) },
-                        dive?.minTemperature?.let { Figure(FigureKey.WaterTemp, FigureValue.Temperature(it)) },
-                    ),
+                StatsGroupKind.Temperature to temperatureRows(),
                 StatsGroupKind.Counts to counts(),
                 StatsGroupKind.Dive to diveFigures(),
                 StatsGroupKind.Device to
@@ -227,6 +224,31 @@ internal class Figures(private val record: ActivityRecord, private val charts: A
             )
             .mapNotNull { (kind, rows) -> rows.filterNotNull().takeIf { it.isNotEmpty() }?.let { StatsGroup(kind, it.toImmutableList()) } }
             .toImmutableList()
+
+    /** Gain and descent, then the highest and lowest points where the viewer was served the elevation stream. */
+    private fun elevationRows(): List<Figure?> {
+        val elevation = line(StreamKind.Elevation)
+        return listOf(
+            elevationGain(),
+            descent(),
+            elevation?.max?.let { Figure(FigureKey.Highest, FigureValue.Stream(StreamKind.Elevation, it)) },
+            elevation?.min?.let { Figure(FigureKey.Lowest, FigureValue.Stream(StreamKind.Elevation, it)) },
+        )
+    }
+
+    /**
+     * The average, then the minimum and maximum where the viewer was served the temperature stream; a dive gives its water temperature
+     * instead.
+     */
+    private fun temperatureRows(): List<Figure?> {
+        val samples = line(StreamKind.Temperature)?.takeIf { dive == null }
+        return listOf(
+            record.avgTemperature?.let { Figure(FigureKey.AvgTemperature, FigureValue.Temperature(it)) },
+            samples?.min?.let { Figure(FigureKey.MinTemperature, FigureValue.Temperature(it.roundToLong())) },
+            samples?.max?.let { Figure(FigureKey.MaxTemperature, FigureValue.Temperature(it.roundToLong())) },
+            dive?.minTemperature?.let { Figure(FigureKey.WaterTemp, FigureValue.Temperature(it)) },
+        )
+    }
 
     fun avgMax(): ImmutableList<AvgMaxRow> {
         val speed = average(StreamKind.Speed) to max(StreamKind.Speed)
@@ -255,6 +277,7 @@ internal class Figures(private val record: ActivityRecord, private val charts: A
                     AvgMaxMetric.Temperature,
                     stream(StreamKind.Temperature, average(StreamKind.Temperature)),
                     stream(StreamKind.Temperature, max(StreamKind.Temperature)),
+                    min = stream(StreamKind.Temperature, line(StreamKind.Temperature)?.min),
                 ),
             )
             .filter { it.avg != null || it.max != null }

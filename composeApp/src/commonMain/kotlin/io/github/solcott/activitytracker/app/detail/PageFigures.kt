@@ -61,11 +61,15 @@ import io.github.solcott.activitytracker.composeApp.resources.page_highest
 import io.github.solcott.activitytracker.composeApp.resources.page_highest_ppo2
 import io.github.solcott.activitytracker.composeApp.resources.page_hrv
 import io.github.solcott.activitytracker.composeApp.resources.page_intensity_factor
+import io.github.solcott.activitytracker.composeApp.resources.page_lowest
 import io.github.solcott.activitytracker.composeApp.resources.page_max_ascent_rate
 import io.github.solcott.activitytracker.composeApp.resources.page_max_heart_rate
 import io.github.solcott.activitytracker.composeApp.resources.page_max_pace
 import io.github.solcott.activitytracker.composeApp.resources.page_max_speed
+import io.github.solcott.activitytracker.composeApp.resources.page_max_temperature
 import io.github.solcott.activitytracker.composeApp.resources.page_maximum
+import io.github.solcott.activitytracker.composeApp.resources.page_min_temperature
+import io.github.solcott.activitytracker.composeApp.resources.page_minimum
 import io.github.solcott.activitytracker.composeApp.resources.page_most_used_gear
 import io.github.solcott.activitytracker.composeApp.resources.page_no_fly_time
 import io.github.solcott.activitytracker.composeApp.resources.page_normalized_power
@@ -187,6 +191,8 @@ private val LABELS: Map<FigureKey, StringResource> =
         FigureKey.AvgCadence to Res.string.stat_avg_cadence,
         FigureKey.MaxCadence to Res.string.stat_max_cadence,
         FigureKey.AvgTemperature to Res.string.page_avg_temperature,
+        FigureKey.MinTemperature to Res.string.page_min_temperature,
+        FigureKey.MaxTemperature to Res.string.page_max_temperature,
         FigureKey.PoolLength to Res.string.page_pool_length,
         FigureKey.AvgStrokeDistance to Res.string.page_avg_stroke_distance,
         FigureKey.Steps to Res.string.stat_steps,
@@ -235,9 +241,11 @@ private val LABELS: Map<FigureKey, StringResource> =
         FigureKey.AnaerobicEffect to Res.string.page_anaerobic_effect,
         FigureKey.Hrv to Res.string.page_hrv,
         FigureKey.Avg to Res.string.page_average,
+        FigureKey.Min to Res.string.page_minimum,
         FigureKey.Max to Res.string.page_maximum,
         FigureKey.Best to Res.string.page_best,
         FigureKey.Highest to Res.string.page_highest,
+        FigureKey.Lowest to Res.string.page_lowest,
         FigureKey.MaxGrade to Res.string.detail_max_grade,
         FigureKey.MostUsedGear to Res.string.page_most_used_gear,
         FigureKey.FrontShifts to Res.string.page_front_shifts,
