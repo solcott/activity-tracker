@@ -15,6 +15,9 @@ import kotlinx.collections.immutable.ImmutableList
 /**
  * The route on a map, with its [RouteMarkers]; [gaps] are where the line breaks (`feed.activity#polylineGaps`), and [ends] where its start
  * and end are marked when not at the line's own ends.
+ *
+ * The map is static unless [interactive], which lets the viewer pan and zoom it (north-up) and recenter it on the route. With [onExpand], a
+ * tap on the static map or its expand button calls it (`feed/route-map-viewer`). Web's preview ignores both.
  */
 @Composable
 expect fun ActivityMap(
@@ -23,6 +26,8 @@ expect fun ActivityMap(
     height: Dp = 240.dp,
     gaps: ImmutableList<Int>? = null,
     ends: RouteEnds? = null,
+    onExpand: (() -> Unit)? = null,
+    interactive: Boolean = false,
 )
 
 /** OpenFreeMap styles: free, no API key or request limits. Swap the URLs to change tile provider. */

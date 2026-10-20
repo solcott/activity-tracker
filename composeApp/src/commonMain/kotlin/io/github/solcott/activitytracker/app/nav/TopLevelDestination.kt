@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app.nav
 import com.slack.circuit.runtime.screen.Screen
 import io.github.solcott.activitytracker.app.edit.EditActivityScreen
 import io.github.solcott.activitytracker.app.feed.FeedScreen
+import io.github.solcott.activitytracker.app.map.RouteMapScreen
 import io.github.solcott.activitytracker.app.media.MediaGalleryScreen
 import io.github.solcott.activitytracker.app.profile.EditProfileScreen
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
@@ -40,7 +41,11 @@ enum class TopLevelDestination(val label: StringResource, val icon: AppIcon) {
          * (recording, adding or importing an activity, editing the profile), which takes the whole window.
          */
         fun showsNavigation(top: Screen): Boolean =
-            top !in FullScreenFlows && top !is ImportActivityScreen && top !is EditActivityScreen && top !is MediaGalleryScreen
+            top !in FullScreenFlows &&
+                top !is ImportActivityScreen &&
+                top !is EditActivityScreen &&
+                top !is MediaGalleryScreen &&
+                top !is RouteMapScreen
 
         private val FullScreenFlows = setOf(RecordScreen, ManualActivityScreen, EditProfileScreen)
     }

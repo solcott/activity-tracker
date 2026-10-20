@@ -307,7 +307,16 @@ private fun PageMedia(state: ActivityDetailState.Loaded, modifier: Modifier = Mo
             // trimmed by them, marked at its own ends.
             map =
                 state.route?.let { route ->
-                    { mapModifier, mapHeight -> ActivityMap(route.polyline, mapModifier, mapHeight, route.gaps, route.ends) }
+                    { mapModifier, mapHeight ->
+                        ActivityMap(
+                            route.polyline,
+                            mapModifier,
+                            mapHeight,
+                            route.gaps,
+                            route.ends,
+                            onExpand = { state.eventSink(ActivityDetailEvent.OpenMap) },
+                        )
+                    }
                 },
         )
         state.page.mapMark?.let { CategoryLock(DetailCategory.MAP, it) }

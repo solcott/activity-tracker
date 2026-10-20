@@ -6,6 +6,14 @@ import androidx.compose.ui.unit.Dp
 import io.github.solcott.activitytracker.app.RouteEnds
 import kotlinx.collections.immutable.ImmutableList
 
+/** The canvas preview, static: there's no enlarged map on web until it can draw a real one (`feed/route-map-viewer`). */
 @Composable
-actual fun ActivityMap(polyline: String, modifier: Modifier, height: Dp, gaps: ImmutableList<Int>?, ends: RouteEnds?) =
-    RoutePreview(polyline, modifier, height, gaps, ends)
+actual fun ActivityMap(
+    polyline: String,
+    modifier: Modifier,
+    height: Dp,
+    gaps: ImmutableList<Int>?,
+    ends: RouteEnds?,
+    onExpand: (() -> Unit)?,
+    interactive: Boolean,
+) = RoutePreview(polyline, modifier, height, gaps, ends)

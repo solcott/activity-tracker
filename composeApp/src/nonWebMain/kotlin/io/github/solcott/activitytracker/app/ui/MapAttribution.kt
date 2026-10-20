@@ -43,13 +43,14 @@ private var attributionShown = false
 
 /**
  * [MapOverlay.AttributionOnly], except that the attribution collapses on its own: the library's button stays expanded until a gesture moves
- * the camera, and [ActivityMap] allows none.
+ * the camera, and the static [ActivityMap] allows none. [action], given its placement, goes in the top-end corner, clear of both.
  */
 @Composable
-internal fun MapOverlayScope.RouteMapOverlay(mapState: MapState) {
+internal fun MapOverlayScope.RouteMapOverlay(mapState: MapState, action: @Composable (Modifier) -> Unit = {}) {
     Box(Modifier.fillMaxSize().padding(MapOverlay.Spacing)) {
         MaplibreLogo(Modifier.align(Alignment.BottomStart))
         CollapsingAttribution(mapState, Modifier.align(Alignment.BottomEnd))
+        action(Modifier.align(Alignment.TopEnd))
     }
 }
 

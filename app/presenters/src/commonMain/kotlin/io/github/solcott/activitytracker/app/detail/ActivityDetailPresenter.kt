@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
 import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEventSink
 import io.github.solcott.activitytracker.app.edit.EditActivityScreen
+import io.github.solcott.activitytracker.app.map.RouteMapScreen
 import io.github.solcott.activitytracker.app.media.MediaGalleryScreen
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.profile.rememberApprovesFollowers
@@ -135,6 +136,7 @@ fun ActivityDetailPresenter(
             ActivityDetailEvent.Edit,
             ActivityDetailEvent.Combine,
             ActivityDetailEvent.AddRecording,
+            ActivityDetailEvent.OpenMap,
             is ActivityDetailEvent.OpenMedia -> navigator.open(event, screen.uri, current)
 
             ActivityDetailEvent.ToggleLikesList -> {
@@ -509,6 +511,7 @@ private fun Navigator.open(event: ActivityDetailEvent, uri: String, current: Act
         ActivityDetailEvent.OpenTrainingZones -> goTo(TrainingZonesScreen)
         ActivityDetailEvent.Edit -> goTo(EditActivityScreen(uri))
         is ActivityDetailEvent.OpenMedia -> goTo(MediaGalleryScreen(uri, event.index))
+        ActivityDetailEvent.OpenMap -> goTo(RouteMapScreen(uri))
         ActivityDetailEvent.Combine -> goTo(CombinePickerScreen(uri))
         ActivityDetailEvent.AddRecording -> goTo(ImportActivityScreen(combineInto = uri))
         else -> Unit

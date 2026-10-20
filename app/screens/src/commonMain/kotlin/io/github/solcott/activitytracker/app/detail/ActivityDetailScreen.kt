@@ -373,6 +373,9 @@ sealed interface ActivityDetailEvent {
     /** Opens the activity's media full screen at [index]. */
     data class OpenMedia(val index: Int) : ActivityDetailEvent
 
+    /** Opens the route on a full-screen map the viewer can pan and zoom. */
+    data object OpenMap : ActivityDetailEvent
+
     /** The owner exports the activity as [format]: see [ActivityExportState]. */
     data class Export(val format: ExportFormat) : ActivityDetailEvent
 

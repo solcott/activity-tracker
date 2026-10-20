@@ -775,6 +775,8 @@
         <item quantity="other">%1$d of %2$d photos</item>
     </plurals>
     <string name="details_photo">Photo</string>
+    <string name="map_expand">Enlarge map</string>
+    <string name="map_recenter">Recenter on route</string>
     <string name="edit_discard_title">Discard your changes?</string>
     <string name="edit_discard_message">What you changed here won't be saved.</string>
     <string name="edit_discard">Discard</string>
