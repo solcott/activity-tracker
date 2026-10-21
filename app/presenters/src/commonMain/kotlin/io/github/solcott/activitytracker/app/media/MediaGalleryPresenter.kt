@@ -1,9 +1,9 @@
 package io.github.solcott.activitytracker.app.media
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.Reporting
@@ -29,6 +30,7 @@ import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlinx.collections.immutable.persistentListOf
 
 @CircuitInject(MediaGalleryScreen::class, SessionScope::class)
@@ -43,20 +45,17 @@ fun MediaGalleryPresenter(
     reports: ReportRepository,
 ): MediaGalleryState {
     val uri = AtUri(screen.uri)
-    var activity by remember { mutableStateOf<ActivityView?>(null) }
+    var loadKey by remember { mutableIntStateOf(0) }
+    // Retained, so coming back to the gallery shows the photos at once; a retry reloads under them.
+    val loaded = produceRetainedContentState<ActivityView?>(null, uri, loadKey) { feed.activityOutcome(uri) }
+    // Why blocking the author failed; never a loading failure, which is [loaded]'s.
     var error by remember { mutableStateOf<UiError?>(null) }
     var page by rememberSaveable { mutableStateOf(screen.index) }
     var zoomed by rememberSaveable { mutableStateOf(false) }
     // Photos the athlete just saved show here too, before the AppView has them.
     val rewrite by remember(uri) { feed.rewrites.observe(uri) }.collectAsState(null)
 
-    LaunchedEffect(uri) {
-        runSuspendCatching { feed.activity(uri) }
-            .onSuccess { activity = it }
-            .onFailure { error = UiError.of(UiError.Kind.LoadActivity, it) }
-    }
-
-    val shown = activity?.let { a -> rewrite?.let { feed.rewrites.rewritten(a, it) } ?: a }
+    val shown = loaded.data?.let { a -> rewrite?.let { feed.rewrites.rewritten(a, it) } ?: a }
     val items = remember(shown) { shown?.mediaItems() ?: persistentListOf() }
     val flights = rememberSingleFlight()
     val reporting =
@@ -70,7 +69,7 @@ fun MediaGalleryPresenter(
     val (takenDown, blur) = shown.moderation(profiles.did)
     val revealed = rememberRevealed()
     return MediaGalleryState(
-        items,
+        loaded.mapContent { items },
         shownPage,
         zoomed,
         error,
@@ -93,6 +92,8 @@ fun MediaGalleryPresenter(
             MediaGalleryEvent.Back -> if (zoomed) zoomed = false else navigator.pop()
 
             MediaGalleryEvent.ReportPhoto -> shown?.takeIf { canReport }?.let { reporting.reportPhoto(it, shownPage) }
+
+            MediaGalleryEvent.Retry -> loadKey++
         }
     }
 }

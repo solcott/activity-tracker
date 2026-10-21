@@ -6,6 +6,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,13 +41,15 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.github.panpf.zoomimage.CoilZoomAsyncImage
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.report.ReportingHost
 import io.github.solcott.activitytracker.app.ui.BlurredMedia
+import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
-import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -72,12 +75,16 @@ import org.jetbrains.compose.resources.stringResource
 @CircuitInject(MediaGalleryScreen::class, SessionScope::class)
 @Composable
 fun MediaGalleryUi(state: MediaGalleryState, modifier: Modifier = Modifier) {
+    val retry = { state.eventSink(MediaGalleryEvent.Retry) }
     Box(modifier.fillMaxSize().background(Color.Black)) {
-        val error = state.error
-        when {
-            state.items.isNotEmpty() -> Pager(state)
-            error != null -> Text(errorText(error), Modifier.align(Alignment.Center).padding(24.dp), color = Color.White)
-            else -> AppProgressIndicator(Modifier.align(Alignment.Center))
+        ContentStateLayout(state.content, UiError.Kind.LoadActivity, retry, Modifier.safeDrawingPadding()) { items ->
+            Box(Modifier.fillMaxSize()) {
+                if (items.isNotEmpty()) Pager(state)
+                Column(Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(16.dp)) {
+                    RefreshStatus(state.content, UiError.Kind.LoadActivity, retry)
+                    state.error?.let { Text(errorText(it), color = Color.White) }
+                }
+            }
         }
         Row(
             Modifier.fillMaxWidth().safeDrawingPadding().padding(8.dp),
