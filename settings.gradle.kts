@@ -47,6 +47,7 @@ listOf(
         "app/presenters",
         "web/sqlite-worker",
         "server/appview",
+        "server/segment-importer",
     )
     .forEach { dir ->
         val path = ":" + dir.replace('/', '-')

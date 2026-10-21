@@ -69,6 +69,8 @@ logback = "1.6.5"
 bouncycastle = "1.86"
 jackson = "2.22.3"
 h2 = "2.5.252"
+# OSM-Binary: the PBF parser osmosis uses, for the segment importer (LGPL-3.0, used unmodified as a library).
+osmpbf = "1.8.0"
 
 turbine = "1.2.1"
 
@@ -161,6 +163,7 @@ logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 bouncycastle = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 jackson-dataformat-cbor = { module = "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor", version.ref = "jackson" }
 h2 = { module = "com.h2database:h2", version.ref = "h2" }
+osmpbf = { module = "org.openstreetmap.pbf:osmpbf", version.ref = "osmpbf" }
 
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 

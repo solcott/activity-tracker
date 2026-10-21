@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Test extract for the segment importer (segments/trail-candidates). Rebuild the PBF: see server/segment-importer/README.md. -->
+<osm version="0.6" generator="hand">
+  <node id="1" version="1" lat="44.4000000" lon="-72.7000000"/>
+  <node id="2" version="1" lat="44.4044966" lon="-72.7000000"/>
+  <node id="3" version="1" lat="44.4089932" lon="-72.7000000"/>
+  <node id="4" version="1" lat="44.4134898" lon="-72.7000000"/>
+  <node id="5" version="1" lat="44.4179864" lon="-72.7000000"/>
+  <node id="6" version="1" lat="44.4224830" lon="-72.7000000"/>
+  <node id="7" version="1" lat="44.4269796" lon="-72.7000000"/>
+  <node id="8" version="1" lat="44.4314762" lon="-72.7000000"/>
+  <node id="9" version="1" lat="44.4359728" lon="-72.7000000"/>
+  <node id="20" version="1" lat="44.4134898" lon="-72.7050000"/>
+  <node id="21" version="1" lat="44.4134898" lon="-72.6950000"/>
+  <node id="30" version="1" lat="44.4224830" lon="-72.6900000"/>
+  <node id="50" version="1" lat="44.4000000" lon="-72.7200000"/>
+  <node id="51" version="1" lat="44.4089932" lon="-72.7200000"/>
+  <node id="60" version="1" lat="44.4000000" lon="-72.7300000"/>
+  <node id="61" version="1" lat="44.4089932" lon="-72.7300000"/>
+  <node id="40" version="1" lat="44.4000000" lon="-72.6800000"/>
+  <node id="41" version="1" lat="44.4026980" lon="-72.6800000"/>
+  <node id="42" version="1" lat="44.4053959" lon="-72.6800000"/>
+  <node id="43" version="1" lat="44.4080939" lon="-72.6800000"/>
+  <node id="70" version="1" lat="44.4071946" lon="-72.6600000"/>
+  <node id="71" version="1" lat="44.4035973" lon="-72.6600000"/>
+  <node id="72" version="1" lat="44.4000000" lon="-72.6600000"/>
+  <way id="100" version="1">
+    <nd ref="1"/>
+    <nd ref="2"/>
+    <nd ref="3"/>
+    <nd ref="4"/>
+    <nd ref="5"/>
+    <tag k="highway" v="path"/>
+    <tag k="name" v="Oak Trail"/>
+    <tag k="mtb:scale" v="2"/>
+  </way>
+  <way id="101" version="1">
+    <nd ref="5"/>
+    <nd ref="6"/>
+    <nd ref="7"/>
+    <nd ref="8"/>
+    <nd ref="9"/>
+    <tag k="highway" v="path"/>
+    <tag k="name" v="Oak Trail"/>
+    <tag k="mtb:scale" v="2"/>
+  </way>
+  <way id="110" version="1">
+    <nd ref="20"/>
+    <nd ref="4"/>
+    <nd ref="21"/>
+    <tag k="highway" v="unclassified"/>
+    <tag k="name" v="Fire Road 3"/>
+  </way>
+  <way id="120" version="1">
+    <nd ref="6"/>
+    <nd ref="30"/>
+    <tag k="highway" v="path"/>
+  </way>
+  <way id="130" version="1">
+    <nd ref="50"/>
+    <nd ref="51"/>
+    <tag k="highway" v="track"/>
+    <tag k="name" v="Ranch Track"/>
+    <tag k="access" v="private"/>
+  </way>
+  <way id="140" version="1">
+    <nd ref="60"/>
+    <nd ref="61"/>
+    <tag k="highway" v="footway"/>
+    <tag k="name" v="Main St Sidewalk"/>
+    <tag k="footway" v="sidewalk"/>
+  </way>
+  <way id="150" version="1">
+    <nd ref="40"/>
+    <nd ref="41"/>
+    <tag k="highway" v="path"/>
+  </way>
+  <way id="151" version="1">
+    <nd ref="42"/>
+    <nd ref="41"/>
+    <tag k="highway" v="path"/>
+  </way>
+  <way id="152" version="1">
+    <nd ref="42"/>
+    <nd ref="43"/>
+    <tag k="highway" v="path"/>
+  </way>
+  <way id="160" version="1">
+    <nd ref="70"/>
+    <nd ref="71"/>
+    <nd ref="72"/>
+    <tag k="highway" v="path"/>
+    <tag k="name" v="Plunge"/>
+    <tag k="mtb:scale" v="3"/>
+    <tag k="oneway" v="yes"/>
+  </way>
+  <relation id="200" version="1">
+    <member type="way" ref="150" role=""/>
+    <member type="way" ref="151" role=""/>
+    <member type="way" ref="152" role=""/>
+    <tag k="type" v="route"/>
+    <tag k="route" v="hiking"/>
+    <tag k="name" v="Ridge Loop"/>
+  </relation>
+</osm>
