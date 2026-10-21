@@ -5,13 +5,16 @@
 #   docker compose -f docker/compose.yaml up -d
 #   docker/scripts/create-account.sh alice
 #
-# Host ports: PLC 2582, PDS 2583, relay 2470, Jetstream 6008, AppView Postgres 5433.
+# Host ports: PLC 2582, PDS 2583, relay 2470, Jetstream 6008, Ozone 3010, AppView Postgres 5433.
 # The PDS only serves plain HTTP when PDS_HOSTNAME=localhost, so its public URL is
 # http://localhost:2583. The relay and Jetstream share the PDS container's network namespace so
 # that "localhost:2583" (what DID documents say) reaches the PDS from inside Docker too.
 #
 # Data flow: PDS firehose -> relay (indigo) -> Jetstream -> AppView. Jetstream needs a relay: it
 # bootstraps from listHosts/listRepos, then tails the relay's subscribeRepos.
+#
+# Moderation: Ozone (the labeler) takes reports the PDS proxies to it and serves subscribeLabels to the
+# AppView. docker/scripts/setup-labeler.sh (run by scripts/dev.sh) creates its account and DID document.
 
 name: activity-tracker
 
@@ -75,6 +78,7 @@ services:
       # published here.
       - "2470:2470"
       - "6008:6008"
+      - "3010:3010"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:2583/xrpc/_health"]
       interval: 2s
@@ -139,6 +143,46 @@ services:
     depends_on:
       relay-crawl:
         condition: service_completed_successfully
+
+  # The app's labeler: report queue, moderator tools and label source. It shares the PDS's network namespace
+  # like the relay, so the http://localhost:3010 its DID document names reaches it from the PDS (which proxies
+  # createReport there) and from the host (the AppView's subscribeLabels). Pinned by digest; its database is a
+  # second one on appview-db. It idles until setup-labeler.sh has written OZONE_SERVER_DID to docker/.env.
+  # Its web UI has plc.directory and Bluesky's handle resolver built in, so locally moderate through its API
+  # (see setup-labeler.sh and the local-stack skill). The daemon (event push to PDSes, scheduled actions) isn't run.
+  ozone:
+    image: ghcr.io/bluesky-social/ozone@sha256:a783cd27fe343276b6826d9f81a9221b815f24bece001c53ce15a65c4318f7ed
+    network_mode: "service:pds"
+    entrypoint:
+      - dumb-init
+      - --
+      - sh
+      - -c
+      - |
+        if [ -z "$$OZONE_SERVER_DID" ]; then echo "OZONE_SERVER_DID unset: run docker/scripts/setup-labeler.sh"; exec sleep infinity; fi
+        exec node ./service
+    environment:
+      OZONE_PORT: "3010"
+      OZONE_PUBLIC_URL: http://localhost:3010
+      OZONE_SERVER_DID: ${OZONE_SERVER_DID:-}
+      OZONE_ADMIN_DIDS: ${OZONE_SERVER_DID:-}
+      OZONE_ADMIN_PASSWORD: ${OZONE_ADMIN_PASSWORD:-local-dev-ozone-admin}
+      OZONE_SIGNING_KEY_HEX: ${OZONE_SIGNING_KEY_HEX:-}
+      OZONE_DB_POSTGRES_URL: postgresql://appview:appview@appview-db:5432/ozone
+      OZONE_DB_MIGRATE: "1"
+      OZONE_DEV_MODE: "true"
+      OZONE_DID_PLC_URL: http://plc:2582
+      # Required, but only used to hydrate Bluesky profiles and posts; our AppView answers none of that, and
+      # Ozone fails open.
+      OZONE_APPVIEW_URL: http://host.docker.internal:8081
+      OZONE_APPVIEW_DID: did:web:localhost%3A8081
+      LOG_ENABLED: "true"
+    restart: unless-stopped
+    depends_on:
+      pds:
+        condition: service_healthy
+      appview-db:
+        condition: service_started
 
   appview-db:
     image: postgres:17-alpine
