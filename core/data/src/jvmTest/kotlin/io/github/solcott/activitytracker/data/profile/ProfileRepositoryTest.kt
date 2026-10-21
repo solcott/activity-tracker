@@ -23,6 +23,8 @@ import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.TrainingSetAt
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
+import io.github.solcott.dataresult.DataError
+import io.github.solcott.dataresult.Outcome
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -34,10 +36,12 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Instant
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -99,6 +103,9 @@ class ProfileRepositoryTest {
 
     /** The tier of each `notifySpace` the AppView got, in order. */
     private val spacesAnnounced = mutableListOf<String>()
+
+    /** The AppView answers `getProfile` with `ProfileNotFound` while set. */
+    private var profileNotFound = false
 
     private val http =
         HttpClient(
@@ -215,7 +222,9 @@ class ProfileRepositoryTest {
 
                     "appview.test/xrpc/${Nsid.ACTOR_GET_PROFILE}" -> {
                         val actor = request.url.parameters["actor"]
-                        if (actor == bob.value) {
+                        if (profileNotFound) {
+                            error("ProfileNotFound")
+                        } else if (actor == bob.value) {
                             val bobDetails = """"details":{"location":{"country":"CA"},"weight":75000}"""
                             val requested = if (aliceRequestedBob) ""","followRequested":true""" else ""
                             val followedBy = if (bobFollowsAlice) ""","followedBy":"at://${bob.value}/${Nsid.GRAPH_FOLLOW}/3j"""" else ""
@@ -657,5 +666,26 @@ class ProfileRepositoryTest {
                 val payload = b64.encode("""{"exp":${Instant.parse("2100-01-01T00:00:00Z").epochSeconds}}""".encodeToByteArray())
                 "$header.$payload.c2ln"
             }
+    }
+
+    @Test
+    fun profileOutcomeLoadsThenAnswers() = runTest {
+        val outcomes = repository().profileOutcome(bob.value).toList()
+        assertEquals(Outcome.Loading, outcomes.first())
+        assertEquals(bob, assertIs<Outcome.Data<ProfileView>>(outcomes.last()).data.did)
+    }
+
+    @Test
+    fun profileOutcomeKeepsTheXrpcErrorsName() = runTest {
+        profileNotFound = true
+        val error = assertIs<Outcome.Error>(repository().profileOutcome(bob.value).toList().last())
+        assertEquals("ProfileNotFound", assertIs<DataError.Api>(error.cause).code)
+    }
+
+    @Test
+    fun ownProfileOutcomeCarriesNeedsSignInOnTheAnswer() = runTest {
+        scopeMissing = true
+        val own = assertIs<Outcome.Data<OwnProfile>>(repository().ownProfileOutcome().toList().last()).data
+        assertTrue(own.needsSignIn)
     }
 }

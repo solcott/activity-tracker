@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -19,7 +20,9 @@ import io.github.solcott.activitytracker.lexicon.atproto.DeleteRecord
 import io.github.solcott.activitytracker.lexicon.atproto.ListRecords
 import io.github.solcott.activitytracker.lexicon.atproto.PutRecord
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
+import io.github.solcott.dataresult.Outcome
 import kotlin.time.Clock
+import kotlinx.coroutines.flow.Flow
 
 /**
  * The signed-in athlete's answers to follow requests, while their `followPolicy` is approve. Approvals are public records in their repo,
@@ -56,6 +59,9 @@ class FollowRequestsRepository(private val clients: SessionClients, private val 
         val (declinedRequests, pending) = all.distinctBy { it.did }.partition { it.did in declined.orEmpty() }
         return FollowRequests(pending, declinedRequests, truncated = cursor != null, needsSignIn = declined == null)
     }
+
+    /** [followRequests] as a stream ([outcomeFlow]): [FollowRequests.needsSignIn] stays on the answer, never a failure. */
+    fun followRequestsOutcome(): Flow<Outcome<FollowRequests>> = outcomeFlow { followRequests() }
 
     /** Whether the athlete can approve or decline [did]: its records are keyed by the DID, which must be a valid record key. */
     fun canAnswer(did: Did): Boolean = isRecordKey(did)

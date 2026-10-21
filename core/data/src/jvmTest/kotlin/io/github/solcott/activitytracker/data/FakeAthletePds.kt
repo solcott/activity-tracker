@@ -51,6 +51,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
 import kotlin.time.Clock
+import kotlinx.io.IOException
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -80,6 +81,9 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
     /** Fail every put of this collection, wherever it goes, while set. */
     var failPutsOf: String? = null
     var offline = false
+
+    /** Every request to the AppView fails as a dropped connection would, while set. */
+    var appViewOffline = false
 
     /**
      * What the AppView serves: `getActivity` the activity, `getComments` its comments, oldest first, as threads (in pages of the asked
@@ -133,6 +137,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
             MockEngine { request ->
                 if (offline && request.url.host == "pds.test")
                     return@MockEngine error("InternalServerError", HttpStatusCode.InternalServerError)
+                if (appViewOffline && request.url.host != "pds.test") throw IOException("Connection refused")
                 val path = request.url.encodedPath
                 requests += "$path ${request.url.parameters["collection"]}/${request.url.parameters["rkey"]}"
                 when {

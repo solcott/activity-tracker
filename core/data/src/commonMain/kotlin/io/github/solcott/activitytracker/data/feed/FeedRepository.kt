@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.data.db.FeedItemEntity
 import io.github.solcott.activitytracker.data.db.KeyValueEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.data.ownBlobUrl
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -116,6 +117,9 @@ class FeedRepository(
         db.feed().replace(key, deletes.filter(output.activities).toFeedItems(key, shownInFeed))
         if (filter != ActivityFilter.None) db.trackFilteredFeed(key)
     }
+
+    /** [activity] as a stream ([outcomeFlow]): loading, then the activity or why it couldn't be read. Each collection reads it again. */
+    fun activityOutcome(uri: AtUri): Flow<Outcome<ActivityView>> = outcomeFlow { activity(uri) }
 
     /**
      * [uri] as the viewer left it, its comment count included. When the viewer changed comments on it this session, the AppView is asked,

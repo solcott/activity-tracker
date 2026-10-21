@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.data.ownBlobUrl
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -26,10 +27,13 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.DeleteRecord
 import io.github.solcott.activitytracker.lexicon.atproto.PutRecord
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
+import io.github.solcott.dataresult.Outcome
 import kotlin.time.Clock
+import kotlinx.coroutines.flow.Flow
 
 @SingleIn(SessionScope::class)
 @Inject
+@Suppress("TooManyFunctions") // Each read and its outcome stream, and the saves and follows that change what they read.
 class ProfileRepository(
     private val clients: SessionClients,
     internal val clock: Clock,
@@ -141,6 +145,14 @@ class ProfileRepository(
             followPolicy = record?.followPolicy.toFollowPolicy(),
         )
     }
+
+    /**
+     * [profile] as a stream ([outcomeFlow]): loading, then [actor]'s profile or why it couldn't be read. Each collection reads it again.
+     */
+    fun profileOutcome(actor: String): Flow<Outcome<ProfileView>> = outcomeFlow { profile(actor) }
+
+    /** [ownProfile] as a stream: [OwnProfile.needsSignIn] stays on the answer, never a failure. */
+    fun ownProfileOutcome(): Flow<Outcome<OwnProfile>> = outcomeFlow { ownProfile() }
 
     /** Replaces the profile record whole. Read it first ([ownProfileRecord]) so fields this save doesn't change survive. */
     suspend fun saveProfile(record: ProfileRecord) {

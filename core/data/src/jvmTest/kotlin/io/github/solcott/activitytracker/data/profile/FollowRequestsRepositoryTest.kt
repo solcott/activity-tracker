@@ -10,6 +10,9 @@ import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
+import io.github.solcott.dataresult.DataError
+import io.github.solcott.dataresult.Origin
+import io.github.solcott.dataresult.Outcome
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -20,10 +23,13 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
+import kotlinx.io.IOException
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -43,6 +49,9 @@ class FollowRequestsRepositoryTest {
     private val declines = mutableSetOf<String>()
     private var selfSpace = false
     private var scopeMissing = false
+
+    /** Requests to the AppView fail as a dropped connection would, while set. */
+    private var offline = false
 
     /** Alice's followers as the AppView pages them, and the approvals already in her repo. */
     private var followerPages = listOf<List<String>>()
@@ -66,6 +75,7 @@ class FollowRequestsRepositoryTest {
                 fun next(size: Int) = if (page + 1 < size) ""","cursor":"${page + 1}"""" else ""
                 fun profiles(dids: List<String>) =
                     dids.joinToString(",") { """{"did":"$it","handle":"${it.substringAfterLast(':')}.test"}""" }
+                if (offline && request.url.host == "appview.test") throw IOException("Connection refused")
                 when ("${request.url.host}${request.url.encodedPath}") {
                     "pds.test/xrpc/com.atproto.server.getServiceAuth" -> respond("""{"token":"service-jwt"}""", headers = json)
 
@@ -286,5 +296,19 @@ class FollowRequestsRepositoryTest {
         repository().save(edit(null))
         assertEquals(FollowPolicy.APPROVE, profile?.followPolicy)
         assertEquals(FollowPolicy.APPROVE, repository().ownProfile().followPolicy)
+    }
+
+    @Test
+    fun theOutcomeCarriesNeedsSignInOnTheAnswer() = runTest {
+        scopeMissing = true
+        val outcomes = requests().followRequestsOutcome().toList()
+        assertEquals(Outcome.Loading, outcomes.first())
+        assertTrue(assertIs<Outcome.Data<FollowRequests>>(outcomes.last()).data.needsSignIn)
+    }
+
+    @Test
+    fun theOutcomeOfAnOfflineReadIsNetwork() = runTest {
+        offline = true
+        assertEquals(Outcome.Error(DataError.Network, Origin.Network), requests().followRequestsOutcome().toList().last())
     }
 }
