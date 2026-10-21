@@ -1,8 +1,10 @@
 package io.github.solcott.activitytracker.location
 
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.sqrt
 
 /** A position in degrees. */
@@ -16,7 +18,7 @@ data class SegmentPass(val start: Double, val end: Double)
 
 /**
  * The geometry segment matching shares between the AppView and clients: the precision-6 lines `feed.segment` stores, their length and
- * reference points, and detecting a track's passes over them.
+ * reference points, detecting a track's passes over them, and telling whether two segments are duplicates.
  */
 @Suppress("TooManyFunctions") // The public geometry, and the plane math pass detection is built from.
 object SegmentGeometry {
@@ -31,6 +33,12 @@ object SegmentGeometry {
 
     /** Spacing of a segment's reference points along its line, in meters. */
     const val REFERENCE_SPACING_M = 10.0
+
+    /** How far apart two lines may get, followed from start to end, and still be duplicates, in meters: the matcher's corridor. */
+    const val DUPLICATE_DISTANCE_M = CORRIDOR_M
+
+    /** How many times longer one line may be than the other and still be its duplicate. */
+    const val DUPLICATE_LENGTH_RATIO = 1.2
 
     /** Reference points a track sample may look ahead past the farthest its last step could reach. */
     private const val LOOKAHEAD = 3
@@ -117,6 +125,57 @@ object SegmentGeometry {
         }
         return passes
     }
+
+    /**
+     * Whether [a] and [b] are the same segment (segments/segment-records): they run the same direction, the longer is at most
+     * [DUPLICATE_LENGTH_RATIO] times the shorter, and following both from start to end never takes them more than [distance] apart (their
+     * discrete Fréchet distance, on points every [REFERENCE_SPACING_M]). The cheap length and endpoint tests run first.
+     */
+    @Suppress("ReturnCount") // Each cheap test that rules a pair out before the costly one.
+    fun duplicates(a: List<GeoPoint>, b: List<GeoPoint>, distance: Double = DUPLICATE_DISTANCE_M): Boolean {
+        if (a.size < 2 || b.size < 2) return false
+        val (shorter, longer) = listOf(lengthMeters(a), lengthMeters(b)).sorted()
+        if (shorter <= 0.0 || longer > shorter * DUPLICATE_LENGTH_RATIO) return false
+        if (distanceMeters(a.first(), b.first()) > distance || distanceMeters(a.last(), b.last()) > distance) return false
+        val origin = a.first()
+        val pa = resample(a).map { local(it, origin) }
+        val pb = resample(b).map { local(it, origin) }
+        return frechetWithin(pa, pb, distance)
+    }
+
+    /**
+     * Whether the discrete Fréchet distance between [a] and [b] (points in local meters) is at most [eps]. Only couplings within a band
+     * around the diagonal, scaled to the two lengths, are tried: wide enough for one line to run ahead of the other by their whole
+     * difference in points, which a duplicate can't exceed. A row with nothing reachable ends it early.
+     */
+    private fun frechetWithin(a: List<Pair<Double, Double>>, b: List<Pair<Double, Double>>, eps: Double): Boolean {
+        val n = a.size
+        val m = b.size
+        val eps2 = eps * eps
+        val half = ceil(2 * eps / REFERENCE_SPACING_M).toInt() + abs(n - m)
+        var prev = BooleanArray(m)
+        var cur = BooleanArray(m)
+        for (i in 0 until n) {
+            cur.fill(false)
+            val center = i.toDouble() * (m - 1) / (n - 1)
+            val lo = maxOf(0, floor(center).toInt() - half)
+            val hi = minOf(m - 1, ceil(center).toInt() + half)
+            var any = false
+            for (j in lo..hi) {
+                val dx = a[i].first - b[j].first
+                val dy = a[i].second - b[j].second
+                cur[j] = dx * dx + dy * dy <= eps2 && reachedFrom(i, j, prev, cur)
+                any = any || cur[j]
+            }
+            if (!any) return false
+            prev = cur.also { cur = prev }
+        }
+        return prev[m - 1]
+    }
+
+    /** Whether coupling [i] with [j] continues a coupling from the start: the first pair, or one step on from a reachable pair. */
+    private fun reachedFrom(i: Int, j: Int, prev: BooleanArray, cur: BooleanArray): Boolean =
+        (i == 0 && j == 0) || (i > 0 && (prev[j] || (j > 0 && prev[j - 1]))) || (j > 0 && cur[j - 1])
 
     /** The index of the sample a pass from [from] finishes at, or null when it fails. */
     @Suppress("ReturnCount") // Each way a pass fails, and where it finishes.

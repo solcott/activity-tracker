@@ -70,4 +70,19 @@ class SegmentSportTest {
         assertEquals(null, SegmentSport.of(Sport.SKI, SubSport.RACE))
         assertEquals(null, SegmentSport.of(Sport.WHITEWATER, null))
     }
+
+    @Test
+    fun everyGroupHasAMinimumLength() {
+        val minimums = SegmentSportGroup.all.associateWith { SegmentSportGroup.minMeters(it) }
+        assertEquals(
+            mapOf(
+                SegmentSportGroup.RIDE to 500,
+                SegmentSportGroup.RUN to 200,
+                SegmentSportGroup.HIKE to 200,
+                SegmentSportGroup.SKI to 200,
+                SegmentSportGroup.PADDLE to 200,
+            ),
+            minimums,
+        )
+    }
 }

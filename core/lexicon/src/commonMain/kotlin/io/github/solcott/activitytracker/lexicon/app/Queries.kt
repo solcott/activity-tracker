@@ -310,6 +310,25 @@ object GetSegmentEfforts {
     val method = XrpcQuery(Nsid.FEED_GET_SEGMENT_EFFORTS, Params.serializer(), Output.serializer())
 }
 
+/**
+ * Checks a line before the caller publishes it as a segment (segments/segment-records): the proposed or active segments of [Input.sport] it
+ * would duplicate, earliest indexed first, and how many more new segments the caller may create today. `InvalidRequest` for a malformed
+ * line, one outside its group's length bounds, or an unknown group.
+ */
+object CheckSegment {
+    @Serializable
+    data class Input(
+        /** A [SegmentSportGroup] value. */
+        val sport: String,
+        /** The line as an encoded polyline at precision 6, as [SegmentRecord.line]. */
+        val line: String,
+    )
+
+    @Serializable data class Output(val duplicates: List<SegmentView>, val remaining: Int)
+
+    val method = XrpcProcedure(Nsid.FEED_CHECK_SEGMENT, Input.serializer(), Output.serializer())
+}
+
 /** Page size bounds shared by every paginated query. */
 object Paging {
     const val DEFAULT_LIMIT = 30

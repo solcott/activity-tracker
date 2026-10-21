@@ -495,6 +495,34 @@ object SegmentSportGroup {
     const val PADDLE = "paddle"
 
     val all = listOf(RIDE, RUN, HIKE, SKI, PADDLE)
+
+    /** The longest a segment of any group may be along its line, in meters. */
+    const val MAX_METERS = 50_000
+
+    private const val MIN_RIDE_METERS = 500
+    private const val MIN_OTHER_METERS = 200
+
+    /** The shortest a segment of [group] may be along its line, in meters; rides are longer so a short sprint isn't a segment. */
+    fun minMeters(group: String): Int = if (group == RIDE) MIN_RIDE_METERS else MIN_OTHER_METERS
+}
+
+/**
+ * Known values of a segment view's `status`, which the AppView derives (segments/segment-records); an open string, where null or an unknown
+ * value means [ACTIVE].
+ */
+object SegmentStatus {
+    /** New, and not yet ridden by enough athletes. */
+    const val PROPOSED = "proposed"
+    const val ACTIVE = "active"
+    /** Duplicates an earlier segment, named by `duplicateOf`; never matched. */
+    const val DUPLICATE = "duplicate"
+    /** Still proposed long after it was created; keeps its efforts but gets no new ones. */
+    const val ARCHIVED = "archived"
+
+    private val NOT_ACTIVE = setOf(PROPOSED, DUPLICATE, ARCHIVED)
+
+    /** [status] as shown, with null or an unknown value as [ACTIVE]. */
+    fun of(status: String?): String = status?.takeIf { it in NOT_ACTIVE } ?: ACTIVE
 }
 
 /** Known values of [SegmentRecord.source]; an open string. */

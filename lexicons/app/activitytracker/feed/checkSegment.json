@@ -1,0 +1,33 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.checkSegment",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Checks a line before the caller publishes it as a feed.segment: the proposed or active segments of the same sport group it would duplicate, by the same test the AppView applies when indexing, earliest indexed first, and how many more new segments the caller may create in the current 24 hours. Requires service auth. Writes nothing.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["sport", "line"],
+          "properties": {
+            "sport": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "paddle"] },
+            "line": { "type": "string", "maxLength": 100000, "description": "The line from start to end as an encoded polyline at precision 6, as feed.segment#line." }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["duplicates", "remaining"],
+          "properties": {
+            "duplicates": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#segmentView" } },
+            "remaining": { "type": "integer", "minimum": 0, "description": "How many more new segments the caller may create in the current 24 hours." }
+          }
+        }
+      },
+      "errors": [{ "name": "InvalidRequest", "description": "The line is malformed, or its length is outside its sport group's bounds, or the sport group is unknown." }]
+    }
+  }
+}

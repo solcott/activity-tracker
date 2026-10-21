@@ -4,9 +4,13 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.roundToLong
+import kotlin.math.sin
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.measureTime
 
 class SegmentGeometryTest {
     private val origin = GeoPoint(47.0, 8.0)
@@ -149,5 +153,56 @@ class SegmentGeometryTest {
         val exact = passesOver(straight, piece).map { it.start.roundToLong() to it.end.roundToLong() }
         val rounded = passesOver(straight, e7).map { it.start.roundToLong() to it.end.roundToLong() }
         assertEquals(exact, rounded)
+    }
+
+    /** A line along [path] (east, north waypoints in meters), a point every [spacing] meters, each moved east by [offset] of its index. */
+    private fun line(path: List<Pair<Double, Double>>, spacing: Double = 20.0, offset: (Int) -> Double = { 0.0 }): List<GeoPoint> =
+        track(path, spacing).mapIndexed { i, p -> GeoPoint(p.lat, p.lng + offset(i) / metersPerDegreeLng) }
+
+    private val climb = listOf(0.0 to 0.0, 400.0 to 800.0, 300.0 to 1600.0, 900.0 to 2400.0)
+
+    @Test
+    fun jitteredCopyIsADuplicate() {
+        val original = line(climb)
+        // Another athlete's trace of the same climb: other points, drifting up to 12 m either side, endpoints 10 m off.
+        val copy = line(climb, spacing = 7.0) { i -> 10.0 + 2.0 * sin(i * 7.0 / 40.0) - 12.0 * sin(i * 7.0 / 300.0) }
+        assertTrue(SegmentGeometry.duplicates(original, copy))
+        assertTrue(SegmentGeometry.duplicates(copy, original))
+    }
+
+    @Test
+    fun reversedLineIsNotADuplicate() {
+        val original = line(climb)
+        assertFalse(SegmentGeometry.duplicates(original, original.reversed()))
+    }
+
+    @Test
+    fun longerSupersetIsNotADuplicate() {
+        val original = line(climb)
+        val longer = line(climb + (900.0 to 4400.0))
+        assertFalse(SegmentGeometry.duplicates(original, longer))
+    }
+
+    @Test
+    fun copyBeyondTheDistanceIsNotADuplicate() {
+        assertFalse(SegmentGeometry.duplicates(line(climb), line(climb) { i -> if (i in 40..60) 45.0 else 0.0 }))
+    }
+
+    @Test
+    fun detourLoopIsNotADuplicate() {
+        // The same 3 km straight, but with a 300 m out-and-back spur 150 m off the line halfway along: 10% longer, same ends.
+        val straight3k = listOf(0.0 to 0.0, 0.0 to 3000.0)
+        val detour = listOf(0.0 to 0.0, 0.0 to 1500.0, 150.0 to 1500.0, 0.0 to 1500.0, 0.0 to 3000.0)
+        assertFalse(SegmentGeometry.duplicates(line(straight3k), line(detour)))
+    }
+
+    @Test
+    fun longPairIsCheckedQuickly() {
+        // A 50 km zigzag and a jittered copy of it.
+        val path = (0..25).map { k -> (if (k % 2 == 0) 0.0 else 600.0) to k * 1_990.0 }
+        val original = line(path, spacing = 25.0)
+        val copy = line(path, spacing = 9.0) { i -> 15.0 * sin(i * 9.0 / 250.0) }
+        val took = measureTime { assertTrue(SegmentGeometry.duplicates(original, copy)) }
+        assertTrue(took < 2.seconds, "took $took")
     }
 }

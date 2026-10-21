@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.lexicon
 
+import io.github.solcott.activitytracker.lexicon.app.CheckSegment
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
@@ -7,6 +8,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentPrefsRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
+import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackData
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackPiece
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackRecord
@@ -113,5 +115,58 @@ class SegmentRecordsTest {
         val outputJson = AtJson.encodeToJsonElement(GetSegment.Output.serializer(), output).jsonObject
         assertFalse("eBike" in outputJson["segment"]!!.jsonObject["viewer"]!!.jsonObject["best"]!!.jsonObject)
         assertEquals(output, AtJson.decodeFromJsonElement(GetSegment.Output.serializer(), outputJson))
+        assertFalse("status" in outputJson["segment"]!!.jsonObject)
+        assertFalse("duplicateOf" in outputJson["segment"]!!.jsonObject)
+    }
+
+    @Test
+    fun statusesAndTheCheckRoundTrip() {
+        val alice = Did("did:plc:alice")
+        val uri = AtUri.of(alice, Nsid.FEED_SEGMENT, "3l2abcdefgh44")
+        val record =
+            SegmentRecord(
+                "Hill climb",
+                SegmentSportGroup.RIDE,
+                "_p~iF~ps|U_ulLnnqC",
+                SegmentSource.ATHLETE,
+                "CC0-1.0",
+                Instant.parse("2026-10-15T12:00:00Z"),
+            )
+        val view = SegmentView(uri, Cid("bafysegment"), ProfileViewBasic(alice, Handle("alice.test")), record, distanceMeters = 1_200)
+        val effort =
+            EffortView(
+                SegmentViewBasic(uri, record.name, record.sport, 1_200),
+                AtUri.of(alice, Nsid.FEED_ACTIVITY, "3l2abcdefgh22"),
+                120,
+                611,
+                "2026-10-15",
+            )
+        assertEquals(SegmentStatus.ACTIVE, SegmentStatus.of(view.status))
+
+        val original = AtUri.of(Did("did:plc:bob"), Nsid.FEED_SEGMENT, "3l2abcdefgh11")
+        val duplicate = view.copy(status = SegmentStatus.DUPLICATE, duplicateOf = original, viewer = null)
+        val checked = CheckSegment.Output(duplicates = listOf(duplicate), remaining = 8)
+        val checkedJson = AtJson.encodeToJsonElement(CheckSegment.Output.serializer(), checked).jsonObject
+        val duplicateJson = checkedJson["duplicates"]!!.jsonArray[0].jsonObject
+        assertEquals(SegmentStatus.DUPLICATE, duplicateJson["status"]?.jsonPrimitive?.content)
+        assertEquals(original.value, duplicateJson["duplicateOf"]?.jsonPrimitive?.content)
+        assertEquals(checked, AtJson.decodeFromJsonElement(CheckSegment.Output.serializer(), checkedJson))
+
+        val basic = effort.segment.copy(status = SegmentStatus.PROPOSED)
+        assertEquals(
+            basic,
+            AtJson.decodeFromJsonElement(SegmentViewBasic.serializer(), AtJson.encodeToJsonElement(SegmentViewBasic.serializer(), basic)),
+        )
+        assertEquals(SegmentStatus.ACTIVE, SegmentStatus.of("someday"))
+        assertEquals(SegmentStatus.ARCHIVED, SegmentStatus.of(SegmentStatus.ARCHIVED))
+
+        val input = CheckSegment.Input(sport = SegmentSportGroup.RUN, line = record.line)
+        assertEquals(
+            input,
+            AtJson.decodeFromJsonElement(
+                CheckSegment.Input.serializer(),
+                AtJson.encodeToJsonElement(CheckSegment.Input.serializer(), input),
+            ),
+        )
     }
 }

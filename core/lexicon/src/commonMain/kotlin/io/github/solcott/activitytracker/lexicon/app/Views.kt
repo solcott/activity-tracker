@@ -181,6 +181,10 @@ data class SegmentView(
     val record: SegmentRecord,
     /** The line's length in meters, computed by the AppView. */
     val distanceMeters: Long,
+    /** A [SegmentStatus] value, derived by the AppView; null or unknown means [SegmentStatus.ACTIVE]. */
+    val status: String? = null,
+    /** The earlier segment this one duplicates, when [status] is [SegmentStatus.DUPLICATE]. */
+    val duplicateOf: AtUri? = null,
     val viewer: SegmentViewerState? = null,
 )
 
@@ -202,6 +206,8 @@ data class SegmentViewBasic(
     val sport: String,
     /** The line's length in meters, computed by the AppView. */
     val distanceMeters: Long,
+    /** A [SegmentStatus] value; null or unknown means [SegmentStatus.ACTIVE]. */
+    val status: String? = null,
 )
 
 /**

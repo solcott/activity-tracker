@@ -166,6 +166,13 @@
         "creator": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
         "record": { "type": "ref", "ref": "app.activitytracker.feed.segment" },
         "distanceMeters": { "type": "integer", "minimum": 0, "description": "The line's length, computed by the AppView." },
+        "status": {
+          "type": "string",
+          "maxLength": 16,
+          "knownValues": ["proposed", "active", "duplicate", "archived"],
+          "description": "Derived by the AppView, never read from the record. Absent or unknown means active."
+        },
+        "duplicateOf": { "type": "string", "format": "at-uri", "description": "The earlier segment this one duplicates, when status is duplicate." },
         "viewer": { "type": "ref", "ref": "#segmentViewerState" }
       }
     },
@@ -182,7 +189,13 @@
         "uri": { "type": "string", "format": "at-uri" },
         "name": { "type": "string", "maxLength": 1000, "maxGraphemes": 100 },
         "sport": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "paddle"] },
-        "distanceMeters": { "type": "integer", "minimum": 0, "description": "The line's length, computed by the AppView." }
+        "distanceMeters": { "type": "integer", "minimum": 0, "description": "The line's length, computed by the AppView." },
+        "status": {
+          "type": "string",
+          "maxLength": 16,
+          "knownValues": ["proposed", "active", "duplicate", "archived"],
+          "description": "As segmentView's status. Absent or unknown means active."
+        }
       }
     },
     "effortView": {

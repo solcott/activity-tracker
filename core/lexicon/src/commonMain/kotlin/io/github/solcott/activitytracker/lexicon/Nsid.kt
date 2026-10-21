@@ -62,6 +62,7 @@ object Nsid {
     const val FEED_SEARCH_SEGMENTS = "$NAMESPACE.feed.searchSegments"
     const val FEED_GET_ACTIVITY_SEGMENTS = "$NAMESPACE.feed.getActivitySegments"
     const val FEED_GET_SEGMENT_EFFORTS = "$NAMESPACE.feed.getSegmentEfforts"
+    const val FEED_CHECK_SEGMENT = "$NAMESPACE.feed.checkSegment"
     /** The file an activity was imported from, kept only in the athlete's `self` tier space ([SPACE_ATHLETE]) and never indexed. */
     const val FEED_ACTIVITY_SOURCE = "$NAMESPACE.feed.activitySource"
     /**

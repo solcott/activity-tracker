@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "A named, public stretch of route for one sport group, which consenting athletes' activities are matched against (app.activitytracker.feed.getActivitySegments). Public: stored only in its creator's repo, never in a space. The AppView computes its length from line, indexes it only when that is 200 m to 50 km, and ignores a copy found in any space.",
+      "description": "A named, public stretch of route for one sport group, which consenting athletes' activities are matched against (app.activitytracker.feed.getActivitySegments). Public: stored only in its creator's repo, never in a space. The AppView computes its length from line, indexes it only when that is at least its sport group's minimum (500 m for ride, 200 m for the others) and at most 50 km, and ignores a copy found in any space.",
       "key": "tid",
       "record": {
         "type": "object",
