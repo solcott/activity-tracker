@@ -15,6 +15,10 @@ import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentEfforts
+import io.github.solcott.activitytracker.lexicon.app.GetSegmentLeaderboard
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
@@ -80,6 +84,14 @@ class SegmentRepositoryTest {
                             AtJson.encodeToString(GetActivitySegments.Output.serializer(), GetActivitySegments.Output(listOf(effort)))
                         Nsid.FEED_GET_SEGMENT_EFFORTS ->
                             AtJson.encodeToString(GetSegmentEfforts.Output.serializer(), GetSegmentEfforts.Output(listOf(effort), "next"))
+                        Nsid.FEED_GET_SEGMENT_LEADERBOARD ->
+                            AtJson.encodeToString(
+                                GetSegmentLeaderboard.Output.serializer(),
+                                GetSegmentLeaderboard.Output(
+                                    listOf(LeaderboardEntry(1, ProfileViewBasic(did, Handle("alice.test")), effort)),
+                                    cursor = "200::${did.value}",
+                                ),
+                            )
                         Nsid.FEED_CHECK_SEGMENT ->
                             AtJson.encodeToString(CheckSegment.Output.serializer(), CheckSegment.Output(listOf(view), remaining = 8))
                         Nsid.FEED_SEARCH_SEGMENTS ->
@@ -111,6 +123,33 @@ class SegmentRepositoryTest {
                 Nsid.FEED_GET_SEGMENT_EFFORTS to mapOf("segment" to listOf(segmentUri.value), "actor" to listOf(did.value)),
                 Nsid.FEED_GET_SEGMENT_EFFORTS to
                     mapOf("segment" to listOf(segmentUri.value), "actor" to listOf("bob.test"), "cursor" to listOf("c1")),
+            ),
+            requests,
+        )
+    }
+
+    @Test
+    fun leaderboardSendsItsFilters() = runTest {
+        val (_, _, clients) = signedInTestSession(http, did = did)
+        val segments = SegmentRepository(clients)
+
+        val board = segments.leaderboard(segmentUri, LeaderboardPeriod.MONTH, LeaderboardScope.FOLLOWING, eBike = true, cursor = "c1")
+        assertEquals(1, board.entries.single().rank)
+        assertEquals("200::${did.value}", board.cursor)
+        segments.leaderboard(segmentUri, LeaderboardPeriod.ALL_TIME, LeaderboardScope.EVERYONE, eBike = false)
+
+        assertEquals(
+            listOf(
+                Nsid.FEED_GET_SEGMENT_LEADERBOARD to
+                    mapOf(
+                        "segment" to listOf(segmentUri.value),
+                        "period" to listOf("month"),
+                        "scope" to listOf("following"),
+                        "eBike" to listOf("true"),
+                        "cursor" to listOf("c1"),
+                    ),
+                Nsid.FEED_GET_SEGMENT_LEADERBOARD to
+                    mapOf("segment" to listOf(segmentUri.value), "period" to listOf("allTime"), "scope" to listOf("everyone")),
             ),
             requests,
         )

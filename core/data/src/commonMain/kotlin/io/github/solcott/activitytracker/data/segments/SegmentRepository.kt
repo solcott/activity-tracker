@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentEfforts
+import io.github.solcott.activitytracker.lexicon.app.GetSegmentLeaderboard
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,6 +48,19 @@ class SegmentRepository(private val clients: SessionClients) {
      */
     suspend fun check(sport: String, line: String): CheckSegment.Output =
         clients.appView.procedure(CheckSegment.method, CheckSegment.Input(sport, line))
+
+    /** One page of [segment]'s leaderboard (segments/segment-leaderboards), with the signed-in athlete's own entry. */
+    suspend fun leaderboard(
+        segment: AtUri,
+        period: String,
+        scope: String,
+        eBike: Boolean,
+        cursor: String? = null,
+    ): GetSegmentLeaderboard.Output =
+        clients.appView.query(
+            GetSegmentLeaderboard.method,
+            GetSegmentLeaderboard.Params(segment, period, scope, eBike = eBike.takeIf { it }, cursor = cursor),
+        )
 
     /** One page of segments whose line passes through [params]' box. */
     suspend fun search(params: SearchSegments.Params): SearchSegments.Output = clients.appView.query(SearchSegments.method, params)

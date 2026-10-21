@@ -83,7 +83,7 @@ class SegmentTrackSweeper(
         val stored = store.list()
         val queued = queuedRkeys()
         val withTracks = clients.listOwn(Nsid.FEED_ACTIVITY_TRACK, self).keys
-        val due = withTracks.filter { rkey -> rkey !in queued && (rkey !in stored || stored[rkey] != zones.revision) }
+        val due = withTracks.filter { rkey -> rkey !in queued && stored[rkey].let { it == null || it.zonesRevision != zones.revision } }
         if (due.isEmpty()) return
         val combined = combinedRkeys()
         for (chunk in due.chunked(CONCURRENT_TRACKS)) {
@@ -91,7 +91,10 @@ class SegmentTrackSweeper(
             for ((rkey, route) in chunk.zip(routes)) {
                 if (route.isNullOrEmpty()) continue
                 val pieces = zones.settings.pieces(route, combined = rkey in combined)
-                if (pieces.isNotEmpty()) store.put(activityUri(rkey), segmentTrackData(pieces, route.first().time), zones.revision)
+                // A re-trim keeps the athlete's leaderboard exclusion.
+                val excluded = stored[rkey]?.excluded == true
+                if (pieces.isNotEmpty())
+                    store.put(activityUri(rkey), segmentTrackData(pieces, route.first().time), zones.revision, excluded)
                 else if (rkey in stored) store.delete(activityUri(rkey))
             }
         }
