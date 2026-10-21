@@ -1,0 +1,53 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.segmentTrack",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A copy of an activity's track for segment matching, written only while the athlete's app.activitytracker.actor.segmentPrefs says matching is on. Its rkey is its activity's. It leaves out every point inside the athlete's privacy zones or within their hide-start/end distance, as separate pieces never joined across what was left out, and holds no wall-clock time. Stored only in the athlete's app.activitytracker.space.athlete self space, whatever the activity's visibility, never in the repo. Only the athlete and the AppView read it: the AppView indexes it from self, uses it only while matching is on, drops it when matching goes off, and never serves it.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["activity", "data", "createdAt"],
+        "properties": {
+          "activity": { "type": "string", "format": "at-uri", "description": "The activity's URI; it shares this record's rkey." },
+          "zonesRevision": {
+            "type": "string",
+            "format": "tid",
+            "description": "The app.activitytracker.actor.privacyZones revision it was trimmed by. Absent when the zones were never saved."
+          },
+          "data": {
+            "type": "blob",
+            "accept": ["application/json"],
+            "maxSize": 10000000,
+            "description": "A #trackData as JSON."
+          },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    },
+    "trackData": {
+      "type": "object",
+      "description": "The data blob's JSON (blob contents aren't validated against lexicons).",
+      "required": ["pieces"],
+      "properties": {
+        "pieces": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "#piece" },
+          "description": "The shown stretches of the track, in order. Nothing joins one piece to the next."
+        }
+      }
+    },
+    "piece": {
+      "type": "object",
+      "description": "One unbroken stretch of the track. Every array lines up with t.",
+      "required": ["lat", "lng", "t"],
+      "properties": {
+        "lat": { "type": "array", "items": { "type": "integer" }, "description": "Latitude in 1e-7 degrees." },
+        "lng": { "type": "array", "items": { "type": "integer" }, "description": "Longitude in 1e-7 degrees." },
+        "t": { "type": "array", "items": { "type": "integer" }, "description": "Seconds since the first point of the activity's full track." },
+        "alt": { "type": "array", "items": { "type": "integer" }, "description": "Altitude in centimeters. A missing sample is null, which the blob JSON allows since blob contents aren't validated against lexicons. Absent when the track has no altitude." }
+      }
+    }
+  }
+}

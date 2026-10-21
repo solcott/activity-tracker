@@ -21,6 +21,11 @@ object Nsid {
      * by. Never indexed.
      */
     const val ACTOR_ROUTE_TRIM = "$NAMESPACE.actor.routeTrim"
+    /**
+     * A record kept only in an athlete's `self` tier space ([SPACE_ATHLETE]): whether segment matching is on. Indexed from `self` only,
+     * through the space, never from the firehose.
+     */
+    const val ACTOR_SEGMENT_PREFS = "$NAMESPACE.actor.segmentPrefs"
     const val ACTOR_GET_PROFILE = "$NAMESPACE.actor.getProfile"
     const val ACTOR_SEARCH_ACTORS = "$NAMESPACE.actor.searchActors"
 
@@ -45,7 +50,13 @@ object Nsid {
     const val FEED_ACTIVITY_ZONES = "$NAMESPACE.feed.activityZones"
     /** An activity's full-resolution track, kept only in the athlete's `self` tier space ([SPACE_ATHLETE]) and never indexed. */
     const val FEED_ACTIVITY_TRACK = "$NAMESPACE.feed.activityTrack"
+
     /** The file an activity was imported from, kept only in the athlete's `self` tier space ([SPACE_ATHLETE]) and never indexed. */
+    /**
+     * An activity's track trimmed by the athlete's privacy zones, for segment matching, kept only in the athlete's `self` tier space
+     * ([SPACE_ATHLETE]) while matching is on. Indexed from `self` only, through the space, never from the firehose.
+     */
+    const val FEED_SEGMENT_TRACK = "$NAMESPACE.feed.segmentTrack"
     const val FEED_ACTIVITY_SOURCE = "$NAMESPACE.feed.activitySource"
     /**
      * An imported activity's devices and their serial numbers, kept only in the athlete's `self` tier space ([SPACE_ATHLETE]) and never

@@ -448,6 +448,60 @@ data class ActivityTrackRecord(
 }
 
 /**
+ * `app.activitytracker.feed.segmentTrack`: an activity's track trimmed by the athlete's privacy zones, as a [SegmentTrackData] JSON blob
+ * under its activity's rkey, for segment matching. Written only while [SegmentPrefsRecord.matching] is on, and stored only in the athlete's
+ * [AthleteSpace.SELF] space; the AppView indexes it from there, uses it only while matching is on, and never serves it.
+ */
+@Serializable
+data class SegmentTrackRecord(
+    /** The activity's URI; it shares this record's rkey. */
+    val activity: AtUri,
+    val createdAt: Instant,
+    /** The [PrivacyZonesRecord.revision] it was trimmed by; null when the zones were never saved. */
+    val zonesRevision: String? = null,
+    /** Required by the lexicon: null only in the outbox, which uploads the blob and fills it in before `putRecord`. */
+    val data: BlobRef? = null,
+    @SerialName($$"$type") val type: String = Nsid.FEED_SEGMENT_TRACK,
+) {
+    companion object {
+        /** The record's blob field, for [data]. */
+        const val DATA_FIELD = "data"
+        const val MIME_TYPE = "application/json"
+    }
+}
+
+/** `app.activitytracker.feed.segmentTrack#trackData`: the shown stretches of a track, in order, never joined to each other. */
+@Serializable data class SegmentTrackData(val pieces: List<SegmentTrackPiece>)
+
+/** `app.activitytracker.feed.segmentTrack#piece`: one unbroken stretch; every array lines up with [t]. */
+@Serializable
+data class SegmentTrackPiece(
+    /** Latitudes in 1e-7 degrees. */
+    val lat: List<Int>,
+    /** Longitudes in 1e-7 degrees. */
+    val lng: List<Int>,
+    /** Seconds since the first point of the activity's full track. */
+    val t: List<Long>,
+    /** Altitudes in centimeters, a missing sample null; null when the track has no altitude. */
+    val alt: List<Int?>? = null,
+)
+
+/**
+ * `app.activitytracker.actor.segmentPrefs`: whether the athlete's segment matching is on. It lives only in their [AthleteSpace.SELF] space;
+ * no record means they were never asked, and matching is off.
+ */
+@Serializable
+data class SegmentPrefsRecord(
+    val matching: Boolean,
+    val updatedAt: Instant,
+    @SerialName($$"$type") val type: String = Nsid.ACTOR_SEGMENT_PREFS,
+) {
+    companion object {
+        const val RKEY = "self"
+    }
+}
+
+/**
  * `app.activitytracker.feed.activitySource`: the file an activity was imported from, gzipped, under its activity's rkey. It can hold device
  * serial numbers and exact positions, so it's stored only in the athlete's [AthleteSpace.SELF] space, whatever the activity's visibility,
  * and only the athlete reads it: the AppView ignores it. Activities imported from one logbook file each have their own record naming the
