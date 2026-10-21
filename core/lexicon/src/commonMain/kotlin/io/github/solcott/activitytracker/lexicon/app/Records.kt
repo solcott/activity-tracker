@@ -570,6 +570,18 @@ data class SegmentPrefsRecord(
 }
 
 /**
+ * `app.activitytracker.feed.segmentStar`: the athlete starred the segment [subject]. It lives only in their [AthleteSpace.SELF] space and
+ * only they read it: the AppView never stores it. Its rkey is derived from [subject]'s URI (`segmentStarRkey` in `core/atproto`), so
+ * there's at most one per segment and unstarring needs no lookup.
+ */
+@Serializable
+data class SegmentStarRecord(
+    val subject: StrongRef,
+    val createdAt: Instant,
+    @SerialName($$"$type") val type: String = Nsid.FEED_SEGMENT_STAR,
+)
+
+/**
  * `app.activitytracker.feed.activitySource`: the file an activity was imported from, gzipped, under its activity's rkey. It can hold device
  * serial numbers and exact positions, so it's stored only in the athlete's [AthleteSpace.SELF] space, whatever the activity's visibility,
  * and only the athlete reads it: the AppView ignores it. Activities imported from one logbook file each have their own record naming the

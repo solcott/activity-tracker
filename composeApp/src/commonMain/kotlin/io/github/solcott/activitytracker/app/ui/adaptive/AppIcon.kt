@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Person
@@ -82,6 +83,7 @@ enum class AppIcon(
         CupertinoIcons.handThumbsupFill,
         "hand.thumbsup.fill",
     ),
+    Star(MaterialIcons.StarBorder, CupertinoIcons.star, "star", Icons.Filled.Star, CupertinoIcons.starFill, "star.fill"),
     Feed(Icons.Outlined.Home, CupertinoIcons.house, "house", Icons.Filled.Home, CupertinoIcons.houseFill, "house.fill"),
     You(Icons.Outlined.Person, CupertinoIcons.person, "person", Icons.Filled.Person, CupertinoIcons.personFill, "person.fill"),
 }

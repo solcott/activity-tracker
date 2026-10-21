@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentPrefsRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
+import io.github.solcott.activitytracker.lexicon.app.SegmentStarRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackData
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackPiece
@@ -63,6 +64,16 @@ class SegmentRecordsTest {
         val prefsJson = AtJson.encodeToJsonElement(SegmentPrefsRecord.serializer(), prefs).jsonObject
         assertEquals(Nsid.ACTOR_SEGMENT_PREFS, prefsJson["\$type"]?.jsonPrimitive?.content)
         assertEquals(prefs, AtJson.decodeFromJsonElement(SegmentPrefsRecord.serializer(), prefsJson))
+    }
+
+    @Test
+    fun segmentStarRoundTrip() {
+        val segment = AtUri.of(Did("did:plc:bob"), Nsid.FEED_SEGMENT, "3l2segment22")
+        val star = SegmentStarRecord(subject = StrongRef(segment, Cid("bafysegment")), createdAt = Instant.parse("2026-10-21T12:00:00Z"))
+        val json = AtJson.encodeToJsonElement(SegmentStarRecord.serializer(), star).jsonObject
+        assertEquals(Nsid.FEED_SEGMENT_STAR, json["\$type"]?.jsonPrimitive?.content)
+        assertEquals(segment.value, json["subject"]!!.jsonObject["uri"]?.jsonPrimitive?.content)
+        assertEquals(star, AtJson.decodeFromJsonElement(SegmentStarRecord.serializer(), json))
     }
 
     @Test

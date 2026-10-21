@@ -12,6 +12,8 @@ data class UiError(val kind: Kind, val detail: String?) {
         LoadFeed,
         LoadActivity,
         LoadSegment,
+        LoadStarredSegments,
+        UpdateStar,
 
         /** A new segment's line couldn't be checked for duplicates, so it wasn't published. */
         CheckSegment,

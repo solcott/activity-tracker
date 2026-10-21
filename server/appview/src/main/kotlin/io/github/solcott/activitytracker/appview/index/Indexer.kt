@@ -421,7 +421,7 @@ class Indexer(
          * sees), plus from `self` the segment matching setting and segment tracks (zone-trimmed copies of tracks, used only while matching
          * is on and never served). Private details, follow declines, defaults, full tracks, imported files and their devices
          * (`feed.activityTrack`, `feed.activitySource`, `feed.activityDevices`, in `self`), privacy zones and their trim marker
-         * (`actor.privacyZones`, `actor.routeTrim`, in `self`) are never stored.
+         * (`actor.privacyZones`, `actor.routeTrim`, in `self`) and stars on segments (`feed.segmentStar`, in `self`) are never stored.
          */
         fun spaceCollections(skey: String): Set<String> =
             when (skey) {

@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.profile.ProfileState
 import io.github.solcott.activitytracker.app.report.ReportOuterEvent
 import io.github.solcott.activitytracker.app.report.ReportingEvent
+import io.github.solcott.activitytracker.app.segment.StarredSegmentsScreen
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
@@ -243,6 +244,20 @@ class ProfilePresenterTest {
             loaded.eventSink(ProfileEvent.ToggleMute)
             awaitUntil { it.muting }
             assertEquals(listOf("interactions ${Nsid.GRAPH_MUTE}"), spacePuts, "a mute, but nothing tries to remove the Bluesky block")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun starredSegmentsOpenOnlyFromTheAthletesOwnProfile() = runTest {
+        presenterTestOf(presenter(actor = alice.value)) {
+            awaitUntil { it.profile != null && it.isSelf }.eventSink(ProfileEvent.OpenStarredSegments)
+            assertEquals(StarredSegmentsScreen, navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+        presenterTestOf(presenter()) {
+            awaitUntil { it.profile != null && !it.isSelf }.eventSink(ProfileEvent.OpenStarredSegments)
+            navigator.expectNoGoToEvents()
             cancelAndIgnoreRemainingEvents()
         }
     }

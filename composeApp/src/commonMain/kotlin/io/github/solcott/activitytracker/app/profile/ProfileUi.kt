@@ -73,6 +73,7 @@ import io.github.solcott.activitytracker.composeApp.resources.profile_more
 import io.github.solcott.activitytracker.composeApp.resources.profile_requested
 import io.github.solcott.activitytracker.composeApp.resources.profile_settings
 import io.github.solcott.activitytracker.composeApp.resources.profile_title
+import io.github.solcott.activitytracker.composeApp.resources.starred_segments_title
 import io.github.solcott.activitytracker.composeApp.resources.unit_height_cm
 import io.github.solcott.activitytracker.composeApp.resources.unit_height_ft_in
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -201,12 +202,15 @@ private fun ProfileBarActions(state: ProfileState) {
     }
 }
 
-/** Edit and follow requests on the athlete's own profile; Unblock on a blocked one; Follow otherwise. */
+/** Edit, starred segments and follow requests on the athlete's own profile; Unblock on a blocked one; Follow otherwise. */
 @Composable
 private fun ProfileActions(state: ProfileState, following: Boolean, requested: Boolean) {
     if (state.isSelf) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AppSecondaryButton(onClick = { state.eventSink(ProfileEvent.EditProfile) }) { Text(stringResource(Res.string.profile_edit)) }
+            AppSecondaryButton(onClick = { state.eventSink(ProfileEvent.OpenStarredSegments) }) {
+                Text(stringResource(Res.string.starred_segments_title))
+            }
             state.followRequestCount?.let { count ->
                 AppSecondaryButton(onClick = { state.eventSink(ProfileEvent.OpenFollowRequests) }) {
                     Text(

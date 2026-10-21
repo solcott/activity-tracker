@@ -91,7 +91,7 @@ A failure to sync one space, including a revoked or refused credential or a dele
 - **THEN** other spaces reconcile normally, and that space is retried later
 
 ### Requirement: Only activity data is indexed from spaces
-From tier spaces (`followers`, `mutuals`, `self`), the AppView SHALL index only `feed.activity`, `feed.activityDetails`, `feed.activityStreams` and `feed.activityZones` records, and from the `self` space also `feed.segmentTrack` and `actor.segmentPrefs` records. From `interactions` spaces it SHALL index only `feed.like`, `feed.comment`, `feed.commentHide`, `graph.block` and `graph.mute` records. It SHALL NOT store `actor.privateDetails`, `graph.followDecline`, `actor.activityDefaults`, `actor.privacyZones`, `actor.routeTrim`, `feed.activityTrack`, `feed.activitySource` or `feed.activityDevices` records from any space.
+From tier spaces (`followers`, `mutuals`, `self`), the AppView SHALL index only `feed.activity`, `feed.activityDetails`, `feed.activityStreams` and `feed.activityZones` records, and from the `self` space also `feed.segmentTrack` and `actor.segmentPrefs` records. From `interactions` spaces it SHALL index only `feed.like`, `feed.comment`, `feed.commentHide`, `graph.block` and `graph.mute` records. It SHALL NOT store `actor.privateDetails`, `graph.followDecline`, `actor.activityDefaults`, `actor.privacyZones`, `actor.routeTrim`, `feed.activityTrack`, `feed.activitySource`, `feed.activityDevices` or `feed.segmentStar` records from any space.
 
 #### Scenario: Private details ignored
 - **WHEN** a synced space's ops include an `actor.privateDetails` write
@@ -151,6 +151,10 @@ From tier spaces (`followers`, `mutuals`, `self`), the AppView SHALL index only 
 
 #### Scenario: Full track still ignored
 - **WHEN** a synced `self` space's ops include a `feed.activityTrack` or `actor.privacyZones` write
+- **THEN** the AppView stores nothing from it
+
+#### Scenario: Segment star ignored
+- **WHEN** a synced `self` space's ops include a `feed.segmentStar` write
 - **THEN** the AppView stores nothing from it
 
 ### Requirement: Interactions spaces synced
