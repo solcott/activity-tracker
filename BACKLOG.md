@@ -28,10 +28,10 @@ Non-public profile details live in each athlete's `app.activitytracker.space.ath
 
 ## AppView as a consented member for aggregation
 
-Segments, leaderboards and similar features will need the AppView to read some athlete data that lives in spaces (age group, weight class, efforts). The AppView already reads every tier space as a member to serve non-public activities (`SpaceSyncer`, its own `APPVIEW_SIGNING_KEY`), and indexes only `feed.activity`, `feed.activityStreams` and `feed.activityZones` from them, and `feed.like` from `interactions` spaces (`Indexer.spaceCollections`), never `actor.privateDetails`.
+Segment matching already works this way: the AppView indexes an athlete's zone-trimmed `feed.segmentTrack`s from `self` only while their `actor.segmentPrefs` says matching is on (`segments/segment-track`). Leaderboard brackets will need the same kind of consent for profile details (age group, weight class), which the AppView never indexes from `actor.privateDetails` today.
 
 - **Consent, not just a code path.** "Only me" means no other person sees a detail, but a 40–49 leaderboard still reveals a bracket. Index a detail only for athletes who opted into the feature that needs it (as Strava does for age and weight leaderboards), and only from the tiers it needs.
-- **Scope it with the feature.** Design this alongside segments; nothing needs it yet.
+- **Scope it with the brackets.** Design this with `segment-leaderboard-brackets`; nothing needs it yet.
 
 ## Show activities on real maps
 
