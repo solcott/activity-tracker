@@ -27,6 +27,7 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         LoadComments,
         LoadReplies,
         LoadProfile,
+        LoadActivities,
         UpdateFollow,
         UpdateBlock,
         UpdateMute,

@@ -1,7 +1,13 @@
 package io.github.solcott.activitytracker.app
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withCompositionLocals
 import co.touchlab.kermit.Logger
+import com.slack.circuit.retained.LocalRetainedStateRegistry
+import com.slack.circuit.retained.RetainedStateRegistry
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
@@ -38,6 +44,10 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.dataresult.DataError
+import io.github.solcott.uistate.errorOrNull
+import io.github.solcott.uistate.hasLoaded
+import io.github.solcott.uistate.isLoading
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -46,13 +56,16 @@ import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.io.IOException
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -66,6 +79,15 @@ class ProfilePresenterTest {
     private val putStarted = CompletableDeferred<Unit>()
     private var failPut = false
     private var puts = 0
+
+    /** Fail `getProfile`, `getAuthorActivities` or `getFollowRequests` while set, as a dropped connection would. */
+    private var failProfile = false
+    private var failActivities = false
+    private var failRequests = false
+
+    /** Bob's activities as `getAuthorActivities` serves them, and the actor each request named. */
+    private var served = listOf<ActivityView>()
+    private val activityRequests = mutableListOf<String?>()
 
     /** Each `com.atproto.space.putRecord`, as `<space key> <collection>`. */
     private val spacePuts = mutableListOf<String>()
@@ -83,6 +105,7 @@ class ProfilePresenterTest {
                     }
 
                     "/xrpc/${Nsid.ACTOR_GET_PROFILE}" -> {
+                        if (failProfile) throw IOException("Connection refused")
                         if (request.url.parameters["actor"] == alice.value) {
                             respond("""{"did":"$alice","handle":"alice.test","followPolicy":"approve"}""", headers = json)
                         } else {
@@ -91,6 +114,7 @@ class ProfilePresenterTest {
                     }
 
                     "/xrpc/${Nsid.GRAPH_GET_FOLLOW_REQUESTS}" -> {
+                        if (failRequests) throw IOException("Connection refused")
                         respond(
                             """{"requests":[{"did":"did:plc:bob","handle":"bob.test"},{"did":"did:plc:carol","handle":"carol.test"}]}""",
                             headers = json,
@@ -122,7 +146,10 @@ class ProfilePresenterTest {
                     }
 
                     "/xrpc/${Nsid.FEED_GET_AUTHOR_ACTIVITIES}" -> {
-                        respond("""{"activities":[]}""", headers = json)
+                        activityRequests += request.url.parameters["actor"]
+                        if (failActivities) throw IOException("Connection refused")
+                        val list = served.joinToString(",") { AtJson.encodeToString(ActivityView.serializer(), it) }
+                        respond("""{"activities":[$list]}""", headers = json)
                     }
 
                     "/xrpc/com.atproto.repo.putRecord",
@@ -300,6 +327,8 @@ class ProfilePresenterTest {
             awaitUntil { it.profile != null && it.error == null }.eventSink(ProfileEvent.ToggleFollow)
             val failed = awaitUntil { it.error != null && !it.followPending }
             assertEquals(UiError.Kind.UpdateFollow, failed.error?.kind)
+            assertNull(failed.content.errorOrNull, "the profile stays loaded")
+            assertNotNull(failed.profile)
             assertNull(failed.profile?.viewer?.following)
 
             failPut = false
@@ -385,6 +414,101 @@ class ProfilePresenterTest {
         presenterTestOf(presenter()) {
             awaitItem().eventSink(ProfileEvent.Activity(ActivityListEvent.Open(bobsRide)))
             assertEquals(ActivityDetailScreen(bobsRide.uri.value), navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aFailedLoadSaysWhyAndRetryLoadsTheProfile() = runTest {
+        failProfile = true
+        presenterTestOf(presenter()) {
+            val failed = awaitUntil { it.content.errorOrNull != null }
+            assertEquals(DataError.Network, failed.content.errorOrNull)
+            assertFalse(failed.content.hasLoaded)
+            assertNull(failed.error, "a load failure isn't an action's")
+
+            failProfile = false
+            failed.eventSink(ProfileEvent.Retry)
+            assertEquals("did:plc:bob", awaitUntil { it.profile != null }.profile?.did?.value)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aHandleLoadsItsActivitiesOnceTheHeaderNamesTheDid() = runTest {
+        served = listOf(bobsRide)
+        presenterTestOf(presenter(actor = "bob.test")) {
+            val loaded = awaitUntil { it.activities.data.isNotEmpty() }
+            assertEquals(listOf(bobsRide.uri), loaded.activities.data.map { it.uri })
+            assertEquals(listOf<String?>("did:plc:bob"), activityRequests.distinct(), "asked by DID, so cached under it")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun activitiesThatFailToLoadKeepTheHeader() = runTest {
+        failActivities = true
+        presenterTestOf(presenter()) {
+            val failed = awaitUntil { it.activities.errorOrNull != null }
+            assertEquals(DataError.Network, failed.activities.errorOrNull)
+            assertNotNull(failed.profile)
+            assertNull(failed.content.errorOrNull)
+
+            failActivities = false
+            served = listOf(bobsRide)
+            failed.eventSink(ProfileEvent.Retry)
+            assertEquals(1, awaitUntil { it.activities.data.isNotEmpty() }.activities.data.size)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun noActivitiesIsAnEmptyAnswer() = runTest {
+        presenterTestOf(presenter()) {
+            val loaded = awaitUntil { it.activities.hasLoaded && !it.activities.isLoading }
+            assertTrue(loaded.activities.data.isEmpty())
+            assertNull(loaded.activities.errorOrNull)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aFollowRequestCountThatFailsToLoadShowsNoError() = runTest {
+        failRequests = true
+        presenterTestOf(presenter(actor = alice.value)) {
+            val loaded = awaitUntil { it.profile != null && it.activities.hasLoaded && !it.content.isLoading }
+            assertNull(loaded.followRequestCount)
+            assertNull(loaded.error)
+            assertNull(loaded.content.errorOrNull)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun comingBackShowsTheProfileAndActivitiesAtOnce() = runTest {
+        served = listOf(bobsRide)
+        val profile = presenter()
+        val registry = RetainedStateRegistry()
+        var shown by mutableStateOf(true)
+        presenterTestOf({
+            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                // A stand-in for the activity it opened while it's on the back stack.
+                if (shown) profile() else ProfileState()
+            }
+        }) {
+            awaitUntil { it.profile != null && it.activities.data.isNotEmpty() && !it.content.isLoading && !it.activities.isLoading }
+            registry.saveAll()
+            shown = false
+            awaitUntil { it.profile == null }
+            failProfile = true
+            failActivities = true
+            shown = true
+            val back = awaitItem()
+            assertNotNull(back.profile, "no loading state in between")
+            assertEquals(1, back.activities.data.size)
+            val failed = awaitUntil { it.content.errorOrNull != null && it.activities.errorOrNull != null }
+            assertNotNull(failed.profile)
+            assertEquals(1, failed.activities.data.size)
             cancelAndIgnoreRemainingEvents()
         }
     }

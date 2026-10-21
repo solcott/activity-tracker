@@ -26,6 +26,7 @@
     <string name="error_load_comments">Couldn't load comments</string>
     <string name="error_load_replies">Couldn't load replies</string>
     <string name="error_load_profile">Couldn't load profile</string>
+    <string name="error_load_activities">Couldn't load activities</string>
     <string name="error_update_follow">Couldn't update follow</string>
     <string name="error_update_block">Couldn't update block</string>
     <string name="error_update_mute">Couldn't update mute</string>
@@ -588,6 +589,7 @@
     <string name="zone_name_moderate">Moderate</string>
     <string name="zone_name_hard">Hard</string>
     <string name="zone_name_maximum">Maximum</string>
+    <string name="profile_activities_none">No activities yet.</string>
     <plurals name="profile_activities_count">
         <item quantity="one">%1$d activity</item>
         <item quantity="other">%1$d activities</item>

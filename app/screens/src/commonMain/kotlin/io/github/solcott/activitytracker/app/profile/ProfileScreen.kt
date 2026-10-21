@@ -11,20 +11,24 @@ import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
+import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 /** [actor] is a DID or handle. */
 @CircuitSerializable(SessionScope::class) data class ProfileScreen(val actor: String) : Screen
 
 @Immutable
 data class ProfileState(
-    val profile: ProfileView?,
-    val activities: ImmutableList<ActivityView>,
-    val isSelf: Boolean,
+    /** The profile's header, loaded (ui/content-loading); its loading and failure are the page's. Null until it first loads. */
+    val content: ContentState<ProfileView?> = ContentState(null),
+    /** The athlete's activities, loaded on their own below the header; empty until they first load. */
+    val activities: ContentState<ImmutableList<ActivityView>> = ContentState(persistentListOf()),
+    val isSelf: Boolean = false,
     /** The signed-in athlete, so the UI can leave likes off their own activities. */
-    val viewerDid: String,
+    val viewerDid: String = "",
     /** A follow or unfollow is on its way to the PDS; the button ignores taps until it lands. */
-    val followPending: Boolean,
+    val followPending: Boolean = false,
     /** The viewer blocks this athlete ([ProfileView.viewer]'s `blocking`): Unblock shows in place of Follow, and no activities. */
     val blocking: Boolean = false,
     /** The viewer's only block of this athlete is on Bluesky, which this app can't remove: no Unblock, a note instead. */
@@ -35,13 +39,17 @@ data class ProfileState(
     val followRequestCount: Int? = null,
     /** There are more requests than [followRequestCount] counts. */
     val moreFollowRequests: Boolean = false,
-    val error: UiError?,
+    /** Why an action (a follow, block, mute or like) failed; loading failures are [content]'s and [activities]'. */
+    val error: UiError? = null,
     /** Report on someone else's profile, kept when the viewer blocks them. */
     val reporting: Reporting = Reporting(),
     /** The avatar, labeled photos, or a hidden athlete's activities the viewer revealed on this screen. */
     val revealed: Revealed = Revealed(),
-    val eventSink: (ProfileEvent) -> Unit,
-) : CircuitUiState
+    val eventSink: (ProfileEvent) -> Unit = {},
+) : CircuitUiState {
+    val profile: ProfileView?
+        get() = content.data
+}
 
 sealed interface ProfileEvent {
     data object Back : ProfileEvent
@@ -70,4 +78,7 @@ sealed interface ProfileEvent {
 
     /** A tap on one of [ProfileState.activities]. */
     data class Activity(val event: ActivityListEvent) : ProfileEvent
+
+    /** Loads the profile and its activities again after either failed to. */
+    data object Retry : ProfileEvent
 }

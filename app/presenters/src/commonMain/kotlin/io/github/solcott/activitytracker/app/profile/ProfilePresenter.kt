@@ -2,16 +2,19 @@ package io.github.solcott.activitytracker.app.profile
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEventSink
+import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.rememberReporting
@@ -28,10 +31,16 @@ import io.github.solcott.activitytracker.data.profile.FollowRequests
 import io.github.solcott.activitytracker.data.profile.FollowRequestsRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
+import io.github.solcott.dataresult.mapData
+import io.github.solcott.uistate.circuit.produceRetainedContentState
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 
 @CircuitInject(ProfileScreen::class, SessionScope::class)
@@ -47,32 +56,39 @@ fun ProfilePresenter(
     blocks: BlockRepository,
     reports: ReportRepository,
 ): ProfileState {
-    var profile by remember { mutableStateOf<ProfileView?>(null) }
+    var loadKey by remember { mutableIntStateOf(0) }
+    // The header drives the page. Retained, so coming back from an activity shows it at once; a retry reloads under it.
+    val header =
+        produceRetainedContentState<ProfileView?>(null, screen.actor, loadKey) {
+            profiles.profileOutcome(screen.actor).map { outcome -> outcome.mapData(blocks::applyTo) }
+        }
+    // An action's answer, shown over the loaded profile until the next load answers, which the repositories lay the same changes over.
+    var acted by remember(header.data) { mutableStateOf<ProfileView?>(null) }
+    val profile = acted ?: header.data
+    // The activities are cached under the athlete's DID, so a handle waits for the header to resolve it.
+    val did = profile?.did?.value ?: screen.actor.takeIf { it.startsWith("did:") }
+    val latestDid by rememberUpdatedState(did)
+    val items = remember {
+        snapshotFlow { latestDid }.filterNotNull().distinctUntilChanged()
+    }
+        .produceRetainedContentState<String, ImmutableList<ActivityView>>(persistentListOf(), loadKey) { author ->
+            feed.authorOutcomes(author).map { outcome -> outcome.mapData { it.toImmutableList() } }
+        }
+    // Why an action failed; never a loading failure, which is [header]'s or [items]'.
     var error by remember { mutableStateOf<UiError?>(null) }
     var requests by remember { mutableStateOf<FollowRequests?>(null) }
-    val did = profile?.did?.value ?: screen.actor
-    val items by remember(did) { feed.authorActivities(did).map { it.toImmutableList() } }.collectAsState(persistentListOf())
     val flights = rememberSingleFlight()
     val activityEvents = rememberActivityListEventSink(navigator, activities) { error = it }
 
-    LaunchedEffect(screen.actor) {
-        runSuspendCatching {
-            profile = blocks.applyTo(profiles.profile(screen.actor))
-            feed.refreshAuthor(screen.actor)
-        }
-            .onSuccess { error = null }
-            .onFailure { error = UiError.of(UiError.Kind.LoadProfile, it) }
-    }
-
     val viewerDid = profiles.did.value
-    val isSelf = did == viewerDid
+    val isSelf = (did ?: screen.actor) == viewerDid
     val toggleBlockOrMute = { event: ProfileEvent ->
         flights.toggleBlockOrMute(
             event,
             profile.takeUnless { isSelf },
             blocks,
             onDone = {
-                profile = it
+                acted = it
                 error = null
             },
         ) {
@@ -87,7 +103,7 @@ fun ProfilePresenter(
     // Counted afresh each time the athlete's own profile shows, so answering requests and coming back updates it.
     LaunchedEffect(approves) { requests = if (approves) runSuspendCatching { followRequests.followRequests() }.getOrNull() else null }
     return ProfileState(
-        profile = profile,
+        content = header.mapContent { profile },
         activities = items,
         isSelf = isSelf,
         viewerDid = viewerDid,
@@ -118,7 +134,7 @@ fun ProfilePresenter(
                             if (current.viewer?.following == null) profiles.follow(current) else profiles.unfollow(current)
                         }
                             .onSuccess {
-                                profile = it
+                                acted = it
                                 error = null
                             }
                             .onFailure { error = UiError.of(UiError.Kind.UpdateFollow, it) }
@@ -132,11 +148,11 @@ fun ProfilePresenter(
             }
 
             ProfileEvent.OpenFollowers -> {
-                navigator.goTo(FollowListScreen(did, FollowListKind.Followers))
+                navigator.goTo(FollowListScreen(did ?: screen.actor, FollowListKind.Followers))
             }
 
             ProfileEvent.OpenFollowing -> {
-                navigator.goTo(FollowListScreen(did, FollowListKind.Following))
+                navigator.goTo(FollowListScreen(did ?: screen.actor, FollowListKind.Following))
             }
 
             ProfileEvent.OpenFollowRequests -> {
@@ -153,6 +169,10 @@ fun ProfilePresenter(
 
             ProfileEvent.EditProfile -> {
                 navigator.goTo(EditProfileScreen)
+            }
+
+            ProfileEvent.Retry -> {
+                loadKey++
             }
         }
     }

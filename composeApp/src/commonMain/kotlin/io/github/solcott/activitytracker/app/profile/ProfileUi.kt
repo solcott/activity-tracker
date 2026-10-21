@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,14 +25,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.app.report.ReportingHost
 import io.github.solcott.activitytracker.app.ui.Avatar
+import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.HiddenCard
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.ModerationNotice
+import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.activityItems
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
@@ -62,6 +66,7 @@ import io.github.solcott.activitytracker.composeApp.resources.block_confirm_mess
 import io.github.solcott.activitytracker.composeApp.resources.block_confirm_title
 import io.github.solcott.activitytracker.composeApp.resources.blocked_on_bluesky
 import io.github.solcott.activitytracker.composeApp.resources.profile_activities_count
+import io.github.solcott.activitytracker.composeApp.resources.profile_activities_none
 import io.github.solcott.activitytracker.composeApp.resources.profile_age
 import io.github.solcott.activitytracker.composeApp.resources.profile_edit
 import io.github.solcott.activitytracker.composeApp.resources.profile_follow
@@ -84,6 +89,7 @@ import io.github.solcott.activitytracker.data.units.HeightConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
+import io.github.solcott.uistate.hasLoaded
 import kotlin.math.roundToLong
 import kotlin.time.Clock
 import kotlinx.collections.immutable.persistentListOf
@@ -108,64 +114,86 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
             )
         },
     ) { padding ->
-        val listState = rememberLazyListState()
-        ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
-            LazyColumn(
-                Modifier.fillMaxSize(),
-                state = listState,
-                contentPadding = listPadding + PaddingValues(vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                // Always present, even before the profile loads: the activities can show first (from the local cache), and an item
-                // inserted above the first visible one is scrolled out of view to keep that item in place.
-                item(key = HEADER_KEY) {
-                    state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
-                    profile?.let { p ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Avatar(
-                                p.avatar,
-                                p.displayName ?: p.handle.value,
-                                72.dp,
-                                blur = ModerationDecision.mediaOf(p.labels, null),
-                                revealed = p.did.value in state.revealed,
-                                onReveal = { state.revealed.eventSink(p.did.value) },
-                            )
-                            Text(handleLabel(p.handle.value), style = MaterialTheme.typography.bodyMedium)
-                        }
-                        ModerationNotice(ModerationDecision.of(p.labels, null, state.isSelf), state.isSelf)
-                        p.description?.let { Text(it) }
-                        p.details?.let { ProfileDetailsText(it) }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                countLabel(Res.plurals.profile_activities_count, p.activitiesCount),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                            AppTextButton(onClick = { state.eventSink(ProfileEvent.OpenFollowers) }) {
+        val retry = { state.eventSink(ProfileEvent.Retry) }
+        ContentStateLayout(state.content, UiError.Kind.LoadProfile, retry, contentPadding = padding) {
+            val listState = rememberLazyListState()
+            ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    state = listState,
+                    contentPadding = listPadding + PaddingValues(vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    item(key = HEADER_KEY) {
+                        // The activities show their own refresh below; the header's shows here only when they don't.
+                        RefreshStatus(state.content, UiError.Kind.LoadProfile, retry, showProgress = state.blocking)
+                        state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+                        profile?.let { p ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Avatar(
+                                    p.avatar,
+                                    p.displayName ?: p.handle.value,
+                                    72.dp,
+                                    blur = ModerationDecision.mediaOf(p.labels, null),
+                                    revealed = p.did.value in state.revealed,
+                                    onReveal = { state.revealed.eventSink(p.did.value) },
+                                )
+                                Text(handleLabel(p.handle.value), style = MaterialTheme.typography.bodyMedium)
+                            }
+                            ModerationNotice(ModerationDecision.of(p.labels, null, state.isSelf), state.isSelf)
+                            p.description?.let { Text(it) }
+                            p.details?.let { ProfileDetailsText(it) }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    countLabel(Res.plurals.profile_followers_count, p.followersCount),
+                                    countLabel(Res.plurals.profile_activities_count, p.activitiesCount),
                                     style = MaterialTheme.typography.bodySmall,
                                 )
+                                AppTextButton(onClick = { state.eventSink(ProfileEvent.OpenFollowers) }) {
+                                    Text(
+                                        countLabel(Res.plurals.profile_followers_count, p.followersCount),
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
+                                AppTextButton(onClick = { state.eventSink(ProfileEvent.OpenFollowing) }) {
+                                    Text(
+                                        stringResource(Res.string.profile_following_count, formatWhole(p.followsCount ?: 0L)),
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
                             }
-                            AppTextButton(onClick = { state.eventSink(ProfileEvent.OpenFollowing) }) {
-                                Text(
-                                    stringResource(Res.string.profile_following_count, formatWhole(p.followsCount ?: 0L)),
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            }
+                            ProfileActions(state, following = p.viewer?.following != null, requested = p.viewer?.followRequested == true)
                         }
-                        ProfileActions(state, following = p.viewer?.following != null, requested = p.viewer?.followRequested == true)
                     }
+                    activitiesSection(state, retry)
                 }
-                val hiddenKey = Revealed.hiddenKey(profile?.did?.value.orEmpty())
-                val hidden = profile != null && ModerationDecision.of(profile.labels, null, state.isSelf) == ModerationDecision.Hidden
-                if (hidden && hiddenKey !in state.revealed) {
-                    // Reached by URI only: the athlete is left out of lists, so their activities wait behind a warning.
-                    item(key = HIDDEN_KEY) { HiddenCard(onShow = { state.revealed.eventSink(hiddenKey) }) }
-                } else if (!state.blocking) {
-                    activityItems(state.activities, state.viewerDid, authorClickable = false, state.revealed) {
-                        state.eventSink(ProfileEvent.Activity(it))
-                    }
-                }
+            }
+        }
+    }
+}
+
+/**
+ * The athlete's activities, loaded on their own below the header: none while the viewer blocks them, and behind a warning when they're
+ * hidden and reached by URI only.
+ */
+private fun LazyListScope.activitiesSection(state: ProfileState, retry: () -> Unit) {
+    val profile = state.profile
+    val hiddenKey = Revealed.hiddenKey(profile?.did?.value.orEmpty())
+    val hidden = profile != null && ModerationDecision.of(profile.labels, null, state.isSelf) == ModerationDecision.Hidden
+    if (hidden && hiddenKey !in state.revealed) {
+        // Reached by URI only: the athlete is left out of lists, so their activities wait behind a warning.
+        item(key = HIDDEN_KEY) { HiddenCard(onShow = { state.revealed.eventSink(hiddenKey) }) }
+    } else if (!state.blocking) {
+        item(key = ACTIVITIES_STATUS_KEY) { RefreshStatus(state.activities, UiError.Kind.LoadActivities, retry) }
+        activityItems(state.activities.data, state.viewerDid, authorClickable = false, state.revealed) {
+            state.eventSink(ProfileEvent.Activity(it))
+        }
+        if (state.activities.hasLoaded && state.activities.data.isEmpty()) {
+            item(key = NO_ACTIVITIES_KEY) {
+                Text(
+                    stringResource(Res.string.profile_activities_none),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
@@ -321,6 +349,8 @@ private fun countLabel(resource: PluralStringResource, count: Long?): String {
 
 private const val HIDDEN_KEY = "hidden"
 private const val HEADER_KEY = "header"
+private const val ACTIVITIES_STATUS_KEY = "activitiesStatus"
+private const val NO_ACTIVITIES_KEY = "noActivities"
 
 /** The details this viewer may see: a location line, then age, gender, height and weight. */
 @Composable
