@@ -1,0 +1,118 @@
+# Spec Delta
+
+## Purpose
+
+Defines segment efforts: how the AppView finds where a consenting athlete's activity rode, ran or skied a segment from start to end, how long it took, when efforts are recomputed or removed, who may see each one, and how activity and segment pages show them.
+
+## ADDED Requirements
+
+### Requirement: Efforts come only from usable segment tracks
+The AppView SHALL match an activity against segments only from its athlete's segment track, and only while that athlete's segment matching is on. It SHALL NOT match from polylines, streams or anything else, and an activity without a usable segment track SHALL have no efforts.
+
+#### Scenario: Matching off
+- **WHEN** an athlete with matching off publishes a ride along a segment
+- **THEN** the ride has no effort on it
+
+#### Scenario: Matching turned on later
+- **WHEN** an athlete turns matching on and their earlier ride's segment track arrives
+- **THEN** the ride gets its efforts
+
+### Requirement: An effort is a pass from start to end
+An activity SHALL get an effort on a segment of its sport group each time one piece of its segment track passes within 25 m of the segment's start, then follows the segment's line in order to within 25 m of its end, staying within 30 m of every point of the line. Following the line in reverse SHALL NOT count, and a pass SHALL NOT span two pieces.
+
+#### Scenario: Full pass
+- **WHEN** a run's segment track follows a segment from its start to its end
+- **THEN** the run gets one effort on it
+
+#### Scenario: Two laps
+- **WHEN** a ride does a loop segment twice
+- **THEN** the ride gets two efforts on it
+
+#### Scenario: Wrong direction
+- **WHEN** a ride covers a segment from its end to its start
+- **THEN** the ride gets no effort on it
+
+#### Scenario: Shortcut
+- **WHEN** a run leaves a segment's line by more than 30 m in the middle and rejoins it
+- **THEN** the run gets no effort on it
+
+#### Scenario: Across a privacy zone
+- **WHEN** a segment passes through one of the athlete's privacy zones, so their segment track has a gap there
+- **THEN** the activity gets no effort on it
+
+### Requirement: An effort's time is measured from the track
+An effort's elapsed time SHALL be the time between the moments the track reaches the segment's start and its end, each interpolated between the samples around it, in whole seconds. An effort SHALL also record when it began, as an offset from the activity's start, and SHALL NOT be stored with a wall-clock time.
+
+#### Scenario: Elapsed time
+- **WHEN** a run reaches a segment's start 120.4 s into the run and its end 731.6 s in
+- **THEN** its effort's elapsed time is 611 s, starting 120 s into the activity
+
+### Requirement: Members of a combined activity get no efforts
+An activity that is a valid member of a combined activity SHALL get no efforts. The combined activity SHALL get them instead, from its own segment track.
+
+#### Scenario: Two recordings combined
+- **WHEN** an athlete combines a watch run and a phone run of the same outing
+- **THEN** only the combined activity has efforts, so the outing doesn't count twice
+
+### Requirement: Efforts follow their sources
+Efforts SHALL be recomputed when an activity's segment track, the activity, or a segment changes. A new segment SHALL be matched against the existing usable segment tracks that pass near it. Deleting an activity, its segment track or a segment, turning the athlete's matching off, deleting their `self` space or deleting their account SHALL remove the efforts that came from it.
+
+#### Scenario: New segment
+- **WHEN** a segment is created along a trail that 40 consenting athletes' earlier runs followed
+- **THEN** each of those runs gets its effort without the athletes doing anything
+
+#### Scenario: Track re-trimmed
+- **WHEN** an athlete adds a privacy zone that cuts through a segment, and their segment tracks are rewritten
+- **THEN** their efforts on that segment are removed
+
+#### Scenario: Matching off
+- **WHEN** an athlete turns matching off
+- **THEN** once the AppView indexes the setting, it serves none of their efforts
+
+### Requirement: An effort is visible at its narrowest tier
+An effort SHALL be visible at the narrowest of three visibilities: the activity's, its Map category's and its Pace/Speed category's. The AppView SHALL serve an effort only to viewers admitted to that tier. It SHALL serve nothing about an effort to anyone else, its existence included, and SHALL re-evaluate the tier when any of the three changes.
+
+#### Scenario: Public activity, followers map
+- **WHEN** an athlete's Public run has its Map category at Followers
+- **THEN** its efforts are shown to the athlete's effective followers and to no one else
+
+#### Scenario: Only me
+- **WHEN** an athlete's Only me ride has efforts
+- **THEN** only the athlete sees them
+
+#### Scenario: Activity narrowed
+- **WHEN** an athlete changes a Public run to Mutuals
+- **THEN** its efforts stop being shown to anyone who isn't a mutual
+
+### Requirement: An activity's efforts are listed with it
+`feed.getActivitySegments` SHALL list the efforts on an activity that the viewer may see, in the order they began. Each SHALL have the segment's view, the elapsed time, when it began, and whether it is the athlete's fastest effort on that segment among those the viewer may see. An activity the viewer may not see SHALL be `NotFound`.
+
+#### Scenario: Activity page
+- **WHEN** a follower opens an athlete's Public ride that passed three segments
+- **THEN** they see three efforts, in order, with the fastest of the athlete's visible efforts on each marked
+
+#### Scenario: Hidden activity
+- **WHEN** a stranger asks for the segments of an athlete's Followers ride
+- **THEN** the AppView answers `NotFound`
+
+### Requirement: An athlete's efforts on a segment are listed
+`feed.getSegmentEfforts` SHALL list one athlete's efforts on a segment that the viewer may see, fastest first, with a cursor. Each SHALL name the activity it came from, its elapsed time, and the activity's date.
+
+#### Scenario: Own history
+- **WHEN** an athlete opens a segment they've run five times
+- **THEN** they see all five efforts, fastest first
+
+#### Scenario: Another athlete's efforts
+- **WHEN** a viewer asks for a stranger's efforts on a segment, and two of the stranger's three efforts are on Public activities
+- **THEN** they see those two only
+
+### Requirement: The app shows efforts on the activity and segment pages
+The activity page SHALL list the activity's efforts the viewer is given, each with its segment's name and the effort's time, and mark the athlete's fastest with "PR". Tapping one SHALL open the segment screen. The segment screen SHALL show the segment's line on a map, its name, length and sport group, and the viewer's own efforts on it, fastest first. An activity with no efforts SHALL show no segments section.
+
+#### Scenario: Activity with efforts
+- **WHEN** an athlete opens their own ride with two efforts
+- **THEN** the page lists both segments with their times, and opens a segment's screen when one is tapped
+
+#### Scenario: Activity without efforts
+- **WHEN** a viewer opens an activity with no efforts they may see
+- **THEN** the page shows no segments section
