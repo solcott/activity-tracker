@@ -60,6 +60,8 @@ fun SettingsPresenter(
         segmentMatching = segments.matching,
         canUseSegments = segments.canUse,
         savingSegments = segments.saving,
+        showOnLeaderboards = segments.shownOnLeaderboards,
+        savingLeaderboards = segments.savingLeaderboards,
     ) { event ->
         when (event) {
             SettingsEvent.Back -> {
@@ -96,8 +98,8 @@ fun SettingsPresenter(
                 if (canModerate) navigator.goTo(ModerationScreen)
             }
 
-            is SettingsEvent.SegmentMatchingChanged -> {
-                segments.set(event.on)
+            is SettingsEvent.SegmentSettingEvent -> {
+                segments.onEvent(event)
             }
 
             // Dropping the session tears down the SessionGraph and returns to LoginScreen.

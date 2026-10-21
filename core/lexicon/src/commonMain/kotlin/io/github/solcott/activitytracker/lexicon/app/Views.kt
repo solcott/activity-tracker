@@ -229,4 +229,28 @@ data class EffortView(
     val eBike: Boolean? = null,
     /** The athlete's fastest effort on the segment among those the viewer may see; null means false. */
     val best: Boolean? = null,
+    /** 1–10: this best effort's rank on the segment's all-time, everyone board as the viewer sees it; null when not in the top 10. */
+    val rank: Int? = null,
+    /** A [NotRanked] value saying why leaderboards don't rank this effort; served only to its own athlete, on an active segment. */
+    val notRanked: String? = null,
+)
+
+/** Known values of [EffortView.notRanked], in order of precedence; an open string. */
+object NotRanked {
+    /** The athlete hides from leaderboards. */
+    const val HIDDEN = "hidden"
+    /** The activity is excluded from leaderboards. */
+    const val EXCLUDED = "excluded"
+    /** Faster than its sport group's cap ([SegmentSportGroup.maxSpeedMmPerS]). */
+    const val IMPLAUSIBLE = "implausible"
+}
+
+/** `app.activitytracker.feed.defs#leaderboardEntry`: one athlete's place on a segment leaderboard, with their fastest ranked effort. */
+@Immutable
+@Serializable
+data class LeaderboardEntry(
+    /** 1 for the fastest; equal times share a rank, and the next rank skips. */
+    val rank: Int,
+    val athlete: ProfileViewBasic,
+    val effort: EffortView,
 )

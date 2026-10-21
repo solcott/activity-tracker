@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.activity.cid
+import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
@@ -107,6 +108,12 @@ class EditActivityPresenterTest {
             respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, headersOf("Content-Type", "application/json"))
         }
 
+    /** Segment matching is on, and the activity has a segment track in `self`, excluded from leaderboards when [trackExcluded]. */
+    private var segmentTrack = false
+    private var trackExcluded = false
+
+    private lateinit var db: AppDatabase
+
     /** Every upload and write the PDS took, in order. */
     private val writes = mutableListOf<String>()
     private val putRecords = mutableListOf<ActivityRecord>()
@@ -139,7 +146,21 @@ class EditActivityPresenterTest {
 
                     "/xrpc/com.atproto.space.getRecord" -> {
                         val place = request.url.parameters["space"].orEmpty().substringAfterLast('/')
-                        if (oldStreams && place == Visibility.SELF && request.url.parameters["collection"] == Nsid.FEED_ACTIVITY_STREAMS) {
+                        val collection = request.url.parameters["collection"]
+                        if (segmentTrack && place == Visibility.SELF && collection == Nsid.ACTOR_SEGMENT_PREFS) {
+                            respond(
+                                """{"uri":"$uri","cid":"bafyprefs","value":{"matching":true,"updatedAt":"2026-10-01T00:00:00Z"}}""",
+                                headers = json,
+                            )
+                        } else if (segmentTrack && place == Visibility.SELF && collection == Nsid.FEED_SEGMENT_TRACK) {
+                            val track =
+                                """{"activity":"$uri","createdAt":"2026-09-30T10:31:00Z",""" +
+                                    (if (trackExcluded) """"excludeFromLeaderboards":true,""" else "") +
+                                    """"data":{"${'$'}type":"blob","ref":{"${'$'}link":"bafktrack"},"mimeType":"application/json","size":9}}"""
+                            respond("""{"uri":"$uri","cid":"bafytrk","value":$track}""", headers = json)
+                        } else if (
+                            oldStreams && place == Visibility.SELF && request.url.parameters["collection"] == Nsid.FEED_ACTIVITY_STREAMS
+                        ) {
                             val streams =
                                 """{"activity":"$uri","channels":["depth","temperature"],"createdAt":"2026-09-30T10:31:00Z",""" +
                                     """"data":{"${'$'}type":"blob","ref":{"${'$'}link":"bafkstreams"},"mimeType":"application/json","size":9}}"""
@@ -224,6 +245,7 @@ class EditActivityPresenterTest {
 
     private suspend fun presenter(navigator: FakeNavigator): @Composable () -> EditActivityState {
         val (db, _, clients) = signedInTestSession(http, did = alice)
+        this.db = db
         val feed = FeedRepository(db, clients, LocalLikes(), Logger)
         val zones = TestZones(db, clients)
         val privacy = PrivacyZones(clients, Clock.System, Logger)
@@ -269,7 +291,10 @@ class EditActivityPresenterTest {
             )
         val defaults = ActivityDefaults(clients)
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
-        return { EditActivityPresenter(EditActivityScreen(uri), navigator, feed, manager, defaults, profiles) }
+        val segments = testSegments(db, clients, zones.writer, zones.outbox, privacy, zones.tracks)
+        return {
+            EditActivityPresenter(EditActivityScreen(uri), navigator, feed, manager, defaults, profiles, segments.prefs, segments.store)
+        }
     }
 
     private suspend fun ReceiveTurbine<EditActivityState>.awaitLoaded() = awaitUntil { it.details != null }
@@ -449,5 +474,53 @@ class EditActivityPresenterTest {
             cancelAndIgnoreRemainingEvents()
         }
         assertEquals(listOf("put"), writes)
+    }
+
+    /** The segment-track writes still queued, as `excludeFromLeaderboards` values (null when absent). */
+    private suspend fun queuedExclusions(): List<String?> =
+        db.outbox()
+            .pending(alice.value)
+            .filter { it.collection == Nsid.FEED_SEGMENT_TRACK }
+            .map { AtJson.parseToJsonElement(it.recordJson!!).jsonObject["excludeFromLeaderboards"]?.jsonPrimitive?.content }
+
+    @Test
+    fun anActivityWithoutASegmentTrackIsntOfferedTheExclusion() = runTest {
+        presenterTestOf(presenter(FakeNavigator(EditActivityScreen(uri)))) {
+            val loaded = awaitLoaded()
+            assertNull(loaded.leaderboardExclusion)
+            loaded.eventSink(EditActivityEvent.LeaderboardExclusionChanged(true))
+            expectNoEvents()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun theExclusionIsShownAndOnlyAChangeIsWritten() = runTest {
+        segmentTrack = true
+        val navigator = FakeNavigator(EditActivityScreen(uri))
+        presenterTestOf(presenter(navigator)) {
+            val loaded = awaitUntil { it.details != null && it.leaderboardExclusion != null }
+            assertEquals(false, loaded.leaderboardExclusion)
+            loaded.eventSink(EditActivityEvent.LeaderboardExclusionChanged(true))
+            awaitUntil { it.leaderboardExclusion == true }.eventSink(EditActivityEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(listOf<String?>("true"), queuedExclusions())
+    }
+
+    @Test
+    fun anUnchangedExclusionWritesNothing() = runTest {
+        segmentTrack = true
+        trackExcluded = true
+        val navigator = FakeNavigator(EditActivityScreen(uri))
+        presenterTestOf(presenter(navigator)) {
+            val loaded = awaitUntil { it.details != null && it.leaderboardExclusion != null }
+            assertEquals(true, loaded.leaderboardExclusion)
+            loaded.eventSink(EditActivityEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(emptyList(), queuedExclusions())
     }
 }

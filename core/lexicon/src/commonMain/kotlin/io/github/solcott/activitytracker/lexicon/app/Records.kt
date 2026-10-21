@@ -461,6 +461,8 @@ data class SegmentTrackRecord(
     val zonesRevision: String? = null,
     /** Required by the lexicon: null only in the outbox, which uploads the blob and fills it in before `putRecord`. */
     val data: BlobRef? = null,
+    /** The activity's efforts are ranked on no leaderboard; null means false. Kept when the track is rewritten for the same activity. */
+    val excludeFromLeaderboards: Boolean? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_SEGMENT_TRACK,
 ) {
     companion object {
@@ -504,6 +506,25 @@ object SegmentSportGroup {
 
     /** The shortest a segment of [group] may be along its line, in meters; rides are longer so a short sprint isn't a segment. */
     fun minMeters(group: String): Int = if (group == RIDE) MIN_RIDE_METERS else MIN_OTHER_METERS
+
+    /**
+     * The fastest average speed over a segment of [group] that leaderboards rank, in mm/s (segments/segment-leaderboards): 100 km/h for
+     * rides, 40 for runs, 30 for hikes, 120 for skiing and 25 for paddling. A faster effort stays on its activity but off every board.
+     */
+    fun maxSpeedMmPerS(group: String): Int =
+        when (group) {
+            RIDE -> MAX_RIDE_MM_PER_S
+            RUN -> MAX_RUN_MM_PER_S
+            HIKE -> MAX_HIKE_MM_PER_S
+            SKI -> MAX_SKI_MM_PER_S
+            else -> MAX_PADDLE_MM_PER_S
+        }
+
+    private const val MAX_RIDE_MM_PER_S = 27_778
+    private const val MAX_RUN_MM_PER_S = 11_111
+    private const val MAX_HIKE_MM_PER_S = 8_333
+    private const val MAX_SKI_MM_PER_S = 33_333
+    private const val MAX_PADDLE_MM_PER_S = 6_944
 }
 
 /**
@@ -555,13 +576,15 @@ data class SegmentRecord(
 )
 
 /**
- * `app.activitytracker.actor.segmentPrefs`: whether the athlete's segment matching is on. It lives only in their [AthleteSpace.SELF] space;
- * no record means they were never asked, and matching is off.
+ * `app.activitytracker.actor.segmentPrefs`: whether the athlete's segment matching is on, and whether they hide from leaderboards. It lives
+ * only in their [AthleteSpace.SELF] space; no record means they were never asked, and matching is off.
  */
 @Serializable
 data class SegmentPrefsRecord(
     val matching: Boolean,
     val updatedAt: Instant,
+    /** The athlete appears on no segment leaderboard, to anyone, themselves included; null means false. Never served. */
+    val hideFromLeaderboards: Boolean? = null,
     @SerialName($$"$type") val type: String = Nsid.ACTOR_SEGMENT_PREFS,
 ) {
     companion object {

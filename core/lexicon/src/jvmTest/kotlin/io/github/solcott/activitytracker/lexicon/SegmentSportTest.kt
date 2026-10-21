@@ -85,4 +85,19 @@ class SegmentSportTest {
             minimums,
         )
     }
+
+    @Test
+    fun everyGroupHasALeaderboardSpeedCap() {
+        val caps = SegmentSportGroup.all.associateWith { SegmentSportGroup.maxSpeedMmPerS(it) }
+        assertEquals(
+            mapOf(
+                SegmentSportGroup.RIDE to 27_778,
+                SegmentSportGroup.RUN to 11_111,
+                SegmentSportGroup.HIKE to 8_333,
+                SegmentSportGroup.SKI to 33_333,
+                SegmentSportGroup.PADDLE to 6_944,
+            ),
+            caps,
+        )
+    }
 }

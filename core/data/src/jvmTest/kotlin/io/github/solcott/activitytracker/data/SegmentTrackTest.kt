@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.data
 
+import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
+import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.PrivacySettings
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
 import io.github.solcott.activitytracker.data.segments.SegmentMatching
@@ -390,5 +392,85 @@ class SegmentTrackTest {
         val full = assertNotNull(s.tracks.read(uri))
         assertEquals(route.size, full.size, "the full track keeps every point, inside the zone included")
         assertTrue(pds.stored.getValue(Visibility.SELF).getValue(segmentTrackKey(uri.rkey!!)).jsonObject.containsKey("data"))
+    }
+
+    // Leaderboard choices (segments/segment-leaderboards)
+
+    private suspend fun FakeAthletePds.Session.drain() = OutboxProcessor(db, clients, Logger).drain()
+
+    private fun storedPrefs(): SegmentPrefsRecord =
+        AtJson.decodeFromJsonElement(
+            SegmentPrefsRecord.serializer(),
+            pds.stored.getValue(Visibility.SELF).getValue("${Nsid.ACTOR_SEGMENT_PREFS}/self"),
+        )
+
+    @Test
+    fun eachSettingsSaveKeepsTheOther() = runTest {
+        val s = pds.session()
+        val prefs = segmentsOf(s.clients).prefs
+        s.matching(true)
+        prefs.saveLeaderboards(hidden = true)
+        assertEquals(true, storedPrefs().hideFromLeaderboards)
+        assertTrue(storedPrefs().matching)
+
+        val other = segmentsOf(pds.session().clients).prefs
+        other.save(false)
+        assertEquals(true, storedPrefs().hideFromLeaderboards, "another device's matching save keeps it")
+        assertEquals(true, other.hiddenFromLeaderboards.value)
+
+        prefs.saveLeaderboards(hidden = false)
+        assertNull(storedPrefs().hideFromLeaderboards)
+        assertFalse(storedPrefs().matching, "the stored matching, not this session's")
+    }
+
+    @Test
+    fun aFailedLeaderboardSaveKeepsTheEarlierChoice() = runTest {
+        val s = pds.session()
+        val prefs = segmentsOf(s.clients).prefs
+        s.matching(true)
+        pds.offline = true
+
+        assertTrue(runCatching { prefs.saveLeaderboards(hidden = true) }.isFailure)
+        assertEquals(false, prefs.hiddenFromLeaderboards.value)
+        pds.offline = false
+        assertNull(storedPrefs().hideFromLeaderboards)
+    }
+
+    @Test
+    fun anExclusionKeepsThePointsAndSurvivesARetrim() = runTest {
+        val s = pds.session()
+        s.matching(true)
+        val uri = s.activities.publish(draft())
+        val store = segmentsOf(s.clients).store
+        assertEquals(false, store.excluded(uri))
+        val blob = segmentTrack(uri.rkey!!)?.data
+        val uploads = pds.uploads
+
+        store.setExcluded(uri, true)
+        assertNull(store.excluded(uri), "unknown while the write is queued")
+        assertTrue(runCatching { store.setExcluded(uri, false) }.isFailure)
+        s.drain()
+        assertEquals(true, segmentTrack(uri.rkey!!)?.excludeFromLeaderboards)
+        assertEquals(blob, segmentTrack(uri.rkey!!)?.data, "the same points")
+        assertEquals(uploads, pds.uploads, "nothing uploaded again")
+        assertEquals(true, store.excluded(uri))
+
+        s.privacy.save(PrivacySettings(listOf(home)))
+        s.activities.repairRoutes()
+        assertEquals(zonesRevision(), segmentTrack(uri.rkey!!)?.zonesRevision, "trimmed again")
+        assertEquals(true, segmentTrack(uri.rkey!!)?.excludeFromLeaderboards, "still excluded")
+
+        val next = s.activities.publish(draft())
+        assertNull(segmentTrack(next.rkey!!)?.excludeFromLeaderboards, "a new activity starts unexcluded")
+    }
+
+    @Test
+    fun anActivityWithoutASegmentTrackCantBeExcluded() = runTest {
+        val s = pds.session()
+        val uri = s.activities.publish(draft())
+        val store = segmentsOf(s.clients).store
+
+        assertNull(store.excluded(uri))
+        assertTrue(runCatching { store.setExcluded(uri, true) }.isFailure)
     }
 }

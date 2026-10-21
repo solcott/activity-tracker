@@ -36,7 +36,7 @@ fun testSegments(
     synchronized(built) {
         built.getOrPut(clients) {
             val prefs = SegmentPrefsRepository(clients, Clock.System)
-            val store = PdsSegmentTrackStore(writer, clients, Clock.System)
+            val store = PdsSegmentTrackStore(writer, clients, Clock.System, db)
             TestSegments(
                 prefs,
                 store,

@@ -1,13 +1,25 @@
 #!/usr/bin/env bash
 # Writes a feed.segment to <name>.test's repo from a GPX file, for setting up local tests without the app (segments/segment-records).
 # The line is the GPX's track points from startIndex to endIndex (inclusive; the whole track by default), encoded as a precision-6
-# polyline, with source "athlete" and licence CC0-1.0. A line shorter than its sport group's minimum (500 m for ride, 200 m for the rest)
+# polyline, with source "athlete" and licence CC0-1.0, or with --source osm (ODbL-1.0) or --source agency (CC0-1.0) to see an imported
+# segment's credit before any importer exists (segment-attribution). A line shorter than its sport group's minimum (500 m for ride, 200 m for the rest)
 # or longer than 50 km is refused, as the AppView would drop it. The AppView indexes it from Jetstream as proposed (or duplicate): check
 # with app.activitytracker.feed.getSegment on the printed URI. Each run writes a new segment.
-# Usage: docker/scripts/seed-segment.sh alice "Hill climb" run track.gpx [startIndex endIndex] [pds-url]
+# Usage: docker/scripts/seed-segment.sh [--source athlete|osm|agency] alice "Hill climb" run track.gpx [startIndex endIndex] [pds-url]
 set -euo pipefail
 
-gpx_path="$(cd "$(dirname "${4:?usage: seed-segment.sh <name> <segment-name> <sport> <gpx> [start end] [pds-url]}")" && pwd)/$(basename "$4")"
+source_name=athlete
+if [[ ${1:-} == --source ]]; then
+  source_name=${2:?--source needs athlete, osm or agency}
+  shift 2
+fi
+case $source_name in
+  athlete | agency) license=CC0-1.0 ;;
+  osm) license=ODbL-1.0 ;;
+  *) echo "--source must be athlete, osm or agency" >&2; exit 1 ;;
+esac
+
+gpx_path="$(cd "$(dirname "${4:?usage: seed-segment.sh [--source athlete|osm|agency] <name> <segment-name> <sport> <gpx> [start end] [pds-url]}")" && pwd)/$(basename "$4")"
 cd "$(dirname "$0")/.."
 [[ -f .env ]] || { echo "docker/.env missing: cp docker/.env.example docker/.env" >&2; exit 1; }
 # shellcheck disable=SC1091
@@ -29,11 +41,12 @@ did=$(json_field did <<<"$session")
 token=$(json_field accessJwt <<<"$session")
 
 # The putRecord body: the GPX's points cut to [start, end] and encoded at precision 6, under a fresh TID.
-body=$(python3 -I - "$gpx_path" "$start" "$end" "$did" "$segment_name" "$sport" <<'PY'
+body=$(python3 -I - "$gpx_path" "$start" "$end" "$did" "$segment_name" "$sport" "$source_name" "$license" <<'PY'
 import json, sys, time, random
 import xml.etree.ElementTree as ET
 
 path, start, end, did, name, sport = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), sys.argv[4], sys.argv[5], sys.argv[6]
+source, license = sys.argv[7], sys.argv[8]
 points = [(float(p.get("lat")), float(p.get("lon"))) for p in ET.parse(path).iter() if p.tag.rsplit("}", 1)[-1] == "trkpt"]
 points = points[start:] if end < 0 else points[start:end + 1]
 if len(points) < 2:
@@ -74,8 +87,8 @@ record = {
     "name": name,
     "sport": sport,
     "line": line,
-    "source": "athlete",
-    "license": "CC0-1.0",
+    "source": source,
+    "license": license,
     "createdAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
 }
 print(json.dumps({"repo": did, "collection": "app.activitytracker.feed.segment", "rkey": tid, "record": record}))

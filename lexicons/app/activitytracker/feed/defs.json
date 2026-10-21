@@ -200,7 +200,7 @@
     },
     "effortView": {
       "type": "object",
-      "description": "One pass of an activity over a segment from its start to its end (app.activitytracker.feed.getActivitySegments). Served only to viewers admitted to the narrowest of the activity's visibility and its map and pace/speed categories.",
+      "description": "One pass of an activity over a segment from its start to its end (app.activitytracker.feed.getActivitySegments, getSegmentEfforts and getSegmentLeaderboard entries). Served only to viewers admitted to the narrowest of the activity's visibility and its map and pace/speed categories.",
       "required": ["segment", "activity", "startOffset", "elapsed", "startedOn"],
       "properties": {
         "segment": { "type": "ref", "ref": "#segmentViewBasic" },
@@ -209,7 +209,29 @@
         "elapsed": { "type": "integer", "minimum": 0, "description": "Seconds from the segment's start to its end." },
         "startedOn": { "type": "string", "description": "The activity's local date, as YYYY-MM-DD." },
         "eBike": { "type": "boolean", "description": "The activity is an e-bike ride. Absent means false." },
-        "best": { "type": "boolean", "description": "The athlete's fastest effort on the segment among those the viewer may see. Absent means false." }
+        "best": { "type": "boolean", "description": "The athlete's fastest effort on the segment among those the viewer may see. Absent means false." },
+        "rank": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Set by app.activitytracker.feed.getActivitySegments only on a best effort ranked in the top 10 of the segment's all-time, everyone leaderboard (for its e-bike kind) as this viewer sees it."
+        },
+        "notRanked": {
+          "type": "string",
+          "maxLength": 32,
+          "knownValues": ["hidden", "excluded", "implausible"],
+          "description": "Why leaderboards don't rank this effort, served only to its own athlete and only on an active segment: they hide from leaderboards, the activity is excluded, or it is faster than its sport group's cap. Never served to anyone else."
+        }
+      }
+    },
+    "leaderboardEntry": {
+      "type": "object",
+      "description": "One athlete's place on a segment leaderboard (app.activitytracker.feed.getSegmentLeaderboard): their fastest ranked effort that the viewer may see.",
+      "required": ["rank", "athlete", "effort"],
+      "properties": {
+        "rank": { "type": "integer", "minimum": 1, "description": "1 for the fastest; athletes with equal times share a rank, and the next rank skips." },
+        "athlete": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
+        "effort": { "type": "ref", "ref": "#effortView" }
       }
     }
   }

@@ -22,6 +22,10 @@
             "maxSize": 10000000,
             "description": "A #trackData as JSON."
           },
+          "excludeFromLeaderboards": {
+            "type": "boolean",
+            "description": "The activity's efforts are ranked on no segment leaderboard; it keeps them. Absent means false. Kept when the track is rewritten for the same activity, and forgotten when matching goes off and the tracks are deleted."
+          },
           "createdAt": { "type": "string", "format": "datetime" }
         }
       }

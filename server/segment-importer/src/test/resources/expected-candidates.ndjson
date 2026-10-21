@@ -1,0 +1,26 @@
+{"region":"test-region","extractTimestamp":"2026-10-01T00:00:00Z","importerVersion":1}
+{"id":"56txtcpbun3rvwhw77p3lxsdwz","region":"test-region","sport":"run","name":"Ridge Loop (northbound)","line":"_w}tsA~b`siC{xN?","lengthMeters":900,"source":"osm","license":"ODbL-1.0","osmWays":[150,151,152]}
+{"id":"57emkf2hb3j3xkg22j4ksm4r67","region":"test-region","sport":"run","name":"Plunge","line":"uxkusA~`yqiCt`M?","lengthMeters":800,"source":"osm","license":"ODbL-1.0","osmWays":[160]}
+{"id":"6ejcylwpb6fslqbfow7lba4t4n","region":"test-region","sport":"run","name":"Oak Trail (part 2)","line":"cbxusA~dgtiCe|j@?","lengthMeters":2500,"source":"osm","license":"ODbL-1.0","osmWays":[100,101]}
+{"id":"7jqj5mdlafs7zxjnnj7lyalpoe","region":"test-region","sport":"ride","name":"Oak Trail (southbound)","line":"i_dwsA~dgtiChgeA?","lengthMeters":4000,"source":"osm","license":"ODbL-1.0","osmWays":[101,100]}
+{"id":"7qv6lrtzitdrajoffxu3u7mkcn","region":"test-region","sport":"ride","name":"Oak Trail (part 2)","line":"i_dwsA~dgtiCd|j@?","lengthMeters":2500,"source":"osm","license":"ODbL-1.0","osmWays":[101,100]}
+{"id":"a6hsrzyefrtgq5653vrkkzelyf","region":"test-region","sport":"ride","name":"Oak Trail (northbound)","line":"_w}tsA~dgtiCigeA?","lengthMeters":4000,"source":"osm","license":"ODbL-1.0","osmWays":[100,101]}
+{"id":"c5pfsssgqy7n7zu52nb4qya5xy","region":"test-region","sport":"hike","name":"Oak Trail (part 2)","line":"i_dwsA~dgtiCd|j@?","lengthMeters":2500,"source":"osm","license":"ODbL-1.0","osmWays":[101,100]}
+{"id":"efrbxult6kpvad4ybxhh5gdimd","region":"test-region","sport":"run","name":"Oak Trail (part 1)","line":"cbxusA~dgtiCbjY?","lengthMeters":1500,"source":"osm","license":"ODbL-1.0","osmWays":[100]}
+{"id":"fk3vkqymrzfkakfg6qfuqa4pvq","region":"test-region","sport":"hike","name":"Oak Trail (northbound)","line":"_w}tsA~dgtiCigeA?","lengthMeters":4000,"source":"osm","license":"ODbL-1.0","osmWays":[100,101]}
+{"id":"ge4eeymh4rl2pvkwk4g3qjqibf","region":"test-region","sport":"hike","name":"Oak Trail (part 1)","line":"cbxusA~dgtiCbjY?","lengthMeters":1500,"source":"osm","license":"ODbL-1.0","osmWays":[100]}
+{"id":"i3tz664wc34fbh62ljkjdy76ro","region":"test-region","sport":"hike","name":"Plunge","line":"uxkusA~`yqiCt`M?","lengthMeters":800,"source":"osm","license":"ODbL-1.0","osmWays":[160]}
+{"id":"iallbliyoonsvujqfdbpy2vm7j","region":"test-region","sport":"hike","name":"Oak Trail (part 2)","line":"cbxusA~dgtiCe|j@?","lengthMeters":2500,"source":"osm","license":"ODbL-1.0","osmWays":[100,101]}
+{"id":"is45diknw4pvs2itx3vau6un5d","region":"test-region","sport":"run","name":"Ridge Loop (southbound)","line":"{pmusA~b`siCzxN?","lengthMeters":900,"source":"osm","license":"ODbL-1.0","osmWays":[152,151,150]}
+{"id":"ivqiywaywpm4r7fowlcwx5acoh","region":"test-region","sport":"hike","name":"Ridge Loop (northbound)","line":"_w}tsA~b`siC{xN?","lengthMeters":900,"source":"osm","license":"ODbL-1.0","osmWays":[150,151,152]}
+{"id":"jxkchwghn7gkgmdn6oeuwl7jui","region":"test-region","sport":"hike","name":"Oak Trail (southbound)","line":"i_dwsA~dgtiChgeA?","lengthMeters":4000,"source":"osm","license":"ODbL-1.0","osmWays":[101,100]}
+{"id":"pyg4wzpbt5zfv2jnlgauv57ray","region":"test-region","sport":"ride","name":"Oak Trail (part 1)","line":"_w}tsA~dgtiCcjY?","lengthMeters":1500,"source":"osm","license":"ODbL-1.0","osmWays":[100]}
+{"id":"qbew2jhgliedzk6m2b2rq35y23","region":"test-region","sport":"run","name":"Oak Trail (southbound)","line":"i_dwsA~dgtiChgeA?","lengthMeters":4000,"source":"osm","license":"ODbL-1.0","osmWays":[101,100]}
+{"id":"rbvaini4uwsoehpsxz7c6rjrrp","region":"test-region","sport":"run","name":"Oak Trail (northbound)","line":"_w}tsA~dgtiCigeA?","lengthMeters":4000,"source":"osm","license":"ODbL-1.0","osmWays":[100,101]}
+{"id":"rd6zp5vbmhjpexht3us3o56po7","region":"test-region","sport":"run","name":"Oak Trail (part 2)","line":"i_dwsA~dgtiCd|j@?","lengthMeters":2500,"source":"osm","license":"ODbL-1.0","osmWays":[101,100]}
+{"id":"rof4tavffoqf7d66tvdsyldkv3","region":"test-region","sport":"hike","name":"Ridge Loop (southbound)","line":"{pmusA~b`siCzxN?","lengthMeters":900,"source":"osm","license":"ODbL-1.0","osmWays":[152,151,150]}
+{"id":"rxtzx23upb4xmkvwshf4b6xjo5","region":"test-region","sport":"ride","name":"Plunge","line":"uxkusA~`yqiCt`M?","lengthMeters":800,"source":"osm","license":"ODbL-1.0","osmWays":[160]}
+{"id":"srdm545gotlkax7pd2lmakhnjj","region":"test-region","sport":"run","name":"Oak Trail (part 1)","line":"_w}tsA~dgtiCcjY?","lengthMeters":1500,"source":"osm","license":"ODbL-1.0","osmWays":[100]}
+{"id":"w252nqxyqkegsfi2a5qzbipu54","region":"test-region","sport":"ride","name":"Oak Trail (part 2)","line":"cbxusA~dgtiCe|j@?","lengthMeters":2500,"source":"osm","license":"ODbL-1.0","osmWays":[100,101]}
+{"id":"xucvlmkk5mmboax2lye2muvjtm","region":"test-region","sport":"hike","name":"Oak Trail (part 1)","line":"_w}tsA~dgtiCcjY?","lengthMeters":1500,"source":"osm","license":"ODbL-1.0","osmWays":[100]}
+{"id":"y3lpkmmqh64x4db4opsjxatlmj","region":"test-region","sport":"ride","name":"Oak Trail (part 1)","line":"cbxusA~dgtiCbjY?","lengthMeters":1500,"source":"osm","license":"ODbL-1.0","osmWays":[100]}

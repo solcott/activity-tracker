@@ -311,6 +311,48 @@ object GetSegmentEfforts {
 }
 
 /**
+ * A segment's leaderboard (segments/segment-leaderboards): each athlete's fastest ranked effort the viewer may see, fastest first, plus the
+ * viewer's own entry. Only an active segment has entries. `NotFound` when the segment isn't served; `InvalidRequest` for an unknown
+ * [Params.period] or [Params.scope], or [LeaderboardScope.FOLLOWING] without a viewer.
+ */
+object GetSegmentLeaderboard {
+    @Serializable
+    data class Params(
+        val segment: AtUri,
+        /** A [LeaderboardPeriod] value; null means [LeaderboardPeriod.ALL_TIME]. */
+        val period: String? = null,
+        /** A [LeaderboardScope] value; null means [LeaderboardScope.EVERYONE]. */
+        val scope: String? = null,
+        /** The e-bike board; null means false. */
+        val eBike: Boolean? = null,
+        val limit: Int? = null,
+        val cursor: String? = null,
+    )
+
+    @Serializable data class Output(val entries: List<LeaderboardEntry>, val viewer: LeaderboardEntry? = null, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.FEED_GET_SEGMENT_LEADERBOARD, Params.serializer(), Output.serializer())
+}
+
+/** Known values of [GetSegmentLeaderboard.Params.period]: by the effort's local date, against the AppView's UTC date. */
+object LeaderboardPeriod {
+    const val ALL_TIME = "allTime"
+    const val YEAR = "year"
+    const val MONTH = "month"
+
+    val all = listOf(ALL_TIME, YEAR, MONTH)
+}
+
+/** Known values of [GetSegmentLeaderboard.Params.scope]. */
+object LeaderboardScope {
+    const val EVERYONE = "everyone"
+    /** The viewer and the athletes they effectively follow. */
+    const val FOLLOWING = "following"
+
+    val all = listOf(EVERYONE, FOLLOWING)
+}
+
+/**
  * Checks a line before the caller publishes it as a segment (segments/segment-records): the proposed or active segments of [Input.sport] it
  * would duplicate, earliest indexed first, and how many more new segments the caller may create today. `InvalidRequest` for a malformed
  * line, one outside its group's length bounds, or an unknown group.

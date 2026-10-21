@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.app.segment.CreateSegmentScreen
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.NotRanked
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.test.Test
@@ -95,6 +96,20 @@ class ActivityDetailSegmentsTest : ActivityDetailTestBase() {
         detail(r) {
             val loaded = awaitUntil { it.loaded()?.segments?.isNotEmpty() == true }.loaded()!!
             assertEquals(SegmentStatus.PROPOSED, loaded.segments.single().segment.status)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun effortsCarryTheirRankAndWhyTheyArentRanked() = runTest {
+        val ranked = effort(hill, "Hill", 120, 611, best = true).dropLast(1) + ""","rank":2}"""
+        val excluded = effort(bridge, "Bridge", 900, 95, best = true).dropLast(1) + ""","notRanked":"${NotRanked.EXCLUDED}"}"""
+        segmentsFromAppView = "[$ranked,$excluded]"
+        val r = repos()
+        detail(r) {
+            val loaded = awaitUntil { it.loaded()?.segments?.isNotEmpty() == true }.loaded()!!
+            assertEquals(listOf(2, null), loaded.segments.map { it.rank })
+            assertEquals(listOf(null, NotRanked.EXCLUDED), loaded.segments.map { it.notRanked })
             cancelAndIgnoreRemainingEvents()
         }
     }

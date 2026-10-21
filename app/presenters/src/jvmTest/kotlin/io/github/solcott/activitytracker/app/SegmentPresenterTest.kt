@@ -10,7 +10,9 @@ import com.slack.circuit.retained.RetainedStateRegistry
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.segment.SegmentCredit
 import io.github.solcott.activitytracker.app.segment.SegmentEvent
+import io.github.solcott.activitytracker.app.segment.SegmentLeaderboardScreen
 import io.github.solcott.activitytracker.app.segment.SegmentPresenter
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
 import io.github.solcott.activitytracker.app.segment.SegmentState
@@ -55,6 +57,8 @@ class SegmentPresenterTest {
     private var failSegment = false
     private var status = "proposed"
     private var duplicateOf = ""
+    private var source = "athlete"
+    private var license = "CC0-1.0"
     /** The star in alice's `self` space, as the PDS holds it; null for none. */
     private var storedStar: String? = null
     private var pdsDown = false
@@ -84,7 +88,7 @@ class SegmentPresenterTest {
                         else
                             respond(
                                 """{"segment":{"uri":"$uri","cid":"bafyseg","creator":{"did":"did:plc:carol","handle":"carol.test"},""" +
-                                    """"record":{"name":"Hill","sport":"run","line":"$line","source":"athlete","license":"CC0-1.0",""" +
+                                    """"record":{"name":"Hill","sport":"run","line":"$line","source":"$source","license":"$license",""" +
                                     """"createdAt":"2026-10-01T00:00:00Z"},"distanceMeters":1000,"status":"$status"$duplicateOf}}""",
                                 headers = json,
                             )
@@ -216,6 +220,29 @@ class SegmentPresenterTest {
     }
 
     @Test
+    fun anActiveSegmentOpensItsLeaderboard() = runTest {
+        status = "active"
+        val (segments, stars) = session()
+        val navigator = FakeNavigator(screen)
+        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars) }) {
+            awaitUntil { it.segment != null }.eventSink(SegmentEvent.OpenLeaderboard)
+            assertEquals(SegmentLeaderboardScreen(uri, "Hill", "run"), navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aProposedSegmentHasNoLeaderboard() = runTest {
+        val (segments, stars) = session()
+        val navigator = FakeNavigator(screen)
+        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars) }) {
+            awaitUntil { it.segment != null }.eventSink(SegmentEvent.OpenLeaderboard)
+            navigator.expectNoGoToEvents()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun theStarShowsWhatSelfHolds() = runTest {
         storedStar = """{"subject":{"uri":"$uri","cid":"bafyseg"},"createdAt":"2026-10-21T12:00:00Z"}"""
         val (segments, stars) = session()
@@ -283,4 +310,31 @@ class SegmentPresenterTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    /** The credit for the segment's data (segments/segment-records), once loaded; [source] and [license] set the record's. */
+    private suspend fun creditFor(source: String, license: String): SegmentCredit? {
+        this.source = source
+        this.license = license
+        val (segments, stars) = session()
+        var credit: SegmentCredit? = null
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars) }) {
+            credit = awaitUntil { it.segment != null }.credit
+            cancelAndIgnoreRemainingEvents()
+        }
+        return credit
+    }
+
+    @Test fun anAthleteSegmentHasNoDataCredit() = runTest { assertNull(creditFor("athlete", "CC0-1.0")) }
+
+    @Test
+    fun anOsmSegmentCreditsOpenStreetMap() = runTest { assertEquals(SegmentCredit.OpenStreetMap("ODbL-1.0"), creditFor("osm", "ODbL-1.0")) }
+
+    @Test fun anAgencySegmentCreditsTheAgency() = runTest { assertEquals(SegmentCredit.Agency("CC0-1.0"), creditFor("agency", "CC0-1.0")) }
+
+    @Test
+    fun anUnknownSourceShowsOnlyItsLicence() = runTest {
+        assertEquals(SegmentCredit.License("CC-BY-4.0"), creditFor("survey", "CC-BY-4.0"))
+    }
+
+    @Test fun anUnknownSourceWithABlankLicenceShowsNothing() = runTest { assertNull(creditFor("survey", " ")) }
 }

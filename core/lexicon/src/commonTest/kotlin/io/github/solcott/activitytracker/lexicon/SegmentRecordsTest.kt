@@ -3,6 +3,11 @@ package io.github.solcott.activitytracker.lexicon
 import io.github.solcott.activitytracker.lexicon.app.CheckSegment
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
+import io.github.solcott.activitytracker.lexicon.app.GetSegmentLeaderboard
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
+import io.github.solcott.activitytracker.lexicon.app.NotRanked
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentPrefsRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
@@ -22,6 +27,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -178,6 +184,71 @@ class SegmentRecordsTest {
                 CheckSegment.Input.serializer(),
                 AtJson.encodeToJsonElement(CheckSegment.Input.serializer(), input),
             ),
+        )
+    }
+
+    @Test
+    fun leaderboardFieldsRoundTrip() {
+        val alice = Did("did:plc:alice")
+        val activity = AtUri.of(alice, Nsid.FEED_ACTIVITY, "3l2abcdefgh22")
+        val track =
+            SegmentTrackRecord(
+                activity = activity,
+                createdAt = Instant.parse("2026-10-15T12:00:00Z"),
+                data = BlobRef(ref = BlobRef.Link("bafkreidata"), mimeType = SegmentTrackRecord.MIME_TYPE, size = 120),
+                excludeFromLeaderboards = true,
+            )
+        val trackJson = AtJson.encodeToJsonElement(SegmentTrackRecord.serializer(), track).jsonObject
+        assertEquals("true", trackJson["excludeFromLeaderboards"]?.jsonPrimitive?.content)
+        assertEquals(track, AtJson.decodeFromJsonElement(SegmentTrackRecord.serializer(), trackJson))
+        val unmarked = track.copy(excludeFromLeaderboards = null)
+        assertFalse("excludeFromLeaderboards" in AtJson.encodeToJsonElement(SegmentTrackRecord.serializer(), unmarked).jsonObject)
+
+        val prefs = SegmentPrefsRecord(matching = true, updatedAt = Instant.parse("2026-10-15T12:00:00Z"), hideFromLeaderboards = true)
+        val prefsJson = AtJson.encodeToJsonElement(SegmentPrefsRecord.serializer(), prefs).jsonObject
+        assertEquals(prefs, AtJson.decodeFromJsonElement(SegmentPrefsRecord.serializer(), prefsJson))
+        val old =
+            AtJson.decodeFromString(
+                SegmentPrefsRecord.serializer(),
+                """{"${'$'}type":"${Nsid.ACTOR_SEGMENT_PREFS}","matching":true,"updatedAt":"2026-10-15T12:00:00Z"}""",
+            )
+        assertNull(old.hideFromLeaderboards)
+        assertFalse("hideFromLeaderboards" in AtJson.encodeToJsonElement(SegmentPrefsRecord.serializer(), old).jsonObject)
+
+        val segment = AtUri.of(alice, Nsid.FEED_SEGMENT, "3l2abcdefgh44")
+        val effort =
+            EffortView(
+                SegmentViewBasic(segment, "Hill climb", SegmentSportGroup.RIDE, 1_200),
+                activity,
+                startOffset = 120,
+                elapsed = 611,
+                startedOn = "2026-10-15",
+                best = true,
+                rank = 3,
+            )
+        val entry = LeaderboardEntry(rank = 3, athlete = ProfileViewBasic(alice, Handle("alice.test")), effort = effort)
+        val output = GetSegmentLeaderboard.Output(entries = listOf(entry), viewer = entry, cursor = "611::did:plc:alice")
+        val outputJson = AtJson.encodeToJsonElement(GetSegmentLeaderboard.Output.serializer(), output).jsonObject
+        assertEquals(output, AtJson.decodeFromJsonElement(GetSegmentLeaderboard.Output.serializer(), outputJson))
+        assertFalse("notRanked" in outputJson["entries"]!!.jsonArray[0].jsonObject["effort"]!!.jsonObject)
+        val unranked = effort.copy(best = null, rank = null, notRanked = NotRanked.IMPLAUSIBLE)
+        assertEquals(
+            unranked,
+            AtJson.decodeFromJsonElement(EffortView.serializer(), AtJson.encodeToJsonElement(EffortView.serializer(), unranked)),
+        )
+        val bare =
+            """{"segment":{"uri":"$segment","name":"Hill","sport":"ride","distanceMeters":1200},"activity":"$activity",""" +
+                """"startOffset":1,"elapsed":2,"startedOn":"2026-10-15"}"""
+        val old2 = AtJson.decodeFromString(EffortView.serializer(), bare)
+        assertNull(old2.rank)
+        assertNull(old2.notRanked)
+
+        val params = GetSegmentLeaderboard.Params(segment, LeaderboardPeriod.MONTH, LeaderboardScope.FOLLOWING, eBike = true, limit = 30)
+        val encoded = XrpcParams.encode(GetSegmentLeaderboard.Params.serializer(), params)
+        assertTrue("eBike" to "true" in encoded)
+        assertEquals(
+            params,
+            XrpcParams.decode(GetSegmentLeaderboard.Params.serializer(), encoded.groupBy({ it.first }, { it.second })),
         )
     }
 }

@@ -158,13 +158,15 @@ open class SegmentTestBase {
         subSport: String? = null,
         did: String = alice,
         extra: String = "",
+        startedAt: String = "2026-10-05T23:30:00Z",
+        utcOffset: Int = 120,
     ) =
         put(
             did,
             Nsid.FEED_ACTIVITY,
             rkey,
             """{"sport":"$sport",${subSport?.let { "\"subSport\":\"$it\"," }.orEmpty()}""" +
-                """"startedAt":"2026-10-05T23:30:00Z","utcOffset":120,""" +
+                """"startedAt":"$startedAt","utcOffset":$utcOffset,""" +
                 """"elapsedTime":3600,$extra"createdAt":"2026-10-05T08:00:00Z"}""",
             tier,
         )
@@ -181,6 +183,7 @@ open class SegmentTestBase {
         pieces: List<List<Pair<Double, Double>>> = listOf(alongStraight),
         did: String = alice,
         speed: Double = 5.0,
+        excluded: Boolean = false,
     ) {
         var clock = 0.0
         val data =
@@ -217,7 +220,9 @@ open class SegmentTestBase {
             Nsid.FEED_SEGMENT_TRACK,
             rkey,
             """{"activity":"${activityUri(rkey, did)}","data":{"${'$'}type":"blob","ref":{"${'$'}link":"$cid"},""" +
-                """"mimeType":"application/json","size":${bytes.size}},"createdAt":"2026-10-15T12:00:00Z"}""",
+                """"mimeType":"application/json","size":${bytes.size}},""" +
+                (if (excluded) """"excludeFromLeaderboards":true,""" else "") +
+                """"createdAt":"2026-10-15T12:00:00Z"}""",
         )
     }
 

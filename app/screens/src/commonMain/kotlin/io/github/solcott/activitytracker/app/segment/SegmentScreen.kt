@@ -28,11 +28,29 @@ data class SegmentState(
      * stars), when the star isn't offered.
      */
     val starred: Boolean? = null,
+    /** Credit for the data the segment's line came from; null for an athlete's segment, or until loaded. */
+    val credit: SegmentCredit? = null,
     val eventSink: (SegmentEvent) -> Unit = {},
 ) : CircuitUiState {
     /** [content]'s segment: the last loaded, or null before the first. */
     val segment: SegmentView?
         get() = content.data
+}
+
+/**
+ * Credit for the data a segment's line came from, by its record's `source` (segments/segment-records). Every screen that draws a segment's
+ * line shows it: an OpenStreetMap line may be shown only with OSM's attribution.
+ */
+@Immutable
+sealed interface SegmentCredit {
+    /** `osm`: "© OpenStreetMap contributors", linking to OSM's copyright page, with the data's [license]. */
+    data class OpenStreetMap(val license: String) : SegmentCredit
+
+    /** `agency`: public agency trail data, under [license]. */
+    data class Agency(val license: String) : SegmentCredit
+
+    /** Any other source: only its licence [id], since the source is free text any client writes. */
+    data class License(val id: String) : SegmentCredit
 }
 
 sealed interface SegmentEvent {
@@ -49,4 +67,7 @@ sealed interface SegmentEvent {
 
     /** Opens the earlier segment a duplicate duplicates. */
     data object OpenOriginal : SegmentEvent
+
+    /** Opens the segment's leaderboard; offered only for an active segment. */
+    data object OpenLeaderboard : SegmentEvent
 }
