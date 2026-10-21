@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.appview.db.DatabaseFactory
 import io.github.solcott.activitytracker.appview.index.HandleLookup
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
+import io.github.solcott.activitytracker.appview.labels.LabelStore
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -127,6 +128,24 @@ class SpaceAccessTest {
             val json = """{"subject":"$subject","createdAt":"2026-10-21T09:00:00Z"}"""
             indexer.spaceWrite(interactions, Nsid.GRAPH_BLOCK, subject, "bafyb", AtJson.parseToJsonElement(json).jsonObject)
         }
+    }
+
+    @Test
+    fun aTakenDownAccountsTiersAdmitNoOneUntilNegated() = testApplication {
+        val labeler = "did:plc:labeler"
+        application { appView(config.copy(labeler = AppViewConfig.Labeler(labeler, "http://labeler.test")), db, verifier) }
+        follow(bob, alice)
+        assertEquals(true, client.authorized(bob, AthleteSpace.FOLLOWERS))
+        val store = LabelStore(db, labeler, null)
+        fun takedown(neg: Boolean, cts: String) = runBlocking {
+            store.apply(labeler, 1, listOf(testLabel(labeler, alice, "!takedown", cts, labelExtras(neg = neg))))
+        }
+        takedown(neg = false, cts = "2026-10-21T10:00:00Z")
+        for (tier in listOf(AthleteSpace.PUBLIC, AthleteSpace.FOLLOWERS)) {
+            assertEquals(false, client.authorized(bob, tier), "alice is taken down: $tier")
+        }
+        takedown(neg = true, cts = "2026-10-21T11:00:00Z")
+        assertEquals(true, client.authorized(bob, AthleteSpace.FOLLOWERS), "negated: decided by tier again")
     }
 
     @Test

@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
+import io.github.solcott.activitytracker.appview.labels.LabelStore
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcBytes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
@@ -303,6 +304,72 @@ class SpaceMediaTest {
         commit(bob, Nsid.GRAPH_FOLLOW, "3kf${bob.last()}${alice.last()}", null)
         assertEquals(HttpStatusCode.NotFound, client.get(bobs).status)
         assertEquals(emptyList(), fetchedFrom, "nothing fetched for a refused request")
+    }
+
+    private val labeler = "did:plc:labeler"
+
+    /** Labels [subject] `!takedown`, as the app's labeler would. */
+    private fun takedown(subject: String) = runBlocking {
+        LabelStore(db, labeler, null).apply(labeler, 1, listOf(testLabel(labeler, subject, "!takedown")))
+    }
+
+    /** With the app's labeler configured and a PDS to redirect public blobs to. */
+    private fun ApplicationTestBuilder.startModerated() {
+        application {
+            appView(
+                config.copy(signingKey = TEST_SIGNING_KEY, labeler = AppViewConfig.Labeler(labeler, "http://labeler.test")),
+                db,
+                verifier,
+                pds = { "http://pds.test" },
+                spaceBlobs = spaceBlobs,
+                mediaTokens = PrivateMediaTokens(TEST_SIGNING_KEY, mediaClock),
+            )
+        }
+    }
+
+    @Test
+    fun aTakenDownPublicActivitysPhotosAreNoLongerRedirected() = testApplication {
+        startModerated()
+        val noRedirects = createClient { followRedirects = false }
+        commit(alice, Nsid.FEED_ACTIVITY, "3kpub", withPhoto())
+        assertEquals(HttpStatusCode.Found, noRedirects.get("/img/media/$alice/$photoCid").status)
+        takedown(uri("3kpub"))
+        assertEquals(HttpStatusCode.NotFound, noRedirects.get("/img/media/$alice/$photoCid").status, "to anyone: the route has no viewer")
+    }
+
+    @Test
+    fun aTakenDownPrivateActivitysPhotosAreRefusedEvenToItsAthlete() = testApplication {
+        startModerated()
+        follow(bob, alice)
+        postSpace("3kpic", Visibility.FOLLOWERS, withPhoto())
+        fun urlFor(viewer: String) = runBlocking {
+            (client.query(GetActivity.method, viewer, "?uri=${uri("3kpic").encodeURLParameter()}").activity.media!!.single()
+                as ActivityMediaView.Image)
+        }
+            .fullsize
+            .removePrefix(config.publicUrl)
+        val bobs = urlFor(bob)
+        val alices = urlFor(alice)
+        assertEquals(HttpStatusCode.OK, client.get(bobs).status)
+        takedown(uri("3kpic"))
+        assertEquals(HttpStatusCode.NotFound, client.get(bobs).status)
+        assertEquals(HttpStatusCode.NotFound, client.get(alices).status, "alice's own URL too; her client shows a placeholder")
+    }
+
+    @Test
+    fun aTakenDownAccountsOrProfilesAvatarIsRefused() = testApplication {
+        startModerated()
+        val noRedirects = createClient { followRedirects = false }
+        val profile =
+            """{"displayName":"Alice","avatar":{"${'$'}type":"blob","ref":{"${'$'}link":"$photoCid"},"mimeType":"image/jpeg","size":4}}"""
+        commit(alice, Nsid.ACTOR_PROFILE, "self", profile)
+        assertEquals(HttpStatusCode.Found, noRedirects.get("/img/avatar/$alice/$photoCid").status)
+        takedown("at://$alice/${Nsid.ACTOR_PROFILE}/self")
+        assertEquals(HttpStatusCode.NotFound, noRedirects.get("/img/avatar/$alice/$photoCid").status, "the profile record's takedown")
+        commit(bob, Nsid.ACTOR_PROFILE, "self", profile.replace("Alice", "Bob"))
+        assertEquals(HttpStatusCode.Found, noRedirects.get("/img/avatar/$bob/$photoCid").status)
+        takedown(bob)
+        assertEquals(HttpStatusCode.NotFound, noRedirects.get("/img/avatar/$bob/$photoCid").status, "the account's takedown")
     }
 
     @Test

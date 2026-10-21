@@ -129,7 +129,7 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
             ActivityStreams.selectAll()
                 .where {
                     (ActivityStreams.activityUri eq activity.value) and
-                        visibleTo(viewer, ActivityStreams.visibility, ActivityStreams.authorDid) and
+                        visibleTo(viewer, ActivityStreams.visibility, ActivityStreams.authorDid, ActivityStreams.activityUri, null) and
                         activityVisible(activity, viewer)
                 }
                 .map { row ->
@@ -148,7 +148,8 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
         val zonesRow =
             ActivityZones.selectAll()
                 .where {
-                    (ActivityZones.activityUri eq activity.value) and visibleTo(viewer, ActivityZones.visibility, ActivityZones.authorDid)
+                    (ActivityZones.activityUri eq activity.value) and
+                        visibleTo(viewer, ActivityZones.visibility, ActivityZones.authorDid, ActivityZones.activityUri, null)
                 }
                 .singleOrNull()
         fun zones(json: String?) = json?.let { AtJson.decodeFromString(ZoneSnapshot.serializer(), it) }

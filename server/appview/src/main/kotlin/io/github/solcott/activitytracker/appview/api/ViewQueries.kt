@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.Actors
+import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
@@ -46,9 +47,12 @@ internal fun parseCursor(cursor: String): Pair<Long, String>? {
     return sortAt.toLongOrNull()?.let { it to uri }
 }
 
-internal fun JdbcTransaction.basicProfiles(dids: Collection<String>, avatars: AvatarUrls): Map<String, ProfileViewBasic> =
-    Actors.selectAll()
-        .where { Actors.did inList dids.distinct() }
+/** Basic views of [dids], with each account's labels, in two queries. */
+internal fun JdbcTransaction.basicProfiles(dids: Collection<String>, avatars: AvatarUrls): Map<String, ProfileViewBasic> {
+    val distinct = dids.distinct()
+    val labels = labelViews(distinct.associateWith { null })
+    return Actors.selectAll()
+        .where { Actors.did inList distinct }
         .associate {
             it[Actors.did] to
                 ProfileViewBasic(
@@ -56,5 +60,13 @@ internal fun JdbcTransaction.basicProfiles(dids: Collection<String>, avatars: Av
                     Handle(it[Actors.handle]),
                     it[Actors.displayName],
                     avatars.url(it[Actors.did], it[Actors.avatarCid]),
+                    labels[it[Actors.did]],
                 )
         }
+}
+
+/** [viewer]'s like of each of [uris] they liked. They may see every row, so their own like is always admitted. */
+internal fun JdbcTransaction.viewerLikes(viewer: Did, uris: List<String>): Map<String, String> =
+    Likes.select(Likes.uri, Likes.subjectUri)
+        .where { (Likes.authorDid eq viewer.value) and (Likes.subjectUri inList uris) }
+        .associate { it[Likes.subjectUri] to it[Likes.uri] }

@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.appview.ProfileDetailRules
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityMediaBlobs
 import io.github.solcott.activitytracker.appview.db.Actors
+import io.github.solcott.activitytracker.appview.db.ModerationAccess
 import io.github.solcott.activitytracker.appview.db.Origins
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
@@ -27,12 +28,17 @@ import io.ktor.server.routing.get
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
+import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.exists
+import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.neq
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.select
@@ -157,16 +163,48 @@ private fun Route.blobRedirect(
     }
 }
 
+/**
+ * Whether [cid] is [did]'s current avatar, while the account and its profile record are served. The route carries no viewer, so a
+ * taken-down avatar is refused to everyone, the athlete included; their client shows a placeholder from the labels on their view.
+ */
 private fun JdbcTransaction.isCurrentAvatar(did: String, cid: String): Boolean =
-    !Actors.select(Actors.did).where { (Actors.did eq did) and (Actors.avatarCid eq cid) }.empty()
+    !Actors.select(Actors.did).where { (Actors.did eq did) and (Actors.avatarCid eq cid) }.empty() &&
+        isAccountServed(did, viewer = null) &&
+        !isProfileTakenDown(did)
 
-/** Whether [cid] is a photo on one of [did]'s public activities, which anyone may fetch from the PDS. */
+/** Whether [cid] is a photo on one of [did]'s public, served activities, which anyone may fetch from the PDS. */
 private fun JdbcTransaction.isPublicActivityMedia(did: String, cid: String): Boolean =
-    !mediaRows(did, cid) { Activities.visibility eq Visibility.PUBLIC }.empty()
+    !mediaRows(did, cid) { (Activities.visibility eq Visibility.PUBLIC) and servedToAll() }.empty()
 
-/** The tier space holding a photo [cid] of [did]'s that [viewer] may see, if there is one. */
+/**
+ * The tier space holding a photo [cid] of [did]'s that [viewer] may see, if there is one. A taken-down activity's photos are refused even
+ * to its athlete, as its public ones are: nothing here tells the routes apart.
+ */
 private fun JdbcTransaction.visibleMediaOrigin(did: String, cid: String, viewer: Did): String? =
-    mediaRows(did, cid) { visibleTo(viewer) and (Activities.origin neq Origins.REPO) }.firstOrNull()?.get(Activities.origin)
+    mediaRows(did, cid) { (visibleTo(viewer) or openedByModerator(viewer)) and servedToAll() and (Activities.origin neq Origins.REPO) }
+        .firstOrNull()
+        ?.get(Activities.origin)
+
+/**
+ * [viewer] is a moderator who opened the activity through `moderation.getSubject` within a signed URL's lifetime: the audit log
+ * ([ModerationAccess]) is the grant, so the link works for them as the spec asks and stops with the URL.
+ */
+private fun openedByModerator(viewer: Did): Op<Boolean> {
+    val since = System.currentTimeMillis() - MODERATOR_GRANT.inWholeMilliseconds
+    return exists(
+        ModerationAccess.select(ModerationAccess.subjectUri).where {
+            (ModerationAccess.moderatorDid eq viewer.value) and
+                (ModerationAccess.subjectUri eq Activities.uri) and
+                (ModerationAccess.at greaterEq since)
+        }
+    )
+}
+
+/** The longest a signed photo URL lives (`PrivateMediaTokens`). */
+private val MODERATOR_GRANT = 30.minutes
+
+/** The activity and its account are served to anyone at all: [served] without the author's exemption. */
+private fun servedToAll(): Op<Boolean> = served(null as Expression<String>?, Activities.authorDid, Activities.uri, Activities.cid)
 
 private fun JdbcTransaction.mediaRows(did: String, cid: String, where: () -> Op<Boolean>) =
     ActivityMediaBlobs.join(Activities, JoinType.INNER, ActivityMediaBlobs.activityUri, Activities.uri)

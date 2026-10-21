@@ -19,13 +19,18 @@ import org.jetbrains.exposed.v1.jdbc.select
  * Rows a [viewer] may see, by the tier in [visibility] and the athlete in [author], as the managing app admits readers to each tier space
  * ([SpaceAccess]): public to anyone, followers to effective followers, mutuals to effective follows both ways, and everything to the
  * athlete, except that two athletes in a block see nothing of each other. An unknown tier admits only the athlete. A null viewer sees
- * public rows only.
+ * public rows only. Rows of an account that isn't served, or of a [record] taken down at [cid], are the athlete's alone ([served]); a query
+ * over another table than `activities` names its own activity column as [record], with no [cid].
  */
 internal fun visibleTo(
     viewer: Did?,
     visibility: Column<String> = Activities.visibility,
     author: Column<String> = Activities.authorDid,
-): Op<Boolean> = if (viewer == null) visibility eq Visibility.PUBLIC else admits(stringParam(viewer.value), visibility, author)
+    record: Column<String>? = Activities.uri,
+    cid: Column<String>? = Activities.cid,
+): Op<Boolean> =
+    if (viewer == null) (visibility eq Visibility.PUBLIC) and served(null as Expression<String>?, author, record, cid)
+    else admits(stringParam(viewer.value), visibility, author) and served(stringParam(viewer.value), author, record, cid)
 
 /**
  * Rows the athlete in [viewer], a column of the outer query, may see: [visibleTo] for a viewer that varies per row, such as a like's giver.
@@ -35,7 +40,9 @@ internal fun visibleTo(
     viewer: Column<String>,
     visibility: Column<String> = Activities.visibility,
     author: Column<String> = Activities.authorDid,
-): Op<Boolean> = admits(viewer, visibility, author)
+    record: Column<String>? = Activities.uri,
+    cid: Column<String>? = Activities.cid,
+): Op<Boolean> = admits(viewer, visibility, author) and served(viewer, author, record, cid)
 
 /** A viewer in a block with the athlete ([blocked]) is admitted to nothing of theirs, Public included. */
 private fun admits(viewer: Expression<String>, visibility: Column<String>, author: Column<String>): Op<Boolean> {

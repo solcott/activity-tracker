@@ -61,14 +61,16 @@ private val Roots = Comments.alias("roots")
  * Comments on activities [viewer] may already see (the caller filters the activities) that they may see too: while the commenter may still
  * see the activity at its current visibility, and the comment's audience admits the viewer, judged against the activity's athlete. Tiers
  * nest, so a comment is shown at the narrower of the activity's visibility and its audience. A commenter in a block with the viewer, or
- * muted by them, is never shown to them.
+ * muted by them, is never shown to them, and a comment taken down, or by an account that isn't served, only to its commenter.
  */
 internal fun commentsVisibleTo(viewer: Did?): Op<Boolean> =
     visibleTo(Comments.authorDid) and
         visibleTo(viewer, visibility = Comments.audience, author = Activities.authorDid) and
         rootAdmits(viewer) and
         notBlocked(viewer, Comments.authorDid) and
-        notMuted(viewer, Comments.authorDid)
+        notMuted(viewer, Comments.authorDid) and
+        served(viewer, Comments.authorDid, Comments.uri, Comments.cid) and
+        unhidden(viewer, Comments.authorDid, Comments.uri)
 
 /**
  * A reply is also capped by its thread's top-level comment's audience while that's indexed on the activity: clients cap a reply by its
@@ -112,6 +114,7 @@ internal fun JdbcTransaction.commentViews(rows: List<ResultRow>, athlete: String
             .where { (CommentHides.commentUri inList rows.map { it[Comments.uri] }) and (CommentHides.authorDid eq athlete) }
             .map { it[CommentHides.commentUri] }
             .toSet()
+    val labels = labelViews(rows.associate { it[Comments.uri] to it[Comments.cid] })
     return rows.map { c ->
         CommentView(
             uri = AtUri(c[Comments.uri]),
@@ -123,6 +126,7 @@ internal fun JdbcTransaction.commentViews(rows: List<ResultRow>, athlete: String
             audience = c[Comments.audience].takeIf { it != Visibility.PUBLIC },
             root = c[Comments.threadCid]?.let { StrongRef(AtUri(c[Comments.threadUri]), Cid(it)) },
             parent = c[Comments.parentUri]?.let { uri -> c[Comments.parentCid]?.let { StrongRef(AtUri(uri), Cid(it)) } },
+            labels = labels[c[Comments.uri]],
         )
     }
 }

@@ -38,8 +38,10 @@ class SpaceAccess(private val db: Database, private val self: Did) {
 
     /** Every other key, [AthleteSpace.SELF] and [AthleteSpace.INTERACTIONS] included, admits no one, and a block admits no one to any. */
     private suspend fun canRead(authority: Did, key: String, user: Did): Boolean = db.tx {
-        // A user in a block with the authority, made by either, reads none of their spaces, public included.
+        // A user in a block with the authority, made by either, reads none of their spaces, public included; nor does anyone while the
+        // authority's account is taken down.
         !isBlocked(user.value, authority.value) &&
+            !labelledOnly(authority.value, LabelValues.TAKEDOWN) &&
             when (key) {
                 AthleteSpace.PUBLIC -> true
                 AthleteSpace.FOLLOWERS -> follows(user.value, authority.value)

@@ -125,7 +125,11 @@ class GraphViews(private val db: Database, private val avatars: AvatarUrls) {
         val rows =
             Follows.select(Follows.uri, Follows.indexedAt, other)
                 .where {
-                    match and effectiveFollow() and notBlocked(viewer, other) and keysetBefore(Follows.indexedAt, Follows.uri, cursor)
+                    match and
+                        effectiveFollow() and
+                        notBlocked(viewer, other) and
+                        listed(viewer, other) and
+                        keysetBefore(Follows.indexedAt, Follows.uri, cursor)
                 }
                 .orderBy(Follows.indexedAt to SortOrder.DESC, Follows.uri to SortOrder.DESC)
                 .limit(pageSize)
