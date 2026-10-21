@@ -15,6 +15,7 @@ object UnitConversions {
     private const val TENTHS_PER_DEGREE = 10.0
     private const val FAHRENHEIT_PER_CELSIUS = 1.8
     private const val FAHRENHEIT_OFFSET = 32.0
+    private const val ML_PER_US_FLUID_OUNCE = 29.573_529_562_5
 
     /** Meters in one display distance unit (a kilometer or a mile). */
     fun metersPerDistanceUnit(units: UnitSystem): Double =
@@ -26,6 +27,13 @@ object UnitConversions {
     fun toDistanceUnit(meters: Double, units: UnitSystem): Double = meters / metersPerDistanceUnit(units)
 
     fun fromDistanceUnit(value: Double, units: UnitSystem): Double = value * metersPerDistanceUnit(units)
+
+    /** Milliliters, or US fluid ounces for imperial. */
+    fun toFluidUnit(milliliters: Double, units: UnitSystem): Double =
+        when (units) {
+            UnitSystem.Metric -> milliliters
+            UnitSystem.Imperial -> milliliters / ML_PER_US_FLUID_OUNCE
+        }
 
     /** Meters, or feet for imperial. */
     fun toElevationUnit(meters: Double, units: UnitSystem): Double =

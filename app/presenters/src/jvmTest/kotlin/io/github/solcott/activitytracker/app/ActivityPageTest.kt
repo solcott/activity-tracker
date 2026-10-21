@@ -163,6 +163,31 @@ class ActivityPageTest {
     }
 
     @Test
+    fun `the owner sees Garmin's exercise load, stamina and sweat loss after the training effects`() {
+        val load =
+            TrainingLoadStats(
+                ftp = null,
+                intensityFactor = null,
+                trainingStressScore = null,
+                aerobicTrainingEffect = 3.4,
+                anaerobicTrainingEffect = null,
+                exerciseLoad = 187,
+                staminaStart = 100,
+                staminaEnd = 70,
+                staminaMin = 48,
+                sweatLossMl = 764,
+                hrvRmssd = 42,
+            )
+        val page = ActivityPage.build(mtb, rideCharts().copy(trainingLoad = load))
+        assertEquals(
+            listOf(FigureKey.AerobicEffect, FigureKey.ExerciseLoad, FigureKey.Stamina, FigureKey.SweatLoss, FigureKey.Hrv),
+            page.trainingLoad.map { it.key },
+        )
+        assertEquals(FigureValue.Stamina(100, 70, 48), page.trainingLoad.first { it.key == FigureKey.Stamina }.value)
+        assertEquals(FigureValue.Fluid(764), page.trainingLoad.first { it.key == FigureKey.SweatLoss }.value)
+    }
+
+    @Test
     fun `ranging metrics give their minimum between average and maximum`() {
         val lines = rideCharts().lines + line(StreamKind.Temperature, 160.0) + line(StreamKind.RespirationRate, 16.4)
         val page = ActivityPage.build(mtb.copy(avgTemperature = 192), rideCharts().copy(lines = lines.toImmutableList()))

@@ -58,6 +58,15 @@ class PageFiguresTest {
 
     @Test fun `each side is grouped`() = assertContains(text(FigureValue.LeftRight(StreamKind.Power, 1200.0, 1300.0)), "1,300 W")
 
+    @Test fun `a sweat loss reads in fluid ounces to a tenth`() = assertEquals("25.8 fl oz", text(FigureValue.Fluid(764)))
+
+    @Test fun `a sweat loss reads in whole milliliters`() = assertEquals("764 ml", text(FigureValue.Fluid(764), UnitSystem.Metric))
+
+    @Test
+    fun `stamina reads from start to end with its minimum`() = assertEquals("100% → 70% · min 48%", text(FigureValue.Stamina(100, 70, 48)))
+
+    @Test fun `stamina with only a minimum reads just that`() = assertEquals("min 48%", text(FigureValue.Stamina(null, null, 48)))
+
     @Test fun `a duration is not grouped`() = assertEquals("10:05:03", text(FigureValue.Duration(36_303)))
 
     @Test

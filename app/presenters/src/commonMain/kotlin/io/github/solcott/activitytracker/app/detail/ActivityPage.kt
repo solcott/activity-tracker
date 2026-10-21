@@ -79,6 +79,11 @@ internal object ActivityPage {
                 load?.trainingStressScore?.let { Figure(FigureKey.TrainingStressScore, FigureValue.Decimal(it, 0)) },
                 load?.aerobicTrainingEffect?.let { Figure(FigureKey.AerobicEffect, FigureValue.Decimal(it, 1)) },
                 load?.anaerobicTrainingEffect?.let { Figure(FigureKey.AnaerobicEffect, FigureValue.Decimal(it, 1)) },
+                load?.exerciseLoad?.let { Figure(FigureKey.ExerciseLoad, FigureValue.Count(it.toLong())) },
+                load
+                    ?.takeIf { it.staminaStart != null || it.staminaEnd != null || it.staminaMin != null }
+                    ?.let { Figure(FigureKey.Stamina, FigureValue.Stamina(it.staminaStart, it.staminaEnd, it.staminaMin)) },
+                load?.sweatLossMl?.let { Figure(FigureKey.SweatLoss, FigureValue.Fluid(it)) },
                 load?.hrvRmssd?.let { Figure(FigureKey.Hrv, FigureValue.Quantity(it.toLong(), FigureUnit.Milliseconds)) },
             )
             .toImmutableList()

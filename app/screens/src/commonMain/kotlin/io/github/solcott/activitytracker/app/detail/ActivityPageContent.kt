@@ -106,6 +106,9 @@ enum class FigureKey {
     TrainingStressScore,
     AerobicEffect,
     AnaerobicEffect,
+    ExerciseLoad,
+    Stamina,
+    SweatLoss,
     Hrv,
     /** A card headline's average, minimum or maximum, under its metric's title. */
     Avg,
@@ -189,6 +192,12 @@ sealed interface FigureValue {
 
     /** Each gas in order of first use, as oxygen and helium percents in pairs. */
     data class Gases(val mixes: ImmutableList<GasMix>, val closedCircuit: Boolean) : FigureValue
+
+    /** Stamina potential at the start and the end, and its lowest, in percent; each where recorded. */
+    data class Stamina(val start: Int?, val end: Int?, val min: Int?) : FigureValue
+
+    /** Milliliters, or fluid ounces to one decimal. */
+    data class Fluid(val milliliters: Int) : FigureValue
 
     /** A percent at the start and the end, like CNS. */
     data class PercentRange(val start: Int, val end: Int) : FigureValue

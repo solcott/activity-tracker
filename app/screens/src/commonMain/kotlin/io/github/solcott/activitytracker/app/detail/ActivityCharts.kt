@@ -247,7 +247,7 @@ data class SetRow(
 /** A pool's length as its pool is measured: whole meters, or whole yards for a yard pool. */
 @Immutable data class PoolLength(val value: Int, val yards: Boolean)
 
-/** Training load in display units: watts, IF as a ratio, TSS, and training effect from 0 to 5. */
+/** Training load in display units: watts, IF as a ratio, TSS, training effect from 0 to 5, stamina in percent and sweat loss in ml. */
 @Immutable
 data class TrainingLoadStats(
     val ftp: Int?,
@@ -255,6 +255,12 @@ data class TrainingLoadStats(
     val trainingStressScore: Double?,
     val aerobicTrainingEffect: Double?,
     val anaerobicTrainingEffect: Double?,
+    /** Garmin's exercise load. */
+    val exerciseLoad: Int? = null,
+    val staminaStart: Int? = null,
+    val staminaEnd: Int? = null,
+    val staminaMin: Int? = null,
+    val sweatLossMl: Int? = null,
     /** Heart rate variability: the RMSSD of the activity's beat-to-beat intervals, in milliseconds. */
     val hrvRmssd: Int? = null,
 )

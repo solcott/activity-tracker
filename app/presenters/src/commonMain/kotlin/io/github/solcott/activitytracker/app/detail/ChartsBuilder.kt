@@ -168,6 +168,11 @@ internal object ChartsBuilder {
             trainingStressScore = load.trainingStressScore?.div(DECI),
             aerobicTrainingEffect = load.aerobicTrainingEffect?.div(DECI),
             anaerobicTrainingEffect = load.anaerobicTrainingEffect?.div(DECI),
+            exerciseLoad = load.exerciseLoad,
+            staminaStart = load.staminaStart,
+            staminaEnd = load.staminaEnd,
+            staminaMin = load.staminaMin,
+            sweatLossMl = load.sweatLoss,
             hrvRmssd = load.hrvRmssd,
         )
 

@@ -44,6 +44,7 @@ import io.github.solcott.activitytracker.composeApp.resources.page_dive_number
 import io.github.solcott.activitytracker.composeApp.resources.page_elapsed_time
 import io.github.solcott.activitytracker.composeApp.resources.page_elevation_gain
 import io.github.solcott.activitytracker.composeApp.resources.page_end_n2
+import io.github.solcott.activitytracker.composeApp.resources.page_exercise_load
 import io.github.solcott.activitytracker.composeApp.resources.page_front_shifts
 import io.github.solcott.activitytracker.composeApp.resources.page_ftp
 import io.github.solcott.activitytracker.composeApp.resources.page_group_cadence
@@ -78,7 +79,9 @@ import io.github.solcott.activitytracker.composeApp.resources.page_pool_length
 import io.github.solcott.activitytracker.composeApp.resources.page_rear_shifts
 import io.github.solcott.activitytracker.composeApp.resources.page_reps
 import io.github.solcott.activitytracker.composeApp.resources.page_sensor
+import io.github.solcott.activitytracker.composeApp.resources.page_stamina
 import io.github.solcott.activitytracker.composeApp.resources.page_start_time
+import io.github.solcott.activitytracker.composeApp.resources.page_sweat_loss
 import io.github.solcott.activitytracker.composeApp.resources.page_tank_pressure
 import io.github.solcott.activitytracker.composeApp.resources.page_tss
 import io.github.solcott.activitytracker.composeApp.resources.page_water_type
@@ -241,6 +244,9 @@ private val LABELS: Map<FigureKey, StringResource> =
         FigureKey.TrainingStressScore to Res.string.page_tss,
         FigureKey.AerobicEffect to Res.string.page_aerobic_effect,
         FigureKey.AnaerobicEffect to Res.string.page_anaerobic_effect,
+        FigureKey.ExerciseLoad to Res.string.page_exercise_load,
+        FigureKey.Stamina to Res.string.page_stamina,
+        FigureKey.SweatLoss to Res.string.page_sweat_loss,
         FigureKey.Hrv to Res.string.page_hrv,
         FigureKey.Avg to Res.string.page_average,
         FigureKey.Min to Res.string.page_minimum,
@@ -330,6 +336,8 @@ internal fun figureText(value: FigureValue): String =
             if (value.closedCircuit) stringResource(Res.string.stat_gas_ccr, names) else names
         }
         is FigureValue.PercentRange -> stringResource(Res.string.stat_cns_value, value.start, value.end)
+        is FigureValue.Stamina -> staminaText(value)
+        is FigureValue.Fluid -> fluidText(value.milliliters)
         is FigureValue.PressureRange ->
             stringResource(Res.string.stat_pressure_range, DiveFormat.pressure(value.startBar), DiveFormat.pressure(value.endBar))
         is FigureValue.Bar -> stringResource(Res.string.unit_pressure_bar, formatDecimal(value.value, 2))

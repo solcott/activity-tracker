@@ -948,6 +948,8 @@
     <string name="chart_zone_range">%1$s–%2$s</string>
     <string name="chart_zone_range_open">%1$s+</string>
     <string name="unit_percent">%1$s%</string>
+    <string name="unit_fluid_ml">%1$s ml</string>
+    <string name="unit_fluid_fl_oz">%1$s fl oz</string>
     <string name="unit_duration_seconds">%1$ss</string>
     <string name="unit_duration_minutes">%1$sm</string>
     <string name="unit_duration_hours">%1$sh</string>
@@ -1167,6 +1169,11 @@
     <string name="page_tss">Training stress score</string>
     <string name="page_aerobic_effect">Aerobic training effect</string>
     <string name="page_anaerobic_effect">Anaerobic training effect</string>
+    <string name="page_exercise_load">Exercise load</string>
+    <string name="page_stamina">Stamina</string>
+    <string name="page_sweat_loss">Est. sweat loss</string>
+    <string name="page_stamina_range">%1$s% → %2$s%</string>
+    <string name="page_stamina_min">min %1$s%</string>
     <string name="page_hrv">Heart rate variability (RMSSD)</string>
     <string name="page_average">Average</string>
     <string name="page_minimum">Minimum</string>
