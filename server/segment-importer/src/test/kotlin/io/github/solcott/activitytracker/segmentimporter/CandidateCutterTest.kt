@@ -1,0 +1,254 @@
+package io.github.solcott.activitytracker.segmentimporter
+
+import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.HIKE
+import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.RIDE
+import io.github.solcott.activitytracker.location.GeoPoint
+import io.github.solcott.activitytracker.location.SegmentGeometry
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
+import kotlin.test.assertTrue
+
+/** Cutting trails into candidates, naming them and giving them ids (segments/trail-candidates). */
+class CandidateCutterTest {
+    private fun candidates(data: OsmData, group: String = RIDE) =
+        CandidateCutter(data).let { cutter -> TrailBuilder.build(data).filter { it.group == group }.flatMap(cutter::cut) }
+
+    /** Oak Trail north along lng -72.7, a node every [spacing] m from id 1, as two ways split at the middle node. */
+    private fun OsmBuilder.oak(nodes: Int, spacing: Double = 500.0, vararg more: Pair<String, String>) {
+        for (i in 0 until nodes) node(i + 1L, north(44.4, i * spacing), -72.7)
+        val mid = nodes / 2 + 1L
+        way(100, *(1L..mid).toList().toLongArray(), tags = path("Oak Trail", *more))
+        way(101, *(mid..nodes.toLong()).toList().toLongArray(), tags = path("Oak Trail", *more))
+    }
+
+    /** A named way crossing node [at] east to west, through nodes [id] and [id] + 1. */
+    private fun OsmBuilder.crossing(id: Long, at: Long, tags: Map<String, String>) {
+        node(id, 0.0, 0.0)
+        node(id + 1, 0.0, 0.0)
+        way(id, id, at, id + 1, tags = tags)
+    }
+
+    private val Candidate.meters
+        get() = lengthMeters
+
+    @Test
+    fun aTrailCrossedByAFireRoadGivesTheWholeTrailAndEachStretchEachWay() {
+        val data = osm {
+            oak(nodes = 9)
+            crossing(20, at = 4, tags = highway("unclassified", "Fire Road 3"))
+        }
+        val found = candidates(data)
+        assertEquals(6, found.size)
+        assertEquals(listOf(1500L, 1500L, 2500L, 2500L, 4000L, 4000L), found.map { (it.meters + 50) / 100 * 100 }.sorted())
+    }
+
+    @Test
+    fun aShortStretchIsJoinedToTheNextOne() {
+        val data = osm {
+            // 2 km, nodes every 100 m; named trails meet at 800 m and 1100 m.
+            oak(nodes = 21, spacing = 100.0)
+            crossing(20_000, at = 9, tags = path("Pine Trail"))
+            crossing(20_010, at = 12, tags = path("Elm Trail"))
+        }
+        val stretches = candidates(data).filter { !it.whole }.map { (it.meters + 50) / 100 * 100 }.toSet()
+        assertEquals(setOf(800L, 1200L), stretches, "the 300 m stretch joins the next")
+    }
+
+    @Test
+    fun anUnnamedCrossingDoesntCutTheTrail() {
+        val data = osm {
+            oak(nodes = 9)
+            crossing(30, at = 6, tags = path(null))
+        }
+        assertTrue(candidates(data).all { it.whole })
+        assertEquals(2, candidates(data).size)
+    }
+
+    @Test
+    fun aTwoWayTrailGivesEachCandidateBothWays() {
+        val data = osm {
+            oak(nodes = 9)
+            crossing(20, at = 4, tags = highway("unclassified", "Fire Road 3"))
+        }
+        val found = candidates(data)
+        val ends = found.map { it.points.first() to it.points.last() }
+        assertTrue(ends.all { (a, b) -> (b to a) in ends })
+    }
+
+    @Test
+    fun aOneWayTrailFollowsItsWaysDirectionOnly() {
+        val data = osm { oak(nodes = 5, spacing = 250.0, "oneway" to "yes") }
+        val whole = candidates(data).single()
+        assertTrue(whole.points.last().lat > whole.points.first().lat, "north, as the ways are drawn")
+        assertEquals("Oak Trail", whole.name, "no direction in the name of a one-way trail")
+    }
+
+    @Test
+    fun aStretchIsNamedAfterTheWaysAtItsEnds() {
+        val data = osm {
+            // 3.5 km; a fire road crosses at 1 km and Pine Trail meets it at 2.5 km.
+            oak(nodes = 8)
+            crossing(20, at = 3, tags = highway("track", "Fire Road 3"))
+            crossing(30, at = 6, tags = path("Pine Trail"))
+        }
+        val names = candidates(data).map { it.name }.toSet()
+        assertTrue("Oak Trail: Fire Road 3 to Pine Trail" in names, "$names")
+        assertTrue("Oak Trail: Pine Trail to Fire Road 3" in names, "the way back")
+        assertTrue("Oak Trail (part 1)" in names, "the stretch from the trail's unnamed start")
+        assertTrue("Oak Trail (part 3)" in names, "the stretch to its unnamed end")
+    }
+
+    @Test
+    fun aWholeTwoWayTrailIsNamedWithItsDirection() {
+        val data = osm { oak(nodes = 9) }
+        assertEquals(setOf("Oak Trail (northbound)", "Oak Trail (southbound)"), candidates(data).map { it.name }.toSet())
+    }
+
+    @Test
+    fun aNameIsCutAtAWordToAHundredGraphemes() {
+        val name = "The Very Long Trail Name ".repeat(6).trim()
+        val cut = CandidateCutter.truncate(name)
+        assertTrue(cut.length <= 100)
+        assertTrue(name.startsWith(cut) && name[cut.length] == ' ', "cut at a word boundary: '$cut'")
+        assertEquals("Short", CandidateCutter.truncate("Short"))
+        assertEquals("👍".repeat(100), CandidateCutter.truncate("👍".repeat(101)), "graphemes, not chars")
+    }
+
+    @Test
+    fun theSameDataGivesTheSameIds() {
+        val before = candidates(osm { oak(nodes = 9) }).map { it.id }.toSet()
+        val after =
+            candidates(
+                    osm {
+                        oak(nodes = 9)
+                        // An unrelated trail elsewhere.
+                        node(500, 44.5, -72.5)
+                        node(501, north(44.5, 800.0), -72.5)
+                        way(600, 500, 501, tags = path("Far Trail"))
+                    }
+                )
+                .filter { it.name.startsWith("Oak") }
+                .map { it.id }
+                .toSet()
+        assertEquals(before, after)
+        assertEquals(26, before.first().length)
+    }
+
+    @Test
+    fun aReroutedTrailGetsNewIds() {
+        val before = candidates(osm { oak(nodes = 9) }).map { it.id }.toSet()
+        val rerouted = osm {
+            for (i in 0 until 9) node(i + 1L, north(44.4, i * 500.0), -72.7)
+            way(100, 1, 2, 3, 4, 5, tags = path("Oak Trail"))
+            // The second way replaced by a new one.
+            way(102, 5, 6, 7, 8, 9, tags = path("Oak Trail"))
+        }
+        assertTrue(candidates(rerouted).none { it.id in before })
+    }
+
+    @Test
+    fun directionChangesTheId() {
+        val ids = CandidateCutter.idOf(RIDE, listOf(1, 2), true, 10, 20) to CandidateCutter.idOf(RIDE, listOf(2, 1), false, 20, 10)
+        assertNotEquals(ids.first, ids.second)
+        assertNotEquals(CandidateCutter.idOf(RIDE, listOf(1), true, 10, 20), CandidateCutter.idOf(HIKE, listOf(1), true, 10, 20))
+    }
+
+    /** A loop of one closed way: 1 km around a square, drawn counterclockwise from its south-west corner. */
+    private fun OsmBuilder.loop() {
+        val dLng = 250.0 / (111_195.0 * cos(44.4 * Math.PI / 180))
+        node(1, 44.4, -72.7)
+        node(2, 44.4, -72.7 + dLng)
+        node(3, north(44.4, 250.0), -72.7 + dLng)
+        node(4, north(44.4, 250.0), -72.7)
+        way(100, 1, 2, 3, 4, 1, tags = path("Pond Loop"))
+    }
+
+    @Test
+    fun aLoopsTwoDirectionsHaveTheirOwnIds() {
+        val found = candidates(osm { loop() })
+        assertEquals(2, found.size)
+        assertEquals(2, found.map { it.id }.toSet().size)
+    }
+
+    @Test
+    fun aWayThatCrossesItselfAtAJunctionGivesEachStretchItsOwnId() {
+        val data = osm {
+            // A lasso: north 600 m to node 4, around a square, back through node 4 and on north 600 m.
+            val dLng = 300.0 / (111_195.0 * cos(44.4 * Math.PI / 180))
+            node(1, 44.4, -72.7)
+            node(4, north(44.4, 600.0), -72.7)
+            node(5, north(44.4, 600.0), -72.7 + dLng)
+            node(6, north(44.4, 900.0), -72.7 + dLng)
+            node(7, north(44.4, 900.0), -72.7 - dLng)
+            node(8, north(44.4, 1500.0), -72.7 - dLng)
+            way(100, 1, 4, 5, 6, 7, 4, 8, tags = path("Lasso"))
+            crossing(20, at = 4, tags = path("Cross Trail"))
+        }
+        val found = candidates(data)
+        assertEquals(found.size, found.map { it.id }.toSet().size)
+    }
+
+    @Test
+    fun aTwoWayLoopIsNamedClockwiseOrCounterclockwise() {
+        val names = candidates(osm { loop() }).associate { it.points[1] to it.name }
+        assertEquals(setOf("Pond Loop (clockwise)", "Pond Loop (counterclockwise)"), names.values.toSet())
+        val eastFirst = names.entries.single { it.key.lng > -72.7 + 1e-6 && it.key.lat < 44.4 + 1e-6 }
+        assertEquals("Pond Loop (counterclockwise)", eastFirst.value, "east, then north: counterclockwise")
+    }
+
+    @Test
+    fun everyCandidatePassesTheAppViewsSegmentChecks() {
+        val data = osm {
+            oak(nodes = 9)
+            crossing(20, at = 4, tags = highway("unclassified", "Fire Road 3"))
+        }
+        for (group in listOf(RIDE, HIKE)) {
+            for (candidate in candidates(data, group)) {
+                val line = requireNotNull(SegmentGeometry.decodePolyline(candidate.line))
+                assertTrue(line.size >= 2)
+                val length = SegmentGeometry.lengthMeters(line)
+                assertTrue(length >= io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.minMeters(group))
+                assertTrue(length <= io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.MAX_METERS)
+                assertTrue(candidate.line.length <= CandidateCutter.MAX_LINE_CHARS)
+                assertTrue(candidate.name.isNotBlank())
+            }
+        }
+    }
+
+    @Test
+    fun aSimplifiedLineStaysWithinFiveMetersOfTheTrail() {
+        // A trail wiggling 3 m either side every 20 m.
+        val trail = (0..200).map { i -> GeoPoint(north(44.4, i * 20.0), -72.7 + (if (i % 2 == 0) 3.0 else -3.0) / metersPerLngDegree) }
+        val line = CandidateCutter.simplified(trail)
+        assertTrue(line.size < trail.size)
+        assertTrue(trail.all { p -> distanceToLine(p, line) <= CandidateCutter.TOLERANCE_M + 0.01 })
+    }
+
+    @Test
+    fun aLineTooLongForARecordIsSimplifiedFurther() {
+        // 48 km zigzagging 30 m either side every 1.6 m: too many points to keep at 5 m.
+        val trail = (0..30_000).map { i -> GeoPoint(north(44.4, i * 1.6), -72.7 + (if (i % 2 == 0) 30.0 else -30.0) / metersPerLngDegree) }
+        assertTrue(SegmentGeometry.encodePolyline(trail).length > CandidateCutter.MAX_LINE_CHARS, "the raw line is too long for a record")
+        val line = SegmentGeometry.encodePolyline(CandidateCutter.simplified(trail))
+        assertTrue(line.length <= CandidateCutter.MAX_LINE_CHARS, "${line.length} chars")
+    }
+
+    private val metersPerLngDegree = 111_195.0 * cos(44.4 * Math.PI / 180)
+
+    /** Meters from [p] to the nearest point of [line], on a local flat projection. */
+    private fun distanceToLine(p: GeoPoint, line: List<GeoPoint>): Double =
+        line.zipWithNext().minOf { (a, b) ->
+            fun xy(q: GeoPoint) = (q.lng - p.lng) * metersPerLngDegree to (q.lat - p.lat) * 111_195.0
+            val (ax, ay) = xy(a)
+            val (bx, by) = xy(b)
+            val dx = bx - ax
+            val dy = by - ay
+            val t = if (dx == 0.0 && dy == 0.0) 0.0 else (-(ax * dx + ay * dy) / (dx * dx + dy * dy)).coerceIn(0.0, 1.0)
+            val x = ax + t * dx
+            val y = ay + t * dy
+            kotlin.math.sqrt(x * x + y * y).let { if (abs(it) < 1e-9) 0.0 else it }
+        }
+}
