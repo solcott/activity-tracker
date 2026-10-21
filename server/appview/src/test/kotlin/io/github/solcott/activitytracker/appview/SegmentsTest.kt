@@ -3,19 +3,31 @@ package io.github.solcott.activitytracker.appview
 import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.tx
+import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
+import io.github.solcott.activitytracker.atproto.segmentStarRkey
+import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
+import io.github.solcott.activitytracker.lexicon.app.SegmentStarRecord
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
+import io.ktor.client.statement.bodyAsText
 import io.ktor.server.testing.testApplication
 import kotlin.math.roundToInt
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.jsonObject
 import org.jetbrains.exposed.v1.jdbc.selectAll
 
 /** `feed.segment` records (segments/segment-records): indexed from the repo only, validated, and served by URI and by area. */
@@ -108,6 +120,46 @@ class SegmentsTest : SegmentTestBase() {
         }
         assertEquals(emptyList(), segmentRows())
         assertEquals(0L, cellCount())
+    }
+
+    /** Each table's row count, to show a write stored nothing anywhere. */
+    private fun rowCounts(): Map<String, Long> = runBlocking {
+        db.tx {
+            val tables = mutableListOf<String>()
+            exec("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'PUBLIC'") { rs ->
+                while (rs.next()) tables += rs.getString(1)
+            }
+            tables.associateWith { table ->
+                exec("SELECT COUNT(*) FROM \"$table\"") { rs ->
+                    rs.next()
+                    rs.getLong(1)
+                } ?: 0L
+            }
+        }
+    }
+
+    @Test
+    fun aSegmentStarIsNeverStoredOrServed() = testApplication {
+        application { appView(config, db, verifier) }
+        segment("3ks")
+        val segment = AtUri(segmentUri("3ks"))
+        val before = rowCounts()
+
+        val star = SegmentStarRecord(subject = StrongRef(segment, Cid("bafyseg")), createdAt = Instant.parse("2026-10-21T12:00:00Z"))
+        val rkey = runBlocking { segmentStarRkey(segment) }
+        spaceWrite(self(bob), Nsid.FEED_SEGMENT_STAR, rkey, AtJson.encodeToString(SegmentStarRecord.serializer(), star))
+        runBlocking { indexer.spaceDelete(self(bob), Nsid.FEED_SEGMENT_STAR, rkey) }
+        spaceWrite(self(bob), Nsid.FEED_SEGMENT_STAR, rkey, AtJson.encodeToString(SegmentStarRecord.serializer(), star))
+
+        assertFalse(Nsid.FEED_SEGMENT_STAR in Nsid.indexedCollections)
+        for (skey in listOf(Visibility.FOLLOWERS, Visibility.MUTUALS, AthleteSpace.SELF, AthleteSpace.INTERACTIONS)) {
+            assertFalse(Nsid.FEED_SEGMENT_STAR in Indexer.spaceCollections(skey), skey)
+        }
+        assertEquals(before, rowCounts())
+        val body = client.xrpc(GetSegment.method, mapOf("uri" to segment.value), viewer = bob).bodyAsText()
+        val view = AtJson.parseToJsonElement(body).jsonObject.getValue("segment").jsonObject
+        assertFalse("star" in body.lowercase(), body)
+        assertFalse("viewer" in view && "star" in view.getValue("viewer").toString(), body)
     }
 
     @Test
