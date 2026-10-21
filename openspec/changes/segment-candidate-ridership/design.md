@@ -22,7 +22,7 @@ The segment-track consent text says routes are shared "to find segments"; counti
 
 **The AppView is the staging store.** Candidates are public OSM-derived lines, so holding them is no privacy cost, and the AppView is the only place that can match them against tracks. *Alternatives:* (a) a privileged "count riders on this line" query called per candidate: synchronous, would fetch blobs per request, and lets the caller probe arbitrary lines for activity. Rejected. (b) Publish every candidate as a `proposed` `feed.segment` and let statuses sort them: puts tens of thousands of unused records in a public repo, runs into the 10/day limit, shows proposed efforts on athletes' activities, and archives most after 180 days. Rejected; that's the clutter this item avoids.
 
-**Tables (Flyway V31, H2-portable).**
+**Tables (Flyway V32, H2-portable; V31 went to segment leaderboards).**
 - `segment_candidates`: `id` (PK, ≤ 64), `region` (≤ 64), `revision` (≤ 64), `sport`, `candidate_name`, `line`, `distance_m`, bbox `e7` columns, `data_source`, `license`, `ridden` (boolean), `staged_at`; indexes on `(region, revision)` and `(region, ridden, id)`.
 - `segment_candidate_cells (cell, candidate_id)`, like `segment_cells`.
 - `segment_candidate_riders (candidate_id, track_uri, author_did)`, PK `(candidate_id, track_uri)`, indexes on `track_uri` and `author_did`.
