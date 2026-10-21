@@ -18,6 +18,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEventSink
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
+import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.record.ManualActivityScreen
 import io.github.solcott.activitytracker.app.record.RecordScreen
@@ -87,8 +88,20 @@ fun FeedPresenter(
         refreshing = false
     }
 
-    return FeedState(items, refreshing, error, pending, viewerDid, locationTracker.isSupported, scope, Scopes, filter, filterScreen) { event
-        ->
+    val revealed = rememberRevealed()
+    return FeedState(
+        items,
+        refreshing,
+        error,
+        pending,
+        viewerDid,
+        locationTracker.isSupported,
+        scope,
+        Scopes,
+        filter,
+        filterScreen,
+        revealed,
+    ) { event ->
         when (event) {
             FeedEvent.Refresh -> {
                 refreshKey++

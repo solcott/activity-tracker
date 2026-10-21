@@ -25,6 +25,7 @@ import io.github.solcott.activitytracker.composeApp.resources.delete_comment_tit
 import io.github.solcott.activitytracker.composeApp.resources.detail_delete
 import io.github.solcott.activitytracker.composeApp.resources.hide_comment
 import io.github.solcott.activitytracker.composeApp.resources.mute_commenter
+import io.github.solcott.activitytracker.composeApp.resources.report_comment
 import io.github.solcott.activitytracker.composeApp.resources.unhide_comment
 import io.github.solcott.activitytracker.lexicon.AtUri
 import kotlinx.collections.immutable.ImmutableSet
@@ -40,6 +41,7 @@ internal fun CommentMenu(
     actions: ImmutableSet<CommentAction>,
     eventSink: (ActivityDetailEvent) -> Unit,
     modifier: Modifier = Modifier,
+    onReport: () -> Unit = {},
 ) {
     var open by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf(false) }
@@ -49,8 +51,9 @@ internal fun CommentMenu(
     val unhide = stringResource(Res.string.unhide_comment)
     val mute = stringResource(Res.string.mute_commenter)
     val block = stringResource(Res.string.block_commenter)
+    val report = stringResource(Res.string.report_comment)
     val items =
-        remember(actions, delete, hide, unhide, mute, block, comment) {
+        remember(actions, delete, hide, unhide, mute, block, report, comment, onReport) {
             actions
                 .sortedBy { it.ordinal }
                 .mapNotNull { action ->
@@ -62,6 +65,7 @@ internal fun CommentMenu(
                         CommentAction.Delete -> AppMenuItem(delete, AppIcon.Delete, destructive = true) { confirming = true }
                         CommentAction.MuteAuthor -> AppMenuItem(mute) { eventSink(ActivityDetailEvent.MuteCommenter(comment)) }
                         CommentAction.BlockAuthor -> AppMenuItem(block, destructive = true) { confirmingBlock = true }
+                        CommentAction.Report -> AppMenuItem(report) { onReport() }
                     }
                 }
                 .toImmutableList()

@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
+import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import kotlinx.collections.immutable.ImmutableList
@@ -40,6 +41,8 @@ data class FeedState(
     val filter: FeedFilter,
     /** The filter control, kept across changes so it keeps its state, and replaced only by [FeedEvent.ClearFilters]. */
     val filterScreen: FeedFilterScreen,
+    /** Labeled photos the viewer revealed on this screen. */
+    val revealed: Revealed = Revealed(),
     val eventSink: (FeedEvent) -> Unit,
 ) : CircuitUiState
 

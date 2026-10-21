@@ -18,6 +18,7 @@
     <string name="error_update_follow">Couldn't update follow</string>
     <string name="error_update_block">Couldn't update block</string>
     <string name="error_update_mute">Couldn't update mute</string>
+    <string name="error_send_report">Couldn't send the report</string>
     <string name="error_load_blocks">Couldn't load blocked accounts</string>
     <string name="error_load_mutes">Couldn't load muted accounts</string>
     <string name="error_load_followers">Couldn't load followers</string>
@@ -739,6 +740,53 @@
     <string name="action_unblock">Unblock</string>
     <string name="action_mute">Mute</string>
     <string name="action_unmute">Unmute</string>
+    <!-- Labels from the app's moderators -->
+    <string name="label_porn">Adult content</string>
+    <string name="label_sexual">Sexual content</string>
+    <string name="label_nudity">Nudity</string>
+    <string name="label_graphic_media">Graphic media</string>
+    <string name="label_warn">Content warning</string>
+    <string name="label_spam">Spam</string>
+    <string name="label_impersonation">Impersonation</string>
+    <string name="label_show">Show</string>
+    <string name="label_own_blurred">Blurred for everyone: %1$s</string>
+    <string name="label_hidden_title">Hidden by the app's moderators</string>
+    <string name="label_hidden_message">It isn't shown in feeds or lists. You can still view it.</string>
+    <string name="label_hidden_show">View anyway</string>
+    <string name="label_taken_down">Taken down by the app's moderators. Only you can see it, and its photos are no longer shown.</string>
+    <string name="label_taken_down_photo">Photo taken down</string>
+
+    <!-- Moderation (moderators only, desktop and web) -->
+    <string name="settings_moderation">Moderation</string>
+    <string name="moderation_title">Moderation</string>
+    <string name="moderation_help">Open a reported activity or comment by its AT-URI from the labeler's queue. Content that isn't Public opens only while it's under review, and each time you open it, it's recorded.</string>
+    <string name="moderation_uri">Subject</string>
+    <string name="moderation_uri_placeholder">at://did:plc:…/app.activitytracker.feed.activity/…</string>
+    <string name="moderation_open">Open</string>
+    <string name="moderation_not_under_review">Not under review: there's no open report on it or its author, or it doesn't exist.</string>
+    <string name="moderation_visibility">Visible to: %1$s</string>
+    <string name="error_open_subject">Couldn't open the subject</string>
+
+    <!-- Reports -->
+    <string name="action_report">Report</string>
+    <string name="report_activity">Report activity</string>
+    <string name="report_photo">Report photo</string>
+    <string name="report_comment">Report comment</string>
+    <string name="report_title">Report %1$s</string>
+    <string name="report_send">Send</string>
+    <string name="report_reason_prompt">What's wrong?</string>
+    <string name="report_reason_spam">Spam</string>
+    <string name="report_reason_sexual">Sexual content</string>
+    <string name="report_reason_violence">Violence or graphic content</string>
+    <string name="report_reason_harassment">Harassment or rude behavior</string>
+    <string name="report_reason_misleading">Misleading or impersonation</string>
+    <string name="report_reason_other">Other</string>
+    <string name="report_note">Note (optional)</string>
+    <string name="report_note_required">Note (say what's wrong)</string>
+    <string name="report_private_note">The app's moderators review reports. To review one about content that isn't Public, they can see that content, and each time they do it's recorded.</string>
+    <string name="report_thanks_title">Thanks for reporting</string>
+    <string name="report_thanks_message">The app's moderators will review it.</string>
+    <string name="report_block_offer">Block %1$s</string>
     <string name="block_confirm_title">Block %1$s?</string>
     <string name="block_confirm_message">They won't be told. Neither of you will see the other's activities, likes or comments in this app, and follows between you stop counting until you unblock. Your Public activities can still be seen outside the app.</string>
     <string name="settings_blocked_accounts">Blocked accounts</string>
@@ -905,7 +953,7 @@
     <string name="action_save">Save</string>
     <string name="action_saving">Saving…</string>
     <string name="activity_visibility_heading">Who can see this activity</string>
-    <string name="activity_visibility_help">Its details are never shown to more people than the activity.</string>
+    <string name="activity_visibility_help">Its details are never shown to more people than the activity. If someone reports it, the app's moderators can see it while they review the report.</string>
     <string name="activity_visibility_sign_in_again">Sign in again to choose who sees your activities. Until then they're Public.</string>
     <string name="activity_visibility_narrowing_title">Make this activity less visible?</string>
     <string name="activity_visibility_narrowing_body">It was Public, so apps and services may already have a copy. Changing who can see it here can't recall those copies.</string>

@@ -7,6 +7,8 @@ import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.ShownRoute
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.moderation.Revealed
+import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.app.visibility.CategoryVisibility
 import io.github.solcott.activitytracker.data.activity.CombineCue
 import io.github.solcott.activitytracker.data.activity.DataKind
@@ -102,6 +104,10 @@ sealed interface ActivityDetailState : CircuitUiState {
         val chartSources: ImmutableList<ChartSource> = persistentListOf(),
         /** On the owner's recent activity, another of theirs it likely belongs with in one combined activity; null otherwise. */
         val combineSuggestion: CombineSuggestionState? = null,
+        /** Report on someone else's activity, its photos and comments. */
+        val reporting: Reporting = Reporting(),
+        /** Its blurred photos, or the page of a hidden activity, once the viewer chose to see them on this screen. */
+        val revealed: Revealed = Revealed(),
     ) : ActivityDetailState
 }
 

@@ -24,9 +24,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.moderation.Revealed
+import io.github.solcott.activitytracker.app.report.ReportingEvent
+import io.github.solcott.activitytracker.app.report.ReportingHost
 import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.Format
+import io.github.solcott.activitytracker.app.ui.HiddenCard
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
+import io.github.solcott.activitytracker.app.ui.ModerationNotice
 import io.github.solcott.activitytracker.app.ui.activityItems
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
@@ -50,6 +55,7 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_block
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.action_mute
+import io.github.solcott.activitytracker.composeApp.resources.action_report
 import io.github.solcott.activitytracker.composeApp.resources.action_unblock
 import io.github.solcott.activitytracker.composeApp.resources.action_unmute
 import io.github.solcott.activitytracker.composeApp.resources.block_confirm_message
@@ -70,6 +76,8 @@ import io.github.solcott.activitytracker.composeApp.resources.profile_title
 import io.github.solcott.activitytracker.composeApp.resources.unit_height_cm
 import io.github.solcott.activitytracker.composeApp.resources.unit_height_ft_in
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.moderation.ModerationDecision
+import io.github.solcott.activitytracker.data.moderation.ReportTarget
 import io.github.solcott.activitytracker.data.profile.CalendarDate
 import io.github.solcott.activitytracker.data.units.HeightConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
@@ -78,6 +86,7 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import kotlin.math.roundToLong
 import kotlin.time.Clock
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.PluralStringResource
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -112,9 +121,17 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
                     state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
                     profile?.let { p ->
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Avatar(p.avatar, p.displayName ?: p.handle.value, 72.dp)
+                            Avatar(
+                                p.avatar,
+                                p.displayName ?: p.handle.value,
+                                72.dp,
+                                blur = ModerationDecision.mediaOf(p.labels, null),
+                                revealed = p.did.value in state.revealed,
+                                onReveal = { state.revealed.eventSink(p.did.value) },
+                            )
                             Text(handleLabel(p.handle.value), style = MaterialTheme.typography.bodyMedium)
                         }
+                        ModerationNotice(ModerationDecision.of(p.labels, null, state.isSelf), state.isSelf)
                         p.description?.let { Text(it) }
                         p.details?.let { ProfileDetailsText(it) }
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -138,8 +155,15 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
                         ProfileActions(state, following = p.viewer?.following != null, requested = p.viewer?.followRequested == true)
                     }
                 }
-                if (!state.blocking) {
-                    activityItems(state.activities, state.viewerDid, authorClickable = false) { state.eventSink(ProfileEvent.Activity(it)) }
+                val hiddenKey = Revealed.hiddenKey(profile?.did?.value.orEmpty())
+                val hidden = profile != null && ModerationDecision.of(profile.labels, null, state.isSelf) == ModerationDecision.Hidden
+                if (hidden && hiddenKey !in state.revealed) {
+                    // Reached by URI only: the athlete is left out of lists, so their activities wait behind a warning.
+                    item(key = HIDDEN_KEY) { HiddenCard(onShow = { state.revealed.eventSink(hiddenKey) }) }
+                } else if (!state.blocking) {
+                    activityItems(state.activities, state.viewerDid, authorClickable = false, state.revealed) {
+                        state.eventSink(ProfileEvent.Activity(it))
+                    }
                 }
             }
         }
@@ -157,13 +181,23 @@ private fun ProfileBarActions(state: ProfileState) {
             { state.eventSink(ProfileEvent.OpenSettings) },
         )
     } else if (profile != null) {
+        val name = profile.displayName ?: handleLabel(profile.handle.value)
+        val reporting = state.reporting
         BlockMuteMenu(
-            name = profile.displayName ?: handleLabel(profile.handle.value),
+            name = name,
             blocking = state.blocking,
             blockedOnBluesky = state.blockedOnBluesky,
             muting = state.muting,
             eventSink = state.eventSink,
+            // Kept on a profile the viewer blocks, which has nothing else to report from.
+            onReport =
+                if (reporting.available) {
+                    { reporting.eventSink(ReportingEvent.Open(ReportTarget.Account(profile.did), name, offerBlock = !state.blocking)) }
+                } else {
+                    null
+                },
         )
+        ReportingHost(reporting)
     }
 }
 
@@ -243,24 +277,21 @@ private fun BlockMuteMenu(
     muting: Boolean,
     eventSink: (ProfileEvent) -> Unit,
     modifier: Modifier = Modifier,
+    /** Opens the report sheet; null when Report isn't offered. */
+    onReport: (() -> Unit)? = null,
 ) {
     var open by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf(false) }
     val mute = stringResource(if (muting) Res.string.action_unmute else Res.string.action_mute)
     val block = stringResource(if (blocking) Res.string.action_unblock else Res.string.action_block)
+    val report = stringResource(Res.string.action_report)
     val items =
-        remember(mute, block, blocking, blockedOnBluesky) {
+        remember(mute, block, report, blocking, blockedOnBluesky, onReport) {
             val muteItem = AppMenuItem(mute) { eventSink(ProfileEvent.ToggleMute) }
-            if (blockedOnBluesky) {
-                persistentListOf(muteItem)
-            } else {
-                persistentListOf(
-                    muteItem,
-                    AppMenuItem(block, destructive = !blocking) {
-                        if (blocking) eventSink(ProfileEvent.ToggleBlock) else confirming = true
-                    },
-                )
-            }
+            val blockItem =
+                AppMenuItem(block, destructive = !blocking) { if (blocking) eventSink(ProfileEvent.ToggleBlock) else confirming = true }
+            val reportItem = onReport?.let { AppMenuItem(report) { it() } }
+            listOfNotNull(muteItem, blockItem.takeUnless { blockedOnBluesky }, reportItem).toImmutableList()
         }
     Box(modifier) {
         AppIconButton(AppIcon.More, stringResource(Res.string.profile_more), onClick = { open = true })
@@ -284,6 +315,7 @@ private fun countLabel(resource: PluralStringResource, count: Long?): String {
     return pluralStringResource(resource, n.toInt(), formatWhole(n))
 }
 
+private const val HIDDEN_KEY = "hidden"
 private const val HEADER_KEY = "header"
 
 /** The details this viewer may see: a location line, then age, gender, height and weight. */

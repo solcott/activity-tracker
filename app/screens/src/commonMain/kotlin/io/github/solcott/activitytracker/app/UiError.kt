@@ -18,6 +18,8 @@ data class UiError(val kind: Kind, val detail: String?) {
         UpdateFollow,
         UpdateBlock,
         UpdateMute,
+        SendReport,
+        OpenSubject,
         LoadBlocks,
         LoadMutes,
         LoadFollowers,

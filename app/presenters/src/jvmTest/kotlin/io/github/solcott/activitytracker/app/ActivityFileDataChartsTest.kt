@@ -40,6 +40,7 @@ class ActivityFileDataChartsTest : ActivityDetailTestBase() {
                 r.units,
                 r.suggestions,
                 r.blocks,
+                r.reports,
             )
         }) {
             var state = awaitLoaded()

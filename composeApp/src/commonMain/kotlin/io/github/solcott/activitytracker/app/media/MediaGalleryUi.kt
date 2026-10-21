@@ -17,8 +17,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -37,19 +40,27 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.github.panpf.zoomimage.CoilZoomAsyncImage
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.report.ReportingHost
+import io.github.solcott.activitytracker.app.ui.BlurredMedia
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
+import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.detail_more
 import io.github.solcott.activitytracker.composeApp.resources.details_photo
+import io.github.solcott.activitytracker.composeApp.resources.label_taken_down_photo
 import io.github.solcott.activitytracker.composeApp.resources.media_close
 import io.github.solcott.activitytracker.composeApp.resources.media_counter
 import io.github.solcott.activitytracker.composeApp.resources.media_next
 import io.github.solcott.activitytracker.composeApp.resources.media_previous
 import io.github.solcott.activitytracker.composeApp.resources.media_zoom_hint
+import io.github.solcott.activitytracker.composeApp.resources.report_photo
 import io.github.solcott.activitytracker.data.di.SessionScope
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -79,10 +90,26 @@ fun MediaGalleryUi(state: MediaGalleryState, modifier: Modifier = Modifier) {
                 onClick = { state.eventSink(MediaGalleryEvent.Back) },
                 tint = Color.White,
             )
-            if (state.items.size > 1) {
-                Text(stringResource(Res.string.media_counter, state.page + 1, state.items.size), color = Color.White)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (state.items.size > 1) {
+                    Text(stringResource(Res.string.media_counter, state.page + 1, state.items.size), color = Color.White)
+                }
+                if (state.canReport && state.reporting.available) PhotoMenu(state)
             }
         }
+    }
+    ReportingHost(state.reporting)
+}
+
+/** The "…" menu on someone else's photo: Report, for the photo showing. */
+@Composable
+private fun PhotoMenu(state: MediaGalleryState) {
+    var open by remember { mutableStateOf(false) }
+    val report = stringResource(Res.string.report_photo)
+    val items = remember(report) { persistentListOf(AppMenuItem(report) { state.eventSink(MediaGalleryEvent.ReportPhoto) }) }
+    Box {
+        AppIconButton(AppIcon.More, stringResource(Res.string.detail_more), onClick = { open = true }, tint = Color.White)
+        AppMenu(expanded = open, onDismiss = { open = false }, items = items)
     }
 }
 
@@ -114,7 +141,22 @@ private fun Pager(state: MediaGalleryState, modifier: Modifier = Modifier) {
             ->
             val zoomed = state.zoomed && page == state.page
             when (val item = state.items[page]) {
-                is MediaItem.Photo -> Photo(item, zoomed, onTap = { state.eventSink(MediaGalleryEvent.ToggleZoom) })
+                is MediaItem.Photo ->
+                    when {
+                        state.takenDown ->
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text(stringResource(Res.string.label_taken_down_photo), color = Color.White)
+                            }
+                        else ->
+                            BlurredMedia(
+                                state.blur,
+                                revealed = state.revealed.keys.isNotEmpty(),
+                                onReveal = { state.eventSink(MediaGalleryEvent.ToggleZoom) },
+                                Modifier.fillMaxSize(),
+                            ) {
+                                Photo(item, zoomed, onTap = { state.eventSink(MediaGalleryEvent.ToggleZoom) })
+                            }
+                    }
             }
         }
         if (!LocalUiPlatform.current.isMobile && !state.zoomed) {
