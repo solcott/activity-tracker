@@ -17,7 +17,9 @@ import kotlinx.collections.immutable.ImmutableList
  * and end are marked when not at the line's own ends.
  *
  * The map is static unless [interactive], which lets the viewer pan and zoom it (north-up) and recenter it on the route. With [onExpand], a
- * tap on the static map or its expand button calls it (`feed/route-map-viewer`). Web's preview ignores both.
+ * tap on the static map or its expand button calls it (`feed/route-map-viewer`). Web's preview ignores both. A [highlight] polyline
+ * (precision
+ * 5) is drawn over the route in the accent colour, such as the stretch chosen for a new segment.
  */
 @Composable
 expect fun ActivityMap(
@@ -28,6 +30,7 @@ expect fun ActivityMap(
     ends: RouteEnds? = null,
     onExpand: (() -> Unit)? = null,
     interactive: Boolean = false,
+    highlight: String? = null,
 )
 
 /** OpenFreeMap styles: free, no API key or request limits. Swap the URLs to change tile provider. */

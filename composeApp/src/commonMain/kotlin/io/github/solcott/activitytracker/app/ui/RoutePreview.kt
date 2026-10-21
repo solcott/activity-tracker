@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
@@ -24,7 +25,8 @@ import kotlinx.collections.immutable.ImmutableList
 
 /**
  * Draws an encoded polyline scaled to fit, broken at [gaps] (`feed.activity#polylineGaps`), with its [RouteMarkers] (the start and end at
- * [ends] when given). Placeholder until a real map is integrated.
+ * [ends] when given), and a [highlight] polyline over it in the accent colour, as `ActivityMap` draws one. Placeholder until a real map is
+ * integrated.
  */
 @Composable
 fun RoutePreview(
@@ -33,9 +35,12 @@ fun RoutePreview(
     height: Dp = 160.dp,
     gaps: ImmutableList<Int>? = null,
     ends: RouteEnds? = null,
+    highlight: String? = null,
 ) {
     val points = remember(polyline) { runCatching { TrackMath.decodePolyline(polyline) }.getOrDefault(emptyList()) }
     if (points.size < 2) return
+    val stretch = remember(highlight) { highlight?.let { runCatching { TrackMath.decodePolyline(it) }.getOrNull() }.orEmpty() }
+    val highlightColor = MaterialTheme.colorScheme.tertiary
     val markers = remember(points, gaps, ends) { RouteMarkers.of(SegmentedPolyline.pieces(points, gaps))?.shownAt(ends) }
     val color = MaterialTheme.colorScheme.primary
     Canvas(modifier.fillMaxWidth().height(height)) {
@@ -66,6 +71,7 @@ fun RoutePreview(
                 }
             }
         drawPath(path, color, style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round))
+        drawHighlight(stretch.map(::at), highlightColor)
         markers?.let { (start, end, breaks) ->
             val dashes = PathEffect.dashPathEffect(floatArrayOf(RouteMarkers.CONNECTOR_DASH.toPx(), RouteMarkers.CONNECTOR_SPACE.toPx()))
             for ((stop, resume) in breaks) {
@@ -85,6 +91,17 @@ fun RoutePreview(
             end?.let { drawMarker(at(it), RouteMarkers.END_RADIUS, fill = RouteMarkers.END_COLOR, ring = Color.White) }
         }
     }
+}
+
+/** [points], a highlighted stretch already placed on the canvas, as a wider line over the route; nothing for fewer than two. */
+private fun DrawScope.drawHighlight(points: List<Offset>, color: Color) {
+    if (points.size < 2) return
+    val path =
+        Path().apply {
+            moveTo(points.first().x, points.first().y)
+            for (p in points.drop(1)) lineTo(p.x, p.y)
+        }
+    drawPath(path, color, style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
 }
 
 /** A dot of [radius] filled with [fill] and ringed with [ring], [ringWidth] wide, as `ActivityMap` draws its markers. */

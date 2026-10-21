@@ -57,6 +57,7 @@ class UseAdaptiveComponents(config: Config) :
                 "Checkbox" to "AppCheckbox",
                 "TriStateCheckbox" to "AppTriStateCheckbox",
                 "FilterChip" to "AppFilterChip",
+                "RangeSlider" to "AppRangeSlider",
             )
     }
 }

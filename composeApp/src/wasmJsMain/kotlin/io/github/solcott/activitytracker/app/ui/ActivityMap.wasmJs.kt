@@ -16,4 +16,5 @@ actual fun ActivityMap(
     ends: RouteEnds?,
     onExpand: (() -> Unit)?,
     interactive: Boolean,
-) = RoutePreview(polyline, modifier, height, gaps, ends)
+    highlight: String?,
+) = RoutePreview(polyline, modifier, height, gaps, ends, highlight)

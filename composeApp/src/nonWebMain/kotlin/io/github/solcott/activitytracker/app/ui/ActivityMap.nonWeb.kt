@@ -10,6 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -57,6 +58,7 @@ actual fun ActivityMap(
     ends: RouteEnds?,
     onExpand: (() -> Unit)?,
     interactive: Boolean,
+    highlight: String?,
 ) {
     // (lat, lng) pairs, like RoutePreview.
     val points = remember(polyline) { runCatching { TrackMath.decodePolyline(polyline) }.getOrDefault(emptyList()) }
@@ -74,6 +76,14 @@ actual fun ActivityMap(
             )
         }
     val color = MaterialTheme.colorScheme.primary
+    val highlightColor = MaterialTheme.colorScheme.tertiary
+    val highlightJson =
+        remember(highlight) {
+            highlight
+                ?.let { runCatching { TrackMath.decodePolyline(it) }.getOrNull() }
+                ?.takeIf { it.size >= 2 }
+                ?.let { lineJson(listOf(it)) }
+        }
     val style = BaseStyle.Uri(if (isSystemInDarkTheme()) MapStyles.DARK else MapStyles.LIGHT)
     val mapState =
         rememberMapState(baseStyle = style) {
@@ -94,6 +104,18 @@ actual fun ActivityMap(
                 cap = const(LineCap.Round),
                 join = const(LineJoin.Round),
             )
+            // MapLibre Compose can't replace a source's data, so a new stretch makes a new source and layer, in this place in the order.
+            key(highlightJson) {
+                val stretch = rememberGeoJsonSource(GeoJsonData.JsonString(highlightJson ?: lineJson(emptyList())))
+                LineLayer(
+                    id = "route-highlight",
+                    source = stretch,
+                    color = const(highlightColor),
+                    width = const(6.dp),
+                    cap = const(LineCap.Round),
+                    join = const(LineJoin.Round),
+                )
+            }
             markers?.let { RouteMarkerLayers(it) }
         }
     // Jump straight to the route; cameraForBounds waits until the map has a viewport.
