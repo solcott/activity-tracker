@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.appview.api
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.SearchActors
 import org.jetbrains.exposed.v1.core.Case
@@ -20,10 +21,10 @@ import org.jetbrains.exposed.v1.jdbc.select
 
 /**
  * Finds athletes by handle, display name or DID. Only accounts in `actors` can match, and the indexer adds an account there only when it
- * writes one of this app's records, so other atproto accounts never show up.
+ * writes one of this app's records, so other atproto accounts never show up. Nobody in a block with the viewer is found.
  */
 class ActorSearch(private val db: Database, private val avatars: AvatarUrls) {
-    suspend fun search(params: SearchActors.Params): SearchActors.Output {
+    suspend fun search(viewer: Did, params: SearchActors.Params): SearchActors.Output {
         val q = normalize(params.q)
         if (q.isEmpty()) return SearchActors.Output(emptyList())
         val pageSize = Paging.clamp(params.limit)
@@ -42,7 +43,10 @@ class ActorSearch(private val db: Database, private val avatars: AvatarUrls) {
                     .Else(intLiteral(RANK_ANYWHERE))
             val rows =
                 Actors.select(Actors.did)
-                    .where { (Actors.did eq q) or (hasHandle and (Actors.handle like anywhere)) or (name like anywhere) }
+                    .where {
+                        ((Actors.did eq q) or (hasHandle and (Actors.handle like anywhere)) or (name like anywhere)) and
+                            notBlocked(viewer, Actors.did)
+                    }
                     .orderBy(rank to SortOrder.ASC, Actors.handle to SortOrder.ASC, Actors.did to SortOrder.ASC)
                     .limit(pageSize)
                     .offset(offset)

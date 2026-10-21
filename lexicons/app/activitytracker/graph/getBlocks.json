@@ -1,0 +1,41 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.graph.getBlocks",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Accounts the requesting athlete blocks, from their app.activitytracker.graph.block records and their app.bsky.graph.block records, newest first. Only ever the caller's own blocks. Requires auth.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 30 },
+          "cursor": { "type": "string" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["blocks"],
+          "properties": {
+            "cursor": { "type": "string" },
+            "blocks": { "type": "array", "items": { "type": "ref", "ref": "#blockView" } }
+          }
+        }
+      }
+    },
+    "blockView": {
+      "type": "object",
+      "required": ["actor", "sources", "createdAt"],
+      "properties": {
+        "actor": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
+        "sources": {
+          "type": "array",
+          "items": { "type": "string", "knownValues": ["app", "bluesky"] },
+          "description": "Where the block is recorded: app for an app.activitytracker.graph.block, bluesky for an app.bsky.graph.block. Clients can only remove an app block."
+        },
+        "createdAt": { "type": "string", "format": "datetime", "description": "When the newest of its records was made." }
+      }
+    }
+  }
+}

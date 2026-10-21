@@ -69,7 +69,10 @@ kotlin {
         // api so the framework can export it (see the framework block above).
         iosMain.dependencies { api(projects.coreActivityfile) }
         wasmJsMain.dependencies { implementation(libs.kotlinx.browser) }
-        // Skia's native library, for tests that encode images (PhotoCompressionTest).
-        jvmTest.dependencies { implementation(compose.desktop.currentOs) }
+        // Skia's native library, for tests that encode images (PhotoCompressionTest) and draw (ChartReadoutUiTest).
+        jvmTest.dependencies {
+            implementation(compose.desktop.currentOs)
+            implementation(libs.compose.ui.test)
+        }
     }
 }

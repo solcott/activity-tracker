@@ -166,7 +166,7 @@ private fun ColumnPage(state: ActivityDetailState.Loaded, contentPadding: Paddin
             }
             item(key = "likes") { Likes(state) }
             item(key = "trainingLoad") { TrainingLoadCard(page.trainingLoad) }
-            metricCards(state, columns = if (medium) 2 else 1, elevationBehind = medium)
+            metricCards(state, columns = if (medium) 2 else 1)
             item(key = "stats") { StatsList(page.stats, columns = if (medium) 2 else 1) }
             comments(state)
         }
@@ -211,7 +211,7 @@ private fun PanedPage(state: ActivityDetailState.Loaded, contentPadding: Padding
                 contentPadding = padding,
                 verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
             ) {
-                metricCards(state, columns, elevationBehind = true)
+                metricCards(state, columns)
             }
             AppVerticalScrollbar(cardsState, Modifier.align(Alignment.CenterEnd).padding(contentPadding).fillMaxHeight())
         }
@@ -220,7 +220,7 @@ private fun PanedPage(state: ActivityDetailState.Loaded, contentPadding: Padding
 }
 
 /** The metric cards, [columns] to a row; laps and the other tables take a row of their own. */
-private fun LazyListScope.metricCards(state: ActivityDetailState.Loaded, columns: Int, elevationBehind: Boolean) {
+private fun LazyListScope.metricCards(state: ActivityDetailState.Loaded, columns: Int) {
     val charts = state.page.charts ?: return
     val rows = mutableListOf<List<MetricCard>>()
     for (card in state.page.cards) {
@@ -237,7 +237,7 @@ private fun LazyListScope.metricCards(state: ActivityDetailState.Loaded, columns
             row.forEach { card ->
                 val modifier = if (card.section in FULL_WIDTH) Modifier.fillMaxWidth() else Modifier.weight(1f)
                 val sources = state.chartSources.firstOrNull { it.section == card.section }?.members
-                MetricCardUi(card, charts, modifier, state.chartsMissingZones, onSetThresholds, elevationBehind, sources)
+                MetricCardUi(card, charts, modifier, state.chartsMissingZones, onSetThresholds, sources)
             }
             if (row.none { it.section in FULL_WIDTH }) repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
         }

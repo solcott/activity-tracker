@@ -32,9 +32,11 @@ import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.profile_sign_out
+import io.github.solcott.activitytracker.composeApp.resources.settings_blocked_accounts
 import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_activity
 import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_heading
 import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_help
+import io.github.solcott.activitytracker.composeApp.resources.settings_muted_accounts
 import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_zones
 import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_zones_count
 import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_zones_ends
@@ -105,6 +107,13 @@ fun SettingsUi(state: SettingsState, modifier: Modifier = Modifier) {
             }
             HorizontalDivider()
             SegmentMatching(state)
+            HorizontalDivider()
+            AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.OpenBlocked) }) {
+                Text(stringResource(Res.string.settings_blocked_accounts))
+            }
+            AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.OpenMuted) }) {
+                Text(stringResource(Res.string.settings_muted_accounts))
+            }
             HorizontalDivider()
             AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.SignOut) }) { Text(stringResource(Res.string.profile_sign_out)) }
         }

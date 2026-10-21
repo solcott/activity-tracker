@@ -71,7 +71,7 @@ A chart card SHALL show, in order: the metric's title; its headline figures (ave
 
 #### Scenario: Phone
 - **WHEN** a ride with an elevation series is shown 390dp wide
-- **THEN** its charts show no elevation behind them
+- **THEN** its charts show the ride's elevation faintly behind them
 
 #### Scenario: No elevation
 - **WHEN** an indoor ride with no elevation series is opened
@@ -109,7 +109,7 @@ For a sport timed by pace (runs, walks, hikes and swims), the speed card SHALL b
 
 #### Scenario: Hilly run on a phone
 - **WHEN** the same run is shown 390dp wide
-- **THEN** its pace chart shows no elevation behind it
+- **THEN** its pace chart shows the run's elevation faintly behind the pace line, with each climb drawn rising, as on a wide window
 
 ### Requirement: All stats list
 The page SHALL list every summary figure the viewer was served, including the hero's, as label and value rows in named groups: Timing, Distance & speed, Heart rate, Power, Cadence, Elevation, Work & energy, Temperature, Counts, Dive and Device. A group with no figures SHALL be left out.
@@ -278,12 +278,20 @@ The average a chart card's chart marks, and the average and maximum it gives a s
 - **WHEN** a screen reader reads the heart rate chart of a ride whose heart rate headline gives an average of 143 bpm and a maximum of 175 bpm
 - **THEN** it reads an average of 143 bpm and a maximum of 175 bpm
 
-### Requirement: Elevation behind charts on wide windows
-From 600dp wide, when the activity has an elevation series the viewer was served, each other chart SHALL show it faintly behind its own series. Below 600dp charts SHALL draw no elevation behind them, to keep each within a frame on phones.
+### Requirement: Elevation behind charts
+At every window width, when the activity has an elevation series the viewer was served, each other chart SHALL show it faintly behind its own series. This applies on the activity page and in the import preview.
 
 #### Scenario: Wide window
 - **WHEN** a ride with an elevation series and a heart rate stream is shown 1200dp wide
 - **THEN** its heart rate chart shows the ride's elevation faintly behind the heart rate
+
+#### Scenario: Phone
+- **WHEN** a ride with an elevation series and a heart rate stream is shown 412dp wide on an Android phone
+- **THEN** its heart rate chart shows the ride's elevation faintly behind the heart rate, as it does on a wide window
+
+#### Scenario: Import preview on a phone
+- **WHEN** a FIT file of a ride with altitude and heart rate is previewed for import 390dp wide
+- **THEN** the preview's heart rate chart shows the ride's elevation faintly behind the heart rate
 
 ### Requirement: What the Counts, Dive and Device groups hold
 The stats list's Counts group SHALL hold steps, strokes, jumps, shifts, runs, and a mountain bike ride's grit and flow beside its jumps. Its Dive group SHALL hold the dive computer's summary: bottom time, gases, surface interval, CNS, nitrogen, ascent and descent, conditions and its settings. Its Device group SHALL hold the recording device and each sensor.
@@ -331,3 +339,37 @@ Wherever the app shows an activity's temperature (the page, the import preview, 
 #### Scenario: Celsius
 - **WHEN** a viewer using metric units opens the same ride
 - **THEN** its maximum temperature reads 27.0 °C
+
+### Requirement: Reading a chart's values
+Hovering, tapping or dragging across a chart over time on the activity page or the import preview SHALL show a readout for the main line's point nearest the pointer: a guideline down the chart, a dot on the line, and the point's time and value. The readout SHALL stay after a tap or a drag ends. It SHALL hide when the mouse leaves the chart, or when a drag starts mostly vertically, which scrolls the page.
+
+#### Scenario: Drag across heart rate
+- **WHEN** a viewer drags a finger sideways across a ride's heart rate chart and stops 1:20:31 into the ride
+- **THEN** the readout follows the finger and, once the finger stops, shows "1:20:31 · 114 bpm · 5,026 ft" (time, heart rate and the elevation there) beside a dot on the heart rate line at that time
+
+#### Scenario: Readout stays after release
+- **WHEN** the viewer lifts the finger after a tap or a sideways drag
+- **THEN** the readout stays where it was until the next touch
+
+#### Scenario: Vertical drag scrolls the page
+- **WHEN** a viewer puts a finger on a chart and drags mostly upward
+- **THEN** the page scrolls and no readout is shown
+
+#### Scenario: Hover on desktop
+- **WHEN** a mouse moves over a chart on desktop or the web and then leaves it
+- **THEN** the readout follows the pointer while it is over the chart, and hides when it leaves
+
+#### Scenario: More lines on one chart
+- **WHEN** a viewer drags across a dive's tank pressure chart with two tanks
+- **THEN** the readout gives the first tank's value, and each tank line with a sample at that time gets a dot
+
+### Requirement: Scrubbing keeps up with the display
+Moving a chart's readout SHALL redraw only the readout, not the chart beneath it, so that dragging across a chart keeps up with the display's refresh rate on current phones.
+
+#### Scenario: Drag on a 120 Hz phone
+- **WHEN** a viewer on a Pixel 9 Pro XL (release build, 120 Hz) drags across a ride's heart rate chart for 4 seconds
+- **THEN** no more than 5% of the frames drawn during the drag are janky
+
+#### Scenario: Chart unchanged while scrubbing
+- **WHEN** a viewer drags the readout across a chart with the elevation behind it
+- **THEN** the line, its fill, the elevation, the average line and the axes do not move or flicker

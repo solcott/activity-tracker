@@ -13,4 +13,10 @@ internal enum class CommentAction {
 
     /** A comment they hid on their own activity. */
     Unhide,
+
+    /** Someone else's comment: Mute its author, which doesn't ask. */
+    MuteAuthor,
+
+    /** Someone else's comment: Block its author, which asks first. */
+    BlockAuthor,
 }

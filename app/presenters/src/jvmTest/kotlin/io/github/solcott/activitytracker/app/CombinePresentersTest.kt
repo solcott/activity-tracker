@@ -28,6 +28,7 @@ import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.data.units.UnitSystem
@@ -246,6 +247,7 @@ class CombinePresentersTest {
 
     private val localLikes = LocalLikes()
 
+    @Suppress("LongParameterList") // One per repository the presenters under test need.
     private class Graph(
         val feed: FeedRepository,
         val activities: ActivityRepository,
@@ -253,6 +255,7 @@ class CombinePresentersTest {
         val manager: ActivityManager,
         val exporter: ActivityExporter,
         val suggestions: CombineSuggestions,
+        val blocks: BlockRepository,
     )
 
     /** A session that can write to the repo only, so the PDS here is just Alice's repo. */
@@ -310,6 +313,7 @@ class CombinePresentersTest {
             manager,
             ActivityExporter(db, clients, tracks, zones.sources, feed),
             CombineSuggestions(db, clients, feed, tracks, suggestionClock),
+            BlockRepository(clients, writer, outbox, feed, Clock.System),
         )
     }
 
@@ -338,6 +342,7 @@ class CombinePresentersTest {
                 g.exporter,
                 units,
                 g.suggestions,
+                g.blocks,
             )
         }
     }

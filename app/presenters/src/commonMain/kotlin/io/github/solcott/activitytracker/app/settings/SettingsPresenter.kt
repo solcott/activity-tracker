@@ -10,6 +10,8 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.profile.BlockListKind
+import io.github.solcott.activitytracker.app.profile.BlockListScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
@@ -76,6 +78,14 @@ fun SettingsPresenter(
 
             SettingsEvent.OpenPrivacyZones -> {
                 navigator.goTo(PrivacyZonesScreen)
+            }
+
+            SettingsEvent.OpenBlocked -> {
+                navigator.goTo(BlockListScreen(BlockListKind.Blocked))
+            }
+
+            SettingsEvent.OpenMuted -> {
+                navigator.goTo(BlockListScreen(BlockListKind.Muted))
             }
 
             is SettingsEvent.SegmentMatchingChanged -> {

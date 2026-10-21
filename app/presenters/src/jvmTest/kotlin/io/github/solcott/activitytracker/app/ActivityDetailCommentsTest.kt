@@ -36,6 +36,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
                 r.exporter,
                 r.units,
                 r.suggestions,
+                r.blocks,
             )
         }) {
             val loaded = awaitLoaded()
@@ -69,6 +70,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
                 r.exporter,
                 r.units,
                 r.suggestions,
+                r.blocks,
             )
         }) {
             val loaded = awaitLoaded()
@@ -106,6 +108,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
                 r.exporter,
                 r.units,
                 r.suggestions,
+                r.blocks,
             )
         }) {
             val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 2 } as ActivityDetailState.Loaded
@@ -143,6 +146,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
                 r.exporter,
                 r.units,
                 r.suggestions,
+                r.blocks,
             )
         }) {
             val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 2 } as ActivityDetailState.Loaded
@@ -164,6 +168,47 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
             .map { it.operation to it.space?.substringAfterLast('/') }
 
     @Test
+    fun blockingACommenterTakesTheirCommentsOutAtOnceAndAcrossAReload() = runTest {
+        commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1"), comment(carol, "did:plc:carol", "3kc2"))
+        val r = repos()
+        presenterTestOf({
+            ActivityDetailPresenter(
+                screen,
+                FakeNavigator(screen),
+                r.feed,
+                r.activities,
+                r.profiles,
+                localLikes,
+                r.manager,
+                r.exporter,
+                r.units,
+                r.suggestions,
+                r.blocks,
+            )
+        }) {
+            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 2 } as ActivityDetailState.Loaded
+            val count = loaded.activity.commentCount
+            val bobs = loaded.comments.roots.first().uri
+            loaded.eventSink(ActivityDetailEvent.BlockCommenter(bobs))
+            loaded.eventSink(ActivityDetailEvent.BlockCommenter(bobs))
+            val blocked =
+                awaitUntil {
+                    (it as? ActivityDetailState.Loaded)?.let { l -> l.comments.roots.size == 1 && l.activity.commentCount == count - 1 } ==
+                        true
+                }
+                    as ActivityDetailState.Loaded
+            assertEquals("did:plc:carol", blocked.comments.roots.single().author.did.value, "the count drops with it")
+            r.db.outbox().count(alice.value).first { it >= 1 }
+            val queued = r.db.outbox().pending(alice.value).filter { it.collection == Nsid.GRAPH_BLOCK }
+            assertEquals(listOf("did:plc:bob" to AthleteSpace.INTERACTIONS), queued.map { it.rkey to it.space?.substringAfterLast('/') })
+
+            // A reload while the AppView still lists bob's comment keeps it out of the count.
+            assertEquals(count - 1, r.feed.activity(AtUri(activityUri)).commentCount)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun hidesOthersCommentOnOwnActivityAtOnceAndOnceForADoubleTap() = runTest {
         author = staleAlice
         commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1"), comment(carol, "did:plc:carol", "3kc2"))
@@ -180,6 +225,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
                 r.exporter,
                 r.units,
                 r.suggestions,
+                r.blocks,
             )
         }) {
             val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 2 } as ActivityDetailState.Loaded
@@ -222,6 +268,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
                 r.exporter,
                 r.units,
                 r.suggestions,
+                r.blocks,
             )
         }) {
             val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 2 } as ActivityDetailState.Loaded
@@ -260,6 +307,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
                 r.exporter,
                 r.units,
                 r.suggestions,
+                r.blocks,
             )
         }) {
             val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 1 } as ActivityDetailState.Loaded
@@ -289,6 +337,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
                 r.exporter,
                 r.units,
                 r.suggestions,
+                r.blocks,
             )
         }) {
             val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 1 } as ActivityDetailState.Loaded
@@ -318,6 +367,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
                 r.exporter,
                 r.units,
                 r.suggestions,
+                r.blocks,
             )
         }) {
             val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
@@ -356,6 +406,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
                 r.exporter,
                 r.units,
                 r.suggestions,
+                r.blocks,
             )
         }) {
             val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
@@ -392,6 +443,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
                 r.exporter,
                 r.units,
                 r.suggestions,
+                r.blocks,
             )
         }) {
             val failed = awaitUntil { it.loaded()?.comments?.error != null }.loaded()!!
@@ -420,6 +472,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
                 r.exporter,
                 r.units,
                 r.suggestions,
+                r.blocks,
             )
         }) {
             val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
@@ -472,6 +525,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
                 r.exporter,
                 r.units,
                 r.suggestions,
+                r.blocks,
             )
         }) {
             val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
@@ -505,6 +559,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
                 r.exporter,
                 r.units,
                 r.suggestions,
+                r.blocks,
             )
         }) {
             val loaded = awaitUntil { it.loaded()?.comments?.roots?.size == 2 }.loaded()!!
@@ -535,6 +590,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
                 r.exporter,
                 r.units,
                 r.suggestions,
+                r.blocks,
             )
         }) {
             val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!
@@ -572,6 +628,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
                 r.exporter,
                 r.units,
                 r.suggestions,
+                r.blocks,
             )
         }) {
             val first = awaitUntil { it.loaded()?.comments?.roots?.size == 30 && it.loaded()?.comments?.isLoading == false }.loaded()!!

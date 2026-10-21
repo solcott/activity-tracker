@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.ownBlobUrl
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
@@ -23,6 +24,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
 import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
+import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
@@ -30,6 +32,7 @@ import kotlin.time.Instant
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -61,10 +64,14 @@ class FeedRepository(
     /** Comments the viewer sent, deleted, hid or unhid this session, shown so until the AppView catches up. */
     val localComments = LocalComments()
 
-    fun timeline(filter: ActivityFilter = ActivityFilter.None): Flow<List<ActivityView>> = observe(filter.cacheKey(TIMELINE))
+    /** Accounts the viewer blocked, muted or let back this session, laid over every read until the AppView catches up. */
+    val localBlocks = LocalBlocks()
+
+    fun timeline(filter: ActivityFilter = ActivityFilter.None): Flow<List<ActivityView>> =
+        observe(filter.cacheKey(TIMELINE), timeline = true)
 
     fun authorActivities(did: String, filter: ActivityFilter = ActivityFilter.None): Flow<List<ActivityView>> =
-        observe(filter.cacheKey(authorKey(did)))
+        observe(filter.cacheKey(authorKey(did)), timeline = false)
 
     suspend fun refreshTimeline(filter: ActivityFilter = ActivityFilter.None) {
         val params = GetTimeline.Params(type = filter.typeTokens().ifEmpty { null }, since = filter.since, until = filter.until)
@@ -94,14 +101,17 @@ class FeedRepository(
         val lookup =
             if (pending.isEmpty()) null
             else async { runSuspendCatching { clients.appView.query(GetComments.method, GetComments.Params(uri, uris = pending)) } }
+        // A block or mute the AppView already serves no longer moves the count: ask about those not known to be settled yet.
+        val settling = localBlocks.unsettled().map { did -> async { settleBlock(did) } }
         val view = clients.appView.query(GetActivity.method, GetActivity.Params(uri)).activity
+        settling.forEach { it.await() }
         // Without an answer, each change still counts as not caught up.
         val answer =
             lookup?.await()?.onFailure { log.w(it) { "Couldn't look up the viewer's comment changes on $uri" } }?.getOrNull()?.comments
         val lookedUp = answer?.let { localComments.lookup(uri, pending, it) }
         heldPhotos.dropServed(view)
         val activity = localLikes.applyTo(deletes.applyTo(rewrites.applyTo(view)))
-        val delta = lookedUp?.delta ?: localComments.delta(uri)
+        val delta = (lookedUp?.delta ?: localComments.delta(uri)) + localBlocks.commentDelta(uri, localComments::isHidden)
         val counted = activity.copy(commentCount = (activity.commentCount + delta).coerceAtLeast(0))
         updateCached(uri) { counted }
         // Reported last, with nothing suspending before the caller has the view, so a screen showing the activity loaded before and
@@ -117,8 +127,23 @@ class FeedRepository(
      */
     suspend fun comments(activity: AtUri, cursor: String? = null, root: AtUri? = null): GetComments.Output =
         clients.appView.query(GetComments.method, GetComments.Params(activity, cursor = cursor, root = root)).also { page ->
-            localComments.report(page.comments + page.threads.orEmpty().flatMap { listOfNotNull(it.root) + it.replies })
+            val listed = page.comments + page.threads.orEmpty().flatMap { listOfNotNull(it.root) + it.replies }
+            localComments.report(listed)
+            localBlocks.report(activity, listed)
         }
+
+    /**
+     * Asks the AppView whether it serves the viewer's block or mute of [did] yet ([LocalBlocks.applyTo] settles it if so). An athlete it
+     * answers as unknown blocks the viewer, so the AppView already leaves them out: that settles it too.
+     */
+    private suspend fun settleBlock(did: Did) {
+        runSuspendCatching { clients.appView.query(GetProfile.method, GetProfile.Params(did.value)) }
+            .onSuccess { localBlocks.applyTo(it) }
+            .onFailure { e ->
+                if (e is XrpcException && e.error == PROFILE_NOT_FOUND) localBlocks.settleAll(did)
+                else log.w(e) { "Couldn't ask whether the AppView serves the viewer's block of $did" }
+            }
+    }
 
     /**
      * [uri]'s streams, or null when it has none or the viewer may not see them. Always from the AppView, never the author's PDS, so it's
@@ -139,8 +164,11 @@ class FeedRepository(
      * The first [Paging.MAX_LIMIT] athletes who liked [uri], straight from the AppView, so it lags the viewer's own toggles (see
      * [LocalLikes]).
      */
+    /** [uri]'s likers, without accounts the viewer blocked this session ([localBlocks]). */
     suspend fun likes(uri: AtUri): List<ProfileViewBasic> =
-        clients.appView.query(GetLikes.method, GetLikes.Params(uri, limit = Paging.MAX_LIMIT)).likes
+        clients.appView.query(GetLikes.method, GetLikes.Params(uri, limit = Paging.MAX_LIMIT)).likes.filterNot {
+            localBlocks.blocked(it.did) == true
+        }
 
     /**
      * The signed-in athlete's own activities that started in [since, until), oldest first, optionally of one [sport]: every page the
@@ -210,17 +238,20 @@ class FeedRepository(
         localLikes.applyTo(rewrites.applyTo(it))
     }
 
-    private fun observe(key: String): Flow<List<ActivityView>> =
-        db.feed().observe(key).map { items ->
-            items.mapNotNull { item ->
+    /** The cached feed [key], without the accounts the viewer blocked this session, and on the [timeline] muted ([localBlocks]). */
+    private fun observe(key: String, timeline: Boolean): Flow<List<ActivityView>> =
+        combine(db.feed().observe(key), localBlocks.entries) { items, blocks ->
+            val views = items.mapNotNull { item ->
                 runCatching { AtJson.decodeFromString(ActivityView.serializer(), item.json) }
                     .onFailure { log.w(it) { "Skipping undecodable cached activity ${item.uri}" } }
                     .getOrNull()
             }
+            localBlocks.filter(views, timeline, blocks)
         }
 
     private companion object {
         const val NOT_FOUND = "NotFound"
+        const val PROFILE_NOT_FOUND = "ProfileNotFound"
         const val TIMELINE = "timeline"
 
         /** 5,000 activities: far more than one import spans, and a bound on a misbehaving cursor. */

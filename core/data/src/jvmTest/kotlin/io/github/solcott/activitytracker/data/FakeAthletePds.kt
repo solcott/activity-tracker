@@ -22,6 +22,7 @@ import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.feed.fakeGetComments
+import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -32,7 +33,11 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
+import io.github.solcott.activitytracker.lexicon.app.GetBlocks
 import io.github.solcott.activitytracker.lexicon.app.GetComments
+import io.github.solcott.activitytracker.lexicon.app.GetMutes
+import io.github.solcott.activitytracker.lexicon.app.ProfileView
+import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.mergeStreams
@@ -82,6 +87,13 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
      * while null. A comment naming a root is a reply in that thread, and a thread with no top-level comment listed is a placeholder.
      */
     var served: GetActivity.Output? = null
+
+    /** What the AppView's `getProfile` serves, by DID; `ProfileNotFound` for any other. */
+    val profiles = mutableMapOf<String, ProfileView>()
+
+    /** What the AppView's `getBlocks` and `getMutes` serve, in one page. */
+    var blocks: List<GetBlocks.BlockView> = emptyList()
+    var mutes: List<ProfileViewBasic> = emptyList()
 
     /** What the AppView's `getAuthorActivities` serves, in one page; an error while null. */
     var authorActivities: List<ActivityView>? = emptyList()
@@ -218,6 +230,13 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                         authorActivities?.let {
                             json(AtJson.encodeToString(GetAuthorActivities.Output.serializer(), GetAuthorActivities.Output(it)))
                         } ?: error("InternalServerError", HttpStatusCode.InternalServerError)
+                    path == "/xrpc/${Nsid.ACTOR_GET_PROFILE}" ->
+                        profiles[request.url.parameters["actor"]]?.let { json(AtJson.encodeToString(ProfileView.serializer(), it)) }
+                            ?: error("ProfileNotFound")
+                    path == "/xrpc/${Nsid.GRAPH_GET_BLOCKS}" ->
+                        json(AtJson.encodeToString(GetBlocks.Output.serializer(), GetBlocks.Output(blocks)))
+                    path == "/xrpc/${Nsid.GRAPH_GET_MUTES}" ->
+                        json(AtJson.encodeToString(GetMutes.Output.serializer(), GetMutes.Output(mutes)))
                     path == "/xrpc/${Nsid.FEED_GET_ACTIVITY}" ->
                         served?.let { json(AtJson.encodeToString(GetActivity.Output.serializer(), GetActivity.Output(it.activity))) }
                             ?: error("NotFound")
@@ -320,6 +339,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
         val privacy: PrivacyZones,
         val routes: RouteTrimmer,
         val exporter: ActivityExporter,
+        val blocks: BlockRepository,
     )
 
     @Suppress("LongMethod") // Builds every store a test reaches for.
@@ -389,6 +409,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
             privacy,
             routes,
             ActivityExporter(db, clients, tracks, sources, feed),
+            BlockRepository(clients, writer, outbox, feed, Clock.System),
         )
     }
 }

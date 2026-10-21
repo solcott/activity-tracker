@@ -11,31 +11,12 @@ import kotlinx.collections.immutable.toImmutableList
 internal fun gapsIn(points: List<SeriesPoint>): ImmutableList<Double> = points.filter { it.gapBefore }.map { it.x }.toImmutableList()
 
 /**
- * Joins points as [base] does, except into a point at one of [gapsAt] (x values, in order), which follows a gap in the samples. With no
- * [baseline] the path moves there, so the line breaks. With one, it drops to that edge of the layer, runs along it and rises to the point,
- * so a fill split there has no area across the gap; the line drawing that path must be transparent.
+ * Joins points as [base] does, except into a point at one of [gapsAt] (x values, in order), which follows a gap in the samples: there the
+ * path moves, so the line breaks.
  */
-internal class GapConnector(
-    private val base: PointConnector,
-    private val gapsAt: List<Double>,
-    private val baseline: Baseline? = null,
-) : PointConnector {
-    enum class Baseline {
-        Bottom,
-        Top,
-    }
-
+internal class GapConnector(private val base: PointConnector, private val gapsAt: List<Double>) : PointConnector {
     override fun connect(context: CartesianDrawingContext, path: Path, x1: Float, y1: Float, x2: Float, y2: Float) {
-        if (!context.isGapAt(x2)) return base.connect(context, path, x1, y1, x2, y2)
-        when (baseline) {
-            null -> path.moveTo(x2, y2)
-            else -> {
-                val edge = if (baseline == Baseline.Bottom) context.layerBounds.bottom else context.layerBounds.top
-                path.lineTo(x1, edge)
-                path.lineTo(x2, edge)
-                path.lineTo(x2, y2)
-            }
-        }
+        if (context.isGapAt(x2)) path.moveTo(x2, y2) else base.connect(context, path, x1, y1, x2, y2)
     }
 
     /** Whether the point drawn at [canvasX] is one of [gapsAt], placed as Vico places a line layer's points. */

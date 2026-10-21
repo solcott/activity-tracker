@@ -75,6 +75,18 @@ object Nsid {
     /** A record kept only in an athlete's `self` tier space ([SPACE_ATHLETE]), so it never reaches the firehose and isn't indexed. */
     const val GRAPH_FOLLOW_DECLINE = "$NAMESPACE.graph.followDecline"
     const val GRAPH_GET_FOLLOW_REQUESTS = "$NAMESPACE.graph.getFollowRequests"
+    /** An athlete's block of one account, kept only in their `interactions` space ([SPACE_ATHLETE]) and keyed by the subject's DID. */
+    const val GRAPH_BLOCK = "$NAMESPACE.graph.block"
+    /** An athlete's mute of one account, kept only in their `interactions` space ([SPACE_ATHLETE]) and keyed by the subject's DID. */
+    const val GRAPH_MUTE = "$NAMESPACE.graph.mute"
+    const val GRAPH_GET_BLOCKS = "$NAMESPACE.graph.getBlocks"
+    const val GRAPH_GET_MUTES = "$NAMESPACE.graph.getMutes"
+
+    /**
+     * Bluesky's public block record. The AppView honors an athlete's Bluesky blocks as blocks here too; clients never write `app.bsky.*`
+     * records.
+     */
+    const val BSKY_GRAPH_BLOCK = "app.bsky.graph.block"
 
     /**
      * The space type holding an athlete's permissioned data (`lexicons/.../space/athlete.json`). Not a record collection, so it's never
@@ -97,5 +109,6 @@ object Nsid {
             FEED_COMMENT_HIDE,
             GRAPH_FOLLOW,
             GRAPH_FOLLOW_APPROVAL,
+            BSKY_GRAPH_BLOCK,
         )
 }

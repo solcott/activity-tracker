@@ -41,6 +41,10 @@ sealed interface SettingsEvent {
 
     data object OpenPrivacyZones : SettingsEvent
 
+    data object OpenBlocked : SettingsEvent
+
+    data object OpenMuted : SettingsEvent
+
     /** Turns segment matching [on] or off: a copy of each route without the privacy zones is shared with the AppView while it's on. */
     data class SegmentMatchingChanged(val on: Boolean) : SettingsEvent
 

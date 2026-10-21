@@ -42,7 +42,6 @@ internal fun MetricCardUi(
     modifier: Modifier = Modifier,
     missingZones: Boolean = false,
     onSetThresholds: (() -> Unit)? = null,
-    elevationBehind: Boolean = true,
     /** On a combined activity, the members the card's data came from, named in its caption. */
     sources: ImmutableList<MemberView>? = null,
 ) {
@@ -55,7 +54,7 @@ internal fun MetricCardUi(
                     card.headline.forEach { FigureBlock(it, MaterialTheme.typography.titleLarge, Modifier.weight(1f)) }
                 }
             }
-            CardCharts(card, charts, missingZones, onSetThresholds, elevationBehind)
+            CardCharts(card, charts, missingZones, onSetThresholds)
             if (card.rows.isNotEmpty()) Rows(card.rows)
         }
     }

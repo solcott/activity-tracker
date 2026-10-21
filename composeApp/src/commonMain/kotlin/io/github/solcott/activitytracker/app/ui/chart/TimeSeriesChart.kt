@@ -2,9 +2,10 @@ package io.github.solcott.activitytracker.app.ui.chart
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -22,7 +23,6 @@ import com.patrykandpatrick.vico.multiplatform.cartesian.layer.CartesianLayerDim
 import com.patrykandpatrick.vico.multiplatform.cartesian.layer.LineCartesianLayer
 import com.patrykandpatrick.vico.multiplatform.cartesian.layer.rememberLine
 import com.patrykandpatrick.vico.multiplatform.cartesian.layer.rememberLineCartesianLayer
-import com.patrykandpatrick.vico.multiplatform.cartesian.marker.CartesianMarker
 import com.patrykandpatrick.vico.multiplatform.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.multiplatform.common.DashedShape
 import com.patrykandpatrick.vico.multiplatform.common.Fill
@@ -40,11 +40,13 @@ import kotlinx.collections.immutable.toImmutableList
  * across [xRange] (seconds), or exactly at [xLabelsAt] when the x axis isn't time. [average] draws a reference line. [step] holds each
  * value until the next point, for values like gears. [pointLabels] write values above their points. [backdrop] is drawn as a grey
  * silhouette behind the line on a scale of its own, as Strava draws elevation behind its charts; it has no axis and the marker skips it.
- * Hovering, tapping or dragging across the chart shows [markerLabel] for the nearest point. [inverted] puts zero at the top and larger
- * values further down, filled up to the top, as a dive's depth reads. [others] are more lines on the same scale, unfilled and in their own
- * colours (another tank, or a dive's ceiling under its depth). [events] mark moments with a labelled vertical line, like a gas switch, and
- * [warnings] mark them in the error colour, labelled along the bottom, like a dive computer's alert. Every line, its fill and the backdrop
- * break, drawing nothing, into a point that follows a gap in the samples ([SeriesPoint.gapBefore]).
+ * Hovering, tapping or dragging across the chart shows [markerLabel] for the nearest point, in a [ChartReadout] over the chart. [inverted]
+ * puts zero at the top and larger values further down, filled up to the top, as a dive's depth reads. [others] are more lines on the same
+ * scale, unfilled and in their own colours (another tank, or a dive's ceiling under its depth). [events] mark moments with a labelled
+ * vertical line, like a gas switch, and [warnings] mark them in the error colour, labelled along the bottom, like a dive computer's alert.
+ * Every line, its fill and the backdrop break, drawing nothing, into a point that follows a gap in the samples ([SeriesPoint.gapBefore]).
+ * The backdrop, and the fill of a line with gaps, are [AreaUnderlay]s drawn under Vico's layers, so they cost little more than the line
+ * itself.
  */
 @Composable
 internal fun TimeSeriesChart(
@@ -77,19 +79,9 @@ internal fun TimeSeriesChart(
     val plotted = remember(points, inverted) { if (inverted) points.map { it.copy(y = flip(it.y)) } else points }
     val plottedExtra = remember(extra, inverted) { extra.map { line -> if (inverted) line.map { it.copy(y = flip(it.y)) } else line } }
     val gaps = remember(points) { gapsIn(points) }
-    // A line with gaps draws its fill in a layer of its own under it, which drops to the fill's edge across each gap (see GapConnector).
+    // A line with gaps draws its fill apart, under the line, with no area across each gap.
     val separateFill = gaps.isNotEmpty()
-    // Line layers take their models in order, so the backdrop's comes first and draws underneath, then the fill's.
-    val model =
-        remember(plotted, plottedExtra, behind, separateFill) {
-            CartesianChartModel(
-                listOfNotNull(
-                    behind?.let(::lineModel),
-                    plotted.takeIf { separateFill }?.let(::lineModel),
-                    linesModel(listOf(plotted) + plottedExtra),
-                )
-            )
-        }
+    val model = remember(plotted, plottedExtra) { CartesianChartModel(linesModel(listOf(plotted) + plottedExtra)) }
     val yAxis =
         remember(points, extra, pointLabels.isEmpty(), inverted, timeValues) {
             yAxisOf(points + extra.flatten(), pointLabels.isNotEmpty(), inverted, timeValues)
@@ -112,11 +104,25 @@ internal fun TimeSeriesChart(
         remember(minY, maxY, xRange) {
             CartesianLayerRangeProvider.fixed(minX = xRange.start, maxX = xRange.endInclusive, minY = minY, maxY = maxY)
         }
-    val fillLayer =
-        remember(separateFill, areaFill, connector, gaps, fillAbove, rangeProvider) {
-            if (separateFill) fillLayer(areaFill, connector, gaps, fillAbove, rangeProvider) else null
+    val fillUnder =
+        remember(separateFill, plotted, minY, maxY, colors, fillAbove, step) {
+            if (separateFill) AreaUnderlay(plotted, minY, maxY, colors.area, fromTop = fillAbove, step = step) else null
         }
+    val backdropUnder = behind?.let { rememberBackdrop(it) }
     val otherLines = rememberOtherLines(remember(extra) { extra.map(::gapsIn).toImmutableList() })
+    val frame = remember { ChartFrame() }
+    val currentLabel by rememberUpdatedState(markerLabel)
+    val readout =
+        remember(plotted, plottedExtra, minY, maxY, inverted, frame) {
+            ChartReadout(
+                frame,
+                plotted.toImmutableList(),
+                minY..maxY,
+                plottedExtra.map { it.toImmutableList() }.toImmutableList(),
+            ) { x, y ->
+                currentLabel(x, flip(y))
+            }
+        }
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
     val label = rememberTextComponent(labelStyle)
     val grid = rememberLineComponent(Fill(colors.grid), thickness = 1.dp)
@@ -147,18 +153,11 @@ internal fun TimeSeriesChart(
         }
     val chart =
         rememberCartesianChart(
-            layers =
-                listOfNotNull(
-                        behind?.let { rememberBackdropLayer(it, xRange) },
-                        fillLayer,
-                        rememberLineCartesianLayer(
-                            LineCartesianLayer.LineProvider.series(listOf(line) + otherLines),
-                            rangeProvider = rangeProvider,
-                            // Its own scale, apart from the backdrop's.
-                            verticalAxisPosition = Axis.Position.Vertical.Start,
-                        ),
-                    )
-                    .toTypedArray(),
+            rememberLineCartesianLayer(
+                LineCartesianLayer.LineProvider.series(listOf(line) + otherLines),
+                rangeProvider = rangeProvider,
+                verticalAxisPosition = Axis.Position.Vertical.Start,
+            ),
             startAxis =
                 VerticalAxis.rememberStart(
                     line = null,
@@ -182,21 +181,23 @@ internal fun TimeSeriesChart(
                         },
                 ),
             decorations =
-                remember(average, averageLine, labelsAbove, eventMarks, warningMarks, inverted) {
+                remember(backdropUnder, fillUnder, average, averageLine, labelsAbove, eventMarks, warningMarks, inverted, frame) {
                     listOfNotNull(
+                        // Under the layers in this order: the backdrop, then the line's fill.
+                        backdropUnder,
+                        fillUnder,
                         average?.let { avg ->
                             HorizontalLine(y = { flip(avg) }, line = averageLine, verticalAxisPosition = Axis.Position.Vertical.Start)
                         },
                         labelsAbove,
                         eventMarks.takeIf { events.isNotEmpty() },
                         warningMarks.takeIf { warnings.isNotEmpty() },
+                        frame,
                     )
                 },
-            marker = rememberValueMarker(remember(markerLabel, inverted) { { x, y -> markerLabel(x, flip(y)) } }),
             getXStep = { _, _, _ -> xStep },
-            markerController = rememberScrubController(),
         )
-    StaticChart(chart, model, description, height, modifier)
+    StaticChart(chart, model, description, height, modifier, readout)
 }
 
 /**
@@ -219,8 +220,6 @@ private const val BACKDROP_ALPHA = 0.12f
 private const val BACKDROP_HEIGHT = 0.6
 private const val MIN_BACKDROP_SPAN = 20.0
 
-private fun lineModel(points: List<SeriesPoint>) = linesModel(listOf(points))
-
 private fun linesModel(lines: List<List<SeriesPoint>>) = LineCartesianLayerModel.build {
     lines.forEach { points -> series(points.map { it.x }, points.map { it.y }) }
 }
@@ -242,62 +241,18 @@ private fun rememberOtherLines(gaps: ImmutableList<ImmutableList<Double>>): List
     }
 }
 
-/** [areaFill] in a layer of its own on the start axis's scale, dropping to its edge (the top when [fillAbove]) across each of [gaps]. */
-private fun fillLayer(
-    areaFill: LineCartesianLayer.AreaFill,
-    connector: LineCartesianLayer.PointConnector,
-    gaps: List<Double>,
-    fillAbove: Boolean,
-    rangeProvider: CartesianLayerRangeProvider,
-): LineCartesianLayer {
-    val baseline = if (fillAbove) GapConnector.Baseline.Top else GapConnector.Baseline.Bottom
-    return UnmarkedLayer(fillOnly(areaFill, GapConnector(connector, gaps, baseline)), rangeProvider, Axis.Position.Vertical.Start)
-}
-
-/** A line that draws only [areaFill], joined by [connector]: no stroke, so a connector running along the fill's edge isn't seen. */
-private fun fillOnly(areaFill: LineCartesianLayer.AreaFill, connector: LineCartesianLayer.PointConnector) =
-    LineCartesianLayer.Line(
-        fill = LineCartesianLayer.LineFill.single(Fill(Color.Transparent)),
-        stroke = LineCartesianLayer.LineStroke.Continuous(thickness = 0.dp),
-        areaFill = areaFill,
-        pointConnector = connector,
-    )
-
 /**
- * [points] as a grey area on the end axis's scale, filling about [BACKDROP_HEIGHT] of the chart from the bottom so the line in front stays
+ * [points] as a grey area on a scale of its own, filling about [BACKDROP_HEIGHT] of the chart from the bottom so the line in front stays
  * readable. A span of at least [MIN_BACKDROP_SPAN] keeps a flat route flat instead of stretching its noise into hills.
  */
 @Composable
-private fun rememberBackdropLayer(points: ImmutableList<SeriesPoint>, xRange: ClosedFloatingPointRange<Double>): LineCartesianLayer {
+private fun rememberBackdrop(points: ImmutableList<SeriesPoint>): AreaUnderlay {
     val color = MaterialTheme.colorScheme.onSurfaceVariant
-    return remember(points, xRange, color) {
+    return remember(points, color) {
         val low = points.minOf { it.y }
         val span = (points.maxOf { it.y } - low).coerceAtLeast(MIN_BACKDROP_SPAN)
-        val gaps = gapsIn(points)
-        val connector =
-            if (gaps.isEmpty()) LineCartesianLayer.PointConnector.Sharp
-            else GapConnector(LineCartesianLayer.PointConnector.Sharp, gaps, GapConnector.Baseline.Bottom)
-        val line = fillOnly(LineCartesianLayer.AreaFill.single(Fill(color.copy(alpha = BACKDROP_ALPHA)), splitY = { low }), connector)
-        UnmarkedLayer(
-            line,
-            CartesianLayerRangeProvider.fixed(
-                minX = xRange.start,
-                maxX = xRange.endInclusive,
-                minY = low,
-                maxY = low + span / BACKDROP_HEIGHT,
-            ),
-            Axis.Position.Vertical.End,
-        )
+        AreaUnderlay(points, low, low + span / BACKDROP_HEIGHT, color.copy(alpha = BACKDROP_ALPHA))
     }
-}
-
-/** A line layer with no marker targets, so the marker's dot and readout stay on the line in front: the backdrop, or a line's own fill. */
-private class UnmarkedLayer(
-    line: LineCartesianLayer.Line,
-    rangeProvider: CartesianLayerRangeProvider,
-    verticalAxisPosition: Axis.Position.Vertical,
-) : LineCartesianLayer(LineProvider.series(line), rangeProvider = rangeProvider, verticalAxisPosition = verticalAxisPosition) {
-    override val markerTargets: Map<Double, List<CartesianMarker.Target>> = emptyMap()
 }
 
 private const val Y_PADDING = 0.08

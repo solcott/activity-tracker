@@ -6,10 +6,12 @@ import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.appview.db.ActivityZones
 import io.github.solcott.activitytracker.appview.db.Actors
+import io.github.solcott.activitytracker.appview.db.Blocks
 import io.github.solcott.activitytracker.appview.db.CommentHides
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
 import io.github.solcott.activitytracker.appview.db.Likes
+import io.github.solcott.activitytracker.appview.db.Mutes
 import io.github.solcott.activitytracker.appview.db.RecordShadows
 import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.index.Indexer
@@ -473,6 +475,34 @@ class SpaceSyncTest {
         client.notifyWrite(bobInteractions)
         runDue()
         assertEquals(setOf("3kl2"), likes().keys)
+    }
+
+    @Test
+    fun blocksAndMutesAreSyncedFromTheInteractionsSpace() = testApplication {
+        start()
+        val bobInteractions = space(bob, AthleteSpace.INTERACTIONS)
+        fun graph(collection: String, subject: String) =
+            """{"${'$'}type":"$collection","subject":"$subject","createdAt":"2026-10-14T08:00:00Z"}"""
+        pds.put(bobInteractions, Nsid.GRAPH_BLOCK, alice, graph(Nsid.GRAPH_BLOCK, alice))
+        pds.put(bobInteractions, Nsid.GRAPH_BLOCK, "3kwrong", graph(Nsid.GRAPH_BLOCK, carol))
+        pds.put(bobInteractions, Nsid.GRAPH_MUTE, carol, graph(Nsid.GRAPH_MUTE, carol))
+        pds.put(aliceFollowers, Nsid.GRAPH_BLOCK, bob, graph(Nsid.GRAPH_BLOCK, bob))
+        client.notifySpace(bobInteractions)
+        client.notifySpace(aliceFollowers)
+        runDue()
+        fun blocks() = transaction(db) { Blocks.selectAll().map { it[Blocks.authorDid] to it[Blocks.subjectDid] } }
+        fun mutes() = transaction(db) { Mutes.selectAll().map { it[Mutes.authorDid] to it[Mutes.subjectDid] } }
+        assertEquals(listOf(bob to alice), blocks(), "only the interactions space's block at its subject's key")
+        assertEquals(listOf(bob to carol), mutes())
+
+        // Deleted while the AppView was away, past a compacted op log: a fresh backfill drops it.
+        pds.delete(bobInteractions, Nsid.GRAPH_BLOCK, alice)
+        pds.delete(bobInteractions, Nsid.GRAPH_MUTE, carol)
+        pds.compactedTo[bobInteractions] = pds.rev(bobInteractions)
+        clock.now += 2.hours
+        runDue()
+        assertEquals(emptyList(), blocks())
+        assertEquals(emptyList(), mutes())
     }
 
     @Test

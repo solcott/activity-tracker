@@ -14,6 +14,7 @@ import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
+import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.core.notExists
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
@@ -46,17 +47,18 @@ internal fun JdbcTransaction.follows(author: String, subject: String): Boolean =
 
 /**
  * True for a `follows` row that counts: its subject's policy is open (no `approve` on their actor row, or no row at all), or the subject
- * approved its author. Every query that reads `follows` for anything but the viewer's own follow record ANDs this in, so a pending follow
- * never reaches a timeline, a count, a list or a space. It's a correlated subquery on the outer `follows` row, so it holds whichever of the
- * follow and the approval was indexed first, and a policy change needs no rewrite.
+ * approved its author, and neither blocks the other ([blocked]). Every query that reads `follows` for anything but the viewer's own follow
+ * record ANDs this in, so a pending or blocked follow never reaches a timeline, a count, a list or a space. It's a correlated subquery on
+ * the outer `follows` row, so it holds whichever of the follow and the approval (or block) was indexed first, and a policy change needs no
+ * rewrite.
  */
 internal fun effectiveFollow(): Op<Boolean> =
-    notExists(Actors.select(Actors.did).where { (Actors.did eq Follows.subjectDid) and (Actors.followPolicy eq FollowPolicy.APPROVE) }) or
+    (notExists(Actors.select(Actors.did).where { (Actors.did eq Follows.subjectDid) and (Actors.followPolicy eq FollowPolicy.APPROVE) }) or
         exists(
             FollowApprovals.select(FollowApprovals.uri).where {
                 (FollowApprovals.authorDid eq Follows.subjectDid) and (FollowApprovals.subjectDid eq Follows.authorDid)
             }
-        )
+        )) and not(blocked(Follows.authorDid, Follows.subjectDid))
 
 /**
  * [viewer]'s follow of [did], effective or not, and whether it still waits for [did]'s approval; and [did]'s follow of [viewer], only when
@@ -73,9 +75,13 @@ internal fun JdbcTransaction.viewerState(viewer: String, did: String): ProfileVi
             .where { (Follows.authorDid eq did) and (Follows.subjectDid eq viewer) and effectiveFollow() }
             .firstOrNull()
             ?.let { AtUri(it[Follows.uri]) }
+    // A block leaves the follow records in place, but neither one counts or waits for approval while it holds.
+    val blocked = isBlocked(viewer, did)
     return ProfileViewerState(
         following = following,
-        followRequested = (following != null && !follows(viewer, did)).takeIf { it },
+        followRequested = (following != null && !blocked && !follows(viewer, did)).takeIf { it },
         followedBy = followedBy,
+        blocking = ownBlock(viewer, did)?.let(::AtUri),
+        muting = ownMute(viewer, did)?.let(::AtUri),
     )
 }

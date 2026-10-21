@@ -18,6 +18,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_export_activ
 import io.github.solcott.activitytracker.composeApp.resources.error_export_not_sent
 import io.github.solcott.activitytracker.composeApp.resources.error_hide_comment
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activity
+import io.github.solcott.activitytracker.composeApp.resources.error_load_blocks
 import io.github.solcott.activitytracker.composeApp.resources.error_load_combine_candidates
 import io.github.solcott.activitytracker.composeApp.resources.error_load_comments
 import io.github.solcott.activitytracker.composeApp.resources.error_load_data_sources
@@ -26,6 +27,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_follow_
 import io.github.solcott.activitytracker.composeApp.resources.error_load_followers
 import io.github.solcott.activitytracker.composeApp.resources.error_load_following
 import io.github.solcott.activitytracker.composeApp.resources.error_load_likes
+import io.github.solcott.activitytracker.composeApp.resources.error_load_mutes
 import io.github.solcott.activitytracker.composeApp.resources.error_load_privacy_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_load_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_load_replies
@@ -46,7 +48,9 @@ import io.github.solcott.activitytracker.composeApp.resources.error_too_many_zon
 import io.github.solcott.activitytracker.composeApp.resources.error_ungroup_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_unhide_comment
 import io.github.solcott.activitytracker.composeApp.resources.error_unsupported_activity_file
+import io.github.solcott.activitytracker.composeApp.resources.error_update_block
 import io.github.solcott.activitytracker.composeApp.resources.error_update_follow
+import io.github.solcott.activitytracker.composeApp.resources.error_update_mute
 import io.github.solcott.activitytracker.composeApp.resources.error_writes_pending
 import io.github.solcott.activitytracker.composeApp.resources.gender_female
 import io.github.solcott.activitytracker.composeApp.resources.gender_male
@@ -106,6 +110,10 @@ fun errorText(error: UiError): String =
                 UiError.Kind.LoadReplies -> Res.string.error_load_replies
                 UiError.Kind.LoadProfile -> Res.string.error_load_profile
                 UiError.Kind.UpdateFollow -> Res.string.error_update_follow
+                UiError.Kind.UpdateBlock -> Res.string.error_update_block
+                UiError.Kind.UpdateMute -> Res.string.error_update_mute
+                UiError.Kind.LoadBlocks -> Res.string.error_load_blocks
+                UiError.Kind.LoadMutes -> Res.string.error_load_mutes
                 UiError.Kind.LoadFollowers -> Res.string.error_load_followers
                 UiError.Kind.LoadFollowing -> Res.string.error_load_following
                 UiError.Kind.LoadFollowRequests -> Res.string.error_load_follow_requests

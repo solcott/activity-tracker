@@ -118,6 +118,49 @@ class SpaceAccessTest {
         application { appView(config, db, verifier) }
     }
 
+    /** [author] blocks [subject] with a `graph.block` in their interactions space, or with [remove] deletes it. */
+    private fun block(author: String, subject: String, remove: Boolean = false) = runBlocking {
+        val interactions = SpaceUri.of(Did(author), Nsid.SPACE_ATHLETE, AthleteSpace.INTERACTIONS)
+        if (remove) {
+            indexer.spaceDelete(interactions, Nsid.GRAPH_BLOCK, subject)
+        } else {
+            val json = """{"subject":"$subject","createdAt":"2026-10-21T09:00:00Z"}"""
+            indexer.spaceWrite(interactions, Nsid.GRAPH_BLOCK, subject, "bafyb", AtJson.parseToJsonElement(json).jsonObject)
+        }
+    }
+
+    @Test
+    fun blockedUserIsDeniedEveryTier() = testApplication {
+        start()
+        follow(bob, alice)
+        follow(alice, bob)
+        assertEquals(true, client.authorized(bob, AthleteSpace.MUTUALS))
+        block(alice, bob)
+        for (tier in listOf(AthleteSpace.PUBLIC, AthleteSpace.FOLLOWERS, AthleteSpace.MUTUALS)) {
+            assertEquals(false, client.authorized(bob, tier), "alice blocks bob: $tier")
+        }
+        block(alice, bob, remove = true)
+        assertEquals(true, client.authorized(bob, AthleteSpace.MUTUALS), "unblocked: decided by tier again")
+        assertEquals(true, client.authorized(bob, AthleteSpace.PUBLIC))
+    }
+
+    @Test
+    fun blockByTheUserOrOnBlueskyAlsoDenies() = testApplication {
+        start()
+        follow(bob, alice)
+        block(bob, alice)
+        assertEquals(false, client.authorized(bob, AthleteSpace.FOLLOWERS), "bob blocks alice")
+        assertEquals(false, client.authorized(bob, AthleteSpace.PUBLIC))
+        block(bob, alice, remove = true)
+        assertEquals(true, client.authorized(bob, AthleteSpace.FOLLOWERS))
+
+        policy(alice, null) // Only an athlete's Bluesky blocks are kept.
+        commit(alice, Nsid.BSKY_GRAPH_BLOCK, "3kbsky", """{"subject":"$bob","createdAt":"2026-01-01T00:00:00Z"}""")
+        assertEquals(false, client.authorized(bob, AthleteSpace.FOLLOWERS), "alice blocks bob on Bluesky")
+        commit(alice, Nsid.BSKY_GRAPH_BLOCK, "3kbsky", null, "delete")
+        assertEquals(true, client.authorized(bob, AthleteSpace.FOLLOWERS))
+    }
+
     @Test
     fun publicTierAdmitsAnyone() = testApplication {
         start()

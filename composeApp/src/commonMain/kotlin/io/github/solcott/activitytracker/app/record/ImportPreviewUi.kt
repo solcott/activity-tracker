@@ -53,14 +53,14 @@ internal fun PreviewContent(state: ImportActivityState, preview: ImportPreview, 
         page.mapMark?.let { CategoryLock(DetailCategory.MAP, it) }
         if (medium) AvgMaxTable(page.avgMax)
         TrainingLoadCard(page.trainingLoad)
-        page.charts?.let { charts -> PreviewCards(page.cards, charts, columns = if (medium) 2 else 1, elevationBehind = medium) }
+        page.charts?.let { charts -> PreviewCards(page.cards, charts, columns = if (medium) 2 else 1) }
         StatsList(page.stats, columns = if (medium) 2 else 1)
     }
 }
 
 /** The metric cards, [columns] to a row; laps and the other tables take a row of their own. */
 @Composable
-private fun PreviewCards(cards: ImmutableList<MetricCard>, charts: ActivityCharts, columns: Int, elevationBehind: Boolean) {
+private fun PreviewCards(cards: ImmutableList<MetricCard>, charts: ActivityCharts, columns: Int) {
     val rows = mutableListOf<List<MetricCard>>()
     for (card in cards) {
         val last = rows.lastOrNull()
@@ -70,7 +70,7 @@ private fun PreviewCards(cards: ImmutableList<MetricCard>, charts: ActivityChart
         Row(horizontalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
             row.forEach {
                 val modifier = if (it.section in TABLE_SECTIONS) Modifier.fillMaxWidth() else Modifier.weight(1f)
-                MetricCardUi(it, charts, modifier, elevationBehind = elevationBehind)
+                MetricCardUi(it, charts, modifier)
             }
             if (row.none { it.section in TABLE_SECTIONS }) repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
         }

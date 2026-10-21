@@ -60,12 +60,15 @@ private val Roots = Comments.alias("roots")
 /**
  * Comments on activities [viewer] may already see (the caller filters the activities) that they may see too: while the commenter may still
  * see the activity at its current visibility, and the comment's audience admits the viewer, judged against the activity's athlete. Tiers
- * nest, so a comment is shown at the narrower of the activity's visibility and its audience.
+ * nest, so a comment is shown at the narrower of the activity's visibility and its audience. A commenter in a block with the viewer, or
+ * muted by them, is never shown to them.
  */
 internal fun commentsVisibleTo(viewer: Did?): Op<Boolean> =
     visibleTo(Comments.authorDid) and
         visibleTo(viewer, visibility = Comments.audience, author = Activities.authorDid) and
-        rootAdmits(viewer)
+        rootAdmits(viewer) and
+        notBlocked(viewer, Comments.authorDid) and
+        notMuted(viewer, Comments.authorDid)
 
 /**
  * A reply is also capped by its thread's top-level comment's audience while that's indexed on the activity: clients cap a reply by its

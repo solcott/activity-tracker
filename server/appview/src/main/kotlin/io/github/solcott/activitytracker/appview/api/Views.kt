@@ -60,7 +60,9 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 .where { (Follows.authorDid eq viewer.value) and effectiveFollow() }
                 .map { it[Follows.subjectDid] } + viewer.value
         val filter = feedFilter(params.type, params.since, params.until)
-        val (views, cursor) = activityPage((Activities.authorDid inList authors) and filter, params.limit, params.cursor, viewer)
+        // A muted athlete's activities leave only the muter's timeline; their profile still lists them.
+        val shown = (Activities.authorDid inList authors) and filter and notMuted(viewer, Activities.authorDid)
+        val (views, cursor) = activityPage(shown, params.limit, params.cursor, viewer)
         GetTimeline.Output(views, cursor)
     }
 
@@ -164,7 +166,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val rows =
             admittedLikes()
                 .select(Likes.authorDid, latest)
-                .where { (Likes.subjectUri inList subjects) and visibleTo(Likes.authorDid) }
+                .where { (Likes.subjectUri inList subjects) and visibleTo(Likes.authorDid) and notBlocked(viewer, Likes.authorDid) }
                 .groupBy(Likes.authorDid)
                 .having { after }
                 .orderBy(latest to SortOrder.DESC, Likes.authorDid to SortOrder.DESC)
@@ -177,6 +179,9 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
 
     suspend fun profile(viewer: Did?, actor: String): ProfileView = db.tx {
         val did = resolveActor(actor) ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ProfileNotFound", "Unknown actor $actor")
+        // Silent: an athlete who blocks the viewer answers exactly as an unknown one. The viewer's own block shows in `viewer.blocking`.
+        if (viewer != null && ownBlock(did, viewer.value) != null)
+            throw XrpcError(HttpStatusCode.BadRequest.value, "ProfileNotFound", "Unknown actor $actor")
         val row = Actors.selectAll().where { Actors.did eq did }.single()
         ProfileView(
             did = Did(row[Actors.did]),
@@ -228,7 +233,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val likeCounts =
             admittedLikes()
                 .select(Likes.subjectUri, Likes.authorDid)
-                .where { (Likes.subjectUri inList subjects) and visibleTo(Likes.authorDid) }
+                .where { (Likes.subjectUri inList subjects) and visibleTo(Likes.authorDid) and notBlocked(viewer, Likes.authorDid) }
                 .withDistinct()
                 .toList()
                 .groupBy({ countedAs.getValue(it[Likes.subjectUri]) }) { it[Likes.authorDid] }

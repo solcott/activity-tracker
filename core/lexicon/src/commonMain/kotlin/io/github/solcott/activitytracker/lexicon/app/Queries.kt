@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.lexicon.app
 
+import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.XrpcProcedure
@@ -187,6 +188,36 @@ object GetFollowRequests {
     @Serializable data class Output(val requests: List<ProfileViewBasic>, val cursor: String? = null)
 
     val method = XrpcQuery(Nsid.GRAPH_GET_FOLLOW_REQUESTS, Params.serializer(), Output.serializer())
+}
+
+/** Accounts the caller blocks, from either kind of block record, newest first. Requires auth. */
+object GetBlocks {
+    @Serializable data class Params(val limit: Int? = null, val cursor: String? = null)
+
+    @Serializable data class Output(val blocks: List<BlockView>, val cursor: String? = null)
+
+    /** `#blockView`: [sources] holds [BlockSource] values; only an [BlockSource.APP] block can be removed by this app. */
+    @Immutable @Serializable data class BlockView(val actor: ProfileViewBasic, val sources: List<String>, val createdAt: Instant)
+
+    val method = XrpcQuery(Nsid.GRAPH_GET_BLOCKS, Params.serializer(), Output.serializer())
+}
+
+/** Known values of [GetBlocks.BlockView.sources]. */
+object BlockSource {
+    /** An `app.activitytracker.graph.block` in the athlete's interactions space. */
+    const val APP = "app"
+
+    /** An `app.bsky.graph.block` in the athlete's repo. */
+    const val BLUESKY = "bluesky"
+}
+
+/** Accounts the caller mutes, newest first. Requires auth. */
+object GetMutes {
+    @Serializable data class Params(val limit: Int? = null, val cursor: String? = null)
+
+    @Serializable data class Output(val mutes: List<ProfileViewBasic>, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.GRAPH_GET_MUTES, Params.serializer(), Output.serializer())
 }
 
 /** Athletes of this app matching [Params.q] by handle, display name or DID, best matches first. Requires auth. */

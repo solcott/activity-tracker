@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
@@ -339,6 +340,7 @@ class SessionTestFixture {
         val privacy: PrivacyZones,
         val manager: ActivityManager,
         val suggestions: CombineSuggestions,
+        val blocks: BlockRepository,
         val segmentPrefs: SegmentPrefsRepository,
     ) {
         /** The type picker's producer, as Metro injects it into the record, manual entry and import presenters. */
@@ -407,6 +409,7 @@ class SessionTestFixture {
             privacy,
             activityManager,
             CombineSuggestions(db, clients, feed, zones.tracks, suggestionClock),
+            BlockRepository(clients, zones.writer, zones.outbox, feed, Clock.System),
             segmentsOf(clients).prefs,
         )
     }
