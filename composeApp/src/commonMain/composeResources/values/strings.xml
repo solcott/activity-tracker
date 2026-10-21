@@ -43,6 +43,7 @@
     <string name="error_unsupported_activity_file">That isn't a FIT, GPX, TCX, Shearwater, UDDF or Subsurface file</string>
     <string name="error_sign_in_start">Couldn't start sign-in</string>
     <string name="error_sign_in_complete">Sign-in failed</string>
+    <string name="error_sign_in_find_account">No account found for that handle</string>
     <string name="error_save_settings">Couldn't save settings</string>
     <string name="error_save_profile">Couldn't save profile</string>
     <string name="error_save_zones">Couldn't save zones</string>

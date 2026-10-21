@@ -5,7 +5,10 @@ import co.touchlab.kermit.Logger
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import io.github.solcott.activitytracker.atproto.identity.HandleNotFoundException
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.data.toDataError
+import io.github.solcott.dataresult.DataError
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -35,8 +38,8 @@ class AuthCoordinator(
 
         data object Completing : Status
 
-        /** [detail] is the failure's own message, if it had one; the UI falls back to text for [stage]. */
-        data class Failed(val stage: Stage, val detail: String?) : Status
+        /** Sign-in failed at [stage], and why when the failure was classified ([reason]); the UI never shows the failure's own text. */
+        data class Failed(val stage: Stage, val reason: DataError? = null) : Status
 
         enum class Stage {
             /** Resolving the handle and opening the browser. */
@@ -44,6 +47,9 @@ class AuthCoordinator(
 
             /** Exchanging the redirect for tokens. */
             Complete,
+
+            /** No account was found for the handle: a lookup answered that it points at no DID. */
+            FindAccount,
         }
     }
 
@@ -60,7 +66,9 @@ class AuthCoordinator(
         }
             .onFailure {
                 log.w(it) { "Could not start sign-in" }
-                status.value = Status.Failed(Status.Stage.Start, it.message)
+                status.value =
+                    if (it is HandleNotFoundException) Status.Failed(Status.Stage.FindAccount)
+                    else Status.Failed(Status.Stage.Start, it.toDataError())
             }
     }
 
@@ -72,7 +80,7 @@ class AuthCoordinator(
         }
             .onFailure {
                 log.w(it) { "Sign-in failed" }
-                status.value = Status.Failed(Status.Stage.Complete, it.message)
+                status.value = Status.Failed(Status.Stage.Complete, it.toDataError())
             }
     }
 

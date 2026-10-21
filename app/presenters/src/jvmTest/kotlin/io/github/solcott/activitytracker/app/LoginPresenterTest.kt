@@ -30,10 +30,21 @@ import kotlinx.coroutines.test.runTest
 
 class LoginPresenterTest {
     private val opened = mutableListOf<String>()
+    private val resolvedHandles = mutableListOf<String?>()
 
     private fun coordinator(): AuthCoordinator {
         // Every network call fails: handle resolution can't succeed.
-        val http = HttpClient(MockEngine { respond("", HttpStatusCode.NotFound) }) { expectSuccess = false }
+        val http =
+            HttpClient(
+                MockEngine { request ->
+                    if (request.url.encodedPath.endsWith("/com.atproto.identity.resolveHandle")) {
+                        resolvedHandles += request.url.parameters["handle"]
+                    }
+                    respond("", HttpStatusCode.NotFound)
+                }
+            ) {
+                expectSuccess = false
+            }
         val config =
             AtprotoConfig(
                 plcUrl = "http://localhost:2582",
@@ -77,8 +88,8 @@ class LoginPresenterTest {
 
             var state = awaitItem()
             while (state.status !is Status.Failed) state = awaitItem()
-            val failed = assertIs<Status.Failed>(state.status)
-            assertTrue("nobody.test" in failed.detail.orEmpty(), failed.detail)
+            assertEquals(Status.Failed(Status.Stage.FindAccount), state.status)
+            assertEquals(listOf<String?>("nobody.test"), resolvedHandles)
             cancelAndIgnoreRemainingEvents()
         }
     }
