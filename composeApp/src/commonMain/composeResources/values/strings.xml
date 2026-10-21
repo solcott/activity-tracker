@@ -1347,4 +1347,6 @@
     <string name="segment_sport_hike">Hike</string>
     <string name="segment_sport_ski">Ski</string>
     <string name="segment_sport_paddle">Paddle</string>
+    <string name="segment_star">Star segment</string>
+    <string name="segment_unstar">Unstar segment</string>
 </resources>
