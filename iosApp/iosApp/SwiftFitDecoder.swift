@@ -406,7 +406,11 @@ final class SwiftFitDecoder: FitDecoder {
             lapTrigger: nil,
             totalCycles: m.getTotalCycles().map { KotlinLong(value: Int64($0)) },
             avgStrokeDistanceMeters: double(m.getAvgStrokeDistance()),
-            sportProfileName: m.getSportProfileName().flatMap { $0.isEmpty ? nil : $0 }
+            sportProfileName: m.getSportProfileName().flatMap { $0.isEmpty ? nil : $0 },
+            // The SDK keeps fields its profile doesn't name in the message, so Garmin's own are read by number.
+            physiology: SessionPhysiology.companion.read(exerciseLoad: double(m.getTrainingLoadPeak())) { number in
+                rawLong(m.getFieldValue(fieldNum: UInt8(number.int32Value)))
+            }
         )
     }
 
@@ -447,7 +451,8 @@ final class SwiftFitDecoder: FitDecoder {
             lapTrigger: m.getLapTrigger().map { String(describing: $0) },
             totalCycles: nil,
             avgStrokeDistanceMeters: nil,
-            sportProfileName: nil
+            sportProfileName: nil,
+            physiology: nil
         )
     }
 
@@ -506,4 +511,19 @@ final class SwiftFitDecoder: FitDecoder {
     private static func int(_ value: Int32?) -> KotlinInt? { value.map { KotlinInt(value: $0) } }
 
     private static func long(_ value: UInt32?) -> KotlinLong? { value.map { KotlinLong(value: Int64($0)) } }
+
+    /** A field's raw value as a Kotlin long, whatever integer type the SDK decoded it to; null for anything else. */
+    private static func rawLong(_ value: Any?) -> KotlinLong? {
+        switch value {
+        case let v as UInt8: return KotlinLong(value: Int64(v))
+        case let v as UInt16: return KotlinLong(value: Int64(v))
+        case let v as UInt32: return KotlinLong(value: Int64(v))
+        case let v as Int8: return KotlinLong(value: Int64(v))
+        case let v as Int16: return KotlinLong(value: Int64(v))
+        case let v as Int32: return KotlinLong(value: Int64(v))
+        case let v as Int64: return KotlinLong(value: v)
+        case let v as Float64: return v.isFinite ? KotlinLong(value: Int64(v)) : nil
+        default: return nil
+        }
+    }
 }
