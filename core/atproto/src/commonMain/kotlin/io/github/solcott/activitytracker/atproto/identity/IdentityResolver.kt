@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.atproto.identity
 import io.github.solcott.activitytracker.atproto.AtprotoConfig
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcClient
+import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
@@ -52,11 +53,21 @@ class IdentityResolver(
         return ResolvedIdentity(did, handle, pds.trimEnd('/'), doc)
     }
 
-    suspend fun resolveHandle(handle: Handle): Did =
-        resolveHandleXrpc(handle)
-            ?: resolveHandleDns(handle)
-            ?: resolveHandleWellKnown(handle)
-            ?: throw IdentityException("Could not resolve handle ${handle.value}")
+    /**
+     * The DID [handle] points at, from the first lookup that finds one. Throws [HandleNotFoundException] only when a lookup answered that
+     * the handle has none, and otherwise rethrows the first lookup's transport failure: a device that couldn't ask is never told the handle
+     * doesn't exist.
+     */
+    suspend fun resolveHandle(handle: Handle): Did {
+        val lookups = mutableListOf<HandleLookup>()
+        for (resolver in listOf(::resolveHandleXrpc, ::resolveHandleDns, ::resolveHandleWellKnown)) {
+            val result = resolver(handle) ?: continue
+            if (result is HandleLookup.Found) return result.did
+            lookups += result
+        }
+        if (lookups.any { it is HandleLookup.Missing }) throw HandleNotFoundException(handle)
+        throw lookups.filterIsInstance<HandleLookup.Unreachable>().first().cause
+    }
 
     suspend fun resolveDid(did: Did): DidDocument {
         val response = http.get(didDocumentUrl(did))
@@ -73,19 +84,25 @@ class IdentityResolver(
             else -> throw IdentityException("Unsupported DID method: ${did.method}")
         }
 
-    private suspend fun resolveHandleXrpc(handle: Handle): Did? {
+    /** The configured resolver: any XRPC error is its answer that the handle is missing. Null when no resolver is configured. */
+    private suspend fun resolveHandleXrpc(handle: Handle): HandleLookup? {
         val url = handleResolverUrl ?: return null
-        return runSuspendCatching { XrpcClient(http, url).query(ResolveHandle.method, ResolveHandle.Params(handle.value)).did }.getOrNull()
+        return runSuspendCatching { XrpcClient(http, url).query(ResolveHandle.method, ResolveHandle.Params(handle.value)).did }
+            .fold(
+                { HandleLookup.Found(it) },
+                { if (it is XrpcException) HandleLookup.Missing else HandleLookup.Unreachable(it) },
+            )
     }
 
-    private suspend fun resolveHandleDns(handle: Handle): Did? = runSuspendCatching {
+    /** DNS-over-HTTPS for `_atproto.<handle>`: an answer without a DID means missing; a failed request means unreachable. */
+    private suspend fun resolveHandleDns(handle: Handle): HandleLookup = lookup {
         val response =
             http.get("https://cloudflare-dns.com/dns-query") {
                 url.parameters.append("name", "_atproto.${handle.value}")
                 url.parameters.append("type", "TXT")
                 header("Accept", "application/dns-json")
             }
-        if (!response.status.isSuccess()) return null
+        if (!response.status.isSuccess()) throw IdentityException("DNS-over-HTTPS answered ${response.status}")
         val answers = AtJson.parseToJsonElement(response.bodyAsText()).jsonObject["Answer"]?.jsonArray.orEmpty()
         answers.firstNotNullOfOrNull { answer ->
             answer.jsonObject["data"]
@@ -96,14 +113,28 @@ class IdentityResolver(
                 ?.let { Did(it.removePrefix("did=")) }
         }
     }
-        .getOrNull()
 
-    private suspend fun resolveHandleWellKnown(handle: Handle): Did? = runSuspendCatching {
+    /**
+     * `https://<handle>/.well-known/atproto-did`: any answer without a DID means missing. A failed request means unreachable, which on its
+     * own isn't evidence of being offline, since an unknown domain fails the same way.
+     */
+    private suspend fun resolveHandleWellKnown(handle: Handle): HandleLookup = lookup {
         val response = http.get("https://${handle.value}/.well-known/atproto-did")
-        if (!response.status.isSuccess()) return null
+        if (!response.status.isSuccess()) return@lookup null
         response.bodyAsText().trim().takeIf { it.isDid() }?.let(::Did)
     }
-        .getOrNull()
+
+    private inline fun lookup(block: () -> Did?): HandleLookup =
+        runSuspendCatching(block).fold({ it?.let(HandleLookup::Found) ?: HandleLookup.Missing }, { HandleLookup.Unreachable(it) })
+
+    /** One handle lookup's answer. */
+    private sealed interface HandleLookup {
+        data class Found(val did: Did) : HandleLookup
+
+        data object Missing : HandleLookup
+
+        data class Unreachable(val cause: Throwable) : HandleLookup
+    }
 
     companion object {
         val INVALID_HANDLE = Handle("handle.invalid")
@@ -118,4 +149,7 @@ class IdentityResolver(
     }
 }
 
-class IdentityException(message: String) : Exception(message)
+open class IdentityException(message: String) : Exception(message)
+
+/** Every lookup that answered said [handle] points at no DID. */
+class HandleNotFoundException(val handle: Handle) : IdentityException("No account found for ${handle.value}")
