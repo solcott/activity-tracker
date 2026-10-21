@@ -1,5 +1,11 @@
 package io.github.solcott.activitytracker.app
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withCompositionLocals
+import com.slack.circuit.retained.LocalRetainedStateRegistry
+import com.slack.circuit.retained.RetainedStateRegistry
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.settings.ThresholdHistoryEvent
@@ -9,6 +15,9 @@ import io.github.solcott.activitytracker.app.settings.ThresholdHistoryState
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.ThresholdSource
+import io.github.solcott.dataresult.DataError
+import io.github.solcott.uistate.errorOrNull
+import io.github.solcott.uistate.isLoading
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -125,5 +134,61 @@ class ThresholdHistoryPresenterTest {
         assertEquals(250L, sent["functionalThresholdPower"]?.jsonPrimitive?.long)
         assertEquals("2026-09-01T07:00:00Z", sent.getValue("setAt").jsonObject["functionalThresholdPower"]?.jsonPrimitive?.content)
         assertEquals(3, sent.getValue("history").jsonArray.size, "two FTPs less one, the pace, and max heart rate added")
+    }
+
+    @Test
+    fun aFailedLoadSaysWhyAndRetryLoadsTheHistory() = runTest {
+        fixture.privateDetails = """{"details":{"training":$training},"visibility":{"training":"self"}}"""
+        fixture.offline = true
+        val repos = fixture.repos()
+        presenterTestOf({ ThresholdHistoryPresenter(FakeNavigator(ThresholdHistoryScreen), repos.profiles, repos.units, clock) }) {
+            val failed = awaitUntil { it.content.errorOrNull != null }
+            assertEquals(DataError.Network, failed.content.errorOrNull)
+            assertNull(failed.groups)
+            assertNull(failed.error, "a load failure isn't a removal's")
+
+            fixture.offline = false
+            failed.eventSink(ThresholdHistoryEvent.Retry)
+            assertEquals(listOf(null, Sport.RUN), awaitUntil { it.groups != null }.groups?.map { it.sport })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aFailedRemovalIsTheActionsErrorAndKeepsTheGroups() = runTest {
+        fixture.privateDetails = """{"details":{"training":$training},"visibility":{"training":"self"}}"""
+        val repos = fixture.repos()
+        presenterTestOf({ ThresholdHistoryPresenter(FakeNavigator(ThresholdHistoryScreen), repos.profiles, repos.units, clock) }) {
+            val loaded = awaitUntil { it.groups != null && !it.content.isLoading }
+            fixture.offline = true
+            loaded.eventSink(ThresholdHistoryEvent.Remove(loaded.section(null, ftp).newest.entry))
+            val failed = awaitUntil { it.error != null && it.removing == null }
+            assertEquals(UiError.Kind.SaveZones, failed.error?.kind)
+            assertNull(failed.content.errorOrNull)
+            assertEquals(2, failed.section(null, ftp).rows.size, "nothing removed")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun comingBackShowsTheHistoryAtOnce() = runTest {
+        fixture.privateDetails = """{"details":{"training":$training},"visibility":{"training":"self"}}"""
+        val repos = fixture.repos()
+        val registry = RetainedStateRegistry()
+        var shown by mutableStateOf(true)
+        presenterTestOf({
+            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                if (shown) ThresholdHistoryPresenter(FakeNavigator(ThresholdHistoryScreen), repos.profiles, repos.units, clock)
+                else ThresholdHistoryState()
+            }
+        }) {
+            awaitUntil { it.groups != null && !it.content.isLoading }
+            registry.saveAll()
+            shown = false
+            awaitUntil { it.groups == null }
+            shown = true
+            assertNotNull(awaitItem().groups, "no loading state in between")
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }

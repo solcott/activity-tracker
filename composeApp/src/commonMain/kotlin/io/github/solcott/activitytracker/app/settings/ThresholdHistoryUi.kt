@@ -42,6 +42,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
@@ -98,24 +101,18 @@ fun ThresholdHistoryUi(state: ThresholdHistoryState, modifier: Modifier = Modifi
             )
         },
     ) { padding ->
-        val listState = rememberLazyListState()
-        ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
-            LazyColumn(state = listState, contentPadding = listPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                state.error?.let { error ->
-                    item { Text(errorText(error), Modifier.padding(top = 16.dp), color = MaterialTheme.colorScheme.error) }
-                }
-                val groups = state.groups
-                when {
-                    groups == null ->
-                        if (state.error == null) {
-                            item {
-                                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { AppProgressIndicator() }
-                            }
-                        }
-
-                    groups.isEmpty() -> item { Text(stringResource(Res.string.zones_history_empty), Modifier.padding(top = 16.dp)) }
-
-                    else -> {
+        val retry = { state.eventSink(ThresholdHistoryEvent.Retry) }
+        ContentStateLayout(state.content, UiError.Kind.LoadProfile, retry, contentPadding = padding) { groups ->
+            val listState = rememberLazyListState()
+            ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
+                LazyColumn(state = listState, contentPadding = listPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    item { RefreshStatus(state.content, UiError.Kind.LoadProfile, retry, Modifier.padding(top = 16.dp)) }
+                    state.error?.let { error ->
+                        item { Text(errorText(error), Modifier.padding(top = 16.dp), color = MaterialTheme.colorScheme.error) }
+                    }
+                    if (groups.isEmpty()) {
+                        item { Text(stringResource(Res.string.zones_history_empty), Modifier.padding(top = 16.dp)) }
+                    } else {
                         item { Intro(state) }
                         items(groups, key = { "group/${it.sport}" }) { group -> GroupCard(group, state, Modifier.animateContentSize()) }
                         item { Spacer(Modifier.heightIn(min = 16.dp)) }

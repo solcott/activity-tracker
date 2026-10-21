@@ -8,7 +8,10 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.training.PaceUnit
 import io.github.solcott.activitytracker.lexicon.app.ThresholdEntry
+import io.github.solcott.uistate.ContentState
+import io.github.solcott.uistate.hasLoaded
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * Every value the signed-in athlete's thresholds have had, grouped by the defaults and each sport, then by threshold, with a chart of each
@@ -18,15 +21,20 @@ import kotlinx.collections.immutable.ImmutableList
 
 @Immutable
 data class ThresholdHistoryState(
-    /** The defaults first, then each sport with history; null until loaded. */
-    val groups: ImmutableList<ThresholdHistoryGroup>?,
+    /** The defaults first, then each sport with history, loaded (ui/content-loading); empty until they first load. */
+    val content: ContentState<ImmutableList<ThresholdHistoryGroup>> = ContentState(persistentListOf()),
     /** The entry being removed; one at a time, since each removal rewrites the whole history. */
-    val removing: ThresholdEntry?,
-    val error: UiError?,
-    val eventSink: (ThresholdHistoryEvent) -> Unit,
+    val removing: ThresholdEntry? = null,
+    /** Why removing a value failed; loading failures are [content]'s. */
+    val error: UiError? = null,
+    val eventSink: (ThresholdHistoryEvent) -> Unit = {},
 ) : CircuitUiState {
+    /** [content]'s groups once loaded; null until then. */
+    val groups: ImmutableList<ThresholdHistoryGroup>?
+        get() = content.data.takeIf { content.hasLoaded }
+
     val anyExpanded: Boolean
-        get() = groups.orEmpty().any { it.expanded }
+        get() = content.data.any { it.expanded }
 }
 
 /** The defaults' thresholds when [sport] is null, else that sport's. Collapsed, it shows an overview of each threshold instead. */
@@ -116,4 +124,7 @@ sealed interface ThresholdHistoryEvent {
 
     /** Remove [entry]; when it's the current value, the threshold goes back to the one before it. */
     data class Remove(val entry: ThresholdEntry) : ThresholdHistoryEvent
+
+    /** Loads the history again after it failed to. */
+    data object Retry : ThresholdHistoryEvent
 }
