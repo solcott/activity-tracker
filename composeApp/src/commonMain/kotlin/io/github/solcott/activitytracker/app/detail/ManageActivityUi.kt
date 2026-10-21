@@ -23,6 +23,7 @@ import io.github.solcott.activitytracker.composeApp.resources.delete_activity_on
 import io.github.solcott.activitytracker.composeApp.resources.delete_activity_title
 import io.github.solcott.activitytracker.composeApp.resources.detail_add_recording
 import io.github.solcott.activitytracker.composeApp.resources.detail_combine
+import io.github.solcott.activitytracker.composeApp.resources.detail_create_segment
 import io.github.solcott.activitytracker.composeApp.resources.detail_delete
 import io.github.solcott.activitytracker.composeApp.resources.detail_edit
 import io.github.solcott.activitytracker.composeApp.resources.detail_export
@@ -40,8 +41,8 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * The owner's "…" menu: Edit, Combine with… unless it's a member or full, Split on a combined activity (confirmed), Ungroup when the
- * activity is grouped with just one other, Hide this start and end when its track can be read ([canHideRouteEnds]), Export when it has data
- * to export ([export]), and Delete, which asks first.
+ * activity is grouped with just one other, Hide this start and end when its track can be read ([canHideRouteEnds]), Create segment when one
+ * can be cut from its route ([canCreateSegment]), Export when it has data to export ([export]), and Delete, which asks first.
  */
 @Composable
 internal fun ManageMenu(
@@ -50,6 +51,7 @@ internal fun ManageMenu(
     export: ActivityExportState?,
     eventSink: (ActivityDetailEvent) -> Unit,
     modifier: Modifier = Modifier,
+    canCreateSegment: Boolean = false,
 ) {
     var open by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf(false) }
@@ -67,6 +69,7 @@ internal fun ManageMenu(
     val combine = stringResource(Res.string.detail_combine)
     val addRecording = stringResource(Res.string.detail_add_recording)
     val split = stringResource(Res.string.detail_split)
+    val createSegment = stringResource(Res.string.detail_create_segment)
     val items =
         remember(
             manage,
@@ -81,6 +84,8 @@ internal fun ManageMenu(
             combine,
             addRecording,
             split,
+            canCreateSegment,
+            createSegment,
             eventSink,
         ) {
             buildList {
@@ -95,6 +100,7 @@ internal fun ManageMenu(
                     add(AppMenuItem(hideStart, AppIcon.Hide) { eventSink(ActivityDetailEvent.HideStart) })
                     add(AppMenuItem(hideEnd, AppIcon.Hide) { eventSink(ActivityDetailEvent.HideEnd) })
                 }
+                if (canCreateSegment) add(AppMenuItem(createSegment, AppIcon.Add) { eventSink(ActivityDetailEvent.CreateSegment) })
                 if (canExport) add(AppMenuItem(exportLabel, AppIcon.Export) { exporting = true })
                 add(AppMenuItem(delete, AppIcon.Delete, destructive = true) { confirming = true })
             }

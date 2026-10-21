@@ -9,10 +9,19 @@ import androidx.compose.runtime.setValue
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.EffortView
+import io.github.solcott.activitytracker.lexicon.app.SegmentSport
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+
+/**
+ * Whether the viewer can cut a segment from [record]'s route: it's [own], its full track and their privacy zones were read, and its sport
+ * has a group.
+ */
+internal fun canCreateSegment(own: Boolean, ownRoute: OwnRoute, record: ActivityRecord): Boolean =
+    own && ownRoute.track != null && ownRoute.zonesRead && SegmentSport.of(record.sport, record.subSport) != null
 
 /**
  * [activity]'s segment efforts, reloaded with [loadKey], in their own load: they're extra, so a slow or failed load never holds up the

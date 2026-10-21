@@ -57,6 +57,7 @@ fun SegmentPresenter(screen: SegmentScreen, navigator: Navigator, segments: Segm
             SegmentEvent.Back -> navigator.pop()
             SegmentEvent.Retry -> loadKey++
             is SegmentEvent.OpenActivity -> navigator.goTo(ActivityDetailScreen(event.uri.value))
+            SegmentEvent.OpenOriginal -> segment?.duplicateOf?.let { navigator.goTo(SegmentScreen(it.value)) }
         }
     }
 }

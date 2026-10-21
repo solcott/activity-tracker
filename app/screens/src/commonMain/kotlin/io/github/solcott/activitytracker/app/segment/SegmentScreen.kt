@@ -36,4 +36,7 @@ sealed interface SegmentEvent {
 
     /** Opens the activity an effort came from. */
     data class OpenActivity(val uri: AtUri) : SegmentEvent
+
+    /** Opens the earlier segment a duplicate duplicates. */
+    data object OpenOriginal : SegmentEvent
 }

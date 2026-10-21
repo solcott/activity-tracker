@@ -34,9 +34,14 @@ import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.segment_created_by
+import io.github.solcott.activitytracker.composeApp.resources.segment_duplicate_help
 import io.github.solcott.activitytracker.composeApp.resources.segment_no_efforts
+import io.github.solcott.activitytracker.composeApp.resources.segment_open_original
+import io.github.solcott.activitytracker.composeApp.resources.segment_status_archived_help
+import io.github.solcott.activitytracker.composeApp.resources.segment_status_proposed_help
 import io.github.solcott.activitytracker.composeApp.resources.segment_your_efforts
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import org.jetbrains.compose.resources.stringResource
 
@@ -86,6 +91,7 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Status(segment) { state.eventSink(SegmentEvent.OpenOriginal) }
                 }
             }
             item { Text(stringResource(Res.string.segment_your_efforts), style = MaterialTheme.typography.titleMedium) }
@@ -102,6 +108,28 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
                 EffortRow(effort, dateLabel(effort.startedOn), onClick = { state.eventSink(SegmentEvent.OpenActivity(effort.activity)) })
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
+        }
+    }
+}
+
+/** A segment that isn't active: its status and what it means, and for a duplicate a link to the original. */
+@Composable
+private fun Status(segment: SegmentView, onOpenOriginal: () -> Unit) {
+    val status = SegmentStatus.of(segment.status)
+    val help =
+        when (status) {
+            SegmentStatus.PROPOSED -> Res.string.segment_status_proposed_help
+            SegmentStatus.DUPLICATE -> Res.string.segment_duplicate_help
+            SegmentStatus.ARCHIVED -> Res.string.segment_status_archived_help
+            else -> return
+        }
+    Column(Modifier.padding(top = 8.dp)) {
+        segmentStatusLabel(segment.status)?.let {
+            Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.tertiary)
+        }
+        Text(stringResource(help), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (status == SegmentStatus.DUPLICATE && segment.duplicateOf != null) {
+            AppTextButton(onClick = onOpenOriginal) { Text(stringResource(Res.string.segment_open_original)) }
         }
     }
 }

@@ -23,16 +23,20 @@ import io.github.solcott.activitytracker.composeApp.resources.segment_sport_padd
 import io.github.solcott.activitytracker.composeApp.resources.segment_sport_ride
 import io.github.solcott.activitytracker.composeApp.resources.segment_sport_run
 import io.github.solcott.activitytracker.composeApp.resources.segment_sport_ski
+import io.github.solcott.activitytracker.composeApp.resources.segment_status_archived
+import io.github.solcott.activitytracker.composeApp.resources.segment_status_duplicate
+import io.github.solcott.activitytracker.composeApp.resources.segment_status_proposed
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
+import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import org.jetbrains.compose.resources.stringResource
 
 /**
  * One effort as a row: [label] (the segment's name on an activity page, the date on a segment page), with its time, marked "PR" when it's
- * the athlete's fastest the viewer may see. Tapping it calls [onClick].
+ * the athlete's fastest the viewer may see, and with [showStatus] its segment's status when it isn't active. Tapping it calls [onClick].
  */
 @Composable
-fun EffortRow(effort: EffortView, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun EffortRow(effort: EffortView, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, showStatus: Boolean = false) {
     Row(
         modifier.fillMaxWidth().clickable(onClick = onClick).handCursor().padding(vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -40,6 +44,10 @@ fun EffortRow(effort: EffortView, label: String, onClick: () -> Unit, modifier: 
     ) {
         Column(Modifier.weight(1f)) {
             Text(label, style = MaterialTheme.typography.bodyLarge)
+            if (showStatus)
+                segmentStatusLabel(effort.segment.status)?.let { status ->
+                    Text(status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             if (effort.eBike == true) {
                 Text(
                     stringResource(Res.string.segment_ebike),
@@ -59,6 +67,16 @@ fun EffortRow(effort: EffortView, label: String, onClick: () -> Unit, modifier: 
         Text(Format.duration(effort.elapsed), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
     }
 }
+
+/** A segment's [status] as a label; null for an active one, or one with no status. */
+@Composable
+fun segmentStatusLabel(status: String?): String? =
+    when (SegmentStatus.of(status)) {
+        SegmentStatus.PROPOSED -> stringResource(Res.string.segment_status_proposed)
+        SegmentStatus.DUPLICATE -> stringResource(Res.string.segment_status_duplicate)
+        SegmentStatus.ARCHIVED -> stringResource(Res.string.segment_status_archived)
+        else -> null
+    }
 
 /** A segment's sport group as a label; the token itself for one this app doesn't know. */
 @Composable

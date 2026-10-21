@@ -111,6 +111,13 @@ sealed interface ActivityDetailState : CircuitUiState {
         val revealed: Revealed = Revealed(),
         /** Its segment efforts the viewer may see, in the order they began; empty while loading, when it has none, or when they failed. */
         val segments: ImmutableList<EffortView> = persistentListOf(),
+        /**
+         * The owner can create a segment from the activity (segments/segment-creation): it has a full track, its sport has a segment sport
+         * group, and their privacy zones were read.
+         */
+        val canCreateSegment: Boolean = false,
+        /** A segment was just published from this activity; it shows once the AppView has processed it. */
+        val segmentCreated: Boolean = false,
     ) : ActivityDetailState
 }
 
@@ -393,6 +400,9 @@ sealed interface ActivityDetailEvent {
 
     /** Opens the segment [uri] of one of the activity's efforts. */
     data class SegmentOpened(val uri: AtUri) : ActivityDetailEvent
+
+    /** The owner creates a segment from the activity's route ([ActivityDetailState.Loaded.canCreateSegment]). */
+    data object CreateSegment : ActivityDetailEvent
 
     /** The owner exports the activity as [format]: see [ActivityExportState]. */
     data class Export(val format: ExportFormat) : ActivityDetailEvent

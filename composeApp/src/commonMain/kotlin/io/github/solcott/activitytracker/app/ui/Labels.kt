@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_gender
 import io.github.solcott.activitytracker.composeApp.resources.detail_location
 import io.github.solcott.activitytracker.composeApp.resources.detail_training
 import io.github.solcott.activitytracker.composeApp.resources.error_answer_follow_request
+import io.github.solcott.activitytracker.composeApp.resources.error_check_segment
 import io.github.solcott.activitytracker.composeApp.resources.error_combine_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_comment
@@ -35,6 +36,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_segment
 import io.github.solcott.activitytracker.composeApp.resources.error_no_location
 import io.github.solcott.activitytracker.composeApp.resources.error_open_subject
 import io.github.solcott.activitytracker.composeApp.resources.error_original_not_sent
+import io.github.solcott.activitytracker.composeApp.resources.error_publish_segment
 import io.github.solcott.activitytracker.composeApp.resources.error_read_activity_file
 import io.github.solcott.activitytracker.composeApp.resources.error_remove_follower
 import io.github.solcott.activitytracker.composeApp.resources.error_save_activity
@@ -109,6 +111,8 @@ fun errorText(error: UiError): String =
                 UiError.Kind.LoadFeed -> Res.string.error_load_feed
                 UiError.Kind.LoadActivity -> Res.string.error_load_activity
                 UiError.Kind.LoadSegment -> Res.string.error_load_segment
+                UiError.Kind.CheckSegment -> Res.string.error_check_segment
+                UiError.Kind.PublishSegment -> Res.string.error_publish_segment
                 UiError.Kind.LoadLikes -> Res.string.error_load_likes
                 UiError.Kind.LoadComments -> Res.string.error_load_comments
                 UiError.Kind.LoadReplies -> Res.string.error_load_replies

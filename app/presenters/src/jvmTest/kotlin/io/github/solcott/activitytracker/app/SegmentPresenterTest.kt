@@ -31,6 +31,8 @@ class SegmentPresenterTest {
     private val screen = SegmentScreen(uri)
     private val line = SegmentGeometry.encodePolyline(listOf(GeoPoint(47.0, 8.0), GeoPoint(47.009, 8.0)))
     private var failSegment = false
+    private var status = "proposed"
+    private var duplicateOf = ""
     private val effortsRequested = mutableListOf<String?>()
 
     private fun effort(rkey: String, elapsed: Int, best: Boolean = false) =
@@ -50,7 +52,7 @@ class SegmentPresenterTest {
                             respond(
                                 """{"segment":{"uri":"$uri","cid":"bafyseg","creator":{"did":"did:plc:carol","handle":"carol.test"},""" +
                                     """"record":{"name":"Hill","sport":"run","line":"$line","source":"athlete","license":"CC0-1.0",""" +
-                                    """"createdAt":"2026-10-01T00:00:00Z"},"distanceMeters":1000}}""",
+                                    """"createdAt":"2026-10-01T00:00:00Z"},"distanceMeters":1000,"status":"$status"$duplicateOf}}""",
                                 headers = json,
                             )
                     "/xrpc/${Nsid.FEED_GET_SEGMENT_EFFORTS}" -> {
@@ -108,6 +110,22 @@ class SegmentPresenterTest {
             val state = awaitUntil { it.efforts.isNotEmpty() }
             state.eventSink(SegmentEvent.OpenActivity(state.efforts.first().activity))
             assertEquals(ActivityDetailScreen("at://$alice/${Nsid.FEED_ACTIVITY}/3ka1"), navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aDuplicateOpensItsOriginal() = runTest {
+        val original = "at://did:plc:bob/${Nsid.FEED_SEGMENT}/3ksfirst"
+        status = "duplicate"
+        duplicateOf = ""","duplicateOf":"$original""""
+        val navigator = FakeNavigator(screen)
+        val segments = segments()
+        presenterTestOf({ SegmentPresenter(screen, navigator, segments) }) {
+            val state = awaitUntil { it.segment != null }
+            assertEquals("duplicate", state.segment?.status)
+            state.eventSink(SegmentEvent.OpenOriginal)
+            assertEquals(SegmentScreen(original), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
         }
     }

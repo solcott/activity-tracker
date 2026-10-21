@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.detail
 
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -24,6 +25,7 @@ import io.github.solcott.activitytracker.app.profile.rememberApprovesFollowers
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.rememberReporting
+import io.github.solcott.activitytracker.app.segment.CreateSegmentScreen
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
 import io.github.solcott.activitytracker.app.settings.TrainingZonesScreen
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -104,6 +106,9 @@ fun ActivityDetailPresenter(
     val unitSystem by units.units.collectAsState()
     val charts = rememberCharts(AtUri(screen.uri), loadKey, unitSystem, feed)
     val segments = rememberSegments(AtUri(screen.uri), loadKey, segmentEfforts)
+    // Said on this page until the athlete leaves it.
+    val segmentsCreated by segmentEfforts.createdFrom.collectAsState()
+    DisposableEffect(screen.uri) { onDispose { segmentEfforts.dismissCreated(AtUri(screen.uri)) } }
     val comments = rememberComments(AtUri(screen.uri), profiles.did, loadKey, feed, flights)
     // As served: the record without fields of narrower categories, and the details records of the tiers the viewer is admitted to.
     val served = loaded?.shown(rewrite?.let { r -> { a: ActivityView -> feed.rewrites.rewritten(a, r) } }, likeOverrides)
@@ -156,6 +161,7 @@ fun ActivityDetailPresenter(
             ActivityDetailEvent.AddRecording,
             ActivityDetailEvent.OpenMap,
             is ActivityDetailEvent.SegmentOpened,
+            ActivityDetailEvent.CreateSegment,
             is ActivityDetailEvent.OpenMedia -> navigator.open(event, screen.uri, current)
 
             ActivityDetailEvent.ToggleLikesList -> {
@@ -239,6 +245,8 @@ fun ActivityDetailPresenter(
             reporting = reporting,
             revealed = revealed,
             segments = segments,
+            canCreateSegment = canCreateSegment(isOwn, ownRoute, it.record),
+            segmentCreated = AtUri(screen.uri) in segmentsCreated,
         )
     }
 }
@@ -526,6 +534,7 @@ private fun Navigator.open(event: ActivityDetailEvent, uri: String, current: Act
         is ActivityDetailEvent.OpenMedia -> goTo(MediaGalleryScreen(uri, event.index))
         ActivityDetailEvent.OpenMap -> goTo(RouteMapScreen(uri))
         is ActivityDetailEvent.SegmentOpened -> goTo(SegmentScreen(event.uri.value))
+        ActivityDetailEvent.CreateSegment -> goTo(CreateSegmentScreen(uri))
         ActivityDetailEvent.Combine -> goTo(CombinePickerScreen(uri))
         ActivityDetailEvent.AddRecording -> goTo(ImportActivityScreen(combineInto = uri))
         else -> Unit

@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.flowOf
  * The owner's view of their own route: [map] is the full track, untrimmed, which only they read; null on someone else's activity, or when
  * the track can't be read (the trimmed polyline shows then). [hide] adds a privacy zone at its start or end.
  */
+@Suppress("LongParameterList") // What the owner's map shows, and what can be done with the route.
 internal class OwnRoute(
     /** The full track's points, two or more; null like [map]. */
     val track: List<LocationSample>?,
@@ -35,6 +36,8 @@ internal class OwnRoute(
     val canHide: Boolean,
     val zoneAdded: Boolean,
     val error: UiError?,
+    /** The owner's privacy settings were read, so the track can be cut by them, as a new segment's line is. */
+    val zonesRead: Boolean,
     val hide: (start: Boolean) -> Unit,
 )
 
@@ -91,6 +94,7 @@ internal fun rememberOwnRoute(
         canHide = current != null && !flights.isRunning(HIDE),
         zoneAdded,
         error,
+        zonesRead = settings != null,
     ) { start ->
         if (current != null) {
             error = null

@@ -33,6 +33,7 @@ import io.github.solcott.activitytracker.data.feed.fakeGetComments
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.segments.SegmentPublisher
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.data.units.UnitSystem
@@ -124,6 +125,16 @@ open class ActivityDetailTestBase {
     /** The `getActivitySegments` efforts the AppView answers with, as JSON; null to fail. */
     protected var segmentsFromAppView: String? = "[]"
 
+    /** The AppView's `checkSegment` answer; null fails it. */
+    protected var checkSegment: String? = """{"duplicates":[],"remaining":10}"""
+
+    /** How many `checkSegment` calls were made; each waits on [checkGate] when set. */
+    protected var checkRequests = 0
+    protected var checkGate: CompletableDeferred<Unit>? = null
+
+    /** Reading Alice's privacy zones fails. */
+    protected var failZones = false
+
     /** `getActivityStreams` requests so far. */
     protected var streamsRequests = 0
 
@@ -204,6 +215,13 @@ open class ActivityDetailTestBase {
                             ?: respond("""{"error":"NotFound","message":"none"}""", HttpStatusCode.NotFound, json)
                     }
 
+                    "/xrpc/${Nsid.FEED_CHECK_SEGMENT}" -> {
+                        checkRequests++
+                        checkGate?.await()
+                        checkSegment?.let { respond(it, headers = json) }
+                            ?: respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
+                    }
+
                     "/xrpc/${Nsid.FEED_GET_ACTIVITY_SEGMENTS}" -> {
                         segmentsFromAppView?.let { respond("""{"efforts":$it}""", headers = json) }
                             ?: respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
@@ -233,9 +251,11 @@ open class ActivityDetailTestBase {
                                     respond("""{"uri":"at://did:plc:alice/x/y","cid":"bafyrec","value":$value}""", headers = json)
                                 } ?: notFound
                             Nsid.ACTOR_PRIVACY_ZONES ->
-                                privacyZones?.let {
-                                    respond("""{"uri":"at://did:plc:alice/x/self","cid":"bafyrec","value":$it}""", headers = json)
-                                } ?: notFound
+                                if (failZones) respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
+                                else
+                                    privacyZones?.let {
+                                        respond("""{"uri":"at://did:plc:alice/x/self","cid":"bafyrec","value":$it}""", headers = json)
+                                    } ?: notFound
                             else -> notFound
                         }
                     }
@@ -307,6 +327,7 @@ open class ActivityDetailTestBase {
         val blocks: BlockRepository,
         val reports: ReportRepository,
         val segments: SegmentRepository,
+        val publisher: SegmentPublisher,
     )
 
     @Suppress("LongMethod") // Wires every store a test reaches for.
@@ -343,6 +364,7 @@ open class ActivityDetailTestBase {
                 testSegments(db, clients, writer, outbox, privacy, tracks).sweeper,
             )
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones)
+        val segments = SegmentRepository(clients)
         return Repos(
             db,
             feed,
@@ -370,7 +392,8 @@ open class ActivityDetailTestBase {
             CombineSuggestions(db, clients, feed, tracks, Clock.System),
             BlockRepository(clients, writer, outbox, feed, Clock.System),
             ReportRepository(clients),
-            SegmentRepository(clients),
+            segments,
+            SegmentPublisher(clients, writer, outbox, segments, Clock.System),
         )
     }
 

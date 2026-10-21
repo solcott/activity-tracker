@@ -24,6 +24,7 @@ internal fun LazyListScope.segments(state: ActivityDetailState.Loaded) {
                         effort,
                         effort.segment.name,
                         onClick = { state.eventSink(ActivityDetailEvent.SegmentOpened(effort.segment.uri)) },
+                        showStatus = true,
                     )
                 }
             }

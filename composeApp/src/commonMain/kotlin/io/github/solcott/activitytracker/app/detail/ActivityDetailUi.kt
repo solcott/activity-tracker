@@ -73,6 +73,7 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_like
 import io.github.solcott.activitytracker.composeApp.resources.detail_liked
 import io.github.solcott.activitytracker.composeApp.resources.detail_more
 import io.github.solcott.activitytracker.composeApp.resources.detail_no_likes
+import io.github.solcott.activitytracker.composeApp.resources.detail_segment_created
 import io.github.solcott.activitytracker.composeApp.resources.detail_show_likes
 import io.github.solcott.activitytracker.composeApp.resources.detail_title
 import io.github.solcott.activitytracker.composeApp.resources.detail_zone_added
@@ -101,7 +102,9 @@ fun ActivityDetailUi(state: ActivityDetailState, modifier: Modifier = Modifier) 
                 scrollBehavior = scrollBehavior,
                 actions = {
                     val loaded = state as? ActivityDetailState.Loaded
-                    loaded?.manage?.let { ManageMenu(it, loaded.canHideRouteEnds, loaded.export, loaded.eventSink) }
+                    loaded?.manage?.let {
+                        ManageMenu(it, loaded.canHideRouteEnds, loaded.export, loaded.eventSink, canCreateSegment = loaded.canCreateSegment)
+                    }
                     if (loaded != null && !loaded.isOwn && loaded.reporting.available) OthersActivityMenu(loaded)
                 },
             )
@@ -345,6 +348,7 @@ private fun Header(state: ActivityDetailState.Loaded, modifier: Modifier = Modif
         state.manage?.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
         state.routeError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
         if (state.zoneAdded) Text(stringResource(Res.string.detail_zone_added), style = MaterialTheme.typography.bodySmall)
+        if (state.segmentCreated) Text(stringResource(Res.string.detail_segment_created), style = MaterialTheme.typography.bodySmall)
     }
 }
 
