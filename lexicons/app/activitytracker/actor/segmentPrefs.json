@@ -4,13 +4,17 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "The athlete's segment matching setting. Lives only in the athlete's self space (app.activitytracker.space.athlete, key self), never in the public repo. No record means the athlete was never asked, and matching is off. While matching is on, clients write an app.activitytracker.feed.segmentTrack for each activity with a track; when it goes off they delete them all. The AppView indexes it from self, never serves it, and drops the athlete's segment tracks when it says off.",
+      "description": "The athlete's segment matching and leaderboard settings. Lives only in the athlete's self space (app.activitytracker.space.athlete, key self), never in the public repo. No record means the athlete was never asked, and matching is off. While matching is on, clients write an app.activitytracker.feed.segmentTrack for each activity with a track; when it goes off they delete them all. The AppView indexes it from self, never serves it, and drops the athlete's segment tracks when it says off.",
       "key": "literal:self",
       "record": {
         "type": "object",
         "required": ["matching", "updatedAt"],
         "properties": {
           "matching": { "type": "boolean", "description": "Whether the athlete's segment tracks may be written and matched." },
+          "hideFromLeaderboards": {
+            "type": "boolean",
+            "description": "The athlete appears on no segment leaderboard, to anyone, themselves included; they keep their efforts and PRs. Absent means false. Private: the AppView never serves it."
+          },
           "updatedAt": { "type": "string", "format": "datetime" }
         }
       }
