@@ -46,6 +46,11 @@
           "type": "array",
           "items": { "type": "ref", "ref": "#detailsView" },
           "description": "The activity's app.activitytracker.feed.activityDetails records from the tiers the viewer is admitted to, widest first; absent when there are none. Their fields go on top of record's, a narrower tier's last."
+        },
+        "labels": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "app.activitytracker.moderation.defs#label" },
+          "description": "Labels on the activity, which apply to each of its photos too; the author's account labels are on author. Absent when there are none."
         }
       }
     },
@@ -121,6 +126,11 @@
           "type": "ref",
           "ref": "com.atproto.repo.strongRef",
           "description": "On a reply, the comment it answers (app.activitytracker.feed.comment#replyRef)."
+        },
+        "labels": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "app.activitytracker.moderation.defs#label" },
+          "description": "Labels on the comment; the commenter's account labels are on author. Absent when there are none."
         }
       }
     },

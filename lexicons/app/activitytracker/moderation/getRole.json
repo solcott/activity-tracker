@@ -1,0 +1,25 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.moderation.getRole",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "The caller's role on the app's labeler team, so clients offer moderator tools only to moderators and admins. Requires service auth.",
+      "parameters": { "type": "params", "properties": {} },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "role": {
+              "type": "string",
+              "knownValues": ["admin", "moderator", "triage", "verifier"],
+              "description": "Absent for an account that isn't on the team, or whose membership is disabled."
+            }
+          }
+        }
+      },
+      "errors": [{ "name": "LabelerUnavailable" }]
+    }
+  }
+}

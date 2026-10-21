@@ -1,0 +1,23 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.moderation.defs",
+  "defs": {
+    "label": {
+      "type": "object",
+      "description": "A label that applies to a view's subject, from one of the labelers the AppView trusts (com.atproto.label.defs#label, verified, newest, neither negated nor expired). Clients ignore values they don't know.",
+      "required": ["src", "val"],
+      "properties": {
+        "src": {
+          "type": "string",
+          "format": "did",
+          "description": "The labeler."
+        },
+        "val": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "The label value, such as !takedown, !hide, !warn, porn, sexual, nudity, graphic-media, spam or impersonation."
+        }
+      }
+    }
+  }
+}

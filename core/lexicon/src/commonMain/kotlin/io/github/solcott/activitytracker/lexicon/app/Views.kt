@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import kotlin.time.Instant
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /** `app.activitytracker.actor.defs#profileViewBasic` */
@@ -18,6 +19,8 @@ data class ProfileViewBasic(
     val displayName: String? = null,
     /** URL of the athlete's profile picture. */
     val avatar: String? = null,
+    /** Labels on the athlete's account; null when there are none. */
+    val labels: List<LabelView>? = null,
 )
 
 /** `app.activitytracker.actor.defs#profileView` */
@@ -39,6 +42,8 @@ data class ProfileView(
     val followersCount: Long? = null,
     val followsCount: Long? = null,
     val viewer: ProfileViewerState? = null,
+    /** Labels on the athlete's account and their profile record; null when there are none. */
+    val labels: List<LabelView>? = null,
 )
 
 @Immutable
@@ -88,6 +93,8 @@ data class ActivityView(
      * activity through [effectiveRecord], which lays them over [record].
      */
     val details: List<DetailsView>? = null,
+    /** Labels on the activity, which cover its photos too; its author's are on [author]. Null when there are none. */
+    val labels: List<LabelView>? = null,
 ) {
     /** [visibility] as a known value: [Visibility.PUBLIC] when absent, [Visibility.SELF] when unknown. */
     val visibilityOrPublic: String
@@ -95,6 +102,12 @@ data class ActivityView(
 }
 
 @Immutable @Serializable data class ActivityViewerState(val like: AtUri? = null)
+
+/**
+ * `app.activitytracker.moderation.defs#label`: a label from a labeler the AppView trusts, already checked, newest, neither negated nor
+ * expired. [value] is an open set: clients ignore values they don't know.
+ */
+@Immutable @Serializable data class LabelView(val src: Did, @SerialName("val") val value: String)
 
 /** `app.activitytracker.feed.defs#detailsView`: a details record and the tier ([Visibility] value) it's stored in. */
 @Immutable @Serializable data class DetailsView(val visibility: String, val record: ActivityDetailsRecord)
@@ -132,6 +145,8 @@ data class CommentView(
     val root: StrongRef? = null,
     /** On a reply, the comment it answers ([ReplyRef.parent]). */
     val parent: StrongRef? = null,
+    /** Labels on the comment; its commenter's are on [author]. Null when there are none. */
+    val labels: List<LabelView>? = null,
 ) {
     /** This comment as a strong ref, for a reply to it. */
     val ref: StrongRef

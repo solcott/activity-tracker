@@ -1,0 +1,38 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.moderation.getSubject",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "For the app's moderators: a reported activity or comment as the AppView indexed it, at any visibility, with photo links signed for the moderator. Requires service auth from a member of the app's labeler team with the moderator or admin role. A subject that isn't Public is answered only while the labeler has an open report or review on it or its author, and each such answer is audit-logged.",
+      "parameters": {
+        "type": "params",
+        "required": ["uri"],
+        "properties": {
+          "uri": { "type": "string", "format": "at-uri", "description": "An app.activitytracker.feed.activity or app.activitytracker.feed.comment record." }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["visibility"],
+          "properties": {
+            "visibility": {
+              "type": "string",
+              "knownValues": ["public", "followers", "mutuals", "self"],
+              "description": "Who may see the subject: an activity's tier, or the narrower of a comment's audience and its activity's."
+            },
+            "activity": { "type": "ref", "ref": "app.activitytracker.feed.defs#activityView", "description": "The subject, when it's an activity." },
+            "comment": { "type": "ref", "ref": "app.activitytracker.feed.defs#commentView", "description": "The subject, when it's a comment." }
+          }
+        }
+      },
+      "errors": [
+        { "name": "NotFound", "description": "No such subject, or it isn't Public and isn't under review." },
+        { "name": "NotModerator" },
+        { "name": "LabelerUnavailable", "description": "The labeler couldn't be asked about the caller's role or the subject's review." }
+      ]
+    }
+  }
+}
