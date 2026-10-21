@@ -4,7 +4,7 @@
 
 - [x] 1.1 Add `lexicons/app/activitytracker/feed/segmentTrack.json`: `activity`, optional `zonesRevision`, `data` blob (`application/json`), `createdAt`, key `tid`. Its description states self-only storage, the pieces/E7/offset JSON shape and AppView use only while matching is on. Verify it parses with the other lexicons (`./gradlew :core-lexicon:jvmTest`).
 - [x] 1.2 Add `lexicons/app/activitytracker/actor/segmentPrefs.json` (`matching` boolean, `updatedAt`, key `literal:self`, self-only). Verify the same way.
-- [ ] 1.3 Add both collections to `space/athlete.json` and update its description. Update `feed/activityTrack.json`'s description to say the AppView reads only the separate zone-trimmed segment track. Verify `docker/scripts/publish-lexicons.sh` publishes them on the local stack.
+- [x] 1.3 Add both collections to `space/athlete.json` and update its description. Update `feed/activityTrack.json`'s description to say the AppView reads only the separate zone-trimmed segment track. Verify `docker/scripts/publish-lexicons.sh` publishes them on the local stack.
 - [x] 1.4 Mirror the changes in `core/lexicon`:
   - `Nsid.FEED_SEGMENT_TRACK` and `Nsid.ACTOR_SEGMENT_PREFS`, kept out of `indexedCollections` because they are space-only;
   - `SegmentTrackRecord` (with a `DATA_FIELD` blob constant) and `SegmentPrefsRecord` in `Records.kt`;
@@ -27,7 +27,7 @@
 
   Verify jvmTests with `FakeAthletePds`: default off, a failed save keeps the old value, a missing scope reports unavailable.
 - [x] 3.2 Add the Settings row: `SettingsState` fields, a `SegmentMatchingChanged` event, `SettingsPresenter` wiring, `SettingsUi` toggle with an explanation, and a "sign in again" note when the scope is missing. Use `ui/adaptive` components. Verify `SettingsPresenterTest` covers on, off, save failure (error shown, toggle reverts) and missing scope, and that `./gradlew composeStabilityCheck` passes.
-- [ ] 3.3 Add the one-time prompt card on the feed. It shows only when the record is known missing, the scope is present, and the athlete has a GPS activity. "Turn on" saves `true`; "Not now" saves `false`. Verify `FeedPresenterTest` cases: shown, hidden after either choice, hidden on a read failure, hidden without the scope. Check it visually on desktop with Compose Hot Reload.
+- [x] 3.3 Add the one-time prompt card on the feed. It shows only when the record is known missing, the scope is present, and the athlete has a GPS activity. "Turn on" saves `true`; "Not now" saves `false`. Verify `FeedPresenterTest` cases: shown, hidden after either choice, hidden on a read failure, hidden without the scope. Check it visually on desktop with Compose Hot Reload.
 
 ## 4. Writing and deleting segment tracks (client)
 
@@ -77,7 +77,7 @@
 ## 7. Integration
 
 - [x] 7.1 Run `./gradlew check` and verify it passes: all targets, lint, ktfmt, detekt, sorted deps.
-- [ ] 7.2 On the local stack (`scripts/dev.sh --seed alice`), with a zone around the sample route's start, sign in again, turn matching on, and import a sample GPX:
+- [x] 7.2 On the local stack (`scripts/dev.sh --seed alice`), with a zone around the sample route's start, sign in again, turn matching on, and import a sample GPX:
   - the `feed.segmentTrack` appears in alice's `self` space;
   - its pieces exclude the zone;
   - its JSON has no timestamps;
