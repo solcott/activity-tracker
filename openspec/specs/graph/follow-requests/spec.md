@@ -18,7 +18,7 @@ An athlete's follow policy SHALL be `open` or `approve`, stored as `followPolicy
 - **THEN** the AppView treats the athlete's policy as `open`
 
 ### Requirement: Effective follows
-A follow of an athlete SHALL be effective when the athlete's policy is `open`, or when the athlete has published an `app.activitytracker.graph.followApproval` record whose `subject` is the follower. A follow that isn't effective SHALL be pending. An approval SHALL take effect whether it is indexed before or after the follow it approves.
+A follow of an athlete SHALL be effective when the athlete's policy is `open`, or when the athlete has published an `app.activitytracker.graph.followApproval` record whose `subject` is the follower. A follow that isn't effective SHALL be pending. An approval SHALL take effect whether it is indexed before or after the follow it approves. Whatever the policy and approvals, a follow SHALL NOT be effective while either the follower or the athlete blocks the other.
 
 #### Scenario: Open policy
 - **WHEN** bob follows alice and alice's policy is `open`
@@ -35,6 +35,10 @@ A follow of an athlete SHALL be effective when the athlete's policy is `open`, o
 #### Scenario: Refollow after unfollow
 - **WHEN** alice approved bob, bob unfollows alice, and then follows her again
 - **THEN** bob's new follow is effective without another approval
+
+#### Scenario: Block makes a follow ineffective
+- **WHEN** bob follows alice, alice's policy is `open`, and either alice blocks bob or bob blocks alice
+- **THEN** bob's follow of alice isn't effective while the block holds
 
 ### Requirement: Only effective follows count
 Every view the AppView derives from follows SHALL use effective follows only. This covers the timeline's authors, `followersCount` and `followsCount`, `getFollowers` and `getFollows`, and whom the viewer follows.

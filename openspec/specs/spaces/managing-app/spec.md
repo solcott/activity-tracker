@@ -71,10 +71,10 @@ The endpoint SHALL require a service-auth JWT signed by the issuer's DID-documen
 - **THEN** the AppView answers `{"authorized": false}`
 
 ### Requirement: Read access by tier
-For a space of type `app.activitytracker.space.athlete`, a `read` check SHALL be decided by the space key: `public` admits any user; `followers` admits a user whose follow of the authority is effective in this app's follow graph; `mutuals` admits a user whose follow of the authority is effective and whom the authority effectively follows; `self`, `interactions` and every other key admit no one. Any other space type SHALL be denied.
+For a space of type `app.activitytracker.space.athlete`, a `read` check SHALL be decided by the space key: `public` admits any user; `followers` admits a user whose follow of the authority is effective in this app's follow graph; `mutuals` admits a user whose follow of the authority is effective and whom the authority effectively follows; `self`, `interactions` and every other key admit no one. A user in a block with the authority, made by either of them, SHALL be denied every key, `public` included. Any other space type SHALL be denied.
 
 #### Scenario: Public tier
-- **WHEN** any user is checked for `read` on the authority's `public` space
+- **WHEN** any user not in a block with the authority is checked for `read` on the authority's `public` space
 - **THEN** the answer is `authorized: true`, even if neither follows the other
 
 #### Scenario: Effective follower reads the followers tier
@@ -124,6 +124,14 @@ For a space of type `app.activitytracker.space.athlete`, a `read` check SHALL be
 #### Scenario: Bluesky follows don't count
 - **WHEN** two accounts follow each other only with `app.bsky.graph.follow` records
 - **THEN** a `read` check on the `followers` or `mutuals` space answers `authorized: false`
+
+#### Scenario: Blocked user
+- **WHEN** the authority blocks a user, or the user blocks the authority, with either an `app.activitytracker.graph.block` or an `app.bsky.graph.block`, and the AppView has indexed it
+- **THEN** a `read` check for that user on any of the authority's spaces, `public` included, answers `authorized: false`
+
+#### Scenario: Unblocked user
+- **WHEN** that block is deleted and the AppView has indexed the deletion
+- **THEN** `read` checks for the user are decided by tier again
 
 ### Requirement: AppView reads the spaces it syncs
 The AppView's own service DID SHALL be admitted for `read` on an athlete's `public`, `followers`, `mutuals`, `self` and `interactions` spaces, whatever the follow graph says, so it can sync them. It SHALL be denied `read` on any other key, like anyone else.
