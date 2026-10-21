@@ -24,6 +24,7 @@ import io.github.solcott.activitytracker.app.profile.rememberApprovesFollowers
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.rememberReporting
+import io.github.solcott.activitytracker.app.segment.SegmentScreen
 import io.github.solcott.activitytracker.app.settings.TrainingZonesScreen
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityExporter
@@ -37,6 +38,7 @@ import io.github.solcott.activitytracker.data.feed.withLikeOverrides
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -69,6 +71,7 @@ fun ActivityDetailPresenter(
     suggestions: CombineSuggestions,
     blocks: BlockRepository,
     reports: ReportRepository,
+    segmentEfforts: SegmentRepository,
 ): ActivityDetailState {
     // The activity as loaded, and how far the viewer's comment actions have moved its count since: one value, so a reload replaces both.
     var loaded by remember { mutableStateOf<CountedActivity?>(null) }
@@ -100,6 +103,7 @@ fun ActivityDetailPresenter(
 
     val unitSystem by units.units.collectAsState()
     val charts = rememberCharts(AtUri(screen.uri), loadKey, unitSystem, feed)
+    val segments = rememberSegments(AtUri(screen.uri), loadKey, segmentEfforts)
     val comments = rememberComments(AtUri(screen.uri), profiles.did, loadKey, feed, flights)
     // As served: the record without fields of narrower categories, and the details records of the tiers the viewer is admitted to.
     val served = loaded?.shown(rewrite?.let { r -> { a: ActivityView -> feed.rewrites.rewritten(a, r) } }, likeOverrides)
@@ -151,6 +155,7 @@ fun ActivityDetailPresenter(
             ActivityDetailEvent.Combine,
             ActivityDetailEvent.AddRecording,
             ActivityDetailEvent.OpenMap,
+            is ActivityDetailEvent.SegmentOpened,
             is ActivityDetailEvent.OpenMedia -> navigator.open(event, screen.uri, current)
 
             ActivityDetailEvent.ToggleLikesList -> {
@@ -233,6 +238,7 @@ fun ActivityDetailPresenter(
             combineSuggestion = suggestion.state,
             reporting = reporting,
             revealed = revealed,
+            segments = segments,
         )
     }
 }
@@ -519,6 +525,7 @@ private fun Navigator.open(event: ActivityDetailEvent, uri: String, current: Act
         ActivityDetailEvent.Edit -> goTo(EditActivityScreen(uri))
         is ActivityDetailEvent.OpenMedia -> goTo(MediaGalleryScreen(uri, event.index))
         ActivityDetailEvent.OpenMap -> goTo(RouteMapScreen(uri))
+        is ActivityDetailEvent.SegmentOpened -> goTo(SegmentScreen(event.uri.value))
         ActivityDetailEvent.Combine -> goTo(CombinePickerScreen(uri))
         ActivityDetailEvent.AddRecording -> goTo(ImportActivityScreen(combineInto = uri))
         else -> Unit

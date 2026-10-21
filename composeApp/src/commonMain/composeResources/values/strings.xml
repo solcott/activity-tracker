@@ -11,6 +11,7 @@
     <!-- Errors (shown when the failure has no message of its own) -->
     <string name="error_load_feed">Couldn't load your feed</string>
     <string name="error_load_activity">Couldn't load activity</string>
+    <string name="error_load_segment">Couldn't load segment</string>
     <string name="error_load_likes">Couldn't load likes</string>
     <string name="error_load_comments">Couldn't load comments</string>
     <string name="error_load_replies">Couldn't load replies</string>
@@ -1335,4 +1336,15 @@
     <string name="import_saved_suggestions_explained">These dives look like they belong with activities already in your log. Open one to combine it.</string>
     <string name="import_saved_suggestion_row">%1$s → %2$s</string>
     <string name="import_saved_suggestions_done">Done</string>
+    <string name="detail_section_segments">Segments</string>
+    <string name="segment_pr">PR</string>
+    <string name="segment_ebike">E-bike</string>
+    <string name="segment_your_efforts">Your efforts</string>
+    <string name="segment_no_efforts">You have no efforts on this segment yet</string>
+    <string name="segment_created_by">By %1$s</string>
+    <string name="segment_sport_ride">Ride</string>
+    <string name="segment_sport_run">Run</string>
+    <string name="segment_sport_hike">Hike</string>
+    <string name="segment_sport_ski">Ski</string>
+    <string name="segment_sport_paddle">Paddle</string>
 </resources>

@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
+import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.MemberView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import kotlinx.collections.immutable.ImmutableList
@@ -108,6 +109,8 @@ sealed interface ActivityDetailState : CircuitUiState {
         val reporting: Reporting = Reporting(),
         /** Its blurred photos, or the page of a hidden activity, once the viewer chose to see them on this screen. */
         val revealed: Revealed = Revealed(),
+        /** Its segment efforts the viewer may see, in the order they began; empty while loading, when it has none, or when they failed. */
+        val segments: ImmutableList<EffortView> = persistentListOf(),
     ) : ActivityDetailState
 }
 
@@ -387,6 +390,9 @@ sealed interface ActivityDetailEvent {
 
     /** Opens the route on a full-screen map the viewer can pan and zoom. */
     data object OpenMap : ActivityDetailEvent
+
+    /** Opens the segment [uri] of one of the activity's efforts. */
+    data class SegmentOpened(val uri: AtUri) : ActivityDetailEvent
 
     /** The owner exports the activity as [format]: see [ActivityExportState]. */
     data class Export(val format: ExportFormat) : ActivityDetailEvent

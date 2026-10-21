@@ -1,0 +1,114 @@
+package io.github.solcott.activitytracker.app.segment
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.plus
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.dp
+import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.settings.HistoryDate
+import io.github.solcott.activitytracker.app.settings.longDate
+import io.github.solcott.activitytracker.app.ui.ActivityMap
+import io.github.solcott.activitytracker.app.ui.Format
+import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
+import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
+import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
+import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
+import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.app.ui.handleLabel
+import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.action_retry
+import io.github.solcott.activitytracker.composeApp.resources.segment_created_by
+import io.github.solcott.activitytracker.composeApp.resources.segment_no_efforts
+import io.github.solcott.activitytracker.composeApp.resources.segment_your_efforts
+import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.lexicon.app.SegmentView
+import org.jetbrains.compose.resources.stringResource
+
+/** A segment: its line on a map, its length, sport group and creator, then the viewer's own efforts on it, fastest first. */
+@CircuitInject(SegmentScreen::class, SessionScope::class)
+@Composable
+fun SegmentUi(state: SegmentState, modifier: Modifier = Modifier) {
+    val segment = state.segment
+    val scrollBehavior = rememberAppTopBarScrollBehavior()
+    AppScaffold(
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            AppTopBar(
+                title = segment?.record?.name.orEmpty(),
+                onBack = { state.eventSink(SegmentEvent.Back) },
+                scrollBehavior = scrollBehavior,
+            )
+        },
+    ) { padding ->
+        val error = state.error
+        when {
+            segment != null -> Loaded(state, segment, padding)
+            error != null ->
+                Column(Modifier.fillMaxSize().padding(padding).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(errorText(error), color = MaterialTheme.colorScheme.error)
+                    AppTextButton(onClick = { state.eventSink(SegmentEvent.Retry) }) { Text(stringResource(Res.string.action_retry)) }
+                }
+            else -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { AppProgressIndicator() }
+        }
+    }
+}
+
+@Composable
+private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingValues) {
+    val listState = rememberLazyListState()
+    ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 12.dp)) {
+            state.polyline?.let { line -> item { ActivityMap(line, Modifier.fillMaxWidth()) } }
+            item {
+                Column(Modifier.padding(vertical = 12.dp)) {
+                    Text(
+                        "${Format.distance(segment.distanceMeters.toDouble())} · ${segmentSportLabel(segment.record.sport)}",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        stringResource(Res.string.segment_created_by, handleLabel(segment.creator.handle.value)),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            item { Text(stringResource(Res.string.segment_your_efforts), style = MaterialTheme.typography.titleMedium) }
+            if (state.efforts.isEmpty()) {
+                item {
+                    Text(
+                        stringResource(Res.string.segment_no_efforts),
+                        Modifier.padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            items(state.efforts, key = { "${it.activity.value} ${it.startOffset}" }) { effort ->
+                EffortRow(effort, dateLabel(effort.startedOn), onClick = { state.eventSink(SegmentEvent.OpenActivity(effort.activity)) })
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+        }
+    }
+}
+
+/** An effort's `YYYY-MM-DD` date, written out; the string itself when it doesn't parse. */
+@Composable
+private fun dateLabel(startedOn: String): String {
+    val parts = startedOn.split('-').mapNotNull { it.toIntOrNull() }
+    return if (parts.size == 3) longDate(HistoryDate(parts[0], parts[1], parts[2])) else startedOn
+}
