@@ -617,12 +617,28 @@ data class TrainingLoad(
     val aerobicTrainingEffect: Int? = null,
     /** Tenths, from 0 to 50. */
     val anaerobicTrainingEffect: Int? = null,
+    /** Garmin's exercise load: the EPOC-based training load, in whole units, from 0 to 10,000. */
+    val exerciseLoad: Int? = null,
+    /** Stamina potential at the start, in percent. */
+    val staminaStart: Int? = null,
+    /** Stamina potential at the end, in percent. */
+    val staminaEnd: Int? = null,
+    /** The lowest stamina during the activity, in percent. */
+    val staminaMin: Int? = null,
+    /** Estimated sweat loss, in milliliters, from 0 to 20,000. */
+    val sweatLoss: Int? = null,
     /** Heart rate variability: the RMSSD of the activity's beat-to-beat intervals, in milliseconds, computed at import. */
     val hrvRmssd: Int? = null,
 ) {
     /** Whether this holds nothing, so there's no load to store. */
     val isEmpty: Boolean
         get() = this == TrainingLoad()
+
+    companion object {
+        const val MAX_EXERCISE_LOAD = 10_000
+        const val MAX_STAMINA = 100
+        const val MAX_SWEAT_LOSS = 20_000
+    }
 }
 
 /** `app.activitytracker.feed.activityZones#zoneSnapshot`: the athlete's zones when the activity was published. */

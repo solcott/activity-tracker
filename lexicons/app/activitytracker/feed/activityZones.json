@@ -27,6 +27,11 @@
         "trainingStressScore": { "type": "integer", "minimum": 0, "description": "Tenths." },
         "aerobicTrainingEffect": { "type": "integer", "minimum": 0, "description": "Tenths, from 0 to 50." },
         "anaerobicTrainingEffect": { "type": "integer", "minimum": 0, "description": "Tenths, from 0 to 50." },
+        "exerciseLoad": { "type": "integer", "minimum": 0, "maximum": 10000, "description": "Garmin's exercise load: the activity's EPOC-based training load, in whole units." },
+        "staminaStart": { "type": "integer", "minimum": 0, "maximum": 100, "description": "Stamina potential at the start, in percent." },
+        "staminaEnd": { "type": "integer", "minimum": 0, "maximum": 100, "description": "Stamina potential at the end, in percent." },
+        "staminaMin": { "type": "integer", "minimum": 0, "maximum": 100, "description": "The lowest stamina during the activity, in percent." },
+        "sweatLoss": { "type": "integer", "minimum": 0, "maximum": 20000, "description": "Estimated sweat loss, in milliliters." },
         "hrvRmssd": { "type": "integer", "minimum": 0, "description": "Heart rate variability over the activity: the RMSSD of its beat-to-beat intervals, in milliseconds, computed at import." }
       }
     },

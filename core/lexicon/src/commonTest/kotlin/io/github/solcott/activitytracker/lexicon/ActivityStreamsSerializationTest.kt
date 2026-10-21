@@ -255,4 +255,13 @@ class ActivityStreamsSerializationTest {
         assertEquals(load, AtJson.decodeFromJsonElement(TrainingLoad.serializer(), json))
         assertFalse(load.isEmpty, "an HRV alone is still a load to store")
     }
+
+    @Test
+    fun trainingLoadCarriesGarminPhysiology() {
+        val load = TrainingLoad(exerciseLoad = 187, staminaStart = 100, staminaEnd = 70, staminaMin = 48, sweatLoss = 764)
+        val json = AtJson.encodeToJsonElement(TrainingLoad.serializer(), load).jsonObject
+        assertEquals(setOf("exerciseLoad", "staminaStart", "staminaEnd", "staminaMin", "sweatLoss"), json.keys)
+        assertEquals(load, AtJson.decodeFromJsonElement(TrainingLoad.serializer(), json))
+        assertFalse(TrainingLoad(sweatLoss = 764).isEmpty, "a sweat loss alone is still a load to store")
+    }
 }

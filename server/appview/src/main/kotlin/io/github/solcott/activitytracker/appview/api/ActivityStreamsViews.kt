@@ -173,6 +173,11 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
                 trainingStressScore = load.trainingStressScore.within(MAX_LOAD_VALUE),
                 aerobicTrainingEffect = load.aerobicTrainingEffect.within(MAX_TRAINING_EFFECT),
                 anaerobicTrainingEffect = load.anaerobicTrainingEffect.within(MAX_TRAINING_EFFECT),
+                exerciseLoad = load.exerciseLoad.within(TrainingLoad.MAX_EXERCISE_LOAD),
+                staminaStart = load.staminaStart.within(TrainingLoad.MAX_STAMINA),
+                staminaEnd = load.staminaEnd.within(TrainingLoad.MAX_STAMINA),
+                staminaMin = load.staminaMin.within(TrainingLoad.MAX_STAMINA),
+                sweatLoss = load.sweatLoss.within(TrainingLoad.MAX_SWEAT_LOSS),
                 hrvRmssd = load.hrvRmssd.within(MAX_HRV_RMSSD),
             )
         }

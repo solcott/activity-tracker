@@ -418,6 +418,23 @@ class ActivityStreamsTest {
     }
 
     @Test
+    fun trainingLoadServesGarminPhysiologyWithinBounds() = testApplication {
+        start()
+        streams(Visibility.PUBLIC)
+        zones(
+            Visibility.SELF,
+            trainingLoad = ""","trainingLoad":{"exerciseLoad":187,"staminaStart":150,"staminaEnd":70,"staminaMin":48,"sweatLoss":764}""",
+        )
+
+        // A stamina over 100% is dropped; the rest stands.
+        assertEquals(
+            TrainingLoad(exerciseLoad = 187, staminaEnd = 70, staminaMin = 48, sweatLoss = 764),
+            client.streamsFor(alice).output().trainingLoad,
+        )
+        assertNull(client.streamsFor(bob).output().trainingLoad)
+    }
+
+    @Test
     fun anHrvOutOfRangeIsDropped() = testApplication {
         start()
         streams(Visibility.PUBLIC)
