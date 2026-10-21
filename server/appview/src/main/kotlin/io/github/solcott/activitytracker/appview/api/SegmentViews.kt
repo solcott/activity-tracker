@@ -1,8 +1,11 @@
 package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.Activities
+import io.github.solcott.activitytracker.appview.db.Follows
 import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
+import io.github.solcott.activitytracker.appview.db.SegmentPrefs
+import io.github.solcott.activitytracker.appview.db.SegmentTracks
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.DAILY_SEGMENT_LIMIT
@@ -19,10 +22,16 @@ import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentEfforts
+import io.github.solcott.activitytracker.lexicon.app.GetSegmentLeaderboard
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
+import io.github.solcott.activitytracker.lexicon.app.NotRanked
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
+import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
@@ -30,6 +39,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentViewerState
 import io.github.solcott.activitytracker.location.SegmentCells
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.ktor.http.HttpStatusCode
+import java.time.ZoneOffset
 import kotlin.math.abs
 import kotlin.time.Clock
 import org.jetbrains.exposed.v1.core.Expression
@@ -40,11 +50,16 @@ import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
+import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.inSubQuery
+import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.min
+import org.jetbrains.exposed.v1.core.notExists
 import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.core.times
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.select
@@ -57,7 +72,7 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
  * Whether an effort is the athlete's best is judged among the efforts the same viewer may see. Search lists active segments, and proposed
  * ones only to their creator and their riders; every view carries the status the AppView derived.
  */
-@Suppress("TooManyFunctions") // The five segment routes, and the filters and views they share.
+@Suppress("TooManyFunctions") // The six segment routes, and the filters and views they share.
 class SegmentViews(private val db: Database, private val avatars: AvatarUrls, private val clock: Clock = Clock.System) {
     suspend fun segment(viewer: Did?, params: GetSegment.Params): GetSegment.Output = db.tx {
         val row =
@@ -129,11 +144,25 @@ class SegmentViews(private val db: Database, private val avatars: AvatarUrls, pr
         }
     }
 
-    /** The efforts on an activity the viewer may see, in the order they began; `NotFound` when they may not see the activity. */
+    /**
+     * The efforts on an activity the viewer may see, in the order they began; `NotFound` when they may not see the activity. The athlete's
+     * entry on the viewer's all-time board carries its rank when it's in the top 10, and the athlete's own efforts on active segments say
+     * why they aren't ranked (segments/segment-efforts).
+     */
     suspend fun activitySegments(viewer: Did?, params: GetActivitySegments.Params): GetActivitySegments.Output = db.tx {
         val visible = Activities.select(Activities.uri).where { (Activities.uri eq params.activity.value) and visibleTo(viewer) }.any()
         if (!visible) throw notFound("Activity not found")
-        GetActivitySegments.Output(effortViews(viewer, SegmentEfforts.activityUri eq params.activity.value))
+        val efforts = effortViews(viewer, SegmentEfforts.activityUri eq params.activity.value)
+        val own = viewer != null && params.activity.authority == viewer.value
+        val reasons = if (own) notRankedReasons(params.activity.value) else emptyMap()
+        GetActivitySegments.Output(
+            efforts.map { effort ->
+                effort.copy(
+                    rank = topRank(viewer, params.activity.authority, effort),
+                    notRanked = reasons[effortId(effort)].takeIf { SegmentStatus.of(effort.segment.status) == SegmentStatus.ACTIVE },
+                )
+            }
+        )
     }
 
     /** One athlete's efforts on a segment the viewer may see, fastest first; `NotFound` when the segment isn't served. */
@@ -153,6 +182,40 @@ class SegmentViews(private val db: Database, private val avatars: AvatarUrls, pr
             )
         val next = efforts.takeIf { it.size == limit }?.last()?.let { "${it.elapsed}::${effortId(it)}" }
         GetSegmentEfforts.Output(efforts, next)
+    }
+
+    /**
+     * A segment's leaderboard (segments/segment-leaderboards): each athlete's fastest [rankable] effort the viewer may see, fastest first,
+     * with competition ranks over the whole board, and the viewer's own entry. Pages by a `HAVING` keyset on (best, athlete), as
+     * [Views.likes] does; ranks come from counting the athletes ahead, so no window function is needed.
+     */
+    suspend fun leaderboard(viewer: Did?, params: GetSegmentLeaderboard.Params): GetSegmentLeaderboard.Output {
+        val (since, following) = filtersOf(viewer, params)
+        return db.tx {
+            val status =
+                Segments.select(Segments.status)
+                    .where { (Segments.uri eq params.segment.value) and segmentServed(viewer) }
+                    .firstOrNull()
+                    ?.get(Segments.status) ?: throw notFound("Segment not found")
+            if (status != SegmentStatus.ACTIVE) return@tx GetSegmentLeaderboard.Output(emptyList())
+            val board = boardOf(viewer, params.segment.value, params.eBike == true, since, following)
+            val limit = Paging.clamp(params.limit)
+            val after =
+                params.cursor?.let(::parseCursor)?.let { (best, did) ->
+                    (BEST greater best) or ((BEST eq best) and (SegmentEfforts.authorDid greater did))
+                } ?: Op.TRUE
+            val page =
+                bests(board, after).orderBy(BEST to SortOrder.ASC, SegmentEfforts.authorDid to SortOrder.ASC).limit(limit).mapNotNull { row
+                    ->
+                    row[BEST]?.let { row[SegmentEfforts.authorDid] to it }
+                }
+            val entries = entries(viewer, board, page)
+            val next = page.takeIf { it.size == limit }?.last()?.let { (did, best) -> "$best::$did" }
+            val own = viewer?.let { me ->
+                bests(board and (SegmentEfforts.authorDid eq me.value), Op.TRUE).firstOrNull()?.get(BEST)?.let { me.value to it }
+            }
+            GetSegmentLeaderboard.Output(entries, own?.let { entries(viewer, board, listOf(it)).singleOrNull() }, next)
+        }
     }
 
     /**
@@ -237,6 +300,165 @@ class SegmentViews(private val db: Database, private val avatars: AvatarUrls, pr
         SegmentEfforts.join(Activities, JoinType.INNER, SegmentEfforts.activityUri, Activities.uri)
             .join(Segments, JoinType.INNER, SegmentEfforts.segmentUri, Segments.uri)
 
+    /** [visibleEfforts] with the segment track each came from, whose exclusion [rankable] reads. */
+    private fun rankedEfforts() = visibleEfforts().join(SegmentTracks, JoinType.INNER, SegmentEfforts.trackUri, SegmentTracks.uri)
+
+    /**
+     * Efforts a leaderboard ranks, over [rankedEfforts]: on an active segment, from an activity that isn't excluded, by an athlete who
+     * doesn't hide from leaderboards, and no faster than the segment's sport group allows. All read now, so none needs a rematch.
+     */
+    private fun rankable(): Op<Boolean> =
+        (Segments.status eq SegmentStatus.ACTIVE) and
+            (SegmentTracks.leaderboardExcluded eq false) and
+            notExists(
+                SegmentPrefs.select(SegmentPrefs.did).where {
+                    (SegmentPrefs.did eq SegmentEfforts.authorDid) and (SegmentPrefs.hideFromLeaderboards eq true)
+                }
+            ) and
+            plausible()
+
+    /** The effort's average speed is within its segment's group cap: `elapsed * cap >= distance * 1000`, in integers both databases run. */
+    private fun plausible(): Op<Boolean> =
+        SegmentSportGroup.all
+            .map { group ->
+                (Segments.sport eq group) and
+                    (SegmentEfforts.elapsedS.times(SegmentSportGroup.maxSpeedMmPerS(group).toLong()) greaterEq
+                        Segments.distanceM.times(MM_PER_M))
+            }
+            .reduce { a, b -> a or b }
+
+    /** The efforts on one board of [segment] that [viewer] may see and that are [rankable], from [since] (a `YYYY-MM-DD`) when given. */
+    private fun boardOf(viewer: Did?, segment: String, eBike: Boolean, since: String?, following: Boolean): Op<Boolean> {
+        val own = viewer?.value
+        return (SegmentEfforts.segmentUri eq segment) and
+            (SegmentEfforts.eBike eq eBike) and
+            effortsVisibleTo(viewer) and
+            rankable() and
+            (since?.let { SegmentEfforts.startedOn greaterEq it } ?: Op.TRUE) and
+            (if (following && own != null) {
+                (SegmentEfforts.authorDid eq own) or
+                    (SegmentEfforts.authorDid inSubQuery
+                        Follows.select(Follows.subjectDid).where { (Follows.authorDid eq own) and effectiveFollow() })
+            } else Op.TRUE)
+    }
+
+    /** Each athlete's best time on [board], as `author_did` and [BEST], filtered by [having]. */
+    private fun bests(board: Op<Boolean>, having: Op<Boolean>) =
+        rankedEfforts().select(SegmentEfforts.authorDid, BEST).where { board }.groupBy(SegmentEfforts.authorDid).having { having }
+
+    /** How many athletes on [board] are ahead of a best time of [best]: one less than its rank. */
+    private fun JdbcTransaction.ahead(board: Op<Boolean>, best: Long): Long = bests(board, BEST less best).count()
+
+    /**
+     * Entries for [page] (athlete and best time, fastest first): competition ranks counted over the whole board, each athlete's effort the
+     * earliest of their fastest, and equal times listed earliest first.
+     */
+    private fun JdbcTransaction.entries(viewer: Did?, board: Op<Boolean>, page: List<Pair<String, Long>>): List<LeaderboardEntry> {
+        if (page.isEmpty()) return emptyList()
+        val (firstDid, firstBest) = page.first()
+        val firstRank = ahead(board, firstBest).toInt() + 1
+        // Where the page starts on the board: ties with the first entry may sit on earlier pages.
+        val position = bests(board, (BEST less firstBest) or ((BEST eq firstBest) and (SegmentEfforts.authorDid less firstDid))).count()
+        val ranks = IntArray(page.size)
+        page.forEachIndexed { i, (_, best) ->
+            ranks[i] =
+                when {
+                    i == 0 -> firstRank
+                    best == page[i - 1].second -> ranks[i - 1]
+                    else -> position.toInt() + i + 1
+                }
+        }
+        val chosen =
+            rankedEfforts()
+                .select(SegmentEfforts.id, SegmentEfforts.authorDid, SegmentEfforts.elapsedS, SegmentEfforts.startedOn)
+                .where { board and (SegmentEfforts.authorDid inList page.map { it.first }) }
+                .groupBy { it[SegmentEfforts.authorDid] }
+                .mapValues { (_, rows) ->
+                    rows
+                        .minWith(compareBy({ it[SegmentEfforts.elapsedS] }, { it[SegmentEfforts.startedOn] }, { it[SegmentEfforts.id] }))[
+                            SegmentEfforts.id]
+                }
+        val efforts = effortViews(viewer, SegmentEfforts.id inList chosen.values).associateBy(::effortId)
+        val athletes = basicProfiles(page.map { it.first }, avatars)
+        return page
+            .mapIndexedNotNull { i, (did, _) ->
+                val effort = chosen[did]?.let(efforts::get) ?: return@mapIndexedNotNull null
+                LeaderboardEntry(ranks[i], athletes[did] ?: ProfileViewBasic(Did(did), Handle(UNKNOWN_HANDLE)), effort)
+            }
+            .sortedWith(compareBy({ it.rank }, { it.effort.startedOn }))
+    }
+
+    /**
+     * [effort]'s rank on its segment's all-time, everyone board for its e-bike kind as [viewer] sees it, when it is [author]'s entry there
+     * (their fastest [rankable] effort the viewer may see, which needn't be their PR: a faster one may be excluded) and in the top
+     * [TOP_RANKS]; else null.
+     */
+    private fun JdbcTransaction.topRank(viewer: Did?, author: String, effort: EffortView): Int? {
+        val board = boardOf(viewer, effort.segment.uri.value, effort.eBike == true, since = null, following = false)
+        val ranked = !rankedEfforts().select(SegmentEfforts.id).where { board and (SegmentEfforts.id eq effortId(effort)) }.empty()
+        val entry = ranked && bests(board and (SegmentEfforts.authorDid eq author), Op.TRUE).firstOrNull()?.get(BEST) == effort.elapsed
+        return if (entry) (ahead(board, effort.elapsed).toInt() + 1).takeIf { it <= TOP_RANKS } else null
+    }
+
+    /** Why leaderboards don't rank each of [activity]'s efforts that they don't, by effort ID, for its own athlete only. */
+    private fun JdbcTransaction.notRankedReasons(activity: String): Map<String, String> {
+        val rows =
+            SegmentEfforts.join(Segments, JoinType.INNER, SegmentEfforts.segmentUri, Segments.uri)
+                .join(SegmentTracks, JoinType.INNER, SegmentEfforts.trackUri, SegmentTracks.uri)
+                .select(
+                    SegmentEfforts.id,
+                    SegmentEfforts.authorDid,
+                    SegmentEfforts.elapsedS,
+                    Segments.sport,
+                    Segments.distanceM,
+                    SegmentTracks.leaderboardExcluded,
+                )
+                .where { SegmentEfforts.activityUri eq activity }
+                .toList()
+        val author = rows.firstOrNull()?.get(SegmentEfforts.authorDid) ?: return emptyMap()
+        val hidden =
+            !SegmentPrefs.select(SegmentPrefs.did)
+                .where { (SegmentPrefs.did eq author) and (SegmentPrefs.hideFromLeaderboards eq true) }
+                .empty()
+        return rows
+            .mapNotNull { row ->
+                val implausible =
+                    row[SegmentEfforts.elapsedS] * SegmentSportGroup.maxSpeedMmPerS(row[Segments.sport]) <
+                        row[Segments.distanceM] * MM_PER_M
+                when {
+                    hidden -> NotRanked.HIDDEN
+                    row[SegmentTracks.leaderboardExcluded] -> NotRanked.EXCLUDED
+                    implausible -> NotRanked.IMPLAUSIBLE
+                    else -> null
+                }?.let { row[SegmentEfforts.id] to it }
+            }
+            .toMap()
+    }
+
+    /**
+     * [params]' period start ([periodStart]) and whether it asks for the following scope; `InvalidRequest` for an unknown period or scope,
+     * or the following scope without a [viewer].
+     */
+    private fun filtersOf(viewer: Did?, params: GetSegmentLeaderboard.Params): Pair<String?, Boolean> {
+        val period = params.period ?: LeaderboardPeriod.ALL_TIME
+        val scope = params.scope ?: LeaderboardScope.EVERYONE
+        if (period !in LeaderboardPeriod.all) invalidRequest("Unknown period $period")
+        if (scope !in LeaderboardScope.all) invalidRequest("Unknown scope $scope")
+        val following = scope == LeaderboardScope.FOLLOWING
+        if (following && viewer == null) invalidRequest("The following scope needs a signed-in viewer")
+        return periodStart(period) to following
+    }
+
+    /** The first local date of [period] by the AppView's UTC date, as `YYYY-MM-DD`; null for all time. */
+    private fun periodStart(period: String): String? {
+        val today = java.time.LocalDate.ofInstant(java.time.Instant.ofEpochMilli(clock.now().toEpochMilliseconds()), ZoneOffset.UTC)
+        return when (period) {
+            LeaderboardPeriod.YEAR -> today.withDayOfYear(1).toString()
+            LeaderboardPeriod.MONTH -> today.withDayOfMonth(1).toString()
+            else -> null
+        }
+    }
+
     private fun effortsVisibleTo(viewer: Did?): Op<Boolean> =
         visibleTo(viewer, SegmentEfforts.visibility, SegmentEfforts.authorDid, SegmentEfforts.activityUri, null) and
             visibleTo(viewer) and
@@ -268,6 +490,13 @@ class SegmentViews(private val db: Database, private val avatars: AvatarUrls, pr
         private const val E7 = 1e7
         private const val MAX_LAT_E7 = 900_000_000
         private const val MAX_LNG_E7 = 1_800_000_000
+        private const val MM_PER_M = 1_000L
+
+        /** The ranks an activity's efforts show (segments/segment-efforts). */
+        private const val TOP_RANKS = 10
+
+        /** An athlete's best time on a board. */
+        private val BEST = SegmentEfforts.elapsedS.min()
 
         /** An effort's ID, rebuilt from its view as the matcher writes it, for the keyset cursor. */
         private fun effortId(effort: EffortView) = "${effort.activity.value} ${effort.segment.uri.value} ${effort.startOffset}"

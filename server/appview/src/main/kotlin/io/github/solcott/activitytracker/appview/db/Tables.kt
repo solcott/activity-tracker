@@ -60,11 +60,15 @@ object ActivityMembers : Table("activity_members") {
     override val primaryKey = PrimaryKey(memberUri, combinedUri)
 }
 
-/** An athlete's segment matching setting (`actor.segmentPrefs`), from their `self` space. Segment tracks are used only while [matching]. */
+/**
+ * An athlete's segment settings (`actor.segmentPrefs`), from their `self` space. Segment tracks are used only while [matching]; while
+ * [hideFromLeaderboards], no leaderboard lists them. Never served.
+ */
 object SegmentPrefs : Table("segment_prefs") {
     val did = varchar("did", 255)
     val matching = bool("matching")
     val updatedAt = long("updated_at")
+    val hideFromLeaderboards = bool("hide_from_leaderboards").default(false)
     override val primaryKey = PrimaryKey(did)
 }
 
@@ -79,6 +83,8 @@ object SegmentTracks : Table("segment_tracks") {
     val dataCid = varchar("data_cid", 255)
     val zonesRevision = varchar("zones_revision", 32).nullable()
     val indexedAt = long("indexed_at")
+    /** The athlete excluded the activity from leaderboards; it keeps its efforts. Never served. */
+    val leaderboardExcluded = bool("leaderboard_excluded").default(false)
     override val primaryKey = PrimaryKey(uri)
 }
 

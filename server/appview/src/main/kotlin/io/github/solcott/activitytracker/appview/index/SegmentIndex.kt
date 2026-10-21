@@ -28,8 +28,10 @@ private const val MAX_REVISION_LENGTH = 32
 @Suppress("LongParameterList") // The record, where it's from, and the queue.
 internal fun JdbcTransaction.upsertSegments(collection: String, json: JsonObject, author: Did, uri: AtUri, jobs: SegmentJobs, now: Long) {
     if (collection == Nsid.FEED_SEGMENT_TRACK) {
-        upsertSegmentTrack(AtJson.decodeFromJsonElement(SegmentTrackRecord.serializer(), json), author, uri, now)
-        jobs.enqueueTrack(uri.value, now)
+        // Only the leaderboard exclusion changed when the points and their trimming are the same: nothing to match again.
+        if (upsertSegmentTrack(AtJson.decodeFromJsonElement(SegmentTrackRecord.serializer(), json), author, uri, now)) {
+            jobs.enqueueTrack(uri.value, now)
+        }
     } else {
         val record = AtJson.decodeFromJsonElement(SegmentPrefsRecord.serializer(), json)
         upsertSegmentPrefs(record, author, uri)
@@ -47,20 +49,29 @@ internal fun JdbcTransaction.deleteSegments(collection: String, uri: AtUri) {
 /**
  * A segment track from [author]'s `self` space. Kept only for an activity of their own under the same rkey, with a data blob; stored
  * whatever their setting says, since ops can arrive in any order, but read only while it's on
- * ([usableSegmentTracks][io.github.solcott.activitytracker.appview.db.usableSegmentTracks]).
+ * ([usableSegmentTracks][io.github.solcott.activitytracker.appview.db.usableSegmentTracks]). Returns whether its points may have changed:
+ * false when only its leaderboard exclusion did, so it needn't be matched again.
  */
-internal fun JdbcTransaction.upsertSegmentTrack(record: SegmentTrackRecord, author: Did, uri: AtUri, now: Long) {
+internal fun JdbcTransaction.upsertSegmentTrack(record: SegmentTrackRecord, author: Did, uri: AtUri, now: Long): Boolean {
     require(record.activity.authority == author.value && record.activity.collection == Nsid.FEED_ACTIVITY) { "another's activity" }
     require(record.activity.rkey == uri.rkey) { "a segment track under another rkey" }
     val cid = requireNotNull(record.data?.ref?.link) { "no data blob" }
+    val revision = record.zonesRevision?.take(MAX_REVISION_LENGTH)
+    val stored =
+        SegmentTracks.select(SegmentTracks.dataCid, SegmentTracks.zonesRevision)
+            .where { SegmentTracks.uri eq uri.value }
+            .firstOrNull()
+            ?.let { it[SegmentTracks.dataCid] to it[SegmentTracks.zonesRevision] }
     SegmentTracks.upsert {
         it[SegmentTracks.uri] = uri.value
         it[authorDid] = author.value
         it[activityUri] = record.activity.value
         it[dataCid] = cid
-        it[zonesRevision] = record.zonesRevision?.take(MAX_REVISION_LENGTH)
+        it[zonesRevision] = revision
         it[indexedAt] = now
+        it[leaderboardExcluded] = record.excludeFromLeaderboards == true
     }
+    return stored != (cid to revision)
 }
 
 /** [author]'s segment matching setting, from their `self` space. Turning it off drops everything held from their segment tracks. */
@@ -70,6 +81,7 @@ internal fun JdbcTransaction.upsertSegmentPrefs(record: SegmentPrefsRecord, auth
         it[did] = author.value
         it[matching] = record.matching
         it[updatedAt] = record.updatedAt.toEpochMilliseconds()
+        it[hideFromLeaderboards] = record.hideFromLeaderboards == true
     }
     if (!record.matching) dropSegmentTracks(author)
 }

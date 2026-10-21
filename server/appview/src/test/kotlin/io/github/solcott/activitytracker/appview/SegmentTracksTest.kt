@@ -2,12 +2,14 @@ package io.github.solcott.activitytracker.appview
 
 import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
+import io.github.solcott.activitytracker.appview.db.SegmentMatchJobs
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.db.usableSegmentTracks
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
+import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -25,10 +27,13 @@ import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.jsonObject
 import org.h2.jdbcx.JdbcDataSource
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.deleteAll
 import org.jetbrains.exposed.v1.jdbc.selectAll
 
 /**
@@ -54,14 +59,25 @@ class SegmentTracksTest {
 
     private fun activityUri(rkey: String, did: String = alice) = "at://$did/${Nsid.FEED_ACTIVITY}/$rkey"
 
-    private fun segmentTrack(rkey: String, activity: String = activityUri(rkey), data: Boolean = true) =
-        """{"${'$'}type":"${Nsid.FEED_SEGMENT_TRACK}","activity":"$activity","zonesRevision":"3l2abcdefgh22",""" +
-            (if (data) """"data":{"${'$'}type":"blob","ref":{"${'$'}link":"bafkdata$rkey"},"mimeType":"application/json","size":10},"""
+    @Suppress("LongParameterList") // The fields a test varies.
+    private fun segmentTrack(
+        rkey: String,
+        activity: String = activityUri(rkey),
+        data: Boolean = true,
+        dataCid: String = "bafkdata$rkey",
+        revision: String = "3l2abcdefgh22",
+        excluded: Boolean? = null,
+    ) =
+        """{"${'$'}type":"${Nsid.FEED_SEGMENT_TRACK}","activity":"$activity","zonesRevision":"$revision",""" +
+            (if (data) """"data":{"${'$'}type":"blob","ref":{"${'$'}link":"$dataCid"},"mimeType":"application/json","size":10},"""
             else "") +
+            excluded?.let { """"excludeFromLeaderboards":$it,""" }.orEmpty() +
             """"createdAt":"2026-10-15T12:00:00Z"}"""
 
-    private fun prefs(matching: Boolean) =
-        """{"${'$'}type":"${Nsid.ACTOR_SEGMENT_PREFS}","matching":$matching,"updatedAt":"2026-10-15T12:00:00Z"}"""
+    private fun prefs(matching: Boolean, hidden: Boolean? = null) =
+        """{"${'$'}type":"${Nsid.ACTOR_SEGMENT_PREFS}","matching":$matching,""" +
+            hidden?.let { """"hideFromLeaderboards":$it,""" }.orEmpty() +
+            """"updatedAt":"2026-10-15T12:00:00Z"}"""
 
     private fun write(space: SpaceUri, collection: String, rkey: String, json: String) = runBlocking {
         indexer.spaceWrite(space, collection, rkey, "bafy$rkey", AtJson.parseToJsonElement(json).jsonObject)
@@ -73,6 +89,18 @@ class SegmentTracksTest {
     private fun setMatching(on: Boolean, skey: String = AthleteSpace.SELF) = write(space(skey), Nsid.ACTOR_SEGMENT_PREFS, "self", prefs(on))
 
     private fun trackRows(): List<String> = runBlocking { db.tx { SegmentTracks.selectAll().map { it[SegmentTracks.uri] } } }
+
+    private fun trackJobs(): List<String> = runBlocking {
+        db.tx { SegmentMatchJobs.selectAll().where { SegmentMatchJobs.kind eq SegmentJobs.TRACK }.map { it[SegmentMatchJobs.subjectUri] } }
+    }
+
+    private fun excluded(rkey: String): Boolean = runBlocking {
+        db.tx { SegmentTracks.selectAll().where { SegmentTracks.uri eq trackUri(rkey) }.single()[SegmentTracks.leaderboardExcluded] }
+    }
+
+    private fun hidden(): Boolean = runBlocking {
+        db.tx { SegmentPrefs.selectAll().where { SegmentPrefs.did eq alice }.single()[SegmentPrefs.hideFromLeaderboards] }
+    }
 
     private fun prefsRows(): Long = runBlocking { db.tx { SegmentPrefs.selectAll().count() } }
 
@@ -137,6 +165,51 @@ class SegmentTracksTest {
 
         putTrack("3kc")
         assertEquals(emptyList(), usable(), "a stray track while off is never used")
+    }
+
+    @Test
+    fun theLeaderboardFlagsAreStored() {
+        write(space(AthleteSpace.SELF), Nsid.ACTOR_SEGMENT_PREFS, "self", prefs(matching = true, hidden = true))
+        write(space(AthleteSpace.SELF), Nsid.FEED_SEGMENT_TRACK, "3ka", segmentTrack("3ka", excluded = true))
+        putTrack("3kb")
+        assertTrue(hidden())
+        assertTrue(excluded("3ka"))
+        assertFalse(excluded("3kb"))
+
+        setMatching(true)
+        assertFalse(hidden())
+    }
+
+    @Test
+    fun onlyAChangedTrackIsMatchedAgain() {
+        setMatching(true)
+        putTrack("3ka")
+        runBlocking { db.tx { SegmentMatchJobs.deleteAll() } }
+
+        write(space(AthleteSpace.SELF), Nsid.FEED_SEGMENT_TRACK, "3ka", segmentTrack("3ka", excluded = true))
+        assertTrue(excluded("3ka"))
+        assertEquals(emptyList(), trackJobs())
+
+        write(space(AthleteSpace.SELF), Nsid.FEED_SEGMENT_TRACK, "3ka", segmentTrack("3ka", dataCid = "bafknew", excluded = true))
+        assertEquals(listOf(trackUri("3ka")), trackJobs())
+        runBlocking { db.tx { SegmentMatchJobs.deleteAll() } }
+
+        write(
+            space(AthleteSpace.SELF),
+            Nsid.FEED_SEGMENT_TRACK,
+            "3ka",
+            segmentTrack("3ka", dataCid = "bafknew", revision = "3l2abcdefgh33"),
+        )
+        assertEquals(listOf(trackUri("3ka")), trackJobs())
+        assertFalse(excluded("3ka"))
+    }
+
+    @Test
+    fun deletingTheSettingResetsTheOptOut() {
+        write(space(AthleteSpace.SELF), Nsid.ACTOR_SEGMENT_PREFS, "self", prefs(matching = true, hidden = true))
+        runBlocking { indexer.spaceDelete(space(AthleteSpace.SELF), Nsid.ACTOR_SEGMENT_PREFS, "self") }
+        setMatching(true)
+        assertFalse(hidden())
     }
 
     @Test
