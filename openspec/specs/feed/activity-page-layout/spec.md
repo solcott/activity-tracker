@@ -71,7 +71,7 @@ A chart card SHALL show, in order: the metric's title; its headline figures (ave
 
 #### Scenario: Phone
 - **WHEN** a ride with an elevation series is shown 390dp wide
-- **THEN** its charts show no elevation behind them
+- **THEN** its charts show the ride's elevation faintly behind them
 
 #### Scenario: No elevation
 - **WHEN** an indoor ride with no elevation series is opened
@@ -109,7 +109,7 @@ For a sport timed by pace (runs, walks, hikes and swims), the speed card SHALL b
 
 #### Scenario: Hilly run on a phone
 - **WHEN** the same run is shown 390dp wide
-- **THEN** its pace chart shows no elevation behind it
+- **THEN** its pace chart shows the run's elevation faintly behind the pace line, with each climb drawn rising, as on a wide window
 
 ### Requirement: All stats list
 The page SHALL list every summary figure the viewer was served, including the hero's, as label and value rows in named groups: Timing, Distance & speed, Heart rate, Power, Cadence, Elevation, Work & energy, Temperature, Counts, Dive and Device. A group with no figures SHALL be left out.
@@ -278,12 +278,20 @@ The average a chart card's chart marks, and the average and maximum it gives a s
 - **WHEN** a screen reader reads the heart rate chart of a ride whose heart rate headline gives an average of 143 bpm and a maximum of 175 bpm
 - **THEN** it reads an average of 143 bpm and a maximum of 175 bpm
 
-### Requirement: Elevation behind charts on wide windows
-From 600dp wide, when the activity has an elevation series the viewer was served, each other chart SHALL show it faintly behind its own series. Below 600dp charts SHALL draw no elevation behind them, to keep each within a frame on phones.
+### Requirement: Elevation behind charts
+At every window width, when the activity has an elevation series the viewer was served, each other chart SHALL show it faintly behind its own series. This applies on the activity page and in the import preview.
 
 #### Scenario: Wide window
 - **WHEN** a ride with an elevation series and a heart rate stream is shown 1200dp wide
 - **THEN** its heart rate chart shows the ride's elevation faintly behind the heart rate
+
+#### Scenario: Phone
+- **WHEN** a ride with an elevation series and a heart rate stream is shown 412dp wide on an Android phone
+- **THEN** its heart rate chart shows the ride's elevation faintly behind the heart rate, as it does on a wide window
+
+#### Scenario: Import preview on a phone
+- **WHEN** a FIT file of a ride with altitude and heart rate is previewed for import 390dp wide
+- **THEN** the preview's heart rate chart shows the ride's elevation faintly behind the heart rate
 
 ### Requirement: What the Counts, Dive and Device groups hold
 The stats list's Counts group SHALL hold steps, strokes, jumps, shifts, runs, and a mountain bike ride's grit and flow beside its jumps. Its Dive group SHALL hold the dive computer's summary: bottom time, gases, surface interval, CNS, nitrogen, ascent and descent, conditions and its settings. Its Device group SHALL hold the recording device and each sensor.
