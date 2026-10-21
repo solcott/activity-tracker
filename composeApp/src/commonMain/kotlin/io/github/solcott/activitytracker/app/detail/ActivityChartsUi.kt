@@ -63,9 +63,8 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * [card]'s charts in full: its lines, then zones (or how to get them, [onSetThresholds], when the owner has none) after heart rate and
- * power, and the power curve before power zones. With [elevationBehind] (from 600dp: on phones it roughly doubled a chart's draw time, past
- * a frame; design.md, Measurements) elevation sits faintly behind the effort lines, as Strava draws it, so effort reads against the climbs;
- * a chart without an elevation series draws none.
+ * power, and the power curve before power zones. Elevation sits faintly behind the effort lines at every width, as Strava draws it, so
+ * effort reads against the climbs; a chart without an elevation series draws none.
  */
 @Composable
 internal fun CardCharts(
@@ -73,11 +72,10 @@ internal fun CardCharts(
     charts: ActivityCharts,
     missingZones: Boolean,
     onSetThresholds: (() -> Unit)?,
-    elevationBehind: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val section = card.section
-    val elevation = charts.lines.firstOrNull { it.kind == StreamKind.Elevation }.takeIf { elevationBehind }
+    val elevation = charts.lines.firstOrNull { it.kind == StreamKind.Elevation }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(CHART_GAP)) {
         if (section == DetailSection.TankPressure) {
             TankPressures(card.series, charts.durationSeconds)
