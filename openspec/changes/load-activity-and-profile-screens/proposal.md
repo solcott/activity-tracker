@@ -42,4 +42,4 @@ None.
   - `RouteMapPresenterTest`, `ActivityDetailModerationTest` (media gallery), `ProfilePresenterTest`, `FollowRequestsPresenterTest`, `TrainingZonesPresenterTest`, `ThresholdHistoryPresenterTest`, `CombinePresentersTest`.
   - Profile and the zones views have no load-failure test today, so they gain one.
 - **`composeApp`:** the seven UIs render through `ContentStateLayout` and `RefreshStatus`.
-- **Depends on:** `error-reasons`, which provides `errorText(UiError)` as the single renderer.
+- **Builds on:** `error-reasons` (merged and archived), which provides `errorText(UiError)` as the single renderer.
