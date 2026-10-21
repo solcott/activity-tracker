@@ -177,7 +177,7 @@ private fun CommentRow(
             }
         }
         val menu = actions.filterTo(mutableSetOf()) { it != CommentAction.Reply }.toImmutableSet()
-        if (menu.isNotEmpty()) key(uri) { CommentMenu(uri, menu, state.eventSink) }
+        if (menu.isNotEmpty()) key(uri) { CommentMenu(uri, author, menu, state.eventSink) }
     }
 }
 
@@ -251,8 +251,8 @@ private val TAIL_KEYS = listOf("comments/loading", "comments/field")
 private const val LOAD_MORE_AHEAD = 5
 
 /**
- * The viewer replies to any listed comment that isn't hidden, deletes their own comments, and hides or unhides others' on their own
- * activity. A placeholder and a just-sent comment never come here.
+ * The viewer replies to any listed comment that isn't hidden, deletes their own comments, hides or unhides others' on their own activity,
+ * and mutes or blocks the author of anyone else's. A placeholder and a just-sent comment never come here.
  */
 private fun commentActions(comment: CommentView, state: ActivityDetailState.Loaded): ImmutableSet<CommentAction> {
     val hidden = comment.hidden == true
@@ -263,7 +263,14 @@ private fun commentActions(comment: CommentView, state: ActivityDetailState.Load
             hidden -> CommentAction.Unhide
             else -> CommentAction.Hide
         }
-    return listOfNotNull(CommentAction.Reply.takeIf { !hidden }, manage).toImmutableSet()
+    val others = comment.author.did != state.viewerDid
+    return listOfNotNull(
+            CommentAction.Reply.takeIf { !hidden },
+            manage,
+            CommentAction.MuteAuthor.takeIf { others },
+            CommentAction.BlockAuthor.takeIf { others },
+        )
+        .toImmutableSet()
 }
 
 /** How strongly a hidden comment shows, to the only two who see it. */

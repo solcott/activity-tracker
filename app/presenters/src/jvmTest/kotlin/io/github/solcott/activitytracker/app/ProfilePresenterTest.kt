@@ -18,6 +18,7 @@ import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.FollowRequestsRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
@@ -166,7 +167,56 @@ class ProfilePresenterTest {
             )
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
         val requests = FollowRequestsRepository(clients, Clock.System, Logger)
-        return { ProfilePresenter(ProfileScreen(actor), navigator, profiles, feed, activities, requests) }
+        val blocks = BlockRepository(clients, zones.writer, zones.outbox, feed, Clock.System)
+        return { ProfilePresenter(ProfileScreen(actor), navigator, profiles, feed, activities, requests, blocks) }
+    }
+
+    @Test
+    fun blockingShowsAtOnceAndWritesOnlyToTheInteractionsSpace() = runTest {
+        presenterTestOf(presenter()) {
+            val loaded = awaitUntil { it.profile != null && it.error == null }
+            assertEquals(false, loaded.blocking)
+            loaded.eventSink(ProfileEvent.ToggleBlock)
+            loaded.eventSink(ProfileEvent.ToggleBlock)
+            val blocked = awaitUntil { it.blocking }
+            assertEquals(listOf("interactions ${Nsid.GRAPH_BLOCK}"), spacePuts, "one block, in the interactions space only")
+            assertEquals(0, puts, "nothing in the repo")
+
+            blocked.eventSink(ProfileEvent.ToggleMute)
+            val muted = awaitUntil { it.muting }
+            assertEquals(true, muted.blocking)
+            assertEquals(listOf("interactions ${Nsid.GRAPH_BLOCK}", "interactions ${Nsid.GRAPH_MUTE}"), spacePuts)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aBlueskyOnlyBlockOffersNoUnblock() = runTest {
+        bob =
+            """{"did":"did:plc:bob","handle":"bob.test",""" +
+                """"viewer":{"blocking":"at://${alice.value}/${Nsid.BSKY_GRAPH_BLOCK}/3kbsky"}}"""
+        presenterTestOf(presenter()) {
+            val loaded = awaitUntil { it.profile != null && it.error == null }
+            assertEquals(true, loaded.blocking)
+            assertEquals(true, loaded.blockedOnBluesky)
+            loaded.eventSink(ProfileEvent.ToggleBlock)
+            loaded.eventSink(ProfileEvent.ToggleMute)
+            awaitUntil { it.muting }
+            assertEquals(listOf("interactions ${Nsid.GRAPH_MUTE}"), spacePuts, "a mute, but nothing tries to remove the Bluesky block")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun noBlockOnTheAthletesOwnProfile() = runTest {
+        presenterTestOf(presenter(actor = alice.value)) {
+            val loaded = awaitUntil { it.profile != null && it.isSelf }
+            loaded.eventSink(ProfileEvent.ToggleBlock)
+            loaded.eventSink(ProfileEvent.ToggleMute)
+            assertEquals(false, loaded.blocking)
+            assertEquals(emptyList(), spacePuts)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test

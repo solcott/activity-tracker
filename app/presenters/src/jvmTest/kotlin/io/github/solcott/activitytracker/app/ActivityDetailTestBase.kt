@@ -30,6 +30,7 @@ import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.feed.fakeGetComments
+import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.data.units.UnitSystem
@@ -287,6 +288,7 @@ open class ActivityDetailTestBase {
         val exporter: ActivityExporter,
         val units: UnitsRepository,
         val suggestions: CombineSuggestions,
+        val blocks: BlockRepository,
     )
 
     protected suspend fun repos(scope: String = OAuthClientConfig.DEFAULT_SCOPE, units: UnitSystem = UnitSystem.Metric): Repos {
@@ -344,6 +346,7 @@ open class ActivityDetailTestBase {
             ActivityExporter(db, clients, tracks, sources, feed),
             UnitsRepository(profiles, Clock.System, Logger, units),
             CombineSuggestions(db, clients, feed, tracks, Clock.System),
+            BlockRepository(clients, writer, outbox, feed, Clock.System),
         )
     }
 
@@ -379,6 +382,7 @@ open class ActivityDetailTestBase {
                     r.exporter,
                     r.units,
                     r.suggestions,
+                    r.blocks,
                 )
             },
             block = block,

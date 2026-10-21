@@ -34,6 +34,7 @@ class WorkoutStructureChartsTest : ActivityDetailTestBase() {
                 r.exporter,
                 r.units,
                 r.suggestions,
+                r.blocks,
             )
         }) {
             var state = awaitLoaded()

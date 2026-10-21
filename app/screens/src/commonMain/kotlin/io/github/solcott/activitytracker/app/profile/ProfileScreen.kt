@@ -23,6 +23,12 @@ data class ProfileState(
     val viewerDid: String,
     /** A follow or unfollow is on its way to the PDS; the button ignores taps until it lands. */
     val followPending: Boolean,
+    /** The viewer blocks this athlete ([ProfileView.viewer]'s `blocking`): Unblock shows in place of Follow, and no activities. */
+    val blocking: Boolean = false,
+    /** The viewer's only block of this athlete is on Bluesky, which this app can't remove: no Unblock, a note instead. */
+    val blockedOnBluesky: Boolean = false,
+    /** The viewer mutes this athlete: their activities leave the viewer's timeline. */
+    val muting: Boolean = false,
     /** The athlete's own unanswered follow requests, when they approve followers; null otherwise or until loaded. */
     val followRequestCount: Int? = null,
     /** There are more requests than [followRequestCount] counts. */
@@ -36,6 +42,12 @@ sealed interface ProfileEvent {
 
     /** Follows, unfollows, or cancels a follow request. */
     data object ToggleFollow : ProfileEvent
+
+    /** Blocks the athlete (the UI confirms first) or unblocks them; ignored while [ProfileState.blockedOnBluesky]. */
+    data object ToggleBlock : ProfileEvent
+
+    /** Mutes or unmutes the athlete; no confirmation, since it can be undone. */
+    data object ToggleMute : ProfileEvent
 
     data object OpenFollowers : ProfileEvent
 

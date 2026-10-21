@@ -32,6 +32,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.feed.withLikeOverrides
+import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.UnitsRepository
@@ -63,6 +64,7 @@ fun ActivityDetailPresenter(
     exporter: ActivityExporter,
     units: UnitsRepository,
     suggestions: CombineSuggestions,
+    blocks: BlockRepository,
 ): ActivityDetailState {
     // The activity as loaded, and how far the viewer's comment actions have moved its count since: one value, so a reload replaces both.
     var loaded by remember { mutableStateOf<CountedActivity?>(null) }
@@ -94,7 +96,7 @@ fun ActivityDetailPresenter(
 
     val unitSystem by units.units.collectAsState()
     val charts = rememberCharts(AtUri(screen.uri), loadKey, unitSystem, feed)
-    val comments = rememberComments(AtUri(screen.uri), loadKey, feed, flights)
+    val comments = rememberComments(AtUri(screen.uri), profiles.did, loadKey, feed, flights)
     // As served: the record without fields of narrower categories, and the details records of the tiers the viewer is admitted to.
     val served = loaded?.shown(rewrite?.let { r -> { a: ActivityView -> feed.rewrites.rewritten(a, r) } }, likeOverrides)
     // As shown: every detail the viewer was served on the record, with what they weren't left out.
@@ -156,12 +158,15 @@ fun ActivityDetailPresenter(
             is ActivityDetailEvent.LoadMoreReplies,
             is ActivityDetailEvent.DeleteComment,
             is ActivityDetailEvent.HideComment,
-            is ActivityDetailEvent.UnhideComment -> {
+            is ActivityDetailEvent.UnhideComment,
+            is ActivityDetailEvent.BlockCommenter,
+            is ActivityDetailEvent.MuteCommenter -> {
                 current?.let {
                     CommentActions(
                             draft,
                             flights,
                             activities,
+                            blocks,
                             comments,
                             replying,
                             { e -> commentError = e },

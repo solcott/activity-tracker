@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.profile
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,7 +15,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -24,9 +28,13 @@ import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.activityItems
+import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppDialogAction
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
+import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
@@ -39,6 +47,14 @@ import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.genderLabel
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.action_block
+import io.github.solcott.activitytracker.composeApp.resources.action_cancel
+import io.github.solcott.activitytracker.composeApp.resources.action_mute
+import io.github.solcott.activitytracker.composeApp.resources.action_unblock
+import io.github.solcott.activitytracker.composeApp.resources.action_unmute
+import io.github.solcott.activitytracker.composeApp.resources.block_confirm_message
+import io.github.solcott.activitytracker.composeApp.resources.block_confirm_title
+import io.github.solcott.activitytracker.composeApp.resources.blocked_on_bluesky
 import io.github.solcott.activitytracker.composeApp.resources.profile_activities_count
 import io.github.solcott.activitytracker.composeApp.resources.profile_age
 import io.github.solcott.activitytracker.composeApp.resources.profile_edit
@@ -47,6 +63,7 @@ import io.github.solcott.activitytracker.composeApp.resources.profile_follow_req
 import io.github.solcott.activitytracker.composeApp.resources.profile_followers_count
 import io.github.solcott.activitytracker.composeApp.resources.profile_following
 import io.github.solcott.activitytracker.composeApp.resources.profile_following_count
+import io.github.solcott.activitytracker.composeApp.resources.profile_more
 import io.github.solcott.activitytracker.composeApp.resources.profile_requested
 import io.github.solcott.activitytracker.composeApp.resources.profile_settings
 import io.github.solcott.activitytracker.composeApp.resources.profile_title
@@ -60,6 +77,7 @@ import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import kotlin.math.roundToLong
 import kotlin.time.Clock
+import kotlinx.collections.immutable.persistentListOf
 import org.jetbrains.compose.resources.PluralStringResource
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -76,15 +94,7 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
                 title = profile?.displayName ?: profile?.handle?.value ?: stringResource(Res.string.profile_title),
                 onBack = { state.eventSink(ProfileEvent.Back) },
                 scrollBehavior = scrollBehavior,
-                actions = {
-                    if (state.isSelf) {
-                        AppIconButton(
-                            AppIcon.Settings,
-                            stringResource(Res.string.profile_settings),
-                            { state.eventSink(ProfileEvent.OpenSettings) },
-                        )
-                    }
-                },
+                actions = { ProfileBarActions(state) },
             )
         },
     ) { padding ->
@@ -125,35 +135,71 @@ fun ProfileUi(state: ProfileState, modifier: Modifier = Modifier) {
                                 )
                             }
                         }
-                        if (state.isSelf) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                AppSecondaryButton(onClick = { state.eventSink(ProfileEvent.EditProfile) }) {
-                                    Text(stringResource(Res.string.profile_edit))
-                                }
-                                state.followRequestCount?.let { count ->
-                                    AppSecondaryButton(onClick = { state.eventSink(ProfileEvent.OpenFollowRequests) }) {
-                                        Text(
-                                            stringResource(
-                                                Res.string.profile_follow_requests,
-                                                if (state.moreFollowRequests) "$count+" else count.toString(),
-                                            )
-                                        )
-                                    }
-                                }
-                            }
-                        } else {
-                            FollowButton(
-                                following = p.viewer?.following != null,
-                                requested = p.viewer?.followRequested == true,
-                                pending = state.followPending,
-                                onClick = { state.eventSink(ProfileEvent.ToggleFollow) },
-                            )
-                        }
+                        ProfileActions(state, following = p.viewer?.following != null, requested = p.viewer?.followRequested == true)
                     }
                 }
-                activityItems(state.activities, state.viewerDid, authorClickable = false) { state.eventSink(ProfileEvent.Activity(it)) }
+                if (!state.blocking) {
+                    activityItems(state.activities, state.viewerDid, authorClickable = false) { state.eventSink(ProfileEvent.Activity(it)) }
+                }
             }
         }
+    }
+}
+
+/** The top bar's actions: Settings on the athlete's own profile, the block and mute menu on anyone else's. */
+@Composable
+private fun ProfileBarActions(state: ProfileState) {
+    val profile = state.profile
+    if (state.isSelf) {
+        AppIconButton(
+            AppIcon.Settings,
+            stringResource(Res.string.profile_settings),
+            { state.eventSink(ProfileEvent.OpenSettings) },
+        )
+    } else if (profile != null) {
+        BlockMuteMenu(
+            name = profile.displayName ?: handleLabel(profile.handle.value),
+            blocking = state.blocking,
+            blockedOnBluesky = state.blockedOnBluesky,
+            muting = state.muting,
+            eventSink = state.eventSink,
+        )
+    }
+}
+
+/** Edit and follow requests on the athlete's own profile; Unblock on a blocked one; Follow otherwise. */
+@Composable
+private fun ProfileActions(state: ProfileState, following: Boolean, requested: Boolean) {
+    if (state.isSelf) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AppSecondaryButton(onClick = { state.eventSink(ProfileEvent.EditProfile) }) { Text(stringResource(Res.string.profile_edit)) }
+            state.followRequestCount?.let { count ->
+                AppSecondaryButton(onClick = { state.eventSink(ProfileEvent.OpenFollowRequests) }) {
+                    Text(
+                        stringResource(
+                            Res.string.profile_follow_requests,
+                            if (state.moreFollowRequests) "$count+" else count.toString(),
+                        )
+                    )
+                }
+            }
+        }
+    } else if (state.blockedOnBluesky) {
+        Text(
+            stringResource(Res.string.blocked_on_bluesky),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    } else if (state.blocking) {
+        // A blocked athlete's follows don't count: Unblock is the one thing to do here.
+        AppSecondaryButton(onClick = { state.eventSink(ProfileEvent.ToggleBlock) }) { Text(stringResource(Res.string.action_unblock)) }
+    } else {
+        FollowButton(
+            following = following,
+            requested = requested,
+            pending = state.followPending,
+            onClick = { state.eventSink(ProfileEvent.ToggleFollow) },
+        )
     }
 }
 
@@ -180,6 +226,54 @@ private fun FollowButton(following: Boolean, requested: Boolean, pending: Boolea
         AppSecondaryButton(onClick, modifier, enabled = !pending, content = content)
     } else {
         AppButton(onClick, modifier, enabled = !pending, content = content)
+    }
+}
+
+/**
+ * The "…" menu on someone else's profile: Mute or Unmute at once, and Block (after a confirmation saying they won't be told and that Public
+ * activities stay visible outside the app) or Unblock; no Block or Unblock for a block held only on Bluesky ([blockedOnBluesky]), which
+ * only Bluesky can remove.
+ */
+@Composable
+@Suppress("LongParameterList") // What the menu offers, and where its choices go.
+private fun BlockMuteMenu(
+    name: String,
+    blocking: Boolean,
+    blockedOnBluesky: Boolean,
+    muting: Boolean,
+    eventSink: (ProfileEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var open by remember { mutableStateOf(false) }
+    var confirming by remember { mutableStateOf(false) }
+    val mute = stringResource(if (muting) Res.string.action_unmute else Res.string.action_mute)
+    val block = stringResource(if (blocking) Res.string.action_unblock else Res.string.action_block)
+    val items =
+        remember(mute, block, blocking, blockedOnBluesky) {
+            val muteItem = AppMenuItem(mute) { eventSink(ProfileEvent.ToggleMute) }
+            if (blockedOnBluesky) {
+                persistentListOf(muteItem)
+            } else {
+                persistentListOf(
+                    muteItem,
+                    AppMenuItem(block, destructive = !blocking) {
+                        if (blocking) eventSink(ProfileEvent.ToggleBlock) else confirming = true
+                    },
+                )
+            }
+        }
+    Box(modifier) {
+        AppIconButton(AppIcon.More, stringResource(Res.string.profile_more), onClick = { open = true })
+        AppMenu(expanded = open, onDismiss = { open = false }, items = items)
+    }
+    if (confirming) {
+        AppAlertDialog(
+            title = stringResource(Res.string.block_confirm_title, name),
+            message = stringResource(Res.string.block_confirm_message),
+            actions = persistentListOf(AppDialogAction(block, destructive = true) { eventSink(ProfileEvent.ToggleBlock) }),
+            cancelLabel = stringResource(Res.string.action_cancel),
+            onDismiss = { confirming = false },
+        )
     }
 }
 

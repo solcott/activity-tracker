@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.data.units.UnitSystem
@@ -193,6 +194,7 @@ class ActivityDetailManageTest {
                 ActivityExporter(db, clients, tracks, zones.sources, feed),
                 UnitsRepository(profiles, Clock.System, Logger, UnitSystem.Metric),
                 CombineSuggestions(db, clients, feed, tracks, Clock.System),
+                BlockRepository(clients, writer, outbox, feed, Clock.System),
             )
         }
     }

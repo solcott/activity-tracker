@@ -7,9 +7,11 @@ import androidx.compose.runtime.MutableState
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.interactionErrorOf
+import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
@@ -26,6 +28,7 @@ internal class CommentActions(
     private val draft: TextFieldState,
     private val flights: SingleFlight,
     private val activities: ActivityRepository,
+    private val blocks: BlockRepository,
     private val comments: Comments,
     /** The comment the draft answers; null for a top-level comment. */
     private val replyingTo: MutableState<CommentView?>,
@@ -45,6 +48,8 @@ internal class CommentActions(
             is ActivityDetailEvent.DeleteComment -> delete(activity, event.uri)
             is ActivityDetailEvent.HideComment -> setHidden(activity, event.uri, hidden = true)
             is ActivityDetailEvent.UnhideComment -> setHidden(activity, event.uri, hidden = false)
+            is ActivityDetailEvent.BlockCommenter -> leaveOut(event.uri, block = true)
+            is ActivityDetailEvent.MuteCommenter -> leaveOut(event.uri, block = false)
             else -> Unit
         }
     }
@@ -121,6 +126,28 @@ internal class CommentActions(
                     }
             }
             ?.let { onCountMoved(moved) }
+    }
+
+    /**
+     * Blocks ([block]) or mutes the author of someone else's listed comment [uri]. Their listed comments leave the list at once, through
+     * [FeedRepository.localBlocks], and the count drops by those it counted; a failure brings them back and is reported, a session that
+     * can't write blocks there asked to sign in again.
+     */
+    private fun leaveOut(uri: AtUri, block: Boolean) {
+        val author = comments.listed(uri)?.author?.did?.takeUnless { it == comments.viewer } ?: return
+        val key = if (block) ActivityDetailEvent.BlockCommenter(uri) else ActivityDetailEvent.MuteCommenter(uri)
+        onError(null)
+        val counted = comments.countedBy(author)
+        if (replyingTo.value?.author?.did == author) replyingTo.value = null
+        flights
+            .launch(key) {
+                runSuspendCatching { if (block) blocks.setBlocked(author, true) else blocks.setMuted(author, true) }
+                    .onFailure { e ->
+                        onCountMoved(counted)
+                        onError(uiErrorOf(if (block) UiError.Kind.UpdateBlock else UiError.Kind.UpdateMute, e))
+                    }
+            }
+            ?.let { onCountMoved(-counted) }
     }
 
     /** A comment being deleted or hidden can't be answered: the field goes back to a top-level comment, keeping its text. */

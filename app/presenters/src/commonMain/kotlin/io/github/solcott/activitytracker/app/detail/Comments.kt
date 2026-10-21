@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalComments
 import io.github.solcott.activitytracker.data.feed.SentComment
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.ThreadView
@@ -31,7 +32,15 @@ internal class Comments(
     val retry: () -> Unit,
     /** Loads the next page of a thread's replies, or again the one that failed, unless one is loading or none is left. */
     val loadMoreReplies: (thread: AtUri) -> Unit,
+    /** The signed-in athlete. */
+    val viewer: Did,
 ) {
+    /** How many of the listed comments and replies by [author] are counted (not hidden): what blocking or muting them takes off. */
+    fun countedBy(author: Did): Int =
+        paging.items.sumOf { thread ->
+            (listOfNotNull(thread.root) + thread.replies).count { it.author.did == author && it.hidden != true }
+        }
+
     /** The listed comment or reply [uri], as shown. */
     fun listed(uri: AtUri): CommentView? =
         paging.items.firstNotNullOfOrNull { thread ->
@@ -49,10 +58,11 @@ internal class Comments(
  * or thread.
  */
 @Composable
-internal fun rememberComments(activity: AtUri, loadKey: Int, feed: FeedRepository, flights: SingleFlight): Comments {
+internal fun rememberComments(activity: AtUri, viewer: Did, loadKey: Int, feed: FeedRepository, flights: SingleFlight): Comments {
     val local = feed.localComments
-    // A change, from this screen or any other, shows at once.
+    // A change, from this screen or any other, shows at once; so does a block or mute.
     val changes by local.entries.collectAsState()
+    val blocked by feed.localBlocks.entries.collectAsState()
     var pages by remember { mutableStateOf(Pages()) }
     var firstLoading by remember { mutableStateOf(true) }
 
@@ -78,8 +88,9 @@ internal fun rememberComments(activity: AtUri, loadKey: Int, feed: FeedRepositor
 
     val sent = remember(changes) { local.sent(activity) }
     val threads =
-        remember(changes, pages, sent) {
-            shownThreads(pages, local, sent.mapNotNull { s -> s.root?.let { it to s } }.groupBy({ it.first }, { it.second }))
+        remember(changes, blocked, pages, sent) {
+            val sentReplies = sent.mapNotNull { s -> s.root?.let { it to s } }.groupBy({ it.first }, { it.second })
+            shownThreads(pages, local, sentReplies) { feed.localBlocks.applyTo(it, blocked) }
         }
     // Rebuilt only when the threads or which of them are loading replies change, not on every recomposition (each keystroke in the field).
     val loadingReplies = threads.filter { flights.isRunning(ActivityDetailEvent.LoadMoreReplies(it.uri)) }.map { it.uri }
@@ -110,17 +121,24 @@ internal fun rememberComments(activity: AtUri, loadKey: Int, feed: FeedRepositor
             val generation = pages.generation
             thread?.let { flights.launch(ActivityDetailEvent.LoadMoreReplies(uri)) { loadReplies(it, generation) } }
         },
+        viewer = viewer,
     )
 }
 
 /**
  * The loaded threads as the viewer left them: each with the replies loaded for it since, [LocalComments.applyTo] laid over it, and the
- * viewer's [sentReplies] in it at its end. A thread with nothing left to show (its top-level comment deleted here, no replies) is dropped.
+ * viewer's [sentReplies] in it at its end, and what [leftOut] takes away (blocked and muted accounts). A thread with nothing left to show
+ * (its top-level comment deleted here, no replies) is dropped.
  */
-private fun shownThreads(pages: Pages, local: LocalComments, sentReplies: Map<AtUri, List<SentComment>>): List<CommentThread> =
+private fun shownThreads(
+    pages: Pages,
+    local: LocalComments,
+    sentReplies: Map<AtUri, List<SentComment>>,
+    leftOut: (ThreadView) -> ThreadView,
+): List<CommentThread> =
     pages.threads.mapNotNull { served ->
         val more = pages.replies[served.uri]
-        val shown = local.applyTo(served.copy(replies = served.replies + more?.items.orEmpty()))
+        val shown = leftOut(local.applyTo(served.copy(replies = served.replies + more?.items.orEmpty())))
         val sent = sentReplies[served.uri].orEmpty()
         // Replies left to load: none once the last page is in, else at least one while there's a cursor.
         val hasMore = if (more != null) !more.loadedAll else served.repliesCursor != null

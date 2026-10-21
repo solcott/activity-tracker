@@ -322,6 +322,12 @@ sealed interface ActivityDetailEvent {
     /** The owner unhides a comment [uri] they hid. */
     data class UnhideComment(val uri: AtUri) : ActivityDetailEvent
 
+    /** The viewer blocks the author of someone else's comment [uri], confirmed: all their comments leave the list at once. */
+    data class BlockCommenter(val uri: AtUri) : ActivityDetailEvent
+
+    /** The viewer mutes the author of someone else's comment [uri]: their comments leave the viewer's list at once. */
+    data class MuteCommenter(val uri: AtUri) : ActivityDetailEvent
+
     /** Opens the training zones screen, to set the thresholds zone charts need. */
     data object OpenTrainingZones : ActivityDetailEvent
 
