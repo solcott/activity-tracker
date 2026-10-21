@@ -8,11 +8,13 @@ import io.github.solcott.activitytracker.appview.db.ActivityMembers
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.appview.db.ActivityZones
 import io.github.solcott.activitytracker.appview.db.Actors
+import io.github.solcott.activitytracker.appview.db.Blocks
 import io.github.solcott.activitytracker.appview.db.CommentHides
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.FollowApprovals
 import io.github.solcott.activitytracker.appview.db.Follows
 import io.github.solcott.activitytracker.appview.db.Likes
+import io.github.solcott.activitytracker.appview.db.Mutes
 import io.github.solcott.activitytracker.appview.db.RecordShadows
 import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.db.tx
@@ -24,12 +26,14 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityDetailsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.activitytracker.lexicon.app.BlockRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentHideRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowApprovalRecord
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.FollowRecord
 import io.github.solcott.activitytracker.lexicon.app.LikeRecord
+import io.github.solcott.activitytracker.lexicon.app.MuteRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.ReplyRef
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -68,6 +72,9 @@ class Indexer(
 ) {
     private val log = LoggerFactory.getLogger(Indexer::class.java)
 
+    /** Bluesky blocks, from Jetstream here and from athletes' repos through `BskyBlockBackfill`. */
+    val bskyBlocks = BskyBlockIndex(db, clock)
+
     suspend fun handle(event: JetstreamEvent) {
         when (event) {
             is JetstreamEvent.Commit -> {
@@ -93,6 +100,7 @@ class Indexer(
         val cid = commit.cid
         when {
             commit.operation == "delete" -> db.tx { delete(commit.collection, uri, Placement.REPO) }
+            record != null && cid != null && commit.collection == Nsid.BSKY_GRAPH_BLOCK -> bskyBlocks.put(author, uri, record)
             record != null && cid != null -> index(author, commit.collection, uri, cid, record, Placement.REPO)
         }
     }
@@ -123,6 +131,8 @@ class Indexer(
         Likes.deleteWhere { origin eq placement.origin }
         Comments.deleteWhere { origin eq placement.origin }
         CommentHides.deleteWhere { origin eq placement.origin }
+        Blocks.deleteWhere { origin eq placement.origin }
+        Mutes.deleteWhere { origin eq placement.origin }
     }
 
     @Suppress("LongParameterList") // The record, and where it's from.
@@ -213,6 +223,8 @@ class Indexer(
                 upsertApproval(AtJson.decodeFromJsonElement(FollowApprovalRecord.serializer(), json), author, uri, now)
             }
 
+            in BLOCKS_AND_MUTES -> upsertBlockOrMute(collection, json, author, uri, placement, now)
+
             Nsid.ACTOR_PROFILE -> {
                 if (uri.rkey == ProfileRecord.RKEY)
                     updateProfile(AtJson.decodeFromJsonElement(ProfileRecord.serializer(), json), author, now)
@@ -278,6 +290,8 @@ class Indexer(
                 FollowApprovals.deleteWhere { FollowApprovals.uri eq uri.value }
             }
 
+            in BLOCKS_AND_MUTES -> deleteBlockOrMute(collection, uri, placement)
+
             Nsid.ACTOR_PROFILE -> {
                 Actors.update({ Actors.did eq uri.authority }) {
                     it[displayName] = null
@@ -317,6 +331,8 @@ class Indexer(
         CommentHides.deleteWhere { authorDid eq did.value }
         Follows.deleteWhere { authorDid eq did.value }
         FollowApprovals.deleteWhere { authorDid eq did.value }
+        Blocks.deleteWhere { authorDid eq did.value }
+        Mutes.deleteWhere { authorDid eq did.value }
         RecordShadows.deleteWhere { uri like "at://${did.value}/%" }
         SpaceSync.deleteWhere { authorityDid eq did.value }
         Actors.deleteWhere { Actors.did eq did.value }
@@ -334,14 +350,18 @@ class Indexer(
                 Triple(ActivityDetails.uri, ActivityDetails.origin, Nsid.FEED_ACTIVITY_DETAILS),
                 Triple(ActivityZones.uri, ActivityZones.origin, Nsid.FEED_ACTIVITY_ZONES),
             )
-        private val INTERACTION_COLLECTIONS = setOf(Nsid.FEED_LIKE, Nsid.FEED_COMMENT, Nsid.FEED_COMMENT_HIDE)
+        /** Blocks (the app's and Bluesky's) and mutes, which all go through [upsertBlockOrMute] and [deleteBlockOrMute]. */
+        private val BLOCKS_AND_MUTES = setOf(Nsid.GRAPH_BLOCK, Nsid.BSKY_GRAPH_BLOCK, Nsid.GRAPH_MUTE)
+
+        private val INTERACTION_COLLECTIONS =
+            setOf(Nsid.FEED_LIKE, Nsid.FEED_COMMENT, Nsid.FEED_COMMENT_HIDE, Nsid.GRAPH_BLOCK, Nsid.GRAPH_MUTE)
 
         /**
-         * What the AppView indexes from the athlete space with key [skey]: likes, comments and comment hides from the interactions space,
-         * and activities, their details, streams and zones from a tier (an unknown key is a tier only the athlete sees). Private details,
-         * follow declines, defaults, full tracks, imported files and their devices (`feed.activityTrack`, `feed.activitySource`,
-         * `feed.activityDevices`, in `self`), privacy zones and their trim marker (`actor.privacyZones`, `actor.routeTrim`, in `self`) are
-         * never stored.
+         * What the AppView indexes from the athlete space with key [skey]: likes, comments, comment hides, blocks and mutes from the
+         * interactions space, and activities, their details, streams and zones from a tier (an unknown key is a tier only the athlete
+         * sees). Private details, follow declines, defaults, full tracks, imported files and their devices (`feed.activityTrack`,
+         * `feed.activitySource`, `feed.activityDevices`, in `self`), privacy zones and their trim marker (`actor.privacyZones`,
+         * `actor.routeTrim`, in `self`) are never stored.
          */
         fun spaceCollections(skey: String): Set<String> =
             if (skey == AthleteSpace.INTERACTIONS) INTERACTION_COLLECTIONS else TIER_COLLECTIONS
@@ -399,6 +419,62 @@ private fun JdbcTransaction.upsertHide(record: CommentHideRecord, author: Did, u
         it[origin] = placement.origin
         it[authorDid] = author.value
         it[commentUri] = record.subject.value
+        it[createdAt] = record.createdAt.toEpochMilliseconds()
+        it[indexedAt] = now
+    }
+}
+
+/**
+ * A `graph.block` or `graph.mute`, only from the interactions space ([Indexer.spaceCollections]): one per pair, at rkey = its subject, so
+ * unblocking or unmuting always removes it. One under any other rkey is dropped.
+ */
+@Suppress("LongParameterList") // The record, and where it's from.
+private fun JdbcTransaction.upsertBlockOrMute(
+    collection: String,
+    json: JsonObject,
+    author: Did,
+    uri: AtUri,
+    placement: Placement,
+    now: Long,
+) {
+    if (collection == Nsid.GRAPH_BLOCK) {
+        val record = AtJson.decodeFromJsonElement(BlockRecord.serializer(), json)
+        if (uri.rkey == BlockRecord.rkey(record.subject))
+            upsertBlock(uri, placement, author, record.subject, record.createdAt.toEpochMilliseconds(), now)
+        else deleteBlockOrMute(collection, uri, placement)
+    } else {
+        val record = AtJson.decodeFromJsonElement(MuteRecord.serializer(), json)
+        if (uri.rkey == MuteRecord.rkey(record.subject)) upsertMute(uri, placement, author, record, now)
+        else deleteBlockOrMute(collection, uri, placement)
+    }
+}
+
+/** A block (either kind) or mute deleted from [placement]'s origin. */
+private fun JdbcTransaction.deleteBlockOrMute(collection: String, uri: AtUri, placement: Placement) {
+    if (collection == Nsid.GRAPH_MUTE) Mutes.deleteWhere { (Mutes.uri eq uri.value) and (origin eq placement.origin) }
+    else Blocks.deleteWhere { (Blocks.uri eq uri.value) and (origin eq placement.origin) }
+}
+
+@Suppress("LongParameterList") // The block, and where it's from.
+internal fun JdbcTransaction.upsertBlock(uri: AtUri, placement: Placement, author: Did, subject: Did, createdAt: Long, now: Long) {
+    require(subject != author) { "block of self" }
+    Blocks.upsert {
+        it[Blocks.uri] = uri.value
+        it[origin] = placement.origin
+        it[authorDid] = author.value
+        it[subjectDid] = subject.value
+        it[Blocks.createdAt] = createdAt
+        it[indexedAt] = now
+    }
+}
+
+private fun JdbcTransaction.upsertMute(uri: AtUri, placement: Placement, author: Did, record: MuteRecord, now: Long) {
+    require(record.subject != author) { "mute of self" }
+    Mutes.upsert {
+        it[Mutes.uri] = uri.value
+        it[origin] = placement.origin
+        it[authorDid] = author.value
+        it[subjectDid] = record.subject.value
         it[createdAt] = record.createdAt.toEpochMilliseconds()
         it[indexedAt] = now
     }

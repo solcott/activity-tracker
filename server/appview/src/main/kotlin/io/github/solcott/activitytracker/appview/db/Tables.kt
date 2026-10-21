@@ -23,6 +23,8 @@ object Actors : Table("actors") {
     /** `FollowPolicy.APPROVE`, or null for an open policy (the profile record had none, or a value we don't know). */
     val followPolicy = varchar("follow_policy", 16).nullable()
     val indexedAt = long("indexed_at")
+    /** When the athlete's `app.bsky.graph.block` records were last backfilled from their repo; null until then. */
+    val bskyBlocksSyncedAt = long("bsky_blocks_synced_at").nullable()
     override val primaryKey = PrimaryKey(did)
 }
 
@@ -137,6 +139,31 @@ object Follows : Table("follows") {
  */
 object FollowApprovals : Table("follow_approvals") {
     val uri = varchar("uri", 512)
+    val authorDid = varchar("author_did", 255)
+    val subjectDid = varchar("subject_did", 255)
+    val createdAt = long("created_at")
+    val indexedAt = long("indexed_at")
+    override val primaryKey = PrimaryKey(uri)
+}
+
+/**
+ * Blocks: `graph.block` from the author's interactions space ([origin] is its URI) or `app.bsky.graph.block` from their repo ([origin] is
+ * `repo`). A pair is blocked while any row names it, in either direction (`blocked` in `api/Blocks.kt`).
+ */
+object Blocks : Table("blocks") {
+    val uri = varchar("uri", 512)
+    val origin = varchar("origin", 512)
+    val authorDid = varchar("author_did", 255)
+    val subjectDid = varchar("subject_did", 255)
+    val createdAt = long("created_at")
+    val indexedAt = long("indexed_at")
+    override val primaryKey = PrimaryKey(uri)
+}
+
+/** `graph.mute` records from the author's interactions space. */
+object Mutes : Table("mutes") {
+    val uri = varchar("uri", 512)
+    val origin = varchar("origin", 512)
     val authorDid = varchar("author_did", 255)
     val subjectDid = varchar("subject_did", 255)
     val createdAt = long("created_at")

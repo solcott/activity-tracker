@@ -29,6 +29,7 @@ import io.github.solcott.activitytracker.appview.db.DatabaseFactory
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamConsumer
 import io.github.solcott.activitytracker.appview.index.ResolvingHandleLookup
+import io.github.solcott.activitytracker.appview.sync.BskyBlockBackfill
 import io.github.solcott.activitytracker.appview.sync.SpaceSyncer
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.atproto.space.SignedDelegationTokens
@@ -85,6 +86,7 @@ fun main() {
             val pds = ResolvingPdsLookup(identity)
             appView(config, db, verifier, pds, PdsBlobStreamSource(http, pds, spaceBlobs), signingKey, syncer, spaceBlobs)
             config.jetstreamUrl?.let { url -> launch { JetstreamConsumer(http, url, db, indexer).run() } }
+            BskyBlockBackfill(db, indexer, http, pds).start(this)
             syncer?.start(this)
         }
         .start(wait = true)
