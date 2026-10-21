@@ -32,7 +32,7 @@ class GarminJsFitDecoder : FitDecoder {
                         serialNumber = number(it.serialNumber)?.toLong()?.takeIf { serial -> serial != 0L }?.toString(),
                     )
                 },
-            sessions = sessions.map { it.toSummary() },
+            sessions = sessions.map { it.toSummary().copy(physiology = it.physiology()) },
             laps = messages.lapMesgs?.toList().orEmpty().map { it.toSummary() },
             records = messages.recordMesgs?.toList().orEmpty().map { it.toSample(developerFields) },
             dive =
@@ -292,6 +292,10 @@ class GarminJsFitDecoder : FitDecoder {
             intensity = intensity?.let(::jsString),
             lapTrigger = lapTrigger?.let(::jsString),
         )
+
+    /** The session's exercise load, and Garmin's own sweat loss and stamina fields, which the SDK keeps under their numbers. */
+    private fun JsSummaryMesg.physiology() =
+        SessionPhysiology.read(number(trainingLoadPeak)) { field -> number(fieldOf(this, field.toString()))?.toLong() }
 
     private fun <T : JsAny> JsArray<T>.toList(): List<T> = (0 until length).mapNotNull { get(it) }
 }

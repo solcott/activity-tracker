@@ -94,6 +94,8 @@ internal external interface JsSummaryMesg : JsAny {
     // Lap only.
     val intensity: JsAny?
     val lapTrigger: JsAny?
+    // Session only: Garmin's exercise load.
+    val trainingLoadPeak: JsAny?
     // Session only: a pool swim's pool length, in meters.
     val poolLength: JsAny?
     // Session only: strides, strokes or revolutions, and the average stroke distance.

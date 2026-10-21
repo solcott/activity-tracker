@@ -18,7 +18,8 @@ internal fun JsHrMesg.toHrMessage(): DecodedHrMessage {
 }
 
 /** The SDK's decode options: everything at its default except `mergeHeartRates`. */
-internal fun decodeOptions(): JsAny = js("({ mergeHeartRates: false })")
+// includeUnknownData keeps the fields the profile doesn't name, under their numbers: Garmin's sweat loss and stamina are such fields.
+internal fun decodeOptions(): JsAny = js("({ mergeHeartRates: false, includeUnknownData: true })")
 
 /** An array field's numbers, or a single number as a list of one; anything else (null, a padding value the SDK left undefined) dropped. */
 internal fun numbers(value: JsAny?): List<Double> =
