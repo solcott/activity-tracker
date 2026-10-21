@@ -91,7 +91,7 @@ A failure to sync one space, including a revoked or refused credential or a dele
 - **THEN** other spaces reconcile normally, and that space is retried later
 
 ### Requirement: Only activity data is indexed from spaces
-From tier spaces (`followers`, `mutuals`, `self`), the AppView SHALL index only `feed.activity`, `feed.activityStreams` and `feed.activityZones` records. From `interactions` spaces it SHALL index only `feed.like`, `feed.comment`, `feed.commentHide`, `graph.block` and `graph.mute` records. It SHALL NOT store `actor.privateDetails`, `graph.followDecline` or `actor.activityDefaults` records from any space.
+From tier spaces (`followers`, `mutuals`, `self`), the AppView SHALL index only `feed.activity`, `feed.activityDetails`, `feed.activityStreams` and `feed.activityZones` records, and from the `self` space also `feed.segmentTrack` and `actor.segmentPrefs` records. From `interactions` spaces it SHALL index only `feed.like`, `feed.comment`, `feed.commentHide`, `graph.block` and `graph.mute` records. It SHALL NOT store `actor.privateDetails`, `graph.followDecline`, `actor.activityDefaults`, `actor.privacyZones`, `actor.routeTrim`, `feed.activityTrack`, `feed.activitySource` or `feed.activityDevices` records from any space.
 
 #### Scenario: Private details ignored
 - **WHEN** a synced space's ops include an `actor.privateDetails` write
@@ -140,6 +140,18 @@ From tier spaces (`followers`, `mutuals`, `self`), the AppView SHALL index only 
 #### Scenario: Interactions space deleted
 - **WHEN** an athlete's `interactions` space is reported deleted
 - **THEN** every block and mute indexed from it is removed, and their Bluesky blocks still apply
+
+#### Scenario: Segment track indexed from self
+- **WHEN** a synced `self` space's ops include a `feed.segmentTrack` write
+- **THEN** the AppView indexes it as that athlete's segment track for the activity with its rkey
+
+#### Scenario: Segment track outside self ignored
+- **WHEN** a synced `followers` or `interactions` space's ops include a `feed.segmentTrack` or `actor.segmentPrefs` write
+- **THEN** the AppView indexes nothing from it
+
+#### Scenario: Full track still ignored
+- **WHEN** a synced `self` space's ops include a `feed.activityTrack` or `actor.privacyZones` write
+- **THEN** the AppView stores nothing from it
 
 ### Requirement: Interactions spaces synced
 The AppView SHALL accept `notifySpace` for the caller's own `interactions` space, and SHALL join, register for and sync it as it does a tier space, including notifications, the periodic reconcile and failure containment.
