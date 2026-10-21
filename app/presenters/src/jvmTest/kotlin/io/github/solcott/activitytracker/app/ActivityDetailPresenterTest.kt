@@ -37,6 +37,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.units,
                 r.suggestions,
                 r.blocks,
+                r.reports,
             )
         }) {
             val loaded = awaitLoaded()
@@ -73,6 +74,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.units,
                 r.suggestions,
                 r.blocks,
+                r.reports,
             )
         }) {
             val loaded = awaitLoaded()
@@ -102,6 +104,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.units,
                 r.suggestions,
                 r.blocks,
+                r.reports,
             )
         }) {
             val loaded = awaitLoaded()
@@ -131,6 +134,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.units,
                 r.suggestions,
                 r.blocks,
+                r.reports,
             )
         }) {
             awaitLoaded().eventSink(ActivityDetailEvent.ToggleLikesList)
@@ -162,6 +166,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.units,
                 r.suggestions,
                 r.blocks,
+                r.reports,
             )
         }) {
             awaitLoaded().eventSink(ActivityDetailEvent.ToggleLikesList)
@@ -191,6 +196,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.units,
                 r.suggestions,
                 r.blocks,
+                r.reports,
             )
         }) {
             var state = awaitLoaded()
@@ -222,6 +228,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.units,
                 r.suggestions,
                 r.blocks,
+                r.reports,
             )
         }) {
             var state = awaitLoaded()
@@ -250,6 +257,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
                 r.units,
                 r.suggestions,
                 r.blocks,
+                r.reports,
             )
         }) {
             assertNull(awaitLoaded().charts)

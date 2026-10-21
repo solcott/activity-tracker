@@ -23,13 +23,14 @@ data class TestSession(val db: AppDatabase, val manager: OAuthSessionManager, va
 
 /**
  * Saves a fresh session for [did] in an in-memory database and restores it, so every request goes through [http]. Its [scope] is the app's
- * own by default; pass `"atproto"` for a session signed in before the `space:` scope existed.
+ * own by default; pass `"atproto"` for a session signed in before the `space:` scope existed. Reports go to [labelerDid].
  */
 suspend fun signedInTestSession(
     http: HttpClient,
     did: Did = Did("did:plc:alice"),
     logger: Logger = Logger,
     scope: String = OAuthClientConfig.DEFAULT_SCOPE,
+    labelerDid: Did? = null,
 ): TestSession {
     val db = inMemoryDatabase()
     val store = RoomOAuthStore(db, Clock.System, InMemorySecretCipher(), logger)
@@ -54,6 +55,7 @@ suspend fun signedInTestSession(
             "http://appview.test",
             "did:web:appview.test",
             OAuthClientConfig.loopback("http://127.0.0.1/"),
+            labelerDid,
         )
     val identity = IdentityResolver(http, config)
     val manager = OAuthSessionManager(OAuthClient(http, identity, config.oauth), store).apply { restore() }

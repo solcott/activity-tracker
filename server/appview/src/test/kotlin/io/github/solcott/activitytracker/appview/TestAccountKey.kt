@@ -42,11 +42,16 @@ class TestAccountKey {
             lxm?.let { put("lxm", it) }
         }
         val input = enc.encodeToString(header.toString().toByteArray()) + "." + enc.encodeToString(payload.toString().toByteArray())
-        val digest = MessageDigest.getInstance("SHA-256").digest(input.toByteArray())
+        return "$input.${enc.encodeToString(sign(input.toByteArray()))}"
+    }
+
+    /** A compact low-S ECDSA signature of the SHA-256 of [data], as atproto signs JWTs and labels. */
+    fun sign(data: ByteArray): ByteArray {
+        val digest = MessageDigest.getInstance("SHA-256").digest(data)
         val signer = ECDSASigner(HMacDSAKCalculator(SHA256Digest())).apply { init(true, pair.private as ECPrivateKeyParameters) }
         val (r, s) = signer.generateSignature(digest).let { it[0] to it[1] }
         val lowS = if (s > domain.n.shiftRight(1)) domain.n - s else s
-        return "$input.${enc.encodeToString(r.to32() + lowS.to32())}"
+        return r.to32() + lowS.to32()
     }
 
     private fun BigInteger.to32(): ByteArray {

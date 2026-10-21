@@ -9,7 +9,8 @@
         "did": { "type": "string", "format": "did" },
         "handle": { "type": "string", "format": "handle" },
         "displayName": { "type": "string", "maxLength": 640, "maxGraphemes": 64 },
-        "avatar": { "type": "string", "format": "uri", "description": "URL of the athlete's profile picture." }
+        "avatar": { "type": "string", "format": "uri", "description": "URL of the athlete's profile picture." },
+        "labels": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.moderation.defs#label" }, "description": "Labels on the athlete's account (their DID). Absent when there are none." }
       }
     },
     "profileView": {
@@ -35,7 +36,8 @@
         "activitiesCount": { "type": "integer" },
         "followersCount": { "type": "integer" },
         "followsCount": { "type": "integer" },
-        "viewer": { "type": "ref", "ref": "#viewerState" }
+        "viewer": { "type": "ref", "ref": "#viewerState" },
+        "labels": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.moderation.defs#label" }, "description": "Labels on the athlete's account (their DID) and on their profile record. Absent when there are none." }
       }
     },
     "viewerState": {

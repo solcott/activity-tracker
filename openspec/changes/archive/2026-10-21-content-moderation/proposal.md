@@ -2,20 +2,21 @@
 
 ## Why
 
-Athletes publish photos, titles, descriptions, comments and profiles, but there is no way to report abuse and no way to remove or hide content. Blocking (`user-blocking`) protects one athlete from another. Content moderation protects everyone and gives the operators a way to act. atproto already defines the pieces: reports (`com.atproto.moderation.createReport`), labels (`com.atproto.label.*`) and a self-hostable labeler with a moderator UI (Ozone). Bluesky's labeler already flags problem accounts. We reuse all of this rather than inventing our own.
+Athletes publish photos, titles, descriptions, comments and profiles, but there is no way to report abuse and no way to remove or hide content. Blocking, which has landed (`graph/blocks`, `graph/mutes`), protects one athlete from another. Content moderation protects everyone and gives the operators a way to act. atproto already defines the pieces: reports (`com.atproto.moderation.createReport`), labels (`com.atproto.label.*`) and a self-hostable labeler with a moderator UI (Ozone). Bluesky's labeler already flags problem accounts. We reuse all of this rather than inventing our own.
 
 ## What Changes
 
 - **Our labeler.** A self-hosted Ozone service, with its own DID declaring `#atproto_labeler`, is the app's report queue and label source. It joins the local docker stack and the AppView configuration.
 - **Reports.**
   - Clients can report an activity, a photo on it, a comment, or an account, with a reason type and optional text.
+  - Report sits beside Block and Mute in the comment and profile menus, and in new menus on others' activities and on gallery photos. After a report the app offers to block the author, using the existing block flow.
   - The report goes through the athlete's PDS to our labeler, using the `atproto-proxy` header.
   - No client SDK is used: it's one hand-written `XrpcProcedure`.
 - **Labels the AppView honors.**
   - The AppView subscribes to our labeler's label stream, and to Bluesky's moderation labeler for account-level labels only. It verifies label signatures and handles negation and expiry.
   - It stores the labels and attaches the ones that apply to activity, comment and profile views, and to each photo.
 - **What labels do in v1. These behaviors are fixed; viewer preferences come later.**
-  - `!takedown` removes the subject everywhere. The AppView stops serving it and refuses its media, and photos are labeled by CID.
+  - `!takedown` removes the subject everywhere, the way a block does for one pair of athletes: a taken-down profile answers not found, and the AppView refuses its media to everyone. An account taken down also loses access to its tier spaces for other readers.
   - `!hide` hides the subject from lists and feeds but leaves it reachable by URI behind a warning.
   - `porn`, `sexual`, `nudity` and `graphic-media` blur media, with tap-to-reveal.
   - `!warn`, `spam` and `impersonation` show a warning.
@@ -47,12 +48,12 @@ Athletes publish photos, titles, descriptions, comments and profiles, but there 
 - **AppView:**
   - Labeler config in `AppViewConfig`.
   - A label subscriber (`com.atproto.label.subscribeLabels` with a resume cursor) and a server-side CBOR dependency.
-  - Labels table, with a Flyway migration.
-  - Label filtering in `Views.kt`, `CommentQueries.kt`, `ActorDetails.kt` and `BlobRedirects.kt`.
+  - Labels, label cursors, the moderator audit log and `actors.status`, in Flyway `V28` (after user-blocking's `V26` and the segments work's `V27`).
+  - `served` and `unhidden` predicates in a new `api/Moderation.kt`, next to `api/Blocks.kt` and used the same way: `served` in both branches of `visibleTo` and in `SpaceAccess`, and `unhidden` next to each `notMuted` / `notBlocked` list filter. Also `ActorDetails.kt` (profile not found) and `BlobRedirects.kt`.
   - `#account` status handling in `Indexer`.
   - The moderator route, with an Ozone status check and an audit log.
 - **Client:**
   - `XrpcClient` proxy-header support.
-  - A report sheet reached from activity, photo, comment and profile menus.
+  - A report sheet reached from the comment menu and the profile's block and mute menu, and from new menus on others' activities and on gallery photos. Its block offer uses `BlockRepository`.
   - Blur, warning and hidden treatments in `composeApp` through the `ui/adaptive` wrappers.
 - **Operations:** Ozone is a new service to run, with its own database and moderator accounts. The privacy policy must say that moderators can view reported non-public content.

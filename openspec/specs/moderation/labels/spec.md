@@ -1,10 +1,10 @@
-# Spec Delta
+# moderation/labels Specification
 
 ## Purpose
 
 Defines which labelers the AppView trusts, how it takes in and verifies their labels, and what each label value does to the activities, photos, comments and profiles the AppView serves and the clients show.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Trusted labelers
 The AppView SHALL honor labels from exactly two sources, set in its configuration: the app's own labeler, and Bluesky's moderation labeler. From the app's labeler it SHALL honor labels on any subject. From Bluesky's labeler it SHALL honor only labels whose subject is an account DID. Labels from any other source SHALL be ignored.
@@ -62,7 +62,7 @@ A label on an account DID SHALL apply to the account's profile, avatar, activiti
 - **THEN** the label no longer applies to the edited activity
 
 ### Requirement: Takedown removes content
-A subject with `!takedown` SHALL NOT be served to anyone but its author. For other viewers it SHALL be left out of every feed, list, count and search, and a direct lookup SHALL answer as not found. Its media SHALL NOT be served or redirected to anyone but its author. Its author SHALL see it marked as taken down.
+A subject with `!takedown` SHALL NOT be served to anyone but its author, signed-out viewers included. For other viewers it SHALL be left out of every feed, list, count and search, and a direct lookup SHALL answer as not found, the same answer a block gives. Its media SHALL NOT be served or redirected to anyone, its author included, because public media is fetched without a viewer. Its author SHALL see it marked as taken down, with its photos replaced by a placeholder.
 
 #### Scenario: Taken-down activity
 - **WHEN** bob's activity carries `!takedown`
@@ -70,11 +70,22 @@ A subject with `!takedown` SHALL NOT be served to anyone but its author. For oth
 
 #### Scenario: Taken-down activity's photos
 - **WHEN** bob's activity carries `!takedown`
-- **THEN** the AppView refuses to serve or redirect its photos to anyone but bob
+- **THEN** the AppView refuses to serve or redirect its photos to anyone, and bob sees a placeholder in their place
 
 #### Scenario: Taken-down account
 - **WHEN** bob's DID carries `!takedown`
-- **THEN** his profile answers not found for others, and his activities and comments are not served to others
+- **THEN** his profile answers not found for others, signed out or not, and his activities and comments are not served to others
+
+### Requirement: Account takedown closes tier spaces
+While an account DID carries `!takedown`, the AppView, as managing app of that account's tier spaces, SHALL refuse read access to everyone but the account. It SHALL admit readers again under the usual rules once the label is negated or expires.
+
+#### Scenario: Taken-down account's Followers tier
+- **WHEN** bob's DID carries `!takedown` and bob's PDS asks `checkUserAccess` whether alice, an effective follower, may read bob's Followers space
+- **THEN** the AppView refuses
+
+#### Scenario: Takedown negated
+- **WHEN** the `!takedown` on bob's DID is negated
+- **THEN** `checkUserAccess` admits alice to bob's Followers space again
 
 ### Requirement: Hide keeps content reachable behind a warning
 A subject with `!hide` SHALL be left out of feeds, lists, counts and search for viewers other than its author. A direct lookup SHALL still return it carrying the label. Clients SHALL show it collapsed behind a warning the viewer can open.

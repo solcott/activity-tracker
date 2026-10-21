@@ -173,7 +173,9 @@ private fun Timeline(state: FeedState, listState: LazyListState, contentPadding:
             }
             state.error?.let { item { Text(errorText(it), color = MaterialTheme.colorScheme.error) } }
             if (state.askSegments) item { SegmentsPrompt(state) }
-            activityItems(state.activities, state.viewerDid, authorClickable = true) { state.eventSink(FeedEvent.Activity(it)) }
+            activityItems(state.activities, state.viewerDid, authorClickable = true, state.revealed) {
+                state.eventSink(FeedEvent.Activity(it))
+            }
             if (state.activities.isEmpty() && !state.refreshing) {
                 item {
                     Column(

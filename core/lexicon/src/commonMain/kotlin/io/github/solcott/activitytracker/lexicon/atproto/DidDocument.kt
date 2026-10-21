@@ -31,7 +31,11 @@ data class DidDocument(
 
     /** Multibase-encoded repo signing key (`#atproto`). */
     val signingKey: String?
-        get() = verificationMethod.firstOrNull { it.id == "#atproto" || it.id == "$id#atproto" }?.publicKeyMultibase
+        get() = verificationKey("#atproto")
+
+    /** Multibase-encoded key of the verification method [fragment] (`#atproto_label` for a labeler's label key). */
+    fun verificationKey(fragment: String): String? =
+        verificationMethod.firstOrNull { it.id == fragment || it.id == "$id$fragment" }?.publicKeyMultibase
 
     fun serviceEndpoint(fragment: String): String? = service.firstOrNull { it.id == fragment || it.id == "$id$fragment" }?.serviceEndpoint
 }

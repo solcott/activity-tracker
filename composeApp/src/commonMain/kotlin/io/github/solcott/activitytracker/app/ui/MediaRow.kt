@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
@@ -13,7 +14,9 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -25,6 +28,8 @@ import io.github.solcott.activitytracker.app.media.MediaItem
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.details_photo
+import io.github.solcott.activitytracker.composeApp.resources.label_taken_down_photo
+import io.github.solcott.activitytracker.data.moderation.BlurReason
 import kotlinx.collections.immutable.ImmutableList
 import org.jetbrains.compose.resources.stringResource
 
@@ -40,6 +45,12 @@ fun MediaRow(
     height: Dp = 200.dp,
     /** Draws the route at the size its modifier and height give. */
     map: (@Composable (Modifier, Dp) -> Unit)? = null,
+    /** The photos' label: each is blurred until [revealed], and a tap reveals ([onReveal]) instead of opening it. */
+    blur: BlurReason? = null,
+    revealed: Boolean = false,
+    onReveal: () -> Unit = {},
+    /** The athlete's own taken-down activity: placeholders, since the AppView no longer serves its photos. */
+    takenDown: Boolean = false,
 ) {
     if (media.isEmpty()) {
         map?.invoke(modifier.fillMaxWidth().clip(TILE_SHAPE), height)
@@ -50,31 +61,52 @@ fun MediaRow(
         val mapWidth = maxWidth * MAP_SHARE
         LazyRow(Modifier.fillMaxWidth().height(height), horizontalArrangement = Arrangement.spacedBy(TILE_GAP)) {
             if (map != null) item(key = "map") { map(Modifier.width(mapWidth).clip(TILE_SHAPE), height) }
-            itemsIndexed(media, key = { index, _ -> index }) { index, item -> MediaTile(item, height, onClick = { onOpen(index) }) }
+            itemsIndexed(media, key = { index, _ -> index }) { index, item ->
+                MediaTile(
+                    item,
+                    height,
+                    onClick = { onOpen(index) },
+                    blur = blur,
+                    revealed = revealed,
+                    onReveal = onReveal,
+                    takenDown = takenDown,
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun MediaTile(item: MediaItem, height: Dp, onClick: () -> Unit, modifier: Modifier = Modifier) {
+@Suppress("LongParameterList") // The tile, and how its label and a takedown show.
+private fun MediaTile(
+    item: MediaItem,
+    height: Dp,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    blur: BlurReason? = null,
+    revealed: Boolean = false,
+    onReveal: () -> Unit = {},
+    takenDown: Boolean = false,
+) {
     val ratio = (item.aspectRatio ?: DEFAULT_RATIO).coerceIn(MIN_RATIO, MAX_RATIO)
-    Box(
-        modifier
-            .width(height * ratio)
-            .fillMaxHeight()
-            .clip(TILE_SHAPE)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(role = Role.Image, onClick = onClick)
-            .handCursor()
-    ) {
-        when (item) {
-            is MediaItem.Photo ->
-                AsyncImage(
-                    item.url,
-                    contentDescription = item.alt ?: stringResource(Res.string.details_photo),
-                    modifier = Modifier.fillMaxWidth().fillMaxHeight(),
-                    contentScale = ContentScale.Crop,
-                )
+    val tile = modifier.width(height * ratio).fillMaxHeight().clip(TILE_SHAPE).background(MaterialTheme.colorScheme.surfaceVariant)
+    if (takenDown) {
+        Box(tile, contentAlignment = Alignment.Center) {
+            Text(stringResource(Res.string.label_taken_down_photo), style = MaterialTheme.typography.labelMedium)
+        }
+        return
+    }
+    BlurredMedia(blur, revealed, onReveal, tile) {
+        Box(Modifier.fillMaxSize().clickable(role = Role.Image, onClick = onClick).handCursor()) {
+            when (item) {
+                is MediaItem.Photo ->
+                    AsyncImage(
+                        item.url,
+                        contentDescription = item.alt ?: stringResource(Res.string.details_photo),
+                        modifier = Modifier.fillMaxWidth().fillMaxHeight(),
+                        contentScale = ContentScale.Crop,
+                    )
+            }
         }
     }
 }

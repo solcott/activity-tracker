@@ -6,6 +6,8 @@ import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
+import io.github.solcott.activitytracker.app.moderation.Revealed
+import io.github.solcott.activitytracker.app.report.Reporting
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
@@ -34,6 +36,10 @@ data class ProfileState(
     /** There are more requests than [followRequestCount] counts. */
     val moreFollowRequests: Boolean = false,
     val error: UiError?,
+    /** Report on someone else's profile, kept when the viewer blocks them. */
+    val reporting: Reporting = Reporting(),
+    /** The avatar, labeled photos, or a hidden athlete's activities the viewer revealed on this screen. */
+    val revealed: Revealed = Revealed(),
     val eventSink: (ProfileEvent) -> Unit,
 ) : CircuitUiState
 

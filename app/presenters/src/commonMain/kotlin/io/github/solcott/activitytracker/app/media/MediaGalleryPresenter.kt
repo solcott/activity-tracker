@@ -11,16 +11,37 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.moderation.rememberRevealed
+import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.report.Reporting
+import io.github.solcott.activitytracker.app.report.ReportingEvent
+import io.github.solcott.activitytracker.app.report.rememberReporting
+import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.moderation.BlurReason
+import io.github.solcott.activitytracker.data.moderation.ModerationDecision
+import io.github.solcott.activitytracker.data.moderation.ReportRepository
+import io.github.solcott.activitytracker.data.moderation.ReportTarget
+import io.github.solcott.activitytracker.data.profile.BlockRepository
+import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import kotlinx.collections.immutable.persistentListOf
 
 @CircuitInject(MediaGalleryScreen::class, SessionScope::class)
 @Composable
-fun MediaGalleryPresenter(screen: MediaGalleryScreen, navigator: Navigator, feed: FeedRepository): MediaGalleryState {
+@Suppress("LongParameterList") // The gallery's repositories, and the navigator.
+fun MediaGalleryPresenter(
+    screen: MediaGalleryScreen,
+    navigator: Navigator,
+    feed: FeedRepository,
+    profiles: ProfileRepository,
+    blocks: BlockRepository,
+    reports: ReportRepository,
+): MediaGalleryState {
     val uri = AtUri(screen.uri)
     var activity by remember { mutableStateOf<ActivityView?>(null) }
     var error by remember { mutableStateOf<UiError?>(null) }
@@ -37,16 +58,54 @@ fun MediaGalleryPresenter(screen: MediaGalleryScreen, navigator: Navigator, feed
 
     val shown = activity?.let { a -> rewrite?.let { feed.rewrites.rewritten(a, it) } ?: a }
     val items = remember(shown) { shown?.mediaItems() ?: persistentListOf() }
-    return MediaGalleryState(items, page.coerceIn(0, (items.size - 1).coerceAtLeast(0)), zoomed, error) { event ->
+    val flights = rememberSingleFlight()
+    val reporting =
+        rememberReporting(reports) { author, _ ->
+            flights.launch(author) {
+                runSuspendCatching { blocks.setBlocked(author, true) }.onFailure { error = uiErrorOf(UiError.Kind.UpdateBlock, it) }
+            }
+        }
+    val shownPage = page.coerceIn(0, (items.size - 1).coerceAtLeast(0))
+    val canReport = shown != null && shown.author.did != profiles.did && items.isNotEmpty()
+    val (takenDown, blur) = shown.moderation(profiles.did)
+    val revealed = rememberRevealed()
+    return MediaGalleryState(
+        items,
+        shownPage,
+        zoomed,
+        error,
+        canReport,
+        reporting,
+        blur = blur,
+        takenDown = takenDown,
+        revealed = revealed,
+    ) { event ->
         when (event) {
             is MediaGalleryEvent.PageChanged -> {
                 page = event.page
                 zoomed = false
             }
 
-            MediaGalleryEvent.ToggleZoom -> zoomed = !zoomed
+            // A blurred photo reveals first; zoom only once it's seen.
+            MediaGalleryEvent.ToggleZoom ->
+                if (blur != null && screen.uri !in revealed) revealed.eventSink(screen.uri) else zoomed = !zoomed
 
             MediaGalleryEvent.Back -> if (zoomed) zoomed = false else navigator.pop()
+
+            MediaGalleryEvent.ReportPhoto -> shown?.takeIf { canReport }?.let { reporting.reportPhoto(it, shownPage) }
         }
     }
+}
+
+/** Opens the report sheet for the photo at [page] of [activity]: the report names the activity and says which photo, counting from 1. */
+private fun Reporting.reportPhoto(activity: ActivityView, page: Int) {
+    val target = ReportTarget.Photo(ReportTarget.Activity(activity.uri, activity.cid, activity.author.did), page + 1)
+    eventSink(ReportingEvent.Open(target, activity.author.displayName ?: activity.author.handle.value))
+}
+
+/** Whether [this], shown to [viewer], is their own taken-down activity, and its photos' media label. */
+private fun ActivityView?.moderation(viewer: Did): Pair<Boolean, BlurReason?> {
+    if (this == null) return false to null
+    val decision = ModerationDecision.of(labels, author.labels, isOwn = author.did == viewer)
+    return (decision == ModerationDecision.Takedown) to ModerationDecision.mediaOf(labels, author.labels)
 }

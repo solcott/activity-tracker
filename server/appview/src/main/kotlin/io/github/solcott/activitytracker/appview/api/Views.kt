@@ -166,7 +166,12 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val rows =
             admittedLikes()
                 .select(Likes.authorDid, latest)
-                .where { (Likes.subjectUri inList subjects) and visibleTo(Likes.authorDid) and notBlocked(viewer, Likes.authorDid) }
+                .where {
+                    (Likes.subjectUri inList subjects) and
+                        visibleTo(Likes.authorDid) and
+                        notBlocked(viewer, Likes.authorDid) and
+                        listed(viewer, Likes.authorDid)
+                }
                 .groupBy(Likes.authorDid)
                 .having { after }
                 .orderBy(latest to SortOrder.DESC, Likes.authorDid to SortOrder.DESC)
@@ -182,6 +187,9 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         // Silent: an athlete who blocks the viewer answers exactly as an unknown one. The viewer's own block shows in `viewer.blocking`.
         if (viewer != null && ownBlock(did, viewer.value) != null)
             throw XrpcError(HttpStatusCode.BadRequest.value, "ProfileNotFound", "Unknown actor $actor")
+        // Likewise an account that isn't served (inactive, or taken down itself or by its profile record), except to itself.
+        if (!isAccountServed(did, viewer) || (viewer?.value != did && isProfileTakenDown(did)))
+            throw XrpcError(HttpStatusCode.BadRequest.value, "ProfileNotFound", "Unknown actor $actor")
         val row = Actors.selectAll().where { Actors.did eq did }.single()
         ProfileView(
             did = Did(row[Actors.did]),
@@ -194,10 +202,24 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
             followPolicy = row[Actors.followPolicy] ?: FollowPolicy.OPEN,
             // A member counts only as its combined activity.
             activitiesCount =
-                Activities.selectAll().where { (Activities.authorDid eq did) and visibleTo(viewer) and not(isMember()) }.count(),
-            followersCount = Follows.selectAll().where { (Follows.subjectDid eq did) and effectiveFollow() }.count(),
-            followsCount = Follows.selectAll().where { (Follows.authorDid eq did) and effectiveFollow() }.count(),
+                Activities.selectAll()
+                    .where {
+                        (Activities.authorDid eq did) and
+                            visibleTo(viewer) and
+                            unhidden(viewer, Activities.authorDid, Activities.uri) and
+                            not(isMember())
+                    }
+                    .count(),
+            followersCount =
+                Follows.selectAll()
+                    .where { (Follows.subjectDid eq did) and effectiveFollow() and listed(viewer, Follows.authorDid) }
+                    .count(),
+            followsCount =
+                Follows.selectAll()
+                    .where { (Follows.authorDid eq did) and effectiveFollow() and listed(viewer, Follows.subjectDid) }
+                    .count(),
             viewer = viewer?.let { v -> viewerState(v.value, did) },
+            labels = profileLabels(did),
         )
     }
 
@@ -211,7 +233,13 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val pageSize = Paging.clamp(limit)
         val rows =
             Activities.selectAll()
-                .where { filter and visibleTo(viewer) and shownInFeeds() and keysetBefore(Activities.sortAt, Activities.uri, cursor) }
+                .where {
+                    filter and
+                        visibleTo(viewer) and
+                        unhidden(viewer, Activities.authorDid, Activities.uri) and
+                        shownInFeeds() and
+                        keysetBefore(Activities.sortAt, Activities.uri, cursor)
+                }
                 .orderBy(Activities.sortAt to SortOrder.DESC, Activities.uri to SortOrder.DESC)
                 .limit(pageSize)
                 .toList()
@@ -219,7 +247,8 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         return hydrate(rows, viewer) to next
     }
 
-    private fun JdbcTransaction.hydrate(rows: List<ResultRow>, viewer: Did?): List<ActivityView> {
+    /** Views of activity [rows] as [viewer] sees them, photo links signed for [mediaViewer] (a moderator reading as the athlete). */
+    internal fun JdbcTransaction.hydrate(rows: List<ResultRow>, viewer: Did?, mediaViewer: Did? = viewer): List<ActivityView> {
         if (rows.isEmpty()) return emptyList()
         val uris = rows.map { it[Activities.uri] }
         val authors = basicProfiles(rows.map { it[Activities.authorDid] }, avatars)
@@ -233,7 +262,12 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val likeCounts =
             admittedLikes()
                 .select(Likes.subjectUri, Likes.authorDid)
-                .where { (Likes.subjectUri inList subjects) and visibleTo(Likes.authorDid) and notBlocked(viewer, Likes.authorDid) }
+                .where {
+                    (Likes.subjectUri inList subjects) and
+                        visibleTo(Likes.authorDid) and
+                        notBlocked(viewer, Likes.authorDid) and
+                        listed(viewer, Likes.authorDid)
+                }
                 .withDistinct()
                 .toList()
                 .groupBy({ countedAs.getValue(it[Likes.subjectUri]) }) { it[Likes.authorDid] }
@@ -247,19 +281,12 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 .toList()
                 .groupBy({ countedAs.getValue(it[Comments.subjectUri]) }) { it[commentCount] }
                 .mapValues { (_, counts) -> counts.sum() }
-        // The viewer may see every row, so their own like is always admitted.
-        val viewerLikes =
-            viewer
-                ?.let { v ->
-                    Likes.select(Likes.uri, Likes.subjectUri)
-                        .where { (Likes.authorDid eq v.value) and (Likes.subjectUri inList uris) }
-                        .associate { it[Likes.subjectUri] to it[Likes.uri] }
-                }
-                .orEmpty()
+        val viewerLikes = viewer?.let { viewerLikes(it, uris) }.orEmpty()
 
         val recordings =
             recordingsOf(rows.filter { it[Activities.recordingOf] == null }.associate { it[Activities.uri] to it[Activities.visibility] })
         val details = detailsOf(uris, viewer)
+        val labels = labelViews(rows.associate { it[Activities.uri] to it[Activities.cid] })
 
         return rows.mapNotNull { row ->
             val uri = row[Activities.uri]
@@ -278,8 +305,9 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 recordings = recordings[uri],
                 members = members[uri],
                 combinedInto = combinedInto[uri]?.let(::AtUri),
-                media = mediaViews(mediaUrls, row[Activities.authorDid], record.media, visibility, viewer),
+                media = mediaViews(mediaUrls, row[Activities.authorDid], record.media, visibility, mediaViewer),
                 details = details[uri],
+                labels = labels[uri],
             )
         }
     }

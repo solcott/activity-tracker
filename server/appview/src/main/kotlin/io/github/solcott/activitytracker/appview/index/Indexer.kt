@@ -87,9 +87,15 @@ class Indexer(
                 event.identity.handle?.let { updateHandle(Did(event.did), it) }
             }
 
+            // `moderation/account-status`: a deleted account's data goes; a takendown, suspended or deactivated one is kept but not served
+            // (`actors.status`, read by `served`) until it's active again. Other statuses change nothing.
             is JetstreamEvent.Account -> {
-                if (!event.account.active && event.account.status == "deleted") {
-                    deleteActor(Did(event.did))
+                val did = Did(event.did)
+                val status = event.account.status.takeUnless { event.account.active }
+                when {
+                    status == DELETED -> deleteActor(did)
+                    event.account.active || status in INACTIVE ->
+                        db.tx { Actors.update({ Actors.did eq did.value }) { it[Actors.status] = status } }
                 }
             }
         }
@@ -351,6 +357,11 @@ class Indexer(
     }
 
     companion object {
+        private const val DELETED = "deleted"
+
+        /** `#account` statuses whose account is kept but not served. */
+        private val INACTIVE = setOf("takendown", "suspended", "deactivated")
+
         private val TIER_COLLECTIONS =
             setOf(Nsid.FEED_ACTIVITY, Nsid.FEED_ACTIVITY_DETAILS, Nsid.FEED_ACTIVITY_STREAMS, Nsid.FEED_ACTIVITY_ZONES)
 

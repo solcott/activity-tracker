@@ -14,6 +14,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import coil3.compose.AsyncImage
+import io.github.solcott.activitytracker.data.moderation.BlurReason
 
 /**
  * A round profile picture loaded from [url]. Under it, and in its place while it loads, fails or is missing, is the first letter of [name].
@@ -25,9 +26,17 @@ fun Avatar(
     name: String,
     size: Dp,
     modifier: Modifier = Modifier,
+    /** A media label on the athlete or their profile: the picture stays blurred until [revealed] ([onReveal] on tap). */
+    blur: BlurReason? = null,
+    revealed: Boolean = false,
+    onReveal: () -> Unit = {},
 ) {
     AvatarFrame(name, size, modifier) {
-        if (url != null) AsyncImage(url, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        if (url != null) {
+            BlurredMedia(blur, revealed, onReveal, Modifier.fillMaxSize(), compact = true) {
+                AsyncImage(url, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            }
+        }
     }
 }
 

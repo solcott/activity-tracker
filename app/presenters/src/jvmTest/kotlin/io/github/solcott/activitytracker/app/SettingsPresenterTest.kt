@@ -28,8 +28,9 @@ class SettingsPresenterTest {
     @Test
     fun choosingUnitsSavesThemToTheProfile() = runTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
+        val moderation = fixture.moderation()
         presenterTestOf({
-            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, repos.segmentPrefs)
+            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, moderation, repos.segmentPrefs)
         }) {
             val initial = awaitItem()
             assertEquals(UnitSystem.Metric, initial.units)
@@ -47,8 +48,9 @@ class SettingsPresenterTest {
     fun failedSaveRevertsAndShowsError() = runTest {
         fixture.failWrites = true
         val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
+        val moderation = fixture.moderation()
         presenterTestOf({
-            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, repos.segmentPrefs)
+            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, moderation, repos.segmentPrefs)
         }) {
             awaitItem().eventSink(SettingsEvent.UnitsChanged(UnitSystem.Imperial))
             val failed = awaitUntil { it.error != null && !it.saving }
@@ -61,8 +63,9 @@ class SettingsPresenterTest {
     @Test
     fun backPops() = runTest {
         val repos = fixture.repos()
+        val moderation = fixture.moderation()
         val navigator = FakeNavigator(SettingsScreen)
-        presenterTestOf({ SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults, repos.privacy, repos.segmentPrefs) }) {
+        presenterTestOf({ SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults, repos.privacy, moderation, repos.segmentPrefs) }) {
             awaitItem().eventSink(SettingsEvent.Back)
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
@@ -72,8 +75,9 @@ class SettingsPresenterTest {
     @Test
     fun zonesOpenTheZonesScreen() = runTest {
         val repos = fixture.repos()
+        val moderation = fixture.moderation()
         val navigator = FakeNavigator(SettingsScreen)
-        presenterTestOf({ SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults, repos.privacy, repos.segmentPrefs) }) {
+        presenterTestOf({ SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults, repos.privacy, moderation, repos.segmentPrefs) }) {
             awaitItem().eventSink(SettingsEvent.OpenZones)
             assertEquals(TrainingZonesScreen, navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
@@ -83,8 +87,9 @@ class SettingsPresenterTest {
     @Test
     fun defaultVisibilitiesSaveCappedAndReload() = runTest {
         val repos = fixture.repos()
+        val moderation = fixture.moderation()
         presenterTestOf({
-            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, repos.segmentPrefs)
+            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, moderation, repos.segmentPrefs)
         }) {
             val loaded = awaitUntil { it.defaults != null }
             assertEquals(Visibility.PUBLIC, loaded.defaults?.activity, "never set: Public")
@@ -108,7 +113,7 @@ class SettingsPresenterTest {
         // Opening Settings again, in a new session, reads them back.
         val again = fixture.repos()
         presenterTestOf({
-            SettingsPresenter(FakeNavigator(SettingsScreen), again.units, again.auth, again.defaults, again.privacy, again.segmentPrefs)
+            SettingsPresenter(FakeNavigator(SettingsScreen), again.units, again.auth, again.defaults, again.privacy, moderation, again.segmentPrefs)
         }) {
             val reloaded = awaitUntil { it.defaults != null }.defaults
             assertEquals(Visibility.MUTUALS, reloaded?.activity)
@@ -121,8 +126,9 @@ class SettingsPresenterTest {
     fun narrowingTheActivityDefaultCapsTheCategories() = runTest {
         fixture.activityDefaults = """{"visibility":"followers","details":{"calories":"followers"}}"""
         val repos = fixture.repos()
+        val moderation = fixture.moderation()
         presenterTestOf({
-            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, repos.segmentPrefs)
+            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, moderation, repos.segmentPrefs)
         }) {
             awaitUntil { it.defaults != null }.defaults!!.eventSink(VisibilityEvent.ActivityChanged(Visibility.SELF))
             awaitUntil { it.savingDefaults }
@@ -136,8 +142,9 @@ class SettingsPresenterTest {
     @Test
     fun segmentMatchingStartsOffAndTurnsOnAndOff() = runTest {
         val repos = fixture.repos()
+        val moderation = fixture.moderation()
         presenterTestOf({
-            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, repos.segmentPrefs)
+            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, moderation, repos.segmentPrefs)
         }) {
             val loaded = awaitUntil { it.segmentMatching != null }
             assertEquals(false, loaded.segmentMatching, "never asked: off")
@@ -156,8 +163,9 @@ class SettingsPresenterTest {
     @Test
     fun aFailedSegmentMatchingSaveKeepsItOffAndShowsAnError() = runTest {
         val repos = fixture.repos()
+        val moderation = fixture.moderation()
         presenterTestOf({
-            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, repos.segmentPrefs)
+            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, moderation, repos.segmentPrefs)
         }) {
             val loaded = awaitUntil { it.segmentMatching != null }
             fixture.failWrites = true
@@ -175,8 +183,9 @@ class SettingsPresenterTest {
     fun spacesThatRefuseTheSessionLeaveSegmentMatchingUnknownAndUnsaved() = runTest {
         fixture.scopeMissing = true
         val repos = fixture.repos()
+        val moderation = fixture.moderation()
         presenterTestOf({
-            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, repos.segmentPrefs)
+            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, moderation, repos.segmentPrefs)
         }) {
             val state = awaitItem()
             state.eventSink(SettingsEvent.SegmentMatchingChanged(true))
@@ -190,8 +199,9 @@ class SettingsPresenterTest {
     @Test
     fun aSegmentMatchingToggleSentTwiceSavesOnce() = runTest {
         val repos = fixture.repos()
+        val moderation = fixture.moderation()
         presenterTestOf({
-            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, repos.segmentPrefs)
+            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, moderation, repos.segmentPrefs)
         }) {
             val loaded = awaitUntil { it.segmentMatching != null }
             loaded.eventSink(SettingsEvent.SegmentMatchingChanged(true))

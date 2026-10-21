@@ -45,7 +45,8 @@ class ActorSearch(private val db: Database, private val avatars: AvatarUrls) {
                 Actors.select(Actors.did)
                     .where {
                         ((Actors.did eq q) or (hasHandle and (Actors.handle like anywhere)) or (name like anywhere)) and
-                            notBlocked(viewer, Actors.did)
+                            notBlocked(viewer, Actors.did) and
+                            listed(viewer, Actors.did)
                     }
                     .orderBy(rank to SortOrder.ASC, Actors.handle to SortOrder.ASC, Actors.did to SortOrder.ASC)
                     .limit(pageSize)

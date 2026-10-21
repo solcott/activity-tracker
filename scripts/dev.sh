@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# One command for the local dev environment: Docker stack, cloudflared tunnel, local.properties,
-# AppView, adb reverse and (when the tunnel URL changed) the Android debug app. Every step checks
+# One command for the local dev environment: Docker stack, labeler (Ozone), cloudflared tunnel,
+# local.properties, AppView, adb reverse and (when the tunnel URL changed) the Android debug app. Every step checks
 # the current state first, so re-running only fixes what is missing or stale.
 #
 #   scripts/dev.sh [up] [options]   bring everything up (default)
@@ -22,6 +22,7 @@ STATE_DIR="$ROOT/.dev"
 COMPOSE=(docker compose -f docker/compose.yaml)
 PROPS="$ROOT/local.properties"
 PROP_KEY="activitytracker.appviewPublicUrl"
+LABELER_PROP_KEY="activitytracker.labelerDid"
 APPVIEW_PORT=8081
 ADB_PORTS=(2582 2583 "$APPVIEW_PORT")
 METRICS_PORTS=(20241 20242 20243 20244 20245)
@@ -109,6 +110,26 @@ ensure_lexicons() {
     wait_http "http://localhost:2470/xrpc/_health" 180 "relay :2470" || die "relay not healthy; see: ${COMPOSE[*]} logs relay"
   else
     ok "lexicons.test ($did)"
+  fi
+}
+
+# ---------------------------------------------------------------- labeler
+
+# Ozone and its account moderation.test, with mod.test (admin) and triage.test (the AppView's read-only member) on its team
+# (docker/scripts/setup-labeler.sh). Its DID only exists once the PDS runs, so the first run writes it to docker/.env (where the
+# AppView's run task reads it, with triage.test's app password) and to local.properties (which the clients are built with); a
+# changed DID restarts the AppView.
+ensure_labeler() {
+  step "Labeler (Ozone)"
+  local did previous
+  previous=$(sed -nE 's/^OZONE_SERVER_DID=(.*)$/\1/p' docker/.env)
+  did=$(docker/scripts/setup-labeler.sh 2> >(grep -v '^ Container ' | sed 's/^/    /' >&2)) || die "labeler setup failed"
+  [[ $did != "$previous" ]] && RESTART_APPVIEW=1
+  ok "moderation.test ($did), Ozone http://localhost:3010"
+  if [[ $(property "$LABELER_PROP_KEY") != "$did" ]]; then
+    set_property "$LABELER_PROP_KEY" "$did"
+    LABELER_CHANGED=1
+    ok "$LABELER_PROP_KEY=$did"
   fi
 }
 
@@ -230,7 +251,17 @@ ensure_tunnel() {
 
 # ---------------------------------------------------------------- local.properties
 
-configured_url() { [[ -f $PROPS ]] && grep "^$PROP_KEY=" "$PROPS" | tail -1 | cut -d= -f2- || true; }
+property() { [[ -f $PROPS ]] && grep "^$1=" "$PROPS" | tail -1 | cut -d= -f2- || true; }
+configured_url() { property "$PROP_KEY"; }
+
+# Sets KEY=VALUE in local.properties, dropping earlier lines for KEY.
+set_property() {
+  local tmp
+  tmp=$(mktemp)
+  [[ -f $PROPS ]] && { grep -v "^$1=" "$PROPS" >"$tmp" || true; }
+  echo "$1=$2" >>"$tmp"
+  mv "$tmp" "$PROPS"
+}
 
 # Sets the property to $TUNNEL_URL, dropping duplicates (the last line wins, which hid a stale
 # placeholder once). Sets URL_CHANGED when the effective value changes.
@@ -243,11 +274,7 @@ ensure_local_properties() {
     ok "$PROP_KEY is current"
     return
   fi
-  local tmp
-  tmp=$(mktemp)
-  [[ -f $PROPS ]] && { grep -v "^$PROP_KEY=" "$PROPS" >"$tmp" || true; }
-  echo "$PROP_KEY=$TUNNEL_URL" >>"$tmp"
-  mv "$tmp" "$PROPS"
+  set_property "$PROP_KEY" "$TUNNEL_URL"
   [[ $current != "$TUNNEL_URL" ]] && URL_CHANGED=1
   ok "$PROP_KEY=$TUNNEL_URL${current:+ (was $current)}"
 }
@@ -361,9 +388,9 @@ ensure_android() {
       ok "$serial: adb reverse already set"
     fi
   done
-  # The redirect scheme is compiled into the app, so a new tunnel URL needs a reinstall.
-  if [[ ${URL_CHANGED:-0} == 1 || ${FORCE_ANDROID:-0} == 1 ]]; then
-    echo "    installing the debug app (${URL_CHANGED:+tunnel URL changed}${FORCE_ANDROID:+--android})"
+  # The redirect scheme and the labeler DID are compiled into the app, so a new tunnel URL or labeler needs a reinstall.
+  if [[ ${URL_CHANGED:-0} == 1 || ${LABELER_CHANGED:-0} == 1 || ${FORCE_ANDROID:-0} == 1 ]]; then
+    echo "    installing the debug app (${URL_CHANGED:+tunnel URL changed}${LABELER_CHANGED:+labeler changed}${FORCE_ANDROID:+--android})"
     ./gradlew -q :androidApp:installDebug || die "installDebug failed"
     ok "installed on: $(echo $devices)"
   fi
@@ -401,6 +428,7 @@ cmd_up() {
   done
   ensure_docker
   ensure_lexicons
+  ensure_labeler
   if [[ ${NO_TUNNEL:-0} != 1 ]]; then
     ensure_tunnel
     ensure_local_properties
@@ -417,6 +445,9 @@ cmd_up() {
   if [[ ${URL_CHANGED:-0} == 1 ]]; then
     echo "${YELLOW}The tunnel URL changed: rebuild the iOS app too (its redirect scheme is compiled in).${RESET}"
   fi
+  if [[ ${LABELER_CHANGED:-0} == 1 ]]; then
+    echo "${YELLOW}The labeler DID changed: rebuild the apps (it is compiled in) to send reports to it.${RESET}"
+  fi
 }
 
 cmd_status() {
@@ -425,6 +456,12 @@ cmd_status() {
     "${COMPOSE[@]}" ps --format 'table {{.Service}}\t{{.Status}}' | sed 's/^/    /'
   else
     warn "Docker isn't running"
+  fi
+  step "Labeler"
+  if [[ $(http_code "http://localhost:3010/xrpc/_health") == 2* ]]; then
+    ok "Ozone http://localhost:3010; $LABELER_PROP_KEY=$(property "$LABELER_PROP_KEY")"
+  else
+    warn "Ozone not running (scripts/dev.sh sets it up)"
   fi
   step "Tunnel"
   local host

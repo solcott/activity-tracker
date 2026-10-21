@@ -24,6 +24,8 @@ data class SettingsState(
     val privacyZoneCount: Int? = null,
     /** Whether the start and end of every route are hidden. */
     val hidesRouteEnds: Boolean = false,
+    /** The athlete is a moderator or admin on the app's labeler team: desktop and web offer Moderation. */
+    val canModerate: Boolean = false,
     /** Whether segment matching is on; null while it's unknown (not read yet, or unreadable). */
     val segmentMatching: Boolean? = null,
     /** Whether this session can use segment matching: false for one signed in before its `space:` grant listed it. */
@@ -44,6 +46,8 @@ sealed interface SettingsEvent {
     data object OpenBlocked : SettingsEvent
 
     data object OpenMuted : SettingsEvent
+
+    data object OpenModeration : SettingsEvent
 
     /** Turns segment matching [on] or off: a copy of each route without the privacy zones is shared with the AppView while it's on. */
     data class SegmentMatchingChanged(val on: Boolean) : SettingsEvent

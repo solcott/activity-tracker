@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.atproto
 
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 
 /**
@@ -18,6 +19,8 @@ data class AtprotoConfig(
     /** The AppView's `did:web`, used as the `aud` of service-auth tokens. */
     val appViewDid: String,
     val oauth: OAuthClientConfig,
+    /** The app's labeler, which reports go to (`atproto-proxy: <labelerDid>#atproto_labeler`); null where none is configured. */
+    val labelerDid: Did? = null,
 )
 
 data class OAuthClientConfig(

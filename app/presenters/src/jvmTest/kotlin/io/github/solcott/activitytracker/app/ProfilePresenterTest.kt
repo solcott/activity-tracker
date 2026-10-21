@@ -11,6 +11,8 @@ import io.github.solcott.activitytracker.app.profile.ProfileEvent
 import io.github.solcott.activitytracker.app.profile.ProfilePresenter
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.profile.ProfileState
+import io.github.solcott.activitytracker.app.report.ReportOuterEvent
+import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
@@ -18,6 +20,8 @@ import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.moderation.ReportRepository
+import io.github.solcott.activitytracker.data.moderation.ReportTarget
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.FollowRequestsRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
@@ -145,7 +149,7 @@ class ProfilePresenterTest {
     private lateinit var activities: ActivityRepository
 
     private suspend fun presenter(actor: String = "did:plc:bob"): @Composable () -> ProfileState {
-        val (db, _, clients) = signedInTestSession(http, did = alice)
+        val (db, _, clients) = signedInTestSession(http, did = alice, labelerDid = Did("did:plc:labeler"))
         val localLikes = LocalLikes()
         val feed = FeedRepository(db, clients, localLikes, Logger)
         val zones = TestZones(db, clients)
@@ -174,7 +178,8 @@ class ProfilePresenterTest {
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
         val requests = FollowRequestsRepository(clients, Clock.System, Logger)
         val blocks = BlockRepository(clients, zones.writer, zones.outbox, feed, Clock.System)
-        return { ProfilePresenter(ProfileScreen(actor), navigator, profiles, feed, activities, requests, blocks) }
+        val reports = ReportRepository(clients)
+        return { ProfilePresenter(ProfileScreen(actor), navigator, profiles, feed, activities, requests, blocks, reports) }
     }
 
     @Test
@@ -192,6 +197,35 @@ class ProfilePresenterTest {
             val muted = awaitUntil { it.muting }
             assertEquals(true, muted.blocking)
             assertEquals(listOf("interactions ${Nsid.GRAPH_BLOCK}", "interactions ${Nsid.GRAPH_MUTE}"), spacePuts)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun reportingAnAccountOffersBlockThroughTheProfilesBlock() = runTest {
+        presenterTestOf(presenter()) {
+            val loaded = awaitUntil { it.profile != null && it.error == null }
+            assertEquals(true, loaded.reporting.available)
+            loaded.reporting.eventSink(ReportingEvent.Open(ReportTarget.Account(Did("did:plc:bob")), "bob", offerBlock = !loaded.blocking))
+            val open = awaitUntil { it.reporting.sheet != null }
+            assertEquals(true, open.reporting.sheet?.offerBlock)
+            open.reporting.eventSink(ReportingEvent.Sheet(ReportOuterEvent.Block(Did("did:plc:bob"))))
+            val confirming = awaitUntil { it.reporting.confirmBlock != null }
+            assertEquals(emptyList(), spacePuts, "nothing until confirmed")
+            confirming.reporting.eventSink(ReportingEvent.ConfirmBlock(true))
+            awaitUntil { it.blocking }
+            assertEquals(listOf("interactions ${Nsid.GRAPH_BLOCK}"), spacePuts)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun reportStaysOnAProfileTheViewerBlocks() = runTest {
+        bob = """{"did":"did:plc:bob","handle":"bob.test","viewer":{"blocking":"at://${alice.value}/${Nsid.GRAPH_BLOCK}/did:plc:bob"}}"""
+        presenterTestOf(presenter()) {
+            val loaded = awaitUntil { it.profile != null && it.error == null }
+            assertEquals(true, loaded.blocking)
+            assertEquals(true, loaded.reporting.available)
             cancelAndIgnoreRemainingEvents()
         }
     }

@@ -26,7 +26,31 @@ data class AppViewConfig(
      * spaces. Null disables syncing: only public activities are served.
      */
     val signingKey: String? = null,
+    /**
+     * The app's own labeler (`LABELER_DID`, `LABELER_URL`), whose labels apply to any subject. Null: no labels from it, and the moderator
+     * route refuses.
+     */
+    val labeler: Labeler? = null,
+    /** Bluesky's moderation labeler (`BSKY_LABELER_DID`, `BSKY_LABELER_URL`), whose labels apply only to athletes' accounts. */
+    val bskyLabeler: Labeler? = null,
+    /**
+     * The AppView's own account on [labeler]'s team, with the read-only triage role (`APPVIEW_TRIAGE_DID`, and an app password in
+     * `APPVIEW_TRIAGE_PASSWORD`): it signs in to check moderators' roles and reported subjects' review status. Null: the moderator routes
+     * refuse.
+     */
+    val triage: Triage? = null,
 ) {
+    /** An account the AppView signs in to with an app password. */
+    data class Triage(val did: String, val appPassword: String) {
+        override fun toString() = "Triage($did)"
+    }
+
+    /**
+     * A labeler the AppView subscribes to. [url] is its `#atproto_labeler` endpoint; null resolves it from [did]'s DID document. Labels are
+     * verified against [did]'s `#atproto_label` key either way.
+     */
+    data class Labeler(val did: String, val url: String? = null)
+
     /** Service id athletes' spaces name as their `managingApp`; PDSes call `checkUserAccess` on it. */
     val managingAppService: String
         get() = "$serviceDid#$MANAGING_APP_FRAGMENT"
@@ -60,7 +84,20 @@ data class AppViewConfig(
                 handleResolverUrl = env["HANDLE_RESOLVER_URL"] ?: "http://localhost:2583",
                 oauthRedirectScheme = env["OAUTH_REDIRECT_SCHEME"] ?: host.substringBefore(':').split('.').reversed().joinToString("."),
                 signingKey = env["APPVIEW_SIGNING_KEY"]?.trim()?.takeIf { it.isNotEmpty() },
+                labeler = labeler(env, "LABELER"),
+                bskyLabeler = labeler(env, "BSKY_LABELER"),
+                triage =
+                    env["APPVIEW_TRIAGE_DID"]
+                        ?.trim()
+                        ?.takeIf { it.startsWith("did:") }
+                        ?.let { did -> env["APPVIEW_TRIAGE_PASSWORD"]?.trim()?.takeIf { it.isNotEmpty() }?.let { Triage(did, it) } },
             )
+        }
+
+        /** `<prefix>_DID` and the optional `<prefix>_URL`; null without a DID. */
+        private fun labeler(env: Map<String, String>, prefix: String): Labeler? {
+            val did = env["${prefix}_DID"]?.trim()?.takeIf { it.startsWith("did:") } ?: return null
+            return Labeler(did, env["${prefix}_URL"]?.trim()?.trimEnd('/')?.takeIf { it.isNotEmpty() })
         }
     }
 }

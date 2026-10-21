@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app
 
 import io.github.solcott.activitytracker.atproto.AtprotoConfig
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
+import io.github.solcott.activitytracker.lexicon.Did
 
 /**
  * Endpoints for the local docker stack (`docker/compose.yaml`). Point these at production services (e.g. `https://plc.directory`, a public
@@ -19,6 +20,9 @@ object NetworkConfigs {
      */
     const val NATIVE_APPVIEW_PUBLIC_URL = GeneratedNativeNetworkConfig.APPVIEW_PUBLIC_URL
     const val NATIVE_REDIRECT_SCHEME = GeneratedNativeNetworkConfig.REDIRECT_SCHEME
+
+    /** The labeler reports go to, `activitytracker.labelerDid` in `local.properties` (`scripts/dev.sh` writes the local Ozone's). */
+    val LABELER_DID: Did? = GeneratedNativeNetworkConfig.LABELER_DID.takeIf(String::isNotEmpty)?.let(::Did)
 
     /**
      * [origin] is the page origin. The OAuth loopback client only accepts 127.0.0.1 redirects, so the dev server binds there (see
@@ -50,5 +54,6 @@ object NetworkConfigs {
             appViewUrl = appViewUrl,
             appViewDid = "did:web:" + appViewUrl.substringAfter("://").substringBefore('/').replace(":", "%3A"),
             oauth = oauth,
+            labelerDid = LABELER_DID,
         )
 }

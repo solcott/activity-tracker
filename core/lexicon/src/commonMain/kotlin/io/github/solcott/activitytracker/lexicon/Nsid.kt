@@ -66,6 +66,8 @@ object Nsid {
     /** Not a record or a query: the views' definitions, named in a union member's `$type`. */
     const val FEED_DEFS = "$NAMESPACE.feed.defs"
     const val FEED_GET_ACTIVITY_STREAMS = "$NAMESPACE.feed.getActivityStreams"
+    const val MODERATION_GET_SUBJECT = "$NAMESPACE.moderation.getSubject"
+    const val MODERATION_GET_ROLE = "$NAMESPACE.moderation.getRole"
 
     const val GRAPH_FOLLOW = "$NAMESPACE.graph.follow"
     const val GRAPH_GET_FOLLOWERS = "$NAMESPACE.graph.getFollowers"

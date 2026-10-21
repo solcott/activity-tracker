@@ -19,4 +19,7 @@ internal enum class CommentAction {
 
     /** Someone else's comment: Block its author, which asks first. */
     BlockAuthor,
+
+    /** Someone else's comment, with a labeler configured: Report it. */
+    Report,
 }

@@ -23,25 +23,31 @@ class NativeOAuthConventionPlugin : Plugin<Project> {
             target.providers.fileContents(target.isolated.rootProject.projectDirectory.file("local.properties")).asText.map { text ->
                 Properties().apply { load(StringReader(text)) }
             }
-        @Suppress("UnstableApiUsage")
-        val configured =
+        fun property(name: String): Provider<String> =
             target.providers
-                .gradleProperty(PROPERTY)
-                .orElse(localProperties.map { it.getProperty(PROPERTY).orEmpty() })
+                .gradleProperty(name)
+                .orElse(localProperties.map { it.getProperty(name).orEmpty() })
                 .map { it.trim().trimEnd('/') }
                 .filter { it.isNotEmpty() }
-        target.extensions.create("nativeOAuth", NativeOAuthExtension::class.java, configured)
+        target.extensions.create("nativeOAuth", NativeOAuthExtension::class.java, property(PROPERTY), property(LABELER_PROPERTY))
     }
 
     private companion object {
         const val PROPERTY = "activitytracker.appviewPublicUrl"
+
+        /** The app's labeler DID, which `scripts/dev.sh` writes for the local Ozone. Every client reads it, not only native ones. */
+        const val LABELER_PROPERTY = "activitytracker.labelerDid"
     }
 }
 
 open class NativeOAuthExtension(
     /** The URL as configured; absent when unset. */
-    val configuredAppviewPublicUrl: Provider<String>
+    val configuredAppviewPublicUrl: Provider<String>,
+    configuredLabelerDid: Provider<String>,
 ) {
+    /** The labeler DID as configured; empty when unset, and then clients can't report. */
+    val labelerDid: Provider<String> = configuredLabelerDid.orElse("")
+
     val appviewPublicUrl: Provider<String> = configuredAppviewPublicUrl.orElse("http://localhost:8081")
 
     /** Reverse-domain of the URL's host, the redirect scheme ATProto OAuth requires (matches the AppView's `OAUTH_REDIRECT_SCHEME`). */
@@ -50,11 +56,12 @@ open class NativeOAuthExtension(
     }
 }
 
-/** Writes `GeneratedNativeNetworkConfig` with the native AppView URL and OAuth redirect scheme. */
+/** Writes `GeneratedNativeNetworkConfig` with the native AppView URL, OAuth redirect scheme and labeler DID (empty when unset). */
 abstract class GenerateNativeNetworkConfig : DefaultTask() {
     init {
         group = "build"
         description = "Generates GeneratedNativeNetworkConfig from activitytracker.appviewPublicUrl."
+        labelerDid.convention("")
     }
 
     @get:Input abstract val packageName: Property<String>
@@ -62,6 +69,8 @@ abstract class GenerateNativeNetworkConfig : DefaultTask() {
     @get:Input abstract val appviewPublicUrl: Property<String>
 
     @get:Input abstract val redirectScheme: Property<String>
+
+    @get:Input abstract val labelerDid: Property<String>
 
     @get:OutputDirectory abstract val outputDir: DirectoryProperty
 
@@ -80,6 +89,7 @@ abstract class GenerateNativeNetworkConfig : DefaultTask() {
                 |internal object GeneratedNativeNetworkConfig {
                 |    const val APPVIEW_PUBLIC_URL = "${appviewPublicUrl.get()}"
                 |    const val REDIRECT_SCHEME = "${redirectScheme.get()}"
+                |    const val LABELER_DID = "${labelerDid.get()}"
                 |}
                 |"""
                     .trimMargin()

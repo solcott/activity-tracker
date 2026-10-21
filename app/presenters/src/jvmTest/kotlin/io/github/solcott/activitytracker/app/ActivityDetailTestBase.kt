@@ -30,6 +30,7 @@ import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.feed.fakeGetComments
+import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
@@ -95,6 +96,9 @@ open class ActivityDetailTestBase {
     /** More of the activity's record, as JSON members each followed by a comma (`"poolLength":2500,`). */
     protected var recordExtra = ""
 
+    /** More of the activity's view, as JSON members each followed by a comma (`"labels":[…],`). */
+    protected var viewExtra = ""
+
     /** The comments the AppView lists, as JSON objects, oldest first. */
     protected var commentsFromAppView = listOf<String>()
 
@@ -152,7 +156,7 @@ open class ActivityDetailTestBase {
             """{"uri":"$activityUri","cid":"bafy3kbob1","author":$author,"visibility":"$visibility",""" +
                 """"record":{"sport":"$sport",$recordExtra"startedAt":"2026-09-30T10:00:00Z",""" +
                 """"elapsedTime":1800,"createdAt":"2026-09-30T10:31:00Z"},""" +
-                """"likeCount":${likesFromAppView.size},"commentCount":${commentsFromAppView.count { "\"hidden\"" !in it }},"indexedAt":"2026-09-30T10:31:01Z","viewer":{}}"""
+                """"likeCount":${likesFromAppView.size},"commentCount":${commentsFromAppView.count { "\"hidden\"" !in it }},"indexedAt":"2026-09-30T10:31:01Z",$viewExtra"viewer":{}}"""
 
     protected val http =
         HttpClient(
@@ -278,6 +282,9 @@ open class ActivityDetailTestBase {
 
     protected val localLikes = LocalLikes()
 
+    /** The labeler reports go to, so Report is offered. */
+    protected val labeler = Did("did:plc:labeler")
+
     @Suppress("LongParameterList") // One per repository a detail test reaches for.
     protected class Repos(
         val db: AppDatabase,
@@ -289,11 +296,12 @@ open class ActivityDetailTestBase {
         val units: UnitsRepository,
         val suggestions: CombineSuggestions,
         val blocks: BlockRepository,
+        val reports: ReportRepository,
     )
 
     @Suppress("LongMethod") // Wires every store a test reaches for.
     protected suspend fun repos(scope: String = OAuthClientConfig.DEFAULT_SCOPE, units: UnitSystem = UnitSystem.Metric): Repos {
-        val (db, _, clients) = signedInTestSession(http, did = alice, scope = scope)
+        val (db, _, clients) = signedInTestSession(http, did = alice, scope = scope, labelerDid = labeler)
         val feed = FeedRepository(db, clients, localLikes, Logger)
         val outbox = OutboxProcessor(db, clients, Logger)
         val writer = OutboxWriter(db, clients, Clock.System)
@@ -351,6 +359,7 @@ open class ActivityDetailTestBase {
             UnitsRepository(profiles, Clock.System, Logger, units),
             CombineSuggestions(db, clients, feed, tracks, Clock.System),
             BlockRepository(clients, writer, outbox, feed, Clock.System),
+            ReportRepository(clients),
         )
     }
 
@@ -387,6 +396,7 @@ open class ActivityDetailTestBase {
                     r.units,
                     r.suggestions,
                     r.blocks,
+                    r.reports,
                 )
             },
             block = block,

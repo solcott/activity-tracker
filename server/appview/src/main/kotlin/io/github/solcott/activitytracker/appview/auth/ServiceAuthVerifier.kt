@@ -3,8 +3,6 @@ package io.github.solcott.activitytracker.appview.auth
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
-import java.math.BigInteger
-import java.security.MessageDigest
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
@@ -12,7 +10,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
-import org.bouncycastle.crypto.signers.ECDSASigner
 
 /**
  * Verifies inter-service auth JWTs: issued by the user's PDS via `getServiceAuth` (direct calls), attached by the PDS when proxying
@@ -76,7 +73,7 @@ class ServiceAuthVerifier(
         // Retry once with a freshly resolved key in case the account rotated its signing key.
         for (fresh in listOf(false, true)) {
             val key = signingKey(did, fresh)
-            if (alg == key.curve.jwtAlg && verifySignature(key, data, signature)) return
+            if (alg == key.curve.jwtAlg && key.verifies(data, signature)) return
             if (fresh && alg != key.curve.jwtAlg) throw AuthException("Algorithm $alg does not match key")
         }
         throw AuthException("Invalid signature")
@@ -86,14 +83,6 @@ class ServiceAuthVerifier(
         keyCache[did]?.takeUnless { fresh }
             ?: keys(did)?.let(Multikey::decode)?.also { keyCache[did] = it }
             ?: throw AuthException("No signing key for $did")
-
-    private fun verifySignature(key: SigningKey, data: ByteArray, signature: ByteArray): Boolean {
-        if (signature.size != SIGNATURE_BYTES) return false
-        val r = BigInteger(1, signature.copyOfRange(0, SIGNATURE_BYTES / 2))
-        val s = BigInteger(1, signature.copyOfRange(SIGNATURE_BYTES / 2, SIGNATURE_BYTES))
-        val digest = MessageDigest.getInstance("SHA-256").digest(data)
-        return ECDSASigner().apply { init(false, key.params) }.verifySignature(digest, r, s)
-    }
 
     private fun decodeJson(segment: String): JsonObject = runCatching {
         AtJson.parseToJsonElement(Base64.getUrlDecoder().decode(segment).decodeToString()).jsonObject
@@ -108,9 +97,6 @@ class ServiceAuthVerifier(
             (extraAudiences + serviceDid).flatMap { listOf(it, "$it#activity_appview") }.toSet()
 
         private const val JWT_PARTS = 3
-
-        /** Compact (r || s) ECDSA signature: two 32-byte integers. */
-        private const val SIGNATURE_BYTES = 64
     }
 }
 

@@ -67,6 +67,7 @@ postgresql = "42.7.14"
 hikari = "7.1.0"
 logback = "1.6.5"
 bouncycastle = "1.86"
+jackson = "2.22.3"
 h2 = "2.5.252"
 
 turbine = "1.2.1"
@@ -158,6 +159,7 @@ postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" 
 hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
 logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 bouncycastle = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+jackson-dataformat-cbor = { module = "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor", version.ref = "jackson" }
 h2 = { module = "com.h2database:h2", version.ref = "h2" }
 
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }

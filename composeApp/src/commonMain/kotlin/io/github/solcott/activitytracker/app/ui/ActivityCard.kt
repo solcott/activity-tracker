@@ -28,6 +28,7 @@ import io.github.solcott.activitytracker.composeApp.resources.comments_count
 import io.github.solcott.activitytracker.composeApp.resources.like_content_description
 import io.github.solcott.activitytracker.composeApp.resources.like_count
 import io.github.solcott.activitytracker.composeApp.resources.stat_time
+import io.github.solcott.activitytracker.data.moderation.ModerationDecision
 import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -51,9 +52,14 @@ fun ActivityCard(
     modifier: Modifier = Modifier,
     /** The viewer's own activity: each detail category stored narrower than it shows a lock. */
     isOwn: Boolean = false,
+    /** The viewer revealed its blurred photos on this screen. */
+    revealed: Boolean = false,
+    onReveal: () -> Unit = {},
 ) {
     // Every detail the viewer was served, with what they weren't left out.
     val record = remember(activity) { activity.effectiveRecord() }
+    val decision = remember(activity, isOwn) { ModerationDecision.of(activity.labels, activity.author.labels, isOwn) }
+    val blur = remember(activity) { ModerationDecision.mediaOf(activity.labels, activity.author.labels) }
     Card(modifier.fillMaxWidth().clickable(onClick = onClick).handCursor()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             val author = activity.author.displayName ?: activity.author.handle.value
@@ -62,10 +68,12 @@ fun ActivityCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Avatar(activity.author.avatar, author, 32.dp)
+                // Revealed on the athlete's profile: a tap here opens it.
+                Avatar(activity.author.avatar, author, 32.dp, blur = ModerationDecision.mediaOf(null, activity.author.labels))
                 Text(author, style = MaterialTheme.typography.labelLarge)
                 VisibilityBadge(activity.visibilityOrPublic)
             }
+            ModerationNotice(decision, isOwn, warn = ModerationDecision.warnOf(activity.labels, activity.author.labels))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 val typeLabel = activityTypeLabel(record.activityType)
                 // Untitled cards already show the type as their title, so the icon only needs describing when there's a title.
@@ -97,6 +105,10 @@ fun ActivityCard(
                 height = 160.dp,
                 map =
                     record.polyline?.let { polyline -> { mapModifier, mapHeight -> RoutePreview(polyline, mapModifier, mapHeight, gaps) } },
+                blur = blur,
+                revealed = revealed,
+                onReveal = onReveal,
+                takenDown = decision == ModerationDecision.Takedown,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (onLike != null) {

@@ -24,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.report.ReportingEvent
+import io.github.solcott.activitytracker.app.ui.ModerationNotice
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
@@ -43,6 +45,8 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_comment_pla
 import io.github.solcott.activitytracker.composeApp.resources.detail_section_comments
 import io.github.solcott.activitytracker.composeApp.resources.detail_send_comment
 import io.github.solcott.activitytracker.data.feed.SentComment
+import io.github.solcott.activitytracker.data.moderation.ModerationDecision
+import io.github.solcott.activitytracker.data.moderation.ReportTarget
 import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.CommentView
@@ -123,7 +127,8 @@ private fun CommentRow(
     actions: ImmutableSet<CommentAction>,
     state: ActivityDetailState.Loaded,
     modifier: Modifier = Modifier,
-) =
+) {
+    val name = comment.author.displayName ?: handleLabel(comment.author.handle.value)
     CommentRow(
         author = comment.author.displayName ?: comment.author.handle.value,
         text = comment.text,
@@ -132,7 +137,12 @@ private fun CommentRow(
         uri = comment.uri,
         state = state,
         modifier = modifier,
+        onReport = {
+            state.reporting.eventSink(ReportingEvent.Open(ReportTarget.Comment(comment.uri, comment.cid, comment.author.did), name))
+        },
+        decision = ModerationDecision.of(comment.labels, comment.author.labels, isOwn = comment.author.did == state.viewerDid),
     )
+}
 
 /** The viewer's comment or reply the AppView doesn't list yet: they can delete it, but not reply to it until it's listed. */
 @Composable
@@ -157,10 +167,15 @@ private fun CommentRow(
     uri: AtUri,
     state: ActivityDetailState.Loaded,
     modifier: Modifier = Modifier,
+    /** Opens the report sheet, for [CommentAction.Report]. */
+    onReport: () -> Unit = {},
+    /** What its labels and its author's call for: a warning shows above the text. */
+    decision: ModerationDecision = ModerationDecision.None,
 ) {
     Row(modifier, verticalAlignment = Alignment.Top) {
         Column(Modifier.weight(1f).alpha(if (hidden) HIDDEN_ALPHA else 1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(author, style = MaterialTheme.typography.labelLarge)
+            ModerationNotice(decision, isOwn = false)
             Text(text, style = MaterialTheme.typography.bodyMedium)
             if (hidden) {
                 val athlete = state.activity.author.let { it.displayName ?: it.handle.value }
@@ -177,7 +192,7 @@ private fun CommentRow(
             }
         }
         val menu = actions.filterTo(mutableSetOf()) { it != CommentAction.Reply }.toImmutableSet()
-        if (menu.isNotEmpty()) key(uri) { CommentMenu(uri, author, menu, state.eventSink) }
+        if (menu.isNotEmpty()) key(uri) { CommentMenu(uri, author, menu, state.eventSink, onReport = onReport) }
     }
 }
 
@@ -252,7 +267,7 @@ private const val LOAD_MORE_AHEAD = 5
 
 /**
  * The viewer replies to any listed comment that isn't hidden, deletes their own comments, hides or unhides others' on their own activity,
- * and mutes or blocks the author of anyone else's. A placeholder and a just-sent comment never come here.
+ * and mutes, blocks or reports the author of anyone else's. A placeholder and a just-sent comment never come here.
  */
 private fun commentActions(comment: CommentView, state: ActivityDetailState.Loaded): ImmutableSet<CommentAction> {
     val hidden = comment.hidden == true
@@ -269,6 +284,7 @@ private fun commentActions(comment: CommentView, state: ActivityDetailState.Load
             manage,
             CommentAction.MuteAuthor.takeIf { others },
             CommentAction.BlockAuthor.takeIf { others },
+            CommentAction.Report.takeIf { others && state.reporting.available },
         )
         .toImmutableSet()
 }

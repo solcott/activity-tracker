@@ -18,10 +18,12 @@ import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEv
 import io.github.solcott.activitytracker.app.edit.EditActivityScreen
 import io.github.solcott.activitytracker.app.map.RouteMapScreen
 import io.github.solcott.activitytracker.app.media.MediaGalleryScreen
+import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.profile.rememberApprovesFollowers
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.report.rememberReporting
 import io.github.solcott.activitytracker.app.settings.TrainingZonesScreen
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityExporter
@@ -32,6 +34,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.feed.withLikeOverrides
+import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.units.UnitSystem
@@ -65,6 +68,7 @@ fun ActivityDetailPresenter(
     units: UnitsRepository,
     suggestions: CombineSuggestions,
     blocks: BlockRepository,
+    reports: ReportRepository,
 ): ActivityDetailState {
     // The activity as loaded, and how far the viewer's comment actions have moved its count since: one value, so a reload replaces both.
     var loaded by remember { mutableStateOf<CountedActivity?>(null) }
@@ -120,6 +124,14 @@ fun ActivityDetailPresenter(
     // A like toggles as it does in a list, one at a time per activity.
     val likes = rememberActivityListEventSink(navigator, activities) { likeError = it }
 
+    val commentActions = { current: ActivityView ->
+        CommentActions(draft, flights, activities, blocks, comments, replying, { e -> commentError = e }) { moved ->
+            loaded = loaded?.let { l -> l.copy(commentMoves = l.commentMoves + moved) }
+        }
+    }
+    val reporting =
+        rememberReporting(reports) { _, target -> flights.blockReported(target, activity, commentActions, blocks) { commentError = it } }
+
     val sink: (ActivityDetailEvent) -> Unit = { event ->
         val current = activity
         when (event) {
@@ -161,20 +173,7 @@ fun ActivityDetailPresenter(
             is ActivityDetailEvent.UnhideComment,
             is ActivityDetailEvent.BlockCommenter,
             is ActivityDetailEvent.MuteCommenter -> {
-                current?.let {
-                    CommentActions(
-                            draft,
-                            flights,
-                            activities,
-                            blocks,
-                            comments,
-                            replying,
-                            { e -> commentError = e },
-                        ) { moved ->
-                            loaded = loaded?.let { l -> l.copy(commentMoves = l.commentMoves + moved) }
-                        }
-                        .on(event, it)
-                }
+                current?.let { commentActions(it).on(event, it) }
             }
 
             is ActivityDetailEvent.Delete,
@@ -201,6 +200,7 @@ fun ActivityDetailPresenter(
         }
     }
 
+    val revealed = rememberRevealed()
     val likesList = rememberLikesList(showLikes, AtUri(screen.uri), viewerGave = shown?.viewer?.like != null, feed, profiles)
     return detailState(shown, error, sink) {
         ActivityDetailState.Loaded(
@@ -231,6 +231,8 @@ fun ActivityDetailPresenter(
             dataSources = dataSources.state,
             chartSources = chartSources,
             combineSuggestion = suggestion.state,
+            reporting = reporting,
+            revealed = revealed,
         )
     }
 }

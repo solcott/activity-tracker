@@ -28,6 +28,7 @@ import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
@@ -256,6 +257,7 @@ class CombinePresentersTest {
         val exporter: ActivityExporter,
         val suggestions: CombineSuggestions,
         val blocks: BlockRepository,
+        val reports: ReportRepository,
     )
 
     /** A session that can write to the repo only, so the PDS here is just Alice's repo. */
@@ -314,6 +316,7 @@ class CombinePresentersTest {
             ActivityExporter(db, clients, tracks, zones.sources, feed),
             CombineSuggestions(db, clients, feed, tracks, suggestionClock),
             BlockRepository(clients, writer, outbox, feed, Clock.System),
+            ReportRepository(clients),
         )
     }
 
@@ -343,6 +346,7 @@ class CombinePresentersTest {
                 units,
                 g.suggestions,
                 g.blocks,
+                g.reports,
             )
         }
     }

@@ -32,6 +32,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_privacy
 import io.github.solcott.activitytracker.composeApp.resources.error_load_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_load_replies
 import io.github.solcott.activitytracker.composeApp.resources.error_no_location
+import io.github.solcott.activitytracker.composeApp.resources.error_open_subject
 import io.github.solcott.activitytracker.composeApp.resources.error_original_not_sent
 import io.github.solcott.activitytracker.composeApp.resources.error_read_activity_file
 import io.github.solcott.activitytracker.composeApp.resources.error_remove_follower
@@ -42,6 +43,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_save_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_save_settings
 import io.github.solcott.activitytracker.composeApp.resources.error_save_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_search_athletes
+import io.github.solcott.activitytracker.composeApp.resources.error_send_report
 import io.github.solcott.activitytracker.composeApp.resources.error_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.error_split_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_too_many_zones
@@ -111,6 +113,8 @@ fun errorText(error: UiError): String =
                 UiError.Kind.LoadProfile -> Res.string.error_load_profile
                 UiError.Kind.UpdateFollow -> Res.string.error_update_follow
                 UiError.Kind.UpdateBlock -> Res.string.error_update_block
+                UiError.Kind.SendReport -> Res.string.error_send_report
+                UiError.Kind.OpenSubject -> Res.string.error_open_subject
                 UiError.Kind.UpdateMute -> Res.string.error_update_mute
                 UiError.Kind.LoadBlocks -> Res.string.error_load_blocks
                 UiError.Kind.LoadMutes -> Res.string.error_load_mutes

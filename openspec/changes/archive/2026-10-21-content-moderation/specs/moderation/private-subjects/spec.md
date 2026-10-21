@@ -13,6 +13,10 @@ The AppView SHALL serve `app.activitytracker.moderation.getSubject`, which takes
 - **WHEN** a moderator on the labeler team requests bob's Followers activity that has an open report
 - **THEN** the AppView returns the activity and working links to its photos
 
+#### Scenario: Moderator in a block with the author
+- **WHEN** a moderator whom bob blocks requests bob's reported Followers activity
+- **THEN** the AppView returns it, because moderator access doesn't go through viewer visibility
+
 #### Scenario: Not a moderator
 - **WHEN** alice, who isn't on the labeler team, calls `getSubject`
 - **THEN** the AppView refuses the request

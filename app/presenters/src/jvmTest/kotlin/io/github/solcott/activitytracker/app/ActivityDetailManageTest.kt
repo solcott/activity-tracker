@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
@@ -135,7 +136,7 @@ class ActivityDetailManageTest {
 
     private val localLikes = LocalLikes()
 
-    @Suppress("LongMethod") // Wires every store a test reaches for.
+    @Suppress("LongMethod") // One line per collaborator the presenter is built with.
     private suspend fun presenter(
         uri: String,
         navigator: FakeNavigator = FakeNavigator(ActivityDetailScreen(uri)),
@@ -199,6 +200,7 @@ class ActivityDetailManageTest {
                 UnitsRepository(profiles, Clock.System, Logger, UnitSystem.Metric),
                 CombineSuggestions(db, clients, feed, tracks, Clock.System),
                 BlockRepository(clients, writer, outbox, feed, Clock.System),
+                ReportRepository(clients),
             )
         }
     }

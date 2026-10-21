@@ -38,13 +38,22 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.media.mediaItems
+import io.github.solcott.activitytracker.app.moderation.Revealed
+import io.github.solcott.activitytracker.app.report.ReportingEvent
+import io.github.solcott.activitytracker.app.report.ReportingHost
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
 import io.github.solcott.activitytracker.app.ui.CategoryLock
 import io.github.solcott.activitytracker.app.ui.DiveSite
+import io.github.solcott.activitytracker.app.ui.HiddenCard
 import io.github.solcott.activitytracker.app.ui.MediaRow
+import io.github.solcott.activitytracker.app.ui.ModerationNotice
 import io.github.solcott.activitytracker.app.ui.VisibilityBadge
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
+import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
+import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
@@ -62,15 +71,20 @@ import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.detail_hide_likes
 import io.github.solcott.activitytracker.composeApp.resources.detail_like
 import io.github.solcott.activitytracker.composeApp.resources.detail_liked
+import io.github.solcott.activitytracker.composeApp.resources.detail_more
 import io.github.solcott.activitytracker.composeApp.resources.detail_no_likes
 import io.github.solcott.activitytracker.composeApp.resources.detail_show_likes
 import io.github.solcott.activitytracker.composeApp.resources.detail_title
 import io.github.solcott.activitytracker.composeApp.resources.detail_zone_added
 import io.github.solcott.activitytracker.composeApp.resources.like_count
+import io.github.solcott.activitytracker.composeApp.resources.report_activity
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.moderation.ModerationDecision
+import io.github.solcott.activitytracker.data.moderation.ReportTarget
 import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.activityType
+import kotlinx.collections.immutable.persistentListOf
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -86,9 +100,9 @@ fun ActivityDetailUi(state: ActivityDetailState, modifier: Modifier = Modifier) 
                 onBack = { state.eventSink(ActivityDetailEvent.Back) },
                 scrollBehavior = scrollBehavior,
                 actions = {
-                    (state as? ActivityDetailState.Loaded)?.manage?.let {
-                        ManageMenu(it, state.canHideRouteEnds, state.export, state.eventSink)
-                    }
+                    val loaded = state as? ActivityDetailState.Loaded
+                    loaded?.manage?.let { ManageMenu(it, loaded.canHideRouteEnds, loaded.export, loaded.eventSink) }
+                    if (loaded != null && !loaded.isOwn && loaded.reporting.available) OthersActivityMenu(loaded)
                 },
             )
         },
@@ -119,8 +133,31 @@ fun ActivityDetailUi(state: ActivityDetailState, modifier: Modifier = Modifier) 
     }
 }
 
+/** The "…" menu on someone else's activity, beside where the owner's [ManageMenu] sits: Report. */
+@Composable
+private fun OthersActivityMenu(state: ActivityDetailState.Loaded) {
+    var open by remember { mutableStateOf(false) }
+    val report = stringResource(Res.string.report_activity)
+    val activity = state.activity
+    val name = activity.author.displayName ?: handleLabel(activity.author.handle.value)
+    val items =
+        remember(report, activity.uri, activity.cid, name) {
+            persistentListOf(
+                AppMenuItem(report) {
+                    val target = ReportTarget.Activity(activity.uri, activity.cid, activity.author.did)
+                    state.reporting.eventSink(ReportingEvent.Open(target, name))
+                }
+            )
+        }
+    Box {
+        AppIconButton(AppIcon.More, stringResource(Res.string.detail_more), onClick = { open = true })
+        AppMenu(expanded = open, onDismiss = { open = false }, items = items)
+    }
+}
+
 @Composable
 private fun LoadedContent(state: ActivityDetailState.Loaded, contentPadding: PaddingValues, modifier: Modifier = Modifier) {
+    ReportingHost(state.reporting)
     val handOff = rememberFileHandOff()
     val exported = state.export?.file
     SideEffect(exported) {
@@ -128,6 +165,14 @@ private fun LoadedContent(state: ActivityDetailState.Loaded, contentPadding: Pad
             handOff(exported)
             state.eventSink(ActivityDetailEvent.ExportHandedOff)
         }
+    }
+    val activity = state.activity
+    val decision = remember(activity, state.isOwn) { ModerationDecision.of(activity.labels, activity.author.labels, state.isOwn) }
+    val hiddenKey = Revealed.hiddenKey(activity.uri.value)
+    if (decision == ModerationDecision.Hidden && hiddenKey !in state.revealed) {
+        // Opened by URI: lists never show it, so the page waits behind a warning.
+        HiddenCard(onShow = { state.revealed.eventSink(hiddenKey) }, modifier.padding(contentPadding).padding(16.dp))
+        return
     }
     WithWindowWidth(modifier.fillMaxSize()) { width ->
         if (width == WindowWidth.Expanded) PanedPage(state, contentPadding) else ColumnPage(state, contentPadding, width)
@@ -253,7 +298,13 @@ private val TWO_CARD_COLUMNS = 640.dp
 @Composable
 private fun Header(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
     val record = state.activity.record
+    val activity = state.activity
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        ModerationNotice(
+            remember(activity, state.isOwn) { ModerationDecision.of(activity.labels, activity.author.labels, state.isOwn) },
+            state.isOwn,
+            warn = ModerationDecision.warnOf(activity.labels, activity.author.labels),
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 state.activity.author.displayName ?: state.activity.author.handle.value,
@@ -298,7 +349,9 @@ private fun Header(state: ActivityDetailState.Loaded, modifier: Modifier = Modif
 /** The map and photos, the map marked with the Map category's visibility on the owner's page when it's narrower than the activity. */
 @Composable
 private fun PageMedia(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier, height: Dp = 240.dp) {
-    val media = remember(state.activity) { state.activity.mediaItems() }
+    val activity = state.activity
+    val media = remember(activity) { activity.mediaItems() }
+    val decision = remember(activity, state.isOwn) { ModerationDecision.of(activity.labels, activity.author.labels, state.isOwn) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         MediaRow(
             media,
@@ -319,6 +372,10 @@ private fun PageMedia(state: ActivityDetailState.Loaded, modifier: Modifier = Mo
                         )
                     }
                 },
+            blur = remember(activity) { ModerationDecision.mediaOf(activity.labels, activity.author.labels) },
+            revealed = activity.uri.value in state.revealed,
+            onReveal = { state.revealed.eventSink(activity.uri.value) },
+            takenDown = decision == ModerationDecision.Takedown,
         )
         state.page.mapMark?.let { CategoryLock(DetailCategory.MAP, it) }
     }

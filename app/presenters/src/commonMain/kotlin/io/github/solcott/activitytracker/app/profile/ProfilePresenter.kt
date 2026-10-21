@@ -12,13 +12,16 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEventSink
+import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.report.rememberReporting
 import io.github.solcott.activitytracker.app.settings.SettingsScreen
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.FollowRequests
 import io.github.solcott.activitytracker.data.profile.FollowRequestsRepository
@@ -41,6 +44,7 @@ fun ProfilePresenter(
     activities: ActivityRepository,
     followRequests: FollowRequestsRepository,
     blocks: BlockRepository,
+    reports: ReportRepository,
 ): ProfileState {
     var profile by remember { mutableStateOf<ProfileView?>(null) }
     var error by remember { mutableStateOf<UiError?>(null) }
@@ -61,6 +65,23 @@ fun ProfilePresenter(
 
     val viewerDid = profiles.did.value
     val isSelf = did == viewerDid
+    val toggleBlockOrMute = { event: ProfileEvent ->
+        flights.toggleBlockOrMute(
+            event,
+            profile.takeUnless { isSelf },
+            blocks,
+            onDone = {
+                profile = it
+                error = null
+            },
+        ) {
+            error = it
+        }
+    }
+    // The report sheet offers Block only while the viewer doesn't block them, so its block is the menu's Block, after the same
+    // confirmation.
+    val reporting =
+        rememberReporting(reports) { _, _ -> if (profile?.viewer?.blocking == null) toggleBlockOrMute(ProfileEvent.ToggleBlock) }
     val approves = isSelf && profile?.followPolicy == FollowPolicy.APPROVE
     // Counted afresh each time the athlete's own profile shows, so answering requests and coming back updates it.
     LaunchedEffect(approves) { requests = if (approves) runSuspendCatching { followRequests.followRequests() }.getOrNull() else null }
@@ -76,6 +97,8 @@ fun ProfilePresenter(
         followRequestCount = requests?.pending?.size,
         moreFollowRequests = requests?.truncated == true,
         error = error,
+        reporting = reporting,
+        revealed = rememberRevealed(),
     ) { event ->
         when (event) {
             ProfileEvent.Back -> {
@@ -104,17 +127,7 @@ fun ProfilePresenter(
 
             ProfileEvent.ToggleBlock,
             ProfileEvent.ToggleMute -> {
-                flights.toggleBlockOrMute(
-                    event,
-                    profile.takeUnless { isSelf },
-                    blocks,
-                    onDone = {
-                        profile = it
-                        error = null
-                    },
-                ) {
-                    error = it
-                }
+                toggleBlockOrMute(event)
             }
 
             ProfileEvent.OpenFollowers -> {

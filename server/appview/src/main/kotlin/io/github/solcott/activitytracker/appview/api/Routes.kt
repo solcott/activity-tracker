@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.appview.AppViewConfig
 import io.github.solcott.activitytracker.appview.auth.AppViewSigningKey
 import io.github.solcott.activitytracker.appview.auth.AuthException
 import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
+import io.github.solcott.activitytracker.appview.moderation.ModeratorSubjects
 import io.github.solcott.activitytracker.appview.sync.SpaceSyncer
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -22,8 +23,10 @@ import io.github.solcott.activitytracker.lexicon.app.GetFollowRequests
 import io.github.solcott.activitytracker.lexicon.app.GetFollowers
 import io.github.solcott.activitytracker.lexicon.app.GetFollows
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
+import io.github.solcott.activitytracker.lexicon.app.GetModerationRole
 import io.github.solcott.activitytracker.lexicon.app.GetMutes
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
+import io.github.solcott.activitytracker.lexicon.app.GetSubject
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.NotifySpace
 import io.github.solcott.activitytracker.lexicon.app.SearchActors
@@ -133,6 +136,12 @@ private fun <P, O> Route.xrpcQuery(
             ContentType.Application.Json,
         )
     }
+}
+
+/** The moderator routes (`moderation/private-subjects`); each needs service auth. */
+fun Route.moderationRoutes(moderators: ModeratorSubjects, verifier: ServiceAuthVerifier) {
+    xrpcQuery(GetSubject.method, verifier) { params, viewer -> moderators.subject(requireViewer(viewer), params.uri) }
+    xrpcQuery(GetModerationRole.method, verifier) { _, viewer -> moderators.role(requireViewer(viewer)) }
 }
 
 /** Serves a typed procedure, decoding its JSON input. Auth is optional here, as for [xrpcQuery]. */

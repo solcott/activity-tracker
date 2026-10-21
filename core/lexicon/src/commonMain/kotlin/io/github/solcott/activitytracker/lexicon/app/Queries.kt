@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.lexicon.app
 
 import androidx.compose.runtime.Immutable
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.NoParamsSerializer
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.XrpcProcedure
 import io.github.solcott.activitytracker.lexicon.XrpcQuery
@@ -90,6 +91,34 @@ object GetActivity {
     )
 
     val method = XrpcQuery(Nsid.FEED_GET_ACTIVITY, Params.serializer(), Output.serializer())
+}
+
+/**
+ * `app.activitytracker.moderation.getSubject`: for moderators, a reported activity or comment at any visibility, with photo links signed
+ * for them; one that isn't Public only while it's under review.
+ */
+object GetSubject {
+    @Serializable data class Params(val uri: AtUri)
+
+    @Serializable
+    data class Output(
+        /** A [Visibility] value. */
+        val visibility: String,
+        val activity: ActivityView? = null,
+        val comment: CommentView? = null,
+    )
+
+    val method = XrpcQuery(Nsid.MODERATION_GET_SUBJECT, Params.serializer(), Output.serializer())
+}
+
+/** `app.activitytracker.moderation.getRole`: the caller's role on the app's labeler team; null when they're not on it. */
+object GetModerationRole {
+    /** The roles that may open subjects. */
+    val MODERATOR_ROLES = setOf("admin", "moderator")
+
+    @Serializable data class Output(val role: String? = null)
+
+    val method = XrpcQuery(Nsid.MODERATION_GET_ROLE, NoParamsSerializer, Output.serializer())
 }
 
 /** An activity's streams, if the viewer may see them; zones only if the viewer may also see its [ActivityZonesRecord] where it's stored. */
