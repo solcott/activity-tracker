@@ -22,6 +22,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
 /** The detail screen's comments: [paging] and [sent] as the viewer left them. */
+@Suppress("LongParameterList") // The comments as shown, how to page them, and what the viewer has changed since.
 internal class Comments(
     val paging: CommentsPaging,
     /** The viewer's top-level comments the AppView doesn't list yet; their sent replies are in [paging]'s threads. */
