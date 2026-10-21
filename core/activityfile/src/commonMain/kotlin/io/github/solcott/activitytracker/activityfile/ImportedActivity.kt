@@ -67,6 +67,8 @@ data class ImportedActivity(
     val poolLengthCentimeters: Int? = null,
     /** The RMSSD of the file's beat-to-beat intervals, in milliseconds ([Hrv]); stored with the training load, never on the record. */
     val hrvRmssd: Int? = null,
+    /** The device's exercise load, stamina and sweat loss; stored with the training load, never on the record. */
+    val physiology: SessionPhysiology? = null,
     /** The device's cycle count, a run's strides doubled to steps (see `ActivityRecord.cycles`). */
     val cycles: Int? = null,
     val avgStrokeDistanceCentimeters: Int? = null,

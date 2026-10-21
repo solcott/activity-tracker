@@ -245,6 +245,8 @@ data class DecodedSummary(
     val avgStrokeDistanceMeters: Double? = null,
     /** A session's FIT `sport_profile_name`: the device's activity profile, "MOUNTAIN". */
     val sportProfileName: String? = null,
+    /** A FIT session's exercise load, stamina and sweat loss ([SessionPhysiology.read]). */
+    val physiology: SessionPhysiology? = null,
 )
 
 /** One sample of the activity's record stream. */

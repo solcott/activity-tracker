@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.activityfile.ImportedSensor
 import io.github.solcott.activitytracker.activityfile.ImportedShifting
 import io.github.solcott.activitytracker.activityfile.SensorBattery
 import io.github.solcott.activitytracker.activityfile.SensorKind
+import io.github.solcott.activitytracker.activityfile.SessionPhysiology
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityDiveGas
@@ -299,6 +300,19 @@ class ActivityDraftTest {
         val record = AtJson.encodeToString(ActivityRecord.serializer(), draft.toRecord(start))
         assertFalse("hrv" in record.lowercase(), record)
         assertFalse("hrv" in AtJson.encodeToString(ActivityStreamData.serializer(), draft.streams!!).lowercase())
+    }
+
+    @Test
+    fun garminPhysiologyGoesWithTheTrainingLoadNeverOnTheRecord() {
+        val physiology = SessionPhysiology(exerciseLoad = 187, staminaStart = 100, staminaEnd = 70, staminaMin = 48, sweatLossMl = 764)
+        val draft = ActivityDraft.fromImport(imported(emptyList()).copy(physiology = physiology), ActivityType(Sport.RIDE), null)
+
+        assertEquals(
+            TrainingLoad(exerciseLoad = 187, staminaStart = 100, staminaEnd = 70, staminaMin = 48, sweatLoss = 764),
+            draft.trainingLoad,
+        )
+        val record = AtJson.encodeToString(ActivityRecord.serializer(), draft.toRecord(start)).lowercase()
+        assertFalse("stamina" in record || "sweat" in record || "exerciseload" in record, record)
     }
 
     @Test

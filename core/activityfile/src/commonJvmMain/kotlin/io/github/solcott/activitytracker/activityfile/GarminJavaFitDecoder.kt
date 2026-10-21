@@ -191,6 +191,8 @@ class GarminJavaFitDecoder : FitDecoder {
             totalCycles = totalCycles,
             avgStrokeDistanceMeters = avgStrokeDistance?.toDouble(),
             sportProfileName = sportProfileName?.ifEmpty { null },
+            // The SDK keeps fields its profile doesn't name in the message, so Garmin's own are read by number.
+            physiology = SessionPhysiology.read(trainingLoadPeak?.toDouble(), ::getFieldLongValue),
         )
 
     private fun LapMesg.toSummary() =

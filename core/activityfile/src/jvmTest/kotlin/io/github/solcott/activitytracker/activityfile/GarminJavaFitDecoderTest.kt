@@ -180,6 +180,18 @@ class GarminJavaFitDecoderTest {
     }
 
     @Test
+    fun anEdgeRideImportsItsExerciseLoadStaminaAndSweatLoss() {
+        val activity = DecodedActivityMapper.map(decoder.decode(FitFixtures.mtbRide(start)))
+
+        assertEquals(
+            SessionPhysiology(exerciseLoad = 187, staminaStart = 100, staminaEnd = 70, staminaMin = 48, sweatLossMl = 764),
+            activity.physiology,
+        )
+    }
+
+    @Test fun aRunWithoutThemImportsNone() = assertNull(DecodedActivityMapper.map(decoder.decode(FitFixtures.run(start))).physiology)
+
+    @Test
     fun aSensorRunImportsItsHrvStepsOffsetAndStrydFields() {
         val activity = DecodedActivityMapper.map(decoder.decode(SensorFitFixtures.sensorRun(start)))
 

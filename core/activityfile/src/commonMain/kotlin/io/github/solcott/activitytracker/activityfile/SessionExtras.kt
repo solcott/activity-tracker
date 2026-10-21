@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.activityfile
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.CycleCount
+import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import kotlin.math.roundToInt
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -18,11 +19,38 @@ internal object SessionExtras {
     private const val MILLIS_PER_SECOND = 1000L
     private const val CENTI = 100.0
 
+    /**
+     * FIT `file_id.manufacturer`s whose files use Garmin's own session fields, as every decoder spells them (case aside): Garmin, and
+     * `development`, which our own exports ([FitWriter]) name.
+     */
+    private val GARMIN_FIELDS = setOf("garmin", "development")
+
     /** The sessions' cycle count; on foot FIT counts strides, so it's doubled to steps. */
     fun cycles(sessions: List<DecodedSummary>, type: ActivityType): Int? {
         val total = sessions.mapNotNull { it.totalCycles }.takeIf { it.isNotEmpty() }?.sum()?.takeIf { it > 0 } ?: return null
         val count = if (CycleCount.unitOf(type.sport) == CycleCount.STEPS) total * 2 else total
         return count.takeIf { it <= Int.MAX_VALUE }?.toInt()
+    }
+
+    /**
+     * The sessions' exercise load and sweat loss summed, stamina from the first session's start to the last's end, and its lowest. Fields
+     * only Garmin defines are kept only from a file that uses them ([GARMIN_FIELDS]).
+     */
+    fun physiology(sessions: List<DecodedSummary>, manufacturer: String?): SessionPhysiology? {
+        val each =
+            sessions
+                .mapNotNull { it.physiology }
+                .mapNotNull { if (manufacturer?.lowercase() in GARMIN_FIELDS) it else it.documentedOnly() }
+                .takeIf { it.isNotEmpty() } ?: return null
+        fun sum(value: (SessionPhysiology) -> Int?) = each.mapNotNull(value).takeIf { it.isNotEmpty() }?.sum()
+        return SessionPhysiology(
+                exerciseLoad = sum { it.exerciseLoad }?.coerceAtMost(TrainingLoad.MAX_EXERCISE_LOAD),
+                staminaStart = each.firstNotNullOfOrNull { it.staminaStart },
+                staminaEnd = each.lastOrNull { it.staminaEnd != null }?.staminaEnd,
+                staminaMin = each.mapNotNull { it.staminaMin }.minOrNull(),
+                sweatLossMl = sum { it.sweatLossMl }?.coerceAtMost(TrainingLoad.MAX_SWEAT_LOSS),
+            )
+            .takeUnless { it.isEmpty }
     }
 
     /** The first session's average stroke distance, in centimeters. */

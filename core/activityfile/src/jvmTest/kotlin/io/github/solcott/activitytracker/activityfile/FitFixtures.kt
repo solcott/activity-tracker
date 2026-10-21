@@ -15,6 +15,7 @@ import com.garmin.fit.Event
 import com.garmin.fit.EventMesg
 import com.garmin.fit.EventType
 import com.garmin.fit.ExerciseCategory
+import com.garmin.fit.Field
 import com.garmin.fit.File
 import com.garmin.fit.FileIdMesg
 import com.garmin.fit.Fit
@@ -28,6 +29,7 @@ import com.garmin.fit.LengthType
 import com.garmin.fit.Manufacturer
 import com.garmin.fit.Mesg
 import com.garmin.fit.MesgNum
+import com.garmin.fit.Profile
 import com.garmin.fit.PushUpExerciseName
 import com.garmin.fit.RecordMesg
 import com.garmin.fit.SessionMesg
@@ -190,6 +192,12 @@ object FitFixtures {
                 totalGrit = 12.5f
                 avgFlow = 2.5f
                 sportProfileName = "MOUNTAIN"
+                // The reference Edge 840 ride's exercise load, sweat loss and stamina.
+                trainingLoadPeak = (12_240_282 / SessionFieldNumbers.TRAINING_LOAD_SCALE).toFloat()
+                addField(unknownField(SessionFieldNumbers.SWEAT_LOSS, Fit.BASE_TYPE_UINT16, 764))
+                addField(unknownField(SessionFieldNumbers.STAMINA_START, Fit.BASE_TYPE_UINT8, 100))
+                addField(unknownField(SessionFieldNumbers.STAMINA_END, Fit.BASE_TYPE_UINT8, 70))
+                addField(unknownField(SessionFieldNumbers.STAMINA_MIN, Fit.BASE_TYPE_UINT8, 48))
             },
             fileId = {
                 product = GarminProduct.EDGE_840
@@ -565,6 +573,10 @@ object FitFixtures {
 
     /** A lap the encoder writes, [startSeconds] after the activity's start. */
     class FitLap(val startSeconds: Long, val elapsedSeconds: Float, val distanceMeters: Float, val configure: LapMesg.() -> Unit = {})
+
+    /** A field the FIT profile doesn't name, as Garmin devices write them: the SDK's constructor for one is protected. */
+    private fun unknownField(num: Int, type: Int, value: Long): Field =
+        object : Field("unknown", num, type, 1.0, 0.0, "", false, Profile.Type.ENUM) {}.apply { addRawValue(value) }
 
     private fun gas(index: Int, oxygen: Int, status: DiveGasStatus) =
         DiveGasMesg().apply {

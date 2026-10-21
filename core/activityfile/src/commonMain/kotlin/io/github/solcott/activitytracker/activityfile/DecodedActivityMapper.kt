@@ -78,6 +78,7 @@ object DecodedActivityMapper {
             poolLengthCentimeters =
                 fit.sessions.firstNotNullOfOrNull { it.poolLengthMeters?.takeIf { m -> m > 0 } }?.let { (it * CENTI).roundToInt() },
             hrvRmssd = Hrv.rmssd(fit.rrIntervalsSeconds),
+            physiology = SessionExtras.physiology(fit.sessions, fit.fileId?.manufacturer),
             cycles = SessionExtras.cycles(fit.sessions, activityType),
             avgStrokeDistanceCentimeters = SessionExtras.avgStrokeDistanceCentimeters(fit.sessions),
             utcOffsetMinutes = SessionExtras.utcOffsetMinutes(fit, startedAtMillis),

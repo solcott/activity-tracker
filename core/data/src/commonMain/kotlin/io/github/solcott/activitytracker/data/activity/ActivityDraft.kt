@@ -331,7 +331,7 @@ data class ActivityDraft(
             )
         }
 
-        /** The device's FTP, IF, TSS and training effect, and the file's HRV, or null without any. */
+        /** The device's FTP, IF, TSS, training effect, exercise load, stamina and sweat loss, and the file's HRV, or null without any. */
         private fun trainingLoadOf(imported: ImportedActivity): TrainingLoad? =
             TrainingLoad(
                     ftp = imported.power?.ftpWatts?.takeIf { it > 0 },
@@ -339,6 +339,11 @@ data class ActivityDraft(
                     trainingStressScore = imported.power?.trainingStressScore?.let { (it * TENTHS).roundToInt() }?.takeIf { it > 0 },
                     aerobicTrainingEffect = imported.aerobicTrainingEffect?.let { (it * TENTHS).roundToInt() },
                     anaerobicTrainingEffect = imported.anaerobicTrainingEffect?.let { (it * TENTHS).roundToInt() },
+                    exerciseLoad = imported.physiology?.exerciseLoad,
+                    staminaStart = imported.physiology?.staminaStart,
+                    staminaEnd = imported.physiology?.staminaEnd,
+                    staminaMin = imported.physiology?.staminaMin,
+                    sweatLoss = imported.physiology?.sweatLossMl,
                     hrvRmssd = imported.hrvRmssd?.takeIf { it > 0 },
                 )
                 .takeUnless { it.isEmpty }
