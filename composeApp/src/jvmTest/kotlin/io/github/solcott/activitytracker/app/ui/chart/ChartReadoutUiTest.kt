@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.ui.chart
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -42,6 +43,8 @@ class ChartReadoutUiTest {
         }
     }
 
+    /** What the test reads back from a composed [Chart]. Each test composes its chart once, so nothing depends on skipping. */
+    @Stable
     private class Scene {
         val counter = DrawCounter()
         var asked: Pair<Double, Double>? = null
