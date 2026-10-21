@@ -34,6 +34,7 @@ internal class Comments(
     val loadMoreReplies: (thread: AtUri) -> Unit,
     /** The signed-in athlete. */
     val viewer: Did,
+    private val local: LocalComments,
 ) {
     /** How many of the listed comments and replies by [author] are counted (not hidden): what blocking or muting them takes off. */
     fun countedBy(author: Did): Int =
@@ -41,14 +42,21 @@ internal class Comments(
             (listOfNotNull(thread.root) + thread.replies).count { it.author.did == author && it.hidden != true }
         }
 
-    /** The listed comment or reply [uri], as shown. */
+    /**
+     * The listed comment or reply [uri], as shown, unless the viewer has deleted it since: a repeated delete can arrive after the first
+     * finished but before the list shown here caught up.
+     */
     fun listed(uri: AtUri): CommentView? =
-        paging.items.firstNotNullOfOrNull { thread ->
-            thread.root?.takeIf { it.uri == uri } ?: thread.replies.firstOrNull { it.uri == uri }
-        }
+        paging.items
+            .firstNotNullOfOrNull { thread -> thread.root?.takeIf { it.uri == uri } ?: thread.replies.firstOrNull { it.uri == uri } }
+            ?.takeUnless { isDeleted(uri) }
 
-    /** Whether [uri] is a comment or reply the viewer sent that the AppView doesn't list yet. */
-    fun isSent(uri: AtUri): Boolean = sent.any { it.uri == uri } || paging.items.any { t -> t.sentReplies.any { it.uri == uri } }
+    /** Whether the viewer has deleted [uri], read now rather than from the list as last shown. */
+    private fun isDeleted(uri: AtUri): Boolean = local.entries.value[uri]?.want == LocalComments.Want.Gone
+
+    /** Whether [uri] is a comment or reply the viewer sent that the AppView doesn't list yet, and hasn't deleted since. */
+    fun isSent(uri: AtUri): Boolean =
+        (sent.any { it.uri == uri } || paging.items.any { t -> t.sentReplies.any { it.uri == uri } }) && !isDeleted(uri)
 }
 
 /**
@@ -122,6 +130,7 @@ internal fun rememberComments(activity: AtUri, viewer: Did, loadKey: Int, feed: 
             thread?.let { flights.launch(ActivityDetailEvent.LoadMoreReplies(uri)) { loadReplies(it, generation) } }
         },
         viewer = viewer,
+        local = local,
     )
 }
 
