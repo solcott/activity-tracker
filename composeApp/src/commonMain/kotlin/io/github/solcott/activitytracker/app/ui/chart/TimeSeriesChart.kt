@@ -2,7 +2,9 @@ package io.github.solcott.activitytracker.app.ui.chart
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.Dp
@@ -38,12 +40,13 @@ import kotlinx.collections.immutable.toImmutableList
  * across [xRange] (seconds), or exactly at [xLabelsAt] when the x axis isn't time. [average] draws a reference line. [step] holds each
  * value until the next point, for values like gears. [pointLabels] write values above their points. [backdrop] is drawn as a grey
  * silhouette behind the line on a scale of its own, as Strava draws elevation behind its charts; it has no axis and the marker skips it.
- * Hovering, tapping or dragging across the chart shows [markerLabel] for the nearest point. [inverted] puts zero at the top and larger
- * values further down, filled up to the top, as a dive's depth reads. [others] are more lines on the same scale, unfilled and in their own
- * colours (another tank, or a dive's ceiling under its depth). [events] mark moments with a labelled vertical line, like a gas switch, and
- * [warnings] mark them in the error colour, labelled along the bottom, like a dive computer's alert. Every line, its fill and the backdrop
- * break, drawing nothing, into a point that follows a gap in the samples ([SeriesPoint.gapBefore]). The backdrop, and the fill of a line
- * with gaps, are [AreaUnderlay]s drawn under Vico's layers, so they cost little more than the line itself.
+ * Hovering, tapping or dragging across the chart shows [markerLabel] for the nearest point, in a [ChartReadout] over the chart. [inverted]
+ * puts zero at the top and larger values further down, filled up to the top, as a dive's depth reads. [others] are more lines on the same
+ * scale, unfilled and in their own colours (another tank, or a dive's ceiling under its depth). [events] mark moments with a labelled
+ * vertical line, like a gas switch, and [warnings] mark them in the error colour, labelled along the bottom, like a dive computer's alert.
+ * Every line, its fill and the backdrop break, drawing nothing, into a point that follows a gap in the samples ([SeriesPoint.gapBefore]).
+ * The backdrop, and the fill of a line with gaps, are [AreaUnderlay]s drawn under Vico's layers, so they cost little more than the line
+ * itself.
  */
 @Composable
 internal fun TimeSeriesChart(
@@ -107,6 +110,19 @@ internal fun TimeSeriesChart(
         }
     val backdropUnder = behind?.let { rememberBackdrop(it) }
     val otherLines = rememberOtherLines(remember(extra) { extra.map(::gapsIn).toImmutableList() })
+    val frame = remember { ChartFrame() }
+    val currentLabel by rememberUpdatedState(markerLabel)
+    val readout =
+        remember(plotted, plottedExtra, minY, maxY, inverted, frame) {
+            ChartReadout(
+                frame,
+                plotted.toImmutableList(),
+                minY..maxY,
+                plottedExtra.map { it.toImmutableList() }.toImmutableList(),
+            ) { x, y ->
+                currentLabel(x, flip(y))
+            }
+        }
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
     val label = rememberTextComponent(labelStyle)
     val grid = rememberLineComponent(Fill(colors.grid), thickness = 1.dp)
@@ -165,7 +181,7 @@ internal fun TimeSeriesChart(
                         },
                 ),
             decorations =
-                remember(backdropUnder, fillUnder, average, averageLine, labelsAbove, eventMarks, warningMarks, inverted) {
+                remember(backdropUnder, fillUnder, average, averageLine, labelsAbove, eventMarks, warningMarks, inverted, frame) {
                     listOfNotNull(
                         // Under the layers in this order: the backdrop, then the line's fill.
                         backdropUnder,
@@ -176,13 +192,12 @@ internal fun TimeSeriesChart(
                         labelsAbove,
                         eventMarks.takeIf { events.isNotEmpty() },
                         warningMarks.takeIf { warnings.isNotEmpty() },
+                        frame,
                     )
                 },
-            marker = rememberValueMarker(remember(markerLabel, inverted) { { x, y -> markerLabel(x, flip(y)) } }),
             getXStep = { _, _, _ -> xStep },
-            markerController = rememberScrubController(),
         )
-    StaticChart(chart, model, description, height, modifier)
+    StaticChart(chart, model, description, height, modifier, readout)
 }
 
 /**

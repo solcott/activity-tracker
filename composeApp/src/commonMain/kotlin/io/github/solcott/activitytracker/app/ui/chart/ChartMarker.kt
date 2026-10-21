@@ -1,104 +1,139 @@
 package io.github.solcott.activitytracker.app.ui.chart
 
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import com.patrykandpatrick.vico.multiplatform.cartesian.marker.CartesianMarker
-import com.patrykandpatrick.vico.multiplatform.cartesian.marker.CartesianMarkerController
-import com.patrykandpatrick.vico.multiplatform.cartesian.marker.DefaultCartesianMarker
-import com.patrykandpatrick.vico.multiplatform.cartesian.marker.Interaction
-import com.patrykandpatrick.vico.multiplatform.cartesian.marker.LineCartesianLayerMarkerTarget
-import com.patrykandpatrick.vico.multiplatform.cartesian.marker.rememberDefaultCartesianMarker
-import com.patrykandpatrick.vico.multiplatform.common.Fill
-import com.patrykandpatrick.vico.multiplatform.common.Insets
-import com.patrykandpatrick.vico.multiplatform.common.Point
-import com.patrykandpatrick.vico.multiplatform.common.component.rememberLineComponent
-import com.patrykandpatrick.vico.multiplatform.common.component.rememberShapeComponent
-import com.patrykandpatrick.vico.multiplatform.common.component.rememberTextComponent
-import kotlin.math.abs
+import com.patrykandpatrick.vico.multiplatform.cartesian.CartesianDrawingContext
+import com.patrykandpatrick.vico.multiplatform.cartesian.decoration.Decoration
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+
+/** A decoration that draws nothing and keeps where its chart's layer was last drawn, for the chart's [ChartReadout]. */
+@Stable
+internal class ChartFrame : Decoration {
+    var frame: AreaFrame? = null
+        private set
+
+    override fun drawOverLayers(context: CartesianDrawingContext) {
+        frame = context.areaFrame()
+    }
+}
 
 /**
- * A readout of the point nearest the pointer: a dot on the line, a guideline down to the axis, and [text] for its x and y in a bubble above
- * it. Show it with [rememberScrubController].
+ * A readout of the point of [points] nearest the pointer, which [StaticChart] draws over its chart: a guideline down the chart, a dot on
+ * the line and on each of [others] with a point there, and [text] for the point's x and y in a bubble above it. Points are as plotted, on
+ * the start axis's [yRange], and [frame] must be one of the chart's decorations.
+ */
+@Immutable
+internal class ChartReadout(
+    val frame: ChartFrame,
+    val points: ImmutableList<SeriesPoint>,
+    val yRange: ClosedFloatingPointRange<Double>,
+    val others: ImmutableList<ImmutableList<SeriesPoint>> = persistentListOf(),
+    val text: (x: Double, y: Double) -> String,
+)
+
+/**
+ * [readout] in a layer of its own over its chart, shown as [ScrubGesture] decides. Moving it redraws only this layer: Vico redraws the
+ * whole chart, through full-canvas software bitmaps, each time its own marker moves.
  */
 @Composable
-internal fun rememberValueMarker(text: (x: Double, y: Double) -> String): CartesianMarker {
-    val currentText by rememberUpdatedState(text)
+internal fun ReadoutOverlay(readout: ChartReadout, modifier: Modifier = Modifier) {
+    val current by rememberUpdatedState(readout)
     val colors = MaterialTheme.colorScheme
-    val label =
-        rememberTextComponent(
-            style = MaterialTheme.typography.labelMedium.copy(color = colors.inverseOnSurface),
-            padding = remember { Insets(horizontal = 8.dp, vertical = 4.dp) },
-            background = rememberShapeComponent(Fill(colors.inverseSurface), RoundedCornerShape(6.dp)),
-        )
-    val dot = rememberShapeComponent(Fill(colors.primary), CircleShape, strokeFill = Fill(colors.surface), strokeThickness = 2.dp)
-    val guideline = rememberLineComponent(Fill(colors.onSurfaceVariant.copy(alpha = GUIDELINE_ALPHA)), thickness = 1.dp)
-    val formatter = remember {
-        DefaultCartesianMarker.ValueFormatter { _, targets ->
-            val target = targets.firstOrNull() as? LineCartesianLayerMarkerTarget
-            target?.points?.firstOrNull()?.let { currentText(target.x, it.entry.y) }.orEmpty()
-        }
-    }
-    return rememberDefaultCartesianMarker(
-        label = label,
-        valueFormatter = formatter,
-        labelPosition = DefaultCartesianMarker.LabelPosition.AroundPoint,
-        indicator = remember(dot) { { _ -> dot } },
-        indicatorSize = 10.dp,
-        guideline = guideline,
+    val style = MaterialTheme.typography.labelMedium.copy(color = colors.inverseOnSurface)
+    val measurer = rememberTextMeasurer()
+    val slop = LocalViewConfiguration.current.touchSlop
+    val gesture = remember(slop) { ScrubGesture(slop / 2) }
+    // The pointer's x as a value, NaN while hidden. Only drawing reads it, so a move redraws this layer and nothing else.
+    val pointerX = remember { mutableDoubleStateOf(Double.NaN) }
+    Spacer(
+        modifier
+            .graphicsLayer {}
+            .pointerInput(gesture) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val pointerEvent = awaitPointerEvent()
+                        val change = pointerEvent.changes.first()
+                        val event = scrubEvent(pointerEvent.type, change.position, pointerEvent.changes.size, size) ?: continue
+                        val shows = gesture.shows(event)
+                        val frame = current.frame.frame
+                        pointerX.doubleValue = if (shows && frame != null) frame.valueAt(change.position.x) else Double.NaN
+                    }
+                }
+            }
+            .drawBehind {
+                val x = pointerX.doubleValue
+                val frame = current.frame.frame
+                if (x.isNaN() || frame == null || current.points.isEmpty()) return@drawBehind
+                val point = current.points[nearestIndex(current.points, x)]
+                val dots = readoutDots(point, current.others, frame, current.yRange)
+                val bounds = frame.bounds
+                val lineX = dots.first().x
+                drawLine(
+                    colors.onSurfaceVariant.copy(alpha = GUIDELINE_ALPHA),
+                    Offset(lineX, bounds.top),
+                    Offset(lineX, bounds.bottom),
+                    strokeWidth = 1.dp.toPx(),
+                )
+                val radius = DOT_SIZE.toPx() / 2
+                dots.forEach { dot ->
+                    drawCircle(colors.surface, radius, dot)
+                    drawCircle(colors.primary, radius - DOT_RING.toPx(), dot)
+                }
+                val padX = LABEL_PADDING_X.toPx()
+                val padY = LABEL_PADDING_Y.toPx()
+                val text =
+                    measurer.measure(
+                        current.text(point.x, point.y),
+                        style,
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1,
+                        constraints = Constraints(maxWidth = (bounds.width - 2 * padX).toInt().coerceAtLeast(0)),
+                    )
+                val labelSize = Size(text.size.width + 2 * padX, text.size.height + 2 * padY)
+                val topLeft = labelTopLeft(dots, labelSize, bounds)
+                drawRoundRect(colors.inverseSurface, topLeft, labelSize, CornerRadius(LABEL_CORNER.toPx()))
+                drawText(text, topLeft = topLeft + Offset(padX, padY))
+            }
     )
 }
 
-/**
- * Shows the marker while the mouse hovers over the chart, and where a finger taps or drags across it; it stays put after a tap or drag so
- * the value can be read. A drag that starts mostly vertical is the page scrolling, so it hides the marker instead.
- */
-@Composable
-internal fun rememberScrubController(): CartesianMarkerController {
-    val slop = LocalViewConfiguration.current.touchSlop
-    return remember(slop) { ScrubController(slop / 2) }
-}
-
-private class ScrubController(private val slop: Float) : CartesianMarkerController {
-    private var pressedAt: Point? = null
-    private var scrolling = false
-
-    override val acceptsLongPress = false
-
-    override fun shouldAcceptInteraction(interaction: Interaction, targets: List<CartesianMarker.Target>) =
-        interaction !is Interaction.Zoom && interaction !is Interaction.LongPress
-
-    override fun shouldShowMarker(interaction: Interaction, targets: List<CartesianMarker.Target>): Boolean =
-        when (interaction) {
-            is Interaction.Press -> {
-                pressedAt = interaction.point
-                scrolling = false
-                true
-            }
-            is Interaction.Move -> {
-                // The list scrolls the chart along with the finger once past the touch slop, so only the first few pixels tell.
-                pressedAt?.let { start ->
-                    val dx = abs(interaction.point.x - start.x)
-                    val dy = abs(interaction.point.y - start.y)
-                    if (!scrolling && dy > slop && dy > dx) scrolling = true
-                }
-                !scrolling
-            }
-            is Interaction.Release -> {
-                pressedAt = null
-                !scrolling
-            }
-            is Interaction.Tap,
-            is Interaction.Enter -> !scrolling
-            is Interaction.Exit -> interaction.isInBounds
-            else -> false
-        }
-}
+/** [type] as [ScrubGesture] reads it, or null for events it ignores. A second finger ends the gesture, as it does for Vico's marker. */
+private fun scrubEvent(type: PointerEventType, at: Offset, pointers: Int, size: IntSize): ScrubEvent? =
+    when (type) {
+        PointerEventType.Press -> if (pointers == 1) ScrubEvent.Press(at) else ScrubEvent.Release
+        PointerEventType.Release -> ScrubEvent.Release
+        PointerEventType.Move -> ScrubEvent.Move(at)
+        PointerEventType.Enter -> ScrubEvent.Enter
+        PointerEventType.Exit -> ScrubEvent.Exit(at.x in 0f..size.width.toFloat() && at.y in 0f..size.height.toFloat())
+        else -> null
+    }
 
 private const val GUIDELINE_ALPHA = 0.5f
+private val DOT_SIZE = 10.dp
+private val DOT_RING = 2.dp
+private val LABEL_PADDING_X = 8.dp
+private val LABEL_PADDING_Y = 4.dp
+private val LABEL_CORNER = 6.dp

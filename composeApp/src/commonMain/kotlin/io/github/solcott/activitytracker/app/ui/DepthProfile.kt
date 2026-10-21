@@ -1,7 +1,9 @@
 package io.github.solcott.activitytracker.app.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.Dp
@@ -17,11 +19,12 @@ import com.patrykandpatrick.vico.multiplatform.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.multiplatform.common.Fill
 import com.patrykandpatrick.vico.multiplatform.common.component.rememberLineComponent
 import io.github.solcott.activitytracker.app.record.DepthPreviewPoint
+import io.github.solcott.activitytracker.app.ui.chart.ChartFrame
+import io.github.solcott.activitytracker.app.ui.chart.ChartReadout
+import io.github.solcott.activitytracker.app.ui.chart.SeriesPoint
 import io.github.solcott.activitytracker.app.ui.chart.StaticChart
 import io.github.solcott.activitytracker.app.ui.chart.WholeRangeXStep
 import io.github.solcott.activitytracker.app.ui.chart.chartColors
-import io.github.solcott.activitytracker.app.ui.chart.rememberScrubController
-import io.github.solcott.activitytracker.app.ui.chart.rememberValueMarker
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.chart_marker
 import io.github.solcott.activitytracker.composeApp.resources.unit_elevation_ft
@@ -31,6 +34,7 @@ import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.formatDecimal
 import kotlin.math.roundToLong
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -57,18 +61,24 @@ fun DepthProfile(profile: ImmutableList<DepthPreviewPoint>, description: String,
             areaFill = remember(colors) { LineCartesianLayer.AreaFill.single(Fill(colors.area)) },
         )
     val surface = rememberLineComponent(Fill(colors.baseline), thickness = 1.dp)
+    val frame = remember { ChartFrame() }
+    val label by rememberUpdatedState(rememberDepthLabel())
+    val readout =
+        remember(profile, deepest, frame) {
+            val first = profile.first().seconds
+            val points = profile.map { SeriesPoint((it.seconds - first).toDouble(), -it.depthMeters) }.toImmutableList()
+            ChartReadout(frame, points, -deepest..0.0) { x, y -> label(x, y) }
+        }
     val chart =
         rememberCartesianChart(
             rememberLineCartesianLayer(
                 LineCartesianLayer.LineProvider.series(line),
                 rangeProvider = remember(deepest) { CartesianLayerRangeProvider.fixed(minY = -deepest, maxY = 0.0) },
             ),
-            decorations = remember(surface) { listOf(HorizontalLine(y = { 0.0 }, line = surface)) },
+            decorations = remember(surface, frame) { listOf(HorizontalLine(y = { 0.0 }, line = surface), frame) },
             getXStep = WholeRangeXStep,
-            marker = rememberValueMarker(rememberDepthLabel()),
-            markerController = rememberScrubController(),
         )
-    StaticChart(chart, model, description, height, modifier)
+    StaticChart(chart, model, description, height, modifier, readout)
 }
 
 /** The marker's text for a point plotted at -depth: the time into the dive and the depth there. */

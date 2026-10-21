@@ -28,18 +28,8 @@ internal class AreaUnderlay(
 
     override fun drawUnderLayers(context: CartesianDrawingContext) {
         with(context) {
-            val frame =
-                AreaFrame(
-                    bounds = layerBounds,
-                    start = if (isLtr) layerBounds.left else layerBounds.right,
-                    direction = layoutDirectionMultiplier,
-                    minX = ranges.minX,
-                    xStep = ranges.xStep,
-                    xSpacing = layerDimensions.xSpacing.toDouble(),
-                    startPadding = layerDimensions.startPadding.toDouble(),
-                    scroll = scroll.toDouble(),
-                )
-            // A static chart's frame changes only on a resize, so scrubbing repaints the same path.
+            val frame = areaFrame()
+            // A static chart's frame changes only on a resize, so a redraw repaints the same path.
             if (frame != drawnIn) {
                 path.rewind()
                 areaOutline(points, frame, minY..maxY, fromTop, step).forEachIndexed { i, at ->
@@ -68,7 +58,29 @@ internal data class AreaFrame(
     val scroll: Double,
 ) {
     fun x(value: Double): Float = start + direction * ((value - minX) / xStep * xSpacing + startPadding - scroll).toFloat()
+
+    /** The x value drawn at [canvasX]: the inverse of [x]. */
+    fun valueAt(canvasX: Float): Double = minX + ((canvasX - start) * direction - startPadding + scroll) / xSpacing * xStep
+
+    /** [value] on a scale with [range]'s start at the layer's bottom and its end at the top, clamped to the layer. */
+    fun y(value: Double, range: ClosedFloatingPointRange<Double>): Float {
+        val span = (range.endInclusive - range.start).takeIf { it > 0 } ?: 1.0
+        return (bounds.bottom - (value - range.start) / span * bounds.height).toFloat().coerceIn(bounds.top, bounds.bottom)
+    }
 }
+
+/** Where this chart's layer sits and how it places x, as Vico's line layers place their points. */
+internal fun CartesianDrawingContext.areaFrame() =
+    AreaFrame(
+        bounds = layerBounds,
+        start = if (isLtr) layerBounds.left else layerBounds.right,
+        direction = layoutDirectionMultiplier,
+        minX = ranges.minX,
+        xStep = ranges.xStep,
+        xSpacing = layerDimensions.xSpacing.toDouble(),
+        startPadding = layerDimensions.startPadding.toDouble(),
+        scroll = scroll.toDouble(),
+    )
 
 /**
  * The outline of [points]' fill in [frame], [yRange] mapped onto its height and clamped to it: from the baseline (the bottom, or the top
@@ -84,10 +96,8 @@ internal fun areaOutline(
     step: Boolean,
 ): List<Offset> {
     if (points.isEmpty()) return emptyList()
-    val bounds = frame.bounds
-    val span = (yRange.endInclusive - yRange.start).takeIf { it > 0 } ?: 1.0
-    fun y(value: Double) = (bounds.bottom - (value - yRange.start) / span * bounds.height).toFloat().coerceIn(bounds.top, bounds.bottom)
-    val baseline = if (fromTop) bounds.top else bounds.bottom
+    fun y(value: Double) = frame.y(value, yRange)
+    val baseline = if (fromTop) frame.bounds.top else frame.bounds.bottom
     val outline = ArrayList<Offset>(points.size * 2 + 2)
     var previous = Offset(frame.x(points.first().x), y(points.first().y))
     outline += Offset(previous.x, baseline)
