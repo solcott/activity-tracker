@@ -95,3 +95,13 @@ Choices made while implementing the change that its tasks didn't settle. Each on
 - **Logbook notes are dropped.** A single file's notes start the import screen's description, but in a logbook batch they're dropped rather than published, because the athlete never sees them before publishing. To keep them, show each dive's notes in the batch list or let the athlete edit them there.
 - **Training load rides on `getActivityStreams`.** The AppView serves the zones record's training load as a new `trainingLoad` field on the `getActivityStreams` output (only to viewers the zones record admits), which the change's tasks didn't name. The lexicon has it; add it to the change's spec, or move it to its own query if zones get one.
 - **Gas-switch markers are on the detail depth chart only.** They're drawn on the activity page's depth chart; the import screen's preview (`ui/DepthProfile.kt`, which task 7.1 named) has none. Add them there if the preview should show switches before publishing.
+
+## Automated content moderation
+
+Reports, labels and takedown come first (`content-moderation`), with a self-hosted Ozone as the labeler. Then the AppView classifies content as it indexes it and emits labels through Ozone, so moderators see a queue instead of only what users report.
+
+- **Images.** Classify each photo and avatar once per CID, because blobs are content-addressed. Map results to the labels clients already act on (`porn`, `nudity`, `graphic-media`, `!hide`).
+- **Text.** Classify activity titles and descriptions, comments, profile bios and display names for spam, harassment and slurs.
+- **Provider.** A hosted classifier (Hive, AWS Rekognition, Google SafeSearch) or an LLM moderation call. Compare cost per item, latency and how well each handles sport photos (swimwear, injuries).
+- **Private content.** Non-public activities live in tier spaces only the AppView reads, so the AppView must send that content to the classifier itself. Pick a provider that doesn't keep or train on it.
+- **Video.** Once `feed.activity#media` gains `#video` (see "Videos on activities"), classify sampled frames and the thumbnail.
