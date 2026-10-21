@@ -25,6 +25,8 @@ Prefer `scripts/dev.sh [--seed <name>]` (run it in the background on a cold star
 
 `docker/scripts/create-account.sh <name>` creates `<name>.test` and writes a profile record. The password is `TEST_ACCOUNT_PASSWORD` in `docker/.env`; don't echo it into chat. Re-running for an existing name fails with a PDS "handle taken" error, which is harmless.
 
+Segments: there's no way to create one in the app yet, so `docker/scripts/seed-segment.sh <name> "<segment name>" <ride|run|hike|ski|paddle> <file.gpx> [startIndex endIndex]` writes a `feed.segment` to `<name>.test`'s repo from a GPX's track points (the whole track, or the points between the two indices), and prints its URI. With the AppView running, `curl -s "localhost:8081/xrpc/app.activitytracker.feed.getSegment?uri=<uri>"` returns it. An athlete's activities are matched against it only while their segment matching is on (Settings), and only once the AppView has a signing key, since the matcher reads segment tracks from their `self` space.
+
 ## check (smoke test, stop at the first failing stage)
 
 ```bash

@@ -1,7 +1,10 @@
 package io.github.solcott.activitytracker.appview.index
 
+import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
+import io.github.solcott.activitytracker.appview.db.SegmentTrackCells
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
+import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
@@ -10,24 +13,34 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentPrefsRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackRecord
 import kotlinx.serialization.json.JsonObject
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.upsert
 
 private const val MAX_REVISION_LENGTH = 32
 
-/** A put of a segment track or the segment matching setting, from [author]'s `self` space. */
-internal fun JdbcTransaction.upsertSegments(collection: String, json: JsonObject, author: Did, uri: AtUri, now: Long) {
+/**
+ * A put of a segment track or the segment matching setting, from [author]'s `self` space. Each queues the tracks it makes matchable; the
+ * matcher itself checks the setting ([usableSegmentTracks][io.github.solcott.activitytracker.appview.db.usableSegmentTracks]).
+ */
+@Suppress("LongParameterList") // The record, where it's from, and the queue.
+internal fun JdbcTransaction.upsertSegments(collection: String, json: JsonObject, author: Did, uri: AtUri, jobs: SegmentJobs, now: Long) {
     if (collection == Nsid.FEED_SEGMENT_TRACK) {
         upsertSegmentTrack(AtJson.decodeFromJsonElement(SegmentTrackRecord.serializer(), json), author, uri, now)
+        jobs.enqueueTrack(uri.value, now)
     } else {
-        upsertSegmentPrefs(AtJson.decodeFromJsonElement(SegmentPrefsRecord.serializer(), json), author, uri)
+        val record = AtJson.decodeFromJsonElement(SegmentPrefsRecord.serializer(), json)
+        upsertSegmentPrefs(record, author, uri)
+        // Tracks stored while matching was off are matched once it's on.
+        if (record.matching) trackUris(author).forEach { jobs.enqueueTrack(it, now) }
     }
 }
 
-/** A delete of a segment track, or of the setting, which counts as matching off. */
+/** A delete of a segment track, with its cells and efforts, or of the setting, which counts as matching off. */
 internal fun JdbcTransaction.deleteSegments(collection: String, uri: AtUri) {
-    if (collection == Nsid.FEED_SEGMENT_TRACK) SegmentTracks.deleteWhere { SegmentTracks.uri eq uri.value }
+    if (collection == Nsid.FEED_SEGMENT_TRACK) dropTracks(listOf(uri.value))
     else if (uri.rkey == SegmentPrefsRecord.RKEY) deleteSegmentPrefs(Did(uri.authority))
 }
 
@@ -67,7 +80,18 @@ internal fun JdbcTransaction.deleteSegmentPrefs(author: Did) {
     dropSegmentTracks(author)
 }
 
-/** Everything held from [author]'s segment tracks. */
+/** Everything held from [author]'s segment tracks: the tracks, their cells and every effort matched from them. */
 internal fun JdbcTransaction.dropSegmentTracks(author: Did) {
-    SegmentTracks.deleteWhere { authorDid eq author.value }
+    SegmentEfforts.deleteWhere { authorDid eq author.value }
+    dropTracks(trackUris(author))
+}
+
+private fun JdbcTransaction.trackUris(author: Did): List<String> =
+    SegmentTracks.select(SegmentTracks.uri).where { SegmentTracks.authorDid eq author.value }.map { it[SegmentTracks.uri] }
+
+private fun JdbcTransaction.dropTracks(uris: List<String>) {
+    if (uris.isEmpty()) return
+    SegmentEfforts.deleteWhere { trackUri inList uris }
+    SegmentTrackCells.deleteWhere { trackUri inList uris }
+    SegmentTracks.deleteWhere { SegmentTracks.uri inList uris }
 }

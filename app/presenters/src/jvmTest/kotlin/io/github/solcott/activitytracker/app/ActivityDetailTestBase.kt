@@ -33,6 +33,7 @@ import io.github.solcott.activitytracker.data.feed.fakeGetComments
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.UnitsRepository
@@ -120,6 +121,9 @@ open class ActivityDetailTestBase {
     /** Every request answers InternalServerError while set. */
     protected var offline = false
 
+    /** The `getActivitySegments` efforts the AppView answers with, as JSON; null to fail. */
+    protected var segmentsFromAppView: String? = "[]"
+
     /** `getActivityStreams` requests so far. */
     protected var streamsRequests = 0
 
@@ -198,6 +202,11 @@ open class ActivityDetailTestBase {
                         streamsGate?.await()
                         streams?.let { respond(it, headers = json) }
                             ?: respond("""{"error":"NotFound","message":"none"}""", HttpStatusCode.NotFound, json)
+                    }
+
+                    "/xrpc/${Nsid.FEED_GET_ACTIVITY_SEGMENTS}" -> {
+                        segmentsFromAppView?.let { respond("""{"efforts":$it}""", headers = json) }
+                            ?: respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
                     }
 
                     "/xrpc/${Nsid.FEED_GET_LIKES}" -> {
@@ -297,6 +306,7 @@ open class ActivityDetailTestBase {
         val suggestions: CombineSuggestions,
         val blocks: BlockRepository,
         val reports: ReportRepository,
+        val segments: SegmentRepository,
     )
 
     @Suppress("LongMethod") // Wires every store a test reaches for.
@@ -360,6 +370,7 @@ open class ActivityDetailTestBase {
             CombineSuggestions(db, clients, feed, tracks, Clock.System),
             BlockRepository(clients, writer, outbox, feed, Clock.System),
             ReportRepository(clients),
+            SegmentRepository(clients),
         )
     }
 
@@ -397,6 +408,7 @@ open class ActivityDetailTestBase {
                     r.suggestions,
                     r.blocks,
                     r.reports,
+                    r.segments,
                 )
             },
             block = block,

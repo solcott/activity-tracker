@@ -1,0 +1,28 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.getSegment",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "A segment, with the signed-in viewer's own fastest effort on it.",
+      "parameters": {
+        "type": "params",
+        "required": ["uri"],
+        "properties": {
+          "uri": { "type": "string", "format": "at-uri" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["segment"],
+          "properties": {
+            "segment": { "type": "ref", "ref": "app.activitytracker.feed.defs#segmentView" }
+          }
+        }
+      },
+      "errors": [{ "name": "NotFound", "description": "The segment isn't indexed, or isn't served: its account is suspended or taken down, or the record is." }]
+    }
+  }
+}

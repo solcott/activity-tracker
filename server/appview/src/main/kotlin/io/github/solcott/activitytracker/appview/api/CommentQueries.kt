@@ -132,7 +132,7 @@ internal fun JdbcTransaction.commentViews(rows: List<ResultRow>, athlete: String
 }
 
 /** atproto's handle for an account whose handle can't be resolved. */
-private const val UNKNOWN_HANDLE = "handle.invalid"
+internal const val UNKNOWN_HANDLE = "handle.invalid"
 
 /** A comment row's place in a keyset on (created_at, uri). */
 internal fun commentCursor(row: ResultRow): String = "${row[Comments.createdAt]}::${row[Comments.uri]}"

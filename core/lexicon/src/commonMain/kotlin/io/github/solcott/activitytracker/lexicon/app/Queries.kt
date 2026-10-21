@@ -261,6 +261,55 @@ object SearchActors {
     val method = XrpcQuery(Nsid.ACTOR_SEARCH_ACTORS, Params.serializer(), Output.serializer())
 }
 
+/** A segment, with the signed-in viewer's own fastest effort on it. `NotFound` when it isn't indexed. */
+object GetSegment {
+    @Serializable data class Params(val uri: AtUri)
+
+    @Serializable data class Output(val segment: SegmentView)
+
+    val method = XrpcQuery(Nsid.FEED_GET_SEGMENT, Params.serializer(), Output.serializer())
+}
+
+/** Segments whose line passes through a box (1e-7 degrees), at most [MAX_SPAN_E7] on either side, else `InvalidRequest`. */
+object SearchSegments {
+    @Serializable
+    data class Params(
+        val minLat: Int,
+        val minLng: Int,
+        val maxLat: Int,
+        val maxLng: Int,
+        /** Only this [SegmentSportGroup]. */
+        val sport: String? = null,
+        val limit: Int? = null,
+        val cursor: String? = null,
+    )
+
+    @Serializable data class Output(val segments: List<SegmentView>, val cursor: String? = null)
+
+    /** One degree, in 1e-7 degrees. */
+    const val MAX_SPAN_E7 = 10_000_000
+
+    val method = XrpcQuery(Nsid.FEED_SEARCH_SEGMENTS, Params.serializer(), Output.serializer())
+}
+
+/** The efforts on an activity the viewer may see, in the order they began; unpaged. `NotFound` when the viewer may not see the activity. */
+object GetActivitySegments {
+    @Serializable data class Params(val activity: AtUri)
+
+    @Serializable data class Output(val efforts: List<EffortView>)
+
+    val method = XrpcQuery(Nsid.FEED_GET_ACTIVITY_SEGMENTS, Params.serializer(), Output.serializer())
+}
+
+/** One athlete's efforts on a segment the viewer may see, fastest first. `NotFound` when the segment isn't indexed. */
+object GetSegmentEfforts {
+    @Serializable data class Params(val segment: AtUri, val actor: String, val limit: Int? = null, val cursor: String? = null)
+
+    @Serializable data class Output(val efforts: List<EffortView>, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.FEED_GET_SEGMENT_EFFORTS, Params.serializer(), Output.serializer())
+}
+
 /** Page size bounds shared by every paginated query. */
 object Paging {
     const val DEFAULT_LIMIT = 30

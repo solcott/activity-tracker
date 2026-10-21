@@ -51,6 +51,8 @@ dependencies {
     // Not used by a route yet: keeps the FIT parser proven on the server classpath for when the AppView reads activity files.
     implementation(projects.coreActivityfile)
     implementation(projects.coreAtproto)
+    // Segment geometry and cells (SegmentGeometry, SegmentCells), shared with clients.
+    implementation(projects.coreLocation)
     implementation(libs.bouncycastle)
     implementation(libs.exposed.core)
     implementation(libs.exposed.jdbc)

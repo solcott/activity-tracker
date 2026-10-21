@@ -486,6 +486,46 @@ data class SegmentTrackPiece(
     val alt: List<Int?>? = null,
 )
 
+/** Known values of [SegmentRecord.sport]: the sport groups an activity can match a segment in ([SegmentSport]). An open string. */
+object SegmentSportGroup {
+    const val RIDE = "ride"
+    const val RUN = "run"
+    const val HIKE = "hike"
+    const val SKI = "ski"
+    const val PADDLE = "paddle"
+
+    val all = listOf(RIDE, RUN, HIKE, SKI, PADDLE)
+}
+
+/** Known values of [SegmentRecord.source]; an open string. */
+object SegmentSource {
+    const val ATHLETE = "athlete"
+    const val OSM = "osm"
+    const val AGENCY = "agency"
+}
+
+/**
+ * `app.activitytracker.feed.segment`: a named, public stretch of route for one sport group. Stored only in its creator's repo; the AppView
+ * computes its length from [line] and indexes it only when that's 200 m to 50 km.
+ */
+@Serializable
+data class SegmentRecord(
+    /** At most 100 graphemes, not empty once trimmed. */
+    val name: String,
+    /** A [SegmentSportGroup] value. */
+    val sport: String,
+    /** The line from start to end as an encoded polyline at precision 6 (1e-6 degrees), at least two positions. */
+    val line: String,
+    /** A [SegmentSource] value. */
+    val source: String,
+    /** The data's licence, as an SPDX identifier such as `CC0-1.0`. */
+    val license: String,
+    val createdAt: Instant,
+    /** The activity the line was traced from, if any. */
+    val derivedFrom: StrongRef? = null,
+    @SerialName($$"$type") val type: String = Nsid.FEED_SEGMENT,
+)
+
 /**
  * `app.activitytracker.actor.segmentPrefs`: whether the athlete's segment matching is on. It lives only in their [AthleteSpace.SELF] space;
  * no record means they were never asked, and matching is off.

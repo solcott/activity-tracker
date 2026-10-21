@@ -1,0 +1,65 @@
+package io.github.solcott.activitytracker.app.segment
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.slack.circuit.codegen.annotations.CircuitInject
+import com.slack.circuit.runtime.Navigator
+import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.segments.SegmentRepository
+import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.app.EffortView
+import io.github.solcott.activitytracker.lexicon.app.SegmentView
+import io.github.solcott.activitytracker.location.SegmentGeometry
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
+
+@CircuitInject(SegmentScreen::class, SessionScope::class)
+@Composable
+fun SegmentPresenter(screen: SegmentScreen, navigator: Navigator, segments: SegmentRepository): SegmentState {
+    val uri = AtUri(screen.uri)
+    var segment by remember { mutableStateOf<SegmentView?>(null) }
+    var polyline by remember { mutableStateOf<String?>(null) }
+    var efforts by remember { mutableStateOf<ImmutableList<EffortView>>(persistentListOf()) }
+    var error by remember { mutableStateOf<UiError?>(null) }
+    var loadKey by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(loadKey) {
+        error = null
+        runSuspendCatching { segments.segment(uri) }
+            .onSuccess { loaded ->
+                polyline = mapLine(loaded.record.line)
+                segment = loaded
+            }
+            .onFailure { error = UiError.of(UiError.Kind.LoadSegment, it) }
+    }
+    // The viewer's own efforts are extra: the segment shows without them when they fail to load.
+    LaunchedEffect(loadKey) {
+        runSuspendCatching { segments.efforts(uri) }.onSuccess { efforts = it.efforts.sortedBy { e -> e.elapsed }.toImmutableList() }
+    }
+
+    return SegmentState(
+        segment = segment,
+        polyline = polyline,
+        efforts = efforts,
+        isLoading = segment == null && error == null,
+        error = error,
+    ) { event ->
+        when (event) {
+            SegmentEvent.Back -> navigator.pop()
+            SegmentEvent.Retry -> loadKey++
+            is SegmentEvent.OpenActivity -> navigator.goTo(ActivityDetailScreen(event.uri.value))
+        }
+    }
+}
+
+/** A segment's precision-6 [line] at precision 5, for the maps; null when it doesn't decode. */
+private fun mapLine(line: String): String? = SegmentGeometry.decodePolyline(line)?.let(SegmentGeometry::toPrecision5)

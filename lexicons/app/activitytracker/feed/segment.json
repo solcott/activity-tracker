@@ -1,0 +1,38 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.segment",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A named, public stretch of route for one sport group, which consenting athletes' activities are matched against (app.activitytracker.feed.getActivitySegments). Public: stored only in its creator's repo, never in a space. The AppView computes its length from line, indexes it only when that is 200 m to 50 km, and ignores a copy found in any space.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["name", "sport", "line", "source", "license", "createdAt"],
+        "properties": {
+          "name": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "Not empty once trimmed." },
+          "sport": {
+            "type": "string",
+            "maxLength": 64,
+            "knownValues": ["ride", "run", "hike", "ski", "paddle"],
+            "description": "The sport group whose activities can match it. A segment whose group the AppView doesn't know isn't indexed."
+          },
+          "line": {
+            "type": "string",
+            "maxLength": 100000,
+            "description": "The segment from start to end as an encoded polyline at precision 6 (1e-6 degrees), at least two positions."
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 64,
+            "knownValues": ["athlete", "osm", "agency"],
+            "description": "Where the line came from: an athlete's activity, OpenStreetMap or a public agency's dataset."
+          },
+          "license": { "type": "string", "maxLength": 64, "description": "The licence of the line's data, as an SPDX identifier such as CC0-1.0 or ODbL-1.0." },
+          "derivedFrom": { "type": "ref", "ref": "com.atproto.repo.strongRef", "description": "The activity the line was traced from, if any." },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

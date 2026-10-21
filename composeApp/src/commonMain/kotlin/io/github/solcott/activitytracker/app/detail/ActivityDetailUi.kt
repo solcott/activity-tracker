@@ -212,6 +212,7 @@ private fun ColumnPage(state: ActivityDetailState.Loaded, contentPadding: Paddin
             item(key = "likes") { Likes(state) }
             item(key = "trainingLoad") { TrainingLoadCard(page.trainingLoad) }
             metricCards(state, columns = if (medium) 2 else 1)
+            segments(state)
             item(key = "stats") { StatsList(page.stats, columns = if (medium) 2 else 1) }
             comments(state)
         }
@@ -257,6 +258,7 @@ private fun PanedPage(state: ActivityDetailState.Loaded, contentPadding: Padding
                 verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
             ) {
                 metricCards(state, columns)
+                segments(state)
             }
             AppVerticalScrollbar(cardsState, Modifier.align(Alignment.CenterEnd).padding(contentPadding).fillMaxHeight())
         }

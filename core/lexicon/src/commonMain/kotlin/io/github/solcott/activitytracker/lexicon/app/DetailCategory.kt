@@ -379,6 +379,18 @@ object DetailCategory {
         )
     }
 
+    /**
+     * As [currentTiers], from the channels of each streams part (its tier and channel tokens), as the AppView indexes them. A category in a
+     * part only by its lap and leg fields isn't seen here.
+     */
+    fun currentTiersOfChannels(
+        activity: String,
+        record: ActivityRecord,
+        details: List<DetailsView>,
+        parts: List<Pair<String, List<String>>>,
+    ): Map<String, String> =
+        currentTiersOf(activity, record, details, parts.map { (tier, channels) -> tier to channels.mapNotNull { ofChannel(it) }.toSet() })
+
     private fun currentTiersOf(
         activity: String,
         record: ActivityRecord,

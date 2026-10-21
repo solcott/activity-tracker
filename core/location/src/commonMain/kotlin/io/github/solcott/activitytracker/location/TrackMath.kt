@@ -18,6 +18,7 @@ object TrackMath {
     private const val CHUNK_MASK = 0x1f
     private const val CONTINUATION_BIT = 0x20
     private const val ASCII_OFFSET = 63
+    private const val MAX_CHUNK = CONTINUATION_BIT or CHUNK_MASK
 
     fun distanceMeters(a: LocationSample, b: LocationSample): Double = distanceMeters(a.latitude, a.longitude, b.latitude, b.longitude)
 
@@ -81,12 +82,18 @@ object TrackMath {
     }
 
     /** Google encoded polyline, precision 5. */
-    fun encodePolyline(points: List<LocationSample>): String = buildString {
+    fun encodePolyline(points: List<LocationSample>): String = encodePolyline(points.map { it.latitude to it.longitude }, POLYLINE_SCALE)
+
+    fun decodePolyline(encoded: String): List<Pair<Double, Double>> =
+        checkNotNull(decodePolyline(encoded, POLYLINE_SCALE)) { "malformed polyline" }
+
+    /** An encoded polyline of lat/lon pairs at [scale] (1e5 for precision 5, 1e6 for 6). */
+    internal fun encodePolyline(points: List<Pair<Double, Double>>, scale: Double): String = buildString {
         var lastLat = 0L
         var lastLon = 0L
-        for (p in points) {
-            val lat = (p.latitude * POLYLINE_SCALE).roundToLong()
-            val lon = (p.longitude * POLYLINE_SCALE).roundToLong()
+        for ((latitude, longitude) in points) {
+            val lat = (latitude * scale).roundToLong()
+            val lon = (longitude * scale).roundToLong()
             encodeValue(lat - lastLat)
             encodeValue(lon - lastLon)
             lastLat = lat
@@ -94,7 +101,9 @@ object TrackMath {
         }
     }
 
-    fun decodePolyline(encoded: String): List<Pair<Double, Double>> {
+    /** [encoded]'s lat/lon pairs at [scale], or null when it's malformed: cut off mid-value, or with a character outside the format. */
+    internal fun decodePolyline(encoded: String, scale: Double): List<Pair<Double, Double>>? {
+        if (!wellFormed(encoded)) return null
         val result = mutableListOf<Pair<Double, Double>>()
         var index = 0
         var lat = 0L
@@ -114,9 +123,17 @@ object TrackMath {
         while (index < encoded.length) {
             lat += next()
             lon += next()
-            result += lat / POLYLINE_SCALE to lon / POLYLINE_SCALE
+            result += lat / scale to lon / scale
         }
         return result
+    }
+
+    /** Every character is a chunk of the format, and the chunks end a whole number of lat/lon pairs. */
+    private fun wellFormed(encoded: String): Boolean {
+        val chunks = encoded.map { it.code - ASCII_OFFSET }
+        return chunks.all { it in 0..MAX_CHUNK } &&
+            (chunks.isEmpty() || chunks.last() < CONTINUATION_BIT) &&
+            chunks.count { it < CONTINUATION_BIT } % 2 == 0
     }
 
     private fun StringBuilder.encodeValue(value: Long) {

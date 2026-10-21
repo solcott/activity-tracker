@@ -57,6 +57,7 @@ class RouteMapPresenterTest : ActivityDetailTestBase() {
                 r.suggestions,
                 r.blocks,
                 r.reports,
+                r.segments,
             )
         }) {
             awaitLoaded().eventSink(ActivityDetailEvent.OpenMap)
