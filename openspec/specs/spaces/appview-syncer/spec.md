@@ -91,19 +91,11 @@ A failure to sync one space, including a revoked or refused credential or a dele
 - **THEN** other spaces reconcile normally, and that space is retried later
 
 ### Requirement: Only activity data is indexed from spaces
-From tier spaces (`followers`, `mutuals`, `self`), the AppView SHALL index only `feed.activity`, `feed.activityDetails`, `feed.activityStreams` and `feed.activityZones` records, and from the `self` space also `feed.segmentTrack` and `actor.segmentPrefs` records. From `interactions` spaces it SHALL index only `feed.like`, `feed.comment`, `feed.commentHide`, `graph.block` and `graph.mute` records. It SHALL NOT store `actor.privateDetails`, `graph.followDecline`, `actor.activityDefaults`, `actor.privacyZones`, `actor.routeTrim`, `feed.activityTrack`, `feed.activitySource`, `feed.activityDevices` or `feed.segmentStar` records from any space.
-
-#### Scenario: Private details ignored
-- **WHEN** a synced space's ops include an `actor.privateDetails` write
-- **THEN** the AppView stores nothing from it
+From tier spaces (`followers`, `mutuals`, `self`), the AppView SHALL index only `feed.activity`, `feed.activityDetails`, `feed.activityStreams` and `feed.activityZones` records, and from the `self` space also `feed.segmentTrack` and `actor.segmentPrefs` records.
 
 #### Scenario: Zones indexed from a tier space
 - **WHEN** a synced `mutuals` space's ops include a `feed.activityZones` write
 - **THEN** the AppView indexes the zones at Mutuals
-
-#### Scenario: Zones in an interactions space ignored
-- **WHEN** a synced `interactions` space's ops include a `feed.activityZones` write
-- **THEN** the AppView indexes no zones from it
 
 #### Scenario: Like in a tier space ignored
 - **WHEN** a synced `followers` space's ops include a `feed.like` write
@@ -116,6 +108,25 @@ From tier spaces (`followers`, `mutuals`, `self`), the AppView SHALL index only 
 #### Scenario: Comment hide in a tier space ignored
 - **WHEN** a synced `followers` space's ops include a `feed.commentHide` write
 - **THEN** the AppView indexes no hide from it
+
+#### Scenario: Block in a tier space ignored
+- **WHEN** a synced `followers` space's ops include a `graph.block` or `graph.mute` write
+- **THEN** the AppView indexes no block or mute from it
+
+#### Scenario: Segment track indexed from self
+- **WHEN** a synced `self` space's ops include a `feed.segmentTrack` write
+- **THEN** the AppView indexes it as that athlete's segment track for the activity with its rkey
+
+#### Scenario: Segment track outside self ignored
+- **WHEN** a synced `followers` or `interactions` space's ops include a `feed.segmentTrack` or `actor.segmentPrefs` write
+- **THEN** the AppView indexes nothing from it
+
+### Requirement: Only interactions are indexed from interactions spaces
+From `interactions` spaces the AppView SHALL index only `feed.like`, `feed.comment`, `feed.commentHide`, `graph.block` and `graph.mute` records.
+
+#### Scenario: Zones in an interactions space ignored
+- **WHEN** a synced `interactions` space's ops include a `feed.activityZones` write
+- **THEN** the AppView indexes no zones from it
 
 #### Scenario: Activity in an interactions space ignored
 - **WHEN** a synced `interactions` space's ops include a `feed.activity` write
@@ -133,21 +144,16 @@ From tier spaces (`followers`, `mutuals`, `self`), the AppView SHALL index only 
 - **WHEN** a `graph.block` or `graph.mute` in an `interactions` space has an rkey other than its `subject`
 - **THEN** the AppView indexes nothing from it
 
-#### Scenario: Block in a tier space ignored
-- **WHEN** a synced `followers` space's ops include a `graph.block` or `graph.mute` write
-- **THEN** the AppView indexes no block or mute from it
-
 #### Scenario: Interactions space deleted
 - **WHEN** an athlete's `interactions` space is reported deleted
 - **THEN** every block and mute indexed from it is removed, and their Bluesky blocks still apply
 
-#### Scenario: Segment track indexed from self
-- **WHEN** a synced `self` space's ops include a `feed.segmentTrack` write
-- **THEN** the AppView indexes it as that athlete's segment track for the activity with its rkey
+### Requirement: Client-only records are never stored from spaces
+The AppView SHALL NOT store `actor.privateDetails`, `graph.followDecline`, `actor.activityDefaults`, `actor.privacyZones`, `actor.routeTrim`, `feed.activityTrack`, `feed.activitySource`, `feed.activityDevices` or `feed.segmentStar` records from any space.
 
-#### Scenario: Segment track outside self ignored
-- **WHEN** a synced `followers` or `interactions` space's ops include a `feed.segmentTrack` or `actor.segmentPrefs` write
-- **THEN** the AppView indexes nothing from it
+#### Scenario: Private details ignored
+- **WHEN** a synced space's ops include an `actor.privateDetails` write
+- **THEN** the AppView stores nothing from it
 
 #### Scenario: Full track still ignored
 - **WHEN** a synced `self` space's ops include a `feed.activityTrack` or `actor.privacyZones` write
