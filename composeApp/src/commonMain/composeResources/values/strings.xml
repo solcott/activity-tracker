@@ -1346,6 +1346,9 @@
     <string name="segment_your_efforts">Your efforts</string>
     <string name="segment_no_efforts">You have no efforts on this segment yet</string>
     <string name="segment_created_by">By %1$s</string>
+    <string name="segment_credit_osm">© OpenStreetMap contributors</string>
+    <string name="segment_credit_agency">From public agency trail data</string>
+    <string name="segment_credit_license">Data licence: %1$s</string>
     <string name="segment_sport_ride">Ride</string>
     <string name="segment_sport_run">Run</string>
     <string name="segment_sport_hike">Hike</string>
