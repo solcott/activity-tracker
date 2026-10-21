@@ -12,6 +12,8 @@ import io.github.solcott.activitytracker.data.training.Zone
 import io.github.solcott.activitytracker.data.training.ZoneKind
 import io.github.solcott.activitytracker.data.training.ZoneModel
 import io.github.solcott.activitytracker.lexicon.app.SportTraining
+import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 
@@ -23,24 +25,32 @@ import kotlinx.collections.immutable.ImmutableSet
 
 @Immutable
 data class TrainingZonesState(
-    /** The defaults, or null until loaded. */
-    val defaults: ZoneSummary?,
+    /** The athlete's zones, loaded (ui/content-loading); null until they first load. */
+    val content: ContentState<TrainingZones?> = ContentState(null),
+    /** A `Visibility` value for all the thresholds and zones together, set here rather than in each editor. */
+    val visibility: String = Visibility.SELF,
+    val savingVisibility: Boolean = false,
+    /** Why saving the visibility failed; loading failures are [content]'s. */
+    val error: UiError? = null,
+    val eventSink: (TrainingZonesEvent) -> Unit = {},
+) : CircuitUiState
+
+/** The athlete's zones as they apply. */
+@Immutable
+data class TrainingZones(
+    /** The defaults. */
+    val defaults: ZoneSummary,
     /** The sports with their own zones, in saved order. */
     val sports: ImmutableList<ZoneSummary>,
     /** `Sport` values that could have their own zones and don't yet. */
     val addableSports: ImmutableList<String>,
-    /** A `Visibility` value for all the thresholds and zones together, set here rather than in each editor. */
-    val visibility: String,
     /** Whether any threshold or zone model is saved: visibility only sticks to saved details. */
     val hasZones: Boolean,
     /** Whether any threshold has a value, so there's history to show. */
     val hasHistory: Boolean,
-    val savingVisibility: Boolean,
     /** The athlete approves followers, so Followers means only the ones they approved. */
     val approvesFollowers: Boolean = false,
-    val error: UiError?,
-    val eventSink: (TrainingZonesEvent) -> Unit,
-) : CircuitUiState
+)
 
 /**
  * One set of zones as it applies: the defaults when [sport] is null, else that sport's. [override] is what the sport sets itself, so a
@@ -71,6 +81,9 @@ sealed interface TrainingZonesEvent {
 
     /** Saves [visibility], a `Visibility` value, for all the thresholds and zones. */
     data class VisibilityChanged(val visibility: String) : TrainingZonesEvent
+
+    /** Loads the zones again after they failed to. */
+    data object Retry : TrainingZonesEvent
 
     /** Edit [sport]'s zones, or add them when it has none. */
     data class EditSport(val sport: String) : TrainingZonesEvent

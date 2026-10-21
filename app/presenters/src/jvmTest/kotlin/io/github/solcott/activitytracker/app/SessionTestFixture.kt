@@ -39,6 +39,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
 import kotlin.time.Clock
+import kotlinx.io.IOException
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
@@ -60,6 +61,9 @@ class SessionTestFixture {
 
     /** Answer every Spaces call as a session signed in before the `space:` scope. */
     var scopeMissing = false
+
+    /** Every request fails as a dropped connection would, while set. */
+    var offline = false
 
     /** Alice's profile record as JSON, both in her repo and as the AppView indexed it; null for none. */
     var profileRecord: String? = null
@@ -138,6 +142,7 @@ class SessionTestFixture {
         HttpClient(
             MockEngine { request ->
                 val json = headersOf("Content-Type", "application/json")
+                if (offline) throw IOException("Connection refused")
                 if (scopeMissing && "/xrpc/com.atproto.space" in request.url.encodedPath) {
                     return@MockEngine respond("""{"error":"ScopeMissingError"}""", HttpStatusCode.Forbidden, json)
                 }

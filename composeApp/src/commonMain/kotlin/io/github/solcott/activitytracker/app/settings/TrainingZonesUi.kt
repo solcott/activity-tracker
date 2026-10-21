@@ -21,10 +21,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
-import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
@@ -69,6 +71,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.training.PaceText
 import io.github.solcott.activitytracker.data.training.PaceUnit
 import io.github.solcott.activitytracker.data.training.ZoneKind
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -87,38 +90,43 @@ fun TrainingZonesUi(state: TrainingZonesState, modifier: Modifier = Modifier) {
             )
         },
     ) { padding ->
-        val scroll = rememberScrollState()
-        ScrollbarBox(scroll, contentPadding = padding) {
-            Column(
-                Modifier.verticalScroll(scroll).padding(padding).readableWidth().padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
-                val defaults = state.defaults
-                if (defaults == null) {
-                    if (state.error == null) AppProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
-                } else {
-                    if (state.hasZones) {
-                        VisibilitySection(state)
-                        HorizontalDivider()
-                    }
-                    if (state.hasHistory) {
-                        AppSecondaryButton(onClick = { state.eventSink(TrainingZonesEvent.History) }) {
-                            Text(stringResource(Res.string.zones_history))
-                        }
-                        HorizontalDivider()
-                    }
-                    ZoneSummarySection(defaults, onEdit = { state.eventSink(TrainingZonesEvent.EditDefaults) })
-                    state.sports.forEach { summary ->
-                        HorizontalDivider()
-                        val sport = summary.sport ?: return@forEach
-                        ZoneSummarySection(summary, onEdit = { state.eventSink(TrainingZonesEvent.EditSport(sport)) })
-                    }
-                    HorizontalDivider()
-                    AddSport(state)
+        val retry = { state.eventSink(TrainingZonesEvent.Retry) }
+        ContentStateLayout(state.content, UiError.Kind.LoadProfile, retry, contentPadding = padding) { zones ->
+            val scroll = rememberScrollState()
+            ScrollbarBox(scroll, contentPadding = padding) {
+                Column(
+                    Modifier.verticalScroll(scroll).padding(padding).readableWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    RefreshStatus(state.content, UiError.Kind.LoadProfile, retry)
+                    state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+                    if (zones != null) Zones(state, zones)
                 }
             }
         }
+    }
+}
+
+/** The visibility, the history, then the defaults and each sport, and adding a sport. */
+@Composable
+private fun Zones(state: TrainingZonesState, zones: TrainingZones, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        if (zones.hasZones) {
+            VisibilitySection(state, zones.approvesFollowers)
+            HorizontalDivider()
+        }
+        if (zones.hasHistory) {
+            AppSecondaryButton(onClick = { state.eventSink(TrainingZonesEvent.History) }) { Text(stringResource(Res.string.zones_history)) }
+            HorizontalDivider()
+        }
+        ZoneSummarySection(zones.defaults, onEdit = { state.eventSink(TrainingZonesEvent.EditDefaults) })
+        zones.sports.forEach { summary ->
+            HorizontalDivider()
+            val sport = summary.sport ?: return@forEach
+            ZoneSummarySection(summary, onEdit = { state.eventSink(TrainingZonesEvent.EditSport(sport)) })
+        }
+        HorizontalDivider()
+        AddSport(zones.addableSports, onAdd = { state.eventSink(TrainingZonesEvent.EditSport(it)) })
     }
 }
 
@@ -231,19 +239,19 @@ private fun ZoneKindHeading(heading: String, model: String, modifier: Modifier =
 
 /** A menu of the sports that could get their own zones. */
 @Composable
-private fun AddSport(state: TrainingZonesState, modifier: Modifier = Modifier) {
-    if (state.addableSports.isEmpty()) return
+private fun AddSport(addable: ImmutableList<String>, onAdd: (String) -> Unit, modifier: Modifier = Modifier) {
+    if (addable.isEmpty()) return
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(Res.string.zones_sports_help), style = MaterialTheme.typography.bodySmall)
         var expanded by remember { mutableStateOf(false) }
         Box {
             AppSecondaryButton(onClick = { expanded = true }) { Text(stringResource(Res.string.zones_add_sport)) }
             val items =
-                state.addableSports
+                addable
                     .map { sport ->
                         AppMenuItem(sportLabel(sport)) {
                             expanded = false
-                            state.eventSink(TrainingZonesEvent.EditSport(sport))
+                            onAdd(sport)
                         }
                     }
                     .toImmutableList()
@@ -254,14 +262,14 @@ private fun AddSport(state: TrainingZonesState, modifier: Modifier = Modifier) {
 
 /** Who can see every set of zones: one setting for the defaults and each sport, saved as soon as it's picked. */
 @Composable
-private fun VisibilitySection(state: TrainingZonesState, modifier: Modifier = Modifier) {
+private fun VisibilitySection(state: TrainingZonesState, approvesFollowers: Boolean, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(Res.string.zones_visibility_heading), style = MaterialTheme.typography.titleMedium)
         Text(stringResource(Res.string.zones_visibility_help), style = MaterialTheme.typography.bodySmall)
         VisibilityPicker(
             state.visibility,
             { state.eventSink(TrainingZonesEvent.VisibilityChanged(it)) },
-            state.approvesFollowers,
+            approvesFollowers,
             Modifier.fillMaxWidth(),
             enabled = !state.savingVisibility,
         )
