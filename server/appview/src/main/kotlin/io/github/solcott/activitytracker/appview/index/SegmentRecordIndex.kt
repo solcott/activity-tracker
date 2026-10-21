@@ -41,9 +41,9 @@ internal const val CREATION_WINDOW_MS = 24L * 60 * 60 * 1000
 /** The statuses whose segments are matched, and that a new segment can duplicate. */
 internal val LIVE_STATUSES = listOf(SegmentStatus.PROPOSED, SegmentStatus.ACTIVE)
 
-private const val MAX_NAME_LENGTH = 1000
+internal const val MAX_NAME_LENGTH = 1000
 private const val MAX_NAME_GRAPHEMES = 100
-private const val MAX_TOKEN_LENGTH = 64
+internal const val MAX_TOKEN_LENGTH = 64
 private const val MAX_LAT = 90.0
 private const val MAX_LNG = 180.0
 private const val E7 = 1e7
@@ -58,9 +58,7 @@ private const val E7 = 1e7
 @Suppress("LongParameterList", "LongMethod") // The record, and where it's from; then each part of indexing it.
 internal fun JdbcTransaction.upsertSegment(json: JsonObject, author: Did, uri: AtUri, cid: String, jobs: SegmentJobs, now: Long) {
     val record = AtJson.decodeFromJsonElement(SegmentRecord.serializer(), json)
-    val name = record.name.trim()
-    require(name.isNotEmpty()) { "an empty name" }
-    require(graphemes(name) <= MAX_NAME_GRAPHEMES) { "a name over $MAX_NAME_GRAPHEMES graphemes" }
+    val name = validName(record.name)
     val line = validLine(record.sport, record.line)
 
     val old =
@@ -96,6 +94,14 @@ internal fun JdbcTransaction.upsertSegment(json: JsonObject, author: Did, uri: A
     replaceSegmentCells(uri.value, line)
     if (original == null) jobs.enqueueSegment(uri.value, now)
     if (old != null) recheckDuplicatesOf(listOf(uri.value), jobs, now)
+}
+
+/** [name] trimmed, if it's a valid segment name: not empty, and at most [MAX_NAME_GRAPHEMES] graphemes. Throws otherwise. */
+internal fun validName(name: String): String {
+    val trimmed = name.trim()
+    require(trimmed.isNotEmpty()) { "an empty name" }
+    require(graphemes(trimmed) <= MAX_NAME_GRAPHEMES) { "a name over $MAX_NAME_GRAPHEMES graphemes" }
+    return trimmed
 }
 
 /**
@@ -190,7 +196,7 @@ private fun JdbcTransaction.replaceSegmentCells(uri: String, line: List<GeoPoint
     }
 }
 
-private fun Double.e7(): Int = (this * E7).roundToInt()
+internal fun Double.e7(): Int = (this * E7).roundToInt()
 
 private fun graphemes(text: String): Int {
     val breaks = BreakIterator.getCharacterInstance().apply { setText(text) }
