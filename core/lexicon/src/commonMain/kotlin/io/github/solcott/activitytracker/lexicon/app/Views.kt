@@ -170,3 +170,57 @@ data class ThreadView(
     /** For [GetComments.Params.root], when [replyCount] is more than [replies] holds. */
     val repliesCursor: String? = null,
 )
+
+/** `app.activitytracker.feed.defs#segmentView` */
+@Immutable
+@Serializable
+data class SegmentView(
+    val uri: AtUri,
+    val cid: Cid,
+    val creator: ProfileViewBasic,
+    val record: SegmentRecord,
+    /** The line's length in meters, computed by the AppView. */
+    val distanceMeters: Long,
+    val viewer: SegmentViewerState? = null,
+)
+
+/** `app.activitytracker.feed.defs#segmentViewerState` */
+@Immutable
+@Serializable
+data class SegmentViewerState(
+    /** The viewer's own fastest effort on the segment; null when they have none. */
+    val best: EffortView? = null
+)
+
+/** `app.activitytracker.feed.defs#segmentViewBasic` */
+@Immutable
+@Serializable
+data class SegmentViewBasic(
+    val uri: AtUri,
+    val name: String,
+    /** A [SegmentSportGroup] value. */
+    val sport: String,
+    /** The line's length in meters, computed by the AppView. */
+    val distanceMeters: Long,
+)
+
+/**
+ * `app.activitytracker.feed.defs#effortView`: one pass of an activity over a segment from start to end. Served only to viewers admitted to
+ * the narrowest of the activity's visibility and its Map and Pace/Speed categories.
+ */
+@Immutable
+@Serializable
+data class EffortView(
+    val segment: SegmentViewBasic,
+    val activity: AtUri,
+    /** Seconds from the activity's start to the effort's. */
+    val startOffset: Long,
+    /** Seconds from the segment's start to its end. */
+    val elapsed: Long,
+    /** The activity's local date, as `YYYY-MM-DD`. */
+    val startedOn: String,
+    /** The activity is an e-bike ride; null means false. */
+    val eBike: Boolean? = null,
+    /** The athlete's fastest effort on the segment among those the viewer may see; null means false. */
+    val best: Boolean? = null,
+)

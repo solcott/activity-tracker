@@ -156,6 +156,48 @@
           "description": "When replyCount is more than replies holds, the cursor for app.activitytracker.feed.getComments with root to list the rest."
         }
       }
+    },
+    "segmentView": {
+      "type": "object",
+      "required": ["uri", "cid", "creator", "record", "distanceMeters"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "creator": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
+        "record": { "type": "ref", "ref": "app.activitytracker.feed.segment" },
+        "distanceMeters": { "type": "integer", "minimum": 0, "description": "The line's length, computed by the AppView." },
+        "viewer": { "type": "ref", "ref": "#segmentViewerState" }
+      }
+    },
+    "segmentViewerState": {
+      "type": "object",
+      "properties": {
+        "best": { "type": "ref", "ref": "#effortView", "description": "The viewer's own fastest effort on the segment; absent when they have none." }
+      }
+    },
+    "segmentViewBasic": {
+      "type": "object",
+      "required": ["uri", "name", "sport", "distanceMeters"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "name": { "type": "string", "maxLength": 1000, "maxGraphemes": 100 },
+        "sport": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "paddle"] },
+        "distanceMeters": { "type": "integer", "minimum": 0, "description": "The line's length, computed by the AppView." }
+      }
+    },
+    "effortView": {
+      "type": "object",
+      "description": "One pass of an activity over a segment from its start to its end (app.activitytracker.feed.getActivitySegments). Served only to viewers admitted to the narrowest of the activity's visibility and its map and pace/speed categories.",
+      "required": ["segment", "activity", "startOffset", "elapsed", "startedOn"],
+      "properties": {
+        "segment": { "type": "ref", "ref": "#segmentViewBasic" },
+        "activity": { "type": "string", "format": "at-uri" },
+        "startOffset": { "type": "integer", "minimum": 0, "description": "Seconds from the activity's start to the effort's." },
+        "elapsed": { "type": "integer", "minimum": 0, "description": "Seconds from the segment's start to its end." },
+        "startedOn": { "type": "string", "description": "The activity's local date, as YYYY-MM-DD." },
+        "eBike": { "type": "boolean", "description": "The activity is an e-bike ride. Absent means false." },
+        "best": { "type": "boolean", "description": "The athlete's fastest effort on the segment among those the viewer may see. Absent means false." }
+      }
     }
   }
 }

@@ -1,0 +1,28 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.getActivitySegments",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "The efforts on an activity that the viewer may see, in the order they began. Not paged: an activity has only a handful.",
+      "parameters": {
+        "type": "params",
+        "required": ["activity"],
+        "properties": {
+          "activity": { "type": "string", "format": "at-uri" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["efforts"],
+          "properties": {
+            "efforts": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#effortView" } }
+          }
+        }
+      },
+      "errors": [{ "name": "NotFound", "description": "The activity isn't indexed or the viewer may not see it." }]
+    }
+  }
+}

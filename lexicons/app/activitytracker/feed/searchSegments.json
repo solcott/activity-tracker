@@ -1,0 +1,35 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.searchSegments",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Segments whose line passes through a bounding box, oldest indexed first.",
+      "parameters": {
+        "type": "params",
+        "required": ["minLat", "minLng", "maxLat", "maxLng"],
+        "properties": {
+          "minLat": { "type": "integer", "minimum": -900000000, "maximum": 900000000, "description": "1e-7 degrees." },
+          "minLng": { "type": "integer", "minimum": -1800000000, "maximum": 1800000000, "description": "1e-7 degrees." },
+          "maxLat": { "type": "integer", "minimum": -900000000, "maximum": 900000000, "description": "1e-7 degrees." },
+          "maxLng": { "type": "integer", "minimum": -1800000000, "maximum": 1800000000, "description": "1e-7 degrees." },
+          "sport": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "paddle"], "description": "Only segments of this sport group." },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 30 },
+          "cursor": { "type": "string" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["segments"],
+          "properties": {
+            "cursor": { "type": "string" },
+            "segments": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#segmentView" } }
+          }
+        }
+      },
+      "errors": [{ "name": "InvalidRequest", "description": "A box with min above max, or wider than 1 degree on either side." }]
+    }
+  }
+}

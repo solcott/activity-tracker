@@ -51,12 +51,18 @@ object Nsid {
     /** An activity's full-resolution track, kept only in the athlete's `self` tier space ([SPACE_ATHLETE]) and never indexed. */
     const val FEED_ACTIVITY_TRACK = "$NAMESPACE.feed.activityTrack"
 
-    /** The file an activity was imported from, kept only in the athlete's `self` tier space ([SPACE_ATHLETE]) and never indexed. */
     /**
      * An activity's track trimmed by the athlete's privacy zones, for segment matching, kept only in the athlete's `self` tier space
      * ([SPACE_ATHLETE]) while matching is on. Indexed from `self` only, through the space, never from the firehose.
      */
     const val FEED_SEGMENT_TRACK = "$NAMESPACE.feed.segmentTrack"
+    /** A public segment, kept only in its creator's repo and indexed from the firehose; a copy in a space is ignored. */
+    const val FEED_SEGMENT = "$NAMESPACE.feed.segment"
+    const val FEED_GET_SEGMENT = "$NAMESPACE.feed.getSegment"
+    const val FEED_SEARCH_SEGMENTS = "$NAMESPACE.feed.searchSegments"
+    const val FEED_GET_ACTIVITY_SEGMENTS = "$NAMESPACE.feed.getActivitySegments"
+    const val FEED_GET_SEGMENT_EFFORTS = "$NAMESPACE.feed.getSegmentEfforts"
+    /** The file an activity was imported from, kept only in the athlete's `self` tier space ([SPACE_ATHLETE]) and never indexed. */
     const val FEED_ACTIVITY_SOURCE = "$NAMESPACE.feed.activitySource"
     /**
      * An imported activity's devices and their serial numbers, kept only in the athlete's `self` tier space ([SPACE_ATHLETE]) and never
@@ -109,6 +115,7 @@ object Nsid {
             FEED_LIKE,
             FEED_COMMENT,
             FEED_COMMENT_HIDE,
+            FEED_SEGMENT,
             GRAPH_FOLLOW,
             GRAPH_FOLLOW_APPROVAL,
             BSKY_GRAPH_BLOCK,
