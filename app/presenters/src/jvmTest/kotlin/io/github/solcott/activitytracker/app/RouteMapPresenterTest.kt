@@ -1,6 +1,12 @@
 package io.github.solcott.activitytracker.app
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withCompositionLocals
 import app.cash.turbine.ReceiveTurbine
+import com.slack.circuit.retained.LocalRetainedStateRegistry
+import com.slack.circuit.retained.RetainedStateRegistry
 import com.slack.circuit.test.CircuitReceiveTurbine
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
@@ -13,7 +19,11 @@ import io.github.solcott.activitytracker.app.map.RouteMapPresenter
 import io.github.solcott.activitytracker.app.map.RouteMapScreen
 import io.github.solcott.activitytracker.app.map.RouteMapState
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.location.LocationSample
+import io.github.solcott.uistate.errorOrNull
+import io.github.solcott.uistate.hasLoaded
+import io.github.solcott.uistate.isLoading
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -38,6 +48,9 @@ class RouteMapPresenterTest : ActivityDetailTestBase() {
     ) = presenterTestOf({ RouteMapPresenter(mapScreen, navigator, r.feed, r.activities, r.profiles) }, block = block)
 
     private suspend fun ReceiveTurbine<RouteMapState>.awaitRoute() = awaitUntil { it.route != null }
+
+    private val RouteMapState.route
+        get() = content.data?.route
 
     @Test
     fun theDetailMapOpensTheEnlargedMap() = runTest {
@@ -73,8 +86,8 @@ class RouteMapPresenterTest : ActivityDetailTestBase() {
         map(repos()) {
             val state = awaitRoute()
             assertEquals(ShownRoute(SERVED_POLYLINE, persistentListOf(1), ends = null), state.route)
-            assertEquals("Morning run", state.title)
-            assertEquals("run", state.activityType?.sport)
+            assertEquals("Morning run", state.content.data?.title)
+            assertEquals("run", state.content.data?.activityType?.sport)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -96,13 +109,55 @@ class RouteMapPresenterTest : ActivityDetailTestBase() {
     }
 
     @Test
-    fun aFailedLoadShowsAnError() = runTest {
+    fun aFailedLoadSaysWhyAndRetryLoadsIt() = runTest {
         offline = true
+        recordExtra = SERVED_ROUTE
         map(repos()) {
-            val state = awaitUntil { it.error != null }
-            assertEquals(UiError.Kind.LoadActivity, state.error?.kind)
-            assertNull(state.route)
-            assertFalse(state.isLoading)
+            val failed = awaitUntil { it.content.errorOrNull != null }
+            assertFalse(failed.content.hasLoaded)
+            assertNull(failed.route)
+
+            offline = false
+            failed.eventSink(RouteMapEvent.Retry)
+            assertEquals(SERVED_POLYLINE, awaitRoute().route?.polyline)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun theAthletesOwnRewriteChangesTheShownRoute() = runTest {
+        recordExtra = SERVED_ROUTE
+        val r = repos()
+        map(r) {
+            awaitRoute()
+            val uri = AtUri(activityUri)
+            r.feed.rewrites.set(uri, r.feed.activity(uri).record.copy(polyline = REWRITTEN, polylineGaps = null))
+            assertEquals(REWRITTEN, awaitUntil { it.route?.polyline == REWRITTEN }.route?.polyline)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun comingBackShowsTheMapAtOnceAndKeepsItThroughAFailedReload() = runTest {
+        recordExtra = SERVED_ROUTE
+        val r = repos()
+        val registry = RetainedStateRegistry()
+        var shown by mutableStateOf(true)
+        presenterTestOf({
+            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                // A stand-in for the screen it opened while it's on the back stack.
+                if (shown) RouteMapPresenter(mapScreen, FakeNavigator(mapScreen), r.feed, r.activities, r.profiles) else RouteMapState()
+            }
+        }) {
+            awaitUntil { it.route != null && !it.content.isLoading }
+            registry.saveAll()
+            shown = false
+            awaitUntil { it.route == null }
+            offline = true
+            shown = true
+            assertEquals(SERVED_POLYLINE, awaitItem().route?.polyline, "no loading state in between")
+            val failed = awaitUntil { it.content.errorOrNull != null }
+            assertEquals(SERVED_POLYLINE, failed.route?.polyline)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -118,3 +173,6 @@ class RouteMapPresenterTest : ActivityDetailTestBase() {
         }
     }
 }
+
+/** A route other than the served one. */
+private const val REWRITTEN = "_p~iF~ps|U_ulLnnqC"
