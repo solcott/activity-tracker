@@ -84,7 +84,7 @@ A trail SHALL give candidates in both directions, unless it is tagged one-way (`
 - **THEN** its `ride` candidates follow the way's direction only
 
 ### Requirement: Candidates are named after their trail
-A whole-trail candidate SHALL be named after its trail. A stretch SHALL be named after its trail and the named trails or roads at its ends, as "<trail>: <start> to <end>", or "<trail> (part n)" when an end has no name. When a trail has candidates in both directions, a whole-trail name SHALL add the compass direction of travel. Names SHALL be at most 100 graphemes.
+A whole-trail candidate SHALL be named after its trail. A stretch SHALL be named after its trail and the named trails or roads at its ends, as "<trail>: <start> to <end>", or "<trail> (part n)" when an end has no name. When a trail has candidates in both directions, a whole-trail name SHALL add its direction of travel: clockwise or counterclockwise for a loop, whose ends are within 30 m, otherwise the compass direction. Names SHALL be at most 100 graphemes.
 
 #### Scenario: Stretch between two crossings
 - **WHEN** a stretch of "Oak Trail" runs from where "Fire Road 3" crosses it to where "Pine Trail" meets it
@@ -94,12 +94,20 @@ A whole-trail candidate SHALL be named after its trail. A stretch SHALL be named
 - **WHEN** "Oak Trail" runs mostly north from its start and may be ridden both ways
 - **THEN** its whole-trail candidates are named "Oak Trail (northbound)" and "Oak Trail (southbound)"
 
+#### Scenario: Two-way loop
+- **WHEN** "Pond Loop" starts and ends at the same place and may be ridden both ways
+- **THEN** its whole-trail candidates are named "Pond Loop (clockwise)" and "Pond Loop (counterclockwise)"
+
 ### Requirement: Candidate ids are stable
-A candidate's id SHALL be derived only from its sport group, its direction, the OSM ways it follows in order, and its first and last nodes. Extracting the same data twice SHALL give the same ids, and an edit elsewhere in the extract SHALL NOT change a candidate's id.
+A candidate's id SHALL be derived only from its sport group, its direction, the OSM ways it follows in order, its first and last nodes, and how often it passed its last node before ending there. Ids SHALL be unique within an extract. Extracting the same data twice SHALL give the same ids, and an edit elsewhere in the extract SHALL NOT change a candidate's id.
 
 #### Scenario: Re-extract unchanged
 - **WHEN** an operator extracts the same region from a newer extract in which only other trails changed
 - **THEN** every unchanged candidate keeps its id
+
+#### Scenario: Loop both ways
+- **WHEN** a loop mapped as one closed way gives a candidate each way round
+- **THEN** the two candidates have different ids
 
 #### Scenario: Trail rerouted
 - **WHEN** a trail's middle way is replaced by a new way

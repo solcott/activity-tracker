@@ -33,9 +33,9 @@ OSM has no elevation, so nothing here can tell a climb from a descent or rank by
 
 **Lines.** Each line is simplified with `TrackMath.simplify` at 5 m tolerance, which keeps it well inside the matcher's 30 m corridor, then encoded with `SegmentGeometry.encodePolyline`. Length is computed from the simplified line with `SegmentGeometry.lengthMeters`, as the AppView does, so a candidate never passes here and fails there. A line over the record's 100 kB limit is simplified again at a doubled tolerance until it fits (a 50 km trail is far below it in practice).
 
-**Ids.** `sha256(sport | direction | wayId,wayId,… | firstNode | lastNode)`, base32, first 26 chars. Only the ways and end nodes count, so moving an interior node (a geometry fix) keeps the id and only the line changes; replacing a way changes it.
+**Ids.** `sha256(sport | sense | wayId,wayId,… | firstNode | lastNode[#visit])`, base32, first 26 chars, with the ways in the order travelled. `sense` is whether travel follows the first way's own node order: the two directions of a loop share their ways and end nodes, and the sense tells them apart without depending on which end the trail builder started from. `#visit`, added only when non-zero, counts the times the line passed its last node before ending there, for a way that crosses itself at a junction (the Vermont extract has one). Only the ways and end nodes count otherwise, so moving an interior node (a geometry fix) keeps the id and only the line changes; replacing a way changes it.
 
-**Names.** As the spec says. The compass direction is the 8-way bearing from start to end, reduced to the 4 cardinal words; names are truncated to 100 graphemes at a word boundary.
+**Names.** As the spec says. The compass direction is the bearing from start to end, rounded to the nearest of the four cardinal words. A two-way trail whose ends are within 30 m (the AppView's duplicate distance) is a loop, where a bearing means nothing: it's named clockwise or counterclockwise by the sign of its shoelace area. Names are truncated to 100 graphemes at a word boundary.
 
 **Dedup.** Within each sport group, candidates are bucketed by their end points' `SegmentCells`; pairs in a bucket are compared with `SegmentGeometry.duplicates`, keeping relation > whole trail > stretch, then the lower id.
 
