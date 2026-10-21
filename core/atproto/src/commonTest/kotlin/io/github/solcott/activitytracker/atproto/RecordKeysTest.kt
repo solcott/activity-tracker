@@ -29,4 +29,12 @@ class RecordKeysTest {
         assertEquals(commentHideRkey(comment), commentHideRkey(AtUri(comment.value)))
         assertNotEquals(commentHideRkey(comment), commentHideRkey(AtUri("at://did:plc:carol/${Nsid.FEED_COMMENT}/3kcom")))
     }
+
+    @Test
+    fun segmentStarRkeyMatchesPythonVector() = runTest {
+        val segment = AtUri("at://did:plc:bob/${Nsid.FEED_SEGMENT}/3kseg")
+        assertEquals("bxhsepfa4g77dmjntqm6kpo6rkon25y6", segmentStarRkey(segment))
+        assertEquals(segmentStarRkey(segment), segmentStarRkey(AtUri(segment.value)))
+        assertNotEquals(segmentStarRkey(segment), segmentStarRkey(AtUri("at://did:plc:bob/${Nsid.FEED_SEGMENT}/3kother")))
+    }
 }
