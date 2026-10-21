@@ -376,7 +376,7 @@ private const val NOT_FOUND_STATUS = 400
 const val HIDE_ROUTE_END_METERS = 400
 
 /** Runs [block], and [undo] if it throws (cancellation included), so a change shown before a write is queued is taken back with it. */
-private inline fun <T> undoingOnFailure(undo: () -> Unit, block: () -> T): T {
+internal inline fun <T> undoingOnFailure(undo: () -> Unit, block: () -> T): T {
     var done = false
     try {
         return block().also { done = true }

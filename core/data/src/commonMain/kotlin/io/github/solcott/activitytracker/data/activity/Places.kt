@@ -48,6 +48,16 @@ internal fun SessionClients.requireSpacesFor(visibility: String, collection: Str
     }
 }
 
+/**
+ * Refuses a write of [collection] to the athlete's interactions space for a session whose `space:` grant doesn't cover it, as the PDS
+ * would, so nothing is queued that would sit at the head of the outbox.
+ */
+internal fun SessionClients.requireInteractionsFor(collection: String) {
+    if (!canWriteToSpaces(collection)) {
+        throw XrpcException(SCOPE_MISSING_STATUS, SpaceErrors.SCOPE_MISSING, "Sign in again to block or mute accounts")
+    }
+}
+
 /** The athlete's own [collection]/[rkey] at [place], as stored now; null when it isn't there. */
 internal suspend fun SessionClients.readOwn(collection: String, rkey: String, place: SpaceUri?): JsonObject? =
     if (place == null) {
