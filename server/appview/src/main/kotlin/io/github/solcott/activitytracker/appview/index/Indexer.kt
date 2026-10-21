@@ -148,8 +148,11 @@ class Indexer(
             // Checked before the transaction: the rkey is a SHA-256, which suspends.
             if (collection == Nsid.FEED_COMMENT_HIDE) requireHideKey(uri, record)
             db.tx {
-                ensureActor(author, handle, clock.now().toEpochMilliseconds())
-                upsert(collection, author, uri, cid, record, placement)
+                val now = clock.now().toEpochMilliseconds()
+                ensureActor(author, handle, now)
+                // Segment tracks and the setting come only from `self` (spaceCollections), so they have no placement to keep.
+                if (collection in SEGMENT_COLLECTIONS) upsertSegments(collection, record, author, uri, now)
+                else upsert(collection, author, uri, cid, record, placement)
             }
         } catch (e: SerializationException) {
             // Before IllegalArgumentException, which SerializationException extends.
@@ -169,7 +172,6 @@ class Indexer(
         placement: Placement,
     ) {
         val now = clock.now().toEpochMilliseconds()
-        if (collection in SEGMENT_COLLECTIONS) return upsertSegments(collection, json, author, uri, now)
         when (collection) {
             Nsid.FEED_ACTIVITY,
             Nsid.FEED_ACTIVITY_ZONES -> {
@@ -374,9 +376,9 @@ class Indexer(
          * What the AppView indexes from the athlete space with key [skey]: likes, comments, comment hides, blocks and mutes from the
          * interactions space, and activities, their details, streams and zones from a tier (an unknown key is a tier only the athlete
          * sees), plus from `self` the segment matching setting and segment tracks (zone-trimmed copies of tracks, used only while matching
-         * is on and never served). Private details, follow declines, defaults, full tracks, imported files and their devices (`feed.activityTrack`,
-         * `feed.activitySource`, `feed.activityDevices`, in `self`), privacy zones and their trim marker (`actor.privacyZones`,
-         * `actor.routeTrim`, in `self`) are never stored.
+         * is on and never served). Private details, follow declines, defaults, full tracks, imported files and their devices
+         * (`feed.activityTrack`, `feed.activitySource`, `feed.activityDevices`, in `self`), privacy zones and their trim marker
+         * (`actor.privacyZones`, `actor.routeTrim`, in `self`) are never stored.
          */
         fun spaceCollections(skey: String): Set<String> =
             when (skey) {
