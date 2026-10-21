@@ -26,7 +26,10 @@ class SettingsPresenterTest {
     @Test
     fun choosingUnitsSavesThemToTheProfile() = runTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
-        presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy) }) {
+        val moderation = fixture.moderation()
+        presenterTestOf({
+            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, moderation)
+        }) {
             val initial = awaitItem()
             assertEquals(UnitSystem.Metric, initial.units)
             assertNull(initial.error)
@@ -43,7 +46,10 @@ class SettingsPresenterTest {
     fun failedSaveRevertsAndShowsError() = runTest {
         fixture.failWrites = true
         val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
-        presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy) }) {
+        val moderation = fixture.moderation()
+        presenterTestOf({
+            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, moderation)
+        }) {
             awaitItem().eventSink(SettingsEvent.UnitsChanged(UnitSystem.Imperial))
             val failed = awaitUntil { it.error != null && !it.saving }
             assertEquals(UiError.Kind.SaveSettings, failed.error?.kind)
@@ -55,8 +61,9 @@ class SettingsPresenterTest {
     @Test
     fun backPops() = runTest {
         val repos = fixture.repos()
+        val moderation = fixture.moderation()
         val navigator = FakeNavigator(SettingsScreen)
-        presenterTestOf({ SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults, repos.privacy) }) {
+        presenterTestOf({ SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults, repos.privacy, moderation) }) {
             awaitItem().eventSink(SettingsEvent.Back)
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
@@ -66,8 +73,9 @@ class SettingsPresenterTest {
     @Test
     fun zonesOpenTheZonesScreen() = runTest {
         val repos = fixture.repos()
+        val moderation = fixture.moderation()
         val navigator = FakeNavigator(SettingsScreen)
-        presenterTestOf({ SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults, repos.privacy) }) {
+        presenterTestOf({ SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults, repos.privacy, moderation) }) {
             awaitItem().eventSink(SettingsEvent.OpenZones)
             assertEquals(TrainingZonesScreen, navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
@@ -77,7 +85,10 @@ class SettingsPresenterTest {
     @Test
     fun defaultVisibilitiesSaveCappedAndReload() = runTest {
         val repos = fixture.repos()
-        presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy) }) {
+        val moderation = fixture.moderation()
+        presenterTestOf({
+            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, moderation)
+        }) {
             val loaded = awaitUntil { it.defaults != null }
             assertEquals(Visibility.PUBLIC, loaded.defaults?.activity, "never set: Public")
             assertEquals(DetailCategory.all.map { Visibility.PUBLIC }, loaded.defaults?.categories?.map { it.visibility })
@@ -99,7 +110,9 @@ class SettingsPresenterTest {
 
         // Opening Settings again, in a new session, reads them back.
         val again = fixture.repos()
-        presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), again.units, again.auth, again.defaults, again.privacy) }) {
+        presenterTestOf({
+            SettingsPresenter(FakeNavigator(SettingsScreen), again.units, again.auth, again.defaults, again.privacy, moderation)
+        }) {
             val reloaded = awaitUntil { it.defaults != null }.defaults
             assertEquals(Visibility.MUTUALS, reloaded?.activity)
             assertEquals(Visibility.SELF, reloaded?.tierOf(DetailCategory.HEART_RATE))
@@ -111,7 +124,10 @@ class SettingsPresenterTest {
     fun narrowingTheActivityDefaultCapsTheCategories() = runTest {
         fixture.activityDefaults = """{"visibility":"followers","details":{"calories":"followers"}}"""
         val repos = fixture.repos()
-        presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy) }) {
+        val moderation = fixture.moderation()
+        presenterTestOf({
+            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, moderation)
+        }) {
             awaitUntil { it.defaults != null }.defaults!!.eventSink(VisibilityEvent.ActivityChanged(Visibility.SELF))
             awaitUntil { it.savingDefaults }
             val narrowed = awaitUntil { !it.savingDefaults }

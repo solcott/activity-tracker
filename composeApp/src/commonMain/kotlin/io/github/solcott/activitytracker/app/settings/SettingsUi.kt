@@ -22,6 +22,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.composeApp.resources.Res
@@ -31,6 +32,7 @@ import io.github.solcott.activitytracker.composeApp.resources.settings_blocked_a
 import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_activity
 import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_heading
 import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_help
+import io.github.solcott.activitytracker.composeApp.resources.settings_moderation
 import io.github.solcott.activitytracker.composeApp.resources.settings_muted_accounts
 import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_zones
 import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_zones_count
@@ -102,6 +104,13 @@ fun SettingsUi(state: SettingsState, modifier: Modifier = Modifier) {
             }
             AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.OpenMuted) }) {
                 Text(stringResource(Res.string.settings_muted_accounts))
+            }
+            // Moderators review on desktop and web, where the labeler's queue is.
+            if (state.canModerate && !LocalUiPlatform.current.isMobile) {
+                HorizontalDivider()
+                AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.OpenModeration) }) {
+                    Text(stringResource(Res.string.settings_moderation))
+                }
             }
             HorizontalDivider()
             AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.SignOut) }) { Text(stringResource(Res.string.profile_sign_out)) }

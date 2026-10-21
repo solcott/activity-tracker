@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.moderation.ModerationRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
@@ -333,6 +334,10 @@ class SessionTestFixture {
         val typeChoices: ActivityTypeChoices
             get() = ActivityTypeChoices(recentTypes)
     }
+
+    /** The moderator side for another session on the same fake services; with no [labelerDid] the athlete can't moderate. */
+    suspend fun moderation(labelerDid: Did? = null) =
+        ModerationRepository(signedInTestSession(http, did = did, labelerDid = labelerDid).clients)
 
     suspend fun repos(defaultUnits: UnitSystem = UnitSystem.Metric, suggestionClock: Clock = Clock.System): Repos {
         val (db, manager, clients) = signedInTestSession(http, did = did)

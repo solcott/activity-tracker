@@ -24,6 +24,8 @@ data class SettingsState(
     val privacyZoneCount: Int? = null,
     /** Whether the start and end of every route are hidden. */
     val hidesRouteEnds: Boolean = false,
+    /** The athlete is a moderator or admin on the app's labeler team: desktop and web offer Moderation. */
+    val canModerate: Boolean = false,
     val eventSink: (SettingsEvent) -> Unit,
 ) : CircuitUiState
 
@@ -39,6 +41,8 @@ sealed interface SettingsEvent {
     data object OpenBlocked : SettingsEvent
 
     data object OpenMuted : SettingsEvent
+
+    data object OpenModeration : SettingsEvent
 
     data object SignOut : SettingsEvent
 }

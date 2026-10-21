@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.moderation.ModerationScreen
 import io.github.solcott.activitytracker.app.profile.BlockListKind
 import io.github.solcott.activitytracker.app.profile.BlockListScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
@@ -18,6 +19,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.moderation.ModerationRepository
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 
 @CircuitInject(SettingsScreen::class, SessionScope::class)
@@ -28,6 +30,7 @@ fun SettingsPresenter(
     auth: AuthRepository,
     defaults: ActivityDefaults,
     privacy: PrivacyZones,
+    moderation: ModerationRepository,
 ): SettingsState {
     // UnitsRepository updates optimistically, so the choice shows at once and reverts if the save fails.
     val units by unitsRepository.units.collectAsState()
@@ -38,6 +41,9 @@ fun SettingsPresenter(
     val privacySettings by privacy.current.collectAsState()
     // Only the summary line: a failed read leaves it out, and the zones screen says why.
     LaunchedEffect(Unit) { runSuspendCatching { privacy.refresh() } }
+    // Asked once a session; an AppView that can't say leaves the entry out.
+    var canModerate by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { canModerate = runSuspendCatching { moderation.canModerate() }.getOrDefault(false) }
 
     return SettingsState(
         units,
@@ -47,6 +53,7 @@ fun SettingsPresenter(
         defaultVisibility.saving,
         privacyZoneCount = privacySettings?.zones?.size,
         hidesRouteEnds = (privacySettings?.hideEndsMeters ?: 0) > 0,
+        canModerate = canModerate,
     ) { event ->
         when (event) {
             SettingsEvent.Back -> {
@@ -77,6 +84,10 @@ fun SettingsPresenter(
 
             SettingsEvent.OpenMuted -> {
                 navigator.goTo(BlockListScreen(BlockListKind.Muted))
+            }
+
+            SettingsEvent.OpenModeration -> {
+                if (canModerate) navigator.goTo(ModerationScreen)
             }
 
             // Dropping the session tears down the SessionGraph and returns to LoginScreen.
