@@ -42,6 +42,10 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.location.FakeLocationTracker
 import io.github.solcott.activitytracker.location.LocationTracker
 import io.github.solcott.activitytracker.location.UnsupportedLocationTracker
+import io.github.solcott.dataresult.DataError
+import io.github.solcott.uistate.errorOrNull
+import io.github.solcott.uistate.hasLoaded
+import io.github.solcott.uistate.isLoading
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -128,12 +132,14 @@ class FeedPresenterTest {
                     path == "/xrpc/com.atproto.server.getServiceAuth" -> respond("""{"token":"service-jwt"}""", headers = json)
                     path == "/xrpc/com.atproto.space.getRecord" && request.url.parameters["collection"] == Nsid.ACTOR_PRIVACY_ZONES -> {
                         zonesReads.incrementAndGet()
+                        zonesRead.complete(Unit)
                         zonesGate?.await()
                         respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, json)
                     }
                     path == "/xrpc/${Nsid.FEED_GET_TIMELINE}" || path == "/xrpc/${Nsid.FEED_GET_AUTHOR_ACTIVITIES}" -> {
                         val params = request.url.parameters.entries().associate { it.key to it.value }
                         queries += path.removePrefix("/xrpc/") to params
+                        if (feedFails) return@MockEngine respond("", HttpStatusCode.InternalServerError)
                         val activities = if ("type" in params) listOf(ride) else timeline
                         respond(AtJson.encodeToString(GetTimeline.Output.serializer(), GetTimeline.Output(activities)), headers = json)
                     }
@@ -147,6 +153,12 @@ class FeedPresenterTest {
     /** Holds the privacy zones read (the route re-trim) until completed; null answers at once. */
     private var zonesGate: CompletableDeferred<Unit>? = null
     private val zonesReads = AtomicInteger()
+
+    /** Completed once the privacy zones are first read. */
+    private val zonesRead = CompletableDeferred<Unit>()
+
+    /** Whether feed queries fail with a server error. */
+    private var feedFails = false
 
     /** What an unfiltered timeline query answers. */
     private var timeline = emptyList<ActivityView>()
@@ -225,8 +237,8 @@ class FeedPresenterTest {
 
     /** Waits out the refresh in flight and returns the settled state. */
     private suspend fun ReceiveTurbine<FeedState>.awaitRefreshed(): FeedState {
-        awaitUntil { it.refreshing }
-        return awaitUntil { !it.refreshing }
+        awaitUntil { it.content.isLoading }
+        return awaitUntil { !it.content.isLoading }
     }
 
     @Test
@@ -247,13 +259,76 @@ class FeedPresenterTest {
         timeline = listOf(bobsFollowersRun)
         // Signed in before the interactions space's declaration listed likes.
         filterTest(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}") {
-            val state = awaitUntil { it.activities.isNotEmpty() && !it.refreshing }
+            val state = awaitUntil { it.activities.isNotEmpty() && !it.content.isLoading }
             assertEquals(null, state.error)
             state.eventSink(FeedEvent.Activity(ActivityListEvent.ToggleLike(state.activities.single())))
             val refused = awaitUntil { it.error != null }
             assertEquals(UiError(UiError.Kind.SignInAgain, null), refused.error)
             assertEquals(null, refused.activities.single().viewer?.like, "the like isn't shown")
             assertEquals(0, refused.activities.single().likeCount)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aRefreshKeepsTheActivitiesListedWhileItRuns() = runTest {
+        timeline = listOf(bobsFollowersRun)
+        filterTest {
+            awaitRefreshed().eventSink(FeedEvent.Refresh)
+            val refreshing = awaitUntil { it.content.isLoading }
+            assertEquals(listOf(bobsFollowersRun.uri), refreshing.activities.map { it.uri })
+            val settled = awaitUntil { !it.content.isLoading }
+            assertEquals(listOf(bobsFollowersRun.uri), settled.activities.map { it.uri })
+            assertEquals(null, settled.content.errorOrNull)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aFailedRefreshKeepsTheActivitiesAndSaysWhy() = runTest {
+        timeline = listOf(bobsFollowersRun)
+        filterTest {
+            val loaded = awaitRefreshed()
+            feedFails = true
+            loaded.eventSink(FeedEvent.Refresh)
+            val failed = awaitUntil { it.content.errorOrNull != null }
+            assertEquals(DataError.Http(500), failed.content.errorOrNull)
+            assertEquals(listOf(bobsFollowersRun.uri), failed.activities.map { it.uri })
+            assertFalse(failed.content.isLoading)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aFirstLoadFailureCanBeRetried() = runTest {
+        feedFails = true
+        filterTest {
+            val failed = awaitUntil { it.content.errorOrNull != null }
+            assertFalse(failed.content.hasLoaded, "nothing was cached, so there's nothing to show")
+            feedFails = false
+            timeline = listOf(bobsFollowersRun)
+            failed.eventSink(FeedEvent.Refresh)
+            awaitUntil { it.content.isLoading }
+            val loaded = awaitUntil { !it.content.isLoading }
+            assertEquals(null, loaded.content.errorOrNull)
+            assertEquals(listOf(bobsFollowersRun.uri), loaded.activities.map { it.uri })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aNewFilterNeverShowsThePreviousFiltersActivities() = runTest {
+        timeline = listOf(bobsFollowersRun)
+        filterTest {
+            val opened = awaitRefreshed()
+            assertEquals(listOf(bobsFollowersRun.uri), opened.activities.map { it.uri })
+            val rides = FeedFilter(types = persistentSetOf(ActivityType("ride")))
+            opened.eventSink(FeedEvent.FilterChanged(rides))
+            do {
+                val state = awaitItem()
+                val underRides = state.filter == rides
+                if (underRides) assertFalse(bobsFollowersRun.uri in state.activities.map { it.uri }, "the run isn't listed under Rides")
+            } while (!underRides || state.activities.isEmpty())
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -279,7 +354,9 @@ class FeedPresenterTest {
         filterTest {
             awaitRefreshed()
             assertEquals(Nsid.FEED_GET_TIMELINE, queries.single().first)
-            assertTrue(zonesReads.get() > 0, "the re-trim started and is waiting on the zones")
+            // The feed may settle before the re-trim even reaches the zones; either way the re-trim is still held when it does.
+            zonesRead.await()
+            assertTrue(zonesGate?.isCompleted == false, "the re-trim is waiting on the zones")
             cancelAndIgnoreRemainingEvents()
         }
         zonesGate?.complete(Unit)

@@ -22,6 +22,7 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.location.UnsupportedLocationTracker
+import io.github.solcott.uistate.isLoading
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -163,8 +164,8 @@ class SegmentsPromptTest {
 
     /** Waits out the first load, so the question has had its chance to show. */
     private suspend fun ReceiveTurbine<FeedState>.settled(): FeedState {
-        awaitUntil { it.refreshing }
-        return awaitUntil { !it.refreshing }
+        awaitUntil { it.content.isLoading }
+        return awaitUntil { !it.content.isLoading }
     }
 
     @Test

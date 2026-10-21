@@ -29,8 +29,12 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
+import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.location.LocationTracker
+import io.github.solcott.dataresult.mapData
+import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlin.time.Clock
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.map
@@ -57,16 +61,26 @@ fun FeedPresenter(
     val zone = remember { TimeZones.device() }
     val query = remember(filter) { filter.toActivityFilter(clock.todayIn(zone), zone) }
     val mine = scope == FeedScope.Mine
-    // Keyed by the query, so a new filter starts from its own cache instead of showing the last filter's activities.
-    val items =
-        key(mine, query) {
-            remember { feed.feed(mine, viewerDid, query).map { it.toImmutableList() } }.collectAsState(persistentListOf()).value
-        }
     val pending by activities.pendingWrites.collectAsState(0)
-    var refreshing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<UiError?>(null) }
     var refreshKey by remember { mutableIntStateOf(0) }
     var syncedFor by remember { mutableIntStateOf(-1) }
+    // Keyed by the query, so a new filter starts from its own cache instead of showing the last filter's activities. A refresh restarts
+    // the stream under the same state, so the activities stay listed while it runs and after it fails.
+    val content =
+        key(mine, query) {
+            produceRetainedContentState<ImmutableList<ActivityView>>(persistentListOf(), refreshKey) {
+                feed
+                    .feedOutcomes(mine, viewerDid, query) {
+                        // The outbox drains on the first load and on an explicit refresh, not on every filter change.
+                        if (syncedFor != refreshKey) {
+                            activities.sync()
+                            syncedFor = refreshKey
+                        }
+                    }
+                    .map { outcome -> outcome.mapData { it.toImmutableList() } }
+            }
+        }
     val activityEvents = rememberActivityListEventSink(navigator, activities) { error = it }
     // Asked once: answering saves the setting, which hides the card here and on every device. A failed save leaves it to ask again.
     var askSegments by remember { mutableStateOf(false) }
@@ -79,26 +93,9 @@ fun FeedPresenter(
         launch { askSegments = segmentPrefs.shouldAsk() }
     }
 
-    LaunchedEffect(refreshKey, mine, query) {
-        refreshing = true
-        error =
-            runSuspendCatching {
-                // The outbox drains on the first load and on an explicit refresh, not on every filter change.
-                if (syncedFor != refreshKey) {
-                    activities.sync()
-                    syncedFor = refreshKey
-                }
-                feed.refreshFeed(mine, viewerDid, query)
-            }
-                .exceptionOrNull()
-                ?.let { UiError.of(UiError.Kind.LoadFeed, it) }
-        refreshing = false
-    }
-
     val revealed = rememberRevealed()
     return FeedState(
-        items,
-        refreshing,
+        content,
         error,
         pending,
         viewerDid,

@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
 import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
 
 @CircuitSerializable(SessionScope::class) data object FeedScreen : Screen
@@ -26,8 +27,9 @@ enum class FeedScope {
 
 @Immutable
 data class FeedState(
-    val activities: ImmutableList<ActivityView>,
-    val refreshing: Boolean,
+    /** The feed's activities, with whether a refresh is in flight or failed. */
+    val content: ContentState<ImmutableList<ActivityView>>,
+    /** An action that failed (a like, the segments answer); load failures are [content]'s. */
     val error: UiError?,
     val pendingWrites: Int,
     /** The signed-in athlete, so the UI can leave likes off their own activities. */
@@ -46,7 +48,11 @@ data class FeedState(
     /** Whether to ask, once, whether to turn segment matching on ([FeedEvent.AnswerSegments]). */
     val askSegments: Boolean = false,
     val eventSink: (FeedEvent) -> Unit,
-) : CircuitUiState
+) : CircuitUiState {
+    /** [content]'s activities: the last loaded, or none yet. */
+    val activities: ImmutableList<ActivityView>
+        get() = content.data
+}
 
 sealed interface FeedEvent {
     data object Refresh : FeedEvent

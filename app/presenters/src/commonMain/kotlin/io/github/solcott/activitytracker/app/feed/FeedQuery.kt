@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
 import io.github.solcott.activitytracker.data.feed.ActivityFilter
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.dataresult.Outcome
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
@@ -32,10 +33,13 @@ internal fun FeedFilter.toActivityFilter(today: LocalDate, zone: TimeZone): Acti
     )
 }
 
-/** The cached feed for [mine] (the viewer's own) or Following, narrowed to [query]. */
-internal fun FeedRepository.feed(mine: Boolean, viewerDid: String, query: ActivityFilter): Flow<List<ActivityView>> =
-    if (mine) authorActivities(viewerDid, query) else timeline(query)
-
-/** Refreshes [feed]'s first page from the AppView. */
-internal suspend fun FeedRepository.refreshFeed(mine: Boolean, viewerDid: String, query: ActivityFilter) =
-    if (mine) refreshAuthor(viewerDid, query) else refreshTimeline(query)
+/**
+ * The feed for [mine] (the viewer's own) or Following, narrowed to [query]: its cache, then the AppView's first page once refreshed, after
+ * [beforeRefresh].
+ */
+internal fun FeedRepository.feedOutcomes(
+    mine: Boolean,
+    viewerDid: String,
+    query: ActivityFilter,
+    beforeRefresh: suspend () -> Unit,
+): Flow<Outcome<List<ActivityView>>> = if (mine) authorOutcomes(viewerDid, query, beforeRefresh) else timelineOutcomes(query, beforeRefresh)

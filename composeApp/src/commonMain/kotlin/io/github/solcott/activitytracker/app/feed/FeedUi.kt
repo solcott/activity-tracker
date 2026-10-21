@@ -30,7 +30,10 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.subcircuit.SubCircuitContent
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterOuterEvent
+import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.activityItems
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
@@ -67,6 +70,7 @@ import io.github.solcott.activitytracker.composeApp.resources.feed_segments_not_
 import io.github.solcott.activitytracker.composeApp.resources.feed_segments_title
 import io.github.solcott.activitytracker.composeApp.resources.feed_segments_turn_on
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.uistate.isLoading
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -138,24 +142,33 @@ fun FeedUi(state: FeedState, modifier: Modifier = Modifier) {
                         .readableWidth()
                         .padding(vertical = 8.dp),
             )
-            if (platform.isMobile) {
-                AppPullToRefresh(
-                    isRefreshing = state.refreshing,
-                    onRefresh = { state.eventSink(FeedEvent.Refresh) },
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = listPadding,
-                ) {
-                    Timeline(state, listState, listPadding, timelineModifier)
+            val refresh = { state.eventSink(FeedEvent.Refresh) }
+            ContentStateLayout(state.content, UiError.Kind.LoadFeed, onRetry = refresh, contentPadding = listPadding) {
+                if (platform.isMobile) {
+                    AppPullToRefresh(
+                        isRefreshing = state.content.isLoading,
+                        onRefresh = refresh,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = listPadding,
+                    ) {
+                        Timeline(state, listState, listPadding, showRefreshProgress = false, timelineModifier)
+                    }
+                } else {
+                    Timeline(state, listState, listPadding, showRefreshProgress = true, timelineModifier)
                 }
-            } else {
-                Timeline(state, listState, listPadding, timelineModifier)
             }
         }
     }
 }
 
 @Composable
-private fun Timeline(state: FeedState, listState: LazyListState, contentPadding: PaddingValues, modifier: Modifier = Modifier) {
+private fun Timeline(
+    state: FeedState,
+    listState: LazyListState,
+    contentPadding: PaddingValues,
+    showRefreshProgress: Boolean,
+    modifier: Modifier = Modifier,
+) {
     ReadableList(listState, modifier.fillMaxSize(), contentPadding) { listPadding ->
         LazyColumn(
             state = listState,
@@ -171,12 +184,20 @@ private fun Timeline(state: FeedState, listState: LazyListState, contentPadding:
                     )
                 }
             }
+            item {
+                RefreshStatus(
+                    state.content,
+                    UiError.Kind.LoadFeed,
+                    onRetry = { state.eventSink(FeedEvent.Refresh) },
+                    showProgress = showRefreshProgress,
+                )
+            }
             state.error?.let { item { Text(errorText(it), color = MaterialTheme.colorScheme.error) } }
             if (state.askSegments) item { SegmentsPrompt(state) }
             activityItems(state.activities, state.viewerDid, authorClickable = true, state.revealed) {
                 state.eventSink(FeedEvent.Activity(it))
             }
-            if (state.activities.isEmpty() && !state.refreshing) {
+            if (state.activities.isEmpty() && !state.content.isLoading) {
                 item {
                     Column(
                         Modifier.fillMaxSize().padding(32.dp),
