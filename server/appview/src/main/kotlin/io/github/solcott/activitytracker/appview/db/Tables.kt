@@ -56,6 +56,28 @@ object ActivityMembers : Table("activity_members") {
     override val primaryKey = PrimaryKey(memberUri, combinedUri)
 }
 
+/** An athlete's segment matching setting (`actor.segmentPrefs`), from their `self` space. Segment tracks are used only while [matching]. */
+object SegmentPrefs : Table("segment_prefs") {
+    val did = varchar("did", 255)
+    val matching = bool("matching")
+    val updatedAt = long("updated_at")
+    override val primaryKey = PrimaryKey(did)
+}
+
+/**
+ * An athlete's segment track (`feed.segmentTrack`): an activity's track trimmed by their privacy zones, from their `self` space. Its points
+ * stay in the blob at [dataCid], read only while their [SegmentPrefs.matching] is on ([usableSegmentTracks]); never served.
+ */
+object SegmentTracks : Table("segment_tracks") {
+    val uri = varchar("uri", 512)
+    val authorDid = varchar("author_did", 255)
+    val activityUri = varchar("activity_uri", 512)
+    val dataCid = varchar("data_cid", 255)
+    val zonesRevision = varchar("zones_revision", 32).nullable()
+    val indexedAt = long("indexed_at")
+    override val primaryKey = PrimaryKey(uri)
+}
+
 /** An activity's photos ([io.github.solcott.activitytracker.lexicon.app.ActivityRecord.media]), in order. */
 object ActivityMediaBlobs : Table("activity_media") {
     val activityUri = varchar("activity_uri", 512)

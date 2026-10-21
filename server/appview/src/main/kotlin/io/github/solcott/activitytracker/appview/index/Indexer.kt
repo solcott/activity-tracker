@@ -14,6 +14,8 @@ import io.github.solcott.activitytracker.appview.db.FollowApprovals
 import io.github.solcott.activitytracker.appview.db.Follows
 import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.appview.db.RecordShadows
+import io.github.solcott.activitytracker.appview.db.SegmentPrefs
+import io.github.solcott.activitytracker.appview.db.SegmentTracks
 import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.atproto.commentHideRkey
@@ -123,6 +125,10 @@ class Indexer(
         Likes.deleteWhere { origin eq placement.origin }
         Comments.deleteWhere { origin eq placement.origin }
         CommentHides.deleteWhere { origin eq placement.origin }
+        if (space.skey == AthleteSpace.SELF) {
+            SegmentPrefs.deleteWhere { did eq space.authority.value }
+            dropSegmentTracks(space.authority)
+        }
     }
 
     @Suppress("LongParameterList") // The record, and where it's from.
@@ -153,6 +159,7 @@ class Indexer(
         placement: Placement,
     ) {
         val now = clock.now().toEpochMilliseconds()
+        if (collection in SEGMENT_COLLECTIONS) return upsertSegments(collection, json, author, uri, now)
         when (collection) {
             Nsid.FEED_ACTIVITY,
             Nsid.FEED_ACTIVITY_ZONES -> {
@@ -234,6 +241,7 @@ class Indexer(
 
     /** A delete from [placement]'s origin: only its own copy goes, and a copy another origin still holds takes over the row. */
     private fun JdbcTransaction.delete(collection: String, uri: AtUri, placement: Placement) {
+        if (collection in SEGMENT_COLLECTIONS) return deleteSegments(collection, uri)
         when (collection) {
             Nsid.FEED_ACTIVITY,
             Nsid.FEED_ACTIVITY_ZONES -> {
@@ -317,6 +325,8 @@ class Indexer(
         CommentHides.deleteWhere { authorDid eq did.value }
         Follows.deleteWhere { authorDid eq did.value }
         FollowApprovals.deleteWhere { authorDid eq did.value }
+        SegmentPrefs.deleteWhere { SegmentPrefs.did eq did.value }
+        SegmentTracks.deleteWhere { authorDid eq did.value }
         RecordShadows.deleteWhere { uri like "at://${did.value}/%" }
         SpaceSync.deleteWhere { authorityDid eq did.value }
         Actors.deleteWhere { Actors.did eq did.value }
@@ -335,16 +345,24 @@ class Indexer(
                 Triple(ActivityZones.uri, ActivityZones.origin, Nsid.FEED_ACTIVITY_ZONES),
             )
         private val INTERACTION_COLLECTIONS = setOf(Nsid.FEED_LIKE, Nsid.FEED_COMMENT, Nsid.FEED_COMMENT_HIDE)
+        /** Segment tracks and the segment matching setting, indexed only from `self`. */
+        private val SEGMENT_COLLECTIONS = setOf(Nsid.FEED_SEGMENT_TRACK, Nsid.ACTOR_SEGMENT_PREFS)
+        private val SELF_COLLECTIONS = TIER_COLLECTIONS + SEGMENT_COLLECTIONS
 
         /**
          * What the AppView indexes from the athlete space with key [skey]: likes, comments and comment hides from the interactions space,
-         * and activities, their details, streams and zones from a tier (an unknown key is a tier only the athlete sees). Private details,
-         * follow declines, defaults, full tracks, imported files and their devices (`feed.activityTrack`, `feed.activitySource`,
-         * `feed.activityDevices`, in `self`), privacy zones and their trim marker (`actor.privacyZones`, `actor.routeTrim`, in `self`) are
-         * never stored.
+         * and activities, their details, streams and zones from a tier (an unknown key is a tier only the athlete sees), plus from `self`
+         * the segment matching setting and segment tracks (zone-trimmed copies of tracks, used only while matching is on and never served).
+         * Private details, follow declines, defaults, full tracks, imported files and their devices (`feed.activityTrack`,
+         * `feed.activitySource`, `feed.activityDevices`, in `self`), privacy zones and their trim marker (`actor.privacyZones`,
+         * `actor.routeTrim`, in `self`) are never stored.
          */
         fun spaceCollections(skey: String): Set<String> =
-            if (skey == AthleteSpace.INTERACTIONS) INTERACTION_COLLECTIONS else TIER_COLLECTIONS
+            when (skey) {
+                AthleteSpace.INTERACTIONS -> INTERACTION_COLLECTIONS
+                AthleteSpace.SELF -> SELF_COLLECTIONS
+                else -> TIER_COLLECTIONS
+            }
     }
 }
 
