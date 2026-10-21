@@ -66,4 +66,4 @@ None. The feed filter's caching and error requirements (`feed/feed-filter`) stil
   - `app/screens`: `FeedState` and `SegmentState`.
   - `composeApp`: `FeedUi`, `SegmentUi`, a new shared content-loading composable, and `errorText` in `ui/Labels.kt` plus its string resources.
   - `.agents/rules/compose-screens.md` and `data-and-auth.md`.
-- **Library:** may need a release cut, or small fixes found during the pilot. That work happens in the kmp-dataresult repository.
+- **Library:** stays on `0.1.0-SNAPSHOT`; a release, and pinning it here, is deferred. Library fixes found during the pilot happen in the kmp-dataresult repository.

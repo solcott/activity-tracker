@@ -109,10 +109,10 @@ Raw `message`, `code` and status are never shown. `errorText(UiError)` is left a
 - Without the property, the GitHub Packages repository is used. It is filtered with `content { includeGroup("io.github.solcott") }`, with credentials from `gpr.user`/`gpr.key`, falling back to `GITHUB_ACTOR`/`GITHUB_TOKEN` (the same block as Recipes).
 - **Alternative:** `publishToMavenLocal` plus a filtered `mavenLocal()`. It adds a publish step to every library edit, so it is only the fallback, for the case where the composite build fails.
 
-### Pin a release before the change is done
-Development may use `0.1.0-SNAPSHOT` or the composite build. The change finishes on a non-snapshot version, cut from the library once the pilot's library fixes, if any, have landed.
+### Stay on the snapshot for now
+The change ships on `0.1.0-SNAPSHOT`, with the composite build for library work. Pinning a non-snapshot release is deferred until the library is released; it is not part of this change.
 
-A snapshot is replaced on every green push to the library's `main`. Gradle caches it for 24 hours. So the same commit of this app could build against different library code from one day to the next.
+A snapshot is replaced on every green push to the library's `main`, and Gradle caches it for 24 hours. Until a release is pinned, the same commit of this app could build against different library code from one day to the next.
 
 ## Risks / Trade-offs
 

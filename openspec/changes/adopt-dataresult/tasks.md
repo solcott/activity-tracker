@@ -57,9 +57,9 @@
 - [x] 7.2 Run the web (`:webApp:wasmJsBrowserDevelopmentRun`) and iOS simulator builds. Verify that the feed and segment page load, refresh and go back without a full-screen spinner. Confirm that switching `AppShell` tabs doesn't refresh hidden tabs in a loop.
   - Web: feed loads; an offline refresh keeps the activities and says offline; the segment page shows at once after going back, keeps its content through a failed reload, and Retry recovers; Feed to Search to Feed fetches once and a hidden tab stays quiet.
   - iOS simulator (iPhone 16 Pro, iOS 18.4): feed loads after sign-in; pull to refresh shows the native spinner over the activities, which stay listed; the segment page shows its first-load spinner, then the segment and efforts; going back from an effort's activity shows it during the pop animation, with no spinner. Offline was not forced on iOS: Darwin reports transport failures as `IOException`s (`DarwinHttpRequestException`), which the JVM tests cover.
-- [ ] 7.3 Cut a non-snapshot kmp-dataresult release that includes any pilot fixes. Pin it in `libs.versions.toml`, and verify that the build resolves it with `dataresult.dir` unset.
 
 ## Workflow follow-up
 
+- When kmp-dataresult gets a non-snapshot release, pin it in `libs.versions.toml` in place of `0.1.0-SNAPSHOT`. Not part of this change.
 - Migrate the remaining screens in later changes. Profile goes first, since it shares the feed's Room stream. Each extends `ui/content-loading`.
 - Archive the change after review.
