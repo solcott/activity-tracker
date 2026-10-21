@@ -1,0 +1,19 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.graph.block",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "An athlete's block of one account. Lives only in the athlete's app.activitytracker.space.athlete interactions space, never in the public repo, so only the athlete and the AppView know of it. While it exists, neither account sees the other's activities, likes, comments or profile in this app, and follows between them don't count. The AppView also honors app.bsky.graph.block records in the athlete's repo the same way. Its rkey is the subject's DID; the AppView ignores a block stored under any other rkey.",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": ["subject", "createdAt"],
+        "properties": {
+          "subject": { "type": "string", "format": "did", "description": "The blocked account. Also the record's rkey." },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

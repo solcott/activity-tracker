@@ -1342,6 +1342,44 @@ data class FollowDeclineRecord(
     }
 }
 
+/**
+ * `app.activitytracker.graph.block`: the athlete blocks [subject]. It lives only in their [AthleteSpace.INTERACTIONS] space, so only they
+ * and the AppView learn of it, and its rkey is [subject]'s DID ([rkey]).
+ */
+@Serializable
+data class BlockRecord(
+    val subject: Did,
+    val createdAt: Instant,
+    @SerialName($$"$type") val type: String = Nsid.GRAPH_BLOCK,
+) {
+    companion object {
+        fun rkey(subject: Did): String = subject.value
+    }
+}
+
+/**
+ * `app.activitytracker.graph.mute`: the athlete mutes [subject]. It lives only in their [AthleteSpace.INTERACTIONS] space, so only they and
+ * the AppView learn of it, and its rkey is [subject]'s DID ([rkey]).
+ */
+@Serializable
+data class MuteRecord(
+    val subject: Did,
+    val createdAt: Instant,
+    @SerialName($$"$type") val type: String = Nsid.GRAPH_MUTE,
+) {
+    companion object {
+        fun rkey(subject: Did): String = subject.value
+    }
+}
+
+/** `app.bsky.graph.block`, as the AppView reads it from an athlete's repo. Clients never write it. */
+@Serializable
+data class BskyBlockRecord(
+    val subject: Did,
+    val createdAt: Instant,
+    @SerialName($$"$type") val type: String = Nsid.BSKY_GRAPH_BLOCK,
+)
+
 /** Known values of [ProfileRecord.followPolicy]; the field is an open string, and anything but [APPROVE] (or none) means [OPEN]. */
 object FollowPolicy {
     /** Every follow counts at once. */

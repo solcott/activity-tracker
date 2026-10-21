@@ -1,0 +1,19 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.graph.mute",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "An athlete's mute of one account. Lives only in the athlete's app.activitytracker.space.athlete interactions space, never in the public repo, so only the athlete and the AppView know of it. While it exists, the athlete's timeline leaves out the account's activities and the athlete isn't shown its comments; nothing changes for anyone else. Its rkey is the subject's DID; the AppView ignores a mute stored under any other rkey.",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": ["subject", "createdAt"],
+        "properties": {
+          "subject": { "type": "string", "format": "did", "description": "The muted account. Also the record's rkey." },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

@@ -50,7 +50,13 @@
           "type": "string",
           "format": "at-uri",
           "description": "URI of the athlete's follow of the viewer, only when it counts: absent while it waits for the viewer's approval."
-        }
+        },
+        "blocking": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "URI of the viewer's own app.activitytracker.graph.block (or, failing that, app.bsky.graph.block) of the athlete. Never says whether the athlete blocks the viewer."
+        },
+        "muting": { "type": "string", "format": "at-uri", "description": "URI of the viewer's own app.activitytracker.graph.mute of the athlete." }
       }
     },
     "location": {
