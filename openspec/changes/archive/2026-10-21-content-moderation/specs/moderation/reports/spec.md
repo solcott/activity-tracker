@@ -17,6 +17,10 @@ Clients SHALL offer Report on any activity, on each photo in the media gallery, 
 - **WHEN** alice opens the menu on her own activity
 - **THEN** Report is not offered
 
+#### Scenario: Account the viewer blocks
+- **WHEN** alice opens the profile of bob, whom alice blocks
+- **THEN** Report is offered next to Unblock
+
 ### Requirement: Report reasons
 The report sheet SHALL ask for a reason: spam, sexual content, violence or graphic content, harassment or rude behavior, misleading or impersonation, or other. It SHALL offer an optional note of at most 2000 characters. Each reason SHALL map to its `com.atproto.moderation.defs#reasonType`, and "other" SHALL require the note.
 
@@ -47,11 +51,15 @@ A client SHALL send a report as `com.atproto.moderation.createReport` to the ath
 - **THEN** her PDS receives `createReport` with the proxy header naming the app's labeler, and the labeler records a report from alice's DID
 
 ### Requirement: Report outcome
-After a report is sent, the client SHALL thank the athlete and close the sheet. It SHALL offer to block the reported account when the subject has an author other than the viewer. On a failure it SHALL keep the reason and note and report the failure so the athlete can retry.
+After a report is sent, the client SHALL thank the athlete and close the sheet. It SHALL offer to block the reported account when the subject has an author other than the viewer and the viewer doesn't already block them. Accepting SHALL go through the same confirmation and block as the profile's Block action. On a failure it SHALL keep the reason and note and report the failure so the athlete can retry.
 
 #### Scenario: Report sent
 - **WHEN** alice's report of bob's comment succeeds
 - **THEN** the sheet closes with a thank-you and offers to block bob
+
+#### Scenario: Already blocking
+- **WHEN** alice reports bob's profile while alice already blocks bob
+- **THEN** the sheet closes with a thank-you and no offer to block
 
 #### Scenario: Report fails
 - **WHEN** sending the report fails
