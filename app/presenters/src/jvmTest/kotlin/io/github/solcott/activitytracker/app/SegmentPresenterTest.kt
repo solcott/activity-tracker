@@ -1,12 +1,19 @@
 package io.github.solcott.activitytracker.app
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withCompositionLocals
 import co.touchlab.kermit.Logger
+import com.slack.circuit.retained.LocalRetainedStateRegistry
+import com.slack.circuit.retained.RetainedStateRegistry
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.segment.SegmentEvent
 import io.github.solcott.activitytracker.app.segment.SegmentPresenter
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
+import io.github.solcott.activitytracker.app.segment.SegmentState
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.atproto.segmentStarRkey
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
@@ -21,6 +28,10 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.activitytracker.location.TrackMath
+import io.github.solcott.dataresult.DataError
+import io.github.solcott.uistate.errorOrNull
+import io.github.solcott.uistate.hasLoaded
+import io.github.solcott.uistate.isLoading
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -28,9 +39,11 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.time.Clock
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 /** The segment screen (segments/segment-efforts): the segment, its line for the map, and the viewer's own efforts fastest first. */
@@ -45,6 +58,7 @@ class SegmentPresenterTest {
     /** The star in alice's `self` space, as the PDS holds it; null for none. */
     private var storedStar: String? = null
     private var pdsDown = false
+    private var failEfforts = false
     private val effortsRequested = mutableListOf<String?>()
 
     private fun effort(rkey: String, elapsed: Int, best: Boolean = false) =
@@ -76,6 +90,7 @@ class SegmentPresenterTest {
                             )
                     "/xrpc/${Nsid.FEED_GET_SEGMENT_EFFORTS}" -> {
                         effortsRequested += request.url.parameters["actor"]
+                        if (failEfforts) return@MockEngine respond("", HttpStatusCode.InternalServerError)
                         // Out of order, as a client must not rely on.
                         respond(
                             """{"efforts":[${effort("3ka2", 250)},${effort("3ka1", 200, best = true)},${effort("3ka3", 300)}]}""",
@@ -102,7 +117,7 @@ class SegmentPresenterTest {
     fun loadsTheSegmentItsLineAndTheViewersEffortsFastestFirst() = runTest {
         val (segments, stars) = session()
         presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars) }) {
-            assertEquals(true, awaitItem().isLoading)
+            assertEquals(true, awaitItem().content.isLoading)
             val state = awaitUntil { it.segment != null && it.efforts.isNotEmpty() }
             assertEquals("Hill", state.segment?.record?.name)
             assertEquals(2, TrackMath.decodePolyline(assertNotNull<String>(state.polyline)).size)
@@ -117,13 +132,57 @@ class SegmentPresenterTest {
         failSegment = true
         val (segments, stars) = session()
         presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars) }) {
-            val failed = awaitUntil { it.error != null }
-            assertEquals(false, failed.isLoading)
+            val failed = awaitUntil { it.content.errorOrNull != null }
+            assertEquals(DataError.Api(listOf("Segment not found"), code = "NotFound"), failed.content.errorOrNull)
+            assertEquals(false, failed.content.isLoading)
+            assertFalse(failed.content.hasLoaded)
             assertNull(failed.segment)
 
             failSegment = false
             failed.eventSink(SegmentEvent.Retry)
-            assertEquals("Hill", awaitUntil { it.segment != null }.segment?.record?.name)
+            awaitUntil { it.content.isLoading }
+            val loaded = awaitUntil { it.segment != null }
+            assertEquals("Hill", loaded.segment?.record?.name)
+            assertNull(loaded.content.errorOrNull)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun effortsThatFailShowTheSegmentWithoutThemOrAnError() = runTest {
+        failEfforts = true
+        val (segments, stars) = session()
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars) }) {
+            val state = awaitUntil { it.segment != null && !it.content.isLoading }
+            assertEquals("Hill", state.segment?.record?.name)
+            assertEquals(emptyList(), state.efforts)
+            assertNull(state.content.errorOrNull)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun comingBackShowsTheSegmentAtOnceAndKeepsItThroughAFailedReload() = runTest {
+        val (segments, stars) = session()
+        val registry = RetainedStateRegistry()
+        var shown by mutableStateOf(true)
+        presenterTestOf({
+            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                // A stand-in for the screen it opened while it's on the back stack.
+                if (shown) SegmentPresenter(screen, FakeNavigator(screen), segments, stars) else SegmentState()
+            }
+        }) {
+            awaitUntil { it.segment != null && !it.content.isLoading }
+            // What the back stack does to a record it leaves.
+            registry.saveAll()
+            shown = false
+            awaitUntil { it.segment == null }
+            failSegment = true
+            shown = true
+            val back = awaitItem()
+            assertEquals("Hill", back.segment?.record?.name, "no loading state in between")
+            val failed = awaitUntil { it.content.errorOrNull != null }
+            assertEquals("Hill", failed.segment?.record?.name)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -196,6 +255,8 @@ class SegmentPresenterTest {
             unstarred.eventSink(SegmentEvent.ToggleStar)
             unstarred.eventSink(SegmentEvent.ToggleStar)
             assertEquals(true, awaitUntil { it.starred == true }.starred)
+            // Shown at once, queued just after.
+            db.outbox().count(alice.value).first { it > 0 }
             val queued = db.outbox().pending(alice.value)
             assertEquals(
                 listOf("put ${Nsid.FEED_SEGMENT_STAR}"),
@@ -214,6 +275,7 @@ class SegmentPresenterTest {
         presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars) }) {
             awaitUntil { it.segment != null && it.starred == true }.eventSink(SegmentEvent.ToggleStar)
             assertEquals(false, awaitUntil { it.starred == false }.starred)
+            db.outbox().count(alice.value).first { it > 0 }
             assertEquals(
                 listOf("delete ${Nsid.FEED_SEGMENT_STAR}"),
                 db.outbox().pending(alice.value).map { "${it.operation} ${it.collection}" },

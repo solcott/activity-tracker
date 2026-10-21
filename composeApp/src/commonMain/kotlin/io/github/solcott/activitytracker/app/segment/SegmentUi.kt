@@ -1,6 +1,5 @@
 package io.github.solcott.activitytracker.app.segment
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,27 +13,26 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.settings.HistoryDate
 import io.github.solcott.activitytracker.app.settings.longDate
 import io.github.solcott.activitytracker.app.ui.ActivityMap
+import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.Format
+import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
-import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.segment_created_by
 import io.github.solcott.activitytracker.composeApp.resources.segment_duplicate_help
 import io.github.solcott.activitytracker.composeApp.resources.segment_no_efforts
@@ -79,24 +77,20 @@ fun SegmentUi(state: SegmentState, modifier: Modifier = Modifier) {
             )
         },
     ) { padding ->
-        val error = state.error
-        when {
-            segment != null -> Loaded(state, segment, padding)
-            error != null ->
-                Column(Modifier.fillMaxSize().padding(padding).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(errorText(error), color = MaterialTheme.colorScheme.error)
-                    AppTextButton(onClick = { state.eventSink(SegmentEvent.Retry) }) { Text(stringResource(Res.string.action_retry)) }
-                }
-            else -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { AppProgressIndicator() }
+        val retry = { state.eventSink(SegmentEvent.Retry) }
+        ContentStateLayout(state.content, UiError.Kind.LoadSegment, onRetry = retry, contentPadding = padding) { loaded ->
+            // Loaded content is never null; the placeholder before the first load is.
+            if (loaded != null) Loaded(state, loaded, padding, retry)
         }
     }
 }
 
 @Composable
-private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingValues) {
+private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingValues, onRetry: () -> Unit) {
     val listState = rememberLazyListState()
     ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 12.dp)) {
+            item { RefreshStatus(state.content, UiError.Kind.LoadSegment, onRetry) }
             state.polyline?.let { line -> item { ActivityMap(line, Modifier.fillMaxWidth()) } }
             item {
                 Column(Modifier.padding(vertical = 12.dp)) {

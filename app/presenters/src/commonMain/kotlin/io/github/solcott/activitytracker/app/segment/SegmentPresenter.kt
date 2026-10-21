@@ -9,7 +9,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
-import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -21,44 +20,43 @@ import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.activitytracker.location.SegmentGeometry
+import io.github.solcott.dataresult.combineOutcomes
+import io.github.solcott.dataresult.mapData
+import io.github.solcott.uistate.circuit.produceRetainedContentStates
+import io.github.solcott.uistate.contentStatesOf
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.map
 
 @CircuitInject(SegmentScreen::class, SessionScope::class)
 @Composable
 fun SegmentPresenter(screen: SegmentScreen, navigator: Navigator, segments: SegmentRepository, stars: SegmentStars): SegmentState {
     val uri = AtUri(screen.uri)
-    var segment by remember { mutableStateOf<SegmentView?>(null) }
-    var polyline by remember { mutableStateOf<String?>(null) }
-    var efforts by remember { mutableStateOf<ImmutableList<EffortView>>(persistentListOf()) }
-    var error by remember { mutableStateOf<UiError?>(null) }
     var starred by remember { mutableStateOf<Boolean?>(null) }
     var loadKey by remember { mutableIntStateOf(0) }
     val flights = rememberSingleFlight()
 
-    LaunchedEffect(loadKey) {
-        error = null
-        runSuspendCatching { segments.segment(uri) }
-            .onSuccess { loaded ->
-                polyline = mapLine(loaded.record.line)
-                segment = loaded
-            }
-            .onFailure { error = UiError.of(UiError.Kind.LoadSegment, it) }
-    }
-    // The viewer's own efforts are extra: the segment shows without them when they fail to load.
-    LaunchedEffect(loadKey) {
-        runSuspendCatching { segments.efforts(uri) }.onSuccess { efforts = it.efforts.sortedBy { e -> e.elapsed }.toImmutableList() }
-    }
-    // So is the star: unknown (null) hides it rather than showing it unstarred.
+    // Retained, so coming back from an effort's activity shows the segment at once; a retry restarts both reads under it.
+    val (content, ownEfforts) =
+        produceRetainedContentStates(contentStatesOf<SegmentView?, ImmutableList<EffortView>>(null, persistentListOf()), loadKey) {
+            combineOutcomes(
+                segments.segmentOutcome(uri),
+                segments.ownEffortsOutcome(uri).map { outcome ->
+                    outcome.mapData { efforts -> efforts.sortedBy { it.elapsed }.toImmutableList() }
+                },
+            )
+        }
+    val segment = content.data
+    val polyline = remember(segment) { segment?.let { mapLine(it.record.line) } }
+    // The star is extra: unknown (null) hides it rather than showing it unstarred.
     LaunchedEffect(loadKey) { if (!flights.isRunning(SegmentEvent.ToggleStar)) starred = stars.isStarred(uri) }
 
     return SegmentState(
-        segment = segment,
+        content = content,
         polyline = polyline,
-        efforts = efforts,
-        isLoading = segment == null && error == null,
-        error = error,
+        // The viewer's own efforts are extra too: the segment shows without them, and no error, when they fail to load.
+        efforts = ownEfforts.data,
         starred = starred,
     ) { event ->
         when (event) {
