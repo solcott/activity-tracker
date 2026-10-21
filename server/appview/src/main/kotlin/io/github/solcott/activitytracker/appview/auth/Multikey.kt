@@ -1,16 +1,32 @@
 package io.github.solcott.activitytracker.appview.auth
 
 import java.math.BigInteger
+import java.security.MessageDigest
 import org.bouncycastle.asn1.x9.X9ECParameters
 import org.bouncycastle.crypto.ec.CustomNamedCurves
 import org.bouncycastle.crypto.params.ECDomainParameters
 import org.bouncycastle.crypto.params.ECPublicKeyParameters
+import org.bouncycastle.crypto.signers.ECDSASigner
 
 /** A repo signing key decoded from a DID document's `publicKeyMultibase`. */
 data class SigningKey(val curve: Curve, val params: ECPublicKeyParameters) {
+    /** Whether [signature], a compact (r || s) ECDSA signature, signs the SHA-256 of [data] with this key. */
+    fun verifies(data: ByteArray, signature: ByteArray): Boolean {
+        if (signature.size != SIGNATURE_BYTES) return false
+        val r = BigInteger(1, signature.copyOfRange(0, SIGNATURE_BYTES / 2))
+        val s = BigInteger(1, signature.copyOfRange(SIGNATURE_BYTES / 2, SIGNATURE_BYTES))
+        val digest = MessageDigest.getInstance("SHA-256").digest(data)
+        return ECDSASigner().apply { init(false, params) }.verifySignature(digest, r, s)
+    }
+
     enum class Curve(val jwtAlg: String, val bcName: String) {
         K256("ES256K", "secp256k1"),
         P256("ES256", "secp256r1"),
+    }
+
+    private companion object {
+        /** Two 32-byte integers. */
+        const val SIGNATURE_BYTES = 64
     }
 }
 

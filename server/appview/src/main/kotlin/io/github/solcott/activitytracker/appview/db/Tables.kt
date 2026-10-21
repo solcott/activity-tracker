@@ -25,6 +25,8 @@ object Actors : Table("actors") {
     val indexedAt = long("indexed_at")
     /** When the athlete's `app.bsky.graph.block` records were last backfilled from their repo; null until then. */
     val bskyBlocksSyncedAt = long("bsky_blocks_synced_at").nullable()
+    /** The `#account` status while the account isn't active (`takendown`, `suspended`, `deactivated`); null while it is. */
+    val status = varchar("status", 32).nullable()
     override val primaryKey = PrimaryKey(did)
 }
 
@@ -169,6 +171,37 @@ object Mutes : Table("mutes") {
     val createdAt = long("created_at")
     val indexedAt = long("indexed_at")
     override val primaryKey = PrimaryKey(uri)
+}
+
+/** Labels from the trusted labelers, the newest per source, subject and value; [uri] is a record's AT-URI or an account's DID. */
+object Labels : Table("labels") {
+    val src = varchar("src", 255)
+    val uri = varchar("uri", 512)
+    val value = varchar("val", 128)
+    /** The record version the label names; null for any. */
+    val cid = varchar("cid", 255).nullable()
+    /** When the labeler created it, epoch millis. */
+    val cts = long("cts")
+    /** When it stops applying, epoch millis; null for never. */
+    val exp = long("expires_at").nullable()
+    val indexedAt = long("indexed_at")
+    override val primaryKey = PrimaryKey(src, uri, value)
+}
+
+/** Each labeler's last read `subscribeLabels` seq. */
+object LabelCursors : Table("label_cursors") {
+    val src = varchar("src", 255)
+    val seq = long("seq")
+    override val primaryKey = PrimaryKey(src)
+}
+
+/** The audit log of moderator views of non-public subjects; never their content. */
+object ModerationAccess : Table("moderation_access") {
+    val moderatorDid = varchar("moderator_did", 255)
+    val subjectUri = varchar("subject_uri", 512)
+    /** The Ozone subject status the view relied on. */
+    val reportRef = varchar("report_ref", 255)
+    val at = long("accessed_at")
 }
 
 object JetstreamCursor : Table("jetstream_cursor") {

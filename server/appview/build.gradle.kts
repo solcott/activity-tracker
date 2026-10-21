@@ -22,16 +22,26 @@ tasks.named<JavaExec>(ApplicationPlugin.TASK_RUN_NAME) {
             if ("APPVIEW_PUBLIC_URL" in environment && "APPVIEW_EXTRA_AUDIENCES" !in environment) {
                 environment("APPVIEW_EXTRA_AUDIENCES", "did:web:localhost%3A${environment["APPVIEW_PORT"]}")
             }
-            // The signing key scripts/dev.sh generates into docker/.env, so the AppView can sync athletes' tier spaces.
-            if ("APPVIEW_SIGNING_KEY" !in environment) {
+            fun fromDockerEnv(key: String): String? =
                 dockerEnv
                     .takeIf { it.isFile }
                     ?.readLines()
                     ?.map(String::trim)
-                    ?.firstOrNull { it.startsWith("APPVIEW_SIGNING_KEY=") }
+                    ?.firstOrNull { it.startsWith("$key=") }
                     ?.substringAfter('=')
                     ?.takeIf(String::isNotBlank)
-                    ?.let { environment("APPVIEW_SIGNING_KEY", it) }
+            // The signing key scripts/dev.sh generates into docker/.env, so the AppView can sync athletes' tier spaces.
+            if ("APPVIEW_SIGNING_KEY" !in environment) fromDockerEnv("APPVIEW_SIGNING_KEY")?.let { environment("APPVIEW_SIGNING_KEY", it) }
+            // The AppView's account on the local Ozone's team (docker/scripts/setup-labeler.sh).
+            for (key in listOf("APPVIEW_TRIAGE_DID", "APPVIEW_TRIAGE_PASSWORD")) {
+                if (key !in environment) fromDockerEnv(key)?.let { environment(key, it) }
+            }
+            // The local Ozone's labeler account (docker/scripts/setup-labeler.sh), at the port compose publishes.
+            if ("LABELER_DID" !in environment) {
+                fromDockerEnv("OZONE_SERVER_DID")?.let {
+                    environment("LABELER_DID", it)
+                    if ("LABELER_URL" !in environment) environment("LABELER_URL", "http://localhost:3010")
+                }
             }
         }
     }
@@ -47,6 +57,8 @@ dependencies {
     implementation(libs.flyway.core)
     implementation(libs.flyway.postgresql)
     implementation(libs.hikari)
+    // Decodes labelers' subscribeLabels frames (DAG-CBOR); the server only, clients never see CBOR.
+    implementation(libs.jackson.dataformat.cbor)
     implementation(libs.kermit)
     implementation(libs.ktor.client.cio)
     implementation(libs.ktor.client.websockets)
