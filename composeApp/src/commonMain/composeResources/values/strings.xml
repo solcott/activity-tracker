@@ -12,6 +12,11 @@
     <string name="error_load_feed">Couldn't load your feed</string>
     <string name="error_load_activity">Couldn't load activity</string>
     <string name="error_load_segment">Couldn't load segment</string>
+    <!-- A failed load followed by why: "Couldn't load your feed. You're offline." -->
+    <string name="error_with_reason">%1$s. %2$s</string>
+    <string name="error_reason_offline">You're offline.</string>
+    <string name="error_reason_server">The server had a problem.</string>
+    <string name="error_reason_unreadable">The app couldn't read the server's reply.</string>
     <string name="error_check_segment">Couldn't check the segment against existing ones, so it wasn't published</string>
     <string name="error_publish_segment">Couldn't publish the segment</string>
     <string name="error_load_starred_segments">Couldn't load your starred segments</string>
