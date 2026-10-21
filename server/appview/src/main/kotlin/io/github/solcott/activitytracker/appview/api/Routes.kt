@@ -16,11 +16,13 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
+import io.github.solcott.activitytracker.lexicon.app.GetBlocks
 import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.GetFollowRequests
 import io.github.solcott.activitytracker.lexicon.app.GetFollowers
 import io.github.solcott.activitytracker.lexicon.app.GetFollows
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
+import io.github.solcott.activitytracker.lexicon.app.GetMutes
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.NotifySpace
@@ -63,13 +65,12 @@ fun Route.xrpcRoutes(
     xrpcQuery(GetLikes.method, verifier) { params, viewer -> views.likes(viewer, params) }
     xrpcQuery(GetComments.method, verifier) { params, viewer -> views.comments(viewer, params) }
     xrpcQuery(GetProfile.method, verifier) { params, viewer -> views.profile(viewer, params.actor) }
-    xrpcQuery(SearchActors.method, verifier) { params, viewer ->
-        requireViewer(viewer)
-        search.search(params)
-    }
-    xrpcQuery(GetFollowers.method, verifier) { params, _ -> graph.followers(params) }
-    xrpcQuery(GetFollows.method, verifier) { params, _ -> graph.follows(params) }
+    xrpcQuery(SearchActors.method, verifier) { params, viewer -> search.search(requireViewer(viewer), params) }
+    xrpcQuery(GetFollowers.method, verifier) { params, viewer -> graph.followers(viewer, params) }
+    xrpcQuery(GetFollows.method, verifier) { params, viewer -> graph.follows(viewer, params) }
     xrpcQuery(GetFollowRequests.method, verifier) { params, viewer -> graph.followRequests(requireViewer(viewer), params) }
+    xrpcQuery(GetBlocks.method, verifier) { params, viewer -> graph.blocks(requireViewer(viewer), params) }
+    xrpcQuery(GetMutes.method, verifier) { params, viewer -> graph.mutes(requireViewer(viewer), params) }
     // The managing-app callout from an athlete's PDS, whose token is addressed to the managing app rather than the AppView.
     xrpcQuery(SimpleSpace.CheckUserAccess.method, managingAppVerifier) { params, issuer ->
         spaceAccess.check(requireViewer(issuer), params)

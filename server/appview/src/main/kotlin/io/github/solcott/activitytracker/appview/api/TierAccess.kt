@@ -10,6 +10,7 @@ import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
+import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.stringParam
 import org.jetbrains.exposed.v1.jdbc.select
@@ -17,7 +18,8 @@ import org.jetbrains.exposed.v1.jdbc.select
 /**
  * Rows a [viewer] may see, by the tier in [visibility] and the athlete in [author], as the managing app admits readers to each tier space
  * ([SpaceAccess]): public to anyone, followers to effective followers, mutuals to effective follows both ways, and everything to the
- * athlete. An unknown tier admits only the athlete. A null viewer sees public rows only.
+ * athlete, except that two athletes in a block see nothing of each other. An unknown tier admits only the athlete. A null viewer sees
+ * public rows only.
  */
 internal fun visibleTo(
     viewer: Did?,
@@ -35,13 +37,14 @@ internal fun visibleTo(
     author: Column<String> = Activities.authorDid,
 ): Op<Boolean> = admits(viewer, visibility, author)
 
+/** A viewer in a block with the athlete ([blocked]) is admitted to nothing of theirs, Public included. */
 private fun admits(viewer: Expression<String>, visibility: Column<String>, author: Column<String>): Op<Boolean> {
     val follower = followExists((Follows.authorDid eq viewer) and (Follows.subjectDid eq author))
     val followedBack = followExists((Follows.authorDid eq author) and (Follows.subjectDid eq viewer))
-    return (visibility eq Visibility.PUBLIC) or
+    return ((visibility eq Visibility.PUBLIC) or
         (author eq viewer) or
         ((visibility eq Visibility.FOLLOWERS) and follower) or
-        ((visibility eq Visibility.MUTUALS) and follower and followedBack)
+        ((visibility eq Visibility.MUTUALS) and follower and followedBack)) and not(blocked(viewer, author))
 }
 
 /** An effective follow matching [pair], correlated to the outer query's author column. */
