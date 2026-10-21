@@ -11,6 +11,7 @@ val generateNativeNetworkConfig =
         packageName = "io.github.solcott.activitytracker.app"
         appviewPublicUrl = nativeOAuth.appviewPublicUrl
         redirectScheme = nativeOAuth.redirectScheme
+        labelerDid = nativeOAuth.labelerDid
         outputDir = layout.buildDirectory.dir("generated/nativeNetworkConfig/kotlin")
     }
 

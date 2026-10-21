@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.atproto.xrpc
 
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.XrpcErrorBody
 import io.github.solcott.activitytracker.lexicon.XrpcParams
 import io.github.solcott.activitytracker.lexicon.XrpcProcedure
@@ -58,10 +59,12 @@ class XrpcClient(
         return XrpcBytes(response.bodyAsBytes(), response.headers[HttpHeaders.ContentType])
     }
 
-    suspend fun <I, O> procedure(method: XrpcProcedure<I, O>, input: I): O {
+    /** [headers] are sent with this call only, after the client's own (e.g. [atprotoProxy]). */
+    suspend fun <I, O> procedure(method: XrpcProcedure<I, O>, input: I, headers: Map<String, String> = emptyMap()): O {
         val body = AtJson.encodeToString(method.input, input)
         val response =
             execute(method.nsid, HttpMethod.Post) {
+                headers.forEach { (k, v) -> header(k, v) }
                 contentType(ContentType.Application.Json)
                 setBody(body)
             }
@@ -123,6 +126,12 @@ internal suspend fun HttpResponse.toXrpcException(): XrpcException {
     val body = runCatching { AtJson.decodeFromString(XrpcErrorBody.serializer(), text) }.getOrNull()
     return XrpcException(status.value, body?.error ?: "HttpError", body?.message ?: text.take(MAX_ERROR_BODY_CHARS))
 }
+
+/**
+ * Asks the PDS to forward the call to [did]'s service [serviceId] (`#atproto_labeler` for a labeler), with service auth the PDS mints
+ * itself.
+ */
+fun atprotoProxy(did: Did, serviceId: String): Map<String, String> = mapOf("atproto-proxy" to "${did.value}#$serviceId")
 
 /** The output of [XrpcClient.queryBytes]. */
 class XrpcBytes(val bytes: ByteArray, val contentType: String?)

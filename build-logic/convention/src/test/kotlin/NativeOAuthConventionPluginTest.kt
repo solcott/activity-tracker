@@ -21,6 +21,7 @@ class NativeOAuthConventionPluginTest {
                         packageName.set("com.example")
                         appviewPublicUrl.set(nativeOAuth.appviewPublicUrl)
                         redirectScheme.set(nativeOAuth.redirectScheme)
+                        labelerDid.set(nativeOAuth.labelerDid)
                         outputDir.set(layout.buildDirectory.dir("generated"))
                     }
                     """
@@ -43,6 +44,16 @@ class NativeOAuthConventionPluginTest {
         assertContains(generated, "package com.example")
         assertContains(generated, """APPVIEW_PUBLIC_URL = "http://localhost:8081"""")
         assertContains(generated, """REDIRECT_SCHEME = "localhost"""")
+        assertContains(generated, """LABELER_DID = """"")
+    }
+
+    @Test
+    fun `labeler DID comes from local properties`() {
+        projectDir.resolve("local.properties").writeText("activitytracker.labelerDid=did:plc:labeler\n")
+
+        generate()
+
+        assertContains(generated, """LABELER_DID = "did:plc:labeler"""")
     }
 
     @Test

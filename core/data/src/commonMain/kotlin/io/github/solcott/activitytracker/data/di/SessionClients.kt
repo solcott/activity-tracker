@@ -40,6 +40,9 @@ class SessionClients(
 
     val handle: Handle = session.handle
 
+    /** The app's labeler, which reports go to; null where none is configured, and then the app offers no Report. */
+    val labelerDid: Did? = config.labelerDid
+
     /** The account's PDS base URL. Follows the live session so a PDS migration picked up on refresh is respected. */
     val pdsUrl: String
         get() = sessionManager.session.value?.pdsUrl ?: session.pdsUrl
