@@ -1,0 +1,35 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.importer.finishSegmentCandidates",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Ends an import run for a region: removes every candidate of the region that wasn't staged in this revision, with its riders. Other regions' candidates are untouched. Only the AppView's configured segment importer may call it, with service auth.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["region", "revision"],
+          "properties": {
+            "region": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "revision": { "type": "string", "minLength": 1, "maxLength": 64 }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["removed"],
+          "properties": {
+            "removed": { "type": "integer", "minimum": 0, "description": "How many candidates were removed." }
+          }
+        }
+      },
+      "errors": [
+        { "name": "InvalidRequest", "description": "A malformed region or revision." },
+        { "name": "NotImporter", "description": "The caller isn't the configured segment importer, or none is configured." }
+      ]
+    }
+  }
+}

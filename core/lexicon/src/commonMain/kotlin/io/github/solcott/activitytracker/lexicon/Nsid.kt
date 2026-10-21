@@ -82,6 +82,13 @@ object Nsid {
     const val MODERATION_GET_SUBJECT = "$NAMESPACE.moderation.getSubject"
     const val MODERATION_GET_ROLE = "$NAMESPACE.moderation.getRole"
 
+    /** Procedure: the segment importer stages candidate segments in the AppView. Not a record; only the configured importer may call it. */
+    const val IMPORTER_PUT_SEGMENT_CANDIDATES = "$NAMESPACE.importer.putSegmentCandidates"
+    /** Procedure: the segment importer ends an import run, removing the region's candidates it didn't stage. */
+    const val IMPORTER_FINISH_SEGMENT_CANDIDATES = "$NAMESPACE.importer.finishSegmentCandidates"
+    /** Query: the segment importer lists a region's ridden candidates. */
+    const val IMPORTER_GET_RIDDEN_SEGMENT_CANDIDATES = "$NAMESPACE.importer.getRiddenSegmentCandidates"
+
     const val GRAPH_FOLLOW = "$NAMESPACE.graph.follow"
     const val GRAPH_GET_FOLLOWERS = "$NAMESPACE.graph.getFollowers"
     const val GRAPH_GET_FOLLOWS = "$NAMESPACE.graph.getFollows"

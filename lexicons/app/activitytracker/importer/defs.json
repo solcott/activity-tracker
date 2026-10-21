@@ -1,0 +1,28 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.importer.defs",
+  "defs": {
+    "candidate": {
+      "type": "object",
+      "description": "A candidate segment the segment importer stages in the AppView before publishing it: a public line, such as an OpenStreetMap trail, validated as feed.segment is. Never served by any feed query, matched for efforts, or counted as a duplicate of a segment.",
+      "required": ["id", "sport", "name", "line", "source", "license"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 64, "description": "The importer's stable id for the candidate, of lowercase letters, digits and hyphens." },
+        "sport": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "paddle"], "description": "The sport group whose activities count as its riders." },
+        "name": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "Not empty once trimmed." },
+        "line": { "type": "string", "maxLength": 100000, "description": "The line from start to end as an encoded polyline at precision 6, as feed.segment#line." },
+        "source": { "type": "string", "maxLength": 64, "knownValues": ["athlete", "osm", "agency"], "description": "Where the line came from, as feed.segment#source." },
+        "license": { "type": "string", "maxLength": 64, "description": "The licence of the line's data, as an SPDX identifier such as ODbL-1.0." }
+      }
+    },
+    "rejection": {
+      "type": "object",
+      "description": "A staged candidate the AppView refused, and why.",
+      "required": ["id", "reason"],
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "reason": { "type": "string", "maxLength": 1000 }
+      }
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.importer.putSegmentCandidates",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Stages a batch of a region's candidate segments for one import run, storing or replacing each by its id. A candidate whose line and sport group are unchanged keeps its riders; one whose line or sport group changed is counted again from scratch. Candidates that fail validation are returned, and the rest stored. Only the AppView's configured segment importer may call it, with service auth.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["region", "revision", "candidates"],
+          "properties": {
+            "region": { "type": "string", "minLength": 1, "maxLength": 64, "description": "The region's id, of lowercase letters, digits and hyphens, such as us-vermont." },
+            "revision": { "type": "string", "minLength": 1, "maxLength": 64, "description": "The import run's id; finishSegmentCandidates removes the region's candidates of other runs." },
+            "candidates": { "type": "array", "maxLength": 500, "items": { "type": "ref", "ref": "app.activitytracker.importer.defs#candidate" } }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["rejected"],
+          "properties": {
+            "rejected": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.importer.defs#rejection" } }
+          }
+        }
+      },
+      "errors": [
+        { "name": "InvalidRequest", "description": "More than 500 candidates, or a malformed region or revision." },
+        { "name": "NotImporter", "description": "The caller isn't the configured segment importer, or none is configured." }
+      ]
+    }
+  }
+}

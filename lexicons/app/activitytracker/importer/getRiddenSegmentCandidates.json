@@ -1,0 +1,34 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.importer.getRiddenSegmentCandidates",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "A region's ridden candidates, by id: those that enough distinct athletes have passed from start to end. A candidate stays ridden once it is, until its line or sport group changes. Never says how many athletes rode a candidate, who or when. Only the AppView's configured segment importer may call it, with service auth.",
+      "parameters": {
+        "type": "params",
+        "required": ["region"],
+        "properties": {
+          "region": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 500, "default": 500 },
+          "cursor": { "type": "string" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["candidates"],
+          "properties": {
+            "cursor": { "type": "string" },
+            "candidates": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.importer.defs#candidate" } }
+          }
+        }
+      },
+      "errors": [
+        { "name": "InvalidRequest", "description": "A malformed region." },
+        { "name": "NotImporter", "description": "The caller isn't the configured segment importer, or none is configured." }
+      ]
+    }
+  }
+}

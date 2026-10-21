@@ -392,3 +392,75 @@ object NotifySpace {
 
     val method = XrpcProcedure(Nsid.SPACE_NOTIFY_SPACE, Input.serializer(), JsonObject.serializer())
 }
+
+// The segment importer's calls (`app.activitytracker.importer.*`), which only the AppView's configured importer account may make.
+
+/**
+ * `app.activitytracker.importer.defs#candidate`: a candidate segment staged in the AppView before it's published, validated as a
+ * [SegmentRecord] is. Never served by any feed query.
+ */
+@Serializable
+data class SegmentCandidate(
+    /** The importer's stable id: [SegmentCandidates.ID_PATTERN]. */
+    val id: String,
+    /** A [SegmentSportGroup] value. */
+    val sport: String,
+    val name: String,
+    /** The line as an encoded polyline at precision 6, as [SegmentRecord.line]. */
+    val line: String,
+    /** A [SegmentSource] value. */
+    val source: String,
+    /** An SPDX identifier, as [SegmentRecord.license]. */
+    val license: String,
+)
+
+/** `app.activitytracker.importer.defs#rejection`: a staged candidate the AppView refused, and why. */
+@Serializable data class SegmentCandidateRejection(val id: String, val reason: String)
+
+/** Limits shared by the candidate calls. */
+object SegmentCandidates {
+    /** Most candidates in one [PutSegmentCandidates] batch or one [GetRiddenSegmentCandidates] page. */
+    const val MAX_BATCH = 500
+
+    /** Longest revision. */
+    const val MAX_REVISION_LENGTH = 64
+
+    /** Longest candidate id or region id. */
+    const val MAX_ID_LENGTH = 64
+
+    /** What a candidate id and a region id must match. */
+    val ID_PATTERN = Regex("[a-z0-9-]{1,$MAX_ID_LENGTH}")
+
+    /** The error a caller other than the configured importer gets. */
+    const val NOT_IMPORTER = "NotImporter"
+}
+
+/**
+ * `app.activitytracker.importer.putSegmentCandidates`: stages up to [SegmentCandidates.MAX_BATCH] of a region's candidates for one import
+ * run, storing or replacing each by its id; returns those that failed validation.
+ */
+object PutSegmentCandidates {
+    @Serializable data class Input(val region: String, val revision: String, val candidates: List<SegmentCandidate>)
+
+    @Serializable data class Output(val rejected: List<SegmentCandidateRejection>)
+
+    val method = XrpcProcedure(Nsid.IMPORTER_PUT_SEGMENT_CANDIDATES, Input.serializer(), Output.serializer())
+}
+
+/** `app.activitytracker.importer.finishSegmentCandidates`: removes the region's candidates not staged in [Input.revision]. */
+object FinishSegmentCandidates {
+    @Serializable data class Input(val region: String, val revision: String)
+
+    @Serializable data class Output(val removed: Int)
+
+    val method = XrpcProcedure(Nsid.IMPORTER_FINISH_SEGMENT_CANDIDATES, Input.serializer(), Output.serializer())
+}
+
+/** `app.activitytracker.importer.getRiddenSegmentCandidates`: a region's ridden candidates by id, with no counts, athletes or dates. */
+object GetRiddenSegmentCandidates {
+    @Serializable data class Params(val region: String, val limit: Int? = null, val cursor: String? = null)
+
+    @Serializable data class Output(val candidates: List<SegmentCandidate>, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.IMPORTER_GET_RIDDEN_SEGMENT_CANDIDATES, Params.serializer(), Output.serializer())
+}
