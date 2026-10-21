@@ -21,8 +21,10 @@ kotlin {
             api(libs.circuitx.subcircuit)
             // Only for TextFieldState: a State holds its text fields' state, which the presenter owns.
             api(libs.compose.foundation)
+            api(libs.dataresult.uistate)
             api(libs.kotlinx.collections.immutable)
             api(libs.kotlinx.io.bytestring)
+
             implementation(libs.compose.runtime)
         }
     }

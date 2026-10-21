@@ -12,6 +12,17 @@ AppView indexes them from the firehose and serves feeds.
 Requires JDK 25, Docker, Android SDK (for Android), Xcode (for iOS), and `cloudflared` for native sign-in
 (`brew install cloudflared`).
 
+The build also resolves [kmp-dataresult](https://github.com/solcott/kmp-dataresult) from GitHub Packages,
+which authenticates even public reads. Create a classic GitHub token with the `read:packages` scope and
+add it to `~/.gradle/gradle.properties` (CI can set `GITHUB_ACTOR` and `GITHUB_TOKEN` instead):
+
+```properties
+gpr.user=your-github-username
+gpr.key=ghp_yourtoken
+# Optional: build against a local kmp-dataresult checkout instead (an absolute path).
+dataresult.dir=/path/to/kmp-dataresult
+```
+
 ```bash
 scripts/dev.sh --seed alice     # Docker stack, tunnel, local.properties, AppView, adb reverse, alice.test
 scripts/dev.sh status           # what's running, and whether the tunnel URL, AppView and local.properties agree

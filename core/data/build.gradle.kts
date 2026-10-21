@@ -12,6 +12,7 @@ kotlin {
             api(projects.coreActivityfile)
             api(projects.coreAtproto)
             api(projects.coreLocation)
+            api(libs.dataresult)
             api(libs.room.runtime)
 
             implementation(libs.compose.runtime.annotation)

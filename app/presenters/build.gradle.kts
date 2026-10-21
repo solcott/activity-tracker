@@ -18,6 +18,7 @@ kotlin {
             implementation(libs.circuit.runtime.presenter)
             implementation(libs.compose.runtime)
             implementation(libs.compose.runtime.saveable)
+            implementation(libs.dataresult.uistate.circuit)
         }
         commonTest.dependencies {
             implementation(libs.circuit.test)

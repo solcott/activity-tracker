@@ -54,6 +54,9 @@ garminFit = "21.218.0"
 xmlutil = "1.0.2.1"
 # androidx artifact that Compose Multiplatform's runtime already resolves to; @Immutable/@Stable for modules without Compose.
 composeRuntimeAnnotation = "1.12.1"
+# Outcome / ContentState for loading screens (github.com/solcott/kmp-dataresult, GitHub Packages). A local checkout replaces it
+# when the dataresult.dir Gradle property is set (settings.gradle.kts).
+dataresult = "0.1.0-SNAPSHOT"
 
 androidx-activity = "1.13.0"
 androidx-browser = "1.10.0"
@@ -73,6 +76,9 @@ h2 = "2.5.252"
 turbine = "1.2.1"
 
 [libraries]
+dataresult = { module = "io.github.solcott:dataresult", version.ref = "dataresult" }
+dataresult-uistate = { module = "io.github.solcott:uistate", version.ref = "dataresult" }
+dataresult-uistate-circuit = { module = "io.github.solcott:uistate-circuit", version.ref = "dataresult" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinxCoroutines" }
