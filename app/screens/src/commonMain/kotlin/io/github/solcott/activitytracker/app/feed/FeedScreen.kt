@@ -40,6 +40,8 @@ data class FeedState(
     val filter: FeedFilter,
     /** The filter control, kept across changes so it keeps its state, and replaced only by [FeedEvent.ClearFilters]. */
     val filterScreen: FeedFilterScreen,
+    /** Whether to ask, once, whether to turn segment matching on ([FeedEvent.AnswerSegments]). */
+    val askSegments: Boolean = false,
     val eventSink: (FeedEvent) -> Unit,
 ) : CircuitUiState
 
@@ -62,4 +64,9 @@ sealed interface FeedEvent {
     data object AddManual : FeedEvent
 
     data object Import : FeedEvent
+
+    /**
+     * The athlete's answer to [FeedState.askSegments]: turn segment matching [on], or leave it off. Either way, they're not asked again.
+     */
+    data class AnswerSegments(val on: Boolean) : FeedEvent
 }

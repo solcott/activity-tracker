@@ -2,16 +2,20 @@ package io.github.solcott.activitytracker.app.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.DetailVisibilityPicker
@@ -19,6 +23,7 @@ import io.github.solcott.activitytracker.app.ui.UnitSystemPicker
 import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.errorText
@@ -35,6 +40,10 @@ import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_z
 import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_zones_ends
 import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_zones_none
 import io.github.solcott.activitytracker.composeApp.resources.settings_saving
+import io.github.solcott.activitytracker.composeApp.resources.settings_segments_heading
+import io.github.solcott.activitytracker.composeApp.resources.settings_segments_help
+import io.github.solcott.activitytracker.composeApp.resources.settings_segments_matching
+import io.github.solcott.activitytracker.composeApp.resources.settings_segments_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.settings_title
 import io.github.solcott.activitytracker.composeApp.resources.settings_units_heading
 import io.github.solcott.activitytracker.composeApp.resources.settings_units_imperial_example
@@ -95,6 +104,8 @@ fun SettingsUi(state: SettingsState, modifier: Modifier = Modifier) {
                 )
             }
             HorizontalDivider()
+            SegmentMatching(state)
+            HorizontalDivider()
             AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.SignOut) }) { Text(stringResource(Res.string.profile_sign_out)) }
         }
     }
@@ -129,6 +140,35 @@ private fun DefaultVisibility(
                     saving -> Res.string.settings_saving
                     !defaults.canChoose -> Res.string.activity_visibility_sign_in_again
                     else -> Res.string.settings_defaults_help
+                }
+            ),
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
+}
+
+/** Whether a copy of each route without the privacy zones goes to the AppView, so it can find segments. */
+@Composable
+private fun SegmentMatching(state: SettingsState, modifier: Modifier = Modifier) {
+    val enabled = state.canUseSegments && state.segmentMatching != null && !state.savingSegments
+    val checked = state.segmentMatching == true
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(stringResource(Res.string.settings_segments_heading), style = MaterialTheme.typography.titleMedium)
+        Row(
+            Modifier.fillMaxWidth()
+                .toggleable(checked, enabled = enabled, role = Role.Switch) { state.eventSink(SettingsEvent.SegmentMatchingChanged(it)) }
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(Res.string.settings_segments_matching), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            AppSwitch(checked, onCheckedChange = null, enabled = enabled)
+        }
+        Text(
+            stringResource(
+                when {
+                    !state.canUseSegments -> Res.string.settings_segments_sign_in_again
+                    state.savingSegments -> Res.string.settings_saving
+                    else -> Res.string.settings_segments_help
                 }
             ),
             style = MaterialTheme.typography.bodySmall,

@@ -21,11 +21,13 @@ import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.record.ManualActivityScreen
 import io.github.solcott.activitytracker.app.record.RecordScreen
+import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
 import io.github.solcott.activitytracker.location.LocationTracker
 import kotlin.time.Clock
 import kotlinx.collections.immutable.persistentListOf
@@ -43,6 +45,7 @@ fun FeedPresenter(
     profiles: ProfileRepository,
     locationTracker: LocationTracker,
     clock: Clock,
+    segmentPrefs: SegmentPrefsRepository,
 ): FeedState {
     val viewerDid = profiles.did.value
     // Retained, so the scope and filter survive opening an activity and coming back.
@@ -64,11 +67,15 @@ fun FeedPresenter(
     var refreshKey by remember { mutableIntStateOf(0) }
     var syncedFor by remember { mutableIntStateOf(-1) }
     val activityEvents = rememberActivityListEventSink(navigator, activities) { error = it }
+    // Asked once: answering saves the setting, which hides the card here and on every device. A failed save leaves it to ask again.
+    var askSegments by remember { mutableStateOf(false) }
+    val flights = rememberSingleFlight()
 
     // Apart from the feed load, which mustn't wait on them, and from each other: each is best effort and slow for a long history.
     LaunchedEffect(Unit) {
         launch { activities.repairZones() }
         launch { activities.repairRoutes() }
+        launch { askSegments = segmentPrefs.shouldAsk() }
     }
 
     LaunchedEffect(refreshKey, mine, query) {
@@ -87,8 +94,19 @@ fun FeedPresenter(
         refreshing = false
     }
 
-    return FeedState(items, refreshing, error, pending, viewerDid, locationTracker.isSupported, scope, Scopes, filter, filterScreen) { event
-        ->
+    return FeedState(
+        items,
+        refreshing,
+        error,
+        pending,
+        viewerDid,
+        locationTracker.isSupported,
+        scope,
+        Scopes,
+        filter,
+        filterScreen,
+        askSegments,
+    ) { event ->
         when (event) {
             FeedEvent.Refresh -> {
                 refreshKey++
@@ -124,6 +142,14 @@ fun FeedPresenter(
 
             FeedEvent.Import -> {
                 navigator.goTo(ImportActivityScreen())
+            }
+
+            is FeedEvent.AnswerSegments -> {
+                flights.launch(FeedEvent.AnswerSegments::class) {
+                    runSuspendCatching { segmentPrefs.save(event.on) }
+                        .onSuccess { askSegments = false }
+                        .onFailure { e -> error = UiError.of(UiError.Kind.SaveSettings, e) }
+                }
             }
         }
     }

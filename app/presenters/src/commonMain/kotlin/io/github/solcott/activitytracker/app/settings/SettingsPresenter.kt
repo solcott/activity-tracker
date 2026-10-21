@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 
 @CircuitInject(SettingsScreen::class, SessionScope::class)
@@ -26,6 +27,7 @@ fun SettingsPresenter(
     auth: AuthRepository,
     defaults: ActivityDefaults,
     privacy: PrivacyZones,
+    segmentPrefs: SegmentPrefsRepository,
 ): SettingsState {
     // UnitsRepository updates optimistically, so the choice shows at once and reverts if the save fails.
     val units by unitsRepository.units.collectAsState()
@@ -36,6 +38,10 @@ fun SettingsPresenter(
     val privacySettings by privacy.current.collectAsState()
     // Only the summary line: a failed read leaves it out, and the zones screen says why.
     LaunchedEffect(Unit) { runSuspendCatching { privacy.refresh() } }
+    // Saving sets `saved`, after which ActivityRepository.repairRoutesOnSave (run for the session) writes or deletes the segment tracks.
+    val segmentMatching by segmentPrefs.current.collectAsState()
+    val savingSegments = flights.isRunning(SettingsEvent.SegmentMatchingChanged::class)
+    LaunchedEffect(Unit) { runSuspendCatching { segmentPrefs.refresh() } }
 
     return SettingsState(
         units,
@@ -45,6 +51,9 @@ fun SettingsPresenter(
         defaultVisibility.saving,
         privacyZoneCount = privacySettings?.zones?.size,
         hidesRouteEnds = (privacySettings?.hideEndsMeters ?: 0) > 0,
+        segmentMatching = segmentMatching?.isOn,
+        canUseSegments = segmentPrefs.canUse,
+        savingSegments = savingSegments,
     ) { event ->
         when (event) {
             SettingsEvent.Back -> {
@@ -67,6 +76,16 @@ fun SettingsPresenter(
 
             SettingsEvent.OpenPrivacyZones -> {
                 navigator.goTo(PrivacyZonesScreen)
+            }
+
+            is SettingsEvent.SegmentMatchingChanged -> {
+                if (event.on != segmentMatching?.isOn) {
+                    error = null
+                    flights.launch(SettingsEvent.SegmentMatchingChanged::class) {
+                        runSuspendCatching { segmentPrefs.save(event.on) }
+                            .onFailure { e -> error = UiError.of(UiError.Kind.SaveSettings, e) }
+                    }
+                }
             }
 
             // Dropping the session tears down the SessionGraph and returns to LoginScreen.

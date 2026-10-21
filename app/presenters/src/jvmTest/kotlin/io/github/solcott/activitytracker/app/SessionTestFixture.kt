@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.UnitsRepository
@@ -104,6 +105,9 @@ class SessionTestFixture {
 
     /** Alice's `actor.privacyZones` record in her `self` space, as JSON; null for none. Saving one replaces it. */
     var privacyZones: String? = null
+
+    /** Alice's `actor.segmentPrefs` record in her `self` space, as JSON; null for none. Saving one replaces it. */
+    var segmentPrefs: String? = null
 
     /** Reads of her privacy zones fail, as offline. */
     var failZoneReads = false
@@ -215,6 +219,14 @@ class SessionTestFixture {
                                 headers = json,
                             )
                         }
+                        if (request.url.parameters["collection"] == Nsid.ACTOR_SEGMENT_PREFS) {
+                            val value =
+                                segmentPrefs ?: return@MockEngine respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, json)
+                            return@MockEngine respond(
+                                """{"uri":"at://$did/${Nsid.ACTOR_SEGMENT_PREFS}/self","cid":"bafyrec","value":$value}""",
+                                headers = json,
+                            )
+                        }
                         if (request.url.parameters["collection"] == Nsid.ACTOR_ACTIVITY_DEFAULTS) {
                             val value =
                                 activityDefaults
@@ -248,6 +260,7 @@ class SessionTestFixture {
                             val collection = input.getValue("collection").jsonPrimitive.content
                             if (collection == Nsid.ACTOR_ACTIVITY_DEFAULTS) activityDefaults = record?.toString()
                             if (collection == Nsid.ACTOR_PRIVACY_ZONES) privacyZones = record?.toString()
+                            if (collection == Nsid.ACTOR_SEGMENT_PREFS) segmentPrefs = record?.toString()
                             if (collection != Nsid.ACTOR_PRIVATE_DETAILS) {
                                 record?.let { otherSpacePuts += tier to it }
                             } else if (record == null) {
@@ -326,12 +339,14 @@ class SessionTestFixture {
         val privacy: PrivacyZones,
         val manager: ActivityManager,
         val suggestions: CombineSuggestions,
+        val segmentPrefs: SegmentPrefsRepository,
     ) {
         /** The type picker's producer, as Metro injects it into the record, manual entry and import presenters. */
         val typeChoices: ActivityTypeChoices
             get() = ActivityTypeChoices(recentTypes)
     }
 
+    @Suppress("LongMethod") // Wires every store a test reaches for.
     suspend fun repos(defaultUnits: UnitSystem = UnitSystem.Metric, suggestionClock: Clock = Clock.System): Repos {
         val (db, manager, clients) = signedInTestSession(http, did = did)
         val localLikes = LocalLikes()
@@ -358,6 +373,8 @@ class SessionTestFixture {
                 localLikes,
                 recentTypes,
                 Clock.System,
+                testSegments(db, clients, zones.writer, zones.outbox, privacy, zones.tracks).tracks,
+                testSegments(db, clients, zones.writer, zones.outbox, privacy, zones.tracks).sweeper,
             )
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
         val units = UnitsRepository(profiles, Clock.System, Logger, defaultUnits)
@@ -377,6 +394,7 @@ class SessionTestFixture {
                 privacy,
                 Clock.System,
                 activities,
+                testSegments(db, clients, zones.writer, zones.outbox, privacy, zones.tracks).tracks,
             )
         return Repos(
             activities,
@@ -389,6 +407,7 @@ class SessionTestFixture {
             privacy,
             activityManager,
             CombineSuggestions(db, clients, feed, zones.tracks, suggestionClock),
+            segmentsOf(clients).prefs,
         )
     }
 }

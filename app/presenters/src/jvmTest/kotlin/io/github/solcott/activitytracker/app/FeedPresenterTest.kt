@@ -24,6 +24,7 @@ import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -64,7 +65,12 @@ import kotlinx.datetime.atStartOfDayIn
 class FeedPresenterTest {
     private val http = HttpClient(MockEngine { respond("", HttpStatusCode.NotFound) }) { expectSuccess = false }
 
-    private class Repos(val feed: FeedRepository, val activities: ActivityRepository, val profiles: ProfileRepository)
+    private class Repos(
+        val feed: FeedRepository,
+        val activities: ActivityRepository,
+        val profiles: ProfileRepository,
+        val segmentPrefs: SegmentPrefsRepository,
+    )
 
     private suspend fun repos(): Repos {
         val (db, _, clients) = signedInTestSession(http)
@@ -90,8 +96,10 @@ class FeedPresenterTest {
                 localLikes,
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
+                testSegments(db, clients, zones.writer, zones.outbox, privacy, zones.tracks).tracks,
+                testSegments(db, clients, zones.writer, zones.outbox, privacy, zones.tracks).sweeper,
             )
-        return Repos(feed, activities, ProfileRepository(clients, Clock.System, Logger, zones.store))
+        return Repos(feed, activities, ProfileRepository(clients, Clock.System, Logger, zones.store), segmentsOf(clients).prefs)
     }
 
     private suspend fun presenterTest(
@@ -101,7 +109,7 @@ class FeedPresenterTest {
     ) {
         val r = repos()
         presenterTestOf(
-            { FeedPresenter(navigator, r.feed, r.activities, r.profiles, tracker, Clock.System) },
+            { FeedPresenter(navigator, r.feed, r.activities, r.profiles, tracker, Clock.System, r.segmentPrefs) },
             timeout = TURBINE_TIMEOUT,
             block = block,
         )
@@ -194,10 +202,22 @@ class FeedPresenterTest {
                 localLikes,
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
+                testSegments(db, clients, zones.writer, zones.outbox, privacy, zones.tracks).tracks,
+                testSegments(db, clients, zones.writer, zones.outbox, privacy, zones.tracks).sweeper,
             )
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
         presenterTestOf(
-            { FeedPresenter(FakeNavigator(FeedScreen), feed, activities, profiles, UnsupportedLocationTracker(), Clock.System) },
+            {
+                FeedPresenter(
+                    FakeNavigator(FeedScreen),
+                    feed,
+                    activities,
+                    profiles,
+                    UnsupportedLocationTracker(),
+                    Clock.System,
+                    segmentsOf(clients).prefs,
+                )
+            },
             timeout = TURBINE_TIMEOUT,
             block = block,
         )

@@ -14,7 +14,9 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonObject
@@ -26,7 +28,9 @@ class SettingsPresenterTest {
     @Test
     fun choosingUnitsSavesThemToTheProfile() = runTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
-        presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy) }) {
+        presenterTestOf({
+            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, repos.segmentPrefs)
+        }) {
             val initial = awaitItem()
             assertEquals(UnitSystem.Metric, initial.units)
             assertNull(initial.error)
@@ -43,7 +47,9 @@ class SettingsPresenterTest {
     fun failedSaveRevertsAndShowsError() = runTest {
         fixture.failWrites = true
         val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
-        presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy) }) {
+        presenterTestOf({
+            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, repos.segmentPrefs)
+        }) {
             awaitItem().eventSink(SettingsEvent.UnitsChanged(UnitSystem.Imperial))
             val failed = awaitUntil { it.error != null && !it.saving }
             assertEquals(UiError.Kind.SaveSettings, failed.error?.kind)
@@ -56,7 +62,7 @@ class SettingsPresenterTest {
     fun backPops() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(SettingsScreen)
-        presenterTestOf({ SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults, repos.privacy) }) {
+        presenterTestOf({ SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults, repos.privacy, repos.segmentPrefs) }) {
             awaitItem().eventSink(SettingsEvent.Back)
             navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
@@ -67,7 +73,7 @@ class SettingsPresenterTest {
     fun zonesOpenTheZonesScreen() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(SettingsScreen)
-        presenterTestOf({ SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults, repos.privacy) }) {
+        presenterTestOf({ SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults, repos.privacy, repos.segmentPrefs) }) {
             awaitItem().eventSink(SettingsEvent.OpenZones)
             assertEquals(TrainingZonesScreen, navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
@@ -77,7 +83,9 @@ class SettingsPresenterTest {
     @Test
     fun defaultVisibilitiesSaveCappedAndReload() = runTest {
         val repos = fixture.repos()
-        presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy) }) {
+        presenterTestOf({
+            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, repos.segmentPrefs)
+        }) {
             val loaded = awaitUntil { it.defaults != null }
             assertEquals(Visibility.PUBLIC, loaded.defaults?.activity, "never set: Public")
             assertEquals(DetailCategory.all.map { Visibility.PUBLIC }, loaded.defaults?.categories?.map { it.visibility })
@@ -99,7 +107,9 @@ class SettingsPresenterTest {
 
         // Opening Settings again, in a new session, reads them back.
         val again = fixture.repos()
-        presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), again.units, again.auth, again.defaults, again.privacy) }) {
+        presenterTestOf({
+            SettingsPresenter(FakeNavigator(SettingsScreen), again.units, again.auth, again.defaults, again.privacy, again.segmentPrefs)
+        }) {
             val reloaded = awaitUntil { it.defaults != null }.defaults
             assertEquals(Visibility.MUTUALS, reloaded?.activity)
             assertEquals(Visibility.SELF, reloaded?.tierOf(DetailCategory.HEART_RATE))
@@ -111,7 +121,9 @@ class SettingsPresenterTest {
     fun narrowingTheActivityDefaultCapsTheCategories() = runTest {
         fixture.activityDefaults = """{"visibility":"followers","details":{"calories":"followers"}}"""
         val repos = fixture.repos()
-        presenterTestOf({ SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy) }) {
+        presenterTestOf({
+            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, repos.segmentPrefs)
+        }) {
             awaitUntil { it.defaults != null }.defaults!!.eventSink(VisibilityEvent.ActivityChanged(Visibility.SELF))
             awaitUntil { it.savingDefaults }
             val narrowed = awaitUntil { !it.savingDefaults }
@@ -119,5 +131,74 @@ class SettingsPresenterTest {
             assertEquals(Visibility.SELF, narrowed.defaults?.tierOf(DetailCategory.CALORIES), "category default capped")
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun segmentMatchingStartsOffAndTurnsOnAndOff() = runTest {
+        val repos = fixture.repos()
+        presenterTestOf({
+            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, repos.segmentPrefs)
+        }) {
+            val loaded = awaitUntil { it.segmentMatching != null }
+            assertEquals(false, loaded.segmentMatching, "never asked: off")
+            assertTrue(loaded.canUseSegments)
+
+            loaded.eventSink(SettingsEvent.SegmentMatchingChanged(true))
+            awaitUntil { it.segmentMatching == true && !it.savingSegments }.eventSink(SettingsEvent.SegmentMatchingChanged(false))
+            val off = awaitUntil { it.segmentMatching == false && !it.savingSegments }
+            assertNull(off.error)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals("false", AtJson.parseToJsonElement(fixture.segmentPrefs!!).jsonObject.getValue("matching").jsonPrimitive.content)
+        assertNotNull(repos.segmentPrefs.saved.value, "each save starts the segment-track sweep for the session")
+    }
+
+    @Test
+    fun aFailedSegmentMatchingSaveKeepsItOffAndShowsAnError() = runTest {
+        val repos = fixture.repos()
+        presenterTestOf({
+            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, repos.segmentPrefs)
+        }) {
+            val loaded = awaitUntil { it.segmentMatching != null }
+            fixture.failWrites = true
+            loaded.eventSink(SettingsEvent.SegmentMatchingChanged(true))
+            val failed = awaitUntil { it.error != null && !it.savingSegments }
+            assertEquals(UiError.Kind.SaveSettings, failed.error?.kind)
+            assertEquals(false, failed.segmentMatching)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertNull(fixture.segmentPrefs)
+        assertNull(repos.segmentPrefs.saved.value, "no sweep after a failed save")
+    }
+
+    @Test
+    fun spacesThatRefuseTheSessionLeaveSegmentMatchingUnknownAndUnsaved() = runTest {
+        fixture.scopeMissing = true
+        val repos = fixture.repos()
+        presenterTestOf({
+            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, repos.segmentPrefs)
+        }) {
+            val state = awaitItem()
+            state.eventSink(SettingsEvent.SegmentMatchingChanged(true))
+            val after = awaitUntil { !it.savingSegments }
+            assertNull(after.segmentMatching)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertNull(fixture.segmentPrefs)
+    }
+
+    @Test
+    fun aSegmentMatchingToggleSentTwiceSavesOnce() = runTest {
+        val repos = fixture.repos()
+        presenterTestOf({
+            SettingsPresenter(FakeNavigator(SettingsScreen), repos.units, repos.auth, repos.defaults, repos.privacy, repos.segmentPrefs)
+        }) {
+            val loaded = awaitUntil { it.segmentMatching != null }
+            loaded.eventSink(SettingsEvent.SegmentMatchingChanged(true))
+            loaded.eventSink(SettingsEvent.SegmentMatchingChanged(true))
+            awaitUntil { it.segmentMatching == true && !it.savingSegments }
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(1, fixture.spacePuts.count { (_, record) -> "matching" in record })
     }
 }

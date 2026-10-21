@@ -389,6 +389,14 @@
     <string name="settings_privacy_zones_none">No zones</string>
     <!-- After the zone count when the start and end of every route are hidden. -->
     <string name="settings_privacy_zones_ends">%1$s, start and end hidden</string>
+    <string name="settings_segments_heading">Segments</string>
+    <string name="settings_segments_matching">Find segments on my activities</string>
+    <string name="settings_segments_help">Shares a copy of your routes, with your privacy zones and hidden starts and ends removed, with the app's server so it can find the segments you've done. No one else sees it. Turning this off deletes those copies.</string>
+    <string name="settings_segments_sign_in_again">Sign in again to use segments.</string>
+    <string name="feed_segments_title">Find segments on your activities?</string>
+    <string name="feed_segments_body">To find the segments you've done, a copy of your routes, with your privacy zones and hidden starts and ends removed, is shared with the app's server. No one else sees it. You can change this in Settings.</string>
+    <string name="feed_segments_turn_on">Turn on</string>
+    <string name="feed_segments_not_now">Not now</string>
     <string name="privacy_zones_help">Others never see the parts of your routes inside these zones, whoever you share an activity with. You still see your whole route.</string>
     <string name="privacy_zones_empty">No privacy zones yet.</string>
     <string name="privacy_zones_from_activity">To hide where an activity started or ended, open it and choose Hide this start or Hide this end.</string>

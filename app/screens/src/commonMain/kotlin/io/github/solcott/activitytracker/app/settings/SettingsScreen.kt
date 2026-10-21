@@ -24,6 +24,11 @@ data class SettingsState(
     val privacyZoneCount: Int? = null,
     /** Whether the start and end of every route are hidden. */
     val hidesRouteEnds: Boolean = false,
+    /** Whether segment matching is on; null while it's unknown (not read yet, or unreadable). */
+    val segmentMatching: Boolean? = null,
+    /** Whether this session can use segment matching: false for one signed in before its `space:` grant listed it. */
+    val canUseSegments: Boolean = true,
+    val savingSegments: Boolean = false,
     val eventSink: (SettingsEvent) -> Unit,
 ) : CircuitUiState
 
@@ -35,6 +40,9 @@ sealed interface SettingsEvent {
     data object OpenZones : SettingsEvent
 
     data object OpenPrivacyZones : SettingsEvent
+
+    /** Turns segment matching [on] or off: a copy of each route without the privacy zones is shared with the AppView while it's on. */
+    data class SegmentMatchingChanged(val on: Boolean) : SettingsEvent
 
     data object SignOut : SettingsEvent
 }

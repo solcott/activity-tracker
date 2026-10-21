@@ -4,9 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,6 +32,8 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.subcircuit.SubCircuitContent
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterOuterEvent
 import io.github.solcott.activitytracker.app.ui.activityItems
+import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
@@ -58,6 +62,10 @@ import io.github.solcott.activitytracker.composeApp.resources.feed_import
 import io.github.solcott.activitytracker.composeApp.resources.feed_pending_writes
 import io.github.solcott.activitytracker.composeApp.resources.feed_record
 import io.github.solcott.activitytracker.composeApp.resources.feed_refresh
+import io.github.solcott.activitytracker.composeApp.resources.feed_segments_body
+import io.github.solcott.activitytracker.composeApp.resources.feed_segments_not_now
+import io.github.solcott.activitytracker.composeApp.resources.feed_segments_title
+import io.github.solcott.activitytracker.composeApp.resources.feed_segments_turn_on
 import io.github.solcott.activitytracker.data.di.SessionScope
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.pluralStringResource
@@ -164,6 +172,7 @@ private fun Timeline(state: FeedState, listState: LazyListState, contentPadding:
                 }
             }
             state.error?.let { item { Text(errorText(it), color = MaterialTheme.colorScheme.error) } }
+            if (state.askSegments) item { SegmentsPrompt(state) }
             activityItems(state.activities, state.viewerDid, authorClickable = true) { state.eventSink(FeedEvent.Activity(it)) }
             if (state.activities.isEmpty() && !state.refreshing) {
                 item {
@@ -183,6 +192,25 @@ private fun Timeline(state: FeedState, listState: LazyListState, contentPadding:
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+/** Asks once whether to turn segment matching on; either answer is saved, so it isn't asked again. */
+@Composable
+private fun SegmentsPrompt(state: FeedState, modifier: Modifier = Modifier) {
+    AppCard(modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(Res.string.feed_segments_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(Res.string.feed_segments_body), style = MaterialTheme.typography.bodyMedium)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                AppTextButton(onClick = { state.eventSink(FeedEvent.AnswerSegments(on = false)) }) {
+                    Text(stringResource(Res.string.feed_segments_not_now))
+                }
+                AppButton(onClick = { state.eventSink(FeedEvent.AnswerSegments(on = true)) }) {
+                    Text(stringResource(Res.string.feed_segments_turn_on))
                 }
             }
         }
