@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
+import kotlinx.coroutines.CoroutineScope
 
 /**
  * The detail screen's comment actions: sending [draft], as a reply to [replyingTo] when set ([ActivityDetailEvent.ReplyTo]), deleting the
@@ -66,19 +67,16 @@ internal class CommentActions(
             val replyTo = replyingTo.value
             draft.clearText()
             onError(null)
-            flights
-                .launch(ActivityDetailEvent.SendComment) {
-                    runSuspendCatching { activities.comment(activity, text, replyTo) }
-                        .onSuccess { if (replyingTo.value?.uri == replyTo?.uri) replyingTo.value = null }
-                        .onFailure { e ->
-                            onCountMoved(-1)
-                            val refused = interactionErrorOf(e) ?: return@onFailure
-                            if (draft.text.isEmpty()) draft.setTextAndPlaceCursorAtEnd(text)
-                            onError(refused)
-                        }
-                }
-                // Counted with the list, only if it started: a dropped repeat moves nothing.
-                ?.let { onCountMoved(1) }
+            launchCounted(ActivityDetailEvent.SendComment, 1) {
+                runSuspendCatching { activities.comment(activity, text, replyTo) }
+                    .onSuccess { if (replyingTo.value?.uri == replyTo?.uri) replyingTo.value = null }
+                    .onFailure { e ->
+                        onCountMoved(-1)
+                        val refused = interactionErrorOf(e) ?: return@onFailure
+                        if (draft.text.isEmpty()) draft.setTextAndPlaceCursorAtEnd(text)
+                        onError(refused)
+                    }
+            }
         }
     }
 
@@ -94,15 +92,13 @@ internal class CommentActions(
         val hidden = listed?.hidden == true
         // A hidden comment was never counted.
         val moved = if (hidden) 0 else -1
-        flights
-            .launch(uri) {
-                runSuspendCatching { activities.deleteComment(activity, uri, hidden) }
-                    .onFailure { e ->
-                        onCountMoved(-moved)
-                        onError(UiError.of(UiError.Kind.DeleteComment, e))
-                    }
-            }
-            ?.let { onCountMoved(moved) }
+        launchCounted(uri, moved) {
+            runSuspendCatching { activities.deleteComment(activity, uri, hidden) }
+                .onFailure { e ->
+                    onCountMoved(-moved)
+                    onError(UiError.of(UiError.Kind.DeleteComment, e))
+                }
+        }
     }
 
     /**
@@ -115,17 +111,15 @@ internal class CommentActions(
         // A hidden comment can't be replied to.
         if (hidden) stopReplyingTo(uri)
         val moved = if (hidden) -1 else 1
-        flights
-            .launch(uri) {
-                runSuspendCatching { activities.setCommentHidden(activity, comment, hidden) }
-                    .onSuccess { changed -> if (!changed) onCountMoved(-moved) }
-                    .onFailure { e ->
-                        onCountMoved(-moved)
-                        val kind = if (hidden) UiError.Kind.HideComment else UiError.Kind.UnhideComment
-                        onError(interactionErrorOf(e) ?: UiError.of(kind, e))
-                    }
-            }
-            ?.let { onCountMoved(moved) }
+        launchCounted(uri, moved) {
+            runSuspendCatching { activities.setCommentHidden(activity, comment, hidden) }
+                .onSuccess { changed -> if (!changed) onCountMoved(-moved) }
+                .onFailure { e ->
+                    onCountMoved(-moved)
+                    val kind = if (hidden) UiError.Kind.HideComment else UiError.Kind.UnhideComment
+                    onError(interactionErrorOf(e) ?: UiError.of(kind, e))
+                }
+        }
     }
 
     /**
@@ -139,15 +133,23 @@ internal class CommentActions(
         onError(null)
         val counted = comments.countedBy(author)
         if (replyingTo.value?.author?.did == author) replyingTo.value = null
-        flights
-            .launch(key) {
-                runSuspendCatching { if (block) blocks.setBlocked(author, true) else blocks.setMuted(author, true) }
-                    .onFailure { e ->
-                        onCountMoved(counted)
-                        onError(uiErrorOf(if (block) UiError.Kind.UpdateBlock else UiError.Kind.UpdateMute, e))
-                    }
-            }
-            ?.let { onCountMoved(-counted) }
+        launchCounted(key, -counted) {
+            runSuspendCatching { if (block) blocks.setBlocked(author, true) else blocks.setMuted(author, true) }
+                .onFailure { e ->
+                    onCountMoved(counted)
+                    onError(uiErrorOf(if (block) UiError.Kind.UpdateBlock else UiError.Kind.UpdateMute, e))
+                }
+        }
+    }
+
+    /**
+     * Starts [block] under [key], unless it's already running, moving the count by [moved] first: the work can change the list on another
+     * thread before a move made after starting it would land, and the count must never trail the list. A dropped repeat moves nothing.
+     */
+    private fun launchCounted(key: Any, moved: Int, block: suspend CoroutineScope.() -> Unit) {
+        if (flights.isRunning(key)) return
+        onCountMoved(moved)
+        flights.launch(key, block)
     }
 
     /** A comment being deleted or hidden can't be answered: the field goes back to a top-level comment, keeping its text. */

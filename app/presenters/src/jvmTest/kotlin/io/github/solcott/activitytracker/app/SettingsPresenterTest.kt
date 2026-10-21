@@ -69,9 +69,9 @@ class SettingsPresenterTest {
             )
         }) {
             awaitItem().eventSink(SettingsEvent.UnitsChanged(UnitSystem.Imperial))
-            val failed = awaitUntil { it.error != null && !it.saving }
+            // The revert comes through the units flow, which can land a frame after the error.
+            val failed = awaitUntil { it.error != null && !it.saving && it.units == UnitSystem.Metric }
             assertEquals(UiError.Kind.SaveSettings, failed.error?.kind)
-            assertEquals(UnitSystem.Metric, failed.units)
             cancelAndIgnoreRemainingEvents()
         }
     }

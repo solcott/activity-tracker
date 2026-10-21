@@ -291,8 +291,15 @@ open class ActivityDetailTestBase {
                     "/xrpc/com.atproto.space.putRecord" -> {
                         val input = AtJson.parseToJsonElement((request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString())
                         val record = input.jsonObject["record"]
-                        if (input.jsonObject["collection"]?.jsonPrimitive?.content == Nsid.ACTOR_PRIVACY_ZONES)
-                            privacyZones = record.toString()
+                        when (input.jsonObject["collection"]?.jsonPrimitive?.content) {
+                            Nsid.ACTOR_PRIVACY_ZONES -> privacyZones = record.toString()
+                            // Refused, as repo writes are, so they stay queued for a test to read: an outbox drain that sent one would
+                            // delete it from under the test.
+                            Nsid.FEED_COMMENT,
+                            Nsid.GRAPH_BLOCK,
+                            Nsid.GRAPH_MUTE ->
+                                return@MockEngine respond("""{"error":"Unavailable"}""", HttpStatusCode.ServiceUnavailable, json)
+                        }
                         respond("""{"uri":"at://did:plc:alice/x/y","cid":"bafyrec"}""", headers = json)
                     }
 
