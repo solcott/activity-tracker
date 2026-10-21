@@ -1,5 +1,8 @@
 package io.github.solcott.activitytracker.data.segments
 
+import co.touchlab.kermit.Logger
+import io.github.solcott.activitytracker.data.activity.OutboxProcessor
+import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -7,6 +10,7 @@ import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.CheckSegment
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
@@ -17,15 +21,19 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewerState
+import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.mock.respondError
+import io.ktor.client.engine.mock.toByteArray
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
+import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 
@@ -34,6 +42,8 @@ class SegmentRepositoryTest {
     private val segmentUri = AtUri.of(Did("did:plc:carol"), Nsid.FEED_SEGMENT, "3ks")
     private val activityUri = AtUri.of(did, Nsid.FEED_ACTIVITY, "3ka")
     private val requests = mutableListOf<Pair<String, Map<String, List<String>>>>()
+    /** Bodies of the POSTs the client sent, by method. */
+    private val posted = mutableMapOf<String, String>()
 
     private val effort =
         EffortView(
@@ -62,6 +72,7 @@ class SegmentRepositoryTest {
                 if (path == "/xrpc/com.atproto.server.getServiceAuth")
                     return@MockEngine respond("""{"token":"service-jwt"}""", headers = json)
                 requests += path.removePrefix("/xrpc/") to request.url.parameters.entries().associate { it.key to it.value }
+                if (request.method.value == "POST") posted[path.removePrefix("/xrpc/")] = request.body.toByteArray().decodeToString()
                 val body =
                     when (path.removePrefix("/xrpc/")) {
                         Nsid.FEED_GET_SEGMENT -> AtJson.encodeToString(GetSegment.Output.serializer(), GetSegment.Output(view))
@@ -69,6 +80,8 @@ class SegmentRepositoryTest {
                             AtJson.encodeToString(GetActivitySegments.Output.serializer(), GetActivitySegments.Output(listOf(effort)))
                         Nsid.FEED_GET_SEGMENT_EFFORTS ->
                             AtJson.encodeToString(GetSegmentEfforts.Output.serializer(), GetSegmentEfforts.Output(listOf(effort), "next"))
+                        Nsid.FEED_CHECK_SEGMENT ->
+                            AtJson.encodeToString(CheckSegment.Output.serializer(), CheckSegment.Output(listOf(view), remaining = 8))
                         Nsid.FEED_SEARCH_SEGMENTS ->
                             return@MockEngine respond(
                                 """{"error":"InvalidRequest","message":"too wide"}""",
@@ -107,5 +120,46 @@ class SegmentRepositoryTest {
     fun anAppViewErrorThrows() = runTest {
         val (_, _, clients) = signedInTestSession(http, did = did)
         assertFailsWith<Exception> { SegmentRepository(clients).search(SearchSegments.Params(0, 0, 1, 1)) }
+    }
+
+    @Test
+    fun checkPostsTheLine() = runTest {
+        val (_, _, clients) = signedInTestSession(http, did = did)
+        val output = SegmentRepository(clients).check("ride", "_p~iF~ps|U")
+        assertEquals(CheckSegment.Output(listOf(view), remaining = 8), output)
+        assertEquals(
+            CheckSegment.Input("ride", "_p~iF~ps|U"),
+            AtJson.decodeFromString(CheckSegment.Input.serializer(), posted.getValue(Nsid.FEED_CHECK_SEGMENT)),
+        )
+    }
+
+    @Test
+    fun createQueuesAPublicSegmentInTheRepo() = runTest {
+        val (db, _, clients) = signedInTestSession(http, did = did)
+        val segments = SegmentRepository(clients)
+        val publisher =
+            SegmentPublisher(clients, OutboxWriter(db, clients, Clock.System), OutboxProcessor(db, clients, Logger), segments, Clock.System)
+        val source = StrongRef(activityUri, Cid("bafyactivity"))
+
+        val uri = publisher.create(activityUri, "  Mill Hill climb ", "ride", "_p~iF~ps|U", derivedFrom = source)
+        val plain = publisher.create(activityUri, "Lane", "run", "_p~iF~ps|U")
+        assertEquals(setOf(activityUri), segments.createdFrom.value)
+        segments.dismissCreated(activityUri)
+        assertEquals(emptySet(), segments.createdFrom.value)
+
+        // The mock PDS refuses putRecord, so both stay queued, in order.
+        val rows = db.outbox().pending(did.value)
+        assertEquals(listOf(uri.rkey, plain.rkey), rows.map { it.rkey })
+        assertEquals(listOf(Nsid.FEED_SEGMENT, Nsid.FEED_SEGMENT), rows.map { it.collection })
+        assertEquals(listOf(null, null), rows.map { it.space }, "in the repo")
+        val record = AtJson.decodeFromString(SegmentRecord.serializer(), rows.first().recordJson!!)
+        assertEquals("Mill Hill climb", record.name)
+        assertEquals("ride", record.sport)
+        assertEquals("athlete", record.source)
+        assertEquals(SegmentPublisher.LICENSE, record.license)
+        assertEquals(source, record.derivedFrom)
+        assertNull(AtJson.decodeFromString(SegmentRecord.serializer(), rows.last().recordJson!!).derivedFrom)
+        assertEquals(Nsid.FEED_SEGMENT, uri.collection)
+        assertEquals(did.value, uri.authority)
     }
 }
