@@ -24,6 +24,7 @@ scripts/check-agent-sync.sh                       # Claude Code <-> Antigravity 
 ./gradlew :desktopApp:hotRun --auto               # desktop app with Compose Hot Reload (reloads on save); :desktopApp:run without
 ./gradlew :androidApp:installDebug
 ./gradlew :server-appview:run                     # AppView on :8081; defaults target the docker stack
+./gradlew :server-segment-importer:run --args="extract region.osm.pbf --region us-vermont --out build/us-vermont.ndjson"   # OSM trails -> candidate segments
 scripts/dev.sh [--seed alice]                     # whole local env: Docker, tunnel, local.properties, AppView, adb reverse (idempotent)
 scripts/dev.sh status | down
 docker compose -f docker/compose.yaml up -d       # local PLC/PDS/relay/Jetstream/Postgres
