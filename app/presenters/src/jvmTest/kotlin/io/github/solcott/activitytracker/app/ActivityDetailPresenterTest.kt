@@ -114,7 +114,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
             assertNull(loaded.likeError)
             loaded.eventSink(ActivityDetailEvent.ToggleLike)
             val refused = awaitUntil { (it as? ActivityDetailState.Loaded)?.likeError != null } as ActivityDetailState.Loaded
-            assertEquals(UiError(UiError.Kind.SignInAgain, null), refused.likeError)
+            assertEquals(UiError(UiError.Kind.SignInAgain), refused.likeError)
             assertEquals(1, refused.activity.likeCount, "the like isn't shown")
             assertNull(refused.activity.viewer?.like)
             cancelAndIgnoreRemainingEvents()

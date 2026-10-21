@@ -1,13 +1,15 @@
 package io.github.solcott.activitytracker.app
 
 import androidx.compose.runtime.Immutable
+import io.github.solcott.activitytracker.data.toDataError
+import io.github.solcott.dataresult.DataError
 
 /**
- * A failure for a screen to show. Presenters have no UI resources, so they say what failed ([kind]) and pass along the failure's own
- * message ([detail]); the UI shows [detail] when there is one and localized text for [kind] otherwise.
+ * A failure for a screen to show. Presenters have no UI resources, so they say what failed ([kind]) and why, when the failure was
+ * classified ([reason]); the UI shows localized text for both and never the failure's own message.
  */
 @Immutable
-data class UiError(val kind: Kind, val detail: String?) {
+data class UiError(val kind: Kind, val reason: DataError? = null) {
     enum class Kind {
         LoadFeed,
         LoadActivity,
@@ -83,6 +85,6 @@ data class UiError(val kind: Kind, val detail: String?) {
     }
 
     companion object {
-        fun of(kind: Kind, cause: Throwable): UiError = UiError(kind, cause.message)
+        fun of(kind: Kind, cause: Throwable): UiError = UiError(kind, cause.toDataError())
     }
 }

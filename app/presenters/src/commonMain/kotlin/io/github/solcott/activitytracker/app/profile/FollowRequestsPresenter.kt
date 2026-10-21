@@ -44,7 +44,7 @@ fun FollowRequestsPresenter(navigator: Navigator, answers: FollowRequestsReposit
                 declined = loaded.declined.toImmutableList()
                 truncated = loaded.truncated
                 // Without the decline scope everyone shows as a request; declining needs the athlete to sign in again.
-                error = if (loaded.needsSignIn) UiError(UiError.Kind.SignInAgain, null) else null
+                error = if (loaded.needsSignIn) UiError(UiError.Kind.SignInAgain) else null
             }
             .onFailure { error = UiError.of(UiError.Kind.LoadFollowRequests, it) }
         isLoading = false

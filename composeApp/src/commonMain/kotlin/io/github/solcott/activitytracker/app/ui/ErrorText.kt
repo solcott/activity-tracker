@@ -62,21 +62,19 @@ import io.github.solcott.dataresult.DataError
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
-/** The failure's own message when it has one, otherwise localized text for what failed. */
-@Composable fun errorText(error: UiError): String = error.detail ?: kindText(error.kind)
-
 /**
- * A failed load: what failed ([kind]) and, when it's one the athlete can act on or wait out, why ([error]). Never the failure's own text,
- * status code or error name.
+ * An error to show: what failed and, when it's one the athlete can act on or wait out, why. Never the failure's own text, status code or
+ * error name.
  */
-@Composable
-fun loadErrorText(kind: UiError.Kind, error: DataError): String {
-    val what = kindText(kind)
-    return loadErrorReason(error)?.let { stringResource(Res.string.error_with_reason, what, stringResource(it)) } ?: what
-}
+@Composable fun errorText(error: UiError): String = failureText(kindText(error.kind), error.reason)
 
-/** Why a load failed, for the failures the athlete can act on or wait out; null for the rest, which say only what failed. */
-internal fun loadErrorReason(error: DataError): StringResource? =
+/** [what] failed, followed by why when [reason] is one the athlete can act on or wait out. */
+@Composable
+fun failureText(what: String, reason: DataError?): String =
+    reason?.let(::errorReason)?.let { stringResource(Res.string.error_with_reason, what, stringResource(it)) } ?: what
+
+/** Why something failed, for the failures the athlete can act on or wait out; null for the rest, which say only what failed. */
+internal fun errorReason(error: DataError): StringResource? =
     when (error) {
         DataError.Network -> Res.string.error_reason_offline
         is DataError.Http if error.code >= SERVER_ERROR -> Res.string.error_reason_server

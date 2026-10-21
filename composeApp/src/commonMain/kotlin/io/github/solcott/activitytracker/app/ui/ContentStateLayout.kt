@@ -47,7 +47,7 @@ fun <T> ContentStateLayout(
                 modifier.fillMaxSize().padding(contentPadding).padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(loadErrorText(errorKind, error), color = MaterialTheme.colorScheme.error)
+                Text(errorText(UiError(errorKind, error)), color = MaterialTheme.colorScheme.error)
                 AppTextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
             }
         else -> Box(modifier.fillMaxSize().padding(contentPadding), contentAlignment = Alignment.Center) { AppProgressIndicator() }
@@ -74,7 +74,7 @@ fun RefreshStatus(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(loadErrorText(errorKind, error), Modifier.weight(1f), color = MaterialTheme.colorScheme.error)
+                Text(errorText(UiError(errorKind, error)), Modifier.weight(1f), color = MaterialTheme.colorScheme.error)
                 AppTextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
             }
         state.isLoading && showProgress ->

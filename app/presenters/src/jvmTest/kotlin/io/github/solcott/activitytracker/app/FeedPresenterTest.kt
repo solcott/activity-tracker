@@ -263,7 +263,7 @@ class FeedPresenterTest {
             assertEquals(null, state.error)
             state.eventSink(FeedEvent.Activity(ActivityListEvent.ToggleLike(state.activities.single())))
             val refused = awaitUntil { it.error != null }
-            assertEquals(UiError(UiError.Kind.SignInAgain, null), refused.error)
+            assertEquals(UiError(UiError.Kind.SignInAgain), refused.error)
             assertEquals(null, refused.activities.single().viewer?.like, "the like isn't shown")
             assertEquals(0, refused.activities.single().likeCount)
             cancelAndIgnoreRemainingEvents()

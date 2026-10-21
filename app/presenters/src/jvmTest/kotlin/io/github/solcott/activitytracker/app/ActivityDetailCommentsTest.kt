@@ -46,7 +46,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
             loaded.draftComment.setTextAndPlaceCursorAtEnd("Nice")
             loaded.eventSink(ActivityDetailEvent.SendComment)
             val refused = awaitUntil { (it as? ActivityDetailState.Loaded)?.commentError != null } as ActivityDetailState.Loaded
-            assertEquals(UiError(UiError.Kind.SignInAgain, null), refused.commentError)
+            assertEquals(UiError(UiError.Kind.SignInAgain), refused.commentError)
             assertEquals("Nice", refused.draftComment.text.toString(), "what was typed isn't lost")
             assertEquals(emptyList(), r.queuedComments())
             cancelAndIgnoreRemainingEvents()
@@ -198,7 +198,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
             val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 1 } as ActivityDetailState.Loaded
             loaded.eventSink(ActivityDetailEvent.HideComment(loaded.comments.roots.single().uri))
             val refused = awaitUntil { (it as? ActivityDetailState.Loaded)?.commentError != null } as ActivityDetailState.Loaded
-            assertEquals(UiError(UiError.Kind.SignInAgain, null), refused.commentError)
+            assertEquals(UiError(UiError.Kind.SignInAgain), refused.commentError)
             assertEquals(listOf(null), refused.comments.roots.map { it.hidden }, "not marked")
             assertEquals(emptyList(), r.queuedHides())
             cancelAndIgnoreRemainingEvents()

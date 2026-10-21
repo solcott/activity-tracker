@@ -121,7 +121,7 @@ class ActivityDetailRepliesTest : ActivityDetailTestBase() {
             replying.eventSink(ActivityDetailEvent.SendComment)
             // Not counted once the refusal settles.
             val refused = awaitUntil { it.loaded()?.commentError != null && it.loaded()?.activity?.commentCount == 1L }.loaded()!!
-            assertEquals(UiError(UiError.Kind.SignInAgain, null), refused.commentError)
+            assertEquals(UiError(UiError.Kind.SignInAgain), refused.commentError)
             assertEquals("Agreed", refused.draftComment.text.toString())
             assertEquals("3kc1", refused.replyingTo?.uri?.rkey, "still a reply to bob's comment")
             assertEquals(emptyList(), r.queuedComments())

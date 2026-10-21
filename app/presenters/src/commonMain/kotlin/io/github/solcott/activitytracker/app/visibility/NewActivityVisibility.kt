@@ -106,7 +106,7 @@ fun fieldsOf(
  */
 fun uiErrorOf(kind: UiError.Kind, cause: Throwable): UiError =
     when {
-        cause is XrpcException && cause.error == SpaceErrors.SCOPE_MISSING -> UiError(UiError.Kind.SignInAgain, null)
-        cause is PendingWritesException -> UiError(UiError.Kind.WritesPending, null)
+        cause is XrpcException && cause.error == SpaceErrors.SCOPE_MISSING -> UiError(UiError.Kind.SignInAgain)
+        cause is PendingWritesException -> UiError(UiError.Kind.WritesPending)
         else -> UiError.of(kind, cause)
     }

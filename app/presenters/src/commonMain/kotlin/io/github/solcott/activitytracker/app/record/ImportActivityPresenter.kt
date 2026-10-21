@@ -199,7 +199,7 @@ fun ImportActivityPresenter(
                         }
                         .onFailure { e ->
                             error =
-                                if (e is UnsupportedActivityFileException) UiError(UiError.Kind.UnsupportedActivityFile, null)
+                                if (e is UnsupportedActivityFileException) UiError(UiError.Kind.UnsupportedActivityFile)
                                 else UiError.of(UiError.Kind.ReadActivityFile, e)
                         }
                 }

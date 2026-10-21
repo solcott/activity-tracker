@@ -35,7 +35,7 @@ fun StarredSegmentsPresenter(navigator: Navigator, stars: SegmentStars, segments
     val flights = rememberSingleFlight()
     val error =
         if (stars.canUse) unstarError ?: list.failure?.let { UiError.of(UiError.Kind.LoadStarredSegments, it) }
-        else UiError(UiError.Kind.SignInAgain, null)
+        else UiError(UiError.Kind.SignInAgain)
 
     return StarredSegmentsState(
         segments = list.items,

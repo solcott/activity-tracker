@@ -56,7 +56,7 @@ internal fun rememberExport(
             runSuspendCatching { build() }
                 .onSuccess { file = it }
                 // No detail: the cause is a read that failed, which the localized message says better than its exception.
-                .onFailure { error = UiError(if (it is NotSentYetException) notSent else failed, null) }
+                .onFailure { error = UiError(if (it is NotSentYetException) notSent else failed) }
         }
     return Export(
         ActivityExportState(formats, busy = flights.isRunning(key), error = error, file = file, hasLaps = hasLaps, original = original),

@@ -12,8 +12,10 @@ import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.dataresult.DataError
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -77,7 +79,7 @@ class ImportFileFormatTest {
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("notes.txt", ByteString("just some notes".encodeToByteArray())))
-            assertEquals(UiError(UiError.Kind.UnsupportedActivityFile, null), awaitUntil { it.error != null }.error)
+            assertEquals(UiError(UiError.Kind.UnsupportedActivityFile), awaitUntil { it.error != null }.error)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -107,7 +109,8 @@ class ImportFileFormatTest {
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("broken.fit", fitHeader))
             val failed = awaitUntil { it.error != null && !it.reading }
-            assertEquals(UiError(UiError.Kind.ReadActivityFile, "FIT file is corrupt or truncated"), failed.error)
+            assertEquals(UiError.Kind.ReadActivityFile, failed.error?.kind)
+            assertIs<DataError.Unknown>(failed.error?.reason)
             assertNull(failed.preview)
             cancelAndIgnoreRemainingEvents()
         }

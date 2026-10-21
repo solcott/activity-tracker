@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.moderation.ModerationRepository
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.dataresult.DataError
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -105,7 +106,7 @@ class ModerationPresenterTest {
             assertEquals(UiError.Kind.OpenSubject, awaitUntil { it.error != null }.error?.kind)
             initial.uri.setTextAndPlaceCursorAtEnd("not a uri")
             initial.eventSink(ModerationEvent.Open)
-            assertTrue(awaitUntil { it.error?.detail?.contains("AT-URI") == true }.subject == null)
+            assertTrue(awaitUntil { it.error?.reason is DataError.Unknown }.subject == null)
             cancelAndIgnoreRemainingEvents()
         }
     }

@@ -103,7 +103,7 @@ internal fun rememberOwnRoute(
                     .onSuccess { zoneAdded = true }
                     .onFailure { e ->
                         error =
-                            if (e is TooManyZonesException) UiError(UiError.Kind.TooManyZones, null)
+                            if (e is TooManyZonesException) UiError(UiError.Kind.TooManyZones)
                             else uiErrorOf(UiError.Kind.SavePrivacyZones, e)
                     }
             }

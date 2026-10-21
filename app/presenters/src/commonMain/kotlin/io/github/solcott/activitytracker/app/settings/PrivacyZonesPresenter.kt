@@ -74,7 +74,7 @@ fun PrivacyZonesPresenter(navigator: Navigator, privacy: PrivacyZones, tracker: 
             runSuspendCatching {
                 val here = withTimeoutOrNull(LOCATION_TIMEOUT) { tracker.updates().first() }
                 if (here == null) {
-                    error = UiError(UiError.Kind.NoLocation, null)
+                    error = UiError(UiError.Kind.NoLocation)
                     return@runSuspendCatching
                 }
                 settings = privacy.add(here.latitude, here.longitude, NEW_ZONE_RADIUS_METERS, label.text.toString())
@@ -95,7 +95,7 @@ fun PrivacyZonesPresenter(navigator: Navigator, privacy: PrivacyZones, tracker: 
         hasLocationPermission = hasPermission,
         locating = locating,
         label = label,
-        error = error ?: UiError(UiError.Kind.SignInAgain, null).takeIf { current != null && !privacy.canSave },
+        error = error ?: UiError(UiError.Kind.SignInAgain).takeIf { current != null && !privacy.canSave },
     ) { event ->
         when (event) {
             PrivacyZonesEvent.Back -> navigator.pop()
@@ -125,7 +125,7 @@ private const val SAVE = "save"
 
 private fun privacyErrorOf(e: Throwable): UiError =
     when (e) {
-        is TooManyZonesException -> UiError(UiError.Kind.TooManyZones, null)
+        is TooManyZonesException -> UiError(UiError.Kind.TooManyZones)
         is ZonesUnreadableException -> UiError.of(UiError.Kind.LoadPrivacyZones, e)
         else -> uiErrorOf(UiError.Kind.SavePrivacyZones, e)
     }

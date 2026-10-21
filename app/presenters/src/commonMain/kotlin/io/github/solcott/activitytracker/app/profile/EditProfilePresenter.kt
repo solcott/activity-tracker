@@ -60,7 +60,7 @@ fun EditProfilePresenter(
                 form.fillOnce(profile)
                 approveFollowers = approveFollowers ?: (profile.followPolicy == FollowPolicy.APPROVE)
                 own = profile
-                if (profile.needsSignIn) error = UiError(UiError.Kind.SignInAgain, null)
+                if (profile.needsSignIn) error = UiError(UiError.Kind.SignInAgain)
             }
             .onFailure { error = UiError.of(UiError.Kind.LoadProfile, it) }
     }
