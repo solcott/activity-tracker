@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview
 
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
+import io.github.solcott.activitytracker.lexicon.Did
 
 /** Environment-driven config. Defaults match `docker/compose.yaml` so `./gradlew :server-appview:run` just works. */
 data class AppViewConfig(
@@ -46,6 +47,13 @@ data class AppViewConfig(
      * (segments/segment-records).
      */
     val segmentActiveAthletes: Int = SegmentMatcher.DEFAULT_ACTIVE_ATHLETES,
+    /**
+     * The one account allowed to stage candidate segments and read which are ridden (`SEGMENT_IMPORTER_DID`; segments/segment-candidates).
+     * Null: every candidate call is refused.
+     */
+    val segmentImporter: Did? = null,
+    /** How many distinct athletes' passes make a staged candidate ridden (`SEGMENT_CANDIDATE_RIDERS`, at least 1). */
+    val segmentCandidateRiders: Int = SegmentMatcher.DEFAULT_ACTIVE_ATHLETES,
 ) {
     /** An account the AppView signs in to with an app password. */
     data class Triage(val did: String, val appPassword: String) {
@@ -98,12 +106,17 @@ data class AppViewConfig(
                         ?.trim()
                         ?.takeIf { it.startsWith("did:") }
                         ?.let { did -> env["APPVIEW_TRIAGE_PASSWORD"]?.trim()?.takeIf { it.isNotEmpty() }?.let { Triage(did, it) } },
-                segmentActiveAthletes =
-                    env["SEGMENT_ACTIVE_ATHLETES"]?.trim()?.toIntOrNull()?.coerceAtLeast(1) ?: SegmentMatcher.DEFAULT_ACTIVE_ATHLETES,
+                segmentActiveAthletes = athletes(env, "SEGMENT_ACTIVE_ATHLETES"),
+                segmentImporter = env["SEGMENT_IMPORTER_DID"]?.trim()?.takeIf { it.startsWith("did:") }?.let(::Did),
+                segmentCandidateRiders = athletes(env, "SEGMENT_CANDIDATE_RIDERS"),
             )
         }
 
         /** `<prefix>_DID` and the optional `<prefix>_URL`; null without a DID. */
+        /** A count of athletes at [key], at least 1; [SegmentMatcher.DEFAULT_ACTIVE_ATHLETES] when unset or not a number. */
+        private fun athletes(env: Map<String, String>, key: String): Int =
+            env[key]?.trim()?.toIntOrNull()?.coerceAtLeast(1) ?: SegmentMatcher.DEFAULT_ACTIVE_ATHLETES
+
         private fun labeler(env: Map<String, String>, prefix: String): Labeler? {
             val did = env["${prefix}_DID"]?.trim()?.takeIf { it.startsWith("did:") } ?: return null
             return Labeler(did, env["${prefix}_URL"]?.trim()?.trimEnd('/')?.takeIf { it.isNotEmpty() })

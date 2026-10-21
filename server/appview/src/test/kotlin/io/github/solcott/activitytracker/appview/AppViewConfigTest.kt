@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.lexicon.Did
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -73,5 +74,22 @@ class AppViewConfigTest {
         assertEquals(1, AppViewConfig.fromEnv(mapOf("SEGMENT_ACTIVE_ATHLETES" to "0")).segmentActiveAthletes)
         assertEquals(3, AppViewConfig.fromEnv(mapOf("SEGMENT_ACTIVE_ATHLETES" to "")).segmentActiveAthletes)
         assertEquals(3, AppViewConfig.fromEnv(mapOf("SEGMENT_ACTIVE_ATHLETES" to "many")).segmentActiveAthletes)
+    }
+
+    @Test
+    fun theSegmentImporterIsOptionalAndMustBeADid() {
+        assertEquals(null, AppViewConfig.fromEnv(emptyMap()).segmentImporter)
+        assertEquals(null, AppViewConfig.fromEnv(mapOf("SEGMENT_IMPORTER_DID" to " ")).segmentImporter)
+        assertEquals(null, AppViewConfig.fromEnv(mapOf("SEGMENT_IMPORTER_DID" to "importer.test")).segmentImporter)
+        assertEquals(Did("did:plc:importer"), AppViewConfig.fromEnv(mapOf("SEGMENT_IMPORTER_DID" to " did:plc:importer\n")).segmentImporter)
+    }
+
+    @Test
+    fun segmentCandidateRidersDefaultsToThreeAndIsAtLeastOne() {
+        assertEquals(3, AppViewConfig.fromEnv(emptyMap()).segmentCandidateRiders)
+        assertEquals(5, AppViewConfig.fromEnv(mapOf("SEGMENT_CANDIDATE_RIDERS" to " 5 ")).segmentCandidateRiders)
+        assertEquals(1, AppViewConfig.fromEnv(mapOf("SEGMENT_CANDIDATE_RIDERS" to "-2")).segmentCandidateRiders)
+        assertEquals(3, AppViewConfig.fromEnv(mapOf("SEGMENT_CANDIDATE_RIDERS" to "")).segmentCandidateRiders)
+        assertEquals(3, AppViewConfig.fromEnv(mapOf("SEGMENT_CANDIDATE_RIDERS" to "lots")).segmentCandidateRiders)
     }
 }

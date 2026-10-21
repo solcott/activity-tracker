@@ -35,6 +35,10 @@ tasks.named<JavaExec>(ApplicationPlugin.TASK_RUN_NAME) {
             // How many athletes make a proposed segment active, when docker/.env sets it.
             if ("SEGMENT_ACTIVE_ATHLETES" !in environment)
                 fromDockerEnv("SEGMENT_ACTIVE_ATHLETES")?.let { environment("SEGMENT_ACTIVE_ATHLETES", it) }
+            // The segment importer's account and how many riders make a staged candidate ridden, when docker/.env sets them.
+            for (key in listOf("SEGMENT_IMPORTER_DID", "SEGMENT_CANDIDATE_RIDERS")) {
+                if (key !in environment) fromDockerEnv(key)?.let { environment(key, it) }
+            }
             // The AppView's account on the local Ozone's team (docker/scripts/setup-labeler.sh).
             for (key in listOf("APPVIEW_TRIAGE_DID", "APPVIEW_TRIAGE_PASSWORD")) {
                 if (key !in environment) fromDockerEnv(key)?.let { environment(key, it) }
