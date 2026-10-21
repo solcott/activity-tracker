@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.activity.HeldPhotos
 import io.github.solcott.activitytracker.data.activity.OwnActivity
 import io.github.solcott.activitytracker.data.activity.pendingActivity
+import io.github.solcott.activitytracker.data.cachedOutcomes
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.FeedItemEntity
 import io.github.solcott.activitytracker.data.db.KeyValueEntity
@@ -28,6 +29,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.dataresult.Outcome
 import kotlin.time.Instant
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -72,6 +74,30 @@ class FeedRepository(
 
     fun authorActivities(did: String, filter: ActivityFilter = ActivityFilter.None): Flow<List<ActivityView>> =
         observe(filter.cacheKey(authorKey(did)), timeline = false)
+
+    /**
+     * [timeline] and its refresh as one stream ([cachedOutcomes]): each collection refreshes once, after [beforeRefresh], whose failure
+     * fails the refresh.
+     */
+    fun timelineOutcomes(
+        filter: ActivityFilter = ActivityFilter.None,
+        beforeRefresh: suspend () -> Unit = {},
+    ): Flow<Outcome<List<ActivityView>>> =
+        cachedOutcomes(timeline(filter), List<ActivityView>::isEmpty) {
+            beforeRefresh()
+            refreshTimeline(filter)
+        }
+
+    /** [authorActivities] and its refresh as one stream, as [timelineOutcomes]. */
+    fun authorOutcomes(
+        did: String,
+        filter: ActivityFilter = ActivityFilter.None,
+        beforeRefresh: suspend () -> Unit = {},
+    ): Flow<Outcome<List<ActivityView>>> =
+        cachedOutcomes(authorActivities(did, filter), List<ActivityView>::isEmpty) {
+            beforeRefresh()
+            refreshAuthor(did, filter)
+        }
 
     suspend fun refreshTimeline(filter: ActivityFilter = ActivityFilter.None) {
         val params = GetTimeline.Params(type = filter.typeTokens().ifEmpty { null }, since = filter.since, until = filter.until)

@@ -4,6 +4,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.CheckSegment
 import io.github.solcott.activitytracker.lexicon.app.EffortView
@@ -12,6 +13,8 @@ import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentEfforts
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
+import io.github.solcott.dataresult.Outcome
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -32,6 +35,12 @@ class SegmentRepository(private val clients: SessionClients) {
 
     /** The segment at [uri], with the signed-in athlete's best effort on it. */
     suspend fun segment(uri: AtUri): SegmentView = clients.appView.query(GetSegment.method, GetSegment.Params(uri)).segment
+
+    /** [segment] as a stream: loading, then the segment or why it couldn't be read. Each collection reads it again. */
+    fun segmentOutcome(uri: AtUri): Flow<Outcome<SegmentView>> = outcomeFlow { segment(uri) }
+
+    /** The first page of the signed-in athlete's own efforts on [segment], fastest first, as a stream like [segmentOutcome]. */
+    fun ownEffortsOutcome(segment: AtUri): Flow<Outcome<List<EffortView>>> = outcomeFlow { efforts(segment).efforts }
 
     /** The efforts on [activity] the signed-in athlete may see, in the order they began. */
     suspend fun activitySegments(activity: AtUri): List<EffortView> =
