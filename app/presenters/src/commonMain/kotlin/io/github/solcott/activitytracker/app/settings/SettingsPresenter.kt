@@ -46,10 +46,7 @@ fun SettingsPresenter(
     // Asked once a session; an AppView that can't say leaves the entry out.
     var canModerate by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { canModerate = runSuspendCatching { moderation.canModerate() }.getOrDefault(false) }
-    // Saving sets `saved`, after which ActivityRepository.repairRoutesOnSave (run for the session) writes or deletes the segment tracks.
-    val segmentMatching by segmentPrefs.current.collectAsState()
-    val savingSegments = flights.isRunning(SettingsEvent.SegmentMatchingChanged::class)
-    LaunchedEffect(Unit) { runSuspendCatching { segmentPrefs.refresh() } }
+    val segments = rememberSegmentMatchingSetting(segmentPrefs, flights) { error = it }
 
     return SettingsState(
         units,
@@ -60,9 +57,9 @@ fun SettingsPresenter(
         privacyZoneCount = privacySettings?.zones?.size,
         hidesRouteEnds = (privacySettings?.hideEndsMeters ?: 0) > 0,
         canModerate = canModerate,
-        segmentMatching = segmentMatching?.isOn,
-        canUseSegments = segmentPrefs.canUse,
-        savingSegments = savingSegments,
+        segmentMatching = segments.matching,
+        canUseSegments = segments.canUse,
+        savingSegments = segments.saving,
     ) { event ->
         when (event) {
             SettingsEvent.Back -> {
@@ -100,13 +97,7 @@ fun SettingsPresenter(
             }
 
             is SettingsEvent.SegmentMatchingChanged -> {
-                if (event.on != segmentMatching?.isOn) {
-                    error = null
-                    flights.launch(SettingsEvent.SegmentMatchingChanged::class) {
-                        runSuspendCatching { segmentPrefs.save(event.on) }
-                            .onFailure { e -> error = UiError.of(UiError.Kind.SaveSettings, e) }
-                    }
-                }
+                segments.set(event.on)
             }
 
             // Dropping the session tears down the SessionGraph and returns to LoginScreen.
