@@ -384,6 +384,8 @@ class FitWriterTest {
         assertEquals(112.4f, session.trainingStressScore)
         assertEquals(3.4f, session.totalTrainingEffect)
         assertEquals(1.2f, session.totalAnaerobicTrainingEffect)
+        assertEquals(187f, session.trainingLoadPeak)
+        assertEquals(listOf(764L, 100L, 70L, 48L), listOf(178, 205, 206, 207).map { session.getFieldLongValue(it) })
         val lap = decode(write(ride)).of(MesgNum.LAP, ::LapMesg).single()
         assertNull(lap.totalCalories, "a ride without totals writes none")
     }

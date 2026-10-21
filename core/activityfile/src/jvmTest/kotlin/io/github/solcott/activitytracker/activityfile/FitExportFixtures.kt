@@ -212,6 +212,11 @@ object FitExportFixtures {
                     trainingStressScore = 1124,
                     aerobicTrainingEffect = 34,
                     anaerobicTrainingEffect = 12,
+                    exerciseLoad = 187,
+                    staminaStart = 100,
+                    staminaEnd = 70,
+                    staminaMin = 48,
+                    sweatLoss = 764,
                 ),
         )
 

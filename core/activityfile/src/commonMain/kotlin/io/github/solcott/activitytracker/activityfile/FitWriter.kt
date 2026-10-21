@@ -485,6 +485,11 @@ object FitWriter {
                 TRAINING_STRESS_SCORE(load?.trainingStressScore?.toLong()),
                 TOTAL_TRAINING_EFFECT(load?.aerobicTrainingEffect?.toLong()),
                 TOTAL_ANAEROBIC_TRAINING_EFFECT(load?.anaerobicTrainingEffect?.toLong()),
+                TRAINING_LOAD_PEAK(load?.exerciseLoad?.let { (it * SessionFieldNumbers.TRAINING_LOAD_SCALE).toLong() }),
+                SWEAT_LOSS(load?.sweatLoss?.toLong()),
+                STAMINA_START(load?.staminaStart?.toLong()),
+                STAMINA_END(load?.staminaEnd?.toLong()),
+                STAMINA_MIN(load?.staminaMin?.toLong()),
                 // FIT counts strides on foot, where the record counts steps.
                 TOTAL_CYCLES(
                     activity.totals.cycles?.let { if (CycleCount.unitOf(activity.sport) == CycleCount.STEPS) it / 2 else it }?.toLong()

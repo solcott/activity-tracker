@@ -144,6 +144,10 @@ class FitRoundTripTest {
         assertEquals(300, read.calories)
         assertEquals(3.4, read.aerobicTrainingEffect!!, 1e-6)
         assertEquals(1.2, read.anaerobicTrainingEffect!!, 1e-6)
+        assertEquals(
+            SessionPhysiology(exerciseLoad = 187, staminaStart = 100, staminaEnd = 70, staminaMin = 48, sweatLossMl = 764),
+            read.physiology,
+        )
         assertEquals(3.0, read.elevationLossMeters)
         assertEquals(89 to 94, read.avgCadence to read.maxCadence)
         val power = read.power!!

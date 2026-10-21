@@ -248,6 +248,13 @@ internal object FitProfile {
         /** Training effect × 10. */
         val TOTAL_TRAINING_EFFECT = FitFieldDef(24, UINT8)
         val TOTAL_ANAEROBIC_TRAINING_EFFECT = FitFieldDef(137, UINT8)
+        /** Garmin's exercise load × 65,536. */
+        val TRAINING_LOAD_PEAK = FitFieldDef(SessionFieldNumbers.TRAINING_LOAD_PEAK, SINT32)
+        /** Garmin's own fields, which the public profile doesn't name: milliliters, then percent ([SessionFieldNumbers]). */
+        val SWEAT_LOSS = FitFieldDef(SessionFieldNumbers.SWEAT_LOSS, UINT16)
+        val STAMINA_START = FitFieldDef(SessionFieldNumbers.STAMINA_START, UINT8)
+        val STAMINA_END = FitFieldDef(SessionFieldNumbers.STAMINA_END, UINT8)
+        val STAMINA_MIN = FitFieldDef(SessionFieldNumbers.STAMINA_MIN, UINT8)
         /** Tenths. */
         val TRAINING_STRESS_SCORE = FitFieldDef(35, UINT16)
         /** Thousandths. */
