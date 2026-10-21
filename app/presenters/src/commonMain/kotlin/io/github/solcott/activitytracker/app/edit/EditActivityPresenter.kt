@@ -23,6 +23,8 @@ import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
+import io.github.solcott.activitytracker.data.segments.SegmentTrackStore
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -38,6 +40,8 @@ fun EditActivityPresenter(
     manager: ActivityManager,
     defaults: ActivityDefaults,
     profiles: ProfileRepository,
+    segmentPrefs: SegmentPrefsRepository,
+    segmentTracks: SegmentTrackStore,
 ): EditActivityState {
     var activity by remember { mutableStateOf<ActivityView?>(null) }
     var error by remember { mutableStateOf<UiError?>(null) }
@@ -50,6 +54,7 @@ fun EditActivityPresenter(
     // Read through state: the visibility holder is remembered once and asks for it as it changes.
     val approvesFollowers by rememberUpdatedState(rememberApprovesFollowers(profiles))
     val visibility = rememberEditVisibility(defaults.canChoose) { approvesFollowers }
+    val exclusion = rememberLeaderboardExclusion(AtUri(screen.uri), segmentPrefs, segmentTracks)
 
     LaunchedEffect(loadKey) {
         if (activity != null) return@LaunchedEffect
@@ -86,6 +91,7 @@ fun EditActivityPresenter(
                 if (visibility.asksAboutCoreCharts(current, manager)) return@runSuspendCatching false
                 manager.edit(current, edit)
                 visibility.changed?.let { manager.setVisibility(current, it) }
+                exclusion.save()
                 true
             }
                 .onSuccess { saved -> if (saved) navigator.pop() }
@@ -105,6 +111,7 @@ fun EditActivityPresenter(
         visibility = visibility.fields,
         confirmNarrowing = visibility.confirmingNarrowing,
         confirmCoreCharts = visibility.confirmingCoreCharts,
+        leaderboardExclusion = exclusion.excluded.takeIf { loaded != null },
     ) { event ->
         val saveLoaded = { activity?.let(::save) ?: Unit }
         when (event) {
@@ -120,7 +127,7 @@ fun EditActivityPresenter(
             EditActivityEvent.CancelCoreCharts -> visibility.coreChartsAnswered(confirmed = false, saveLoaded)
 
             EditActivityEvent.Back -> {
-                if (isChanged(activity, title.text.toString() != seededTitle, form.isChanged, visibility)) confirmDiscard = true
+                if (isChanged(activity, title.text.toString() != seededTitle, form.isChanged, visibility, exclusion)) confirmDiscard = true
                 else navigator.pop()
             }
 
@@ -136,10 +143,19 @@ fun EditActivityPresenter(
             EditActivityEvent.Retry -> {
                 loadKey++
             }
+
+            is EditActivityEvent.LeaderboardExclusionChanged -> {
+                exclusion.set(event.excluded)
+            }
         }
     }
 }
 
-/** Whether the loaded [activity] has unsaved changes to its title, its other details or who sees it. */
-private fun isChanged(activity: ActivityView?, title: Boolean, details: Boolean, visibility: EditVisibility): Boolean =
-    activity != null && (title || details || visibility.changed != null)
+/** Whether the loaded [activity] has unsaved changes to its title, its other details, who sees it or whether leaderboards rank it. */
+private fun isChanged(
+    activity: ActivityView?,
+    title: Boolean,
+    details: Boolean,
+    visibility: EditVisibility,
+    exclusion: LeaderboardExclusion,
+): Boolean = activity != null && (title || details || visibility.changed != null || exclusion.changed)

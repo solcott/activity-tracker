@@ -18,6 +18,7 @@ import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.data.segments.SegmentStars
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.EffortView
+import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.activitytracker.location.SegmentGeometry
@@ -78,6 +79,10 @@ fun SegmentPresenter(screen: SegmentScreen, navigator: Navigator, segments: Segm
             }
             is SegmentEvent.OpenActivity -> navigator.goTo(ActivityDetailScreen(event.uri.value))
             SegmentEvent.OpenOriginal -> segment?.duplicateOf?.let { navigator.goTo(SegmentScreen(it.value)) }
+            SegmentEvent.OpenLeaderboard ->
+                segment
+                    ?.takeIf { SegmentStatus.of(it.status) == SegmentStatus.ACTIVE }
+                    ?.let { navigator.goTo(SegmentLeaderboardScreen(it.uri.value, it.record.name, it.record.sport)) }
         }
     }
 }

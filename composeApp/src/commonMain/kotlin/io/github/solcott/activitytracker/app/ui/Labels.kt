@@ -27,6 +27,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_feed
 import io.github.solcott.activitytracker.composeApp.resources.error_load_follow_requests
 import io.github.solcott.activitytracker.composeApp.resources.error_load_followers
 import io.github.solcott.activitytracker.composeApp.resources.error_load_following
+import io.github.solcott.activitytracker.composeApp.resources.error_load_leaderboard
 import io.github.solcott.activitytracker.composeApp.resources.error_load_likes
 import io.github.solcott.activitytracker.composeApp.resources.error_load_mutes
 import io.github.solcott.activitytracker.composeApp.resources.error_load_privacy_zones
@@ -114,6 +115,7 @@ fun errorText(error: UiError): String =
                 UiError.Kind.LoadActivity -> Res.string.error_load_activity
                 UiError.Kind.LoadSegment -> Res.string.error_load_segment
                 UiError.Kind.LoadStarredSegments -> Res.string.error_load_starred_segments
+                UiError.Kind.LoadLeaderboard -> Res.string.error_load_leaderboard
                 UiError.Kind.UpdateStar -> Res.string.error_update_star
                 UiError.Kind.CheckSegment -> Res.string.error_check_segment
                 UiError.Kind.PublishSegment -> Res.string.error_publish_segment

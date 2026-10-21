@@ -46,6 +46,7 @@ import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_z
 import io.github.solcott.activitytracker.composeApp.resources.settings_saving
 import io.github.solcott.activitytracker.composeApp.resources.settings_segments_heading
 import io.github.solcott.activitytracker.composeApp.resources.settings_segments_help
+import io.github.solcott.activitytracker.composeApp.resources.settings_segments_leaderboards
 import io.github.solcott.activitytracker.composeApp.resources.settings_segments_matching
 import io.github.solcott.activitytracker.composeApp.resources.settings_segments_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.settings_title
@@ -165,7 +166,10 @@ private fun DefaultVisibility(
     }
 }
 
-/** Whether a copy of each route without the privacy zones goes to the AppView, so it can find segments. */
+/**
+ * Whether a copy of each route without the privacy zones goes to the AppView, so it can find segments, and while it does whether the
+ * athlete shows on segment leaderboards.
+ */
 @Composable
 private fun SegmentMatching(state: SettingsState, modifier: Modifier = Modifier) {
     val enabled = state.canUseSegments && state.segmentMatching != null && !state.savingSegments
@@ -181,11 +185,30 @@ private fun SegmentMatching(state: SettingsState, modifier: Modifier = Modifier)
             Text(stringResource(Res.string.settings_segments_matching), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
             AppSwitch(checked, onCheckedChange = null, enabled = enabled)
         }
+        val shown = state.showOnLeaderboards
+        if (checked && shown != null) {
+            val leaderboardsEnabled = enabled && !state.savingLeaderboards
+            Row(
+                Modifier.fillMaxWidth()
+                    .toggleable(shown, enabled = leaderboardsEnabled, role = Role.Switch) {
+                        state.eventSink(SettingsEvent.LeaderboardsChanged(it))
+                    }
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stringResource(Res.string.settings_segments_leaderboards),
+                    Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                AppSwitch(shown, onCheckedChange = null, enabled = leaderboardsEnabled)
+            }
+        }
         Text(
             stringResource(
                 when {
                     !state.canUseSegments -> Res.string.settings_segments_sign_in_again
-                    state.savingSegments -> Res.string.settings_saving
+                    state.savingSegments || state.savingLeaderboards -> Res.string.settings_saving
                     else -> Res.string.settings_segments_help
                 }
             ),

@@ -15,6 +15,7 @@
     <string name="error_check_segment">Couldn't check the segment against existing ones, so it wasn't published</string>
     <string name="error_publish_segment">Couldn't publish the segment</string>
     <string name="error_load_starred_segments">Couldn't load your starred segments</string>
+    <string name="error_load_leaderboard">Couldn't load the leaderboard</string>
     <string name="error_update_star">Couldn't update your star</string>
     <string name="error_load_likes">Couldn't load likes</string>
     <string name="error_load_comments">Couldn't load comments</string>
@@ -401,10 +402,11 @@
     <string name="settings_privacy_zones_ends">%1$s, start and end hidden</string>
     <string name="settings_segments_heading">Segments</string>
     <string name="settings_segments_matching">Find segments on my activities</string>
-    <string name="settings_segments_help">Shares a copy of your routes, with your privacy zones and hidden starts and ends removed, with the app's server so it can find the segments you've done. No one else sees it. Turning this off deletes those copies.</string>
+    <string name="settings_segments_leaderboards">Show me on segment leaderboards</string>
+    <string name="settings_segments_help">Shares a copy of your routes, with your privacy zones and hidden starts and ends removed, with the app's server so it can find the segments you've done. No one else sees it. Your times can appear on segment leaderboards to people who may see those activities. Turning this off deletes those copies.</string>
     <string name="settings_segments_sign_in_again">Sign in again to use segments.</string>
     <string name="feed_segments_title">Find segments on your activities?</string>
-    <string name="feed_segments_body">To find the segments you've done, a copy of your routes, with your privacy zones and hidden starts and ends removed, is shared with the app's server. No one else sees it. You can change this in Settings.</string>
+    <string name="feed_segments_body">To find the segments you've done, a copy of your routes, with your privacy zones and hidden starts and ends removed, is shared with the app's server. No one else sees it. Your times can appear on segment leaderboards to people who may see those activities, unless you keep off them in Settings. You can change this in Settings.</string>
     <string name="feed_segments_turn_on">Turn on</string>
     <string name="feed_segments_not_now">Not now</string>
     <string name="privacy_zones_help">Others never see the parts of your routes inside these zones, whoever you share an activity with. You still see your whole route.</string>
@@ -858,6 +860,8 @@
     <string name="map_expand">Enlarge map</string>
     <string name="map_recenter">Recenter on route</string>
     <string name="edit_discard_title">Discard your changes?</string>
+    <string name="edit_leaderboard_exclusion">Leave out of segment leaderboards</string>
+    <string name="edit_leaderboard_exclusion_help">For a group ride or a stretch in a car. The activity keeps its segment efforts. No one else sees this choice.</string>
     <string name="edit_discard_message">What you changed here won't be saved.</string>
     <string name="edit_discard">Discard</string>
     <string name="import_dives_details_hint">To add a description or photos to a dive, open it once it's imported and choose Edit.</string>
@@ -1358,6 +1362,30 @@
     <string name="segment_status_archived_help">Archived: too few athletes did this segment, so it no longer gets new efforts.</string>
     <string name="segment_duplicate_help">This segment duplicates an earlier one, so it gets no efforts.</string>
     <string name="segment_open_original">Open the original</string>
+    <string name="segment_leaderboard">Leaderboard</string>
+    <string name="leaderboard_period_all_time">All time</string>
+    <string name="leaderboard_period_year">This year</string>
+    <string name="leaderboard_period_month">This month</string>
+    <string name="leaderboard_scope_everyone">Everyone</string>
+    <string name="leaderboard_scope_following">Following</string>
+    <string name="leaderboard_ebike">E-bike board</string>
+    <string name="leaderboard_empty">No one is on this leaderboard yet</string>
+    <string name="leaderboard_your_place">Your place</string>
+    <string-array name="segment_rank_ordinals">
+        <item>1st</item>
+        <item>2nd</item>
+        <item>3rd</item>
+        <item>4th</item>
+        <item>5th</item>
+        <item>6th</item>
+        <item>7th</item>
+        <item>8th</item>
+        <item>9th</item>
+        <item>10th</item>
+    </string-array>
+    <string name="segment_not_ranked_hidden">Not on leaderboards: you hide from them</string>
+    <string name="segment_not_ranked_excluded">Not on leaderboards: this activity is excluded</string>
+    <string name="segment_not_ranked_implausible">Not on leaderboards: faster than plausible for this sport</string>
     <string name="segment_create_title">New segment</string>
     <string name="segment_create_name">Name</string>
     <string name="segment_create_range">Stretch along the route</string>

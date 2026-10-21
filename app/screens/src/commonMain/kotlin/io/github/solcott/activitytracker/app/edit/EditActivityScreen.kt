@@ -10,7 +10,10 @@ import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 
-/** Edits the signed-in athlete's activity at [uri]: its title, description, dive site and photos. */
+/**
+ * Edits the signed-in athlete's activity at [uri]: its title, description, dive site and photos, who sees it, and whether segment
+ * leaderboards rank it.
+ */
 @CircuitSerializable(SessionScope::class) data class EditActivityScreen(val uri: String) : Screen
 
 @Immutable
@@ -33,6 +36,11 @@ data class EditActivityState(
      * `Visibility` value), wider than its charts are now: ask first. Null when it wouldn't.
      */
     val confirmCoreCharts: String? = null,
+    /**
+     * Whether the activity is excluded from segment leaderboards (segments/segment-leaderboards), as edited; null when that isn't offered:
+     * it has no segment track, or its choice can't be read now.
+     */
+    val leaderboardExclusion: Boolean? = null,
     val eventSink: (EditActivityEvent) -> Unit,
 ) : CircuitUiState
 
@@ -60,4 +68,7 @@ sealed interface EditActivityEvent {
 
     /** Back to editing without saving, from that warning. */
     data object CancelCoreCharts : EditActivityEvent
+
+    /** Excludes the activity from segment leaderboards, or ranks it again; saved with the rest. */
+    data class LeaderboardExclusionChanged(val excluded: Boolean) : EditActivityEvent
 }

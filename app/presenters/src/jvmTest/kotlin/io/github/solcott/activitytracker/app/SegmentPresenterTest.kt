@@ -5,6 +5,7 @@ import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.segment.SegmentEvent
+import io.github.solcott.activitytracker.app.segment.SegmentLeaderboardScreen
 import io.github.solcott.activitytracker.app.segment.SegmentPresenter
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
@@ -152,6 +153,29 @@ class SegmentPresenterTest {
             assertEquals("duplicate", state.segment?.status)
             state.eventSink(SegmentEvent.OpenOriginal)
             assertEquals(SegmentScreen(original), navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun anActiveSegmentOpensItsLeaderboard() = runTest {
+        status = "active"
+        val (segments, stars) = session()
+        val navigator = FakeNavigator(screen)
+        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars) }) {
+            awaitUntil { it.segment != null }.eventSink(SegmentEvent.OpenLeaderboard)
+            assertEquals(SegmentLeaderboardScreen(uri, "Hill", "run"), navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aProposedSegmentHasNoLeaderboard() = runTest {
+        val (segments, stars) = session()
+        val navigator = FakeNavigator(screen)
+        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars) }) {
+            awaitUntil { it.segment != null }.eventSink(SegmentEvent.OpenLeaderboard)
+            navigator.expectNoGoToEvents()
             cancelAndIgnoreRemainingEvents()
         }
     }

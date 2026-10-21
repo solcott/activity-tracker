@@ -213,6 +213,45 @@ class SettingsPresenterTest {
     }
 
     @Test
+    fun theLeaderboardChoiceShowsOnlyWhileMatchingIsOnAndKeepsIt() = runTest {
+        val repos = fixture.repos()
+        val moderation = fixture.moderation()
+        presenterTestOf({
+            SettingsPresenter(
+                FakeNavigator(SettingsScreen),
+                repos.units,
+                repos.auth,
+                repos.defaults,
+                repos.privacy,
+                moderation,
+                repos.segmentPrefs,
+            )
+        }) {
+            val off = awaitUntil { it.segmentMatching != null && it.showOnLeaderboards != null }
+            assertEquals(true, off.showOnLeaderboards, "shown by default")
+            off.eventSink(SettingsEvent.LeaderboardsChanged(false))
+            off.eventSink(SettingsEvent.SegmentMatchingChanged(true))
+            val on = awaitUntil { it.segmentMatching == true && !it.savingSegments }
+            val saved = AtJson.parseToJsonElement(fixture.segmentPrefs!!).jsonObject
+            assertFalse("hideFromLeaderboards" in saved, "not offered while matching was off, so never saved")
+            assertEquals(true, on.showOnLeaderboards)
+            on.eventSink(SettingsEvent.LeaderboardsChanged(false))
+            val hidden = awaitUntil { it.showOnLeaderboards == false && !it.savingLeaderboards }
+            assertNull(hidden.error)
+            val stored = AtJson.parseToJsonElement(fixture.segmentPrefs!!).jsonObject
+            assertEquals("true", stored.getValue("hideFromLeaderboards").jsonPrimitive.content)
+            assertEquals("true", stored.getValue("matching").jsonPrimitive.content, "matching kept")
+
+            fixture.failWrites = true
+            hidden.eventSink(SettingsEvent.LeaderboardsChanged(true))
+            val failed = awaitUntil { it.error != null && !it.savingLeaderboards }
+            assertEquals(UiError.Kind.SaveSettings, failed.error?.kind)
+            assertEquals(false, failed.showOnLeaderboards, "the saved choice")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun aFailedSegmentMatchingSaveKeepsItOffAndShowsAnError() = runTest {
         val repos = fixture.repos()
         val moderation = fixture.moderation()

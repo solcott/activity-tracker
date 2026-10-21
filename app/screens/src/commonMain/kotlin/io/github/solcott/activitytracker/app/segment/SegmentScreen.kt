@@ -47,4 +47,7 @@ sealed interface SegmentEvent {
 
     /** Opens the earlier segment a duplicate duplicates. */
     data object OpenOriginal : SegmentEvent
+
+    /** Opens the segment's leaderboard; offered only for an active segment. */
+    data object OpenLeaderboard : SegmentEvent
 }

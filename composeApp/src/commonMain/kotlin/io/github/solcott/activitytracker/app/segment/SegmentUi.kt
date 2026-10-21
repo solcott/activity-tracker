@@ -19,14 +19,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
-import io.github.solcott.activitytracker.app.settings.HistoryDate
-import io.github.solcott.activitytracker.app.settings.longDate
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
+import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
@@ -37,6 +36,7 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.segment_created_by
 import io.github.solcott.activitytracker.composeApp.resources.segment_duplicate_help
+import io.github.solcott.activitytracker.composeApp.resources.segment_leaderboard
 import io.github.solcott.activitytracker.composeApp.resources.segment_no_efforts
 import io.github.solcott.activitytracker.composeApp.resources.segment_open_original
 import io.github.solcott.activitytracker.composeApp.resources.segment_star
@@ -110,6 +110,11 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Status(segment) { state.eventSink(SegmentEvent.OpenOriginal) }
+                    if (SegmentStatus.of(segment.status) == SegmentStatus.ACTIVE) {
+                        AppSecondaryButton(onClick = { state.eventSink(SegmentEvent.OpenLeaderboard) }, Modifier.padding(top = 8.dp)) {
+                            Text(stringResource(Res.string.segment_leaderboard))
+                        }
+                    }
                 }
             }
             item { Text(stringResource(Res.string.segment_your_efforts), style = MaterialTheme.typography.titleMedium) }
@@ -123,7 +128,11 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
                 }
             }
             items(state.efforts, key = { "${it.activity.value} ${it.startOffset}" }) { effort ->
-                EffortRow(effort, dateLabel(effort.startedOn), onClick = { state.eventSink(SegmentEvent.OpenActivity(effort.activity)) })
+                EffortRow(
+                    effort,
+                    effortDateLabel(effort.startedOn),
+                    onClick = { state.eventSink(SegmentEvent.OpenActivity(effort.activity)) },
+                )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
         }
@@ -150,11 +159,4 @@ private fun Status(segment: SegmentView, onOpenOriginal: () -> Unit) {
             AppTextButton(onClick = onOpenOriginal) { Text(stringResource(Res.string.segment_open_original)) }
         }
     }
-}
-
-/** An effort's `YYYY-MM-DD` date, written out; the string itself when it doesn't parse. */
-@Composable
-private fun dateLabel(startedOn: String): String {
-    val parts = startedOn.split('-').mapNotNull { it.toIntOrNull() }
-    return if (parts.size == 3) longDate(HistoryDate(parts[0], parts[1], parts[2])) else startedOn
 }

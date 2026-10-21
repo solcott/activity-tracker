@@ -31,6 +31,9 @@ data class SettingsState(
     /** Whether this session can use segment matching: false for one signed in before its `space:` grant listed it. */
     val canUseSegments: Boolean = true,
     val savingSegments: Boolean = false,
+    /** Whether the athlete shows on segment leaderboards; offered only while [segmentMatching] is on, and null while unknown. */
+    val showOnLeaderboards: Boolean? = null,
+    val savingLeaderboards: Boolean = false,
     val eventSink: (SettingsEvent) -> Unit,
 ) : CircuitUiState
 
@@ -50,7 +53,13 @@ sealed interface SettingsEvent {
     data object OpenModeration : SettingsEvent
 
     /** Turns segment matching [on] or off: a copy of each route without the privacy zones is shared with the AppView while it's on. */
-    data class SegmentMatchingChanged(val on: Boolean) : SettingsEvent
+    data class SegmentMatchingChanged(val on: Boolean) : SegmentSettingEvent
+
+    /** Shows the athlete on segment leaderboards, or hides them from every one (segments/segment-leaderboards). */
+    data class LeaderboardsChanged(val shown: Boolean) : SegmentSettingEvent
+
+    /** The segment settings' events, which their holder handles. */
+    sealed interface SegmentSettingEvent : SettingsEvent
 
     data object SignOut : SettingsEvent
 }
