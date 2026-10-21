@@ -65,6 +65,9 @@ class ProfilePresenterTest {
     /** Each `com.atproto.space.putRecord`, as `<space key> <collection>`. */
     private val spacePuts = mutableListOf<String>()
 
+    /** Completes on the first `com.atproto.space.putRecord`. */
+    private val spacePut = CompletableDeferred<Unit>()
+
     private val http =
         HttpClient(
             MockEngine { request ->
@@ -109,6 +112,7 @@ class ProfilePresenterTest {
                         val input = AtJson.parseToJsonElement((request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString())
                         val space = input.jsonObject.getValue("space").jsonPrimitive.content.substringAfterLast('/')
                         spacePuts += "$space ${input.jsonObject.getValue("collection").jsonPrimitive.content}"
+                        spacePut.complete(Unit)
                         respond("""{"uri":"at://$alice/x/y","cid":"bafyrec"}""", headers = json)
                     }
 
@@ -277,6 +281,8 @@ class ProfilePresenterTest {
         presenterTestOf(presenter()) {
             val loaded = awaitUntil { it.profile != null && it.error == null }
             loaded.eventSink(ProfileEvent.Activity(ActivityListEvent.ToggleLike(bobsRide.copy(visibility = Visibility.FOLLOWERS))))
+            // "Nothing pending" is true before the like is even queued, so wait for the write itself.
+            spacePut.await()
             activities.pendingWrites.first { it == 0 }
             assertEquals(0, puts, "nothing in the repo")
             assertEquals(listOf("${AthleteSpace.INTERACTIONS} ${Nsid.FEED_LIKE}"), spacePuts)
