@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Writes a feed.segment to <name>.test's repo from a GPX file, for local testing until segments can be created in the app
-# (segments/segment-records). The line is the GPX's track points from startIndex to endIndex (inclusive; the whole track by default),
-# encoded as a precision-6 polyline, with source "athlete" and licence CC0-1.0. The AppView indexes it from Jetstream: check with
-# app.activitytracker.feed.getSegment on the printed URI. Each run writes a new segment.
+# Writes a feed.segment to <name>.test's repo from a GPX file, for setting up local tests without the app (segments/segment-records).
+# The line is the GPX's track points from startIndex to endIndex (inclusive; the whole track by default), encoded as a precision-6
+# polyline, with source "athlete" and licence CC0-1.0. A line shorter than its sport group's minimum (500 m for ride, 200 m for the rest)
+# or longer than 50 km is refused, as the AppView would drop it. The AppView indexes it from Jetstream as proposed (or duplicate): check
+# with app.activitytracker.feed.getSegment on the printed URI. Each run writes a new segment.
 # Usage: docker/scripts/seed-segment.sh alice "Hill climb" run track.gpx [startIndex endIndex] [pds-url]
 set -euo pipefail
 
@@ -37,6 +38,19 @@ points = [(float(p.get("lat")), float(p.get("lon"))) for p in ET.parse(path).ite
 points = points[start:] if end < 0 else points[start:end + 1]
 if len(points) < 2:
     sys.exit(f"only {len(points)} track points in range")
+
+def meters(a, b):
+    import math
+    lat1, lat2 = math.radians(a[0]), math.radians(b[0])
+    dlat, dlng = lat2 - lat1, math.radians(b[1] - a[1])
+    h = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlng / 2) ** 2
+    return 2 * 6_371_000 * math.asin(math.sqrt(h))
+
+# SegmentSportGroup.minMeters and MAX_METERS.
+length = sum(meters(a, b) for a, b in zip(points, points[1:]))
+minimum = 500 if sport == "ride" else 200
+if not minimum <= length <= 50_000:
+    sys.exit(f"the line is {length:.0f} m; {sport} segments must be {minimum} m to 50 km")
 
 def encode(value):
     value = ~(value << 1) if value < 0 else value << 1
