@@ -18,6 +18,8 @@ import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.data.segments.SegmentStars
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.EffortView
+import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
+import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.activitytracker.location.SegmentGeometry
@@ -60,6 +62,7 @@ fun SegmentPresenter(screen: SegmentScreen, navigator: Navigator, segments: Segm
         isLoading = segment == null && error == null,
         error = error,
         starred = starred,
+        credit = segment?.record?.let(::creditOf),
     ) { event ->
         when (event) {
             SegmentEvent.Back -> navigator.pop()
@@ -84,3 +87,14 @@ fun SegmentPresenter(screen: SegmentScreen, navigator: Navigator, segments: Segm
 
 /** A segment's precision-6 [line] at precision 5, for the maps; null when it doesn't decode. */
 private fun mapLine(line: String): String? = SegmentGeometry.decodePolyline(line)?.let(SegmentGeometry::toPrecision5)
+
+/** Credit for [record]'s data by its source: none for an athlete's, and only a non-blank licence for a source we don't know. */
+internal fun creditOf(record: SegmentRecord): SegmentCredit? {
+    val license = record.license.trim()
+    return when (record.source) {
+        SegmentSource.ATHLETE -> null
+        SegmentSource.OSM -> SegmentCredit.OpenStreetMap(license)
+        SegmentSource.AGENCY -> SegmentCredit.Agency(license)
+        else -> license.takeIf { it.isNotEmpty() }?.let(SegmentCredit::License)
+    }
+}
