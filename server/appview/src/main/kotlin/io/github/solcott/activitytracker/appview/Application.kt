@@ -119,7 +119,7 @@ fun main() {
             BskyBlockBackfill(db, indexer, http, pds).start(this)
             syncer?.start(this)
             // Segment tracks live in athletes' `self` spaces, so matching needs the AppView's member credential, as syncing does.
-            spaceBlobs?.let { SegmentMatcher(db, indexer.segmentJobs, it).start(this) }
+            spaceBlobs?.let { SegmentMatcher(db, indexer.segmentJobs, it, activeAthletes = config.segmentActiveAthletes).start(this) }
             startLabelSubscribers(config, db, http, identity)
             // The moderator audit log keeps entries a little over a year.
             ModerationAccessLog(db).start(this)

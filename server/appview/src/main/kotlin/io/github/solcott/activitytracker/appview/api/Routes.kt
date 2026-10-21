@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.lexicon.XrpcErrorBody
 import io.github.solcott.activitytracker.lexicon.XrpcParams
 import io.github.solcott.activitytracker.lexicon.XrpcProcedure
 import io.github.solcott.activitytracker.lexicon.XrpcQuery
+import io.github.solcott.activitytracker.lexicon.app.CheckSegment
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
@@ -92,6 +93,7 @@ fun Route.segmentRoutes(segments: SegmentViews, verifier: ServiceAuthVerifier) {
     xrpcQuery(SearchSegments.method, verifier) { params, viewer -> segments.search(viewer, params) }
     xrpcQuery(GetActivitySegments.method, verifier) { params, viewer -> segments.activitySegments(viewer, params) }
     xrpcQuery(GetSegmentEfforts.method, verifier) { params, viewer -> segments.segmentEfforts(viewer, params) }
+    xrpcProcedure(CheckSegment.method, verifier) { input, caller -> segments.check(requireViewer(caller), input) }
 }
 
 /**

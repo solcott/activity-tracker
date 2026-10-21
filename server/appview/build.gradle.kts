@@ -32,6 +32,9 @@ tasks.named<JavaExec>(ApplicationPlugin.TASK_RUN_NAME) {
                     ?.takeIf(String::isNotBlank)
             // The signing key scripts/dev.sh generates into docker/.env, so the AppView can sync athletes' tier spaces.
             if ("APPVIEW_SIGNING_KEY" !in environment) fromDockerEnv("APPVIEW_SIGNING_KEY")?.let { environment("APPVIEW_SIGNING_KEY", it) }
+            // How many athletes make a proposed segment active, when docker/.env sets it.
+            if ("SEGMENT_ACTIVE_ATHLETES" !in environment)
+                fromDockerEnv("SEGMENT_ACTIVE_ATHLETES")?.let { environment("SEGMENT_ACTIVE_ATHLETES", it) }
             // The AppView's account on the local Ozone's team (docker/scripts/setup-labeler.sh).
             for (key in listOf("APPVIEW_TRIAGE_DID", "APPVIEW_TRIAGE_PASSWORD")) {
                 if (key !in environment) fromDockerEnv(key)?.let { environment(key, it) }

@@ -101,7 +101,14 @@ object Segments : Table("segments") {
     val maxLngE7 = integer("max_lng_e7")
     val dataSource = varchar("data_source", 64)
     val license = varchar("license", 64)
+    /** When this version was indexed. */
     val indexedAt = long("indexed_at")
+    /** A [io.github.solcott.activitytracker.lexicon.app.SegmentStatus] value, derived here and never read from the record. */
+    val status = varchar("status", 16)
+    /** The earlier segment this one duplicates, when [status] is duplicate. */
+    val duplicateOf = varchar("duplicate_of", 512).nullable()
+    /** When the segment was first indexed, never changed by an edit: which of two segments came first. */
+    val firstIndexedAt = long("first_indexed_at")
     override val primaryKey = PrimaryKey(uri)
 }
 

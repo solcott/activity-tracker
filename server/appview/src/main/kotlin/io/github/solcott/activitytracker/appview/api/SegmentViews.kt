@@ -5,11 +5,16 @@ import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.tx
+import io.github.solcott.activitytracker.appview.index.DAILY_SEGMENT_LIMIT
+import io.github.solcott.activitytracker.appview.index.duplicatesOf
+import io.github.solcott.activitytracker.appview.index.segmentsCreatedSince
+import io.github.solcott.activitytracker.appview.index.validLine
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
+import io.github.solcott.activitytracker.lexicon.app.CheckSegment
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
@@ -18,6 +23,7 @@ import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
+import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewerState
@@ -25,6 +31,7 @@ import io.github.solcott.activitytracker.location.SegmentCells
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.ktor.http.HttpStatusCode
 import kotlin.math.abs
+import kotlin.time.Clock
 import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
@@ -37,6 +44,7 @@ import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.min
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.select
@@ -46,9 +54,11 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
  * Segments (segments/segment-records) and the efforts on them (segments/segment-efforts). A segment is public, but an account that isn't
  * served, or a taken-down segment record, hides it ([served]). An effort is served only to viewers admitted to its stored visibility, and
  * only while they may also see its activity's row ([visibleTo] on both), so an activity narrowed or taken down hides its efforts at once.
- * Whether an effort is the athlete's best is judged among the efforts the same viewer may see.
+ * Whether an effort is the athlete's best is judged among the efforts the same viewer may see. Search lists active segments, and proposed
+ * ones only to their creator and their riders; every view carries the status the AppView derived.
  */
-class SegmentViews(private val db: Database, private val avatars: AvatarUrls) {
+@Suppress("TooManyFunctions") // The five segment routes, and the filters and views they share.
+class SegmentViews(private val db: Database, private val avatars: AvatarUrls, private val clock: Clock = Clock.System) {
     suspend fun segment(viewer: Did?, params: GetSegment.Params): GetSegment.Output = db.tx {
         val row =
             Segments.selectAll().where { (Segments.uri eq params.uri.value) and segmentServed(viewer) }.firstOrNull()
@@ -61,7 +71,10 @@ class SegmentViews(private val db: Database, private val avatars: AvatarUrls) {
         GetSegment.Output(views(listOf(row)).single().copy(viewer = best?.let { SegmentViewerState(it) }))
     }
 
-    /** Segments in a box of at most [SearchSegments.MAX_SPAN_E7] a side whose line has a point in it, oldest indexed first. */
+    /**
+     * Segments in a box of at most [SearchSegments.MAX_SPAN_E7] a side whose line has a point in it, oldest indexed first: active ones, and
+     * proposed ones the viewer created or has an effort on.
+     */
     suspend fun search(viewer: Did?, params: SearchSegments.Params): SearchSegments.Output {
         val minLat = params.minLat
         val minLng = params.minLng
@@ -90,6 +103,7 @@ class SegmentViews(private val db: Database, private val avatars: AvatarUrls) {
                                 (Segments.minLngE7 lessEq maxLng) and
                                 (Segments.maxLngE7 greaterEq minLng) and
                                 (params.sport?.let { Segments.sport eq it } ?: Op.TRUE) and
+                                listedTo(viewer) and
                                 exists(
                                     SegmentCellIndex.select(SegmentCellIndex.cell).where {
                                         (SegmentCellIndex.segmentUri eq Segments.uri) and (SegmentCellIndex.cell inList cells)
@@ -141,6 +155,35 @@ class SegmentViews(private val db: Database, private val avatars: AvatarUrls) {
         GetSegmentEfforts.Output(efforts, next)
     }
 
+    /**
+     * [viewer]'s check of a line before publishing it (segments/segment-records): the live segments of its sport it would duplicate,
+     * earliest first, as indexing would judge them, and how many more new segments [viewer] may create today. `InvalidRequest` for a line
+     * indexing would drop.
+     */
+    suspend fun check(viewer: Did, input: CheckSegment.Input): CheckSegment.Output {
+        val line = runCatching { validLine(input.sport, input.line) }.getOrElse { invalidRequest(it.message ?: "Invalid line") }
+        val now = clock.now().toEpochMilliseconds()
+        return db.tx {
+            val uris = duplicatesOf(input.sport, line)
+            val rows = Segments.selectAll().where { (Segments.uri inList uris) and segmentServed(viewer) }.associateBy { it[Segments.uri] }
+            val remaining = (DAILY_SEGMENT_LIMIT - segmentsCreatedSince(viewer, now)).coerceAtLeast(0).toInt()
+            CheckSegment.Output(views(uris.mapNotNull { rows[it] }), remaining)
+        }
+    }
+
+    /** Segments search lists to [viewer]: active ones, and proposed ones they created or have an effort on. */
+    private fun listedTo(viewer: Did?): Op<Boolean> {
+        val active = Segments.status eq SegmentStatus.ACTIVE
+        if (viewer == null) return active
+        val ridden =
+            exists(
+                SegmentEfforts.select(SegmentEfforts.id).where {
+                    (SegmentEfforts.segmentUri eq Segments.uri) and (SegmentEfforts.authorDid eq viewer.value)
+                }
+            )
+        return active or ((Segments.status eq SegmentStatus.PROPOSED) and ((Segments.authorDid eq viewer.value) or ridden))
+    }
+
     /** Segments served to [viewer]: not of an account that isn't served, nor taken down. */
     private fun segmentServed(viewer: Did?): Op<Boolean> = served(viewer, Segments.authorDid, Segments.uri, Segments.cid)
 
@@ -154,7 +197,7 @@ class SegmentViews(private val db: Database, private val avatars: AvatarUrls) {
     ): List<EffortView> {
         val rows =
             visibleEfforts()
-                .select(SegmentEfforts.columns + listOf(Segments.uri, Segments.name, Segments.sport, Segments.distanceM))
+                .select(SegmentEfforts.columns + listOf(Segments.uri, Segments.name, Segments.sport, Segments.distanceM, Segments.status))
                 .where { where and effortsVisibleTo(viewer) }
                 .apply { order.forEach { (expression, direction) -> orderBy(expression, direction) } }
                 .let { if (limit != null) it.limit(limit) else it }
@@ -171,7 +214,14 @@ class SegmentViews(private val db: Database, private val avatars: AvatarUrls) {
         return rows.map {
             val elapsed = it[SegmentEfforts.elapsedS]
             EffortView(
-                segment = SegmentViewBasic(AtUri(it[Segments.uri]), it[Segments.name], it[Segments.sport], it[Segments.distanceM]),
+                segment =
+                    SegmentViewBasic(
+                        AtUri(it[Segments.uri]),
+                        it[Segments.name],
+                        it[Segments.sport],
+                        it[Segments.distanceM],
+                        status = it[Segments.status],
+                    ),
                 activity = AtUri(it[SegmentEfforts.activityUri]),
                 startOffset = it[SegmentEfforts.startOffsetS],
                 elapsed = elapsed,
@@ -202,6 +252,8 @@ class SegmentViews(private val db: Database, private val avatars: AvatarUrls) {
                 creator = creators[author] ?: ProfileViewBasic(Did(author), Handle(UNKNOWN_HANDLE)),
                 record = AtJson.decodeFromString(SegmentRecord.serializer(), it[Segments.record]),
                 distanceMeters = it[Segments.distanceM],
+                status = it[Segments.status],
+                duplicateOf = it[Segments.duplicateOf]?.let(::AtUri),
             )
         }
     }

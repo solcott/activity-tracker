@@ -1,5 +1,7 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
+
 /** Environment-driven config. Defaults match `docker/compose.yaml` so `./gradlew :server-appview:run` just works. */
 data class AppViewConfig(
     val port: Int,
@@ -39,6 +41,11 @@ data class AppViewConfig(
      * refuse.
      */
     val triage: Triage? = null,
+    /**
+     * How many distinct athletes' efforts make a proposed segment active (`SEGMENT_ACTIVE_ATHLETES`, at least 1), the creator included
+     * (segments/segment-records).
+     */
+    val segmentActiveAthletes: Int = SegmentMatcher.DEFAULT_ACTIVE_ATHLETES,
 ) {
     /** An account the AppView signs in to with an app password. */
     data class Triage(val did: String, val appPassword: String) {
@@ -91,6 +98,8 @@ data class AppViewConfig(
                         ?.trim()
                         ?.takeIf { it.startsWith("did:") }
                         ?.let { did -> env["APPVIEW_TRIAGE_PASSWORD"]?.trim()?.takeIf { it.isNotEmpty() }?.let { Triage(did, it) } },
+                segmentActiveAthletes =
+                    env["SEGMENT_ACTIVE_ATHLETES"]?.trim()?.toIntOrNull()?.coerceAtLeast(1) ?: SegmentMatcher.DEFAULT_ACTIVE_ATHLETES,
             )
         }
 

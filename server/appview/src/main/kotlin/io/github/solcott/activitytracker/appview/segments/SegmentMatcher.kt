@@ -13,6 +13,8 @@ import io.github.solcott.activitytracker.appview.db.SegmentTracks
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.db.usableSegmentTracks
+import io.github.solcott.activitytracker.appview.index.LIVE_STATUSES
+import io.github.solcott.activitytracker.appview.index.recheckDuplicatesOf
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -22,6 +24,7 @@ import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.DetailsView
 import io.github.solcott.activitytracker.lexicon.app.SegmentSport
+import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackData
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
@@ -33,6 +36,7 @@ import java.time.ZoneOffset
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.roundToLong
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
@@ -49,6 +53,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.notExists
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -69,25 +74,70 @@ import org.slf4j.LoggerFactory
  * - `segment`: queues a `track` job for each usable track sharing a cell with a new or changed segment;
  * - `tiers`: recomputes the visibility of an activity's efforts from its indexed record, details and streams.
  *
+ * Only proposed and active segments are matched (segments/segment-records). A proposed segment becomes active once efforts on it come from
+ * [activeAthletes] distinct athletes, checked as each activity's efforts are written and again by the hourly status pass, which also
+ * archives segments still proposed [ARCHIVE_AFTER] after they were first indexed.
+ *
  * Nothing is read from a track whose athlete's matching is off ([usableSegmentTracks]), and that is checked again before efforts are
  * written. An activity that isn't indexed yet, or is a valid member of a combined activity, has no efforts. A failed fetch is retried with
  * backoff, then given up.
  */
-@Suppress("TooManyFunctions") // The loop, the three jobs, and the reads they share.
+@Suppress("TooManyFunctions") // The loop, the three jobs, the status pass, and the reads they share.
 class SegmentMatcher(
     private val db: Database,
     private val jobs: SegmentJobs,
     private val blobs: SpaceBlobs,
     private val clock: Clock = Clock.System,
+    private val activeAthletes: Int = DEFAULT_ACTIVE_ATHLETES,
 ) {
     private val log = LoggerFactory.getLogger(SegmentMatcher::class.java)
 
-    /** Runs until [scope] is cancelled: the one-off backfill, then the due jobs, waking on each enqueue or every [POLL_INTERVAL]. */
+    /**
+     * Runs until [scope] is cancelled: the one-off backfill, then the due jobs, waking on each enqueue or every [POLL_INTERVAL], and the
+     * status pass on start and every [STATUS_INTERVAL].
+     */
     fun start(scope: CoroutineScope): Job = scope.launch {
         guarded("Backfilling segment tracks") { backfill() }
+        var statusesAt: Long? = null
         while (true) {
+            val now = clock.now().toEpochMilliseconds()
+            if (statusesAt == null || now - statusesAt >= STATUS_INTERVAL.inWholeMilliseconds) {
+                guarded("Updating segment statuses") { updateStatuses() }
+                statusesAt = now
+            }
             guarded("Running segment jobs") { runDue() }
             withTimeoutOrNull(POLL_INTERVAL) { jobs.wakeups.receive() }
+        }
+    }
+
+    /**
+     * The status pass: promotes every proposed segment that already has enough athletes (those from before statuses, or after the threshold
+     * was lowered), then archives those still proposed [ARCHIVE_AFTER] after they were first indexed and checks again the segments that
+     * duplicated them. Archived segments keep their efforts. Exposed for tests.
+     */
+    suspend fun updateStatuses() {
+        val now = clock.now().toEpochMilliseconds()
+        db.tx {
+            promote(Segments.select(Segments.uri).where { Segments.status eq SegmentStatus.PROPOSED }.map { it[Segments.uri] })
+            val stale =
+                Segments.select(Segments.uri)
+                    .where {
+                        (Segments.status eq SegmentStatus.PROPOSED) and
+                            (Segments.firstIndexedAt less now - ARCHIVE_AFTER.inWholeMilliseconds)
+                    }
+                    .map { it[Segments.uri] }
+            if (stale.isEmpty()) return@tx
+            Segments.update({ Segments.uri inList stale }) { it[status] = SegmentStatus.ARCHIVED }
+            recheckDuplicatesOf(stale, jobs, now)
+        }
+    }
+
+    /** Makes each of [uris] that is proposed active once efforts on it come from [activeAthletes] distinct athletes. */
+    private fun JdbcTransaction.promote(uris: Collection<String>) {
+        for (uri in uris) {
+            val athletes = SegmentEfforts.select(SegmentEfforts.authorDid).where { SegmentEfforts.segmentUri eq uri }.withDistinct().count()
+            if (athletes < activeAthletes) continue
+            Segments.update({ (Segments.uri eq uri) and (Segments.status eq SegmentStatus.PROPOSED) }) { it[status] = SegmentStatus.ACTIVE }
         }
     }
 
@@ -219,14 +269,21 @@ class SegmentMatcher(
         return TrackToMatch(Did(track[SegmentTracks.authorDid]), activity, track[SegmentTracks.dataCid], group)
     }
 
-    /** Replaces [track]'s activity's efforts with its passes over the segments of its group in [cells]. */
+    /**
+     * Replaces [track]'s activity's efforts with its passes over the live segments of its group in [cells], so its efforts on a segment
+     * archived since go, and promotes the segments it now has efforts on.
+     */
     private fun JdbcTransaction.replaceEfforts(trackUri: String, track: TrackToMatch, pieces: List<List<TimedPoint>>, cells: Set<Long>) {
         val segments =
             if (cells.isEmpty()) emptyList()
             else
                 Segments.join(SegmentCellIndex, JoinType.INNER, Segments.uri, SegmentCellIndex.segmentUri)
                     .select(Segments.uri, Segments.line)
-                    .where { (SegmentCellIndex.cell inList cells) and (Segments.sport eq track.group.group) }
+                    .where {
+                        (SegmentCellIndex.cell inList cells) and
+                            (Segments.sport eq track.group.group) and
+                            (Segments.status inList LIVE_STATUSES)
+                    }
                     .withDistinct()
                     .map { it[Segments.uri] to it[Segments.line] }
         val activity = Activities.selectAll().where { Activities.uri eq track.activity }.first()
@@ -251,12 +308,15 @@ class SegmentMatcher(
             this[SegmentEfforts.visibility] = visibility
             this[SegmentEfforts.startedOn] = startedOn
         }
+        promote(efforts.map { (uri, _) -> uri }.toSet())
     }
 
-    /** Queues a `track` job for each usable track sharing a cell with the segment at [segmentUri]. */
+    /** Queues a `track` job for each usable track sharing a cell with the segment at [segmentUri], unless it's no longer live. */
     private suspend fun matchSegment(segmentUri: String) {
         val now = clock.now().toEpochMilliseconds()
         db.tx {
+            val live = Segments.select(Segments.uri).where { (Segments.uri eq segmentUri) and (Segments.status inList LIVE_STATUSES) }.any()
+            if (!live) return@tx
             val cells =
                 SegmentCellIndex.select(SegmentCellIndex.cell)
                     .where { SegmentCellIndex.segmentUri eq segmentUri }
@@ -332,6 +392,13 @@ class SegmentMatcher(
         get() = GeoPoint(lat, lng)
 
     companion object {
+        /** How many distinct athletes' efforts make a proposed segment active, unless configured otherwise. */
+        const val DEFAULT_ACTIVE_ATHLETES = 3
+
+        /** How long a segment may stay proposed before it's archived. */
+        val ARCHIVE_AFTER = 180.days
+
+        private val STATUS_INTERVAL = 1.hours
         private const val BATCH = 20
         private const val E7 = 1e7
         private const val SECONDS_PER_MINUTE = 60

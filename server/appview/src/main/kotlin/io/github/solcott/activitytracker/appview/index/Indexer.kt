@@ -336,7 +336,7 @@ class Indexer(
             in BLOCKS_AND_MUTES -> deleteBlockOrMute(collection, uri, placement)
 
             Nsid.FEED_SEGMENT -> {
-                if (placement.origin == Origins.REPO) deleteSegment(uri)
+                if (placement.origin == Origins.REPO) deleteSegment(uri, segmentJobs, clock.now().toEpochMilliseconds())
             }
 
             Nsid.ACTOR_PROFILE -> {
@@ -382,7 +382,7 @@ class Indexer(
         Mutes.deleteWhere { authorDid eq did.value }
         SegmentPrefs.deleteWhere { SegmentPrefs.did eq did.value }
         dropSegmentTracks(did)
-        deleteSegmentsBy(did)
+        deleteSegmentsBy(did, segmentJobs, clock.now().toEpochMilliseconds())
         RecordShadows.deleteWhere { uri like "at://${did.value}/%" }
         SpaceSync.deleteWhere { authorityDid eq did.value }
         Actors.deleteWhere { Actors.did eq did.value }

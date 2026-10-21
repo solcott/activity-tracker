@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.appview
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentEfforts
+import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.client.HttpClient
 import io.ktor.server.testing.testApplication
@@ -54,6 +55,7 @@ class SegmentEffortsTest : SegmentTestBase() {
         assertEquals(200, effort.elapsed)
         assertEquals("2026-10-06", effort.startedOn)
         assertEquals(true, effort.best)
+        assertEquals(SegmentStatus.PROPOSED, effort.segment.status)
     }
 
     @Test

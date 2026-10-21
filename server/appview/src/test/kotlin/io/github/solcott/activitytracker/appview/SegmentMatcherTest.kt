@@ -3,19 +3,26 @@ package io.github.solcott.activitytracker.appview
 import io.github.solcott.activitytracker.appview.api.SpaceBlobs
 import io.github.solcott.activitytracker.appview.db.SegmentMatchJobs
 import io.github.solcott.activitytracker.appview.db.SegmentTrackCells
+import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcBytes
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.deleteAll
 import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.update
 
 /** The segment matcher (segments/segment-efforts): efforts from usable segment tracks only, kept current as their sources change. */
 class SegmentMatcherTest : SegmentTestBase() {
@@ -299,5 +306,94 @@ class SegmentMatcherTest : SegmentTestBase() {
             )
         }
         assertEquals(emptyList(), efforts())
+    }
+
+    private fun status(uri: String): String = runBlocking {
+        db.tx { Segments.selectAll().where { Segments.uri eq uri }.single()[Segments.status] }
+    }
+
+    private fun setStatus(uri: String, status: String) = runBlocking {
+        db.tx { Segments.update({ Segments.uri eq uri }) { it[Segments.status] = status } }
+    }
+
+    /** A matcher whose clock runs [ahead] of now, needing [athletes] for a segment to become active. */
+    private fun matcherAt(ahead: Duration = Duration.ZERO, athletes: Int = SegmentMatcher.DEFAULT_ACTIVE_ATHLETES) =
+        SegmentMatcher(
+            db,
+            indexer.segmentJobs,
+            SpaceBlobs { _, _, cid -> blobs[cid]?.let { XrpcBytes(it, "application/json") } },
+            clock =
+                object : Clock {
+                    override fun now() = Clock.System.now() + ahead
+                },
+            activeAthletes = athletes,
+        )
+
+    /** A Public run along the segment by [did], with matching on. */
+    private fun ride(did: String, rkey: String = "3ka", tier: String = Visibility.PUBLIC) {
+        matching(true, did = did)
+        activity(rkey, tier = tier, did = did)
+        track(rkey, did = did)
+    }
+
+    @Test
+    fun duplicateAndArchivedSegmentsGetNoNewEfforts() {
+        segment("3ks")
+        ride(alice)
+        match()
+        assertEquals(listOf(segmentUri("3ks")), efforts().map { it.segment })
+
+        setStatus(segmentUri("3ks"), SegmentStatus.ARCHIVED)
+        ride(bob)
+        match()
+        assertEquals(listOf(activityUri("3ka")), efforts().map { it.activity }, "bob's run doesn't match, alice's effort stays")
+
+        // A recompute of alice's run drops its effort on the archived segment.
+        track("3ka", speed = 4.0)
+        match()
+        assertEquals(emptyList(), efforts())
+
+        segment("3kt", path = listOf(5000.0 to 0.0, 5000.0 to 1000.0))
+        setStatus(segmentUri("3kt"), SegmentStatus.DUPLICATE)
+        runBlocking { indexer.segmentJobs.let { jobs -> db.tx { jobs.enqueueSegment(segmentUri("3kt"), 0) } } }
+        match()
+        assertEquals(emptyList(), efforts())
+    }
+
+    @Test
+    fun aSegmentBecomesActiveOnItsThirdAthlete() {
+        segment("3ks")
+        ride(alice)
+        ride(bob)
+        match()
+        assertEquals(SegmentStatus.PROPOSED, status(segmentUri("3ks")))
+
+        // Carol's run is Only me, and still counts.
+        ride(carol, tier = Visibility.SELF)
+        match()
+        assertEquals(SegmentStatus.ACTIVE, status(segmentUri("3ks")))
+
+        matching(false, did = bob)
+        matching(false, did = carol)
+        assertEquals(1, efforts().size)
+        runBlocking { matcherAt().updateStatuses() }
+        assertEquals(SegmentStatus.ACTIVE, status(segmentUri("3ks")), "stays active")
+    }
+
+    @Test
+    fun theStatusPassPromotesAndArchives() {
+        segment("3ks")
+        segment("3kt", path = listOf(5000.0 to 0.0, 5000.0 to 1000.0))
+        ride(alice)
+        match()
+        runBlocking { matcherAt(athletes = 1).updateStatuses() }
+        assertEquals(SegmentStatus.ACTIVE, status(segmentUri("3ks")), "a lowered threshold promotes")
+        assertEquals(SegmentStatus.PROPOSED, status(segmentUri("3kt")))
+
+        runBlocking { matcherAt(ahead = 179.days).updateStatuses() }
+        assertEquals(SegmentStatus.PROPOSED, status(segmentUri("3kt")))
+        runBlocking { matcherAt(ahead = 181.days).updateStatuses() }
+        assertEquals(SegmentStatus.ARCHIVED, status(segmentUri("3kt")))
+        assertEquals(SegmentStatus.ACTIVE, status(segmentUri("3ks")), "active segments are never archived")
     }
 }

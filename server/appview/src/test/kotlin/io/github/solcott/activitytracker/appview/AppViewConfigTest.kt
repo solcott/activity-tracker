@@ -65,4 +65,13 @@ class AppViewConfigTest {
         assertEquals(AppViewConfig.Triage("did:plc:triage", "abcd-efgh-ijkl-mnop"), config.triage)
         assertEquals("Triage(did:plc:triage)", config.triage.toString(), "the password stays out of logs")
     }
+
+    @Test
+    fun segmentActiveAthletesDefaultsToThreeAndIsAtLeastOne() {
+        assertEquals(3, AppViewConfig.fromEnv(emptyMap()).segmentActiveAthletes)
+        assertEquals(2, AppViewConfig.fromEnv(mapOf("SEGMENT_ACTIVE_ATHLETES" to " 2 ")).segmentActiveAthletes)
+        assertEquals(1, AppViewConfig.fromEnv(mapOf("SEGMENT_ACTIVE_ATHLETES" to "0")).segmentActiveAthletes)
+        assertEquals(3, AppViewConfig.fromEnv(mapOf("SEGMENT_ACTIVE_ATHLETES" to "")).segmentActiveAthletes)
+        assertEquals(3, AppViewConfig.fromEnv(mapOf("SEGMENT_ACTIVE_ATHLETES" to "many")).segmentActiveAthletes)
+    }
 }
