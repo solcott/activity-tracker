@@ -786,6 +786,7 @@
     <string name="moderation_not_under_review">Not under review: there's no open report on it or its author, or it doesn't exist.</string>
     <string name="moderation_visibility">Visible to: %1$s</string>
     <string name="error_open_subject">Couldn't open the subject</string>
+    <string name="error_invalid_subject_uri">That isn't a valid record address</string>
 
     <!-- Reports -->
     <string name="action_report">Report</string>

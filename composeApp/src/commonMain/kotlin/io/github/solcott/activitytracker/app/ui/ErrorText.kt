@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_download_ori
 import io.github.solcott.activitytracker.composeApp.resources.error_export_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_export_not_sent
 import io.github.solcott.activitytracker.composeApp.resources.error_hide_comment
+import io.github.solcott.activitytracker.composeApp.resources.error_invalid_subject_uri
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_load_blocks
 import io.github.solcott.activitytracker.composeApp.resources.error_load_combine_candidates
@@ -110,6 +111,7 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.UpdateBlock -> Res.string.error_update_block
             UiError.Kind.SendReport -> Res.string.error_send_report
             UiError.Kind.OpenSubject -> Res.string.error_open_subject
+            UiError.Kind.InvalidSubjectUri -> Res.string.error_invalid_subject_uri
             UiError.Kind.UpdateMute -> Res.string.error_update_mute
             UiError.Kind.LoadBlocks -> Res.string.error_load_blocks
             UiError.Kind.LoadMutes -> Res.string.error_load_mutes

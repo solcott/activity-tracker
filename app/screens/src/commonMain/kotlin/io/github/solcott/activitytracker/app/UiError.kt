@@ -32,6 +32,9 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         UpdateMute,
         SendReport,
         OpenSubject,
+
+        /** Text typed as a moderation subject isn't an AT-URI, so nothing was asked for. */
+        InvalidSubjectUri,
         LoadBlocks,
         LoadMutes,
         LoadFollowers,

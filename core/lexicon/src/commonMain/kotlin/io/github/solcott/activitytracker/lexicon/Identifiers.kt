@@ -59,6 +59,9 @@ value class AtUri(val value: String) {
         private const val PREFIX = "at://"
 
         fun of(authority: Did, collection: String, rkey: String) = AtUri("$PREFIX$authority/$collection/$rkey")
+
+        /** [value] as an AT-URI, or null when it isn't one (typed text, say). */
+        fun parseOrNull(value: String): AtUri? = if (value.startsWith(PREFIX)) AtUri(value) else null
     }
 }
 

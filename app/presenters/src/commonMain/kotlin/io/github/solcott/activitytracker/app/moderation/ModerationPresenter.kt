@@ -27,10 +27,14 @@ fun ModerationPresenter(navigator: Navigator, moderation: ModerationRepository):
             ModerationEvent.Back -> navigator.pop()
             ModerationEvent.Open -> {
                 val typed = uri.text.toString().trim()
-                if (typed.isNotEmpty()) {
+                val subjectUri = AtUri.parseOrNull(typed)
+                if (typed.isNotEmpty() && subjectUri == null) {
+                    subject = null
+                    error = UiError(UiError.Kind.InvalidSubjectUri)
+                } else if (subjectUri != null) {
                     error = null
                     flights.launch(ModerationEvent.Open) {
-                        runSuspendCatching { subjectOf(moderation, AtUri(typed)) }
+                        runSuspendCatching { subjectOf(moderation, subjectUri) }
                             .onSuccess { subject = it }
                             .onFailure {
                                 subject = null

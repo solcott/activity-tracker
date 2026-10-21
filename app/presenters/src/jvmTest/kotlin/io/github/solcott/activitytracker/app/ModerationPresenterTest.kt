@@ -14,7 +14,6 @@ import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.moderation.ModerationRepository
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
-import io.github.solcott.dataresult.DataError
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -24,7 +23,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
 /** The Moderation screen (`moderation/private-subjects`): opening a subject by URI, and "not under review" for the AppView's NotFound. */
@@ -32,6 +30,7 @@ class ModerationPresenterTest {
     private val followersActivity = "at://did:plc:bob/${Nsid.FEED_ACTIVITY}/3kf"
     private var role: String? = "moderator"
     private var appViewDown = false
+    private var subjectRequests = 0
 
     private val http =
         HttpClient(
@@ -40,7 +39,8 @@ class ModerationPresenterTest {
                 when (request.url.encodedPath) {
                     "/xrpc/com.atproto.server.getServiceAuth" -> respond("""{"token":"service-jwt"}""", headers = json)
                     "/xrpc/${Nsid.MODERATION_GET_ROLE}" -> respond(role?.let { """{"role":"$it"}""" } ?: "{}", headers = json)
-                    "/xrpc/${Nsid.MODERATION_GET_SUBJECT}" ->
+                    "/xrpc/${Nsid.MODERATION_GET_SUBJECT}" -> {
+                        subjectRequests++
                         when {
                             appViewDown -> respond("""{"error":"LabelerUnavailable"}""", HttpStatusCode.ServiceUnavailable, json)
                             request.url.parameters["uri"] == followersActivity ->
@@ -58,6 +58,7 @@ class ModerationPresenterTest {
                                     json,
                                 )
                         }
+                    }
                     else -> respond("", HttpStatusCode.NotFound)
                 }
             }
@@ -104,9 +105,11 @@ class ModerationPresenterTest {
             initial.uri.setTextAndPlaceCursorAtEnd(followersActivity)
             initial.eventSink(ModerationEvent.Open)
             assertEquals(UiError.Kind.OpenSubject, awaitUntil { it.error != null }.error?.kind)
+            val requested = subjectRequests
             initial.uri.setTextAndPlaceCursorAtEnd("not a uri")
             initial.eventSink(ModerationEvent.Open)
-            assertTrue(awaitUntil { it.error?.reason is DataError.Unknown }.subject == null)
+            assertNull(awaitUntil { it.error?.kind == UiError.Kind.InvalidSubjectUri }.subject)
+            assertEquals(requested, subjectRequests)
             cancelAndIgnoreRemainingEvents()
         }
     }
