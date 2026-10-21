@@ -63,6 +63,9 @@ sealed interface ProfileEvent {
 
     data object OpenSettings : ProfileEvent
 
+    /** The athlete's own starred segments; ignored on anyone else's profile. */
+    data object OpenStarredSegments : ProfileEvent
+
     data object EditProfile : ProfileEvent
 
     /** A tap on one of [ProfileState.activities]. */
