@@ -16,6 +16,9 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
+import io.github.solcott.dataresult.Origin
+import io.github.solcott.uistate.ContentState
+import io.github.solcott.uistate.LoadStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Instant
@@ -33,23 +36,26 @@ class SegmentCreditUiTest {
 
     private fun state(source: String, license: String, credit: SegmentCredit?) =
         SegmentState(
-            segment =
-                SegmentView(
-                    uri = AtUri("at://did:plc:importer/${Nsid.FEED_SEGMENT}/3kshill"),
-                    cid = Cid("bafyseg"),
-                    creator = ProfileViewBasic(Did("did:plc:importer"), Handle("segments.test")),
-                    record =
-                        SegmentRecord(
-                            name = "Ridge Trail",
-                            sport = "ride",
-                            line = "_p~iF~ps|U",
-                            source = source,
-                            license = license,
-                            createdAt = Instant.parse("2026-10-21T00:00:00Z"),
-                        ),
-                    distanceMeters = 1000,
+            content =
+                ContentState(
+                    SegmentView(
+                        uri = AtUri("at://did:plc:importer/${Nsid.FEED_SEGMENT}/3kshill"),
+                        cid = Cid("bafyseg"),
+                        creator = ProfileViewBasic(Did("did:plc:importer"), Handle("segments.test")),
+                        record =
+                            SegmentRecord(
+                                name = "Ridge Trail",
+                                sport = "ride",
+                                line = "_p~iF~ps|U",
+                                source = source,
+                                license = license,
+                                createdAt = Instant.parse("2026-10-21T00:00:00Z"),
+                            ),
+                        distanceMeters = 1000,
+                    ),
+                    origin = Origin.Network,
+                    status = LoadStatus.Idle,
                 ),
-            isLoading = false,
             credit = credit,
         )
 
