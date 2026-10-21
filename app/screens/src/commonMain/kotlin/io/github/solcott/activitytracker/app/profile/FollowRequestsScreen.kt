@@ -8,8 +8,11 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -26,19 +29,33 @@ enum class FollowRequestsTab {
 
 @Immutable
 data class FollowRequestsState(
-    val tab: FollowRequestsTab,
-    val requests: ImmutableList<ProfileViewBasic>,
-    val declined: ImmutableList<ProfileViewBasic>,
-    /** There were more requests than were read. */
-    val truncated: Boolean,
+    val tab: FollowRequestsTab = FollowRequestsTab.Requests,
+    /** The requests, loaded (ui/content-loading), with the athlete's answers here laid over them. */
+    val content: ContentState<FollowRequestsContent> = ContentState(FollowRequestsContent()),
+    /** The session can't read or write declines, so everyone shows as a request; declining needs the athlete to sign in again. */
+    val needsSignIn: Boolean = false,
     /** Accounts whose approval or decline is being written. */
-    val answering: ImmutableSet<Did>,
+    val answering: ImmutableSet<Did> = persistentSetOf(),
     /** Accounts that can't be approved or declined: their DID isn't a valid record key. */
-    val unanswerable: ImmutableSet<Did>,
-    val isLoading: Boolean,
-    val error: UiError?,
-    val eventSink: (FollowRequestsEvent) -> Unit,
-) : CircuitUiState
+    val unanswerable: ImmutableSet<Did> = persistentSetOf(),
+    /** Why answering a request failed; loading failures are [content]'s. */
+    val error: UiError? = null,
+    val eventSink: (FollowRequestsEvent) -> Unit = {},
+) : CircuitUiState {
+    val requests: ImmutableList<ProfileViewBasic>
+        get() = content.data.requests
+
+    val declined: ImmutableList<ProfileViewBasic>
+        get() = content.data.declined
+}
+
+@Immutable
+data class FollowRequestsContent(
+    val requests: ImmutableList<ProfileViewBasic> = persistentListOf(),
+    val declined: ImmutableList<ProfileViewBasic> = persistentListOf(),
+    /** There were more requests than were read. */
+    val truncated: Boolean = false,
+)
 
 sealed interface FollowRequestsEvent {
     data object Back : FollowRequestsEvent
@@ -56,6 +73,6 @@ sealed interface FollowRequestsEvent {
     /** Reloads after an error. */
     data object Retry : FollowRequestsEvent
 
-    /** Signs out, so the athlete can sign in again with access to the declines in their space ([UiError.Kind.SignInAgain]). */
+    /** Signs out, so the athlete can sign in again with access to the declines in their space ([FollowRequestsState.needsSignIn]). */
     data object SignInAgain : FollowRequestsEvent
 }

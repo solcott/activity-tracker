@@ -1,7 +1,14 @@
 package io.github.solcott.activitytracker.app
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withCompositionLocals
+import app.cash.turbine.ReceiveTurbine
 import co.touchlab.kermit.Logger
+import com.slack.circuit.retained.LocalRetainedStateRegistry
+import com.slack.circuit.retained.RetainedStateRegistry
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.profile.FollowRequestsEvent
@@ -15,6 +22,9 @@ import io.github.solcott.activitytracker.data.profile.FollowRequestsRepository
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
+import io.github.solcott.uistate.errorOrNull
+import io.github.solcott.uistate.hasLoaded
+import io.github.solcott.uistate.isLoading
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -22,7 +32,9 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
@@ -35,6 +47,7 @@ class FollowRequestsPresenterTest {
 
     private var scopeMissing = false
     private var failRequests = false
+    private var failApprovals = false
 
     /** Holds each approval write until completed, so the test sees it in flight. */
     private val approveGate = CompletableDeferred<Unit>().apply { complete(Unit) }
@@ -85,6 +98,7 @@ class FollowRequestsPresenterTest {
                         respond("""{"uri":"at://$alice/x/y","cid":"bafyrec"}""", headers = json)
 
                     "pds.test/xrpc/com.atproto.repo.putRecord" -> {
+                        if (failApprovals) return@MockEngine error("InternalServerError", HttpStatusCode.InternalServerError)
                         approvals++
                         gate.await()
                         respond("""{"uri":"at://$alice/x/y","cid":"bafyrec"}""", headers = json)
@@ -109,7 +123,7 @@ class FollowRequestsPresenterTest {
     @Test
     fun declinedRequestsShowUnderDeclined() = runTest {
         presenterTestOf(presenter()) {
-            val loaded = awaitUntil { !it.isLoading }
+            val loaded = awaitLoaded()
             assertEquals(listOf(bob), loaded.requests.map { it.did })
             assertEquals(listOf(carol), loaded.declined.map { it.did })
             assertNull(loaded.error)
@@ -124,7 +138,7 @@ class FollowRequestsPresenterTest {
     fun approvingRemovesTheRequestAndWritesOnce() = runTest {
         gate = CompletableDeferred()
         presenterTestOf(presenter()) {
-            val loaded = awaitUntil { !it.isLoading }
+            val loaded = awaitLoaded()
             loaded.eventSink(FollowRequestsEvent.Approve(bob))
             val answering = awaitUntil { bob in it.answering }
             answering.eventSink(FollowRequestsEvent.Approve(bob))
@@ -140,7 +154,7 @@ class FollowRequestsPresenterTest {
     @Test
     fun decliningMovesTheRequestToDeclined() = runTest {
         presenterTestOf(presenter()) {
-            awaitUntil { !it.isLoading }.eventSink(FollowRequestsEvent.Decline(bob))
+            awaitLoaded().eventSink(FollowRequestsEvent.Decline(bob))
             val done = awaitUntil { it.requests.isEmpty() }
             assertEquals(listOf(bob, carol), done.declined.map { it.did })
             assertEquals(0, approvals)
@@ -151,7 +165,7 @@ class FollowRequestsPresenterTest {
     @Test
     fun approvingFromDeclinedClearsIt() = runTest {
         presenterTestOf(presenter()) {
-            awaitUntil { !it.isLoading }.eventSink(FollowRequestsEvent.Approve(carol))
+            awaitLoaded().eventSink(FollowRequestsEvent.Approve(carol))
             val done = awaitUntil { it.declined.isEmpty() }
             assertEquals(listOf(bob), done.requests.map { it.did })
             assertEquals(1, approvals)
@@ -163,8 +177,9 @@ class FollowRequestsPresenterTest {
     fun aSessionWithoutTheDeclineScopeAsksToSignInAgain() = runTest {
         scopeMissing = true
         presenterTestOf(presenter()) {
-            val loaded = awaitUntil { !it.isLoading }
-            assertEquals(UiError.Kind.SignInAgain, loaded.error?.kind)
+            val loaded = awaitLoaded()
+            assertTrue(loaded.needsSignIn)
+            assertNull(loaded.error)
             assertEquals(listOf(bob, carol), loaded.requests.map { it.did })
 
             loaded.eventSink(FollowRequestsEvent.Decline(bob))
@@ -177,13 +192,83 @@ class FollowRequestsPresenterTest {
     fun aFailedLoadCanBeRetried() = runTest {
         failRequests = true
         presenterTestOf(presenter()) {
-            val failed = awaitUntil { !it.isLoading && it.error != null }
-            assertEquals(UiError.Kind.LoadFollowRequests, failed.error?.kind)
+            val failed = awaitUntil { it.content.errorOrNull != null }
+            assertFalse(failed.content.hasLoaded)
+            assertNull(failed.error, "a load failure isn't an answer's")
             failRequests = false
             failed.eventSink(FollowRequestsEvent.Retry)
-            val recovered = awaitUntil { !it.isLoading && it.error == null && it.requests.isNotEmpty() }
+            val recovered = awaitUntil { !it.content.isLoading && it.content.errorOrNull == null && it.requests.isNotEmpty() }
             assertEquals(listOf(bob), recovered.requests.map { it.did })
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    @Test
+    fun anApprovedRequestStaysAnsweredWhenTheListReloads() = runTest {
+        presenterTestOf(presenter()) {
+            awaitLoaded().eventSink(FollowRequestsEvent.Approve(bob))
+            val done = awaitUntil { it.requests.isEmpty() && bob !in it.answering }
+            // The AppView still lists Bob as pending.
+            done.eventSink(FollowRequestsEvent.Retry)
+            awaitUntil { it.content.isLoading }
+            val reloaded = awaitLoaded()
+            assertEquals(emptyList(), reloaded.requests.map { it.did })
+            assertEquals(listOf(carol), reloaded.declined.map { it.did })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aDeclinedRequestStaysUnderDeclinedWhenTheListReloads() = runTest {
+        presenterTestOf(presenter()) {
+            awaitLoaded().eventSink(FollowRequestsEvent.Decline(bob))
+            val done = awaitUntil { it.requests.isEmpty() && bob !in it.answering }
+            // The fake's self space still holds only Carol's decline.
+            done.eventSink(FollowRequestsEvent.Retry)
+            awaitUntil { it.content.isLoading }
+            val reloaded = awaitLoaded()
+            assertEquals(emptyList(), reloaded.requests.map { it.did })
+            assertEquals(listOf(bob, carol), reloaded.declined.map { it.did })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aFailedAnswerIsTheActionsErrorAndKeepsTheLists() = runTest {
+        failApprovals = true
+        presenterTestOf(presenter()) {
+            awaitLoaded().eventSink(FollowRequestsEvent.Approve(bob))
+            val failed = awaitUntil { it.error != null && bob !in it.answering }
+            assertEquals(UiError.Kind.AnswerFollowRequest, failed.error?.kind)
+            assertNull(failed.content.errorOrNull)
+            assertEquals(listOf(bob), failed.requests.map { it.did })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun comingBackShowsTheRequestsAtOnce() = runTest {
+        val requests = presenter()
+        val registry = RetainedStateRegistry()
+        var shown by mutableStateOf(true)
+        presenterTestOf({
+            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                // A stand-in for the profile it opened while it's on the back stack.
+                if (shown) requests() else FollowRequestsState()
+            }
+        }) {
+            awaitLoaded()
+            registry.saveAll()
+            shown = false
+            awaitUntil { !it.content.hasLoaded }
+            failRequests = true
+            shown = true
+            assertEquals(listOf(bob), awaitItem().requests.map { it.did }, "no loading state in between")
+            val failed = awaitUntil { it.content.errorOrNull != null }
+            assertEquals(listOf(bob), failed.requests.map { it.did })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    private suspend fun ReceiveTurbine<FollowRequestsState>.awaitLoaded() = awaitUntil { it.content.hasLoaded && !it.content.isLoading }
 }
