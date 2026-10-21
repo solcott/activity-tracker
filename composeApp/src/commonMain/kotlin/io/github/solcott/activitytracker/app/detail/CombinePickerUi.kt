@@ -24,18 +24,19 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
+import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.Format
+import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.combine_explained
 import io.github.solcott.activitytracker.composeApp.resources.combine_none
 import io.github.solcott.activitytracker.composeApp.resources.combine_row
@@ -60,31 +61,25 @@ fun CombinePickerUi(state: CombinePickerState, modifier: Modifier = Modifier) {
             )
         },
     ) { padding ->
-        ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
-            LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 8.dp)) {
-                item {
-                    Text(
-                        stringResource(Res.string.combine_explained),
-                        Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                state.error?.let { error ->
+        val retry = { state.eventSink(CombinePickerEvent.Retry) }
+        ContentStateLayout(state.content, UiError.Kind.LoadCombineCandidates, retry, contentPadding = padding) { candidates ->
+            ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
+                LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 8.dp)) {
                     item {
-                        Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(errorText(error), color = MaterialTheme.colorScheme.error)
-                            AppTextButton(onClick = { state.eventSink(CombinePickerEvent.Retry) }) {
-                                Text(stringResource(Res.string.action_retry))
-                            }
-                        }
+                        Text(
+                            stringResource(Res.string.combine_explained),
+                            Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
-                }
-                val candidates = state.candidates
-                when {
-                    candidates == null -> item { Centered { AppProgressIndicator() } }
-                    candidates.isEmpty() -> item { Centered { Text(stringResource(Res.string.combine_none)) } }
-                    else ->
+                    item { RefreshStatus(state.content, UiError.Kind.LoadCombineCandidates, retry, Modifier.padding(horizontal = 16.dp)) }
+                    state.error?.let { error ->
+                        item { Text(errorText(error), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error) }
+                    }
+                    if (candidates.isEmpty()) {
+                        item { Centered { Text(stringResource(Res.string.combine_none)) } }
+                    } else {
                         items(candidates, key = { it.uri.value }) { activity ->
                             Candidate(
                                 activity,
@@ -94,6 +89,7 @@ fun CombinePickerUi(state: CombinePickerState, modifier: Modifier = Modifier) {
                             )
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         }
+                    }
                 }
             }
         }

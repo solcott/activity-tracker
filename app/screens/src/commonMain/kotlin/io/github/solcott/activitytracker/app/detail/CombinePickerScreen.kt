@@ -8,7 +8,9 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * Picking another of the athlete's own activities, from within 12 hours of [uri]'s start, to combine with [uri]
@@ -18,13 +20,17 @@ import kotlinx.collections.immutable.ImmutableList
 
 @Immutable
 data class CombinePickerState(
-    /** The activities that can be combined with this one, by start; null while loading. */
-    val candidates: ImmutableList<ActivityView>? = null,
+    /** The activities that can be combined with this one, by start, loaded (ui/content-loading); empty until they first load. */
+    val content: ContentState<ImmutableList<ActivityView>> = ContentState(persistentListOf()),
     /** The activity being combined while it's built and written. */
     val combining: AtUri? = null,
+    /** Why combining failed; loading failures are [content]'s. */
     val error: UiError? = null,
     val eventSink: (CombinePickerEvent) -> Unit = {},
-) : CircuitUiState
+) : CircuitUiState {
+    val candidates: ImmutableList<ActivityView>
+        get() = content.data
+}
 
 sealed interface CombinePickerEvent {
     data object Back : CombinePickerEvent

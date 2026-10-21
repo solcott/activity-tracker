@@ -1,8 +1,14 @@
 package io.github.solcott.activitytracker.app
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withCompositionLocals
 import app.cash.turbine.ReceiveTurbine
 import co.touchlab.kermit.Logger
+import com.slack.circuit.retained.LocalRetainedStateRegistry
+import com.slack.circuit.retained.RetainedStateRegistry
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent
@@ -45,6 +51,9 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
+import io.github.solcott.uistate.errorOrNull
+import io.github.solcott.uistate.hasLoaded
+import io.github.solcott.uistate.isLoading
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -55,6 +64,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -368,23 +378,56 @@ class CombinePresentersTest {
     fun thePickerOffersOnlyWhatCanBeCombined() = runTest {
         day()
         presenterTestOf(picker(uri("3kwatch"), FakeNavigator(CombinePickerScreen(uri("3kwatch"))))) {
-            val state = awaitUntil { it.candidates != null }
+            val state = awaitUntil { it.content.hasLoaded }
             // Not itself, not a combined activity, not another one's member; oldest first.
-            assertEquals(listOf("3kedge", "3kevening"), state.candidates?.map { it.uri.rkey })
+            assertEquals(listOf("3kedge", "3kevening"), state.candidates.map { it.uri.rkey })
             cancelAndIgnoreRemainingEvents()
         }
     }
 
     @Test
-    fun aFailedLoadShowsAnErrorAndRetries() = runTest {
+    fun nothingToCombineIsAnEmptyAnswer() = runTest {
+        records["3kwatch"] = ride("2026-10-14T09:00:00Z")
+        presenterTestOf(picker(uri("3kwatch"), FakeNavigator(CombinePickerScreen(uri("3kwatch"))))) {
+            val state = awaitUntil { it.content.hasLoaded && !it.content.isLoading }
+            assertTrue(state.candidates.isEmpty())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun comingBackShowsTheCandidatesAtOnce() = runTest {
+        day()
+        val pickerOf = picker(uri("3kwatch"), FakeNavigator(CombinePickerScreen(uri("3kwatch"))))
+        val registry = RetainedStateRegistry()
+        var shown by mutableStateOf(true)
+        presenterTestOf({
+            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                // A stand-in for the screen it opened while it's on the back stack.
+                if (shown) pickerOf() else CombinePickerState()
+            }
+        }) {
+            awaitUntil { it.content.hasLoaded && !it.content.isLoading }
+            registry.saveAll()
+            shown = false
+            awaitUntil { !it.content.hasLoaded }
+            shown = true
+            assertEquals(2, awaitItem().candidates.size, "no loading state in between")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aFailedLoadSaysWhyAndRetries() = runTest {
         day()
         failByStart = true
         presenterTestOf(picker(uri("3kwatch"), FakeNavigator(CombinePickerScreen(uri("3kwatch"))))) {
-            val failed = awaitUntil { it.error != null }
-            assertEquals(UiError.Kind.LoadCombineCandidates, failed.error?.kind)
+            val failed = awaitUntil { it.content.errorOrNull != null }
+            assertFalse(failed.content.hasLoaded)
+            assertNull(failed.error, "a load failure isn't the combine's")
             failByStart = false
             failed.eventSink(CombinePickerEvent.Retry)
-            assertEquals(2, awaitUntil { it.candidates != null && it.error == null }.candidates?.size)
+            assertEquals(2, awaitUntil { it.content.hasLoaded && it.content.errorOrNull == null }.candidates.size)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -395,7 +438,7 @@ class CombinePresentersTest {
         gate = CompletableDeferred()
         val navigator = FakeNavigator(ActivityDetailScreen(uri("3kwatch")), CombinePickerScreen(uri("3kwatch")))
         presenterTestOf(picker(uri("3kwatch"), navigator)) {
-            val loaded = awaitUntil { it.candidates != null }
+            val loaded = awaitUntil { it.content.hasLoaded }
             loaded.eventSink(CombinePickerEvent.Pick(AtUri(uri("3kedge"))))
             awaitUntil { it.combining != null }
             loaded.eventSink(CombinePickerEvent.Pick(AtUri(uri("3kedge"))))
@@ -412,13 +455,16 @@ class CombinePresentersTest {
     }
 
     @Test
-    fun aFailedCombineShowsAnError() = runTest {
+    fun aFailedCombineIsTheActionsErrorAndKeepsTheCandidates() = runTest {
         day()
         // The members can't be read from the PDS to build it from.
         failReads = true
         presenterTestOf(picker(uri("3kwatch"), FakeNavigator(CombinePickerScreen(uri("3kwatch"))))) {
-            awaitUntil { it.candidates != null }.eventSink(CombinePickerEvent.Pick(AtUri(uri("3kedge"))))
-            assertEquals(UiError.Kind.CombineActivity, awaitUntil { it.error != null }.error?.kind)
+            awaitUntil { it.content.hasLoaded }.eventSink(CombinePickerEvent.Pick(AtUri(uri("3kedge"))))
+            val failed = awaitUntil { it.error != null }
+            assertEquals(UiError.Kind.CombineActivity, failed.error?.kind)
+            assertNull(failed.content.errorOrNull)
+            assertEquals(listOf("3kedge", "3kevening"), failed.candidates.map { it.uri.rkey })
             cancelAndIgnoreRemainingEvents()
         }
     }
