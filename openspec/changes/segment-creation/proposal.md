@@ -2,32 +2,45 @@
 
 ## Why
 
-`segments-core` defines segments and matches efforts on them, but the only way to make one is a dev script. This change is the third step of the segments roadmap (after `segment-track-consent` and `segments-core`). It lets athletes create segments from their own activities while keeping out the duplicate and superfluous segments that clutter Strava. `segment-leaderboards` and `segment-osm-import` build on the dedup and the segment statuses it adds.
-
-Design, specs and tasks are written once `segments-core` is applied, since this change builds on its record, tables and `SegmentGeometry`.
+`segments-core` defines segments and matches efforts on them, but the only way to make one is a dev script. This change is the third step of the segments roadmap. It lets athletes create segments from their own activities while keeping out the duplicate and unused segments that clutter Strava's map. `segment-leaderboards` and `segment-osm-import` build on the duplicate check and the segment statuses it adds.
 
 ## What Changes
 
-- **Create from your own activity.** On an activity's map, the athlete picks a start and an end on their own route, names the segment and publishes a `feed.segment` record with `source: athlete` and `derivedFrom` set to the activity. There's no drawing a segment freehand.
-  - A segment can't start or end inside the creator's privacy zones.
-  - A minimum length per sport group, and a per-athlete rate limit.
-- **Duplicate check before publishing.** A new `feed.checkSegment` query returns near-duplicates of a proposed line: same direction, length ratio within bounds, and a discrete Fréchet or Hausdorff distance on resampled points under a threshold. The creation screen offers the existing segment instead.
-- **Duplicate check on indexing.** The indexer runs the same test, so a duplicate written straight to a PDS is stored with `duplicateOf` and kept off leaderboards.
-- **Proposed until ridden.** A new segment starts `proposed` and becomes `active` once N distinct athletes have efforts on it. Segments that stay unridden are `archived`. Statuses: `proposed`, `active`, `duplicate`, `archived`.
-- **Retire the stopgap.** `docker/scripts/seed-segment.sh` stays for local testing only; the app becomes the way to create segments.
+- **Create from your own activity.** On one of their own activities with a track, an athlete picks a start and an end along the route, names the segment and publishes a public `feed.segment`.
+  - The line comes from the activity's track as cut by the athlete's privacy zones and hide-start/end distance, so it never enters a zone. It can't span a gap in the track.
+  - The segment's sport group comes from the activity's sport. Activities without one (indoor, lift-served skiing) can't make segments.
+  - Any visibility works, but before publishing the app says the line becomes public. `derivedFrom` names the activity only when the activity and its Map category are both Public, so a non-public activity's URI never appears in a public record.
+- **Duplicate check before publishing.** A new `feed.checkSegment` procedure returns the existing segments that a proposed line duplicates, plus how many more segments the athlete may create today. The app offers the existing segment instead and won't publish a duplicate.
+- **Statuses.** The AppView gives each segment a status: `proposed`, `active`, `duplicate` or `archived`, shown in segment views.
+  - A new segment starts `proposed`. It becomes `active` once 3 distinct athletes (configurable, the creator included) have efforts on it.
+  - A segment that duplicates an earlier one becomes `duplicate`, with `duplicateOf` pointing at that one, even when written straight to a PDS. It gets no efforts.
+  - A segment still `proposed` 180 days after it was first indexed becomes `archived`. It gets no new efforts.
+- **Less clutter.** `feed.searchSegments` returns active segments to everyone, but proposed ones only to their creator and to athletes with an effort on them. Duplicate and archived segments never appear in search.
+- **Limits.** Minimum lengths per sport group (500 m for `ride`, 200 m for the rest) and at most 10 new segments per athlete per 24 hours. The AppView enforces both.
+- **The seed script stays** for local testing. It is no longer the only way to create a segment.
 
 ## Capabilities
 
 ### New Capabilities
-- `segments/segment-creation`: Creating a segment from one's own activity, the creation limits, and the duplicate check offered before publishing.
+- `segments/segment-creation`: Creating a segment in the app from one's own activity: which activities and stretches qualify, the duplicate check and daily allowance before publishing, and what the public record may reveal.
 
 ### Modified Capabilities
-- `segments/segment-records`: Segment statuses (`proposed`, `active`, `duplicate`, `archived`), indexer-side dedup with `duplicateOf`, promotion after N distinct athletes, and archiving.
+- `segments/segment-records`: Segment statuses and how a segment moves between them, duplicate detection on indexing, per-sport-group minimum lengths, the daily creation limit, `checkSegment`, and status-aware `getSegment` and `searchSegments`.
+- `segments/segment-efforts`: Only proposed and active segments get new efforts, and the activity and segment pages show a segment's status.
 
 ## Impact
 
-- **Lexicons:** a `feed.checkSegment` query; status (and `duplicateOf`) on the segment view.
-- **Shared geometry:** dedup distance (Fréchet/Hausdorff on resampled points) in `core/location`'s `SegmentGeometry`, used by the client preview and the AppView.
-- **AppView:** status columns and a migration; dedup on indexing; a promotion and archive pass, likely in the `SegmentMatcher` loop; the rate limit.
-- **Client:** a create-segment flow from the activity detail map (start/end pickers, name, sport group), the duplicate prompt, and `SegmentRepository` writes through the outbox.
-- **Dependencies:** `segments-core`.
+- **Lexicons:** a `feed.checkSegment` procedure; `status` and `duplicateOf` on `segmentView`, and `status` on `segmentViewBasic`. All additions are optional, so older clients keep working.
+- **Shared geometry:** a duplicate test (discrete Fréchet distance on resampled lines, after cheap length and endpoint checks) in `core/location`'s `SegmentGeometry`, used by the AppView.
+- **AppView:**
+  - a `V30__segment_status.sql` migration adding `status`, `duplicate_of` and `first_indexed_at` to `segments`;
+  - the duplicate check and the daily limit in `SegmentRecordIndex`, with duplicates re-checked when the segment they duplicate changes or goes;
+  - promotion after each match, and a periodic archive pass in `SegmentMatcher`;
+  - a status-aware `searchSegments`, the status in views, and the `checkSegment` route;
+  - a `SEGMENT_ACTIVE_ATHLETES` setting in `AppViewConfig`.
+- **Client:**
+  - a new `CreateSegmentScreen` (via the `new-screen` skill), opened from the owner's activity detail screen. It has a range picker along the route, a highlighted preview on `ActivityMap`, name and duplicate prompts, and the public-line warning;
+  - `SegmentRepository.check` and a create write through the outbox;
+  - status shown on the segment screen and on activity efforts.
+- **Docs:** AGENTS.md's segments wording and `.agents/rules/appview.md` (status is derived, segments are never written by the AppView).
+- **Dependencies:** `segments-core` (applied).
