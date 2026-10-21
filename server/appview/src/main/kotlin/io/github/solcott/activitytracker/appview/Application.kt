@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.appview.api.PdsBlobStreamSource
 import io.github.solcott.activitytracker.appview.api.PdsLookup
 import io.github.solcott.activitytracker.appview.api.PrivateMediaTokens
 import io.github.solcott.activitytracker.appview.api.ResolvingPdsLookup
+import io.github.solcott.activitytracker.appview.api.SegmentViews
 import io.github.solcott.activitytracker.appview.api.SpaceAccess
 import io.github.solcott.activitytracker.appview.api.SpaceBlobs
 import io.github.solcott.activitytracker.appview.api.StreamSource
@@ -22,6 +23,7 @@ import io.github.solcott.activitytracker.appview.api.avatarRoutes
 import io.github.solcott.activitytracker.appview.api.mediaRoutes
 import io.github.solcott.activitytracker.appview.api.moderationRoutes
 import io.github.solcott.activitytracker.appview.api.respondXrpcError
+import io.github.solcott.activitytracker.appview.api.segmentRoutes
 import io.github.solcott.activitytracker.appview.api.spaceSyncRoutes
 import io.github.solcott.activitytracker.appview.api.wellKnownRoutes
 import io.github.solcott.activitytracker.appview.api.xrpcRoutes
@@ -37,6 +39,7 @@ import io.github.solcott.activitytracker.appview.labels.LabelSubscriber
 import io.github.solcott.activitytracker.appview.labels.LabelVerifier
 import io.github.solcott.activitytracker.appview.moderation.ModeratorSubjects
 import io.github.solcott.activitytracker.appview.moderation.OzoneClient
+import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
 import io.github.solcott.activitytracker.appview.sync.BskyBlockBackfill
 import io.github.solcott.activitytracker.appview.sync.SpaceSyncer
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
@@ -115,6 +118,8 @@ fun main() {
             config.jetstreamUrl?.let { url -> launch { JetstreamConsumer(http, url, db, indexer).run() } }
             BskyBlockBackfill(db, indexer, http, pds).start(this)
             syncer?.start(this)
+            // Segment tracks live in athletes' `self` spaces, so matching needs the AppView's member credential, as syncing does.
+            spaceBlobs?.let { SegmentMatcher(db, indexer.segmentJobs, it).start(this) }
             startLabelSubscribers(config, db, http, identity)
             // The moderator audit log keeps entries a little over a year.
             ModerationAccessLog(db).start(this)
@@ -194,6 +199,7 @@ fun Application.appView(
             verifier,
             verifier.forAudiences(setOf(config.managingAppService)),
         )
+        segmentRoutes(SegmentViews(db, avatars), verifier)
         moderationRoutes(ModeratorSubjects(db, views, avatars, ozone, ModerationAccessLog(db)), verifier)
         spaceSyncRoutes(syncer, verifier, verifier.forAudiences(setOf(config.syncerService)))
         avatarRoutes(db, pds)

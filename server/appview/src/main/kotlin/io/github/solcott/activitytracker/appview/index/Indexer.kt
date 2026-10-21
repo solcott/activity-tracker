@@ -15,11 +15,12 @@ import io.github.solcott.activitytracker.appview.db.FollowApprovals
 import io.github.solcott.activitytracker.appview.db.Follows
 import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.appview.db.Mutes
+import io.github.solcott.activitytracker.appview.db.Origins
 import io.github.solcott.activitytracker.appview.db.RecordShadows
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
-import io.github.solcott.activitytracker.appview.db.SegmentTracks
 import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.db.tx
+import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.atproto.commentHideRkey
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -67,6 +68,7 @@ import org.slf4j.LoggerFactory
  * Likes come from the repo (on public activities) or the giver's interactions space, and are never moved, so they need no shadows: a like's
  * row just records its origin, and only that origin's delete removes it.
  */
+@Suppress("TooManyFunctions") // Each kind of change it applies, and the transactions they share.
 class Indexer(
     private val db: Database,
     private val handles: HandleLookup,
@@ -76,6 +78,9 @@ class Indexer(
 
     /** Bluesky blocks, from Jetstream here and from athletes' repos through `BskyBlockBackfill`. */
     val bskyBlocks = BskyBlockIndex(db, clock)
+
+    /** The segment matcher's queue, which indexing fills in the transaction of each change that calls for a match. */
+    val segmentJobs = SegmentJobs()
 
     suspend fun handle(event: JetstreamEvent) {
         when (event) {
@@ -157,8 +162,14 @@ class Indexer(
                 val now = clock.now().toEpochMilliseconds()
                 ensureActor(author, handle, now)
                 // Segment tracks and the setting come only from `self` (spaceCollections), so they have no placement to keep.
-                if (collection in SEGMENT_COLLECTIONS) upsertSegments(collection, record, author, uri, now)
-                else upsert(collection, author, uri, cid, record, placement)
+                if (collection in SEGMENT_COLLECTIONS) {
+                    upsertSegments(collection, record, author, uri, segmentJobs, now)
+                } else {
+                    val activity = effortActivity(collection, uri)
+                    val before = activity?.let { matchInputs(it) }
+                    upsert(collection, author, uri, cid, record, placement)
+                    if (activity != null) activityChanged(activity, before, segmentJobs, now)
+                }
             }
         } catch (e: SerializationException) {
             // Before IllegalArgumentException, which SerializationException extends.
@@ -168,7 +179,7 @@ class Indexer(
         }
     }
 
-    @Suppress("LongParameterList") // The record, and where it's from.
+    @Suppress("LongParameterList", "LongMethod") // The record, and where it's from; a branch per indexed collection.
     private fun JdbcTransaction.upsert(
         collection: String,
         author: Did,
@@ -240,6 +251,11 @@ class Indexer(
 
             in BLOCKS_AND_MUTES -> upsertBlockOrMute(collection, json, author, uri, placement, now)
 
+            // Public: from the repo only (spaceCollections never lists it).
+            Nsid.FEED_SEGMENT -> {
+                if (placement.origin == Origins.REPO) upsertSegment(json, author, uri, cid, segmentJobs, now)
+            }
+
             Nsid.ACTOR_PROFILE -> {
                 if (uri.rkey == ProfileRecord.RKEY)
                     updateProfile(AtJson.decodeFromJsonElement(ProfileRecord.serializer(), json), author, now)
@@ -259,9 +275,20 @@ class Indexer(
         }
     }
 
-    /** A delete from [placement]'s origin: only its own copy goes, and a copy another origin still holds takes over the row. */
+    /**
+     * A delete from [placement]'s origin: only its own copy goes, and a copy another origin still holds takes over the row. An activity's
+     * efforts follow it ([activityChanged]).
+     */
     private fun JdbcTransaction.delete(collection: String, uri: AtUri, placement: Placement) {
         if (collection in SEGMENT_COLLECTIONS) return deleteSegments(collection, uri)
+        val activity = effortActivity(collection, uri)
+        val before = activity?.let { matchInputs(it) }
+        deleteRecord(collection, uri, placement)
+        if (activity != null) activityChanged(activity, before, segmentJobs, clock.now().toEpochMilliseconds())
+    }
+
+    @Suppress("LongMethod") // A branch per indexed collection.
+    private fun JdbcTransaction.deleteRecord(collection: String, uri: AtUri, placement: Placement) {
         when (collection) {
             Nsid.FEED_ACTIVITY,
             Nsid.FEED_ACTIVITY_ZONES -> {
@@ -308,6 +335,10 @@ class Indexer(
 
             in BLOCKS_AND_MUTES -> deleteBlockOrMute(collection, uri, placement)
 
+            Nsid.FEED_SEGMENT -> {
+                if (placement.origin == Origins.REPO) deleteSegment(uri)
+            }
+
             Nsid.ACTOR_PROFILE -> {
                 Actors.update({ Actors.did eq uri.authority }) {
                     it[displayName] = null
@@ -350,7 +381,8 @@ class Indexer(
         Blocks.deleteWhere { authorDid eq did.value }
         Mutes.deleteWhere { authorDid eq did.value }
         SegmentPrefs.deleteWhere { SegmentPrefs.did eq did.value }
-        SegmentTracks.deleteWhere { authorDid eq did.value }
+        dropSegmentTracks(did)
+        deleteSegmentsBy(did)
         RecordShadows.deleteWhere { uri like "at://${did.value}/%" }
         SpaceSync.deleteWhere { authorityDid eq did.value }
         Actors.deleteWhere { Actors.did eq did.value }

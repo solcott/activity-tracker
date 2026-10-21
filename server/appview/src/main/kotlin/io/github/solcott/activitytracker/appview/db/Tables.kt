@@ -82,6 +82,77 @@ object SegmentTracks : Table("segment_tracks") {
     override val primaryKey = PrimaryKey(uri)
 }
 
+/** A segment (`feed.segment`), indexed from its creator's repo only. [distanceM] and the bounding box are computed from [line]. */
+object Segments : Table("segments") {
+    val uri = varchar("uri", 512)
+    val cid = varchar("cid", 255)
+    val authorDid = varchar("author_did", 255)
+    val name = varchar("segment_name", 1000)
+    /** A [io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup] value. */
+    val sport = varchar("sport", 64)
+    /** The record's precision-6 encoded polyline. */
+    val line = text("line")
+    /** The record as indexed: the shared `AtJson` model, re-encoded with only the fields it knows. */
+    val record = text("record")
+    val distanceM = long("distance_m")
+    val minLatE7 = integer("min_lat_e7")
+    val maxLatE7 = integer("max_lat_e7")
+    val minLngE7 = integer("min_lng_e7")
+    val maxLngE7 = integer("max_lng_e7")
+    val dataSource = varchar("data_source", 64)
+    val license = varchar("license", 64)
+    val indexedAt = long("indexed_at")
+    override val primaryKey = PrimaryKey(uri)
+}
+
+/** The [io.github.solcott.activitytracker.location.SegmentCells] each segment's line passes through. */
+object SegmentCellIndex : Table("segment_cells") {
+    val cell = long("cell")
+    val segmentUri = varchar("segment_uri", 512)
+    override val primaryKey = PrimaryKey(cell, segmentUri)
+}
+
+/** The cells each usable segment track's pieces pass through, written when it's matched. Dropped with the track. */
+object SegmentTrackCells : Table("segment_track_cells") {
+    val cell = long("cell")
+    val trackUri = varchar("track_uri", 512)
+    override val primaryKey = PrimaryKey(cell, trackUri)
+}
+
+/**
+ * One pass of an activity over a segment, matched from its usable segment track. Derived private data: served only to viewers admitted to
+ * [visibility], the narrowest of the activity's own and its Map and Pace/Speed categories'. All of an activity's efforts are replaced at
+ * once whenever it's matched.
+ */
+object SegmentEfforts : Table("segment_efforts") {
+    /** Deterministic, so a rematch writes the same rows: the activity, segment and start offset. */
+    val id = varchar("id", 1100)
+    val segmentUri = varchar("segment_uri", 512)
+    val activityUri = varchar("activity_uri", 512)
+    val trackUri = varchar("track_uri", 512)
+    val authorDid = varchar("author_did", 255)
+    val sport = varchar("sport", 64)
+    val eBike = bool("e_bike")
+    /** Seconds from the activity's start. */
+    val startOffsetS = long("start_offset_s")
+    val elapsedS = long("elapsed_s")
+    val visibility = varchar("visibility", 16)
+    /** The activity's local date, `YYYY-MM-DD`; served only with the effort. */
+    val startedOn = varchar("started_on", 10)
+    override val primaryKey = PrimaryKey(id)
+}
+
+/** The matcher's queue (`SegmentMatcher`): one row per [kind] and subject, so enqueueing twice is one job. */
+object SegmentMatchJobs : Table("segment_match_jobs") {
+    /** A `SegmentJobs` kind: `track`, `segment` or `tiers`. */
+    val kind = varchar("kind", 16)
+    val subjectUri = varchar("subject_uri", 512)
+    /** When it's due, epoch millis; pushed later on a failed attempt. */
+    val enqueuedAt = long("enqueued_at")
+    val attempts = integer("attempts").default(0)
+    override val primaryKey = PrimaryKey(kind, subjectUri)
+}
+
 /** An activity's photos ([io.github.solcott.activitytracker.lexicon.app.ActivityRecord.media]), in order. */
 object ActivityMediaBlobs : Table("activity_media") {
     val activityUri = varchar("activity_uri", 512)

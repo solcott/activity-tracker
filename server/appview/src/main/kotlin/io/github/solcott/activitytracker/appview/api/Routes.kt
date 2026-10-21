@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions") // A route group per area of the API, and the plumbing they share.
+
 package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.AppViewConfig
@@ -14,6 +16,7 @@ import io.github.solcott.activitytracker.lexicon.XrpcParams
 import io.github.solcott.activitytracker.lexicon.XrpcProcedure
 import io.github.solcott.activitytracker.lexicon.XrpcQuery
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
+import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
@@ -26,10 +29,13 @@ import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetModerationRole
 import io.github.solcott.activitytracker.lexicon.app.GetMutes
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
+import io.github.solcott.activitytracker.lexicon.app.GetSegment
+import io.github.solcott.activitytracker.lexicon.app.GetSegmentEfforts
 import io.github.solcott.activitytracker.lexicon.app.GetSubject
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.NotifySpace
 import io.github.solcott.activitytracker.lexicon.app.SearchActors
+import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.atproto.SimpleSpace
 import io.github.solcott.activitytracker.lexicon.atproto.Space
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
@@ -78,6 +84,14 @@ fun Route.xrpcRoutes(
     xrpcQuery(SimpleSpace.CheckUserAccess.method, managingAppVerifier) { params, issuer ->
         spaceAccess.check(requireViewer(issuer), params)
     }
+}
+
+/** Segments and the efforts on them ([SegmentViews]). */
+fun Route.segmentRoutes(segments: SegmentViews, verifier: ServiceAuthVerifier) {
+    xrpcQuery(GetSegment.method, verifier) { params, viewer -> segments.segment(viewer, params) }
+    xrpcQuery(SearchSegments.method, verifier) { params, viewer -> segments.search(viewer, params) }
+    xrpcQuery(GetActivitySegments.method, verifier) { params, viewer -> segments.activitySegments(viewer, params) }
+    xrpcQuery(GetSegmentEfforts.method, verifier) { params, viewer -> segments.segmentEfforts(viewer, params) }
 }
 
 /**
