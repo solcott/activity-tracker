@@ -219,6 +219,8 @@ class ActivityRepositoryTest {
                 localLikes,
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
+                testSegments(db, clients, writer, outbox, privacy, tracks).tracks,
+                testSegments(db, clients, writer, outbox, privacy, tracks).sweeper,
             )
         manager =
             ActivityManager(
@@ -236,6 +238,7 @@ class ActivityRepositoryTest {
                 privacy,
                 Clock.System,
                 activities,
+                testSegments(db, clients, writer, outbox, privacy, tracks).tracks,
             )
         return activities
     }

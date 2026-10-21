@@ -282,6 +282,8 @@ class CombinePresentersTest {
                 localLikes,
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
+                testSegments(db, clients, writer, outbox, privacy, tracks).tracks,
+                testSegments(db, clients, writer, outbox, privacy, tracks).sweeper,
             )
         val manager =
             ActivityManager(
@@ -299,6 +301,7 @@ class CombinePresentersTest {
                 privacy,
                 Clock.System,
                 activities,
+                testSegments(db, clients, writer, outbox, privacy, tracks).tracks,
             )
         return Graph(
             feed,

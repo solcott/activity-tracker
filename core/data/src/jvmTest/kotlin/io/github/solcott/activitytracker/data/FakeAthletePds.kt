@@ -355,6 +355,8 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                 LocalLikes(),
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
+                testSegments(db, clients, writer, outbox, privacy, tracks).tracks,
+                testSegments(db, clients, writer, outbox, privacy, tracks).sweeper,
             )
         return Session(
             db,
@@ -376,6 +378,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                 privacy,
                 Clock.System,
                 activities,
+                testSegments(db, clients, writer, outbox, privacy, tracks).tracks,
             ),
             streams,
             tracks,

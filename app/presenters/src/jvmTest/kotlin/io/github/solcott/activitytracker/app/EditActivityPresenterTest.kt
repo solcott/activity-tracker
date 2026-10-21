@@ -246,6 +246,8 @@ class EditActivityPresenterTest {
                 LocalLikes(),
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
+                testSegments(db, clients, zones.writer, zones.outbox, privacy, zones.tracks).tracks,
+                testSegments(db, clients, zones.writer, zones.outbox, privacy, zones.tracks).sweeper,
             )
         val manager =
             ActivityManager(
@@ -263,6 +265,7 @@ class EditActivityPresenterTest {
                 privacy,
                 Clock.System,
                 activities,
+                testSegments(db, clients, zones.writer, zones.outbox, privacy, zones.tracks).tracks,
             )
         val defaults = ActivityDefaults(clients)
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)

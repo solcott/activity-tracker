@@ -11,6 +11,8 @@ import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalComments
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.feed.SentComment
+import io.github.solcott.activitytracker.data.segments.SegmentTrackSweeper
+import io.github.solcott.activitytracker.data.segments.SegmentTracks
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -31,11 +33,13 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.activitytracker.location.LocationSample
 import kotlin.time.Clock
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -66,6 +70,8 @@ class ActivityRepository(
     private val localLikes: LocalLikes,
     private val recentTypes: RecentActivityTypes,
     private val clock: Clock,
+    private val segmentTracks: SegmentTracks,
+    private val segmentSweeper: SegmentTrackSweeper,
 ) {
     val pendingWrites: Flow<Int> = db.outbox().count(clients.did.value)
 
@@ -134,7 +140,10 @@ class ActivityRepository(
             space = clients.placeOf(draft.visibility),
         )
         privacy.published(uri, draft.visibility, draft.route, trim)
-        draft.gpx?.let { tracks.put(uri, it) }
+        draft.gpx?.let {
+            tracks.put(uri, it)
+            segmentTracks.put(uri, draft.route, trim)
+        }
         draft.streams?.let {
             streams.put(
                 uri,
@@ -294,6 +303,7 @@ class ActivityRepository(
      */
     suspend fun sync(): Int {
         routes.trimStale()
+        if (segmentTracks.takeStale()) segmentSweeper.sweep()
         return outbox.drain()
     }
 
@@ -303,6 +313,7 @@ class ActivityRepository(
      */
     suspend fun repairRoutes() {
         routes.sweep()
+        segmentSweeper.sweep()
     }
 
     /** The signed-in athlete's own [activity]'s full route, from its track in `self`; null when it has none or it can't be read now. */
@@ -327,11 +338,18 @@ class ActivityRepository(
     }
 
     /**
-     * Re-trims after every save of the zones this session ([PrivacyZones.saved]), a newer save replacing a sweep still running, for as long
-     * as it's collected: the session, so leaving the settings screen doesn't stop a sweep.
+     * Re-trims polylines and segment tracks after every save of the zones this session ([PrivacyZones.saved]), and writes or deletes
+     * segment tracks after every save of the segment matching setting ([SegmentTrackSweeper.sweepOnSave]), a newer save replacing a sweep
+     * still running, for as long as it's collected: the session, so leaving the settings screen doesn't stop a sweep.
      */
-    suspend fun repairRoutesOnSave() {
-        privacy.saved.filterNotNull().collectLatest { routes.sweep() }
+    suspend fun repairRoutesOnSave(): Unit = coroutineScope {
+        launch {
+            privacy.saved.filterNotNull().collectLatest {
+                routes.sweep()
+                segmentSweeper.sweep()
+            }
+        }
+        launch { segmentSweeper.sweepOnSave() }
     }
 
     /**

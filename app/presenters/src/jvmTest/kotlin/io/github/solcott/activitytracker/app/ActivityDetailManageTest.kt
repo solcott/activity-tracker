@@ -134,6 +134,7 @@ class ActivityDetailManageTest {
 
     private val localLikes = LocalLikes()
 
+    @Suppress("LongMethod") // Wires every store a test reaches for.
     private suspend fun presenter(
         uri: String,
         navigator: FakeNavigator = FakeNavigator(ActivityDetailScreen(uri)),
@@ -162,6 +163,8 @@ class ActivityDetailManageTest {
                 localLikes,
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
+                testSegments(db, clients, writer, outbox, privacy, tracks).tracks,
+                testSegments(db, clients, writer, outbox, privacy, tracks).sweeper,
             )
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
         val manager =
@@ -180,6 +183,7 @@ class ActivityDetailManageTest {
                 privacy,
                 Clock.System,
                 activities,
+                testSegments(db, clients, writer, outbox, privacy, tracks).tracks,
             )
         return {
             ActivityDetailPresenter(

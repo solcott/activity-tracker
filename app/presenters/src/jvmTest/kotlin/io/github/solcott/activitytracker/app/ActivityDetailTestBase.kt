@@ -289,6 +289,7 @@ open class ActivityDetailTestBase {
         val suggestions: CombineSuggestions,
     )
 
+    @Suppress("LongMethod") // Wires every store a test reaches for.
     protected suspend fun repos(scope: String = OAuthClientConfig.DEFAULT_SCOPE, units: UnitSystem = UnitSystem.Metric): Repos {
         val (db, _, clients) = signedInTestSession(http, did = alice, scope = scope)
         val feed = FeedRepository(db, clients, localLikes, Logger)
@@ -318,6 +319,8 @@ open class ActivityDetailTestBase {
                 localLikes,
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
+                testSegments(db, clients, writer, outbox, privacy, tracks).tracks,
+                testSegments(db, clients, writer, outbox, privacy, tracks).sweeper,
             )
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones)
         return Repos(
@@ -340,6 +343,7 @@ open class ActivityDetailTestBase {
                 privacy,
                 Clock.System,
                 activities,
+                testSegments(db, clients, writer, outbox, privacy, tracks).tracks,
             ),
             ActivityExporter(db, clients, tracks, sources, feed),
             UnitsRepository(profiles, Clock.System, Logger, units),

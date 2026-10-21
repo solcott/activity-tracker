@@ -163,6 +163,8 @@ class ProfilePresenterTest {
                 localLikes,
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
+                testSegments(db, clients, zones.writer, zones.outbox, privacy, zones.tracks).tracks,
+                testSegments(db, clients, zones.writer, zones.outbox, privacy, zones.tracks).sweeper,
             )
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
         val requests = FollowRequestsRepository(clients, Clock.System, Logger)

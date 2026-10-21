@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.PrivacyCircle
 import io.github.solcott.activitytracker.location.TrackMath
 import io.github.solcott.activitytracker.location.trim
+import io.github.solcott.activitytracker.location.trimPieces
 import kotlin.random.Random
 import kotlin.time.Clock
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +36,17 @@ data class PrivacySettings(val zones: List<PrivacyZone> = emptyList(), val hideE
             zones.map { PrivacyCircle.fromE7(it.latitudeE7, it.longitudeE7, it.radiusMeters) },
             hideEndsMeters.toDouble(),
         )
+
+    /**
+     * [route] without what these settings hide, as the stretches left shown: split where it comes back out of a zone or the hidden ends,
+     * and where its polyline breaks (a [combined] route per member as [CombinedRoute.segments] cuts it, a single one where [RouteBreaks]
+     * does), so nothing joins one stretch to the next. What a segment track holds.
+     */
+    fun pieces(route: List<LocationSample>, combined: Boolean = false): List<List<LocationSample>> {
+        val circles = zones.map { PrivacyCircle.fromE7(it.latitudeE7, it.longitudeE7, it.radiusMeters) }
+        val parts = if (combined) CombinedRoute.segments(route) else RouteBreaks.segments(route)
+        return parts.flatMap { TrackMath.trimPieces(it, circles, hideEndsMeters.toDouble()) }
+    }
 
     /**
      * The first and last positions of [route] that these settings leave shown, trimmed as it's published (a [combined] route per member, as

@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.segments.SegmentTracks
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.Tid
@@ -50,6 +51,7 @@ class ActivityManager(
     private val privacy: PrivacyZones,
     private val clock: Clock,
     private val activities: ActivityRepository,
+    private val segmentTracks: SegmentTracks,
 ) {
     /**
      * Deletes [activity], its streams, its track and its original file. A main activity's other recordings go too [withRecordings], or else
@@ -376,8 +378,10 @@ class ActivityManager(
         if (built.route.isNotEmpty()) {
             val segments = CombinedRoute.segments(built.route)
             tracks.put(uri, Gpx.writeSegments(record.title ?: record.sport, record.sport, segments).encodeToByteArray())
+            segmentTracks.put(uri, built.route, trim, combined = true, replacing = current != null)
         } else if (current != null) {
             tracks.delete(uri)
+            segmentTracks.delete(uri)
         }
         built.streams?.let { data ->
             // Zones from the member whose heart rate the combined activity takes (its power's, when heart rate is left out): a draft's
@@ -444,6 +448,7 @@ class ActivityManager(
         writer.delete(Nsid.FEED_ACTIVITY, requireNotNull(uri.rkey), clients.placeOf(visibility))
         streams.delete(uri)
         tracks.delete(uri)
+        segmentTracks.delete(uri)
         sources.delete(uri)
         devices.delete(uri)
         feed.deletes.delete(uri)
