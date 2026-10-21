@@ -19,6 +19,9 @@ class SegmentJobs {
     /** Match a new or changed segment against the usable segment tracks that pass near it. */
     fun enqueueSegment(segmentUri: String, now: Long) = enqueue(SEGMENT, segmentUri, now)
 
+    /** Count a new or changed staged candidate's riders among the usable segment tracks that pass near it. */
+    fun enqueueCandidate(candidateId: String, now: Long) = enqueue(CANDIDATE, candidateId, now)
+
     /** Recompute the visibility of an activity's efforts from its indexed record, details and streams. */
     fun enqueueTiers(activityUri: String, now: Long) = enqueue(TIERS, activityUri, now)
 
@@ -35,6 +38,7 @@ class SegmentJobs {
     companion object {
         const val TRACK = "track"
         const val SEGMENT = "segment"
+        const val CANDIDATE = "candidate"
         const val TIERS = "tiers"
     }
 }

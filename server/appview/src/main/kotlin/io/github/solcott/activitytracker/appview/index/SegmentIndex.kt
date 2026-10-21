@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.appview.index
 
+import io.github.solcott.activitytracker.appview.db.SegmentCandidateRiders
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
 import io.github.solcott.activitytracker.appview.db.SegmentTrackCells
@@ -40,7 +41,7 @@ internal fun JdbcTransaction.upsertSegments(collection: String, json: JsonObject
     }
 }
 
-/** A delete of a segment track, with its cells and efforts, or of the setting, which counts as matching off. */
+/** A delete of a segment track, with its cells, efforts and candidate riders, or of the setting, which counts as matching off. */
 internal fun JdbcTransaction.deleteSegments(collection: String, uri: AtUri) {
     if (collection == Nsid.FEED_SEGMENT_TRACK) dropTracks(listOf(uri.value))
     else if (uri.rkey == SegmentPrefsRecord.RKEY) deleteSegmentPrefs(Did(uri.authority))
@@ -92,9 +93,13 @@ internal fun JdbcTransaction.deleteSegmentPrefs(author: Did) {
     dropSegmentTracks(author)
 }
 
-/** Everything held from [author]'s segment tracks: the tracks, their cells and every effort matched from them. */
+/**
+ * Everything held from [author]'s segment tracks: the tracks, their cells, every effort matched from them and their riders of staged
+ * candidates. A candidate they made ridden stays ridden.
+ */
 internal fun JdbcTransaction.dropSegmentTracks(author: Did) {
     SegmentEfforts.deleteWhere { authorDid eq author.value }
+    SegmentCandidateRiders.deleteWhere { authorDid eq author.value }
     dropTracks(trackUris(author))
 }
 
@@ -104,6 +109,7 @@ private fun JdbcTransaction.trackUris(author: Did): List<String> =
 private fun JdbcTransaction.dropTracks(uris: List<String>) {
     if (uris.isEmpty()) return
     SegmentEfforts.deleteWhere { trackUri inList uris }
+    SegmentCandidateRiders.deleteWhere { trackUri inList uris }
     SegmentTrackCells.deleteWhere { trackUri inList uris }
     SegmentTracks.deleteWhere { SegmentTracks.uri inList uris }
 }

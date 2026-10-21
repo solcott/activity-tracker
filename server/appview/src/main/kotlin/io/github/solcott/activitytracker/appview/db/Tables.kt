@@ -155,9 +155,55 @@ object SegmentEfforts : Table("segment_efforts") {
     override val primaryKey = PrimaryKey(id)
 }
 
+/**
+ * A candidate segment the segment importer staged (segments/segment-candidates): a public line held only here, never served by a feed
+ * query, matched for efforts or counted as a duplicate. [distanceM] and the bounding box are computed from [line].
+ */
+object SegmentCandidateRows : Table("segment_candidates") {
+    /** The importer's id. */
+    val id = varchar("id", 64)
+    val region = varchar("region", 64)
+    /** The import run that last staged it; finishing a run removes the region's candidates of other runs. */
+    val revision = varchar("revision", 64)
+    /** A [io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup] value. */
+    val sport = varchar("sport", 64)
+    val name = varchar("candidate_name", 1000)
+    /** A precision-6 encoded polyline. */
+    val line = text("line")
+    val distanceM = long("distance_m")
+    val minLatE7 = integer("min_lat_e7")
+    val maxLatE7 = integer("max_lat_e7")
+    val minLngE7 = integer("min_lng_e7")
+    val maxLngE7 = integer("max_lng_e7")
+    val dataSource = varchar("data_source", 64)
+    val license = varchar("license", 64)
+    /** Enough distinct athletes passed it; never undone until its line or sport changes. The only thing revealed about its riders. */
+    val ridden = bool("ridden").default(false)
+    val stagedAt = long("staged_at")
+    override val primaryKey = PrimaryKey(id)
+}
+
+/** The [io.github.solcott.activitytracker.location.SegmentCells] each candidate's line passes through. */
+object SegmentCandidateCells : Table("segment_candidate_cells") {
+    val cell = long("cell")
+    val candidateId = varchar("candidate_id", 64)
+    override val primaryKey = PrimaryKey(cell, candidateId)
+}
+
+/**
+ * One usable segment track that passes a candidate from start to end. Derived private data, like an effort: never served, replaced whenever
+ * the track is matched and dropped with it.
+ */
+object SegmentCandidateRiders : Table("segment_candidate_riders") {
+    val candidateId = varchar("candidate_id", 64)
+    val trackUri = varchar("track_uri", 512)
+    val authorDid = varchar("author_did", 255)
+    override val primaryKey = PrimaryKey(candidateId, trackUri)
+}
+
 /** The matcher's queue (`SegmentMatcher`): one row per [kind] and subject, so enqueueing twice is one job. */
 object SegmentMatchJobs : Table("segment_match_jobs") {
-    /** A `SegmentJobs` kind: `track`, `segment` or `tiers`. */
+    /** A `SegmentJobs` kind: `track`, `segment`, `candidate` or `tiers`. */
     val kind = varchar("kind", 16)
     val subjectUri = varchar("subject_uri", 512)
     /** When it's due, epoch millis; pushed later on a failed attempt. */

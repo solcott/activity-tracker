@@ -94,6 +94,25 @@ class SegmentMatcherTest : SegmentTestBase() {
     }
 
     @Test
+    fun aStagedCandidateIsCountedAgainstPastRides() {
+        for ((did, rkey) in listOf(alice to "3ka", bob to "3kb", carol to "3kc")) {
+            matching(true, did)
+            activity(rkey, sport = "ride", did = did)
+            track(rkey, did = did)
+        }
+        match()
+        val fetches = fetched.size
+
+        stage(candidate("osm-1"))
+        assertEquals(listOf(SegmentJobs.CANDIDATE to "osm-1"), jobs())
+        match()
+        assertEquals(setOf(alice, bob, carol), riders("osm-1"))
+        assertEquals(true, ridden("osm-1"))
+        assertEquals(fetches + 3, fetched.size, "each past track is matched once more")
+        assertEquals(emptyList(), efforts(), "a candidate gets no efforts")
+    }
+
+    @Test
     fun aMemberOfACombinedActivityIsSkipped() {
         matching(true)
         segment("3ks")

@@ -1,8 +1,11 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.appview.api.SegmentCandidateViews
 import io.github.solcott.activitytracker.appview.api.SpaceBlobs
 import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
+import io.github.solcott.activitytracker.appview.db.SegmentCandidateRiders
+import io.github.solcott.activitytracker.appview.db.SegmentCandidateRows
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentMatchJobs
 import io.github.solcott.activitytracker.appview.db.tx
@@ -15,6 +18,9 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.XrpcQuery
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.activitytracker.lexicon.app.PutSegmentCandidates
+import io.github.solcott.activitytracker.lexicon.app.SegmentCandidate
+import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackData
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackPiece
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -39,6 +45,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.jsonObject
 import org.h2.jdbcx.JdbcDataSource
 import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.selectAll
 
@@ -51,7 +58,9 @@ open class SegmentTestBase {
     protected val alice = "did:plc:alice"
     protected val bob = "did:plc:bob"
     protected val carol = "did:plc:carol"
-    protected val keys = mapOf(alice to TestAccountKey(), bob to TestAccountKey(), carol to TestAccountKey())
+    /** The segment importer's account (segments/segment-candidates), configured only where a test says so. */
+    protected val importer = "did:plc:importer"
+    protected val keys = mapOf(alice to TestAccountKey(), bob to TestAccountKey(), carol to TestAccountKey(), importer to TestAccountKey())
 
     protected val db: Database =
         JdbcDataSource().run {
@@ -241,6 +250,39 @@ open class SegmentTestBase {
             subject,
             """{"subject":"$subject","createdAt":"2026-10-21T09:00:00Z"}""",
         )
+
+    @Suppress("LongParameterList")
+    protected fun candidate(
+        id: String,
+        path: List<Pair<Double, Double>> = straight,
+        sport: String = "ride",
+        name: String = "Trail",
+        line: String = lineOf(path),
+    ) = SegmentCandidate(id, sport, name, line, SegmentSource.OSM, "ODbL-1.0")
+
+    /** Stages [candidates] for [region] in [revision] as the importer, as `putSegmentCandidates` does, and returns the rejected ids. */
+    protected fun stage(vararg candidates: SegmentCandidate, region: String = "us-vermont", revision: String = "r1"): List<String> =
+        runBlocking {
+            SegmentCandidateViews(db, Did(importer), indexer.segmentJobs)
+                .put(Did(importer), PutSegmentCandidates.Input(region, revision, candidates.toList()))
+                .rejected
+                .map { it.id }
+        }
+
+    /** The athletes counted as riders of the candidate [id]. */
+    protected fun riders(id: String): Set<String> = runBlocking {
+        db.tx {
+            SegmentCandidateRiders.selectAll()
+                .where { SegmentCandidateRiders.candidateId eq id }
+                .map { it[SegmentCandidateRiders.authorDid] }
+                .toSet()
+        }
+    }
+
+    /** Whether the candidate [id] is ridden; null when it isn't staged. */
+    protected fun ridden(id: String): Boolean? = runBlocking {
+        db.tx { SegmentCandidateRows.selectAll().where { SegmentCandidateRows.id eq id }.firstOrNull()?.get(SegmentCandidateRows.ridden) }
+    }
 
     /** Runs every due matcher job. */
     protected fun match() = runBlocking { matcher.runDue() }

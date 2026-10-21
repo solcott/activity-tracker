@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.lexicon.XrpcParams
 import io.github.solcott.activitytracker.lexicon.XrpcProcedure
 import io.github.solcott.activitytracker.lexicon.XrpcQuery
 import io.github.solcott.activitytracker.lexicon.app.CheckSegment
+import io.github.solcott.activitytracker.lexicon.app.FinishSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
@@ -30,12 +31,14 @@ import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetModerationRole
 import io.github.solcott.activitytracker.lexicon.app.GetMutes
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
+import io.github.solcott.activitytracker.lexicon.app.GetRiddenSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentEfforts
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentLeaderboard
 import io.github.solcott.activitytracker.lexicon.app.GetSubject
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.NotifySpace
+import io.github.solcott.activitytracker.lexicon.app.PutSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SearchActors
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.atproto.SimpleSpace
@@ -96,6 +99,16 @@ fun Route.segmentRoutes(segments: SegmentViews, verifier: ServiceAuthVerifier) {
     xrpcQuery(GetSegmentEfforts.method, verifier) { params, viewer -> segments.segmentEfforts(viewer, params) }
     xrpcQuery(GetSegmentLeaderboard.method, verifier) { params, viewer -> segments.leaderboard(viewer, params) }
     xrpcProcedure(CheckSegment.method, verifier) { input, caller -> segments.check(requireViewer(caller), input) }
+}
+
+/**
+ * The segment importer's candidate calls ([SegmentCandidateViews]; segments/segment-candidates): service auth from the configured importer
+ * only. The two procedures write to the AppView's own staging tables, never to a repo or space.
+ */
+fun Route.segmentCandidateRoutes(candidates: SegmentCandidateViews, verifier: ServiceAuthVerifier) {
+    xrpcProcedure(PutSegmentCandidates.method, verifier) { input, caller -> candidates.put(requireViewer(caller), input) }
+    xrpcProcedure(FinishSegmentCandidates.method, verifier) { input, caller -> candidates.finish(requireViewer(caller), input) }
+    xrpcQuery(GetRiddenSegmentCandidates.method, verifier) { params, viewer -> candidates.ridden(requireViewer(viewer), params) }
 }
 
 /**

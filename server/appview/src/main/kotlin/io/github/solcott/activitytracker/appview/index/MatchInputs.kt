@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.appview.index
 
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityMembers
+import io.github.solcott.activitytracker.appview.db.SegmentCandidateRiders
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
 import io.github.solcott.activitytracker.appview.db.usableSegmentTracks
@@ -34,14 +35,16 @@ internal fun JdbcTransaction.matchInputs(activity: String): MatchInputs? {
 }
 
 /**
- * After [activity] or one of its details or streams records changed, given its [before] inputs: a deleted activity loses its efforts at
- * once; one with efforts or a usable segment track is queued to be matched again when its sport or sub-sport changed or it's new, and else
- * to have its efforts re-tiered. Members it gained or lost as a combined activity are matched again, to drop or regain theirs.
+ * After [activity] or one of its details or streams records changed, given its [before] inputs: a deleted activity loses its efforts and
+ * its track's candidate riders at once; one with efforts or a usable segment track is queued to be matched again when its sport or
+ * sub-sport changed or it's new, and else to have its efforts re-tiered. Members it gained or lost as a combined activity are matched
+ * again, to drop or regain theirs.
  */
 internal fun JdbcTransaction.activityChanged(activity: String, before: MatchInputs?, jobs: SegmentJobs, now: Long) {
     val after = matchInputs(activity)
     if (after == null) {
         SegmentEfforts.deleteWhere { activityUri eq activity }
+        SegmentCandidateRiders.deleteWhere { trackUri eq trackOf(activity) }
         return
     }
     if (matchable(activity)) {

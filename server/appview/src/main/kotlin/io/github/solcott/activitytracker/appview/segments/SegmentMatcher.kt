@@ -5,6 +5,9 @@ import io.github.solcott.activitytracker.appview.api.combinedIntoOf
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityDetails
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
+import io.github.solcott.activitytracker.appview.db.SegmentCandidateCells
+import io.github.solcott.activitytracker.appview.db.SegmentCandidateRiders
+import io.github.solcott.activitytracker.appview.db.SegmentCandidateRows
 import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentMatchJobs
@@ -53,6 +56,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.inSubQuery
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.notExists
@@ -72,23 +76,28 @@ import org.slf4j.LoggerFactory
  * - `track`: fetches the track's blob from the athlete's `self` space, records its cells, and replaces its activity's efforts with its
  *   passes over the segments of its sport group that share a cell with it;
  * - `segment`: queues a `track` job for each usable track sharing a cell with a new or changed segment;
+ * - `candidate`: the same for a new or changed staged candidate (segments/segment-candidates);
  * - `tiers`: recomputes the visibility of an activity's efforts from its indexed record, details and streams.
  *
  * Only proposed and active segments are matched (segments/segment-records). A proposed segment becomes active once efforts on it come from
  * [activeAthletes] distinct athletes, checked as each activity's efforts are written and again by the hourly status pass, which also
  * archives segments still proposed [ARCHIVE_AFTER] after they were first indexed.
  *
+ * A `track` job also records which staged candidates of its group the track passes from start to end, by the same test as efforts, and a
+ * candidate becomes ridden once [candidateRiders] distinct athletes pass it; ridden is never undone.
+ *
  * Nothing is read from a track whose athlete's matching is off ([usableSegmentTracks]), and that is checked again before efforts are
  * written. An activity that isn't indexed yet, or is a valid member of a combined activity, has no efforts. A failed fetch is retried with
  * backoff, then given up.
  */
-@Suppress("TooManyFunctions") // The loop, the three jobs, the status pass, and the reads they share.
+@Suppress("TooManyFunctions") // The loop, the four jobs, the status pass, and the reads they share.
 class SegmentMatcher(
     private val db: Database,
     private val jobs: SegmentJobs,
     private val blobs: SpaceBlobs,
     private val clock: Clock = Clock.System,
     private val activeAthletes: Int = DEFAULT_ACTIVE_ATHLETES,
+    private val candidateRiders: Int = DEFAULT_ACTIVE_ATHLETES,
 ) {
     private val log = LoggerFactory.getLogger(SegmentMatcher::class.java)
 
@@ -189,6 +198,7 @@ class SegmentMatcher(
             when (job.kind) {
                 SegmentJobs.TRACK -> matchTrack(job.subject)
                 SegmentJobs.SEGMENT -> matchSegment(job.subject)
+                SegmentJobs.CANDIDATE -> matchCandidate(job.subject)
                 SegmentJobs.TIERS -> db.tx { retier(job.subject) }
             }
             done(job)
@@ -247,17 +257,19 @@ class SegmentMatcher(
                 this[SegmentTrackCells.trackUri] = trackUri
             }
             replaceEfforts(trackUri, track, pieces, cells)
+            replaceCandidateRiders(trackUri, track, pieces, cells)
         }
     }
 
     /**
-     * The track at [trackUri] if it's usable and its activity can have efforts; otherwise null, after deleting the efforts it no longer
-     * gives.
+     * The track at [trackUri] if it's usable and its activity can have efforts; otherwise null, after deleting the efforts and candidate
+     * riders it no longer gives.
      */
     @Suppress("ReturnCount") // Each reason a track gives no efforts.
     private fun JdbcTransaction.trackToMatch(trackUri: String): TrackToMatch? {
         fun none(): TrackToMatch? {
             SegmentEfforts.deleteWhere { SegmentEfforts.trackUri eq trackUri }
+            SegmentCandidateRiders.deleteWhere { SegmentCandidateRiders.trackUri eq trackUri }
             return null
         }
         val track = usableSegmentTracks().andWhere { SegmentTracks.uri eq trackUri }.firstOrNull() ?: return none()
@@ -311,28 +323,85 @@ class SegmentMatcher(
         promote(efforts.map { (uri, _) -> uri }.toSet())
     }
 
+    /**
+     * Replaces [trackUri]'s candidate riders with the staged candidates of [track]'s group in [cells] that one of its [pieces] passes from
+     * start to end, and makes each of those ridden once [candidateRiders] distinct athletes pass it.
+     */
+    private fun JdbcTransaction.replaceCandidateRiders(
+        trackUri: String,
+        track: TrackToMatch,
+        pieces: List<List<TimedPoint>>,
+        cells: Set<Long>,
+    ) {
+        val candidates =
+            if (cells.isEmpty()) emptyList()
+            else
+                SegmentCandidateRows.join(SegmentCandidateCells, JoinType.INNER, SegmentCandidateRows.id, SegmentCandidateCells.candidateId)
+                    .select(SegmentCandidateRows.id, SegmentCandidateRows.line)
+                    .where { (SegmentCandidateCells.cell inList cells) and (SegmentCandidateRows.sport eq track.group.group) }
+                    .withDistinct()
+                    .map { it[SegmentCandidateRows.id] to it[SegmentCandidateRows.line] }
+        val passed = candidates.filter { (_, line) ->
+            val ref = SegmentGeometry.resample(SegmentGeometry.decodePolyline(line).orEmpty())
+            pieces.any { SegmentGeometry.passes(it, ref).isNotEmpty() }
+        }
+        SegmentCandidateRiders.deleteWhere { SegmentCandidateRiders.trackUri eq trackUri }
+        SegmentCandidateRiders.batchInsert(passed) { (id, _) ->
+            this[SegmentCandidateRiders.candidateId] = id
+            this[SegmentCandidateRiders.trackUri] = trackUri
+            this[SegmentCandidateRiders.authorDid] = track.author.value
+        }
+        for ((id, _) in passed) {
+            val riders =
+                SegmentCandidateRiders.select(SegmentCandidateRiders.authorDid)
+                    .where { SegmentCandidateRiders.candidateId eq id }
+                    .withDistinct()
+                    .count()
+            if (riders >= candidateRiders) SegmentCandidateRows.update({ SegmentCandidateRows.id eq id }) { it[ridden] = true }
+        }
+    }
+
     /** Queues a `track` job for each usable track sharing a cell with the segment at [segmentUri], unless it's no longer live. */
     private suspend fun matchSegment(segmentUri: String) {
         val now = clock.now().toEpochMilliseconds()
         db.tx {
             val live = Segments.select(Segments.uri).where { (Segments.uri eq segmentUri) and (Segments.status inList LIVE_STATUSES) }.any()
             if (!live) return@tx
-            val cells =
+            enqueueTracksIn(
                 SegmentCellIndex.select(SegmentCellIndex.cell)
                     .where { SegmentCellIndex.segmentUri eq segmentUri }
-                    .map { it[SegmentCellIndex.cell] }
-            if (cells.isEmpty()) return@tx
-            usableSegmentTracks()
-                .andWhere {
-                    exists(
-                        SegmentTrackCells.select(SegmentTrackCells.cell).where {
-                            (SegmentTrackCells.trackUri eq SegmentTracks.uri) and (SegmentTrackCells.cell inList cells)
-                        }
-                    )
-                }
-                .map { it[SegmentTracks.uri] }
-                .forEach { jobs.enqueueTrack(it, now) }
+                    .map { it[SegmentCellIndex.cell] },
+                now,
+            )
         }
+    }
+
+    /** Queues a `track` job for each usable track sharing a cell with the staged candidate [candidateId], unless it's gone. */
+    private suspend fun matchCandidate(candidateId: String) {
+        val now = clock.now().toEpochMilliseconds()
+        db.tx {
+            enqueueTracksIn(
+                SegmentCandidateCells.select(SegmentCandidateCells.cell)
+                    .where { SegmentCandidateCells.candidateId eq candidateId }
+                    .map { it[SegmentCandidateCells.cell] },
+                now,
+            )
+        }
+    }
+
+    /** Queues a `track` job for each usable track with a cell in [cells]. */
+    private fun JdbcTransaction.enqueueTracksIn(cells: List<Long>, now: Long) {
+        if (cells.isEmpty()) return
+        usableSegmentTracks()
+            .andWhere {
+                exists(
+                    SegmentTrackCells.select(SegmentTrackCells.cell).where {
+                        (SegmentTrackCells.trackUri eq SegmentTracks.uri) and (SegmentTrackCells.cell inList cells)
+                    }
+                )
+            }
+            .map { it[SegmentTracks.uri] }
+            .forEach { jobs.enqueueTrack(it, now) }
     }
 
     /** Re-tiers [activity]'s efforts; an activity gone or now a valid member loses them. */
@@ -340,6 +409,9 @@ class SegmentMatcher(
         val row = Activities.selectAll().where { Activities.uri eq activity }.firstOrNull()
         if (row == null || combinedIntoOf(listOf(activity)).isNotEmpty()) {
             SegmentEfforts.deleteWhere { activityUri eq activity }
+            SegmentCandidateRiders.deleteWhere {
+                trackUri inSubQuery SegmentTracks.select(SegmentTracks.uri).where { SegmentTracks.activityUri eq activity }
+            }
             return
         }
         val visibility = effortVisibility(row)

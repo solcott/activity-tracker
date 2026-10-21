@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.appview.api.PdsBlobStreamSource
 import io.github.solcott.activitytracker.appview.api.PdsLookup
 import io.github.solcott.activitytracker.appview.api.PrivateMediaTokens
 import io.github.solcott.activitytracker.appview.api.ResolvingPdsLookup
+import io.github.solcott.activitytracker.appview.api.SegmentCandidateViews
 import io.github.solcott.activitytracker.appview.api.SegmentViews
 import io.github.solcott.activitytracker.appview.api.SpaceAccess
 import io.github.solcott.activitytracker.appview.api.SpaceBlobs
@@ -23,6 +24,7 @@ import io.github.solcott.activitytracker.appview.api.avatarRoutes
 import io.github.solcott.activitytracker.appview.api.mediaRoutes
 import io.github.solcott.activitytracker.appview.api.moderationRoutes
 import io.github.solcott.activitytracker.appview.api.respondXrpcError
+import io.github.solcott.activitytracker.appview.api.segmentCandidateRoutes
 import io.github.solcott.activitytracker.appview.api.segmentRoutes
 import io.github.solcott.activitytracker.appview.api.spaceSyncRoutes
 import io.github.solcott.activitytracker.appview.api.wellKnownRoutes
@@ -39,6 +41,7 @@ import io.github.solcott.activitytracker.appview.labels.LabelSubscriber
 import io.github.solcott.activitytracker.appview.labels.LabelVerifier
 import io.github.solcott.activitytracker.appview.moderation.ModeratorSubjects
 import io.github.solcott.activitytracker.appview.moderation.OzoneClient
+import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
 import io.github.solcott.activitytracker.appview.sync.BskyBlockBackfill
 import io.github.solcott.activitytracker.appview.sync.SpaceSyncer
@@ -114,18 +117,28 @@ fun main() {
                 syncer,
                 spaceBlobs,
                 ozone = ozone,
+                segmentJobs = indexer.segmentJobs,
             )
             config.jetstreamUrl?.let { url -> launch { JetstreamConsumer(http, url, db, indexer).run() } }
             BskyBlockBackfill(db, indexer, http, pds).start(this)
             syncer?.start(this)
             // Segment tracks live in athletes' `self` spaces, so matching needs the AppView's member credential, as syncing does.
-            spaceBlobs?.let { SegmentMatcher(db, indexer.segmentJobs, it, activeAthletes = config.segmentActiveAthletes).start(this) }
+            spaceBlobs?.let { segmentMatcher(config, db, indexer, it).start(this) }
             startLabelSubscribers(config, db, http, identity)
             // The moderator audit log keeps entries a little over a year.
             ModerationAccessLog(db).start(this)
         }
         .start(wait = true)
 }
+
+private fun segmentMatcher(config: AppViewConfig, db: Database, indexer: Indexer, blobs: SpaceBlobs) =
+    SegmentMatcher(
+        db,
+        indexer.segmentJobs,
+        blobs,
+        activeAthletes = config.segmentActiveAthletes,
+        candidateRiders = config.segmentCandidateRiders,
+    )
 
 /**
  * One [LabelSubscriber] per configured labeler, each in its own coroutine so a failing stream stops nothing else, and an hourly sweep of
@@ -158,6 +171,8 @@ fun Application.appView(
     spaceBlobs: SpaceBlobs? = null,
     mediaTokens: PrivateMediaTokens? = config.signingKey?.let(::PrivateMediaTokens),
     ozone: OzoneClient? = null,
+    /** The matcher's queue, which staging a candidate fills; the indexer's in production, so each enqueue wakes the matcher. */
+    segmentJobs: SegmentJobs = SegmentJobs(),
 ) {
     // Labels from these sources apply to what's served; with none configured, none do.
     LabelSources.trusted = listOfNotNull(config.labeler?.did, config.bskyLabeler?.did)
@@ -200,6 +215,7 @@ fun Application.appView(
             verifier.forAudiences(setOf(config.managingAppService)),
         )
         segmentRoutes(SegmentViews(db, avatars), verifier)
+        segmentCandidateRoutes(SegmentCandidateViews(db, config.segmentImporter, segmentJobs), verifier)
         moderationRoutes(ModeratorSubjects(db, views, avatars, ozone, ModerationAccessLog(db)), verifier)
         spaceSyncRoutes(syncer, verifier, verifier.forAudiences(setOf(config.syncerService)))
         avatarRoutes(db, pds)
