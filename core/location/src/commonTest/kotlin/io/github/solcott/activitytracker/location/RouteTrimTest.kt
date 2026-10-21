@@ -62,6 +62,55 @@ class RouteTrimTest {
     }
 
     @Test
+    fun piecesStartOnAZoneBoundary() {
+        val track = line(0, 100) + line(0, 99).reversed()
+        val home = PrivacyCircle(0.0, 0.0, 200.0)
+        val pieces = TrackMath.trimPieces(track, listOf(home))
+        assertEquals(1, pieces.size)
+        assertNoneInside(pieces.single(), home)
+        assertTrue(abs(meters(origin, pieces.single().first()) - 200) < 1, "starts on the boundary")
+    }
+
+    @Test
+    fun aMiddlePassSplitsIntoTwoPiecesWithNothingBetween() {
+        val track = line(0, 200)
+        val zone = PrivacyCircle(0.0, 100 * STEP, 200.0)
+        val pieces = TrackMath.trimPieces(track, listOf(zone))
+        assertEquals(2, pieces.size)
+        pieces.forEach { assertNoneInside(it, zone) }
+        assertEquals(track.first(), pieces[0].first())
+        assertEquals(track.last(), pieces[1].last())
+        for (piece in pieces) {
+            val gap = piece.zipWithNext().maxOf { (a, b) -> meters(a, b) }
+            assertTrue(gap < 12, "no chord inside a piece, was $gap")
+        }
+        assertTrue(abs(meters(pieces[0].last(), pieces[1].first()) - 400) < 2, "the zone lies between the pieces")
+        assertEquals(TrackMath.trim(track, listOf(zone)), pieces.flatten())
+    }
+
+    @Test
+    fun piecesHideEnds() {
+        val track = line(0, 200)
+        val pieces = TrackMath.trimPieces(track, emptyList(), endsMeters = 400.0)
+        assertEquals(1, pieces.size)
+        assertTrue(abs(meters(track.first(), pieces.single().first()) - 400) < 1)
+        assertTrue(abs(meters(pieces.single().last(), track.last()) - 400) < 1)
+    }
+
+    @Test
+    fun piecesOfAFullyHiddenTrackAreEmpty() {
+        val track = line(0, 10)
+        assertEquals(emptyList(), TrackMath.trimPieces(track, listOf(PrivacyCircle(0.0, 5 * STEP, 1600.0))))
+        assertEquals(emptyList(), TrackMath.trimPieces(emptyList(), emptyList()))
+    }
+
+    @Test
+    fun piecesWithoutZonesAreTheWholeTrack() {
+        val track = line(0, 10)
+        assertEquals(listOf(track), TrackMath.trimPieces(track, emptyList()))
+    }
+
+    @Test
     fun everythingHiddenLeavesNothing() {
         val track = line(0, 10)
         assertEquals(emptyList(), TrackMath.trim(track, listOf(PrivacyCircle(0.0, 5 * STEP, 1600.0))))

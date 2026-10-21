@@ -9,8 +9,15 @@ private const val BISECTION_STEPS = 30
  * crosses each boundary: the cut point is interpolated on the shown side, so none of the result is hidden. A middle pass through a zone
  * becomes a straight line from where the track entered to where it left. Empty when everything is hidden.
  */
-fun TrackMath.trim(points: List<LocationSample>, circles: List<PrivacyCircle>, endsMeters: Double = 0.0): List<LocationSample> {
-    if (points.isEmpty() || (circles.isEmpty() && endsMeters <= 0.0)) return points
+fun TrackMath.trim(points: List<LocationSample>, circles: List<PrivacyCircle>, endsMeters: Double = 0.0): List<LocationSample> =
+    trimPieces(points, circles, endsMeters).flatten()
+
+/**
+ * [points] trimmed as [trim] does, but split into the stretches that are shown: a new piece starts wherever the track comes back out of
+ * what is hidden, so nothing joins one piece to the next. Empty when everything is hidden.
+ */
+fun TrackMath.trimPieces(points: List<LocationSample>, circles: List<PrivacyCircle>, endsMeters: Double = 0.0): List<List<LocationSample>> {
+    if (points.isEmpty() || (circles.isEmpty() && endsMeters <= 0.0)) return listOf(points).filter { it.isNotEmpty() }
     val along = DoubleArray(points.size)
     for (i in 1..points.lastIndex) along[i] = along[i - 1] + distanceMeters(points[i - 1], points[i])
     val total = along.last()
@@ -19,17 +26,24 @@ fun TrackMath.trim(points: List<LocationSample>, circles: List<PrivacyCircle>, e
         (endsMeters > 0.0 && (distance < endsMeters || total - distance < endsMeters)) || circles.any { it.contains(latitude, longitude) }
 
     val hidden = BooleanArray(points.size) { hidden(points[it].latitude, points[it].longitude, along[it]) }
-    val result = mutableListOf<LocationSample>()
+    val pieces = mutableListOf<List<LocationSample>>()
+    val piece = mutableListOf<LocationSample>()
     for (i in points.indices) {
         if (i > 0 && hidden[i - 1] != hidden[i]) {
-            result +=
+            val cut =
                 crossing(points[i - 1], points[i], hiddenAtEnd = hidden[i]) { p, t ->
                     hidden(p.latitude, p.longitude, along[i - 1] + (along[i] - along[i - 1]) * t)
                 }
+            piece += cut
+            if (hidden[i]) {
+                pieces += piece.toList()
+                piece.clear()
+            }
         }
-        if (!hidden[i]) result += points[i]
+        if (!hidden[i]) piece += points[i]
     }
-    return result
+    pieces += piece.toList()
+    return pieces.filter { it.isNotEmpty() }
 }
 
 /**
