@@ -127,7 +127,8 @@ The same parts, evaluated one at a time for a single row, give `notRanked`, in t
 - **A per-athlete best table:** it would need upkeep on every tier, prefs, track and segment change, for every viewer-dependent visibility. Visibility is per viewer, so a stored best can't serve it anyway.
 
 ### 7. `rank` and `notRanked` on `getActivitySegments`
-- **`rank`:** after `effortViews`, for each effort with `best == true`, check whether it's rankable. If it is, run step 4's count with `F` for the all-time, everyone board of its `e_bike` flag, and set `rank` when the result is ≤ 10. An activity has only a handful of efforts.
+- **`rank`:** after `effortViews`, for each effort that is rankable and is the athlete's entry on the all-time, everyone board of its `e_bike` flag (its elapsed time equals the athlete's `MIN(elapsed_s)` under `F`), run step 4's count and set `rank` when the result is ≤ 10. An activity has only a handful of efforts.
+  - The entry, not `best`: an athlete's PR may be excluded or implausible, and the board then ranks a slower effort. Keying the rank on `best` would leave an athlete at the top of the board with no badge anywhere (found on the local stack).
 - **`notRanked`:** only when `viewer == author` and the segment is `active`, from decision 5's parts. Every effort gets one, not only the best: an excluded ride's efforts all say so.
 - `getSegmentEfforts` and `getSegment` are unchanged.
 
