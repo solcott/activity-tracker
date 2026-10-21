@@ -58,6 +58,11 @@ object Nsid {
     const val FEED_SEGMENT_TRACK = "$NAMESPACE.feed.segmentTrack"
     /** A public segment, kept only in its creator's repo and indexed from the firehose; a copy in a space is ignored. */
     const val FEED_SEGMENT = "$NAMESPACE.feed.segment"
+    /**
+     * The athlete starred a segment, kept only in their `self` tier space ([SPACE_ATHLETE]) and never indexed; keyed by the segment
+     * (`segmentStarRkey` in `core/atproto`).
+     */
+    const val FEED_SEGMENT_STAR = "$NAMESPACE.feed.segmentStar"
     const val FEED_GET_SEGMENT = "$NAMESPACE.feed.getSegment"
     const val FEED_SEARCH_SEGMENTS = "$NAMESPACE.feed.searchSegments"
     const val FEED_GET_ACTIVITY_SEGMENTS = "$NAMESPACE.feed.getActivitySegments"

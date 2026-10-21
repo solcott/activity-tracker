@@ -25,6 +25,11 @@ data class SegmentState(
     val efforts: ImmutableList<EffortView> = persistentListOf(),
     val isLoading: Boolean = true,
     val error: UiError? = null,
+    /**
+     * Whether the viewer starred it (segments/segment-favorites); null while unknown (not yet read, unreadable, or this session can't use
+     * stars), when the star isn't offered.
+     */
+    val starred: Boolean? = null,
     val eventSink: (SegmentEvent) -> Unit = {},
 ) : CircuitUiState
 
@@ -33,6 +38,9 @@ sealed interface SegmentEvent {
 
     /** Loads the segment again after [SegmentState.error]. */
     data object Retry : SegmentEvent
+
+    /** Stars the segment, or unstars it when [SegmentState.starred]. */
+    data object ToggleStar : SegmentEvent
 
     /** Opens the activity an effort came from. */
     data class OpenActivity(val uri: AtUri) : SegmentEvent

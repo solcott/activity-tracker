@@ -23,6 +23,8 @@ import io.github.solcott.activitytracker.app.settings.HistoryDate
 import io.github.solcott.activitytracker.app.settings.longDate
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.Format
+import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
+import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
@@ -35,12 +37,17 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.segment_created_by
 import io.github.solcott.activitytracker.composeApp.resources.segment_no_efforts
+import io.github.solcott.activitytracker.composeApp.resources.segment_star
+import io.github.solcott.activitytracker.composeApp.resources.segment_unstar
 import io.github.solcott.activitytracker.composeApp.resources.segment_your_efforts
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import org.jetbrains.compose.resources.stringResource
 
-/** A segment: its line on a map, its length, sport group and creator, then the viewer's own efforts on it, fastest first. */
+/**
+ * A segment: a star to keep it in the viewer's starred list, its line on a map, its length, sport group and creator, then the viewer's own
+ * efforts on it, fastest first.
+ */
 @CircuitInject(SegmentScreen::class, SessionScope::class)
 @Composable
 fun SegmentUi(state: SegmentState, modifier: Modifier = Modifier) {
@@ -53,6 +60,17 @@ fun SegmentUi(state: SegmentState, modifier: Modifier = Modifier) {
                 title = segment?.record?.name.orEmpty(),
                 onBack = { state.eventSink(SegmentEvent.Back) },
                 scrollBehavior = scrollBehavior,
+                actions = {
+                    val starred = state.starred
+                    if (segment != null && starred != null) {
+                        AppIconButton(
+                            AppIcon.Star,
+                            stringResource(if (starred) Res.string.segment_unstar else Res.string.segment_star),
+                            onClick = { state.eventSink(SegmentEvent.ToggleStar) },
+                            filled = starred,
+                        )
+                    }
+                },
             )
         },
     ) { padding ->

@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEv
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.report.rememberReporting
+import io.github.solcott.activitytracker.app.segment.StarredSegmentsScreen
 import io.github.solcott.activitytracker.app.settings.SettingsScreen
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -144,6 +145,10 @@ fun ProfilePresenter(
 
             ProfileEvent.OpenSettings -> {
                 navigator.goTo(SettingsScreen)
+            }
+
+            ProfileEvent.OpenStarredSegments -> {
+                if (isSelf) navigator.goTo(StarredSegmentsScreen)
             }
 
             ProfileEvent.EditProfile -> {

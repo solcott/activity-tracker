@@ -1,0 +1,19 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.segmentStar",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "An athlete starred a segment, to keep it in their list of starred segments. Lives only in the athlete's self space (app.activitytracker.space.athlete, key self), never in the public repo, and only the athlete reads it: the AppView, which syncs self, never stores or serves it. Its rkey is the first 20 bytes of SHA-256 over the segment's AT-URI, lowercase base32 without padding, so an athlete has at most one star per segment. Deleting it unstars the segment.",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": ["subject", "createdAt"],
+        "properties": {
+          "subject": { "type": "ref", "ref": "com.atproto.repo.strongRef", "description": "The starred app.activitytracker.feed.segment." },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

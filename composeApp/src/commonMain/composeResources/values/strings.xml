@@ -12,6 +12,8 @@
     <string name="error_load_feed">Couldn't load your feed</string>
     <string name="error_load_activity">Couldn't load activity</string>
     <string name="error_load_segment">Couldn't load segment</string>
+    <string name="error_load_starred_segments">Couldn't load your starred segments</string>
+    <string name="error_update_star">Couldn't update your star</string>
     <string name="error_load_likes">Couldn't load likes</string>
     <string name="error_load_comments">Couldn't load comments</string>
     <string name="error_load_replies">Couldn't load replies</string>
@@ -1347,4 +1349,9 @@
     <string name="segment_sport_hike">Hike</string>
     <string name="segment_sport_ski">Ski</string>
     <string name="segment_sport_paddle">Paddle</string>
+    <string name="segment_star">Star segment</string>
+    <string name="segment_unstar">Unstar segment</string>
+    <string name="starred_segments_title">Starred segments</string>
+    <string name="starred_segments_empty">Star a segment to keep it here</string>
+    <string name="starred_segment_unavailable">This segment is no longer available</string>
 </resources>
