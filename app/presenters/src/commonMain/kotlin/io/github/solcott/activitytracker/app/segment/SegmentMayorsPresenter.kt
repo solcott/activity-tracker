@@ -19,7 +19,6 @@ import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardWeightClass
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
 import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
-import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.uistate.circuit.rememberRetainedPaging
 import io.github.solcott.uistate.hasAnswer
 import kotlinx.coroutines.flow.flow
@@ -30,28 +29,29 @@ fun SegmentMayorsPresenter(screen: SegmentMayorsScreen, navigator: Navigator, se
     val uri = AtUri(screen.uri)
     var period by rememberSaveable { mutableStateOf(MayorPeriod.LAST_90_DAYS) }
     var scope by rememberSaveable { mutableStateOf(LeaderboardScope.EVERYONE) }
-    var eBike by rememberSaveable { mutableStateOf(false) }
+    var requested by rememberSaveable { mutableStateOf(screen.board) }
     var ageGroup by rememberSaveable { mutableStateOf<String?>(null) }
     var weightClass by rememberSaveable { mutableStateOf<String?>(null) }
     var gender by rememberSaveable { mutableStateOf<String?>(null) }
     // Each board is its own list, as on the leaderboard: a new choice starts from nothing in the same frame, and the viewer's own entry,
     // each page's meta, changes with it.
     val entries =
-        key(period, scope, eBike, ageGroup, weightClass, gender) {
+        key(period, scope, requested, ageGroup, weightClass, gender) {
             val brackets = LeaderboardBrackets(ageGroup, weightClass, gender)
             rememberRetainedPaging(uri, idOf = { entry: MayorEntry -> entry.athlete.did }) { cursor ->
-                flow { emit(segments.mayorsPage(uri, period, scope, eBike, cursor, brackets)) }
+                flow { emit(segments.mayorsPage(uri, period, scope, requested, cursor, brackets)) }
             }
         }
     val board = entries.state
-    val viewer = board.meta?.takeIf { own -> board.hasAnswer && board.items.none { it.athlete.did == own.athlete.did } }
+    val types = rememberBoardTypes(board.meta, requested)
+    val viewer = board.meta?.viewer?.takeIf { own -> board.hasAnswer && board.items.none { it.athlete.did == own.athlete.did } }
 
     return SegmentMayorsState(
         name = screen.name,
         period = period,
         scope = scope,
-        eBike = eBike,
-        canChooseEBike = screen.sport == SegmentSportGroup.RIDE,
+        board = types.shown,
+        boards = types.listed,
         ageGroup = ageGroup,
         weightClass = weightClass,
         gender = gender,
@@ -62,7 +62,7 @@ fun SegmentMayorsPresenter(screen: SegmentMayorsScreen, navigator: Navigator, se
             SegmentMayorsEvent.Back -> navigator.pop()
             is SegmentMayorsEvent.PeriodChanged -> if (event.period in MayorPeriod.all) period = event.period
             is SegmentMayorsEvent.ScopeChanged -> if (event.scope in LeaderboardScope.all) scope = event.scope
-            is SegmentMayorsEvent.EBikeChanged -> eBike = event.eBike && screen.sport == SegmentSportGroup.RIDE
+            is SegmentMayorsEvent.BoardChanged -> if (types.admits(event.board)) requested = event.board
             is SegmentMayorsEvent.AgeGroupChanged ->
                 if (event.ageGroup == null || event.ageGroup in LeaderboardAgeGroup.all) ageGroup = event.ageGroup
             is SegmentMayorsEvent.WeightClassChanged ->

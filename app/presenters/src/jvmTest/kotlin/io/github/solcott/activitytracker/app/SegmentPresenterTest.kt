@@ -241,7 +241,7 @@ class SegmentPresenterTest {
         val navigator = FakeNavigator(screen)
         presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars) }) {
             awaitUntil { it.segment != null }.eventSink(SegmentEvent.OpenLeaderboard)
-            assertEquals(SegmentLeaderboardScreen(uri, "Hill", "run"), navigator.awaitNextScreen())
+            assertEquals(SegmentLeaderboardScreen(uri, "Hill"), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -272,7 +272,24 @@ class SegmentPresenterTest {
                 mayorsRequested.single(),
             )
             state.eventSink(SegmentEvent.OpenMayors)
-            assertEquals(SegmentMayorsScreen(uri, "Hill", "run"), navigator.awaitNextScreen())
+            assertEquals(SegmentMayorsScreen(uri, "Hill"), navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aCarriedTypeReachesTheMayorAndBothBoards() = runTest {
+        status = "active"
+        val (segments, stars) = session()
+        val navigator = FakeNavigator(screen)
+        val canoe = SegmentScreen(uri, board = "canoe")
+        presenterTestOf({ SegmentPresenter(canoe, navigator, segments, stars) }) {
+            val state = awaitUntil { it.mayor != null }
+            assertEquals("canoe", mayorsRequested.single()["board"])
+            state.eventSink(SegmentEvent.OpenMayors)
+            assertEquals(SegmentMayorsScreen(uri, "Hill", board = "canoe"), navigator.awaitNextScreen())
+            state.eventSink(SegmentEvent.OpenLeaderboard)
+            assertEquals(SegmentLeaderboardScreen(uri, "Hill", board = "canoe"), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
         }
     }

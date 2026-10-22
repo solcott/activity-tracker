@@ -23,7 +23,7 @@ internal fun LazyListScope.segments(state: ActivityDetailPage) {
                     EffortRow(
                         effort,
                         effort.segment.name,
-                        onClick = { state.eventSink(ActivityDetailEvent.SegmentOpened(effort.segment.uri)) },
+                        onClick = { state.eventSink(ActivityDetailEvent.SegmentOpened(effort.segment.uri, effort.eBike == true)) },
                         showStatus = true,
                     )
                 }
