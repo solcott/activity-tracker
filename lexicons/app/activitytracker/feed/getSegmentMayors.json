@@ -1,0 +1,67 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.getSegmentMayors",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "A segment's Mayors board: athletes by how many efforts they have on it in a window, most first; rank 1 is the segment's Mayor. Every effort counts, several in one activity included, but only those the viewer's leaderboard could rank (app.activitytracker.feed.getSegmentLeaderboard). Equal counts are ordered by the date each was reached, earliest first. Only active segments have one; any other status has no entries.",
+      "parameters": {
+        "type": "params",
+        "required": ["segment"],
+        "properties": {
+          "segment": { "type": "string", "format": "at-uri" },
+          "period": {
+            "type": "string",
+            "knownValues": ["last90Days", "allTime", "thisYear", "lastYear", "thisMonth", "lastMonth", "thisWeek", "lastWeek"],
+            "default": "last90Days",
+            "description": "By the effort's local date, against the AppView's current date in UTC. last90Days is today and the 89 days before it; weeks start on Monday."
+          },
+          "scope": {
+            "type": "string",
+            "knownValues": ["everyone", "following"],
+            "default": "everyone",
+            "description": "following: only the viewer and the athletes they effectively follow. Needs a signed-in viewer."
+          },
+          "eBike": { "type": "boolean", "default": false, "description": "The e-bike board instead of the standard one." },
+          "ageGroup": {
+            "type": "string",
+            "knownValues": ["0-19", "20-24", "25-34", "35-44", "45-54", "55-64", "65-69", "70-74", "75+"],
+            "description": "Only athletes in this age group (actor.leaderboardBrackets). Absent means every age, and athletes without brackets."
+          },
+          "weightClass": {
+            "type": "string",
+            "knownValues": ["0-54", "55-64", "65-74", "75-84", "85-94", "95-104", "105-114", "115+"],
+            "description": "Only athletes in this weight class, in kilograms (actor.leaderboardBrackets)."
+          },
+          "gender": {
+            "type": "string",
+            "knownValues": ["female", "male", "nonBinary"],
+            "description": "Only athletes of this gender (actor.leaderboardBrackets)."
+          },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 30 },
+          "cursor": { "type": "string" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["entries"],
+          "properties": {
+            "cursor": { "type": "string" },
+            "entries": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#mayorEntry" } },
+            "viewer": {
+              "type": "ref",
+              "ref": "app.activitytracker.feed.defs#mayorEntry",
+              "description": "The signed-in viewer's own entry, whichever page this is; absent when they aren't on the board."
+            }
+          }
+        }
+      },
+      "errors": [
+        { "name": "NotFound", "description": "The segment isn't indexed, or isn't served (as for getSegment)." },
+        { "name": "InvalidRequest", "description": "An unknown period, scope, age group, weight class or gender, or the following scope without a signed-in viewer." }
+      ]
+    }
+  }
+}

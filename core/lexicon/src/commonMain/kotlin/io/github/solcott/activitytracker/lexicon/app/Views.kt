@@ -254,3 +254,16 @@ data class LeaderboardEntry(
     val athlete: ProfileViewBasic,
     val effort: EffortView,
 )
+
+/** `app.activitytracker.feed.defs#mayorEntry`: one athlete's place on a segment's Mayors board, by how many efforts it counts. */
+@Immutable
+@Serializable
+data class MayorEntry(
+    /** 1 for the most efforts, the segment's Mayor; equal counts reached on the same date share a rank, and the next rank skips. */
+    val rank: Int,
+    val athlete: ProfileViewBasic,
+    /** How many of the athlete's efforts the board counts. */
+    val efforts: Int,
+    /** The local date of their latest counted effort, which reached the count, `YYYY-MM-DD`. */
+    val reachedOn: String,
+)

@@ -340,6 +340,48 @@ object GetSegmentLeaderboard {
     val method = XrpcQuery(Nsid.FEED_GET_SEGMENT_LEADERBOARD, Params.serializer(), Output.serializer())
 }
 
+object GetSegmentMayors {
+    @Serializable
+    data class Params(
+        val segment: AtUri,
+        /** A [MayorPeriod] value; null means [MayorPeriod.LAST_90_DAYS]. */
+        val period: String? = null,
+        /** A [LeaderboardScope] value; null means [LeaderboardScope.EVERYONE]. */
+        val scope: String? = null,
+        /** The e-bike board; null means false. */
+        val eBike: Boolean? = null,
+        /** A [LeaderboardAgeGroup] value: only athletes in it (segments/leaderboard-brackets). Null means every athlete. */
+        val ageGroup: String? = null,
+        /** A [LeaderboardWeightClass] value: only athletes in it. Null means every athlete. */
+        val weightClass: String? = null,
+        /** A [LeaderboardGender] value: only athletes of it. Null means every athlete. */
+        val gender: String? = null,
+        val limit: Int? = null,
+        val cursor: String? = null,
+    )
+
+    @Serializable data class Output(val entries: List<MayorEntry>, val viewer: MayorEntry? = null, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.FEED_GET_SEGMENT_MAYORS, Params.serializer(), Output.serializer())
+}
+
+/**
+ * Known values of [GetSegmentMayors.Params.period]: by the effort's local date, against the AppView's UTC date. [LAST_90_DAYS] is today and
+ * the 89 days before it, and weeks start on Monday.
+ */
+object MayorPeriod {
+    const val LAST_90_DAYS = "last90Days"
+    const val ALL_TIME = "allTime"
+    const val THIS_YEAR = "thisYear"
+    const val LAST_YEAR = "lastYear"
+    const val THIS_MONTH = "thisMonth"
+    const val LAST_MONTH = "lastMonth"
+    const val THIS_WEEK = "thisWeek"
+    const val LAST_WEEK = "lastWeek"
+
+    val all = listOf(LAST_90_DAYS, ALL_TIME, THIS_YEAR, LAST_YEAR, THIS_MONTH, LAST_MONTH, THIS_WEEK, LAST_WEEK)
+}
+
 /** Known values of [GetSegmentLeaderboard.Params.period]: by the effort's local date, against the AppView's UTC date. */
 object LeaderboardPeriod {
     const val ALL_TIME = "allTime"
@@ -349,7 +391,7 @@ object LeaderboardPeriod {
     val all = listOf(ALL_TIME, YEAR, MONTH)
 }
 
-/** Known values of [GetSegmentLeaderboard.Params.scope]. */
+/** Known values of [GetSegmentLeaderboard.Params.scope] and [GetSegmentMayors.Params.scope]. */
 object LeaderboardScope {
     const val EVERYONE = "everyone"
     /** The viewer and the athletes they effectively follow. */
@@ -358,7 +400,10 @@ object LeaderboardScope {
     val all = listOf(EVERYONE, FOLLOWING)
 }
 
-/** Known values of [GetSegmentLeaderboard.Params.ageGroup] and [LeaderboardBracketsRecord.ageGroup]: Strava's, by whole years of age. */
+/**
+ * Known values of [GetSegmentLeaderboard.Params.ageGroup], [GetSegmentMayors.Params.ageGroup] and [LeaderboardBracketsRecord.ageGroup]:
+ * Strava's, by whole years of age.
+ */
 object LeaderboardAgeGroup {
     const val UNDER_20 = "0-19"
     const val FROM_20 = "20-24"
@@ -374,8 +419,8 @@ object LeaderboardAgeGroup {
 }
 
 /**
- * Known values of [GetSegmentLeaderboard.Params.weightClass] and [LeaderboardBracketsRecord.weightClass]: Strava's, by whole kilograms
- * rounded down.
+ * Known values of [GetSegmentLeaderboard.Params.weightClass], [GetSegmentMayors.Params.weightClass] and
+ * [LeaderboardBracketsRecord.weightClass]: Strava's, by whole kilograms rounded down.
  */
 object LeaderboardWeightClass {
     const val UNDER_55 = "0-54"
@@ -390,7 +435,10 @@ object LeaderboardWeightClass {
     val all = listOf(UNDER_55, FROM_55, FROM_65, FROM_75, FROM_85, FROM_95, FROM_105, FROM_115)
 }
 
-/** Known values of [GetSegmentLeaderboard.Params.gender] and [LeaderboardBracketsRecord.gender]: the profile's known genders. */
+/**
+ * Known values of [GetSegmentLeaderboard.Params.gender], [GetSegmentMayors.Params.gender] and [LeaderboardBracketsRecord.gender]: the
+ * profile's known genders.
+ */
 object LeaderboardGender {
     const val FEMALE = "female"
     const val MALE = "male"

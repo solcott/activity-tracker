@@ -233,6 +233,17 @@
         "athlete": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
         "effort": { "type": "ref", "ref": "#effortView" }
       }
+    },
+    "mayorEntry": {
+      "type": "object",
+      "description": "One athlete's place on a segment's Mayors board (app.activitytracker.feed.getSegmentMayors): how many of their efforts the board counts.",
+      "required": ["rank", "athlete", "efforts", "reachedOn"],
+      "properties": {
+        "rank": { "type": "integer", "minimum": 1, "description": "1 for the most efforts, the segment's Mayor; equal counts reached on the same date share a rank, and the next rank skips." },
+        "athlete": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
+        "efforts": { "type": "integer", "minimum": 1, "description": "How many of the athlete's efforts the board counts." },
+        "reachedOn": { "type": "string", "description": "The local date of their latest counted effort, which reached the count, as YYYY-MM-DD." }
+      }
     }
   }
 }
