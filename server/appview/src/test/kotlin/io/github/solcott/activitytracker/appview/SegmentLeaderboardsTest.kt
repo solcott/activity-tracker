@@ -149,6 +149,7 @@ class SegmentLeaderboardsTest : SegmentTestBase() {
         assertEquals("InvalidRequest", client.xrpcError(method, mapOf("segment" to segment, "ageGroup" to "40-49")))
         assertEquals("InvalidRequest", client.xrpcError(method, mapOf("segment" to segment, "weightClass" to "60-70")))
         assertEquals("InvalidRequest", client.xrpcError(method, mapOf("segment" to segment, "gender" to "other")))
+        assertEquals("InvalidRequest", client.xrpcError(method, mapOf("segment" to segment, "board" to "road")))
     }
 
     @Test
@@ -199,15 +200,60 @@ class SegmentLeaderboardsTest : SegmentTestBase() {
     }
 
     @Test
-    fun eBikeEffortsHaveTheirOwnBoard() = testApplication {
+    fun eachActivityTypeHasItsOwnBoard() = testApplication {
         start()
         segment("3ks", did = carol, sport = "ride")
         effort(alice, "3ka", speed = 9.0, sport = "ride", subSport = SubSport.E_MOUNTAIN)
         effort(bob, "3kb", speed = 7.0, sport = "ride")
+        effort(bob, "3kc", speed = 6.0, sport = "ride")
+        effort(dave, "3kd", speed = 8.0, sport = "handcycle")
         matchActive()
 
-        assertEquals(listOf(bob to 1), client.board().entries.places)
-        assertEquals(listOf(alice to 1), client.board(null, "eBike" to "true").entries.places)
+        val default = client.board()
+        assertEquals(listOf(bob to 1), default.entries.places, "the busiest type, ride")
+        assertEquals("ride", default.board)
+        assertEquals(listOf("ride", "eBike", "handcycle"), default.boards, "most first, ties by token")
+        assertEquals(listOf(alice to 1), client.board(null, "board" to "eBike").entries.places)
+        assertEquals(listOf(dave to 1), client.board(null, "board" to "handcycle").entries.places)
+    }
+
+    @Test
+    fun theTypeListIgnoresPeriodScopeAndBrackets() = testApplication {
+        start()
+        segment("3ks", did = carol)
+        effort(alice, "3ka")
+        effort(bob, "3kb", sport = "walk")
+        matchActive()
+
+        val filtered = client.board(alice, "scope" to "following", "ageGroup" to "35-44", "board" to "walk")
+        assertEquals(emptyList(), filtered.entries)
+        assertEquals("walk", filtered.board)
+        assertEquals(listOf("run", "walk"), filtered.boards)
+    }
+
+    @Test
+    fun aRequestedTypeWithNoEffortsIsServedAndListed() = testApplication {
+        start()
+        segment("3ks", did = carol)
+        effort(alice, "3ka")
+        matchActive()
+
+        val hike = client.board(null, "board" to "hike")
+        assertEquals(emptyList(), hike.entries)
+        assertEquals("hike", hike.board)
+        assertEquals(listOf("run", "hike"), hike.boards)
+    }
+
+    @Test
+    fun anEmptySegmentNamesNoBoard() = testApplication {
+        start()
+        segment("3ks", did = carol)
+        matchActive()
+
+        val empty = client.board()
+        assertEquals(emptyList(), empty.entries)
+        assertNull(empty.board)
+        assertEquals(emptyList(), empty.boards)
     }
 
     @Test
@@ -360,6 +406,23 @@ class SegmentLeaderboardsTest : SegmentTestBase() {
         assertNull(effortOn(activityUri("3ka"), bob).rank, "not her best Bob may see")
         assertEquals(3, effortOn(activityUri("3kr", others[7]), carol).rank)
         assertNull(effortOn(activityUri("3ka"), carol).notRanked, "only to the athlete")
+    }
+
+    @Test
+    fun anEffortIsRankedAmongItsOwnType() = testApplication {
+        start()
+        segment("3ks", did = carol, sport = "ride")
+        val riders = (0 until 5).map { "did:plc:r$it" }
+        riders.forEachIndexed { i, did -> effort(did, "3kr", speed = 10.0 + i, sport = "ride") }
+        effort(alice, "3ka", speed = 6.0, sport = "handcycle")
+        effort(bob, "3kb", speed = 20.0, sport = "ride", subSport = SubSport.E_BIKE)
+        matchActive()
+
+        suspend fun rank(activity: String) =
+            client.xrpcOk(GetActivitySegments.method, mapOf("activity" to activity), carol).efforts.single().rank
+        assertEquals(1, rank(activityUri("3ka")), "6th of all, 1st of the handcycles")
+        assertEquals(1, rank(activityUri("3kb", bob)), "the e-bike board")
+        assertEquals(5, rank(activityUri("3kr", riders[0])), "behind four faster rides, not the e-bike")
     }
 
     @Test

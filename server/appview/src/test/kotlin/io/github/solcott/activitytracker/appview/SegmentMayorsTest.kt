@@ -178,7 +178,7 @@ class SegmentMayorsTest : SegmentTestBase() {
     }
 
     @Test
-    fun scopeEBikeAndBracketsFilterTheBoard() = testApplication {
+    fun boardScopeAndBracketsFilterTheBoard() = testApplication {
         start()
         segment("3ks", did = carol, sport = "ride")
         effort(alice, "3ka", laps = 3, sport = "ride", subSport = SubSport.E_MOUNTAIN)
@@ -194,8 +194,10 @@ class SegmentMayorsTest : SegmentTestBase() {
         )
         matchActive()
 
-        assertEquals(listOf(Triple(dave, 1, 3), Triple(bob, 2, 2), Triple(alice, 3, 1)), client.mayors().entries.places)
-        assertEquals(listOf(Triple(alice, 1, 3)), client.mayors(null, "eBike" to "true").entries.places)
+        val ride = client.mayors()
+        assertEquals(listOf(Triple(dave, 1, 3), Triple(bob, 2, 2), Triple(alice, 3, 1)), ride.entries.places)
+        assertEquals("ride" to listOf("ride", "eBike"), ride.board to ride.boards)
+        assertEquals(listOf(Triple(alice, 1, 3)), client.mayors(null, "board" to "eBike").entries.places)
         assertEquals(listOf(Triple(bob, 1, 2), Triple(alice, 2, 1)), client.mayors(bob, "scope" to "following").entries.places)
         assertEquals(listOf(Triple(bob, 1, 2)), client.mayors(null, "ageGroup" to "35-44").entries.places)
     }
@@ -223,6 +225,23 @@ class SegmentMayorsTest : SegmentTestBase() {
         assertEquals("InvalidRequest", client.xrpcError(method, mapOf("segment" to segment, "period" to "month"), alice))
         assertEquals("InvalidRequest", client.xrpcError(method, mapOf("segment" to segment, "scope" to "club"), alice))
         assertEquals("InvalidRequest", client.xrpcError(method, mapOf("segment" to segment, "gender" to "other")))
+        assertEquals("InvalidRequest", client.xrpcError(method, mapOf("segment" to segment, "board" to "road")))
+    }
+
+    @Test
+    fun theBusiestTypeIsTheDefaultAndARequestedOneIsServed() = testApplication {
+        start()
+        segment("3ks", did = carol, sport = "paddle")
+        effort(alice, "3ka", laps = 3, sport = "kayak")
+        effort(bob, "3kb", sport = "canoe")
+        matchActive()
+
+        val kayak = client.mayors()
+        assertEquals(listOf(Triple(alice, 1, 3)), kayak.entries.places)
+        assertEquals("kayak" to listOf("kayak", "canoe"), kayak.board to kayak.boards)
+        val canoe = client.mayors(null, "board" to "canoe")
+        assertEquals(listOf(Triple(bob, 1, 1)), canoe.entries.places)
+        assertEquals("canoe" to listOf("kayak", "canoe"), canoe.board to canoe.boards)
     }
 
     @Test
