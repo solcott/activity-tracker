@@ -51,12 +51,21 @@ private const val E7 = 1e7
 /**
  * A segment from [author]'s repo. Indexed only with a name, a known sport group and a line of at least two valid positions whose length,
  * computed here, is its group's minimum to 50 km; anything else is dropped like an undecodable record, as is a new segment past its
- * creator's [DAILY_SEGMENT_LIMIT]. A new segment, or one whose line or sport changed, loses its efforts, gets its status again (duplicate
- * of the earliest live segment it duplicates, else proposed) and, unless a duplicate, is queued to be matched against past tracks; the
- * segments that duplicated its old version are checked again. A rename keeps its status.
+ * creator's [DAILY_SEGMENT_LIMIT] while [limited] (every creator but the segment importer). A new segment, or one whose line or sport
+ * changed, loses its efforts, gets its status again (duplicate of the earliest live segment it duplicates, else proposed) and, unless a
+ * duplicate, is queued to be matched against past tracks; the segments that duplicated its old version are checked again. A rename keeps
+ * its status.
  */
 @Suppress("LongParameterList", "LongMethod") // The record, and where it's from; then each part of indexing it.
-internal fun JdbcTransaction.upsertSegment(json: JsonObject, author: Did, uri: AtUri, cid: String, jobs: SegmentJobs, now: Long) {
+internal fun JdbcTransaction.upsertSegment(
+    json: JsonObject,
+    author: Did,
+    uri: AtUri,
+    cid: String,
+    jobs: SegmentJobs,
+    now: Long,
+    limited: Boolean = true,
+) {
     val record = AtJson.decodeFromJsonElement(SegmentRecord.serializer(), json)
     val name = validName(record.name)
     val line = validLine(record.sport, record.line)
@@ -65,7 +74,9 @@ internal fun JdbcTransaction.upsertSegment(json: JsonObject, author: Did, uri: A
         Segments.select(Segments.line, Segments.sport, Segments.status, Segments.duplicateOf, Segments.firstIndexedAt)
             .where { Segments.uri eq uri.value }
             .firstOrNull()
-    if (old == null) require(segmentsCreatedSince(author, now) < DAILY_SEGMENT_LIMIT) { "over the daily limit of new segments" }
+    if (old == null && limited) {
+        require(segmentsCreatedSince(author, now) < DAILY_SEGMENT_LIMIT) { "over the daily limit of new segments" }
+    }
     val changed = old == null || old[Segments.line] != record.line || old[Segments.sport] != record.sport
     val firstIndexed = old?.get(Segments.firstIndexedAt) ?: now
     val original = if (changed) duplicatesOf(record.sport, line, before = firstIndexed to uri.value).firstOrNull() else null

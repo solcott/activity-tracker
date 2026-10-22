@@ -73,6 +73,8 @@ class Indexer(
     private val db: Database,
     private val handles: HandleLookup,
     private val clock: Clock = Clock.System,
+    /** The segment importer's account (`SEGMENT_IMPORTER_DID`), whose new segments aren't limited per day. */
+    private val segmentImporter: Did? = null,
 ) {
     private val log = LoggerFactory.getLogger(Indexer::class.java)
 
@@ -253,7 +255,8 @@ class Indexer(
 
             // Public: from the repo only (spaceCollections never lists it).
             Nsid.FEED_SEGMENT -> {
-                if (placement.origin == Origins.REPO) upsertSegment(json, author, uri, cid, segmentJobs, now)
+                if (placement.origin == Origins.REPO)
+                    upsertSegment(json, author, uri, cid, segmentJobs, now, limited = author != segmentImporter)
             }
 
             Nsid.ACTOR_PROFILE -> {

@@ -58,7 +58,7 @@ open class SegmentTestBase {
     protected val alice = "did:plc:alice"
     protected val bob = "did:plc:bob"
     protected val carol = "did:plc:carol"
-    /** The segment importer's account (segments/segment-candidates), configured only where a test says so. */
+    /** The segment importer's account (segments/segment-candidates): the indexer's always, the AppView's only where a test says so. */
     protected val importer = "did:plc:importer"
     protected val keys = mapOf(alice to TestAccountKey(), bob to TestAccountKey(), carol to TestAccountKey(), importer to TestAccountKey())
 
@@ -68,7 +68,7 @@ open class SegmentTestBase {
             DatabaseFactory.migrate(this)
             Database.connect(this)
         }
-    protected val indexer = Indexer(db, { did -> did.value.substringAfterLast(':') + ".test" })
+    protected val indexer = Indexer(db, { did -> did.value.substringAfterLast(':') + ".test" }, segmentImporter = Did(importer))
     protected val config = AppViewConfig.fromEnv(emptyMap())
     protected val verifier = ServiceAuthVerifier(service, keys = { keys[it.value]?.multibase })
 

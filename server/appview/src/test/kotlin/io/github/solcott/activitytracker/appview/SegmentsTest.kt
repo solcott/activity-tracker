@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.atproto.segmentStarRkey
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.CheckSegment
@@ -306,6 +307,18 @@ class SegmentsTest : SegmentTestBase() {
         )
         segment("3kx", path = straight, did = bob)
         assertTrue(segmentUri("3kx", bob) in segmentRows(), "the limit is per creator")
+    }
+
+    @Test
+    fun theSegmentImporterIsNotLimited() = testApplication {
+        application { appView(config.copy(segmentImporter = Did(importer)), db, verifier) }
+        (0 until 12).forEach { k -> segment("osm$k", path = listOf(k * 2000.0 to 0.0, k * 2000.0 to 1000.0), did = importer) }
+        assertEquals(12, segmentRows().count { it.startsWith("at://$importer/") })
+        assertEquals(10, client.checkOk(importer, "run", lineOf(listOf(90_000.0 to 0.0, 90_000.0 to 1000.0))).remaining)
+
+        (0 until 11).forEach { k -> segment("3k$k", path = listOf(k * 2000.0 to 5000.0, k * 2000.0 to 6000.0), did = bob) }
+        assertEquals(10, segmentRows().count { it.startsWith("at://$bob/") }, "athletes are still limited")
+        assertEquals(0, client.checkOk(bob, "run", lineOf(listOf(90_000.0 to 0.0, 90_000.0 to 1000.0))).remaining)
     }
 
     @Test

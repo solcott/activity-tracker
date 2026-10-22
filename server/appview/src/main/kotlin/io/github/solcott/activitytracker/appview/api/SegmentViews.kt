@@ -73,7 +73,13 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
  * ones only to their creator and their riders; every view carries the status the AppView derived.
  */
 @Suppress("TooManyFunctions") // The six segment routes, and the filters and views they share.
-class SegmentViews(private val db: Database, private val avatars: AvatarUrls, private val clock: Clock = Clock.System) {
+class SegmentViews(
+    private val db: Database,
+    private val avatars: AvatarUrls,
+    private val clock: Clock = Clock.System,
+    /** The segment importer's account, whose allowance is always the whole [DAILY_SEGMENT_LIMIT]. */
+    private val segmentImporter: Did? = null,
+) {
     suspend fun segment(viewer: Did?, params: GetSegment.Params): GetSegment.Output = db.tx {
         val row =
             Segments.selectAll().where { (Segments.uri eq params.uri.value) and segmentServed(viewer) }.firstOrNull()
@@ -220,8 +226,8 @@ class SegmentViews(private val db: Database, private val avatars: AvatarUrls, pr
 
     /**
      * [viewer]'s check of a line before publishing it (segments/segment-records): the live segments of its sport it would duplicate,
-     * earliest first, as indexing would judge them, and how many more new segments [viewer] may create today. `InvalidRequest` for a line
-     * indexing would drop.
+     * earliest first, as indexing would judge them, and how many more new segments [viewer] may create today (always all of them for the
+     * segment importer). `InvalidRequest` for a line indexing would drop.
      */
     suspend fun check(viewer: Did, input: CheckSegment.Input): CheckSegment.Output {
         val line = runCatching { validLine(input.sport, input.line) }.getOrElse { invalidRequest(it.message ?: "Invalid line") }
@@ -229,7 +235,8 @@ class SegmentViews(private val db: Database, private val avatars: AvatarUrls, pr
         return db.tx {
             val uris = duplicatesOf(input.sport, line)
             val rows = Segments.selectAll().where { (Segments.uri inList uris) and segmentServed(viewer) }.associateBy { it[Segments.uri] }
-            val remaining = (DAILY_SEGMENT_LIMIT - segmentsCreatedSince(viewer, now)).coerceAtLeast(0).toInt()
+            val created = if (viewer == segmentImporter) 0 else segmentsCreatedSince(viewer, now)
+            val remaining = (DAILY_SEGMENT_LIMIT - created).coerceAtLeast(0).toInt()
             CheckSegment.Output(views(uris.mapNotNull { rows[it] }), remaining)
         }
     }

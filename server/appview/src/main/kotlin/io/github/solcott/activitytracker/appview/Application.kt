@@ -90,7 +90,7 @@ fun main() {
     val identity = IdentityResolver(http, config.plcUrl, config.handleResolverUrl)
     val verifier = ServiceAuthVerifier(config.serviceDid, identity, config.extraAudiences)
 
-    val indexer = Indexer(db, ResolvingHandleLookup(identity))
+    val indexer = Indexer(db, ResolvingHandleLookup(identity), segmentImporter = config.segmentImporter)
     val signingKey = config.signingKey?.let(::AppViewSigningKey)
     val member = signingKey?.let { key ->
         val tokens = SignedDelegationTokens(Did(config.serviceDid), key.jwtAlg, key::sign)
@@ -214,7 +214,7 @@ fun Application.appView(
             verifier,
             verifier.forAudiences(setOf(config.managingAppService)),
         )
-        segmentRoutes(SegmentViews(db, avatars), verifier)
+        segmentRoutes(SegmentViews(db, avatars, segmentImporter = config.segmentImporter), verifier)
         segmentCandidateRoutes(SegmentCandidateViews(db, config.segmentImporter, segmentJobs), verifier)
         moderationRoutes(ModeratorSubjects(db, views, avatars, ozone, ModerationAccessLog(db)), verifier)
         spaceSyncRoutes(syncer, verifier, verifier.forAudiences(setOf(config.syncerService)))
