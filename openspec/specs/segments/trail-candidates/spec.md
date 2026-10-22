@@ -107,7 +107,7 @@ A whole-trail candidate SHALL be named after its trail. A stretch SHALL be named
 - **THEN** its whole-trail candidates are named "Pond Loop (clockwise)" and "Pond Loop (counterclockwise)"
 
 ### Requirement: Candidate ids are stable
-A candidate's id SHALL be derived only from its sport group, its direction, the source features it follows in order, its ends, and how often it passed its last end before ending there. For OSM the features are ways and the ends nodes; for an agency dataset the features are its stable feature ids and the ends their positions to about a metre. Ids SHALL be unique within a candidates file. Extracting the same data twice SHALL give the same ids, and an edit elsewhere SHALL NOT change a candidate's id.
+A candidate's id SHALL be derived only from its sport group, its direction, the source features it follows in order, its ends, and how often it passed its last end before ending there. Ids SHALL be unique within a candidates file. Extracting the same data twice SHALL give the same ids, and an edit elsewhere SHALL NOT change a candidate's id.
 
 #### Scenario: Re-extract unchanged
 - **WHEN** an operator extracts the same region from a newer extract in which only other trails changed
@@ -124,6 +124,17 @@ A candidate's id SHALL be derived only from its sport group, its direction, the 
 #### Scenario: Agency feature reshaped
 - **WHEN** a newer Forest Service dataset moves a trail feature's interior vertices but keeps its feature id and its ends
 - **THEN** the candidates that follow it keep their ids
+
+### Requirement: What an id's features and ends are, by source
+For OSM data, the features a candidate's id follows SHALL be its ways and its ends SHALL be nodes. For an agency dataset, the features SHALL be the dataset's stable feature ids and the ends their positions to about a metre.
+
+#### Scenario: OSM way split
+- **WHEN** an OSM trail way a candidate follows is split into two ways
+- **THEN** the candidate gets a new id, since the ways it follows changed
+
+#### Scenario: Agency feature given a new id
+- **WHEN** a newer agency dataset gives a trail a new feature id but keeps its line and ends
+- **THEN** the candidates that follow it get new ids
 
 ### Requirement: A candidate holds what a segment needs
 Each candidate SHALL hold its id, region, sport group, name, line, length in metres, source and licence. An OSM candidate SHALL have `source` `osm`, `license` `ODbL-1.0` and the ids of the OSM ways it follows. An agency candidate SHALL have `source` `agency`, `license` `CC0-1.0`, an attribution naming its agency, and the feature ids it follows. Its line SHALL be encoded as a `feed.segment` line is, stay within 5 m of the trail, and fit a `feed.segment` record.

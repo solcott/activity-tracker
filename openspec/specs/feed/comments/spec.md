@@ -419,8 +419,8 @@ For any viewer, an activity's comment count SHALL equal the number of comments a
 - **WHEN** an activity's only listed thread is a placeholder with two replies
 - **THEN** the count is 2
 
-### Requirement: The detail screen loads comments as the viewer scrolls
-The detail screen SHALL show the activity once it has loaded, and its first page of threads as soon as that has, with the comment count. Replies SHALL be shown indented under their thread's top-level comment or placeholder. It SHALL load the next page when the viewer scrolls near the end of the listed threads, until there are no more, showing that more are loading. A page that fails SHALL keep what's listed, show the failure and offer to try again, and trying again SHALL load only that page. A reload SHALL keep the threads listed until its first page answers. Coming back to the screen SHALL show the pages and replies loaded before at once.
+### Requirement: The detail screen lists comments a page at a time
+The detail screen SHALL show the activity once it has loaded, and its first page of threads as soon as that has, with the comment count. Replies SHALL be shown indented under their thread's top-level comment or placeholder. It SHALL load the next page when the viewer scrolls near the end of the listed threads, until there are no more, showing that more are loading.
 
 #### Scenario: Popular activity
 - **WHEN** a viewer opens an activity with 200 comments in 120 threads
@@ -434,6 +434,9 @@ The detail screen SHALL show the activity once it has loaded, and its first page
 - **WHEN** the viewer has reached the last page
 - **THEN** nothing more is loaded, and nothing shows more loading
 
+### Requirement: A failed page of comments keeps what's listed
+When a page of an activity's comments fails to load, the detail screen SHALL keep the activity and the comments already listed, show the failure and offer to try again. Trying again SHALL load only the page that failed.
+
 #### Scenario: Next page fails
 - **WHEN** loading the next page fails
 - **THEN** the comments already listed stay, the screen says the rest couldn't be loaded and offers to try again, and trying again lists the next page after them without loading the earlier pages again
@@ -441,6 +444,9 @@ The detail screen SHALL show the activity once it has loaded, and its first page
 #### Scenario: Comments fail but the activity loads
 - **WHEN** the activity loads and its first page of comments fails
 - **THEN** the activity and its count are shown, with the failure and a way to try again where the comments would be
+
+### Requirement: Comments outlast a reload and coming back
+A reload of the detail screen SHALL keep the comment threads listed until its first page answers, then replace the pages and the extra replies loaded before. Coming back to the screen SHALL show the pages and replies loaded before at once.
 
 #### Scenario: Reload
 - **WHEN** the viewer reloads the screen

@@ -4,10 +4,15 @@
 
 How a screen shows content it loads from the network or its cache: what the athlete sees before anything has loaded, while it refreshes, when loading fails, and when they come back to it, so that loaded content is never thrown away to show a spinner or an error.
 
+The requirements name these groups of screens:
+- **The activity and profile screens:** the activity page, route map, media gallery, profile, follow requests, training zones, threshold history and combine picker.
+- **The form screens:** edit profile, default zones, a sport's zones, edit activity and privacy zones.
+- **The paged lists:** blocked accounts, muted accounts, followers, following, athlete search and an activity's comments.
+
 ## Requirements
 
 ### Requirement: Progress before the first answer
-Until a screen's content has loaded for the first time, the feed, the segment page, the activity and profile screens (activity page, route map, media gallery, profile, follow requests, training zones, threshold history and combine picker), the form screens (edit profile, default zones, a sport's zones, edit activity and privacy zones) and the paged lists (blocked accounts, muted accounts, followers, following, athlete search and an activity's comments) SHALL show that it is loading. They SHALL NOT show an empty state while a fetch is still in flight, even when nothing is cached for it yet.
+Until a screen's content has loaded for the first time, the feed, the segment page, the activity and profile screens, the form screens and the paged lists SHALL show that it is loading. They SHALL NOT show an empty state while a fetch is still in flight, even when nothing is cached for it yet.
 
 #### Scenario: First visit to a feed filter
 - **WHEN** an athlete selects a feed filter they have never used, with nothing cached for it, and the fetch is still in flight
@@ -42,7 +47,7 @@ Until a screen's content has loaded for the first time, the feed, the segment pa
 - **THEN** the screen shows that it is searching, not that nobody matched
 
 ### Requirement: An empty answer is shown as empty
-Once a load has answered, the feed, the profile's activities, follow requests, the combine picker and the paged lists (blocked accounts, muted accounts, followers, following, athlete search and an activity's comments) SHALL show their empty state when the answer has nothing to list, and SHALL NOT keep showing that they are loading.
+Once a load has answered, the feed, the profile's activities, follow requests, the combine picker and the paged lists SHALL show their empty state when the answer has nothing to list, and SHALL NOT keep showing that they are loading.
 
 #### Scenario: Filter with no matches
 - **WHEN** an athlete selects a filter the server answers with no activities
@@ -65,7 +70,7 @@ Once a load has answered, the feed, the profile's activities, follow requests, t
 - **THEN** the screen says they mute nobody, with no loading indicator
 
 ### Requirement: First-load failure offers retry
-When a screen's first load fails, the feed, the segment page, the activity and profile screens (activity page, route map, media gallery, profile, follow requests, training zones, threshold history and combine picker), the form screens (edit profile, default zones, a sport's zones, edit activity and privacy zones) and the paged lists (blocked accounts, muted accounts, followers, following, athlete search and an activity's comments) SHALL show why it failed and offer to try again. Trying again SHALL show that it is loading until the new attempt answers.
+When a screen's first load fails, the feed, the segment page, the activity and profile screens, the form screens and the paged lists SHALL show why it failed and offer to try again. Trying again SHALL show that it is loading until the new attempt answers.
 
 #### Scenario: Segment fails to load
 - **WHEN** an athlete opens a segment page while the AppView is unreachable
@@ -104,7 +109,7 @@ When a screen's first load fails, the feed, the segment page, the activity and p
 - **THEN** the screen says it couldn't load the followers and why and offers to try again, then shows that it is loading, then the first page of followers, and no error
 
 ### Requirement: Content stays on screen while it refreshes
-When the feed, the segment page, one of the activity and profile screens (activity page, route map, media gallery, profile, follow requests, training zones, threshold history and combine picker) or one of the paged lists (blocked accounts, muted accounts, followers, following, athlete search and an activity's comments) refreshes content it already shows, it SHALL keep showing that content with an indication that it is refreshing. It SHALL NOT replace the content with a full-screen loading state.
+When the feed, the segment page, one of the activity and profile screens or one of the paged lists refreshes content it already shows, it SHALL keep showing that content with an indication that it is refreshing. It SHALL NOT replace the content with a full-screen loading state.
 
 #### Scenario: Pull to refresh the feed
 - **WHEN** an athlete pulls to refresh a feed that shows activities
@@ -127,7 +132,7 @@ When the feed, the segment page, one of the activity and profile screens (activi
 - **THEN** the comments listed stay on screen until the first page of the reload answers and replaces them
 
 ### Requirement: A failed refresh keeps the content
-When refreshing content already on screen fails, the feed, the segment page, the activity and profile screens (activity page, route map, media gallery, profile, follow requests, training zones, threshold history and combine picker) and the paged lists (blocked accounts, muted accounts, followers, following, athlete search and an activity's comments) SHALL keep showing that content, report the failure and why, and offer to try again.
+When refreshing content already on screen fails, the feed, the segment page, the activity and profile screens and the paged lists SHALL keep showing that content, report the failure and why, and offer to try again.
 
 #### Scenario: Feed refresh while offline
 - **WHEN** an athlete pulls to refresh the feed while offline
@@ -146,7 +151,7 @@ When refreshing content already on screen fails, the feed, the segment page, the
 - **THEN** the comments listed stay, and the page says it couldn't load the comments because the device is offline, and offers to try again
 
 ### Requirement: Loaded content survives coming back
-When an athlete leaves the feed, the segment page, one of the activity and profile screens (activity page, route map, media gallery, profile, follow requests, training zones, threshold history and combine picker) or one of the paged lists (blocked accounts, muted accounts, followers, following, athlete search and an activity's comments) for a screen opened from it and then comes back, the page SHALL show the content it last showed at once, without a full-screen loading state.
+When an athlete leaves the feed, the segment page, one of the activity and profile screens or one of the paged lists for a screen opened from it and then comes back, the page SHALL show the content it last showed at once, without a full-screen loading state.
 
 #### Scenario: Back to a segment
 - **WHEN** an athlete opens an activity from a segment page's efforts and goes back
@@ -173,7 +178,7 @@ When an athlete leaves the feed, the segment page, one of the activity and profi
 - **THEN** both pages of comments and the thread's extra replies show at once
 
 ### Requirement: Load errors say why
-A load error on the feed, the segment page, one of the activity and profile screens (activity page, route map, media gallery, profile, follow requests, training zones, threshold history and combine picker), one of the form screens (edit profile, default zones, a sport's zones, edit activity and privacy zones) or one of the paged lists (blocked accounts, muted accounts, followers, following, athlete search and an activity's comments) SHALL say what failed and, where it is known, why: no connection, the server failing, or a response the app couldn't read. It SHALL NOT show raw technical text such as status codes or exception messages.
+A load error on the feed, the segment page, one of the activity and profile screens, one of the form screens or one of the paged lists SHALL say what failed and, where it is known, why: no connection, the server failing, or a response the app couldn't read. It SHALL NOT show raw technical text such as status codes or exception messages.
 
 #### Scenario: Offline
 - **WHEN** the feed fails to load because the device has no connection
@@ -238,7 +243,7 @@ A profile SHALL show its header as soon as the header loads, without waiting for
 - **THEN** the profile shows the header, and below it says it couldn't load the activities because the device is offline, and offers to try again
 
 ### Requirement: Action failures leave loaded content in place
-On the activity and profile screens, the form screens and the blocked, muted and followers lists, a failed action (following, blocking or muting, unblocking or unmuting from a list, removing a follower, answering a follow request, saving the training visibility, removing a threshold value, combining activities, liking, commenting, hiding or deleting a comment, deleting, ungrouping or splitting an activity, choosing a data source, adding a privacy zone, exporting, saving the profile, the default zones, a sport's zones or an activity's edits, changing or removing a privacy zone) SHALL report its own error and keep the loaded content on screen. It SHALL NOT be shown as a failed load or offer the load's retry.
+On the activity and profile screens, the form screens and the blocked, muted and followers lists, a failed action SHALL report its own error and keep the loaded content on screen. Actions include following, blocking or muting, liking, commenting, answering a follow request, combining, splitting, exporting or deleting an activity, and saving a form; any other action on these screens behaves the same. A failed action SHALL NOT be shown as a failed load or offer the load's retry.
 
 #### Scenario: Follow fails offline
 - **WHEN** an athlete taps Follow on a loaded profile while the device is offline
@@ -283,7 +288,7 @@ When the athlete opens an activity they wrote moments ago on this device (one ju
 - **THEN** the page says at once that it couldn't load the activity, and offers to try again
 
 ### Requirement: A loaded form keeps what the athlete typed
-Once a form screen (edit profile, default zones, a sport's zones, edit activity or privacy zones) has loaded, a later load of the same content SHALL NOT replace the form's fields or what the athlete has typed into them. A later load that fails SHALL NOT hide the form or stop it from being saved.
+Once a form screen has loaded, a later load of the same content SHALL NOT replace the form's fields or what the athlete has typed into them. A later load that fails SHALL NOT hide the form or stop it from being saved.
 
 #### Scenario: Rotate while editing an activity
 - **WHEN** an athlete changes an activity's title on edit activity and the device rotates
@@ -298,7 +303,7 @@ Once a form screen (edit profile, default zones, a sport's zones, edit activity 
 - **THEN** the form stays with what the athlete typed, and saving it still works
 
 ### Requirement: A failed later page keeps the earlier pages
-When a paged list (blocked accounts, muted accounts, followers, following, athlete search, an activity's comments, or a thread's replies) fails to load a page after its first, it SHALL keep every item already listed, show below them that the rest couldn't be loaded and why, and offer to try again. Trying again SHALL load only the page that failed.
+When a paged list, or a thread's replies, fails to load a page after its first, it SHALL keep every item already listed, show below them that the rest couldn't be loaded and why, and offer to try again. Trying again SHALL load only the page that failed.
 
 #### Scenario: Third page fails
 - **WHEN** an athlete has two pages of a following list and the third fails because the device is offline
