@@ -150,6 +150,91 @@ class AgencyRulesTest {
         assertEquals(setOf(RIDE, RUN, HIKE), blm("NON_MOTO_SHARED", "plan_access_rstrct" to null))
     }
 
+    private fun blmClosed(mode: String?, vararg more: Pair<String, String?>) =
+        AgencyRules.BLM.closedTo(
+            mapOf(
+                "route_prmry_nm" to "Porcupine Rim",
+                "plan_allow_mode_trnsprt" to mode,
+                "plan_mode_trnsprt" to "Non-Motorized",
+                "plan_access_rstrct" to "None",
+            ) + more
+        )
+
+    @Test
+    fun aWildernessTrailIsClosedToBikes() {
+        val closed =
+            AgencyRules.USFS.closedTo(
+                mapOf("hiker_pedestrian_managed" to "01/01-12/31", "bicycle_restricted" to "01/01-12/31", "bicycle_disc" to "01/01-12/31")
+            )
+        assertEquals(setOf(RIDE), closed)
+    }
+
+    @Test
+    fun aForestServiceRestrictionClosesOnlyAllYearAndUnallowed() {
+        assertEquals(
+            emptySet(),
+            AgencyRules.USFS.closedTo(mapOf("bicycle_restricted" to "11/01-04/30", "bicycle_managed" to "05/01-10/31")),
+            "seasonal",
+        )
+        assertEquals(
+            emptySet(),
+            AgencyRules.USFS.closedTo(mapOf("bicycle_restricted" to "01/01-12/31", "bicycle_accpt" to "12/15-04/15")),
+            "fat bikes accepted in winter",
+        )
+        assertEquals(
+            setOf(RUN, HIKE, SKI),
+            AgencyRules.USFS.closedTo(
+                mapOf(
+                    "hiker_pedestrian_restricted" to " 01/01-12/31 ",
+                    "xcountry_ski_restricted" to "01/01-12/31",
+                    "xcountry_ski_managed" to "N/A",
+                    "motorcycle_restricted" to "01/01-12/31",
+                )
+            ),
+        )
+        assertEquals(emptySet(), AgencyRules.USFS.closedTo(mapOf("bicycle_managed" to null)), "blank isn't closed")
+    }
+
+    @Test
+    fun blmModesCloseWhatTheyLeaveOut() {
+        assertEquals(setOf(RIDE), blmClosed("EQU_HIK_ONLY"), "hiking and horses only")
+        assertEquals(setOf(RIDE, RUN, HIKE), blmClosed("MTC_ONLY"), "motorcycles only")
+        assertEquals(setOf(RUN, HIKE), blmClosed("BIKE_ONLY"))
+        assertEquals(emptySet(), blmClosed("NON_MOTO_SHARED"))
+        assertEquals(emptySet(), blmClosed("SNOW_MOTO_ONLY"), "snow codes describe winter travel")
+        assertEquals(emptySet(), blmClosed("SNOW_NON_MECH_SHARED"))
+    }
+
+    @Test
+    fun anUnknownBlmModeClosesNothing() {
+        assertEquals(emptySet(), blmClosed("UNK", "plan_mode_trnsprt" to "Non-Mechanized"))
+        assertEquals(emptySet(), blmClosed(null, "plan_mode_trnsprt" to "Motorized"))
+        assertEquals(emptySet(), blmClosed("NEW_CODE"))
+    }
+
+    @Test
+    fun restrictedBlmAccessClosesEveryGroup() {
+        val all = setOf(RIDE, RUN, HIKE, SKI, PADDLE)
+        assertEquals(all, blmClosed("NON_MOTO_SHARED", "plan_access_rstrct" to "Authorized/Permitted User Only"))
+        assertEquals(all, blmClosed("UNK", "plan_access_rstrct" to "admin only "))
+        assertEquals(all, blmClosed(null, "plan_access_rstrct" to "All"))
+        assertEquals(emptySet(), blmClosed("NON_MOTO_SHARED", "plan_access_rstrct" to "Unknown"))
+    }
+
+    @Test
+    fun parkTrailsCloseNothing() {
+        val properties =
+            mapOf(
+                "trlname" to "Ridge Trail",
+                "trlstatus" to "Existing",
+                "publicdisplay" to "Public Map Display",
+                "trluse" to "Hiker/Pedestrian",
+            )
+        assertEquals(setOf(RUN, HIKE), AgencyRules.NPS.groupsOf(properties))
+        assertEquals(emptySet(), AgencyRules.NPS.closedTo(properties))
+        assertEquals(emptySet(), AgencyRules.NPS.closedTo(properties + ("opentopublic" to "No")))
+    }
+
     @Test
     fun agencyNamesInCapitalsAreTitleCased() {
         assertEquals("Beaver Pond Trail", AgencyRules.USFS.nameFrom(mapOf("trail_name" to "BEAVER POND TRAIL")))

@@ -23,16 +23,15 @@ internal enum class AgencyRules(val kind: String, override val attribution: Stri
         }
 
         /** A use counts when its managed, accepted or accepted/discouraged field holds a season; discouraged or restricted don't. */
-        override fun groupsOf(properties: Map<String, String?>): Set<String> = buildSet {
-            fun allowed(use: String) =
-                listOf("managed", "accpt", "accpt_disc").any { suffix ->
-                    properties["${use}_$suffix"]?.trim()?.let { it.isNotEmpty() && !it.equals("N/A", ignoreCase = true) } == true
-                }
-            if (allowed("bicycle")) add(SegmentSportGroup.RIDE)
-            if (allowed("hiker_pedestrian")) addAll(FOOT_GROUPS)
-            if (allowed("xcountry_ski")) add(SegmentSportGroup.SKI)
-            if (allowed("nonmotor_watercraft")) add(SegmentSportGroup.PADDLE)
-        }
+        override fun groupsOf(properties: Map<String, String?>): Set<String> =
+            USFS_USES.filterKeys { usfsAllowed(properties, it) }.values.flatten().toSet()
+
+        /** A use closes when it's restricted all year and allowed in no season. */
+        override fun closedTo(properties: Map<String, String?>): Set<String> =
+            USFS_USES.filterKeys { use -> properties["${use}_restricted"]?.trim() == USFS_ALL_YEAR && !usfsAllowed(properties, use) }
+                .values
+                .flatten()
+                .toSet()
     },
 
     /** The Park Service's public trails (`NPS_Public_Trails`), whose listed uses are free text in practice. */
@@ -77,6 +76,21 @@ internal enum class AgencyRules(val kind: String, override val attribution: Stri
                     else -> emptySet()
                 }
         }
+
+        /**
+         * Every group restricted access shuts out; else each of `ride`, `run` and `hike` a known, non-snow allowed mode leaves out. An
+         * unknown mode closes nothing: the planned mode can open a trail but never close one.
+         */
+        override fun closedTo(properties: Map<String, String?>): Set<String> {
+            fun field(name: String) = properties[name]?.trim().orEmpty().uppercase()
+            val mode = field("plan_allow_mode_trnsprt")
+            val open = BLM_MODES[mode]
+            return when {
+                field("plan_access_rstrct") in BLM_RESTRICTED -> SegmentSportGroup.all.toSet()
+                open == null || mode.startsWith("SNOW_") -> emptySet()
+                else -> FOOT_GROUPS + SegmentSportGroup.RIDE - open
+            }
+        }
     };
 
     override val source: String
@@ -93,6 +107,12 @@ internal enum class AgencyRules(val kind: String, override val attribution: Stri
 
     /** The groups the feature is a trail for, before its name is considered. */
     abstract fun groupsOf(properties: Map<String, String?>): Set<String>
+
+    /**
+     * The groups the feature says the trail is closed to, which OSM candidates along it may not invite (segments/trail-candidates). A group
+     * missing from [groupsOf] isn't closed: none of the datasets says "not listed" to mean "not allowed".
+     */
+    open fun closedTo(properties: Map<String, String?>): Set<String> = emptySet()
 
     /** The feature's name, trimmed and title-cased when it's all capitals; null when it has none. */
     fun nameFrom(properties: Map<String, String?>): String? = nameOf(properties)?.trim()?.takeIf { it.isNotEmpty() }?.let(::titleCased)
@@ -116,6 +136,24 @@ internal enum class AgencyRules(val kind: String, override val attribution: Stri
 
         private const val MILEPOST_DECIMALS = 3
         private val FOOT_GROUPS = setOf(SegmentSportGroup.RUN, SegmentSportGroup.HIKE)
+
+        /** Each Forest Service use, as its fields' prefix, and the groups it names. */
+        private val USFS_USES: Map<String, Set<String>> =
+            mapOf(
+                "bicycle" to setOf(SegmentSportGroup.RIDE),
+                "hiker_pedestrian" to FOOT_GROUPS,
+                "xcountry_ski" to setOf(SegmentSportGroup.SKI),
+                "nonmotor_watercraft" to setOf(SegmentSportGroup.PADDLE),
+            )
+
+        /** A Forest Service season covering the whole year. */
+        private const val USFS_ALL_YEAR = "01/01-12/31"
+
+        /** Whether [use]'s managed, accepted or accepted/discouraged field holds a season. */
+        private fun usfsAllowed(properties: Map<String, String?>, use: String): Boolean =
+            listOf("managed", "accpt", "accpt_disc").any { suffix ->
+                properties["${use}_$suffix"]?.trim()?.let { it.isNotEmpty() && !it.equals("N/A", ignoreCase = true) } == true
+            }
 
         /** Each `TRLUSE` part, letters only and lower-cased, and the groups it names. */
         private val NPS_USES: Map<String, Set<String>> = buildMap {
