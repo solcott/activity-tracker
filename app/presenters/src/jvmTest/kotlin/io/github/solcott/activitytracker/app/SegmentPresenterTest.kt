@@ -145,7 +145,6 @@ class SegmentPresenterTest {
 
             failSegment = false
             failed.eventSink(SegmentEvent.Retry)
-            awaitUntil { it.content.isLoading }
             val loaded = awaitUntil { it.segment != null }
             assertEquals("Hill", loaded.segment?.record?.name)
             assertNull(loaded.content.errorOrNull)

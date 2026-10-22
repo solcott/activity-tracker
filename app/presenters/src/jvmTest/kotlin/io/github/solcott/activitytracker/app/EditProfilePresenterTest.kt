@@ -19,6 +19,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.bytestring.ByteString
@@ -89,8 +90,10 @@ class EditProfilePresenterTest {
             assertNull(failed.error, "a load failure isn't the save's")
 
             fixture.offline = false
+            val retry = CompletableDeferred<Unit>().also { fixture.gate = it }
             failed.eventSink(EditProfileEvent.Retry)
             assertTrue(awaitUntil { it.content.isLoading }.content.errorOrNull == null)
+            retry.complete(Unit)
             assertEquals("Alice", awaitUntil { it.loaded }.displayName.text.toString())
             cancelAndIgnoreRemainingEvents()
         }
@@ -112,7 +115,7 @@ class EditProfilePresenterTest {
             loaded.eventSink(EditProfileEvent.Retry)
             awaitSettled { fixture.profileReads > reads }
 
-            val after = expectMostRecentItem()
+            val after = mostRecentItemOr(loaded)
             assertTrue(after.loaded, "a later load, failed or not, never hides the form")
             assertNull(after.content.errorOrNull)
             assertEquals("Alice A.", after.displayName.text.toString())

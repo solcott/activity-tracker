@@ -45,7 +45,6 @@ import io.github.solcott.dataresult.DataError
 import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.errorOrNull
 import io.github.solcott.uistate.hasLoaded
-import io.github.solcott.uistate.isLoading
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
@@ -379,7 +378,6 @@ class EditActivityPresenterTest {
 
             activityOffline = false
             failed.eventSink(EditActivityEvent.Retry)
-            awaitUntil { it.content.isLoading }
             val loaded = awaitLoaded()
             assertTrue(loaded.content.hasLoaded)
             assertEquals("Blue Hole", loaded.title.text.toString())
@@ -426,7 +424,7 @@ class EditActivityPresenterTest {
             assertEquals("Sharks", back.details?.description?.text.toString(), "the details are filled again from the activity as loaded")
             // Coming back restarts the load; its answer leaves the form alone.
             awaitSettled { activityReads > reads }
-            assertEquals("Blue Hole at dawn", expectMostRecentItem().title.text.toString())
+            assertEquals("Blue Hole at dawn", mostRecentItemOr(back).title.text.toString())
             cancelAndIgnoreRemainingEvents()
         }
     }

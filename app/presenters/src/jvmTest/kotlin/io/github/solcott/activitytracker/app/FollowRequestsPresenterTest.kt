@@ -51,6 +51,9 @@ class FollowRequestsPresenterTest {
     /** Holds each approval write until completed, so the test sees it in flight. */
     private val approveGate = CompletableDeferred<Unit>().apply { complete(Unit) }
     private var gate = approveGate
+
+    /** Holds the follow requests list until completed, so the test sees a reload in flight; null answers at once. */
+    private var requestsGate: CompletableDeferred<Unit>? = null
     private var approvals = 0
 
     private val http =
@@ -61,7 +64,8 @@ class FollowRequestsPresenterTest {
                 when ("${request.url.host}${request.url.encodedPath}") {
                     "pds.test/xrpc/com.atproto.server.getServiceAuth" -> respond("""{"token":"service-jwt"}""", headers = json)
 
-                    "appview.test/xrpc/${Nsid.GRAPH_GET_FOLLOW_REQUESTS}" ->
+                    "appview.test/xrpc/${Nsid.GRAPH_GET_FOLLOW_REQUESTS}" -> {
+                        requestsGate?.await()
                         if (failRequests) {
                             error("InternalServerError", HttpStatusCode.InternalServerError)
                         } else {
@@ -70,6 +74,7 @@ class FollowRequestsPresenterTest {
                                 headers = json,
                             )
                         }
+                    }
 
                     "appview.test/.well-known/did.json" ->
                         respond(
@@ -208,8 +213,10 @@ class FollowRequestsPresenterTest {
             awaitLoaded().eventSink(FollowRequestsEvent.Approve(bob))
             val done = awaitUntil { it.requests.isEmpty() && bob !in it.answering }
             // The AppView still lists Bob as pending.
+            val reload = CompletableDeferred<Unit>().also { requestsGate = it }
             done.eventSink(FollowRequestsEvent.Retry)
             awaitUntil { it.content.isLoading }
+            reload.complete(Unit)
             val reloaded = awaitLoaded()
             assertEquals(emptyList(), reloaded.requests.map { it.did })
             assertEquals(listOf(carol), reloaded.declined.map { it.did })
@@ -223,8 +230,10 @@ class FollowRequestsPresenterTest {
             awaitLoaded().eventSink(FollowRequestsEvent.Decline(bob))
             val done = awaitUntil { it.requests.isEmpty() && bob !in it.answering }
             // The fake's self space still holds only Carol's decline.
+            val reload = CompletableDeferred<Unit>().also { requestsGate = it }
             done.eventSink(FollowRequestsEvent.Retry)
             awaitUntil { it.content.isLoading }
+            reload.complete(Unit)
             val reloaded = awaitLoaded()
             assertEquals(emptyList(), reloaded.requests.map { it.did })
             assertEquals(listOf(bob, carol), reloaded.declined.map { it.did })

@@ -28,6 +28,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -138,8 +139,10 @@ class TrainingZonesPresenterTest {
         presenterTestOf({ TrainingZonesPresenter(FakeNavigator(TrainingZonesScreen), repos.profiles, repos.units) }) {
             awaitUntil { it.zones != null && !it.content.isLoading }.eventSink(TrainingZonesEvent.VisibilityChanged(Visibility.FOLLOWERS))
             val saved = awaitUntil { !it.savingVisibility && it.visibility == Visibility.FOLLOWERS }
+            val reload = CompletableDeferred<Unit>().also { fixture.gate = it }
             saved.eventSink(TrainingZonesEvent.Retry)
             awaitUntil { it.content.isLoading }
+            reload.complete(Unit)
             val reloaded = awaitUntil { !it.content.isLoading }
             assertEquals(Visibility.FOLLOWERS, reloaded.visibility, "read back from the space it was saved to")
             cancelAndIgnoreRemainingEvents()

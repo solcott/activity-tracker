@@ -448,7 +448,8 @@ class ProfilePresenterTest {
     fun activitiesThatFailToLoadKeepTheHeader() = runTest {
         failActivities = true
         presenterTestOf(presenter()) {
-            val failed = awaitUntil { it.activities.errorOrNull != null }
+            // A DID's activities load beside the header, so either can answer first.
+            val failed = awaitUntil { it.activities.errorOrNull != null && it.content.hasLoaded }
             assertEquals(DataError.Network, failed.activities.errorOrNull)
             assertNotNull(failed.profile)
             assertNull(failed.content.errorOrNull)

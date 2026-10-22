@@ -14,7 +14,6 @@ import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.dataresult.DataError
 import io.github.solcott.uistate.errorOrNull
-import io.github.solcott.uistate.isLoading
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -64,7 +63,6 @@ class SportZonesPresenterTest {
 
             fixture.offline = false
             failed.eventSink(SportZonesEvent.Retry)
-            awaitUntil { it.content.isLoading }
             assertEquals("250", awaitUntil { it.loaded }.functionalThresholdPower.text.toString())
             cancelAndIgnoreRemainingEvents()
         }

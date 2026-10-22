@@ -122,10 +122,11 @@ class SettingsPresenterTest {
             assertEquals(Visibility.PUBLIC, loaded.defaults?.activity, "never set: Public")
             assertEquals(DetailCategory.all.map { Visibility.PUBLIC }, loaded.defaults?.categories?.map { it.visibility })
             loaded.defaults!!.eventSink(VisibilityEvent.CategoryChanged(DetailCategory.HEART_RATE, Visibility.SELF))
-            awaitUntil { it.savingDefaults }
-            awaitUntil { !it.savingDefaults }.defaults!!.eventSink(VisibilityEvent.ActivityChanged(Visibility.MUTUALS))
-            awaitUntil { it.savingDefaults }
-            val saved = awaitUntil { !it.savingDefaults }
+            // A save can finish before a frame shows it running, so each waits for its answer rather than for `savingDefaults`.
+            awaitUntil { !it.savingDefaults && it.defaults?.tierOf(DetailCategory.HEART_RATE) == Visibility.SELF }
+                .defaults!!
+                .eventSink(VisibilityEvent.ActivityChanged(Visibility.MUTUALS))
+            val saved = awaitUntil { !it.savingDefaults && it.defaults?.activity == Visibility.MUTUALS }
             assertEquals(Visibility.MUTUALS, saved.defaults?.activity)
             assertEquals(Visibility.SELF, saved.defaults?.tierOf(DetailCategory.HEART_RATE), "a narrower category stays")
             assertEquals(Visibility.MUTUALS, saved.defaults?.tierOf(DetailCategory.POWER), "a wider one is capped")

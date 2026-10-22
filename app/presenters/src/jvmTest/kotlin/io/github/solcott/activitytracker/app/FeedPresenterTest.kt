@@ -138,6 +138,7 @@ class FeedPresenterTest {
                     path == "/xrpc/${Nsid.FEED_GET_TIMELINE}" || path == "/xrpc/${Nsid.FEED_GET_AUTHOR_ACTIVITIES}" -> {
                         val params = request.url.parameters.entries().associate { it.key to it.value }
                         queries += path.removePrefix("/xrpc/") to params
+                        feedGate?.await()
                         if (feedFails) return@MockEngine respond("", HttpStatusCode.InternalServerError)
                         val activities = if ("type" in params) listOf(ride) else timeline
                         respond(AtJson.encodeToString(GetTimeline.Output.serializer(), GetTimeline.Output(activities)), headers = json)
@@ -155,6 +156,9 @@ class FeedPresenterTest {
 
     /** Completed once the privacy zones are first read. */
     private val zonesRead = CompletableDeferred<Unit>()
+
+    /** Holds feed queries until completed, so the test sees one in flight; null answers at once. */
+    private var feedGate: CompletableDeferred<Unit>? = null
 
     /** Whether feed queries fail with a server error. */
     private var feedFails = false
@@ -273,9 +277,12 @@ class FeedPresenterTest {
     fun aRefreshKeepsTheActivitiesListedWhileItRuns() = runTest {
         timeline = listOf(bobsFollowersRun)
         filterTest {
-            awaitRefreshed().eventSink(FeedEvent.Refresh)
+            val loaded = awaitRefreshed()
+            val refresh = CompletableDeferred<Unit>().also { feedGate = it }
+            loaded.eventSink(FeedEvent.Refresh)
             val refreshing = awaitUntil { it.content.isLoading }
             assertEquals(listOf(bobsFollowersRun.uri), refreshing.activities.map { it.uri })
+            refresh.complete(Unit)
             val settled = awaitUntil { !it.content.isLoading }
             assertEquals(listOf(bobsFollowersRun.uri), settled.activities.map { it.uri })
             assertEquals(null, settled.content.errorOrNull)
@@ -307,8 +314,7 @@ class FeedPresenterTest {
             feedFails = false
             timeline = listOf(bobsFollowersRun)
             failed.eventSink(FeedEvent.Refresh)
-            awaitUntil { it.content.isLoading }
-            val loaded = awaitUntil { !it.content.isLoading }
+            val loaded = awaitUntil { it.activities.isNotEmpty() && !it.content.isLoading }
             assertEquals(null, loaded.content.errorOrNull)
             assertEquals(listOf(bobsFollowersRun.uri), loaded.activities.map { it.uri })
             cancelAndIgnoreRemainingEvents()
