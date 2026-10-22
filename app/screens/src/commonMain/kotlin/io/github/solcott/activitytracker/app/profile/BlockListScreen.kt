@@ -8,7 +8,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
-import kotlinx.collections.immutable.ImmutableList
+import io.github.solcott.uistate.PagedState
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.serialization.Serializable
@@ -31,22 +31,22 @@ enum class BlockListKind {
 @Immutable
 data class BlockListState(
     val kind: BlockListKind,
-    val accounts: ImmutableList<BlockListAccount>,
-    val isLoading: Boolean,
-    val canLoadMore: Boolean,
+    /** The accounts loaded so far, and how loading them stands (ui/content-loading). */
+    val accounts: PagedState<BlockListAccount, Unit>,
     /** Accounts whose unblock or unmute is being written. */
     val removing: ImmutableSet<Did> = persistentSetOf(),
-    val error: UiError?,
+    /** Why the last unblock or unmute failed; the next one clears it. */
+    val actionError: UiError? = null,
     val eventSink: (BlockListEvent) -> Unit,
 ) : CircuitUiState
 
 sealed interface BlockListEvent {
     data object Back : BlockListEvent
 
-    /** Loads the next page; ignored while a page is loading or when there are no more. */
+    /** Loads the next page; ignored while a page is loading, after a failed page, or when there are no more. */
     data object LoadMore : BlockListEvent
 
-    /** Reloads from the first page after an error. */
+    /** Loads again what failed to load, and only that: the first page, or the page that failed. */
     data object Retry : BlockListEvent
 
     data class Open(val did: Did) : BlockListEvent

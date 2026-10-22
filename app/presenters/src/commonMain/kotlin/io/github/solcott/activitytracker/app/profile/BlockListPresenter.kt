@@ -3,13 +3,11 @@ package io.github.solcott.activitytracker.app.profile
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
+import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
-import io.github.solcott.activitytracker.app.CursorPage
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.rememberCursorPaging
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -17,27 +15,29 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.BlockSource
+import io.github.solcott.dataresult.Outcome
+import io.github.solcott.dataresult.mapData
+import io.github.solcott.uistate.Page
+import io.github.solcott.uistate.circuit.rememberRetainedPaging
+import io.github.solcott.uistate.pageOf
 import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.coroutines.flow.flow
 
 @CircuitInject(BlockListScreen::class, SessionScope::class)
 @Composable
 fun BlockListPresenter(screen: BlockListScreen, navigator: Navigator, blocks: BlockRepository): BlockListState {
     val accounts =
-        rememberCursorPaging(screen, idOf = { account: BlockListAccount -> account.profile.did }) { blocks.page(screen.kind, it) }
-    var removeError by remember { mutableStateOf<UiError?>(null) }
-    val flights = rememberSingleFlight()
-    val loadError =
-        accounts.failure?.let {
-            UiError.of(if (screen.kind == BlockListKind.Blocked) UiError.Kind.LoadBlocks else UiError.Kind.LoadMutes, it)
+        rememberRetainedPaging(screen, idOf = { account: BlockListAccount -> account.profile.did }) { cursor ->
+            flow { emit(blocks.page(screen.kind, cursor)) }
         }
+    var actionError by rememberRetained { mutableStateOf<UiError?>(null) }
+    val flights = rememberSingleFlight()
 
     return BlockListState(
         kind = screen.kind,
-        accounts = accounts.items,
-        isLoading = accounts.isLoading,
-        canLoadMore = accounts.canLoadMore && removeError == null,
-        removing = accounts.items.map { it.profile.did }.filter { flights.isRunning(it) }.toImmutableSet(),
-        error = removeError ?: loadError,
+        accounts = accounts.state,
+        removing = accounts.state.items.map { it.profile.did }.filter { flights.isRunning(it) }.toImmutableSet(),
+        actionError = actionError,
     ) { event ->
         when (event) {
             BlockListEvent.Back -> {
@@ -45,11 +45,10 @@ fun BlockListPresenter(screen: BlockListScreen, navigator: Navigator, blocks: Bl
             }
 
             BlockListEvent.LoadMore -> {
-                if (removeError == null) accounts.loadMore()
+                accounts.loadMore()
             }
 
             BlockListEvent.Retry -> {
-                removeError = null
                 accounts.retry()
             }
 
@@ -58,14 +57,15 @@ fun BlockListPresenter(screen: BlockListScreen, navigator: Navigator, blocks: Bl
             }
 
             is BlockListEvent.Remove -> {
-                val account = accounts.items.firstOrNull { it.profile.did == event.did }?.takeIf { it.removable }
+                val account = accounts.state.items.firstOrNull { it.profile.did == event.did }?.takeIf { it.removable }
                 if (account != null) {
+                    actionError = null
                     flights.launch(event.did) {
                         runSuspendCatching { blocks.remove(screen.kind, event.did) }
                             .onSuccess { accounts.update { list -> list.afterRemoving(event.did) } }
                             .onFailure {
                                 val kind = if (screen.kind == BlockListKind.Blocked) UiError.Kind.UpdateBlock else UiError.Kind.UpdateMute
-                                removeError = uiErrorOf(kind, it)
+                                actionError = uiErrorOf(kind, it)
                             }
                     }
                 }
@@ -75,17 +75,17 @@ fun BlockListPresenter(screen: BlockListScreen, navigator: Navigator, blocks: Bl
 }
 
 /** A page of the athlete's blocks or mutes, each block marked removable only when the app holds it. */
-private suspend fun BlockRepository.page(kind: BlockListKind, cursor: String?): CursorPage<BlockListAccount> =
+private suspend fun BlockRepository.page(kind: BlockListKind, cursor: String?): Outcome<Page<BlockListAccount, Unit>> =
     when (kind) {
         BlockListKind.Blocked ->
-            blocks(cursor).let { page ->
+            blocksPage(cursor).mapData { page ->
                 val listed =
-                    page.blocks.map {
+                    page.items.map {
                         BlockListAccount(it.actor, removable = BlockSource.APP in it.sources, onBluesky = BlockSource.BLUESKY in it.sources)
                     }
-                CursorPage(listed, page.cursor)
+                pageOf(listed, page.next)
             }
-        BlockListKind.Muted -> mutes(cursor).let { page -> CursorPage(page.mutes.map { BlockListAccount(it) }, page.cursor) }
+        BlockListKind.Muted -> mutesPage(cursor).mapData { page -> pageOf(page.items.map { BlockListAccount(it) }, page.next) }
     }
 
 private suspend fun BlockRepository.remove(kind: BlockListKind, did: Did) {
