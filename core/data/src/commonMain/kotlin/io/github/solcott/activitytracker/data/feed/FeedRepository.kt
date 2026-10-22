@@ -15,11 +15,13 @@ import io.github.solcott.activitytracker.data.db.KeyValueEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.outcomeFlow
+import io.github.solcott.activitytracker.data.outcomeOf
 import io.github.solcott.activitytracker.data.ownBlobUrl
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
@@ -30,7 +32,10 @@ import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.ThreadView
 import io.github.solcott.dataresult.Outcome
+import io.github.solcott.uistate.Page
+import io.github.solcott.uistate.pageOf
 import kotlin.time.Instant
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -161,6 +166,16 @@ class FeedRepository(
             localComments.report(listed)
             localBlocks.report(activity, listed)
         }
+
+    /** A page of [activity]'s comment threads after [cursor] ([comments]), for a paged list. */
+    suspend fun commentsPage(activity: AtUri, cursor: String?): Outcome<Page<ThreadView, Unit>> = outcomeOf {
+        comments(activity, cursor).let { pageOf(it.threads.orEmpty(), it.cursor) }
+    }
+
+    /** A page of thread [root]'s replies on [activity] after [cursor] ([comments]), for a paged list. */
+    suspend fun repliesPage(activity: AtUri, root: AtUri, cursor: String?): Outcome<Page<CommentView, Unit>> = outcomeOf {
+        comments(activity, cursor, root).let { pageOf(it.comments, it.cursor) }
+    }
 
     /**
      * Asks the AppView whether it serves the viewer's block or mute of [did] yet ([LocalBlocks.applyTo] settles it if so). An athlete it

@@ -13,6 +13,8 @@ kotlin {
             api(projects.coreAtproto)
             api(projects.coreLocation)
             api(libs.dataresult)
+            // Page, which paged reads return.
+            api(libs.dataresult.uistate)
             api(libs.room.runtime)
 
             implementation(libs.compose.runtime.annotation)

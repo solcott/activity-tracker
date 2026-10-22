@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.outcomeFlow
+import io.github.solcott.activitytracker.data.outcomeOf
 import io.github.solcott.activitytracker.data.ownBlobUrl
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -22,12 +23,14 @@ import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
+import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewerState
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.DeleteRecord
 import io.github.solcott.activitytracker.lexicon.atproto.PutRecord
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.dataresult.Outcome
+import io.github.solcott.uistate.Page
 import kotlin.time.Clock
 import kotlinx.coroutines.flow.Flow
 
@@ -114,6 +117,16 @@ class ProfileRepository(
     /** One page of athletes [actor] (a DID or handle) follows. */
     suspend fun follows(actor: String, cursor: String? = null): GetFollows.Output =
         clients.appView.query(GetFollows.method, GetFollows.Params(actor, cursor = cursor))
+
+    /** A page of [followers] for a paged list, headed by the actor whose followers they are. */
+    suspend fun followersPage(actor: String, cursor: String?): Outcome<Page<ProfileViewBasic, ProfileViewBasic>> = outcomeOf {
+        followers(actor, cursor).let { Page(it.followers, it.subject, it.cursor) }
+    }
+
+    /** A page of [follows] for a paged list, headed by the actor who follows them. */
+    suspend fun followsPage(actor: String, cursor: String?): Outcome<Page<ProfileViewBasic, ProfileViewBasic>> = outcomeOf {
+        follows(actor, cursor).let { Page(it.follows, it.subject, it.cursor) }
+    }
 
     /** The signed-in athlete's own profile record, read from their PDS (not the AppView, which may lag); null if they have none. */
     suspend fun ownProfileRecord(): ProfileRecord? = clients.ownProfileRecord()

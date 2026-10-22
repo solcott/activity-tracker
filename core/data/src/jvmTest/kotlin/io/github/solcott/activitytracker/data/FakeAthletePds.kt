@@ -27,6 +27,7 @@ import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
@@ -35,9 +36,12 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetBlocks
 import io.github.solcott.activitytracker.lexicon.app.GetComments
+import io.github.solcott.activitytracker.lexicon.app.GetFollowers
+import io.github.solcott.activitytracker.lexicon.app.GetFollows
 import io.github.solcott.activitytracker.lexicon.app.GetMutes
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.SearchActors
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.mergeStreams
@@ -99,6 +103,14 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
     var blocks: List<GetBlocks.BlockView> = emptyList()
     var mutes: List<ProfileViewBasic> = emptyList()
 
+    /** What the AppView's `getFollowers`, `getFollows` and `searchActors` serve, in one page; their subject is the actor asked about. */
+    var followers: List<ProfileViewBasic> = emptyList()
+    var follows: List<ProfileViewBasic> = emptyList()
+    var searched: List<ProfileViewBasic> = emptyList()
+
+    /** Every request to the AppView answers with a server error, while set. */
+    var appViewFailing = false
+
     /** What the AppView's `getAuthorActivities` serves, in one page; an error while null. */
     var authorActivities: List<ActivityView>? = emptyList()
 
@@ -138,6 +150,8 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                 if (offline && request.url.host == "pds.test")
                     return@MockEngine error("InternalServerError", HttpStatusCode.InternalServerError)
                 if (appViewOffline && request.url.host != "pds.test") throw IOException("Connection refused")
+                if (appViewFailing && request.url.host != "pds.test")
+                    return@MockEngine error("InternalServerError", HttpStatusCode.InternalServerError)
                 val path = request.url.encodedPath
                 requests += "$path ${request.url.parameters["collection"]}/${request.url.parameters["rkey"]}"
                 when {
@@ -242,6 +256,16 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                         json(AtJson.encodeToString(GetBlocks.Output.serializer(), GetBlocks.Output(blocks)))
                     path == "/xrpc/${Nsid.GRAPH_GET_MUTES}" ->
                         json(AtJson.encodeToString(GetMutes.Output.serializer(), GetMutes.Output(mutes)))
+                    path == "/xrpc/${Nsid.GRAPH_GET_FOLLOWERS}" -> {
+                        val subject = ProfileViewBasic(Did(request.url.parameters["actor"]!!), Handle("subject.test"))
+                        json(AtJson.encodeToString(GetFollowers.Output.serializer(), GetFollowers.Output(subject, followers)))
+                    }
+                    path == "/xrpc/${Nsid.GRAPH_GET_FOLLOWS}" -> {
+                        val subject = ProfileViewBasic(Did(request.url.parameters["actor"]!!), Handle("subject.test"))
+                        json(AtJson.encodeToString(GetFollows.Output.serializer(), GetFollows.Output(subject, follows)))
+                    }
+                    path == "/xrpc/${Nsid.ACTOR_SEARCH_ACTORS}" ->
+                        json(AtJson.encodeToString(SearchActors.Output.serializer(), SearchActors.Output(searched)))
                     path == "/xrpc/${Nsid.FEED_GET_ACTIVITY}" ->
                         served?.let { json(AtJson.encodeToString(GetActivity.Output.serializer(), GetActivity.Output(it.activity))) }
                             ?: error("NotFound")
