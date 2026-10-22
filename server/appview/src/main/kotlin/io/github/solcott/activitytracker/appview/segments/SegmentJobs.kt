@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.appview.segments
 
 import io.github.solcott.activitytracker.appview.db.SegmentMatchJobs
 import kotlinx.coroutines.channels.Channel
+import org.jetbrains.exposed.v1.jdbc.batchUpsert
 import org.jetbrains.exposed.v1.jdbc.upsert
 
 /**
@@ -19,8 +20,17 @@ class SegmentJobs {
     /** Match a new or changed segment against the usable segment tracks that pass near it. */
     fun enqueueSegment(segmentUri: String, now: Long) = enqueue(SEGMENT, segmentUri, now)
 
-    /** Count a new or changed staged candidate's riders among the usable segment tracks that pass near it. */
-    fun enqueueCandidate(candidateId: String, now: Long) = enqueue(CANDIDATE, candidateId, now)
+    /** Count each new or changed staged candidate's riders among the usable segment tracks that pass near it, in one batched statement. */
+    fun enqueueCandidates(candidateIds: Collection<String>, now: Long) {
+        if (candidateIds.isEmpty()) return
+        SegmentMatchJobs.batchUpsert(candidateIds, shouldReturnGeneratedValues = false) { id ->
+            this[SegmentMatchJobs.kind] = CANDIDATE
+            this[SegmentMatchJobs.subjectUri] = id
+            this[SegmentMatchJobs.enqueuedAt] = now
+            this[SegmentMatchJobs.attempts] = 0
+        }
+        wakeups.trySend(Unit)
+    }
 
     /** Recompute the visibility of an activity's efforts from its indexed record, details and streams. */
     fun enqueueTiers(activityUri: String, now: Long) = enqueue(TIERS, activityUri, now)

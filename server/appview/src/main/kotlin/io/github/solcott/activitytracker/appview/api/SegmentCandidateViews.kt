@@ -39,10 +39,10 @@ import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.andWhere
 import org.jetbrains.exposed.v1.jdbc.batchInsert
+import org.jetbrains.exposed.v1.jdbc.batchUpsert
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.upsert
 
 /**
  * The segment importer's calls (segments/segment-candidates), refused with `NotImporter` to anyone but [importer], and to everyone when
@@ -57,7 +57,9 @@ class SegmentCandidateViews(
 ) {
     /**
      * Stores or replaces each valid candidate by its id, returning the rest with why. One whose line and sport are unchanged keeps its
-     * riders and ridden; a new or changed one loses them, gets its cells again and is queued to be counted against past tracks.
+     * riders and ridden; a new or changed one loses them, gets its cells again and is queued to be counted against past tracks. Candidates
+     * are validated before the transaction, which then writes the whole batch in a fixed number of statements, so a batch's time doesn't
+     * grow with round trips to the database. An id given twice is staged as its last valid copy.
      */
     suspend fun put(caller: Did, input: PutSegmentCandidates.Input): PutSegmentCandidates.Output {
         requireImporter(caller)
@@ -67,15 +69,15 @@ class SegmentCandidateViews(
         }
         val now = clock.now().toEpochMilliseconds()
         val rejected = mutableListOf<SegmentCandidateRejection>()
-        db.tx {
-            for (candidate in input.candidates) {
-                try {
-                    stage(candidate, input.region, input.revision, now)
-                } catch (e: IllegalArgumentException) {
-                    rejected += SegmentCandidateRejection(candidate.id.take(SegmentCandidates.MAX_ID_LENGTH), e.message ?: "invalid")
-                }
+        val valid = linkedMapOf<String, Staged>()
+        for (candidate in input.candidates) {
+            try {
+                valid[candidate.id] = validated(candidate)
+            } catch (e: IllegalArgumentException) {
+                rejected += SegmentCandidateRejection(candidate.id.take(SegmentCandidates.MAX_ID_LENGTH), e.message ?: "invalid")
             }
         }
+        if (valid.isNotEmpty()) db.tx { stage(valid.values, input.region, input.revision, now) }
         return PutSegmentCandidates.Output(rejected)
     }
 
@@ -132,11 +134,11 @@ class SegmentCandidateViews(
         return GetRiddenSegmentCandidates.Output(page, cursor = page.takeIf { it.size == limit }?.last()?.id)
     }
 
-    /**
-     * Validates [candidate] as a segment is validated, and its attribution, then stores it; throws [IllegalArgumentException] naming what's
-     * wrong.
-     */
-    private fun JdbcTransaction.stage(candidate: SegmentCandidate, region: String, revision: String, now: Long) {
+    /** A candidate that passed validation, with its decoded line. */
+    private class Staged(val candidate: SegmentCandidate, val name: String, val line: List<GeoPoint>, val attribution: String?)
+
+    /** Validates [candidate] as a segment is validated, and its attribution; throws [IllegalArgumentException] naming what's wrong. */
+    private fun validated(candidate: SegmentCandidate): Staged {
         require(SegmentCandidates.ID_PATTERN.matches(candidate.id)) { "an id that isn't 1 to 64 of a-z, 0-9 and -" }
         require(candidate.line.length <= MAX_LINE_LENGTH) { "a line over $MAX_LINE_LENGTH characters" }
         require(candidate.source.length <= MAX_TOKEN_LENGTH && candidate.license.length <= MAX_TOKEN_LENGTH) {
@@ -144,42 +146,57 @@ class SegmentCandidateViews(
         }
         val name = validName(candidate.name)
         val line = validLine(candidate.sport, candidate.line)
-        val attribution = validAttribution(candidate.attribution)
-        val old =
-            SegmentCandidateRows.select(SegmentCandidateRows.line, SegmentCandidateRows.sport, SegmentCandidateRows.ridden)
-                .where { SegmentCandidateRows.id eq candidate.id }
-                .firstOrNull()
-        val changed = old == null || old[SegmentCandidateRows.line] != candidate.line || old[SegmentCandidateRows.sport] != candidate.sport
-        SegmentCandidateRows.upsert {
-            it[id] = candidate.id
-            it[SegmentCandidateRows.region] = region
-            it[SegmentCandidateRows.revision] = revision
-            it[sport] = candidate.sport
-            it[SegmentCandidateRows.name] = name.take(MAX_NAME_LENGTH)
-            it[SegmentCandidateRows.line] = candidate.line
-            it[distanceM] = SegmentGeometry.lengthMeters(line).roundToLong()
-            it[minLatE7] = line.minOf { p -> p.lat }.e7()
-            it[maxLatE7] = line.maxOf { p -> p.lat }.e7()
-            it[minLngE7] = line.minOf { p -> p.lng }.e7()
-            it[maxLngE7] = line.maxOf { p -> p.lng }.e7()
-            it[dataSource] = candidate.source
-            it[license] = candidate.license
-            it[SegmentCandidateRows.attribution] = attribution
-            it[ridden] = if (changed) false else old[SegmentCandidateRows.ridden]
-            it[stagedAt] = now
-        }
-        if (!changed) return
-        SegmentCandidateRiders.deleteWhere { candidateId eq candidate.id }
-        replaceCells(candidate.id, line)
-        jobs.enqueueCandidate(candidate.id, now)
+        return Staged(candidate, name, line, validAttribution(candidate.attribution))
     }
 
-    private fun JdbcTransaction.replaceCells(id: String, line: List<GeoPoint>) {
-        SegmentCandidateCells.deleteWhere { candidateId eq id }
-        SegmentCandidateCells.batchInsert(SegmentCells.cellsOf(line)) {
-            this[SegmentCandidateCells.cell] = it
+    /** Stores [batch], clearing the riders and replacing the cells of the new and changed candidates, and queues those to be counted. */
+    private fun JdbcTransaction.stage(batch: Collection<Staged>, region: String, revision: String, now: Long) {
+        val old =
+            SegmentCandidateRows.select(
+                    SegmentCandidateRows.id,
+                    SegmentCandidateRows.line,
+                    SegmentCandidateRows.sport,
+                    SegmentCandidateRows.ridden,
+                )
+                .where { SegmentCandidateRows.id inList batch.map { it.candidate.id } }
+                .associateBy { it[SegmentCandidateRows.id] }
+        val changed = batch.filter { staged ->
+            val row = old[staged.candidate.id]
+            row == null ||
+                row[SegmentCandidateRows.line] != staged.candidate.line ||
+                row[SegmentCandidateRows.sport] != staged.candidate.sport
+        }
+        val changedIds = changed.mapTo(mutableSetOf()) { it.candidate.id }
+        SegmentCandidateRows.batchUpsert(batch, shouldReturnGeneratedValues = false) { staged ->
+            val candidate = staged.candidate
+            val line = staged.line
+            this[SegmentCandidateRows.id] = candidate.id
+            this[SegmentCandidateRows.region] = region
+            this[SegmentCandidateRows.revision] = revision
+            this[SegmentCandidateRows.sport] = candidate.sport
+            this[SegmentCandidateRows.name] = staged.name.take(MAX_NAME_LENGTH)
+            this[SegmentCandidateRows.line] = candidate.line
+            this[SegmentCandidateRows.distanceM] = SegmentGeometry.lengthMeters(line).roundToLong()
+            this[SegmentCandidateRows.minLatE7] = line.minOf { p -> p.lat }.e7()
+            this[SegmentCandidateRows.maxLatE7] = line.maxOf { p -> p.lat }.e7()
+            this[SegmentCandidateRows.minLngE7] = line.minOf { p -> p.lng }.e7()
+            this[SegmentCandidateRows.maxLngE7] = line.maxOf { p -> p.lng }.e7()
+            this[SegmentCandidateRows.dataSource] = candidate.source
+            this[SegmentCandidateRows.license] = candidate.license
+            this[SegmentCandidateRows.attribution] = staged.attribution
+            this[SegmentCandidateRows.ridden] = candidate.id !in changedIds && old.getValue(candidate.id)[SegmentCandidateRows.ridden]
+            this[SegmentCandidateRows.stagedAt] = now
+        }
+        if (changedIds.isEmpty()) return
+        SegmentCandidateRiders.deleteWhere { candidateId inList changedIds }
+        SegmentCandidateCells.deleteWhere { candidateId inList changedIds }
+        SegmentCandidateCells.batchInsert(
+            changed.flatMap { staged -> SegmentCells.cellsOf(staged.line).map { staged.candidate.id to it } }
+        ) { (id, cell) ->
+            this[SegmentCandidateCells.cell] = cell
             this[SegmentCandidateCells.candidateId] = id
         }
+        jobs.enqueueCandidates(changedIds, now)
     }
 
     private fun requireImporter(caller: Did) {

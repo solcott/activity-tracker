@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.appview.api.SegmentCandidateViews
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateCells
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateRows
 import io.github.solcott.activitytracker.appview.db.Segments
@@ -16,6 +17,8 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetRiddenSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.PutSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
+import io.github.solcott.activitytracker.lexicon.app.SegmentCandidate
+import io.github.solcott.activitytracker.lexicon.app.SegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -32,16 +35,23 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import java.lang.reflect.InvocationTargetException
+import java.lang.reflect.Proxy
+import java.sql.Connection
+import java.sql.Statement
+import javax.sql.DataSource
 import kotlin.math.roundToInt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 
@@ -110,6 +120,30 @@ class SegmentCandidatesTest : SegmentTestBase() {
                 candidate("c-source").copy(source = "o".repeat(65)),
             )
         assertEquals(listOf("Bad Id", "c-unnamed", "c-sport", "c-malformed", "c-long", "c-source"), rejected)
+    }
+
+    @Test
+    fun aBatchTakesAsManyRoundTripsWhateverItsSize() {
+        // Staging once took several round trips per candidate, so a slow database made a 500-candidate batch outlast the importer.
+        var statements = 0
+        val counted = Database.connect(executionsCounted(dataSource) { statements++ })
+        fun staged(vararg candidates: SegmentCandidate): Int {
+            statements = 0
+            runBlocking {
+                val input = PutSegmentCandidates.Input("us-vermont", "r1", candidates.toList())
+                assertEquals(
+                    emptyList(),
+                    SegmentCandidateViews(counted, Did(importer), indexer.segmentJobs).put(Did(importer), input).rejected,
+                )
+            }
+            return statements
+        }
+        val few = staged(*(1..5).map { candidate("c-few-$it") }.toTypedArray())
+        val many = staged(*(1..SegmentCandidates.MAX_BATCH).map { candidate("c-many-$it") }.toTypedArray())
+        assertEquals(few, many, "new candidates")
+        assertEquals(SegmentCandidates.MAX_BATCH + 5, jobs().size)
+        val unchanged = staged(*(1..SegmentCandidates.MAX_BATCH).map { candidate("c-many-$it") }.toTypedArray())
+        assertTrue(unchanged <= many, "unchanged candidates: $unchanged")
     }
 
     @Test
@@ -442,5 +476,30 @@ class SegmentCandidatesTest : SegmentTestBase() {
         val after = runBlocking { db.tx { Segments.selectAll().where { Segments.uri eq segmentUri("3ks") }.single()[Segments.status] } }
         assertEquals(SegmentStatus.PROPOSED, after, "the candidate's three riders don't make it active")
         assertFalse(riders("c-ride").isEmpty())
+    }
+}
+
+/** [dataSource], calling [onExecute] each time a statement is sent to the database: each `execute*` call, a batch counting once. */
+private fun executionsCounted(dataSource: DataSource, onExecute: () -> Unit): DataSource {
+    fun <T : Any> proxy(type: Class<T>, target: T, wrap: (Any?) -> Any?): T =
+        type.cast(
+            Proxy.newProxyInstance(type.classLoader, arrayOf(type)) { _, method, args ->
+                if (method.name.startsWith("execute")) onExecute()
+                try {
+                    wrap(method.invoke(target, *(args ?: emptyArray())))
+                } catch (e: InvocationTargetException) {
+                    throw e.targetException
+                }
+            }
+        )
+    fun statement(result: Any?): Any? =
+        when (result) {
+            is java.sql.CallableStatement -> proxy(java.sql.CallableStatement::class.java, result) { it }
+            is java.sql.PreparedStatement -> proxy(java.sql.PreparedStatement::class.java, result) { it }
+            is Statement -> proxy(Statement::class.java, result) { it }
+            else -> result
+        }
+    return proxy(DataSource::class.java, dataSource) { result ->
+        if (result is Connection) proxy(Connection::class.java, result, ::statement) else result
     }
 }
