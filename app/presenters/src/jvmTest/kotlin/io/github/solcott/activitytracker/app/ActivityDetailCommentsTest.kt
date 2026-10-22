@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app
 
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent
-import io.github.solcott.activitytracker.app.detail.ActivityDetailState
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -45,7 +44,7 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
             val loaded = awaitLoaded()
             loaded.draftComment.setTextAndPlaceCursorAtEnd("Nice")
             loaded.eventSink(ActivityDetailEvent.SendComment)
-            val refused = awaitUntil { (it as? ActivityDetailState.Loaded)?.commentError != null } as ActivityDetailState.Loaded
+            val refused = awaitUntil { it.page()?.commentError != null }.page()!!
             assertEquals(UiError(UiError.Kind.SignInAgain), refused.commentError)
             assertEquals("Nice", refused.draftComment.text.toString(), "what was typed isn't lost")
             assertEquals(emptyList(), r.queuedComments())
@@ -66,19 +65,19 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         commentsFromAppView = listOf(comment(staleAlice, alice.value, "3kc1"), comment(carol, "did:plc:carol", "3kc2"))
         val r = repos()
         detail(r) {
-            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 2 } as ActivityDetailState.Loaded
+            val loaded = awaitUntil { it.page()?.comments?.roots?.size == 2 }.page()!!
             assertEquals(alice, loaded.viewerDid)
             val mine = loaded.comments.roots.first().uri
             loaded.eventSink(ActivityDetailEvent.DeleteComment(mine))
             loaded.eventSink(ActivityDetailEvent.DeleteComment(mine))
-            val after = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 1 } as ActivityDetailState.Loaded
+            val after = awaitUntil { it.page()?.comments?.roots?.size == 1 }.page()!!
             assertEquals(listOf("did:plc:carol"), after.comments.roots.map { it.author.did.value }, "gone at once, and the count with it")
             r.db.outbox().count(alice.value).first { it >= 2 }
             assertEquals(listOf(null to "3kc1", AthleteSpace.INTERACTIONS to "3kc1"), r.queuedCommentDeletes(), "one pair of deletes")
 
             // A reload while the AppView still lists it keeps it hidden.
             after.eventSink(ActivityDetailEvent.Retry)
-            val reloaded = awaitUntil { it is ActivityDetailState.Loaded && it.comments.roots.size == 1 } as ActivityDetailState.Loaded
+            val reloaded = awaitUntil { it.page()?.comments?.roots?.size == 1 }.page()!!
             assertEquals(listOf("did:plc:carol"), reloaded.comments.roots.map { it.author.did.value })
             assertEquals(1, r.feed.activity(AtUri(activityUri)).commentCount)
             cancelAndIgnoreRemainingEvents()
@@ -90,11 +89,11 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         commentsFromAppView = listOf(comment(carol, "did:plc:carol", "3kc0"), comment(staleAlice, alice.value, "3kc1"))
         val r = repos()
         detail(r) {
-            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 2 } as ActivityDetailState.Loaded
+            val loaded = awaitUntil { it.page()?.comments?.roots?.size == 2 }.page()!!
             // Queueing the delete fails once the database is gone.
             r.db.close()
             loaded.eventSink(ActivityDetailEvent.DeleteComment(loaded.comments.roots.last().uri))
-            val failed = awaitUntil { (it as? ActivityDetailState.Loaded)?.commentError != null } as ActivityDetailState.Loaded
+            val failed = awaitUntil { it.page()?.commentError != null }.page()!!
             assertEquals(UiError.Kind.DeleteComment, failed.commentError?.kind)
             assertEquals(loaded.comments.roots, failed.comments.roots, "back where it was")
             cancelAndIgnoreRemainingEvents()
@@ -113,17 +112,16 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1"), comment(carol, "did:plc:carol", "3kc2"))
         val r = repos()
         detail(r) {
-            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 2 } as ActivityDetailState.Loaded
+            val loaded = awaitUntil { it.page()?.comments?.roots?.size == 2 }.page()!!
             val count = loaded.activity.commentCount
             val bobs = loaded.comments.roots.first().uri
             loaded.eventSink(ActivityDetailEvent.BlockCommenter(bobs))
             loaded.eventSink(ActivityDetailEvent.BlockCommenter(bobs))
             val blocked =
                 awaitUntil {
-                    (it as? ActivityDetailState.Loaded)?.let { l -> l.comments.roots.size == 1 && l.activity.commentCount == count - 1 } ==
-                        true
+                    it.page()?.let { l -> l.comments.roots.size == 1 && l.activity.commentCount == count - 1 } == true
                 }
-                    as ActivityDetailState.Loaded
+                    .page()!!
             assertEquals("did:plc:carol", blocked.comments.roots.single().author.did.value, "the count drops with it")
             r.db.outbox().count(alice.value).first { it >= 1 }
             val queued = r.db.outbox().pending(alice.value).filter { it.collection == Nsid.GRAPH_BLOCK }
@@ -141,22 +139,19 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1"), comment(carol, "did:plc:carol", "3kc2"))
         val r = repos()
         detail(r) {
-            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 2 } as ActivityDetailState.Loaded
+            val loaded = awaitUntil { it.page()?.comments?.roots?.size == 2 }.page()!!
             assertTrue(loaded.isOwn)
             val bobs = loaded.comments.roots.first().uri
             loaded.eventSink(ActivityDetailEvent.HideComment(bobs))
             loaded.eventSink(ActivityDetailEvent.HideComment(bobs))
-            val hidden =
-                awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.first()?.hidden == true } as ActivityDetailState.Loaded
+            val hidden = awaitUntil { it.page()?.comments?.roots?.first()?.hidden == true }.page()!!
             assertEquals(listOf(true, null), hidden.comments.roots.map { it.hidden }, "still listed for the athlete, marked")
             r.db.outbox().count(alice.value).first { it >= 1 }
             assertEquals(listOf(OutboxProcessor.OP_PUT to null), r.queuedHides(), "one hide, in the repo")
 
             // A reload while the AppView still shows it keeps it hidden, and out of the count.
             hidden.eventSink(ActivityDetailEvent.Retry)
-            val reloaded =
-                awaitUntil { it is ActivityDetailState.Loaded && it.comments.roots.firstOrNull()?.hidden == true }
-                    as ActivityDetailState.Loaded
+            val reloaded = awaitUntil { it.page()?.comments?.roots?.firstOrNull()?.hidden == true }.page()!!
             assertEquals(listOf(true, null), reloaded.comments.roots.map { it.hidden })
             assertEquals(1, r.feed.activity(AtUri(activityUri)).commentCount)
             cancelAndIgnoreRemainingEvents()
@@ -170,11 +165,10 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1", hidden = true), comment(carol, "did:plc:carol", "3kc2"))
         val r = repos()
         detail(r) {
-            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 2 } as ActivityDetailState.Loaded
+            val loaded = awaitUntil { it.page()?.comments?.roots?.size == 2 }.page()!!
             assertEquals(true, loaded.comments.roots.first().hidden)
             loaded.eventSink(ActivityDetailEvent.UnhideComment(loaded.comments.roots.first().uri))
-            val shown =
-                awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.first()?.hidden == null } as ActivityDetailState.Loaded
+            val shown = awaitUntil { it.page()?.comments?.roots?.first()?.hidden == null }.page()!!
             assertEquals(listOf(null, null), shown.comments.roots.map { it.hidden })
             r.db.outbox().count(alice.value).first { it >= 2 }
             assertEquals(
@@ -195,9 +189,9 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         // Signed in before the interactions space's declaration listed comment hides.
         val r = repos(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}&collection=${Nsid.FEED_COMMENT}")
         detail(r) {
-            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 1 } as ActivityDetailState.Loaded
+            val loaded = awaitUntil { it.page()?.comments?.roots?.size == 1 }.page()!!
             loaded.eventSink(ActivityDetailEvent.HideComment(loaded.comments.roots.single().uri))
-            val refused = awaitUntil { (it as? ActivityDetailState.Loaded)?.commentError != null } as ActivityDetailState.Loaded
+            val refused = awaitUntil { it.page()?.commentError != null }.page()!!
             assertEquals(UiError(UiError.Kind.SignInAgain), refused.commentError)
             assertEquals(listOf(null), refused.comments.roots.map { it.hidden }, "not marked")
             assertEquals(emptyList(), r.queuedHides())
@@ -211,11 +205,11 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
         commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1"))
         val r = repos()
         detail(r) {
-            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 1 } as ActivityDetailState.Loaded
+            val loaded = awaitUntil { it.page()?.comments?.roots?.size == 1 }.page()!!
             // Queueing the hide fails once the database is gone.
             r.db.close()
             loaded.eventSink(ActivityDetailEvent.HideComment(loaded.comments.roots.single().uri))
-            val failed = awaitUntil { (it as? ActivityDetailState.Loaded)?.commentError != null } as ActivityDetailState.Loaded
+            val failed = awaitUntil { it.page()?.commentError != null }.page()!!
             assertEquals(UiError.Kind.HideComment, failed.commentError?.kind)
             assertEquals(loaded.comments.roots, failed.comments.roots, "not marked")
             cancelAndIgnoreRemainingEvents()

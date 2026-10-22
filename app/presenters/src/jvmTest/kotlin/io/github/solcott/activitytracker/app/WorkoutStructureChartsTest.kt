@@ -2,8 +2,8 @@ package io.github.solcott.activitytracker.app
 
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
+import io.github.solcott.activitytracker.app.detail.ActivityDetailPage
 import io.github.solcott.activitytracker.app.detail.ActivityDetailPresenter
-import io.github.solcott.activitytracker.app.detail.ActivityDetailState
 import io.github.solcott.activitytracker.app.detail.DetailSection
 import io.github.solcott.activitytracker.app.detail.LegRow
 import io.github.solcott.activitytracker.app.detail.LengthRow
@@ -19,9 +19,9 @@ import kotlinx.coroutines.test.runTest
 /** What the detail page shows of a workout's structure: a swim's lengths and pool, a workout's sets, a race's legs, ski runs. */
 class WorkoutStructureChartsTest : ActivityDetailTestBase() {
     /** The page once loaded, waiting for its charts when [withCharts]. */
-    private suspend fun loaded(withCharts: Boolean = true): ActivityDetailState.Loaded {
+    private suspend fun loaded(withCharts: Boolean = true): ActivityDetailPage {
         val r = repos()
-        var result: ActivityDetailState.Loaded? = null
+        var result: ActivityDetailPage? = null
         presenterTestOf({
             ActivityDetailPresenter(
                 screen,

@@ -64,7 +64,7 @@ import org.jetbrains.compose.resources.stringResource
  * one loads.
  */
 @Composable
-internal fun LoadMoreNearTheEnd(listState: LazyListState, state: ActivityDetailState.Loaded) {
+internal fun LoadMoreNearTheEnd(listState: LazyListState, state: ActivityDetailPage) {
     val paging = state.comments
     val near by
         remember(listState, paging.items) {
@@ -87,7 +87,7 @@ internal fun LoadMoreNearTheEnd(listState: LazyListState, state: ActivityDetailS
  * when they couldn't, and a field to add one, saying which comment it answers, and why the last one couldn't be sent, deleted, hidden or
  * unhidden. A hidden comment, listed only for the athlete and its author, is dimmed and says so.
  */
-internal fun LazyListScope.comments(state: ActivityDetailState.Loaded) {
+internal fun LazyListScope.comments(state: ActivityDetailPage) {
     item(key = "comments") { CommentsHeader(state, Modifier.padding(horizontal = CARD_PADDING)) }
     val top = Modifier.padding(horizontal = CARD_PADDING)
     val reply = Modifier.padding(start = CARD_PADDING + REPLY_INDENT, end = CARD_PADDING)
@@ -109,7 +109,7 @@ internal fun LazyListScope.comments(state: ActivityDetailState.Loaded) {
 }
 
 @Composable
-private fun CommentsHeader(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
+private fun CommentsHeader(state: ActivityDetailPage, modifier: Modifier = Modifier) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(Res.string.detail_section_comments), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
         val count = state.activity.commentCount.toInt()
@@ -125,7 +125,7 @@ private fun CommentsHeader(state: ActivityDetailState.Loaded, modifier: Modifier
 private fun CommentRow(
     comment: CommentView,
     actions: ImmutableSet<CommentAction>,
-    state: ActivityDetailState.Loaded,
+    state: ActivityDetailPage,
     modifier: Modifier = Modifier,
 ) {
     val name = comment.author.displayName ?: handleLabel(comment.author.handle.value)
@@ -146,7 +146,7 @@ private fun CommentRow(
 
 /** The viewer's comment or reply the AppView doesn't list yet: they can delete it, but not reply to it until it's listed. */
 @Composable
-private fun SentCommentRow(comment: SentComment, state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) =
+private fun SentCommentRow(comment: SentComment, state: ActivityDetailPage, modifier: Modifier = Modifier) =
     CommentRow(
         author = comment.author.displayName ?: comment.author.handle.value,
         text = comment.text,
@@ -165,7 +165,7 @@ private fun CommentRow(
     hidden: Boolean,
     actions: ImmutableSet<CommentAction>,
     uri: AtUri,
-    state: ActivityDetailState.Loaded,
+    state: ActivityDetailPage,
     modifier: Modifier = Modifier,
     /** Opens the report sheet, for [CommentAction.Report]. */
     onReport: () -> Unit = {},
@@ -198,7 +198,7 @@ private fun CommentRow(
 
 /** A spinner while a page of comments loads, or why one couldn't and a way to try again; nothing otherwise. */
 @Composable
-private fun CommentsLoading(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
+private fun CommentsLoading(state: ActivityDetailPage, modifier: Modifier = Modifier) {
     val error = state.comments.error
     when {
         error != null ->
@@ -215,7 +215,7 @@ private fun CommentsLoading(state: ActivityDetailState.Loaded, modifier: Modifie
 }
 
 @Composable
-private fun CommentField(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
+private fun CommentField(state: ActivityDetailPage, modifier: Modifier = Modifier) {
     Column(modifier) {
         state.replyingTo?.let { parent ->
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -269,7 +269,7 @@ private const val LOAD_MORE_AHEAD = 5
  * The viewer replies to any listed comment that isn't hidden, deletes their own comments, hides or unhides others' on their own activity,
  * and mutes, blocks or reports the author of anyone else's. A placeholder and a just-sent comment never come here.
  */
-private fun commentActions(comment: CommentView, state: ActivityDetailState.Loaded): ImmutableSet<CommentAction> {
+private fun commentActions(comment: CommentView, state: ActivityDetailPage): ImmutableSet<CommentAction> {
     val hidden = comment.hidden == true
     val manage =
         when {

@@ -23,6 +23,7 @@ import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.MemberView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -32,94 +33,96 @@ import kotlinx.collections.immutable.persistentListOf
  */
 @CircuitSerializable(SessionScope::class) data class ActivityDetailScreen(val uri: String, val suggestOnOpen: Boolean = false) : Screen
 
+/**
+ * The activity page (ui/content-loading): [content]'s status and origin are the activity's load, and its data the page built from it and
+ * the page's other loads, null until the activity first loads.
+ */
 @Immutable
-sealed interface ActivityDetailState : CircuitUiState {
-    val eventSink: (ActivityDetailEvent) -> Unit
+data class ActivityDetailState(
+    val content: ContentState<ActivityDetailPage?> = ContentState(null),
+    val eventSink: (ActivityDetailEvent) -> Unit,
+) : CircuitUiState
 
-    @Immutable data class Loading(override val eventSink: (ActivityDetailEvent) -> Unit) : ActivityDetailState
-
-    @Immutable data class Error(val error: UiError, override val eventSink: (ActivityDetailEvent) -> Unit) : ActivityDetailState
-
-    @Immutable
-    data class Loaded(
-        /** Its comment count already moved by the viewer's own comment changes the AppView hasn't caught up with. */
-        val activity: ActivityView,
-        /** The threads loaded so far, oldest first, as the viewer left them. */
-        val comments: CommentsPaging,
-        /** The viewer's top-level comments the AppView doesn't list yet, shown after [comments]; sent replies are in their thread. */
-        val sentComments: ImmutableList<SentComment>,
-        val draftComment: TextFieldState,
-        /** The listed comment or reply [draftComment] answers; null while it's a top-level comment. */
-        val replyingTo: CommentView? = null,
-        /** The signed-in athlete, who may delete the comments they wrote and no others. */
-        val viewerDid: Did,
-        /** The activity is the signed-in athlete's own, so it can't be liked. */
-        val isOwn: Boolean,
-        /** Who liked it, once the viewer has shown the list; null while it's hidden. */
-        val likesList: LikesList?,
-        /** Why the viewer's last like couldn't be given: a session that can't like a non-public activity is told to sign in again. */
-        val likeError: UiError? = null,
-        /**
-         * Why the viewer's last comment couldn't be sent, likewise, its text back in [draftComment] and [replyingTo] kept; or why a delete
-         * failed.
-         */
-        val commentError: UiError? = null,
-        override val eventSink: (ActivityDetailEvent) -> Unit,
-        /** Null while loading, and when there are no streams or the viewer may not see them. */
-        val charts: ActivityCharts? = null,
-        /** A pool swim's pool length, published with the activity, so shown to anyone who may see it; null for anything else. */
-        val poolLength: PoolLength? = null,
-        /** The viewer's own activity has heart rate or power but no zones, because they hadn't set thresholds. */
-        val chartsMissingZones: Boolean = false,
-        /**
-         * On the owner's own activity, each detail category with data stored narrower than the activity, with its tier, so its stats and
-         * charts show a lock; empty on anyone else's.
-         */
-        val narrowerCategories: ImmutableList<CategoryVisibility> = persistentListOf(),
-        /** The owner approves followers, so Followers means only the ones they approved. */
-        val approvesFollowers: Boolean = false,
-        /** The sections this activity has data for, in the order they show. */
-        val sections: ImmutableList<DetailSection> = persistentListOf(),
-        /** What the page shows of the activity's data: its hero, cards, training load, stats and avg/max table. */
-        val page: ActivityPageContent = ActivityPageContent(),
-        /** What the owner can do to the activity; null on someone else's. */
-        val manage: ActivityManage? = null,
-        /**
-         * What the map draws: for the owner, once read, their full route untrimmed by their privacy zones, marked where the route others
-         * see starts and ends; else the record's trimmed polyline. Null with no route.
-         */
-        val route: ShownRoute? = null,
-        /** The owner can add a privacy zone at the route's start or end: the track was read. */
-        val canHideRouteEnds: Boolean = false,
-        /** A zone was just added from this activity. */
-        val zoneAdded: Boolean = false,
-        val routeError: UiError? = null,
-        /**
-         * Exporting the activity as a file; null on someone else's activity, or when it has no track or streams to rebuild a file from and
-         * no original file.
-         */
-        val export: ActivityExportState? = null,
-        /** On the owner's combined activity, where each kind of its data comes from, to choose or leave out; null otherwise. */
-        val dataSources: DataSources? = null,
-        /** On a combined activity, the members each card's data came from, in time order; empty otherwise. */
-        val chartSources: ImmutableList<ChartSource> = persistentListOf(),
-        /** On the owner's recent activity, another of theirs it likely belongs with in one combined activity; null otherwise. */
-        val combineSuggestion: CombineSuggestionState? = null,
-        /** Report on someone else's activity, its photos and comments. */
-        val reporting: Reporting = Reporting(),
-        /** Its blurred photos, or the page of a hidden activity, once the viewer chose to see them on this screen. */
-        val revealed: Revealed = Revealed(),
-        /** Its segment efforts the viewer may see, in the order they began; empty while loading, when it has none, or when they failed. */
-        val segments: ImmutableList<EffortView> = persistentListOf(),
-        /**
-         * The owner can create a segment from the activity (segments/segment-creation): it has a full track, its sport has a segment sport
-         * group, and their privacy zones were read.
-         */
-        val canCreateSegment: Boolean = false,
-        /** A segment was just published from this activity; it shows once the AppView has processed it. */
-        val segmentCreated: Boolean = false,
-    ) : ActivityDetailState
-}
+/** The loaded activity page, as the viewer left it. */
+@Immutable
+data class ActivityDetailPage(
+    /** Its comment count already moved by the viewer's own comment changes the AppView hasn't caught up with. */
+    val activity: ActivityView,
+    /** The threads loaded so far, oldest first, as the viewer left them. */
+    val comments: CommentsPaging,
+    /** The viewer's top-level comments the AppView doesn't list yet, shown after [comments]; sent replies are in their thread. */
+    val sentComments: ImmutableList<SentComment>,
+    val draftComment: TextFieldState,
+    /** The listed comment or reply [draftComment] answers; null while it's a top-level comment. */
+    val replyingTo: CommentView? = null,
+    /** The signed-in athlete, who may delete the comments they wrote and no others. */
+    val viewerDid: Did,
+    /** The activity is the signed-in athlete's own, so it can't be liked. */
+    val isOwn: Boolean,
+    /** Who liked it, once the viewer has shown the list; null while it's hidden. */
+    val likesList: LikesList?,
+    /** Why the viewer's last like couldn't be given: a session that can't like a non-public activity is told to sign in again. */
+    val likeError: UiError? = null,
+    /**
+     * Why the viewer's last comment couldn't be sent, likewise, its text back in [draftComment] and [replyingTo] kept; or why a delete
+     * failed.
+     */
+    val commentError: UiError? = null,
+    val eventSink: (ActivityDetailEvent) -> Unit,
+    /** Null while loading, and when there are no streams or the viewer may not see them. */
+    val charts: ActivityCharts? = null,
+    /** A pool swim's pool length, published with the activity, so shown to anyone who may see it; null for anything else. */
+    val poolLength: PoolLength? = null,
+    /** The viewer's own activity has heart rate or power but no zones, because they hadn't set thresholds. */
+    val chartsMissingZones: Boolean = false,
+    /**
+     * On the owner's own activity, each detail category with data stored narrower than the activity, with its tier, so its stats and charts
+     * show a lock; empty on anyone else's.
+     */
+    val narrowerCategories: ImmutableList<CategoryVisibility> = persistentListOf(),
+    /** The owner approves followers, so Followers means only the ones they approved. */
+    val approvesFollowers: Boolean = false,
+    /** The sections this activity has data for, in the order they show. */
+    val sections: ImmutableList<DetailSection> = persistentListOf(),
+    /** What the page shows of the activity's data: its hero, cards, training load, stats and avg/max table. */
+    val page: ActivityPageContent = ActivityPageContent(),
+    /** What the owner can do to the activity; null on someone else's. */
+    val manage: ActivityManage? = null,
+    /**
+     * What the map draws: for the owner, once read, their full route untrimmed by their privacy zones, marked where the route others see
+     * starts and ends; else the record's trimmed polyline. Null with no route.
+     */
+    val route: ShownRoute? = null,
+    /** The owner can add a privacy zone at the route's start or end: the track was read. */
+    val canHideRouteEnds: Boolean = false,
+    /** A zone was just added from this activity. */
+    val zoneAdded: Boolean = false,
+    val routeError: UiError? = null,
+    /**
+     * Exporting the activity as a file; null on someone else's activity, or when it has no track or streams to rebuild a file from and no
+     * original file.
+     */
+    val export: ActivityExportState? = null,
+    /** On the owner's combined activity, where each kind of its data comes from, to choose or leave out; null otherwise. */
+    val dataSources: DataSources? = null,
+    /** On a combined activity, the members each card's data came from, in time order; empty otherwise. */
+    val chartSources: ImmutableList<ChartSource> = persistentListOf(),
+    /** On the owner's recent activity, another of theirs it likely belongs with in one combined activity; null otherwise. */
+    val combineSuggestion: CombineSuggestionState? = null,
+    /** Report on someone else's activity, its photos and comments. */
+    val reporting: Reporting = Reporting(),
+    /** Its blurred photos, or the page of a hidden activity, once the viewer chose to see them on this screen. */
+    val revealed: Revealed = Revealed(),
+    /** Its segment efforts the viewer may see, in the order they began; empty while loading, when it has none, or when they failed. */
+    val segments: ImmutableList<EffortView> = persistentListOf(),
+    /**
+     * The owner can create a segment from the activity (segments/segment-creation): it has a full track, its sport has a segment sport
+     * group, and their privacy zones were read.
+     */
+    val canCreateSegment: Boolean = false,
+    /** A segment was just published from this activity; it shows once the AppView has processed it. */
+    val segmentCreated: Boolean = false,
+)
 
 /**
  * Another of the owner's activities this one likely belongs with (`feed/combine-suggestions`), until they combine them or say not to.
@@ -311,7 +314,7 @@ sealed interface ActivityDetailEvent {
     /** Opens another recording of this activity, or the activity this one is a recording of. */
     data class OpenActivity(val uri: AtUri) : ActivityDetailEvent
 
-    /** Sends the draft: a reply to [ActivityDetailState.Loaded.replyingTo] when set, else a top-level comment. */
+    /** Sends the draft: a reply to [ActivityDetailPage.replyingTo] when set, else a top-level comment. */
     data object SendComment : ActivityDetailEvent
 
     /** The viewer scrolled near the end of the listed comments: the next page loads, unless one is loading, failed or none is left. */
@@ -365,7 +368,7 @@ sealed interface ActivityDetailEvent {
     /** The owner splits this combined activity back into its members. */
     data object Split : ActivityDetailEvent
 
-    /** The owner accepts [ActivityDetailState.Loaded.combineSuggestion]: the page then shows the combined activity. */
+    /** The owner accepts [ActivityDetailPage.combineSuggestion]: the page then shows the combined activity. */
     data object CombineSuggested : ActivityDetailEvent
 
     /** The owner puts the suggestion prompt off: it stays on the page as a banner. */
@@ -386,7 +389,7 @@ sealed interface ActivityDetailEvent {
     /** The owner edits the activity's title, description, dive site and photos. */
     data object Edit : ActivityDetailEvent
 
-    /** The owner adds a privacy zone at the route's start: see [Loaded.canHideRouteEnds]. */
+    /** The owner adds a privacy zone at the route's start: see [ActivityDetailPage.canHideRouteEnds]. */
     data object HideStart : ActivityDetailEvent
 
     /** The owner adds a privacy zone at the route's end. */
@@ -401,7 +404,7 @@ sealed interface ActivityDetailEvent {
     /** Opens the segment [uri] of one of the activity's efforts. */
     data class SegmentOpened(val uri: AtUri) : ActivityDetailEvent
 
-    /** The owner creates a segment from the activity's route ([ActivityDetailState.Loaded.canCreateSegment]). */
+    /** The owner creates a segment from the activity's route ([ActivityDetailPage.canCreateSegment]). */
     data object CreateSegment : ActivityDetailEvent
 
     /** The owner exports the activity as [format]: see [ActivityExportState]. */

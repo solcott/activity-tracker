@@ -1,10 +1,12 @@
 package io.github.solcott.activitytracker.app
 
+import androidx.compose.runtime.Composable
 import app.cash.turbine.ReceiveTurbine
 import co.touchlab.kermit.Logger
 import com.slack.circuit.test.CircuitReceiveTurbine
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
+import io.github.solcott.activitytracker.app.detail.ActivityDetailPage
 import io.github.solcott.activitytracker.app.detail.ActivityDetailPresenter
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.detail.ActivityDetailState
@@ -56,12 +58,16 @@ import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPOutputStream
 import kotlin.time.Clock
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.io.IOException
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /** The top-level comments of the listed threads, leaving out placeholders. */
 internal val CommentsPaging.roots: List<CommentView>
     get() = items.mapNotNull { it.root }
+
+/** The loaded page; null until the activity first loads. */
+internal fun ActivityDetailState.page(): ActivityDetailPage? = content.data
 
 /** The detail screen's fakes, shared by its presenter tests: an AppView serving one activity, its likes, comments and streams. */
 open class ActivityDetailTestBase {
@@ -122,6 +128,27 @@ open class ActivityDetailTestBase {
     /** Every request answers InternalServerError while set. */
     protected var offline = false
 
+    /** Every request fails to connect while set, as with no network. */
+    protected var unreachable = false
+
+    /**
+     * `getActivity` answers NotFound this many more times, as before the AppView has indexed the activity; meanwhile its streams aren't
+     * served and its comments fail too.
+     */
+    protected var notIndexedFor = 0
+
+    /** `getActivity` requests so far. */
+    protected var activityRequests = 0
+
+    /** Holds `getActivity` requests until completed, while set, so a test can watch a reload run. */
+    protected var activityGate: CompletableDeferred<Unit>? = null
+
+    /** `getLikes` answers InternalServerError while set. */
+    protected var failLikes = false
+
+    /** The `units` token on Alice's `actor.profile` record in her repo; null for no record. */
+    protected var profileUnits: String? = null
+
     /** The `getActivitySegments` efforts the AppView answers with, as JSON; null to fail. */
     protected var segmentsFromAppView: String? = "[]"
 
@@ -177,6 +204,7 @@ open class ActivityDetailTestBase {
         HttpClient(
             MockEngine { request ->
                 val json = headersOf("Content-Type", "application/json")
+                if (unreachable) throw IOException("Connection refused")
                 if (offline) return@MockEngine respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
                 when (request.url.encodedPath) {
                     "/xrpc/com.atproto.server.getServiceAuth" -> {
@@ -184,10 +212,18 @@ open class ActivityDetailTestBase {
                     }
 
                     "/xrpc/${Nsid.FEED_GET_ACTIVITY}" -> {
-                        respond("""{"activity":$activity,"comments":[]}""", headers = json)
+                        activityRequests++
+                        activityGate?.await()
+                        if (notIndexedFor > 0) {
+                            notIndexedFor--
+                            respond("""{"error":"NotFound","message":"Activity not found"}""", HttpStatusCode.BadRequest, json)
+                        } else {
+                            respond("""{"activity":$activity,"comments":[]}""", headers = json)
+                        }
                     }
 
                     "/xrpc/${Nsid.FEED_GET_COMMENTS}" -> {
+                        if (notIndexedFor > 0) return@MockEngine respond("""{"error":"NotFound"}""", HttpStatusCode.BadRequest, json)
                         val params = request.url.parameters
                         val uris = params.getAll("uris")
                         val root = params["root"]
@@ -210,6 +246,7 @@ open class ActivityDetailTestBase {
 
                     "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" -> {
                         streamsRequests++
+                        if (notIndexedFor > 0) return@MockEngine respond("""{"error":"NotFound"}""", HttpStatusCode.NotFound, json)
                         streamsGate?.await()
                         streams?.let { respond(it, headers = json) }
                             ?: respond("""{"error":"NotFound","message":"none"}""", HttpStatusCode.NotFound, json)
@@ -228,7 +265,20 @@ open class ActivityDetailTestBase {
                     }
 
                     "/xrpc/${Nsid.FEED_GET_LIKES}" -> {
+                        if (failLikes)
+                            return@MockEngine respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
                         respond("""{"uri":"$activityUri","likes":[${likesFromAppView.joinToString(",")}]}""", headers = json)
+                    }
+
+                    "/xrpc/com.atproto.repo.getRecord" -> {
+                        val units = profileUnits
+                        if (request.url.parameters["collection"] == Nsid.ACTOR_PROFILE && units != null) {
+                            val uri = "at://${alice.value}/${Nsid.ACTOR_PROFILE}/self"
+                            val value = """{"${'$'}type":"${Nsid.ACTOR_PROFILE}","units":"$units","createdAt":"2026-09-01T00:00:00Z"}"""
+                            respond("""{"uri":"$uri","cid":"bafyprofile","value":$value}""", headers = json)
+                        } else {
+                            respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, json)
+                        }
                     }
 
                     "/xrpc/com.atproto.space.getRecord" -> {
@@ -420,34 +470,33 @@ open class ActivityDetailTestBase {
             if (i == own) comment(staleAlice, alice.value, rkey) else comment(carol, "did:plc:carol", rkey)
         }
 
-    protected fun ActivityDetailState.loaded() = this as? ActivityDetailState.Loaded
+    protected fun ActivityDetailState.loaded() = page()
 
     protected suspend fun detail(r: Repos, block: suspend CircuitReceiveTurbine<ActivityDetailState>.() -> Unit) =
-        presenterTestOf(
-            {
-                ActivityDetailPresenter(
-                    screen,
-                    FakeNavigator(screen),
-                    r.feed,
-                    r.activities,
-                    r.profiles,
-                    localLikes,
-                    r.manager,
-                    r.exporter,
-                    r.units,
-                    r.suggestions,
-                    r.blocks,
-                    r.reports,
-                    r.segments,
-                )
-            },
-            block = block,
+        presenterTestOf(presenterOf(r), block = block)
+
+    /** The page's presenter for [on], on [r]'s repositories. */
+    protected fun presenterOf(r: Repos, on: ActivityDetailScreen = screen): @Composable () -> ActivityDetailState = {
+        ActivityDetailPresenter(
+            on,
+            FakeNavigator(on),
+            r.feed,
+            r.activities,
+            r.profiles,
+            localLikes,
+            r.manager,
+            r.exporter,
+            r.units,
+            r.suggestions,
+            r.blocks,
+            r.reports,
+            r.segments,
         )
+    }
 
-    protected suspend fun ReceiveTurbine<ActivityDetailState>.awaitLoaded() =
-        awaitUntil { it is ActivityDetailState.Loaded } as ActivityDetailState.Loaded
+    protected suspend fun ReceiveTurbine<ActivityDetailState>.awaitLoaded() = awaitUntil { it.page() != null }.page()!!
 
-    protected suspend fun ReceiveTurbine<ActivityDetailState>.awaitLikes(done: (LikesList) -> Boolean): ActivityDetailState.Loaded {
+    protected suspend fun ReceiveTurbine<ActivityDetailState>.awaitLikes(done: (LikesList) -> Boolean): ActivityDetailPage {
         var state = awaitLoaded()
         while (state.likesList?.let { !it.isLoading && done(it) } != true) state = awaitLoaded()
         return state

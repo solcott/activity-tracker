@@ -43,7 +43,7 @@ fun RouteMapPresenter(
     // As the detail page draws it: every detail the viewer was served, and the owner's full track once read.
     val record = remember(shown) { shown?.effectiveRecord() }
     val isOwn = shown != null && shown.author.did == profiles.did
-    val ownRoute = rememberOwnRoute(shown?.uri?.takeIf { isOwn }, activities, flights, combined = record?.combined != null)
+    val ownRoute = rememberOwnRoute(shown?.uri?.takeIf { isOwn }, loadKey, activities, flights, combined = record?.combined != null)
     val route = remember(record, ownRoute.map) { record?.let { shownRoute(it, ownRoute.map) } }
     return RouteMapState(content = loaded.mapContent { _ -> record?.let { r -> RouteMapContent(route, r.title, r.activityType) } }) { event
         ->

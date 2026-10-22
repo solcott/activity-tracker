@@ -1,12 +1,14 @@
 package io.github.solcott.activitytracker.app.detail
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import com.slack.circuit.retained.rememberRetained
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -15,12 +17,18 @@ import io.github.solcott.activitytracker.data.activity.ChartAttribution
 import io.github.solcott.activitytracker.data.activity.CombinedSources
 import io.github.solcott.activitytracker.data.activity.DataKind
 import io.github.solcott.activitytracker.data.activity.SourceChoice
+import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CombinedChannel
 import io.github.solcott.activitytracker.lexicon.app.StreamChannel
+import io.github.solcott.uistate.circuit.produceRetainedContentState
+import io.github.solcott.uistate.errorOrNull
+import io.github.solcott.uistate.hasLoaded
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.filterNotNull
 
 /** The owner's choice of where each kind of a combined activity's data comes from: [state] is null on anything else. */
 internal class DataSourcesHolder(val state: DataSources?, private val onEvent: (ActivityDetailEvent) -> Unit) {
@@ -28,9 +36,9 @@ internal class DataSourcesHolder(val state: DataSources?, private val onEvent: (
 }
 
 /**
- * Where each kind of the owner's combined [activity]'s data comes from (null for anything else), read from its members as stored and
- * reloaded with [loadKey]. A choice rebuilds it ([ActivityManager.setSources]) one at a time, then [reload]s the page for its new figures
- * and charts.
+ * Where each kind of the owner's combined [activity]'s data comes from (null for anything else), read from its members as stored, reloaded
+ * with [loadKey] and retained with the page. A read that fails before any answered says so; one that fails after keeps what was shown,
+ * quietly. A choice rebuilds it ([ActivityManager.setSources]) one at a time, then [reload]s the page for its new figures and charts.
  */
 @Composable
 internal fun rememberDataSources(
@@ -41,36 +49,37 @@ internal fun rememberDataSources(
     reload: () -> Unit,
 ): DataSourcesHolder {
     val combined = activity?.takeIf { it.record.combined != null }
-    var sources by remember(combined?.uri) { mutableStateOf<CombinedSources?>(null) }
-    var error by remember(combined?.uri) { mutableStateOf<UiError?>(null) }
-    var readKey by remember { mutableIntStateOf(0) }
-    // The choice that failed, for a retry to repeat.
-    var failed by remember(combined?.uri) { mutableStateOf<ActivityDetailEvent?>(null) }
-    var pending by remember(combined?.uri) { mutableStateOf<DataKind?>(null) }
-    LaunchedEffect(combined?.uri, loadKey, readKey) {
-        if (combined == null) return@LaunchedEffect
-        runSuspendCatching { manager.sources(combined) }
-            .onSuccess {
-                sources = it
-                if (failed == null) error = null
-            }
-            .onFailure { if (sources == null) error = UiError.of(UiError.Kind.LoadDataSources, it) }
+    val latest by rememberUpdatedState(combined)
+    // Retained with the page: a read is keyed on it.
+    var readKey by rememberRetained { mutableIntStateOf(0) }
+    val read = remember {
+        snapshotFlow { latest }.filterNotNull().distinctUntilChangedBy { it.uri }
     }
+        .produceRetainedContentState<ActivityView, CombinedSources?>(null, loadKey, readKey) { own -> outcomeFlow { manager.sources(own) } }
+    // A rebuild's sources, shown at once and until the next read answers.
+    var saved by remember { mutableStateOf<Saved?>(null) }
+    val sources = saved?.takeIf { it.over === read.data }?.sources ?: read.data
+    var saveError by remember { mutableStateOf<UiError?>(null) }
+    val error = saveError ?: read.errorOrNull?.takeIf { !read.hasLoaded }?.let { UiError(UiError.Kind.LoadDataSources, it) }
+    // The choice that failed, for a retry to repeat.
+    var failed by remember { mutableStateOf<ActivityDetailEvent?>(null) }
+    var pending by remember { mutableStateOf<DataKind?>(null) }
     combined ?: return DataSourcesHolder(null) {}
 
     fun choose(event: ActivityDetailEvent, kind: DataKind, choice: SourceChoice) {
         flights.launch(SOURCES) {
             pending = kind
-            error = null
+            saveError = null
             failed = null
+            val over = read.data
             runSuspendCatching { manager.setSources(combined, kind, choice) }
                 .onSuccess {
-                    sources = it
+                    saved = Saved(over, it)
                     reload()
                 }
                 .onFailure {
                     failed = event
-                    error = UiError.of(UiError.Kind.SaveDataSource, it)
+                    saveError = UiError.of(UiError.Kind.SaveDataSource, it)
                 }
         }
     }
@@ -104,6 +113,9 @@ private fun sourcesState(sources: CombinedSources?, error: UiError?, saving: Dat
         error = error,
     )
 }
+
+/** The [sources] a rebuild saved, over the read it answered: a later read's answer replaces them. */
+private class Saved(val over: CombinedSources?, val sources: CombinedSources)
 
 /** One rebuild at a time, whichever kind it's for. */
 private object SOURCES

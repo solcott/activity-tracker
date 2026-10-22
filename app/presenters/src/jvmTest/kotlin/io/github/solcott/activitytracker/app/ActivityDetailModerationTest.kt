@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app
 
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
-import io.github.solcott.activitytracker.app.detail.ActivityDetailState
 import io.github.solcott.activitytracker.app.media.MediaGalleryEvent
 import io.github.solcott.activitytracker.app.media.MediaGalleryPresenter
 import io.github.solcott.activitytracker.app.media.MediaGalleryScreen
@@ -42,7 +41,7 @@ class ActivityDetailModerationTest : ActivityDetailTestBase() {
             val key = Revealed.hiddenKey(activityUri)
             assertFalse(key in loaded.revealed)
             loaded.revealed.eventSink(key)
-            val revealed = awaitUntil { (it as? ActivityDetailState.Loaded)?.revealed?.contains(key) == true } as ActivityDetailState.Loaded
+            val revealed = awaitUntil { it.page()?.revealed?.contains(key) == true }.page()!!
             assertFalse(activityUri in revealed.revealed, "its photos stay blurred until revealed on their own")
             cancelAndIgnoreRemainingEvents()
         }
@@ -90,22 +89,21 @@ class ActivityDetailModerationTest : ActivityDetailTestBase() {
         commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1"), comment(carol, "did:plc:carol", "3kc2"))
         val r = repos()
         detail(r) {
-            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 2 } as ActivityDetailState.Loaded
+            val loaded = awaitUntil { it.page()?.comments?.roots?.size == 2 }.page()!!
             assertTrue(loaded.reporting.available, "a labeler is configured")
             val bobs = loaded.comments.roots.first()
             val target = ReportTarget.Comment(bobs.uri, bobs.cid, bobs.author.did)
             loaded.reporting.eventSink(ReportingEvent.Open(target, "bob"))
-            val open = awaitUntil { (it as? ActivityDetailState.Loaded)?.reporting?.sheet != null } as ActivityDetailState.Loaded
+            val open = awaitUntil { it.page()?.reporting?.sheet != null }.page()!!
             assertEquals(target, open.reporting.sheet?.target)
 
             // The sheet sent the report and its block offer was taken: the usual confirmation shows first.
             open.reporting.eventSink(ReportingEvent.Sheet(ReportOuterEvent.Block(bobs.author.did)))
-            val confirming =
-                awaitUntil { (it as? ActivityDetailState.Loaded)?.reporting?.confirmBlock != null } as ActivityDetailState.Loaded
+            val confirming = awaitUntil { it.page()?.reporting?.confirmBlock != null }.page()!!
             assertEquals(null, confirming.reporting.sheet)
             assertEquals(BlockOffer(bobs.author.did, "bob"), confirming.reporting.confirmBlock)
             confirming.reporting.eventSink(ReportingEvent.ConfirmBlock(true))
-            val blocked = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 1 } as ActivityDetailState.Loaded
+            val blocked = awaitUntil { it.page()?.comments?.roots?.size == 1 }.page()!!
             assertEquals("did:plc:carol", blocked.comments.roots.single().author.did.value, "as the comment menu's Block does")
             // Blocked through BlockRepository, whatever the outbox has sent so far.
             assertEquals(true, r.feed.localBlocks.blocked(Did("did:plc:bob")))
@@ -118,15 +116,14 @@ class ActivityDetailModerationTest : ActivityDetailTestBase() {
         commentsFromAppView = listOf(comment(bob, "did:plc:bob", "3kc1"))
         val r = repos()
         detail(r) {
-            val loaded = awaitUntil { (it as? ActivityDetailState.Loaded)?.comments?.roots?.size == 1 } as ActivityDetailState.Loaded
+            val loaded = awaitUntil { it.page()?.comments?.roots?.size == 1 }.page()!!
             val bobs = loaded.comments.roots.single()
             loaded.reporting.eventSink(ReportingEvent.Open(ReportTarget.Comment(bobs.uri, bobs.cid, bobs.author.did), "bob"))
-            awaitUntil { (it as? ActivityDetailState.Loaded)?.reporting?.sheet != null }
+            awaitUntil { it.page()?.reporting?.sheet != null }
             loaded.reporting.eventSink(ReportingEvent.Sheet(ReportOuterEvent.Block(bobs.author.did)))
-            val confirming =
-                awaitUntil { (it as? ActivityDetailState.Loaded)?.reporting?.confirmBlock != null } as ActivityDetailState.Loaded
+            val confirming = awaitUntil { it.page()?.reporting?.confirmBlock != null }.page()!!
             confirming.reporting.eventSink(ReportingEvent.ConfirmBlock(false))
-            val after = awaitUntil { (it as? ActivityDetailState.Loaded)?.reporting?.confirmBlock == null } as ActivityDetailState.Loaded
+            val after = awaitUntil { it.page()?.reporting?.confirmBlock == null }.page()!!
             assertEquals(1, after.comments.roots.size)
             assertTrue(r.db.outbox().pending(alice.value).none { it.collection == Nsid.GRAPH_BLOCK })
             cancelAndIgnoreRemainingEvents()

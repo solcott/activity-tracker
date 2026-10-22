@@ -1,11 +1,12 @@
 package io.github.solcott.activitytracker.app.detail
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -13,10 +14,14 @@ import io.github.solcott.activitytracker.data.activity.ActivityExporter
 import io.github.solcott.activitytracker.data.activity.ExportFormat
 import io.github.solcott.activitytracker.data.activity.ExportedFile
 import io.github.solcott.activitytracker.data.activity.NotSentYetException
+import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.location.LocationSample
+import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.filterNotNull
 
 /** The owner's export: [state] is null on someone else's activity or when nothing can be exported. */
 internal class Export(
@@ -38,6 +43,7 @@ internal fun exportFormats(track: List<LocationSample>?, hasStreams: Boolean, is
 @Composable
 internal fun rememberExport(
     activity: ActivityView?,
+    loadKey: Int,
     formats: ImmutableList<ExportFormat>,
     hasLaps: Boolean,
     exporter: ActivityExporter,
@@ -45,8 +51,15 @@ internal fun rememberExport(
 ): Export {
     var file by remember(activity?.uri) { mutableStateOf<ExportedFile?>(null) }
     var error by remember(activity?.uri) { mutableStateOf<UiError?>(null) }
-    var original by remember(activity?.uri) { mutableStateOf<OriginalFile?>(null) }
-    LaunchedEffect(activity?.uri) { original = activity?.let { exporter.originalInfo(it) }?.let { OriginalFile(it.fileName, it.format) } }
+    val latest by rememberUpdatedState(activity)
+    // Retained with the page; without it (or when it can't be read, quietly) there's nothing to download.
+    val original = remember {
+        snapshotFlow { latest }.filterNotNull().distinctUntilChangedBy { it.uri }
+    }
+        .produceRetainedContentState<ActivityView, OriginalFile?>(null, loadKey) { own ->
+            outcomeFlow { exporter.originalInfo(own)?.let { OriginalFile(it.fileName, it.format) } }
+        }
+        .data
     if (activity == null || (formats.isEmpty() && original == null)) return Export(null, {}, {}, {})
     // The export and the download share one flight: one file at a time.
     val key = ActivityDetailEvent.Export::class

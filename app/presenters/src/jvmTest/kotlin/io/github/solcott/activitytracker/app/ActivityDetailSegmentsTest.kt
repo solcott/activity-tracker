@@ -3,8 +3,8 @@ package io.github.solcott.activitytracker.app
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent
+import io.github.solcott.activitytracker.app.detail.ActivityDetailPage
 import io.github.solcott.activitytracker.app.detail.ActivityDetailPresenter
-import io.github.solcott.activitytracker.app.detail.ActivityDetailState
 import io.github.solcott.activitytracker.app.segment.CreateSegmentScreen
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -34,7 +34,7 @@ class ActivityDetailSegmentsTest : ActivityDetailTestBase() {
     /** Runs [block] on the page once [ready] holds for it, with its sink and the efforts it shows as "name elapsed[ PR]". */
     private suspend fun withDetail(
         navigator: FakeNavigator = FakeNavigator(screen),
-        ready: (ActivityDetailState.Loaded) -> Boolean = { true },
+        ready: (ActivityDetailPage) -> Boolean = { true },
         block: suspend ((ActivityDetailEvent) -> Unit, List<String>) -> Unit,
     ) {
         val r = repos()
@@ -55,7 +55,7 @@ class ActivityDetailSegmentsTest : ActivityDetailTestBase() {
                 r.segments,
             )
         }) {
-            val state = awaitUntil { s -> s.loaded()?.let(ready) == true } as ActivityDetailState.Loaded
+            val state = awaitUntil { s -> s.loaded()?.let(ready) == true }.page()!!
             block(state.eventSink, state.segments.map { "${it.segment.name} ${it.elapsed}${if (it.best == true) " PR" else ""}" })
             cancelAndIgnoreRemainingEvents()
         }
@@ -131,7 +131,7 @@ class ActivityDetailSegmentsTest : ActivityDetailTestBase() {
      * their privacy zones. The track and the zones load apart, and until the zones are read its ends are [RouteEnds.HIDDEN].
      */
     private suspend fun canCreate(
-        settled: (ActivityDetailState.Loaded) -> Boolean = { it.route?.ends.let { ends -> ends != null && ends != RouteEnds.HIDDEN } }
+        settled: (ActivityDetailPage) -> Boolean = { it.route?.ends.let { ends -> ends != null && ends != RouteEnds.HIDDEN } }
     ): Boolean {
         var can = false
         detail(repos()) {

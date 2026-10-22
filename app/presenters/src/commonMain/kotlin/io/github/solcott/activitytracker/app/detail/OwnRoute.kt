@@ -1,12 +1,13 @@
 package io.github.solcott.activitytracker.app.detail
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import io.github.solcott.activitytracker.app.RouteEnds
 import io.github.solcott.activitytracker.app.ShownRoute
 import io.github.solcott.activitytracker.app.SingleFlight
@@ -18,10 +19,14 @@ import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.CombinedRoute
 import io.github.solcott.activitytracker.data.activity.SegmentedPolyline
 import io.github.solcott.activitytracker.data.activity.TooManyZonesException
+import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.location.LocationSample
+import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOf
 
 /**
@@ -63,15 +68,24 @@ internal fun shownRoute(record: ActivityRecord, own: OwnMap?): ShownRoute? =
 @Composable
 internal fun rememberOwnRoute(
     activity: AtUri?,
+    loadKey: Int,
     activities: ActivityRepository,
     flights: SingleFlight,
     combined: Boolean = false,
 ): OwnRoute {
-    var route by remember(activity) { mutableStateOf<List<LocationSample>?>(null) }
+    val latest by rememberUpdatedState(activity)
+    // Apart from the activity's load, and retained with it: the map shows the trimmed polyline until the track arrives, and when it can't
+    // be read, quietly.
+    val route = remember {
+        snapshotFlow { latest }.filterNotNull().distinctUntilChanged()
+    }
+        .produceRetainedContentState<AtUri, List<LocationSample>?>(null, loadKey) { own ->
+            outcomeFlow { activities.ownRoute(own)?.takeIf { it.size >= 2 } }
+        }
+        .data
+        .takeIf { activity != null }
     var zoneAdded by remember(activity) { mutableStateOf(false) }
     var error by remember(activity) { mutableStateOf<UiError?>(null) }
-    // Apart from the activity's load: the map shows the trimmed polyline until the track arrives.
-    LaunchedEffect(activity) { route = activity?.let { activities.ownRoute(it) }?.takeIf { it.size >= 2 } }
     val line =
         remember(route, combined) {
             route?.let { if (combined) SegmentedPolyline.of(CombinedRoute.segments(it)) else ActivityDraft.polylineOf(it) }

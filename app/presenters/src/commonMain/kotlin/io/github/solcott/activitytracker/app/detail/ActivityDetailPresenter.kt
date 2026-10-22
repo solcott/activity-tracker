@@ -9,8 +9,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import com.slack.circuit.codegen.annotations.CircuitInject
+import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
@@ -36,8 +39,8 @@ import io.github.solcott.activitytracker.data.activity.CombineSuggestions
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
-import io.github.solcott.activitytracker.data.feed.withLikeOverrides
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
+import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
@@ -52,11 +55,21 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
+import io.github.solcott.dataresult.Outcome
+import io.github.solcott.dataresult.mapData
+import io.github.solcott.uistate.ContentState
+import io.github.solcott.uistate.circuit.produceRetainedContentState
+import io.github.solcott.uistate.errorOrNull
+import io.github.solcott.uistate.isLoading
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 
 @CircuitInject(ActivityDetailScreen::class, SessionScope::class)
 @Composable
@@ -75,43 +88,47 @@ fun ActivityDetailPresenter(
     reports: ReportRepository,
     segmentEfforts: SegmentRepository,
 ): ActivityDetailState {
-    // The activity as loaded, and how far the viewer's comment actions have moved its count since: one value, so a reload replaces both.
-    var loaded by remember { mutableStateOf<CountedActivity?>(null) }
-    val activity = loaded?.view
-    var error by remember { mutableStateOf<UiError?>(null) }
+    val uri = AtUri(screen.uri)
     var likeError by remember { mutableStateOf<UiError?>(null) }
     var commentError by remember { mutableStateOf<UiError?>(null) }
     val draft = rememberTextFieldState()
     val replying = remember { mutableStateOf<CommentView?>(null) }
-    var loadKey by remember { mutableIntStateOf(0) }
+    // Retained with the page: the page's load is keyed on it.
+    var loadKey by rememberRetained { mutableIntStateOf(0) }
+    // Bumped when the activity loads only after waiting for the AppView to index it.
+    var indexedLate by rememberRetained { mutableIntStateOf(0) }
+    // The page's other loads restart with it, and once more when it was indexed late: the first time, the AppView had none of them.
+    val extrasKey = loadKey + indexedLate
     var showLikes by remember { mutableStateOf(false) }
     val flights = rememberSingleFlight()
     // The viewer's own like toggles, laid over the loaded activity: the AppView only reflects them once Jetstream catches up.
     val likeOverrides by localLikes.overrides.collectAsState()
 
-    LaunchedEffect(loadKey) {
-        error = null
-        runSuspendCatching {
-            loaded = CountedActivity(feed.activity(AtUri(screen.uri)))
+    // Retained, so coming back from a segment, a photo or a profile shows the page at once; a retry or a reload restarts it under the page.
+    // An activity just written here (a combined one, or one just saved) isn't served until the AppView indexes it: it's asked for again.
+    val content =
+        produceRetainedContentState<ActivityView?>(null, loadKey) {
+            feed.activityOutcome(uri).awaitIndexed(indexed = { indexedLate++ }) { justWritten(screen, feed) }
         }
-            .onFailure { error = UiError.of(UiError.Kind.LoadActivity, it) }
-    }
+    val activity = content.data
+    // How far the viewer's comment actions have moved the count since [activity] loaded: a reload's answer counts them itself.
+    var commentMoves by rememberRetained { mutableStateOf<CommentMoves?>(null) }
+    val moves = commentMoves.over(activity)
 
     // An edit shows as soon as it's saved, and stays over the AppView's copy until Jetstream brings it there.
-    val rewrite by remember(screen.uri) { feed.rewrites.observe(AtUri(screen.uri)) }.collectAsState(null)
-
-    // An activity just written here (a combined one, or one just saved) isn't served until the AppView indexes it: try again for a while.
-    AwaitIndexed(failed = error != null && loaded == null, written = rewrite != null, justSaved = screen.suggestOnOpen) { loadKey++ }
+    val rewrite by remember(screen.uri) { feed.rewrites.observe(uri) }.collectAsState(null)
 
     val unitSystem by units.units.collectAsState()
-    val charts = rememberCharts(AtUri(screen.uri), loadKey, unitSystem, feed)
-    val segments = rememberSegments(AtUri(screen.uri), loadKey, segmentEfforts)
+    val charts = rememberCharts(uri, extrasKey, unitSystem, feed)
+    val segments = rememberSegments(uri, extrasKey, segmentEfforts)
     // Said on this page until the athlete leaves it.
     val segmentsCreated by segmentEfforts.createdFrom.collectAsState()
-    DisposableEffect(screen.uri) { onDispose { segmentEfforts.dismissCreated(AtUri(screen.uri)) } }
-    val comments = rememberComments(AtUri(screen.uri), profiles.did, loadKey, feed, flights)
+    DisposableEffect(screen.uri) { onDispose { segmentEfforts.dismissCreated(uri) } }
+    val comments = rememberComments(uri, profiles.did, extrasKey, feed, flights)
     // As served: the record without fields of narrower categories, and the details records of the tiers the viewer is admitted to.
-    val served = loaded?.shown(rewrite?.let { r -> { a: ActivityView -> feed.rewrites.rewritten(a, r) } }, likeOverrides)
+    val served = activity?.let {
+        shown(it, moves, rewrite?.let { r -> { a: ActivityView -> feed.rewrites.rewritten(a, r) } }, likeOverrides)
+    }
     // As shown: every detail the viewer was served on the record, with what they weren't left out.
     val shown = remember(served) { served?.let { it.copy(record = it.effectiveRecord()) } }
     val isOwn = shown?.author?.did == profiles.did
@@ -119,23 +136,25 @@ fun ActivityDetailPresenter(
     val shownCharts = chartsFor(shown, charts.charts)
     val sections = shown?.let { detailSections(it, shownCharts) } ?: persistentListOf()
     val narrower = narrowerCategories(served?.takeIf { isOwn }, charts.streams)
-    val page = rememberPage(shown, shownCharts, narrower)
-    val manage = rememberManage(activity.takeIf { isOwn }, loadKey, feed, manager, navigator, flights) { loadKey++ }
-    val dataSources = rememberDataSources(activity.takeIf { isOwn }, loadKey, manager, flights) { loadKey++ }
+    val pageContent = rememberPage(shown, shownCharts, narrower)
+    val manage = rememberManage(activity.takeIf { isOwn }, extrasKey, feed, manager, navigator, flights) { loadKey++ }
+    val dataSources = rememberDataSources(activity.takeIf { isOwn }, extrasKey, manager, flights) { loadKey++ }
     val chartSources = remember(shown, sections) { chartSources(shown, sections) }
-    val suggestion = rememberCombineSuggestion(activity.takeIf { isOwn }, screen.suggestOnOpen, suggestions, manager, navigator, flights)
-    val ownRoute = rememberOwnRoute(activity?.uri?.takeIf { isOwn }, activities, flights, combined = activity?.record?.combined != null)
+    val suggestion =
+        rememberCombineSuggestion(activity.takeIf { isOwn }, extrasKey, screen.suggestOnOpen, suggestions, manager, navigator, flights)
+    val ownRoute =
+        rememberOwnRoute(activity?.uri?.takeIf { isOwn }, extrasKey, activities, flights, combined = activity?.record?.combined != null)
     val hasStreams = charts.charts != null
     val isDive = shown?.record?.sport == Sport.DIVE
     val formats = remember(ownRoute.track, hasStreams, isDive) { exportFormats(ownRoute.track, hasStreams, isDive) }
-    val export = rememberExport(shown?.takeIf { isOwn }, formats, !charts.charts?.laps.isNullOrEmpty(), exporter, flights)
+    val export = rememberExport(shown?.takeIf { isOwn }, extrasKey, formats, !charts.charts?.laps.isNullOrEmpty(), exporter, flights)
 
     // A like toggles as it does in a list, one at a time per activity.
     val likes = rememberActivityListEventSink(navigator, activities) { likeError = it }
 
     val commentActions = { current: ActivityView ->
         CommentActions(draft, flights, activities, blocks, comments, replying, { e -> commentError = e }) { moved ->
-            loaded = loaded?.let { l -> l.copy(commentMoves = l.commentMoves + moved) }
+            commentMoves = commentMoves.plus(content.data, moved)
         }
     }
     val reporting =
@@ -212,9 +231,9 @@ fun ActivityDetailPresenter(
     }
 
     val revealed = rememberRevealed()
-    val likesList = rememberLikesList(showLikes, AtUri(screen.uri), viewerGave = shown?.viewer?.like != null, feed, profiles)
-    return detailState(shown, error, sink) {
-        ActivityDetailState.Loaded(
+    val likesList = rememberLikesList(showLikes, uri, viewerGave = shown?.viewer?.like != null, feed, profiles)
+    val page = shown?.let {
+        ActivityDetailPage(
             activity = it,
             comments = comments.paging,
             sentComments = comments.sent,
@@ -232,7 +251,7 @@ fun ActivityDetailPresenter(
             narrowerCategories = narrower,
             approvesFollowers = approvesFollowers,
             sections = sections,
-            page = page,
+            page = pageContent,
             manage = manage.state,
             route = shownRoute(it.record, ownRoute.map),
             canHideRouteEnds = ownRoute.canHide,
@@ -246,21 +265,10 @@ fun ActivityDetailPresenter(
             revealed = revealed,
             segments = segments,
             canCreateSegment = canCreateSegment(isOwn, ownRoute, it.record),
-            segmentCreated = AtUri(screen.uri) in segmentsCreated,
+            segmentCreated = uri in segmentsCreated,
         )
     }
-}
-
-/**
- * [view] as [FeedRepository.activity] loaded it, its comment count right for the viewer's comment changes then, and [commentMoves], how far
- * their sends, deletes, hides and unhides on this screen have moved it since.
- */
-private data class CountedActivity(val view: ActivityView, val commentMoves: Int = 0) {
-    /** [view] as it shows: [rewritten] with the viewer's own edit, their like toggles laid over it, and its count moved by theirs. */
-    fun shown(rewritten: ((ActivityView) -> ActivityView)?, likeOverrides: Map<String, AtUri?>): ActivityView {
-        val liked = (rewritten?.invoke(view) ?: view).withLikeOverrides(likeOverrides)
-        return if (commentMoves == 0) liked else liked.copy(commentCount = (liked.commentCount + commentMoves).coerceAtLeast(0))
-    }
+    return ActivityDetailState(ContentState(page, content.origin, content.status), sink)
 }
 
 /** The owner's delete, ungroup, split and member removal: [state] is null on someone else's activity. */
@@ -299,13 +307,15 @@ private fun rememberManage(
 ): Manage {
     var error by remember { mutableStateOf<UiError?>(null) }
     val recordingOf = activity?.record?.recordingOf
-    // The main activity's recordings, this one among them; null until loaded, and when it's gone.
-    var siblings by remember(recordingOf) { mutableStateOf<Int?>(null) }
-    LaunchedEffect(recordingOf, loadKey) {
-        if (recordingOf != null) {
-            runSuspendCatching { feed.activity(recordingOf) }.onSuccess { siblings = it.recordings.orEmpty().size }
-        }
+    val latestRecordingOf by rememberUpdatedState(recordingOf)
+    // The main activity's recordings, this one among them; null until loaded, and when it fails, quietly: ungrouping waits for it.
+    val siblings = remember {
+        snapshotFlow { latestRecordingOf }.filterNotNull().distinctUntilChanged()
     }
+        .produceRetainedContentState<AtUri, Int?>(null, loadKey) { main ->
+            feed.activityOutcome(main).map { outcome -> outcome.mapData { it.recordings.orEmpty().size } }
+        }
+        .data
     val delete = ActivityDetailEvent.Delete::class
     val ungroup = ActivityDetailEvent.Ungroup
     val split = ActivityDetailEvent.Split
@@ -443,40 +453,28 @@ private class Charts(val charts: ActivityCharts?, val streams: GetActivityStream
 }
 
 /**
- * [activity]'s charts, reloaded with [loadKey], from its streams merged from every tier the viewer is admitted to. They're extra: without
- * streams, or when they fail to load, the activity shows without them.
+ * [activity]'s charts, reloaded with [loadKey] and retained with the page, from its streams merged from every tier the viewer is admitted
+ * to. They're extra: without streams the activity shows without them, and a failure keeps whatever was shown, quietly.
  */
 @Composable
 private fun rememberCharts(activity: AtUri, loadKey: Int, units: UnitSystem, feed: FeedRepository): Charts {
-    var streams by remember { mutableStateOf<GetActivityStreams.Output?>(null) }
-    var charts by remember { mutableStateOf<ActivityCharts?>(null) }
+    val latestUnits by rememberUpdatedState(units)
     // The lap table is in the viewer's units, so a change of units rebuilds it.
-    LaunchedEffect(loadKey, units) {
-        runSuspendCatching { feed.streams(activity) }
-            .onSuccess { loaded ->
-                streams = loaded
-                charts = loaded?.let { ChartsBuilder.buildOffMain(it, units) }
-            }
+    val loaded = remember {
+        snapshotFlow { latestUnits }
     }
-    return Charts(charts, streams)
+        .produceRetainedContentState<UnitSystem, Charts>(Charts(null, null), loadKey) { shownIn ->
+            outcomeFlow {
+                feed.streams(activity).let { streams -> Charts(streams?.let { ChartsBuilder.buildOffMain(it, shownIn) }, streams) }
+            }
+        }
+    return loaded.data
 }
 
 /** Heart rate or power without the zones to split it into. */
 private fun ActivityCharts.missingZones(): Boolean =
     lines.any { it.kind == StreamKind.HeartRate } && heartRateZones == null ||
         lines.any { it.kind == StreamKind.Power } && powerZones == null
-
-private fun detailState(
-    activity: ActivityView?,
-    error: UiError?,
-    sink: (ActivityDetailEvent) -> Unit,
-    loaded: (ActivityView) -> ActivityDetailState.Loaded,
-): ActivityDetailState =
-    when {
-        activity != null -> loaded(activity)
-        error != null -> ActivityDetailState.Error(error, sink)
-        else -> ActivityDetailState.Loading(sink)
-    }
 
 /**
  * Who liked [uri] while [show] is set, reloaded each time it's shown. The AppView lags the viewer's own toggles, so the viewer is added or
@@ -490,19 +488,15 @@ private fun rememberLikesList(
     feed: FeedRepository,
     profiles: ProfileRepository,
 ): LikesList? {
-    var athletes by remember { mutableStateOf(emptyList<ProfileViewBasic>()) }
-    // Starts (and goes back to) loading while hidden, so the first frame after showing doesn't flash an empty list.
-    var loading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<UiError?>(null) }
+    // Starts (and goes back to) loading while hidden, so the first frame after showing doesn't flash the list as it was.
+    val likes =
+        produceRetainedContentState<List<ProfileViewBasic>>(emptyList(), show) {
+            if (show) outcomeFlow { feed.likes(uri) } else flowOf(Outcome.Loading)
+        }
+    val athletes = likes.data
+    val loading = likes.isLoading
+    val error = likes.errorOrNull?.let { UiError(UiError.Kind.LoadLikes, it) }
     var me by remember { mutableStateOf<ProfileViewBasic?>(null) }
-
-    LaunchedEffect(show) {
-        loading = true
-        error = null
-        if (!show) return@LaunchedEffect
-        runSuspendCatching { athletes = feed.likes(uri) }.onFailure { error = UiError.of(UiError.Kind.LoadLikes, it) }
-        loading = false
-    }
 
     val viewer = profiles.did
     val viewerListed = athletes.any { it.did == viewer }

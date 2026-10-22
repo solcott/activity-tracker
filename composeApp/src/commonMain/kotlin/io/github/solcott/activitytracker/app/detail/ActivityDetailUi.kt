@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.media.mediaItems
 import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.app.report.ReportingEvent
@@ -44,10 +45,12 @@ import io.github.solcott.activitytracker.app.report.ReportingHost
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.ActivityTypeIcon
 import io.github.solcott.activitytracker.app.ui.CategoryLock
+import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.DiveSite
 import io.github.solcott.activitytracker.app.ui.HiddenCard
 import io.github.solcott.activitytracker.app.ui.MediaRow
 import io.github.solcott.activitytracker.app.ui.ModerationNotice
+import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.VisibilityBadge
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
@@ -67,7 +70,6 @@ import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.app.ui.rememberFileHandOff
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.detail_hide_likes
 import io.github.solcott.activitytracker.composeApp.resources.detail_like
 import io.github.solcott.activitytracker.composeApp.resources.detail_liked
@@ -85,6 +87,7 @@ import io.github.solcott.activitytracker.data.moderation.ReportTarget
 import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.activityType
+import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.persistentListOf
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -101,7 +104,7 @@ fun ActivityDetailUi(state: ActivityDetailState, modifier: Modifier = Modifier) 
                 onBack = { state.eventSink(ActivityDetailEvent.Back) },
                 scrollBehavior = scrollBehavior,
                 actions = {
-                    val loaded = state as? ActivityDetailState.Loaded
+                    val loaded = state.content.data
                     loaded?.manage?.let {
                         ManageMenu(it, loaded.canHideRouteEnds, loaded.export, loaded.eventSink, canCreateSegment = loaded.canCreateSegment)
                     }
@@ -110,35 +113,17 @@ fun ActivityDetailUi(state: ActivityDetailState, modifier: Modifier = Modifier) 
             )
         },
     ) { padding ->
-        when (state) {
-            is ActivityDetailState.Loading -> {
-                Column(
-                    Modifier.padding(padding).fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    AppProgressIndicator(Modifier.padding(32.dp))
-                }
-            }
-
-            is ActivityDetailState.Error -> {
-                Column(Modifier.padding(padding).padding(16.dp)) {
-                    Text(errorText(state.error), color = MaterialTheme.colorScheme.error)
-                    AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.Retry) }) {
-                        Text(stringResource(Res.string.action_retry))
-                    }
-                }
-            }
-
-            is ActivityDetailState.Loaded -> {
-                LoadedContent(state, padding)
-            }
+        val retry = { state.eventSink(ActivityDetailEvent.Retry) }
+        ContentStateLayout(state.content, UiError.Kind.LoadActivity, retry, contentPadding = padding) { page ->
+            // Built whenever the activity has loaded.
+            page?.let { LoadedContent(it, state.content, padding) }
         }
     }
 }
 
 /** The "…" menu on someone else's activity, beside where the owner's [ManageMenu] sits: Report. */
 @Composable
-private fun OthersActivityMenu(state: ActivityDetailState.Loaded) {
+private fun OthersActivityMenu(state: ActivityDetailPage) {
     var open by remember { mutableStateOf(false) }
     val report = stringResource(Res.string.report_activity)
     val activity = state.activity
@@ -159,7 +144,12 @@ private fun OthersActivityMenu(state: ActivityDetailState.Loaded) {
 }
 
 @Composable
-private fun LoadedContent(state: ActivityDetailState.Loaded, contentPadding: PaddingValues, modifier: Modifier = Modifier) {
+private fun LoadedContent(
+    state: ActivityDetailPage,
+    content: ContentState<*>,
+    contentPadding: PaddingValues,
+    modifier: Modifier = Modifier,
+) {
     ReportingHost(state.reporting)
     val handOff = rememberFileHandOff()
     val exported = state.export?.file
@@ -178,7 +168,7 @@ private fun LoadedContent(state: ActivityDetailState.Loaded, contentPadding: Pad
         return
     }
     WithWindowWidth(modifier.fillMaxSize()) { width ->
-        if (width == WindowWidth.Expanded) PanedPage(state, contentPadding) else ColumnPage(state, contentPadding, width)
+        if (width == WindowWidth.Expanded) PanedPage(state, content, contentPadding) else ColumnPage(state, content, contentPadding, width)
     }
     state.combineSuggestion?.takeIf { it.asPrompt }?.let { CombineSuggestionPrompt(it, state.eventSink) }
 }
@@ -188,7 +178,7 @@ private fun LoadedContent(state: ActivityDetailState.Loaded, contentPadding: Pad
  * map side by side, add the avg/max table, and set the cards and stats two to a row.
  */
 @Composable
-private fun ColumnPage(state: ActivityDetailState.Loaded, contentPadding: PaddingValues, width: WindowWidth) {
+private fun ColumnPage(state: ActivityDetailPage, content: ContentState<*>, contentPadding: PaddingValues, width: WindowWidth) {
     val page = state.page
     val medium = width == WindowWidth.Medium
     val listState = rememberLazyListState()
@@ -199,6 +189,10 @@ private fun ColumnPage(state: ActivityDetailState.Loaded, contentPadding: Paddin
             contentPadding = listPadding + PaddingValues(vertical = CARD_PADDING),
             verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
         ) {
+            // Over the loaded page: a spinner while it reloads, or why the last reload failed with Retry.
+            item(key = "refresh") {
+                RefreshStatus(content, UiError.Kind.LoadActivity, onRetry = { state.eventSink(ActivityDetailEvent.Retry) })
+            }
             item(key = "header") { Header(state) }
             if (medium) {
                 item(key = "summary") {
@@ -228,7 +222,7 @@ private fun ColumnPage(state: ActivityDetailState.Loaded, contentPadding: Paddin
  * view, beside the cards, two to a row once their pane has room.
  */
 @Composable
-private fun PanedPage(state: ActivityDetailState.Loaded, contentPadding: PaddingValues) {
+private fun PanedPage(state: ActivityDetailPage, content: ContentState<*>, contentPadding: PaddingValues) {
     val page = state.page
     val paneState = rememberLazyListState()
     val cardsState = rememberLazyListState()
@@ -241,6 +235,10 @@ private fun PanedPage(state: ActivityDetailState.Loaded, contentPadding: Padding
                 contentPadding = padding,
                 verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
             ) {
+                // Over the loaded page: a spinner while it reloads, or why the last reload failed with Retry.
+                item(key = "refresh") {
+                    RefreshStatus(content, UiError.Kind.LoadActivity, onRetry = { state.eventSink(ActivityDetailEvent.Retry) })
+                }
                 item(key = "media") { PageMedia(state) }
                 item(key = "header") { Header(state) }
                 item(key = "hero") { HeroRow(page.hero) }
@@ -270,7 +268,7 @@ private fun PanedPage(state: ActivityDetailState.Loaded, contentPadding: Padding
 }
 
 /** The metric cards, [columns] to a row; laps and the other tables take a row of their own. */
-private fun LazyListScope.metricCards(state: ActivityDetailState.Loaded, columns: Int) {
+private fun LazyListScope.metricCards(state: ActivityDetailPage, columns: Int) {
     val charts = state.page.charts ?: return
     val rows = mutableListOf<List<MetricCard>>()
     for (card in state.page.cards) {
@@ -301,7 +299,7 @@ private val TWO_CARD_COLUMNS = 640.dp
 
 /** Who and what: the author, the title and type, the dive site and description, the other recordings, and what an action reported. */
 @Composable
-private fun Header(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
+private fun Header(state: ActivityDetailPage, modifier: Modifier = Modifier) {
     val record = state.activity.record
     val activity = state.activity
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -354,7 +352,7 @@ private fun Header(state: ActivityDetailState.Loaded, modifier: Modifier = Modif
 
 /** The map and photos, the map marked with the Map category's visibility on the owner's page when it's narrower than the activity. */
 @Composable
-private fun PageMedia(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier, height: Dp = 240.dp) {
+private fun PageMedia(state: ActivityDetailPage, modifier: Modifier = Modifier, height: Dp = 240.dp) {
     val activity = state.activity
     val media = remember(activity) { activity.mediaItems() }
     val decision = remember(activity, state.isOwn) { ModerationDecision.of(activity.labels, activity.author.labels, state.isOwn) }
@@ -389,7 +387,7 @@ private fun PageMedia(state: ActivityDetailState.Loaded, modifier: Modifier = Mo
 
 /** The like count or button, the toggle for who liked it, why a like couldn't be given, and the list once shown. */
 @Composable
-private fun Likes(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
+private fun Likes(state: ActivityDetailPage, modifier: Modifier = Modifier) {
     Column(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             LikeButton(state, Modifier.weight(1f))
@@ -406,7 +404,7 @@ private fun Likes(state: ActivityDetailState.Loaded, modifier: Modifier = Modifi
 }
 
 @Composable
-private fun LikeButton(state: ActivityDetailState.Loaded, modifier: Modifier = Modifier) {
+private fun LikeButton(state: ActivityDetailPage, modifier: Modifier = Modifier) {
     val count = state.activity.likeCount
     if (state.isOwn) {
         Text(pluralStringResource(Res.plurals.like_count, count.toInt(), formatWhole(count)), modifier.padding(vertical = 12.dp))

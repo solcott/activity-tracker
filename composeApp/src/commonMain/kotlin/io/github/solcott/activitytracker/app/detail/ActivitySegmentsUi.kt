@@ -13,7 +13,7 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_section_seg
 import org.jetbrains.compose.resources.stringResource
 
 /** The activity's segment efforts in a card after the laps, each opening its segment; nothing when it has none the viewer may see. */
-internal fun LazyListScope.segments(state: ActivityDetailState.Loaded) {
+internal fun LazyListScope.segments(state: ActivityDetailPage) {
     if (state.segments.isEmpty()) return
     item(key = "segments") {
         AppCard {

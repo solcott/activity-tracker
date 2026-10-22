@@ -1,8 +1,14 @@
 package io.github.solcott.activitytracker.app
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withCompositionLocals
 import app.cash.turbine.ReceiveTurbine
 import co.touchlab.kermit.Logger
+import com.slack.circuit.retained.LocalRetainedStateRegistry
+import com.slack.circuit.retained.RetainedStateRegistry
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent
@@ -64,6 +70,9 @@ class ActivityDetailManageTest {
     private var gate = CompletableDeferred(Unit)
     private var failGetRecord = false
 
+    /** `getActivity` for the main activity answers InternalServerError while set. */
+    private var failMain = false
+
     /** Every write the PDS took, in order, as "put|delete collection/rkey". */
     private val writes = mutableListOf<String>()
 
@@ -103,6 +112,9 @@ class ActivityDetailManageTest {
                     }
 
                     "/xrpc/${Nsid.FEED_GET_ACTIVITY}" -> {
+                        if (failMain && request.url.parameters["uri"] == main) {
+                            return@MockEngine respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
+                        }
                         respond("""{"activity":${view(request.url.parameters["uri"]!!)},"comments":[]}""", headers = json)
                     }
 
@@ -216,6 +228,38 @@ class ActivityDetailManageTest {
     }
 
     @Test
+    fun aRecordingCantBeUngroupedWhileItsGroupFailsToLoadAndSaysNothing() = runTest {
+        failMain = true
+        presenterTestOf(presenter(uri(alice, "3krec1"))) {
+            val manage = assertNotNull(awaitLoaded().manage)
+            assertFalse(manage.canUngroup)
+            assertNull(manage.error, "the group's count is extra")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aRecordingStillUngroupsAtOnceWhenComingBack() = runTest {
+        val registry = RetainedStateRegistry()
+        var shown by mutableStateOf(true)
+        val recording = presenter(uri(alice, "3krec1"))
+        presenterTestOf({
+            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                if (shown) recording() else ActivityDetailState(eventSink = {})
+            }
+        }) {
+            awaitUntil { it.page()?.manage?.canUngroup == true }
+            registry.saveAll()
+            shown = false
+            awaitUntil { it.page() == null }
+            failMain = true
+            shown = true
+            assertEquals(true, awaitItem().page()?.manage?.canUngroup, "known at once, and kept through the failed reload")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun onlyAGroupOfTwoCanBeUngrouped() = runTest {
         presenterTestOf(presenter(main)) {
             val manage = assertNotNull(awaitLoaded().manage)
@@ -224,7 +268,7 @@ class ActivityDetailManageTest {
             cancelAndIgnoreRemainingEvents()
         }
         presenterTestOf(presenter(uri(alice, "3krec1"))) {
-            assertNotNull(awaitUntil { (it as? ActivityDetailState.Loaded)?.manage?.canUngroup == true })
+            assertNotNull(awaitUntil { it.page()?.manage?.canUngroup == true })
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -250,7 +294,7 @@ class ActivityDetailManageTest {
             val loaded = awaitLoaded()
             assertEquals(0, loaded.manage?.otherRecordings)
             loaded.eventSink(ActivityDetailEvent.Delete(withRecordings = false))
-            awaitUntil { (it as? ActivityDetailState.Loaded)?.manage?.busy == true }
+            awaitUntil { it.page()?.manage?.busy == true }
             loaded.eventSink(ActivityDetailEvent.Delete(withRecordings = false))
 
             gate.complete(Unit)
@@ -283,7 +327,7 @@ class ActivityDetailManageTest {
         val navigator = FakeNavigator(ActivityDetailScreen(main))
         presenterTestOf(presenter(main, navigator)) {
             awaitLoaded().eventSink(ActivityDetailEvent.Ungroup)
-            val ungrouped = awaitUntil { (it as? ActivityDetailState.Loaded)?.activity?.recordings == null } as ActivityDetailState.Loaded
+            val ungrouped = awaitUntil { it.page()?.activity?.recordings == null }.page()!!
             assertFalse(assertNotNull(ungrouped.manage).canUngroup)
             assertEquals(listOf("put ${Nsid.FEED_ACTIVITY}/3krec1"), writes)
             navigator.assertPopIsEmpty()
@@ -297,7 +341,7 @@ class ActivityDetailManageTest {
         val navigator = FakeNavigator(ActivityDetailScreen(main))
         presenterTestOf(presenter(main, navigator)) {
             awaitLoaded().eventSink(ActivityDetailEvent.Delete(withRecordings = false))
-            val failed = awaitUntil { (it as? ActivityDetailState.Loaded)?.manage?.error != null } as ActivityDetailState.Loaded
+            val failed = awaitUntil { it.page()?.manage?.error != null }.page()!!
             assertEquals(UiError.Kind.DeleteActivity, failed.manage?.error?.kind)
             assertTrue(writes.isEmpty())
             navigator.assertPopIsEmpty()
@@ -305,6 +349,5 @@ class ActivityDetailManageTest {
         }
     }
 
-    private suspend fun ReceiveTurbine<ActivityDetailState>.awaitLoaded() =
-        awaitUntil { it is ActivityDetailState.Loaded } as ActivityDetailState.Loaded
+    private suspend fun ReceiveTurbine<ActivityDetailState>.awaitLoaded() = awaitUntil { it.page() != null }.page()!!
 }

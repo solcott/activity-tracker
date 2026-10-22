@@ -3,8 +3,8 @@ package io.github.solcott.activitytracker.app
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.detail.ActivityCharts
+import io.github.solcott.activitytracker.app.detail.ActivityDetailPage
 import io.github.solcott.activitytracker.app.detail.ActivityDetailPresenter
-import io.github.solcott.activitytracker.app.detail.ActivityDetailState
 import io.github.solcott.activitytracker.app.detail.DetailSection
 import io.github.solcott.activitytracker.app.detail.DiveAlertPoint
 import io.github.solcott.activitytracker.app.detail.FigureKey
@@ -24,9 +24,9 @@ import kotlinx.coroutines.test.runTest
 
 /** What the detail page charts from the data a FIT or UDDF file kept: dive state, tanks, gas switches, running dynamics, laps, load. */
 class ActivityFileDataChartsTest : ActivityDetailTestBase() {
-    private suspend fun loaded(units: UnitSystem = UnitSystem.Metric): Pair<ActivityDetailState.Loaded, ActivityCharts> {
+    private suspend fun loaded(units: UnitSystem = UnitSystem.Metric): Pair<ActivityDetailPage, ActivityCharts> {
         val r = repos(units = units)
-        var result: Pair<ActivityDetailState.Loaded, ActivityCharts>? = null
+        var result: Pair<ActivityDetailPage, ActivityCharts>? = null
         presenterTestOf({
             ActivityDetailPresenter(
                 screen,

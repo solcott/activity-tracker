@@ -4,7 +4,6 @@ import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent
 import io.github.solcott.activitytracker.app.detail.ActivityDetailPresenter
-import io.github.solcott.activitytracker.app.detail.ActivityDetailState
 import io.github.solcott.activitytracker.app.detail.DetailSection
 import io.github.solcott.activitytracker.app.detail.StreamKind
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
@@ -52,8 +51,8 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
             assertEquals(ProfileScreen("did:plc:carol"), navigator.awaitNextScreen())
 
             shown.eventSink(ActivityDetailEvent.ToggleLikesList)
-            var hidden = awaitItem() as ActivityDetailState.Loaded
-            while (hidden.likesList != null) hidden = awaitItem() as ActivityDetailState.Loaded
+            var hidden = awaitItem().page()!!
+            while (hidden.likesList != null) hidden = awaitItem().page()!!
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -82,7 +81,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
             val loaded = awaitLoaded()
             assertEquals(1, loaded.activity.likeCount)
             loaded.eventSink(ActivityDetailEvent.ToggleLike)
-            val liked = awaitUntil { (it as? ActivityDetailState.Loaded)?.activity?.viewer?.like != null } as ActivityDetailState.Loaded
+            val liked = awaitUntil { it.page()?.activity?.viewer?.like != null }.page()!!
             assertEquals(2, liked.activity.likeCount)
             cancelAndIgnoreRemainingEvents()
         }
@@ -113,7 +112,7 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
             val loaded = awaitLoaded()
             assertNull(loaded.likeError)
             loaded.eventSink(ActivityDetailEvent.ToggleLike)
-            val refused = awaitUntil { (it as? ActivityDetailState.Loaded)?.likeError != null } as ActivityDetailState.Loaded
+            val refused = awaitUntil { it.page()?.likeError != null }.page()!!
             assertEquals(UiError(UiError.Kind.SignInAgain), refused.likeError)
             assertEquals(1, refused.activity.likeCount, "the like isn't shown")
             assertNull(refused.activity.viewer?.like)
