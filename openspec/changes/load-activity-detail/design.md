@@ -59,10 +59,10 @@ The library has no retry operator for outcome streams.
     val content: ContentState<ActivityDetailPage?>,
     val eventSink: (ActivityDetailEvent) -> Unit,
 )
-@Immutable data class ActivityDetailPage(/* today's Loaded fields, less eventSink */)
+@Immutable data class ActivityDetailPage(/* today's Loaded fields, eventSink included */)
 ```
-- The presenter collects `activityOutcome(uri)` (with the index wait) into `ContentState<ActivityView?>`. It then builds the page from the shown view and every supplementary state, and sets it with `content.copy(data = page)`. So the status and origin are the main load's, and the data is what the UI draws.
-- `Loaded` becomes `ActivityDetailPage`, under a new name and without `eventSink`. The UI's helpers take the page plus the sink, so the diff in `ActivityDetailUi.kt` is mostly mechanical.
+- The presenter collects `activityOutcome(uri)` (with the index wait) into `ContentState<ActivityView?>`. It then builds the page from the shown view and every supplementary state, and wraps it as `ContentState(page, content.origin, content.status)`. `copy` can't change the type. So the status and origin are the main load's, and the data is what the UI draws.
+- `Loaded` is renamed `ActivityDetailPage` and keeps its `eventSink`. The UI's ~30 helpers and the tests' `loaded.eventSink(…)` calls then only change type. Dropping the sink would have touched every one of them for no behaviour.
 - **Alternative:** keep the sealed interface and add a `refresh` field to `Loaded`. Rejected: it keeps the null-or-not checks the content-loading convention replaces, and a reload couldn't show the failure over the content without a second error field.
 - **Alternative:** `content: ContentState<ActivityView?>` and the page as a separate nullable field. Rejected: two sources of truth for "has it loaded".
 
@@ -85,6 +85,7 @@ internal fun <T> Flow<Outcome<T>>.awaitIndexed(justWritten: suspend () -> Boolea
 - The constants are today's: 10 tries, 1.5 s apart.
 - `justWritten` is `screen.suggestOnOpen || feed.rewrites.observe(uri).first() != null`, read when the error comes. Reading it then avoids the race with the first composition, where `collectAsState(null)` still says no rewrite.
 - A Retry bumps the key, which re-collects the operator, so a manual retry gets a fresh 10 tries. Today the count was never reset.
+- **The extras restart once after a late index.** They ran alongside the first try, while the AppView had nothing for the activity, so its streams, efforts and comments came back empty or failed. Bumping `loadKey` used to reload them with every try. Now the operator calls `indexed()` when a try after the first answers. That bumps `indexedLate`, and the extras are keyed on `loadKey + indexedLate`, so they read again exactly once. The web check of a manual save caught this: its comments said they couldn't load.
 - **Alternative:** Flow's `retryWhen`. Rejected: `outcomeFlow` never throws, because failures are values, so `retryWhen` never sees them.
 - **Alternative:** keep the composable, and feed it `content.errorOrNull`. Rejected: bumping the key from outside flips the status to Failed and then to Loading on each try, which is the flicker the proposal removes.
 
