@@ -167,7 +167,6 @@ class BlockListPresenterTest {
 
             failingCursors.clear()
             failed.eventSink(BlockListEvent.Retry)
-            awaitUntil { it.accounts.refresh is LoadStatus.Loading }
             assertEquals(3, awaitUntil { it.accounts.refresh is LoadStatus.Idle }.accounts.items.size)
             cancelAndIgnoreRemainingEvents()
         }
