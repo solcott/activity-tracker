@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.feed.LocalBlocks
 import io.github.solcott.activitytracker.data.feed.LocalComments
 import io.github.solcott.activitytracker.data.feed.SentComment
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -36,6 +37,7 @@ internal class Comments(
     /** The signed-in athlete. */
     val viewer: Did,
     private val local: LocalComments,
+    private val blocks: LocalBlocks,
 ) {
     /** How many of the listed comments and replies by [author] are counted (not hidden): what blocking or muting them takes off. */
     fun countedBy(author: Did): Int =
@@ -44,13 +46,13 @@ internal class Comments(
         }
 
     /**
-     * The listed comment or reply [uri], as shown, unless the viewer has deleted it since: a repeated delete can arrive after the first
-     * finished but before the list shown here caught up.
+     * The listed comment or reply [uri], as shown, unless the viewer has deleted it or blocked or muted its author since: a repeated delete
+     * or block can arrive after the first finished but before the list shown here caught up.
      */
     fun listed(uri: AtUri): CommentView? =
         paging.items
             .firstNotNullOfOrNull { thread -> thread.root?.takeIf { it.uri == uri } ?: thread.replies.firstOrNull { it.uri == uri } }
-            ?.takeUnless { isDeleted(uri) }
+            ?.takeUnless { isDeleted(uri) || blocks.hidesCommentsBy(it.author.did) }
 
     /** Whether the viewer has deleted [uri], read now rather than from the list as last shown. */
     private fun isDeleted(uri: AtUri): Boolean = local.entries.value[uri]?.want == LocalComments.Want.Gone
@@ -132,6 +134,7 @@ internal fun rememberComments(activity: AtUri, viewer: Did, loadKey: Int, feed: 
         },
         viewer = viewer,
         local = local,
+        blocks = feed.localBlocks,
     )
 }
 
