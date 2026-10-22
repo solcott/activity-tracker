@@ -163,11 +163,18 @@ When two candidates of one sport group duplicate each other, by the test the App
 - **THEN** the OSM `ride` candidates are kept and the OSM `hike` candidates are dropped
 
 ### Requirement: Agency datasets are read as GeoJSON text sequences
-The importer SHALL read each agency dataset as a GeoJSON text sequence of features in WGS 84, named with its kind: the Forest Service's National Forest System trails (`usfs`), the National Park Service's public trails (`nps`) or the Bureau of Land Management's public managed trails (`blm`). Each LineString, and each part of a MultiLineString, SHALL be one line of the trail network. A feature with no stable feature id, or whose geometry isn't a line, SHALL be skipped and counted in the run's report.
+The importer SHALL read each agency dataset as a GeoJSON text sequence of features in WGS 84, named with its kind: the Forest Service's National Forest System trails (`usfs`), the National Park Service's public trails (`nps`) or the Bureau of Land Management's public managed trails (`blm`).
 
 #### Scenario: Unknown kind
 - **WHEN** an operator gives an agency dataset of a kind the importer doesn't know
 - **THEN** the importer stops with its usage and writes nothing
+
+#### Scenario: BLM dataset
+- **WHEN** an operator extracts `us-utah` from a Geofabrik extract and BLM's managed trails for the same area
+- **THEN** the candidates file holds BLM trail candidates with `source` `agency`, `license` `CC0-1.0` and the attribution "Bureau of Land Management"
+
+### Requirement: Agency features become lines of the trail network
+Each LineString in an agency dataset, and each part of a MultiLineString, SHALL be one line of the trail network. A feature with no stable feature id, or whose geometry isn't a line, SHALL be skipped and counted in the run's report.
 
 #### Scenario: Multi-part feature
 - **WHEN** a Park Service feature is a MultiLineString of two parts
@@ -176,10 +183,6 @@ The importer SHALL read each agency dataset as a GeoJSON text sequence of featur
 #### Scenario: Feature without an id
 - **WHEN** a Forest Service feature has no control number
 - **THEN** it gives no candidate, and the run reports it as skipped
-
-#### Scenario: BLM dataset
-- **WHEN** an operator extracts `us-utah` from a Geofabrik extract and BLM's managed trails for the same area
-- **THEN** the candidates file holds BLM trail candidates with `source` `agency`, `license` `CC0-1.0` and the attribution "Bureau of Land Management"
 
 ### Requirement: Forest Service features qualify by their managed and accepted uses
 A Forest Service feature SHALL be a trail for `ride` when bicycles are managed or accepted on it, for `run` and `hike` when hikers are, for `ski` when cross-country skiers are, and for `paddle` when non-motorised watercraft are. It SHALL qualify only with a non-empty name.
