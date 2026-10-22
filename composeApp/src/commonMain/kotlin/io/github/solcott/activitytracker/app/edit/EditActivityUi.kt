@@ -17,15 +17,15 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.ActivityDetailsForm
 import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
+import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppDialogAction
-import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
-import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
@@ -35,7 +35,6 @@ import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.visibilityLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
-import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.action_save
 import io.github.solcott.activitytracker.composeApp.resources.action_saving
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_narrowing_body
@@ -92,23 +91,20 @@ fun EditActivityUi(state: EditActivityState, modifier: Modifier = Modifier) {
             )
         },
     ) { padding ->
-        val scroll = rememberScrollState()
-        ScrollbarBox(scroll, contentPadding = padding) {
-            Column(
-                Modifier.verticalScroll(scroll).padding(padding).readableWidth().padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                val details = state.details
-                val type = state.type
-                if (details == null || type == null) {
-                    if (state.error == null) AppProgressIndicator()
-                    state.error?.let {
-                        Text(errorText(it), color = MaterialTheme.colorScheme.error)
-                        AppSecondaryButton(onClick = { state.eventSink(EditActivityEvent.Retry) }) {
-                            Text(stringResource(Res.string.action_retry))
-                        }
-                    }
-                } else {
+        ContentStateLayout(
+            state.content,
+            UiError.Kind.LoadActivity,
+            { state.eventSink(EditActivityEvent.Retry) },
+            contentPadding = padding,
+        ) {
+            val scroll = rememberScrollState()
+            ScrollbarBox(scroll, contentPadding = padding) {
+                Column(
+                    Modifier.verticalScroll(scroll).padding(padding).readableWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    val details = state.details ?: return@Column
+                    val type = state.type ?: return@Column
                     ActivityDetailsForm(state.title, titlePlaceholder = activityTypeLabel(type), fields = details, enabled = !state.saving)
                     state.visibility?.let { visibility ->
                         ActivityVisibilityForm(

@@ -1,9 +1,18 @@
 package io.github.solcott.activitytracker.app
 
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.LocalSaveableStateRegistry
+import androidx.compose.runtime.saveable.SaveableStateRegistry
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withCompositionLocals
 import app.cash.turbine.ReceiveTurbine
 import co.touchlab.kermit.Logger
+import com.slack.circuit.retained.LocalRetainedStateRegistry
+import com.slack.circuit.retained.RetainedStateRegistry
 import com.slack.circuit.test.FakeNavigator
 import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.edit.DetailsEvent
@@ -33,6 +42,11 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.dataresult.DataError
+import io.github.solcott.uistate.ContentState
+import io.github.solcott.uistate.errorOrNull
+import io.github.solcott.uistate.hasLoaded
+import io.github.solcott.uistate.isLoading
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
@@ -50,6 +64,7 @@ import kotlin.time.Clock
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
+import kotlinx.io.IOException
 import kotlinx.io.bytestring.ByteString
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -119,6 +134,12 @@ class EditActivityPresenterTest {
     private val putRecords = mutableListOf<ActivityRecord>()
     private var failUpload = false
 
+    /** `getActivity` fails as a dropped connection would, while set. */
+    private var activityOffline = false
+
+    /** How many times the AppView was asked for the activity. */
+    private var activityReads = 0
+
     /** Holds each `putRecord` until completed, so the test sees the save in flight. */
     private var gate = CompletableDeferred(Unit)
 
@@ -129,7 +150,11 @@ class EditActivityPresenterTest {
                 when (request.url.encodedPath) {
                     "/xrpc/com.atproto.server.getServiceAuth" -> respond("""{"token":"service-jwt"}""", headers = json)
 
-                    "/xrpc/${Nsid.FEED_GET_ACTIVITY}" -> respond("""{"activity":$view,"comments":[]}""", headers = json)
+                    "/xrpc/${Nsid.FEED_GET_ACTIVITY}" -> {
+                        if (activityOffline) throw IOException("Connection refused")
+                        activityReads++
+                        respond("""{"activity":$view,"comments":[]}""", headers = json)
+                    }
 
                     "/xrpc/com.atproto.repo.getRecord" -> activityAt("repo", request.url.parameters["collection"])
 
@@ -297,6 +322,19 @@ class EditActivityPresenterTest {
         }
     }
 
+    /** A stand-in for the screen while it's being recreated. */
+    private val hidden =
+        EditActivityState(
+            content = ContentState(Unit),
+            type = null,
+            title = TextFieldState(),
+            details = null,
+            saving = false,
+            error = null,
+            confirmDiscard = false,
+            eventSink = {},
+        )
+
     private suspend fun ReceiveTurbine<EditActivityState>.awaitLoaded() = awaitUntil { it.details != null }
 
     @Test
@@ -327,6 +365,69 @@ class EditActivityPresenterTest {
             assertEquals("Dahab", saved.dive?.site)
             assertEquals(3000, saved.dive?.maxDepth)
             assertEquals(listOf("bafktwo", "bafknew"), saved.media.orEmpty().map { it.cid })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aFailedLoadSaysWhyAndRetryFillsTheForm() = runTest {
+        activityOffline = true
+        presenterTestOf(presenter(FakeNavigator(EditActivityScreen(uri)))) {
+            val failed = awaitUntil { it.content.errorOrNull != null }
+            assertEquals(DataError.Network, failed.content.errorOrNull)
+            assertNull(failed.details)
+            assertNull(failed.error, "a load failure isn't the save's")
+
+            activityOffline = false
+            failed.eventSink(EditActivityEvent.Retry)
+            awaitUntil { it.content.isLoading }
+            val loaded = awaitLoaded()
+            assertTrue(loaded.content.hasLoaded)
+            assertEquals("Blue Hole", loaded.title.text.toString())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun streamsThatCantBeReadStillLoadTheForm() = runTest {
+        // With no channels served, getActivityStreams answers NotFound.
+        presenterTestOf(presenter(FakeNavigator(EditActivityScreen(uri)))) {
+            val loaded = awaitLoaded()
+            assertTrue(loaded.content.hasLoaded)
+            assertNull(loaded.error)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aRecreatedScreenKeepsTheTypedTitleThroughItsReload() = runTest {
+        val retained = RetainedStateRegistry()
+        var saveable by mutableStateOf(SaveableStateRegistry(null) { true })
+        var shown by mutableStateOf(true)
+        val present = presenter(FakeNavigator(EditActivityScreen(uri)))
+        presenterTestOf({
+            withCompositionLocals(LocalRetainedStateRegistry provides retained, LocalSaveableStateRegistry provides saveable) {
+                if (shown) present() else hidden
+            }
+        }) {
+            val loaded = awaitLoaded()
+            loaded.title.setTextAndPlaceCursorAtEnd("Blue Hole at dawn")
+            val reads = activityReads
+
+            // What an Android configuration change does: saved state is restored into a new registry, retained state is kept.
+            val saved = saveable.performSave()
+            retained.saveAll()
+            shown = false
+            awaitUntil { it === hidden }
+            saveable = SaveableStateRegistry(saved) { true }
+            shown = true
+
+            val back = awaitLoaded()
+            assertEquals("Blue Hole at dawn", back.title.text.toString())
+            assertEquals("Sharks", back.details?.description?.text.toString(), "the details are filled again from the activity as loaded")
+            // Coming back restarts the load; its answer leaves the form alone.
+            awaitSettled { activityReads > reads }
+            assertEquals("Blue Hole at dawn", expectMostRecentItem().title.text.toString())
             cancelAndIgnoreRemainingEvents()
         }
     }
