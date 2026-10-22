@@ -13,8 +13,12 @@ import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
-/** The segment at [uri] (segments/segment-efforts): its line, name, length and sport group, and the viewer's own efforts on it. */
-@CircuitSerializable(SessionScope::class) data class SegmentScreen(val uri: String) : Screen
+/**
+ * The segment at [uri] (segments/segment-efforts): its line, name, length and sport group, and the viewer's own efforts on it. [board] is
+ * the board type (a `SegmentBoard` value) its Mayor card and boards open on: the type of the activity it was opened from, or null for the
+ * AppView's default.
+ */
+@CircuitSerializable(SessionScope::class) data class SegmentScreen(val uri: String, val board: String? = null) : Screen
 
 @Immutable
 data class SegmentState(

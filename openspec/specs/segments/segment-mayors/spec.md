@@ -78,11 +78,15 @@ A board SHALL cover the last 90 days by default, or, when asked, all time, this 
 - **THEN** the AppView refuses the request
 
 ### Requirement: Mayors boards share the leaderboard filters
-A Mayors board SHALL take the same scope, e-bike and bracket choices as a time leaderboard, with the same meaning: everyone or only the viewer and the athletes they effectively follow; a `ride` segment's standard or e-bike board; and any combination of age group, weight class and gender. Asking for the following scope without being signed in, or for an unknown scope or bracket value, SHALL be refused.
+A Mayors board SHALL take the same board type, scope and bracket choices as a time leaderboard, with the same meaning: one activity type's board (`segments/segment-leaderboards`), listed and defaulted as leaderboards are; everyone or only the viewer and the athletes they effectively follow; and any combination of age group, weight class and gender. Asking for an unknown board type, scope or bracket value, or the following scope without being signed in, SHALL be refused.
 
 #### Scenario: E-bike board
-- **WHEN** an athlete has 20 e-mountain-bike efforts and 2 standard ones on a ride segment
-- **THEN** the e-bike board counts 20 for them and the standard board counts 2
+- **WHEN** an athlete has 20 e-mountain-bike efforts and 2 other rides on a ride segment
+- **THEN** the `eBike` board counts 20 for them and the `ride` board counts 2
+
+#### Scenario: Default type
+- **WHEN** a viewer asks for a paddle segment's Mayors without a type and may see 12 `kayak` and 4 `canoe` efforts on it
+- **THEN** the `kayak` board is served, and `kayak` and `canoe` are listed
 
 #### Scenario: Following scope
 - **WHEN** a signed-in viewer asks for the following scope
@@ -104,11 +108,15 @@ A board SHALL be paged in its order, at most 100 entries per page, with a cursor
 - **THEN** the response holds the first page and the viewer's own entry ranked 58th
 
 ### Requirement: The segment screen shows its Mayor
-The screen of an `active` segment SHALL show the segment's Mayor for the last 90 days with their count, or that it has none yet, and the viewer's own count when they're on that board. It SHALL open the Mayors screen. The screen of a segment of any other status SHALL show no Mayor.
+The screen of an `active` segment SHALL show the Mayor for the last 90 days of the board type it carries, or of the AppView's default type when it carries none, with their count, or that it has none yet, and the viewer's own count when they're on that board. It SHALL open the Mayors screen on that type. The screen of a segment of any other status SHALL show no Mayor.
 
 #### Scenario: Active segment
 - **WHEN** a viewer opens an active segment whose last-90-days board is led by A with 14 efforts, and the viewer has 6
 - **THEN** the screen shows A as Mayor with 14 efforts and the viewer's 6
+
+#### Scenario: From a canoe trip
+- **WHEN** a viewer opens a paddle segment from a canoe activity
+- **THEN** the screen shows the `canoe` board's Mayor, and the Mayors screen opens on `canoe`
 
 #### Scenario: Shared Mayor on the segment screen
 - **WHEN** two athletes share rank 1
@@ -123,7 +131,7 @@ The screen of an `active` segment SHALL show the segment's Mayor for the last 90
 - **THEN** the screen shows no Mayor
 
 ### Requirement: The Mayors screen offers the board's choices
-The Mayors screen SHALL let the viewer choose the window (the last 90 days by default), the scope, and the age group, weight class and gender, and on a `ride` segment the e-bike board. A new choice SHALL show its board from the first page.
+The Mayors screen SHALL open on the board type it was given, or the AppView's default, and SHALL let the viewer choose the window (the last 90 days by default), the scope, the age group, weight class and gender, and the board type, as a menu of the listed types when there's more than one. A new choice SHALL show its board from the first page.
 
 #### Scenario: Open from segment
 - **WHEN** a viewer opens the Mayors screen from an active segment
@@ -132,6 +140,10 @@ The Mayors screen SHALL let the viewer choose the window (the last 90 days by de
 #### Scenario: Choosing a window
 - **WHEN** a viewer on the last-90-days board chooses this week
 - **THEN** the earlier entries leave the screen, and this week's board shows from its first page once it answers
+
+#### Scenario: Choosing a type
+- **WHEN** a viewer on a hike segment's `hike` board chooses `walk`
+- **THEN** the `hike` entries leave the screen, and the `walk` board shows from its first page once it answers
 
 ### Requirement: The Mayors screen lists the board
 The Mayors screen SHALL list the entries with rank, athlete, count and the date it was reached. It SHALL load further pages as the viewer scrolls and SHALL show the viewer's own entry when it isn't among those listed. Tapping an entry SHALL open the athlete's profile. A failed load SHALL show an error with a retry.

@@ -407,8 +407,8 @@ sealed interface ActivityDetailEvent {
     /** Opens the route on a full-screen map the viewer can pan and zoom. */
     data object OpenMap : ActivityDetailEvent
 
-    /** Opens the segment [uri] of one of the activity's efforts. */
-    data class SegmentOpened(val uri: AtUri) : ActivityDetailEvent
+    /** Opens the segment [uri] of one of the activity's efforts; [eBike] when that effort was an e-bike ride's. */
+    data class SegmentOpened(val uri: AtUri, val eBike: Boolean = false) : ActivityDetailEvent
 
     /** The owner creates a segment from the activity's route ([ActivityDetailPage.canCreateSegment]). */
     data object CreateSegment : ActivityDetailEvent

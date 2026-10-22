@@ -48,12 +48,13 @@ import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.pagedFooter
 import io.github.solcott.activitytracker.app.ui.pagedRefreshStatus
+import io.github.solcott.activitytracker.app.ui.sportLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_age_all
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_age_over
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_age_range
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_age_under
-import io.github.solcott.activitytracker.composeApp.resources.leaderboard_ebike
+import io.github.solcott.activitytracker.composeApp.resources.leaderboard_board_ebike
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_empty
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_gender_all
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_gender_female
@@ -81,7 +82,9 @@ import io.github.solcott.activitytracker.lexicon.app.LeaderboardGender
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardWeightClass
+import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
 import kotlin.math.roundToInt
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
@@ -148,13 +151,7 @@ private fun Filters(state: SegmentLeaderboardState) {
             modifier = Modifier.fillMaxWidth(),
         )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (state.canChooseEBike) {
-                AppFilterChip(
-                    selected = state.eBike,
-                    onClick = { state.eventSink(SegmentLeaderboardEvent.EBikeChanged(!state.eBike)) },
-                    label = { Text(stringResource(Res.string.leaderboard_ebike)) },
-                )
-            }
+            BoardTypeChip(state.board, state.boards) { state.eventSink(SegmentLeaderboardEvent.BoardChanged(it)) }
             BracketChip(
                 all = stringResource(Res.string.leaderboard_age_all),
                 selected = state.ageGroup,
@@ -181,6 +178,39 @@ private fun Filters(state: SegmentLeaderboardState) {
         }
     }
 }
+
+/**
+ * The board's type (segments/segment-leaderboards): a chip with a menu of [boards] when there are two or more, else [board] as a plain
+ * label; nothing when the segment has no type to show.
+ */
+@Composable
+internal fun BoardTypeChip(board: String?, boards: ImmutableList<String>, onSelect: (String) -> Unit) {
+    board ?: return
+    if (boards.size < 2) {
+        Text(boardLabel(board), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(vertical = 8.dp))
+        return
+    }
+    var open by remember { mutableStateOf(false) }
+    val labels = boards.associateWith { boardLabel(it) }
+    Box {
+        AppFilterChip(
+            selected = true,
+            onClick = { open = true },
+            label = { Text(boardLabel(board)) },
+            trailingIcon = { PlatformIcon(AppIcon.ChevronDown, null, size = 16.dp) },
+        )
+        AppMenu(
+            expanded = open,
+            onDismiss = { open = false },
+            items = labels.map { (value, label) -> AppMenuItem(label, checked = value == board) { onSelect(value) } }.toImmutableList(),
+        )
+    }
+}
+
+/** A board type's label: its sport's name, or "E-bike" for [SegmentBoard.E_BIKE]. */
+@Composable
+private fun boardLabel(board: String): String =
+    if (board == SegmentBoard.E_BIKE) stringResource(Res.string.leaderboard_board_ebike) else sportLabel(board)
 
 /**
  * A chip choosing one bracket (segments/leaderboard-brackets) from a menu: [all] when [selected] is null, else its label from [labels],

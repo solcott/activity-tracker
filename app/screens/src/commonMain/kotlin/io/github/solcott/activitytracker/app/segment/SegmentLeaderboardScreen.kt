@@ -5,6 +5,7 @@ import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.segments.BoardMeta
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
@@ -12,14 +13,18 @@ import io.github.solcott.activitytracker.lexicon.app.LeaderboardGender
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardWeightClass
+import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
 import io.github.solcott.uistate.PagedState
 import io.github.solcott.uistate.pagedStateOf
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
- * The leaderboard of the active segment at [uri] (segments/segment-leaderboards), titled [name]. [sport] is its sport group: a `ride`
- * segment also offers its e-bike board.
+ * The leaderboard of the active segment at [uri] (segments/segment-leaderboards), titled [name], opening on [board] (a [SegmentBoard]
+ * type), or the AppView's default when null.
  */
-@CircuitSerializable(SessionScope::class) data class SegmentLeaderboardScreen(val uri: String, val name: String, val sport: String) : Screen
+@CircuitSerializable(SessionScope::class)
+data class SegmentLeaderboardScreen(val uri: String, val name: String, val board: String? = null) : Screen
 
 @Immutable
 data class SegmentLeaderboardState(
@@ -28,9 +33,10 @@ data class SegmentLeaderboardState(
     val period: String = LeaderboardPeriod.ALL_TIME,
     /** A [LeaderboardScope] value. */
     val scope: String = LeaderboardScope.EVERYONE,
-    /** Whether the e-bike board is shown; only offered when [canChooseEBike]. */
-    val eBike: Boolean = false,
-    val canChooseEBike: Boolean = false,
+    /** The board type shown (a [SegmentBoard] value), as the AppView served it; null until it answers, or when the segment has none. */
+    val board: String? = null,
+    /** The types the viewer may choose, most efforts first; a menu when there are two or more. */
+    val boards: ImmutableList<String> = persistentListOf(),
     /** A [LeaderboardAgeGroup] value: only athletes in it (segments/leaderboard-brackets); null for every age. */
     val ageGroup: String? = null,
     /** A [LeaderboardWeightClass] value, in kilograms; null for every weight. */
@@ -38,10 +44,10 @@ data class SegmentLeaderboardState(
     /** A [LeaderboardGender] value; null for every gender. */
     val gender: String? = null,
     /**
-     * The chosen board's entries, fastest first, a page at a time (ui/content-loading), with the viewer's own entry as its meta. A new
-     * filter starts from nothing, so no other board's entries show under it.
+     * The chosen board's entries, fastest first, a page at a time (ui/content-loading), with the viewer's own entry and the board types as
+     * its meta. A new filter starts from nothing, so no other board's entries show under it.
      */
-    val entries: PagedState<LeaderboardEntry, LeaderboardEntry?> = pagedStateOf(),
+    val entries: PagedState<LeaderboardEntry, BoardMeta<LeaderboardEntry>> = pagedStateOf(),
     /** The viewer's own entry, shown apart from [entries] when it isn't among them; null when they aren't on the board. */
     val viewerEntry: LeaderboardEntry? = null,
     val eventSink: (SegmentLeaderboardEvent) -> Unit = {},
@@ -56,8 +62,8 @@ sealed interface SegmentLeaderboardEvent {
     /** Shows the board for [scope], a [LeaderboardScope] value, from its first page. */
     data class ScopeChanged(val scope: String) : SegmentLeaderboardEvent
 
-    /** Shows the e-bike board, or the standard one, from its first page. */
-    data class EBikeChanged(val eBike: Boolean) : SegmentLeaderboardEvent
+    /** Shows the board of [board], a listed [SegmentBoard] type, from its first page; ignored for the type already shown. */
+    data class BoardChanged(val board: String) : SegmentLeaderboardEvent
 
     /** Shows only athletes in [ageGroup], a [LeaderboardAgeGroup] value, or every age when null, from its first page. */
     data class AgeGroupChanged(val ageGroup: String?) : SegmentLeaderboardEvent

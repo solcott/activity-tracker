@@ -78,58 +78,59 @@ class SegmentRepository(private val clients: SessionClients) {
         clients.appView.procedure(CheckSegment.method, CheckSegment.Input(sport, line))
 
     /**
-     * One page of [segment]'s leaderboard (segments/segment-leaderboards), fastest first, with the signed-in athlete's own entry as its
-     * meta: null when they aren't on the board. [brackets] limits it to athletes in each bracket given (segments/leaderboard-brackets).
+     * One page of [segment]'s leaderboard (segments/segment-leaderboards), fastest first, with the signed-in athlete's own entry and the
+     * board types as its [BoardMeta]. [board] is a `SegmentBoard` value, null for the AppView's default (the busiest type), and [brackets]
+     * limits it to athletes in each bracket given (segments/leaderboard-brackets).
      */
     @Suppress("LongParameterList") // The board's filters.
     suspend fun leaderboardPage(
         segment: AtUri,
         period: String,
         scope: String,
-        eBike: Boolean,
+        board: String?,
         cursor: String? = null,
         brackets: LeaderboardBrackets = LeaderboardBrackets(),
-    ): Outcome<Page<LeaderboardEntry, LeaderboardEntry?>> = outcomeOf {
-        val board =
+    ): Outcome<Page<LeaderboardEntry, BoardMeta<LeaderboardEntry>>> = outcomeOf {
+        val output =
             clients.appView.query(
                 GetSegmentLeaderboard.method,
                 GetSegmentLeaderboard.Params(
                     segment,
                     period,
                     scope,
-                    eBike = eBike.takeIf { it },
+                    board = board,
                     ageGroup = brackets.ageGroup,
                     weightClass = brackets.weightClass,
                     gender = brackets.gender,
                     cursor = cursor,
                 ),
             )
-        Page(board.entries, board.viewer, board.cursor)
+        Page(output.entries, BoardMeta(output.viewer, output.board, output.boards), output.cursor)
     }
 
     /**
-     * One page of [segment]'s Mayors board (segments/segment-mayors), most efforts first, with the signed-in athlete's own entry as its
-     * meta: null when they aren't on the board. [period] is a `MayorPeriod` value; the other filters are as for [leaderboardPage], and
-     * [limit] null is the AppView's default page.
+     * One page of [segment]'s Mayors board (segments/segment-mayors), most efforts first, with the signed-in athlete's own entry and the
+     * board types as its [BoardMeta]. [period] is a `MayorPeriod` value; the other filters are as for [leaderboardPage], and [limit] null
+     * is the AppView's default page.
      */
     @Suppress("LongParameterList") // The board's filters.
     suspend fun mayorsPage(
         segment: AtUri,
         period: String,
         scope: String,
-        eBike: Boolean,
+        board: String?,
         cursor: String? = null,
         brackets: LeaderboardBrackets = LeaderboardBrackets(),
         limit: Int? = null,
-    ): Outcome<Page<MayorEntry, MayorEntry?>> = outcomeOf {
-        val board =
+    ): Outcome<Page<MayorEntry, BoardMeta<MayorEntry>>> = outcomeOf {
+        val output =
             clients.appView.query(
                 GetSegmentMayors.method,
                 GetSegmentMayors.Params(
                     segment,
                     period,
                     scope,
-                    eBike = eBike.takeIf { it },
+                    board = board,
                     ageGroup = brackets.ageGroup,
                     weightClass = brackets.weightClass,
                     gender = brackets.gender,
@@ -137,7 +138,7 @@ class SegmentRepository(private val clients: SessionClients) {
                     cursor = cursor,
                 ),
             )
-        Page(board.entries, board.viewer, board.cursor)
+        Page(output.entries, BoardMeta(output.viewer, output.board, output.boards), output.cursor)
     }
 
     /** One page of segments whose line passes through [params]' box. */

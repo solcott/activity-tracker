@@ -1385,7 +1385,7 @@
     <string name="leaderboard_period_month">This month</string>
     <string name="leaderboard_scope_everyone">Everyone</string>
     <string name="leaderboard_scope_following">Following</string>
-    <string name="leaderboard_ebike">E-bike board</string>
+    <string name="leaderboard_board_ebike">E-bike</string>
     <string name="leaderboard_age_all">All ages</string>
     <!-- Age groups, in whole years. -->
     <string name="leaderboard_age_under">%1$d and under</string>

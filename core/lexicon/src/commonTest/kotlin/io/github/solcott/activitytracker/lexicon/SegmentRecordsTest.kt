@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.lexicon.app.MayorEntry
 import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
 import io.github.solcott.activitytracker.lexicon.app.NotRanked
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
 import io.github.solcott.activitytracker.lexicon.app.SegmentPrefsRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
@@ -27,6 +28,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentTrackRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewerState
+import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import kotlin.test.Test
@@ -274,6 +276,15 @@ class SegmentRecordsTest {
     }
 
     @Test
+    fun leaderboardBoardsRoundTrip() {
+        val output = GetSegmentLeaderboard.Output(emptyList(), board = Sport.RIDE, boards = listOf(Sport.RIDE, SegmentBoard.E_BIKE))
+        val json = AtJson.encodeToJsonElement(GetSegmentLeaderboard.Output.serializer(), output).jsonObject
+        assertEquals("ride", json["board"]?.jsonPrimitive?.content)
+        assertEquals(listOf("ride", "eBike"), json["boards"]!!.jsonArray.map { it.jsonPrimitive.content })
+        assertEquals(output, AtJson.decodeFromJsonElement(GetSegmentLeaderboard.Output.serializer(), json))
+    }
+
+    @Test
     fun leaderboardParamsRoundTrip() {
         val segment = AtUri.of(Did("did:plc:alice"), Nsid.FEED_SEGMENT, "3l2abcdefgh44")
         val params =
@@ -281,13 +292,13 @@ class SegmentRecordsTest {
                 segment,
                 LeaderboardPeriod.MONTH,
                 LeaderboardScope.FOLLOWING,
-                eBike = true,
+                board = SegmentBoard.E_BIKE,
                 ageGroup = LeaderboardAgeGroup.FROM_75,
                 gender = LeaderboardGender.NON_BINARY,
                 limit = 30,
             )
         val encoded = XrpcParams.encode(GetSegmentLeaderboard.Params.serializer(), params)
-        assertTrue("eBike" to "true" in encoded)
+        assertTrue("board" to "eBike" in encoded)
         assertTrue("ageGroup" to "75+" in encoded)
         assertEquals(
             params,
@@ -298,16 +309,24 @@ class SegmentRecordsTest {
     @Test
     fun mayorsRoundTrip() {
         val segment = AtUri.of(Did("did:plc:alice"), Nsid.FEED_SEGMENT, "3l2abcdefgh44")
-        val params = GetSegmentMayors.Params(segment, MayorPeriod.LAST_WEEK, LeaderboardScope.FOLLOWING, eBike = true, limit = 1)
+        val params = GetSegmentMayors.Params(segment, MayorPeriod.LAST_WEEK, LeaderboardScope.FOLLOWING, board = Sport.CANOE, limit = 1)
         val encoded = XrpcParams.encode(GetSegmentMayors.Params.serializer(), params)
         assertTrue("period" to "lastWeek" in encoded)
         assertEquals(params, XrpcParams.decode(GetSegmentMayors.Params.serializer(), encoded.groupBy({ it.first }, { it.second })))
 
         val alice = Did("did:plc:alice")
         val entry = MayorEntry(rank = 1, athlete = ProfileViewBasic(alice, Handle("alice.test")), efforts = 14, reachedOn = "2026-10-18")
-        val output = GetSegmentMayors.Output(entries = listOf(entry), viewer = entry, cursor = "14::2026-10-18::did:plc:alice")
+        val output =
+            GetSegmentMayors.Output(
+                entries = listOf(entry),
+                viewer = entry,
+                cursor = "14::2026-10-18::did:plc:alice",
+                board = Sport.CANOE,
+                boards = listOf(Sport.KAYAK, Sport.CANOE),
+            )
         val json = AtJson.encodeToJsonElement(GetSegmentMayors.Output.serializer(), output).jsonObject
         assertEquals("2026-10-18", json["entries"]!!.jsonArray[0].jsonObject["reachedOn"]?.jsonPrimitive?.content)
         assertEquals(output, AtJson.decodeFromJsonElement(GetSegmentMayors.Output.serializer(), json))
+        assertEquals(emptyList(), AtJson.decodeFromString(GetSegmentMayors.Output.serializer(), """{"entries":[]}""").boards)
     }
 }

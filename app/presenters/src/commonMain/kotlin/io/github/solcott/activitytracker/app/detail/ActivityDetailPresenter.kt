@@ -53,6 +53,7 @@ import io.github.solcott.activitytracker.lexicon.app.CombinedActivity
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
 import io.github.solcott.dataresult.Outcome
@@ -179,9 +180,10 @@ fun ActivityDetailPresenter(
             ActivityDetailEvent.Combine,
             ActivityDetailEvent.AddRecording,
             ActivityDetailEvent.OpenMap,
-            is ActivityDetailEvent.SegmentOpened,
             ActivityDetailEvent.CreateSegment,
             is ActivityDetailEvent.OpenMedia -> navigator.open(event, screen.uri, current)
+
+            is ActivityDetailEvent.SegmentOpened -> navigator.goTo(SegmentScreen(event.uri.value, boardOf(event.eBike, shown)))
 
             ActivityDetailEvent.ToggleLikesList -> {
                 showLikes = !showLikes
@@ -517,6 +519,13 @@ private fun rememberLikesList(
     return LikesList(merged.toImmutableList(), loading, error)
 }
 
+/**
+ * The board type (`SegmentBoard`) a segment opened from [activity] shows first: the e-bike board for an [eBike] effort, else the sport of
+ * the activity as shown, so a combined activity uses its own; null before it loads.
+ */
+private fun boardOf(eBike: Boolean, activity: ActivityView?): String? =
+    if (eBike) SegmentBoard.E_BIKE else activity?.record?.let { SegmentBoard.of(it.sport, it.subSport) }
+
 /** Goes where [event] leads from the activity at [uri]; [current] is the activity, once loaded. */
 private fun Navigator.open(event: ActivityDetailEvent, uri: String, current: ActivityView?) {
     when (event) {
@@ -527,7 +536,6 @@ private fun Navigator.open(event: ActivityDetailEvent, uri: String, current: Act
         ActivityDetailEvent.Edit -> goTo(EditActivityScreen(uri))
         is ActivityDetailEvent.OpenMedia -> goTo(MediaGalleryScreen(uri, event.index))
         ActivityDetailEvent.OpenMap -> goTo(RouteMapScreen(uri))
-        is ActivityDetailEvent.SegmentOpened -> goTo(SegmentScreen(event.uri.value))
         ActivityDetailEvent.CreateSegment -> goTo(CreateSegmentScreen(uri))
         ActivityDetailEvent.Combine -> goTo(CombinePickerScreen(uri))
         ActivityDetailEvent.AddRecording -> goTo(ImportActivityScreen(combineInto = uri))

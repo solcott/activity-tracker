@@ -57,12 +57,49 @@ A leaderboard SHALL cover everyone by default, or, when asked, only the viewer a
 - **WHEN** a viewer who isn't signed in asks for the following scope
 - **THEN** the AppView refuses the request
 
-### Requirement: E-bike efforts have their own board
-A `ride` segment SHALL have a standard board and an e-bike board. E-bike efforts SHALL be ranked only on the e-bike board, and other efforts only on the standard board. Segments of other sport groups SHALL have only the standard board.
+### Requirement: Each activity type has its own board
+A leaderboard SHALL rank only efforts of one board type: the activity's sport, except that an e-bike or e-mountain-bike ride's type SHALL be `eBike`. An effort SHALL be ranked only on its own type's board.
+
+#### Scenario: Hike segment
+- **WHEN** athletes hike, walk and ruck the same hike segment
+- **THEN** the `hike`, `walk` and `rucking` boards each rank only their own efforts
 
 #### Scenario: E-mountain-bike ride
 - **WHEN** an athlete's e-mountain-bike ride has the fastest time on a ride segment
-- **THEN** it leads the e-bike board and isn't on the standard board
+- **THEN** it leads the `eBike` board and isn't on the `ride` board
+
+#### Scenario: Unknown board
+- **WHEN** a viewer asks for a board token that isn't a sport and isn't `eBike`
+- **THEN** the AppView refuses the request
+
+### Requirement: Boards list the segment's types
+A leaderboard response SHALL give the board type it served and the types the viewer can see ranked efforts of on the segment over all time, whatever period, scope and brackets were asked for, most efforts first. A type asked for by name SHALL be served and listed even with no such efforts.
+
+#### Scenario: Types listed
+- **WHEN** a viewer may see 9 `ride`, 2 `handcycle` and 1 `eBike` efforts on a segment and asks for this month's board
+- **THEN** the response lists `ride`, `handcycle` and `eBike`, in that order
+
+#### Scenario: Requested type with no efforts
+- **WHEN** a viewer asks for the `canoe` board of a paddle segment that only has kayak efforts
+- **THEN** the response serves an empty `canoe` board and lists `kayak` and `canoe`
+
+### Requirement: The busiest type is the default board
+A leaderboard request without a board type SHALL be served the listed type with the most efforts, the earliest token on a tie. With no efforts to list, it SHALL return no entries and name no board.
+
+#### Scenario: No type asked for
+- **WHEN** a viewer asks for a hike segment's board without a type and may see 5 `walk` and 3 `hike` efforts on it
+- **THEN** the `walk` board is served
+
+### Requirement: Boards open on the type you came from
+A segment opened from an activity's segment list SHALL carry that activity's board type to its leaderboard, which SHALL open on it. A segment opened any other way SHALL open its leaderboard on the AppView's default type.
+
+#### Scenario: From a canoe trip
+- **WHEN** a viewer opens a paddle segment from a canoe activity and then its leaderboard
+- **THEN** the `canoe` board is shown, even if kayaks have more efforts there
+
+#### Scenario: From search
+- **WHEN** a viewer opens the same segment from search and then its leaderboard
+- **THEN** the board of the type with the most efforts is shown
 
 ### Requirement: Boards can be filtered by age group, weight class and gender
 A leaderboard SHALL cover every bracket by default, or, when asked, only athletes in a given age group, weight class or gender bucket (`segments/leaderboard-brackets`), with any combination of the three. A filtered board SHALL list only athletes whose indexed brackets match every filter, ranked among themselves, together with the period, scope and e-bike choices. An unknown bracket value SHALL be refused.
@@ -136,7 +173,7 @@ An effort SHALL NOT be ranked when its average speed over the segment's computed
 - **THEN** the effort is ranked
 
 ### Requirement: The leaderboard screen
-The segment screen of an `active` segment SHALL open its leaderboard. The leaderboard screen SHALL list the entries with rank, athlete, time and date, and SHALL let the viewer choose the period and scope. For a `ride` segment it SHALL also let the viewer choose the e-bike board. It SHALL load further pages as the viewer scrolls, and SHALL show the viewer's own entry when it isn't among those listed. Tapping an entry SHALL open its activity. A failed load SHALL show an error with a retry.
+The segment screen of an `active` segment SHALL open its leaderboard, which SHALL list the entries with rank, athlete, time and date, let the viewer choose the period and scope, and show the board's type, a menu when several types are listed; a new type SHALL show from the first page. It SHALL load more pages as the viewer scrolls and show the viewer's own entry when it isn't among those listed. Tapping an entry SHALL open its activity. A failed load SHALL show an error with a retry.
 
 #### Scenario: Open from segment
 - **WHEN** a viewer opens an active segment and chooses the leaderboard
@@ -151,8 +188,12 @@ The segment screen of an `active` segment SHALL open its leaderboard. The leader
 - **THEN** their own entry is shown apart from the first page
 
 #### Scenario: Switching to the e-bike board
-- **WHEN** a viewer on a `ride` segment's standard board chooses the e-bike board
-- **THEN** the standard entries and the viewer's standard entry leave the screen, and the e-bike board and the viewer's e-bike entry, if any, show once it answers
+- **WHEN** a viewer on a ride segment's `ride` board chooses `eBike` from the type menu
+- **THEN** the `ride` entries and the viewer's `ride` entry leave the screen, and the `eBike` board and the viewer's `eBike` entry, if any, show once it answers
+
+#### Scenario: One type
+- **WHEN** every effort a viewer may see on a segment is a run
+- **THEN** the screen shows the type as a label, not a menu
 
 ### Requirement: The leaderboard screen offers the bracket filters
 The leaderboard screen SHALL let the viewer choose an age group, a weight class and a gender, each "All" by default, showing weight classes in the viewer's units. A choice SHALL show its board from the first page, as a new period does.

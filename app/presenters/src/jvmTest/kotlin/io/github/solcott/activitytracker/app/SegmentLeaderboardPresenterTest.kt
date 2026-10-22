@@ -43,7 +43,9 @@ import kotlinx.coroutines.test.runTest
 class SegmentLeaderboardPresenterTest {
     private val alice = Did("did:plc:alice")
     private val uri = "at://did:plc:carol/${Nsid.FEED_SEGMENT}/3kshill"
-    private val screen = SegmentLeaderboardScreen(uri, "Hill", "ride")
+    private val screen = SegmentLeaderboardScreen(uri, "Hill")
+    /** The types every answer lists, busiest first. */
+    private var listed = """"ride","eBike""""
     private var failing = false
     /** Fail every page after the first, while set. */
     private var failingMore = false
@@ -66,24 +68,33 @@ class SegmentLeaderboardPresenterTest {
                     "/xrpc/${Nsid.FEED_GET_SEGMENT_LEADERBOARD}" -> {
                         val params = request.url.parameters.entries().associate { it.key to it.value.single() }
                         requests += params
+                        val board = params["board"] ?: "ride"
+                        val meta = """"board":"$board","boards":[$listed]"""
                         when {
                             failing -> respond("""{"error":"InternalError"}""", HttpStatusCode.InternalServerError, json)
                             params["period"] == LeaderboardPeriod.YEAR -> {
                                 yearGate?.await()
-                                respond("""{"entries":[${entry(1, "erin", 190)}]}""", headers = json)
+                                respond("""{"entries":[${entry(1, "erin", 190)}],$meta}""", headers = json)
                             }
-                            params["scope"] == LeaderboardScope.FOLLOWING -> respond("""{"entries":[]}""", headers = json)
-                            params["eBike"] == "true" ->
-                                respond("""{"entries":[${entry(1, "frank", 150)}],"viewer":${entry(5, "alice", 300)}}""", headers = json)
+                            params["scope"] == LeaderboardScope.FOLLOWING -> respond("""{"entries":[],$meta}""", headers = json)
+                            board == "eBike" ->
+                                respond(
+                                    """{"entries":[${entry(1, "frank", 150)}],"viewer":${entry(5, "alice", 300)},$meta}""",
+                                    headers = json,
+                                )
                             failingMore && params["cursor"] != null ->
                                 respond("""{"error":"InternalError"}""", HttpStatusCode.InternalServerError, json)
                             params["cursor"] == null ->
                                 respond(
                                     """{"entries":[${entry(1, "bob", 200)},${entry(2, "carol", 210)}],""" +
-                                        """"viewer":${entry(40, "alice", 400)},"cursor":"210::did:plc:carol"}""",
+                                        """"viewer":${entry(40, "alice", 400)},"cursor":"210::did:plc:carol",$meta}""",
                                     headers = json,
                                 )
-                            else -> respond("""{"entries":[${entry(3, "dan", 220)}],"viewer":${entry(40, "alice", 400)}}""", headers = json)
+                            else ->
+                                respond(
+                                    """{"entries":[${entry(3, "dan", 220)}],"viewer":${entry(40, "alice", 400)},$meta}""",
+                                    headers = json,
+                                )
                         }
                     }
                     else -> respond("", HttpStatusCode.NotFound)
@@ -105,7 +116,8 @@ class SegmentLeaderboardPresenterTest {
             val first = awaitUntil { it.answered }
             assertEquals(listOf(1, 2), first.entries.items.map { it.rank })
             assertEquals(40, assertNotNull(first.viewerEntry).rank, "own place pinned")
-            assertTrue(first.canChooseEBike)
+            assertEquals("ride", first.board, "the AppView's default")
+            assertEquals(listOf("ride", "eBike"), first.boards)
             assertTrue(first.entries.canLoadMore)
             assertEquals(mapOf("segment" to uri, "period" to "allTime", "scope" to "everyone"), requests.single())
 
@@ -128,15 +140,15 @@ class SegmentLeaderboardPresenterTest {
             awaitUntil { requests.size == 2 && it.period == LeaderboardPeriod.MONTH && it.answered }
                 .eventSink(SegmentLeaderboardEvent.ScopeChanged(LeaderboardScope.FOLLOWING))
             awaitUntil { requests.size == 3 && it.scope == LeaderboardScope.FOLLOWING && it.answered }
-                .eventSink(SegmentLeaderboardEvent.EBikeChanged(true))
-            awaitUntil { requests.size == 4 && it.eBike && it.answered }
+                .eventSink(SegmentLeaderboardEvent.BoardChanged("eBike"))
+            awaitUntil { requests.size == 4 && it.board == "eBike" && it.answered }
 
             assertEquals(
                 listOf(
                     mapOf("segment" to uri, "period" to "allTime", "scope" to "everyone"),
                     mapOf("segment" to uri, "period" to "month", "scope" to "everyone"),
                     mapOf("segment" to uri, "period" to "month", "scope" to "following"),
-                    mapOf("segment" to uri, "period" to "month", "scope" to "following", "eBike" to "true"),
+                    mapOf("segment" to uri, "period" to "month", "scope" to "following", "board" to "eBike"),
                 ),
                 requests,
             )
@@ -197,11 +209,11 @@ class SegmentLeaderboardPresenterTest {
     }
 
     @Test
-    fun theEBikeBoardHasTheViewersEBikePlace() = runTest {
+    fun anotherTypeHasTheViewersPlaceOnIt() = runTest {
         val segments = segments()
         presenterTestOf({ SegmentLeaderboardPresenter(screen, FakeNavigator(screen), segments) }) {
-            awaitUntil { it.answered }.eventSink(SegmentLeaderboardEvent.EBikeChanged(true))
-            val eBike = awaitUntil { it.eBike && it.answered }
+            awaitUntil { it.answered }.eventSink(SegmentLeaderboardEvent.BoardChanged("eBike"))
+            val eBike = awaitUntil { it.board == "eBike" && it.answered }
             assertEquals(listOf("frank.test"), eBike.entries.items.map { it.athlete.handle.value })
             assertEquals(5, eBike.viewerEntry?.rank)
             cancelAndIgnoreRemainingEvents()
@@ -221,15 +233,41 @@ class SegmentLeaderboardPresenterTest {
     }
 
     @Test
-    fun aRunSegmentHasNoEBikeBoard() = runTest {
+    fun itOpensOnTheCarriedType() = runTest {
         val segments = segments()
-        val run = SegmentLeaderboardScreen(uri, "Hill", "run")
-        presenterTestOf({ SegmentLeaderboardPresenter(run, FakeNavigator(run), segments) }) {
+        val carried = SegmentLeaderboardScreen(uri, "Hill", board = "eBike")
+        presenterTestOf({ SegmentLeaderboardPresenter(carried, FakeNavigator(carried), segments) }) {
             val state = awaitUntil { it.answered }
-            assertFalse(state.canChooseEBike)
-            state.eventSink(SegmentLeaderboardEvent.EBikeChanged(true))
+            assertEquals("eBike", state.board)
+            assertEquals(listOf("frank.test"), state.entries.items.map { it.athlete.handle.value })
+            assertEquals(mapOf("segment" to uri, "period" to "allTime", "scope" to "everyone", "board" to "eBike"), requests.single())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun theTypeShownOrAnUnlistedOneChangesNothing() = runTest {
+        val segments = segments()
+        presenterTestOf({ SegmentLeaderboardPresenter(screen, FakeNavigator(screen), segments) }) {
+            val state = awaitUntil { it.answered }
+            // The default board was served as ride: asking for it by name would load it twice.
+            state.eventSink(SegmentLeaderboardEvent.BoardChanged("ride"))
+            state.eventSink(SegmentLeaderboardEvent.BoardChanged("kayak"))
             expectNoEvents()
             assertEquals(1, requests.size)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun oneListedTypeIsAllThereIs() = runTest {
+        listed = """"run""""
+        val segments = segments()
+        val run = SegmentLeaderboardScreen(uri, "Hill", board = "run")
+        presenterTestOf({ SegmentLeaderboardPresenter(run, FakeNavigator(run), segments) }) {
+            val state = awaitUntil { it.answered }
+            assertEquals("run", state.board)
+            assertEquals(listOf("run"), state.boards)
             cancelAndIgnoreRemainingEvents()
         }
     }

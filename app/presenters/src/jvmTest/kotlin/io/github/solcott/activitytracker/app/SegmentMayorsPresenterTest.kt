@@ -26,7 +26,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
 
@@ -34,7 +33,7 @@ import kotlinx.coroutines.test.runTest
 class SegmentMayorsPresenterTest {
     private val alice = Did("did:plc:alice")
     private val uri = "at://did:plc:carol/${Nsid.FEED_SEGMENT}/3kshill"
-    private val screen = SegmentMayorsScreen(uri, "Hill", "ride")
+    private val screen = SegmentMayorsScreen(uri, "Hill")
     private var failing = false
     /** Holds this week's board's answer until completed, while set. */
     private var weekGate: CompletableDeferred<Unit>? = null
@@ -53,19 +52,21 @@ class SegmentMayorsPresenterTest {
                     "/xrpc/${Nsid.FEED_GET_SEGMENT_MAYORS}" -> {
                         val params = request.url.parameters.entries().associate { it.key to it.value.single() }
                         requests += params
+                        val meta = """"board":"${params["board"] ?: "hike"}","boards":["hike","walk"]"""
                         when {
                             failing -> respond("""{"error":"InternalError"}""", HttpStatusCode.InternalServerError, json)
                             params["period"] == MayorPeriod.THIS_WEEK -> {
                                 weekGate?.await()
-                                respond("""{"entries":[${entry(1, "erin", 3)}]}""", headers = json)
+                                respond("""{"entries":[${entry(1, "erin", 3)}],$meta}""", headers = json)
                             }
                             params["cursor"] == null ->
                                 respond(
                                     """{"entries":[${entry(1, "bob", 14)},${entry(2, "carol", 11)}],""" +
-                                        """"viewer":${entry(58, "alice", 2)},"cursor":"11::2026-10-18::did:plc:carol"}""",
+                                        """"viewer":${entry(58, "alice", 2)},"cursor":"11::2026-10-18::did:plc:carol",$meta}""",
                                     headers = json,
                                 )
-                            else -> respond("""{"entries":[${entry(3, "dan", 9)}],"viewer":${entry(58, "alice", 2)}}""", headers = json)
+                            else ->
+                                respond("""{"entries":[${entry(3, "dan", 9)}],"viewer":${entry(58, "alice", 2)},$meta}""", headers = json)
                         }
                     }
                     else -> respond("", HttpStatusCode.NotFound)
@@ -88,7 +89,8 @@ class SegmentMayorsPresenterTest {
             assertEquals(MayorPeriod.LAST_90_DAYS, first.period)
             assertEquals(listOf(14, 11), first.entries.items.map { it.efforts })
             assertEquals(58, assertNotNull(first.viewerEntry).rank, "own place pinned")
-            assertTrue(first.canChooseEBike)
+            assertEquals("hike", first.board)
+            assertEquals(listOf("hike", "walk"), first.boards)
             assertEquals(mapOf("segment" to uri, "period" to "last90Days", "scope" to "everyone"), requests.single())
 
             first.eventSink(SegmentMayorsEvent.LoadMore)
@@ -96,6 +98,17 @@ class SegmentMayorsPresenterTest {
             assertEquals(3, more.entries.items.last().rank)
             assertFalse(more.entries.canLoadMore)
             assertEquals("11::2026-10-18::did:plc:carol", requests.last()["cursor"])
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun itOpensOnTheCarriedType() = runTest {
+        val segments = segments()
+        val carried = SegmentMayorsScreen(uri, "Hill", board = "walk")
+        presenterTestOf({ SegmentMayorsPresenter(carried, FakeNavigator(carried), segments) }) {
+            assertEquals("walk", awaitUntil { it.answered }.board)
+            assertEquals("walk", requests.single()["board"])
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -120,20 +133,20 @@ class SegmentMayorsPresenterTest {
     }
 
     @Test
-    fun scopeEBikeAndBracketsReloadAndUnknownChoicesAreIgnored() = runTest {
+    fun scopeTypeAndBracketsReloadAndUnknownChoicesAreIgnored() = runTest {
         val segments = segments()
         presenterTestOf({ SegmentMayorsPresenter(screen, FakeNavigator(screen), segments) }) {
             val first = awaitUntil { it.answered }
             first.eventSink(SegmentMayorsEvent.PeriodChanged("decade"))
             first.eventSink(SegmentMayorsEvent.ScopeChanged(LeaderboardScope.FOLLOWING))
             awaitUntil { requests.size == 2 && it.scope == LeaderboardScope.FOLLOWING && it.answered }
-                .eventSink(SegmentMayorsEvent.EBikeChanged(true))
-            awaitUntil { requests.size == 3 && it.eBike && it.answered }
+                .eventSink(SegmentMayorsEvent.BoardChanged("walk"))
+            awaitUntil { requests.size == 3 && it.board == "walk" && it.answered }
                 .eventSink(SegmentMayorsEvent.AgeGroupChanged(LeaderboardAgeGroup.FROM_35))
             val last = awaitUntil { requests.size == 4 && it.ageGroup != null && it.answered }
             assertEquals(MayorPeriod.LAST_90_DAYS, last.period, "an unknown window changes nothing")
             assertEquals(
-                mapOf("segment" to uri, "period" to "last90Days", "scope" to "following", "eBike" to "true", "ageGroup" to "35-44"),
+                mapOf("segment" to uri, "period" to "last90Days", "scope" to "following", "board" to "walk", "ageGroup" to "35-44"),
                 requests.last(),
             )
             cancelAndIgnoreRemainingEvents()

@@ -49,7 +49,6 @@ import io.github.solcott.activitytracker.app.ui.pagedFooter
 import io.github.solcott.activitytracker.app.ui.pagedRefreshStatus
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_age_all
-import io.github.solcott.activitytracker.composeApp.resources.leaderboard_ebike
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_gender_all
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_gender_female
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_gender_male
@@ -181,13 +180,7 @@ private fun Filters(state: SegmentMayorsState) {
         )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             PeriodChip(state.period) { state.eventSink(SegmentMayorsEvent.PeriodChanged(it)) }
-            if (state.canChooseEBike) {
-                AppFilterChip(
-                    selected = state.eBike,
-                    onClick = { state.eventSink(SegmentMayorsEvent.EBikeChanged(!state.eBike)) },
-                    label = { Text(stringResource(Res.string.leaderboard_ebike)) },
-                )
-            }
+            BoardTypeChip(state.board, state.boards) { state.eventSink(SegmentMayorsEvent.BoardChanged(it)) }
             BracketChip(
                 all = stringResource(Res.string.leaderboard_age_all),
                 selected = state.ageGroup,

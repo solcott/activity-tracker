@@ -109,12 +109,24 @@ class SegmentRepositoryTest {
                         Nsid.FEED_GET_SEGMENT_LEADERBOARD ->
                             AtJson.encodeToString(
                                 GetSegmentLeaderboard.Output.serializer(),
-                                GetSegmentLeaderboard.Output(listOf(entry), viewer = entry, cursor = "200::${did.value}"),
+                                GetSegmentLeaderboard.Output(
+                                    listOf(entry),
+                                    entry,
+                                    "200::${did.value}",
+                                    board = "eBike",
+                                    boards = listOf("ride", "eBike"),
+                                ),
                             )
                         Nsid.FEED_GET_SEGMENT_MAYORS ->
                             AtJson.encodeToString(
                                 GetSegmentMayors.Output.serializer(),
-                                GetSegmentMayors.Output(listOf(mayor), viewer = mayor, cursor = "14::2026-10-18::${did.value}"),
+                                GetSegmentMayors.Output(
+                                    listOf(mayor),
+                                    mayor,
+                                    "14::2026-10-18::${did.value}",
+                                    board = "canoe",
+                                    boards = listOf("kayak", "canoe"),
+                                ),
                             )
                         Nsid.FEED_CHECK_SEGMENT ->
                             AtJson.encodeToString(CheckSegment.Output.serializer(), CheckSegment.Output(listOf(view), remaining = 8))
@@ -157,13 +169,15 @@ class SegmentRepositoryTest {
         val (_, _, clients) = signedInTestSession(http, did = did)
         val segments = SegmentRepository(clients)
 
-        val board = segments.leaderboardPage(segmentUri, LeaderboardPeriod.MONTH, LeaderboardScope.FOLLOWING, eBike = true, cursor = "c1")
-        assertEquals(Outcome.Data(Page(listOf(entry), entry, "200::${did.value}"), Origin.Network), board)
+        val board =
+            segments.leaderboardPage(segmentUri, LeaderboardPeriod.MONTH, LeaderboardScope.FOLLOWING, board = "eBike", cursor = "c1")
+        val meta = BoardMeta(entry, "eBike", listOf("ride", "eBike"))
+        assertEquals(Outcome.Data(Page(listOf(entry), meta, "200::${did.value}"), Origin.Network), board)
         segments.leaderboardPage(
             segmentUri,
             LeaderboardPeriod.ALL_TIME,
             LeaderboardScope.EVERYONE,
-            eBike = false,
+            board = null,
             brackets = LeaderboardBrackets(ageGroup = "45-54", gender = "female"),
         )
 
@@ -174,7 +188,7 @@ class SegmentRepositoryTest {
                         "segment" to listOf(segmentUri.value),
                         "period" to listOf("month"),
                         "scope" to listOf("following"),
-                        "eBike" to listOf("true"),
+                        "board" to listOf("eBike"),
                         "cursor" to listOf("c1"),
                     ),
                 Nsid.FEED_GET_SEGMENT_LEADERBOARD to
@@ -202,7 +216,7 @@ class SegmentRepositoryTest {
             )
         val (_, _, clients) = signedInTestSession(failing, did = did)
 
-        val page = SegmentRepository(clients).leaderboardPage(segmentUri, LeaderboardPeriod.ALL_TIME, LeaderboardScope.EVERYONE, false)
+        val page = SegmentRepository(clients).leaderboardPage(segmentUri, LeaderboardPeriod.ALL_TIME, LeaderboardScope.EVERYONE, null)
 
         assertEquals(DataError.Http(503), (page as Outcome.Error).cause)
     }
@@ -212,13 +226,14 @@ class SegmentRepositoryTest {
         val (_, _, clients) = signedInTestSession(http, did = did)
         val segments = SegmentRepository(clients)
 
-        val board = segments.mayorsPage(segmentUri, MayorPeriod.LAST_WEEK, LeaderboardScope.FOLLOWING, eBike = true, cursor = "c1")
-        assertEquals(Outcome.Data(Page(listOf(mayor), mayor, "14::2026-10-18::${did.value}"), Origin.Network), board)
+        val board = segments.mayorsPage(segmentUri, MayorPeriod.LAST_WEEK, LeaderboardScope.FOLLOWING, board = "canoe", cursor = "c1")
+        val meta = BoardMeta(mayor, "canoe", listOf("kayak", "canoe"))
+        assertEquals(Outcome.Data(Page(listOf(mayor), meta, "14::2026-10-18::${did.value}"), Origin.Network), board)
         segments.mayorsPage(
             segmentUri,
             MayorPeriod.LAST_90_DAYS,
             LeaderboardScope.EVERYONE,
-            eBike = false,
+            board = null,
             brackets = LeaderboardBrackets(weightClass = "65-74"),
             limit = 1,
         )
@@ -230,7 +245,7 @@ class SegmentRepositoryTest {
                         "segment" to listOf(segmentUri.value),
                         "period" to listOf("lastWeek"),
                         "scope" to listOf("following"),
-                        "eBike" to listOf("true"),
+                        "board" to listOf("canoe"),
                         "cursor" to listOf("c1"),
                     ),
                 Nsid.FEED_GET_SEGMENT_MAYORS to

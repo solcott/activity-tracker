@@ -38,3 +38,34 @@ object SegmentSport {
         return group?.let { Grouped(it, eBike = it == SegmentSportGroup.RIDE && subSport in E_BIKE) }
     }
 }
+
+/**
+ * Which leaderboard an effort is ranked on: its activity's sport, except that e-bike rides have a board of their own, [E_BIKE]. An activity
+ * that can't match segments has no board.
+ */
+object SegmentBoard {
+    /** The e-bike and e-mountain-bike board. A sub-sport token, so no sport has this value. */
+    const val E_BIKE = "eBike"
+
+    /** Every board type: each sport [SegmentSport] groups, then [E_BIKE]. */
+    val all =
+        listOf(
+            Sport.RIDE,
+            Sport.HANDCYCLE,
+            Sport.RUN,
+            Sport.HIKE,
+            Sport.WALK,
+            Sport.RUCKING,
+            Sport.SNOWSHOE,
+            Sport.XC_SKI,
+            Sport.SKI,
+            Sport.KAYAK,
+            Sport.CANOE,
+            Sport.SUP,
+            Sport.ROW,
+            E_BIKE,
+        )
+
+    /** The board of an activity of [sport] and [subSport], or null when it can't match segments. */
+    fun of(sport: String, subSport: String?): String? = SegmentSport.of(sport, subSport)?.let { if (it.eBike) E_BIKE else sport }
+}

@@ -66,8 +66,8 @@ fun SegmentPresenter(screen: SegmentScreen, navigator: Navigator, segments: Segm
             mayor = null
             return@LaunchedEffect
         }
-        segments.mayorsPage(uri, MayorPeriod.LAST_90_DAYS, LeaderboardScope.EVERYONE, eBike = false, limit = 1).dataOrNull()?.let {
-            mayor = MayorSummary(it.items.firstOrNull(), it.meta)
+        segments.mayorsPage(uri, MayorPeriod.LAST_90_DAYS, LeaderboardScope.EVERYONE, screen.board, limit = 1).dataOrNull()?.let {
+            mayor = MayorSummary(it.items.firstOrNull(), it.meta.viewer)
         }
     }
 
@@ -100,9 +100,9 @@ fun SegmentPresenter(screen: SegmentScreen, navigator: Navigator, segments: Segm
             SegmentEvent.OpenLeaderboard ->
                 segment
                     ?.takeIf { SegmentStatus.of(it.status) == SegmentStatus.ACTIVE }
-                    ?.let { navigator.goTo(SegmentLeaderboardScreen(it.uri.value, it.record.name, it.record.sport)) }
+                    ?.let { navigator.goTo(SegmentLeaderboardScreen(it.uri.value, it.record.name, screen.board)) }
             SegmentEvent.OpenMayors ->
-                segment?.takeIf { active }?.let { navigator.goTo(SegmentMayorsScreen(it.uri.value, it.record.name, it.record.sport)) }
+                segment?.takeIf { active }?.let { navigator.goTo(SegmentMayorsScreen(it.uri.value, it.record.name, screen.board)) }
         }
     }
 }

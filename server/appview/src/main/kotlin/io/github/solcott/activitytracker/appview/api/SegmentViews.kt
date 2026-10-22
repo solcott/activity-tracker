@@ -37,6 +37,7 @@ import io.github.solcott.activitytracker.lexicon.app.NotRanked
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
+import io.github.solcott.activitytracker.lexicon.app.SegmentBoard
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
@@ -171,12 +172,13 @@ class SegmentViews(
         val visible = Activities.select(Activities.uri).where { (Activities.uri eq params.activity.value) and visibleTo(viewer) }.any()
         if (!visible) throw notFound("Activity not found")
         val efforts = effortViews(viewer, SegmentEfforts.activityUri eq params.activity.value)
+        val sport = Activities.select(Activities.sport).where { Activities.uri eq params.activity.value }.first()[Activities.sport]
         val own = viewer != null && params.activity.authority == viewer.value
         val reasons = if (own) notRankedReasons(params.activity.value) else emptyMap()
         GetActivitySegments.Output(
             efforts.map { effort ->
                 effort.copy(
-                    rank = topRank(viewer, params.activity.authority, effort),
+                    rank = topRank(viewer, params.activity.authority, effort, sport),
                     notRanked = reasons[effortId(effort)].takeIf { SegmentStatus.of(effort.segment.status) == SegmentStatus.ACTIVE },
                 )
             }
@@ -209,6 +211,7 @@ class SegmentViews(
      */
     suspend fun leaderboard(viewer: Did?, params: GetSegmentLeaderboard.Params): GetSegmentLeaderboard.Output {
         val (since, following) = filtersOf(viewer, params)
+        val requested = requestedBoard(params.board)
         val brackets = bracketsOf(params.ageGroup, params.weightClass, params.gender)
         return db.tx {
             val status =
@@ -216,8 +219,11 @@ class SegmentViews(
                     .where { (Segments.uri eq params.segment.value) and segmentServed(viewer) }
                     .firstOrNull()
                     ?.get(Segments.status) ?: throw notFound("Segment not found")
-            if (status != SegmentStatus.ACTIVE) return@tx GetSegmentLeaderboard.Output(emptyList())
-            val board = boardOf(viewer, params.segment.value, params.eBike == true, since, following) and brackets
+            if (status != SegmentStatus.ACTIVE)
+                return@tx GetSegmentLeaderboard.Output(emptyList(), board = requested, boards = listOfNotNull(requested))
+            val (served, boards) = boardsOf(viewer, params.segment.value, requested)
+            if (served == null) return@tx GetSegmentLeaderboard.Output(emptyList())
+            val board = boardOf(viewer, params.segment.value, served, since, following) and brackets
             val limit = Paging.clamp(params.limit)
             val after =
                 params.cursor?.let(::parseCursor)?.let { (best, did) ->
@@ -233,7 +239,7 @@ class SegmentViews(
             val own = viewer?.let { me ->
                 bests(board and (SegmentEfforts.authorDid eq me.value), Op.TRUE).firstOrNull()?.get(BEST)?.let { me.value to it }
             }
-            GetSegmentLeaderboard.Output(entries, own?.let { entries(viewer, board, listOf(it)).singleOrNull() }, next)
+            GetSegmentLeaderboard.Output(entries, own?.let { entries(viewer, board, listOf(it)).singleOrNull() }, next, served, boards)
         }
     }
 
@@ -247,6 +253,7 @@ class SegmentViews(
         if (period !in MayorPeriod.all) invalidRequest("Unknown period $period")
         val (since, until) = mayorWindow(period, today())
         val following = following(viewer, params.scope)
+        val requested = requestedBoard(params.board)
         val brackets = bracketsOf(params.ageGroup, params.weightClass, params.gender)
         return db.tx {
             val status =
@@ -254,8 +261,11 @@ class SegmentViews(
                     .where { (Segments.uri eq params.segment.value) and segmentServed(viewer) }
                     .firstOrNull()
                     ?.get(Segments.status) ?: throw notFound("Segment not found")
-            if (status != SegmentStatus.ACTIVE) return@tx GetSegmentMayors.Output(emptyList())
-            val board = boardOf(viewer, params.segment.value, params.eBike == true, since, following, until) and brackets
+            if (status != SegmentStatus.ACTIVE)
+                return@tx GetSegmentMayors.Output(emptyList(), board = requested, boards = listOfNotNull(requested))
+            val (served, boards) = boardsOf(viewer, params.segment.value, requested)
+            if (served == null) return@tx GetSegmentMayors.Output(emptyList())
+            val board = boardOf(viewer, params.segment.value, served, since, following, until) and brackets
             val limit = Paging.clamp(params.limit)
             val after =
                 params.cursor?.let(::parseMayorCursor)?.let { (efforts, reached, did) ->
@@ -271,7 +281,7 @@ class SegmentViews(
             val entries = mayorEntries(board, page)
             val next = page.takeIf { it.size == limit }?.last()?.let { (did, efforts, reached) -> "$efforts::$reached::$did" }
             val own = viewer?.let { me -> counts(board and (SegmentEfforts.authorDid eq me.value), Op.TRUE).firstOrNull()?.let(::mayorRow) }
-            GetSegmentMayors.Output(entries, own?.let { mayorEntries(board, listOf(it)).singleOrNull() }, next)
+            GetSegmentMayors.Output(entries, own?.let { mayorEntries(board, listOf(it)).singleOrNull() }, next, served, boards)
         }
     }
 
@@ -386,21 +396,24 @@ class SegmentViews(
             .reduce { a, b -> a or b }
 
     /**
-     * The efforts on one board of [segment] that [viewer] may see and that are [rankable], from [since] and before [until] (each a
-     * `YYYY-MM-DD`) when given.
+     * The efforts on [segment]'s [board] (a [SegmentBoard] type) that [viewer] may see and that are [rankable], from [since] and before
+     * [until] (each a `YYYY-MM-DD`) when given.
      */
     @Suppress("LongParameterList") // The board's filters.
     private fun boardOf(
         viewer: Did?,
         segment: String,
-        eBike: Boolean,
+        board: String,
         since: String?,
         following: Boolean,
         until: String? = null,
     ): Op<Boolean> {
         val own = viewer?.value
+        val type =
+            if (board == SegmentBoard.E_BIKE) SegmentEfforts.eBike eq true
+            else (SegmentEfforts.eBike eq false) and (Activities.sport eq board)
         return (SegmentEfforts.segmentUri eq segment) and
-            (SegmentEfforts.eBike eq eBike) and
+            type and
             effortsVisibleTo(viewer) and
             rankable() and
             (since?.let { SegmentEfforts.startedOn greaterEq it } ?: Op.TRUE) and
@@ -410,6 +423,35 @@ class SegmentViews(
                     (SegmentEfforts.authorDid inSubQuery
                         Follows.select(Follows.subjectDid).where { (Follows.authorDid eq own) and effectiveFollow() })
             } else Op.TRUE)
+    }
+
+    /**
+     * The board to serve on [segment] and the types to list: [requested], or else the listed type with the most efforts; and the types
+     * [viewer] may see [rankable] efforts of over all time, most first, ties by token, with [requested] added when it has none. The served
+     * board is null only when nothing was requested and nothing is listed.
+     */
+    private fun JdbcTransaction.boardsOf(viewer: Did?, segment: String, requested: String?): Pair<String?, List<String>> {
+        val count = SegmentEfforts.id.count()
+        val listed =
+            rankedEfforts()
+                .select(SegmentEfforts.eBike, Activities.sport, count)
+                .where { (SegmentEfforts.segmentUri eq segment) and effortsVisibleTo(viewer) and rankable() }
+                .groupBy(SegmentEfforts.eBike, Activities.sport)
+                .map { (if (it[SegmentEfforts.eBike]) SegmentBoard.E_BIKE else it[Activities.sport]) to it[count] }
+                .filter { (type, _) -> type in SegmentBoard.all }
+                .groupBy({ it.first }, { it.second })
+                .mapValues { (_, counts) -> counts.sum() }
+                .entries
+                .sortedWith(compareByDescending<Map.Entry<String, Long>> { it.value }.thenBy { it.key })
+                .map { it.key }
+        val boards = if (requested == null || requested in listed) listed else listed + requested
+        return (requested ?: listed.firstOrNull()) to boards
+    }
+
+    /** [board] (a [SegmentBoard] type, or null for the default); `InvalidRequest` when unknown. */
+    private fun requestedBoard(board: String?): String? {
+        if (board != null && board !in SegmentBoard.all) invalidRequest("Unknown board $board")
+        return board
     }
 
     /** Each athlete's best time on [board], as `author_did` and [BEST], filtered by [having]. */
@@ -455,12 +497,13 @@ class SegmentViews(
     }
 
     /**
-     * [effort]'s rank on its segment's all-time, everyone board for its e-bike kind as [viewer] sees it, when it is [author]'s entry there
-     * (their fastest [rankable] effort the viewer may see, which needn't be their PR: a faster one may be excluded) and in the top
-     * [TOP_RANKS]; else null.
+     * [effort]'s rank on its segment's all-time, everyone board of its own type (its activity's [sport], or [SegmentBoard.E_BIKE]) as
+     * [viewer] sees it, when it is [author]'s entry there (their fastest [rankable] effort the viewer may see, which needn't be their PR: a
+     * faster one may be excluded) and in the top [TOP_RANKS]; else null.
      */
-    private fun JdbcTransaction.topRank(viewer: Did?, author: String, effort: EffortView): Int? {
-        val board = boardOf(viewer, effort.segment.uri.value, effort.eBike == true, since = null, following = false)
+    private fun JdbcTransaction.topRank(viewer: Did?, author: String, effort: EffortView, sport: String): Int? {
+        val type = if (effort.eBike == true) SegmentBoard.E_BIKE else sport
+        val board = boardOf(viewer, effort.segment.uri.value, type, since = null, following = false)
         val ranked = !rankedEfforts().select(SegmentEfforts.id).where { board and (SegmentEfforts.id eq effortId(effort)) }.empty()
         val entry = ranked && bests(board and (SegmentEfforts.authorDid eq author), Op.TRUE).firstOrNull()?.get(BEST) == effort.elapsed
         return if (entry) (ahead(board, effort.elapsed).toInt() + 1).takeIf { it <= TOP_RANKS } else null

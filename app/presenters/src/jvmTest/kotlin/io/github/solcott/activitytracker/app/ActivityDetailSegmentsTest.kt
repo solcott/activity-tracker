@@ -84,7 +84,30 @@ class ActivityDetailSegmentsTest : ActivityDetailTestBase() {
         val navigator = FakeNavigator(screen)
         withDetail(navigator, ready = { it.segments.isNotEmpty() }) { send, _ ->
             send(ActivityDetailEvent.SegmentOpened(AtUri(hill)))
-            assertEquals(SegmentScreen(hill), navigator.awaitNextScreen())
+            assertEquals(SegmentScreen(hill, board = "run"), navigator.awaitNextScreen())
+        }
+    }
+
+    @Test
+    fun aSegmentOpensOnTheActivitysType() = runTest {
+        sport = "canoe"
+        segmentsFromAppView = "[${effort(hill, "Hill", 120, 611, best = true)}]"
+        val navigator = FakeNavigator(screen)
+        withDetail(navigator, ready = { it.segments.isNotEmpty() }) { send, _ ->
+            send(ActivityDetailEvent.SegmentOpened(AtUri(hill)))
+            assertEquals(SegmentScreen(hill, board = "canoe"), navigator.awaitNextScreen())
+        }
+    }
+
+    @Test
+    fun anEBikeEffortOpensTheEBikeBoard() = runTest {
+        sport = "ride"
+        recordExtra = """"subSport":"eMountain","""
+        segmentsFromAppView = "[${effort(hill, "Hill", 120, 611, best = true)}]"
+        val navigator = FakeNavigator(screen)
+        withDetail(navigator, ready = { it.segments.isNotEmpty() }) { send, _ ->
+            send(ActivityDetailEvent.SegmentOpened(AtUri(hill), eBike = true))
+            assertEquals(SegmentScreen(hill, board = "eBike"), navigator.awaitNextScreen())
         }
     }
 
