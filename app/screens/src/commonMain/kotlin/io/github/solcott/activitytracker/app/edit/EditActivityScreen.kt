@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.uistate.ContentState
 
 /**
  * Edits the signed-in athlete's activity at [uri]: its title, description, dive site and photos, who sees it, and whether segment
@@ -18,12 +19,15 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityType
 
 @Immutable
 data class EditActivityState(
+    /** The activity the form is filled from: loading or failed until it is, then loaded. */
+    val content: ContentState<Unit>,
     /** Null while the activity loads. */
     val type: ActivityType?,
     val title: TextFieldState,
     /** Null while the activity loads. */
     val details: ActivityDetailsFields?,
     val saving: Boolean,
+    /** Why a save failed. */
     val error: UiError?,
     /** The athlete went back with unsaved changes; ask before dropping them. */
     val confirmDiscard: Boolean,

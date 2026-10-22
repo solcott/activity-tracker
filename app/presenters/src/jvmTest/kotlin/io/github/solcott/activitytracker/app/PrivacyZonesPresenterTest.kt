@@ -16,9 +16,14 @@ import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.LocationTracker
 import io.github.solcott.activitytracker.location.TrackMath
 import io.github.solcott.activitytracker.location.UnsupportedLocationTracker
+import io.github.solcott.dataresult.DataError
+import io.github.solcott.uistate.errorOrNull
+import io.github.solcott.uistate.hasLoaded
+import io.github.solcott.uistate.isLoading
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
@@ -94,10 +99,43 @@ class PrivacyZonesPresenterTest {
     fun zonesThatCantBeReadCantBeChanged() = runTest {
         fixture.failZoneReads = true
         test {
-            val failed = awaitUntil { it.error != null }
-            assertEquals(UiError.Kind.LoadPrivacyZones, failed.error?.kind)
+            val failed = awaitUntil { it.content.errorOrNull != null }
+            assertIs<DataError.Api>(failed.content.errorOrNull)
+            assertNull(failed.error, "a load failure isn't a change's")
             assertNull(failed.zones)
             assertFalse(failed.canEdit)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun zonesUnreadableOfflineSayWhyAndRetryShowsThem() = runTest {
+        withZones(home)
+        fixture.offline = true
+        test {
+            val failed = awaitUntil { it.content.errorOrNull != null }
+            assertEquals(DataError.Network, failed.content.errorOrNull)
+            assertFalse(failed.canEdit)
+
+            fixture.offline = false
+            failed.eventSink(PrivacyZonesEvent.Retry)
+            awaitUntil { it.content.isLoading }
+            val loaded = awaitUntil { it.zones != null }
+            assertTrue(loaded.content.hasLoaded)
+            assertEquals<List<PrivacyZone>?>(listOf(home), loaded.zones)
+            assertTrue(loaded.canEdit)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aSessionThatCantSaveZonesAsksToSignInAgain() = runTest {
+        fixture.scope = "atproto transition:generic"
+        test {
+            val loaded = awaitUntil { it.zones != null }
+            assertTrue(loaded.needsSignIn)
+            assertNull(loaded.error)
+            assertFalse(loaded.canEdit)
             cancelAndIgnoreRemainingEvents()
         }
     }

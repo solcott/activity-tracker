@@ -18,7 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.record.rememberLocationPermissionRequest
+import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.MenuField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
@@ -26,7 +28,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
@@ -34,7 +35,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_add_here
 import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_empty
 import io.github.solcott.activitytracker.composeApp.resources.privacy_zones_from_activity
@@ -71,60 +71,63 @@ fun PrivacyZonesUi(state: PrivacyZonesState, modifier: Modifier = Modifier) {
             )
         },
     ) { padding ->
-        val scroll = rememberScrollState()
-        ScrollbarBox(scroll, contentPadding = padding) {
-            Column(
-                Modifier.verticalScroll(scroll).padding(padding).readableWidth().padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text(stringResource(Res.string.privacy_zones_help), style = MaterialTheme.typography.bodyMedium)
-                state.error?.let { error ->
-                    Text(errorText(error), color = MaterialTheme.colorScheme.error)
-                    if (state.zones == null) {
-                        AppTextButton(onClick = { state.eventSink(PrivacyZonesEvent.Retry) }) {
-                            Text(stringResource(Res.string.action_retry))
+        ContentStateLayout(
+            state.content,
+            UiError.Kind.LoadPrivacyZones,
+            { state.eventSink(PrivacyZonesEvent.Retry) },
+            contentPadding = padding,
+        ) {
+            val scroll = rememberScrollState()
+            ScrollbarBox(scroll, contentPadding = padding) {
+                Column(
+                    Modifier.verticalScroll(scroll).padding(padding).readableWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(stringResource(Res.string.privacy_zones_help), style = MaterialTheme.typography.bodyMedium)
+                    if (state.needsSignIn) Text(errorText(UiError(UiError.Kind.SignInAgain)), color = MaterialTheme.colorScheme.error)
+                    state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+                    val zones = state.zones ?: return@Column
+                    val enabled = state.canEdit && !state.saving
+                    if (zones.isEmpty()) Text(stringResource(Res.string.privacy_zones_empty), style = MaterialTheme.typography.bodyMedium)
+                    zones.forEachIndexed { index, zone -> ZoneRow(index, zone, state.choices, enabled, state.eventSink) }
+                    Text(stringResource(Res.string.privacy_zones_from_activity), style = MaterialTheme.typography.bodySmall)
+                    if (state.canUseLocation) {
+                        AppTextField(
+                            state.label,
+                            Modifier.fillMaxWidth(),
+                            label = stringResource(Res.string.privacy_zones_label),
+                            enabled = enabled && !state.locating,
+                            lineLimits = TextFieldLineLimits.SingleLine,
+                        )
+                        AppSecondaryButton(
+                            onClick = {
+                                if (state.hasLocationPermission) state.eventSink(PrivacyZonesEvent.AddAtCurrentLocation)
+                                else requestPermission()
+                            },
+                            enabled = enabled && !state.locating,
+                        ) {
+                            Text(
+                                stringResource(if (state.locating) Res.string.privacy_zones_locating else Res.string.privacy_zones_add_here)
+                            )
                         }
                     }
-                }
-                val zones = state.zones ?: return@Column
-                val enabled = state.canEdit && !state.saving
-                if (zones.isEmpty()) Text(stringResource(Res.string.privacy_zones_empty), style = MaterialTheme.typography.bodyMedium)
-                zones.forEachIndexed { index, zone -> ZoneRow(index, zone, state.choices, enabled, state.eventSink) }
-                Text(stringResource(Res.string.privacy_zones_from_activity), style = MaterialTheme.typography.bodySmall)
-                if (state.canUseLocation) {
-                    AppTextField(
-                        state.label,
-                        Modifier.fillMaxWidth(),
-                        label = stringResource(Res.string.privacy_zones_label),
-                        enabled = enabled && !state.locating,
-                        lineLimits = TextFieldLineLimits.SingleLine,
+                    HorizontalDivider()
+                    Text(stringResource(Res.string.privacy_zones_hide_ends), style = MaterialTheme.typography.titleMedium)
+                    DistanceField(
+                        selected = state.hideEndsMeters,
+                        choices = (listOf(0) + state.choices).toImmutableList(),
+                        label = stringResource(Res.string.privacy_zones_hide_ends),
+                        enabled = enabled,
+                        onSelect = { state.eventSink(PrivacyZonesEvent.HideEndsChanged(it)) },
                     )
-                    AppSecondaryButton(
-                        onClick = {
-                            if (state.hasLocationPermission) state.eventSink(PrivacyZonesEvent.AddAtCurrentLocation)
-                            else requestPermission()
-                        },
-                        enabled = enabled && !state.locating,
-                    ) {
-                        Text(stringResource(if (state.locating) Res.string.privacy_zones_locating else Res.string.privacy_zones_add_here))
-                    }
+                    Text(stringResource(Res.string.privacy_zones_hide_ends_help), style = MaterialTheme.typography.bodySmall)
+                    HorizontalDivider()
+                    Text(
+                        stringResource(Res.string.privacy_zones_others_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
-                HorizontalDivider()
-                Text(stringResource(Res.string.privacy_zones_hide_ends), style = MaterialTheme.typography.titleMedium)
-                DistanceField(
-                    selected = state.hideEndsMeters,
-                    choices = (listOf(0) + state.choices).toImmutableList(),
-                    label = stringResource(Res.string.privacy_zones_hide_ends),
-                    enabled = enabled,
-                    onSelect = { state.eventSink(PrivacyZonesEvent.HideEndsChanged(it)) },
-                )
-                Text(stringResource(Res.string.privacy_zones_hide_ends_help), style = MaterialTheme.typography.bodySmall)
-                HorizontalDivider()
-                Text(
-                    stringResource(Res.string.privacy_zones_others_note),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
     }

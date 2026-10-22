@@ -3,10 +3,10 @@ package io.github.solcott.activitytracker.data.activity
 import co.touchlab.kermit.Logger
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.space.SpaceRead
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.outcomeOf
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -20,10 +20,15 @@ import io.github.solcott.activitytracker.location.PrivacyCircle
 import io.github.solcott.activitytracker.location.TrackMath
 import io.github.solcott.activitytracker.location.trim
 import io.github.solcott.activitytracker.location.trimPieces
+import io.github.solcott.dataresult.DataError
+import io.github.solcott.dataresult.Origin
+import io.github.solcott.dataresult.Outcome
 import kotlin.random.Random
 import kotlin.time.Clock
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -111,7 +116,16 @@ data class StaleRoute(val uri: AtUri, val visibility: String, val route: List<Lo
 /** An athlete already has [PrivacyZonesRecord.MAX_ZONES] zones. */
 class TooManyZonesException : IllegalStateException("At most ${PrivacyZonesRecord.MAX_ZONES} privacy zones")
 
-/** Zones can't be shown or changed: they couldn't be read, and saving over them from nothing would drop them. */
+/** The zones as [PrivacyZones.refresh] reads them for showing: [Known], or [Unreadable] with why, so they can't be shown or changed. */
+sealed interface ZonesRead {
+    /** Read now, or the last read this session when this one failed. */
+    data class Known(val trim: RouteTrim.Known) : ZonesRead
+
+    /** Nothing could be read this session; [reason] is why the read now failed. */
+    data class Unreadable(val reason: DataError) : ZonesRead
+}
+
+/** Zones can't be added to: they couldn't be read, and saving over them from nothing would drop them. */
 class ZonesUnreadableException : IllegalStateException("Couldn't read your privacy zones")
 
 /**
@@ -146,11 +160,11 @@ class PrivacyZones(private val clients: SessionClients, private val clock: Clock
         get() = clients.canWriteToSpaces(Nsid.ACTOR_PRIVACY_ZONES)
 
     /** How to trim a route published now: the zones read fresh, or the batch's ([withReadOnce]). */
-    suspend fun forPublish(): PublishTrim = batch ?: mutex.withLock { read().let { (trim, fresh) -> PublishTrim(trim, fresh) } }
+    suspend fun forPublish(): PublishTrim = batch ?: mutex.withLock { read().let { PublishTrim(it.trim, it.fresh) } }
 
     /** Runs [block] with the zones read once for every publish in it, as a logbook import queues hundreds. */
     suspend fun <T> withReadOnce(block: suspend () -> T): T {
-        batch = mutex.withLock { read().let { (trim, fresh) -> PublishTrim(trim, fresh) } }
+        batch = mutex.withLock { read().let { PublishTrim(it.trim, it.fresh) } }
         try {
             return block()
         } finally {
@@ -182,12 +196,16 @@ class PrivacyZones(private val clients: SessionClients, private val clock: Clock
         get() = stale.isNotEmpty()
 
     /**
-     * The settings read now, as Settings shows them on opening. Throws [ZonesUnreadableException] when nothing can be read this session.
+     * The settings read now, as Settings shows them on opening: the last read this session when this one fails, and [ZonesRead.Unreadable]
+     * with why when there is none.
      */
-    suspend fun refresh(): RouteTrim.Known = mutex.withLock { read().first as? RouteTrim.Known ?: throw ZonesUnreadableException() }
+    suspend fun refresh(): ZonesRead = mutex.withLock {
+        val read = read()
+        (read.trim as? RouteTrim.Known)?.let(ZonesRead::Known) ?: ZonesRead.Unreadable(read.failure ?: DataError.Unknown())
+    }
 
     /** The zones as the PDS holds them now; null when they can't be read (offline, or a record that doesn't decode). */
-    internal suspend fun readFresh(): RouteTrim.Known? = mutex.withLock { read().takeIf { (_, fresh) -> fresh }?.first as? RouteTrim.Known }
+    internal suspend fun readFresh(): RouteTrim.Known? = mutex.withLock { read().takeIf { it.fresh }?.trim as? RouteTrim.Known }
 
     /**
      * Saves [settings] (clamped) under a new revision and returns them. Zones keep the centers they have; add new ones with [add], which
@@ -201,7 +219,7 @@ class PrivacyZones(private val clients: SessionClients, private val clock: Clock
      * they can't be read.
      */
     suspend fun add(latitude: Double, longitude: Double, radiusMeters: Int, label: String? = null): PrivacySettings = mutex.withLock {
-        val now = read().takeIf { (_, fresh) -> fresh }?.first as? RouteTrim.Known ?: throw ZonesUnreadableException()
+        val now = read().takeIf { it.fresh }?.trim as? RouteTrim.Known ?: throw ZonesUnreadableException()
         if (now.settings.zones.size >= PrivacyZonesRecord.MAX_ZONES) throw TooManyZonesException()
         val radius = PrivacySettings.clampRadius(radiusMeters)
         val (lat, lon) = PrivacyCircle.offsetCenter(latitude, longitude, radius.toDouble(), random)
@@ -220,27 +238,33 @@ class PrivacyZones(private val clients: SessionClients, private val clock: Clock
         return settings
     }
 
-    /** The zones now, and whether that's a fresh read rather than the last one this session or [RouteTrim.Unknown]. */
-    private suspend fun read(): Pair<RouteTrim, Boolean> {
-        if (!clients.canUseSpaces) return RouteTrim.Known(PrivacySettings.NONE, null).also(::remember) to true
-        val read = runSuspendCatching {
+    /** The zones now; [Read.fresh] when that's a fresh read rather than the last one this session or [RouteTrim.Unknown]. */
+    private suspend fun read(): Read {
+        if (!clients.canUseSpaces) return Read(RouteTrim.Known(PrivacySettings.NONE, null).also(::remember), fresh = true)
+        val answer = outcomeOf {
             clients.spaces.getRecord(clients.tiers.uri(AthleteSpace.SELF), clients.did, Nsid.ACTOR_PRIVACY_ZONES, RKEY)
         }
-            .onFailure { e -> log.w(e) { "Couldn't read the athlete's privacy zones" } }
-            .getOrNull()
-        val known =
-            when (read) {
-                is SpaceRead.Found ->
-                    runCatching { AtJson.decodeFromJsonElement(PrivacyZonesRecord.serializer(), read.value.value) }
-                        .getOrNull()
-                        ?.let { RouteTrim.Known(PrivacySettings.of(it), it.revision) }
-                SpaceRead.NotFound -> RouteTrim.Known(PrivacySettings.NONE, null)
-                // A record another client wrote that doesn't decode, a refusal, or a failed read: hide rather than guess.
-                SpaceRead.NoAccess,
-                null -> null
+        // Hide rather than guess: a failed read, a refusal, or a record another client wrote that doesn't decode.
+        val (known, failure) =
+            when (answer) {
+                is Outcome.Data ->
+                    when (val read = answer.data) {
+                        is SpaceRead.Found ->
+                            runCatching { AtJson.decodeFromJsonElement(PrivacyZonesRecord.serializer(), read.value.value) }
+                                .getOrNull()
+                                ?.let { RouteTrim.Known(PrivacySettings.of(it), it.revision) to null } ?: (null to DataError.Serialization)
+                        SpaceRead.NotFound -> RouteTrim.Known(PrivacySettings.NONE, null) to null
+                        SpaceRead.NoAccess -> null to DataError.Unknown(message = "No access to the self space")
+                    }
+                is Outcome.Error -> null to answer.cause.also { log.w { "Couldn't read the athlete's privacy zones: $it" } }
+                Outcome.Loading -> null to DataError.Unknown()
             }
-        return if (known != null) known.also(::remember) to true else (last ?: RouteTrim.Unknown) to false
+        return if (known != null) Read(known.also(::remember), fresh = true)
+        else Read(last ?: RouteTrim.Unknown, fresh = false, failure = failure)
     }
+
+    /** What [read] found: [trim] to use, whether it's [fresh], and why the read failed when it isn't. */
+    private class Read(val trim: RouteTrim, val fresh: Boolean, val failure: DataError? = null)
 
     private fun remember(known: RouteTrim.Known) {
         last = known
@@ -250,4 +274,15 @@ class PrivacyZones(private val clients: SessionClients, private val clock: Clock
     private companion object {
         const val RKEY = PrivacyZonesRecord.RKEY
     }
+}
+
+/** [PrivacyZones.refresh] as the zones screen loads it: [Outcome.Loading], then the settings, or why they can't be read. */
+fun PrivacyZones.zonesOutcome(): Flow<Outcome<PrivacySettings>> = flow {
+    emit(Outcome.Loading)
+    emit(
+        when (val read = refresh()) {
+            is ZonesRead.Known -> Outcome.Data(read.trim.settings, Origin.Network)
+            is ZonesRead.Unreadable -> Outcome.Error(read.reason, Origin.Network)
+        }
+    )
 }

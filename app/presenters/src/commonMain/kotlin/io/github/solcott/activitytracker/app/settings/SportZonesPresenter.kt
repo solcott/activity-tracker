@@ -4,10 +4,10 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -15,10 +15,13 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.formContent
+import io.github.solcott.activitytracker.app.rememberFormSeed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.profile.OwnProfile
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.profile.updateTraining
 import io.github.solcott.activitytracker.data.training.PaceText
@@ -35,6 +38,7 @@ import io.github.solcott.activitytracker.data.units.UnitsRepository
 import io.github.solcott.activitytracker.lexicon.app.SportTraining
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.TrainingSetAt
+import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.collections.immutable.toImmutableList
@@ -52,21 +56,15 @@ fun SportZonesPresenter(
     val sport = screen.sport
     val paceUnit = SportZones.paceUnit(sport, units.units.collectAsState().value)
     val form = rememberSportForm()
-    // As saved, for the defaults.
-    var saved by remember { mutableStateOf<TrainingDetails?>(null) }
+    var loadKey by remember { mutableIntStateOf(0) }
+    val loaded = produceRetainedContentState<OwnProfile?>(null, loadKey) { profiles.ownProfileOutcome() }
+    // Why a save failed; never a loading failure, which is [loaded]'s.
     var error by remember { mutableStateOf<UiError?>(null) }
     val flights = rememberSingleFlight()
     val saving = flights.isRunning(SportZonesEvent.Save) || flights.isRunning(SportZonesEvent.Remove)
 
-    LaunchedEffect(Unit) {
-        runSuspendCatching { profiles.ownProfile() }
-            .onSuccess {
-                val training = it.details.training ?: TrainingDetails()
-                form.fillOnce(training.override(sport), paceUnit)
-                saved = training
-            }
-            .onFailure { error = UiError.of(UiError.Kind.LoadProfile, it) }
-    }
+    // As saved when the form was filled, for the defaults.
+    val saved = rememberFormSeed(loaded) { form.fillOnce(it.trainingOrNone().override(sport), paceUnit) }?.trainingOrNone()
 
     // Saves [transform] of the training as saved now, then leaves; once loaded, and one write at a time.
     fun write(key: SportZonesEvent, transform: (TrainingDetails) -> TrainingDetails) {
@@ -106,13 +104,17 @@ fun SportZonesPresenter(
         speedModels = ZoneModels.speed.toImmutableList(),
         speedZones = Zones.compute(speedModel, effective)?.toImmutableList(),
         saved = saved?.override(sport) != null,
-        loaded = saved != null,
+        content = loaded.formContent(seeded = saved != null),
         saving = saving,
         error = error,
     ) { event ->
         when (event) {
             SportZonesEvent.Back -> {
                 navigator.pop()
+            }
+
+            SportZonesEvent.Retry -> {
+                loadKey++
             }
 
             is SportZonesEvent.HeartRateModelChanged -> {
@@ -205,3 +207,5 @@ private fun rememberSportForm(): SportForm =
         speedModel = rememberSaveable { mutableStateOf("") },
         filled = rememberSaveable { mutableStateOf(false) },
     )
+
+private fun OwnProfile.trainingOrNone() = details.training ?: TrainingDetails()

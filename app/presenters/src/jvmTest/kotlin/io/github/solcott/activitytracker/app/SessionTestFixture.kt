@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app
 
 import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.app.record.ActivityTypeChoices
+import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
@@ -62,11 +63,18 @@ class SessionTestFixture {
     /** Answer every Spaces call as a session signed in before the `space:` scope. */
     var scopeMissing = false
 
+    /** The OAuth scope the session was granted. */
+    var scope = OAuthClientConfig.DEFAULT_SCOPE
+
     /** Every request fails as a dropped connection would, while set. */
     var offline = false
 
     /** Alice's profile record as JSON, both in her repo and as the AppView indexed it; null for none. */
     var profileRecord: String? = null
+
+    /** How many times Alice's profile record has been read from her repo. */
+    var profileReads = 0
+        private set
 
     /** Alice's tier spaces: each tier's `privateDetails` record's `details`, or none. */
     private val tiers = mutableMapOf<String, JsonObject>()
@@ -149,6 +157,7 @@ class SessionTestFixture {
                 when (request.url.encodedPath) {
                     "/xrpc/com.atproto.repo.getRecord" -> {
                         val record = if (request.url.parameters["collection"] == Nsid.FEED_ACTIVITY) activityRecord else profileRecord
+                        if (request.url.parameters["collection"] != Nsid.FEED_ACTIVITY) profileReads++
                         if (record == null) {
                             respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, json)
                         } else {
@@ -360,7 +369,7 @@ class SessionTestFixture {
 
     @Suppress("LongMethod") // Wires every store a test reaches for.
     suspend fun repos(defaultUnits: UnitSystem = UnitSystem.Metric, suggestionClock: Clock = Clock.System): Repos {
-        val (db, manager, clients) = signedInTestSession(http, did = did)
+        val (db, manager, clients) = signedInTestSession(http, did = did, scope = scope)
         val localLikes = LocalLikes()
         val feed = FeedRepository(db, clients, localLikes, Logger)
         val recentTypes = RecentActivityTypes(db, clients, feed)

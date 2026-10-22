@@ -6,6 +6,9 @@ import io.github.solcott.activitytracker.data.activity.PrivacySettings
 import io.github.solcott.activitytracker.data.activity.RouteTrim
 import io.github.solcott.activitytracker.data.activity.TooManyZonesException
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
+import io.github.solcott.activitytracker.data.activity.ZonesRead
+import io.github.solcott.activitytracker.data.activity.ZonesUnreadableException
+import io.github.solcott.activitytracker.data.activity.zonesOutcome
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -23,6 +26,9 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.location.Gpx
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.TrackMath
+import io.github.solcott.dataresult.DataError
+import io.github.solcott.dataresult.Origin
+import io.github.solcott.dataresult.Outcome
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -36,6 +42,7 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -163,7 +170,7 @@ class PrivacyZonesTest {
 
         assertFails { s.privacy.save(PrivacySettings.NONE) }
         pds.offline = false
-        assertEquals(listOf(home), s.privacy.refresh().settings.zones)
+        assertEquals(listOf(home), assertIs<ZonesRead.Known>(s.privacy.refresh()).trim.settings.zones)
         val uri = s.activities.publish(draft())
         assertTrue(startOf(stored(uri.rkey!!).polyline) >= 199)
     }
@@ -200,6 +207,38 @@ class PrivacyZonesTest {
 
         assertFailsWith<TooManyZonesException> { s.privacy.add(10.0, 10.0, 400) }
         assertEquals(10, zonesRecord()!!.zones!!.size)
+    }
+
+    // Reading for the zones screen
+
+    @Test
+    fun zonesThatCantBeReadSayWhy() = runTest {
+        val s = pds.session()
+        // The fake PDS answers every request with a server error while offline.
+        pds.offline = true
+
+        val reason = assertIs<ZonesRead.Unreadable>(s.privacy.refresh()).reason
+        assertEquals("InternalServerError", assertIs<DataError.Api>(reason).code)
+        assertEquals(listOf(Outcome.Loading, Outcome.Error(reason, Origin.Network)), s.privacy.zonesOutcome().toList())
+        assertFailsWith<ZonesUnreadableException> { s.privacy.add(10.0, 10.0, 400) }
+    }
+
+    @Test
+    fun aRecordThatDoesntDecodeIsUnreadable() = runTest {
+        pds.stored.getOrPut(Visibility.SELF) { mutableMapOf() }["${Nsid.ACTOR_PRIVACY_ZONES}/self"] = buildJsonObject {
+            put("zones", JsonPrimitive("not a list"))
+        }
+
+        assertEquals(ZonesRead.Unreadable(DataError.Serialization), pds.session().privacy.refresh())
+    }
+
+    @Test
+    fun aFailedReadAfterOneThisSessionAnswersTheEarlierZones() = runTest {
+        val s = pds.session()
+        s.privacy.save(PrivacySettings(listOf(home)))
+        pds.offline = true
+
+        assertEquals(listOf(home), assertIs<ZonesRead.Known>(s.privacy.refresh()).trim.settings.zones)
     }
 
     // Trimming on write

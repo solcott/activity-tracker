@@ -33,11 +33,11 @@ None.
 
 ### Modified Capabilities
 - `ui/content-loading`: this change extends its requirements to the form-seeding screens' first load. It names their difference: once a form has loaded, a later reload never replaces what the athlete is editing.
-- `profile/privacy-zones`: only if its requirements describe how an unreadable zones record is reported. Confirm while writing the specs. The observable behaviour (can't read, can't save) must not change.
+- `profile/privacy-zones` is unchanged. Its only requirement about zones that can't be read covers publishing, not how the settings screen reports them. The screen's observable behaviour (can't read, can't save) stays.
 
 ## Impact
 
-- **`core/data`:** `PrivacyZones.refresh()` returns an unreadable answer instead of throwing. Its other callers move with it: `ActivityRepository` route trimming, `CreateSegment`'s `ZonesUnreadable`, and `SettingsPresenter`.
+- **`core/data`:** `PrivacyZones.refresh()` returns an unreadable answer, with the read's reason, instead of throwing. Its only other caller, `SettingsPresenter`'s warm-up read, moves with it. `PrivacyZones.add()` keeps throwing `ZonesUnreadableException`. It is an action, called from PrivacyZones and from `ActivityRepository`, and its callers still see the exception's type. CreateSegment's `ZonesUnreadable` is derived from the zones it reads and doesn't change.
 - **`app/presenters` and `app/screens`:** the five presenters and states, and their tests: `EditProfilePresenterTest`, `ZonesPresenterTest`, `SportZonesPresenterTest`, `EditActivityPresenterTest` and `PrivacyZonesPresenterTest`. EditActivity and the zones screens have no load-failure test today, so they gain one.
 - **`composeApp`:** the five UIs show the first-load phase through `ContentStateLayout`.
 - **Depends on:**

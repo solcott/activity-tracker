@@ -12,6 +12,9 @@ import io.github.solcott.activitytracker.app.profile.EditProfileState
 import io.github.solcott.activitytracker.data.profile.DetailGroup
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.dataresult.DataError
+import io.github.solcott.uistate.errorOrNull
+import io.github.solcott.uistate.isLoading
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -76,13 +79,57 @@ class EditProfilePresenterTest {
     }
 
     @Test
+    fun aFailedLoadSaysWhyAndRetryFillsTheForm() = runTest {
+        fixture.profileRecord = """{"displayName":"Alice"}"""
+        fixture.offline = true
+        val repos = fixture.repos()
+        presenterTestOf({ EditProfilePresenter(FakeNavigator(EditProfileScreen), repos.profiles, repos.units, repos.auth) }) {
+            val failed = awaitUntil { it.content.errorOrNull != null }
+            assertEquals(DataError.Network, failed.content.errorOrNull)
+            assertFalse(failed.loaded)
+            assertNull(failed.error, "a load failure isn't the save's")
+
+            fixture.offline = false
+            failed.eventSink(EditProfileEvent.Retry)
+            assertTrue(awaitUntil { it.content.isLoading }.content.errorOrNull == null)
+            assertEquals("Alice", awaitUntil { it.loaded }.displayName.text.toString())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aLaterLoadKeepsWhatWasTyped() = runTest {
+        fixture.profileRecord = """{"displayName":"Alice"}"""
+        val repos = fixture.repos()
+        presenterTestOf({ EditProfilePresenter(FakeNavigator(EditProfileScreen), repos.profiles, repos.units, repos.auth) }) {
+            val loaded = awaitUntil { it.loaded }
+            val reads = fixture.profileReads
+            loaded.displayName.setTextAndPlaceCursorAtEnd("Alice A.")
+            fixture.offline = true
+            loaded.eventSink(EditProfileEvent.Retry)
+            awaitSettled { true }
+            fixture.profileRecord = """{"displayName":"Someone else"}"""
+            fixture.offline = false
+            loaded.eventSink(EditProfileEvent.Retry)
+            awaitSettled { fixture.profileReads > reads }
+
+            val after = expectMostRecentItem()
+            assertTrue(after.loaded, "a later load, failed or not, never hides the form")
+            assertNull(after.content.errorOrNull)
+            assertEquals("Alice A.", after.displayName.text.toString())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun aSessionWithoutSpaceAccessAsksToSignInAgainAndStillEditsPublicDetails() = runTest {
         fixture.profileRecord = """{"displayName":"Alice","details":{"location":{"locality":"Portland"}}}"""
         fixture.scopeMissing = true
         val repos = fixture.repos()
         presenterTestOf({ EditProfilePresenter(FakeNavigator(EditProfileScreen), repos.profiles, repos.units, repos.auth) }) {
             val loaded = awaitUntil { it.loaded }
-            assertEquals(UiError.Kind.SignInAgain, loaded.error?.kind)
+            assertTrue(loaded.needsSignIn)
+            assertNull(loaded.error, "signing in again isn't a failed save")
             assertEquals("Portland", loaded.locality.text.toString())
 
             loaded.eventSink(EditProfileEvent.SignInAgain)

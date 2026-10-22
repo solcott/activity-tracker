@@ -1,18 +1,23 @@
 package io.github.solcott.activitytracker.app.edit
 
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
+import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.formContent
 import io.github.solcott.activitytracker.app.profile.rememberApprovesFollowers
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
@@ -22,13 +27,17 @@ import io.github.solcott.activitytracker.data.activity.ActivityEdit
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
 import io.github.solcott.activitytracker.data.segments.SegmentTrackStore
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.activityType
+import io.github.solcott.uistate.ContentState
+import io.github.solcott.uistate.circuit.produceRetainedContentState
 
 @CircuitInject(EditActivityScreen::class, SessionScope::class)
 @Composable
@@ -43,12 +52,19 @@ fun EditActivityPresenter(
     segmentPrefs: SegmentPrefsRepository,
     segmentTracks: SegmentTrackStore,
 ): EditActivityState {
-    var activity by remember { mutableStateOf<ActivityView?>(null) }
+    // Why a save failed; never a loading failure, which is [loaded]'s.
     var error by remember { mutableStateOf<UiError?>(null) }
     var confirmDiscard by remember { mutableStateOf(false) }
     var loadKey by remember { mutableIntStateOf(0) }
+    val loaded =
+        produceRetainedContentState<EditActivityLoad?>(null, loadKey) {
+            outcomeFlow {
+                val view = feed.activity(AtUri(screen.uri))
+                // Charts are extra: without them (or when they can't load) only the categories its summary has are offered.
+                EditActivityLoad(view, runSuspendCatching { feed.streams(view.uri) }.getOrNull())
+            }
+        }
     val title = rememberTextFieldState()
-    var seededTitle by remember { mutableStateOf("") }
     val form = rememberDetailsForm()
     val flights = rememberSingleFlight()
     // Read through state: the visibility holder is remembered once and asks for it as it changes.
@@ -56,24 +72,9 @@ fun EditActivityPresenter(
     val visibility = rememberEditVisibility(defaults.canChoose) { approvesFollowers }
     val exclusion = rememberLeaderboardExclusion(AtUri(screen.uri), segmentPrefs, segmentTracks)
 
-    LaunchedEffect(loadKey) {
-        if (activity != null) return@LaunchedEffect
-        error = null
-        runSuspendCatching {
-            val view = feed.activity(AtUri(screen.uri))
-            // Charts are extra: without them (or when they can't load) only the categories its summary has are offered.
-            val streams = runSuspendCatching { feed.streams(view.uri) }.getOrNull()
-            view to streams
-        }
-            .onSuccess { (view, streams) ->
-                seededTitle = view.record.title.orEmpty()
-                title.setTextAndPlaceCursorAtEnd(seededTitle)
-                form.seed(view.record.description, view.record.dive?.site, existingMedia(view))
-                visibility.seed(view, streams)
-                activity = view
-            }
-            .onFailure { error = UiError.of(UiError.Kind.LoadActivity, it) }
-    }
+    // The activity the form was filled from; later loads change neither.
+    val shown = rememberEditSeed(loaded, title, form, visibility)
+    val seededTitle = shown?.record?.title.orEmpty()
 
     fun save(current: ActivityView) {
         flights.launch(EditActivityEvent.Save) {
@@ -99,21 +100,21 @@ fun EditActivityPresenter(
         }
     }
 
-    val loaded = activity
-    val isDive = loaded?.record?.sport == Sport.DIVE
+    val isDive = shown?.record?.sport == Sport.DIVE
     return EditActivityState(
-        type = loaded?.record?.activityType,
+        content = loaded.formContent(seeded = shown != null),
+        type = shown?.record?.activityType,
         title = title,
-        details = loaded?.let { form.fields(isDive) },
+        details = shown?.let { form.fields(isDive) },
         saving = flights.isRunning(EditActivityEvent.Save),
         error = error,
         confirmDiscard = confirmDiscard,
         visibility = visibility.fields,
         confirmNarrowing = visibility.confirmingNarrowing,
         confirmCoreCharts = visibility.confirmingCoreCharts,
-        leaderboardExclusion = exclusion.excluded.takeIf { loaded != null },
+        leaderboardExclusion = exclusion.excluded.takeIf { shown != null },
     ) { event ->
-        val saveLoaded = { activity?.let(::save) ?: Unit }
+        val saveLoaded = { shown?.let(::save) ?: Unit }
         when (event) {
             // Narrowing a Public activity can't recall what's already been published: the athlete is asked first.
             EditActivityEvent.Save -> visibility.save(saveLoaded)
@@ -127,7 +128,7 @@ fun EditActivityPresenter(
             EditActivityEvent.CancelCoreCharts -> visibility.coreChartsAnswered(confirmed = false, saveLoaded)
 
             EditActivityEvent.Back -> {
-                if (isChanged(activity, title.text.toString() != seededTitle, form.isChanged, visibility, exclusion)) confirmDiscard = true
+                if (isChanged(shown, title.text.toString() != seededTitle, form.isChanged, visibility, exclusion)) confirmDiscard = true
                 else navigator.pop()
             }
 
@@ -159,3 +160,38 @@ private fun isChanged(
     visibility: EditVisibility,
     exclusion: LeaderboardExclusion,
 ): Boolean = activity != null && (title || details || visibility.changed != null || exclusion.changed)
+
+/**
+ * Fills [title], [form] and [visibility] from the first activity [loaded] answers, kept while the screen is: null until they're filled. The
+ * title is saved with the screen, so it's filled once; the details and visibility holders aren't, so a recreated screen fills them again.
+ */
+@Composable
+private fun rememberEditSeed(
+    loaded: ContentState<EditActivityLoad?>,
+    title: TextFieldState,
+    form: DetailsForm,
+    visibility: EditVisibility,
+): ActivityView? {
+    var seed by rememberRetained { mutableStateOf<EditActivityLoad?>(null) }
+    var titleFilled by rememberSaveable { mutableStateOf(false) }
+    var holdersFilled by remember { mutableStateOf(false) }
+    val data = loaded.data
+    SideEffect(data) {
+        val load = seed ?: data ?: return@SideEffect
+        val view = load.view
+        if (!titleFilled) {
+            title.setTextAndPlaceCursorAtEnd(view.record.title.orEmpty())
+            titleFilled = true
+        }
+        if (!holdersFilled) {
+            form.seed(view.record.description, view.record.dive?.site, existingMedia(view))
+            visibility.seed(view, load.streams)
+            holdersFilled = true
+        }
+        seed = load
+    }
+    return seed?.view?.takeIf { holdersFilled }
+}
+
+/** The activity being edited and, when they could be read, its streams: which detail categories it has data for. */
+@Immutable internal class EditActivityLoad(val view: ActivityView, val streams: GetActivityStreams.Output?)

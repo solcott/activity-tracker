@@ -12,6 +12,8 @@ import io.github.solcott.activitytracker.data.profile.DetailsVisibility
 import io.github.solcott.activitytracker.data.units.HeightConversions
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.WeightConversions
+import io.github.solcott.uistate.ContentState
+import io.github.solcott.uistate.hasLoaded
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.io.bytestring.ByteString
 
@@ -50,12 +52,19 @@ data class EditProfileState(
     val approveFollowers: Boolean = false,
     /** Details that were public when the screen opened and are now set to be hidden. Anyone may already have copied them. */
     val nowHidden: ImmutableList<DetailGroup>,
-    /** False until the current profile has been read, so a save can't blank fields the athlete never saw. */
-    val loaded: Boolean,
+    /** The profile the form is filled from: loading or failed until it is, then loaded. */
+    val content: ContentState<Unit>,
+    /** A session signed in before its grant covered the athlete's spaces: hidden details can't be saved until they sign in again. */
+    val needsSignIn: Boolean = false,
     val saving: Boolean,
+    /** Why a save failed. */
     val error: UiError?,
     val eventSink: (EditProfileEvent) -> Unit,
 ) : CircuitUiState {
+    /** False until the form is filled from the current profile, so a save can't blank fields the athlete never saw. */
+    val loaded: Boolean
+        get() = content.hasLoaded
+
     val valid: Boolean
         get() =
             displayName.text.length <= DISPLAY_NAME_MAX_LENGTH &&
@@ -116,6 +125,9 @@ sealed interface EditProfileEvent {
     data class ApproveFollowersChanged(val approve: Boolean) : EditProfileEvent
 
     data object Save : EditProfileEvent
+
+    /** Loads the profile again after a failed first load. */
+    data object Retry : EditProfileEvent
 
     /** Signs out, so the athlete can sign in again with access to their spaces ([UiError.Kind.SignInAgain]). */
     data object SignInAgain : EditProfileEvent

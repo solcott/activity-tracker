@@ -4,9 +4,9 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -14,6 +14,8 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.formContent
+import io.github.solcott.activitytracker.app.rememberFormSeed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -33,6 +35,7 @@ import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlinx.collections.immutable.toImmutableList
 
 @CircuitInject(EditProfileScreen::class, SessionScope::class)
@@ -44,26 +47,23 @@ fun EditProfilePresenter(
     auth: AuthRepository,
 ): EditProfileState {
     val form = rememberForm(unitsRepository.units.value)
-    // As loaded: which details were public, for the warning when one is hidden.
-    var own by remember { mutableStateOf<OwnProfile?>(null) }
+    var loadKey by remember { mutableIntStateOf(0) }
+    val loaded = produceRetainedContentState<OwnProfile?>(null, loadKey) { profiles.ownProfileOutcome() }
     var picked by remember { mutableStateOf<AvatarImage.Picked?>(null) }
     var avatarRemoved by remember { mutableStateOf(false) }
+    // Why a save failed; never a loading failure, which is [loaded]'s.
     var error by remember { mutableStateOf<UiError?>(null) }
     // Null until loaded; saved, like the form, so a configuration change keeps the athlete's choice.
     var approveFollowers by rememberSaveable { mutableStateOf<Boolean?>(null) }
     val flights = rememberSingleFlight()
     val saving = flights.isRunning(EditProfileEvent.Save)
 
-    LaunchedEffect(Unit) {
-        runSuspendCatching { profiles.ownProfile() }
-            .onSuccess { profile ->
-                form.fillOnce(profile)
-                approveFollowers = approveFollowers ?: (profile.followPolicy == FollowPolicy.APPROVE)
-                own = profile
-                if (profile.needsSignIn) error = UiError(UiError.Kind.SignInAgain)
-            }
-            .onFailure { error = UiError.of(UiError.Kind.LoadProfile, it) }
-    }
+    // As the form was filled from: which details were public, for the warning when one is hidden.
+    val own =
+        rememberFormSeed(loaded) { profile ->
+            form.fillOnce(profile)
+            approveFollowers = approveFollowers ?: (profile.followPolicy == FollowPolicy.APPROVE)
+        }
 
     val details = form.details()
     val visibility = form.visibility()
@@ -85,7 +85,8 @@ fun EditProfilePresenter(
         visibility = visibility,
         approveFollowers = approveFollowers == true,
         nowHidden = nowHidden,
-        loaded = own != null,
+        content = loaded.formContent(seeded = own != null),
+        needsSignIn = own?.needsSignIn == true,
         saving = saving,
         error = error,
     ) { event ->
@@ -120,6 +121,10 @@ fun EditProfilePresenter(
                         runSuspendCatching { profiles.save(edit) }.onSuccess { navigator.pop() }.onFailure { error = saveError(it) }
                     }
                 }
+            }
+
+            EditProfileEvent.Retry -> {
+                loadKey++
             }
 
             EditProfileEvent.SignInAgain -> {
@@ -199,6 +204,7 @@ private class Form(
             is EditProfileEvent.VisibilityChanged -> visibilities.getValue(event.group).value = event.visibility
             EditProfileEvent.Save,
             EditProfileEvent.SignInAgain,
+            EditProfileEvent.Retry,
             is EditProfileEvent.ApproveFollowersChanged,
             EditProfileEvent.Back,
             EditProfileEvent.RemoveAvatar,

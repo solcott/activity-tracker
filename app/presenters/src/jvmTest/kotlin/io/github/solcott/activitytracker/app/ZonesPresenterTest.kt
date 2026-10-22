@@ -14,10 +14,14 @@ import io.github.solcott.activitytracker.lexicon.app.PowerZoneModel
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.dataresult.DataError
+import io.github.solcott.uistate.errorOrNull
+import io.github.solcott.uistate.isLoading
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
@@ -48,6 +52,44 @@ class ZonesPresenterTest {
             assertEquals(7, loaded.heartRateZones?.size)
             assertEquals(ZoneModels.defaultPower, loaded.powerModel, "an unpicked model shows the default")
             assertEquals(280, loaded.powerZones?.last()?.low)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aFailedLoadSaysWhyAndRetryFillsTheForm() = runTest {
+        fixture.privateDetails = """{"details":{"training":{"thresholdHeartRate":168}},"visibility":{"training":"self"}}"""
+        fixture.offline = true
+        val repos = fixture.repos()
+        presenterTestOf({ ZonesPresenter(FakeNavigator(ZonesScreen), repos.profiles, clock) }) {
+            val failed = awaitUntil { it.content.errorOrNull != null }
+            assertEquals(DataError.Network, failed.content.errorOrNull)
+            assertFalse(failed.loaded)
+            assertNull(failed.error, "a load failure isn't the save's")
+
+            fixture.offline = false
+            failed.eventSink(ZonesEvent.Retry)
+            awaitUntil { it.content.isLoading }
+            assertEquals("168", awaitUntil { it.loaded }.thresholdHeartRate.text.toString())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aLaterLoadKeepsWhatWasTyped() = runTest {
+        fixture.privateDetails = """{"details":{"training":{"thresholdHeartRate":168}},"visibility":{"training":"self"}}"""
+        val repos = fixture.repos()
+        presenterTestOf({ ZonesPresenter(FakeNavigator(ZonesScreen), repos.profiles, clock) }) {
+            val loaded = awaitUntil { it.loaded }
+            val reads = fixture.profileReads
+            loaded.thresholdHeartRate.setTextAndPlaceCursorAtEnd("170")
+            fixture.privateDetails = """{"details":{"training":{"thresholdHeartRate":150}},"visibility":{"training":"self"}}"""
+            loaded.eventSink(ZonesEvent.Retry)
+            awaitSettled { fixture.profileReads > reads }
+
+            val after = expectMostRecentItem()
+            assertTrue(after.loaded)
+            assertEquals("170", after.thresholdHeartRate.text.toString())
             cancelAndIgnoreRemainingEvents()
         }
     }
