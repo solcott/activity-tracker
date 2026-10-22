@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
+import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -20,6 +21,13 @@ import kotlinx.collections.immutable.persistentListOf
 
 @Immutable
 data class CreateSegmentState(
+    /**
+     * The activity, its route and the privacy zones (ui/content-loading): loading or failed until all three first load, then loaded for
+     * good, since a later load never changes the stretch being chosen.
+     */
+    val content: ContentState<Unit> = ContentState(Unit),
+    /** What failed while [content] has failed: the activity, its route or the zones. */
+    val loadErrorKind: UiError.Kind = UiError.Kind.LoadActivity,
     /** Why no segment can be made from this activity; null once it can, or while loading. */
     val unavailable: CreateSegmentUnavailable? = null,
     /** The activity's route as its privacy settings leave it, at precision 5, broken at [routeGaps]; null while loading. */
@@ -48,8 +56,8 @@ data class CreateSegmentState(
     val limitReached: Boolean = false,
     /** Checking and publishing. */
     val publishing: Boolean = false,
-    val isLoading: Boolean = true,
-    val error: UiError? = null,
+    /** Why the last check or publish failed; never a loading failure, which is [content]'s. */
+    val actionError: UiError? = null,
     val eventSink: (CreateSegmentEvent) -> Unit = {},
 ) : CircuitUiState {
     /** A stretch that can be a segment, a name, and nothing pending. */
@@ -64,9 +72,6 @@ enum class CreateSegmentUnavailable {
 
     /** Its sport has no sport group, such as an indoor or lift-served activity. */
     NoSportGroup,
-
-    /** The athlete's privacy zones couldn't be read, so the route can't be cut safely. */
-    ZonesUnreadable,
 
     /** The privacy zones and hidden ends leave nothing of the route. */
     AllHidden,
@@ -89,6 +94,9 @@ sealed interface SelectionCheck {
 
 sealed interface CreateSegmentEvent {
     data object Back : CreateSegmentEvent
+
+    /** Loads the activity, its route and the zones again after the first load failed. */
+    data object Retry : CreateSegmentEvent
 
     /** The stretch moved to [start]..[end] meters along the route. */
     data class SelectionChanged(val start: Float, val end: Float) : CreateSegmentEvent

@@ -8,7 +8,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
-import kotlinx.collections.immutable.ImmutableList
+import io.github.solcott.uistate.PagedState
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 
@@ -20,13 +20,14 @@ import kotlinx.collections.immutable.persistentSetOf
 
 @Immutable
 data class StarredSegmentsState(
-    val segments: ImmutableList<StarredSegment>,
-    val isLoading: Boolean,
-    val canLoadMore: Boolean,
+    /** The stars, a page at a time (ui/content-loading); nothing loads for a session that [needsSignIn]. */
+    val segments: PagedState<StarredSegment, Unit>,
     /** Stars whose removal is being written. */
     val removing: ImmutableSet<AtUri> = persistentSetOf(),
-    /** A load or removal that failed, or [UiError.Kind.SignInAgain] for a session that can't use stars. */
-    val error: UiError?,
+    /** Why the last unstar failed; never a loading failure, which is [segments]'. */
+    val actionError: UiError? = null,
+    /** The session predates the grant stars need, so signing in again is the only way to see them. */
+    val needsSignIn: Boolean = false,
     val eventSink: (StarredSegmentsEvent) -> Unit,
 ) : CircuitUiState
 
@@ -36,7 +37,7 @@ sealed interface StarredSegmentsEvent {
     /** Loads the next page; ignored while a page is loading or when there are no more. */
     data object LoadMore : StarredSegmentsEvent
 
-    /** Reloads from the first page after an error. */
+    /** Tries the page that failed to load again. */
     data object Retry : StarredSegmentsEvent
 
     /** Opens an available segment's screen. */

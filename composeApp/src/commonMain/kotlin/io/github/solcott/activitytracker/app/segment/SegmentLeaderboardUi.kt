@@ -19,30 +19,26 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.Format
+import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
-import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.app.ui.pagedFooter
+import io.github.solcott.activitytracker.app.ui.pagedRefreshStatus
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_ebike
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_empty
 import io.github.solcott.activitytracker.composeApp.resources.leaderboard_period_all_time
@@ -69,16 +65,7 @@ private val SCOPES = persistentListOf(LeaderboardScope.EVERYONE, LeaderboardScop
 @Composable
 fun SegmentLeaderboardUi(state: SegmentLeaderboardState, modifier: Modifier = Modifier) {
     val listState = rememberLazyListState()
-    // Ask for the next page once the last row is on screen.
-    val atEnd by remember {
-        derivedStateOf {
-            val info = listState.layoutInfo
-            info.totalItemsCount > 0 && (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 1
-        }
-    }
-    SideEffect(atEnd, state.canLoadMore, state.isLoading) {
-        if (atEnd && state.canLoadMore && !state.isLoading) state.eventSink(SegmentLeaderboardEvent.LoadMore)
-    }
+    LoadMoreAtEnd(listState, state.entries.canLoadMore) { state.eventSink(SegmentLeaderboardEvent.LoadMore) }
 
     val scrollBehavior = rememberAppTopBarScrollBehavior()
     AppScaffold(
@@ -89,8 +76,9 @@ fun SegmentLeaderboardUi(state: SegmentLeaderboardState, modifier: Modifier = Mo
     ) { padding ->
         ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
             LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 12.dp)) {
-                item { Filters(state) }
-                items(state.entries, key = { it.athlete.did.value }) { entry ->
+                item(key = "filters") { Filters(state) }
+                pagedRefreshStatus(state.entries, UiError.Kind.LoadLeaderboard) { state.eventSink(SegmentLeaderboardEvent.Retry) }
+                items(state.entries.items, key = { it.athlete.did.value }) { entry ->
                     EntryRow(entry, onClick = { state.eventSink(SegmentLeaderboardEvent.OpenActivity(entry.effort.activity)) })
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
@@ -162,33 +150,19 @@ private fun EntryRow(entry: LeaderboardEntry, onClick: () -> Unit, modifier: Mod
     }
 }
 
-/** The viewer's place when it's off the list, error with retry, a loading spinner, or the empty state, below the entries. */
+/** The viewer's place when it's off the list, then the next page's spinner or failure, or the empty state, below the entries. */
 private fun LazyListScope.footer(state: SegmentLeaderboardState) {
     state.viewerEntry?.let { own ->
-        item {
+        item(key = "own-place") {
             Column(Modifier.fillMaxWidth().padding(top = 16.dp)) {
                 Text(stringResource(Res.string.leaderboard_your_place), style = MaterialTheme.typography.titleSmall)
                 EntryRow(own, onClick = { state.eventSink(SegmentLeaderboardEvent.OpenActivity(own.effort.activity)) })
             }
         }
     }
-    state.error?.let { error ->
-        item {
-            Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(errorText(error), color = MaterialTheme.colorScheme.error)
-                AppTextButton(onClick = { state.eventSink(SegmentLeaderboardEvent.Retry) }) {
-                    Text(stringResource(Res.string.action_retry))
-                }
-            }
-        }
-    }
-    if (state.isLoading) {
-        item { Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { AppProgressIndicator() } }
-    } else if (state.entries.isEmpty() && state.error == null) {
-        item {
-            Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                Text(stringResource(Res.string.leaderboard_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+    pagedFooter(state.entries, UiError.Kind.LoadLeaderboard, onRetry = { state.eventSink(SegmentLeaderboardEvent.Retry) }) {
+        Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+            Text(stringResource(Res.string.leaderboard_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

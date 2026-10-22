@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.undoingOnFailure
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.outcomeOf
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -21,6 +22,10 @@ import io.github.solcott.activitytracker.lexicon.atproto.Space
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
+import io.github.solcott.dataresult.DataError
+import io.github.solcott.dataresult.Origin
+import io.github.solcott.dataresult.Outcome
+import io.github.solcott.dataresult.mapData
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -73,23 +78,36 @@ class SegmentStars(
     }
 
     /**
-     * Every star, newest first, with this session's changes laid over them; null when they can't be read now. The PDS lists them by rkey, a
-     * hash, so all are read to order them. Records that don't decode, or whose rkey isn't their subject's, are left out.
+     * Every star, newest first, with this session's changes laid over them, or why they can't be read now: they are unknown then, not none.
+     * The PDS lists them by rkey, a hash, so all are read to order them. Records that don't decode, or whose rkey isn't their subject's,
+     * are left out.
      */
-    suspend fun starred(): List<SegmentStar>? {
-        val stored =
-            if (!canUse) null
-            else
-                when (val read = read { listAllRecords(it, clients.did, Nsid.FEED_SEGMENT_STAR, PAGE_SIZE) }) {
-                    is SpaceRead.Found -> read.value.mapNotNull { it.star() }
-                    SpaceRead.NotFound -> emptyList()
-                    SpaceRead.NoAccess,
-                    null -> null
-                }
-        val changed = overrides.value
-        return stored?.let { list ->
-            (list.filter { it.segment.uri.value !in changed } + changed.values.filterNotNull()).sortedByDescending { it.starredAt }
+    suspend fun starredOutcome(): Outcome<List<SegmentStar>> {
+        if (!canUse) return Outcome.Error(DataError.Unknown(message = "This session can't use stars"), Origin.Network)
+        // Null when the space refuses the athlete their own stars.
+        val stored = outcomeOf {
+            clients.spaces.listAllRecords(clients.tiers.uri(AthleteSpace.SELF), clients.did, Nsid.FEED_SEGMENT_STAR, PAGE_SIZE)
         }
+            .mapData { answer ->
+                when (answer) {
+                    is SpaceRead.Found -> answer.value.mapNotNull { it.star() }
+                    SpaceRead.NotFound -> emptyList()
+                    SpaceRead.NoAccess -> null
+                }
+            }
+        return when (stored) {
+            is Outcome.Data ->
+                stored.data?.let { Outcome.Data(withOverrides(it), Origin.Network) }
+                    ?: Outcome.Error(DataError.Unknown(message = "No access to the self space"), Origin.Network)
+            is Outcome.Error -> stored
+            Outcome.Loading -> Outcome.Loading
+        }
+    }
+
+    /** [stored] with this session's changes laid over it, newest first. */
+    private fun withOverrides(stored: List<SegmentStar>): List<SegmentStar> {
+        val changed = overrides.value
+        return (stored.filter { it.segment.uri.value !in changed } + changed.values.filterNotNull()).sortedByDescending { it.starredAt }
     }
 
     /** Stars ([starred]) or unstars [segment]. Throws for a session that can't use stars, changing nothing. */

@@ -3,46 +3,49 @@ package io.github.solcott.activitytracker.app.segment
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
+import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
-import io.github.solcott.activitytracker.app.CursorPage
 import io.github.solcott.activitytracker.app.UiError
-import io.github.solcott.activitytracker.app.rememberCursorPaging
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
-import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.data.segments.SegmentStar
 import io.github.solcott.activitytracker.data.segments.SegmentStars
+import io.github.solcott.dataresult.Origin
+import io.github.solcott.dataresult.Outcome
+import io.github.solcott.dataresult.dataOrNull
+import io.github.solcott.dataresult.mapData
+import io.github.solcott.uistate.Page
+import io.github.solcott.uistate.circuit.rememberRetainedPaging
+import io.github.solcott.uistate.pageOf
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
 @CircuitInject(StarredSegmentsScreen::class, SessionScope::class)
 @Composable
 fun StarredSegmentsPresenter(navigator: Navigator, stars: SegmentStars, segments: SegmentRepository): StarredSegmentsState {
-    val pages = remember { StarPages(stars, segments) }
+    val pages = rememberRetained { StarPages(stars, segments) }
     val list =
-        rememberCursorPaging(StarredSegmentsScreen, idOf = { row: StarredSegment -> row.uri }, enabled = stars.canUse, load = pages::load)
-    var unstarError by remember { mutableStateOf<UiError?>(null) }
+        rememberRetainedPaging(StarredSegmentsScreen, idOf = StarredSegment::uri, enabled = stars.canUse) { cursor ->
+            flow { emit(pages.load(cursor)) }
+        }
+    var actionError by rememberRetained { mutableStateOf<UiError?>(null) }
     val flights = rememberSingleFlight()
-    val error =
-        if (stars.canUse) unstarError ?: list.failure?.let { UiError.of(UiError.Kind.LoadStarredSegments, it) }
-        else UiError(UiError.Kind.SignInAgain)
 
     return StarredSegmentsState(
-        segments = list.items,
-        isLoading = list.isLoading,
-        canLoadMore = list.canLoadMore && unstarError == null,
-        removing = list.items.map { it.uri }.filter { flights.isRunning(it) }.toImmutableSet(),
-        error = error,
+        segments = list.state,
+        removing = list.state.items.map { it.uri }.filter { flights.isRunning(it) }.toImmutableSet(),
+        actionError = actionError,
+        needsSignIn = !stars.canUse,
     ) { event ->
         when (event) {
             StarredSegmentsEvent.Back -> {
@@ -50,26 +53,26 @@ fun StarredSegmentsPresenter(navigator: Navigator, stars: SegmentStars, segments
             }
 
             StarredSegmentsEvent.LoadMore -> {
-                if (unstarError == null) list.loadMore()
+                list.loadMore()
             }
 
             StarredSegmentsEvent.Retry -> {
-                unstarError = null
                 list.retry()
             }
 
             is StarredSegmentsEvent.Open -> {
-                list.items.firstOrNull { it.uri == event.uri }?.segment?.let { navigator.goTo(SegmentScreen(it.uri.value)) }
+                list.state.items.firstOrNull { it.uri == event.uri }?.segment?.let { navigator.goTo(SegmentScreen(it.uri.value)) }
             }
 
             is StarredSegmentsEvent.Unstar -> {
                 pages.starred
                     .firstOrNull { it.segment.uri == event.uri }
                     ?.let { star ->
+                        actionError = null
                         flights.launch(event.uri) {
                             runSuspendCatching { stars.setStarred(star.segment, starred = false) }
                                 .onSuccess { list.update { items -> items.filterNot { it.uri == event.uri } } }
-                                .onFailure { unstarError = uiErrorOf(UiError.Kind.UpdateStar, it) }
+                                .onFailure { actionError = uiErrorOf(UiError.Kind.UpdateStar, it) }
                         }
                     }
             }
@@ -79,41 +82,39 @@ fun StarredSegmentsPresenter(navigator: Navigator, stars: SegmentStars, segments
 
 /**
  * The stars resolved a page at a time. Every star is read for the first page (the PDS lists them by a hash, so all are needed to order
- * them), and each page's segments are then looked up.
+ * them), and each page's segments are then looked up. Either failing fails the page, with why.
  */
 private class StarPages(private val stars: SegmentStars, private val segments: SegmentRepository) {
     var starred: List<SegmentStar> = emptyList()
         private set
 
-    suspend fun load(cursor: String?): CursorPage<StarredSegment> {
-        if (cursor == null) starred = stars.starred() ?: throw StarsUnreadable()
-        val from = cursor?.toIntOrNull() ?: 0
+    suspend fun load(cursor: String?): Outcome<Page<StarredSegment, Unit>> =
+        when (val read = if (cursor == null) stars.starredOutcome() else Outcome.Data(starred, Origin.Network)) {
+            is Outcome.Data -> {
+                starred = read.data
+                pageAt(cursor?.toIntOrNull() ?: 0)
+            }
+            is Outcome.Error -> read
+            Outcome.Loading -> Outcome.Loading
+        }
+
+    private suspend fun pageAt(from: Int): Outcome<Page<StarredSegment, Unit>> {
         val page = starred.drop(from).take(PAGE_SIZE)
         val next = (from + page.size).takeIf { it < starred.size }?.toString()
-        return CursorPage(segments.resolve(page), next)
+        return segments.resolve(page).mapData { pageOf(it, next) }
     }
 }
 
-/** Each of [stars]' segments from the AppView, a few at a time; a segment it no longer serves (`NotFound`) is listed as unavailable. */
-private suspend fun SegmentRepository.resolve(stars: List<SegmentStar>): List<StarredSegment> = coroutineScope {
+/**
+ * Each of [stars]' segments from the AppView, a few at a time: one it no longer serves is listed as unavailable, and any other failed
+ * lookup fails them all.
+ */
+private suspend fun SegmentRepository.resolve(stars: List<SegmentStar>): Outcome<List<StarredSegment>> = coroutineScope {
     val permits = Semaphore(CONCURRENT_LOOKUPS)
-    stars
-        .map { star ->
-            async {
-                permits.withPermit {
-                    val uri = star.segment.uri
-                    val view = runSuspendCatching { segment(uri) }
-                    StarredSegment(uri, view.getOrElse { e -> if (e.isNotFound()) null else throw e })
-                }
-            }
-        }
-        .awaitAll()
+    val lookups = stars.map { star -> async { permits.withPermit { star.segment.uri to segmentLookup(star.segment.uri) } } }.awaitAll()
+    lookups.firstNotNullOfOrNull { (_, lookup) -> lookup as? Outcome.Error }
+        ?: Outcome.Data(lookups.map { (uri, lookup) -> StarredSegment(uri, lookup.dataOrNull()) }, Origin.Network)
 }
-
-private fun Throwable.isNotFound() = this is XrpcException && error == "NotFound"
-
-/** The athlete's `self` space couldn't be read, so the stars are unknown, not none. */
-private class StarsUnreadable : Exception("Couldn't read your stars")
 
 private const val PAGE_SIZE = 30
 private const val CONCURRENT_LOOKUPS = 4

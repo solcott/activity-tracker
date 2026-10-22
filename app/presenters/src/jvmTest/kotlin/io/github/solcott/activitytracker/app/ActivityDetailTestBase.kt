@@ -170,6 +170,9 @@ open class ActivityDetailTestBase {
     /** Reading Alice's privacy zones fails. */
     protected var failZones = false
 
+    /** Fail reading the full track as a lost connection would, while set. */
+    protected var trackUnreachable = false
+
     /** `getActivityStreams` requests so far. */
     protected var streamsRequests = 0
 
@@ -293,7 +296,8 @@ open class ActivityDetailTestBase {
                         val notFound = respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, json)
                         when (request.url.parameters["collection"]) {
                             Nsid.FEED_ACTIVITY_TRACK ->
-                                if (track == null) notFound
+                                if (trackUnreachable) throw IOException("Connection refused")
+                                else if (track == null) notFound
                                 else {
                                     val blob =
                                         $$"""{"$type":"blob","ref":{"$link":"bafytrack"},"mimeType":"application/gpx+xml","size":10}"""
@@ -393,6 +397,7 @@ open class ActivityDetailTestBase {
         val reports: ReportRepository,
         val segments: SegmentRepository,
         val publisher: SegmentPublisher,
+        val privacy: PrivacyZones,
     )
 
     @Suppress("LongMethod") // Wires every store a test reaches for.
@@ -459,6 +464,7 @@ open class ActivityDetailTestBase {
             ReportRepository(clients),
             segments,
             SegmentPublisher(clients, writer, outbox, segments, Clock.System),
+            privacy,
         )
     }
 

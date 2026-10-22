@@ -2,21 +2,25 @@ package io.github.solcott.activitytracker.app.segment
 
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
+import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.formContent
+import io.github.solcott.activitytracker.app.rememberFormSeed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.PrivacySettings
+import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.activity.SegmentedPolyline
+import io.github.solcott.activitytracker.data.activity.zonesOutcome
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.segments.SegmentPublisher
@@ -34,10 +38,14 @@ import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.activitytracker.location.SegmentGeometry
+import io.github.solcott.dataresult.combineOutcomes
+import io.github.solcott.uistate.circuit.produceRetainedContentStates
+import io.github.solcott.uistate.contentStatesOf
+import io.github.solcott.uistate.errorOrNull
+import io.github.solcott.uistate.hasLoaded
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.flow.map
 
 @CircuitInject(CreateSegmentScreen::class, SessionScope::class)
 @Composable
@@ -47,37 +55,40 @@ fun CreateSegmentPresenter(
     navigator: Navigator,
     feed: FeedRepository,
     activities: ActivityRepository,
+    privacy: PrivacyZones,
     segments: SegmentRepository,
     publisher: SegmentPublisher,
 ): CreateSegmentState {
     val uri = AtUri(screen.activityUri)
-    var activity by remember { mutableStateOf<ActivityView?>(null) }
-    // Null until read; an empty list when there's no track.
-    var track by remember { mutableStateOf<List<LocationSample>?>(null) }
-    var error by remember { mutableStateOf<UiError?>(null) }
-    // Null until the zones were read once (or failed to be): then the settings, which are null when they couldn't be read.
-    val zones by remember { activities.privacySettings().map { ZonesRead(it) } }.collectAsState(null)
-    var start by remember { mutableFloatStateOf(0f) }
-    var end by remember { mutableFloatStateOf(-1f) }
-    var duplicates by remember { mutableStateOf<ImmutableList<SegmentView>>(persistentListOf()) }
-    var limitReached by remember { mutableStateOf(false) }
+    var loadKey by remember { mutableIntStateOf(0) }
+    // Retained, so coming back from a duplicate segment shows the route at once; a retry restarts all three reads under it. The zones are
+    // read fresh, since they cut a line that will be public.
+    val loads =
+        produceRetainedContentStates(contentStatesOf<ActivityView?, List<LocationSample>?, PrivacySettings?>(null, null, null), loadKey) {
+            combineOutcomes(feed.activityOutcome(uri), activities.ownRouteOutcome(uri), privacy.zonesOutcome())
+        }
+    // A null track is an answer (none), so it counts only once it has loaded.
+    val loaded = loads.toContentState { activity, track, zones ->
+        if (activity != null && zones != null && loads.second.hasLoaded) CreateSegmentLoad(activity, track, zones) else null
+    }
+    // As first loaded: later loads change neither the route nor the stretch chosen along it.
+    val seed = rememberFormSeed(loaded) {}
+    var start by rememberRetained { mutableFloatStateOf(0f) }
+    var end by rememberRetained { mutableFloatStateOf(-1f) }
+    var duplicates by rememberRetained { mutableStateOf<ImmutableList<SegmentView>>(persistentListOf()) }
+    var limitReached by rememberRetained { mutableStateOf(false) }
+    var actionError by rememberRetained { mutableStateOf<UiError?>(null) }
     val name = rememberTextFieldState()
     val flights = rememberSingleFlight()
 
-    LaunchedEffect(uri) {
-        runSuspendCatching { feed.activity(uri) }
-            .onSuccess { activity = it }
-            .onFailure { error = UiError.of(UiError.Kind.LoadActivity, it) }
-    }
-    LaunchedEffect(uri) { track = runSuspendCatching { activities.ownRoute(uri) }.getOrNull().orEmpty() }
-
+    val activity = seed?.activity
+    val track = seed?.track
     val record = remember(activity) { activity?.effectiveRecord() }
     val group = record?.let { SegmentSport.of(it.sport, it.subSport)?.group }
-    val settings = zones?.settings
     val route =
-        remember(track, settings, record) {
+        remember(seed, record) {
             val samples = track?.takeIf { it.size >= 2 } ?: return@remember null
-            settings?.let { SegmentRoute(it.pieces(samples, combined = record?.combined != null)) }
+            SegmentRoute(seed.zones.pieces(samples, combined = record?.combined != null))
         }
     val drawn = remember(route) { route?.lines?.let { lines -> drawnRoute(lines) } }
     // Until the athlete moves it, the stretch is the whole first piece.
@@ -94,15 +105,21 @@ fun CreateSegmentPresenter(
 
     val unavailable =
         when {
-            activity == null || track == null || zones == null -> null
+            seed == null -> null
             track.orEmpty().size < 2 -> CreateSegmentUnavailable.NoRoute
             group == null -> CreateSegmentUnavailable.NoSportGroup
-            settings == null -> CreateSegmentUnavailable.ZonesUnreadable
             route == null || route.isEmpty -> CreateSegmentUnavailable.AllHidden
             else -> null
         }
 
     return CreateSegmentState(
+        content = loaded.formContent(seeded = seed != null),
+        loadErrorKind =
+            when {
+                loads.first.errorOrNull != null -> UiError.Kind.LoadActivity
+                loads.second.errorOrNull != null -> UiError.Kind.LoadRoute
+                else -> UiError.Kind.LoadPrivacyZones
+            },
         unavailable = unavailable,
         route = drawn?.polyline,
         routeGaps = drawn?.gaps?.toImmutableList(),
@@ -118,11 +135,11 @@ fun CreateSegmentPresenter(
         duplicates = duplicates,
         limitReached = limitReached,
         publishing = flights.isRunning(CreateSegmentEvent.Publish),
-        isLoading = error == null && unavailable == null && route == null,
-        error = error,
+        actionError = actionError,
     ) { event ->
         when (event) {
             CreateSegmentEvent.Back -> navigator.pop()
+            CreateSegmentEvent.Retry -> loadKey++
             is CreateSegmentEvent.SelectionChanged -> {
                 // They were found for the old stretch; cleared first, so no state shows them with the new one.
                 duplicates = persistentListOf()
@@ -136,10 +153,10 @@ fun CreateSegmentPresenter(
                 val shown = activity ?: return@CreateSegmentState
                 if (title.isEmpty()) return@CreateSegmentState
                 flights.launch(CreateSegmentEvent.Publish) {
-                    error = null
+                    actionError = null
                     val checked =
                         runSuspendCatching { segments.check(sport, line) }
-                            .onFailure { error = UiError.of(UiError.Kind.CheckSegment, it) }
+                            .onFailure { actionError = UiError.of(UiError.Kind.CheckSegment, it) }
                             .getOrNull() ?: return@launch
                     duplicates = checked.duplicates.toImmutableList()
                     limitReached = checked.remaining <= 0
@@ -147,15 +164,15 @@ fun CreateSegmentPresenter(
                     val source = StrongRef(shown.uri, shown.cid).takeIf { namesActivity }
                     runSuspendCatching { publisher.create(uri, title, sport, line, source) }
                         .onSuccess { navigator.pop() }
-                        .onFailure { error = UiError.of(UiError.Kind.PublishSegment, it) }
+                        .onFailure { actionError = UiError.of(UiError.Kind.PublishSegment, it) }
                 }
             }
         }
     }
 }
 
-/** The zones as last read: [settings] null when they couldn't be read. */
-private data class ZonesRead(val settings: PrivacySettings?)
+/** What a segment is cut from, once all of it has loaded: the activity, its full track (null for none) and the zones that cut it. */
+private data class CreateSegmentLoad(val activity: ActivityView, val track: List<LocationSample>?, val zones: PrivacySettings)
 
 /** [lines] as one precision-5 polyline broken between them, as maps draw routes. */
 private fun drawnRoute(lines: List<List<GeoPoint>>): SegmentedPolyline? {

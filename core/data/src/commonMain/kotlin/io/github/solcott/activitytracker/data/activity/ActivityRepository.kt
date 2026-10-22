@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalComments
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.feed.SentComment
+import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.data.segments.SegmentTrackSweeper
 import io.github.solcott.activitytracker.data.segments.SegmentTracks
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
@@ -32,6 +33,7 @@ import io.github.solcott.activitytracker.lexicon.app.ReplyRef
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.activitytracker.location.LocationSample
+import io.github.solcott.dataresult.Outcome
 import kotlin.time.Clock
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -318,6 +320,12 @@ class ActivityRepository(
 
     /** The signed-in athlete's own [activity]'s full route, from its track in `self`; null when it has none or it can't be read now. */
     suspend fun ownRoute(activity: AtUri): List<LocationSample>? = tracks.read(activity)
+
+    /**
+     * [ownRoute] as a screen loads it: loading, then the route, null when the activity has none, or why it couldn't be read, so a track
+     * that can't be read now isn't taken for none.
+     */
+    fun ownRouteOutcome(activity: AtUri): Flow<Outcome<List<LocationSample>?>> = outcomeFlow { tracks.readOrThrow(activity) }
 
     /**
      * The athlete's privacy settings as last read or saved this session, read first when none has been, so the owner's map can mark where

@@ -1,5 +1,11 @@
 package io.github.solcott.activitytracker.app
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withCompositionLocals
+import com.slack.circuit.retained.LocalRetainedStateRegistry
+import com.slack.circuit.retained.RetainedStateRegistry
 import com.slack.circuit.test.FakeNavigator
 import io.github.solcott.activitytracker.app.segment.CreateSegmentEvent
 import io.github.solcott.activitytracker.app.segment.CreateSegmentPresenter
@@ -15,6 +21,10 @@ import io.github.solcott.activitytracker.lexicon.app.PrivacyZone
 import io.github.solcott.activitytracker.lexicon.app.PrivacyZonesRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.location.LocationSample
+import io.github.solcott.dataresult.DataError
+import io.github.solcott.uistate.errorOrNull
+import io.github.solcott.uistate.hasLoaded
+import io.github.solcott.uistate.isLoading
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -25,6 +35,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 
 /** Creating a segment from one's own activity (segments/segment-creation). */
 class CreateSegmentPresenterTest : ActivityDetailTestBase() {
@@ -46,7 +57,7 @@ class CreateSegmentPresenterTest : ActivityDetailTestBase() {
         block: suspend app.cash.turbine.ReceiveTurbine<CreateSegmentState>.(Repos) -> Unit,
     ) {
         val r = repos()
-        presenterTestOf({ CreateSegmentPresenter(createScreen, navigator, r.feed, r.activities, r.segments, r.publisher) }) {
+        presenterTestOf({ CreateSegmentPresenter(createScreen, navigator, r.feed, r.activities, r.privacy, r.segments, r.publisher) }) {
             block(r)
             cancelAndIgnoreRemainingEvents()
         }
@@ -188,10 +199,13 @@ class CreateSegmentPresenterTest : ActivityDetailTestBase() {
             val ready = awaitReady()
             ready.name.edit { replace(0, length, "Offline") }
             awaitUntil { it.canPublish }.eventSink(CreateSegmentEvent.Publish)
-            val failed = awaitUntil { it.error != null }
-            assertEquals(UiError.Kind.CheckSegment, failed.error?.kind)
+            val failed = awaitUntil { it.actionError != null }
+            assertEquals(UiError.Kind.CheckSegment, failed.actionError?.kind)
             assertEquals(emptyList(), r.queuedSegments())
             assertTrue(failed.canPublish, "it can be tried again")
+            assertTrue(failed.content.hasLoaded, "not shown as a failed load")
+            assertEquals("Offline", failed.name.text.toString())
+            assertEquals(ready.end, failed.end, "the stretch stays")
         }
     }
 
@@ -223,9 +237,120 @@ class CreateSegmentPresenterTest : ActivityDetailTestBase() {
         track = route
         recordExtra = """"subSport":"treadmill","""
         create { _ -> assertEquals(CreateSegmentUnavailable.NoSportGroup, awaitUntil { it.unavailable != null }.unavailable) }
+    }
 
-        recordExtra = ""
+    @Test
+    fun itShowsLoadingUntilAllThreeHaveLoaded() = runTest {
+        ownRun()
+        val gate = CompletableDeferred<Unit>()
+        activityGate = gate
+        create { _ ->
+            val loading = awaitItem()
+            assertTrue(loading.content.isLoading)
+            assertNull(loading.unavailable, "not that there's no route")
+            gate.complete(Unit)
+            assertTrue(awaitReady().content.hasLoaded)
+        }
+    }
+
+    @Test
+    fun aRouteThatCantBeReadIsAFailedLoadNotNoRoute() = runTest {
+        ownRun()
+        trackUnreachable = true
+        create { _ ->
+            val failed = awaitUntil { it.content.errorOrNull != null }
+            assertEquals(UiError.Kind.LoadRoute, failed.loadErrorKind)
+            assertEquals(DataError.Network, failed.content.errorOrNull)
+            assertNull(failed.unavailable)
+
+            trackUnreachable = false
+            failed.eventSink(CreateSegmentEvent.Retry)
+            val ready = awaitReady()
+            assertNull(ready.content.errorOrNull)
+        }
+    }
+
+    @Test
+    fun unreadableZonesAreAFailedLoadUntilARetryReadsThem() = runTest {
+        ownRun()
         failZones = true
-        create { _ -> assertEquals(CreateSegmentUnavailable.ZonesUnreadable, awaitUntil { it.unavailable != null }.unavailable) }
+        create { _ ->
+            val failed = awaitUntil { it.content.errorOrNull != null }
+            assertEquals(UiError.Kind.LoadPrivacyZones, failed.loadErrorKind)
+            assertNull(failed.route, "nothing to cut a segment from")
+            assertNull(failed.unavailable)
+
+            failZones = false
+            failed.eventSink(CreateSegmentEvent.Retry)
+            assertTrue(awaitReady().content.hasLoaded)
+        }
+    }
+
+    @Test
+    fun aLaterLoadLeavesTheStretchAndName() = runTest {
+        ownRun()
+        create { _ ->
+            val ready = awaitReady()
+            ready.eventSink(CreateSegmentEvent.SelectionChanged(100f, 900f))
+            ready.name.edit { replace(0, length, "Kept") }
+            val chosen = awaitUntil { it.end == 900f && it.named }
+            // Zones saved elsewhere meanwhile; a reload doesn't re-cut the route under the chosen stretch.
+            privacyZones =
+                AtJson.encodeToString(
+                    PrivacyZonesRecord.serializer(),
+                    PrivacyZonesRecord("3m3ygsw4ngk2d", zones = listOf(PrivacyZone(515_000_000, -1_000_000, 150))),
+                )
+            val reads = activityRequests
+            chosen.eventSink(CreateSegmentEvent.Retry)
+            while (activityRequests == reads) yield()
+            // A move after the reload answers shows the route as first cut.
+            chosen.eventSink(CreateSegmentEvent.SelectionChanged(100f, 950f))
+            val moved = awaitUntil { it.end == 950f }
+            assertEquals(chosen.route, moved.route, "not re-cut by the new zone")
+            assertEquals(100f, moved.start)
+            assertEquals("Kept", moved.name.text.toString())
+        }
+    }
+
+    @Test
+    fun comingBackFromADuplicateShowsTheRouteAndStretchAtOnce() = runTest {
+        ownRun()
+        checkSegment = """{"duplicates":[$existing],"remaining":9}"""
+        val r = repos()
+        val registry = RetainedStateRegistry()
+        var shown by mutableStateOf(true)
+        presenterTestOf({
+            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                // A stand-in for the segment it opened while it's on the back stack.
+                if (shown)
+                    CreateSegmentPresenter(
+                        createScreen,
+                        FakeNavigator(createScreen),
+                        r.feed,
+                        r.activities,
+                        r.privacy,
+                        r.segments,
+                        r.publisher,
+                    )
+                else CreateSegmentState()
+            }
+        }) {
+            val ready = awaitReady()
+            ready.eventSink(CreateSegmentEvent.SelectionChanged(100f, 900f))
+            ready.name.edit { replace(0, length, "Hill again") }
+            awaitUntil { it.end == 900f && it.canPublish }.eventSink(CreateSegmentEvent.Publish)
+            val shownDuplicate = awaitUntil { it.duplicates.isNotEmpty() }
+            registry.saveAll()
+            shown = false
+            awaitUntil { it.route == null }
+            trackUnreachable = true
+            shown = true
+            val back = awaitItem()
+            assertEquals(shownDuplicate.route, back.route, "no loading state in between")
+            assertEquals(100f, back.start)
+            assertEquals(900f, back.end)
+            assertEquals("Hill", back.duplicates.single().record.name)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }

@@ -16,6 +16,11 @@ import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.SegmentStarRecord
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
+import io.github.solcott.dataresult.DataError
+import io.github.solcott.dataresult.Origin
+import io.github.solcott.dataresult.Outcome
+import io.github.solcott.dataresult.dataOrNull
+import io.github.solcott.dataresult.errorOrNull
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -87,7 +92,7 @@ class SegmentStarsTest {
         assertTrue(pds.stored[AthleteSpace.SELF].orEmpty().isEmpty())
 
         pds.offline = false
-        assertEquals(listOf(hill), stars.starred()?.map { it.segment }, "listed before it's sent")
+        assertEquals(listOf(hill), stars.starredOutcome().dataOrNull()?.map { it.segment }, "listed before it's sent")
         stars.setStarred(segment("3ko"), starred = false) // The next write drains the outbox.
         assertEquals(setOf(AthleteSpace.SELF), pds.placesOf(Nsid.FEED_SEGMENT_STAR, segmentStarRkey(hill.uri)))
     }
@@ -101,12 +106,12 @@ class SegmentStarsTest {
         stars.setStarred(b, starred = true)
         now += 1.minutes
         stars.setStarred(c, starred = true)
-        assertEquals(listOf(c, b, a), stars().starred()?.map { it.segment }, "read back from the PDS")
+        assertEquals(listOf(c, b, a), stars().starredOutcome().dataOrNull()?.map { it.segment }, "read back from the PDS")
 
         pds.offline = true
         stars.setStarred(b, starred = false)
         pds.offline = false
-        assertEquals(listOf(c, a), stars.starred()?.map { it.segment }, "an unsent unstar is left out")
+        assertEquals(listOf(c, a), stars.starredOutcome().dataOrNull()?.map { it.segment }, "an unsent unstar is left out")
     }
 
     @Test
@@ -116,7 +121,7 @@ class SegmentStarsTest {
         val self = pds.stored.getOrPut(AthleteSpace.SELF) { mutableMapOf() }
         self["${Nsid.FEED_SEGMENT_STAR}/elsewhere"] = AtJson.encodeToJsonElement(SegmentStarRecord.serializer(), record).jsonObject
         self["${Nsid.FEED_SEGMENT_STAR}/${segmentStarRkey(segment("3kx").uri)}"] = AtJson.parseToJsonElement("""{"subject":1}""").jsonObject
-        assertEquals(emptyList(), stars().starred())
+        assertEquals(Outcome.Data(emptyList(), Origin.Network), stars().starredOutcome())
     }
 
     @Test
@@ -124,13 +129,30 @@ class SegmentStarsTest {
         val stars = stars()
         pds.offline = true
         assertNull(stars.isStarred(segment("3kh").uri))
-        assertNull(stars.starred())
+        assertEquals("InternalServerError", (stars.starredOutcome().errorOrNull as? DataError.Api)?.code, "why, not none")
+    }
+
+    @Test
+    fun unreadableStarsSayWhyEvenWithThisSessionsChanges() = runTest {
+        val stars = stars()
+        stars.setStarred(segment("3kh"), starred = true)
+        pds.offline = true
+        assertTrue(stars.starredOutcome() is Outcome.Error, "a star made here doesn't stand in for the rest")
+    }
+
+    @Test
+    fun anUnsentStarShowsOverNoStarsStored() = runTest {
+        val stars = stars()
+        pds.offline = true
+        stars.setStarred(segment("3kh"), starred = true)
+        pds.offline = false
+        assertEquals(listOf(segment("3kh")), stars.starredOutcome().dataOrNull()?.map { it.segment })
     }
 
     @Test
     fun noStarsYetIsAnEmptyList() = runTest {
         val stars = stars()
-        assertEquals(emptyList(), stars.starred())
+        assertEquals(Outcome.Data(emptyList(), Origin.Network), stars.starredOutcome())
         assertEquals(false, stars.isStarred(segment("3kh").uri))
     }
 
@@ -143,6 +165,6 @@ class SegmentStarsTest {
         assertEquals(emptyList(), pds.writes)
         assertEquals(emptyMap(), stars.overrides.value)
         assertNull(stars.isStarred(segment("3kh").uri))
-        assertNull(stars.starred())
+        assertTrue(stars.starredOutcome() is Outcome.Error)
     }
 }

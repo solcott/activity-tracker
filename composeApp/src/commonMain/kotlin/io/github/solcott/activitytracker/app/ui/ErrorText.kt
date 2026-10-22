@@ -29,6 +29,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_mutes
 import io.github.solcott.activitytracker.composeApp.resources.error_load_privacy_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_load_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_load_replies
+import io.github.solcott.activitytracker.composeApp.resources.error_load_route
 import io.github.solcott.activitytracker.composeApp.resources.error_load_segment
 import io.github.solcott.activitytracker.composeApp.resources.error_load_starred_segments
 import io.github.solcott.activitytracker.composeApp.resources.error_no_location
@@ -99,6 +100,7 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.LoadFeed -> Res.string.error_load_feed
             UiError.Kind.LoadActivity -> Res.string.error_load_activity
             UiError.Kind.LoadSegment -> Res.string.error_load_segment
+            UiError.Kind.LoadRoute -> Res.string.error_load_route
             UiError.Kind.LoadStarredSegments -> Res.string.error_load_starred_segments
             UiError.Kind.LoadLeaderboard -> Res.string.error_load_leaderboard
             UiError.Kind.UpdateStar -> Res.string.error_update_star

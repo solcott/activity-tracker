@@ -4,14 +4,13 @@ import androidx.compose.runtime.Immutable
 import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
-import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
+import io.github.solcott.uistate.PagedState
+import io.github.solcott.uistate.pagedStateOf
 
 /**
  * The leaderboard of the active segment at [uri] (segments/segment-leaderboards), titled [name]. [sport] is its sport group: a `ride`
@@ -29,13 +28,13 @@ data class SegmentLeaderboardState(
     /** Whether the e-bike board is shown; only offered when [canChooseEBike]. */
     val eBike: Boolean = false,
     val canChooseEBike: Boolean = false,
-    /** The loaded entries, fastest first. */
-    val entries: ImmutableList<LeaderboardEntry> = persistentListOf(),
+    /**
+     * The chosen board's entries, fastest first, a page at a time (ui/content-loading), with the viewer's own entry as its meta. A new
+     * filter starts from nothing, so no other board's entries show under it.
+     */
+    val entries: PagedState<LeaderboardEntry, LeaderboardEntry?> = pagedStateOf(),
     /** The viewer's own entry, shown apart from [entries] when it isn't among them; null when they aren't on the board. */
     val viewerEntry: LeaderboardEntry? = null,
-    val isLoading: Boolean = true,
-    val canLoadMore: Boolean = false,
-    val error: UiError? = null,
     val eventSink: (SegmentLeaderboardEvent) -> Unit = {},
 ) : CircuitUiState
 
@@ -54,7 +53,7 @@ sealed interface SegmentLeaderboardEvent {
     /** Loads the next page; ignored while a page is loading or when there are no more. */
     data object LoadMore : SegmentLeaderboardEvent
 
-    /** Reloads from the first page after an error. */
+    /** Tries the page that failed to load again. */
     data object Retry : SegmentLeaderboardEvent
 
     /** Opens the activity an entry's effort came from. */
