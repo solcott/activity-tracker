@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import com.slack.circuit.test.FakeNavigator
-import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.detail.ActivityDetailState

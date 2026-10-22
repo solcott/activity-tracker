@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app
 
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import com.slack.circuit.test.FakeNavigator
-import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.settings.SportZonesEvent
 import io.github.solcott.activitytracker.app.settings.SportZonesPresenter
 import io.github.solcott.activitytracker.app.settings.SportZonesScreen

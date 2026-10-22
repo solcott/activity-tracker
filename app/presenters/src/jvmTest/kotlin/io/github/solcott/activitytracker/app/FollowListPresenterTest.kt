@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app
 
 import co.touchlab.kermit.Logger
 import com.slack.circuit.test.FakeNavigator
-import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.profile.FollowListEvent
 import io.github.solcott.activitytracker.app.profile.FollowListKind
 import io.github.solcott.activitytracker.app.profile.FollowListPresenter

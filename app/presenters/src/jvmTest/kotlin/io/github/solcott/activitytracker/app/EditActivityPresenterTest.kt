@@ -14,7 +14,6 @@ import co.touchlab.kermit.Logger
 import com.slack.circuit.retained.LocalRetainedStateRegistry
 import com.slack.circuit.retained.RetainedStateRegistry
 import com.slack.circuit.test.FakeNavigator
-import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.edit.DetailsEvent
 import io.github.solcott.activitytracker.app.edit.EditActivityEvent
 import io.github.solcott.activitytracker.app.edit.EditActivityPresenter

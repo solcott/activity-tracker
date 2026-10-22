@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import com.slack.circuit.test.FakeNavigator
-import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.app.search.AthleteSearchEvent
 import io.github.solcott.activitytracker.app.search.AthleteSearchPresenter

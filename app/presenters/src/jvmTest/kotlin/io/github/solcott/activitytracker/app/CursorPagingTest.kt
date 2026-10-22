@@ -5,7 +5,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import app.cash.turbine.ReceiveTurbine
 import com.slack.circuit.runtime.CircuitUiState
-import com.slack.circuit.test.presenterTestOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

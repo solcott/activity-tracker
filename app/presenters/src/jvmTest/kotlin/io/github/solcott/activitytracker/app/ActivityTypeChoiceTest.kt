@@ -1,7 +1,6 @@
 package io.github.solcott.activitytracker.app
 
 import com.slack.circuit.runtime.CircuitUiState
-import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.record.ActivityTypeChoice
 import io.github.solcott.activitytracker.app.record.ActivityTypeEvent
 import io.github.solcott.activitytracker.app.record.ActivityTypeField

@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app
 
 import app.cash.turbine.ReceiveTurbine
 import com.slack.circuit.test.FakeNavigator
-import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.settings.PrivacyZonesEvent
 import io.github.solcott.activitytracker.app.settings.PrivacyZonesPresenter
 import io.github.solcott.activitytracker.app.settings.PrivacyZonesScreen

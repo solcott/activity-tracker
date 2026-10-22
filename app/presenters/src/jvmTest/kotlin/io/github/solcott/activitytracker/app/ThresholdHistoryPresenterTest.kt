@@ -7,7 +7,6 @@ import androidx.compose.runtime.withCompositionLocals
 import com.slack.circuit.retained.LocalRetainedStateRegistry
 import com.slack.circuit.retained.RetainedStateRegistry
 import com.slack.circuit.test.FakeNavigator
-import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.settings.ThresholdHistoryEvent
 import io.github.solcott.activitytracker.app.settings.ThresholdHistoryPresenter
 import io.github.solcott.activitytracker.app.settings.ThresholdHistoryScreen

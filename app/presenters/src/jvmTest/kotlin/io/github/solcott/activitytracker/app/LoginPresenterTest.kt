@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app
 
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import co.touchlab.kermit.Logger
-import com.slack.circuit.test.test
 import io.github.solcott.activitytracker.app.login.LoginEvent
 import io.github.solcott.activitytracker.app.login.LoginPresenter
 import io.github.solcott.activitytracker.atproto.AtprotoConfig
