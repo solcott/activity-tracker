@@ -32,6 +32,15 @@ class AgencyRulesTest {
             *more,
         )
 
+    private fun blm(mode: String?, vararg more: Pair<String, String?>) =
+        AgencyRules.BLM.groups(
+            "route_prmry_nm" to "Porcupine Rim",
+            "plan_allow_mode_trnsprt" to mode,
+            "plan_mode_trnsprt" to "Motorized",
+            "plan_access_rstrct" to "None",
+            *more,
+        )
+
     @Test
     fun aForestServiceTrailOpenToBikes() {
         val groups =
@@ -108,6 +117,40 @@ class AgencyRulesTest {
     }
 
     @Test
+    fun blmTrailsQualifyByTheirAllowedModes() {
+        assertEquals(setOf(RIDE, RUN, HIKE), blm("NON_MOTO_SHARED"), "shared non-motorized")
+        assertEquals(setOf(RUN, HIKE), blm("EQU_HIK_ONLY"), "hiking and horses only")
+        assertEquals(setOf(RIDE, RUN, HIKE), blm("MTC_ATV_SHARED"), "shared motorized")
+        assertEquals(setOf(RIDE, RUN, HIKE), blm("TECH_VEH_SHARED "), "trailing space")
+        assertEquals(setOf(RIDE), blm("bike_only"))
+        assertEquals(emptySet(), blm("MTC_ONLY"), "motorcycles only")
+        assertEquals(emptySet(), blm("MTC_SHARED"), "motorcycles shared with no one else")
+        assertEquals(emptySet(), blm("EQU_ONLY"))
+        assertEquals(setOf(SKI), blm("SNOW_NON_MECH_SHARED"), "nordic")
+        assertEquals(setOf(SKI), blm("SNOW_NON_MOTO_SHARED"), "fat bikes on snow aren't rides")
+        assertEquals(emptySet(), blm("NON_MOTO_SHARED", "route_prmry_nm" to null))
+    }
+
+    @Test
+    fun anUnknownBlmModeFallsBackToThePlannedMode() {
+        assertEquals(setOf(RUN, HIKE), blm("UNK", "plan_mode_trnsprt" to "Non-Mechanized"))
+        assertEquals(setOf(RIDE, RUN, HIKE), blm(null, "plan_mode_trnsprt" to "NON-MOTORIZED"))
+        assertEquals(setOf(RIDE, RUN, HIKE), blm(" ", "plan_mode_trnsprt" to "non-motorized "))
+        assertEquals(emptySet(), blm("UNK"), "motorized")
+        assertEquals(emptySet(), blm("UNK", "plan_mode_trnsprt" to null))
+        assertEquals(emptySet(), blm("MTC_ONLY", "plan_mode_trnsprt" to "Non-Motorized"), "a known code wins")
+    }
+
+    @Test
+    fun restrictedBlmTrailsAreLeftOut() {
+        assertEquals(emptySet(), blm("NON_MOTO_SHARED", "plan_access_rstrct" to "Authorized/Permitted User Only"))
+        assertEquals(emptySet(), blm("NON_MOTO_SHARED", "plan_access_rstrct" to "admin only "))
+        assertEquals(emptySet(), blm("NON_MOTO_SHARED", "plan_access_rstrct" to "All"))
+        assertEquals(setOf(RIDE, RUN, HIKE), blm("NON_MOTO_SHARED", "plan_access_rstrct" to "Unknown"))
+        assertEquals(setOf(RIDE, RUN, HIKE), blm("NON_MOTO_SHARED", "plan_access_rstrct" to null))
+    }
+
+    @Test
     fun agencyNamesInCapitalsAreTitleCased() {
         assertEquals("Beaver Pond Trail", AgencyRules.USFS.nameFrom(mapOf("trail_name" to "BEAVER POND TRAIL")))
         assertEquals("Widow's Clearing", AgencyRules.USFS.nameFrom(mapOf("trail_name" to "WIDOW'S CLEARING")))
@@ -126,7 +169,10 @@ class AgencyRulesTest {
         assertEquals("{2CF9}", AgencyRules.NPS.featureKey(mapOf("geometryid" to "{2CF9}")))
         assertNull(AgencyRules.NPS.featureKey(emptyMap()))
         assertEquals(AgencyRules.NPS, AgencyRules.ofKind("nps"))
-        assertNull(AgencyRules.ofKind("blm"))
+        assertEquals("24b7ad0a-7203", AgencyRules.BLM.featureKey(mapOf("original_globalid" to " 24b7ad0a-7203", "globalid" to "df23")))
+        assertNull(AgencyRules.BLM.featureKey(mapOf("globalid" to "df23")))
+        assertEquals(AgencyRules.BLM, AgencyRules.ofKind("blm"))
+        assertNull(AgencyRules.ofKind("fws"))
         assertFalse(AgencyRules.USFS.excluded(emptyMap()))
         assertEquals(true to true, AgencyRules.USFS.directions(mapOf("oneway" to "yes"), RIDE))
     }
