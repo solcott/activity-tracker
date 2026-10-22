@@ -1361,6 +1361,7 @@
     <string name="segment_created_by">By %1$s</string>
     <string name="segment_credit_osm">© OpenStreetMap contributors</string>
     <string name="segment_credit_agency">From public agency trail data</string>
+    <string name="segment_credit_agency_named">From %1$s trail data</string>
     <string name="segment_credit_license">Data licence: %1$s</string>
     <string name="segment_sport_ride">Ride</string>
     <string name="segment_sport_run">Run</string>

@@ -46,8 +46,8 @@ sealed interface SegmentCredit {
     /** `osm`: "© OpenStreetMap contributors", linking to OSM's copyright page, with the data's [license]. */
     data class OpenStreetMap(val license: String) : SegmentCredit
 
-    /** `agency`: public agency trail data, under [license]. */
-    data class Agency(val license: String) : SegmentCredit
+    /** `agency`: trail data from the agency [attribution] names, or public agency trail data when it names none, under [license]. */
+    data class Agency(val license: String, val attribution: String? = null) : SegmentCredit
 
     /** Any other source: only its licence [id], since the source is free text any client writes. */
     data class License(val id: String) : SegmentCredit

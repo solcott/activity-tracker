@@ -59,6 +59,7 @@ class SegmentPresenterTest {
     private var duplicateOf = ""
     private var source = "athlete"
     private var license = "CC0-1.0"
+    private var attribution: String? = null
     /** The star in alice's `self` space, as the PDS holds it; null for none. */
     private var storedStar: String? = null
     private var pdsDown = false
@@ -89,6 +90,7 @@ class SegmentPresenterTest {
                             respond(
                                 """{"segment":{"uri":"$uri","cid":"bafyseg","creator":{"did":"did:plc:carol","handle":"carol.test"},""" +
                                     """"record":{"name":"Hill","sport":"run","line":"$line","source":"$source","license":"$license",""" +
+                                    attribution?.let { """"attribution":"$it",""" }.orEmpty() +
                                     """"createdAt":"2026-10-01T00:00:00Z"},"distanceMeters":1000,"status":"$status"$duplicateOf}}""",
                                 headers = json,
                             )
@@ -312,9 +314,10 @@ class SegmentPresenterTest {
     }
 
     /** The credit for the segment's data (segments/segment-records), once loaded; [source] and [license] set the record's. */
-    private suspend fun creditFor(source: String, license: String): SegmentCredit? {
+    private suspend fun creditFor(source: String, license: String, attribution: String? = null): SegmentCredit? {
         this.source = source
         this.license = license
+        this.attribution = attribution
         val (segments, stars) = session()
         var credit: SegmentCredit? = null
         presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars) }) {
@@ -330,6 +333,20 @@ class SegmentPresenterTest {
     fun anOsmSegmentCreditsOpenStreetMap() = runTest { assertEquals(SegmentCredit.OpenStreetMap("ODbL-1.0"), creditFor("osm", "ODbL-1.0")) }
 
     @Test fun anAgencySegmentCreditsTheAgency() = runTest { assertEquals(SegmentCredit.Agency("CC0-1.0"), creditFor("agency", "CC0-1.0")) }
+
+    @Test
+    fun anAgencySegmentNamesItsAttribution() = runTest {
+        assertEquals(
+            SegmentCredit.Agency("CC0-1.0", "USDA Forest Service"),
+            creditFor("agency", "CC0-1.0", attribution = "USDA Forest Service"),
+        )
+        assertEquals(SegmentCredit.Agency("CC0-1.0"), creditFor("agency", "CC0-1.0", attribution = "  "))
+    }
+
+    @Test
+    fun anAthleteSegmentsAttributionIsIgnored() = runTest {
+        assertNull(creditFor("athlete", "CC0-1.0", attribution = "USDA Forest Service"))
+    }
 
     @Test
     fun anUnknownSourceShowsOnlyItsLicence() = runTest {

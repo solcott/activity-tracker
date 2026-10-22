@@ -80,6 +80,13 @@ class SegmentCreditUiTest {
         }
 
     @Test
+    fun anAgencySegmentNamesItsAgency() =
+        show(state("agency", "CC0-1.0", SegmentCredit.Agency("CC0-1.0", "USDA Forest Service"))) {
+            onNodeWithText("From USDA Forest Service trail data").assertExists()
+            onNodeWithText("From public agency trail data").assertDoesNotExist()
+        }
+
+    @Test
     fun anUnknownSourceShowsItsLicence() =
         show(state("survey", "CC-BY-4.0", SegmentCredit.License("CC-BY-4.0"))) { onNodeWithText("Data licence: CC-BY-4.0").assertExists() }
 
