@@ -83,6 +83,8 @@ class StageTest {
     fun aFileItCantReadIsRefusedBeforeAnyCall() {
         val version = assertFailsWith<IllegalArgumentException> { file(3, version = IMPORTER_VERSION + 1) }
         assertEquals(true, "format version" in version.message.orEmpty())
+        val first = assertFailsWith<IllegalArgumentException> { file(3, version = 1) }
+        assertEquals(true, "format version 1" in first.message.orEmpty(), "re-extract a version 1 file")
         val region = assertFailsWith<IllegalArgumentException> { file(3, otherRegion = 1) }
         assertEquals(true, "us-maine" in region.message.orEmpty())
         assertEquals(emptyList(), fake.calls)
@@ -110,6 +112,21 @@ class StageTest {
         assertEquals("us-vermont", read.region)
         assertEquals(listOf("abc"), read.candidates.map { it.id })
         assertEquals("osm" to "ODbL-1.0", read.candidates.single().source to read.candidates.single().license)
+    }
+
+    @Test
+    fun anAgencyCandidatesAttributionIsUploaded() = runTest {
+        accept()
+        val header = """{"region":"us-vermont","importerVersion":$IMPORTER_VERSION}"""
+        val entry =
+            """{"id":"a1","region":"us-vermont","sport":"hike","name":"Long Trail","line":"_p~iF~ps|U_ulLnnqC","lengthMeters":900,""" +
+                """"source":"agency","license":"CC0-1.0","attribution":"USDA Forest Service","agencyFeatures":["usfs:1001@0"]}"""
+        stage(clients, readCandidates(sequenceOf(header, entry)), clock)
+        val uploaded = fake.calls(Nsid.IMPORTER_PUT_SEGMENT_CANDIDATES).single().body!!.getValue("candidates").jsonArray.single().jsonObject
+        assertEquals(
+            listOf("agency", "CC0-1.0", "USDA Forest Service"),
+            listOf("source", "license", "attribution").map { uploaded.getValue(it).jsonPrimitive.content },
+        )
     }
 
     @Test

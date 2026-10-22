@@ -42,7 +42,7 @@ internal fun readCandidates(lines: Sequence<String>): CandidatesFile {
     for (line in iterator) {
         val entry = json.decodeFromString(CandidateEntry.serializer(), line)
         require(entry.region == header.region) { "candidate ${entry.id} is in ${entry.region}, not the file's ${header.region}" }
-        candidates += SegmentCandidate(entry.id, entry.sport, entry.name, entry.line, entry.source, entry.license)
+        candidates += SegmentCandidate(entry.id, entry.sport, entry.name, entry.line, entry.source, entry.license, entry.attribution)
     }
     return CandidatesFile(header.region, candidates)
 }

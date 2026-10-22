@@ -47,7 +47,12 @@ class PublishTest {
         )
 
     private fun candidate(id: String) =
-        """{"id":"$id","sport":"ride","name":"Trail $id","line":"line-$id","source":"osm","license":"ODbL-1.0"}"""
+        if (id.startsWith("usfs-")) {
+            """{"id":"$id","sport":"hike","name":"Trail $id","line":"line-$id","source":"agency","license":"CC0-1.0",""" +
+                """"attribution":"USDA Forest Service"}"""
+        } else {
+            """{"id":"$id","sport":"ride","name":"Trail $id","line":"line-$id","source":"osm","license":"ODbL-1.0"}"""
+        }
 
     /** The AppView lists [ids] as ridden, [pageSize] at a time, and reports the lines of [duplicates] as duplicates. */
     private fun appView(ids: List<String>, duplicates: Set<String> = emptySet(), pageSize: Int = 500) {
@@ -95,6 +100,25 @@ class PublishTest {
         assertEquals(
             "Bearer svc:${FakeServices.APPVIEW_DID}:${Nsid.FEED_CHECK_SEGMENT}",
             fake.calls(Nsid.FEED_CHECK_SEGMENT).single().auth,
+        )
+    }
+
+    @Test
+    fun anAgencyCandidateIsPublishedWithItsSourceLicenceAndAttribution() = runTest {
+        appView(listOf("usfs-1"))
+        assertEquals(listOf("usfs-1"), publish(clients, "us-vermont", clock).published)
+        val create = fake.calls("com.atproto.repo.createRecord").single().body!!
+        assertEquals(
+            SegmentRecord(
+                "Trail usfs-1",
+                "hike",
+                "line-usfs-1",
+                "agency",
+                "CC0-1.0",
+                Instant.parse("2026-10-21T12:00:00Z"),
+                attribution = "USDA Forest Service",
+            ),
+            AtJson.decodeFromJsonElement(SegmentRecord.serializer(), create.getValue("record").jsonObject),
         )
     }
 
