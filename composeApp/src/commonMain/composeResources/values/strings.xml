@@ -12,6 +12,7 @@
     <string name="error_load_feed">Couldn't load your feed</string>
     <string name="error_load_activity">Couldn't load activity</string>
     <string name="error_load_segment">Couldn't load segment</string>
+    <string name="error_load_route">Couldn't load the route</string>
     <!-- A failed load followed by why: "Couldn't load your feed. You're offline." -->
     <string name="error_with_reason">%1$s. %2$s</string>
     <string name="error_reason_offline">You're offline.</string>
@@ -1413,7 +1414,6 @@
     <string name="segment_create_publish">Publish</string>
     <string name="segment_create_no_route">This activity has no route to make a segment from.</string>
     <string name="segment_create_no_sport">Segments can't be made from this kind of activity.</string>
-    <string name="segment_create_zones_unreadable">Your privacy zones couldn't be read, so the route can't be cut safely. Try again later.</string>
     <string name="segment_create_all_hidden">Your privacy zones and hidden starts and ends leave nothing of this route.</string>
     <string name="detail_create_segment">Create segment</string>
     <string name="detail_segment_created">Segment created. It will appear once it's processed.</string>

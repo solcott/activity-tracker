@@ -14,6 +14,9 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         LoadFeed,
         LoadActivity,
         LoadSegment,
+
+        /** The owner's full track couldn't be read, so a segment can't be cut from it. */
+        LoadRoute,
         LoadStarredSegments,
         LoadLeaderboard,
         UpdateStar,

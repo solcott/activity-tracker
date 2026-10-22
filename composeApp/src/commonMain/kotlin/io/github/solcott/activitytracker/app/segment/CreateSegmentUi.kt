@@ -1,7 +1,6 @@
 package io.github.solcott.activitytracker.app.segment
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,6 +18,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.ui.ActivityMap
+import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
@@ -47,7 +47,6 @@ import io.github.solcott.activitytracker.composeApp.resources.segment_create_ran
 import io.github.solcott.activitytracker.composeApp.resources.segment_create_title
 import io.github.solcott.activitytracker.composeApp.resources.segment_create_too_long
 import io.github.solcott.activitytracker.composeApp.resources.segment_create_too_short
-import io.github.solcott.activitytracker.composeApp.resources.segment_create_zones_unreadable
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import kotlinx.collections.immutable.ImmutableList
@@ -72,14 +71,18 @@ fun CreateSegmentUi(state: CreateSegmentState, modifier: Modifier = Modifier) {
             )
         },
     ) { padding ->
-        val unavailable = state.unavailable
-        val route = state.route
-        val error = state.error
-        when {
-            unavailable != null -> Message(unavailableText(unavailable), Modifier.padding(padding))
-            route != null -> Form(state, route, padding)
-            error != null -> Message(errorText(error), Modifier.padding(padding), isError = true)
-            else -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { AppProgressIndicator() }
+        ContentStateLayout(
+            state.content,
+            state.loadErrorKind,
+            onRetry = { state.eventSink(CreateSegmentEvent.Retry) },
+            contentPadding = padding,
+        ) {
+            val unavailable = state.unavailable
+            val route = state.route
+            when {
+                unavailable != null -> Message(unavailableText(unavailable), Modifier.padding(padding))
+                route != null -> Form(state, route, padding)
+            }
         }
     }
 }
@@ -117,7 +120,7 @@ private fun Form(state: CreateSegmentState, route: String, padding: PaddingValue
             )
             if (state.duplicates.isNotEmpty()) Duplicates(state.duplicates) { state.eventSink(CreateSegmentEvent.OpenSegment(it.uri)) }
             if (state.limitReached) Text(stringResource(Res.string.segment_create_limit), color = MaterialTheme.colorScheme.error)
-            state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+            state.actionError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
             AppButton(onClick = { state.eventSink(CreateSegmentEvent.Publish) }, enabled = state.canPublish) {
                 Text(stringResource(Res.string.segment_create_publish))
             }
@@ -160,9 +163,9 @@ private fun Duplicates(duplicates: ImmutableList<SegmentView>, onOpen: (SegmentV
 }
 
 @Composable
-private fun Message(text: String, modifier: Modifier = Modifier, isError: Boolean = false) {
+private fun Message(text: String, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text, color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -172,7 +175,6 @@ private fun unavailableText(unavailable: CreateSegmentUnavailable): String =
         when (unavailable) {
             CreateSegmentUnavailable.NoRoute -> Res.string.segment_create_no_route
             CreateSegmentUnavailable.NoSportGroup -> Res.string.segment_create_no_sport
-            CreateSegmentUnavailable.ZonesUnreadable -> Res.string.segment_create_zones_unreadable
             CreateSegmentUnavailable.AllHidden -> Res.string.segment_create_all_hidden
         }
     )
