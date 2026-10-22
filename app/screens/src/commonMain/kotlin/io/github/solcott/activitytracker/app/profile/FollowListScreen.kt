@@ -8,7 +8,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
-import kotlinx.collections.immutable.ImmutableList
+import io.github.solcott.uistate.PagedState
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.serialization.Serializable
@@ -28,26 +28,28 @@ enum class FollowListKind {
 @Immutable
 data class FollowListState(
     val kind: FollowListKind,
-    /** The actor whose list this is; null until the first page loads. */
-    val subject: ProfileViewBasic?,
-    val accounts: ImmutableList<ProfileViewBasic>,
-    val isLoading: Boolean,
-    val canLoadMore: Boolean,
+    /** The accounts loaded so far, headed by the actor whose list this is, and how loading them stands (ui/content-loading). */
+    val accounts: PagedState<ProfileViewBasic, ProfileViewBasic>,
     /** The athlete's own followers list while they approve followers, so each follower can be removed. */
     val canRemove: Boolean = false,
     /** Followers whose removal is being written. */
     val removing: ImmutableSet<Did> = persistentSetOf(),
-    val error: UiError?,
+    /** Why the last removal failed; the next one clears it. */
+    val actionError: UiError? = null,
     val eventSink: (FollowListEvent) -> Unit,
-) : CircuitUiState
+) : CircuitUiState {
+    /** The actor whose list this is; null until the first page loads. */
+    val subject: ProfileViewBasic?
+        get() = accounts.meta
+}
 
 sealed interface FollowListEvent {
     data object Back : FollowListEvent
 
-    /** Loads the next page; ignored while a page is loading or when there are no more. */
+    /** Loads the next page; ignored while a page is loading, after a failed page, or when there are no more. */
     data object LoadMore : FollowListEvent
 
-    /** Reloads from the first page after an error. */
+    /** Loads again what failed to load, and only that: the first page, or the page that failed. */
     data object Retry : FollowListEvent
 
     data class Open(val did: Did) : FollowListEvent
