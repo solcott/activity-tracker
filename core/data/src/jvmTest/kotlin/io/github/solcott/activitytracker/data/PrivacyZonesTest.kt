@@ -29,6 +29,7 @@ import io.github.solcott.activitytracker.location.TrackMath
 import io.github.solcott.dataresult.DataError
 import io.github.solcott.dataresult.Origin
 import io.github.solcott.dataresult.Outcome
+import io.github.solcott.dataresult.dataOrNull
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -42,6 +43,7 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlinx.coroutines.flow.last
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
@@ -266,6 +268,19 @@ class PrivacyZonesTest {
         val track = s.tracks.read(uri)
         assertEquals(route.size, track?.size, "the track in self keeps every point")
         assertEquals(0.0, track!!.first().longitude, 1e-9)
+    }
+
+    @Test
+    fun theOwnRouteSaysWhenItCantBeReadRatherThanNone() = runTest {
+        val s = pds.session()
+        val uri = s.activities.publish(draft())
+        val other = AtUri.of(pds.did, Nsid.FEED_ACTIVITY, "3knotrack")
+
+        assertEquals(route.size, s.activities.ownRouteOutcome(uri).last().dataOrNull()?.size)
+        assertEquals(Outcome.Data(null, Origin.Network), s.activities.ownRouteOutcome(other).last(), "no track is an answer")
+        pds.offline = true
+        assertIs<Outcome.Error>(s.activities.ownRouteOutcome(uri).last(), "not taken for no track")
+        assertNull(s.tracks.read(uri), "the read that never throws still answers null")
     }
 
     @Test

@@ -109,7 +109,7 @@ class CombineSuggestionsTest {
 
             override suspend fun delete(activity: AtUri) = Unit
 
-            override suspend fun read(activity: AtUri) = ownTracks[activity]
+            override suspend fun readOrThrow(activity: AtUri) = ownTracks[activity]
         }
 
     private suspend fun suggestions(): CombineSuggestions {

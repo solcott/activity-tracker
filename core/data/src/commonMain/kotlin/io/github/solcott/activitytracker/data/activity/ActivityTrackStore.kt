@@ -35,10 +35,13 @@ interface ActivityTrackStore {
     suspend fun delete(activity: AtUri)
 
     /**
-     * [activity]'s track as stored now, every point: only the athlete reads it. Null when it has none, it hasn't been sent yet, or it can't
-     * be read (offline, a blob that won't parse). Never throws but for cancellation.
+     * [activity]'s track as stored now, every point: only the athlete reads it. Null when it has none or it hasn't been sent yet. Throws
+     * when it can't be read (offline, a blob that won't parse), so a screen can tell that apart from none.
      */
-    suspend fun read(activity: AtUri): List<LocationSample>?
+    suspend fun readOrThrow(activity: AtUri): List<LocationSample>?
+
+    /** [readOrThrow], with a track that can't be read as null too. Never throws but for cancellation. */
+    suspend fun read(activity: AtUri): List<LocationSample>? = runSuspendCatching { readOrThrow(activity) }.getOrNull()
 }
 
 /** Writes tracks as `feed.activityTrack` records under the activity's rkey, with the GPX as a blob, in the athlete's `self` space. */
@@ -73,17 +76,17 @@ class PdsActivityTrackStore(
         else clients.readOwn(Nsid.FEED_ACTIVITY_TRACK, rkey, self) != null
     }
 
-    override suspend fun read(activity: AtUri): List<LocationSample>? = runSuspendCatching {
-        val value = clients.readOwn(Nsid.FEED_ACTIVITY_TRACK, requireNotNull(activity.rkey), self) ?: return@runSuspendCatching null
-        val record = AtJson.decodeFromJsonElement(ActivityTrackRecord.serializer(), value)
-        val cid = Cid(record.track?.ref?.link ?: return@runSuspendCatching null)
-        when (val blob = clients.spaces.getBlob(self, clients.did, cid)) {
+    override suspend fun readOrThrow(activity: AtUri): List<LocationSample>? {
+        val link =
+            clients.readOwn(Nsid.FEED_ACTIVITY_TRACK, requireNotNull(activity.rkey), self)?.let { value ->
+                AtJson.decodeFromJsonElement(ActivityTrackRecord.serializer(), value).track?.ref?.link
+            } ?: return null
+        return when (val blob = clients.spaces.getBlob(self, clients.did, Cid(link))) {
             is SpaceRead.Found -> readGpxTrack(blob.value.bytes)
             SpaceRead.NotFound,
             SpaceRead.NoAccess -> null
         }
     }
-        .getOrNull()
 
     // A session that can't write tracks never wrote one (publishing refuses it), and the PDS would refuse the delete at the head of the
     // outbox.
