@@ -127,6 +127,10 @@ The segment screen of an `active` segment SHALL open its leaderboard. The leader
 - **WHEN** a viewer ranked 140th opens the leaderboard
 - **THEN** their own entry is shown apart from the first page
 
+#### Scenario: Switching to the e-bike board
+- **WHEN** a viewer on a `ride` segment's standard board chooses the e-bike board
+- **THEN** the standard entries and the viewer's standard entry leave the screen, and the e-bike board and the viewer's e-bike entry, if any, show once it answers
+
 ### Requirement: The leaderboard choice is in Settings
 While the athlete's segment matching is on, Settings SHALL offer showing them on leaderboards, on by default. Saving it SHALL be a direct write that reports a failure and keeps the earlier choice, like the matching setting, and SHALL keep the matching setting as it is.
 

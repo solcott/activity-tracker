@@ -194,7 +194,7 @@ A load error on the feed, the segment page, one of the activity and profile scre
 - **THEN** the screen says it couldn't load their starred segments because the device is offline, with no exception text
 
 ### Requirement: Action failures leave loaded content in place
-On the activity and profile screens, the form screens and the blocked, muted, followers and starred segments lists, a failed action SHALL report its own error and keep the loaded content on screen. Actions include following, blocking or muting, liking, commenting, answering a follow request, combining, splitting, exporting or deleting an activity, unstarring a segment, and saving a form; any other action on these screens behaves the same. A failed action SHALL NOT be shown as a failed load or offer the load's retry.
+On the activity and profile screens, the form screens and the blocked, muted, followers and starred segments lists, a failed action SHALL report its own error and keep the loaded content on screen. Actions include following, blocking or muting, liking, commenting, answering a follow request, combining, splitting, exporting or deleting an activity, and saving a form; any other action on these screens behaves the same. A failed action SHALL NOT be shown as a failed load or offer the load's retry.
 
 #### Scenario: Follow fails offline
 - **WHEN** an athlete taps Follow on a loaded profile while the device is offline

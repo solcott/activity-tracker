@@ -48,6 +48,14 @@ Until a screen's content has loaded for the first time, the feed, the segment pa
 - **WHEN** an athlete types a name into athlete search and its first page hasn't answered yet
 - **THEN** the screen shows that it is searching, not that nobody matched
 
+#### Scenario: Opening starred segments
+- **WHEN** an athlete opens their starred segments and the first page hasn't loaded yet
+- **THEN** the screen shows that it is loading, not that they starred nothing
+
+#### Scenario: Creating a segment
+- **WHEN** an athlete chooses to create a segment from their activity and its route or their privacy zones haven't loaded yet
+- **THEN** the screen shows that it is loading, not that the activity has no route
+
 ### Requirement: An empty answer is shown as empty
 Once a load has answered, the feed, the profile's activities, follow requests, the combine picker and the paged lists SHALL show their empty state when the answer has nothing to list, and SHALL NOT keep showing that they are loading.
 
@@ -70,6 +78,14 @@ Once a load has answered, the feed, the profile's activities, follow requests, t
 #### Scenario: No muted accounts
 - **WHEN** an athlete who mutes nobody opens their muted accounts
 - **THEN** the screen says they mute nobody, with no loading indicator
+
+#### Scenario: No starred segments
+- **WHEN** an athlete who has starred no segments opens their starred segments
+- **THEN** the screen says they have no starred segments, with no loading indicator
+
+#### Scenario: Nobody on a board
+- **WHEN** a viewer chooses the people-they-follow board of a segment none of them has ridden
+- **THEN** the leaderboard says nobody is on it, with no loading indicator
 
 ### Requirement: First-load failure offers retry
 When a screen's first load fails, the feed, the segment page, the activity and profile screens, the form screens and the paged lists SHALL show why it failed and offer to try again. Trying again SHALL show that it is loading until the new attempt answers.
@@ -109,6 +125,14 @@ When a screen's first load fails, the feed, the segment page, the activity and p
 #### Scenario: Followers fail, then retry
 - **WHEN** an athlete opens a followers list while the AppView is unreachable, then tries again once it answers
 - **THEN** the screen says it couldn't load the followers and why and offers to try again, then shows that it is loading, then the first page of followers, and no error
+
+#### Scenario: Leaderboard fails, then retry
+- **WHEN** a viewer opens a segment's leaderboard while the AppView is unreachable, then tries again once it answers
+- **THEN** the screen says it couldn't load the leaderboard and why and offers to try again, then shows that it is loading, then the board, and no error
+
+#### Scenario: Route can't be read for a new segment
+- **WHEN** an athlete chooses to create a segment from their activity while the device is offline and its track can't be read
+- **THEN** the screen says it couldn't load the route because the device is offline and offers to try again, and doesn't say the activity has no route
 
 ### Requirement: Content stays on screen while it refreshes
 When the feed, the segment page, one of the activity and profile screens or one of the paged lists refreshes content it already shows, it SHALL keep showing that content with an indication that it is refreshing. It SHALL NOT replace the content with a full-screen loading state.
@@ -153,7 +177,7 @@ When refreshing content already on screen fails, the feed, the segment page, the
 - **THEN** the comments listed stay, and the page says it couldn't load the comments because the device is offline, and offers to try again
 
 ### Requirement: Loaded content survives coming back
-When an athlete leaves the feed, the segment page, one of the activity and profile screens or one of the paged lists for a screen opened from it and then comes back, the page SHALL show the content it last showed at once, without a full-screen loading state.
+When an athlete leaves the feed, the segment page, one of the activity and profile screens, one of the paged lists or the create segment screen for a screen opened from it and then comes back, the page SHALL show the content it last showed at once, without a full-screen loading state.
 
 #### Scenario: Back to a segment
 - **WHEN** an athlete opens an activity from a segment page's efforts and goes back
@@ -178,6 +202,14 @@ When an athlete leaves the feed, the segment page, one of the activity and profi
 #### Scenario: Back to an activity's comments
 - **WHEN** an athlete has loaded a second page of an activity's comments and more replies in one thread, opens a commenter's profile and goes back
 - **THEN** both pages of comments and the thread's extra replies show at once
+
+#### Scenario: Back to a leaderboard
+- **WHEN** a viewer has scrolled through two pages of a this-year leaderboard, opens an entry's activity and goes back
+- **THEN** the this-year board shows both pages at once, without loading either again
+
+#### Scenario: Back from a duplicate
+- **WHEN** an athlete creating a segment is shown an existing segment their stretch duplicates, opens it and goes back
+- **THEN** the screen shows the route, the stretch they chose and the name they typed at once, not a loading state
 
 ### Requirement: Load errors say why
 A load error on the feed, the segment page, one of the activity and profile screens, one of the form screens or one of the paged lists SHALL say what failed and, where it is known, why: no connection, the server failing, or a response the app couldn't read. It SHALL NOT show raw technical text such as status codes or exception messages.
@@ -209,6 +241,10 @@ A load error on the feed, the segment page, one of the activity and profile scre
 #### Scenario: Search offline
 - **WHEN** an athlete searches while the device is offline
 - **THEN** the screen says it couldn't search because the device is offline, with no exception text
+
+#### Scenario: Starred segments offline
+- **WHEN** an athlete opens their starred segments while the device is offline
+- **THEN** the screen says it couldn't load their starred segments because the device is offline, with no exception text
 
 ### Requirement: Supplementary content fails quietly
 The segment page SHALL show the segment when the viewer's own efforts on it fail to load, without them and without an error. The athlete's own profile SHALL show without the count of their follow requests when that count fails to load, without an error. The activity page SHALL show the activity without its charts, segment efforts, combine suggestion, the owner's full route or the original file to download when any of those fails to load, without an error for it.
@@ -245,7 +281,7 @@ A profile SHALL show its header as soon as the header loads, without waiting for
 - **THEN** the profile shows the header, and below it says it couldn't load the activities because the device is offline, and offers to try again
 
 ### Requirement: Action failures leave loaded content in place
-On the activity and profile screens, the form screens and the blocked, muted and followers lists, a failed action SHALL report its own error and keep the loaded content on screen. Actions include following, blocking or muting, liking, commenting, answering a follow request, combining, splitting, exporting or deleting an activity, and saving a form; any other action on these screens behaves the same. A failed action SHALL NOT be shown as a failed load or offer the load's retry.
+On the activity and profile screens, the form screens and the blocked, muted, followers and starred segments lists, a failed action SHALL report its own error and keep the loaded content on screen. Actions include following, blocking or muting, liking, commenting, answering a follow request, combining, splitting, exporting or deleting an activity, and saving a form; any other action on these screens behaves the same. A failed action SHALL NOT be shown as a failed load or offer the load's retry.
 
 #### Scenario: Follow fails offline
 - **WHEN** an athlete taps Follow on a loaded profile while the device is offline
@@ -262,6 +298,14 @@ On the activity and profile screens, the form screens and the blocked, muted and
 #### Scenario: Unblock fails
 - **WHEN** an athlete taps Unblock in their blocked accounts and the write fails
 - **THEN** the account stays listed, the screen says it couldn't update the block, and scrolling to the end still loads the next page
+
+#### Scenario: Unstar fails
+- **WHEN** an athlete unstars a segment in their starred segments and the write can't be queued
+- **THEN** the segment stays listed, the screen says it couldn't update the star, and scrolling to the end still loads the next page
+
+#### Scenario: Publishing a segment fails offline
+- **WHEN** an athlete publishes a new segment and the duplicate check fails because the device is offline
+- **THEN** the route, the stretch they chose and the name they typed stay on screen, and the screen says it couldn't check the segment because the device is offline, with no load retry
 
 ### Requirement: Answered follow requests stay answered
 A follow request the athlete approved or declined on the follow-requests screen SHALL NOT show again as unanswered when the list reloads, even before the server has caught up with the answer.
@@ -340,3 +384,13 @@ When the athlete changes the search query, athlete search SHALL keep the last qu
 #### Scenario: Clearing the query
 - **WHEN** the athlete clears the search box
 - **THEN** no results are listed, nothing shows as searching, and no search is made
+### Requirement: A new filter lists only its own items
+When the athlete changes a filter on a paged list, the list SHALL drop the previous filter's items and show that it is loading until the new filter's first page answers. It SHALL NOT show the previous filter's items, or anything derived from them, under the new filter.
+
+#### Scenario: Changing a leaderboard's period
+- **WHEN** a viewer looking at the all-time leaderboard chooses this year, and the this-year board hasn't answered yet
+- **THEN** no all-time entries are listed and the screen shows that it is loading, then the this-year entries
+
+#### Scenario: The viewer's own place follows the filter
+- **WHEN** a viewer ranked 140th all-time, and not on the this-year board, chooses this year
+- **THEN** their all-time entry is no longer shown, and no own entry shows once the this-year board answers
