@@ -33,6 +33,8 @@ import io.github.solcott.dataresult.Outcome
 import io.github.solcott.uistate.Page
 import kotlin.time.Clock
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 @SingleIn(SessionScope::class)
 @Inject
@@ -58,6 +60,14 @@ class ProfileRepository(
     private class Pending(val record: ProfileRecord, val details: ProfileDetails?)
 
     private var pendingOwnProfile: Pending? = null
+
+    /**
+     * Every detail this session last saved ([save]), whatever their visibility; null before a save.
+     * [LeaderboardBracketsRepository.refreshOnSave][io.github.solcott.activitytracker.data.segments.LeaderboardBracketsRepository.refreshOnSave]
+     * recomputes the brackets from each.
+     */
+    val savedDetails: StateFlow<ProfileDetails?>
+        field = MutableStateFlow<ProfileDetails?>(null)
 
     private val pendingFollows = PendingFollows()
 
@@ -235,6 +245,7 @@ class ProfileRepository(
             }
         }
         pendingOwnProfile = Pending(saved, allDetails)
+        savedDetails.value = allDetails
     }
 
     private suspend fun putProfileRecord(record: ProfileRecord) {

@@ -150,7 +150,13 @@ class SegmentRepositoryTest {
 
         val board = segments.leaderboardPage(segmentUri, LeaderboardPeriod.MONTH, LeaderboardScope.FOLLOWING, eBike = true, cursor = "c1")
         assertEquals(Outcome.Data(Page(listOf(entry), entry, "200::${did.value}"), Origin.Network), board)
-        segments.leaderboardPage(segmentUri, LeaderboardPeriod.ALL_TIME, LeaderboardScope.EVERYONE, eBike = false)
+        segments.leaderboardPage(
+            segmentUri,
+            LeaderboardPeriod.ALL_TIME,
+            LeaderboardScope.EVERYONE,
+            eBike = false,
+            brackets = LeaderboardBrackets(ageGroup = "45-54", gender = "female"),
+        )
 
         assertEquals(
             listOf(
@@ -163,7 +169,13 @@ class SegmentRepositoryTest {
                         "cursor" to listOf("c1"),
                     ),
                 Nsid.FEED_GET_SEGMENT_LEADERBOARD to
-                    mapOf("segment" to listOf(segmentUri.value), "period" to listOf("allTime"), "scope" to listOf("everyone")),
+                    mapOf(
+                        "segment" to listOf(segmentUri.value),
+                        "period" to listOf("allTime"),
+                        "scope" to listOf("everyone"),
+                        "ageGroup" to listOf("45-54"),
+                        "gender" to listOf("female"),
+                    ),
             ),
             requests,
         )
