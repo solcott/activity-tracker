@@ -20,8 +20,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,21 +31,21 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.AccountRow
+import io.github.solcott.activitytracker.app.ui.LoadMoreAtEnd
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
-import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
-import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
-import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.app.ui.pagedFooter
+import io.github.solcott.activitytracker.app.ui.pagedRefreshStatus
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.search_clear
 import io.github.solcott.activitytracker.composeApp.resources.search_label
 import io.github.solcott.activitytracker.composeApp.resources.search_no_results
@@ -60,16 +58,7 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun AthleteSearchUi(state: AthleteSearchState, modifier: Modifier = Modifier) {
     val listState = rememberLazyListState()
-    // Ask for the next page once the last row is on screen.
-    val atEnd by remember {
-        derivedStateOf {
-            val info = listState.layoutInfo
-            info.totalItemsCount > 0 && (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 1
-        }
-    }
-    SideEffect(atEnd, state.canLoadMore, state.isLoading) {
-        if (atEnd && state.canLoadMore && !state.isLoading) state.eventSink(AthleteSearchEvent.LoadMore)
-    }
+    LoadMoreAtEnd(listState, state.results.canLoadMore) { state.eventSink(AthleteSearchEvent.LoadMore) }
 
     val scrollBehavior = rememberAppTopBarScrollBehavior()
     AppScaffold(
@@ -90,7 +79,8 @@ fun AthleteSearchUi(state: AthleteSearchState, modifier: Modifier = Modifier) {
                     state = listState,
                     contentPadding = listPadding + PaddingValues(bottom = 8.dp),
                 ) {
-                    items(state.results, key = { it.did.value }) { account ->
+                    pagedRefreshStatus(state.results, UiError.Kind.SearchAthletes) { state.eventSink(AthleteSearchEvent.Retry) }
+                    items(state.results.items, key = { it.did.value }) { account ->
                         AccountRow(account, onClick = { state.eventSink(AthleteSearchEvent.Open(account.did)) })
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
@@ -128,30 +118,14 @@ private fun SearchField(query: TextFieldState, modifier: Modifier = Modifier) {
     )
 }
 
-/** Error with retry, a loading spinner, the prompt before a search, or the no-matches message, below the results. */
+/** The prompt before a search; then a spinner, why the search failed, or the no-matches message, below the results. */
 private fun LazyListScope.footer(state: AthleteSearchState) {
-    val error = state.error
-    when {
-        error != null -> {
-            item {
-                Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(errorText(error), color = MaterialTheme.colorScheme.error)
-                    AppTextButton(onClick = { state.eventSink(AthleteSearchEvent.Retry) }) { Text(stringResource(Res.string.action_retry)) }
-                }
-            }
-        }
-
-        state.isLoading -> {
-            item { Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { AppProgressIndicator() } }
-        }
-
-        state.query.text.isBlank() -> {
-            item { Message(stringResource(Res.string.search_prompt)) }
-        }
-
-        state.searched && state.results.isEmpty() -> {
-            item { Message(stringResource(Res.string.search_no_results, state.query.text.trim().toString())) }
-        }
+    if (state.query.text.isBlank()) {
+        item { Message(stringResource(Res.string.search_prompt)) }
+        return
+    }
+    pagedFooter(state.results, UiError.Kind.SearchAthletes, onRetry = { state.eventSink(AthleteSearchEvent.Retry) }) {
+        Message(stringResource(Res.string.search_no_results, state.query.text.trim().toString()))
     }
 }
 

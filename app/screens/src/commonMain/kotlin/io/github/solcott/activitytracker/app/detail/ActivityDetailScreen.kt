@@ -24,6 +24,7 @@ import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.MemberView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.uistate.ContentState
+import io.github.solcott.uistate.LoadStatus
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -251,13 +252,18 @@ data class ActivityExportState(
 /** An activity's comment threads, loaded a page at a time as the viewer scrolls to the end. */
 @Immutable
 data class CommentsPaging(
+    /** The threads loaded so far, as the viewer left them. */
     val items: ImmutableList<CommentThread> = persistentListOf(),
-    /** A page is loading. */
-    val isLoading: Boolean = false,
+    /** The first page's load: a first load, a reload, or [ActivityDetailEvent.RetryComments] after either failed. */
+    val refresh: LoadStatus = LoadStatus.Loading,
+    /** The latest next page's load; [ActivityDetailEvent.RetryComments] tries a failed one again. */
+    val append: LoadStatus = LoadStatus.Idle,
+    /** Whether a first page has answered, so empty [items] means there are no comments. */
+    val hasAnswer: Boolean = false,
+    /** Whether [ActivityDetailEvent.LoadMoreComments] would load a page now. */
+    val canLoadMore: Boolean = false,
     /** Every page is loaded. */
     val endReached: Boolean = false,
-    /** Why the last page couldn't be loaded; [ActivityDetailEvent.RetryComments] tries it again. */
-    val error: UiError? = null,
 )
 
 /**

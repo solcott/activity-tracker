@@ -129,15 +129,15 @@ class LocalComments {
             entries.update { it.afterLookup(activity, requested, returned) }
         }
 
-    /** A page of the AppView's [comments] as the viewer left them: without those deleted, hidden or unhidden as the viewer did. */
-    fun applyTo(comments: List<CommentView>): List<CommentView> {
-        val held = entries.value
-        return comments.mapNotNull { c ->
-            when (val want = held[c.uri]?.want) {
-                null -> c
-                Want.Gone -> null
-                is Want.Present -> if ((c.hidden == true) == want.hidden) c else c.copy(hidden = true.takeIf { want.hidden })
-            }
+    /**
+     * A page of the AppView's [comments] as the viewer left them: without those deleted, hidden or unhidden as the viewer did. A screen
+     * passes the [held] changes it last collected, so what it shows stays in step with what it will be told of next.
+     */
+    fun applyTo(comments: List<CommentView>, held: Map<AtUri, Entry> = entries.value): List<CommentView> = comments.mapNotNull { c ->
+        when (val want = held[c.uri]?.want) {
+            null -> c
+            Want.Gone -> null
+            is Want.Present -> if ((c.hidden == true) == want.hidden) c else c.copy(hidden = true.takeIf { want.hidden })
         }
     }
 
@@ -145,10 +145,10 @@ class LocalComments {
      * A [thread] as the viewer left it: [applyTo] over its top-level comment and replies, its reply count lowered by the replies the viewer
      * deleted. A top-level comment the viewer deleted leaves a placeholder, which the caller drops when nothing is left under it.
      */
-    fun applyTo(thread: ThreadView): ThreadView {
-        val replies = applyTo(thread.replies)
+    fun applyTo(thread: ThreadView, held: Map<AtUri, Entry> = entries.value): ThreadView {
+        val replies = applyTo(thread.replies, held)
         return thread.copy(
-            root = thread.root?.let { applyTo(listOf(it)).singleOrNull() },
+            root = thread.root?.let { applyTo(listOf(it), held).singleOrNull() },
             replies = replies,
             replyCount = thread.replyCount - (thread.replies.size - replies.size),
         )

@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalBlocks
+import io.github.solcott.activitytracker.data.outcomeOf
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -20,6 +21,10 @@ import io.github.solcott.activitytracker.lexicon.app.GetBlocks
 import io.github.solcott.activitytracker.lexicon.app.GetMutes
 import io.github.solcott.activitytracker.lexicon.app.MuteRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
+import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.dataresult.Outcome
+import io.github.solcott.uistate.Page
+import io.github.solcott.uistate.pageOf
 import kotlin.time.Clock
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -107,6 +112,16 @@ class BlockRepository(
     suspend fun mutes(cursor: String? = null): GetMutes.Output {
         val page = clients.appView.query(GetMutes.method, GetMutes.Params(cursor = cursor))
         return page.copy(mutes = page.mutes.filterNot { local.muted(it.did) == false })
+    }
+
+    /** A page of [blocks] for a paged list. */
+    suspend fun blocksPage(cursor: String?): Outcome<Page<GetBlocks.BlockView, Unit>> = outcomeOf {
+        blocks(cursor).let { pageOf(it.blocks, it.cursor) }
+    }
+
+    /** A page of [mutes] for a paged list. */
+    suspend fun mutesPage(cursor: String?): Outcome<Page<ProfileViewBasic, Unit>> = outcomeOf {
+        mutes(cursor).let { pageOf(it.mutes, it.cursor) }
     }
 
     private val interactions

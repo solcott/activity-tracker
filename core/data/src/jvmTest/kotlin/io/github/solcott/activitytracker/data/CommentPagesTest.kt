@@ -15,8 +15,12 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.ThreadView
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.dataresult.DataError
+import io.github.solcott.dataresult.Outcome
+import io.github.solcott.uistate.Page
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
@@ -220,6 +224,25 @@ class CommentPagesTest {
         assertEquals(replies.take(3), thread.replies)
         val rest = s.feed.comments(activity.uri, thread.repliesCursor, root = root.uri)
         assertEquals(replies.drop(3), rest.comments)
+    }
+
+    @Test
+    fun commentAndReplyPagesAreOutcomes() = runTest {
+        val s = session()
+        val root = commentOn(bob, "3kroot")
+        val replies = (0 until 8).map { replyOn(Did("did:plc:carol"), "3kr$it", root) }
+        val activity = s.cache(view(bob, "3kbob", comments = 9))
+        served = GetActivity.Output(activity, listOf(root) + replies)
+        val threads = assertIs<Outcome.Data<Page<ThreadView, Unit>>>(s.feed.commentsPage(activity.uri, null)).data
+        val thread = threads.items.single()
+        assertEquals(replies.take(3), thread.replies)
+        assertEquals(null, threads.next)
+        val rest = assertIs<Outcome.Data<Page<CommentView, Unit>>>(s.feed.repliesPage(activity.uri, root.uri, thread.repliesCursor)).data
+        assertEquals(replies.drop(3), rest.items)
+
+        pds.appViewOffline = true
+        assertEquals(DataError.Network, assertIs<Outcome.Error>(s.feed.commentsPage(activity.uri, null)).cause)
+        assertEquals(DataError.Network, assertIs<Outcome.Error>(s.feed.repliesPage(activity.uri, root.uri, thread.repliesCursor)).cause)
     }
 
     @Test

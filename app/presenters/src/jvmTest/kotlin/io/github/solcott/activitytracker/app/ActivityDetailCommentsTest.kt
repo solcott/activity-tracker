@@ -1,14 +1,23 @@
 package io.github.solcott.activitytracker.app
 
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withCompositionLocals
+import com.slack.circuit.retained.LocalRetainedStateRegistry
+import com.slack.circuit.retained.RetainedStateRegistry
 import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent
+import io.github.solcott.activitytracker.app.detail.ActivityDetailState
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
+import io.github.solcott.uistate.LoadStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.first
@@ -402,6 +411,66 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
             reloaded.eventSink(ActivityDetailEvent.LoadMoreComments)
             val end = awaitUntil { it.loaded()?.comments?.endReached == true }.loaded()!!
             assertEquals(true, end.comments.roots.single { it.uri == target }.hidden, "marked when its page is listed")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aReloadKeepsTheThreadsUntilItsFirstPageAnswers() = runTest {
+        commentsFromAppView = manyComments(45)
+        val r = repos()
+        detail(r) {
+            awaitUntil { it.loaded()?.comments?.canLoadMore == true }.loaded()!!.eventSink(ActivityDetailEvent.LoadMoreComments)
+            val all = awaitUntil { it.loaded()?.comments?.roots?.size == 45 }.loaded()!!
+            val gate = CompletableDeferred<Unit>().also { commentsGate = it }
+            all.eventSink(ActivityDetailEvent.Retry)
+            val reloading = awaitUntil { it.loaded()?.comments?.refresh is LoadStatus.Loading }.loaded()!!
+            assertEquals(45, reloading.comments.roots.size, "the threads listed stay while the reload runs")
+
+            gate.complete(Unit)
+            val reloaded = awaitUntil { it.loaded()?.comments?.let { c -> c.refresh is LoadStatus.Idle && c.roots.size == 30 } == true }
+            assertEquals(true, reloaded.loaded()!!.comments.canLoadMore, "paging goes on from the new first page")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aFailedReloadKeepsTheCommentsAndSaysWhy() = runTest {
+        commentsFromAppView = manyComments(45)
+        val r = repos()
+        detail(r) {
+            val loaded = awaitUntil { it.loaded()?.comments?.let { c -> c.roots.size == 30 && !c.isLoading } == true }.loaded()!!
+            failComments = true
+            loaded.eventSink(ActivityDetailEvent.Retry)
+            val failed = awaitUntil { it.loaded()?.comments?.refresh is LoadStatus.Failed }.loaded()!!
+            assertEquals(30, failed.comments.roots.size, "the comments listed stay")
+            assertEquals(UiError.Kind.LoadComments, failed.comments.error?.kind)
+            assertNotNull(failed.comments.error?.reason, "and it says why")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun comingBackShowsEveryPageOfCommentsAtOnce() = runTest {
+        commentsFromAppView = manyComments(45)
+        val r = repos()
+        val registry = RetainedStateRegistry()
+        var shown by mutableStateOf(true)
+        val presenter = presenterOf(r)
+        presenterTestOf({
+            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                if (shown) presenter() else ActivityDetailState(eventSink = {})
+            }
+        }) {
+            awaitUntil { it.loaded()?.comments?.canLoadMore == true }.loaded()!!.eventSink(ActivityDetailEvent.LoadMoreComments)
+            awaitUntil { it.loaded()?.comments?.roots?.size == 45 }
+            registry.saveAll()
+            shown = false
+            awaitUntil { it.page() == null }
+            shown = true
+            val back = assertNotNull(awaitItem().loaded(), "no loading state in between")
+            assertEquals(45, back.comments.roots.size, "both pages show at once")
+            assertEquals(listOf(null, "30"), pageRequests, "neither is asked for again")
             cancelAndIgnoreRemainingEvents()
         }
     }

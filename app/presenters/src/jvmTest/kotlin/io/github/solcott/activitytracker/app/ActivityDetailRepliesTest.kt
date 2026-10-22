@@ -1,15 +1,24 @@
 package io.github.solcott.activitytracker.app
 
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withCompositionLocals
+import com.slack.circuit.retained.LocalRetainedStateRegistry
+import com.slack.circuit.retained.RetainedStateRegistry
 import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent
+import io.github.solcott.activitytracker.app.detail.ActivityDetailState
 import io.github.solcott.activitytracker.app.detail.RepliesState
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
+import io.github.solcott.uistate.LoadStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.first
@@ -293,6 +302,55 @@ class ActivityDetailRepliesTest : ActivityDetailTestBase() {
             val replyingToBob = awaitUntil { it.loaded()?.replyingTo == bobs }.loaded()!!
             replyingToBob.eventSink(ActivityDetailEvent.HideComment(bobs.uri))
             assertEquals(null, awaitUntil { it.loaded()?.replyingTo == null }.loaded()!!.replyingTo, "a hidden comment can't be answered")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun extraRepliesStayThroughAReloadUntilItsThreadsAnswer() = runTest {
+        commentsFromAppView = bobsThread(5)
+        val r = repos()
+        detail(r) {
+            val loaded = awaitUntil { it.loaded()?.comments?.items?.size == 1 }.loaded()!!
+            loaded.eventSink(ActivityDetailEvent.LoadMoreReplies(loaded.comments.items.single().uri))
+            val all = awaitUntil { it.loaded()?.comments?.items?.single()?.replies?.size == 5 }.loaded()!!
+            val gate = CompletableDeferred<Unit>().also { commentsGate = it }
+            all.eventSink(ActivityDetailEvent.Retry)
+            val reloading = awaitUntil { it.loaded()?.comments?.refresh is LoadStatus.Loading }.loaded()!!
+            assertEquals(5, reloading.comments.items.single().replies.size, "the extra replies stay while the reload runs")
+
+            gate.complete(Unit)
+            val reloaded = awaitUntil {
+                it.loaded()?.comments?.let { c -> c.refresh is LoadStatus.Idle && c.items.single().replies.size == 3 } == true
+            }
+            val thread = reloaded.loaded()!!.comments.items.single()
+            assertEquals(2, thread.moreReplies, "then replaced by the thread as served again")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun comingBackShowsTheExtraRepliesAtOnce() = runTest {
+        commentsFromAppView = bobsThread(5)
+        val r = repos()
+        val registry = RetainedStateRegistry()
+        var shown by mutableStateOf(true)
+        val presenter = presenterOf(r)
+        presenterTestOf({
+            withCompositionLocals(LocalRetainedStateRegistry provides registry) {
+                if (shown) presenter() else ActivityDetailState(eventSink = {})
+            }
+        }) {
+            val loaded = awaitUntil { it.loaded()?.comments?.items?.size == 1 }.loaded()!!
+            loaded.eventSink(ActivityDetailEvent.LoadMoreReplies(loaded.comments.items.single().uri))
+            awaitUntil { it.loaded()?.comments?.items?.single()?.replies?.size == 5 }
+            registry.saveAll()
+            shown = false
+            awaitUntil { it.page() == null }
+            shown = true
+            val back = assertNotNull(awaitItem().loaded(), "no loading state in between")
+            assertEquals(5, back.comments.items.single().replies.size)
+            assertEquals(listOf<String?>("3"), replyRequests.map { it.second }, "the replies aren't asked for again")
             cancelAndIgnoreRemainingEvents()
         }
     }

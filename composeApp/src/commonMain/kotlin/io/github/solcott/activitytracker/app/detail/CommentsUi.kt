@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.app.ui.ModerationNotice
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
@@ -50,6 +51,7 @@ import io.github.solcott.activitytracker.data.moderation.ReportTarget
 import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.CommentView
+import io.github.solcott.uistate.LoadStatus
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableSet
@@ -59,9 +61,9 @@ import org.jetbrains.compose.resources.stringResource
 // The detail screen's comments: lazy items, threads paged as the viewer scrolls (ActivityDetailUi).
 
 /**
- * Asks for the next page of threads when one of the last [LOAD_MORE_AHEAD] threads listed, or anything after them, is shown, unless a page
- * is loading, the last failed or every page is in. Threads, not rows, since a thread is several rows. The presenter drops a repeat while
- * one loads.
+ * Asks for the next page of threads when one of the last [LOAD_MORE_AHEAD] threads listed, or anything after them, is shown, while a page
+ * can load: none is loading, the last didn't fail and not every page is in. Threads, not rows, since a thread is several rows. The
+ * presenter drops a repeat while one loads.
  */
 @Composable
 internal fun LoadMoreNearTheEnd(listState: LazyListState, state: ActivityDetailPage) {
@@ -76,7 +78,7 @@ internal fun LoadMoreNearTheEnd(listState: LazyListState, state: ActivityDetailP
                 }
             }
         }
-    val wanted = near && !paging.isLoading && !paging.endReached && paging.error == null
+    val wanted = near && paging.canLoadMore
     SideEffect(wanted, paging.items.size) { if (wanted) state.eventSink(ActivityDetailEvent.LoadMoreComments) }
 }
 
@@ -196,19 +198,27 @@ private fun CommentRow(
     }
 }
 
-/** A spinner while a page of comments loads, or why one couldn't and a way to try again; nothing otherwise. */
+/**
+ * A spinner while the first page, a reload or the next page of comments loads, or why one couldn't and a way to try again only it
+ * (ui/content-loading); nothing otherwise. A failed reload keeps the threads listed above it.
+ */
 @Composable
 private fun CommentsLoading(state: ActivityDetailPage, modifier: Modifier = Modifier) {
-    val error = state.comments.error
+    val paging = state.comments
+    val failed = (paging.refresh as? LoadStatus.Failed) ?: (paging.append as? LoadStatus.Failed)
     when {
-        error != null ->
+        failed != null ->
             Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-                Text(errorText(error), Modifier.weight(1f), color = MaterialTheme.colorScheme.error)
+                Text(
+                    errorText(UiError(UiError.Kind.LoadComments, failed.error)),
+                    Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.error,
+                )
                 AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.RetryComments) }) {
                     Text(stringResource(Res.string.action_retry))
                 }
             }
-        state.comments.isLoading ->
+        paging.refresh is LoadStatus.Loading || paging.append is LoadStatus.Loading ->
             Box(modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) { AppProgressIndicator() }
         else -> Spacer(modifier)
     }

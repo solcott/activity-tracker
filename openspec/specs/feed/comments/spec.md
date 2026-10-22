@@ -420,7 +420,7 @@ For any viewer, an activity's comment count SHALL equal the number of comments a
 - **THEN** the count is 2
 
 ### Requirement: The detail screen loads comments as the viewer scrolls
-The detail screen SHALL show the activity once it has loaded, and its first page of threads as soon as that has, with the comment count. Replies SHALL be shown indented under their thread's top-level comment or placeholder. It SHALL load the next page when the viewer scrolls near the end of the listed threads, until there are no more, showing that more are loading. A page that fails SHALL keep what's listed, show the failure and offer to try again.
+The detail screen SHALL show the activity once it has loaded, and its first page of threads as soon as that has, with the comment count. Replies SHALL be shown indented under their thread's top-level comment or placeholder. It SHALL load the next page when the viewer scrolls near the end of the listed threads, until there are no more, showing that more are loading. A page that fails SHALL keep what's listed, show the failure and offer to try again, and trying again SHALL load only that page. A reload SHALL keep the threads listed until its first page answers. Coming back to the screen SHALL show the pages and replies loaded before at once.
 
 #### Scenario: Popular activity
 - **WHEN** a viewer opens an activity with 200 comments in 120 threads
@@ -436,7 +436,7 @@ The detail screen SHALL show the activity once it has loaded, and its first page
 
 #### Scenario: Next page fails
 - **WHEN** loading the next page fails
-- **THEN** the comments already listed stay, the screen says the rest couldn't be loaded and offers to try again, and trying again lists the next page after them
+- **THEN** the comments already listed stay, the screen says the rest couldn't be loaded and offers to try again, and trying again lists the next page after them without loading the earlier pages again
 
 #### Scenario: Comments fail but the activity loads
 - **WHEN** the activity loads and its first page of comments fails
@@ -444,7 +444,11 @@ The detail screen SHALL show the activity once it has loaded, and its first page
 
 #### Scenario: Reload
 - **WHEN** the viewer reloads the screen
-- **THEN** the activity and its first page are loaded again, the pages and the extra replies loaded before are replaced
+- **THEN** the activity and its first page are loaded again, the threads listed stay until that page answers, and then the pages and the extra replies loaded before are replaced
+
+#### Scenario: Back to the activity
+- **WHEN** the viewer has loaded a second page of threads and more replies in one thread, opens a commenter's profile and goes back
+- **THEN** both pages and the thread's extra replies show at once, and none of them is loaded again
 
 ### Requirement: A sent comment shows at once
 Once the viewer sends a comment, it SHALL be listed after the comments loaded so far, and a sent reply after the replies shown in its thread, and the count SHALL go up by one, at once and without loading the comments again. It SHALL stay listed, and counted once, when the screen reloads or loads more pages before the AppView lists it, and SHALL be listed once, in its place, once the AppView does.
@@ -599,7 +603,7 @@ Each thread in a page of comments SHALL come with its oldest replies listed for 
 - **THEN** its reply count for the viewer is 3, and all three are shown
 
 ### Requirement: The rest of a thread's replies are listed in pages
-The comments query SHALL take a thread's top-level comment instead of a cursor of threads, and SHALL then list that thread's replies listed for the viewer, oldest first, a page at a time with a cursor, applying `Who sees a comment` and `Who sees a hidden comment`. The screen SHALL list the replies it loads after the ones shown, once each, until there are no more.
+The comments query SHALL take a thread's top-level comment instead of a cursor of threads, and SHALL then list that thread's replies listed for the viewer, oldest first, a page at a time with a cursor, applying `Who sees a comment` and `Who sees a hidden comment`. The screen SHALL list the replies it loads after the ones shown, once each, until there are no more. A page of replies that fails SHALL keep the replies shown, and trying again SHALL load only that page.
 
 #### Scenario: View more replies
 - **WHEN** the viewer chooses to view the 2 more replies of a thread showing three
@@ -612,6 +616,10 @@ The comments query SHALL take a thread's top-level comment instead of a cursor o
 #### Scenario: View more fails
 - **WHEN** loading more replies fails
 - **THEN** the replies already shown stay, and the control offers to try again
+
+#### Scenario: Trying again after a failed page of replies
+- **WHEN** a thread shows its first three replies and a page of ten more, the next page fails, and the viewer tries again
+- **THEN** only the failed page is loaded, and its replies are shown after the thirteen already listed
 
 #### Scenario: Activity the viewer can't see
 - **WHEN** a viewer who may not see the activity asks for a thread's replies
