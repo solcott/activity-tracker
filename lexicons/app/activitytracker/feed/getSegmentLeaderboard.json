@@ -23,6 +23,21 @@
             "description": "following: only the viewer and the athletes they effectively follow. Needs a signed-in viewer."
           },
           "eBike": { "type": "boolean", "default": false, "description": "The e-bike board instead of the standard one." },
+          "ageGroup": {
+            "type": "string",
+            "knownValues": ["0-19", "20-24", "25-34", "35-44", "45-54", "55-64", "65-69", "70-74", "75+"],
+            "description": "Only athletes in this age group (actor.leaderboardBrackets). Absent means every age, and athletes without brackets."
+          },
+          "weightClass": {
+            "type": "string",
+            "knownValues": ["0-54", "55-64", "65-74", "75-84", "85-94", "95-104", "105-114", "115+"],
+            "description": "Only athletes in this weight class, in kilograms (actor.leaderboardBrackets)."
+          },
+          "gender": {
+            "type": "string",
+            "knownValues": ["female", "male", "nonBinary"],
+            "description": "Only athletes of this gender (actor.leaderboardBrackets)."
+          },
           "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 30 },
           "cursor": { "type": "string" }
         }
@@ -45,7 +60,7 @@
       },
       "errors": [
         { "name": "NotFound", "description": "The segment isn't indexed, or isn't served (as for getSegment)." },
-        { "name": "InvalidRequest", "description": "An unknown period or scope, or the following scope without a signed-in viewer." }
+        { "name": "InvalidRequest", "description": "An unknown period, scope, age group, weight class or gender, or the following scope without a signed-in viewer." }
       ]
     }
   }
