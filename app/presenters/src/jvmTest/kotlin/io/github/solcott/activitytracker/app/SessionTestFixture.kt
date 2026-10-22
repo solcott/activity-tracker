@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.moderation.ModerationRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.segments.LeaderboardBracketsRepository
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.data.units.UnitSystem
@@ -126,6 +127,9 @@ class SessionTestFixture {
 
     /** Alice's `actor.segmentPrefs` record in her `self` space, as JSON; null for none. Saving one replaces it. */
     var segmentPrefs: String? = null
+
+    /** Alice's `actor.leaderboardBrackets` record in her `self` space, as JSON; null for none. Deleting it clears this. */
+    var leaderboardBrackets: String? = null
 
     /** Reads of her privacy zones fail, as offline. */
     var failZoneReads = false
@@ -248,6 +252,15 @@ class SessionTestFixture {
                                 headers = json,
                             )
                         }
+                        if (request.url.parameters["collection"] == Nsid.ACTOR_LEADERBOARD_BRACKETS) {
+                            val value =
+                                leaderboardBrackets
+                                    ?: return@MockEngine respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, json)
+                            return@MockEngine respond(
+                                """{"uri":"at://$did/${Nsid.ACTOR_LEADERBOARD_BRACKETS}/self","cid":"bafyrec","value":$value}""",
+                                headers = json,
+                            )
+                        }
                         if (request.url.parameters["collection"] == Nsid.ACTOR_ACTIVITY_DEFAULTS) {
                             val value =
                                 activityDefaults
@@ -282,6 +295,7 @@ class SessionTestFixture {
                             if (collection == Nsid.ACTOR_ACTIVITY_DEFAULTS) activityDefaults = record?.toString()
                             if (collection == Nsid.ACTOR_PRIVACY_ZONES) privacyZones = record?.toString()
                             if (collection == Nsid.ACTOR_SEGMENT_PREFS) segmentPrefs = record?.toString()
+                            if (collection == Nsid.ACTOR_LEADERBOARD_BRACKETS) leaderboardBrackets = record?.toString()
                             if (collection != Nsid.ACTOR_PRIVATE_DETAILS) {
                                 record?.let { otherSpacePuts += tier to it }
                             } else if (record == null) {
@@ -362,6 +376,7 @@ class SessionTestFixture {
         val suggestions: CombineSuggestions,
         val blocks: BlockRepository,
         val segmentPrefs: SegmentPrefsRepository,
+        val leaderboardBrackets: LeaderboardBracketsRepository,
     ) {
         /** The type picker's producer, as Metro injects it into the record, manual entry and import presenters. */
         val typeChoices: ActivityTypeChoices
@@ -435,6 +450,7 @@ class SessionTestFixture {
             CombineSuggestions(db, clients, feed, zones.tracks, suggestionClock),
             BlockRepository(clients, zones.writer, zones.outbox, feed, Clock.System),
             segmentsOf(clients).prefs,
+            LeaderboardBracketsRepository(clients, profiles, Clock.System, Logger),
         )
     }
 }

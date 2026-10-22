@@ -411,6 +411,8 @@
     <string name="settings_segments_heading">Segments</string>
     <string name="settings_segments_matching">Find segments on my activities</string>
     <string name="settings_segments_leaderboards">Show me on segment leaderboards</string>
+    <string name="settings_segments_brackets">Show me on age, weight and gender leaderboards</string>
+    <string name="settings_segments_brackets_help">Shares only your age group, weight class and gender with the app's server, never your birth date or weight, even if they're Only me. Anyone who can see your times can see which of these boards you're on.</string>
     <string name="settings_segments_help">Shares a copy of your routes, with your privacy zones and hidden starts and ends removed, with the app's server so it can find the segments you've done. No one else sees it. Your times can appear on segment leaderboards to people who may see those activities. Turning this off deletes those copies.</string>
     <string name="settings_segments_sign_in_again">Sign in again to use segments.</string>
     <string name="feed_segments_title">Find segments on your activities?</string>

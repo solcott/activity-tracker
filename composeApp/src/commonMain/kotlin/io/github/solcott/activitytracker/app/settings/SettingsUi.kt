@@ -44,6 +44,8 @@ import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_z
 import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_zones_ends
 import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_zones_none
 import io.github.solcott.activitytracker.composeApp.resources.settings_saving
+import io.github.solcott.activitytracker.composeApp.resources.settings_segments_brackets
+import io.github.solcott.activitytracker.composeApp.resources.settings_segments_brackets_help
 import io.github.solcott.activitytracker.composeApp.resources.settings_segments_heading
 import io.github.solcott.activitytracker.composeApp.resources.settings_segments_help
 import io.github.solcott.activitytracker.composeApp.resources.settings_segments_leaderboards
@@ -168,7 +170,7 @@ private fun DefaultVisibility(
 
 /**
  * Whether a copy of each route without the privacy zones goes to the AppView, so it can find segments, and while it does whether the
- * athlete shows on segment leaderboards.
+ * athlete shows on segment leaderboards and on age, weight and gender boards.
  */
 @Composable
 private fun SegmentMatching(state: SettingsState, modifier: Modifier = Modifier) {
@@ -204,11 +206,29 @@ private fun SegmentMatching(state: SettingsState, modifier: Modifier = Modifier)
                 AppSwitch(shown, onCheckedChange = null, enabled = leaderboardsEnabled)
             }
         }
+        val brackets = state.bracketBoards
+        if (checked && state.canUseBracketBoards && brackets != null) {
+            val bracketsEnabled = enabled && !state.savingBracketBoards
+            Row(
+                Modifier.fillMaxWidth()
+                    .toggleable(brackets, enabled = bracketsEnabled, role = Role.Switch) {
+                        state.eventSink(SettingsEvent.BracketBoardsChanged(it))
+                    }
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(Res.string.settings_segments_brackets), style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(Res.string.settings_segments_brackets_help), style = MaterialTheme.typography.bodySmall)
+                }
+                AppSwitch(brackets, onCheckedChange = null, enabled = bracketsEnabled)
+            }
+        }
         Text(
             stringResource(
                 when {
                     !state.canUseSegments -> Res.string.settings_segments_sign_in_again
-                    state.savingSegments || state.savingLeaderboards -> Res.string.settings_saving
+                    state.savingSegments || state.savingLeaderboards || state.savingBracketBoards -> Res.string.settings_saving
                     else -> Res.string.settings_segments_help
                 }
             ),

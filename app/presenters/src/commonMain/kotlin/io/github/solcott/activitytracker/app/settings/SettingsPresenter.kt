@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.moderation.ModerationRepository
+import io.github.solcott.activitytracker.data.segments.LeaderboardBracketsRepository
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 
@@ -33,6 +34,7 @@ fun SettingsPresenter(
     privacy: PrivacyZones,
     moderation: ModerationRepository,
     segmentPrefs: SegmentPrefsRepository,
+    leaderboardBrackets: LeaderboardBracketsRepository,
 ): SettingsState {
     // UnitsRepository updates optimistically, so the choice shows at once and reverts if the save fails.
     val units by unitsRepository.units.collectAsState()
@@ -46,7 +48,7 @@ fun SettingsPresenter(
     // Asked once a session; an AppView that can't say leaves the entry out.
     var canModerate by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { canModerate = runSuspendCatching { moderation.canModerate() }.getOrDefault(false) }
-    val segments = rememberSegmentMatchingSetting(segmentPrefs, flights) { error = it }
+    val segments = rememberSegmentMatchingSetting(segmentPrefs, leaderboardBrackets, flights) { error = it }
 
     return SettingsState(
         units,
@@ -62,6 +64,9 @@ fun SettingsPresenter(
         savingSegments = segments.saving,
         showOnLeaderboards = segments.shownOnLeaderboards,
         savingLeaderboards = segments.savingLeaderboards,
+        bracketBoards = segments.bracketBoards,
+        canUseBracketBoards = segments.canUseBracketBoards,
+        savingBracketBoards = segments.savingBracketBoards,
     ) { event ->
         when (event) {
             SettingsEvent.Back -> {

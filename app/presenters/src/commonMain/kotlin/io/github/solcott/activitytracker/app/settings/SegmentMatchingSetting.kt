@@ -10,20 +10,24 @@ import androidx.compose.runtime.remember
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.data.segments.LeaderboardBracketsRepository
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
 
 /**
- * The segment matching toggle in Settings, and while matching is on whether the athlete shows on leaderboards: read again on opening
- * (another device may have changed them), and saved as soon as one is flipped. Each shows the saved setting, so a failed save leaves it as
- * it was. Each matching save sets the repository's `saved`, after which `ActivityRepository.repairRoutesOnSave` (run for the session)
- * writes or deletes the segment tracks.
+ * The segment matching toggle in Settings, and while matching is on whether the athlete shows on leaderboards and on age, weight and gender
+ * boards: read again on opening (another device may have changed them), and saved as soon as one is flipped. Each shows the saved setting,
+ * so a failed save leaves it as it was. Each matching save sets the repository's `saved`, after which
+ * `ActivityRepository.repairRoutesOnSave` (run for the session) writes or deletes the segment tracks.
  */
 @Stable
 class SegmentMatchingSetting
+@Suppress("LongParameterList") // Each setting's repository and saved state, and the flights and error they share.
 internal constructor(
     private val prefs: SegmentPrefsRepository,
+    private val brackets: LeaderboardBracketsRepository,
     private val current: State<Boolean?>,
     private val hidden: State<Boolean?>,
+    private val bracketsOn: State<Boolean?>,
     private val flights: SingleFlight,
     private val onError: (UiError?) -> Unit,
 ) {
@@ -44,6 +48,25 @@ internal constructor(
     val savingLeaderboards: Boolean
         get() = flights.isRunning(LEADERBOARDS_KEY)
 
+    /** Whether the athlete shows on bracket boards; null while it's unknown. */
+    val bracketBoards: Boolean?
+        get() = bracketsOn.value
+
+    val canUseBracketBoards: Boolean
+        get() = brackets.canUse
+
+    val savingBracketBoards: Boolean
+        get() = flights.isRunning(BRACKETS_KEY)
+
+    /** Writes the athlete's brackets, or deletes them; offered only while matching is on. */
+    private fun setBracketBoards(on: Boolean) {
+        if (on == bracketBoards || matching != true) return
+        onError(null)
+        flights.launch(BRACKETS_KEY) {
+            runSuspendCatching { brackets.save(on) }.onFailure { e -> onError(UiError.of(UiError.Kind.SaveSettings, e)) }
+        }
+    }
+
     /** Shows the athlete on leaderboards, or hides them from every one; offered only while matching is on. */
     private fun setShownOnLeaderboards(shown: Boolean) {
         if (shown == shownOnLeaderboards || matching != true) return
@@ -58,6 +81,7 @@ internal constructor(
         when (event) {
             is SettingsEvent.SegmentMatchingChanged -> set(event.on)
             is SettingsEvent.LeaderboardsChanged -> setShownOnLeaderboards(event.shown)
+            is SettingsEvent.BracketBoardsChanged -> setBracketBoards(event.on)
         }
     }
 
@@ -70,19 +94,26 @@ internal constructor(
     private companion object {
         val KEY = SettingsEvent.SegmentMatchingChanged::class
         val LEADERBOARDS_KEY = SettingsEvent.LeaderboardsChanged::class
+        val BRACKETS_KEY = SettingsEvent.BracketBoardsChanged::class
     }
 }
 
 @Composable
 internal fun rememberSegmentMatchingSetting(
     prefs: SegmentPrefsRepository,
+    brackets: LeaderboardBracketsRepository,
     flights: SingleFlight,
     onError: (UiError?) -> Unit,
 ): SegmentMatchingSetting {
     val current = remember(prefs) { prefs.current }.collectAsState()
     val matching = remember(current) { derivedStateOf { current.value?.isOn } }
     val hidden = remember(prefs) { prefs.hiddenFromLeaderboards }.collectAsState()
-    val setting = remember(prefs, matching, hidden) { SegmentMatchingSetting(prefs, matching, hidden, flights, onError) }
+    val bracketsOn = remember(brackets) { brackets.current }.collectAsState()
+    val setting =
+        remember(prefs, brackets, matching, hidden, bracketsOn) {
+            SegmentMatchingSetting(prefs, brackets, matching, hidden, bracketsOn, flights, onError)
+        }
     LaunchedEffect(prefs) { runSuspendCatching { prefs.refresh() } }
+    LaunchedEffect(brackets) { if (brackets.canUse) runSuspendCatching { brackets.reload() } }
     return setting
 }
