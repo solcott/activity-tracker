@@ -26,6 +26,10 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentViewerState
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
+import io.github.solcott.dataresult.DataError
+import io.github.solcott.dataresult.Origin
+import io.github.solcott.dataresult.Outcome
+import io.github.solcott.uistate.Page
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -68,6 +72,10 @@ class SegmentRepositoryTest {
             viewer = SegmentViewerState(effort),
         )
 
+    private val entry = LeaderboardEntry(1, ProfileViewBasic(did, Handle("alice.test")), effort)
+    private val goneUri = AtUri.of(Did("did:plc:carol"), Nsid.FEED_SEGMENT, "3kgone")
+    private val brokenUri = AtUri.of(Did("did:plc:carol"), Nsid.FEED_SEGMENT, "3kbroken")
+
     private val http =
         HttpClient(
             MockEngine { request ->
@@ -79,7 +87,17 @@ class SegmentRepositoryTest {
                 if (request.method.value == "POST") posted[path.removePrefix("/xrpc/")] = request.body.toByteArray().decodeToString()
                 val body =
                     when (path.removePrefix("/xrpc/")) {
-                        Nsid.FEED_GET_SEGMENT -> AtJson.encodeToString(GetSegment.Output.serializer(), GetSegment.Output(view))
+                        Nsid.FEED_GET_SEGMENT ->
+                            when (request.url.parameters["uri"]) {
+                                goneUri.value ->
+                                    return@MockEngine respond(
+                                        """{"error":"NotFound","message":"Segment not found"}""",
+                                        HttpStatusCode.BadRequest,
+                                        json,
+                                    )
+                                brokenUri.value -> return@MockEngine respondError(HttpStatusCode.InternalServerError)
+                                else -> AtJson.encodeToString(GetSegment.Output.serializer(), GetSegment.Output(view))
+                            }
                         Nsid.FEED_GET_ACTIVITY_SEGMENTS ->
                             AtJson.encodeToString(GetActivitySegments.Output.serializer(), GetActivitySegments.Output(listOf(effort)))
                         Nsid.FEED_GET_SEGMENT_EFFORTS ->
@@ -87,10 +105,7 @@ class SegmentRepositoryTest {
                         Nsid.FEED_GET_SEGMENT_LEADERBOARD ->
                             AtJson.encodeToString(
                                 GetSegmentLeaderboard.Output.serializer(),
-                                GetSegmentLeaderboard.Output(
-                                    listOf(LeaderboardEntry(1, ProfileViewBasic(did, Handle("alice.test")), effort)),
-                                    cursor = "200::${did.value}",
-                                ),
+                                GetSegmentLeaderboard.Output(listOf(entry), viewer = entry, cursor = "200::${did.value}"),
                             )
                         Nsid.FEED_CHECK_SEGMENT ->
                             AtJson.encodeToString(CheckSegment.Output.serializer(), CheckSegment.Output(listOf(view), remaining = 8))
@@ -133,10 +148,9 @@ class SegmentRepositoryTest {
         val (_, _, clients) = signedInTestSession(http, did = did)
         val segments = SegmentRepository(clients)
 
-        val board = segments.leaderboard(segmentUri, LeaderboardPeriod.MONTH, LeaderboardScope.FOLLOWING, eBike = true, cursor = "c1")
-        assertEquals(1, board.entries.single().rank)
-        assertEquals("200::${did.value}", board.cursor)
-        segments.leaderboard(segmentUri, LeaderboardPeriod.ALL_TIME, LeaderboardScope.EVERYONE, eBike = false)
+        val board = segments.leaderboardPage(segmentUri, LeaderboardPeriod.MONTH, LeaderboardScope.FOLLOWING, eBike = true, cursor = "c1")
+        assertEquals(Outcome.Data(Page(listOf(entry), entry, "200::${did.value}"), Origin.Network), board)
+        segments.leaderboardPage(segmentUri, LeaderboardPeriod.ALL_TIME, LeaderboardScope.EVERYONE, eBike = false)
 
         assertEquals(
             listOf(
@@ -153,6 +167,33 @@ class SegmentRepositoryTest {
             ),
             requests,
         )
+    }
+
+    @Test
+    fun aLeaderboardPageFailsWithWhy() = runTest {
+        val failing =
+            HttpClient(
+                MockEngine { request ->
+                    if (request.url.encodedPath == "/xrpc/com.atproto.server.getServiceAuth")
+                        respond("""{"token":"service-jwt"}""", headers = headersOf("Content-Type", "application/json"))
+                    else respondError(HttpStatusCode.ServiceUnavailable)
+                }
+            )
+        val (_, _, clients) = signedInTestSession(failing, did = did)
+
+        val page = SegmentRepository(clients).leaderboardPage(segmentUri, LeaderboardPeriod.ALL_TIME, LeaderboardScope.EVERYONE, false)
+
+        assertEquals(DataError.Http(503), (page as Outcome.Error).cause)
+    }
+
+    @Test
+    fun aLookupAnswersNullForASegmentTheAppViewNoLongerHas() = runTest {
+        val (_, _, clients) = signedInTestSession(http, did = did)
+        val segments = SegmentRepository(clients)
+
+        assertEquals(Outcome.Data(view, Origin.Network), segments.segmentLookup(segmentUri))
+        assertEquals(Outcome.Data(null, Origin.Network), segments.segmentLookup(goneUri))
+        assertEquals(DataError.Http(500), (segments.segmentLookup(brokenUri) as Outcome.Error).cause)
     }
 
     @Test
