@@ -36,7 +36,7 @@ Its design settled the open questions:
   - FollowList (followers and following, with the subject as meta);
   - AthleteSearch (keeps the old results while a new query loads; the presenter keeps its 300 ms debounce);
   - the activity page's comments and replies (one `Paging` per thread, as the library's design describes).
-- **`CursorPaging` and its test are removed** once nothing uses them. The segment screens' paged lists (leaderboard, starred segments) move in `load-segment-screens`.
+- **`CursorPaging` and its test stay.** The segment screens' paged lists (leaderboard, starred segments) still use it. `load-segment-screens` moves them and deletes it.
 
 ## Capabilities
 
@@ -44,21 +44,26 @@ Its design settled the open questions:
 None.
 
 ### Modified Capabilities
-- `ui/content-loading`: this change extends its requirements to paged lists. It adds what paging needs: a failed later page keeps the earlier pages and retries only itself, and a list reached again shows its pages at once.
-- `feed/comments`: its requirement that a failed page keeps what's listed and offers to try again stays. Comments move onto the library pager, so check its wording while writing the specs.
-- Search, block and follow list specs (`graph/blocks`, `graph/mutes`, `graph/follow-requests`): only where they describe loading or paging. Confirm while writing the specs.
+- `ui/content-loading`: its loading rules now also name the paged lists (blocked and muted accounts, followers, following, athlete search and an activity's comments). It adds what paging needs:
+  - a failed later page keeps the earlier pages and retries only itself;
+  - more loading shows below the list;
+  - a new search keeps the last results until it answers.
+- `feed/comments`: the detail screen's paging requirement and the replies requirement now say that trying again repeats only the failed page, that a reload keeps the threads listed until it answers, and that coming back shows what was loaded.
+
+`graph/blocks`, `graph/mutes` and `graph/follow-requests` say what their lists hold, not how they load, so they need no delta.
 
 ## Impact
 
-- **kmp-dataresult:** the paging API is merged but not yet published. This change needs a snapshot or release that includes it.
+- **kmp-dataresult:** the paging API is merged but not yet published. This change needs a `0.1.0-SNAPSHOT` (or later) that includes it, or a local checkout through `-Pdataresult.dir`.
 - **`core/data`:** page reads for blocks, mutes, followers, follows, athlete search and comments.
 - **`app/presenters`:**
   - BlockList, FollowList and AthleteSearch.
   - The activity page's `Comments.kt` / `CommentActions.kt`.
   - Their tests: `BlockListPresenterTest`, `FollowListPresenterTest`, `AthleteSearchPresenterTest` and the comments and replies tests.
-- **Removed:** `CursorPaging.kt` and `CursorPagingTest`.
+- **Kept:** `CursorPaging.kt` and `CursorPagingTest`, for `load-segment-screens` to delete.
 - **`composeApp`:** paged list UIs render refresh and append states (a footer spinner, an inline retry for a failed page).
 - **Depends on:**
   - a kmp-dataresult build with `uistate/paging`;
-  - `error-reasons`;
-  - `load-activity-detail` (for comments).
+  - `error-reasons` (archived);
+  - `load-activity-detail` (archived; for comments).
+- **Blocks:** `load-segment-screens`, which moves the last `CursorPaging` users.
