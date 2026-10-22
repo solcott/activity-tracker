@@ -3,15 +3,17 @@ package io.github.solcott.activitytracker.app.settings
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
+import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.formContent
+import io.github.solcott.activitytracker.app.rememberFormSeed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -19,9 +21,11 @@ import io.github.solcott.activitytracker.data.activity.PrivacySettings
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.activity.TooManyZonesException
 import io.github.solcott.activitytracker.data.activity.ZonesUnreadableException
+import io.github.solcott.activitytracker.data.activity.zonesOutcome
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.PrivacyZonesRecord
 import io.github.solcott.activitytracker.location.LocationTracker
+import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -45,20 +49,19 @@ private val CHOICES: ImmutableList<Int> =
 @CircuitInject(PrivacyZonesScreen::class, SessionScope::class)
 @Composable
 fun PrivacyZonesPresenter(navigator: Navigator, privacy: PrivacyZones, tracker: LocationTracker): PrivacyZonesState {
-    var settings by remember { mutableStateOf<PrivacySettings?>(null) }
-    var error by remember { mutableStateOf<UiError?>(null) }
     var loadKey by remember { mutableIntStateOf(0) }
+    val loaded = produceRetainedContentState<PrivacySettings?>(null, loadKey) { privacy.zonesOutcome() }
+    // As read when the screen first loaded them, then as each save here returned them. Later loads change nothing.
+    var settings by rememberRetained { mutableStateOf<PrivacySettings?>(null) }
+    // Why a change failed; never a loading failure, which is [loaded]'s.
+    var error by remember { mutableStateOf<UiError?>(null) }
     var hasPermission by remember { mutableStateOf(tracker.hasPermission()) }
     val label = rememberTextFieldState()
     val flights = rememberSingleFlight()
     val saving = flights.isRunning(SAVE)
     val locating = flights.isRunning(PrivacyZonesEvent.AddAtCurrentLocation)
 
-    LaunchedEffect(loadKey) {
-        runSuspendCatching { privacy.refresh() }
-            .onSuccess { settings = it.settings }
-            .onFailure { e -> error = UiError.of(UiError.Kind.LoadPrivacyZones, e) }
-    }
+    val seed = rememberFormSeed(loaded) { settings = it }
 
     fun save(change: (PrivacySettings) -> PrivacySettings) {
         val current = settings ?: return
@@ -86,6 +89,7 @@ fun PrivacyZonesPresenter(navigator: Navigator, privacy: PrivacyZones, tracker: 
 
     val current = settings
     return PrivacyZonesState(
+        content = loaded.formContent(seeded = seed != null),
         zones = current?.zones?.toImmutableList(),
         hideEndsMeters = current?.hideEndsMeters ?: 0,
         choices = CHOICES,
@@ -95,15 +99,13 @@ fun PrivacyZonesPresenter(navigator: Navigator, privacy: PrivacyZones, tracker: 
         hasLocationPermission = hasPermission,
         locating = locating,
         label = label,
-        error = error ?: UiError(UiError.Kind.SignInAgain).takeIf { current != null && !privacy.canSave },
+        needsSignIn = current != null && !privacy.canSave,
+        error = error,
     ) { event ->
         when (event) {
             PrivacyZonesEvent.Back -> navigator.pop()
 
-            PrivacyZonesEvent.Retry -> {
-                error = null
-                loadKey++
-            }
+            PrivacyZonesEvent.Retry -> loadKey++
 
             is PrivacyZonesEvent.RadiusChanged -> save { it.withRadius(event.index, event.meters) }
 

@@ -42,7 +42,7 @@ fun SettingsPresenter(
     val defaultVisibility = rememberDefaultVisibilitySettings(defaults, flights) { error = it }
     val privacySettings by privacy.current.collectAsState()
     // Only the summary line: a failed read leaves it out, and the zones screen says why.
-    LaunchedEffect(Unit) { runSuspendCatching { privacy.refresh() } }
+    LaunchedEffect(Unit) { privacy.refresh() }
     // Asked once a session; an AppView that can't say leaves the entry out.
     var canModerate by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { canModerate = runSuspendCatching { moderation.canModerate() }.getOrDefault(false) }
