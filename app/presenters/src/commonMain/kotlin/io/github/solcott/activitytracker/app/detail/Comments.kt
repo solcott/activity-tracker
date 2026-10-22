@@ -99,7 +99,9 @@ internal fun rememberComments(activity: AtUri, viewer: Did, loadKey: Int, feed: 
     val shown =
         remember(changes, blocked, served, replyStates, sent) {
             val sentReplies = sent.mapNotNull { s -> s.root?.let { it to s } }.groupBy({ it.first }, { it.second })
-            shownThreads(served.items, replyStates, local, sentReplies) { feed.localBlocks.applyTo(it, blocked) }.toImmutableList()
+            // The changes as collected, never the live ones: a change undone before the next collection would stay shown.
+            shownThreads(served.items, replyStates, sentReplies) { feed.localBlocks.applyTo(local.applyTo(it, changes), blocked) }
+                .toImmutableList()
         }
     return Comments(
         paging =
@@ -142,21 +144,20 @@ private fun rememberReplies(activity: AtUri, thread: ThreadView, loadKey: Int, f
     }
 
 /**
- * The loaded [threads] as the viewer left them: each with its [replies] loaded so far, [LocalComments.applyTo] laid over it, the viewer's
- * [sentReplies] in it at its end, and what [leftOut] takes away (blocked and muted accounts). A thread with nothing left to show (its
- * top-level comment deleted here, no replies) is dropped.
+ * The loaded [threads] as the viewer left them: each with its [replies] loaded so far, [asLeft] laid over it (the viewer's changes,
+ * [LocalComments.applyTo], and blocked and muted accounts taken away), and the viewer's [sentReplies] in it at its end. A thread with
+ * nothing left to show (its top-level comment deleted here, no replies) is dropped.
  */
 private fun shownThreads(
     threads: List<ThreadView>,
     replies: List<PagedState<CommentView, Unit>>,
-    local: LocalComments,
     sentReplies: Map<AtUri, List<SentComment>>,
-    leftOut: (ThreadView) -> ThreadView,
+    asLeft: (ThreadView) -> ThreadView,
 ): List<CommentThread> =
     threads.zip(replies).mapNotNull { (served, loaded) ->
         // Until its holder has started from them (the frame it first composes), the replies are those the thread came with.
         val seeded = loaded.hasLoaded
-        val shown = leftOut(local.applyTo(served.copy(replies = if (seeded) loaded.items else served.replies)))
+        val shown = asLeft(served.copy(replies = if (seeded) loaded.items else served.replies))
         val sent = sentReplies[served.uri].orEmpty()
         // Replies left to load: none once the last page is in, else at least one while there's a cursor.
         val end = if (seeded) loaded.endReached else served.repliesCursor == null
