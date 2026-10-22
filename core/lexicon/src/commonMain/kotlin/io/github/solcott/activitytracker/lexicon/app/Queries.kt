@@ -323,8 +323,8 @@ object GetSegmentLeaderboard {
         val period: String? = null,
         /** A [LeaderboardScope] value; null means [LeaderboardScope.EVERYONE]. */
         val scope: String? = null,
-        /** The e-bike board; null means false. */
-        val eBike: Boolean? = null,
+        /** A [SegmentBoard] value; null means the listed type with the most efforts. */
+        val board: String? = null,
         /** A [LeaderboardAgeGroup] value: only athletes in it (segments/leaderboard-brackets). Null means every athlete. */
         val ageGroup: String? = null,
         /** A [LeaderboardWeightClass] value: only athletes in it. Null means every athlete. */
@@ -335,7 +335,18 @@ object GetSegmentLeaderboard {
         val cursor: String? = null,
     )
 
-    @Serializable data class Output(val entries: List<LeaderboardEntry>, val viewer: LeaderboardEntry? = null, val cursor: String? = null)
+    /**
+     * [board] is the type served (null when the segment has none to list), and [boards] the types the viewer may see ranked efforts of,
+     * most first.
+     */
+    @Serializable
+    data class Output(
+        val entries: List<LeaderboardEntry>,
+        val viewer: LeaderboardEntry? = null,
+        val cursor: String? = null,
+        val board: String? = null,
+        val boards: List<String> = emptyList(),
+    )
 
     val method = XrpcQuery(Nsid.FEED_GET_SEGMENT_LEADERBOARD, Params.serializer(), Output.serializer())
 }
@@ -348,8 +359,8 @@ object GetSegmentMayors {
         val period: String? = null,
         /** A [LeaderboardScope] value; null means [LeaderboardScope.EVERYONE]. */
         val scope: String? = null,
-        /** The e-bike board; null means false. */
-        val eBike: Boolean? = null,
+        /** A [SegmentBoard] value; null means the listed type with the most efforts. */
+        val board: String? = null,
         /** A [LeaderboardAgeGroup] value: only athletes in it (segments/leaderboard-brackets). Null means every athlete. */
         val ageGroup: String? = null,
         /** A [LeaderboardWeightClass] value: only athletes in it. Null means every athlete. */
@@ -360,7 +371,18 @@ object GetSegmentMayors {
         val cursor: String? = null,
     )
 
-    @Serializable data class Output(val entries: List<MayorEntry>, val viewer: MayorEntry? = null, val cursor: String? = null)
+    /**
+     * [board] is the type served (null when the segment has none to list), and [boards] the types the viewer may see ranked efforts of,
+     * most first.
+     */
+    @Serializable
+    data class Output(
+        val entries: List<MayorEntry>,
+        val viewer: MayorEntry? = null,
+        val cursor: String? = null,
+        val board: String? = null,
+        val boards: List<String> = emptyList(),
+    )
 
     val method = XrpcQuery(Nsid.FEED_GET_SEGMENT_MAYORS, Params.serializer(), Output.serializer())
 }
