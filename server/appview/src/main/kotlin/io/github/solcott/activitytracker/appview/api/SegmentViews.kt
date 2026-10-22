@@ -24,12 +24,15 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentEfforts
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentLeaderboard
+import io.github.solcott.activitytracker.lexicon.app.GetSegmentMayors
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardGender
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardWeightClass
+import io.github.solcott.activitytracker.lexicon.app.MayorEntry
+import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
 import io.github.solcott.activitytracker.lexicon.app.NotRanked
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
@@ -43,7 +46,10 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentViewerState
 import io.github.solcott.activitytracker.location.SegmentCells
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.ktor.http.HttpStatusCode
+import java.time.DayOfWeek
+import java.time.LocalDate
 import java.time.ZoneOffset
+import java.time.temporal.TemporalAdjusters
 import kotlin.math.abs
 import kotlin.time.Clock
 import org.jetbrains.exposed.v1.core.Expression
@@ -52,6 +58,7 @@ import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.exists
 import org.jetbrains.exposed.v1.core.greater
@@ -60,6 +67,7 @@ import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.inSubQuery
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
+import org.jetbrains.exposed.v1.core.max
 import org.jetbrains.exposed.v1.core.min
 import org.jetbrains.exposed.v1.core.notExists
 import org.jetbrains.exposed.v1.core.or
@@ -76,7 +84,7 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
  * Whether an effort is the athlete's best is judged among the efforts the same viewer may see. Search lists active segments, and proposed
  * ones only to their creator and their riders; every view carries the status the AppView derived.
  */
-@Suppress("TooManyFunctions") // The six segment routes, and the filters and views they share.
+@Suppress("TooManyFunctions") // The seven segment routes, and the filters and views they share.
 class SegmentViews(
     private val db: Database,
     private val avatars: AvatarUrls,
@@ -201,7 +209,7 @@ class SegmentViews(
      */
     suspend fun leaderboard(viewer: Did?, params: GetSegmentLeaderboard.Params): GetSegmentLeaderboard.Output {
         val (since, following) = filtersOf(viewer, params)
-        val brackets = bracketsOf(params)
+        val brackets = bracketsOf(params.ageGroup, params.weightClass, params.gender)
         return db.tx {
             val status =
                 Segments.select(Segments.status)
@@ -226,6 +234,44 @@ class SegmentViews(
                 bests(board and (SegmentEfforts.authorDid eq me.value), Op.TRUE).firstOrNull()?.get(BEST)?.let { me.value to it }
             }
             GetSegmentLeaderboard.Output(entries, own?.let { entries(viewer, board, listOf(it)).singleOrNull() }, next)
+        }
+    }
+
+    /**
+     * A segment's Mayors board (segments/segment-mayors): athletes by how many of their efforts a leaderboard of the same filters could
+     * rank in [GetSegmentMayors.Params.period]'s window, most first, then by the date each count was reached ([REACHED], their latest
+     * counted effort), earliest first. Pages and ranks as [leaderboard] does, by a `HAVING` keyset on (count, date, athlete).
+     */
+    suspend fun mayors(viewer: Did?, params: GetSegmentMayors.Params): GetSegmentMayors.Output {
+        val period = params.period ?: MayorPeriod.LAST_90_DAYS
+        if (period !in MayorPeriod.all) invalidRequest("Unknown period $period")
+        val (since, until) = mayorWindow(period, today())
+        val following = following(viewer, params.scope)
+        val brackets = bracketsOf(params.ageGroup, params.weightClass, params.gender)
+        return db.tx {
+            val status =
+                Segments.select(Segments.status)
+                    .where { (Segments.uri eq params.segment.value) and segmentServed(viewer) }
+                    .firstOrNull()
+                    ?.get(Segments.status) ?: throw notFound("Segment not found")
+            if (status != SegmentStatus.ACTIVE) return@tx GetSegmentMayors.Output(emptyList())
+            val board = boardOf(viewer, params.segment.value, params.eBike == true, since, following, until) and brackets
+            val limit = Paging.clamp(params.limit)
+            val after =
+                params.cursor?.let(::parseMayorCursor)?.let { (efforts, reached, did) ->
+                    (EFFORTS less efforts) or
+                        ((EFFORTS eq efforts) and (REACHED greater reached)) or
+                        ((EFFORTS eq efforts) and (REACHED eq reached) and (SegmentEfforts.authorDid greater did))
+                } ?: Op.TRUE
+            val page =
+                counts(board, after)
+                    .orderBy(EFFORTS to SortOrder.DESC, REACHED to SortOrder.ASC, SegmentEfforts.authorDid to SortOrder.ASC)
+                    .limit(limit)
+                    .mapNotNull(::mayorRow)
+            val entries = mayorEntries(board, page)
+            val next = page.takeIf { it.size == limit }?.last()?.let { (did, efforts, reached) -> "$efforts::$reached::$did" }
+            val own = viewer?.let { me -> counts(board and (SegmentEfforts.authorDid eq me.value), Op.TRUE).firstOrNull()?.let(::mayorRow) }
+            GetSegmentMayors.Output(entries, own?.let { mayorEntries(board, listOf(it)).singleOrNull() }, next)
         }
     }
 
@@ -339,14 +385,26 @@ class SegmentViews(
             }
             .reduce { a, b -> a or b }
 
-    /** The efforts on one board of [segment] that [viewer] may see and that are [rankable], from [since] (a `YYYY-MM-DD`) when given. */
-    private fun boardOf(viewer: Did?, segment: String, eBike: Boolean, since: String?, following: Boolean): Op<Boolean> {
+    /**
+     * The efforts on one board of [segment] that [viewer] may see and that are [rankable], from [since] and before [until] (each a
+     * `YYYY-MM-DD`) when given.
+     */
+    @Suppress("LongParameterList") // The board's filters.
+    private fun boardOf(
+        viewer: Did?,
+        segment: String,
+        eBike: Boolean,
+        since: String?,
+        following: Boolean,
+        until: String? = null,
+    ): Op<Boolean> {
         val own = viewer?.value
         return (SegmentEfforts.segmentUri eq segment) and
             (SegmentEfforts.eBike eq eBike) and
             effortsVisibleTo(viewer) and
             rankable() and
             (since?.let { SegmentEfforts.startedOn greaterEq it } ?: Op.TRUE) and
+            (until?.let { SegmentEfforts.startedOn less it } ?: Op.TRUE) and
             (if (following && own != null) {
                 (SegmentEfforts.authorDid eq own) or
                     (SegmentEfforts.authorDid inSubQuery
@@ -367,19 +425,15 @@ class SegmentViews(
      */
     private fun JdbcTransaction.entries(viewer: Did?, board: Op<Boolean>, page: List<Pair<String, Long>>): List<LeaderboardEntry> {
         if (page.isEmpty()) return emptyList()
-        val (firstDid, firstBest) = page.first()
-        val firstRank = ahead(board, firstBest).toInt() + 1
-        // Where the page starts on the board: ties with the first entry may sit on earlier pages.
-        val position = bests(board, (BEST less firstBest) or ((BEST eq firstBest) and (SegmentEfforts.authorDid less firstDid))).count()
-        val ranks = IntArray(page.size)
-        page.forEachIndexed { i, (_, best) ->
-            ranks[i] =
-                when {
-                    i == 0 -> firstRank
-                    best == page[i - 1].second -> ranks[i - 1]
-                    else -> position.toInt() + i + 1
-                }
-        }
+        val ranks =
+            ranksOf(
+                page,
+                ahead = { (_, best) -> ahead(board, best) },
+                before = { (did, best) ->
+                    bests(board, (BEST less best) or ((BEST eq best) and (SegmentEfforts.authorDid less did))).count()
+                },
+                tied = { a, b -> a.second == b.second },
+            )
         val chosen =
             rankedEfforts()
                 .select(SegmentEfforts.id, SegmentEfforts.authorDid, SegmentEfforts.elapsedS, SegmentEfforts.startedOn)
@@ -448,29 +502,94 @@ class SegmentViews(
     }
 
     /**
+     * Competition ranks for [page], in board order: the first entry's is one more than the athletes [ahead] of it, and each later one
+     * shares the rank of the entry before when [tied] with it, else takes its place on the board, counted from the athletes listed [before]
+     * the first (ties with the first entry may sit on earlier pages).
+     */
+    private fun <T> ranksOf(page: List<T>, ahead: (T) -> Long, before: (T) -> Long, tied: (T, T) -> Boolean): IntArray {
+        val ranks = IntArray(page.size)
+        if (page.isEmpty()) return ranks
+        val position = before(page.first())
+        page.forEachIndexed { i, entry ->
+            ranks[i] =
+                when {
+                    i == 0 -> ahead(entry).toInt() + 1
+                    tied(entry, page[i - 1]) -> ranks[i - 1]
+                    else -> position.toInt() + i + 1
+                }
+        }
+        return ranks
+    }
+
+    /** Each athlete's count of efforts on [board], as `author_did`, [EFFORTS] and [REACHED], filtered by [having]. */
+    private fun counts(board: Op<Boolean>, having: Op<Boolean>) =
+        rankedEfforts()
+            .select(SegmentEfforts.authorDid, EFFORTS, REACHED)
+            .where { board }
+            .groupBy(SegmentEfforts.authorDid)
+            .having { having }
+
+    /** A [counts] row as athlete, count and the date it was reached; null for an empty group. */
+    private fun mayorRow(row: ResultRow): Triple<String, Long, String>? =
+        row[REACHED]?.let { Triple(row[SegmentEfforts.authorDid], row[EFFORTS], it) }
+
+    /** Entries for [page] (athlete, count and date reached, in board order), ranked over the whole Mayors board. */
+    private fun JdbcTransaction.mayorEntries(board: Op<Boolean>, page: List<Triple<String, Long, String>>): List<MayorEntry> {
+        val ranks =
+            ranksOf(
+                page,
+                ahead = { (_, efforts, reached) ->
+                    counts(board, (EFFORTS greater efforts) or ((EFFORTS eq efforts) and (REACHED less reached))).count()
+                },
+                before = { (did, efforts, reached) ->
+                    counts(
+                            board,
+                            (EFFORTS greater efforts) or
+                                ((EFFORTS eq efforts) and (REACHED less reached)) or
+                                ((EFFORTS eq efforts) and (REACHED eq reached) and (SegmentEfforts.authorDid less did)),
+                        )
+                        .count()
+                },
+                tied = { a, b -> a.second == b.second && a.third == b.third },
+            )
+        val athletes = basicProfiles(page.map { it.first }, avatars)
+        return page.mapIndexed { i, (did, efforts, reached) ->
+            MayorEntry(ranks[i], athletes[did] ?: ProfileViewBasic(Did(did), Handle(UNKNOWN_HANDLE)), efforts.toInt(), reached)
+        }
+    }
+
+    /**
      * [params]' period start ([periodStart]) and whether it asks for the following scope; `InvalidRequest` for an unknown period or scope,
      * or the following scope without a [viewer].
      */
     private fun filtersOf(viewer: Did?, params: GetSegmentLeaderboard.Params): Pair<String?, Boolean> {
         val period = params.period ?: LeaderboardPeriod.ALL_TIME
-        val scope = params.scope ?: LeaderboardScope.EVERYONE
         if (period !in LeaderboardPeriod.all) invalidRequest("Unknown period $period")
-        if (scope !in LeaderboardScope.all) invalidRequest("Unknown scope $scope")
-        val following = scope == LeaderboardScope.FOLLOWING
-        if (following && viewer == null) invalidRequest("The following scope needs a signed-in viewer")
-        return periodStart(period) to following
+        return periodStart(period) to following(viewer, params.scope)
     }
 
     /**
-     * The athletes [params]' age group, weight class and gender filters admit (segments/leaderboard-brackets): those whose indexed brackets
+     * Whether [scope] (a [LeaderboardScope] value, null for everyone) is the following scope; `InvalidRequest` when unknown, or without a
+     * [viewer].
+     */
+    private fun following(viewer: Did?, scope: String?): Boolean {
+        val chosen = scope ?: LeaderboardScope.EVERYONE
+        if (chosen !in LeaderboardScope.all) invalidRequest("Unknown scope $chosen")
+        val following = chosen == LeaderboardScope.FOLLOWING
+        if (following && viewer == null) invalidRequest("The following scope needs a signed-in viewer")
+        return following
+    }
+
+    /**
+     * The athletes the [ageGroup], [weightClass] and [gender] filters admit (segments/leaderboard-brackets): those whose indexed brackets
      * match every filter given, so an athlete without brackets is on no filtered board. `InvalidRequest` for an unknown value.
      */
-    private fun bracketsOf(params: GetSegmentLeaderboard.Params): Op<Boolean> {
+    private fun bracketsOf(ageGroup: String?, weightClass: String?, gender: String?): Op<Boolean> {
         val filters =
             listOf(
-                    Triple(params.ageGroup, LeaderboardAgeGroup.all, LeaderboardBrackets.ageGroup),
-                    Triple(params.weightClass, LeaderboardWeightClass.all, LeaderboardBrackets.weightClass),
-                    Triple(params.gender, LeaderboardGender.all, LeaderboardBrackets.gender),
+                    Triple(ageGroup, LeaderboardAgeGroup.all, LeaderboardBrackets.ageGroup),
+                    Triple(weightClass, LeaderboardWeightClass.all, LeaderboardBrackets.weightClass),
+                    Triple(gender, LeaderboardGender.all, LeaderboardBrackets.gender),
                 )
                 .mapNotNull { (value, known, column) ->
                     value?.let {
@@ -488,13 +607,16 @@ class SegmentViews(
 
     /** The first local date of [period] by the AppView's UTC date, as `YYYY-MM-DD`; null for all time. */
     private fun periodStart(period: String): String? {
-        val today = java.time.LocalDate.ofInstant(java.time.Instant.ofEpochMilli(clock.now().toEpochMilliseconds()), ZoneOffset.UTC)
+        val today = today()
         return when (period) {
             LeaderboardPeriod.YEAR -> today.withDayOfYear(1).toString()
             LeaderboardPeriod.MONTH -> today.withDayOfMonth(1).toString()
             else -> null
         }
     }
+
+    /** The AppView's current date in UTC, which board periods and windows are counted from. */
+    private fun today(): LocalDate = LocalDate.ofInstant(java.time.Instant.ofEpochMilli(clock.now().toEpochMilliseconds()), ZoneOffset.UTC)
 
     private fun effortsVisibleTo(viewer: Did?): Op<Boolean> =
         visibleTo(viewer, SegmentEfforts.visibility, SegmentEfforts.authorDid, SegmentEfforts.activityUri, null) and
@@ -535,6 +657,22 @@ class SegmentViews(
         /** An athlete's best time on a board. */
         private val BEST = SegmentEfforts.elapsedS.min()
 
+        /** How many of an athlete's efforts a Mayors board counts. */
+        private val EFFORTS = SegmentEfforts.id.count()
+
+        /** The local date an athlete's Mayors count was reached: their latest counted effort's. */
+        private val REACHED = SegmentEfforts.startedOn.max()
+
+        /** The parts of a Mayors cursor: count, date and athlete. */
+        private const val MAYOR_CURSOR_PARTS = 3
+
+        /** Splits a `"<count>::<date>::<did>"` Mayors cursor; null when it is malformed. */
+        private fun parseMayorCursor(cursor: String): Triple<Long, String, String>? {
+            val (efforts, reached, did) =
+                cursor.split("::", limit = MAYOR_CURSOR_PARTS).takeIf { it.size == MAYOR_CURSOR_PARTS } ?: return null
+            return efforts.toLongOrNull()?.let { Triple(it, reached, did) }
+        }
+
         /** An effort's ID, rebuilt from its view as the matcher writes it, for the keyset cursor. */
         private fun effortId(effort: EffortView) = "${effort.activity.value} ${effort.segment.uri.value} ${effort.startOffset}"
 
@@ -543,3 +681,27 @@ class SegmentViews(
         private fun notFound(message: String) = XrpcError(HttpStatusCode.BadRequest.value, "NotFound", message)
     }
 }
+
+/**
+ * The window of a Mayors board for [period] (a known [MayorPeriod] value) on [today]: its first local date and the first one after it, as
+ * `YYYY-MM-DD`, each null when unbounded. "This" windows have no end, so an effort dated ahead of the UTC date still counts, and weeks
+ * start on Monday.
+ */
+internal fun mayorWindow(period: String, today: LocalDate): Pair<String?, String?> {
+    val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+    val window: Pair<LocalDate?, LocalDate?> =
+        when (period) {
+            MayorPeriod.ALL_TIME -> null to null
+            MayorPeriod.THIS_YEAR -> today.withDayOfYear(1) to null
+            MayorPeriod.LAST_YEAR -> today.withDayOfYear(1).minusYears(1) to today.withDayOfYear(1)
+            MayorPeriod.THIS_MONTH -> today.withDayOfMonth(1) to null
+            MayorPeriod.LAST_MONTH -> today.withDayOfMonth(1).minusMonths(1) to today.withDayOfMonth(1)
+            MayorPeriod.THIS_WEEK -> monday to null
+            MayorPeriod.LAST_WEEK -> monday.minusWeeks(1) to monday
+            else -> today.minusDays(LAST_DAYS - 1) to null
+        }
+    return window.first?.toString() to window.second?.toString()
+}
+
+/** The days [MayorPeriod.LAST_90_DAYS] covers, today included. */
+private const val LAST_DAYS = 90L

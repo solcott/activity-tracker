@@ -35,6 +35,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetRiddenSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentEfforts
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentLeaderboard
+import io.github.solcott.activitytracker.lexicon.app.GetSegmentMayors
 import io.github.solcott.activitytracker.lexicon.app.GetSubject
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.NotifySpace
@@ -98,6 +99,7 @@ fun Route.segmentRoutes(segments: SegmentViews, verifier: ServiceAuthVerifier) {
     xrpcQuery(GetActivitySegments.method, verifier) { params, viewer -> segments.activitySegments(viewer, params) }
     xrpcQuery(GetSegmentEfforts.method, verifier) { params, viewer -> segments.segmentEfforts(viewer, params) }
     xrpcQuery(GetSegmentLeaderboard.method, verifier) { params, viewer -> segments.leaderboard(viewer, params) }
+    xrpcQuery(GetSegmentMayors.method, verifier) { params, viewer -> segments.mayors(viewer, params) }
     xrpcProcedure(CheckSegment.method, verifier) { input, caller -> segments.check(requireViewer(caller), input) }
 }
 
