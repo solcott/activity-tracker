@@ -42,6 +42,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.update
 
 /** Candidate segments staged by the importer (segments/segment-candidates), and their riders counted from segment tracks. */
 class SegmentCandidatesTest : SegmentTestBase() {
@@ -267,6 +268,30 @@ class SegmentCandidatesTest : SegmentTestBase() {
             )
         assertEquals(emptyList(), last.candidates)
         assertNull(last.cursor)
+    }
+
+    @Test
+    fun aPublishedCandidateLeavesTheListing() = testApplication {
+        start()
+        rode(alice, "3ka")
+        rode(bob, "3kb")
+        rode(carol, "3kc")
+        stage(candidate("c-a"), candidate("c-b", path = listOf(0.0 to 0.0, 0.0 to 700.0)))
+        match()
+        suspend fun listed() =
+            client.xrpcOk(GetRiddenSegmentCandidates.method, mapOf("region" to "us-vermont"), importer).candidates.map { it.id }
+        assertEquals(listOf("c-a", "c-b"), listed())
+
+        // An athlete's segment under the same key isn't the importer's.
+        segment("c-a", sport = "ride", did = alice)
+        assertEquals(listOf("c-a", "c-b"), listed())
+
+        segment("c-a", sport = "ride", did = importer)
+        assertEquals(listOf("c-b"), listed(), "published, whatever its status")
+        runBlocking {
+            db.tx { Segments.update({ Segments.uri eq segmentUri("c-a", importer) }) { it[Segments.status] = SegmentStatus.ARCHIVED } }
+        }
+        assertEquals(listOf("c-b"), listed())
     }
 
     @Test

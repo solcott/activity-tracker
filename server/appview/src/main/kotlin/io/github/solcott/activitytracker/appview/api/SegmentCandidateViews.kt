@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.appview.api
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateCells
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateRiders
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateRows
+import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.MAX_NAME_LENGTH
 import io.github.solcott.activitytracker.appview.index.MAX_TOKEN_LENGTH
@@ -11,6 +12,7 @@ import io.github.solcott.activitytracker.appview.index.validLine
 import io.github.solcott.activitytracker.appview.index.validName
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.FinishSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.GetRiddenSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.PutSegmentCandidates
@@ -25,10 +27,13 @@ import kotlin.math.roundToLong
 import kotlin.time.Clock
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.concat
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.neq
+import org.jetbrains.exposed.v1.core.notExists
+import org.jetbrains.exposed.v1.core.stringLiteral
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.andWhere
@@ -92,14 +97,22 @@ class SegmentCandidateViews(
         return FinishSegmentCandidates.Output(removed)
     }
 
-    /** The region's ridden candidates by id, as staged: no counts, athletes or dates. */
+    /**
+     * The region's ridden candidates by id, as staged: no counts, athletes or dates. A candidate the importer already published, as a
+     * segment of its own keyed by the candidate's id (segments/segment-import), is left out whatever that segment's status.
+     */
     suspend fun ridden(caller: Did, params: GetRiddenSegmentCandidates.Params): GetRiddenSegmentCandidates.Output {
         requireImporter(caller)
         requireRegion(params.region)
+        val published = concat(stringLiteral("at://${caller.value}/${Nsid.FEED_SEGMENT}/"), SegmentCandidateRows.id)
         val limit = (params.limit ?: SegmentCandidates.MAX_BATCH).coerceIn(1, SegmentCandidates.MAX_BATCH)
         val page = db.tx {
             SegmentCandidateRows.selectAll()
-                .where { (SegmentCandidateRows.region eq params.region) and (SegmentCandidateRows.ridden eq true) }
+                .where {
+                    (SegmentCandidateRows.region eq params.region) and
+                        (SegmentCandidateRows.ridden eq true) and
+                        notExists(Segments.select(Segments.uri).where { Segments.uri eq published })
+                }
                 .apply { params.cursor?.let { cursor -> andWhere { SegmentCandidateRows.id greater cursor } } }
                 .orderBy(SegmentCandidateRows.id to SortOrder.ASC)
                 .limit(limit)
