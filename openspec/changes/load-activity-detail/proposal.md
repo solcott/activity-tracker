@@ -15,8 +15,8 @@ This is step 4 of moving the rest of the app onto kmp-dataresult.
 ## What Changes
 
 - **The main load moves to `ContentState`.** `ActivityDetailState`'s sealed `Loading` / `Error` / `Loaded` becomes a retained `ContentState` of the activity, using `activityOutcome(uri)` from `load-activity-and-profile-screens`. Reloads keep the page on screen, and coming back shows it at once.
-- **Supplementary loads become `ContentState`s of their own.** They are grouped where they share a key, and a failure stays quiet for those the page already treats as extra: charts, segment efforts, sibling count, combine suggestion, own route and export. Data sources and likes keep showing their own failures.
-- **AwaitIndexed becomes a retry policy on the outcome stream.** While the activity was just written (`rewrite` or `suggestOnOpen`) and the AppView answers not found, the stream retries on the same schedule. This replaces bumping `loadKey` from outside. The page shows the activity from the local rewrite meanwhile, as today.
+- **Supplementary loads become retained `ContentState`s of their own.** Each restarts with the page's reload, and a failure stays quiet for those the page already treats as extra: charts, segment efforts, sibling count, combine suggestion, own route and export. Data sources and likes keep showing their own failures.
+- **AwaitIndexed becomes a retry policy on the outcome stream.** While the activity was just written (`rewrite` or `suggestOnOpen`) and the AppView answers not found, the stream retries on the same schedule. This replaces bumping `loadKey` from outside. The page shows that it is loading for the whole wait. Today it flickers between the error and the spinner on each try, because the page can't be drawn from the local rewrite alone.
 - **Comments stay hand-rolled until `adopt-library-paging`.** That covers their pagination, replies, generation guard and load-more. This change only routes their errors through `UiError` reasons.
 - **Separate load and action errors.** The like, comment, hide and delete action errors stay where they are; only the loads move.
 
@@ -27,7 +27,7 @@ None.
 
 ### Modified Capabilities
 - `ui/content-loading`: this change extends its requirements to the activity page, including its supplementary loads under "Supplementary content fails quietly".
-- `feed/activity-page-layout` and `feed/comments`: only where their requirements describe loading, reloading or waiting for a new activity to be indexed. Confirm while writing the specs. Visible behaviour while waiting for the index must not change.
+- `feed/activity-page-layout` and `feed/comments` need no delta. Their requirements describe layout and comment paging, not how the page loads. The comments' first-page failure and reload stay as `feed/comments` describes them.
 
 ## Impact
 
