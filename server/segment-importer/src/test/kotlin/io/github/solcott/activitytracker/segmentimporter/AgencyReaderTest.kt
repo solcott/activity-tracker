@@ -11,7 +11,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
-/** Agency datasets read into the trail network (segments/trail-candidates), on the `usfs-trails` and `nps-trails` fixtures. */
+/**
+ * Agency datasets read into the trail network (segments/trail-candidates), on the `usfs-trails`, `nps-trails` and `blm-trails` fixtures.
+ */
 class AgencyReaderTest {
     private fun fixture(name: String) = File(requireNotNull(javaClass.getResource("/$name")).toURI())
 
@@ -95,6 +97,26 @@ class AgencyReaderTest {
         assertEquals(
             setOf("Beaver Pond", "Long Trail", "Oak Trail", "Ridge Path", "Valley Trail"),
             agency.ways.mapNotNull { it.name }.toSet(),
+        )
+    }
+
+    @Test
+    fun blmFeaturesByTheirModesAndAccess() {
+        val blm = AgencyReader.read(listOf(AgencyRules.BLM to fixture("blm-trails.geojsonl")))
+        assertEquals(mapOf(AgencyRules.BLM to 1), blm.skipped, "Lost Spur has no Original_GlobalID")
+        assertEquals(
+            listOf("Hidden Valley", "La Sal Nordic", "Mill Creek Rim", "Sand Flats Loop", "Slickrock Connector"),
+            blm.ways.mapNotNull { it.name }.sorted(),
+            "not the unnamed, motorcycle-only (Wipeout Hill) or permitted-users-only (Permit Canyon) features; SAND FLATS LOOP title-cased",
+        )
+        assertEquals(
+            setOf(RUN, HIKE),
+            AgencyRules.BLM.wayGroups(blm.ways.single { it.name == "Hidden Valley" }.tags),
+            "an UNK code on a non-mechanized trail",
+        )
+        assertEquals(
+            "blm:{0B1C2D3E-0000-4000-8000-000000000001}",
+            blm.ways.single { it.name == "Slickrock Connector" }.tags[AgencyRules.KEY],
         )
     }
 

@@ -24,7 +24,11 @@ class ExtractTest {
         val out = createTempFile("candidates", ".ndjson").toFile()
         extract(
             fixture(),
-            listOf(AgencyRules.USFS to resource("usfs-trails.geojsonl"), AgencyRules.NPS to resource("nps-trails.geojsonl")),
+            listOf(
+                AgencyRules.USFS to resource("usfs-trails.geojsonl"),
+                AgencyRules.NPS to resource("nps-trails.geojsonl"),
+                AgencyRules.BLM to resource("blm-trails.geojsonl"),
+            ),
             "test-region",
             out,
         )
