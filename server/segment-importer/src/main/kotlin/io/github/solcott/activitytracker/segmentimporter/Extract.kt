@@ -10,7 +10,8 @@ import kotlinx.serialization.json.Json
 /** The candidates file's format; bump it when what a line holds changes, so a reader can refuse a file it doesn't know. */
 internal const val IMPORTER_VERSION = 1
 
-private const val LICENSE_OSM = "ODbL-1.0"
+/** The licence of OSM-derived lines, on every candidate and on the segments published from them. */
+internal const val LICENSE_OSM = "ODbL-1.0"
 
 /** The first line of a candidates file. */
 @Serializable

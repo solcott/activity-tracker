@@ -1,7 +1,12 @@
 package io.github.solcott.activitytracker.segmentimporter
 
+import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.cio.CIO
 import java.io.File
+import java.io.IOException
 import kotlin.system.exitProcess
+import kotlinx.coroutines.runBlocking
 
 /** The importer's commands, parsed by hand: a few subcommands don't need a CLI library. */
 private const val USAGE =
@@ -10,7 +15,14 @@ private const val USAGE =
 Commands:
   extract <file.osm.pbf> --region <id> --out <candidates.ndjson>
       Reads an OpenStreetMap extract and writes the region's candidate segments, one JSON object per line.
-      The region id is lower-case letters, digits and dashes, such as us-vermont."""
+      The region id is lower-case letters, digits and dashes, such as us-vermont.
+  stage <candidates.ndjson>
+      Uploads a candidates file to the AppView as one import run, replacing the region's candidates from earlier runs.
+  publish --region <id>
+      Publishes the region's ridden candidates that duplicate no live segment as feed.segment records.
+
+stage and publish act as the importer's service account: set SEGMENT_IMPORTER_IDENTIFIER, SEGMENT_IMPORTER_PASSWORD (an app password)
+and SEGMENT_IMPORTER_PDS_URL, and APPVIEW_URL and APPVIEW_DID unless the AppView is the local one."""
 
 private val REGION_ID = Regex("[a-z0-9-]{1,64}")
 
@@ -22,18 +34,52 @@ fun main(args: Array<String>) {
     }
     when (command) {
         is Command.Extract -> extract(command.pbf, command.region, command.out)
+        is Command.Stage -> asServiceAccount { stageFile(it, command.file) }
+        is Command.Publish -> asServiceAccount { publishRegion(it, command.region) }
+    }
+}
+
+/** Runs [block] as the service account, turning each way it can fail into a message and exit status 1. */
+private fun asServiceAccount(block: suspend (Clients) -> Unit) {
+    val failure =
+        try {
+            val settings = Settings.fromEnv()
+            HttpClient(CIO) { expectSuccess = false }.use { http -> runBlocking { block(Clients(http, settings)) } }
+            null
+        } catch (e: Settings.Missing) {
+            e.message
+        } catch (e: PasswordSession.SignInFailed) {
+            e.message
+        } catch (e: Clients.NotImporter) {
+            e.message
+        } catch (e: XrpcException) {
+            e.message
+        } catch (e: IllegalArgumentException) {
+            "Can't use this candidates file: ${e.message}"
+        } catch (e: IOException) {
+            e.message
+        }
+    if (failure != null) {
+        System.err.println(failure)
+        exitProcess(1)
     }
 }
 
 /** A parsed command line. */
 internal sealed interface Command {
     data class Extract(val pbf: File, val region: String, val out: File) : Command
+
+    data class Stage(val file: File) : Command
+
+    data class Publish(val region: String) : Command
 }
 
 /** [args] as a [Command], or null when they don't make one. */
 internal fun parse(args: List<String>): Command? =
     when (args.firstOrNull()) {
         "extract" -> parseExtract(args.drop(1))
+        "stage" -> args.drop(1).singleOrNull()?.takeUnless { it.startsWith("--") }?.let { Command.Stage(File(it)) }
+        "publish" -> parsePublish(args.drop(1))
         else -> null
     }
 
@@ -57,4 +103,9 @@ private fun parseExtract(args: List<String>): Command.Extract? {
     val out = options["--out"] ?: return null
     if (options.keys.any { it !in setOf("--region", "--out") }) return null
     return Command.Extract(File(pbf), region, File(out))
+}
+
+private fun parsePublish(args: List<String>): Command.Publish? {
+    if (args.size != 2 || args[0] != "--region") return null
+    return args[1].takeIf { REGION_ID.matches(it) }?.let(Command::Publish)
 }
