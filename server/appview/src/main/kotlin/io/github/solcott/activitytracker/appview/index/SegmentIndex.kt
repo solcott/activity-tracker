@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.appview.index
 
+import io.github.solcott.activitytracker.appview.db.LeaderboardBrackets
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateRiders
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
@@ -10,6 +11,10 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardBracketsRecord
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardGender
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardWeightClass
 import io.github.solcott.activitytracker.lexicon.app.SegmentPrefsRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackRecord
 import kotlinx.serialization.json.JsonObject
@@ -23,12 +28,15 @@ import org.jetbrains.exposed.v1.jdbc.upsert
 private const val MAX_REVISION_LENGTH = 32
 
 /**
- * A put of a segment track or the segment matching setting, from [author]'s `self` space. Each queues the tracks it makes matchable; the
- * matcher itself checks the setting ([usableSegmentTracks][io.github.solcott.activitytracker.appview.db.usableSegmentTracks]).
+ * A put of a segment track, the segment matching setting or the leaderboard brackets, from [author]'s `self` space. The first two queue the
+ * tracks they make matchable; the matcher itself checks the setting
+ * ([usableSegmentTracks][io.github.solcott.activitytracker.appview.db.usableSegmentTracks]).
  */
 @Suppress("LongParameterList") // The record, where it's from, and the queue.
 internal fun JdbcTransaction.upsertSegments(collection: String, json: JsonObject, author: Did, uri: AtUri, jobs: SegmentJobs, now: Long) {
-    if (collection == Nsid.FEED_SEGMENT_TRACK) {
+    if (collection == Nsid.ACTOR_LEADERBOARD_BRACKETS) {
+        upsertLeaderboardBrackets(AtJson.decodeFromJsonElement(LeaderboardBracketsRecord.serializer(), json), author, uri)
+    } else if (collection == Nsid.FEED_SEGMENT_TRACK) {
         // Only the leaderboard exclusion changed when the points and their trimming are the same: nothing to match again.
         if (upsertSegmentTrack(AtJson.decodeFromJsonElement(SegmentTrackRecord.serializer(), json), author, uri, now)) {
             jobs.enqueueTrack(uri.value, now)
@@ -41,10 +49,15 @@ internal fun JdbcTransaction.upsertSegments(collection: String, json: JsonObject
     }
 }
 
-/** A delete of a segment track, with its cells, efforts and candidate riders, or of the setting, which counts as matching off. */
+/**
+ * A delete of a segment track, with its cells, efforts and candidate riders, of the setting, which counts as matching off, or of the
+ * leaderboard brackets, which takes the athlete off every filtered board.
+ */
 internal fun JdbcTransaction.deleteSegments(collection: String, uri: AtUri) {
     if (collection == Nsid.FEED_SEGMENT_TRACK) dropTracks(listOf(uri.value))
-    else if (uri.rkey == SegmentPrefsRecord.RKEY) deleteSegmentPrefs(Did(uri.authority))
+    else if (collection == Nsid.ACTOR_LEADERBOARD_BRACKETS) {
+        if (uri.rkey == LeaderboardBracketsRecord.RKEY) LeaderboardBrackets.deleteWhere { did eq uri.authority }
+    } else if (uri.rkey == SegmentPrefsRecord.RKEY) deleteSegmentPrefs(Did(uri.authority))
 }
 
 /**
@@ -85,6 +98,21 @@ internal fun JdbcTransaction.upsertSegmentPrefs(record: SegmentPrefsRecord, auth
         it[hideFromLeaderboards] = record.hideFromLeaderboards == true
     }
     if (!record.matching) dropSegmentTracks(author)
+}
+
+/**
+ * [author]'s leaderboard brackets (segments/leaderboard-brackets), from their `self` space: kept only as brackets, with any value this
+ * AppView doesn't know stored as absent.
+ */
+internal fun JdbcTransaction.upsertLeaderboardBrackets(record: LeaderboardBracketsRecord, author: Did, uri: AtUri) {
+    require(uri.rkey == LeaderboardBracketsRecord.RKEY) { "leaderboard brackets under another rkey" }
+    LeaderboardBrackets.upsert {
+        it[did] = author.value
+        it[ageGroup] = record.ageGroup?.takeIf { v -> v in LeaderboardAgeGroup.all }
+        it[weightClass] = record.weightClass?.takeIf { v -> v in LeaderboardWeightClass.all }
+        it[gender] = record.gender?.takeIf { v -> v in LeaderboardGender.all }
+        it[updatedAt] = record.updatedAt.toEpochMilliseconds()
+    }
 }
 
 /** [author]'s setting gone: no record means matching is off, so their segment tracks go too. */

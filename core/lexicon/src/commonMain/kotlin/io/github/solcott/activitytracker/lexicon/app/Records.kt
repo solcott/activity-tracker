@@ -596,6 +596,27 @@ data class SegmentPrefsRecord(
 }
 
 /**
+ * `app.activitytracker.actor.leaderboardBrackets`: the athlete chose age, weight and gender leaderboards (segments/leaderboard-brackets),
+ * and these are their brackets, computed on the device from their own details. It lives only in their [AthleteSpace.SELF] space, only while
+ * the choice is on, and never holds the details themselves. Each bracket is null when the athlete hasn't given its detail.
+ */
+@Serializable
+data class LeaderboardBracketsRecord(
+    val updatedAt: Instant,
+    /** A [LeaderboardAgeGroup] value. */
+    val ageGroup: String? = null,
+    /** A [LeaderboardWeightClass] value. */
+    val weightClass: String? = null,
+    /** A [LeaderboardGender] value. */
+    val gender: String? = null,
+    @SerialName($$"$type") val type: String = Nsid.ACTOR_LEADERBOARD_BRACKETS,
+) {
+    companion object {
+        const val RKEY = "self"
+    }
+}
+
+/**
  * `app.activitytracker.feed.segmentStar`: the athlete starred the segment [subject]. It lives only in their [AthleteSpace.SELF] space and
  * only they read it: the AppView never stores it. Its rkey is derived from [subject]'s URI (`segmentStarRkey` in `core/atproto`), so
  * there's at most one per segment and unstarring needs no lookup.

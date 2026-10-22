@@ -411,6 +411,8 @@
     <string name="settings_segments_heading">Segments</string>
     <string name="settings_segments_matching">Find segments on my activities</string>
     <string name="settings_segments_leaderboards">Show me on segment leaderboards</string>
+    <string name="settings_segments_brackets">Show me on age, weight and gender leaderboards</string>
+    <string name="settings_segments_brackets_help">Shares only your age group, weight class and gender with the app's server, never your birth date or weight, even if they're Only me. Anyone who can see your times can see which of these boards you're on.</string>
     <string name="settings_segments_help">Shares a copy of your routes, with your privacy zones and hidden starts and ends removed, with the app's server so it can find the segments you've done. No one else sees it. Your times can appear on segment leaderboards to people who may see those activities. Turning this off deletes those copies.</string>
     <string name="settings_segments_sign_in_again">Sign in again to use segments.</string>
     <string name="feed_segments_title">Find segments on your activities?</string>
@@ -1383,6 +1385,22 @@
     <string name="leaderboard_scope_everyone">Everyone</string>
     <string name="leaderboard_scope_following">Following</string>
     <string name="leaderboard_ebike">E-bike board</string>
+    <string name="leaderboard_age_all">All ages</string>
+    <!-- Age groups, in whole years. -->
+    <string name="leaderboard_age_under">%1$d and under</string>
+    <string name="leaderboard_age_range">%1$d–%2$d</string>
+    <string name="leaderboard_age_over">%1$d and over</string>
+    <string name="leaderboard_weight_all">All weights</string>
+    <string name="leaderboard_weight_under_kg">Under %1$d kg</string>
+    <string name="leaderboard_weight_range_kg">%1$d–%2$d kg</string>
+    <string name="leaderboard_weight_over_kg">%1$d kg and over</string>
+    <string name="leaderboard_weight_under_lb">Under %1$d lb</string>
+    <string name="leaderboard_weight_range_lb">%1$d–%2$d lb</string>
+    <string name="leaderboard_weight_over_lb">%1$d lb and over</string>
+    <string name="leaderboard_gender_all">All genders</string>
+    <string name="leaderboard_gender_female">Women</string>
+    <string name="leaderboard_gender_male">Men</string>
+    <string name="leaderboard_gender_non_binary">Non-binary</string>
     <string name="leaderboard_empty">No one is on this leaderboard yet</string>
     <string name="leaderboard_your_place">Your place</string>
     <string-array name="segment_rank_ordinals">

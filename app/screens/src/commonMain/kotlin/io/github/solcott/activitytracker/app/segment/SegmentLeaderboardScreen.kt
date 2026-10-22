@@ -6,9 +6,12 @@ import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardGender
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardWeightClass
 import io.github.solcott.uistate.PagedState
 import io.github.solcott.uistate.pagedStateOf
 
@@ -28,6 +31,12 @@ data class SegmentLeaderboardState(
     /** Whether the e-bike board is shown; only offered when [canChooseEBike]. */
     val eBike: Boolean = false,
     val canChooseEBike: Boolean = false,
+    /** A [LeaderboardAgeGroup] value: only athletes in it (segments/leaderboard-brackets); null for every age. */
+    val ageGroup: String? = null,
+    /** A [LeaderboardWeightClass] value, in kilograms; null for every weight. */
+    val weightClass: String? = null,
+    /** A [LeaderboardGender] value; null for every gender. */
+    val gender: String? = null,
     /**
      * The chosen board's entries, fastest first, a page at a time (ui/content-loading), with the viewer's own entry as its meta. A new
      * filter starts from nothing, so no other board's entries show under it.
@@ -49,6 +58,15 @@ sealed interface SegmentLeaderboardEvent {
 
     /** Shows the e-bike board, or the standard one, from its first page. */
     data class EBikeChanged(val eBike: Boolean) : SegmentLeaderboardEvent
+
+    /** Shows only athletes in [ageGroup], a [LeaderboardAgeGroup] value, or every age when null, from its first page. */
+    data class AgeGroupChanged(val ageGroup: String?) : SegmentLeaderboardEvent
+
+    /** Shows only athletes in [weightClass], a [LeaderboardWeightClass] value, or every weight when null, from its first page. */
+    data class WeightClassChanged(val weightClass: String?) : SegmentLeaderboardEvent
+
+    /** Shows only athletes of [gender], a [LeaderboardGender] value, or every gender when null, from its first page. */
+    data class GenderChanged(val gender: String?) : SegmentLeaderboardEvent
 
     /** Loads the next page; ignored while a page is loading or when there are no more. */
     data object LoadMore : SegmentLeaderboardEvent

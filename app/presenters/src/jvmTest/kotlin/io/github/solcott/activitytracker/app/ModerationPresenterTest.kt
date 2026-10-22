@@ -120,7 +120,16 @@ class ModerationPresenterTest {
         val navigator = FakeNavigator(SettingsScreen)
         val forModerator = moderation()
         presenterTestOf({
-            SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults, repos.privacy, forModerator, repos.segmentPrefs)
+            SettingsPresenter(
+                navigator,
+                repos.units,
+                repos.auth,
+                repos.defaults,
+                repos.privacy,
+                forModerator,
+                repos.segmentPrefs,
+                repos.leaderboardBrackets,
+            )
         }) {
             val offered = awaitUntil { it.canModerate }
             offered.eventSink(SettingsEvent.OpenModeration)
@@ -130,7 +139,16 @@ class ModerationPresenterTest {
         role = "triage"
         val forTriage = moderation()
         presenterTestOf({
-            SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults, repos.privacy, forTriage, repos.segmentPrefs)
+            SettingsPresenter(
+                navigator,
+                repos.units,
+                repos.auth,
+                repos.defaults,
+                repos.privacy,
+                forTriage,
+                repos.segmentPrefs,
+                repos.leaderboardBrackets,
+            )
         }) {
             val state = awaitItem()
             state.eventSink(SettingsEvent.OpenModeration)

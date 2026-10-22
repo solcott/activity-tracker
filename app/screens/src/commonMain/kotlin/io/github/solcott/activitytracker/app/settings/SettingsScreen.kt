@@ -34,6 +34,14 @@ data class SettingsState(
     /** Whether the athlete shows on segment leaderboards; offered only while [segmentMatching] is on, and null while unknown. */
     val showOnLeaderboards: Boolean? = null,
     val savingLeaderboards: Boolean = false,
+    /**
+     * Whether the athlete shows on age, weight and gender leaderboards (segments/leaderboard-brackets); offered only while
+     * [segmentMatching] is on and [canUseBracketBoards], and null while unknown.
+     */
+    val bracketBoards: Boolean? = null,
+    /** Whether this session can use bracket boards: false for one signed in before its `space:` grant listed the brackets record. */
+    val canUseBracketBoards: Boolean = true,
+    val savingBracketBoards: Boolean = false,
     val eventSink: (SettingsEvent) -> Unit,
 ) : CircuitUiState
 
@@ -57,6 +65,12 @@ sealed interface SettingsEvent {
 
     /** Shows the athlete on segment leaderboards, or hides them from every one (segments/segment-leaderboards). */
     data class LeaderboardsChanged(val shown: Boolean) : SegmentSettingEvent
+
+    /**
+     * Shows the athlete on age, weight and gender leaderboards, sharing only those brackets, or takes them off
+     * (segments/leaderboard-brackets).
+     */
+    data class BracketBoardsChanged(val on: Boolean) : SegmentSettingEvent
 
     /** The segment settings' events, which their holder handles. */
     sealed interface SegmentSettingEvent : SettingsEvent

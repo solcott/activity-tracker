@@ -76,19 +76,30 @@ class SegmentRepository(private val clients: SessionClients) {
 
     /**
      * One page of [segment]'s leaderboard (segments/segment-leaderboards), fastest first, with the signed-in athlete's own entry as its
-     * meta: null when they aren't on the board.
+     * meta: null when they aren't on the board. [brackets] limits it to athletes in each bracket given (segments/leaderboard-brackets).
      */
+    @Suppress("LongParameterList") // The board's filters.
     suspend fun leaderboardPage(
         segment: AtUri,
         period: String,
         scope: String,
         eBike: Boolean,
         cursor: String? = null,
+        brackets: LeaderboardBrackets = LeaderboardBrackets(),
     ): Outcome<Page<LeaderboardEntry, LeaderboardEntry?>> = outcomeOf {
         val board =
             clients.appView.query(
                 GetSegmentLeaderboard.method,
-                GetSegmentLeaderboard.Params(segment, period, scope, eBike = eBike.takeIf { it }, cursor = cursor),
+                GetSegmentLeaderboard.Params(
+                    segment,
+                    period,
+                    scope,
+                    eBike = eBike.takeIf { it },
+                    ageGroup = brackets.ageGroup,
+                    weightClass = brackets.weightClass,
+                    gender = brackets.gender,
+                    cursor = cursor,
+                ),
             )
         Page(board.entries, board.viewer, board.cursor)
     }

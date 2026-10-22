@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.appview.db.CommentHides
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.FollowApprovals
 import io.github.solcott.activitytracker.appview.db.Follows
+import io.github.solcott.activitytracker.appview.db.LeaderboardBrackets
 import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.appview.db.Mutes
 import io.github.solcott.activitytracker.appview.db.Origins
@@ -150,6 +151,7 @@ class Indexer(
         Mutes.deleteWhere { origin eq placement.origin }
         if (space.skey == AthleteSpace.SELF) {
             SegmentPrefs.deleteWhere { did eq space.authority.value }
+            LeaderboardBrackets.deleteWhere { did eq space.authority.value }
             dropSegmentTracks(space.authority)
         }
     }
@@ -384,6 +386,7 @@ class Indexer(
         Blocks.deleteWhere { authorDid eq did.value }
         Mutes.deleteWhere { authorDid eq did.value }
         SegmentPrefs.deleteWhere { SegmentPrefs.did eq did.value }
+        LeaderboardBrackets.deleteWhere { LeaderboardBrackets.did eq did.value }
         dropSegmentTracks(did)
         deleteSegmentsBy(did, segmentJobs, clock.now().toEpochMilliseconds())
         RecordShadows.deleteWhere { uri like "at://${did.value}/%" }
@@ -414,17 +417,18 @@ class Indexer(
         private val INTERACTION_COLLECTIONS =
             setOf(Nsid.FEED_LIKE, Nsid.FEED_COMMENT, Nsid.FEED_COMMENT_HIDE, Nsid.GRAPH_BLOCK, Nsid.GRAPH_MUTE)
 
-        /** Segment tracks and the segment matching setting, indexed only from `self`. */
-        private val SEGMENT_COLLECTIONS = setOf(Nsid.FEED_SEGMENT_TRACK, Nsid.ACTOR_SEGMENT_PREFS)
+        /** Segment tracks, the segment matching setting and the leaderboard brackets, indexed only from `self`. */
+        private val SEGMENT_COLLECTIONS = setOf(Nsid.FEED_SEGMENT_TRACK, Nsid.ACTOR_SEGMENT_PREFS, Nsid.ACTOR_LEADERBOARD_BRACKETS)
         private val SELF_COLLECTIONS = TIER_COLLECTIONS + SEGMENT_COLLECTIONS
 
         /**
          * What the AppView indexes from the athlete space with key [skey]: likes, comments, comment hides, blocks and mutes from the
          * interactions space, and activities, their details, streams and zones from a tier (an unknown key is a tier only the athlete
          * sees), plus from `self` the segment matching setting and segment tracks (zone-trimmed copies of tracks, used only while matching
-         * is on and never served). Private details, follow declines, defaults, full tracks, imported files and their devices
-         * (`feed.activityTrack`, `feed.activitySource`, `feed.activityDevices`, in `self`), privacy zones and their trim marker
-         * (`actor.privacyZones`, `actor.routeTrim`, in `self`) and stars on segments (`feed.segmentStar`, in `self`) are never stored.
+         * is on and never served) and the leaderboard brackets (used only to filter leaderboards, never served). Private details, follow
+         * declines, defaults, full tracks, imported files and their devices (`feed.activityTrack`, `feed.activitySource`,
+         * `feed.activityDevices`, in `self`), privacy zones and their trim marker (`actor.privacyZones`, `actor.routeTrim`, in `self`) and
+         * stars on segments (`feed.segmentStar`, in `self`) are never stored.
          */
         fun spaceCollections(skey: String): Set<String> =
             when (skey) {

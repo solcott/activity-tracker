@@ -1,0 +1,36 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.actor.leaderboardBrackets",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "The athlete's consent to age-group, weight-class and gender segment leaderboards, and their brackets. Lives only in the athlete's self space (app.activitytracker.space.athlete, key self), never in the public repo. It exists only while the athlete has chosen these boards; turning them off deletes it. Clients compute the brackets from the athlete's own details and rewrite the record when one changes; it never holds the details themselves. The AppView indexes it from self only, uses it only to filter leaderboards, and never serves it.",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": ["updatedAt"],
+        "properties": {
+          "ageGroup": {
+            "type": "string",
+            "maxLength": 16,
+            "knownValues": ["0-19", "20-24", "25-34", "35-44", "45-54", "55-64", "65-69", "70-74", "75+"],
+            "description": "By whole years of age on the day computed. Absent when the athlete gave no birth date."
+          },
+          "weightClass": {
+            "type": "string",
+            "maxLength": 16,
+            "knownValues": ["0-54", "55-64", "65-74", "75-84", "85-94", "95-104", "105-114", "115+"],
+            "description": "Kilograms, by whole kilograms rounded down. Absent when the athlete gave no weight."
+          },
+          "gender": {
+            "type": "string",
+            "maxLength": 16,
+            "knownValues": ["female", "male", "nonBinary"],
+            "description": "Absent when the athlete gave no gender, or a description of their own."
+          },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

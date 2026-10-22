@@ -4,7 +4,10 @@ import io.github.solcott.activitytracker.lexicon.app.CheckSegment
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentLeaderboard
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardBracketsRecord
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardGender
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
 import io.github.solcott.activitytracker.lexicon.app.NotRanked
@@ -70,6 +73,21 @@ class SegmentRecordsTest {
         val prefsJson = AtJson.encodeToJsonElement(SegmentPrefsRecord.serializer(), prefs).jsonObject
         assertEquals(Nsid.ACTOR_SEGMENT_PREFS, prefsJson["\$type"]?.jsonPrimitive?.content)
         assertEquals(prefs, AtJson.decodeFromJsonElement(SegmentPrefsRecord.serializer(), prefsJson))
+    }
+
+    @Test
+    fun leaderboardBracketsRoundTrip() {
+        val brackets =
+            LeaderboardBracketsRecord(
+                updatedAt = Instant.parse("2026-10-22T12:00:00Z"),
+                ageGroup = LeaderboardAgeGroup.FROM_35,
+                gender = LeaderboardGender.FEMALE,
+            )
+        val json = AtJson.encodeToJsonElement(LeaderboardBracketsRecord.serializer(), brackets).jsonObject
+        assertEquals(Nsid.ACTOR_LEADERBOARD_BRACKETS, json["\$type"]?.jsonPrimitive?.content)
+        assertEquals("35-44", json["ageGroup"]?.jsonPrimitive?.content)
+        assertFalse("weightClass" in json)
+        assertEquals(brackets, AtJson.decodeFromJsonElement(LeaderboardBracketsRecord.serializer(), json))
     }
 
     @Test
@@ -250,10 +268,24 @@ class SegmentRecordsTest {
         val old2 = AtJson.decodeFromString(EffortView.serializer(), bare)
         assertNull(old2.rank)
         assertNull(old2.notRanked)
+    }
 
-        val params = GetSegmentLeaderboard.Params(segment, LeaderboardPeriod.MONTH, LeaderboardScope.FOLLOWING, eBike = true, limit = 30)
+    @Test
+    fun leaderboardParamsRoundTrip() {
+        val segment = AtUri.of(Did("did:plc:alice"), Nsid.FEED_SEGMENT, "3l2abcdefgh44")
+        val params =
+            GetSegmentLeaderboard.Params(
+                segment,
+                LeaderboardPeriod.MONTH,
+                LeaderboardScope.FOLLOWING,
+                eBike = true,
+                ageGroup = LeaderboardAgeGroup.FROM_75,
+                gender = LeaderboardGender.NON_BINARY,
+                limit = 30,
+            )
         val encoded = XrpcParams.encode(GetSegmentLeaderboard.Params.serializer(), params)
         assertTrue("eBike" to "true" in encoded)
+        assertTrue("ageGroup" to "75+" in encoded)
         assertEquals(
             params,
             XrpcParams.decode(GetSegmentLeaderboard.Params.serializer(), encoded.groupBy({ it.first }, { it.second })),

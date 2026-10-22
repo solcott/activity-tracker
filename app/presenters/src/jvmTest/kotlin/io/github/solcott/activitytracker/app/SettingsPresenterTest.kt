@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.app.settings.TrainingZonesScreen
 import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
@@ -37,6 +38,7 @@ class SettingsPresenterTest {
                 repos.privacy,
                 moderation,
                 repos.segmentPrefs,
+                repos.leaderboardBrackets,
             )
         }) {
             val initial = awaitItem()
@@ -65,6 +67,7 @@ class SettingsPresenterTest {
                 repos.privacy,
                 moderation,
                 repos.segmentPrefs,
+                repos.leaderboardBrackets,
             )
         }) {
             awaitItem().eventSink(SettingsEvent.UnitsChanged(UnitSystem.Imperial))
@@ -81,7 +84,16 @@ class SettingsPresenterTest {
         val moderation = fixture.moderation()
         val navigator = FakeNavigator(SettingsScreen)
         presenterTestOf({
-            SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults, repos.privacy, moderation, repos.segmentPrefs)
+            SettingsPresenter(
+                navigator,
+                repos.units,
+                repos.auth,
+                repos.defaults,
+                repos.privacy,
+                moderation,
+                repos.segmentPrefs,
+                repos.leaderboardBrackets,
+            )
         }) {
             awaitItem().eventSink(SettingsEvent.Back)
             navigator.awaitPop()
@@ -95,7 +107,16 @@ class SettingsPresenterTest {
         val moderation = fixture.moderation()
         val navigator = FakeNavigator(SettingsScreen)
         presenterTestOf({
-            SettingsPresenter(navigator, repos.units, repos.auth, repos.defaults, repos.privacy, moderation, repos.segmentPrefs)
+            SettingsPresenter(
+                navigator,
+                repos.units,
+                repos.auth,
+                repos.defaults,
+                repos.privacy,
+                moderation,
+                repos.segmentPrefs,
+                repos.leaderboardBrackets,
+            )
         }) {
             awaitItem().eventSink(SettingsEvent.OpenZones)
             assertEquals(TrainingZonesScreen, navigator.awaitNextScreen())
@@ -116,6 +137,7 @@ class SettingsPresenterTest {
                 repos.privacy,
                 moderation,
                 repos.segmentPrefs,
+                repos.leaderboardBrackets,
             )
         }) {
             val loaded = awaitUntil { it.defaults != null }
@@ -149,6 +171,7 @@ class SettingsPresenterTest {
                 again.privacy,
                 moderation,
                 again.segmentPrefs,
+                again.leaderboardBrackets,
             )
         }) {
             val reloaded = awaitUntil { it.defaults != null }.defaults
@@ -172,6 +195,7 @@ class SettingsPresenterTest {
                 repos.privacy,
                 moderation,
                 repos.segmentPrefs,
+                repos.leaderboardBrackets,
             )
         }) {
             awaitUntil { it.defaults != null }.defaults!!.eventSink(VisibilityEvent.ActivityChanged(Visibility.SELF))
@@ -196,6 +220,7 @@ class SettingsPresenterTest {
                 repos.privacy,
                 moderation,
                 repos.segmentPrefs,
+                repos.leaderboardBrackets,
             )
         }) {
             val loaded = awaitUntil { it.segmentMatching != null }
@@ -225,6 +250,7 @@ class SettingsPresenterTest {
                 repos.privacy,
                 moderation,
                 repos.segmentPrefs,
+                repos.leaderboardBrackets,
             )
         }) {
             val off = awaitUntil { it.segmentMatching != null && it.showOnLeaderboards != null }
@@ -252,6 +278,101 @@ class SettingsPresenterTest {
     }
 
     @Test
+    fun bracketBoardsWriteOnlyBracketsAndAFailureKeepsTheChoice() = runTest {
+        fixture.privateDetails = """{"details":{"birthDate":"1984-03-02","weight":70000,"height":1700}}"""
+        fixture.segmentPrefs = """{"matching":true,"updatedAt":"2026-10-15T12:00:00Z"}"""
+        val repos = fixture.repos()
+        val moderation = fixture.moderation()
+        presenterTestOf({
+            SettingsPresenter(
+                FakeNavigator(SettingsScreen),
+                repos.units,
+                repos.auth,
+                repos.defaults,
+                repos.privacy,
+                moderation,
+                repos.segmentPrefs,
+                repos.leaderboardBrackets,
+            )
+        }) {
+            val off = awaitUntil { it.segmentMatching == true && it.bracketBoards != null }
+            assertEquals(false, off.bracketBoards, "off by default")
+            assertTrue(off.canUseBracketBoards)
+            off.eventSink(SettingsEvent.BracketBoardsChanged(true))
+            val on = awaitUntil { it.bracketBoards == true && !it.savingBracketBoards }
+            assertNull(on.error)
+            val stored = AtJson.parseToJsonElement(fixture.leaderboardBrackets!!).jsonObject
+            assertEquals("65-74", stored.getValue("weightClass").jsonPrimitive.content)
+            assertFalse("1984" in stored.toString() || "70000" in stored.toString(), "brackets only")
+
+            fixture.failWrites = true
+            on.eventSink(SettingsEvent.BracketBoardsChanged(false))
+            val failed = awaitUntil { it.error != null && !it.savingBracketBoards }
+            assertEquals(UiError.Kind.SaveSettings, failed.error?.kind)
+            assertEquals(true, failed.bracketBoards, "the saved choice")
+
+            fixture.failWrites = false
+            failed.eventSink(SettingsEvent.BracketBoardsChanged(false))
+            awaitUntil { it.bracketBoards == false && !it.savingBracketBoards }
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertNull(fixture.leaderboardBrackets, "off deletes the record")
+    }
+
+    @Test
+    fun bracketBoardsArentOfferedWhileMatchingIsOff() = runTest {
+        val repos = fixture.repos()
+        val moderation = fixture.moderation()
+        presenterTestOf({
+            SettingsPresenter(
+                FakeNavigator(SettingsScreen),
+                repos.units,
+                repos.auth,
+                repos.defaults,
+                repos.privacy,
+                moderation,
+                repos.segmentPrefs,
+                repos.leaderboardBrackets,
+            )
+        }) {
+            val loaded = awaitUntil { it.segmentMatching == false && it.bracketBoards != null }
+            assertEquals(false, loaded.bracketBoards)
+            // Ignored: the UI doesn't offer it, and nothing is saved.
+            loaded.eventSink(SettingsEvent.BracketBoardsChanged(true))
+            assertFalse(loaded.savingBracketBoards)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertNull(fixture.leaderboardBrackets)
+    }
+
+    @Test
+    fun anOldGrantCantUseBracketBoards() = runTest {
+        fixture.scope =
+            "atproto transition:generic space:${Nsid.SPACE_ATHLETE}?collection=${Nsid.ACTOR_SEGMENT_PREFS}" +
+                "&collection=${Nsid.FEED_SEGMENT_TRACK}"
+        fixture.segmentPrefs = """{"matching":true,"updatedAt":"2026-10-15T12:00:00Z"}"""
+        val repos = fixture.repos()
+        val moderation = fixture.moderation()
+        presenterTestOf({
+            SettingsPresenter(
+                FakeNavigator(SettingsScreen),
+                repos.units,
+                repos.auth,
+                repos.defaults,
+                repos.privacy,
+                moderation,
+                repos.segmentPrefs,
+                repos.leaderboardBrackets,
+            )
+        }) {
+            val loaded = awaitUntil { it.segmentMatching == true }
+            assertFalse(loaded.canUseBracketBoards)
+            assertNull(loaded.bracketBoards)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun aFailedSegmentMatchingSaveKeepsItOffAndShowsAnError() = runTest {
         val repos = fixture.repos()
         val moderation = fixture.moderation()
@@ -264,6 +385,7 @@ class SettingsPresenterTest {
                 repos.privacy,
                 moderation,
                 repos.segmentPrefs,
+                repos.leaderboardBrackets,
             )
         }) {
             val loaded = awaitUntil { it.segmentMatching != null }
@@ -292,6 +414,7 @@ class SettingsPresenterTest {
                 repos.privacy,
                 moderation,
                 repos.segmentPrefs,
+                repos.leaderboardBrackets,
             )
         }) {
             val state = awaitItem()
@@ -316,6 +439,7 @@ class SettingsPresenterTest {
                 repos.privacy,
                 moderation,
                 repos.segmentPrefs,
+                repos.leaderboardBrackets,
             )
         }) {
             val loaded = awaitUntil { it.segmentMatching != null }

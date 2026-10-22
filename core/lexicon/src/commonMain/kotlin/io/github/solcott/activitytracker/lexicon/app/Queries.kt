@@ -313,7 +313,7 @@ object GetSegmentEfforts {
 /**
  * A segment's leaderboard (segments/segment-leaderboards): each athlete's fastest ranked effort the viewer may see, fastest first, plus the
  * viewer's own entry. Only an active segment has entries. `NotFound` when the segment isn't served; `InvalidRequest` for an unknown
- * [Params.period] or [Params.scope], or [LeaderboardScope.FOLLOWING] without a viewer.
+ * [Params.period], [Params.scope] or bracket, or [LeaderboardScope.FOLLOWING] without a viewer.
  */
 object GetSegmentLeaderboard {
     @Serializable
@@ -325,6 +325,12 @@ object GetSegmentLeaderboard {
         val scope: String? = null,
         /** The e-bike board; null means false. */
         val eBike: Boolean? = null,
+        /** A [LeaderboardAgeGroup] value: only athletes in it (segments/leaderboard-brackets). Null means every athlete. */
+        val ageGroup: String? = null,
+        /** A [LeaderboardWeightClass] value: only athletes in it. Null means every athlete. */
+        val weightClass: String? = null,
+        /** A [LeaderboardGender] value: only athletes of it. Null means every athlete. */
+        val gender: String? = null,
         val limit: Int? = null,
         val cursor: String? = null,
     )
@@ -350,6 +356,47 @@ object LeaderboardScope {
     const val FOLLOWING = "following"
 
     val all = listOf(EVERYONE, FOLLOWING)
+}
+
+/** Known values of [GetSegmentLeaderboard.Params.ageGroup] and [LeaderboardBracketsRecord.ageGroup]: Strava's, by whole years of age. */
+object LeaderboardAgeGroup {
+    const val UNDER_20 = "0-19"
+    const val FROM_20 = "20-24"
+    const val FROM_25 = "25-34"
+    const val FROM_35 = "35-44"
+    const val FROM_45 = "45-54"
+    const val FROM_55 = "55-64"
+    const val FROM_65 = "65-69"
+    const val FROM_70 = "70-74"
+    const val FROM_75 = "75+"
+
+    val all = listOf(UNDER_20, FROM_20, FROM_25, FROM_35, FROM_45, FROM_55, FROM_65, FROM_70, FROM_75)
+}
+
+/**
+ * Known values of [GetSegmentLeaderboard.Params.weightClass] and [LeaderboardBracketsRecord.weightClass]: Strava's, by whole kilograms
+ * rounded down.
+ */
+object LeaderboardWeightClass {
+    const val UNDER_55 = "0-54"
+    const val FROM_55 = "55-64"
+    const val FROM_65 = "65-74"
+    const val FROM_75 = "75-84"
+    const val FROM_85 = "85-94"
+    const val FROM_95 = "95-104"
+    const val FROM_105 = "105-114"
+    const val FROM_115 = "115+"
+
+    val all = listOf(UNDER_55, FROM_55, FROM_65, FROM_75, FROM_85, FROM_95, FROM_105, FROM_115)
+}
+
+/** Known values of [GetSegmentLeaderboard.Params.gender] and [LeaderboardBracketsRecord.gender]: the profile's known genders. */
+object LeaderboardGender {
+    const val FEMALE = "female"
+    const val MALE = "male"
+    const val NON_BINARY = "nonBinary"
+
+    val all = listOf(FEMALE, MALE, NON_BINARY)
 }
 
 /**

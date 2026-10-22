@@ -18,6 +18,8 @@ import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardGender
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
 import io.github.solcott.uistate.LoadStatus
@@ -135,6 +137,35 @@ class SegmentLeaderboardPresenterTest {
                     mapOf("segment" to uri, "period" to "month", "scope" to "everyone"),
                     mapOf("segment" to uri, "period" to "month", "scope" to "following"),
                     mapOf("segment" to uri, "period" to "month", "scope" to "following", "eBike" to "true"),
+                ),
+                requests,
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun bracketFiltersCombineAndReloadFromTheFirstPage() = runTest {
+        val segments = segments()
+        presenterTestOf({ SegmentLeaderboardPresenter(screen, FakeNavigator(screen), segments) }) {
+            val first = awaitUntil { it.answered }
+            assertNull(first.ageGroup, "every age by default")
+            first.eventSink(SegmentLeaderboardEvent.AgeGroupChanged(LeaderboardAgeGroup.FROM_45))
+            awaitUntil { requests.size == 2 && it.ageGroup == LeaderboardAgeGroup.FROM_45 && it.answered }
+                .eventSink(SegmentLeaderboardEvent.GenderChanged(LeaderboardGender.FEMALE))
+            val both = awaitUntil { requests.size == 3 && it.gender == LeaderboardGender.FEMALE && it.answered }
+            // An unknown class is ignored, so it changes nothing; clearing the age group reloads.
+            both.eventSink(SegmentLeaderboardEvent.WeightClassChanged("60-70"))
+            both.eventSink(SegmentLeaderboardEvent.AgeGroupChanged(null))
+            val cleared = awaitUntil { requests.size == 4 && it.ageGroup == null && it.answered }
+            assertNull(cleared.weightClass)
+
+            assertEquals(
+                listOf(
+                    mapOf("segment" to uri, "period" to "allTime", "scope" to "everyone"),
+                    mapOf("segment" to uri, "period" to "allTime", "scope" to "everyone", "ageGroup" to "45-54"),
+                    mapOf("segment" to uri, "period" to "allTime", "scope" to "everyone", "ageGroup" to "45-54", "gender" to "female"),
+                    mapOf("segment" to uri, "period" to "allTime", "scope" to "everyone", "gender" to "female"),
                 ),
                 requests,
             )

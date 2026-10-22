@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.data.activity.LegacyGroupMigration
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.profile.ProfileSetup
+import io.github.solcott.activitytracker.data.segments.LeaderboardBracketsRepository
 import io.github.solcott.activitytracker.data.units.UnitsRepository
 
 /** Everything that requires a signed-in account. Created per sign-in, dropped on sign-out. */
@@ -21,6 +22,7 @@ interface SessionGraph {
     val feedRepository: FeedRepository
     val unitsRepository: UnitsRepository
     val profileSetup: ProfileSetup
+    val leaderboardBrackets: LeaderboardBracketsRepository
 
     @GraphExtension.Factory
     interface Factory {

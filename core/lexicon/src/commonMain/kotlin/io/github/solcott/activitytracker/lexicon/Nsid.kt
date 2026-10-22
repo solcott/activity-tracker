@@ -26,6 +26,11 @@ object Nsid {
      * through the space, never from the firehose.
      */
     const val ACTOR_SEGMENT_PREFS = "$NAMESPACE.actor.segmentPrefs"
+    /**
+     * A record kept only in an athlete's `self` tier space ([SPACE_ATHLETE]), only while they've chosen age, weight and gender
+     * leaderboards: their brackets. Indexed from `self` only, through the space, never from the firehose.
+     */
+    const val ACTOR_LEADERBOARD_BRACKETS = "$NAMESPACE.actor.leaderboardBrackets"
     const val ACTOR_GET_PROFILE = "$NAMESPACE.actor.getProfile"
     const val ACTOR_SEARCH_ACTORS = "$NAMESPACE.actor.searchActors"
 
