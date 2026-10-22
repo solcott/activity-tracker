@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.segmentimporter
 
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.HIKE
+import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.PADDLE
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.RIDE
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.RUN
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup.SKI
@@ -98,6 +99,33 @@ class AgencyReaderTest {
             setOf("Beaver Pond", "Long Trail", "Oak Trail", "Ridge Path", "Valley Trail"),
             agency.ways.mapNotNull { it.name }.toSet(),
         )
+    }
+
+    @Test
+    fun everyKeyedLineKeepsItsOpenAndClosedGroups() {
+        val beaver = agency.lines.single { it.points.first() == GeoPoint(44.4134898, -72.64) }
+        assertEquals(setOf(RUN, HIKE), beaver.open, "the wilderness trail")
+        assertEquals(setOf(RIDE), beaver.closed)
+
+        val unnamed = agency.lines.single { it.points.first() == GeoPoint(44.4, -72.56) }
+        assertEquals(emptySet(), unnamed.open, "no name and no use, so no way, but its line still closes")
+        assertEquals(setOf(RIDE), unnamed.closed)
+        assertEquals(3, unnamed.points.size, "raw points")
+
+        assertEquals(2, agency.lines.count { it.points.first().lng == -72.6 }, "a line per part")
+        assertTrue(agency.lines.none { it.points.first().lng in listOf(-72.57, -72.58, -72.59) }, "keyless, planned and hidden")
+        assertEquals(3 + 1 + 1 + 1 + 1 + 2, agency.lines.size)
+    }
+
+    @Test
+    fun blmLinesCloseWhatTheirModesAndAccessLeaveOut() {
+        val blm = AgencyReader.read(listOf(AgencyRules.BLM to fixture("blm-trails.geojsonl")))
+        fun at(lng: Double) = blm.lines.single { it.points.first().lng == lng }
+        assertEquals(setOf(RIDE), at(-72.54).closed, "Mill Creek Rim, hiking and horses only")
+        assertEquals(setOf(RIDE, RUN, HIKE), at(-72.52).closed, "Wipeout Hill, motorcycles only")
+        assertEquals(setOf(RIDE, RUN, HIKE, SKI, PADDLE), at(-72.49).closed, "Permit Canyon")
+        assertEquals(setOf(RIDE, RUN, HIKE), at(-72.48).open, "unnamed, still open")
+        assertEquals(emptySet(), at(-72.5).closed, "a snow code")
     }
 
     @Test
