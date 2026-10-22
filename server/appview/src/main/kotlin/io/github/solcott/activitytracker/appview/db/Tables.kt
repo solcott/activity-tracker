@@ -73,6 +73,19 @@ object SegmentPrefs : Table("segment_prefs") {
 }
 
 /**
+ * An athlete's leaderboard brackets (`actor.leaderboardBrackets`), from their `self` space, while they've chosen age, weight and gender
+ * boards. Each bracket is null when absent or unknown. Used only to filter leaderboards; never served.
+ */
+object LeaderboardBrackets : Table("leaderboard_brackets") {
+    val did = varchar("did", 255)
+    val ageGroup = varchar("age_group", 16).nullable()
+    val weightClass = varchar("weight_class", 16).nullable()
+    val gender = varchar("gender", 16).nullable()
+    val updatedAt = long("updated_at")
+    override val primaryKey = PrimaryKey(did)
+}
+
+/**
  * An athlete's segment track (`feed.segmentTrack`): an activity's track trimmed by their privacy zones, from their `self` space. Its points
  * stay in the blob at [dataCid], read only while their [SegmentPrefs.matching] is on ([usableSegmentTracks]); never served.
  */

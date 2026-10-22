@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.appview
 
 import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
+import io.github.solcott.activitytracker.appview.db.LeaderboardBrackets
 import io.github.solcott.activitytracker.appview.db.SegmentMatchJobs
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
@@ -27,6 +28,7 @@ import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.jsonObject
@@ -107,6 +109,28 @@ class SegmentTracksTest {
     private fun usable(): List<String> = runBlocking { db.tx { usableSegmentTracks().map { it[SegmentTracks.uri] } } }
 
     private fun trackUri(rkey: String) = "at://$alice/${Nsid.FEED_SEGMENT_TRACK}/$rkey"
+
+    private fun brackets(age: String? = "35-44", weight: String? = "65-74", gender: String? = "female") =
+        """{"${'$'}type":"${Nsid.ACTOR_LEADERBOARD_BRACKETS}",""" +
+            age?.let { """"ageGroup":"$it",""" }.orEmpty() +
+            weight?.let { """"weightClass":"$it",""" }.orEmpty() +
+            gender?.let { """"gender":"$it",""" }.orEmpty() +
+            """"updatedAt":"2026-10-22T12:00:00Z"}"""
+
+    private fun putBrackets(json: String = brackets(), skey: String = AthleteSpace.SELF, rkey: String = "self") =
+        write(space(skey), Nsid.ACTOR_LEADERBOARD_BRACKETS, rkey, json)
+
+    /** Alice's stored brackets as (age group, weight class, gender); null when she has no row. */
+    private fun storedBrackets(): Triple<String?, String?, String?>? = runBlocking {
+        db.tx {
+            LeaderboardBrackets.selectAll()
+                .where { LeaderboardBrackets.did eq alice }
+                .singleOrNull()
+                ?.let { Triple(it[LeaderboardBrackets.ageGroup], it[LeaderboardBrackets.weightClass], it[LeaderboardBrackets.gender]) }
+        }
+    }
+
+    private fun bracketRows(): Long = runBlocking { db.tx { LeaderboardBrackets.selectAll().count() } }
 
     @Test
     fun segmentTracksAndTheSettingAreIndexedFromSelf() {
@@ -283,6 +307,75 @@ class SegmentTracksTest {
         }
         assertEquals(emptyList(), trackRows())
         assertEquals(0L, prefsRows())
+    }
+
+    @Test
+    fun bracketsAreIndexedFromSelfOnly() {
+        putBrackets()
+        assertEquals(Triple("35-44", "65-74", "female"), storedBrackets())
+
+        runBlocking { db.tx { LeaderboardBrackets.deleteAll() } }
+        putBrackets(skey = Visibility.FOLLOWERS)
+        putBrackets(skey = AthleteSpace.INTERACTIONS)
+        putBrackets(rkey = "other")
+        assertEquals(0L, bracketRows())
+    }
+
+    @Test
+    fun bracketsInARepoAreIgnored() {
+        assertFalse(Nsid.ACTOR_LEADERBOARD_BRACKETS in Nsid.indexedCollections)
+        runBlocking {
+            indexer.handle(
+                JetstreamEvent.Commit(
+                    did = alice,
+                    time = "2026-10-22T12:00:00.000000Z",
+                    operation = "create",
+                    collection = Nsid.ACTOR_LEADERBOARD_BRACKETS,
+                    rkey = "self",
+                    record = AtJson.parseToJsonElement(brackets()).jsonObject,
+                    cid = "bafybrackets",
+                )
+            )
+        }
+        assertEquals(0L, bracketRows())
+    }
+
+    @Test
+    fun unknownAndMissingBracketsAreStoredAsAbsent() {
+        putBrackets(brackets(age = "40-49", weight = null, gender = "a description of my own"))
+        assertEquals(Triple(null, null, null), storedBrackets())
+
+        putBrackets(brackets(gender = null))
+        val stored = storedBrackets()
+        assertEquals("35-44", stored?.first)
+        assertNull(stored?.third)
+    }
+
+    @Test
+    fun bracketsGoWithTheirRecordTheSelfSpaceAndTheAccount() {
+        putBrackets()
+        runBlocking { indexer.spaceDelete(space(AthleteSpace.SELF), Nsid.ACTOR_LEADERBOARD_BRACKETS, "self") }
+        assertNull(storedBrackets())
+
+        putBrackets()
+        runBlocking { indexer.dropSpace(space(Visibility.FOLLOWERS)) }
+        assertEquals(1L, bracketRows(), "another tier's deletion leaves them")
+        runBlocking { indexer.dropSpace(space(AthleteSpace.SELF)) }
+        assertNull(storedBrackets())
+
+        putBrackets()
+        setMatching(false)
+        assertEquals(1L, bracketRows(), "matching off leaves the brackets")
+        runBlocking {
+            indexer.handle(
+                JetstreamEvent.Account(
+                    did = alice,
+                    time = "2026-10-22T12:00:00.000000Z",
+                    account = JetstreamEvent.Account.Body(alice, active = false, status = "deleted"),
+                )
+            )
+        }
+        assertNull(storedBrackets())
     }
 
     private val activityRecord =

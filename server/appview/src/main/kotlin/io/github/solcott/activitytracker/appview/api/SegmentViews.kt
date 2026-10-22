@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.Follows
+import io.github.solcott.activitytracker.appview.db.LeaderboardBrackets
 import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
@@ -23,9 +24,12 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentEfforts
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentLeaderboard
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardGender
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardWeightClass
 import io.github.solcott.activitytracker.lexicon.app.NotRanked
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
@@ -197,6 +201,7 @@ class SegmentViews(
      */
     suspend fun leaderboard(viewer: Did?, params: GetSegmentLeaderboard.Params): GetSegmentLeaderboard.Output {
         val (since, following) = filtersOf(viewer, params)
+        val brackets = bracketsOf(params)
         return db.tx {
             val status =
                 Segments.select(Segments.status)
@@ -204,7 +209,7 @@ class SegmentViews(
                     .firstOrNull()
                     ?.get(Segments.status) ?: throw notFound("Segment not found")
             if (status != SegmentStatus.ACTIVE) return@tx GetSegmentLeaderboard.Output(emptyList())
-            val board = boardOf(viewer, params.segment.value, params.eBike == true, since, following)
+            val board = boardOf(viewer, params.segment.value, params.eBike == true, since, following) and brackets
             val limit = Paging.clamp(params.limit)
             val after =
                 params.cursor?.let(::parseCursor)?.let { (best, did) ->
@@ -454,6 +459,31 @@ class SegmentViews(
         val following = scope == LeaderboardScope.FOLLOWING
         if (following && viewer == null) invalidRequest("The following scope needs a signed-in viewer")
         return periodStart(period) to following
+    }
+
+    /**
+     * The athletes [params]' age group, weight class and gender filters admit (segments/leaderboard-brackets): those whose indexed brackets
+     * match every filter given, so an athlete without brackets is on no filtered board. `InvalidRequest` for an unknown value.
+     */
+    private fun bracketsOf(params: GetSegmentLeaderboard.Params): Op<Boolean> {
+        val filters =
+            listOf(
+                    Triple(params.ageGroup, LeaderboardAgeGroup.all, LeaderboardBrackets.ageGroup),
+                    Triple(params.weightClass, LeaderboardWeightClass.all, LeaderboardBrackets.weightClass),
+                    Triple(params.gender, LeaderboardGender.all, LeaderboardBrackets.gender),
+                )
+                .mapNotNull { (value, known, column) ->
+                    value?.let {
+                        if (it !in known) invalidRequest("Unknown bracket $it")
+                        column eq it
+                    }
+                }
+        if (filters.isEmpty()) return Op.TRUE
+        return exists(
+            LeaderboardBrackets.select(LeaderboardBrackets.did).where {
+                filters.fold(LeaderboardBrackets.did eq SegmentEfforts.authorDid) { all, filter -> all and filter }
+            }
+        )
     }
 
     /** The first local date of [period] by the AppView's UTC date, as `YYYY-MM-DD`; null for all time. */

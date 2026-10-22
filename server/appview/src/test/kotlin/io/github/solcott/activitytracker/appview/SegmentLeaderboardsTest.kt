@@ -59,6 +59,19 @@ class SegmentLeaderboardsTest : SegmentTestBase() {
     private suspend fun HttpClient.board(viewer: String? = null, vararg params: Pair<String, String>) =
         xrpcOk(GetSegmentLeaderboard.method, mapOf("segment" to segmentUri("3ks", carol)) + params, viewer)
 
+    /** [did]'s leaderboard brackets, as their client writes them to `self` once they choose bracket boards. */
+    private fun brackets(did: String, age: String? = null, weight: String? = null, gender: String? = null) =
+        spaceWrite(
+            self(did),
+            Nsid.ACTOR_LEADERBOARD_BRACKETS,
+            "self",
+            """{"${'$'}type":"${Nsid.ACTOR_LEADERBOARD_BRACKETS}",""" +
+                age?.let { """"ageGroup":"$it",""" }.orEmpty() +
+                weight?.let { """"weightClass":"$it",""" }.orEmpty() +
+                gender?.let { """"gender":"$it",""" }.orEmpty() +
+                """"updatedAt":"2026-10-22T12:00:00Z"}""",
+        )
+
     private val List<LeaderboardEntry>.places
         get() = map { it.athlete.did.value to it.rank }
 
@@ -133,6 +146,9 @@ class SegmentLeaderboardsTest : SegmentTestBase() {
         assertEquals("InvalidRequest", client.xrpcError(method, mapOf("segment" to segment, "scope" to "following")))
         assertEquals("InvalidRequest", client.xrpcError(method, mapOf("segment" to segment, "period" to "decade"), alice))
         assertEquals("InvalidRequest", client.xrpcError(method, mapOf("segment" to segment, "scope" to "club"), alice))
+        assertEquals("InvalidRequest", client.xrpcError(method, mapOf("segment" to segment, "ageGroup" to "40-49")))
+        assertEquals("InvalidRequest", client.xrpcError(method, mapOf("segment" to segment, "weightClass" to "60-70")))
+        assertEquals("InvalidRequest", client.xrpcError(method, mapOf("segment" to segment, "gender" to "other")))
     }
 
     @Test
@@ -152,6 +168,34 @@ class SegmentLeaderboardsTest : SegmentTestBase() {
         val board = client.board(bob, "scope" to "following")
         assertEquals(listOf(alice to 1, bob to 2), board.entries.places)
         assertEquals(bob to 2, board.viewer?.let { it.athlete.did.value to it.rank })
+    }
+
+    @Test
+    fun bracketBoardsListOnlyAthletesInEveryBracket() = testApplication {
+        start()
+        segment("3ks", did = carol)
+        effort(carol, "3kc", speed = 9.0)
+        effort(alice, "3ka", speed = 8.0)
+        effort(dave, "3kd", speed = 6.0)
+        effort(bob, "3kb", speed = 5.0)
+        brackets(alice, age = "35-44", weight = "55-64", gender = "female")
+        brackets(dave, age = "45-54", gender = "female")
+        brackets(bob, age = "35-44", weight = "75-84", gender = "male")
+        matchActive()
+
+        assertEquals(listOf(carol to 1, alice to 2, dave to 3, bob to 4), client.board().entries.places, "unfiltered: everyone")
+        assertEquals(listOf(alice to 1, bob to 2), client.board(null, "ageGroup" to "35-44").entries.places, "Carol has no brackets")
+        assertEquals(listOf(alice to 1, dave to 2), client.board(null, "gender" to "female").entries.places)
+        assertEquals(listOf(alice to 1), client.board(null, "gender" to "female", "weightClass" to "55-64").entries.places)
+        assertEquals(emptyList(), client.board(null, "weightClass" to "65-74").entries.places, "Dave gave no weight")
+
+        val bobs = client.board(bob, "ageGroup" to "35-44", "limit" to "1")
+        assertEquals(bob to 2, bobs.viewer?.let { it.athlete.did.value to it.rank }, "ranked within the bracket")
+        assertNull(client.board(bob, "gender" to "female").viewer, "not in the bracket")
+
+        // Turning brackets off takes Alice off every filtered board.
+        runBlocking { indexer.spaceDelete(self(alice), Nsid.ACTOR_LEADERBOARD_BRACKETS, "self") }
+        assertEquals(listOf(bob to 1), client.board(null, "ageGroup" to "35-44").entries.places)
     }
 
     @Test
