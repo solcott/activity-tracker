@@ -13,38 +13,29 @@ Paged lists load through the app's own `CursorPaging` (`app/presenters/.../Curso
 
 The activity page's comments use a second, hand-rolled pager: generation guard, first-load flag, load-more and per-thread replies. It has the same gaps.
 
-**Decision (explore session):** paging goes into kmp-dataresult as a library module, so the app has one load pattern everywhere. This change is the app's side, and it records what the library must provide.
+**Decision (explore session):** paging goes into kmp-dataresult as a library module, so the app has one load pattern everywhere. This change is the app's side.
 
 This is step 5 of moving the rest of the app onto kmp-dataresult.
 
 ## What Changes
 
-**In kmp-dataresult** (separate work in that repository, which this change depends on):
-- **A paged state in `uistate`.** A page is just another emission: a `PagedState<T, M>` folds `Outcome<Page<T, M>>` the way `ContentState` folds `Outcome<T>`. It holds:
-  - the items so far, de-duplicated by id;
-  - `meta`, the first page's header (the leaderboard's viewer entry, the follow list's subject);
-  - `origin`;
-  - separate `refresh` and `append` `LoadStatus`es;
-  - `endReached`.
-- **A retained `Paging` holder in `uistate-circuit`** with `loadMore()`, `retry()` (which retries what failed: a refresh, or only the next page), `refresh()` and `update {}` for optimistic edits.
-- **Rules it must follow:**
-  - A failed refresh keeps the items.
-  - A failed page keeps the earlier pages.
-  - A new key either keeps the old items until the new first page settles (search) or clears them (filters), as the caller chooses.
-  - It must satisfy the library's Swift-export rules (sealed classes, no Compose types in `uistate`).
-- **Open questions for the library design:**
-  - Should the cursor type be generic or `String`?
-  - Should a cached (Room) first page be supported, so the feed could page later?
-  - Does nested reply paging need first-class support, or one `Paging` per thread?
-  - Should keeping or clearing items on a new key be a parameter or two entry points?
+**In kmp-dataresult** (done): the library's `add-paging` change ([solcott/kmp-dataresult#27](https://github.com/solcott/kmp-dataresult/pull/27), archived as `openspec/changes/archive/2026-10-21-add-paging/`) added the [`uistate/paging`](https://github.com/solcott/kmp-dataresult/blob/main/openspec/specs/uistate/paging/spec.md) spec:
+- `Page<T, M>` and `PagedState<T, M>` in `uistate`, which fold `Outcome<Page<T, M>>` the way `ContentState` folds `Outcome<T>`, with separate `refresh` and `append` `LoadStatus`es.
+- `rememberRetainedPaging` in `uistate-circuit`, which returns a retained `Paging` with `loadMore()`, `retry()` (only what failed), `refresh()` and `update {}`. Its loader returns `Flow<Outcome<Page<T, M>>>`, and a one-shot read is `flow { emit(...) }`.
+
+Its design settled the open questions:
+- **Cursor:** `String` (`Page.next: String?`).
+- **Cached first page:** supported through the same fold. Each page's flow may re-emit, so the feed could page later without new API.
+- **Nested replies:** one `Paging` per thread, started from the thread's first replies with `initial`.
+- **New key:** `onKeyChange: OnKeyChange`, defaulting to `KeepItems`; filters pass `ClearItems`.
 
 **In this app:**
-- **Paged reads as outcomes.** Repository page reads return `Outcome<Page>` through `outcomeOf`.
+- **Paged reads as outcomes.** Repository page reads return `Outcome<Page<T, M>>` (the library's `Page`) through `outcomeOf`.
 - **These screens move to library paging:**
   - BlockList (blocks and mutes);
   - FollowList (followers and following, with the subject as meta);
   - AthleteSearch (keeps the old results while a new query loads; the presenter keeps its 300 ms debounce);
-  - the activity page's comments and replies.
+  - the activity page's comments and replies (one `Paging` per thread, as the library's design describes).
 - **`CursorPaging` and its test are removed** once nothing uses them. The segment screens' paged lists (leaderboard, starred segments) move in `load-segment-screens`.
 
 ## Capabilities
@@ -59,9 +50,7 @@ None.
 
 ## Impact
 
-- **kmp-dataresult:** new API in `uistate` and `uistate-circuit`, with its ABI dumps, tests and README.
-  - That design should be captured in the library repository, which has no OpenSpec today: either set OpenSpec up there, or write a design doc.
-  - Then a snapshot or release that includes the new API.
+- **kmp-dataresult:** the paging API is merged but not yet published. This change needs a snapshot or release that includes it.
 - **`core/data`:** page reads for blocks, mutes, followers, follows, athlete search and comments.
 - **`app/presenters`:**
   - BlockList, FollowList and AthleteSearch.
@@ -70,6 +59,6 @@ None.
 - **Removed:** `CursorPaging.kt` and `CursorPagingTest`.
 - **`composeApp`:** paged list UIs render refresh and append states (a footer spinner, an inline retry for a failed page).
 - **Depends on:**
-  - the kmp-dataresult paging module;
+  - a kmp-dataresult build with `uistate/paging`;
   - `error-reasons`;
   - `load-activity-detail` (for comments).
