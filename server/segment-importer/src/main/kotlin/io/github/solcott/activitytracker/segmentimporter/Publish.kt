@@ -11,7 +11,6 @@ import io.github.solcott.activitytracker.lexicon.app.GetRiddenSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidate
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
-import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.atproto.CreateRecord
 import io.github.solcott.activitytracker.lexicon.atproto.GetRecord
 import kotlin.coroutines.cancellation.CancellationException
@@ -27,8 +26,9 @@ internal data class PublishResult(
 
 /**
  * Publishes [region]'s ridden candidates (segments/segment-import): each one `feed.checkSegment` finds no live duplicate of becomes a
- * `feed.segment` in the service account's repo, keyed by its id. A key the repo already holds is never written again, so a published
- * segment is never doubled or rewritten. Stops at the first failed call, keeping what it did; running again carries on.
+ * `feed.segment` in the service account's repo, keyed by its id, with its own source, licence and attribution. A key the repo already holds
+ * is never written again, so a published segment is never doubled or rewritten. Stops at the first failed call, keeping what it did;
+ * running again carries on.
  */
 internal suspend fun publish(clients: Clients, region: String, clock: Clock = Clock.System): PublishResult {
     val published = mutableListOf<String>()
@@ -85,9 +85,10 @@ private suspend fun create(clients: Clients, repo: Did, candidate: SegmentCandid
             name = candidate.name,
             sport = candidate.sport,
             line = candidate.line,
-            source = SegmentSource.OSM,
-            license = LICENSE_OSM,
+            source = candidate.source,
+            license = candidate.license,
             createdAt = clock.now(),
+            attribution = candidate.attribution,
         )
     return try {
         clients.pds.procedure(

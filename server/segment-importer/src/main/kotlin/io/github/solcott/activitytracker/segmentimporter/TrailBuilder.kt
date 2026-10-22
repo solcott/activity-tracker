@@ -10,6 +10,8 @@ import io.github.solcott.activitytracker.location.GeoPoint
 @Suppress("LongParameterList") // The trail's line and what each of its edges allows.
 internal class Trail(
     val name: String,
+    /** The rules of the source its ways came from: a trail never mixes sources, since they share no nodes. */
+    val rules: TrailRules,
     val group: String,
     val fromRelation: Boolean,
     val nodes: LongArray,
@@ -42,7 +44,7 @@ internal object TrailBuilder {
      */
     private fun namedTrails(ways: Collection<OsmWay>, data: OsmData): List<Trail> =
         ways
-            .flatMap { way -> way.name?.let { name -> TrailTags.wayGroups(way.tags).map { group -> Triple(group, name, way) } }.orEmpty() }
+            .flatMap { way -> way.name?.let { name -> way.rules.wayGroups(way.tags).map { group -> Triple(group, name, way) } }.orEmpty() }
             .groupBy({ (group, name, _) -> group to name }, { it.third })
             .flatMap { (key, named) ->
                 val (group, name) = key
@@ -72,7 +74,7 @@ internal object TrailBuilder {
             }
 
     /**
-     * Each named route relation's way members, in order, joined end to end and reversed as needed. Ways that are [TrailTags.excluded] or
+     * Each named route relation's way members, in order, joined end to end and reversed as needed. Ways that are [TrailRules.excluded] or
      * missing are left out, and a member that doesn't join starts a new trail, so a relation with gaps gives one trail per joined stretch.
      */
     private fun relationTrails(relations: List<OsmRelation>, ways: Map<Long, OsmWay>, data: OsmData): List<Trail> =
@@ -80,10 +82,7 @@ internal object TrailBuilder {
             val name = relation.name ?: return@flatMap emptyList()
             val groups = TrailTags.relationGroups(relation.tags)
             val members =
-                relation.members
-                    .filter { it.type == OsmMember.Type.WAY }
-                    .mapNotNull { ways[it.ref] }
-                    .filter { !TrailTags.excluded(it.tags) }
+                relation.members.filter { it.type == OsmMember.Type.WAY }.mapNotNull { ways[it.ref] }.filter { !it.rules.excluded(it.tags) }
             val stretches = mutableListOf<MutableList<Placed>>()
             for (way in members) {
                 val current = stretches.lastOrNull()
@@ -123,7 +122,7 @@ internal object TrailBuilder {
         for (placed in chain) {
             val wayNodes = placed.nodes
             if (nodes.isEmpty()) nodes += wayNodes.first()
-            val (along, against) = TrailTags.directions(placed.way.tags, group)
+            val (along, against) = placed.way.rules.directions(placed.way.tags, group)
             repeat(wayNodes.size - 1) {
                 edgeWays += placed.way.id
                 edgeReversed += placed.reversed
@@ -134,6 +133,7 @@ internal object TrailBuilder {
         }
         return Trail(
             name = name,
+            rules = chain.first().way.rules,
             group = group,
             fromRelation = fromRelation,
             nodes = nodes.toLongArray(),

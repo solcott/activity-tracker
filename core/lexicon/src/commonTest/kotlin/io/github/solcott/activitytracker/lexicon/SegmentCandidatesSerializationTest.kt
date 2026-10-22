@@ -38,6 +38,12 @@ class SegmentCandidatesSerializationTest {
         )
         assertEquals(input, AtJson.decodeFromJsonElement(PutSegmentCandidates.Input.serializer(), json))
 
+        val agency =
+            candidate.copy(id = "agency-1", source = SegmentSource.AGENCY, license = "CC0-1.0", attribution = "National Park Service")
+        val agencyJson = AtJson.encodeToJsonElement(SegmentCandidate.serializer(), agency).jsonObject
+        assertEquals(setOf("id", "sport", "name", "line", "source", "license", "attribution"), agencyJson.keys)
+        assertEquals(agency, AtJson.decodeFromJsonElement(SegmentCandidate.serializer(), agencyJson))
+
         val output = PutSegmentCandidates.Output(listOf(SegmentCandidateRejection("osm-way-9", "a line of 120 m")))
         assertEquals(
             output,

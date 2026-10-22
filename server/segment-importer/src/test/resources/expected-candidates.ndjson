@@ -1,4 +1,4 @@
-{"region":"test-region","extractTimestamp":"2026-10-01T00:00:00Z","importerVersion":1}
+{"region":"test-region","extractTimestamp":"2026-10-01T00:00:00Z","importerVersion":2}
 {"id":"56txtcpbun3rvwhw77p3lxsdwz","region":"test-region","sport":"run","name":"Ridge Loop (northbound)","line":"_w}tsA~b`siC{xN?","lengthMeters":900,"source":"osm","license":"ODbL-1.0","osmWays":[150,151,152]}
 {"id":"57emkf2hb3j3xkg22j4ksm4r67","region":"test-region","sport":"run","name":"Plunge","line":"uxkusA~`yqiCt`M?","lengthMeters":800,"source":"osm","license":"ODbL-1.0","osmWays":[160]}
 {"id":"6ejcylwpb6fslqbfow7lba4t4n","region":"test-region","sport":"run","name":"Oak Trail (part 2)","line":"cbxusA~dgtiCe|j@?","lengthMeters":2500,"source":"osm","license":"ODbL-1.0","osmWays":[100,101]}

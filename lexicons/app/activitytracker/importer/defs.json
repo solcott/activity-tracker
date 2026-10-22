@@ -12,7 +12,8 @@
         "name": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "Not empty once trimmed." },
         "line": { "type": "string", "maxLength": 100000, "description": "The line from start to end as an encoded polyline at precision 6, as feed.segment#line." },
         "source": { "type": "string", "maxLength": 64, "knownValues": ["athlete", "osm", "agency"], "description": "Where the line came from, as feed.segment#source." },
-        "license": { "type": "string", "maxLength": 64, "description": "The licence of the line's data, as an SPDX identifier such as ODbL-1.0." }
+        "license": { "type": "string", "maxLength": 64, "description": "The licence of the line's data, as an SPDX identifier such as ODbL-1.0." },
+        "attribution": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "Who to credit for the line's data, as feed.segment#attribution. Blank is taken as none." }
       }
     },
     "rejection": {

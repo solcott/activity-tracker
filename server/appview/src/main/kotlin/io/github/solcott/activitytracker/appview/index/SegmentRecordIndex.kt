@@ -54,7 +54,7 @@ private const val E7 = 1e7
  * creator's [DAILY_SEGMENT_LIMIT] while [limited] (every creator but the segment importer). A new segment, or one whose line or sport
  * changed, loses its efforts, gets its status again (duplicate of the earliest live segment it duplicates, else proposed) and, unless a
  * duplicate, is queued to be matched against past tracks; the segments that duplicated its old version are checked again. A rename keeps
- * its status.
+ * its status. A blank or over-long attribution is left out of the stored record.
  */
 @Suppress("LongParameterList", "LongMethod") // The record, and where it's from; then each part of indexing it.
 internal fun JdbcTransaction.upsertSegment(
@@ -69,6 +69,8 @@ internal fun JdbcTransaction.upsertSegment(
     val record = AtJson.decodeFromJsonElement(SegmentRecord.serializer(), json)
     val name = validName(record.name)
     val line = validLine(record.sport, record.line)
+    // Only a credit: an out-of-bounds one is dropped, not the segment.
+    val attribution = runCatching { validAttribution(record.attribution) }.getOrNull()
 
     val old =
         Segments.select(Segments.line, Segments.sport, Segments.status, Segments.duplicateOf, Segments.firstIndexedAt)
@@ -87,7 +89,7 @@ internal fun JdbcTransaction.upsertSegment(
         it[Segments.name] = name.take(MAX_NAME_LENGTH)
         it[sport] = record.sport
         it[Segments.line] = record.line
-        it[Segments.record] = AtJson.encodeToString(SegmentRecord.serializer(), record.copy(name = name))
+        it[Segments.record] = AtJson.encodeToString(SegmentRecord.serializer(), record.copy(name = name, attribution = attribution))
         it[distanceM] = SegmentGeometry.lengthMeters(line).roundToLong()
         it[minLatE7] = line.minOf { p -> p.lat }.e7()
         it[maxLatE7] = line.maxOf { p -> p.lat }.e7()
@@ -112,6 +114,17 @@ internal fun validName(name: String): String {
     val trimmed = name.trim()
     require(trimmed.isNotEmpty()) { "an empty name" }
     require(graphemes(trimmed) <= MAX_NAME_GRAPHEMES) { "a name over $MAX_NAME_GRAPHEMES graphemes" }
+    return trimmed
+}
+
+/**
+ * [attribution] trimmed, if it's a valid credit: null when absent or blank, and at most [MAX_NAME_GRAPHEMES] graphemes in [MAX_NAME_LENGTH]
+ * characters. Throws [IllegalArgumentException] for a longer one.
+ */
+internal fun validAttribution(attribution: String?): String? {
+    val trimmed = attribution?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    require(trimmed.length <= MAX_NAME_LENGTH) { "an attribution over $MAX_NAME_LENGTH characters" }
+    require(graphemes(trimmed) <= MAX_NAME_GRAPHEMES) { "an attribution over $MAX_NAME_GRAPHEMES graphemes" }
     return trimmed
 }
 

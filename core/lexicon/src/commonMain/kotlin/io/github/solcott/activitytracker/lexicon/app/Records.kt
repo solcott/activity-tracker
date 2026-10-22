@@ -573,6 +573,8 @@ data class SegmentRecord(
     val createdAt: Instant,
     /** The activity the line was traced from, if any. */
     val derivedFrom: StrongRef? = null,
+    /** Who to credit for the line's data, such as "USDA Forest Service": at most 100 graphemes, shown only for [SegmentSource.AGENCY]. */
+    val attribution: String? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_SEGMENT,
 )
 

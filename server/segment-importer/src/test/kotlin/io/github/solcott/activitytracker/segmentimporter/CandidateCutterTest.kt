@@ -156,6 +156,58 @@ class CandidateCutterTest {
         assertNotEquals(CandidateCutter.idOf(RIDE, listOf(1), true, 10, 20), CandidateCutter.idOf(HIKE, listOf(1), true, 10, 20))
     }
 
+    /** Hiking candidates from a Forest Service dataset of one feature, `TRAIL_CN` 1001, through [points] (lat to lng). */
+    private fun agencyCandidates(points: List<Pair<Double, Double>>): List<Candidate> {
+        val coordinates = points.joinToString(",") { (lat, lng) -> "[$lng,$lat]" }
+        val file = kotlin.io.path.createTempFile("usfs", ".geojsonl").toFile()
+        file.writeText(
+            """{"type":"Feature","properties":{"TRAIL_NAME":"Long","TRAIL_CN":"1001","BMP":0,""" +
+                """"HIKER_PEDESTRIAN_MANAGED":"01/01-12/31"},"geometry":{"type":"LineString","coordinates":[$coordinates]}}""" +
+                "\n"
+        )
+        val data = OsmData(emptyList(), emptyList(), NodeCoords(LongArray(0))) + AgencyReader.read(listOf(AgencyRules.USFS to file))
+        return candidates(data, HIKE)
+    }
+
+    private val agencyLine = (0..4).map { north(44.4, it * 250.0) to -72.7 }
+
+    @Test
+    fun anAgencyCandidateKeepsItsIdWhenAnInteriorVertexMoves() {
+        val before = agencyCandidates(agencyLine)
+        val moved = agencyCandidates(agencyLine.mapIndexed { i, (lat, lng) -> if (i == 2) lat to lng + 0.00005 else lat to lng })
+        assertEquals(2, before.size)
+        assertEquals(before.map { it.id }, moved.map { it.id })
+        assertEquals(listOf("usfs:1001@0"), before.first().agencyFeatures)
+        assertEquals(
+            Triple("agency", "CC0-1.0", "USDA Forest Service"),
+            before.first().let { Triple(it.source, it.license, it.attribution) },
+        )
+        assertEquals(emptyList(), before.first().osmWays)
+    }
+
+    @Test
+    fun anAgencyCandidatesIdChangesWithItsEnds() {
+        val before = agencyCandidates(agencyLine).map { it.id }.toSet()
+        val longer = agencyCandidates(agencyLine + (north(44.4, 1100.0) to -72.7)).map { it.id }.toSet()
+        assertTrue(before.intersect(longer).isEmpty())
+        val nudged = agencyCandidates(agencyLine.dropLast(1) + (north(44.4, 1002.0) to -72.7)).map { it.id }.toSet()
+        assertTrue(before.intersect(nudged).isEmpty(), "two metres is past the 1e-5 degree rounding")
+    }
+
+    @Test
+    fun anAgencyLoopsTwoDirectionsHaveTheirOwnIds() {
+        val dLng = 250.0 / (111_195.0 * cos(44.4 * Math.PI / 180))
+        val square =
+            listOf(44.4 to -72.7, 44.4 to -72.7 + dLng, north(44.4, 250.0) to -72.7 + dLng, north(44.4, 250.0) to -72.7, 44.4 to -72.7)
+        val found = agencyCandidates(square)
+        assertEquals(2, found.size)
+        assertEquals(2, found.map { it.id }.toSet().size)
+        assertNotEquals(
+            CandidateCutter.agencyIdOf(HIKE, listOf("usfs:1"), true, GeoPoint(44.4, -72.7), GeoPoint(44.41, -72.7)),
+            CandidateCutter.idOf(HIKE, listOf(1), true, 1, 2),
+        )
+    }
+
     /** A loop of one closed way: 1 km around a square, drawn counterclockwise from its south-west corner. */
     private fun OsmBuilder.loop() {
         val dLng = 250.0 / (111_195.0 * cos(44.4 * Math.PI / 180))

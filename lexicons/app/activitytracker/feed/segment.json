@@ -29,6 +29,7 @@
             "description": "Where the line came from: an athlete's activity, OpenStreetMap or a public agency's dataset."
           },
           "license": { "type": "string", "maxLength": 64, "description": "The licence of the line's data, as an SPDX identifier such as CC0-1.0 or ODbL-1.0." },
+          "attribution": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "Who to credit for the line's data, such as a public agency (\"USDA Forest Service\"). Shown only for agency segments; the AppView drops a blank or over-long one." },
           "derivedFrom": { "type": "ref", "ref": "com.atproto.repo.strongRef", "description": "The activity the line was traced from, if any." },
           "createdAt": { "type": "string", "format": "datetime" }
         }
