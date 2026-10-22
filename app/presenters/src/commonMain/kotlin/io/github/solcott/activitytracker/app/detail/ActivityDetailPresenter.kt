@@ -124,7 +124,7 @@ fun ActivityDetailPresenter(
     // Said on this page until the athlete leaves it.
     val segmentsCreated by segmentEfforts.createdFrom.collectAsState()
     DisposableEffect(screen.uri) { onDispose { segmentEfforts.dismissCreated(uri) } }
-    val comments = rememberComments(uri, profiles.did, extrasKey, feed, flights)
+    val comments = rememberComments(uri, profiles.did, extrasKey, feed)
     // As served: the record without fields of narrower categories, and the details records of the tiers the viewer is admitted to.
     val served = activity?.let {
         shown(it, moves, rewrite?.let { r -> { a: ActivityView -> feed.rewrites.rewritten(a, r) } }, likeOverrides)

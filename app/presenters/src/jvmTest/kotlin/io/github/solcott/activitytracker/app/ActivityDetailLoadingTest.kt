@@ -170,7 +170,10 @@ class ActivityDetailLoadingTest : ActivityDetailTestBase() {
         commentsFromAppView = listOf(comment(carol, "did:plc:carol", "3kc1"))
         presenterTestOf(presenterOf(repos(), ActivityDetailScreen(activityUri, suggestOnOpen = true))) {
             val page = awaitUntil { it.page()?.let { p -> p.charts != null && p.comments.roots.size == 1 } == true }.page()!!
-            assertNull(page.comments.error, "read again once the AppView had the activity")
+            assertNull(
+                page.comments.refresh as? io.github.solcott.uistate.LoadStatus.Failed,
+                "read again once the AppView had the activity",
+            )
             cancelAndIgnoreRemainingEvents()
         }
     }

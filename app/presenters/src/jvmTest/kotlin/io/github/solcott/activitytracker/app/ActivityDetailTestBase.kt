@@ -48,6 +48,7 @@ import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.location.Gpx
 import io.github.solcott.activitytracker.location.LocationSample
+import io.github.solcott.uistate.LoadStatus
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -65,6 +66,14 @@ import kotlinx.serialization.json.jsonPrimitive
 /** The top-level comments of the listed threads, leaving out placeholders. */
 internal val CommentsPaging.roots: List<CommentView>
     get() = items.mapNotNull { it.root }
+
+/** Whether the first page, a reload or the next page of threads is loading. */
+internal val CommentsPaging.isLoading: Boolean
+    get() = refresh is LoadStatus.Loading || append is LoadStatus.Loading
+
+/** Why the first page, a reload or the next page of threads failed, as the page shows it; null when nothing failed. */
+internal val CommentsPaging.error: UiError?
+    get() = ((refresh as? LoadStatus.Failed) ?: (append as? LoadStatus.Failed))?.let { UiError(UiError.Kind.LoadComments, it.error) }
 
 /** The loaded page; null until the activity first loads. */
 internal fun ActivityDetailState.page(): ActivityDetailPage? = content.data
