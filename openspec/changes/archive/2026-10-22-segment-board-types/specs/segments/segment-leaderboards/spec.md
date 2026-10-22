@@ -49,7 +49,7 @@ A segment opened from an activity's segment list SHALL carry that activity's boa
 ## MODIFIED Requirements
 
 ### Requirement: The leaderboard screen
-The segment screen of an `active` segment SHALL open its leaderboard. The leaderboard screen SHALL list the entries with rank, athlete, time and date, and SHALL let the viewer choose the period and scope. It SHALL show the board's type, as a menu of the listed types when there's more than one, and choosing a type SHALL show its board from the first page. It SHALL load further pages as the viewer scrolls, and SHALL show the viewer's own entry when it isn't among those listed. Tapping an entry SHALL open its activity. A failed load SHALL show an error with a retry.
+The segment screen of an `active` segment SHALL open its leaderboard, which SHALL list the entries with rank, athlete, time and date, let the viewer choose the period and scope, and show the board's type, a menu when several types are listed; a new type SHALL show from the first page. It SHALL load more pages as the viewer scrolls and show the viewer's own entry when it isn't among those listed. Tapping an entry SHALL open its activity. A failed load SHALL show an error with a retry.
 
 #### Scenario: Open from segment
 - **WHEN** a viewer opens an active segment and chooses the leaderboard
