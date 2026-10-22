@@ -115,6 +115,9 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
                             Text(stringResource(Res.string.segment_leaderboard))
                         }
                     }
+                    state.mayor?.let { mayor ->
+                        MayorCard(mayor, onClick = { state.eventSink(SegmentEvent.OpenMayors) }, Modifier.padding(top = 12.dp))
+                    }
                 }
             }
             item { Text(stringResource(Res.string.segment_your_efforts), style = MaterialTheme.typography.titleMedium) }

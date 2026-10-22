@@ -7,6 +7,7 @@ import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.EffortView
+import io.github.solcott.activitytracker.lexicon.app.MayorEntry
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
@@ -30,12 +31,20 @@ data class SegmentState(
     val starred: Boolean? = null,
     /** Credit for the data the segment's line came from; null for an athlete's segment, or until loaded. */
     val credit: SegmentCredit? = null,
+    /**
+     * The segment's Mayor for the last 90 days and the viewer's own count (segments/segment-mayors); null when not shown: the segment isn't
+     * active, or the board hasn't loaded or failed to.
+     */
+    val mayor: MayorSummary? = null,
     val eventSink: (SegmentEvent) -> Unit = {},
 ) : CircuitUiState {
     /** [content]'s segment: the last loaded, or null before the first. */
     val segment: SegmentView?
         get() = content.data
 }
+
+/** An active segment's Mayors board in brief: its [leader], null when it has no Mayor yet, and the [viewer]'s own entry when on it. */
+@Immutable data class MayorSummary(val leader: MayorEntry?, val viewer: MayorEntry?)
 
 /**
  * Credit for the data a segment's line came from, by its record's `source` (segments/segment-records). Every screen that draws a segment's
@@ -70,4 +79,7 @@ sealed interface SegmentEvent {
 
     /** Opens the segment's leaderboard; offered only for an active segment. */
     data object OpenLeaderboard : SegmentEvent
+
+    /** Opens the segment's Mayors board (segments/segment-mayors); offered only for an active segment. */
+    data object OpenMayors : SegmentEvent
 }

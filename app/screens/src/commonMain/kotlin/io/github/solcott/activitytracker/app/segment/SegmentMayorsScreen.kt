@@ -1,0 +1,79 @@
+package io.github.solcott.activitytracker.app.segment
+
+import androidx.compose.runtime.Immutable
+import com.slack.circuit.runtime.CircuitUiState
+import com.slack.circuit.runtime.screen.Screen
+import com.slack.circuit.serialization.CircuitSerializable
+import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardGender
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardWeightClass
+import io.github.solcott.activitytracker.lexicon.app.MayorEntry
+import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
+import io.github.solcott.uistate.PagedState
+import io.github.solcott.uistate.pagedStateOf
+
+/**
+ * The Mayors board of the active segment at [uri] (segments/segment-mayors), titled [name]: athletes by how many efforts they have on it.
+ * [sport] is its sport group: a `ride` segment also offers its e-bike board.
+ */
+@CircuitSerializable(SessionScope::class) data class SegmentMayorsScreen(val uri: String, val name: String, val sport: String) : Screen
+
+@Immutable
+data class SegmentMayorsState(
+    val name: String,
+    /** A [MayorPeriod] value: the window the board counts. */
+    val period: String = MayorPeriod.LAST_90_DAYS,
+    /** A [LeaderboardScope] value. */
+    val scope: String = LeaderboardScope.EVERYONE,
+    /** Whether the e-bike board is shown; only offered when [canChooseEBike]. */
+    val eBike: Boolean = false,
+    val canChooseEBike: Boolean = false,
+    /** A [LeaderboardAgeGroup] value: only athletes in it (segments/leaderboard-brackets); null for every age. */
+    val ageGroup: String? = null,
+    /** A [LeaderboardWeightClass] value, in kilograms; null for every weight. */
+    val weightClass: String? = null,
+    /** A [LeaderboardGender] value; null for every gender. */
+    val gender: String? = null,
+    /**
+     * The chosen board's entries, most efforts first, a page at a time (ui/content-loading), with the viewer's own entry as its meta. A new
+     * choice starts from nothing, so no other board's entries show under it.
+     */
+    val entries: PagedState<MayorEntry, MayorEntry?> = pagedStateOf(),
+    /** The viewer's own entry, shown apart from [entries] when it isn't among them; null when they aren't on the board. */
+    val viewerEntry: MayorEntry? = null,
+    val eventSink: (SegmentMayorsEvent) -> Unit = {},
+) : CircuitUiState
+
+sealed interface SegmentMayorsEvent {
+    data object Back : SegmentMayorsEvent
+
+    /** Shows the board for [period], a [MayorPeriod] value, from its first page. */
+    data class PeriodChanged(val period: String) : SegmentMayorsEvent
+
+    /** Shows the board for [scope], a [LeaderboardScope] value, from its first page. */
+    data class ScopeChanged(val scope: String) : SegmentMayorsEvent
+
+    /** Shows the e-bike board, or the standard one, from its first page. */
+    data class EBikeChanged(val eBike: Boolean) : SegmentMayorsEvent
+
+    /** Shows only athletes in [ageGroup], a [LeaderboardAgeGroup] value, or every age when null, from its first page. */
+    data class AgeGroupChanged(val ageGroup: String?) : SegmentMayorsEvent
+
+    /** Shows only athletes in [weightClass], a [LeaderboardWeightClass] value, or every weight when null, from its first page. */
+    data class WeightClassChanged(val weightClass: String?) : SegmentMayorsEvent
+
+    /** Shows only athletes of [gender], a [LeaderboardGender] value, or every gender when null, from its first page. */
+    data class GenderChanged(val gender: String?) : SegmentMayorsEvent
+
+    /** Loads the next page; ignored while a page is loading or when there are no more. */
+    data object LoadMore : SegmentMayorsEvent
+
+    /** Tries the page that failed to load again. */
+    data object Retry : SegmentMayorsEvent
+
+    /** Opens an entry's athlete's profile. */
+    data class OpenAthlete(val did: Did) : SegmentMayorsEvent
+}

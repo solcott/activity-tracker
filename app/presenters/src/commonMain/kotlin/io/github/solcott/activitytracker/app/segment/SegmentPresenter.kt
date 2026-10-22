@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
+import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
@@ -17,6 +18,8 @@ import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.data.segments.SegmentStars
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.EffortView
+import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
+import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
@@ -24,6 +27,7 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.dataresult.combineOutcomes
+import io.github.solcott.dataresult.dataOrNull
 import io.github.solcott.dataresult.mapData
 import io.github.solcott.uistate.circuit.produceRetainedContentStates
 import io.github.solcott.uistate.contentStatesOf
@@ -54,6 +58,18 @@ fun SegmentPresenter(screen: SegmentScreen, navigator: Navigator, segments: Segm
     val polyline = remember(segment) { segment?.let { mapLine(it.record.line) } }
     // The star is extra: unknown (null) hides it rather than showing it unstarred.
     LaunchedEffect(loadKey) { if (!flights.isRunning(SegmentEvent.ToggleStar)) starred = stars.isStarred(uri) }
+    val active = segment?.let { SegmentStatus.of(it.status) == SegmentStatus.ACTIVE } == true
+    // The Mayor is extra too: only an active segment has one, and a failed read leaves the last one shown, or none.
+    var mayor by rememberRetained { mutableStateOf<MayorSummary?>(null) }
+    LaunchedEffect(active, loadKey) {
+        if (!active) {
+            mayor = null
+            return@LaunchedEffect
+        }
+        segments.mayorsPage(uri, MayorPeriod.LAST_90_DAYS, LeaderboardScope.EVERYONE, eBike = false, limit = 1).dataOrNull()?.let {
+            mayor = MayorSummary(it.items.firstOrNull(), it.meta)
+        }
+    }
 
     return SegmentState(
         content = content,
@@ -62,6 +78,7 @@ fun SegmentPresenter(screen: SegmentScreen, navigator: Navigator, segments: Segm
         efforts = ownEfforts.data,
         starred = starred,
         credit = segment?.record?.let(::creditOf),
+        mayor = mayor,
     ) { event ->
         when (event) {
             SegmentEvent.Back -> navigator.pop()
@@ -84,6 +101,8 @@ fun SegmentPresenter(screen: SegmentScreen, navigator: Navigator, segments: Segm
                 segment
                     ?.takeIf { SegmentStatus.of(it.status) == SegmentStatus.ACTIVE }
                     ?.let { navigator.goTo(SegmentLeaderboardScreen(it.uri.value, it.record.name, it.record.sport)) }
+            SegmentEvent.OpenMayors ->
+                segment?.takeIf { active }?.let { navigator.goTo(SegmentMayorsScreen(it.uri.value, it.record.name, it.record.sport)) }
         }
     }
 }
