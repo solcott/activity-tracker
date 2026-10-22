@@ -4,9 +4,9 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -14,6 +14,8 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.formContent
+import io.github.solcott.activitytracker.app.rememberFormSeed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -27,6 +29,7 @@ import io.github.solcott.activitytracker.data.training.ZoneModels
 import io.github.solcott.activitytracker.data.training.Zones
 import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
+import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.collections.immutable.toImmutableList
@@ -36,21 +39,15 @@ import kotlinx.collections.immutable.toImmutableSet
 @Composable
 fun ZonesPresenter(navigator: Navigator, profiles: ProfileRepository, clock: Clock): ZonesState {
     val form = rememberForm()
-    // As saved, for each value's setAt: reloaded with the screen, so a configuration change doesn't lose it.
-    var saved by remember { mutableStateOf<TrainingDetails?>(null) }
-    val loaded = saved != null
+    var loadKey by remember { mutableIntStateOf(0) }
+    val loaded = produceRetainedContentState<OwnProfile?>(null, loadKey) { profiles.ownProfileOutcome() }
+    // Why a save failed; never a loading failure, which is [loaded]'s.
     var error by remember { mutableStateOf<UiError?>(null) }
     val flights = rememberSingleFlight()
     val saving = flights.isRunning(ZonesEvent.Save)
 
-    LaunchedEffect(Unit) {
-        runSuspendCatching { profiles.ownProfile() }
-            .onSuccess {
-                form.fillOnce(it)
-                saved = it.details.training ?: TrainingDetails()
-            }
-            .onFailure { error = UiError.of(UiError.Kind.LoadProfile, it) }
-    }
+    // As saved when the form was filled, for each value's setAt.
+    val saved = rememberFormSeed(loaded, form::fillOnce)?.let { it.details.training ?: TrainingDetails() }
 
     // Reading the typed text here keeps the zones live as the athlete types.
     val training = form.training()
@@ -69,13 +66,17 @@ fun ZonesPresenter(navigator: Navigator, profiles: ProfileRepository, clock: Clo
         powerModels = ZoneModels.power.toImmutableList(),
         powerZones = Zones.compute(powerModel, training)?.toImmutableList(),
         autoUpdate = form.autoUpdate.value.toImmutableSet(),
-        loaded = loaded,
+        content = loaded.formContent(seeded = saved != null),
         saving = saving,
         error = error,
     ) { event ->
         when (event) {
             ZonesEvent.Back -> {
                 navigator.pop()
+            }
+
+            ZonesEvent.Retry -> {
+                loadKey++
             }
 
             is ZonesEvent.HeartRateModelChanged -> {

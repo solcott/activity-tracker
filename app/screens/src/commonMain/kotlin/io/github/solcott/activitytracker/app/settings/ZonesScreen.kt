@@ -10,6 +10,8 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.training.ThresholdInput
 import io.github.solcott.activitytracker.data.training.Zone
 import io.github.solcott.activitytracker.data.training.ZoneModel
+import io.github.solcott.uistate.ContentState
+import io.github.solcott.uistate.hasLoaded
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 
@@ -36,12 +38,17 @@ data class ZonesState(
     val powerZones: ImmutableList<Zone>?,
     /** The `Threshold` values imported activities may update from the recording device's settings. */
     val autoUpdate: ImmutableSet<String>,
-    /** False until the saved values have been read, so a save can't blank values the athlete never saw. */
-    val loaded: Boolean,
+    /** The saved values the form is filled from: loading or failed until it is, then loaded. */
+    val content: ContentState<Unit>,
     val saving: Boolean,
+    /** Why a save failed. */
     val error: UiError?,
     val eventSink: (ZonesEvent) -> Unit,
 ) : CircuitUiState {
+    /** False until the form is filled from the saved values, so a save can't blank values the athlete never saw. */
+    val loaded: Boolean
+        get() = content.hasLoaded
+
     val valid: Boolean
         get() =
             listOf(thresholdHeartRate, maxHeartRate, restingHeartRate).all { ThresholdInput.isValidHeartRate(it.text.toString()) } &&
@@ -50,6 +57,9 @@ data class ZonesState(
 
 sealed interface ZonesEvent {
     data object Back : ZonesEvent
+
+    /** Loads the saved values again after a failed first load. */
+    data object Retry : ZonesEvent
 
     data class HeartRateModelChanged(val token: String) : ZonesEvent
 

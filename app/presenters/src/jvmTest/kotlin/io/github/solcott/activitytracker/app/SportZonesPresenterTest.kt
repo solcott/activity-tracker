@@ -13,6 +13,9 @@ import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.HeartRateZoneModel
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.dataresult.DataError
+import io.github.solcott.uistate.errorOrNull
+import io.github.solcott.uistate.isLoading
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -40,6 +43,52 @@ class SportZonesPresenterTest {
             """"sports":[{"sport":"ride","functionalThresholdPower":250},""" +
             """{"sport":"run","thresholdHeartRate":172,"thresholdSpeed":3271,"setAt":{"thresholdSpeed":"$setOn"}}]}},""" +
             """"visibility":{"weight":"mutuals","training":"mutuals"}}"""
+
+    @Test
+    fun aFailedLoadSaysWhyAndRetryFillsTheForm() = runTest {
+        fixture.privateDetails = saved
+        fixture.offline = true
+        val repos = fixture.repos()
+        presenterTestOf({
+            SportZonesPresenter(
+                SportZonesScreen(Sport.RIDE),
+                FakeNavigator(SportZonesScreen(Sport.RIDE)),
+                repos.profiles,
+                repos.units,
+                clock,
+            )
+        }) {
+            val failed = awaitUntil { it.content.errorOrNull != null }
+            assertEquals(DataError.Network, failed.content.errorOrNull)
+            assertFalse(failed.loaded)
+            assertNull(failed.error, "a load failure isn't the save's")
+
+            fixture.offline = false
+            failed.eventSink(SportZonesEvent.Retry)
+            awaitUntil { it.content.isLoading }
+            assertEquals("250", awaitUntil { it.loaded }.functionalThresholdPower.text.toString())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aFailedSaveKeepsWhatWasTypedAndShowsTheSavesError() = runTest {
+        fixture.privateDetails = saved
+        fixture.failWrites = true
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(SportZonesScreen(Sport.RIDE))
+        presenterTestOf({ SportZonesPresenter(SportZonesScreen(Sport.RIDE), navigator, repos.profiles, repos.units, clock) }) {
+            val loaded = awaitUntil { it.loaded }
+            loaded.functionalThresholdPower.setTextAndPlaceCursorAtEnd("260")
+            loaded.eventSink(SportZonesEvent.Save)
+            val failed = awaitUntil { it.error != null && !it.saving }
+            assertEquals(UiError.Kind.SaveZones, failed.error?.kind)
+            assertTrue(failed.loaded, "a failed save isn't a failed load")
+            assertEquals("260", failed.functionalThresholdPower.text.toString())
+            cancelAndIgnoreRemainingEvents()
+        }
+        navigator.assertPopIsEmpty()
+    }
 
     private fun sportsOf(training: JsonObject) = training["sports"]?.jsonArray.orEmpty().map { it.jsonObject }
 

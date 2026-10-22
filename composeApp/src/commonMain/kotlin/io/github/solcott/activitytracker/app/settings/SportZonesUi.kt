@@ -18,6 +18,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
+import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
@@ -71,95 +73,97 @@ fun SportZonesUi(state: SportZonesState, modifier: Modifier = Modifier) {
             )
         },
     ) { padding ->
-        val scroll = rememberScrollState()
-        ScrollbarBox(scroll, contentPadding = padding) {
-            Column(
-                Modifier.verticalScroll(scroll).padding(padding).readableWidth().padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text(stringResource(Res.string.zones_thresholds_heading), style = MaterialTheme.typography.titleMedium)
-                Text(stringResource(Res.string.sport_zones_help, sport), style = MaterialTheme.typography.bodySmall)
-                val paceUnit = paceUnitLabel(state.paceUnit)
-                if (ZoneKind.Speed in state.kinds) {
+        ContentStateLayout(state.content, UiError.Kind.LoadProfile, { state.eventSink(SportZonesEvent.Retry) }, contentPadding = padding) {
+            val scroll = rememberScrollState()
+            ScrollbarBox(scroll, contentPadding = padding) {
+                Column(
+                    Modifier.verticalScroll(scroll).padding(padding).readableWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(stringResource(Res.string.zones_thresholds_heading), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(Res.string.sport_zones_help, sport), style = MaterialTheme.typography.bodySmall)
+                    val paceUnit = paceUnitLabel(state.paceUnit)
+                    if (ZoneKind.Speed in state.kinds) {
+                        SportThresholdField(
+                            state,
+                            state.thresholdPace,
+                            stringResource(Res.string.sport_zones_threshold_pace, paceUnit),
+                            default = null,
+                            valid = ThresholdInput.isValidPace(state.thresholdPace.text.toString(), state.paceUnit),
+                            keyboard = KeyboardType.Text,
+                        )
+                    }
                     SportThresholdField(
                         state,
-                        state.thresholdPace,
-                        stringResource(Res.string.sport_zones_threshold_pace, paceUnit),
-                        default = null,
-                        valid = ThresholdInput.isValidPace(state.thresholdPace.text.toString(), state.paceUnit),
-                        keyboard = KeyboardType.Text,
+                        state.thresholdHeartRate,
+                        stringResource(Res.string.zones_threshold_heart_rate),
+                        state.defaults.thresholdHeartRate,
+                        ThresholdInput.isValidHeartRate(state.thresholdHeartRate.text.toString()),
                     )
-                }
-                SportThresholdField(
-                    state,
-                    state.thresholdHeartRate,
-                    stringResource(Res.string.zones_threshold_heart_rate),
-                    state.defaults.thresholdHeartRate,
-                    ThresholdInput.isValidHeartRate(state.thresholdHeartRate.text.toString()),
-                )
-                SportThresholdField(
-                    state,
-                    state.maxHeartRate,
-                    stringResource(Res.string.zones_max_heart_rate),
-                    state.defaults.maxHeartRate,
-                    ThresholdInput.isValidHeartRate(state.maxHeartRate.text.toString()),
-                )
-                if (ZoneKind.Power in state.kinds) {
                     SportThresholdField(
                         state,
-                        state.functionalThresholdPower,
-                        stringResource(Res.string.sport_zones_threshold_power),
-                        state.defaults.functionalThresholdPower,
-                        ThresholdInput.isValidPower(state.functionalThresholdPower.text.toString()),
+                        state.maxHeartRate,
+                        stringResource(Res.string.zones_max_heart_rate),
+                        state.defaults.maxHeartRate,
+                        ThresholdInput.isValidHeartRate(state.maxHeartRate.text.toString()),
                     )
-                }
-                if (ZoneKind.Speed in state.kinds) {
+                    if (ZoneKind.Power in state.kinds) {
+                        SportThresholdField(
+                            state,
+                            state.functionalThresholdPower,
+                            stringResource(Res.string.sport_zones_threshold_power),
+                            state.defaults.functionalThresholdPower,
+                            ThresholdInput.isValidPower(state.functionalThresholdPower.text.toString()),
+                        )
+                    }
+                    if (ZoneKind.Speed in state.kinds) {
+                        HorizontalDivider()
+                        ZoneSection(
+                            heading = stringResource(Res.string.zones_speed_heading),
+                            model = state.speedModel,
+                            models = state.speedModels,
+                            zones = state.speedZones,
+                            enabled = state.loaded,
+                            onPick = { state.eventSink(SportZonesEvent.SpeedModelChanged(it)) },
+                        ) {
+                            paceRange(it, state.paceUnit, paceUnit)
+                        }
+                    }
                     HorizontalDivider()
                     ZoneSection(
-                        heading = stringResource(Res.string.zones_speed_heading),
-                        model = state.speedModel,
-                        models = state.speedModels,
-                        zones = state.speedZones,
+                        heading = stringResource(Res.string.zones_heart_rate_heading),
+                        model = state.heartRateModel,
+                        models = state.heartRateModels,
+                        zones = state.heartRateZones,
                         enabled = state.loaded,
-                        onPick = { state.eventSink(SportZonesEvent.SpeedModelChanged(it)) },
+                        onPick = { state.eventSink(SportZonesEvent.HeartRateModelChanged(it)) },
                     ) {
-                        paceRange(it, state.paceUnit, paceUnit)
+                        numberRange(it, stringResource(Res.string.zones_unit_bpm))
                     }
-                }
-                HorizontalDivider()
-                ZoneSection(
-                    heading = stringResource(Res.string.zones_heart_rate_heading),
-                    model = state.heartRateModel,
-                    models = state.heartRateModels,
-                    zones = state.heartRateZones,
-                    enabled = state.loaded,
-                    onPick = { state.eventSink(SportZonesEvent.HeartRateModelChanged(it)) },
-                ) {
-                    numberRange(it, stringResource(Res.string.zones_unit_bpm))
-                }
-                if (ZoneKind.Power in state.kinds) {
-                    HorizontalDivider()
-                    ZoneSection(
-                        heading = stringResource(Res.string.zones_power_heading),
-                        model = state.powerModel,
-                        models = state.powerModels,
-                        zones = state.powerZones,
-                        enabled = state.loaded,
-                        onPick = { state.eventSink(SportZonesEvent.PowerModelChanged(it)) },
+                    if (ZoneKind.Power in state.kinds) {
+                        HorizontalDivider()
+                        ZoneSection(
+                            heading = stringResource(Res.string.zones_power_heading),
+                            model = state.powerModel,
+                            models = state.powerModels,
+                            zones = state.powerZones,
+                            enabled = state.loaded,
+                            onPick = { state.eventSink(SportZonesEvent.PowerModelChanged(it)) },
+                        ) {
+                            numberRange(it, stringResource(Res.string.zones_unit_watts))
+                        }
+                    }
+                    state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+                    AppButton(
+                        onClick = { state.eventSink(SportZonesEvent.Save) },
+                        enabled = state.loaded && state.valid && !state.saving,
                     ) {
-                        numberRange(it, stringResource(Res.string.zones_unit_watts))
+                        Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
                     }
-                }
-                state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
-                AppButton(
-                    onClick = { state.eventSink(SportZonesEvent.Save) },
-                    enabled = state.loaded && state.valid && !state.saving,
-                ) {
-                    Text(stringResource(if (state.saving) Res.string.action_saving else Res.string.action_save))
-                }
-                if (state.saved) {
-                    AppSecondaryButton(onClick = { state.eventSink(SportZonesEvent.Remove) }, enabled = !state.saving) {
-                        Text(stringResource(Res.string.sport_zones_remove, sport))
+                    if (state.saved) {
+                        AppSecondaryButton(onClick = { state.eventSink(SportZonesEvent.Remove) }, enabled = !state.saving) {
+                            Text(stringResource(Res.string.sport_zones_remove, sport))
+                        }
                     }
                 }
             }
