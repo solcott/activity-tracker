@@ -14,7 +14,9 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentEfforts
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentLeaderboard
+import io.github.solcott.activitytracker.lexicon.app.GetSegmentMayors
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
+import io.github.solcott.activitytracker.lexicon.app.MayorEntry
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import io.github.solcott.dataresult.Outcome
@@ -27,6 +29,7 @@ import kotlinx.coroutines.flow.update
 /** Segments and the efforts on them, read from the AppView (segments/segment-records, segments/segment-efforts). */
 @SingleIn(SessionScope::class)
 @Inject
+@Suppress("TooManyFunctions") // Each segment query the AppView serves, and its outcome or page form.
 class SegmentRepository(private val clients: SessionClients) {
     /** The activities the signed-in athlete published a segment from this session ([SegmentPublisher]), so their pages can say so. */
     val createdFrom: StateFlow<Set<AtUri>>
@@ -98,6 +101,39 @@ class SegmentRepository(private val clients: SessionClients) {
                     ageGroup = brackets.ageGroup,
                     weightClass = brackets.weightClass,
                     gender = brackets.gender,
+                    cursor = cursor,
+                ),
+            )
+        Page(board.entries, board.viewer, board.cursor)
+    }
+
+    /**
+     * One page of [segment]'s Mayors board (segments/segment-mayors), most efforts first, with the signed-in athlete's own entry as its
+     * meta: null when they aren't on the board. [period] is a `MayorPeriod` value; the other filters are as for [leaderboardPage], and
+     * [limit] null is the AppView's default page.
+     */
+    @Suppress("LongParameterList") // The board's filters.
+    suspend fun mayorsPage(
+        segment: AtUri,
+        period: String,
+        scope: String,
+        eBike: Boolean,
+        cursor: String? = null,
+        brackets: LeaderboardBrackets = LeaderboardBrackets(),
+        limit: Int? = null,
+    ): Outcome<Page<MayorEntry, MayorEntry?>> = outcomeOf {
+        val board =
+            clients.appView.query(
+                GetSegmentMayors.method,
+                GetSegmentMayors.Params(
+                    segment,
+                    period,
+                    scope,
+                    eBike = eBike.takeIf { it },
+                    ageGroup = brackets.ageGroup,
+                    weightClass = brackets.weightClass,
+                    gender = brackets.gender,
+                    limit = limit,
                     cursor = cursor,
                 ),
             )

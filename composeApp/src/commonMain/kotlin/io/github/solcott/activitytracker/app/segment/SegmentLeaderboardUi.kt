@@ -187,7 +187,7 @@ private fun Filters(state: SegmentLeaderboardState) {
  * which also lists the menu's choices in order after [all].
  */
 @Composable
-private fun BracketChip(all: String, selected: String?, labels: ImmutableMap<String, String>, onSelect: (String?) -> Unit) {
+internal fun BracketChip(all: String, selected: String?, labels: ImmutableMap<String, String>, onSelect: (String?) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         AppFilterChip(
@@ -209,7 +209,7 @@ private fun BracketChip(all: String, selected: String?, labels: ImmutableMap<Str
 
 /** An age group's label: `0-19` is "19 and under", `75+` "75 and over". */
 @Composable
-private fun ageLabel(group: String): String {
+internal fun ageLabel(group: String): String {
     val (from, to) = boundsOf(group)
     return when {
         to == null -> stringResource(Res.string.leaderboard_age_over, from)
@@ -223,7 +223,7 @@ private fun ageLabel(group: String): String {
  * rounded, and a class ends a pound before the next one starts.
  */
 @Composable
-private fun weightLabel(weightClass: String): String {
+internal fun weightLabel(weightClass: String): String {
     val (from, to) = boundsOf(weightClass)
     val imperial = LocalUnitSystem.current == UnitSystem.Imperial
     fun bound(kg: Int): Int = if (imperial) (kg * WeightConversions.GRAMS_PER_KG / WeightConversions.GRAMS_PER_POUND).roundToInt() else kg

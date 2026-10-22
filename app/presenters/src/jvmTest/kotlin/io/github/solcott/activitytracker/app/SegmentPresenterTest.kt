@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withCompositionLocals
+import app.cash.turbine.Event
 import co.touchlab.kermit.Logger
 import com.slack.circuit.retained.LocalRetainedStateRegistry
 import com.slack.circuit.retained.RetainedStateRegistry
@@ -12,6 +13,7 @@ import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.segment.SegmentCredit
 import io.github.solcott.activitytracker.app.segment.SegmentEvent
 import io.github.solcott.activitytracker.app.segment.SegmentLeaderboardScreen
+import io.github.solcott.activitytracker.app.segment.SegmentMayorsScreen
 import io.github.solcott.activitytracker.app.segment.SegmentPresenter
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
 import io.github.solcott.activitytracker.app.segment.SegmentState
@@ -44,6 +46,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.time.Clock
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
@@ -64,6 +67,12 @@ class SegmentPresenterTest {
     private var pdsDown = false
     private var failEfforts = false
     private val effortsRequested = mutableListOf<String?>()
+    /** The Mayors board's entries, as JSON, and the viewer's own entry; null fails the read. */
+    private var mayors: String? = """{"rank":1,"athlete":{"did":"did:plc:bob","handle":"bob.test"},"efforts":14,"reachedOn":"2026-10-18"}"""
+    private var ownMayor: String? = """{"rank":7,"athlete":{"did":"$alice","handle":"alice.test"},"efforts":6,"reachedOn":"2026-10-20"}"""
+    private val mayorsRequested = mutableListOf<Map<String, String>>()
+    /** Completed once the Mayors board has been asked for. */
+    private val mayorsAsked = CompletableDeferred<Unit>()
 
     private fun effort(rkey: String, elapsed: Int, best: Boolean = false) =
         """{"segment":{"uri":"$uri","name":"Hill","sport":"run","distanceMeters":1000},""" +
@@ -93,6 +102,12 @@ class SegmentPresenterTest {
                                     """"createdAt":"2026-10-01T00:00:00Z"},"distanceMeters":1000,"status":"$status"$duplicateOf}}""",
                                 headers = json,
                             )
+                    "/xrpc/${Nsid.FEED_GET_SEGMENT_MAYORS}" -> {
+                        mayorsRequested += request.url.parameters.entries().associate { it.key to it.value.single() }
+                        mayorsAsked.complete(Unit)
+                        val entries = mayors ?: return@MockEngine respond("", HttpStatusCode.InternalServerError)
+                        respond("""{"entries":[$entries]${ownMayor?.let { ",\"viewer\":$it" }.orEmpty()}}""", headers = json)
+                    }
                     "/xrpc/${Nsid.FEED_GET_SEGMENT_EFFORTS}" -> {
                         effortsRequested += request.url.parameters["actor"]
                         if (failEfforts) return@MockEngine respond("", HttpStatusCode.InternalServerError)
@@ -237,6 +252,71 @@ class SegmentPresenterTest {
         val navigator = FakeNavigator(screen)
         presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars) }) {
             awaitUntil { it.segment != null }.eventSink(SegmentEvent.OpenLeaderboard)
+            navigator.expectNoGoToEvents()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun anActiveSegmentShowsItsMayorAndOpensTheBoard() = runTest {
+        status = "active"
+        val (segments, stars) = session()
+        val navigator = FakeNavigator(screen)
+        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars) }) {
+            val state = awaitUntil { it.mayor != null }
+            assertEquals("bob.test", state.mayor?.leader?.athlete?.handle?.value)
+            assertEquals(14, state.mayor?.leader?.efforts)
+            assertEquals(6, state.mayor?.viewer?.efforts)
+            assertEquals(
+                mapOf("segment" to uri, "period" to "last90Days", "scope" to "everyone", "limit" to "1"),
+                mayorsRequested.single(),
+            )
+            state.eventSink(SegmentEvent.OpenMayors)
+            assertEquals(SegmentMayorsScreen(uri, "Hill", "run"), navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun anActiveSegmentWithNoEffortsHasNoMayorYet() = runTest {
+        status = "active"
+        mayors = ""
+        ownMayor = null
+        val (segments, stars) = session()
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars) }) {
+            val state = awaitUntil { it.mayor != null }
+            assertNull(state.mayor?.leader)
+            assertNull(state.mayor?.viewer)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aMayorThatFailsToLoadShowsTheSegmentWithoutIt() = runTest {
+        status = "active"
+        mayors = null
+        val (segments, stars) = session()
+        presenterTestOf({ SegmentPresenter(screen, FakeNavigator(screen), segments, stars) }) {
+            val state = awaitUntil { it.segment != null && !it.content.isLoading }
+            // A failure changes nothing, so there's no state to wait for: only the request, then no state may carry a Mayor.
+            mayorsAsked.await()
+            assertNull(state.mayor)
+            assertNull(state.content.errorOrNull)
+            val rest = cancelAndConsumeRemainingEvents().filterIsInstance<Event.Item<SegmentState>>().map { it.value }
+            assertEquals(emptyList(), rest.mapNotNull { it.mayor })
+            assertEquals(emptyList(), rest.mapNotNull { it.content.errorOrNull })
+        }
+    }
+
+    @Test
+    fun aProposedSegmentHasNoMayor() = runTest {
+        val (segments, stars) = session()
+        val navigator = FakeNavigator(screen)
+        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars) }) {
+            val state = awaitUntil { it.segment != null && it.efforts.isNotEmpty() }
+            assertNull(state.mayor)
+            assertEquals(emptyList(), mayorsRequested)
+            state.eventSink(SegmentEvent.OpenMayors)
             navigator.expectNoGoToEvents()
             cancelAndIgnoreRemainingEvents()
         }

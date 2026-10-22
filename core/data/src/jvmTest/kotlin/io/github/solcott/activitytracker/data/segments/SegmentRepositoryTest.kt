@@ -16,9 +16,12 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentEfforts
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentLeaderboard
+import io.github.solcott.activitytracker.lexicon.app.GetSegmentMayors
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
+import io.github.solcott.activitytracker.lexicon.app.MayorEntry
+import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
@@ -73,6 +76,7 @@ class SegmentRepositoryTest {
         )
 
     private val entry = LeaderboardEntry(1, ProfileViewBasic(did, Handle("alice.test")), effort)
+    private val mayor = MayorEntry(1, ProfileViewBasic(did, Handle("alice.test")), efforts = 14, reachedOn = "2026-10-18")
     private val goneUri = AtUri.of(Did("did:plc:carol"), Nsid.FEED_SEGMENT, "3kgone")
     private val brokenUri = AtUri.of(Did("did:plc:carol"), Nsid.FEED_SEGMENT, "3kbroken")
 
@@ -106,6 +110,11 @@ class SegmentRepositoryTest {
                             AtJson.encodeToString(
                                 GetSegmentLeaderboard.Output.serializer(),
                                 GetSegmentLeaderboard.Output(listOf(entry), viewer = entry, cursor = "200::${did.value}"),
+                            )
+                        Nsid.FEED_GET_SEGMENT_MAYORS ->
+                            AtJson.encodeToString(
+                                GetSegmentMayors.Output.serializer(),
+                                GetSegmentMayors.Output(listOf(mayor), viewer = mayor, cursor = "14::2026-10-18::${did.value}"),
                             )
                         Nsid.FEED_CHECK_SEGMENT ->
                             AtJson.encodeToString(CheckSegment.Output.serializer(), CheckSegment.Output(listOf(view), remaining = 8))
@@ -196,6 +205,45 @@ class SegmentRepositoryTest {
         val page = SegmentRepository(clients).leaderboardPage(segmentUri, LeaderboardPeriod.ALL_TIME, LeaderboardScope.EVERYONE, false)
 
         assertEquals(DataError.Http(503), (page as Outcome.Error).cause)
+    }
+
+    @Test
+    fun mayorsSendItsFilters() = runTest {
+        val (_, _, clients) = signedInTestSession(http, did = did)
+        val segments = SegmentRepository(clients)
+
+        val board = segments.mayorsPage(segmentUri, MayorPeriod.LAST_WEEK, LeaderboardScope.FOLLOWING, eBike = true, cursor = "c1")
+        assertEquals(Outcome.Data(Page(listOf(mayor), mayor, "14::2026-10-18::${did.value}"), Origin.Network), board)
+        segments.mayorsPage(
+            segmentUri,
+            MayorPeriod.LAST_90_DAYS,
+            LeaderboardScope.EVERYONE,
+            eBike = false,
+            brackets = LeaderboardBrackets(weightClass = "65-74"),
+            limit = 1,
+        )
+
+        assertEquals(
+            listOf(
+                Nsid.FEED_GET_SEGMENT_MAYORS to
+                    mapOf(
+                        "segment" to listOf(segmentUri.value),
+                        "period" to listOf("lastWeek"),
+                        "scope" to listOf("following"),
+                        "eBike" to listOf("true"),
+                        "cursor" to listOf("c1"),
+                    ),
+                Nsid.FEED_GET_SEGMENT_MAYORS to
+                    mapOf(
+                        "segment" to listOf(segmentUri.value),
+                        "period" to listOf("last90Days"),
+                        "scope" to listOf("everyone"),
+                        "weightClass" to listOf("65-74"),
+                        "limit" to listOf("1"),
+                    ),
+            ),
+            requests,
+        )
     }
 
     @Test

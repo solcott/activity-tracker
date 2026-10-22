@@ -19,6 +19,7 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         LoadRoute,
         LoadStarredSegments,
         LoadLeaderboard,
+        LoadMayors,
         UpdateStar,
 
         /** A new segment's line couldn't be checked for duplicates, so it wasn't published. */

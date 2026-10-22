@@ -4,12 +4,15 @@ import io.github.solcott.activitytracker.lexicon.app.CheckSegment
 import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.GetSegment
 import io.github.solcott.activitytracker.lexicon.app.GetSegmentLeaderboard
+import io.github.solcott.activitytracker.lexicon.app.GetSegmentMayors
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardAgeGroup
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardBracketsRecord
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardGender
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardPeriod
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardScope
+import io.github.solcott.activitytracker.lexicon.app.MayorEntry
+import io.github.solcott.activitytracker.lexicon.app.MayorPeriod
 import io.github.solcott.activitytracker.lexicon.app.NotRanked
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SegmentPrefsRecord
@@ -290,5 +293,21 @@ class SegmentRecordsTest {
             params,
             XrpcParams.decode(GetSegmentLeaderboard.Params.serializer(), encoded.groupBy({ it.first }, { it.second })),
         )
+    }
+
+    @Test
+    fun mayorsRoundTrip() {
+        val segment = AtUri.of(Did("did:plc:alice"), Nsid.FEED_SEGMENT, "3l2abcdefgh44")
+        val params = GetSegmentMayors.Params(segment, MayorPeriod.LAST_WEEK, LeaderboardScope.FOLLOWING, eBike = true, limit = 1)
+        val encoded = XrpcParams.encode(GetSegmentMayors.Params.serializer(), params)
+        assertTrue("period" to "lastWeek" in encoded)
+        assertEquals(params, XrpcParams.decode(GetSegmentMayors.Params.serializer(), encoded.groupBy({ it.first }, { it.second })))
+
+        val alice = Did("did:plc:alice")
+        val entry = MayorEntry(rank = 1, athlete = ProfileViewBasic(alice, Handle("alice.test")), efforts = 14, reachedOn = "2026-10-18")
+        val output = GetSegmentMayors.Output(entries = listOf(entry), viewer = entry, cursor = "14::2026-10-18::did:plc:alice")
+        val json = AtJson.encodeToJsonElement(GetSegmentMayors.Output.serializer(), output).jsonObject
+        assertEquals("2026-10-18", json["entries"]!!.jsonArray[0].jsonObject["reachedOn"]?.jsonPrimitive?.content)
+        assertEquals(output, AtJson.decodeFromJsonElement(GetSegmentMayors.Output.serializer(), json))
     }
 }

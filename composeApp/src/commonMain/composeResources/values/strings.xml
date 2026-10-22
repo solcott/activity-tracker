@@ -22,6 +22,7 @@
     <string name="error_publish_segment">Couldn't publish the segment</string>
     <string name="error_load_starred_segments">Couldn't load your starred segments</string>
     <string name="error_load_leaderboard">Couldn't load the leaderboard</string>
+    <string name="error_load_mayors">Couldn't load the Mayors board</string>
     <string name="error_update_star">Couldn't update your star</string>
     <string name="error_load_likes">Couldn't load likes</string>
     <string name="error_load_comments">Couldn't load comments</string>
@@ -1403,6 +1404,24 @@
     <string name="leaderboard_gender_non_binary">Non-binary</string>
     <string name="leaderboard_empty">No one is on this leaderboard yet</string>
     <string name="leaderboard_your_place">Your place</string>
+    <string name="segment_mayor_title">Mayor · last 90 days</string>
+    <string name="segment_mayor_none">No Mayor yet. Whoever has the most efforts here in 90 days becomes the Mayor.</string>
+    <plurals name="segment_mayor_yours">
+        <item quantity="one">You: %1$d effort</item>
+        <item quantity="other">You: %1$d efforts</item>
+    </plurals>
+    <plurals name="mayor_efforts">
+        <item quantity="one">%1$d effort</item>
+        <item quantity="other">%1$d efforts</item>
+    </plurals>
+    <string name="mayors_title">Mayors of %1$s</string>
+    <string name="mayors_reached">Reached %1$s</string>
+    <string name="mayors_empty">No one has an effort here in this period</string>
+    <string name="mayor_period_last_90_days">Last 90 days</string>
+    <string name="mayor_period_last_year">Last year</string>
+    <string name="mayor_period_last_month">Last month</string>
+    <string name="mayor_period_this_week">This week</string>
+    <string name="mayor_period_last_week">Last week</string>
     <string-array name="segment_rank_ordinals">
         <item>1st</item>
         <item>2nd</item>
