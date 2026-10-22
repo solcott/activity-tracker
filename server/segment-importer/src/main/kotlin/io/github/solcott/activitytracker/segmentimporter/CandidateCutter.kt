@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.segmentimporter
 
+import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentSportGroup
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.LocationSample
@@ -23,10 +24,15 @@ internal class Candidate(
     val line: String,
     val points: List<GeoPoint>,
     val lengthMeters: Long,
-    /** The OSM ways it follows, in its direction of travel. */
+    /** The OSM ways it follows, in its direction of travel; empty for an agency's. */
     val osmWays: List<Long>,
     val fromRelation: Boolean,
     val whole: Boolean,
+    val source: String = SegmentSource.OSM,
+    val license: String = LICENSE_OSM,
+    val attribution: String? = null,
+    /** The agency features it follows, as `<kind>:<feature key>`, in its direction of travel; empty for an OSM one. */
+    val agencyFeatures: List<String> = emptyList(),
 )
 
 /**
@@ -39,11 +45,14 @@ internal class CandidateCutter(data: OsmData) {
     private val namedAt: Map<Long, List<OsmWay>> =
         buildMap<Long, MutableList<OsmWay>> {
                 for (way in data.ways) {
-                    if (way.name == null || !TrailTags.marksJunctions(way.tags)) continue
+                    if (way.name == null || !way.rules.marksJunctions(way.tags)) continue
                     for (node in way.nodes.distinct()) getOrPut(node) { mutableListOf() } += way
                 }
             }
             .mapValues { (_, ways) -> ways.sortedBy { it.id } }
+
+    /** Each agency way's feature key, for an agency candidate's id and features. */
+    private val agencyKeys: Map<Long, String> = data.ways.mapNotNull { way -> way.tags[AgencyRules.KEY]?.let { way.id to it } }.toMap()
 
     fun cut(trail: Trail): List<Candidate> {
         val min = SegmentSportGroup.minMeters(trail.group)
@@ -88,40 +97,54 @@ internal class CandidateCutter(data: OsmData) {
         val ways = trail.edgeWays.slice(a until b).let { if (reversed) it.reversed() else it }.dedupeRuns()
         // Whether travel follows the first way's own node order: the two directions of a loop share their ways and end nodes.
         val alongFirstWay = if (reversed) trail.edgeReversed[b - 1] else !trail.edgeReversed[a]
-        val name =
-            if (piece.part == null) {
-                if (bothWays) "${trail.name} (${heading(points)})" else trail.name
-            } else {
-                val from = nameAt(trail, nodes.first())
-                val to = nameAt(trail, nodes.last())
-                if (from != null && to != null) "${trail.name}: $from to $to" else "${trail.name} (part ${piece.part})"
-            }
+        val name = nameOf(trail, piece, nodes, points, bothWays)
         val line = simplified(points)
         val length = SegmentGeometry.lengthMeters(line)
         if (length < SegmentSportGroup.minMeters(trail.group) || length > SegmentSportGroup.MAX_METERS) return null
+        val endVisit = nodes.subList(1, nodes.lastIndex).count { it == nodes.last() }
+        val agency = trail.rules is AgencyRules
+        val features = if (agency) ways.map(agencyKeys::getValue) else emptyList()
         return Candidate(
             id =
-                idOf(
-                    trail.group,
-                    ways,
-                    alongFirstWay,
-                    nodes.first(),
-                    nodes.last(),
-                    endVisit = nodes.subList(1, nodes.lastIndex).count { it == nodes.last() },
-                ),
+                if (agency) {
+                    agencyIdOf(trail.group, features, alongFirstWay, points.first(), points.last(), endVisit)
+                } else {
+                    idOf(trail.group, ways, alongFirstWay, nodes.first(), nodes.last(), endVisit)
+                },
             group = trail.group,
             name = truncate(name),
             line = SegmentGeometry.encodePolyline(line),
             points = line,
             lengthMeters = length.roundToLong(),
-            osmWays = ways,
+            osmWays = if (agency) emptyList() else ways,
             fromRelation = trail.fromRelation,
             whole = piece.part == null,
+            source = trail.rules.source,
+            license = trail.rules.license,
+            attribution = trail.rules.attribution,
+            agencyFeatures = features,
         )
     }
 
-    /** The named ways through [node] that aren't [trail]'s own. */
-    private fun others(trail: Trail, node: Long): List<OsmWay> = namedAt[node].orEmpty().filter { it.id !in trail.ways }
+    /**
+     * A candidate's name: a whole trail's, with its direction when it goes both ways, or a stretch's, named after the places at its ends or
+     * else numbered.
+     */
+    private fun nameOf(trail: Trail, piece: Piece, nodes: List<Long>, points: List<GeoPoint>, bothWays: Boolean): String {
+        if (piece.part == null) return if (bothWays) "${trail.name} (${heading(points)})" else trail.name
+        val from = nameAt(trail, nodes.first())
+        val to = nameAt(trail, nodes.last())
+        return if (from != null && to != null) "${trail.name}: $from to $to" else "${trail.name} (part ${piece.part})"
+    }
+
+    /**
+     * The named ways through [node] that aren't [trail]'s own. For an agency trail, the agency's other lines of the same name don't count
+     * either: the Forest Service publishes one trail as several features, a summer and a winter one split at different mileposts.
+     */
+    private fun others(trail: Trail, node: Long): List<OsmWay> =
+        namedAt[node].orEmpty().filter { way ->
+            way.id !in trail.ways && !(trail.rules is AgencyRules && way.rules is AgencyRules && way.name == trail.name)
+        }
 
     /** What to call the place [node] is on [trail]: the name of another way there, preferring one that isn't the trail's own name. */
     private fun nameAt(trail: Trail, node: Long): String? =
@@ -137,6 +160,7 @@ internal class CandidateCutter(data: OsmData) {
         const val MAX_NAME_GRAPHEMES = 100
 
         private const val ID_CHARS = 26
+        private const val E5 = 1e5
         private const val BASE32 = "abcdefghijklmnopqrstuvwxyz234567"
         private const val BITS_PER_CHAR = 5
         private const val BYTE_MASK = 0xff
@@ -168,7 +192,32 @@ internal class CandidateCutter(data: OsmData) {
         fun idOf(group: String, ways: List<Long>, alongFirstWay: Boolean, first: Long, last: Long, endVisit: Int = 0): String {
             val sense = if (alongFirstWay) "+" else "-"
             val visit = if (endVisit > 0) "#$endVisit" else ""
-            val key = "$group|$sense|${ways.joinToString(",")}|$first|$last$visit"
+            return hashed("$group|$sense|${ways.joinToString(",")}|$first|$last$visit")
+        }
+
+        /**
+         * An agency candidate's id, as [idOf] but from the agency [features] it follows (`<kind>:<feature key>`) and its end positions to
+         * 1e-5 degrees (about a metre), since agency lines have no node ids: a re-published dataset that only moves interior vertices keeps
+         * every id.
+         */
+        @Suppress("LongParameterList") // As idOf.
+        fun agencyIdOf(
+            group: String,
+            features: List<String>,
+            alongFirstWay: Boolean,
+            first: GeoPoint,
+            last: GeoPoint,
+            endVisit: Int = 0,
+        ): String {
+            val sense = if (alongFirstWay) "+" else "-"
+            val visit = if (endVisit > 0) "#$endVisit" else ""
+            return hashed("$group|$sense|${features.joinToString(",")}|${e5(first)}|${e5(last)}$visit")
+        }
+
+        private fun e5(point: GeoPoint): String = "${(point.lat * E5).roundToLong()},${(point.lng * E5).roundToLong()}"
+
+        /** 26 base32 characters of [key]'s SHA-256. */
+        private fun hashed(key: String): String {
             val digest = MessageDigest.getInstance("SHA-256").digest(key.toByteArray())
             val out = StringBuilder()
             var buffer = 0

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Writes a feed.segment to <name>.test's repo from a GPX file, for setting up local tests without the app (segments/segment-records).
 # The line is the GPX's track points from startIndex to endIndex (inclusive; the whole track by default), encoded as a precision-6
-# polyline, with source "athlete" and licence CC0-1.0, or with --source osm (ODbL-1.0) or --source agency (CC0-1.0) to see an imported
-# segment's credit before any importer exists (segment-attribution). A line shorter than its sport group's minimum (500 m for ride, 200 m for the rest)
+# polyline, with source "athlete" and licence CC0-1.0, or with --source osm (ODbL-1.0) or --source agency (CC0-1.0, attribution "USDA
+# Forest Service") to see an imported segment's credit without running the importer (segment-attribution, segment-agency-import). A line shorter than its sport group's minimum (500 m for ride, 200 m for the rest)
 # or longer than 50 km is refused, as the AppView would drop it. The AppView indexes it from Jetstream as proposed (or duplicate): check
 # with app.activitytracker.feed.getSegment on the printed URI. Each run writes a new segment.
 # Usage: docker/scripts/seed-segment.sh [--source athlete|osm|agency] alice "Hill climb" run track.gpx [startIndex endIndex] [pds-url]
@@ -49,6 +49,7 @@ path, start, end, did, name, sport = sys.argv[1], int(sys.argv[2]), int(sys.argv
 source, license = sys.argv[7], sys.argv[8]
 points = [(float(p.get("lat")), float(p.get("lon"))) for p in ET.parse(path).iter() if p.tag.rsplit("}", 1)[-1] == "trkpt"]
 points = points[start:] if end < 0 else points[start:end + 1]
+attribution = "USDA Forest Service" if source == "agency" else None
 if len(points) < 2:
     sys.exit(f"only {len(points)} track points in range")
 
@@ -91,6 +92,8 @@ record = {
     "license": license,
     "createdAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
 }
+if attribution:
+    record["attribution"] = attribution
 print(json.dumps({"repo": did, "collection": "app.activitytracker.feed.segment", "rkey": tid, "record": record}))
 PY
 )

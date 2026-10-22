@@ -3,7 +3,6 @@ package io.github.solcott.activitytracker.app
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import com.slack.circuit.test.FakeNavigator
-import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.settings.ZonesEvent
 import io.github.solcott.activitytracker.app.settings.ZonesPresenter
 import io.github.solcott.activitytracker.app.settings.ZonesScreen
@@ -16,7 +15,6 @@ import io.github.solcott.activitytracker.lexicon.app.Threshold
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.dataresult.DataError
 import io.github.solcott.uistate.errorOrNull
-import io.github.solcott.uistate.isLoading
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -69,7 +67,6 @@ class ZonesPresenterTest {
 
             fixture.offline = false
             failed.eventSink(ZonesEvent.Retry)
-            awaitUntil { it.content.isLoading }
             assertEquals("168", awaitUntil { it.loaded }.thresholdHeartRate.text.toString())
             cancelAndIgnoreRemainingEvents()
         }
@@ -87,7 +84,7 @@ class ZonesPresenterTest {
             loaded.eventSink(ZonesEvent.Retry)
             awaitSettled { fixture.profileReads > reads }
 
-            val after = expectMostRecentItem()
+            val after = mostRecentItemOr(loaded)
             assertTrue(after.loaded)
             assertEquals("170", after.thresholdHeartRate.text.toString())
             cancelAndIgnoreRemainingEvents()

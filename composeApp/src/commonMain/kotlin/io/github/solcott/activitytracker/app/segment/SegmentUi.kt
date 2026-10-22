@@ -35,6 +35,7 @@ import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.segment_created_by
 import io.github.solcott.activitytracker.composeApp.resources.segment_credit_agency
+import io.github.solcott.activitytracker.composeApp.resources.segment_credit_agency_named
 import io.github.solcott.activitytracker.composeApp.resources.segment_credit_license
 import io.github.solcott.activitytracker.composeApp.resources.segment_credit_osm
 import io.github.solcott.activitytracker.composeApp.resources.segment_duplicate_help
@@ -149,7 +150,10 @@ private fun Credit(credit: SegmentCredit) {
                 credit.license
             }
             is SegmentCredit.Agency -> {
-                CreditText(stringResource(Res.string.segment_credit_agency))
+                val text =
+                    credit.attribution?.let { stringResource(Res.string.segment_credit_agency_named, it) }
+                        ?: stringResource(Res.string.segment_credit_agency)
+                CreditText(text)
                 credit.license
             }
             is SegmentCredit.License -> credit.id

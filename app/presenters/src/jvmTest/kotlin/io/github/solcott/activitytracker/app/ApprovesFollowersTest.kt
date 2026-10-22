@@ -5,7 +5,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import co.touchlab.kermit.Logger
 import com.slack.circuit.runtime.CircuitUiState
-import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.profile.rememberApprovesFollowers
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.profile.ProfileRepository

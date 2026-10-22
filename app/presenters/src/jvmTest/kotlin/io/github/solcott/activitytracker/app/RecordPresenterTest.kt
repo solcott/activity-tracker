@@ -1,7 +1,6 @@
 package io.github.solcott.activitytracker.app
 
 import com.slack.circuit.test.FakeNavigator
-import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.record.RecordEvent
 import io.github.solcott.activitytracker.app.record.RecordPresenter

@@ -103,7 +103,8 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
             // Queueing the delete fails once the database is gone.
             r.db.close()
             loaded.eventSink(ActivityDetailEvent.DeleteComment(loaded.comments.roots.last().uri))
-            val failed = awaitUntil { it.page()?.commentError != null }.page()!!
+            // The comment comes back through the local changes' flow, so it can show a frame after the error does.
+            val failed = awaitUntil { it.page()?.let { l -> l.commentError != null && l.comments.roots.size == 2 } == true }.page()!!
             assertEquals(UiError.Kind.DeleteComment, failed.commentError?.kind)
             assertEquals(loaded.comments.roots, failed.comments.roots, "back where it was")
             cancelAndIgnoreRemainingEvents()
@@ -219,7 +220,9 @@ class ActivityDetailCommentsTest : ActivityDetailTestBase() {
             // Queueing the hide fails once the database is gone.
             r.db.close()
             loaded.eventSink(ActivityDetailEvent.HideComment(loaded.comments.roots.single().uri))
-            val failed = awaitUntil { it.page()?.commentError != null }.page()!!
+            // The mark comes off through the local changes' flow, so it can show a frame after the error does.
+            val failed =
+                awaitUntil { it.page()?.let { l -> l.commentError != null && l.comments.roots.single().hidden == null } == true }.page()!!
             assertEquals(UiError.Kind.HideComment, failed.commentError?.kind)
             assertEquals(loaded.comments.roots, failed.comments.roots, "not marked")
             cancelAndIgnoreRemainingEvents()

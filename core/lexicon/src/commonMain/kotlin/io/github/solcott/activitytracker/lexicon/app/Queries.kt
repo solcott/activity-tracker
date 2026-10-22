@@ -412,6 +412,8 @@ data class SegmentCandidate(
     val source: String,
     /** An SPDX identifier, as [SegmentRecord.license]. */
     val license: String,
+    /** Who to credit for the line's data, as [SegmentRecord.attribution]. */
+    val attribution: String? = null,
 )
 
 /** `app.activitytracker.importer.defs#rejection`: a staged candidate the AppView refused, and why. */

@@ -13,9 +13,11 @@ private const val USAGE =
     """Usage: segment-importer <command>
 
 Commands:
-  extract <file.osm.pbf> --region <id> --out <candidates.ndjson>
-      Reads an OpenStreetMap extract and writes the region's candidate segments, one JSON object per line.
-      The region id is lower-case letters, digits and dashes, such as us-vermont.
+  extract [file.osm.pbf] [--agency <kind>=<file.geojsonl>]... --region <id> --out <candidates.ndjson>
+      Reads a region's OpenStreetMap extract and agency trail datasets, at least one of them, and writes its candidate segments, one JSON
+      object per line. An agency dataset is a GeoJSON text sequence in WGS 84 (made with ogr2ogr, see the README), of the kind usfs (Forest
+      Service trails, TrailNFS_Publish) or nps (Park Service trails). The region id is lower-case letters, digits and dashes, such as
+      us-vermont.
   stage <candidates.ndjson>
       Uploads a candidates file to the AppView as one import run, replacing the region's candidates from earlier runs.
   publish --region <id>
@@ -33,7 +35,7 @@ fun main(args: Array<String>) {
         exitProcess(2)
     }
     when (command) {
-        is Command.Extract -> extract(command.pbf, command.region, command.out)
+        is Command.Extract -> extract(command.pbf, command.agency, command.region, command.out)
         is Command.Stage -> asServiceAccount { stageFile(it, command.file) }
         is Command.Publish -> asServiceAccount { publishRegion(it, command.region) }
     }
@@ -67,7 +69,7 @@ private fun asServiceAccount(block: suspend (Clients) -> Unit) {
 
 /** A parsed command line. */
 internal sealed interface Command {
-    data class Extract(val pbf: File, val region: String, val out: File) : Command
+    data class Extract(val pbf: File?, val agency: List<Pair<AgencyRules, File>>, val region: String, val out: File) : Command
 
     data class Stage(val file: File) : Command
 
@@ -83,26 +85,33 @@ internal fun parse(args: List<String>): Command? =
         else -> null
     }
 
-@Suppress("ReturnCount") // Each way the arguments can fail to make a command.
+@Suppress("ReturnCount", "CyclomaticComplexMethod") // Each way the arguments can fail to make a command.
 private fun parseExtract(args: List<String>): Command.Extract? {
     val options = mutableMapOf<String, String>()
+    val agency = mutableListOf<Pair<AgencyRules, File>>()
     val positional = mutableListOf<String>()
     var i = 0
     while (i < args.size) {
         val arg = args[i]
         if (arg.startsWith("--")) {
-            options[arg] = args.getOrNull(i + 1) ?: return null
+            val value = args.getOrNull(i + 1) ?: return null
+            if (arg == "--agency") {
+                val rules = AgencyRules.ofKind(value.substringBefore('=', "")) ?: return null
+                agency += rules to File(value.substringAfter('=').takeIf { it.isNotEmpty() } ?: return null)
+            } else if (options.put(arg, value) != null) {
+                return null
+            }
             i += 2
         } else {
             positional += arg
             i++
         }
     }
-    val pbf = positional.singleOrNull() ?: return null
+    if (positional.size > 1 || (positional.isEmpty() && agency.isEmpty())) return null
     val region = options["--region"]?.takeIf { REGION_ID.matches(it) } ?: return null
     val out = options["--out"] ?: return null
     if (options.keys.any { it !in setOf("--region", "--out") }) return null
-    return Command.Extract(File(pbf), region, File(out))
+    return Command.Extract(positional.singleOrNull()?.let(::File), agency, region, File(out))
 }
 
 private fun parsePublish(args: List<String>): Command.Publish? {

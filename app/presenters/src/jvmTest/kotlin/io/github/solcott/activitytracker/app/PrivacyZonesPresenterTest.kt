@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app
 
 import app.cash.turbine.ReceiveTurbine
 import com.slack.circuit.test.FakeNavigator
-import com.slack.circuit.test.presenterTestOf
 import io.github.solcott.activitytracker.app.settings.PrivacyZonesEvent
 import io.github.solcott.activitytracker.app.settings.PrivacyZonesPresenter
 import io.github.solcott.activitytracker.app.settings.PrivacyZonesScreen
@@ -19,7 +18,6 @@ import io.github.solcott.activitytracker.location.UnsupportedLocationTracker
 import io.github.solcott.dataresult.DataError
 import io.github.solcott.uistate.errorOrNull
 import io.github.solcott.uistate.hasLoaded
-import io.github.solcott.uistate.isLoading
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -119,7 +117,6 @@ class PrivacyZonesPresenterTest {
 
             fixture.offline = false
             failed.eventSink(PrivacyZonesEvent.Retry)
-            awaitUntil { it.content.isLoading }
             val loaded = awaitUntil { it.zones != null }
             assertTrue(loaded.content.hasLoaded)
             assertEquals<List<PrivacyZone>?>(listOf(home), loaded.zones)

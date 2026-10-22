@@ -15,7 +15,11 @@ internal class OsmData(
     val timestamp: Instant? = null,
 )
 
-internal class OsmWay(val id: Long, val tags: Map<String, String>, val nodes: LongArray) {
+/** [this] and [agency]'s ways and points as one network; agency way and point ids are negative, so they never meet OSM's. */
+internal operator fun OsmData.plus(agency: AgencyData): OsmData = OsmData(ways + agency.ways, relations, coords + agency.points, timestamp)
+
+/** A way of the trail network: an OSM way, or an agency line made into one, whose [tags] its source's [rules] read. */
+internal class OsmWay(val id: Long, val tags: Map<String, String>, val nodes: LongArray, val rules: TrailRules = TrailTags) {
     val name: String?
         get() = tags["name"]?.trim()?.takeIf { it.isNotEmpty() }
 }
@@ -55,6 +59,22 @@ internal class NodeCoords(private val ids: LongArray) {
     operator fun get(id: Long): GeoPoint? {
         val i = ids.binarySearch(id)
         return if (i >= 0 && known[i]) GeoPoint(lat[i] / E7, lng[i] / E7) else null
+    }
+
+    /** These coordinates and [more]'s together, in new arrays: [more]'s ids, agency points', are negative and never OSM node ids. */
+    operator fun plus(more: Map<Long, GeoPoint>): NodeCoords {
+        val merged =
+            NodeCoords(
+                LongSetBuilder()
+                    .apply {
+                        addAll(ids)
+                        more.keys.forEach(::add)
+                    }
+                    .build()
+            )
+        for (i in ids.indices) if (known[i]) merged.set(ids[i], lat[i] / E7, lng[i] / E7)
+        for ((id, point) in more) merged.set(id, point.lat, point.lng)
+        return merged
     }
 
     companion object {

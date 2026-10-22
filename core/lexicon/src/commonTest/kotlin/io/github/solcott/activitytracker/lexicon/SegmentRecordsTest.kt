@@ -107,7 +107,15 @@ class SegmentRecordsTest {
                     """"license":"ODbL-1.0","createdAt":"2026-10-15T12:00:00Z","later":1}""",
             )
         assertNull(bare.derivedFrom)
+        assertNull(bare.attribution)
         assertFalse("derivedFrom" in AtJson.encodeToJsonElement(SegmentRecord.serializer(), bare).jsonObject)
+        assertFalse("attribution" in AtJson.encodeToJsonElement(SegmentRecord.serializer(), bare).jsonObject)
+
+        val agency =
+            record.copy(source = SegmentSource.AGENCY, license = "CC0-1.0", derivedFrom = null, attribution = "USDA Forest Service")
+        val agencyJson = AtJson.encodeToJsonElement(SegmentRecord.serializer(), agency).jsonObject
+        assertEquals("USDA Forest Service", agencyJson["attribution"]?.jsonPrimitive?.content)
+        assertEquals(agency, AtJson.decodeFromJsonElement(SegmentRecord.serializer(), agencyJson))
 
         val uri = AtUri.of(alice, Nsid.FEED_SEGMENT, "3l2abcdefgh44")
         val effort =

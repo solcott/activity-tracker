@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.MAX_NAME_LENGTH
 import io.github.solcott.activitytracker.appview.index.MAX_TOKEN_LENGTH
 import io.github.solcott.activitytracker.appview.index.e7
+import io.github.solcott.activitytracker.appview.index.validAttribution
 import io.github.solcott.activitytracker.appview.index.validLine
 import io.github.solcott.activitytracker.appview.index.validName
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
@@ -124,13 +125,17 @@ class SegmentCandidateViews(
                         line = it[SegmentCandidateRows.line],
                         source = it[SegmentCandidateRows.dataSource],
                         license = it[SegmentCandidateRows.license],
+                        attribution = it[SegmentCandidateRows.attribution],
                     )
                 }
         }
         return GetRiddenSegmentCandidates.Output(page, cursor = page.takeIf { it.size == limit }?.last()?.id)
     }
 
-    /** Validates [candidate] as a segment is validated, then stores it; throws [IllegalArgumentException] naming what's wrong. */
+    /**
+     * Validates [candidate] as a segment is validated, and its attribution, then stores it; throws [IllegalArgumentException] naming what's
+     * wrong.
+     */
     private fun JdbcTransaction.stage(candidate: SegmentCandidate, region: String, revision: String, now: Long) {
         require(SegmentCandidates.ID_PATTERN.matches(candidate.id)) { "an id that isn't 1 to 64 of a-z, 0-9 and -" }
         require(candidate.line.length <= MAX_LINE_LENGTH) { "a line over $MAX_LINE_LENGTH characters" }
@@ -139,6 +144,7 @@ class SegmentCandidateViews(
         }
         val name = validName(candidate.name)
         val line = validLine(candidate.sport, candidate.line)
+        val attribution = validAttribution(candidate.attribution)
         val old =
             SegmentCandidateRows.select(SegmentCandidateRows.line, SegmentCandidateRows.sport, SegmentCandidateRows.ridden)
                 .where { SegmentCandidateRows.id eq candidate.id }
@@ -158,6 +164,7 @@ class SegmentCandidateViews(
             it[maxLngE7] = line.maxOf { p -> p.lng }.e7()
             it[dataSource] = candidate.source
             it[license] = candidate.license
+            it[SegmentCandidateRows.attribution] = attribution
             it[ridden] = if (changed) false else old[SegmentCandidateRows.ridden]
             it[stagedAt] = now
         }

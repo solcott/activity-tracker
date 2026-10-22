@@ -22,7 +22,7 @@ The AppView SHALL accept the candidate calls only from the account its configura
 - **THEN** the AppView refuses it
 
 ### Requirement: Candidates are staged by region in batches
-`importer.putSegmentCandidates` SHALL take a region id, an import revision and up to 500 candidates, each with an id, sport group, name, line, source and licence, and store or replace each by its id. It SHALL validate each candidate as segments are validated and return the ids it rejected, with why, while storing the rest.
+`importer.putSegmentCandidates` SHALL take a region id, an import revision and up to 500 candidates, each with an id, sport group, name, line, source and licence, and optionally an attribution, and store or replace each by its id. It SHALL validate each candidate as segments are validated, and an attribution as blank or at most 100 graphemes, and return the ids it rejected, with why, while storing the rest.
 
 #### Scenario: Batch with one bad line
 - **WHEN** the importer stages 500 candidates for `us-vermont`, one of whose lines is 120 m long
@@ -31,6 +31,14 @@ The AppView SHALL accept the candidate calls only from the account its configura
 #### Scenario: Too many
 - **WHEN** the importer sends 501 candidates in one call
 - **THEN** the AppView refuses the call as `InvalidRequest`
+
+#### Scenario: Agency candidate staged
+- **WHEN** the importer stages a candidate with `source` `agency`, `license` `CC0-1.0` and the attribution "USDA Forest Service"
+- **THEN** the AppView stores it with its attribution
+
+#### Scenario: Attribution too long
+- **WHEN** the importer stages a candidate whose attribution is 150 graphemes long
+- **THEN** the AppView returns its id as rejected and stores the rest of the batch
 
 ### Requirement: An import run replaces a region's candidates
 `importer.finishSegmentCandidates` SHALL take a region id and an import revision, and remove every candidate of that region that wasn't staged in that revision, with its riders. Candidates of other regions SHALL be untouched.
@@ -77,11 +85,15 @@ A candidate SHALL become ridden once it has at least the configured number of di
 - **THEN** their rider records are dropped, and the candidate stays ridden
 
 ### Requirement: The importer learns only which candidates are ridden
-`importer.getRiddenSegmentCandidates` SHALL list a region's ridden candidates, by id with a cursor, each with its id, sport group, name, line, source and licence. It SHALL leave out a candidate once the AppView has indexed a segment from the importer account keyed by that candidate's id. The AppView SHALL NOT reveal to anyone how many riders a candidate has, who they are, or when they rode.
+`importer.getRiddenSegmentCandidates` SHALL list a region's ridden candidates, by id with a cursor, each with its id, sport group, name, line, source, licence and attribution, if it has one. It SHALL leave out a candidate once the AppView has indexed a segment from the importer account keyed by that candidate's id. The AppView SHALL NOT reveal to anyone how many riders a candidate has, who they are, or when they rode.
 
 #### Scenario: Listing ridden candidates
 - **WHEN** the importer lists `us-vermont`'s ridden candidates
 - **THEN** it gets each ridden candidate's line and name, and no counts, athletes or dates
+
+#### Scenario: Ridden agency candidate
+- **WHEN** a ridden candidate was staged with the attribution "National Park Service"
+- **THEN** the listing gives that attribution with it
 
 #### Scenario: Published candidate
 - **WHEN** the AppView has indexed the importer's segment for one of `us-vermont`'s ridden candidates

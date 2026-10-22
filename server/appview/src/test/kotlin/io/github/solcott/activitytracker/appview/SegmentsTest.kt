@@ -40,6 +40,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Instant
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
@@ -211,6 +212,30 @@ class SegmentsTest : SegmentTestBase() {
         val view = AtJson.parseToJsonElement(body).jsonObject.getValue("segment").jsonObject
         assertFalse("star" in body.lowercase(), body)
         assertFalse("viewer" in view && "star" in view.getValue("viewer").toString(), body)
+    }
+
+    @Test
+    fun aSegmentsAttributionIsServedAndAnOutOfBoundsOneDropped() = testApplication {
+        application { appView(config, db, verifier) }
+        fun agency(rkey: String, attribution: String, path: List<Pair<Double, Double>>) =
+            commit(
+                alice,
+                Nsid.FEED_SEGMENT,
+                rkey,
+                segmentJson(path).replace(""""source":"athlete"""", """"source":"agency","attribution":"$attribution""""),
+            )
+        agency("3ka", "National Park Service", straight)
+        agency("3kb", "a".repeat(150), listOf(0.0 to 0.0, 0.0 to 700.0))
+        agency("3kc", "   ", listOf(0.0 to 0.0, 0.0 to 800.0))
+
+        val served = client.xrpcOk(GetSegment.method, mapOf("uri" to segmentUri("3ka"))).segment.record
+        assertEquals("agency" to "National Park Service", served.source to served.attribution)
+        for (rkey in listOf("3kb", "3kc")) {
+            val body = client.xrpc(GetSegment.method, mapOf("uri" to segmentUri(rkey))).bodyAsText()
+            val record = AtJson.parseToJsonElement(body).jsonObject.getValue("segment").jsonObject.getValue("record").jsonObject
+            assertEquals("agency", record.getValue("source").jsonPrimitive.content, "still indexed")
+            assertFalse("attribution" in record, rkey)
+        }
     }
 
     @Test

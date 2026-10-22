@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetRiddenSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.PutSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
+import io.github.solcott.activitytracker.lexicon.app.SegmentSource
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.location.SegmentCells
@@ -268,6 +269,34 @@ class SegmentCandidatesTest : SegmentTestBase() {
             )
         assertEquals(emptyList(), last.candidates)
         assertNull(last.cursor)
+    }
+
+    @Test
+    fun anAgencyCandidateIsStagedAndListedWithItsAttribution() = testApplication {
+        start()
+        rode(alice, "3ka")
+        rode(bob, "3kb")
+        rode(carol, "3kc")
+        val agency = candidate("c-a").copy(source = SegmentSource.AGENCY, license = "CC0-1.0", attribution = " USDA Forest Service ")
+        val blank = candidate("c-b", path = listOf(0.0 to 0.0, 0.0 to 700.0)).copy(attribution = "  ")
+        assertEquals(emptyList(), stage(agency, blank))
+        match()
+
+        val listed = client.xrpcOk(GetRiddenSegmentCandidates.method, mapOf("region" to "us-vermont"), importer).candidates
+        assertEquals(listOf("c-a", "c-b"), listed.map { it.id })
+        assertEquals(agency.copy(attribution = "USDA Forest Service"), listed[0])
+        assertNull(listed[1].attribution, "blank is kept as none")
+    }
+
+    @Test
+    fun anOverLongAttributionIsRejected() {
+        val long = candidate("c-long").copy(source = SegmentSource.AGENCY, license = "CC0-1.0", attribution = "a".repeat(150))
+        val emoji = candidate("c-emoji", path = listOf(0.0 to 0.0, 0.0 to 700.0)).copy(attribution = "🌲".repeat(100))
+        // 100 graphemes, but 1100 characters: over the column and the lexicon's maxLength.
+        val marks =
+            candidate("c-marks", path = listOf(0.0 to 0.0, 0.0 to 900.0)).copy(attribution = ("e" + "\u0301".repeat(10)).repeat(100))
+        assertEquals(listOf("c-long", "c-marks"), stage(long, emoji, marks, candidate("c-ok", path = listOf(0.0 to 0.0, 0.0 to 800.0))))
+        assertEquals(listOf("c-emoji", "c-ok"), stagedIds(), "100 graphemes fit, and the rest of the batch is stored")
     }
 
     @Test
