@@ -555,7 +555,8 @@ object SegmentSource {
 
 /**
  * `app.activitytracker.feed.segment`: a named, public stretch of route for one sport group. Stored only in its creator's repo; the AppView
- * computes its length from [line] and indexes it only when that's 200 m to 50 km.
+ * computes its length from [line] and indexes it only when that's 200 m to 50 km. Keyed by TID, except the segment importer's, keyed by the
+ * [SegmentCandidate] id they were published from.
  */
 @Serializable
 data class SegmentRecord(
