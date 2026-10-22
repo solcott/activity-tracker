@@ -16,8 +16,8 @@ Commands:
   extract [file.osm.pbf] [--agency <kind>=<file.geojsonl>]... --region <id> --out <candidates.ndjson>
       Reads a region's OpenStreetMap extract and agency trail datasets, at least one of them, and writes its candidate segments, one JSON
       object per line. An agency dataset is a GeoJSON text sequence in WGS 84 (made with ogr2ogr, see the README), of the kind usfs (Forest
-      Service trails, TrailNFS_Publish) or nps (Park Service trails). The region id is lower-case letters, digits and dashes, such as
-      us-vermont.
+      Service trails, TrailNFS_Publish), nps (Park Service trails) or blm (BLM managed trails). The region id is lower-case letters, digits
+      and dashes, such as us-vermont.
   stage <candidates.ndjson>
       Uploads a candidates file to the AppView as one import run, replacing the region's candidates from earlier runs.
   publish --region <id>
