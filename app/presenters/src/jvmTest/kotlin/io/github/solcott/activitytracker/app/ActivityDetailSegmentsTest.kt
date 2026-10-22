@@ -126,8 +126,13 @@ class ActivityDetailSegmentsTest : ActivityDetailTestBase() {
             )
         }
 
-    /** Whether the page offers Create segment once [settled] holds: by default, once the owner's track is drawn. */
-    private suspend fun canCreate(settled: (ActivityDetailState.Loaded) -> Boolean = { it.route?.ends != null }): Boolean {
+    /**
+     * Whether the page offers Create segment once [settled] holds: by default, once the owner's track is drawn with its ends marked by
+     * their privacy zones. The track and the zones load apart, and until the zones are read its ends are [RouteEnds.HIDDEN].
+     */
+    private suspend fun canCreate(
+        settled: (ActivityDetailState.Loaded) -> Boolean = { it.route?.ends.let { ends -> ends != null && ends != RouteEnds.HIDDEN } }
+    ): Boolean {
         var can = false
         detail(repos()) {
             can = awaitUntil { s -> s.loaded()?.let { it.canCreateSegment || settled(it) } == true }.loaded()!!.canCreateSegment
@@ -162,7 +167,8 @@ class ActivityDetailSegmentsTest : ActivityDetailTestBase() {
         author = staleAlice
         track = route
         failZones = true
-        assertFalse(canCreate())
+        // The zones never arrive, so the ends stay hidden: settled once the track is drawn.
+        assertFalse(canCreate { it.route?.ends != null })
     }
 
     @Test
