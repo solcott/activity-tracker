@@ -13,10 +13,16 @@ internal class OsmData(
     val coords: NodeCoords,
     /** When the extract's data was current, from its header; null when it doesn't say. */
     val timestamp: Instant? = null,
+    /** The agency lines whose closures leave out OSM candidates along them. */
+    val agencyLines: List<AgencyLine> = emptyList(),
 )
 
-/** [this] and [agency]'s ways and points as one network; agency way and point ids are negative, so they never meet OSM's. */
-internal operator fun OsmData.plus(agency: AgencyData): OsmData = OsmData(ways + agency.ways, relations, coords + agency.points, timestamp)
+/**
+ * [this] and [agency]'s ways and points as one network, with its lines for closures; agency way and point ids are negative, so they never
+ * meet OSM's.
+ */
+internal operator fun OsmData.plus(agency: AgencyData): OsmData =
+    OsmData(ways + agency.ways, relations, coords + agency.points, timestamp, agencyLines + agency.lines)
 
 /** A way of the trail network: an OSM way, or an agency line made into one, whose [tags] its source's [rules] read. */
 internal class OsmWay(val id: Long, val tags: Map<String, String>, val nodes: LongArray, val rules: TrailRules = TrailTags) {

@@ -15,7 +15,12 @@ The output is NDJSON:
 - a header line with `region`, `extractTimestamp` (the OSM extract's replication timestamp, when its header has one) and `importerVersion` (2);
 - one line per candidate, sorted by `id`, with `region`, `sport`, `name`, `line` (a precision-6 encoded polyline, as `feed.segment` stores it), `lengthMeters`, `source`, `license`, and then either `osmWays` (the OSM ways it follows, in its direction of travel; `source` `osm`, `license` `ODbL-1.0`) or `attribution` and `agencyFeatures` (the agency's name and the `<kind>:<feature key>`s it follows; `source` `agency`, `license` `CC0-1.0`).
 
-An OSM candidate's id stays the same while it follows the same ways between the same end nodes, and an agency candidate's while it follows the same features between the same ends (to about a metre), so re-extracting newer data keeps the ids of unchanged trails. The run prints how many candidates each sport group got, and how many agency features it skipped for having no feature id or no line.
+An OSM candidate's id stays the same while it follows the same ways between the same end nodes, and an agency candidate's while it follows the same features between the same ends (to about a metre), so re-extracting newer data keeps the ids of unchanged trails. The run prints how many candidates each sport group got, how many OSM candidates of each group it left out along agency closures (below), and how many agency features it skipped for having no feature id or no line:
+
+```
+Wrote 2554 candidates for us-vermont to build/us-vermont.ndjson: 876 hike, 398 ride, 876 run, 404 ski
+Left out 12 ride candidates along agency closures
+```
 
 ## Agency trail data
 
@@ -46,6 +51,18 @@ US land agencies publish their trails in the public domain. The importer reads e
   A trail counts for the users its `PLAN_ALLOW_MODE_TRNSPRT` code names, read literally: bicycles for rides, hiking for runs and hikes, nordic skiing for skis, so a code for motor vehicles or horses alone (`MTC_ONLY`, `EQU_ONLY`, …) gives nothing. An `UNK` or empty code falls back to `PLAN_MODE_TRNSPRT` (Non-Motorized for rides, runs and hikes; Non-Mechanized for runs and hikes). A trail whose `PLAN_ACCESS_RSTRCT` is `All`, `Admin Only` or `Authorized/Permitted User Only` gives nothing. Features are keyed by `Original_GlobalID`.
 
 Agency lines are joined where their ends or vertices lie within a metre of each other, across datasets, but never to OSM ways. Names written wholly in capitals (common in Forest Service and BLM data) are title-cased. Which fields mean what, and the values seen in the national data, are in the `segment-agency-import` and `segment-blm-import` OpenSpec changes' designs.
+
+### Closures
+
+Agency data also says where a sport is not allowed, and OSM candidates that would invite it there are left out. A feature closes a trail to a group when:
+
+- **`usfs`**: that use's `_RESTRICTED` field is `01/01-12/31` and none of its `_MANAGED`, `_ACCPT` or `_ACCPT_DISC` fields holds a season (a wilderness trail with bikes restricted all year closes it to rides). A seasonal restriction closes nothing.
+- **`blm`**: its `PLAN_ALLOW_MODE_TRNSPRT` code is known and not a `SNOW_` code, and leaves the group out of rides, runs and hikes (`EQU_HIK_ONLY` closes rides; `MTC_ONLY` closes all three), or its `PLAN_ACCESS_RSTRCT` is `All`, `Admin Only` or `Authorized/Permitted User Only` (closed to every group). An `UNK` or empty code closes nothing.
+- **`nps`**: never. Its uses are free text, often `Unknown`.
+
+Every feature with a key counts, named or not, including those that give no candidates. An OSM candidate is left out when, for at least 100 m of its line in all (sampled every 5 m), it lies within 15 m of an agency line closed to its group and not within 15 m of one open to it. So a crossing, a junction's approach or a trail running 30 m alongside doesn't count, a winter feature open to rides keeps a summer closure's ground open, and the same path's candidates for other groups stay. Agency candidates are never left out. Since only the datasets given to `extract` close anything, pass every agency dataset that covers the region. A candidate left out on a later run leaves staging with that run, but a segment already published from it stays.
+
+BLM codes are read literally, so a mis-coded trail closes OSM's candidates along it. Moab's Slickrock Trail is coded `MTC_ONLY` (motorcycles only), so OSM's Slickrock rides, runs and hikes are all left out. Check the report's counts after each run.
 
 ## Memory
 

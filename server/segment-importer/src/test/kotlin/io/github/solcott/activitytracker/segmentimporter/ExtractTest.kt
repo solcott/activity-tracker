@@ -1,10 +1,17 @@
 package io.github.solcott.activitytracker.segmentimporter
 
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.PrintStream
 import kotlin.io.path.createTempFile
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * `extract` end to end on the PBF fixture, alone and with the agency fixtures, against `expected-candidates.ndjson` and
@@ -22,6 +29,32 @@ class ExtractTest {
     @Test
     fun extractsOsmAndAgencyCandidatesTogether() {
         val out = createTempFile("candidates", ".ndjson").toFile()
+        extractWithAgencies(out)
+        matches("expected-candidates-agency.ndjson", out)
+    }
+
+    @Test
+    fun anAgencyClosureLeavesOutTheOsmCandidatesAlongIt() {
+        // The Forest Service's Oak Trail restricts bikes all year, along the whole of OSM's Oak Trail.
+        val out = createTempFile("candidates", ".ndjson").toFile()
+        val report = extractWithAgencies(out)
+        val oak =
+            out.readLines()
+                .drop(1)
+                .map { Json.parseToJsonElement(it).jsonObject }
+                .filter { it.getValue("source").jsonPrimitive.content == "osm" && "Oak Trail" in it.getValue("name").jsonPrimitive.content }
+                .map { "${it.getValue("sport").jsonPrimitive.content} ${it.getValue("name").jsonPrimitive.content}" }
+        assertEquals(
+            listOf("hike Oak Trail (part 1)", "hike Oak Trail (part 2)", "run Oak Trail (part 1)", "run Oak Trail (part 2)"),
+            oak.distinct().sorted(),
+            "no rides; the whole trail's runs and hikes are the agency's",
+        )
+        assertTrue("Left out 6 ride candidates along agency closures" in report, report)
+        assertFalse("Left out" in captured { extract(fixture(), emptyList(), "test-region", out) })
+    }
+
+    /** Runs [extract] on the PBF fixture and every agency fixture into [out], returning what it printed. */
+    private fun extractWithAgencies(out: File): String = captured {
         extract(
             fixture(),
             listOf(
@@ -32,7 +65,18 @@ class ExtractTest {
             "test-region",
             out,
         )
-        matches("expected-candidates-agency.ndjson", out)
+    }
+
+    private fun captured(block: () -> Unit): String {
+        val original = System.out
+        val buffer = ByteArrayOutputStream()
+        System.setOut(PrintStream(buffer, true))
+        try {
+            block()
+        } finally {
+            System.setOut(original)
+        }
+        return buffer.toString()
     }
 
     @Test
