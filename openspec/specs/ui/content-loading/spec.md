@@ -6,8 +6,10 @@ How a screen shows content it loads from the network or its cache: what the athl
 
 The requirements name these groups of screens:
 - **The activity and profile screens:** the activity page, route map, media gallery, profile, follow requests, training zones, threshold history and combine picker.
-- **The form screens:** edit profile, default zones, a sport's zones, edit activity and privacy zones.
-- **The paged lists:** blocked accounts, muted accounts, followers, following, athlete search and an activity's comments.
+- **The form screens:** edit profile, default zones, a sport's zones, edit activity, privacy zones and create segment.
+- **The paged lists:** blocked accounts, muted accounts, followers, following, athlete search, an activity's comments, starred segments and a segment's leaderboard.
+
+Every screen that loads content is the feed, the segment page, or in one of these groups.
 
 ## Requirements
 
