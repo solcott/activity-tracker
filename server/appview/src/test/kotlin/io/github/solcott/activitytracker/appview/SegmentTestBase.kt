@@ -62,12 +62,12 @@ open class SegmentTestBase {
     protected val importer = "did:plc:importer"
     protected val keys = mapOf(alice to TestAccountKey(), bob to TestAccountKey(), carol to TestAccountKey(), importer to TestAccountKey())
 
-    protected val db: Database =
-        JdbcDataSource().run {
+    protected val dataSource =
+        JdbcDataSource().apply {
             setURL("jdbc:h2:mem:${UUID.randomUUID()};MODE=PostgreSQL;DB_CLOSE_DELAY=-1")
             DatabaseFactory.migrate(this)
-            Database.connect(this)
         }
+    protected val db: Database = Database.connect(dataSource)
     protected val indexer = Indexer(db, { did -> did.value.substringAfterLast(':') + ".test" }, segmentImporter = Did(importer))
     protected val config = AppViewConfig.fromEnv(emptyMap())
     protected val verifier = ServiceAuthVerifier(service, keys = { keys[it.value]?.multibase })
