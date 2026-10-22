@@ -37,7 +37,15 @@ US land agencies publish their trails in the public domain. The importer reads e
 
   Its warnings about date fields are harmless: the importer reads no dates. A trail counts only while `TRLSTATUS` is `Existing` and `PUBLICDISPLAY` is `Public Map Display`, for the uses `TRLUSE` lists; features are keyed by `GEOMETRYID`.
 
-Agency lines are joined where their ends or vertices lie within a metre of each other, across datasets, but never to OSM ways. Names written wholly in capitals (common in Forest Service data) are title-cased. Which fields mean what, and the values seen in the national data, are in the `segment-agency-import` OpenSpec change's design.
+- **`blm`**: the Bureau of Land Management's public managed trails, from its `BLM_Natl_GTLF_Public_Managed_Trails` feature service (layer 2), queried the same way:
+
+  ```bash
+  ogr2ogr -f GeoJSONSeq -t_srs EPSG:4326 -spat -109.75 38.45 -109.35 38.80 -spat_srs EPSG:4326 build/blm-moab.geojsonl "https://services1.arcgis.com/KbxwQRRfWyEYLgp4/arcgis/rest/services/BLM_Natl_GTLF_Public_Managed_Trails/FeatureServer/2/query?where=1%3D1&outFields=*&geometry=-109.75,38.45,-109.35,38.80&geometryType=esriGeometryEnvelope&inSR=4326&outSR=4326&f=json"
+  ```
+
+  A trail counts for the users its `PLAN_ALLOW_MODE_TRNSPRT` code names, read literally: bicycles for rides, hiking for runs and hikes, nordic skiing for skis, so a code for motor vehicles or horses alone (`MTC_ONLY`, `EQU_ONLY`, …) gives nothing. An `UNK` or empty code falls back to `PLAN_MODE_TRNSPRT` (Non-Motorized for rides, runs and hikes; Non-Mechanized for runs and hikes). A trail whose `PLAN_ACCESS_RSTRCT` is `All`, `Admin Only` or `Authorized/Permitted User Only` gives nothing. Features are keyed by `Original_GlobalID`.
+
+Agency lines are joined where their ends or vertices lie within a metre of each other, across datasets, but never to OSM ways. Names written wholly in capitals (common in Forest Service and BLM data) are title-cased. Which fields mean what, and the values seen in the national data, are in the `segment-agency-import` and `segment-blm-import` OpenSpec changes' designs.
 
 ## Memory
 

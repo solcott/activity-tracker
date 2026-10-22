@@ -24,7 +24,11 @@ class ExtractTest {
         val out = createTempFile("candidates", ".ndjson").toFile()
         extract(
             fixture(),
-            listOf(AgencyRules.USFS to resource("usfs-trails.geojsonl"), AgencyRules.NPS to resource("nps-trails.geojsonl")),
+            listOf(
+                AgencyRules.USFS to resource("usfs-trails.geojsonl"),
+                AgencyRules.NPS to resource("nps-trails.geojsonl"),
+                AgencyRules.BLM to resource("blm-trails.geojsonl"),
+            ),
             "test-region",
             out,
         )
@@ -53,7 +57,11 @@ class ExtractTest {
             Command.Extract(pbf, listOf(AgencyRules.USFS to File("usfs.geojsonl")), "us-vermont", out),
             extract("region.osm.pbf", "--agency", "usfs=usfs.geojsonl", "--region", "us-vermont", "--out", "out.ndjson"),
         )
-        assertNull(extract("--agency", "blm=blm.geojsonl", "--region", "us-vermont", "--out", "out.ndjson"), "unknown kind")
+        assertEquals(
+            Command.Extract(null, listOf(AgencyRules.BLM to File("blm.geojsonl")), "us-utah", out),
+            extract("--agency", "blm=blm.geojsonl", "--region", "us-utah", "--out", "out.ndjson"),
+        )
+        assertNull(extract("--agency", "fws=fws.geojsonl", "--region", "us-vermont", "--out", "out.ndjson"), "unknown kind")
         assertNull(extract("--agency", "usfs", "--region", "us-vermont", "--out", "out.ndjson"), "no file")
         assertNull(extract("--region", "us-vermont", "--out", "out.ndjson"), "no input")
         assertNull(extract("a.osm.pbf", "b.osm.pbf", "--region", "us-vermont", "--out", "out.ndjson"), "two extracts")

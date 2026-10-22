@@ -54,6 +54,29 @@ internal enum class AgencyRules(val kind: String, override val attribution: Stri
                 .flatMap { use -> NPS_USES[use.filter(Char::isLetter).lowercase()].orEmpty() }
                 .toSet()
         }
+    },
+
+    /** BLM's public managed trails (`BLM_Natl_GTLF_Public_Managed_Trails`), whose allowed-mode codes name who may use each trail. */
+    BLM("blm", "Bureau of Land Management") {
+        override fun nameOf(properties: Map<String, String?>): String? = properties["route_prmry_nm"]
+
+        override fun featureKey(properties: Map<String, String?>): String? =
+            properties["original_globalid"]?.trim()?.takeIf { it.isNotEmpty() }
+
+        /**
+         * The groups `PLAN_ALLOW_MODE_TRNSPRT` names, read literally; for an unknown code, those of `PLAN_MODE_TRNSPRT`. None while access
+         * is restricted to administrators, permitted users or everyone.
+         */
+        override fun groupsOf(properties: Map<String, String?>): Set<String> {
+            fun field(name: String) = properties[name]?.trim().orEmpty().uppercase()
+            if (field("plan_access_rstrct") in BLM_RESTRICTED) return emptySet()
+            return BLM_MODES[field("plan_allow_mode_trnsprt")]
+                ?: when (field("plan_mode_trnsprt")) {
+                    "NON-MOTORIZED" -> FOOT_GROUPS + SegmentSportGroup.RIDE
+                    "NON-MECHANIZED" -> FOOT_GROUPS
+                    else -> emptySet()
+                }
+        }
     };
 
     override val source: String
@@ -103,6 +126,38 @@ internal enum class AgencyRules(val kind: String, override val attribution: Stri
                 put(use, setOf(SegmentSportGroup.PADDLE))
             }
         }
+
+        /**
+         * Each `PLAN_ALLOW_MODE_TRNSPRT` code and the groups its definition names: bicycles for rides, hiking for runs and hikes, nordic
+         * skiing for skis. Codes for motor vehicles or horses alone give none; a code not listed falls back to the planned mode.
+         */
+        private val BLM_MODES: Map<String, Set<String>> = buildMap {
+            val shared = FOOT_GROUPS + SegmentSportGroup.RIDE
+            for (code in
+                listOf("NON_MOTO_SHARED", "BIKE_HIK_ONLY", "ALL_MOTO_VEH", "MTC_ATV_SHARED", "MTC_ATV_UTV_SHARED", "TECH_VEH_SHARED")) {
+                put(code, shared)
+            }
+            put("BIKE_ONLY", setOf(SegmentSportGroup.RIDE))
+            for (code in listOf("HIK_ONLY", "EQU_HIK_ONLY")) put(code, FOOT_GROUPS)
+            for (code in listOf("SNOW_NON_MOTO_SHARED", "SNOW_NON_MECH_SHARED", "SNOW_MOTO_SHARED")) put(code, setOf(SegmentSportGroup.SKI))
+            for (code in
+                listOf(
+                    "EQU_ONLY",
+                    "STRT_LGL_VEH",
+                    "MTC_ONLY",
+                    "MTC_ATV_ONLY",
+                    "MTC_ATV_UTV_ONLY",
+                    "TECH_MTC_ONLY",
+                    "TECH_HI_CLEAR_VEH_ONLY",
+                    "SNOW_MOTO_ONLY",
+                    "MTC_SHARED",
+                )) {
+                put(code, emptySet())
+            }
+        }
+
+        /** `PLAN_ACCESS_RSTRCT` values, upper-cased, that close a trail to the public ("All" is "no one allowed to access"). */
+        private val BLM_RESTRICTED = setOf("ALL", "ADMIN ONLY", "AUTHORIZED/PERMITTED USER ONLY")
 
         /** The rules for an operator's `--agency` kind, or null for a kind the importer doesn't know. */
         fun ofKind(kind: String): AgencyRules? = entries.firstOrNull { it.kind == kind }
