@@ -48,23 +48,25 @@ private val json = Json { explicitNulls = false }
 
 /**
  * Reads [pbf], if given, and each of the [agency] datasets, and writes [region]'s candidates from all of them to [out], logging how many
- * each sport group got and how many agency features were skipped.
+ * each sport group got, how many OSM candidates of each group agency closures left out, and how many agency features were skipped.
  */
 internal fun extract(pbf: File?, agency: List<Pair<AgencyRules, File>>, region: String, out: File) {
     val osm = pbf?.let(OsmReader::read) ?: OsmData(emptyList(), emptyList(), NodeCoords(LongArray(0)))
     val agencyData = agency.takeIf { it.isNotEmpty() }?.let(AgencyReader::read)
     val data = agencyData?.let { osm + it } ?: osm
-    val candidates = candidatesOf(data)
+    val closures = ClosureFilter(data.agencyLines)
+    val candidates = candidatesOf(data, closures)
     out.bufferedWriter().use { write(it, region, data.timestamp, candidates) }
     val counts = candidates.groupingBy { it.group }.eachCount().toSortedMap()
     println("Wrote ${candidates.size} candidates for $region to $out: ${counts.entries.joinToString { (g, n) -> "$n $g" }}")
+    for ((group, n) in closures.leftOut) println("Left out $n $group candidates along agency closures")
     for ((rules, skipped) in agencyData?.skipped.orEmpty()) println("Skipped $skipped ${rules.kind} features with no feature id or no line")
 }
 
-/** Every candidate [data] gives, duplicates dropped, sorted by id. */
-internal fun candidatesOf(data: OsmData): List<Candidate> {
+/** Every candidate [data] gives, those [closures] leave out and then duplicates dropped, sorted by id. */
+internal fun candidatesOf(data: OsmData, closures: ClosureFilter): List<Candidate> {
     val cutter = CandidateCutter(data)
-    return CandidateDedup.dedup(TrailBuilder.build(data).flatMap(cutter::cut)).sortedBy { it.id }
+    return CandidateDedup.dedup(TrailBuilder.build(data).flatMap(cutter::cut).filter(closures::keep)).sortedBy { it.id }
 }
 
 /** The candidates file: a header line, then one line per candidate, in the order given. */
