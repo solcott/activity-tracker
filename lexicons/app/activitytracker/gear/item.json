@@ -1,0 +1,69 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.gear.item",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "One piece of an athlete's gear: a bike, a pair of shoes, a component, skis. Stored in exactly one place by its visibility: the athlete's repo when Public, else their app.activitytracker.space.athlete tier space for that visibility (followers, mutuals or self). It keeps its rkey when it moves, so its canonical URI is at://{did}/app.activitytracker.gear.item/{rkey} wherever it's stored. The AppView doesn't index it yet.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["name", "type", "createdAt"],
+        "properties": {
+          "name": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "The athlete's name for the item, such as Stumpjumper." },
+          "type": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "What kind of gear it is. Readers show a value they don't know as other, and keep it when they rewrite the record.",
+            "knownValues": [
+              "bike",
+              "component",
+              "shoes",
+              "ski",
+              "snowboard",
+              "skiBoots",
+              "snowboardBoots",
+              "xcSki",
+              "skates",
+              "board",
+              "boat",
+              "paddle",
+              "wetsuit",
+              "diveGear",
+              "helmet",
+              "trainer",
+              "wheelchair",
+              "stroller",
+              "sensor",
+              "device",
+              "other"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "What kind of its type it is, from the type's own list (for a bike: road, gravel, mountain, cyclocross, timeTrial, eBike, eMountainBike, fatBike, kids, tandem). Optional. Readers show a value they don't know as the type alone, and keep it."
+          },
+          "brand": { "type": "string", "maxLength": 1280, "maxGraphemes": 128 },
+          "model": { "type": "string", "maxLength": 1280, "maxGraphemes": 128 },
+          "sports": {
+            "type": "array",
+            "maxLength": 16,
+            "description": "The sports the item is for, as app.activitytracker.feed.activity sport values.",
+            "items": { "type": "string", "maxLength": 64 }
+          },
+          "weight": { "type": "integer", "minimum": 0, "maximum": 1000000, "description": "Weight in grams." },
+          "notes": { "type": "string", "maxLength": 10000, "maxGraphemes": 1000 },
+          "photo": {
+            "type": "ref",
+            "ref": "app.activitytracker.feed.activity#image",
+            "description": "Its blob is stored where the record is: in the repo when Public, else in the same tier space."
+          },
+          "acquiredAt": { "type": "string", "format": "datetime" },
+          "retiredAt": { "type": "string", "format": "datetime", "description": "When the athlete retired it. Absent: in use." },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.gear.GearListScreen
 import io.github.solcott.activitytracker.app.moderation.ModerationScreen
 import io.github.solcott.activitytracker.app.profile.BlockListKind
 import io.github.solcott.activitytracker.app.profile.BlockListScreen
@@ -26,6 +27,7 @@ import io.github.solcott.activitytracker.data.units.UnitsRepository
 
 @CircuitInject(SettingsScreen::class, SessionScope::class)
 @Composable
+@Suppress("CyclomaticComplexMethod") // One branch per settings event; most open a screen.
 fun SettingsPresenter(
     navigator: Navigator,
     unitsRepository: UnitsRepository,
@@ -89,6 +91,10 @@ fun SettingsPresenter(
 
             SettingsEvent.OpenPrivacyZones -> {
                 navigator.goTo(PrivacyZonesScreen)
+            }
+
+            SettingsEvent.OpenGear -> {
+                navigator.goTo(GearListScreen)
             }
 
             SettingsEvent.OpenBlocked -> {

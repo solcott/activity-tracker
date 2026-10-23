@@ -95,6 +95,12 @@ object Nsid {
     /** Query: the segment importer lists a region's ridden candidates. */
     const val IMPORTER_GET_RIDDEN_SEGMENT_CANDIDATES = "$NAMESPACE.importer.getRiddenSegmentCandidates"
 
+    /**
+     * One piece of an athlete's gear: in their repo when Public, else in their tier space for its visibility ([SPACE_ATHLETE]). Not indexed
+     * yet.
+     */
+    const val GEAR_ITEM = "$NAMESPACE.gear.item"
+
     const val GRAPH_FOLLOW = "$NAMESPACE.graph.follow"
     const val GRAPH_GET_FOLLOWERS = "$NAMESPACE.graph.getFollowers"
     const val GRAPH_GET_FOLLOWS = "$NAMESPACE.graph.getFollows"

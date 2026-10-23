@@ -37,6 +37,7 @@ import io.github.solcott.activitytracker.composeApp.resources.settings_blocked_a
 import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_activity
 import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_heading
 import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_help
+import io.github.solcott.activitytracker.composeApp.resources.settings_gear
 import io.github.solcott.activitytracker.composeApp.resources.settings_moderation
 import io.github.solcott.activitytracker.composeApp.resources.settings_muted_accounts
 import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_zones
@@ -113,6 +114,7 @@ fun SettingsUi(state: SettingsState, modifier: Modifier = Modifier) {
             HorizontalDivider()
             SegmentMatching(state)
             HorizontalDivider()
+            AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.OpenGear) }) { Text(stringResource(Res.string.settings_gear)) }
             AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.OpenBlocked) }) {
                 Text(stringResource(Res.string.settings_blocked_accounts))
             }

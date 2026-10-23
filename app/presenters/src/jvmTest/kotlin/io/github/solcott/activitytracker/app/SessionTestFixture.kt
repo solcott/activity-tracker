@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.gear.GearRepository
 import io.github.solcott.activitytracker.data.moderation.ModerationRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
@@ -115,6 +116,9 @@ class SessionTestFixture {
 
     /** What `getRecord` serves for any of Alice's activities, as JSON. */
     var activityRecord: String = "{}"
+
+    /** The athlete's `gear.item` records by place (`repo` or a tier), then rkey. */
+    val gear = mutableMapOf<String, MutableMap<String, JsonObject>>()
 
     private val tierPuts = mutableListOf<JsonObject>()
     private val otherSpacePuts = mutableListOf<Pair<String, JsonObject>>()
@@ -296,6 +300,10 @@ class SessionTestFixture {
                             if (collection == Nsid.ACTOR_PRIVACY_ZONES) privacyZones = record?.toString()
                             if (collection == Nsid.ACTOR_SEGMENT_PREFS) segmentPrefs = record?.toString()
                             if (collection == Nsid.ACTOR_LEADERBOARD_BRACKETS) leaderboardBrackets = record?.toString()
+                            if (collection == Nsid.GEAR_ITEM) {
+                                val rkey = input.getValue("rkey").jsonPrimitive.content
+                                if (record == null) gear[tier]?.remove(rkey) else gear.getOrPut(tier) { mutableMapOf() }[rkey] = record
+                            }
                             if (collection != Nsid.ACTOR_PRIVATE_DETAILS) {
                                 record?.let { otherSpacePuts += tier to it }
                             } else if (record == null) {
@@ -328,7 +336,23 @@ class SessionTestFixture {
 
                     "/xrpc/com.atproto.repo.listRecords",
                     "/xrpc/com.atproto.space.listRecords" -> {
-                        respond("""{"records":[]}""", headers = json)
+                        val place = request.url.parameters["space"]?.substringAfterLast('/') ?: "repo"
+                        val records =
+                            if (request.url.parameters["collection"] != Nsid.GEAR_ITEM) emptyList()
+                            else
+                                gear[place].orEmpty().map { (rkey, value) ->
+                                    if (place == "repo") """{"uri":"at://$did/${Nsid.GEAR_ITEM}/$rkey","cid":"bafyrec","value":$value}"""
+                                    else """{"collection":"${Nsid.GEAR_ITEM}","rkey":"$rkey","cid":"bafyrec","value":$value}"""
+                                }
+                        respond("""{"records":[${records.joinToString(",")}]}""", headers = json)
+                    }
+
+                    "/xrpc/com.atproto.repo.deleteRecord" -> {
+                        val input = AtJson.parseToJsonElement(body(request)).jsonObject
+                        if (input.getValue("collection").jsonPrimitive.content == Nsid.GEAR_ITEM) {
+                            gear["repo"]?.remove(input.getValue("rkey").jsonPrimitive.content)
+                        }
+                        respond("{}", headers = json)
                     }
 
                     "/xrpc/com.atproto.repo.applyWrites" -> {
@@ -344,7 +368,13 @@ class SessionTestFixture {
                         if (failWrites) {
                             respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
                         } else {
-                            putBodies += (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+                            val put = (request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+                            putBodies += put
+                            val input = AtJson.parseToJsonElement(put).jsonObject
+                            if (input.getValue("collection").jsonPrimitive.content == Nsid.GEAR_ITEM) {
+                                gear.getOrPut("repo") { mutableMapOf() }[input.getValue("rkey").jsonPrimitive.content] =
+                                    input.getValue("record").jsonObject
+                            }
                             respond("""{"uri":"at://$did/x/y","cid":"bafyrec"}""", headers = json)
                         }
                     }
@@ -377,6 +407,7 @@ class SessionTestFixture {
         val blocks: BlockRepository,
         val segmentPrefs: SegmentPrefsRepository,
         val leaderboardBrackets: LeaderboardBracketsRepository,
+        val gear: GearRepository,
     ) {
         /** The type picker's producer, as Metro injects it into the record, manual entry and import presenters. */
         val typeChoices: ActivityTypeChoices
@@ -451,6 +482,7 @@ class SessionTestFixture {
             BlockRepository(clients, zones.writer, zones.outbox, feed, Clock.System),
             segmentsOf(clients).prefs,
             LeaderboardBracketsRepository(clients, profiles, Clock.System, Logger),
+            GearRepository(clients, Clock.System, feed, Logger),
         )
     }
 }

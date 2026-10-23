@@ -66,6 +66,12 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         SaveZones,
         LoadPrivacyZones,
         SavePrivacyZones,
+        LoadGear,
+        SaveGear,
+        DeleteGear,
+
+        /** The session predates gear in the athlete's spaces, so it can save Public gear only until they sign in again. */
+        GearSignInAgain,
 
         /** An athlete already has the most privacy zones they can keep. */
         TooManyZones,
