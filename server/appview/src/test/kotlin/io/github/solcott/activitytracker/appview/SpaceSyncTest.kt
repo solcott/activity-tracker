@@ -31,6 +31,10 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -249,6 +253,84 @@ class SpaceSyncTest : SpaceSyncFixture() {
         runDue()
         assertEquals(emptyMap(), activities())
         assertEquals(null, syncState(aliceFollowers))
+    }
+
+    @Test
+    fun deletionNotificationDropsTheSpaceAtOnce() = testApplication {
+        start()
+        pds.put(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf1", activity())
+        client.notifySpace(aliceFollowers)
+        val bobInteractions = space(bob, AthleteSpace.INTERACTIONS)
+        pds.put(bobInteractions, Nsid.FEED_LIKE, "3kl1", like("3kf1"))
+        pds.put(bobInteractions, Nsid.FEED_COMMENT, "3kc1", comment("3kf1", Visibility.FOLLOWERS))
+        client.notifySpace(bobInteractions)
+        runDue()
+        assertEquals(setOf("3kf1"), activities().keys)
+        assertEquals(setOf("3kc1"), comments().keys)
+
+        pds.deleted += aliceFollowers
+        // No sync runs: the notification alone drops the space, before it's answered.
+        assertEquals(HttpStatusCode.OK, client.notifySpaceDeleted(aliceFollowers).status)
+        assertEquals(emptyMap(), activities())
+        assertEquals(null, syncState(aliceFollowers))
+        assertEquals(setOf("3kc1"), comments().keys, "bob's space is untouched")
+        // A repeat, and a space the AppView never synced, succeed with nothing to do.
+        assertEquals(HttpStatusCode.OK, client.notifySpaceDeleted(aliceFollowers).status)
+        assertEquals(HttpStatusCode.OK, client.notifySpaceDeleted(space(alice, AthleteSpace.MUTUALS)).status)
+        assertEquals(setOf(bobInteractions.value), transaction(db) { SpaceSync.selectAll().map { it[SpaceSync.space] }.toSet() })
+    }
+
+    @Test
+    fun forgedDeletionNotificationsAreRejected() = testApplication {
+        start()
+        pds.put(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf1", activity())
+        client.notifySpace(aliceFollowers)
+        runDue()
+
+        assertEquals(HttpStatusCode.Unauthorized, client.notifySpaceDeleted(aliceFollowers, issuer = null).status)
+        assertEquals(HttpStatusCode.Unauthorized, client.notifySpaceDeleted(aliceFollowers, issuer = bob).status)
+        assertEquals(HttpStatusCode.Unauthorized, client.notifySpaceDeleted(aliceFollowers, aud = config.managingAppService).status)
+        assertEquals(HttpStatusCode.Unauthorized, client.notifySpaceDeleted(aliceFollowers, aud = service).status)
+        assertEquals(setOf("3kf1"), activities().keys)
+        assertTrue(syncState(aliceFollowers) != null, "still synced")
+    }
+
+    @Test
+    fun aDeletionDuringAPullLeavesNothingBehind() = testApplication {
+        start()
+        pds.put(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf1", activity())
+        client.notifySpace(aliceFollowers)
+        runDue()
+        pds.put(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf2", activity())
+        var purge: Job? = null
+        pds.duringNextPull = {
+            // Runs until it waits on the space's lock, which the pull holds, so it purges only after the pull has indexed 3kf2.
+            purge = CoroutineScope(Dispatchers.Unconfined).launch { syncer.deleted(aliceFollowers) }
+        }
+        client.notifyWrite(aliceFollowers)
+        runDue()
+        runBlocking { purge!!.join() }
+        assertEquals(emptyMap(), activities())
+        assertEquals(null, syncState(aliceFollowers))
+    }
+
+    @Test
+    fun aRecreatedSpaceIsJoinedAsNew() = testApplication {
+        start()
+        pds.put(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf1", activity())
+        client.notifySpace(aliceFollowers)
+        runDue()
+        client.notifySpaceDeleted(aliceFollowers)
+        val registrations = pds.registrations.size
+
+        // Alice deletes the space and creates it again at the same URI, holding only a new activity.
+        pds.delete(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf1")
+        pds.put(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf2", activity())
+        credentials.invalidate(aliceFollowers)
+        client.notifySpace(aliceFollowers)
+        runDue()
+        assertEquals(setOf("3kf2"), activities().keys)
+        assertEquals(registrations + 1, pds.registrations.size, "registered again")
     }
 
     @Test

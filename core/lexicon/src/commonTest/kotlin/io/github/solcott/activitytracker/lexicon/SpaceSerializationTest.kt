@@ -88,6 +88,11 @@ class SpaceSerializationTest {
         assertEquals(null, notify.prevSpaceRev)
         assertEquals("7DDo6UqL", notify.data?.base64)
 
+        val deleted = Space.NotifySpaceDeleted.Input(space)
+        val deletedJson = AtJson.encodeToString(Space.NotifySpaceDeleted.Input.serializer(), deleted)
+        assertEquals("""{"space":"${space.value}"}""", deletedJson)
+        assertEquals(deleted, AtJson.decodeFromString(Space.NotifySpaceDeleted.Input.serializer(), deletedJson))
+
         val registered = AtJson.decodeFromString(Space.RegisterNotify.Output.serializer(), """{"expiresAt":"2026-10-15T13:43:16.061Z"}""")
         assertEquals(Instant.parse("2026-10-15T13:43:16.061Z"), registered.expiresAt)
     }
