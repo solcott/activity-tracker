@@ -13,6 +13,9 @@ import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.segment.SegmentCredit
 import io.github.solcott.activitytracker.app.segment.SegmentEvent
 import io.github.solcott.activitytracker.app.segment.SegmentLeaderboardScreen
+import io.github.solcott.activitytracker.app.segment.SegmentMapEvent
+import io.github.solcott.activitytracker.app.segment.SegmentMapPresenter
+import io.github.solcott.activitytracker.app.segment.SegmentMapScreen
 import io.github.solcott.activitytracker.app.segment.SegmentMayorsScreen
 import io.github.solcott.activitytracker.app.segment.SegmentPresenter
 import io.github.solcott.activitytracker.app.segment.SegmentScreen
@@ -230,6 +233,73 @@ class SegmentPresenterTest {
             assertEquals("duplicate", state.segment?.status)
             state.eventSink(SegmentEvent.OpenOriginal)
             assertEquals(SegmentScreen(original), navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun theMapOpensTheEnlargedMap() = runTest {
+        val navigator = FakeNavigator(screen)
+        val (segments, stars) = session()
+        presenterTestOf({ SegmentPresenter(screen, navigator, segments, stars) }) {
+            awaitUntil { it.segment != null }.eventSink(SegmentEvent.OpenMap)
+            assertEquals(SegmentMapScreen(uri), navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    // The enlarged map (segments/segment-map-viewer): the segment screen's line, the name and the data credit.
+
+    @Test
+    fun theEnlargedMapDrawsTheLineNamedAndCredited() = runTest {
+        source = "osm"
+        license = "ODbL-1.0"
+        val (segments, _) = session()
+        val mapScreen = SegmentMapScreen(uri)
+        presenterTestOf({ SegmentMapPresenter(mapScreen, FakeNavigator(mapScreen), segments) }) {
+            val content = assertNotNull(awaitUntil { it.content.data != null }.content.data)
+            assertEquals(2, TrackMath.decodePolyline(assertNotNull<String>(content.polyline)).size)
+            assertEquals("Hill", content.name)
+            assertEquals(SegmentCredit.OpenStreetMap("ODbL-1.0"), content.credit)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun anAthleteSegmentsEnlargedMapHasNoCredit() = runTest {
+        val (segments, _) = session()
+        val mapScreen = SegmentMapScreen(uri)
+        presenterTestOf({ SegmentMapPresenter(mapScreen, FakeNavigator(mapScreen), segments) }) {
+            assertNull(assertNotNull(awaitUntil { it.content.data != null }.content.data).credit)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun theEnlargedMapsFailedLoadIsAnErrorThatRetries() = runTest {
+        failSegment = true
+        val (segments, _) = session()
+        val mapScreen = SegmentMapScreen(uri)
+        presenterTestOf({ SegmentMapPresenter(mapScreen, FakeNavigator(mapScreen), segments) }) {
+            val failed = awaitUntil { it.content.errorOrNull != null }
+            assertEquals(DataError.Api(listOf("Segment not found"), code = "NotFound"), failed.content.errorOrNull)
+            assertFalse(failed.content.hasLoaded)
+
+            failSegment = false
+            failed.eventSink(SegmentMapEvent.Retry)
+            assertEquals("Hill", awaitUntil { it.content.data != null }.content.data?.name)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun backLeavesTheEnlargedMap() = runTest {
+        val (segments, _) = session()
+        val mapScreen = SegmentMapScreen(uri)
+        val navigator = FakeNavigator(mapScreen)
+        presenterTestOf({ SegmentMapPresenter(mapScreen, navigator, segments) }) {
+            awaitItem().eventSink(SegmentMapEvent.Back)
+            navigator.awaitPop()
             cancelAndIgnoreRemainingEvents()
         }
     }

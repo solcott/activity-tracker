@@ -91,7 +91,9 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
     ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 12.dp)) {
             item { RefreshStatus(state.content, UiError.Kind.LoadSegment, onRetry) }
-            state.polyline?.let { line -> item { ActivityMap(line, Modifier.fillMaxWidth()) } }
+            state.polyline?.let { line ->
+                item { ActivityMap(line, Modifier.fillMaxWidth(), onExpand = { state.eventSink(SegmentEvent.OpenMap) }) }
+            }
             item {
                 Column(Modifier.padding(vertical = 12.dp)) {
                     Text(

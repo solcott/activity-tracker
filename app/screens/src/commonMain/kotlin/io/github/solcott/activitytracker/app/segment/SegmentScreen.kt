@@ -75,6 +75,9 @@ sealed interface SegmentEvent {
     /** Stars the segment, or unstars it when [SegmentState.starred]. */
     data object ToggleStar : SegmentEvent
 
+    /** Opens the segment's line full screen (segments/segment-map-viewer). */
+    data object OpenMap : SegmentEvent
+
     /** Opens the activity an effort came from. */
     data class OpenActivity(val uri: AtUri) : SegmentEvent
 

@@ -94,6 +94,7 @@ fun SegmentPresenter(screen: SegmentScreen, navigator: Navigator, segments: Segm
             }
             is SegmentEvent.OpenActivity -> navigator.goTo(ActivityDetailScreen(event.uri.value))
             SegmentEvent.OpenOriginal -> segment?.duplicateOf?.let { navigator.goTo(SegmentScreen(it.value)) }
+            SegmentEvent.OpenMap -> navigator.goTo(SegmentMapScreen(screen.uri))
             SegmentEvent.OpenLeaderboard ->
                 segment
                     ?.takeIf { SegmentStatus.of(it.status) == SegmentStatus.ACTIVE }
