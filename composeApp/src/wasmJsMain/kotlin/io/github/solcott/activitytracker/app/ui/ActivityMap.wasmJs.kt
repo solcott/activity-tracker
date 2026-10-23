@@ -17,4 +17,5 @@ actual fun ActivityMap(
     onExpand: (() -> Unit)?,
     interactive: Boolean,
     highlight: String?,
+    overlayTop: Dp,
 ) = RoutePreview(polyline, modifier, height, gaps, ends, highlight)

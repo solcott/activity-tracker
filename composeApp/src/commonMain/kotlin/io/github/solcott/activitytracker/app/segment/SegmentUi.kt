@@ -15,7 +15,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
@@ -34,10 +33,6 @@ import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScroll
 import io.github.solcott.activitytracker.app.ui.handleLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.segment_created_by
-import io.github.solcott.activitytracker.composeApp.resources.segment_credit_agency
-import io.github.solcott.activitytracker.composeApp.resources.segment_credit_agency_named
-import io.github.solcott.activitytracker.composeApp.resources.segment_credit_license
-import io.github.solcott.activitytracker.composeApp.resources.segment_credit_osm
 import io.github.solcott.activitytracker.composeApp.resources.segment_duplicate_help
 import io.github.solcott.activitytracker.composeApp.resources.segment_leaderboard
 import io.github.solcott.activitytracker.composeApp.resources.segment_no_efforts
@@ -96,7 +91,9 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
     ReadableList(listState, Modifier.fillMaxSize(), padding) { listPadding ->
         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 12.dp)) {
             item { RefreshStatus(state.content, UiError.Kind.LoadSegment, onRetry) }
-            state.polyline?.let { line -> item { ActivityMap(line, Modifier.fillMaxWidth()) } }
+            state.polyline?.let { line ->
+                item { ActivityMap(line, Modifier.fillMaxWidth(), onExpand = { state.eventSink(SegmentEvent.OpenMap) }) }
+            }
             item {
                 Column(Modifier.padding(vertical = 12.dp)) {
                     Text(
@@ -141,36 +138,6 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
         }
     }
 }
-
-/** Where the segment's line came from (segments/segment-records): OSM's attribution, linking to its copyright page, or the licence. */
-@Composable
-private fun Credit(credit: SegmentCredit) {
-    val license =
-        when (credit) {
-            is SegmentCredit.OpenStreetMap -> {
-                val uriHandler = LocalUriHandler.current
-                AppTextButton(onClick = { uriHandler.openUri(OSM_COPYRIGHT_URL) }) { Text(stringResource(Res.string.segment_credit_osm)) }
-                credit.license
-            }
-            is SegmentCredit.Agency -> {
-                val text =
-                    credit.attribution?.let { stringResource(Res.string.segment_credit_agency_named, it) }
-                        ?: stringResource(Res.string.segment_credit_agency)
-                CreditText(text)
-                credit.license
-            }
-            is SegmentCredit.License -> credit.id
-        }
-    if (license.isNotBlank()) CreditText(stringResource(Res.string.segment_credit_license, license))
-}
-
-@Composable
-private fun CreditText(text: String) {
-    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-}
-
-/** OSM's attribution guideline asks for a link here. */
-private const val OSM_COPYRIGHT_URL = "https://www.openstreetmap.org/copyright"
 
 /** A segment that isn't active: its status and what it means, and for a duplicate a link to the original. */
 @Composable
