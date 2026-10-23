@@ -306,9 +306,17 @@ data class ActivityRecord(
     val avgStrokeDistance: Int? = null,
     /** The UTC offset where the activity started, in minutes east of UTC, from [MIN_UTC_OFFSET] to [MAX_UTC_OFFSET]. */
     val utcOffset: Int? = null,
+    /**
+     * The athlete's gear used, by the canonical URIs of their [GearItemRecord]s, in the order they chose; at most [MAX_GEAR]. A URI of
+     * anyone else's item is ignored. Null when the activity lists no gear. In [DetailCategory.GEAR].
+     */
+    val gear: List<AtUri>? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_ACTIVITY,
 ) {
     companion object {
+        /** The lexicon's `maxLength` for [gear]. */
+        const val MAX_GEAR = 16
+
         /** Minutes east of UTC: UTC−12:00 to UTC+14:00. */
         const val MIN_UTC_OFFSET = -720
         const val MAX_UTC_OFFSET = 840
@@ -396,6 +404,8 @@ data class ActivityDetailsRecord(
     val work: Long? = null,
     /** Kilocalories. */
     val calories: Int? = null,
+    /** [ActivityRecord.gear], when the gear category is narrower than the activity. */
+    val gear: List<AtUri>? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_ACTIVITY_DETAILS,
 )
 
@@ -1607,8 +1617,8 @@ data class PrivateDetailsRecord(
 /**
  * `app.activitytracker.actor.activityDefaults`: the [Visibility] values an athlete's new activities and their [DetailCategory]s start with.
  * It lives only in their [AthleteSpace.SELF] space. A missing record or [visibility] means [Visibility.PUBLIC], and a category with no
- * default starts at the activity's; read it through [resolved], which also caps each category at the activity. A `chartsVisibility` left by
- * older clients is ignored.
+ * default starts at [DetailCategory.defaultWhenUnset] (the activity's, but Only me for gear); read it through [resolved], which also caps
+ * each category at the activity. A `chartsVisibility` left by older clients is ignored.
  */
 @Serializable
 data class ActivityDefaultsRecord(
@@ -1621,7 +1631,10 @@ data class ActivityDefaultsRecord(
         val activity = Visibility.known(visibility)
         return activity to
             DetailCategory.all.associateWith { category ->
-                details?.get(category)?.let { Visibility.capped(Visibility.known(it), activity) } ?: activity
+                Visibility.capped(
+                    details?.get(category)?.let { Visibility.known(it) } ?: DetailCategory.defaultWhenUnset(category, activity),
+                    activity,
+                )
             }
     }
 
@@ -1645,6 +1658,7 @@ data class DetailVisibilities(
     val physiology: String? = null,
     val cadence: String? = null,
     val dive: String? = null,
+    val gear: String? = null,
 ) {
     /** [category]'s value, or null when it's unset or not a known category. */
     operator fun get(category: String): String? =
@@ -1658,6 +1672,7 @@ data class DetailVisibilities(
             DetailCategory.PHYSIOLOGY -> physiology
             DetailCategory.CADENCE -> cadence
             DetailCategory.DIVE -> dive
+            DetailCategory.GEAR -> gear
             else -> null
         }
 
@@ -1674,6 +1689,7 @@ data class DetailVisibilities(
                 physiology = values[DetailCategory.PHYSIOLOGY],
                 cadence = values[DetailCategory.CADENCE],
                 dive = values[DetailCategory.DIVE],
+                gear = values[DetailCategory.GEAR],
             )
     }
 }

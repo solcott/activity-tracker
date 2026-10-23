@@ -36,10 +36,12 @@ fun ManualActivityPresenter(
     activities: ActivityRepository,
     unitsRepository: UnitsRepository,
     typeChoices: ActivityTypeChoices,
+    gearChoices: GearChoices,
     defaults: ActivityDefaults,
     clock: Clock,
 ): ManualActivityState {
     val type = typeChoices.produce(ActivityType(Sport.RUN))
+    val gear = gearChoices.produce(type.selected)
     val title = rememberTextFieldState()
     val distance = rememberTextFieldState()
     val duration = rememberTextFieldState()
@@ -48,14 +50,16 @@ fun ManualActivityPresenter(
     var error by remember { mutableStateOf<UiError?>(null) }
     val flights = rememberSingleFlight()
     val saving = flights.isRunning(ManualActivityEvent.Save)
-    // Read in composition, so the categories offered follow the fields: Pace and speed once a distance is entered.
+    // Read in composition, so the categories offered follow the fields: Pace and speed once a distance is entered, Gear once picked.
     val offered =
         manualDraft(type.selected, title.text, distance.text, parseDecimal(duration.text.toString()) ?: 0.0, temperature.text, units, clock)
+            .copy(gear = gear.selected)
             .heldCategories()
             .toImmutableSet()
     val visibility = rememberNewActivityVisibility(defaults, offered)
 
-    return ManualActivityState(type.field, title, distance, duration, temperature, units, saving, error, visibility.fields) { event ->
+    return ManualActivityState(type.field, title, distance, duration, temperature, units, saving, error, visibility.fields, gear.field) {
+        event ->
         when (event) {
             is ManualActivityEvent.UnitsChanged -> {
                 units = event.value
@@ -72,6 +76,7 @@ fun ManualActivityPresenter(
                         val saved =
                             activities.publish(
                                 manualDraft(type.selected, title.text, distance.text, minutes, temperature.text, units, clock)
+                                    .copy(gear = gear.selected)
                                     .withVisibility(visibility.current)
                             )
                         // The saved activity opens, asking whether to combine it with another of the athlete's.

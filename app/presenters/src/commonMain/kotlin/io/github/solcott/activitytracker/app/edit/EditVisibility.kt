@@ -18,10 +18,15 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
 
 /**
  * Who may see an activity being edited: as saved ([saved], once [seed]ed) and as the athlete has it now ([choice]), each category capped at
- * the activity. Only the categories it has data in are offered.
+ * the activity. Only the categories it has data in are offered, and Gear while the form lists gear ([listsGear]).
  */
 @Stable
-class EditVisibility internal constructor(private val canChoose: Boolean, private val approvesFollowers: () -> Boolean) {
+class EditVisibility
+internal constructor(
+    private val canChoose: Boolean,
+    private val approvesFollowers: () -> Boolean,
+    private val listsGear: () -> Boolean = { false },
+) {
     private var saved by mutableStateOf<VisibilityChoice?>(null)
     private var choice by mutableStateOf<VisibilityChoice?>(null)
     private var offered by mutableStateOf(emptyList<String>())
@@ -40,9 +45,17 @@ class EditVisibility internal constructor(private val canChoose: Boolean, privat
         runningForm = streams?.channels.orEmpty().any { it in DetailCategory.RUNNING_FORM_CHANNELS }
     }
 
+    // Gear picked on the form is data too: its category is offered from the first pick.
+    private val offeredNow: List<String>
+        get() = if (listsGear()) DetailCategory.all.filter { it in offered || it == DetailCategory.GEAR } else offered
+
     /** What the form shows; null until loaded. */
     val fields: VisibilityFields?
-        get() = choice?.let { fieldsOf(it, canChoose, ::onEvent, approvesFollowers(), offered).copy(runningForm = runningForm) }
+        get() = choice?.let { fieldsOf(it, canChoose, ::onEvent, approvesFollowers(), offeredNow).copy(runningForm = runningForm) }
+
+    /** The choice as the athlete has it now; null until loaded. */
+    val current: VisibilityChoice?
+        get() = choice
 
     /** The choice to save, if the athlete changed it. */
     val changed: VisibilityChoice?
@@ -97,12 +110,14 @@ class EditVisibility internal constructor(private val canChoose: Boolean, privat
         when (event) {
             is VisibilityEvent.ActivityChanged -> choice = choice?.withActivity(event.visibility)
             is VisibilityEvent.CategoryChanged ->
-                if (event.category in offered) choice = choice?.withCategory(event.category, event.visibility)
+                if (event.category in offeredNow) choice = choice?.withCategory(event.category, event.visibility)
         }
     }
 }
 
 @Composable
-internal fun rememberEditVisibility(canChoose: Boolean, approvesFollowers: () -> Boolean): EditVisibility = remember {
-    EditVisibility(canChoose, approvesFollowers)
-}
+internal fun rememberEditVisibility(
+    canChoose: Boolean,
+    approvesFollowers: () -> Boolean,
+    listsGear: () -> Boolean = { false },
+): EditVisibility = remember { EditVisibility(canChoose, approvesFollowers, listsGear) }

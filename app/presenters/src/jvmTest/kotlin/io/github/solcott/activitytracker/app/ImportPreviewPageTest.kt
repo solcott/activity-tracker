@@ -40,6 +40,7 @@ class ImportPreviewPageTest {
                 repos.manager,
                 ActivityFileReader { ride },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,

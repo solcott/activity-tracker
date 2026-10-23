@@ -1,0 +1,38 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.gear.autoAssign",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "The athlete's rules for filling in gear: which of their gear.item records a new activity of each type starts with. Lives only in the athlete's self space (app.activitytracker.space.athlete, key self), never in the public repo. The AppView never indexes or serves it. For each gear type, a new activity takes the items of the entry for its sport and sub-sport if that entry has any of that type, else those of the entry for its sport alone. Retired and deleted items are skipped.",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": ["updatedAt"],
+        "properties": {
+          "sports": {
+            "type": "array",
+            "maxLength": 256,
+            "items": { "type": "ref", "ref": "#sportDefault" },
+            "description": "At most one entry per sport and sub-sport."
+          },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    },
+    "sportDefault": {
+      "type": "object",
+      "required": ["sport", "gear"],
+      "properties": {
+        "sport": { "type": "string", "maxLength": 64, "description": "An app.activitytracker.feed.activity sport value." },
+        "subSport": { "type": "string", "maxLength": 64, "description": "An app.activitytracker.feed.activity subSport value. Absent: the entry is for the sport in any form." },
+        "gear": {
+          "type": "array",
+          "maxLength": 16,
+          "items": { "type": "string", "format": "at-uri" },
+          "description": "The athlete's gear items, by canonical URI (at://{did}/app.activitytracker.gear.item/{rkey})."
+        }
+      }
+    }
+  }
+}

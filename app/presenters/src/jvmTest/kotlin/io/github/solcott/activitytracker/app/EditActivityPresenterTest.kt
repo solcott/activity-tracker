@@ -21,6 +21,8 @@ import io.github.solcott.activitytracker.app.edit.EditActivityScreen
 import io.github.solcott.activitytracker.app.edit.EditActivityState
 import io.github.solcott.activitytracker.app.edit.EditMedia
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
+import io.github.solcott.activitytracker.app.record.GearChoices
+import io.github.solcott.activitytracker.app.record.GearEvent
 import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityManager
@@ -33,9 +35,12 @@ import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.gear.GearDefaults
+import io.github.solcott.activitytracker.data.gear.GearRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
@@ -71,7 +76,7 @@ class EditActivityPresenterTest {
     private val alice = Did("did:plc:alice")
     private val uri = "at://${alice.value}/${Nsid.FEED_ACTIVITY}/3kdive"
 
-    private val record =
+    private var record =
         """{"sport":"dive","startedAt":"2026-09-30T10:00:00Z","elapsedTime":1800,"createdAt":"2026-09-30T10:31:00Z",""" +
             """"title":"Blue Hole","description":"Sharks","dive":{"maxDepth":3000,"site":"Dahab"},""" +
             """"media":[${photo("bafkone")},${photo("bafktwo")}]}"""
@@ -266,6 +271,7 @@ class EditActivityPresenterTest {
 
     private val picked = PickedPhoto(ByteString(1, 2, 3), "image/webp", width = 3, height = 4)
 
+    @Suppress("LongMethod") // Wires every store the screen reaches for.
     private suspend fun presenter(navigator: FakeNavigator): @Composable () -> EditActivityState {
         val (db, _, clients) = signedInTestSession(http, did = alice)
         this.db = db
@@ -315,8 +321,19 @@ class EditActivityPresenterTest {
         val defaults = ActivityDefaults(clients)
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
         val segments = testSegments(db, clients, zones.writer, zones.outbox, privacy, zones.tracks)
+        val gearChoices = GearChoices(GearRepository(clients, Clock.System, feed, Logger), GearDefaults(clients, Clock.System))
         return {
-            EditActivityPresenter(EditActivityScreen(uri), navigator, feed, manager, defaults, profiles, segments.prefs, segments.store)
+            EditActivityPresenter(
+                EditActivityScreen(uri),
+                navigator,
+                feed,
+                manager,
+                defaults,
+                profiles,
+                segments.prefs,
+                segments.store,
+                gearChoices,
+            )
         }
     }
 
@@ -620,5 +637,24 @@ class EditActivityPresenterTest {
             cancelAndIgnoreRemainingEvents()
         }
         assertEquals(emptyList(), queuedExclusions())
+    }
+
+    @Test
+    fun removingTheOnlyBikeSavesTheRideWithoutGear() = runTest {
+        val bike = "at://${alice.value}/${Nsid.GEAR_ITEM}/3bike"
+        record =
+            """{"sport":"ride","startedAt":"2026-09-30T10:00:00Z","elapsedTime":1800,"createdAt":"2026-09-30T10:31:00Z",""" +
+                """"title":"Loop","gear":["$bike"]}"""
+        val navigator = FakeNavigator(EditActivityScreen(uri))
+        presenterTestOf(presenter(navigator)) {
+            val loaded = awaitUntil { it.gear?.selected?.isNotEmpty() == true }
+            assertEquals(listOf(bike), loaded.gear?.selected?.map { it.value })
+            assertEquals(DetailCategory.GEAR, loaded.visibility?.categories?.last()?.category, "the ride lists gear")
+            loaded.gear?.eventSink?.invoke(GearEvent.Toggle(AtUri(bike)))
+            awaitUntil { it.gear?.selected?.isEmpty() == true }.eventSink(EditActivityEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertNull(putRecords.last().gear)
     }
 }

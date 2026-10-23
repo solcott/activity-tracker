@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.appview.index
 import io.github.solcott.activitytracker.appview.ProfileDetailRules
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityDetails
+import io.github.solcott.activitytracker.appview.db.ActivityGear
 import io.github.solcott.activitytracker.appview.db.ActivityMediaBlobs
 import io.github.solcott.activitytracker.appview.db.ActivityMembers
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
@@ -13,6 +14,7 @@ import io.github.solcott.activitytracker.appview.db.CommentHides
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.FollowApprovals
 import io.github.solcott.activitytracker.appview.db.Follows
+import io.github.solcott.activitytracker.appview.db.GearItems
 import io.github.solcott.activitytracker.appview.db.LeaderboardBrackets
 import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.appview.db.Mutes
@@ -144,6 +146,7 @@ class Indexer(
                 .forEach { delete(collection, AtUri(it), placement) }
         }
         RecordShadows.deleteWhere { origin eq placement.origin }
+        ActivityGear.deleteWhere { origin eq placement.origin }
         Likes.deleteWhere { origin eq placement.origin }
         Comments.deleteWhere { origin eq placement.origin }
         CommentHides.deleteWhere { origin eq placement.origin }
@@ -195,7 +198,8 @@ class Indexer(
         val now = clock.now().toEpochMilliseconds()
         when (collection) {
             Nsid.FEED_ACTIVITY,
-            Nsid.FEED_ACTIVITY_ZONES -> {
+            Nsid.FEED_ACTIVITY_ZONES,
+            Nsid.GEAR_ITEM -> {
                 upsertPlaced(collection, author, uri, cid, json, placement, now)
             }
 
@@ -296,15 +300,19 @@ class Indexer(
     private fun JdbcTransaction.deleteRecord(collection: String, uri: AtUri, placement: Placement) {
         when (collection) {
             Nsid.FEED_ACTIVITY,
-            Nsid.FEED_ACTIVITY_ZONES -> {
+            Nsid.FEED_ACTIVITY_ZONES,
+            Nsid.GEAR_ITEM -> {
                 RecordShadows.deleteWhere { (RecordShadows.uri eq uri.value) and (origin eq placement.origin) }
                 if (heldCopy(collection, uri)?.origin != placement.origin) return
-                if (collection == Nsid.FEED_ACTIVITY) {
-                    Activities.deleteWhere { Activities.uri eq uri.value }
-                    ActivityMediaBlobs.deleteWhere { activityUri eq uri.value }
-                    ActivityMembers.deleteWhere { combinedUri eq uri.value }
-                } else {
-                    ActivityZones.deleteWhere { ActivityZones.uri eq uri.value }
+                when (collection) {
+                    Nsid.FEED_ACTIVITY -> {
+                        Activities.deleteWhere { Activities.uri eq uri.value }
+                        ActivityMediaBlobs.deleteWhere { activityUri eq uri.value }
+                        ActivityMembers.deleteWhere { combinedUri eq uri.value }
+                        ActivityGear.deleteWhere { (activityUri eq uri.value) and (listedIn eq ActivityGear.SOURCE_RECORD) }
+                    }
+                    Nsid.GEAR_ITEM -> GearItems.deleteWhere { GearItems.uri eq uri.value }
+                    else -> ActivityZones.deleteWhere { ActivityZones.uri eq uri.value }
                 }
                 promoteShadow(collection, uri)
             }
@@ -316,6 +324,10 @@ class Indexer(
 
             Nsid.FEED_ACTIVITY_DETAILS -> {
                 ActivityDetails.deleteWhere { (ActivityDetails.uri eq uri.value) and (origin eq placement.origin) }
+                val activity = AtUri.of(Did(uri.authority), Nsid.FEED_ACTIVITY, requireNotNull(uri.rkey))
+                ActivityGear.deleteWhere {
+                    (activityUri eq activity.value) and (listedIn eq ActivityGear.SOURCE_DETAILS) and (origin eq placement.origin)
+                }
             }
 
             Nsid.FEED_LIKE -> {
@@ -377,6 +389,8 @@ class Indexer(
         ActivityStreams.deleteWhere { authorDid eq did.value }
         ActivityDetails.deleteWhere { authorDid eq did.value }
         ActivityZones.deleteWhere { authorDid eq did.value }
+        ActivityGear.deleteWhere { authorDid eq did.value }
+        GearItems.deleteWhere { authorDid eq did.value }
         dropOrphanedStreamData()
         Likes.deleteWhere { authorDid eq did.value }
         Comments.deleteWhere { authorDid eq did.value }
@@ -401,7 +415,7 @@ class Indexer(
         private val INACTIVE = setOf("takendown", "suspended", "deactivated")
 
         private val TIER_COLLECTIONS =
-            setOf(Nsid.FEED_ACTIVITY, Nsid.FEED_ACTIVITY_DETAILS, Nsid.FEED_ACTIVITY_STREAMS, Nsid.FEED_ACTIVITY_ZONES)
+            setOf(Nsid.FEED_ACTIVITY, Nsid.FEED_ACTIVITY_DETAILS, Nsid.FEED_ACTIVITY_STREAMS, Nsid.FEED_ACTIVITY_ZONES, Nsid.GEAR_ITEM)
 
         /** The tables of records held by origin: each one's URI and origin columns, and its collection. */
         private val PLACED =
@@ -410,6 +424,7 @@ class Indexer(
                 Triple(ActivityStreams.uri, ActivityStreams.origin, Nsid.FEED_ACTIVITY_STREAMS),
                 Triple(ActivityDetails.uri, ActivityDetails.origin, Nsid.FEED_ACTIVITY_DETAILS),
                 Triple(ActivityZones.uri, ActivityZones.origin, Nsid.FEED_ACTIVITY_ZONES),
+                Triple(GearItems.uri, GearItems.origin, Nsid.GEAR_ITEM),
             )
         /** Blocks (the app's and Bluesky's) and mutes, which all go through [upsertBlockOrMute] and [deleteBlockOrMute]. */
         private val BLOCKS_AND_MUTES = setOf(Nsid.GRAPH_BLOCK, Nsid.BSKY_GRAPH_BLOCK, Nsid.GRAPH_MUTE)
@@ -423,10 +438,10 @@ class Indexer(
 
         /**
          * What the AppView indexes from the athlete space with key [skey]: likes, comments, comment hides, blocks and mutes from the
-         * interactions space, and activities, their details, streams and zones from a tier (an unknown key is a tier only the athlete
-         * sees), plus from `self` the segment matching setting and segment tracks (zone-trimmed copies of tracks, used only while matching
-         * is on and never served) and the leaderboard brackets (used only to filter leaderboards, never served). Private details, follow
-         * declines, defaults, full tracks, imported files and their devices (`feed.activityTrack`, `feed.activitySource`,
+         * interactions space, and activities, their details, streams and zones and gear items from a tier (an unknown key is a tier only
+         * the athlete sees), plus from `self` the segment matching setting and segment tracks (zone-trimmed copies of tracks, used only
+         * while matching is on and never served) and the leaderboard brackets (used only to filter leaderboards, never served). Private
+         * details, follow declines, defaults, full tracks, imported files and their devices (`feed.activityTrack`, `feed.activitySource`,
          * `feed.activityDevices`, in `self`), privacy zones and their trim marker (`actor.privacyZones`, `actor.routeTrim`, in `self`) and
          * stars on segments (`feed.segmentStar`, in `self`) are never stored.
          */

@@ -9,9 +9,14 @@ import io.github.solcott.activitytracker.app.gear.EditGearScreen
 import io.github.solcott.activitytracker.app.gear.EditGearState
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.GearAutoAssignRecord
 import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
+import io.github.solcott.activitytracker.lexicon.app.GearSportDefault
 import io.github.solcott.activitytracker.lexicon.app.GearType
+import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.uistate.hasLoaded
 import kotlin.test.Test
@@ -44,7 +49,10 @@ class EditGearPresenterTest {
         block: suspend ReceiveTurbine<EditGearState>.() -> Unit,
     ) {
         val repos = fixture.repos()
-        presenterTestOf({ EditGearPresenter(screen, navigator, repos.gear, repos.profiles, Clock.System) }, block = block)
+        presenterTestOf(
+            { EditGearPresenter(screen, navigator, repos.gear, repos.gearDefaults, repos.profiles, Clock.System) },
+            block = block,
+        )
     }
 
     @Test
@@ -167,5 +175,45 @@ class EditGearPresenterTest {
 
     private companion object {
         const val pdsRepo = "repo"
+    }
+
+    @Test
+    fun anItemBecomesADefaultForTheTypesTicked() = runTest {
+        store(pdsRepo, "3tarmac", GearItemRecord("Tarmac", GearType.BIKE, created))
+        val navigator = FakeNavigator(EditGearScreen("3tarmac"))
+        val ride = ActivityType(Sport.RIDE)
+        test(EditGearScreen("3tarmac"), navigator) {
+            val form = awaitUntil { it.content.hasLoaded }
+            assertEquals(emptyList(), form.defaultFor)
+            form.eventSink(EditGearEvent.ToggleDefault(ride))
+            awaitUntil { it.defaultFor == listOf(ride) }.eventSink(EditGearEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        val saved = AtJson.decodeFromString(GearAutoAssignRecord.serializer(), fixture.gearAutoAssign!!)
+        val tarmac = AtUri("at://${fixture.did.value}/${Nsid.GEAR_ITEM}/3tarmac")
+        assertEquals(listOf(GearSportDefault(Sport.RIDE, listOf(tarmac))), saved.sports)
+
+        // Opened again, the form shows it.
+        test(EditGearScreen("3tarmac")) {
+            assertEquals(listOf(ride), awaitUntil { it.content.hasLoaded && it.defaultFor.isNotEmpty() }.defaultFor)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun anOlderSessionCantSaveDefaults() = runTest {
+        fixture.scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}&collection=${Nsid.GEAR_ITEM}"
+        store(pdsRepo, "3tarmac", GearItemRecord("Tarmac", GearType.BIKE, created))
+        test(EditGearScreen("3tarmac")) {
+            val form = awaitUntil { it.content.hasLoaded }
+            form.eventSink(EditGearEvent.ToggleDefault(ActivityType(Sport.RIDE)))
+            awaitUntil { it.defaultFor.isNotEmpty() }.eventSink(EditGearEvent.Save)
+            val failed = awaitUntil { it.error != null && !it.saving }
+            assertEquals(UiError.Kind.GearSignInAgain, failed.error?.kind)
+            assertEquals(listOf(ActivityType(Sport.RIDE)), failed.defaultFor, "the form keeps the choice")
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertNull(fixture.gearAutoAssign)
     }
 }

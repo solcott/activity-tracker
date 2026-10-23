@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview.index
 
 import io.github.solcott.activitytracker.appview.db.ActivityDetails
+import io.github.solcott.activitytracker.appview.db.ActivityGear
 import io.github.solcott.activitytracker.appview.db.Origins
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -42,6 +43,7 @@ internal fun JdbcTransaction.upsertDetails(
         it[ActivityDetails.record] = AtJson.encodeToString(ActivityDetailsRecord.serializer(), bounded)
         it[indexedAt] = now
     }
+    replaceActivityGear(activity, author, placement, ActivityGear.SOURCE_DETAILS, record.gear)
 }
 
 // The lexicon's maxLength for polyline.

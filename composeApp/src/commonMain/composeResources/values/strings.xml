@@ -1010,6 +1010,8 @@
     <string name="detail_category_cadence_only">Cadence</string>
     <string name="detail_category_dive">Dive data</string>
     <string name="detail_category_dive_help">Depth, gases, deco and tank pressures. The dive summary shows with the activity.</string>
+    <string name="detail_category_gear">Gear</string>
+    <string name="detail_category_gear_help">The gear you used. Each item also shows only to the people who may see it.</string>
     <string name="detail_category_lock_description">%1$s: visible to %2$s</string>
     <string name="core_charts_widening_title">Show its elevation and distance charts?</string>
     <string name="core_charts_widening_body">This activity's charts were all visible to fewer people than the activity. Elevation, distance and temperature always show with the activity, so saving makes them visible to: %1$s.</string>
@@ -1283,6 +1285,18 @@
     <string name="page_rear_shifts">Rear shifts</string>
     <string name="page_tank_pressure">Tank %1$d highest pressure</string>
     <string name="page_sensor">Sensor</string>
+    <string name="page_gear_item">Gear</string>
+    <string name="page_gear_item_value">%1$s · %2$s</string>
+    <string name="gear_field_title">Gear</string>
+    <string name="gear_field_none">No gear</string>
+    <string name="gear_field_choose">Choose gear</string>
+    <string name="gear_field_empty">Add gear in Settings to pick it here.</string>
+    <string name="gear_field_retired">Retired</string>
+    <string name="gear_field_clear">Remove all</string>
+    <string name="gear_field_done">Done</string>
+    <string name="gear_default_for">Use by default for</string>
+    <string name="gear_default_for_none">No activity types</string>
+    <string name="gear_default_for_hint">New activities of these types start with this item. A sub-sport's default replaces its sport's for the same kind of gear.</string>
     <string name="page_training_load">Training load</string>
     <string name="page_all_stats">All stats</string>
     <string name="page_avg_max_heading">Averages and maximums</string>
@@ -1498,7 +1512,7 @@
     <string name="error_load_gear">Couldn't load your gear</string>
     <string name="error_save_gear">Couldn't save your gear</string>
     <string name="error_delete_gear">Couldn't delete your gear</string>
-    <string name="error_gear_sign_in_again">Sign in again to save gear that isn't Public</string>
+    <string name="error_gear_sign_in_again">Sign in again to save gear that isn't Public, or what your activities start with</string>
     <string name="gear_type_bike">Bike</string>
     <string name="gear_type_component">Component</string>
     <string name="gear_type_shoes">Shoes</string>

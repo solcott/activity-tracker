@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.activityfile.ImportedDevices
 import io.github.solcott.activitytracker.activityfile.ImportedDive
 import io.github.solcott.activitytracker.activityfile.StreamBuilder
 import io.github.solcott.activitytracker.activityfile.TimeZones
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
 import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
@@ -95,6 +96,8 @@ data class ActivityDraft(
     val avgStrokeDistanceCentimeters: Int? = null,
     /** The UTC offset where the activity started, in minutes east of UTC. */
     val utcOffsetMinutes: Int? = null,
+    /** The athlete's gear used, by canonical [io.github.solcott.activitytracker.lexicon.app.GearItemRecord] URI, in their order. */
+    val gear: List<AtUri> = emptyList(),
 ) {
     /**
      * This draft with what the athlete wrote about it: [description], [photos], and for a dive its [diveSite] (blank clears the logbook's;
@@ -185,6 +188,7 @@ data class ActivityDraft(
             cycles = cycles,
             avgStrokeDistance = avgStrokeDistanceCentimeters,
             utcOffset = utcOffsetMinutes?.takeIf { it in ActivityRecord.MIN_UTC_OFFSET..ActivityRecord.MAX_UTC_OFFSET },
+            gear = gear.distinct().take(ActivityRecord.MAX_GEAR).ifEmpty { null },
         )
 
     // Generated equals/hashCode compare arrays by identity; compare gpx by content instead.
@@ -230,6 +234,7 @@ data class ActivityDraft(
             cycles,
             avgStrokeDistanceCentimeters,
             utcOffsetMinutes,
+            gear,
         )
 
     override fun equals(other: Any?): Boolean =

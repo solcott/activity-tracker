@@ -11,9 +11,15 @@ import io.github.solcott.activitytracker.app.record.ManualActivityScreen
 import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.data.sport.SportCatalog
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
+import io.github.solcott.activitytracker.lexicon.app.GearAutoAssignRecord
+import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
+import io.github.solcott.activitytracker.lexicon.app.GearSportDefault
+import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -21,7 +27,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 
@@ -33,7 +42,15 @@ class ManualActivityPresenterTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Imperial)
         val navigator = FakeNavigator(ManualActivityScreen)
         presenterTestOf({
-            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.typeChoices, repos.defaults, Clock.System)
+            ManualActivityPresenter(
+                navigator,
+                repos.activities,
+                repos.units,
+                repos.typeChoices,
+                repos.gearChoices,
+                repos.defaults,
+                Clock.System,
+            )
         }) {
             val initial = awaitItem()
             assertEquals(UnitSystem.Imperial, initial.units)
@@ -59,7 +76,15 @@ class ManualActivityPresenterTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Imperial)
         val navigator = FakeNavigator(ManualActivityScreen)
         presenterTestOf({
-            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.typeChoices, repos.defaults, Clock.System)
+            ManualActivityPresenter(
+                navigator,
+                repos.activities,
+                repos.units,
+                repos.typeChoices,
+                repos.gearChoices,
+                repos.defaults,
+                Clock.System,
+            )
         }) {
             awaitItem().eventSink(ManualActivityEvent.UnitsChanged(UnitSystem.Metric))
             val metric = awaitItem()
@@ -82,7 +107,15 @@ class ManualActivityPresenterTest {
         val repos = fixture.repos(defaultUnits = UnitSystem.Metric)
         val navigator = FakeNavigator(ManualActivityScreen)
         presenterTestOf({
-            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.typeChoices, repos.defaults, Clock.System)
+            ManualActivityPresenter(
+                navigator,
+                repos.activities,
+                repos.units,
+                repos.typeChoices,
+                repos.gearChoices,
+                repos.defaults,
+                Clock.System,
+            )
         }) {
             val form = awaitItem()
             form.distance.setTextAndPlaceCursorAtEnd("5,2")
@@ -106,7 +139,15 @@ class ManualActivityPresenterTest {
         val navigator = FakeNavigator(ManualActivityScreen)
         val gravel = ActivityType(Sport.RIDE, SubSport.GRAVEL)
         presenterTestOf({
-            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.typeChoices, repos.defaults, Clock.System)
+            ManualActivityPresenter(
+                navigator,
+                repos.activities,
+                repos.units,
+                repos.typeChoices,
+                repos.gearChoices,
+                repos.defaults,
+                Clock.System,
+            )
         }) {
             val initial = awaitUntil { it.type.quickTypes.isNotEmpty() }
             assertEquals(SportCatalog.common, initial.type.quickTypes, "nothing tracked yet")
@@ -130,6 +171,7 @@ class ManualActivityPresenterTest {
                 repos.activities,
                 repos.units,
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.defaults,
                 Clock.System,
             )
@@ -146,7 +188,15 @@ class ManualActivityPresenterTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ManualActivityScreen)
         presenterTestOf({
-            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.typeChoices, repos.defaults, Clock.System)
+            ManualActivityPresenter(
+                navigator,
+                repos.activities,
+                repos.units,
+                repos.typeChoices,
+                repos.gearChoices,
+                repos.defaults,
+                Clock.System,
+            )
         }) {
             val defaulted = awaitUntil { it.visibility.activity == Visibility.FOLLOWERS }
             defaulted.visibility.eventSink(VisibilityEvent.ActivityChanged(Visibility.PUBLIC))
@@ -171,7 +221,15 @@ class ManualActivityPresenterTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ManualActivityScreen)
         presenterTestOf({
-            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.typeChoices, repos.defaults, Clock.System)
+            ManualActivityPresenter(
+                navigator,
+                repos.activities,
+                repos.units,
+                repos.typeChoices,
+                repos.gearChoices,
+                repos.defaults,
+                Clock.System,
+            )
         }) {
             awaitUntil { it.visibility.activity == Visibility.FOLLOWERS }
                 .visibility
@@ -195,7 +253,15 @@ class ManualActivityPresenterTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ManualActivityScreen)
         presenterTestOf({
-            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.typeChoices, repos.defaults, Clock.System)
+            ManualActivityPresenter(
+                navigator,
+                repos.activities,
+                repos.units,
+                repos.typeChoices,
+                repos.gearChoices,
+                repos.defaults,
+                Clock.System,
+            )
         }) {
             val defaulted = awaitUntil { it.visibility.activity == Visibility.FOLLOWERS }
             defaulted.durationMinutes.setTextAndPlaceCursorAtEnd("30")
@@ -213,7 +279,15 @@ class ManualActivityPresenterTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ManualActivityScreen)
         presenterTestOf({
-            ManualActivityPresenter(navigator, repos.activities, repos.units, repos.typeChoices, repos.defaults, Clock.System)
+            ManualActivityPresenter(
+                navigator,
+                repos.activities,
+                repos.units,
+                repos.typeChoices,
+                repos.gearChoices,
+                repos.defaults,
+                Clock.System,
+            )
         }) {
             var state = awaitUntil { it.visibility.tierOf(DetailCategory.START_TIME) != null }
             assertEquals(listOf(DetailCategory.START_TIME), state.visibility.categories.map { it.category }, "no distance, no pace")
@@ -241,5 +315,44 @@ class ManualActivityPresenterTest {
         }
         assertEquals(1, fixture.putRecords.size)
         assertTrue(fixture.spacePuts.isEmpty(), "an Only-me dive default with no dive data publishes nothing there")
+    }
+
+    @Test
+    fun aManualRideStartsWithItsDefaultBikeAndSavesIt() = runTest {
+        val created = Instant.parse("2026-10-20T12:00:00Z")
+        fixture.gear.getOrPut("repo") { mutableMapOf() }["3tarmac"] =
+            AtJson.encodeToJsonElement(GearItemRecord.serializer(), GearItemRecord("Tarmac", GearType.BIKE, created)) as JsonObject
+        val tarmac = AtUri("at://${fixture.did.value}/${Nsid.GEAR_ITEM}/3tarmac")
+        fixture.gearAutoAssign =
+            AtJson.encodeToString(
+                GearAutoAssignRecord.serializer(),
+                GearAutoAssignRecord(created, listOf(GearSportDefault(Sport.RIDE, listOf(tarmac)))),
+            )
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ManualActivityScreen)
+        presenterTestOf({
+            ManualActivityPresenter(
+                navigator,
+                repos.activities,
+                repos.units,
+                repos.typeChoices,
+                repos.gearChoices,
+                repos.defaults,
+                Clock.System,
+            )
+        }) {
+            awaitItem().type.eventSink(ActivityTypeEvent.Select(ActivityType(Sport.RIDE)))
+            val ride = awaitUntil { it.gear.selected.isNotEmpty() }
+            assertEquals(listOf(tarmac), ride.gear.selected)
+            ride.visibility.eventSink(VisibilityEvent.CategoryChanged(DetailCategory.GEAR, Visibility.PUBLIC))
+            val public = awaitUntil { s ->
+                s.visibility.categories.any { it.category == DetailCategory.GEAR && it.visibility == Visibility.PUBLIC }
+            }
+            public.durationMinutes.setTextAndPlaceCursorAtEnd("60")
+            public.eventSink(ManualActivityEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(listOf(tarmac.value), fixture.putRecords.single().getValue("gear").jsonArray.map { it.jsonPrimitive.content })
     }
 }

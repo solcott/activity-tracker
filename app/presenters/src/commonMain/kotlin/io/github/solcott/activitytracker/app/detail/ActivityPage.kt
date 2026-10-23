@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CycleCount
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
+import io.github.solcott.activitytracker.lexicon.app.GearView
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -29,8 +30,13 @@ internal object ActivityPage {
      * [marks] holds, on the owner's own page, each detail category stored narrower than the activity with its visibility; empty for anyone
      * else's, so nothing is marked.
      */
-    fun build(record: ActivityRecord, charts: ActivityCharts?, marks: Map<String, String> = emptyMap()): ActivityPageContent {
-        val figures = Figures(record, charts)
+    fun build(
+        record: ActivityRecord,
+        charts: ActivityCharts?,
+        marks: Map<String, String> = emptyMap(),
+        gear: List<GearView> = emptyList(),
+    ): ActivityPageContent {
+        val figures = Figures(record, charts, gear)
         return ActivityPageContent(
             hero = figures.hero(),
             trainingLoad = trainingLoad(charts?.trainingLoad),
@@ -116,7 +122,7 @@ internal object ActivityPage {
 @Composable
 internal fun rememberPage(shown: ActivityView?, charts: ActivityCharts?, narrower: ImmutableList<CategoryVisibility>): ActivityPageContent =
     remember(shown, charts, narrower) {
-        shown?.let { ActivityPage.build(it.record, charts, narrower.associate { c -> c.category to c.visibility }) }
+        shown?.let { ActivityPage.build(it.record, charts, narrower.associate { c -> c.category to c.visibility }, it.gear.orEmpty()) }
             ?: ActivityPageContent()
     }
 
@@ -150,7 +156,12 @@ internal enum class SportFamily {
 
 /** Each figure of [record] and [charts] the page can show, by what it is. A figure the viewer wasn't served is null. */
 @Suppress("TooManyFunctions") // One per figure, so the hero, the cards and the stats list share them.
-internal class Figures(private val record: ActivityRecord, private val charts: ActivityCharts?) {
+internal class Figures(
+    private val record: ActivityRecord,
+    private val charts: ActivityCharts?,
+    /** The gear the viewer may see on it (`activityView.gear`). */
+    private val gear: List<GearView> = emptyList(),
+) {
     private val sport = record.sport
     private val rate = SportCatalog.rate(sport)
     private val dive: ActivityDive? = record.dive
@@ -225,7 +236,8 @@ internal class Figures(private val record: ActivityRecord, private val charts: A
                 StatsGroupKind.Dive to diveFigures(),
                 StatsGroupKind.Device to
                     listOf(record.device?.let { Figure(FigureKey.Device, FigureValue.Text(it)) }) +
-                        record.sensors.orEmpty().map { Figure(FigureKey.Sensor, FigureValue.Sensor(it.kind, it.manufacturer, it.model)) },
+                        record.sensors.orEmpty().map { Figure(FigureKey.Sensor, FigureValue.Sensor(it.kind, it.manufacturer, it.model)) } +
+                        gear.map { Figure(FigureKey.GearItem, FigureValue.GearItem(it.name, it.type, it.kind)) },
             )
             .mapNotNull { (kind, rows) -> rows.filterNotNull().takeIf { it.isNotEmpty() }?.let { StatsGroup(kind, it.toImmutableList()) } }
             .toImmutableList()

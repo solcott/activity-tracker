@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.lexicon.app
 
 import androidx.compose.runtime.Immutable
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import kotlin.time.Instant
 import kotlinx.serialization.SerialName
@@ -51,6 +52,52 @@ data class GearItemRecord(
         const val MAX_WEIGHT = 1_000_000
     }
 }
+
+/**
+ * `app.activitytracker.gear.autoAssign`: the gear each activity type starts with. It lives only in the athlete's [AthleteSpace.SELF] space,
+ * and the AppView never indexes it. Resolve it for a type with `GearDefaults.forType` (core/data).
+ */
+@Serializable
+data class GearAutoAssignRecord(
+    val updatedAt: Instant,
+    /** At most one entry per sport and sub-sport. */
+    val sports: List<GearSportDefault>? = null,
+    @SerialName($$"$type") val type: String = Nsid.GEAR_AUTO_ASSIGN,
+) {
+    companion object {
+        const val RKEY = "self"
+
+        /** The lexicon's `maxLength` for [sports]. */
+        const val MAX_SPORTS = 256
+    }
+}
+
+/** `app.activitytracker.gear.autoAssign#sportDefault`: the items an activity of [sport] (and [subSport], when set) starts with. */
+@Serializable
+data class GearSportDefault(
+    /** A [Sport] value. */
+    val sport: String,
+    /** Canonical [GearItemRecord] URIs, at most [ActivityRecord.MAX_GEAR]. */
+    val gear: List<AtUri>,
+    /** A [SubSport] value; null for the sport in any form. */
+    val subSport: String? = null,
+)
+
+/** `app.activitytracker.gear.defs#gearView`: a gear item as an activity shows it. */
+@Immutable
+@Serializable
+data class GearView(
+    /** The item's canonical URI. */
+    val uri: AtUri,
+    val name: String,
+    /** A [GearType] value. */
+    val type: String,
+    val kind: String? = null,
+    val brand: String? = null,
+    val model: String? = null,
+    /** A URL to load the item's photo from; null when it has none. */
+    val photo: String? = null,
+)
 
 /** [GearItemRecord.type] values, an open set, and the kinds each type offers ([kinds]). */
 object GearType {

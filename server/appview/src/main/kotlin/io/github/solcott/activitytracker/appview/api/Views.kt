@@ -286,6 +286,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val recordings =
             recordingsOf(rows.filter { it[Activities.recordingOf] == null }.associate { it[Activities.uri] to it[Activities.visibility] })
         val details = detailsOf(uris, viewer)
+        val gear = gearOf(uris, viewer, mediaUrls, mediaViewer)
         val labels = labelViews(rows.associate { it[Activities.uri] to it[Activities.cid] })
 
         return rows.mapNotNull { row ->
@@ -293,22 +294,23 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
             val record = AtJson.decodeFromString(ActivityRecord.serializer(), row[Activities.record])
             val visibility = row[Activities.visibility]
             ActivityView(
-                uri = AtUri(uri),
-                cid = Cid(row[Activities.cid]),
-                author = authors[row[Activities.authorDid]] ?: return@mapNotNull null,
-                record = record,
-                likeCount = likeCounts[uri] ?: 0,
-                commentCount = commentCounts[uri] ?: 0,
-                indexedAt = Instant.fromEpochMilliseconds(row[Activities.indexedAt]),
-                visibility = visibility,
-                viewer = viewer?.let { ActivityViewerState(like = viewerLikes[uri]?.let(::AtUri)) },
-                recordings = recordings[uri],
-                members = members[uri],
-                combinedInto = combinedInto[uri]?.let(::AtUri),
-                media = mediaViews(mediaUrls, row[Activities.authorDid], record.media, visibility, mediaViewer),
-                details = details[uri],
-                labels = labels[uri],
-            )
+                    uri = AtUri(uri),
+                    cid = Cid(row[Activities.cid]),
+                    author = authors[row[Activities.authorDid]] ?: return@mapNotNull null,
+                    record = record,
+                    likeCount = likeCounts[uri] ?: 0,
+                    commentCount = commentCounts[uri] ?: 0,
+                    indexedAt = Instant.fromEpochMilliseconds(row[Activities.indexedAt]),
+                    visibility = visibility,
+                    viewer = viewer?.let { ActivityViewerState(like = viewerLikes[uri]?.let(::AtUri)) },
+                    recordings = recordings[uri],
+                    members = members[uri],
+                    combinedInto = combinedInto[uri]?.let(::AtUri),
+                    media = mediaViews(mediaUrls, row[Activities.authorDid], record.media, visibility, mediaViewer),
+                    details = details[uri],
+                    labels = labels[uri],
+                )
+                .withGearOnly(gear[uri])
         }
     }
 

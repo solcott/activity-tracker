@@ -19,6 +19,8 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.formContent
 import io.github.solcott.activitytracker.app.profile.rememberApprovesFollowers
+import io.github.solcott.activitytracker.app.record.GearChoice
+import io.github.solcott.activitytracker.app.record.GearChoices
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
@@ -32,10 +34,12 @@ import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
 import io.github.solcott.activitytracker.data.segments.SegmentTrackStore
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.activityType
+import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
 import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.circuit.produceRetainedContentState
 
@@ -51,6 +55,7 @@ fun EditActivityPresenter(
     profiles: ProfileRepository,
     segmentPrefs: SegmentPrefsRepository,
     segmentTracks: SegmentTrackStore,
+    gearChoices: GearChoices,
 ): EditActivityState {
     // Why a save failed; never a loading failure, which is [loaded]'s.
     var error by remember { mutableStateOf<UiError?>(null) }
@@ -69,12 +74,16 @@ fun EditActivityPresenter(
     val flights = rememberSingleFlight()
     // Read through state: the visibility holder is remembered once and asks for it as it changes.
     val approvesFollowers by rememberUpdatedState(rememberApprovesFollowers(profiles))
-    val visibility = rememberEditVisibility(defaults.canChoose) { approvesFollowers }
+    // The activity's own gear is seeded below, so the type only orders the picker.
+    val gear = gearChoices.produce(loaded.data?.view?.record?.activityType ?: ActivityType(Sport.OTHER))
+    val visibility = rememberEditVisibility(defaults.canChoose, { approvesFollowers }, listsGear = { gear.selected.isNotEmpty() })
     val exclusion = rememberLeaderboardExclusion(AtUri(screen.uri), segmentPrefs, segmentTracks)
 
     // The activity the form was filled from; later loads change neither.
-    val shown = rememberEditSeed(loaded, title, form, visibility)
+    val shown = rememberEditSeed(loaded, title, form, visibility, gear)
     val seededTitle = shown?.record?.title.orEmpty()
+    // The gear to save, when the athlete changed it.
+    val gearEdit = shown?.let { gear.changedFrom(it.effectiveRecord().gear.orEmpty()) }
 
     fun save(current: ActivityView) {
         flights.launch(EditActivityEvent.Save) {
@@ -91,7 +100,7 @@ fun EditActivityPresenter(
                 // activity's tier, so a wider one is the athlete's call.
                 if (visibility.asksAboutCoreCharts(current, manager)) return@runSuspendCatching false
                 manager.edit(current, edit)
-                visibility.changed?.let { manager.setVisibility(current, it) }
+                saveVisibility(manager, current, visibility, gearEdit)
                 exclusion.save()
                 true
             }
@@ -113,6 +122,7 @@ fun EditActivityPresenter(
         confirmNarrowing = visibility.confirmingNarrowing,
         confirmCoreCharts = visibility.confirmingCoreCharts,
         leaderboardExclusion = exclusion.excluded.takeIf { shown != null },
+        gear = gear.field.takeIf { shown != null },
     ) { event ->
         val saveLoaded = { shown?.let(::save) ?: Unit }
         when (event) {
@@ -128,8 +138,11 @@ fun EditActivityPresenter(
             EditActivityEvent.CancelCoreCharts -> visibility.coreChartsAnswered(confirmed = false, saveLoaded)
 
             EditActivityEvent.Back -> {
-                if (isChanged(shown, title.text.toString() != seededTitle, form.isChanged, visibility, exclusion)) confirmDiscard = true
-                else navigator.pop()
+                if (isChanged(shown, title.text.toString() != seededTitle, form.isChanged, visibility, exclusion, gearEdit)) {
+                    confirmDiscard = true
+                } else {
+                    navigator.pop()
+                }
             }
 
             EditActivityEvent.Discard -> {
@@ -152,18 +165,32 @@ fun EditActivityPresenter(
     }
 }
 
-/** Whether the loaded [activity] has unsaved changes to its title, its other details, who sees it or whether leaderboards rank it. */
+/**
+ * Whether the loaded [activity] has unsaved changes to its title, its other details, who sees it, whether leaderboards rank it or its gear
+ * ([gearEdit]).
+ */
+@Suppress("LongParameterList") // One per part of the form.
 private fun isChanged(
     activity: ActivityView?,
     title: Boolean,
     details: Boolean,
     visibility: EditVisibility,
     exclusion: LeaderboardExclusion,
-): Boolean = activity != null && (title || details || visibility.changed != null || exclusion.changed)
+    gearEdit: List<AtUri>?,
+): Boolean = activity != null && (title || details || visibility.changed != null || exclusion.changed || gearEdit != null)
 
 /**
- * Fills [title], [form] and [visibility] from the first activity [loaded] answers, kept while the screen is: null until they're filled. The
- * title is saved with the screen, so it's filled once; the details and visibility holders aren't, so a recreated screen fills them again.
+ * Saves who sees [activity] when the athlete changed it, or its gear ([gearEdit]) changed: gear moves with its category, so a change to
+ * either rewrites every place the activity is stored.
+ */
+private suspend fun saveVisibility(manager: ActivityManager, activity: ActivityView, visibility: EditVisibility, gearEdit: List<AtUri>?) {
+    val choice = visibility.changed ?: visibility.current?.takeIf { gearEdit != null } ?: return
+    manager.setVisibility(activity, choice, gear = gearEdit)
+}
+
+/**
+ * Fills [title], [form], [visibility] and [gear] from the first activity [loaded] answers, kept while the screen is: null until they're
+ * filled. The title is saved with the screen, so it's filled once; the other holders aren't, so a recreated screen fills them again.
  */
 @Composable
 private fun rememberEditSeed(
@@ -171,6 +198,7 @@ private fun rememberEditSeed(
     title: TextFieldState,
     form: DetailsForm,
     visibility: EditVisibility,
+    gear: GearChoice,
 ): ActivityView? {
     var seed by rememberRetained { mutableStateOf<EditActivityLoad?>(null) }
     var titleFilled by rememberSaveable { mutableStateOf(false) }
@@ -186,6 +214,7 @@ private fun rememberEditSeed(
         if (!holdersFilled) {
             form.seed(view.record.description, view.record.dive?.site, existingMedia(view))
             visibility.seed(view, load.streams)
+            gear.seed(view.effectiveRecord().gear.orEmpty())
             holdersFilled = true
         }
         seed = load

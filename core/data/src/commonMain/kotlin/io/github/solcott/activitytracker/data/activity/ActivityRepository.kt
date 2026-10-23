@@ -412,11 +412,12 @@ internal inline fun <T> undoingOnFailure(undo: () -> Unit, block: () -> T): T {
 }
 
 /**
- * Refuses a session whose grant doesn't cover `feed.activityDetails` when any of [drafts] has a category narrower than its activity, before
- * anything is queued: the PDS would refuse the details record at the head of the outbox. With every category at the activity's visibility,
- * nothing goes in a details record and such a session can still publish.
+ * Refuses a session whose grant doesn't cover `feed.activityDetails` when any of [drafts] has a category with data narrower than its
+ * activity, before anything is queued: the PDS would refuse the details record at the head of the outbox. With every such category at the
+ * activity's visibility (an unset Gear category of an activity with no gear included), nothing goes in a details record and such a session
+ * can still publish.
  */
 internal fun SessionClients.requireDetailsSpaceFor(drafts: List<ActivityDraft>) {
-    if (drafts.any { d -> d.tiers.values.any { it != Visibility.known(d.visibility) } })
+    if (drafts.any { d -> d.tiers.filterKeys { it in d.heldCategories() }.values.any { it != Visibility.known(d.visibility) } })
         requireSpacesFor(Visibility.SELF, Nsid.FEED_ACTIVITY_DETAILS)
 }

@@ -3,18 +3,32 @@ package io.github.solcott.activitytracker.app
 import com.slack.circuit.test.FakeNavigator
 import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent
 import io.github.solcott.activitytracker.app.detail.ActivityDetailPresenter
+import io.github.solcott.activitytracker.app.detail.ActivityPage
 import io.github.solcott.activitytracker.app.detail.DetailSection
+import io.github.solcott.activitytracker.app.detail.FigureKey
+import io.github.solcott.activitytracker.app.detail.FigureValue
+import io.github.solcott.activitytracker.app.detail.StatsGroupKind
 import io.github.solcott.activitytracker.app.detail.StreamKind
+import io.github.solcott.activitytracker.app.detail.detailSections
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.GearType
+import io.github.solcott.activitytracker.lexicon.app.GearView
+import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.Sport
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 
 class ActivityDetailPresenterTest : ActivityDetailTestBase() {
@@ -269,5 +283,32 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
             assertNull(awaitLoaded().charts)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun theDeviceSectionListsTheGearTheViewerMaySee() {
+        val created = Instant.parse("2026-10-05T08:00:00Z")
+        val bike = GearView(AtUri("at://did:plc:alice/${Nsid.GEAR_ITEM}/3bike"), "Stumpjumper", GearType.BIKE, kind = "mountain")
+        val helmet = GearView(AtUri("at://did:plc:alice/${Nsid.GEAR_ITEM}/3helmet"), "Helmet", GearType.HELMET)
+        val view =
+            ActivityView(
+                uri = AtUri("at://did:plc:alice/${Nsid.FEED_ACTIVITY}/3kride"),
+                cid = Cid("bafyact"),
+                author = ProfileViewBasic(Did("did:plc:alice"), Handle("alice.test")),
+                record = ActivityRecord(Sport.RIDE, created, 3600, created, gear = listOf(bike.uri, helmet.uri)),
+                likeCount = 0,
+                commentCount = 0,
+                indexedAt = created,
+                gear = listOf(bike, helmet),
+            )
+        assertEquals(listOf(DetailSection.Device), detailSections(view, null))
+        assertEquals(emptyList(), detailSections(view.copy(gear = null), null), "gear the viewer may not see shows nothing")
+
+        val device = ActivityPage.build(view.record, null, gear = view.gear.orEmpty()).stats.single { it.kind == StatsGroupKind.Device }
+        assertEquals(
+            listOf(FigureValue.GearItem("Stumpjumper", GearType.BIKE, "mountain"), FigureValue.GearItem("Helmet", GearType.HELMET, null)),
+            device.rows.map { it.value },
+        )
+        assertTrue(device.rows.all { it.key == FigureKey.GearItem })
     }
 }

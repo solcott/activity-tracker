@@ -22,16 +22,25 @@ class ActivityDefaultsTest {
     }
 
     @Test
-    fun neverSetStartsEverythingPublic() = runTest {
+    fun neverSetStartsEverythingButGearPublic() = runTest {
         val choice = pds.session().defaults.load()
         assertEquals(Visibility.PUBLIC, choice.activity)
-        assertEquals(DetailCategory.all.associateWith { Visibility.PUBLIC }, choice.tiers)
+        assertEquals(DetailCategory.all.associateWith { Visibility.PUBLIC } + (DetailCategory.GEAR to Visibility.SELF), choice.tiers)
     }
 
     @Test
-    fun onlyTheActivityDefaultSetStartsEveryCategoryThere() = runTest {
+    fun onlyTheActivityDefaultSetStartsEveryCategoryButGearThere() = runTest {
         storedDefaults(""""visibility":"followers"""")
-        assertEquals(DetailCategory.all.associateWith { Visibility.FOLLOWERS }, pds.session().defaults.load().tiers)
+        assertEquals(
+            DetailCategory.all.associateWith { Visibility.FOLLOWERS } + (DetailCategory.GEAR to Visibility.SELF),
+            pds.session().defaults.load().tiers,
+        )
+    }
+
+    @Test
+    fun aGearDefaultSetToPublicStartsPublic() = runTest {
+        storedDefaults(""""visibility":"public","details":{"gear":"public"}""")
+        assertEquals(Visibility.PUBLIC, pds.session().defaults.load().tiers[DetailCategory.GEAR])
     }
 
     @Test

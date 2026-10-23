@@ -96,6 +96,7 @@ fun ManualActivityUi(state: ManualActivityState, modifier: Modifier = Modifier) 
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                 modifier = Modifier.fillMaxWidth(),
             )
+            GearPicker(state.gear, enabled = !state.saving)
             ActivityVisibilityForm(
                 state.visibility,
                 enabled = !state.saving,

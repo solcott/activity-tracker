@@ -45,6 +45,7 @@ import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.MenuField
 import io.github.solcott.activitytracker.app.ui.VisibilityPicker
+import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
@@ -78,6 +79,9 @@ import io.github.solcott.activitytracker.composeApp.resources.gear_acquired
 import io.github.solcott.activitytracker.composeApp.resources.gear_acquired_choose
 import io.github.solcott.activitytracker.composeApp.resources.gear_acquired_clear
 import io.github.solcott.activitytracker.composeApp.resources.gear_brand
+import io.github.solcott.activitytracker.composeApp.resources.gear_default_for
+import io.github.solcott.activitytracker.composeApp.resources.gear_default_for_hint
+import io.github.solcott.activitytracker.composeApp.resources.gear_default_for_none
 import io.github.solcott.activitytracker.composeApp.resources.gear_delete
 import io.github.solcott.activitytracker.composeApp.resources.gear_delete_message
 import io.github.solcott.activitytracker.composeApp.resources.gear_delete_title
@@ -221,6 +225,7 @@ private fun GearForm(state: EditGearState, modifier: Modifier = Modifier) {
             )
         }
         SportsField(state.sports, enabled, onToggle = { send(EditGearEvent.ToggleSport(it)) })
+        DefaultForField(state.defaultFor, enabled, onToggle = { send(EditGearEvent.ToggleDefault(it)) })
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             AppTextField(
                 state.weight,
@@ -316,6 +321,63 @@ private fun SportsField(sports: ImmutableList<String>, enabled: Boolean, onToggl
         }
     }
 }
+
+/**
+ * The activity types new activities start with the item for ("Use by default for"), as a field that opens a sheet of every type, sub-sports
+ * included, to tick.
+ */
+@Composable
+private fun DefaultForField(types: ImmutableList<ActivityType>, enabled: Boolean, onToggle: (ActivityType) -> Unit) {
+    var choosing by remember { mutableStateOf(false) }
+    val shown =
+        if (types.isEmpty()) stringResource(Res.string.gear_default_for_none) else types.map { activityTypeLabel(it) }.joinToString(", ")
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Box(Modifier.fillMaxWidth()) {
+            AppTextField(
+                rememberReadOnlyTextFieldState(shown),
+                Modifier.fillMaxWidth(),
+                label = stringResource(Res.string.gear_default_for),
+                enabled = enabled,
+                readOnly = true,
+                trailingIcon = { PlatformIcon(AppIcon.DropDown, null) },
+                lineLimits = TextFieldLineLimits.SingleLine,
+            )
+            // A read-only field doesn't report clicks, so a transparent layer on top opens the sheet.
+            Box(Modifier.matchParentSize().clickable(enabled = enabled, role = Role.Button) { choosing = true })
+        }
+        Text(
+            stringResource(Res.string.gear_default_for_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    if (choosing) {
+        AppBottomSheet(onDismiss = { choosing = false }, sheetState = rememberAppSheetState()) {
+            AppSheetHeader(
+                title = stringResource(Res.string.gear_default_for),
+                cancelLabel = stringResource(Res.string.action_cancel),
+                onCancel = { choosing = false },
+                confirmLabel = stringResource(Res.string.gear_sports_done),
+                onConfirm = { choosing = false },
+            )
+            var expanded by rememberExpandedSports()
+            LazyColumn(Modifier.fillMaxSize()) {
+                sportTypeList(
+                    TYPE_GROUPS,
+                    expanded = expanded,
+                    onToggleExpanded = { sport -> expanded = if (sport in expanded) expanded - sport else expanded + sport },
+                    onClick = onToggle,
+                ) { type ->
+                    AppCheckbox(type in types, onCheckedChange = null)
+                }
+            }
+        }
+    }
+}
+
+/** Every activity type by category, sub-sports included: a default can be for a sport or for one of its sub-sports. */
+private val TYPE_GROUPS =
+    SportCatalog.categories.map { group -> group.category to group.types.distinct().toImmutableList<ActivityType>() }.toImmutableList()
 
 /** Each category's bare sports: gear is for a sport, not a sub-sport. */
 private val SPORT_GROUPS =

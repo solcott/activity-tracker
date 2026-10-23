@@ -166,7 +166,11 @@ class SettingsPresenterTest {
         }) {
             val loaded = awaitUntil { it.defaults != null }
             assertEquals(Visibility.PUBLIC, loaded.defaults?.activity, "never set: Public")
-            assertEquals(DetailCategory.all.map { Visibility.PUBLIC }, loaded.defaults?.categories?.map { it.visibility })
+            assertEquals(
+                DetailCategory.all.map { if (it == DetailCategory.GEAR) Visibility.SELF else Visibility.PUBLIC },
+                loaded.defaults?.categories?.map { it.visibility },
+                "Gear never set starts at Only me",
+            )
             loaded.defaults!!.eventSink(VisibilityEvent.CategoryChanged(DetailCategory.HEART_RATE, Visibility.SELF))
             // A save can finish before a frame shows it running, so each waits for its answer rather than for `savingDefaults`.
             awaitUntil { !it.savingDefaults && it.defaults?.tierOf(DetailCategory.HEART_RATE) == Visibility.SELF }

@@ -24,6 +24,7 @@ import io.github.solcott.activitytracker.lexicon.app.StreamChannel
 import io.github.solcott.activitytracker.lexicon.app.TrainingLoad
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.app.ZoneSnapshot
+import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
 import io.github.solcott.activitytracker.location.Gpx
 import kotlin.time.Clock
 
@@ -114,13 +115,14 @@ class ActivityManager(
      * where they are unless they're now wider than the activity. Each activity is read from every place it could be ([ActivityPlaces]) and
      * rewritten narrowest place first, then cut down widest first ([ActivityPlaces.save]), so an interrupted save leaves everything stored
      * at least once and saving again finishes it. Zones move first when the heart rate or power tier changes. Pending outbox writes go
-     * first, so the save reads what the athlete last saved. Throws on failure.
+     * first, so the save reads what the athlete last saved. [gear], when given, replaces [activity]'s gear, placed by its Gear category
+     * like any other summary field. Throws on failure.
      */
-    suspend fun setVisibility(activity: ActivityView, choice: VisibilityChoice) {
+    suspend fun setVisibility(activity: ActivityView, choice: VisibilityChoice, gear: List<AtUri>? = null) {
         val capped = choice.capped()
         val to = Visibility.known(capped.activity)
         clients.requireSpacesFor(to)
-        if (capped.splits) clients.requireSpacesFor(Visibility.SELF, Nsid.FEED_ACTIVITY_DETAILS)
+        clients.requireDetailsGrant(activity.effectiveRecord().withGear(gear), capped.tiers, to)
         outbox.drain()
         val targets = listOf(activity.uri) + activity.recordings.orEmpty().map { it.uri } + activity.record.combined?.members.orEmpty()
         for (uri in targets) {
@@ -139,8 +141,9 @@ class ActivityManager(
             val after = if (uri == activity.uri) zonesTier(capped.tiers) else zonesTier(DetailCategory.tiers(to, summary + channels))
             // Zones first: a session that can't move them stops here, before the charts are narrower than their zones.
             if (before != after) zones.move(uri, after)
-            places.save(stored, desired)
-            val full = stored.full ?: continue
+            val full = stored.full?.withGear(gear.takeIf { uri == activity.uri })
+            places.save(stored, desired, full)
+            if (full == null) continue
             val saved = Visibility.all.associateWith { desired[it].records(full, stored.data, uri) }
             val record = saved[to]?.activity
             val details = Visibility.all.mapNotNull { tier -> saved[tier]?.details?.let { DetailsView(tier, it) } }.ifEmpty { null }
@@ -474,6 +477,19 @@ private class LocalZones(val heartRate: ZoneSnapshot?, val power: ZoneSnapshot?,
  * [built] with [line] as its polyline, and what the athlete gave the combined activity so far ([kept], when it's rebuilt): its title,
  * description, photos and type.
  */
+/** This record with [gear] in place of its own, or as it is when [gear] is null. */
+private fun ActivityRecord.withGear(gear: List<AtUri>?): ActivityRecord =
+    if (gear == null) this else copy(gear = gear.distinct().take(ActivityRecord.MAX_GEAR).ifEmpty { null })
+
+/**
+ * Refuses a session whose grant doesn't cover `feed.activityDetails` when [record] has a summary field in a category [tiers] puts narrower
+ * than the activity's [tier]: only summary fields go in details records, so a narrower category it has none of (an unset Gear) needs none.
+ */
+private fun SessionClients.requireDetailsGrant(record: ActivityRecord, tiers: Map<String, String>, tier: String) {
+    val held = DetailCategory.SUMMARY_FIELDS.filter { it.isSet(record) }.map { it.category }.toSet()
+    if (tiers.filterKeys { it in held }.values.any { it != tier }) requireSpacesFor(Visibility.SELF, Nsid.FEED_ACTIVITY_DETAILS)
+}
+
 private fun keptFrom(kept: ActivityRecord?, built: ActivityRecord, line: SegmentedPolyline?): ActivityRecord =
     built.copy(
         polyline = line?.polyline,

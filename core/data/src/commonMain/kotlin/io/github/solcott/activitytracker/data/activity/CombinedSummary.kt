@@ -115,6 +115,7 @@ internal object CombinedSummary {
             cycles = total(StreamChannel.CADENCE) { it.cycles?.toLong() }?.toInt(),
             avgStrokeDistance = firstBy(kept(rankings, CombinedChannel.LENGTHS)) { it.avgStrokeDistance },
             utcOffset = record.utcOffset ?: members.firstNotNullOfOrNull { it.record.utcOffset },
+            gear = members.flatMap { it.record.gear.orEmpty() }.distinct().take(ActivityRecord.MAX_GEAR).ifEmpty { null },
         )
     }
 

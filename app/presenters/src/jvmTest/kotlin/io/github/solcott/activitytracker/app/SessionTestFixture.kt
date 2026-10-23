@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app
 
 import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.app.record.ActivityTypeChoices
+import io.github.solcott.activitytracker.app.record.GearChoices
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityManager
@@ -14,6 +15,7 @@ import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.gear.GearDefaults
 import io.github.solcott.activitytracker.data.gear.GearRepository
 import io.github.solcott.activitytracker.data.moderation.ModerationRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
@@ -119,6 +121,9 @@ class SessionTestFixture {
 
     /** The athlete's `gear.item` records by place (`repo` or a tier), then rkey. */
     val gear = mutableMapOf<String, MutableMap<String, JsonObject>>()
+
+    /** The athlete's `gear.autoAssign` record in `self`, as JSON; null for none. */
+    var gearAutoAssign: String? = null
 
     private val tierPuts = mutableListOf<JsonObject>()
     private val otherSpacePuts = mutableListOf<Pair<String, JsonObject>>()
@@ -265,6 +270,15 @@ class SessionTestFixture {
                                 headers = json,
                             )
                         }
+                        if (request.url.parameters["collection"] == Nsid.GEAR_AUTO_ASSIGN) {
+                            val value =
+                                gearAutoAssign
+                                    ?: return@MockEngine respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, json)
+                            return@MockEngine respond(
+                                """{"uri":"at://$did/${Nsid.GEAR_AUTO_ASSIGN}/self","cid":"bafyrec","value":$value}""",
+                                headers = json,
+                            )
+                        }
                         if (request.url.parameters["collection"] == Nsid.ACTOR_ACTIVITY_DEFAULTS) {
                             val value =
                                 activityDefaults
@@ -300,6 +314,7 @@ class SessionTestFixture {
                             if (collection == Nsid.ACTOR_PRIVACY_ZONES) privacyZones = record?.toString()
                             if (collection == Nsid.ACTOR_SEGMENT_PREFS) segmentPrefs = record?.toString()
                             if (collection == Nsid.ACTOR_LEADERBOARD_BRACKETS) leaderboardBrackets = record?.toString()
+                            if (collection == Nsid.GEAR_AUTO_ASSIGN) gearAutoAssign = record?.toString()
                             if (collection == Nsid.GEAR_ITEM) {
                                 val rkey = input.getValue("rkey").jsonPrimitive.content
                                 if (record == null) gear[tier]?.remove(rkey) else gear.getOrPut(tier) { mutableMapOf() }[rkey] = record
@@ -408,10 +423,15 @@ class SessionTestFixture {
         val segmentPrefs: SegmentPrefsRepository,
         val leaderboardBrackets: LeaderboardBracketsRepository,
         val gear: GearRepository,
+        val gearDefaults: GearDefaults,
     ) {
         /** The type picker's producer, as Metro injects it into the record, manual entry and import presenters. */
         val typeChoices: ActivityTypeChoices
             get() = ActivityTypeChoices(recentTypes)
+
+        /** The gear picker's producer, as Metro injects it into the record, manual entry, import and edit presenters. */
+        val gearChoices: GearChoices
+            get() = GearChoices(gear, gearDefaults)
     }
 
     /** The moderator side for another session on the same fake services; with no [labelerDid] the athlete can't moderate. */
@@ -483,6 +503,7 @@ class SessionTestFixture {
             segmentsOf(clients).prefs,
             LeaderboardBracketsRepository(clients, profiles, Clock.System, Logger),
             GearRepository(clients, Clock.System, feed, Logger),
+            GearDefaults(clients, Clock.System),
         )
     }
 }

@@ -281,10 +281,11 @@ class ActivityPlaces(private val clients: SessionClients, private val clock: Clo
      * Rewrites [stored] so each place holds what [desired] says. First, narrowest place first, every place takes the union of what it holds
      * and what it will hold; then, widest first, each place is cut down to what it will hold and the records it won't hold are deleted. So
      * a failure part way leaves every field and channel stored in at least one place, never wider than [desired] or where it was, and
-     * saving again (read afresh) finishes it. Throws on failure.
+     * saving again (read afresh) finishes it. [full] replaces the activity's whole record when given (an edit of its gear). Throws on
+     * failure.
      */
-    internal suspend fun save(stored: StoredActivity, desired: Shares) {
-        val full = stored.full ?: return
+    internal suspend fun save(stored: StoredActivity, desired: Shares, full: ActivityRecord? = stored.full) {
+        full ?: return
         val data = stored.data
         val state = stored.places.toMutableMap()
         val union = stored.shares union desired

@@ -77,6 +77,8 @@ data class ImportActivityState(
      * ([ImportActivityEvent.Saved.Open]). Null until a save finds any; a save that finds none leaves the screen.
      */
     val savedSuggestions: ImmutableList<SavedSuggestion>? = null,
+    /** The gear used (for a logbook, by every dive); null until a file is read. Starts at the athlete's defaults for the type. */
+    val gear: GearField? = null,
     val eventSink: (ImportActivityEvent) -> Unit,
 ) : CircuitUiState
 

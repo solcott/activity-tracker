@@ -115,6 +115,42 @@ class DetailCategoryTest {
     }
 
     @Test
+    fun followersGearOnAPublicRideMovesToTheFollowersDetails() {
+        val ride = RIDE.copy(gear = listOf(BIKE, HELMET))
+        val categories = DetailCategory.all.associateWith { Visibility.PUBLIC } + (DetailCategory.GEAR to Visibility.FOLLOWERS)
+        val stored = DetailCategory.recordFor(ride, Visibility.PUBLIC, categories)
+        assertNull(stored.gear)
+        val details = DetailCategory.detailsFor(ride, URI, Visibility.PUBLIC, categories)
+        assertEquals(setOf(Visibility.FOLLOWERS), details.keys)
+        assertEquals(listOf(BIKE, HELMET), details.getValue(Visibility.FOLLOWERS).gear)
+        // An admitted viewer gets it back; a stranger doesn't.
+        assertEquals(ride, effectiveRecord(stored, listOf(details.getValue(Visibility.FOLLOWERS))))
+        assertNull(effectiveRecord(stored, emptyList()).gear)
+    }
+
+    @Test
+    fun gearNeverSetStartsAtOnlyMe() {
+        val ride = RIDE.copy(gear = listOf(BIKE))
+        assertEquals(Visibility.SELF, DetailCategory.tiers(Visibility.PUBLIC, emptyMap())[DetailCategory.GEAR])
+        assertEquals(Visibility.PUBLIC, DetailCategory.tiers(Visibility.PUBLIC, emptyMap())[DetailCategory.POWER])
+        assertNull(DetailCategory.recordFor(ride, Visibility.PUBLIC, emptyMap()).gear)
+        assertEquals(listOf(BIKE), DetailCategory.detailsFor(ride, URI, Visibility.PUBLIC, emptyMap()).getValue(Visibility.SELF).gear)
+    }
+
+    @Test
+    fun narrowingTheActivityDragsGear() {
+        val ride = RIDE.copy(gear = listOf(BIKE))
+        val categories = mapOf(DetailCategory.GEAR to Visibility.FOLLOWERS)
+        assertEquals(Visibility.MUTUALS, DetailCategory.tiers(Visibility.MUTUALS, categories)[DetailCategory.GEAR])
+        assertEquals(listOf(BIKE), DetailCategory.recordFor(ride, Visibility.MUTUALS, categories).gear)
+        assertEquals(emptyMap(), DetailCategory.detailsFor(ride, URI, Visibility.MUTUALS, categories))
+        assertEquals(
+            Visibility.MUTUALS,
+            DetailCategory.currentTiers(Visibility.MUTUALS, ride, emptyList(), emptyList())[DetailCategory.GEAR],
+        )
+    }
+
+    @Test
     fun nothingHiddenMeansNoDetails() {
         assertEquals(emptyMap(), DetailCategory.detailsFor(RIDE, URI, Visibility.FOLLOWERS, emptyMap()))
         assertEquals(RIDE, DetailCategory.recordFor(RIDE, Visibility.FOLLOWERS, mapOf(DetailCategory.POWER to Visibility.PUBLIC)))
@@ -253,6 +289,8 @@ class DetailCategoryTest {
                 StreamChannel.LEGS,
             )
         val URI = AtUri("at://did:plc:alice/${Nsid.FEED_ACTIVITY}/3k")
+        val BIKE = AtUri("at://did:plc:alice/${Nsid.GEAR_ITEM}/3bike")
+        val HELMET = AtUri("at://did:plc:alice/${Nsid.GEAR_ITEM}/3helmet")
         val RIDE =
             ActivityRecord(
                 sport = "ride",

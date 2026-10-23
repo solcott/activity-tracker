@@ -129,6 +129,7 @@ class ImportCombinePresenterTest {
                 repos.manager,
                 ActivityFileReader { run },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
