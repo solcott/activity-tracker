@@ -24,6 +24,7 @@ A Kotlin Multiplatform, Strava-style athlete activity tracker backed by ATProtoc
 scripts/check-agent-sync.sh                       # Claude Code <-> Antigravity config symlinks, hook and command parity
 
 ./gradlew :webApp:wasmJsBrowserDevelopmentRun     # web app; PORT env overrides 8080
+./gradlew kotlinWasmUpgradeYarnLock               # after an npm dependency change: refresh kotlin-js-store/wasm/yarn.lock (Yarn, so the *PackageLock tasks fail)
 ./gradlew :desktopApp:hotRun --auto               # desktop app with Compose Hot Reload (reloads on save); :desktopApp:run without
 ./gradlew :androidApp:installDebug
 ./gradlew :server-appview:run                     # AppView on :8081; defaults target the docker stack
