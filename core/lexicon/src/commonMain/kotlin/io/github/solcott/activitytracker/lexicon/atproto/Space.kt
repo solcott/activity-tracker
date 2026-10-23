@@ -376,6 +376,16 @@ object Space {
 
         val method = XrpcProcedure("com.atproto.space.notifyWrite", Input.serializer(), JsonObject.serializer())
     }
+
+    /**
+     * Sent by the authority's PDS to each registered service, authenticated like [NotifyWrite]: the space was deleted, so drop its copy.
+     * Retried until delivered or the registration expires.
+     */
+    object NotifySpaceDeleted {
+        @Serializable data class Input(val space: SpaceUri)
+
+        val method = XrpcProcedure("com.atproto.space.notifySpaceDeleted", Input.serializer(), JsonObject.serializer())
+    }
 }
 
 /** `com.atproto.simplespace.*`: the PDS's built-in space authority, on the owner's PDS. */
