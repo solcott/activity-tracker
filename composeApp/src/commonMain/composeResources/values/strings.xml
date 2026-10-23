@@ -1490,6 +1490,10 @@
     <string name="gear_brand">Brand</string>
     <string name="gear_model">Model</string>
     <string name="gear_weight">Weight (g)</string>
+    <string name="gear_starting_distance_km">Starting distance (km)</string>
+    <string name="gear_starting_distance_mi">Starting distance (mi)</string>
+    <string name="gear_starting_time">Starting time (h)</string>
+    <string name="gear_starting_help">Use before you tracked it here, such as a bike bought used. It's added to its totals.</string>
     <string name="gear_notes">Notes</string>
     <string name="gear_sports">Sports</string>
     <string name="gear_sports_none">Any sport</string>

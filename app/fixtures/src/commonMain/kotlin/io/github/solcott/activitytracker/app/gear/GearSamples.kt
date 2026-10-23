@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.app.fixtures.SampleKind
 import io.github.solcott.activitytracker.app.fixtures.contentSamples
 import io.github.solcott.activitytracker.app.fixtures.fakeActivity
 import io.github.solcott.activitytracker.app.fixtures.fakeActivityRecord
+import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.GearSportTotals
@@ -101,6 +102,9 @@ object EditGearSamples {
             brand = TextFieldState("Rivendell"),
             model = TextFieldState("Appaloosa"),
             weight = TextFieldState("11.2"),
+            startingDistance = TextFieldState("2000"),
+            startingTime = TextFieldState(),
+            units = UnitSystem.Metric,
             notes = TextFieldState(),
             type = GearType.BIKE,
             types = GearType.all.toImmutableList(),
