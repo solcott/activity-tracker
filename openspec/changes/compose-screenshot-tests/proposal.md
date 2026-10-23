@@ -33,13 +33,13 @@ None.
 ## Impact
 
 - **`:androidApp`:**
-  - Applies Google's Compose Preview Screenshot Testing plugin (`com.android.compose.screenshot`, standalone setup, since AGP is 9.4.1).
-  - Adds a `screenshotTest` source set holding the preview tests, which use `:app-fixtures` and `AppPreview`.
-  - References go in `androidApp/src/screenshotTestDebug/reference`.
+  - Declares Google's Compose Preview Screenshot Testing as an AGP test suite (`android.testOptions.screenshotTests.create("screenshotTest")`, engine 0.0.1-alpha16, on AGP 9.5.0-rc01) targeting the debug variant.
+  - Its `src/screenshotTest` source set holds the preview tests, which use `:app-fixtures` and `AppPreview`.
+  - References go in `androidApp/src/screenshotTestDefaultDebug/reference`.
 - **Build:**
-  - `gradle.properties` enables `android.experimental.enableScreenshotTest`.
-  - The version catalog gains the plugin, `screenshot-validation-api` and `ui-tooling`.
-  - `check` depends on `:androidApp:validateDebugScreenshotTest`.
+  - `gradle.properties` enables `android.experimental.enableScreenshotTest` and `android.experimental.testSuiteSupport`.
+  - The version catalog gains the engine version, `screenshot-validation-api` and `ui-tooling`.
+  - `check` depends on `:androidApp:testDebugScreenshotTestDefaultTestSuite`.
 - **Docs:** `.agents/rules/compose-screens.md`, the `new-screen` skill, and `AGENTS.md` (the commands and where references live).
 - **Repository size:** a few hundred PNGs, kept small by the phone-size default for non-primary samples.
-- **Dependencies:** requires `ui-test-harness` (harness, fixtures, inspection-mode map and image placeholders). Moving to AGP test suites waits for AGP 9.5.
+- **Dependencies:** requires `ui-test-harness` (harness, fixtures, inspection-mode map and image placeholders) and AGP 9.5 (test suites).
