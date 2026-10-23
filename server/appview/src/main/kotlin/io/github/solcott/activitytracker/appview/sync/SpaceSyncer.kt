@@ -47,14 +47,16 @@ import org.slf4j.LoggerFactory
  * - each notification ([notified]) pulls the space's ops since the last indexed revision, and applies them only once the commit ending the
  *   pull has a verified MAC ([SpaceMember.listRepoOps]);
  * - every space is also pulled every [reconcileInterval], since the authority's PDS sends each notification once, and its registration is
- *   renewed within [renewalMargin] of expiring.
+ *   renewed within [renewalMargin] of expiring;
+ * - a deleted space is dropped when the authority's PDS says so ([deleted]), or else when a sync is answered `SpaceDeleted`.
  *
  * Only the authority writes to an athlete's space, so the authority's repo is the only one synced. Ops go through the [Indexer], which
  * keeps only what [Indexer.spaceCollections] allows for the space's key. A space whose sync fails is retried with backoff; it never holds
  * up other spaces or Jetstream. Syncs of one space never overlap. The PDS may compact the op log, so a space that hasn't synced for
  * [resyncAfter] is backfilled again.
  */
-@Suppress("LongParameterList") // Collaborators, then tunables with defaults.
+// Collaborators, then tunables with defaults; one space's lifecycle, from announcement to drop.
+@Suppress("LongParameterList", "TooManyFunctions")
 class SpaceSyncer(
     private val db: Database,
     private val indexer: Indexer,
@@ -95,9 +97,17 @@ class SpaceSyncer(
 
     /** A verified `notifyWrite` for [space]: pull it soon. Returns false for a space this AppView doesn't sync. */
     suspend fun notified(space: SpaceUri): Boolean {
-        val known = db.tx { SpaceSync.select(SpaceSync.space).where { SpaceSync.space eq space.value }.any() }
+        val known = isSynced(db, space)
         if (known) dueNow(space)
         return known
+    }
+
+    /**
+     * A verified `notifySpaceDeleted` for [space]: drop it now, as a sync that finds it deleted does, rather than at its next sync. Waits
+     * for a sync of it in progress, so nothing that sync indexes outlives the drop. Does nothing for a space this AppView doesn't sync.
+     */
+    suspend fun deleted(space: SpaceUri) {
+        locks.computeIfAbsent(space.value) { Mutex() }.withLock { if (isSynced(db, space)) dropped(space) else locks.remove(space.value) }
     }
 
     /**
@@ -266,7 +276,7 @@ class SpaceSyncer(
         log.info("{} was deleted; dropping it", space)
         indexer.dropSpace(space)
         db.tx { SpaceSync.deleteWhere { SpaceSync.space eq space.value } }
-        // Held by this sync, so no other waits on it; a later announcement makes a new one.
+        // Held by the caller; a later announcement makes a new one, and a sync still waiting on this one finds no space to sync.
         locks.remove(space.value)
         renotified.remove(space.value)
     }
@@ -326,6 +336,11 @@ private suspend fun headRev(member: SpaceMember, space: SpaceUri): String? {
         if (page.commit != null || page.cursor == null) return page.commit?.rev
         cursor = page.cursor
     }
+}
+
+/** Whether this AppView syncs [space]. */
+private suspend fun isSynced(db: Database, space: SpaceUri): Boolean = db.tx {
+    SpaceSync.select(SpaceSync.space).where { SpaceSync.space eq space.value }.any()
 }
 
 /** Registers [service] for [space]'s `notifyWrite`s and returns when the registration expires, epoch millis. */

@@ -176,6 +176,19 @@ open class SpaceSyncFixture {
             )
         }
 
+    protected suspend fun HttpClient.notifySpaceDeleted(
+        space: SpaceUri,
+        issuer: String? = space.authority.value,
+        aud: String = config.syncerService,
+    ): HttpResponse =
+        post("/xrpc/${Space.NotifySpaceDeleted.method.nsid}") {
+            issuer?.let {
+                header(HttpHeaders.Authorization, "Bearer ${keys.getValue(it).serviceJwt(it, aud, Space.NotifySpaceDeleted.method.nsid)}")
+            }
+            contentType(ContentType.Application.Json)
+            setBody("""{"space":"${space.value}"}""")
+        }
+
     protected fun HttpRequestData.jsonBody() = AtJson.parseToJsonElement((body as TextContent).text).jsonObject
 
     protected fun ApplicationTestBuilder.start() {

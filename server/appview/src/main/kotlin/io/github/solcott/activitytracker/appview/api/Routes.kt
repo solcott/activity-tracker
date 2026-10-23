@@ -124,7 +124,9 @@ fun Route.segmentCandidateRoutes(candidates: SegmentCandidateViews, verifier: Se
  * joined):
  * - `notifySpace`: an athlete announces one of their tier spaces, with service auth for the AppView;
  * - `notifyWrite`: the authority's PDS says the space advanced, with service auth addressed to [syncerVerifier]'s syncer service id, so a
- *   token for the AppView or the managing app never works here, or the reverse.
+ *   token for the AppView or the managing app never works here, or the reverse;
+ * - `notifySpaceDeleted`: the authority's PDS says the space was deleted, authenticated the same way, and the AppView drops it before
+ *   answering. The PDS retries until delivered, so a repeat, or a space the AppView doesn't sync, succeeds with nothing to do.
  */
 fun Route.spaceSyncRoutes(syncer: SpaceSyncer?, verifier: ServiceAuthVerifier, syncerVerifier: ServiceAuthVerifier) {
     xrpcProcedure(NotifySpace.method, verifier) { input, caller ->
@@ -132,13 +134,21 @@ fun Route.spaceSyncRoutes(syncer: SpaceSyncer?, verifier: ServiceAuthVerifier, s
         JsonObject(emptyMap())
     }
     xrpcProcedure(Space.NotifyWrite.method, syncerVerifier) { input, issuer ->
-        // Only the space's authority, whose PDS hosts the space, sends these.
-        if (requireViewer(issuer) != input.space.authority)
-            throw AuthException("notifyWrite from ${issuer?.value}, not ${input.space.authority}")
+        requireAuthority(input.space, issuer, Space.NotifyWrite.method.nsid)
         // Only the authority writes to an athlete's space; a notification for another repo has nothing for the AppView.
         if (input.repo == input.space.authority) syncer?.notified(input.space)
         JsonObject(emptyMap())
     }
+    xrpcProcedure(Space.NotifySpaceDeleted.method, syncerVerifier) { input, issuer ->
+        requireAuthority(input.space, issuer, Space.NotifySpaceDeleted.method.nsid)
+        syncer?.deleted(input.space)
+        JsonObject(emptyMap())
+    }
+}
+
+/** Only the space's authority, whose PDS hosts the space, sends its notifications. */
+private fun requireAuthority(space: SpaceUri, issuer: Did?, nsid: String) {
+    if (requireViewer(issuer) != space.authority) throw AuthException("$nsid from ${issuer?.value}, not ${space.authority}")
 }
 
 /** [space], if [caller] may announce it: it must be one of their own athlete tier or interactions spaces. */
