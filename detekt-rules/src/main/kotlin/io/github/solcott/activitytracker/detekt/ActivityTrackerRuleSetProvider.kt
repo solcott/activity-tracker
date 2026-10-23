@@ -8,5 +8,6 @@ import dev.detekt.api.RuleSetProvider
 class ActivityTrackerRuleSetProvider : RuleSetProvider {
     override val ruleSetId = RuleSetId("activitytracker")
 
-    override fun instance() = RuleSet(ruleSetId, listOf(::UseTextFieldState, ::UseSingleFlight, ::UseAdaptiveComponents))
+    override fun instance() =
+        RuleSet(ruleSetId, listOf(::UseTextFieldState, ::UseSingleFlight, ::UseAdaptiveComponents, ::NoSystemClockInUi))
 }

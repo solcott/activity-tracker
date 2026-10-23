@@ -28,12 +28,20 @@ import io.github.solcott.activitytracker.data.units.WeightConversions
 import io.github.solcott.activitytracker.data.units.formatDecimal
 import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlin.math.roundToLong
+import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.datetime.TimeZone
 import org.jetbrains.compose.resources.stringResource
 
 /** The signed-in athlete's unit preference; `App` provides it from `UnitsRepository`. */
 val LocalUnitSystem = staticCompositionLocalOf { UnitSystem.Metric }
+
+/** The current time for UIs that show or bound by it (ages, date pickers). The system clock, unless a preview or test fixes it. */
+val LocalClock = staticCompositionLocalOf<Clock> { Clock.System }
+
+/** The viewer's time zone for UIs that show local times. The system's, unless a preview or test sets it. */
+val LocalTimeZone = staticCompositionLocalOf { TimeZone.currentSystemDefault() }
 
 /**
  * Display formatting for stats. Inputs are the SI values records store; output follows [LocalUnitSystem]. Values with units read their

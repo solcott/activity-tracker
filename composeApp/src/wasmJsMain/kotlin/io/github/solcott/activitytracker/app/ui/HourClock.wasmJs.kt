@@ -7,4 +7,4 @@ import androidx.compose.runtime.ReadOnlyComposable
 
 private fun hour12(): Boolean = js("new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hour12 === true")
 
-@Composable @ReadOnlyComposable actual fun uses24HourClock(): Boolean = !hour12()
+@Composable @ReadOnlyComposable actual fun platformUses24HourClock(): Boolean = !hour12()

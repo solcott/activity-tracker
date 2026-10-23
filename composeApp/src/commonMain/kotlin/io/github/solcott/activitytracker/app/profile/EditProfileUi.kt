@@ -45,6 +45,7 @@ import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.AvatarFrame
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.Countries
+import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.MenuField
 import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
@@ -109,7 +110,6 @@ import io.github.solcott.activitytracker.lexicon.app.Gender
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.readBytes
-import kotlin.time.Clock
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import kotlinx.io.bytestring.ByteString
@@ -458,7 +458,8 @@ private fun BirthDateField(
         lineLimits = TextFieldLineLimits.SingleLine,
     )
     if (picking) {
-        val now = remember { Clock.System.now().toEpochMilliseconds() }
+        val clock = LocalClock.current
+        val now = remember { clock.now().toEpochMilliseconds() }
         val pastOnly = remember(now) { DateBounds(maxDateMillis = now) }
         AppDatePickerDialog(
             initialSelectedDateMillis = CalendarDate.toPickerMillis(date),

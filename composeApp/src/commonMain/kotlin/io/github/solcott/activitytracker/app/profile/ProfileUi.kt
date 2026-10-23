@@ -33,6 +33,7 @@ import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.HiddenCard
+import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.ModerationNotice
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
@@ -91,7 +92,6 @@ import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.uistate.hasLoaded
 import kotlin.math.roundToLong
-import kotlin.time.Clock
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.PluralStringResource
@@ -355,7 +355,8 @@ private const val NO_ACTIVITIES_KEY = "noActivities"
 /** The details this viewer may see: a location line, then age, gender, height and weight. */
 @Composable
 private fun ProfileDetailsText(details: ProfileDetails, modifier: Modifier = Modifier) {
-    val now = remember { Clock.System.now() }
+    val clock = LocalClock.current
+    val now = remember { clock.now() }
     val location = details.location?.let { listOfNotNull(it.locality, it.region, it.country?.let(::countryName)).joinToString(", ") }
     val age = details.birthDate?.let { CalendarDate.age(it, now) }
     val facts =
