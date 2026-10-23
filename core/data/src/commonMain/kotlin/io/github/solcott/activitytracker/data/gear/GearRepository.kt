@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.outcomeFlow
+import io.github.solcott.activitytracker.data.outcomeOf
 import io.github.solcott.activitytracker.data.ownBlobUrl
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -25,12 +26,19 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.Tid
 import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
+import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.ActorGearItem
 import io.github.solcott.activitytracker.lexicon.app.AspectRatio
 import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
+import io.github.solcott.activitytracker.lexicon.app.GetActorGear
+import io.github.solcott.activitytracker.lexicon.app.GetGear
+import io.github.solcott.activitytracker.lexicon.app.GetGearActivities
+import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.activitytracker.lexicon.atproto.SyncGetBlob
 import io.github.solcott.dataresult.Outcome
+import io.github.solcott.uistate.Page
 import kotlin.time.Clock
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -54,7 +62,12 @@ data class GearItem(
     val photoUrl: String? = null,
 ) {
     /** Its canonical URI, wherever it's stored. */
-    fun uri(did: Did): AtUri = AtUri("at://${did.value}/${Nsid.GEAR_ITEM}/$rkey")
+    fun uri(did: Did): AtUri = uriOf(did, rkey)
+
+    companion object {
+        /** The canonical URI of [did]'s item at [rkey]. */
+        fun uriOf(did: Did, rkey: String): AtUri = AtUri("at://${did.value}/${Nsid.GEAR_ITEM}/$rkey")
+    }
 }
 
 /** What a save does to an item's photo. */
@@ -81,7 +94,7 @@ class GearNeedsSignInException : IllegalStateException("Sign in again to save pr
 @SingleIn(SessionScope::class)
 @Inject
 @Suppress("TooManyFunctions") // The reads and writes, and the photo moves they need.
-class GearRepository(private val clients: SessionClients, private val clock: Clock, feed: FeedRepository, logger: Logger) {
+class GearRepository(private val clients: SessionClients, private val clock: Clock, private val feed: FeedRepository, logger: Logger) {
     private val log = logger.withTag("GearRepository")
     private val held: HeldPhotos = feed.heldPhotos
 
@@ -113,6 +126,36 @@ class GearRepository(private val clients: SessionClients, private val clock: Clo
             }
         }
         byRkey.values.map { item -> async { item.copy(photoUrl = photoUrl(item)) } }.awaitAll()
+    }
+
+    /**
+     * The item at [uri] and its usage as this viewer may see it (`gear/gear-usage`), from the AppView, so it lags the athlete's edits until
+     * it catches up. The AppView answers `NotFound` when the viewer may not see it.
+     */
+    suspend fun usage(uri: AtUri): GetGear.Output = clients.appView.query(GetGear.method, GetGear.Params(uri))
+
+    /** [usage] as a stream: loading, then the item's usage or why it couldn't be read (`DataError.Api` `NotFound` for a hidden item). */
+    fun usageOutcome(uri: AtUri): Flow<Outcome<GetGear.Output>> = outcomeFlow { usage(uri) }
+
+    /** Every item of [actor]'s this viewer may see, each with its totals for them, in use first, then by name, a page at a time. */
+    suspend fun actorGear(actor: String): List<ActorGearItem> {
+        val items = mutableListOf<ActorGearItem>()
+        var cursor: String? = null
+        repeat(MAX_GEAR_PAGES) {
+            val page = clients.appView.query(GetActorGear.method, GetActorGear.Params(actor, Paging.MAX_LIMIT, cursor))
+            items += page.items
+            cursor = page.cursor ?: return items
+        }
+        return items
+    }
+
+    /**
+     * A page of the activities counted in [uri]'s usage for this viewer, newest first, with the athlete's own edits and deletes this
+     * session laid over them as the feed does.
+     */
+    suspend fun activitiesPage(uri: AtUri, cursor: String?): Outcome<Page<ActivityView, Unit>> = outcomeOf {
+        val page = clients.appView.query(GetGearActivities.method, GetGearActivities.Params(uri, cursor = cursor))
+        Page(feed.deletes.filter(page.activities).map(feed.rewrites::applyTo), Unit, page.cursor)
     }
 
     /** [items] as a stream: loading, then the items or why they couldn't be read. */
@@ -211,3 +254,6 @@ class GearRepository(private val clients: SessionClients, private val clock: Clo
             null
         }
 }
+
+/** 2,000 items: more than any athlete keeps, and a bound on a misbehaving cursor. */
+private const val MAX_GEAR_PAGES = 20

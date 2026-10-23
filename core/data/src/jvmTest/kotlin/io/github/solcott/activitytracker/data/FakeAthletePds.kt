@@ -31,14 +31,19 @@ import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.ActorGearItem
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
+import io.github.solcott.activitytracker.lexicon.app.GetActorGear
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetBlocks
 import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.GetFollowers
 import io.github.solcott.activitytracker.lexicon.app.GetFollows
+import io.github.solcott.activitytracker.lexicon.app.GetGear
+import io.github.solcott.activitytracker.lexicon.app.GetGearActivities
 import io.github.solcott.activitytracker.lexicon.app.GetMutes
+import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.SearchActors
@@ -110,6 +115,18 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
 
     /** Every request to the AppView answers with a server error, while set. */
     var appViewFailing = false
+
+    /** What the AppView's `getGear` serves, by item URI; NotFound for any other. */
+    val gearUsage = mutableMapOf<String, GetGear.Output>()
+
+    /** What the AppView's `getActorGear` serves for any actor, in pages of the asked limit. */
+    var actorGear: List<ActorGearItem> = emptyList()
+
+    /** What the AppView's `getGearActivities` serves, by item URI, in pages of the asked limit; NotFound for any other. */
+    val gearActivities = mutableMapOf<String, List<ActivityView>>()
+
+    /** Each gear usage query's path and query string, in order. */
+    val gearQueries = mutableListOf<String>()
 
     /** What the AppView's `getAuthorActivities` serves, in one page; an error while null. */
     var authorActivities: List<ActivityView>? = emptyList()
@@ -249,6 +266,22 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                         authorActivities?.let {
                             json(AtJson.encodeToString(GetAuthorActivities.Output.serializer(), GetAuthorActivities.Output(it)))
                         } ?: error("InternalServerError", HttpStatusCode.InternalServerError)
+                    path == "/xrpc/${Nsid.GEAR_GET_GEAR}" -> {
+                        gearQueries += request.url.encodedPathAndQuery
+                        gearUsage[request.url.parameters["uri"]]?.let { json(AtJson.encodeToString(GetGear.Output.serializer(), it)) }
+                            ?: error("NotFound")
+                    }
+                    path == "/xrpc/${Nsid.GEAR_GET_ACTOR_GEAR}" -> {
+                        gearQueries += request.url.encodedPathAndQuery
+                        val (items, cursor) = fakePage(actorGear, request.url.parameters["cursor"], request.url.parameters["limit"])
+                        json(AtJson.encodeToString(GetActorGear.Output.serializer(), GetActorGear.Output(items, cursor)))
+                    }
+                    path == "/xrpc/${Nsid.GEAR_GET_GEAR_ACTIVITIES}" -> {
+                        gearQueries += request.url.encodedPathAndQuery
+                        val all = gearActivities[request.url.parameters["uri"]] ?: return@MockEngine error("NotFound")
+                        val (activities, cursor) = fakePage(all, request.url.parameters["cursor"], request.url.parameters["limit"])
+                        json(AtJson.encodeToString(GetGearActivities.Output.serializer(), GetGearActivities.Output(activities, cursor)))
+                    }
                     path == "/xrpc/${Nsid.ACTOR_GET_PROFILE}" ->
                         profiles[request.url.parameters["actor"]]?.let { json(AtJson.encodeToString(ProfileView.serializer(), it)) }
                             ?: error("ProfileNotFound")
@@ -342,6 +375,13 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
         AtJson.parseToJsonElement((request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()).jsonObject
 
     private fun MockRequestHandleScope.json(body: String) = respond(body, headers = headersOf("Content-Type", "application/json"))
+
+    /** A page of [all] after an index [cursor], [limit] long (30 by default), and the next page's cursor when there's more. */
+    private fun <T> fakePage(all: List<T>, cursor: String?, limit: String?): Pair<List<T>, String?> {
+        val from = cursor?.toInt() ?: 0
+        val to = minOf(all.size, from + (limit?.toInt() ?: Paging.DEFAULT_LIMIT))
+        return all.subList(from, to) to to.takeIf { it < all.size }?.toString()
+    }
 
     private fun MockRequestHandleScope.error(name: String, status: HttpStatusCode = HttpStatusCode.BadRequest) =
         respond("""{"error":"$name"}""", status, headersOf("Content-Type", "application/json"))
