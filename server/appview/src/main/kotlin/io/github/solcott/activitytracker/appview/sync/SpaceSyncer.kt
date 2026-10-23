@@ -5,7 +5,6 @@ import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.spaceRkeys
 import io.github.solcott.activitytracker.atproto.space.SpaceMember
-import io.github.solcott.activitytracker.atproto.xrpc.XrpcClient
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
@@ -45,7 +44,8 @@ import org.slf4j.LoggerFactory
  * decision 4):
  * - an athlete's client announces a space ([announce]); the AppView joins it with its own credential, registers for `notifyWrite` at
  *   [service], and backfills it;
- * - each notification ([notified]) pulls the space's ops since the last indexed revision;
+ * - each notification ([notified]) pulls the space's ops since the last indexed revision, and applies them only once the commit ending the
+ *   pull has a verified MAC ([SpaceMember.listRepoOps]);
  * - every space is also pulled every [reconcileInterval], since the authority's PDS sends each notification once, and its registration is
  *   renewed within [renewalMargin] of expiring.
  *
@@ -200,7 +200,7 @@ class SpaceSyncer(
      * records. Returns the head revision, or null if nothing was ever written.
      */
     private suspend fun backfill(space: SpaceUri): String? {
-        val head = member.call(space, space.authority) { pds -> headRev(pds, space) }
+        val head = headRev(member, space)
         for (collection in Indexer.spaceCollections(space.skey)) {
             val listed = mutableSetOf<String>()
             var cursor: String? = null
@@ -230,28 +230,34 @@ class SpaceSyncer(
         return head
     }
 
-    /** Applies the ops after [since], in order, and returns the revision now indexed. */
+    /**
+     * Reads every page of ops after [since], then, once the commit ending them has a verified MAC, applies them in order and returns the
+     * commit's revision. A failed MAC throws before anything is applied; a pull that reaches no commit applies nothing and keeps [since].
+     */
     private suspend fun pull(space: SpaceUri, since: String): String {
-        var rev = since
+        val ops = mutableListOf<Space.ListRepoOps.Op>()
+        var head: String? = null
         var cursor: String? = null
         do {
-            val page =
-                member.call(space, space.authority) { pds ->
-                    pds.query(Space.ListRepoOps.method, Space.ListRepoOps.Params(space, space.authority, since, PAGE, cursor))
-                }
-            for (op in page.ops) {
-                val value = op.value
-                val cid = op.cid
-                when {
-                    cid == null -> indexer.spaceDelete(space, op.collection, op.rkey)
-                    value != null -> indexer.spaceWrite(space, op.collection, op.rkey, cid.value, value)
-                    else -> log.warn("{} op {}/{} at {} has no value; skipped", space, op.collection, op.rkey, op.rev)
-                }
-                rev = op.rev
-            }
-            page.commit?.let { rev = maxOf(rev, it.rev) }
+            val page = member.listRepoOps(space, space.authority, Space.ListRepoOps.Params(space, space.authority, since, PAGE, cursor))
+            ops += page.ops
+            page.commit?.let { head = it.rev }
             cursor = page.cursor
         } while (cursor != null)
+        val rev = head
+        if (rev == null) {
+            if (ops.isNotEmpty()) log.warn("{} listed {} ops after {} but no commit; none applied", space, ops.size, since)
+            return since
+        }
+        for (op in ops) {
+            val value = op.value
+            val cid = op.cid
+            when {
+                cid == null -> indexer.spaceDelete(space, op.collection, op.rkey)
+                value != null -> indexer.spaceWrite(space, op.collection, op.rkey, cid.value, value)
+                else -> log.warn("{} op {}/{} at {} has no value; skipped", space, op.collection, op.rkey, op.rev)
+            }
+        }
         return rev
     }
 
@@ -302,21 +308,22 @@ class SpaceSyncer(
     }
 }
 
-/** The head revision of [space]'s authority repo, or null if it was never written. */
-private suspend fun headRev(pds: XrpcClient, space: SpaceUri): String? {
+/** The head revision of [space]'s authority repo, from a commit with a verified MAC, or null if the repo was never written. */
+private suspend fun headRev(member: SpaceMember, space: SpaceUri): String? {
     var cursor: String? = null
     while (true) {
         val page =
             try {
-                pds.query(
-                    Space.ListRepoOps.method,
+                member.listRepoOps(
+                    space,
+                    space.authority,
                     Space.ListRepoOps.Params(space, space.authority, limit = SpaceSyncer.MAX_PAGE, cursor = cursor, excludeValues = true),
                 )
             } catch (e: XrpcException) {
                 if (e.error != SpaceSyncer.REPO_NOT_FOUND) throw e
                 return null
             }
-        if (page.commit != null || page.cursor == null) return page.commit?.rev ?: page.ops.lastOrNull()?.rev
+        if (page.commit != null || page.cursor == null) return page.commit?.rev
         cursor = page.cursor
     }
 }
