@@ -30,7 +30,7 @@
 ## 5. Integration
 
 - [x] 5.1 Run `./gradlew check` and verify it passes.
-- [ ] 5.2 Run `:desktopApp:hotRun` and confirm the app still uses the system theme, clock and real maps (production defaults unchanged), with a Compose Hot Reload screenshot of an activity page with a map.
+- [x] 5.2 Run `:desktopApp:hotRun` and confirm the app still uses the system theme, clock and real maps (production defaults unchanged), with a Compose Hot Reload screenshot of an activity page with a map.
 
 ## Workflow follow-up
 
