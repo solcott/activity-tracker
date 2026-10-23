@@ -2,17 +2,13 @@ package io.github.solcott.activitytracker.atproto.space
 
 import io.github.solcott.activitytracker.atproto.crypto.DpopKey
 import io.github.solcott.activitytracker.atproto.crypto.jwtPayload
+import io.github.solcott.activitytracker.atproto.identity.IdentityException
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
-import io.github.solcott.activitytracker.atproto.xrpc.RequestAuthenticator
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcClient
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.atproto.Space
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.ktor.client.HttpClient
-import io.ktor.client.request.HttpRequestBuilder
-import io.ktor.client.request.header
-import io.ktor.client.statement.HttpResponse
-import io.ktor.http.HttpHeaders
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
@@ -30,8 +26,8 @@ import kotlinx.serialization.json.long
 /**
  * Credentials for reading other athletes' spaces, one per space, for one reader: a signed-in viewer, or the AppView syncing athletes' tier
  * spaces. Getting one takes a single-use delegation token naming the reader ([delegation]: from the viewer's PDS, or signed by the AppView
- * itself), exchanged at the PDS of the space's authority with a request signed by the binding key ([newKey], created on first use); the
- * credential is then bound to that key. Each is reused until [REFRESH_MARGIN] before it expires, and concurrent callers share one exchange.
+ * itself), exchanged at the PDS of the space's authority together with a fresh P-256 key ([newKey]) the credential is then bound to, so no
+ * two credentials share a key. Each is reused until [REFRESH_MARGIN] before it expires, and concurrent callers share one exchange.
  *
  * A refused exchange (`UserNotAuthorized` and friends) throws and is never cached, so a new follow counts on the next read. Everything is
  * in memory and lives as long as the session (or the AppView process).
@@ -52,17 +48,14 @@ class SpaceCredentials(
         clock: Clock = Clock.System,
     ) : this(DelegationTokenSource.pds(viewerPds), http, identity, newKey, clock)
 
-    class Credential(val token: String, val expiresAt: Instant)
+    /** A space credential and the key it's bound to; reads with it are signed with [key]. In memory only. */
+    class Credential(val token: String, val expiresAt: Instant, val key: DpopKey)
 
     private val mutex = Mutex()
     private val cache = mutableMapOf<SpaceUri, Credential>()
     private val inFlight = mutableMapOf<SpaceUri, CompletableDeferred<Credential>>()
     private val pdsUrls = mutableMapOf<Did, String>()
-
-    private var key: DpopKey? = null
-
-    /** The key credentials are bound to; credentialed reads are signed with it. In memory only, like the credentials. */
-    suspend fun bindingKey(): DpopKey = mutex.withLock { key ?: newKey().also { key = it } }
+    private val kemKeys = mutableMapOf<Did, String>()
 
     suspend fun get(space: SpaceUri): Credential {
         var credential: Credential? = null
@@ -91,6 +84,23 @@ class SpaceCredentials(
     suspend fun pdsUrl(did: Did): String =
         mutex.withLock { pdsUrls[did] } ?: identity.resolve(did.value).pdsUrl.also { url -> mutex.withLock { pdsUrls[did] = url } }
 
+    /**
+     * [did]'s `#atproto_kem` key, which MAC'd reads of its repos agree a secret with: resolved once per session, or again with [refresh]
+     * after a MAC failed (the key may have rotated). Throws when the DID document publishes none: that account can't serve credentialed
+     * reads.
+     */
+    suspend fun kemKey(did: Did, refresh: Boolean = false): String {
+        if (!refresh)
+            mutex
+                .withLock { kemKeys[did] }
+                ?.let {
+                    return it
+                }
+        val key = identity.resolveDid(did).kemKey ?: throw IdentityException("$did publishes no #atproto_kem key")
+        mutex.withLock { kemKeys[did] = key }
+        return key
+    }
+
     /** Runs the exchange for [space] and hands its outcome, failure and cancellation included, to everyone waiting on [pending]. */
     private suspend fun exchangeFor(space: SpaceUri, pending: CompletableDeferred<Credential>): Credential {
         val result = runCatching { exchange(space) }
@@ -114,22 +124,14 @@ class SpaceCredentials(
             null
         }
 
+    /** An unauthenticated POST: the delegation token and the new key travel in the body. */
     private suspend fun exchange(space: SpaceUri): Credential {
-        val authority = XrpcClient(http, pdsUrl(space.authority), DelegationAuthenticator(delegation.token(space), bindingKey()))
-        val token = authority.procedure(Space.GetSpaceCredential.method, Space.GetSpaceCredential.Input(space)).credential
+        val key = newKey()
+        val authority = XrpcClient(http, pdsUrl(space.authority))
+        val input = Space.GetSpaceCredential.Input(space, credentialKid = key.didKey, delegationToken = delegation.token(space))
+        val token = authority.procedure(Space.GetSpaceCredential.method, input).credential
         val exp = jwtPayload(token)["exp"]?.jsonPrimitive?.long ?: error("Space credential has no exp")
-        return Credential(token, Instant.fromEpochSeconds(exp))
-    }
-
-    /** `Authorization: Bearer <delegation token>`, signed with the key the credential will be bound to. */
-    private class DelegationAuthenticator(private val delegation: String, private val key: DpopKey) : RequestAuthenticator {
-        override suspend fun authenticate(request: HttpRequestBuilder, nsid: String) {
-            val authorization = "Bearer $delegation"
-            request.header(HttpHeaders.Authorization, authorization)
-            HttpMessageSignature.sign(key, authorization).forEach { (name, value) -> request.header(name, value) }
-        }
-
-        override suspend fun shouldRetry(response: HttpResponse) = false
+        return Credential(token, Instant.fromEpochSeconds(exp), key)
     }
 
     private companion object {

@@ -29,7 +29,7 @@ fun interface DelegationTokenSource {
 /**
  * A service's own delegation tokens, signed with the key its DID document publishes as `#atproto` (how the AppView reads athletes' tier
  * spaces). Shaped as `@atproto/space`'s `createSpaceToken('delegation', ...)`: `typ` `atproto-space-delegation+jwt`, `kid` `#atproto`,
- * `aud` the authority's `#atproto_space_host`, 60 s and a random `jti`, since the PDS refuses a token twice.
+ * `aud` the authority's `#atproto_pds` (the PDS hosting its spaces), 60 s and a random `jti`, since the PDS refuses a token twice.
  */
 class SignedDelegationTokens(
     private val issuer: Did,
@@ -50,7 +50,7 @@ class SignedDelegationTokens(
         val payload = buildJsonObject {
             put("iss", issuer.value)
             put("sub", space.value)
-            put("aud", "${space.authority.value}$SPACE_HOST_FRAGMENT")
+            put("aud", "${space.authority.value}$PDS_FRAGMENT")
             put("iat", iat)
             put("exp", iat + LIFETIME.inWholeSeconds)
             put("jti", random.nextBytes(JTI_BYTES).toHexString())
@@ -62,7 +62,7 @@ class SignedDelegationTokens(
     companion object {
         const val TYP = "atproto-space-delegation+jwt"
         const val KID = "#atproto"
-        const val SPACE_HOST_FRAGMENT = "#atproto_space_host"
+        const val PDS_FRAGMENT = "#atproto_pds"
         val LIFETIME = 60.seconds
         private const val JTI_BYTES = 16
     }

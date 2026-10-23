@@ -57,7 +57,7 @@ class AppViewSigningKeyTest {
         assertTrue(verifier.verifySignature(digest, BigInteger(1, sig.copyOfRange(0, 32)), BigInteger(1, sig.copyOfRange(32, 64))))
         val claims = AtJson.parseToJsonElement(String(Base64.getUrlDecoder().decode(payload))).jsonObject
         assertEquals("did:web:appview.test", claims["iss"]?.jsonPrimitive?.content)
-        assertEquals("did:plc:alice#atproto_space_host", claims["aud"]?.jsonPrimitive?.content)
+        assertEquals("did:plc:alice#atproto_pds", claims["aud"]?.jsonPrimitive?.content)
     }
 
     @Test
