@@ -205,6 +205,59 @@
           "type": "boolean"
         }
       }
+    },
+    "gearComponent": {
+      "type": "object",
+      "description": "An item mounted on another, as the parent's page lists it.",
+      "required": [
+        "gear",
+        "from",
+        "totals"
+      ],
+      "properties": {
+        "gear": {
+          "type": "ref",
+          "ref": "#gearView"
+        },
+        "from": {
+          "type": "string",
+          "format": "datetime",
+          "description": "When this mount started."
+        },
+        "to": {
+          "type": "string",
+          "format": "datetime",
+          "description": "When it ended; absent while still mounted."
+        },
+        "totals": {
+          "type": "ref",
+          "ref": "#gearTotals",
+          "description": "The component's own totals for the viewer, including starting usage."
+        }
+      }
+    },
+    "gearMountView": {
+      "type": "object",
+      "description": "One period an item was mounted on a parent, as the item's page shows it.",
+      "required": [
+        "parent",
+        "from"
+      ],
+      "properties": {
+        "parent": {
+          "type": "ref",
+          "ref": "#gearView"
+        },
+        "from": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "to": {
+          "type": "string",
+          "format": "datetime",
+          "description": "Absent while still mounted."
+        }
+      }
     }
   }
 }

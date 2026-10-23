@@ -37,6 +37,8 @@ data class GearItemRecord(
     val startingDistance: Long? = null,
     /** Seconds it was used for before the athlete tracked it; added to its usage totals, never to their breakdowns. */
     val startingTime: Long? = null,
+    /** The items it was mounted on, oldest first, at most [MAX_MOUNTS]; [GearMounts] checks them. */
+    val mounts: List<GearMount>? = null,
     @SerialName($$"$type") val recordType: String = Nsid.GEAR_ITEM,
 ) {
     companion object {
@@ -54,8 +56,24 @@ data class GearItemRecord(
 
         /** The lexicon's `maximum` for [weight], in grams. */
         const val MAX_WEIGHT = 1_000_000
+
+        /** The lexicon's `maxLength` for [mounts]. */
+        const val MAX_MOUNTS = 50
     }
 }
+
+/**
+ * `app.activitytracker.gear.item#mount`: one period an item was mounted on [parent], another item of the same athlete, from [from]
+ * (inclusive) until [to] (exclusive; null while still mounted).
+ */
+@Immutable
+@Serializable
+data class GearMount(
+    /** The parent's canonical [GearItemRecord] URI. */
+    val parent: AtUri,
+    val from: Instant,
+    val to: Instant? = null,
+)
 
 /**
  * `app.activitytracker.gear.autoAssign`: the gear each activity type starts with. It lives only in the athlete's [AthleteSpace.SELF] space,
@@ -195,6 +213,28 @@ data class GearUsage(
     val byYear: List<GearYearTotals>,
     /** Null when the item has none. */
     val starting: GearStarting? = null,
+)
+
+/** `app.activitytracker.gear.defs#gearComponent`: an item mounted on another, as the parent's page lists it. */
+@Immutable
+@Serializable
+data class GearComponent(
+    val gear: GearView,
+    val from: Instant,
+    /** Including starting usage. */
+    val totals: GearTotals,
+    /** Null while still mounted. */
+    val to: Instant? = null,
+)
+
+/** `app.activitytracker.gear.defs#gearMountView`: one period an item was mounted on [parent], as the item's page shows it. */
+@Immutable
+@Serializable
+data class GearMountView(
+    val parent: GearView,
+    val from: Instant,
+    /** Null while still mounted. */
+    val to: Instant? = null,
 )
 
 /** `app.activitytracker.gear.defs#actorGearItem`: one of an athlete's items, with its totals for the viewer. */

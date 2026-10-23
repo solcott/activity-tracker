@@ -93,6 +93,10 @@ object GetGear {
         val retired: Boolean,
         /** A [Visibility] value; only for the item's author. */
         val visibility: String? = null,
+        /** Items mounted on it the viewer may see: those mounted now first, then those mounted before. */
+        val components: List<GearComponent>? = null,
+        /** The periods it was mounted on a parent the viewer may see, oldest first. */
+        val mounts: List<GearMountView>? = null,
     )
 
     val method = XrpcQuery(Nsid.GEAR_GET_GEAR, Params.serializer(), Output.serializer())

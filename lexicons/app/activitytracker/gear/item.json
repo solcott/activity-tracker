@@ -63,8 +63,28 @@
           "retiredAt": { "type": "string", "format": "datetime", "description": "When the athlete retired it. Absent: in use." },
           "startingDistance": { "type": "integer", "minimum": 0, "description": "Meters it was used for before the athlete started tracking it (bought used, already broken in). Added to its usage totals, never to their breakdowns." },
           "startingTime": { "type": "integer", "minimum": 0, "description": "Seconds it was used for before the athlete started tracking it. Added to its usage totals, never to their breakdowns." },
+          "mounts": {
+            "type": "array",
+            "maxLength": 50,
+            "description": "The items this one was mounted on, oldest first: a chain on a bike, tires on a wheelset. Windows never overlap, and following parents never comes back to this item or goes more than three levels below a top-level item. While mounted, it counts each activity that lists its parent (directly or through the parent's own mounts) at the activity's start. Readers drop a mount that breaks these rules or names another athlete's item. A Public item shows its parents' URIs and dates, whatever their visibility.",
+            "items": { "type": "ref", "ref": "#mount" }
+          },
           "createdAt": { "type": "string", "format": "datetime" }
         }
+      }
+    },
+    "mount": {
+      "type": "object",
+      "description": "One period this item was mounted on another of the athlete's items.",
+      "required": ["parent", "from"],
+      "properties": {
+        "parent": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "The parent's canonical URI: at://{did}/app.activitytracker.gear.item/{rkey}, of the same athlete."
+        },
+        "from": { "type": "string", "format": "datetime", "description": "When the mount starts, inclusive." },
+        "to": { "type": "string", "format": "datetime", "description": "When it ends, exclusive. Absent: still mounted." }
       }
     }
   }

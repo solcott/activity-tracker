@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.lexicon
 import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.AspectRatio
 import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
+import io.github.solcott.activitytracker.lexicon.app.GearMount
 import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
@@ -10,6 +11,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.time.Instant
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -43,6 +45,28 @@ class GearItemSerializationTest {
         assertEquals(Nsid.GEAR_ITEM, json["\$type"]?.jsonPrimitive?.content)
         assertEquals(GearType.BIKE, json["type"]?.jsonPrimitive?.content)
         assertEquals(bike, AtJson.decodeFromJsonElement(GearItemRecord.serializer(), json))
+    }
+
+    @Test
+    fun mountsRoundTripOldestFirst() {
+        val bike = AtUri("at://did:plc:alice/${Nsid.GEAR_ITEM}/3tarmac")
+        val chain =
+            GearItemRecord(
+                name = "Chain #3",
+                type = GearType.COMPONENT,
+                createdAt = Instant.parse("2026-03-01T00:00:00Z"),
+                kind = "chain",
+                mounts =
+                    listOf(
+                        GearMount(bike, Instant.parse("2026-03-01T00:00:00Z"), Instant.parse("2026-07-01T00:00:00Z")),
+                        GearMount(bike, Instant.parse("2026-08-01T00:00:00Z")),
+                    ),
+            )
+        val json = AtJson.encodeToJsonElement(GearItemRecord.serializer(), chain).jsonObject
+        val mounts = json.getValue("mounts").jsonArray
+        assertEquals(bike.value, mounts[0].jsonObject["parent"]?.jsonPrimitive?.content)
+        assertEquals(setOf("parent", "from"), mounts[1].jsonObject.keys)
+        assertEquals(chain, AtJson.decodeFromJsonElement(GearItemRecord.serializer(), json))
     }
 
     @Test
