@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
@@ -47,10 +48,13 @@ fun <T> ContentStateLayout(
                 modifier.fillMaxSize().padding(contentPadding).padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(errorText(UiError(errorKind, error)), color = MaterialTheme.colorScheme.error)
-                AppTextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
+                Text(errorText(UiError(errorKind, error)), Modifier.testTag(TestTags.LOAD_ERROR), color = MaterialTheme.colorScheme.error)
+                AppTextButton(onClick = onRetry, Modifier.testTag(TestTags.RETRY)) { Text(stringResource(Res.string.action_retry)) }
             }
-        else -> Box(modifier.fillMaxSize().padding(contentPadding), contentAlignment = Alignment.Center) { AppProgressIndicator() }
+        else ->
+            Box(modifier.fillMaxSize().padding(contentPadding), contentAlignment = Alignment.Center) {
+                AppProgressIndicator(Modifier.testTag(TestTags.LOADING))
+            }
     }
 }
 
@@ -70,7 +74,7 @@ fun RefreshStatus(
     when {
         error != null ->
             Row(
-                modifier.fillMaxWidth(),
+                modifier.fillMaxWidth().testTag(TestTags.REFRESH_ERROR),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -78,6 +82,8 @@ fun RefreshStatus(
                 AppTextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
             }
         state.isLoading && showProgress ->
-            Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { AppProgressIndicator(small = true) }
+            Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                AppProgressIndicator(Modifier.testTag(TestTags.REFRESHING), small = true)
+            }
     }
 }
