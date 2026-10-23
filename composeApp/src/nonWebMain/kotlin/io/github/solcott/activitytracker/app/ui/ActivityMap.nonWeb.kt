@@ -47,7 +47,8 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.spatialk.geojson.BoundingBox
 
-private val FIT_PADDING = DpPadding(left = 24.dp, top = 24.dp, right = 24.dp, bottom = 24.dp)
+/** The margin left around the route when it's framed. */
+private val FIT_MARGIN = 24.dp
 
 @Composable
 actual fun ActivityMap(
@@ -59,6 +60,7 @@ actual fun ActivityMap(
     onExpand: (() -> Unit)?,
     interactive: Boolean,
     highlight: String?,
+    overlayTop: Dp,
 ) {
     // (lat, lng) pairs, like RoutePreview.
     val points = remember(polyline) { runCatching { TrackMath.decodePolyline(polyline) }.getOrDefault(emptyList()) }
@@ -118,8 +120,12 @@ actual fun ActivityMap(
             }
             markers?.let { RouteMarkerLayers(it) }
         }
+    val fit =
+        remember(overlayTop) {
+            CameraFit(fitPadding = DpPadding(left = FIT_MARGIN, top = FIT_MARGIN + overlayTop, right = FIT_MARGIN, bottom = FIT_MARGIN))
+        }
     // Jump straight to the route; cameraForBounds waits until the map has a viewport.
-    LaunchedEffect(mapState, bounds) { mapState.setCameraPosition(mapState.cameraForBounds(bounds, CameraFit(fitPadding = FIT_PADDING))) }
+    LaunchedEffect(mapState, bounds, fit) { mapState.setCameraPosition(mapState.cameraForBounds(bounds, fit)) }
     val currentOnExpand by rememberUpdatedState(onExpand)
     val interactions =
         remember(interactive, onExpand != null) {
@@ -159,7 +165,7 @@ actual fun ActivityMap(
                         MapButton(
                             AppIcon.Recenter,
                             Res.string.map_recenter,
-                            onClick = { scope.launch { mapState.animateCameraToBounds(bounds, CameraFit(fitPadding = FIT_PADDING)) } },
+                            onClick = { scope.launch { mapState.animateCameraToBounds(bounds, fit) } },
                             buttonModifier,
                         )
                     onExpand != null ->
