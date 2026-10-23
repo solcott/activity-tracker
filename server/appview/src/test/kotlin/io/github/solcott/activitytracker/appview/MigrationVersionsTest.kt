@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.appview.db.ActivitySummaryBackfill
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -18,5 +19,7 @@ class MigrationVersionsTest {
         val versions = files.map { it.name.substringAfter('V').substringBefore("__").toInt() to it.relativeTo(root).path }
         val duplicates = versions.groupBy({ it.first }, { it.second }).filterValues { it.size > 1 }
         assertEquals(emptyMap(), duplicates)
+        val kotlin = ActivitySummaryBackfill.version.version.toInt()
+        assertTrue(versions.none { it.first == kotlin }, "V$kotlin is ActivitySummaryBackfill's")
     }
 }

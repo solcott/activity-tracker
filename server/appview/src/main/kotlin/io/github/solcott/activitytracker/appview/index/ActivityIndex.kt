@@ -215,6 +215,7 @@ private fun JdbcTransaction.upsertActivity(
         it[indexedAt] = now
         it[visibility] = placement.visibility
         it[origin] = placement.origin
+        it.setSummary(ActivitySummary.of(record))
         // Untrusted: a recording links only to another of its author's activities, and must fit the column.
         it[recordingOf] =
             record.recordingOf

@@ -44,6 +44,8 @@ internal fun JdbcTransaction.upsertGear(author: Did, uri: AtUri, cid: String, js
             it[photoCid] = photo?.image?.ref?.link
             it[photoMime] = photo?.image?.mimeType
             it[retiredAt] = record.retiredAt?.toEpochMilliseconds()
+            it[startingDistance] = record.startingDistance?.takeIf { d -> d >= 0 }
+            it[startingTime] = record.startingTime?.takeIf { t -> t >= 0 }
             it[GearItems.record] = AtJson.encodeToString(JsonObject.serializer(), json)
             it[indexedAt] = now
         }

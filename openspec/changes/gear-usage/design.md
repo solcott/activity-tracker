@@ -6,7 +6,7 @@ See proposal.md for why, and the spec for behavior. After `activity-gear`:
 
 - `activity_gear(activity_uri, origin, gear_uri, position, visibility)` holds every reference, one row per origin, with the visibility of the record or details row that holds it.
 - `gear_items` holds each item with its visibility and origin.
-- `activities` has distance, moving and elapsed time, elevation gain and loss, `started_at`, `utc_offset`, sport and sub-sport, all core fields, so they sit at the activity's tier. When Start time is hidden, `started_at` is the local midnight, which still gives the right local date. A combined activity's members are found through `combinedIntoOf`.
+- `activities` has `started_at`, sport and sub-sport as columns. Distance, moving and elapsed time, elevation gain and loss, `utcOffset` and the dive's bottom time are core fields (so they sit at the activity's tier), but only inside the `record` JSON. When Start time is hidden, `started_at` is the local midnight, which still gives the right local date. A combined activity's members are found through `combinedIntoOf`.
 - `visibleTo(viewer, visibility, author, record, cid)` works on any table's columns.
 
 ## Goals / Non-Goals
@@ -31,9 +31,10 @@ See proposal.md for why, and the spec for behavior. After `activity-gear`:
 The same reference can exist at two origins mid-move. The `exists` counts each activity once.
 
 ### Aggregation
-- Totals: one `SELECT` over `activities` filtered by `countedFor`: `COUNT`, `SUM(COALESCE(moving_time, elapsed_time))`, `SUM(distance)`, `SUM(elevation_gain)`, `SUM(elevation_loss)`, `COUNT(DISTINCT local_date)`. The local date is computed in Kotlin-side SQL from `started_at + utc_offset` with an H2-portable expression, or from a `started_on` column added to `activities` if the expression isn't portable (decided in task 2.1, with a test on both H2 and Postgres SQL).
-- Dives: the same query restricted to sport `dive`, summing the dive summary's bottom time (indexed as `activities.dive_bottom_time`, added in the migration if absent).
-- Breakdowns: the same aggregate grouped by `(sport, sub_sport)` and by local year.
+- Summary columns: V36 adds `elapsed_time`, `moving_time`, `distance`, `elevation_gain`, `elevation_loss`, `dive_bottom_time`, `started_on` (the epoch day of `started_at` shifted by `utcOffset`, UTC without one) and `started_year` to `activities`, all computed in Kotlin by the indexer (`ActivitySummary`). SQL can't read the record JSON portably across H2 and Postgres, so V37 is a Kotlin Flyway migration (`ActivitySummaryBackfill`) that fills them for rows indexed before V36.
+- Totals: one `SELECT` over `activities` filtered by `countedFor`: `COUNT`, `SUM(COALESCE(moving_time, elapsed_time))`, `SUM(distance)`, `SUM(elevation_gain)`, `SUM(elevation_loss)`, `COUNT(DISTINCT started_on)`.
+- Dives: the same query restricted to sport `dive`, summing `dive_bottom_time`.
+- Breakdowns: the same aggregate grouped by `(sport, sub_sport)` and by `started_year`.
 - Starting usage is added in Kotlin after the query, and only to the totals.
 
 ### Queries
@@ -57,4 +58,4 @@ The same reference can exist at two origins mid-move. The `exists` counts each a
 
 ## Migration Plan
 
-Deploy the AppView migration (starting usage columns, and a local-date or dive bottom-time column if needed, both backfilled from existing rows in the same migration), then ship clients.
+Deploy the AppView migrations (V36's starting usage and summary columns, V37's backfill of them from existing rows), then ship clients.
