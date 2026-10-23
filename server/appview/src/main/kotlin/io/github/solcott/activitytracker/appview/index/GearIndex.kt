@@ -2,18 +2,23 @@ package io.github.solcott.activitytracker.appview.index
 
 import io.github.solcott.activitytracker.appview.db.ActivityGear
 import io.github.solcott.activitytracker.appview.db.GearItems
+import io.github.solcott.activitytracker.appview.db.GearMountRows
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
+import io.github.solcott.activitytracker.lexicon.app.GearMount
+import io.github.solcott.activitytracker.lexicon.app.GearMounts
+import io.github.solcott.activitytracker.lexicon.app.MountGraph
 import kotlinx.serialization.json.JsonObject
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.upsert
 
 // Indexing of `gear.item` records and of the gear activities list, which the Indexer hands off here.
@@ -49,6 +54,43 @@ internal fun JdbcTransaction.upsertGear(author: Did, uri: AtUri, cid: String, js
             it[GearItems.record] = AtJson.encodeToString(JsonObject.serializer(), json)
             it[indexedAt] = now
         }
+        replaceGearMounts(author, uri, record.mounts)
+    }
+}
+
+/** Deletes the held copy of the gear item at [uri] and its mounts. */
+internal fun JdbcTransaction.deleteHeldGear(uri: AtUri) {
+    GearItems.deleteWhere { GearItems.uri eq uri.value }
+    GearMountRows.deleteWhere { componentUri eq uri.value }
+}
+
+/**
+ * Replaces [component]'s rows in [GearMountRows] with the [mounts] [GearMounts] keeps against those already indexed: each refused one is
+ * dropped, not the item. Untrusted: URIs that don't fit the column are dropped first, and at most [GearItemRecord.MAX_MOUNTS] are read.
+ */
+internal fun JdbcTransaction.replaceGearMounts(author: Did, component: AtUri, mounts: List<GearMount>?) {
+    GearMountRows.deleteWhere { componentUri eq component.value }
+    val bounded = mounts.orEmpty().take(GearItemRecord.MAX_MOUNTS).filter { it.parent.value.length <= MAX_GEAR_URI_LENGTH }
+    if (bounded.isEmpty()) return
+    val graph =
+        MountGraph(
+            parentsOf = { item ->
+                GearMountRows.select(GearMountRows.parentUri)
+                    .where { GearMountRows.componentUri eq item.value }
+                    .map { AtUri(it[GearMountRows.parentUri]) }
+            },
+            childrenOf = { item ->
+                GearMountRows.select(GearMountRows.componentUri)
+                    .where { GearMountRows.parentUri eq item.value }
+                    .map { AtUri(it[GearMountRows.componentUri]) }
+            },
+        )
+    GearMountRows.batchInsert(GearMounts.kept(component, bounded, graph)) { mount ->
+        this[GearMountRows.componentUri] = component.value
+        this[GearMountRows.parentUri] = mount.parent.value
+        this[GearMountRows.mountedFrom] = mount.from.toEpochMilliseconds()
+        this[GearMountRows.mountedTo] = mount.to?.toEpochMilliseconds()
+        this[GearMountRows.authorDid] = author.value
     }
 }
 

@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
 import io.github.solcott.activitytracker.appview.db.ActivityGear
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
 import io.github.solcott.activitytracker.appview.db.GearItems
+import io.github.solcott.activitytracker.appview.db.GearMountRows
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.HandleLookup
 import io.github.solcott.activitytracker.appview.index.Indexer
@@ -84,6 +85,18 @@ open class GearTestBase {
     protected fun item(rkey: String, tier: String, name: String, type: String = "bike", extra: String = "") =
         put(Nsid.GEAR_ITEM, tier, rkey, """{"name":"$name","type":"$type",$extra"createdAt":"2026-10-01T09:00:00Z"}""")
 
+    /** [mounts] as an item's `mounts` field with its trailing comma, for [item]'s `extra`: each a parent rkey (or URI), from, and to. */
+    protected fun mounts(vararg mounts: Triple<String, String, String?>) =
+        """"mounts":[""" +
+            mounts.joinToString(",") { (parent, from, to) ->
+                val uri = if (parent.startsWith("at://")) parent else gearUri(parent)
+                """{"parent":"$uri","from":"$from"""" + to?.let { ""","to":"$it"""" }.orEmpty() + "}"
+            } +
+            "],"
+
+    /** A mount on [parent] from [from] until [to], for [mounts]. */
+    protected fun on(parent: String, from: String, to: String? = null) = Triple(parent, from, to)
+
     protected fun uris(gear: List<String>) = gear.joinToString(",") { "\"$it\"" }
 
     /** Alice's ride at [tier], listing [gear] on its record when given. */
@@ -138,6 +151,17 @@ open class GearTestBase {
     /** The indexed gear rows: uri to (origin, visibility). */
     protected fun gearRows(): Map<String, Pair<String, String>> = runBlocking {
         db.tx { GearItems.selectAll().associate { it[GearItems.uri] to (it[GearItems.origin] to it[GearItems.visibility]) } }
+    }
+
+    /** The indexed mounts: component URI to (parent URI, from ms, to ms) in date order. */
+    protected fun gearMounts(): Map<String, List<Triple<String, Long, Long?>>> = runBlocking {
+        db.tx {
+            GearMountRows.selectAll()
+                .sortedBy { it[GearMountRows.mountedFrom] }
+                .groupBy({ it[GearMountRows.componentUri] }) {
+                    Triple(it[GearMountRows.parentUri], it[GearMountRows.mountedFrom], it[GearMountRows.mountedTo])
+                }
+        }
     }
 
     /** The ride's indexed gear references: (source, visibility) to the URIs in order. */

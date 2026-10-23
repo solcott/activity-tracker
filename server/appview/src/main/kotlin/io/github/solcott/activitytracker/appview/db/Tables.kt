@@ -483,6 +483,19 @@ object GearItems : Table("gear_items") {
 }
 
 /**
+ * `gear.item#mount`s of the held copy of each item ([componentUri]): mounted on [parentUri] from [mountedFrom] until [mountedTo] (epoch ms;
+ * null while mounted). Only mounts `GearMounts` keeps; the parent may not be indexed yet.
+ */
+object GearMountRows : Table("gear_mounts") {
+    val componentUri = varchar("component_uri", 512)
+    val parentUri = varchar("parent_uri", 512)
+    val mountedFrom = long("mounted_from")
+    val mountedTo = long("mounted_to").nullable()
+    val authorDid = varchar("author_did", 255)
+    override val primaryKey = PrimaryKey(componentUri, mountedFrom)
+}
+
+/**
  * The gear an activity lists: one row per reference to its author's own `gear.item`, by the [origin] and kind ([listedIn]) of the record
  * listing it (the activity record, [SOURCE_RECORD], or a details record, [SOURCE_DETAILS]), served at [visibility], that record's tier.
  */

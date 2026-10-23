@@ -120,6 +120,8 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
             usage = gearUsage(item, viewer),
             retired = item[GearItems.retiredAt] != null,
             visibility = item[GearItems.visibility].takeIf { viewer?.value == author },
+            components = gearComponents(item[GearItems.uri], viewer, mediaUrls).ifEmpty { null },
+            mounts = gearMountViews(item[GearItems.uri], viewer, mediaUrls).ifEmpty { null },
         )
     }
 
