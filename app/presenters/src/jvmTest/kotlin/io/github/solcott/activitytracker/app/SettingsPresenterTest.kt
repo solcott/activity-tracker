@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app
 
 import com.slack.circuit.test.FakeNavigator
+import io.github.solcott.activitytracker.app.gear.GearListScreen
 import io.github.solcott.activitytracker.app.settings.SettingsEvent
 import io.github.solcott.activitytracker.app.settings.SettingsPresenter
 import io.github.solcott.activitytracker.app.settings.SettingsScreen
@@ -120,6 +121,29 @@ class SettingsPresenterTest {
         }) {
             awaitItem().eventSink(SettingsEvent.OpenZones)
             assertEquals(TrainingZonesScreen, navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun gearOpensTheGearList() = runTest {
+        val repos = fixture.repos()
+        val moderation = fixture.moderation()
+        val navigator = FakeNavigator(SettingsScreen)
+        presenterTestOf({
+            SettingsPresenter(
+                navigator,
+                repos.units,
+                repos.auth,
+                repos.defaults,
+                repos.privacy,
+                moderation,
+                repos.segmentPrefs,
+                repos.leaderboardBrackets,
+            )
+        }) {
+            awaitItem().eventSink(SettingsEvent.OpenGear)
+            assertEquals(GearListScreen, navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
         }
     }

@@ -54,6 +54,8 @@ sealed interface SettingsEvent {
 
     data object OpenPrivacyZones : SettingsEvent
 
+    data object OpenGear : SettingsEvent
+
     data object OpenBlocked : SettingsEvent
 
     data object OpenMuted : SettingsEvent
