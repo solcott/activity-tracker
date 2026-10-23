@@ -44,7 +44,7 @@ Compose:
     # the content AppScaffold hands its iOS top bar to blur. LocalPinnedOverContent tells the checkboxes in a sticky header to put their
     # native iOS view over the Compose canvas, so rows scrolling under can't show through; threading it through every trailing slot would
     # leak a UIKit layering detail into each picker.
-    allowedCompositionLocals: LocalUnitSystem,LocalUiPlatform,LocalIosColors,LocalIsNavRoot,LocalFloatingBottomBarHeight,LocalBarBackdrop,LocalPinnedOverContent
+    allowedCompositionLocals: LocalUnitSystem,LocalClock,LocalTimeZone,LocalHourClock,LocalUiPlatform,LocalIosColors,LocalIsNavRoot,LocalFloatingBottomBarHeight,LocalBarBackdrop,LocalPinnedOverContent
   # Composable params take ImmutableList, not List; composeStabilityCheck catches the rest from the compiler reports.
   UnstableCollections:
     active: true
@@ -63,4 +63,7 @@ activitytracker:
     active: true
   # Screens use app.ui.adaptive's components (AppTopBar, AppButton…), which follow each platform, not the Material widgets they wrap.
   UseAdaptiveComponents:
+    active: true
+  # UIs (*Ui.kt) read LocalClock and LocalTimeZone, not the system clock or time zone, so previews and tests can fix them.
+  NoSystemClockInUi:
     active: true

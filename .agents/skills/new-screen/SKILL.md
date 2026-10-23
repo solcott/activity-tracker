@@ -1,6 +1,6 @@
 ---
 name: new-screen
-description: Scaffold a new Circuit screen across :app-screens, :app-presenters and composeApp (Screen, State, Event, presenter, UI, navigation entry and a presenter test) following this repo's Metro + Circuit conventions. Use when the user asks to add a screen, page or view to the app.
+description: Scaffold a new Circuit screen across :app-screens, :app-presenters, composeApp and :app-fixtures (Screen, State, Event, presenter, UI, navigation entry, sample states, a presenter test and a UI test) following this repo's Metro + Circuit conventions. Use when the user asks to add a screen, page or view to the app.
 argument-hint: <ScreenName> [session|app] [feature-package]
 ---
 
@@ -75,15 +75,21 @@ Constraints:
 
 Add an event to the screen that leads here, and handle it in that screen's presenter with `navigator.goTo(FooScreen(...))`. There is no route table to register; Metro generates the factories and the serializer registration.
 
-## 4. Test
+## 4. Samples
+
+Add `app/fixtures/src/commonMain/kotlin/io/github/solcott/activitytracker/app/<pkg>/<Name>Samples.kt`: an `object FooSamples` with a named `FooState` per state the screen shows and an `all` map keyed by `SampleKind`, modelled on `FeedSamples` (content) or `FollowListSamples` (a paged list). Build lexicon views with the `fake…` builders, states with `contentSamples`/`pagedSamples` (or `ContentStates`/`PagedStates`), and pass `{}` sinks. Make each sample a getter, so a `TextFieldState` is new each time. A screen that loads content covers loading, failed, loaded, refreshing and refresh failed (plus empty for a list, and the page kinds for a paged one); a form adds an invalid sample.
+
+## 5. Test
 
 Add `app/presenters/src/jvmTest/kotlin/io/github/solcott/activitytracker/app/FooPresenterTest.kt`, modelled on `LoginPresenterTest`. Call the presenter with `Presenter.test {}` from `circuit-test`, using a `FakeNavigator` when navigation matters, a `inMemoryDatabase()` and a Ktor `MockEngine` for the AppView. Cover the initial state, one success path, and one failure that surfaces `error`.
 
-## 5. Verify
+Add `composeApp/src/jvmTest/kotlin/io/github/solcott/activitytracker/app/<pkg>/FooUiTest.kt`, modelled on `SegmentCreditUiTest`: `runComposeUiTest { setContent { AppPreview { FooUi(FooSamples.loaded) } } }`, asserting what the loaded sample shows by text or semantics. If `FooState` holds a `ContentState` or `PagedState`, add `FooSamples.all` and `FooUi` to `ContentLoadingConformanceTest`'s table, which fails until you do.
+
+## 6. Verify
 
 Use the `gradle-runner` agent/skill or run directly:
 1. `./gradlew :app-presenters:compileKotlinJvm :composeApp:compileKotlinJvm`. Metro/Circuit codegen errors (wrong scope, missing binding) appear here.
-2. `./gradlew :app-presenters:jvmTest --tests "*.FooPresenterTest"`. Confirm a non-zero test count.
-3. `./gradlew format`, then `./gradlew :app-screens:detekt :app-presenters:detekt :composeApp:detekt`. The Compose rules flag modifier ordering and unstable params.
+2. `./gradlew :app-presenters:jvmTest --tests "*.FooPresenterTest"` and `./gradlew :composeApp:jvmTest --tests "*.FooUiTest" --tests "*.ContentLoadingConformanceTest"`. Confirm a non-zero test count.
+3. `./gradlew format`, then `./gradlew :app-screens:detekt :app-presenters:detekt :composeApp:detekt :app-fixtures:composeStabilityCheck`. The Compose rules flag modifier ordering and unstable params.
 
 If the user wants to see the screen, launch the web preview (in Claude Code the `web` launch config via `preview_start`; elsewhere `./gradlew :webApp:wasmJsBrowserDevelopmentRun --continuous` in the background) against the local stack (the `local-stack` skill) and navigate to it.

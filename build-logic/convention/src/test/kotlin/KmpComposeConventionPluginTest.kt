@@ -67,6 +67,43 @@ class KmpComposeConventionPluginTest {
         assertContains(result.output, "androidResources.enable=true")
     }
 
+    @Test
+    fun `jvmTest gets no UI test libraries unless the module asks`() {
+        printUiTestDependencies(enabled = null)
+        val result = runner(":feature:printUiTestDependencies").build()
+
+        assertContains(result.output, "uiTestDependencies=[]")
+    }
+
+    @Test
+    fun `composeUiTests gives jvmTest Compose's UI test library and Skia for this OS`() {
+        printUiTestDependencies(enabled = true)
+        val result = runner(":feature:printUiTestDependencies").build()
+
+        assertContains(result.output, "org.jetbrains.compose.ui:ui-test")
+        assertContains(result.output, "org.jetbrains.compose.desktop:desktop-jvm-")
+    }
+
+    /** Adds a task to the module printing the UI test libraries on `jvmTestImplementation`, with `composeUiTests { jvm = [enabled] }`. */
+    private fun printUiTestDependencies(enabled: Boolean?) {
+        val script = projectDir.resolve("feature/build.gradle.kts")
+        script.appendText(
+            """
+
+            ${enabled?.let { "composeUiTests { jvm = $it }" }.orEmpty()}
+
+            tasks.register("printUiTestDependencies") {
+                val deps =
+                    configurations.getByName("jvmTestImplementation").dependencies
+                        .map { "${'$'}{it.group}:${'$'}{it.name}" }
+                        .filter { it.startsWith("org.jetbrains.compose.ui:ui-test") || it.startsWith("org.jetbrains.compose.desktop") }
+                doLast { println("uiTestDependencies=${'$'}deps") }
+            }
+            """
+                .trimIndent()
+        )
+    }
+
     private fun runner(vararg args: String): GradleRunner =
         GradleRunner.create().withProjectDir(projectDir).withPluginClasspath().withArguments(*args, "--configuration-cache")
 

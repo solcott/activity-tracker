@@ -16,6 +16,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.RouteEnds
@@ -62,6 +63,11 @@ actual fun ActivityMap(
     highlight: String?,
     overlayTop: Dp,
 ) {
+    // Previews, tests and screenshot tools draw the route without MapLibre, its native view or a remote style.
+    if (LocalInspectionMode.current) {
+        RoutePreview(polyline, modifier, height, gaps, ends, highlight)
+        return
+    }
     // (lat, lng) pairs, like RoutePreview.
     val points = remember(polyline) { runCatching { TrackMath.decodePolyline(polyline) }.getOrDefault(emptyList()) }
     if (points.size < 2) return

@@ -10,5 +10,5 @@ import java.util.Locale
 // The locale's short time pattern: "h:mm a" in the US, "HH:mm" in most of Europe.
 @Composable
 @ReadOnlyComposable
-actual fun uses24HourClock(): Boolean =
+actual fun platformUses24HourClock(): Boolean =
     'a' !in DateTimeFormatterBuilder.getLocalizedDateTimePattern(null, FormatStyle.SHORT, IsoChronology.INSTANCE, Locale.getDefault())

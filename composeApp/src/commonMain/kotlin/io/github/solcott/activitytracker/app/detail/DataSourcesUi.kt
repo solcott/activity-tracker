@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
@@ -49,7 +50,6 @@ import io.github.solcott.activitytracker.data.activity.DataKind
 import io.github.solcott.activitytracker.lexicon.app.MemberView
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.format
 import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.stringResource
@@ -143,7 +143,7 @@ private fun sourceName(member: MemberView): String =
     member.device
         ?: stringResource(
             Res.string.data_source_started,
-            member.startedAt.toLocalDateTime(TimeZone.currentSystemDefault()).format(timeFormat()),
+            member.startedAt.toLocalDateTime(LocalTimeZone.current).format(timeFormat()),
         )
 
 @Composable

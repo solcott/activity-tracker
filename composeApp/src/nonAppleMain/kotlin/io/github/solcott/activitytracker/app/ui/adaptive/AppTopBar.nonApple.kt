@@ -12,7 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
+import io.github.solcott.activitytracker.app.ui.TestTags
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_back
 import kotlinx.collections.immutable.ImmutableList
@@ -39,7 +41,9 @@ actual fun AppTopBar(
             }
         },
         modifier = modifier,
-        navigationIcon = { back?.let { AppIconButton(AppIcon.Back, stringResource(Res.string.action_back), it) } },
+        navigationIcon = {
+            back?.let { AppIconButton(AppIcon.Back, stringResource(Res.string.action_back), it, Modifier.testTag(TestTags.BACK)) }
+        },
         actions = actions,
         colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
         scrollBehavior = scrollBehavior,

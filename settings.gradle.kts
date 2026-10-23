@@ -60,6 +60,7 @@ listOf(
         "core/data",
         "app/screens",
         "app/presenters",
+        "app/fixtures",
         "web/sqlite-worker",
         "server/appview",
         "server/segment-importer",
