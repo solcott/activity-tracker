@@ -15,8 +15,15 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.datetime.LocalDate
 
-/** Adds a gear item ([rkey] null) or edits the athlete's item at [rkey]. */
-@CircuitSerializable(SessionScope::class) data class EditGearScreen(val rkey: String? = null) : Screen
+/**
+ * Adds a gear item ([rkey] null) or edits the athlete's item at [rkey]. A new item can be mounted on the item at [mountOn] from today once
+ * it's saved, in place of the component at [replacing] when that's set (gear/gear-components).
+ */
+@CircuitSerializable(SessionScope::class)
+data class EditGearScreen(val rkey: String? = null, val mountOn: String? = null, val replacing: String? = null) : Screen
+
+/** The item the edited one is mounted on now, at [uri], since [since]. */
+@Immutable data class GearMountedOn(val uri: String, val name: String, val since: LocalDate)
 
 /** One of the athlete's collections as an item's form shows it, and whether the item is a [member]. */
 @Immutable data class GearCollectionChoice(val rkey: String, val name: String, val member: Boolean)
@@ -64,6 +71,8 @@ data class EditGearState(
     val visibility: String,
     val acquiredOn: LocalDate?,
     val retiredOn: LocalDate?,
+    /** What the item is mounted on now; null when it isn't, or the parent isn't one of the athlete's items any more. */
+    val mountedOn: GearMountedOn? = null,
     val photo: GearPhoto?,
     /** The athlete tried to save without a name. */
     val nameMissing: Boolean,
@@ -116,4 +125,7 @@ sealed interface EditGearEvent {
     data object ConfirmDelete : EditGearEvent
 
     data object DismissDelete : EditGearEvent
+
+    /** Opens the gear page of the item it's mounted on. */
+    data object OpenMountedOn : EditGearEvent
 }

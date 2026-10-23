@@ -23,6 +23,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /** How an item's usage is totalled and what each viewer's totals count (`gear/gear-usage`). */
 class GearUsageTest : GearTestBase() {
@@ -278,5 +279,118 @@ class GearUsageTest : GearTestBase() {
             cursor = page.cursor
         } while (cursor != null)
         assertEquals(listOf("Aethos", "Tarmac", "Allez"), names)
+    }
+
+    private val chain3 = gearUri("3chain3")
+
+    @Test
+    fun aChainCountsTheRidesOfItsBikeWhileMounted() = testApplication {
+        start()
+        item("3tarmac", Visibility.PUBLIC, "Tarmac")
+        item("3chain3", Visibility.PUBLIC, "Chain #3", type = "component", extra = mounts(on("3tarmac", "2026-03-01T00:00:00Z")))
+        activity("3feb", start = "2026-02-10T07:00:00Z", stats = """"distance":100000,""", gear = listOf(tarmac))
+        activity("3mar", start = "2026-03-10T07:00:00Z", stats = """"distance":300000,""", gear = listOf(tarmac))
+
+        assertEquals(300_000, client.totals(chain3).distance)
+        assertEquals(400_000, client.totals().distance)
+        assertEquals(listOf(activityUri("3mar")), client.activities(chain3).activities.map { it.uri.value })
+        assertEquals(2026, client.gear(chain3).usage.byYear.single().year)
+    }
+
+    @Test
+    fun tiresCountThroughAWheelsetOnTheBike() = testApplication {
+        start()
+        item("3tarmac", Visibility.PUBLIC, "Tarmac")
+        item("3wheels", Visibility.PUBLIC, "Wheels", type = "component", extra = mounts(on("3tarmac", "2026-03-01T00:00:00Z")))
+        item("3tires", Visibility.PUBLIC, "Tires", type = "component", extra = mounts(on("3wheels", "2026-03-01T00:00:00Z")))
+        activity("3mar", start = "2026-03-10T07:00:00Z", stats = """"distance":50000,""", gear = listOf(tarmac))
+
+        for (uri in listOf(tarmac, gearUri("3wheels"), gearUri("3tires"))) assertEquals(1, client.totals(uri).activities, uri)
+    }
+
+    @Test
+    fun aRideListingTheBikeAndItsPowerMeterCountsOnceForTheMeter() = testApplication {
+        start()
+        item("3tarmac", Visibility.PUBLIC, "Tarmac")
+        item("3meter", Visibility.PUBLIC, "Power meter", type = "component", extra = mounts(on("3tarmac", "2026-03-01T00:00:00Z")))
+        activity("3mar", start = "2026-03-10T07:00:00Z", stats = """"distance":50000,""", gear = listOf(tarmac, gearUri("3meter")))
+
+        val totals = client.totals(gearUri("3meter"))
+        assertEquals(1, totals.activities)
+        assertEquals(50_000, totals.distance)
+        val listed = client.ok(GetActorGear.method, "actor=$alice", alice).items.associate { it.gear.uri.value to it.totals.activities }
+        assertEquals(1, listed[gearUri("3meter")])
+    }
+
+    @Test
+    fun aSwapLeavesEarlierRidesWithTheOldChain() = testApplication {
+        start()
+        item("3tarmac", Visibility.PUBLIC, "Tarmac")
+        item(
+            "3chain3",
+            Visibility.PUBLIC,
+            "Chain #3",
+            type = "component",
+            extra = mounts(on("3tarmac", "2026-03-01T00:00:00Z", "2026-07-01T00:00:00Z")),
+        )
+        item("3chain4", Visibility.PUBLIC, "Chain #4", type = "component", extra = mounts(on("3tarmac", "2026-07-01T00:00:00Z")))
+        activity("3jun", start = "2026-06-30T23:00:00Z", stats = """"distance":10000,""", gear = listOf(tarmac))
+        activity("3jul", start = "2026-07-01T00:00:00Z", stats = """"distance":20000,""", gear = listOf(tarmac))
+
+        assertEquals(10_000, client.totals(chain3).distance)
+        assertEquals(20_000, client.totals(gearUri("3chain4")).distance)
+    }
+
+    @Test
+    fun aFollowerCountsNothingThroughAnOnlyMeBike() = testApplication {
+        start()
+        item("3tarmac", Visibility.SELF, "Tarmac")
+        item("3chain3", Visibility.PUBLIC, "Chain #3", type = "component", extra = mounts(on("3tarmac", "2026-03-01T00:00:00Z")))
+        activity("3mar", start = "2026-03-10T07:00:00Z", stats = """"distance":50000,""", gear = listOf(tarmac))
+
+        assertEquals(1, client.totals(chain3, viewer = alice).activities)
+        assertEquals(GearTotals.ZERO, client.totals(chain3, viewer = carol))
+        assertEquals(emptyList(), client.activities(chain3, viewer = carol).activities)
+    }
+
+    @Test
+    fun aDeletedBikeCountsNothingForItsChain() = testApplication {
+        start()
+        item("3tarmac", Visibility.PUBLIC, "Tarmac")
+        item("3chain3", Visibility.PUBLIC, "Chain #3", type = "component", extra = mounts(on("3tarmac", "2026-03-01T00:00:00Z")))
+        activity("3mar", start = "2026-03-10T07:00:00Z", stats = """"distance":50000,""", gear = listOf(tarmac))
+        activity("3own", start = "2026-03-11T07:00:00Z", stats = """"distance":7000,""", gear = listOf(chain3))
+
+        commit(alice, Nsid.GEAR_ITEM, "3tarmac", null)
+
+        assertEquals(7_000, client.totals(chain3).distance)
+    }
+
+    @Test
+    fun aBikeListsCurrentThenPreviousComponentsAndAChainItsMountHistory() = testApplication {
+        start()
+        item("3tarmac", Visibility.PUBLIC, "Tarmac")
+        item("3stumpy", Visibility.SELF, "Stumpjumper")
+        item(
+            "3chain3",
+            Visibility.PUBLIC,
+            "Chain #3",
+            type = "component",
+            extra = mounts(on("3tarmac", "2026-03-01T00:00:00Z", "2026-07-01T00:00:00Z"), on("3stumpy", "2026-07-01T00:00:00Z")),
+        )
+        item("3chain4", Visibility.PUBLIC, "Chain #4", type = "component", extra = mounts(on("3tarmac", "2026-07-01T00:00:00Z")))
+        item("3meter", Visibility.SELF, "Power meter", type = "component", extra = mounts(on("3tarmac", "2026-03-01T00:00:00Z")))
+        activity("3jul", start = "2026-07-10T07:00:00Z", stats = """"distance":20000,""", gear = listOf(tarmac))
+
+        val components = client.gear(viewer = alice).components.orEmpty()
+        assertEquals(listOf("Power meter", "Chain #4", "Chain #3"), components.map { it.gear.name })
+        assertEquals(listOf(null, null, Instant.parse("2026-07-01T00:00:00Z")), components.map { it.to })
+        assertEquals(20_000, components[1].totals.distance)
+
+        // Carol sees neither the Only me power meter nor the Only me Stumpjumper in Chain #3's history.
+        assertEquals(listOf("Chain #4", "Chain #3"), client.gear(viewer = carol).components.orEmpty().map { it.gear.name })
+        assertEquals(listOf("Tarmac", "Stumpjumper"), client.gear(chain3, viewer = alice).mounts.orEmpty().map { it.parent.name })
+        assertEquals(listOf("Tarmac"), client.gear(chain3, viewer = carol).mounts.orEmpty().map { it.parent.name })
+        assertNull(client.gear(gearUri("3chain4"), viewer = alice).components)
     }
 }

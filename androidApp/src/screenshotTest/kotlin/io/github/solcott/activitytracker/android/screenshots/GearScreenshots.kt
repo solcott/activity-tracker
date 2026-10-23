@@ -22,4 +22,4 @@ private fun GearStates(@PreviewParameter(GearStates::class) state: GearState) {
     ScreenPreview { GearUi(state) }
 }
 
-class GearStates : OtherSamples<GearState>(GearSamples.all)
+class GearStates : OtherSamples<GearState>(GearSamples.all + mapOf("components" to GearSamples.components, "chain" to GearSamples.chain))

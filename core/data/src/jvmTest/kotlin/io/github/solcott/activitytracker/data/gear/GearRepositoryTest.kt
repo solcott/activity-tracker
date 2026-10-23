@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActorGearItem
 import io.github.solcott.activitytracker.lexicon.app.GearCollectionRecord
 import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
+import io.github.solcott.activitytracker.lexicon.app.GearMount
 import io.github.solcott.activitytracker.lexicon.app.GearSportTotals
 import io.github.solcott.activitytracker.lexicon.app.GearStarting
 import io.github.solcott.activitytracker.lexicon.app.GearTotals
@@ -23,6 +24,7 @@ import io.github.solcott.activitytracker.lexicon.app.GearUsage
 import io.github.solcott.activitytracker.lexicon.app.GearView
 import io.github.solcott.activitytracker.lexicon.app.GearYearTotals
 import io.github.solcott.activitytracker.lexicon.app.GetGear
+import io.github.solcott.activitytracker.lexicon.app.MountProblem
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -310,5 +312,117 @@ class GearRepositoryTest {
             ),
             pds.gearQueries,
         )
+    }
+
+    private val march = Instant.parse("2026-03-01T00:00:00Z")
+    private val july = Instant.parse("2026-07-01T00:00:00Z")
+    private val chain = GearItemRecord("Chain #3", GearType.COMPONENT, created, kind = "chain")
+
+    private fun storedItem(place: String, rkey: String): GearItemRecord =
+        AtJson.decodeFromJsonElement(GearItemRecord.serializer(), pds.stored.getValue(place).getValue("${Nsid.GEAR_ITEM}/$rkey"))
+
+    @Test
+    fun mountingAChainOnABikeWritesTheChainOnly() = runTest {
+        store(pds.repo, "3tarmac", bike)
+        store(pds.repo, "3chain", chain)
+        val repo = gear()
+        val tarmac = GearItem.uriOf(repo.did, "3tarmac")
+
+        repo.mount(repo.item("3chain")!!, tarmac, march)
+
+        assertEquals(listOf(GearMount(tarmac, march)), storedItem(pds.repo, "3chain").mounts)
+        assertEquals(listOf("put ${pds.repo} ${Nsid.GEAR_ITEM}/3chain"), pds.writes)
+    }
+
+    @Test
+    fun anOverlappingMountIsRefusedBeforeWriting() = runTest {
+        val repo = gear()
+        val tarmac = GearItem.uriOf(repo.did, "3tarmac")
+        store(pds.repo, "3tarmac", bike)
+        store(pds.repo, "3stumpy", bike)
+        store(pds.repo, "3chain", chain.copy(mounts = listOf(GearMount(tarmac, march))))
+
+        val refused =
+            assertFailsWith<GearMountException> {
+                repo.mount(repo.item("3chain")!!, GearItem.uriOf(repo.did, "3stumpy"), Instant.parse("2026-05-01T00:00:00Z"))
+            }
+
+        assertEquals(MountProblem.OVERLAP, refused.problem)
+        assertTrue(pds.writes.isEmpty())
+    }
+
+    @Test
+    fun aParentThatIsntTheAthletesItemIsRefused() = runTest {
+        store(pds.repo, "3chain", chain)
+        val repo = gear()
+
+        val refused = assertFailsWith<GearMountException> { repo.mount(repo.item("3chain")!!, GearItem.uriOf(repo.did, "3gone"), march) }
+
+        assertEquals(MountProblem.FOREIGN_PARENT, refused.problem)
+    }
+
+    @Test
+    fun mountingTheBikeOnItsOwnWheelsetIsALoop() = runTest {
+        val repo = gear()
+        val tarmac = GearItem.uriOf(repo.did, "3tarmac")
+        store(pds.repo, "3tarmac", bike)
+        store(pds.repo, "3wheels", chain.copy(name = "Wheels", mounts = listOf(GearMount(tarmac, march))))
+
+        val refused = assertFailsWith<GearMountException> { repo.mount(repo.item("3tarmac")!!, GearItem.uriOf(repo.did, "3wheels"), july) }
+
+        assertEquals(MountProblem.LOOP, refused.problem)
+    }
+
+    @Test
+    fun unmountingEndsTheOpenMount() = runTest {
+        val repo = gear()
+        val tarmac = GearItem.uriOf(repo.did, "3tarmac")
+        store(pds.repo, "3tarmac", bike)
+        store(Visibility.SELF, "3chain", chain.copy(mounts = listOf(GearMount(tarmac, march))))
+        pds.created += Visibility.SELF
+
+        repo.unmount(repo.item("3chain")!!, july)
+
+        assertEquals(listOf(GearMount(tarmac, march, july)), storedItem(Visibility.SELF, "3chain").mounts)
+    }
+
+    @Test
+    fun replacingEndsTheOldMountThenMountsTheNewOne() = runTest {
+        val repo = gear()
+        val tarmac = GearItem.uriOf(repo.did, "3tarmac")
+        store(pds.repo, "3tarmac", bike)
+        store(pds.repo, "3chain3", chain.copy(mounts = listOf(GearMount(tarmac, march))))
+        store(pds.repo, "3chain4", chain.copy(name = "Chain #4"))
+
+        repo.replace(repo.item("3chain3")!!, repo.item("3chain4")!!, july)
+
+        assertEquals(listOf("put ${pds.repo} ${Nsid.GEAR_ITEM}/3chain3", "put ${pds.repo} ${Nsid.GEAR_ITEM}/3chain4"), pds.writes)
+        assertEquals(listOf(GearMount(tarmac, march, july)), storedItem(pds.repo, "3chain3").mounts)
+        assertEquals(listOf(GearMount(tarmac, july)), storedItem(pds.repo, "3chain4").mounts)
+    }
+
+    @Test
+    fun replacingAnItemThatIsntMountedWritesNothing() = runTest {
+        store(pds.repo, "3chain3", chain)
+        store(pds.repo, "3chain4", chain.copy(name = "Chain #4"))
+        val repo = gear()
+
+        val refused = assertFailsWith<GearMountException> { repo.replace(repo.item("3chain3")!!, repo.item("3chain4")!!, july) }
+
+        assertEquals(MountProblem.EMPTY, refused.problem)
+        assertTrue(pds.writes.isEmpty())
+    }
+
+    @Test
+    fun retiringAMountedTireEndsItsMountOnTheRetirementDate() = runTest {
+        val repo = gear()
+        val wheels = GearItem.uriOf(repo.did, "3wheels")
+        store(pds.repo, "3wheels", chain.copy(name = "Wheels"))
+        store(pds.repo, "3tire", chain.copy(name = "Tire", mounts = listOf(GearMount(wheels, march))))
+        val tire = repo.item("3tire")!!
+
+        repo.save(tire, tire.record.copy(retiredAt = july), tire.visibility)
+
+        assertEquals(listOf(GearMount(wheels, march, july)), storedItem(pds.repo, "3tire").mounts)
     }
 }

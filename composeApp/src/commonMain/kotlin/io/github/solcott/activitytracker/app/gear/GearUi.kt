@@ -76,7 +76,8 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * A gear item's page (gear/gear-usage): its photo and details, its totals with any starting usage, the totals by activity type and by year,
- * then the activities counted, newest first. The athlete's own item offers Edit.
+ * then the activities counted, newest first. Components mounted on it, and what it was mounted on, come before the totals; the athlete's
+ * own item offers Edit and managing its components.
  */
 @CircuitInject(GearScreen::class, SessionScope::class)
 @Composable
@@ -111,6 +112,7 @@ fun GearUi(state: GearState, modifier: Modifier = Modifier) {
             // Loaded content is never null; the placeholder before the first load is.
             if (loaded != null) Loaded(state, loaded, padding, retry)
         }
+        MountDialogs(state)
     }
 }
 
@@ -132,6 +134,7 @@ private fun Loaded(state: GearState, page: GearPage, padding: PaddingValues, onR
                     )
                 }
             }
+            componentItems(state, page) { Section(it) }
             item(key = "totals") {
                 Section(stringResource(Res.string.gear_page_totals))
                 AppCard(Modifier.fillMaxWidth()) { Totals(page.usage.totals, page.gear.type, page.usage.starting) }
@@ -154,11 +157,13 @@ private fun Loaded(state: GearState, page: GearPage, padding: PaddingValues, onR
                 }
             }
             item(key = "activities-header") { Section(stringResource(Res.string.gear_page_activities)) }
-            state.error?.let { error ->
-                item(key = "action-error") {
-                    Text(errorText(error), Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.error)
+            state.error
+                ?.takeIf { it.kind !in MOUNT_ERRORS }
+                ?.let { error ->
+                    item(key = "action-error") {
+                        Text(errorText(error), Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.error)
+                    }
                 }
-            }
             activityItems(state.activities.items.toImmutableList(), state.viewerDid, authorClickable = !page.isOwner, state.revealed) {
                 state.eventSink(GearEvent.Activity(it))
             }

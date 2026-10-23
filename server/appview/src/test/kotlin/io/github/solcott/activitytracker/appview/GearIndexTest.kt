@@ -82,4 +82,60 @@ class GearIndexTest : GearTestBase() {
         assertEquals(emptyMap(), gearRows())
         assertEquals(emptyMap(), activityGear())
     }
+
+    private fun ms(date: String) = java.time.Instant.parse("${date}T00:00:00Z").toEpochMilli()
+
+    @Test
+    fun aValidMountIsIndexedAndGoesWithItsItem() {
+        item("3tarmac", Visibility.PUBLIC, "Tarmac")
+        item("3chain", Visibility.PUBLIC, "Chain #3", type = "component", extra = mounts(on("3tarmac", "2026-03-01T00:00:00Z")))
+        assertEquals(mapOf(gearUri("3chain") to listOf(Triple(gearUri("3tarmac"), ms("2026-03-01"), null))), gearMounts())
+
+        remove(Nsid.GEAR_ITEM, Visibility.PUBLIC, "3chain")
+        assertEquals(emptyMap(), gearMounts())
+    }
+
+    @Test
+    fun anOverlappingMountIsDroppedAndTheEarlierKept() {
+        item(
+            "3chain",
+            Visibility.PUBLIC,
+            "Chain #3",
+            type = "component",
+            extra = mounts(on("3tarmac", "2026-03-01T00:00:00Z"), on("3stumpy", "2026-05-01T00:00:00Z")),
+        )
+        assertEquals(listOf(gearUri("3tarmac")), gearMounts().getValue(gearUri("3chain")).map { it.first })
+        assertEquals(1, gearRows().size)
+    }
+
+    @Test
+    fun aMountClosingALoopIsDropped() {
+        item("3wheels", Visibility.PUBLIC, "Wheels", type = "component", extra = mounts(on("3tarmac", "2026-03-01T00:00:00Z")))
+        item("3tarmac", Visibility.PUBLIC, "Tarmac", extra = mounts(on("3wheels", "2026-03-01T00:00:00Z")))
+        assertEquals(setOf(gearUri("3wheels")), gearMounts().keys)
+        assertEquals(2, gearRows().size)
+    }
+
+    @Test
+    fun aMountOnAnotherAthletesItemIsDropped() {
+        item("3chain", Visibility.PUBLIC, "Chain", type = "component", extra = mounts(on(gearUri("3bike", bob), "2026-03-01T00:00:00Z")))
+        assertEquals(emptyMap(), gearMounts())
+        assertEquals(1, gearRows().size)
+    }
+
+    @Test
+    fun aMountWhoseParentIsIndexedLaterIsKept() {
+        item("3tires", Visibility.SELF, "Tires", type = "component", extra = mounts(on("3wheels", "2026-03-01T00:00:00Z")))
+        assertEquals(setOf(gearUri("3tires")), gearMounts().keys)
+        item("3wheels", Visibility.PUBLIC, "Wheels", type = "component", extra = mounts(on("3tarmac", "2026-03-01T00:00:00Z")))
+        item("3tarmac", Visibility.PUBLIC, "Tarmac")
+        assertEquals(setOf(gearUri("3tires"), gearUri("3wheels")), gearMounts().keys)
+    }
+
+    @Test
+    fun aDroppedSpaceTakesItsItemsMounts() {
+        item("3chain", Visibility.SELF, "Chain", type = "component", extra = mounts(on("3tarmac", "2026-03-01T00:00:00Z")))
+        runBlocking { indexer.dropSpace(space(Visibility.SELF)) }
+        assertEquals(emptyMap(), gearMounts())
+    }
 }

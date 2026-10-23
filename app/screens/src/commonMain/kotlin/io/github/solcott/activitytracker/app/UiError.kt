@@ -79,6 +79,21 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         SaveGearCollection,
         DeleteGearCollection,
 
+        /** A mount, unmount or replace couldn't be saved (gear/gear-components). */
+        SaveMount,
+
+        /** A mount would overlap one the item already has. */
+        MountOverlap,
+
+        /** A mount would make an item mounted on itself. */
+        MountLoop,
+
+        /** A mount would go more than three levels below a top-level item. */
+        MountTooDeep,
+
+        /** An unmount date isn't after the mount's start. */
+        MountEndsBeforeStart,
+
         /** The session predates gear in the athlete's spaces, so it can save Public gear only until they sign in again. */
         GearSignInAgain,
 

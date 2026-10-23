@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.FollowApprovals
 import io.github.solcott.activitytracker.appview.db.Follows
 import io.github.solcott.activitytracker.appview.db.GearItems
+import io.github.solcott.activitytracker.appview.db.GearMountRows
 import io.github.solcott.activitytracker.appview.db.LeaderboardBrackets
 import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.appview.db.Mutes
@@ -311,7 +312,7 @@ class Indexer(
                         ActivityMembers.deleteWhere { combinedUri eq uri.value }
                         ActivityGear.deleteWhere { (activityUri eq uri.value) and (listedIn eq ActivityGear.SOURCE_RECORD) }
                     }
-                    Nsid.GEAR_ITEM -> GearItems.deleteWhere { GearItems.uri eq uri.value }
+                    Nsid.GEAR_ITEM -> deleteHeldGear(uri)
                     else -> ActivityZones.deleteWhere { ActivityZones.uri eq uri.value }
                 }
                 promoteShadow(collection, uri)
@@ -391,6 +392,7 @@ class Indexer(
         ActivityZones.deleteWhere { authorDid eq did.value }
         ActivityGear.deleteWhere { authorDid eq did.value }
         GearItems.deleteWhere { authorDid eq did.value }
+        GearMountRows.deleteWhere { authorDid eq did.value }
         dropOrphanedStreamData()
         Likes.deleteWhere { authorDid eq did.value }
         Comments.deleteWhere { authorDid eq did.value }

@@ -11,6 +11,8 @@ import io.github.solcott.activitytracker.app.fixtures.fakeActivityRecord
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.GearComponent
+import io.github.solcott.activitytracker.lexicon.app.GearMountView
 import io.github.solcott.activitytracker.lexicon.app.GearSportTotals
 import io.github.solcott.activitytracker.lexicon.app.GearStarting
 import io.github.solcott.activitytracker.lexicon.app.GearTotals
@@ -22,9 +24,11 @@ import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.PagedState
+import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.datetime.LocalDate
 
 object GearListSamples {
     private fun totals(distance: Long = 0, movingTime: Long = 0, days: Long = 0, vertical: Long = 0, activities: Long = 1) =
@@ -121,6 +125,7 @@ object EditGearSamples {
             confirmingDelete = false,
             approvesFollowers = false,
             error = null,
+            mountedOn = null,
             collections =
                 persistentListOf(
                     GearCollectionChoice("3kcol1", "Race kit", member = true),
@@ -128,6 +133,17 @@ object EditGearSamples {
                 ),
             eventSink = {},
         )
+
+    /** Chain #4, mounted on the gravel bike since 1 July. */
+    val mounted: EditGearState
+        get() =
+            state(ContentStates.loaded(Unit), name = "Chain #4")
+                .copy(
+                    type = GearType.COMPONENT,
+                    kinds = GearType.kinds(GearType.COMPONENT).toImmutableList(),
+                    kind = "chain",
+                    mountedOn = GearMountedOn(GearSamples.uri.value, "Gravel bike", LocalDate(2026, 7, 1)),
+                )
 
     val all: Map<String, EditGearState>
         get() =
@@ -142,6 +158,8 @@ object EditGearSamples {
 
 object GearSamples {
     val uri = Fixed.uri(Fixed.ALICE, Nsid.GEAR_ITEM, "3kgear1")
+    private val chain3 = GearView(Fixed.uri(Fixed.ALICE, Nsid.GEAR_ITEM, "3kchain3"), "Chain #3", GearType.COMPONENT, kind = "chain")
+    private val chain4 = GearView(Fixed.uri(Fixed.ALICE, Nsid.GEAR_ITEM, "3kchain4"), "Chain #4", GearType.COMPONENT, kind = "chain")
 
     private val totals =
         GearTotals(activities = 2, movingTime = 7_200, distance = 64_800, elevationGain = 820, elevationLoss = 800, days = 2)
@@ -169,6 +187,43 @@ object GearSamples {
             isOwner = true,
             visibility = Visibility.PUBLIC,
         )
+
+    /** [page] with Chain #4 mounted now and Chain #3 before it. */
+    val pageWithParts: GearPage
+        get() =
+            page.copy(
+                components =
+                    persistentListOf(
+                        GearComponent(
+                            chain4,
+                            Instant.parse("2026-07-01T00:00:00Z"),
+                            totals.copy(activities = 1, distance = 32_400, days = 1),
+                        )
+                    ),
+                previous =
+                    persistentListOf(
+                        GearComponent(
+                            chain3,
+                            Instant.parse("2025-03-01T00:00:00Z"),
+                            totals.copy(activities = 1, distance = 32_400, days = 1),
+                            to = Instant.parse("2026-07-01T00:00:00Z"),
+                        )
+                    ),
+            )
+
+    /** Chain #3's page: the bike it was mounted on, with the dates. */
+    val chainPage: GearPage
+        get() =
+            page.copy(
+                gear = chain3,
+                usage = GearUsage(totals.copy(activities = 1, distance = 32_400, days = 1), emptyList(), emptyList()),
+                components = persistentListOf(),
+                previous = persistentListOf(),
+                mounts =
+                    persistentListOf(
+                        GearMountView(page.gear, Instant.parse("2025-03-01T00:00:00Z"), Instant.parse("2026-07-01T00:00:00Z"))
+                    ),
+            )
 
     /** [page] without breakdowns, so a page of activities and its footer fit on screen. */
     private val compact: GearPage
@@ -218,6 +273,33 @@ object GearSamples {
     /** A follower's view of the bike: no Edit, no visibility. */
     val follower: GearState
         get() = state(ContentStates.loaded(page.copy(isOwner = false, visibility = null)))
+
+    /** The owner's bike with its components. */
+    val components: GearState
+        get() = state(ContentStates.loaded(pageWithParts))
+
+    /** A follower's view of the bike's components: nothing to manage. */
+    val componentsFollower: GearState
+        get() = state(ContentStates.loaded(pageWithParts.copy(isOwner = false, visibility = null)))
+
+    /** Chain #3's page, with the bike it was mounted on. */
+    val chain: GearState
+        get() = state(ContentStates.loaded(chainPage))
+
+    /** The owner choosing a chain to replace Chain #4 with. */
+    val replacing: GearState
+        get() =
+            state(ContentStates.loaded(pageWithParts))
+                .copy(
+                    picker =
+                        GearMountPicker(
+                            persistentListOf(
+                                GearMountCandidate("3kchain5", "Chain #5", GearType.COMPONENT, "chain"),
+                                GearMountCandidate("3kmeter", "Power meter", GearType.COMPONENT, "powerMeter"),
+                            ),
+                            replacing = pageWithParts.components.first(),
+                        )
+                )
 
     /** An item the viewer may not see. */
     val notFound: GearState

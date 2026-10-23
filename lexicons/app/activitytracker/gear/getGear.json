@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "query",
-      "description": "One gear item and its usage for the viewer. The author's usage counts all of their activities that list it; anyone else's counts only the activities whose gear they may see, of an item they may see.",
+      "description": "One gear item and its usage for the viewer. The author's usage counts all of their activities that list it; anyone else's counts only the activities whose gear they may see, of an item they may see. It also counts each activity that lists an item it was mounted on (directly or through nested mounts) at the activity's start, for a viewer other than the author only when they may also see each item on that path.",
       "parameters": {
         "type": "params",
         "required": [
@@ -48,6 +48,22 @@
             "visibility": {
               "type": "string",
               "description": "app.activitytracker.feed.activity#visibility of the item; only for its author."
+            },
+            "components": {
+              "type": "array",
+              "description": "Items mounted on this one that the viewer may see: those mounted now first (oldest mount first), then those mounted before (latest end first).",
+              "items": {
+                "type": "ref",
+                "ref": "app.activitytracker.gear.defs#gearComponent"
+              }
+            },
+            "mounts": {
+              "type": "array",
+              "description": "The periods this item was mounted on a parent the viewer may see, oldest first.",
+              "items": {
+                "type": "ref",
+                "ref": "app.activitytracker.gear.defs#gearMountView"
+              }
             }
           }
         }
