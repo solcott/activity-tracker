@@ -72,6 +72,7 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
                 label = stringResource(Res.string.field_title),
                 modifier = Modifier.fillMaxWidth(),
             )
+            GearPicker(state.gear, enabled = !state.saving)
             ActivityVisibilityForm(
                 state.visibility,
                 enabled = !state.saving,

@@ -27,7 +27,6 @@ import io.github.solcott.activitytracker.location.LocationTracker
 import io.github.solcott.activitytracker.location.RecordingState
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
-import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.delay
 
 @CircuitInject(RecordScreen::class, SessionScope::class)
@@ -38,6 +37,7 @@ fun RecordPresenter(
     tracker: LocationTracker,
     activities: ActivityRepository,
     typeChoices: ActivityTypeChoices,
+    gearChoices: GearChoices,
     defaults: ActivityDefaults,
     clock: Clock,
 ): RecordState {
@@ -50,8 +50,9 @@ fun RecordPresenter(
     val saving = flights.isRunning(RecordEvent.Finish)
     // GPS recording: indoor types are for manual entry and import.
     val type = typeChoices.produce(ActivityType(Sport.RUN), outdoorOnly = true)
-    // Offered before there's any data: what a GPS recording holds.
-    val visibility = rememberNewActivityVisibility(defaults, ActivityDraft.RECORDED_CATEGORIES.toImmutableSet())
+    val gear = gearChoices.produce(type.selected)
+    // Offered before there's any data: what a GPS recording holds, and Gear once there's some.
+    val visibility = rememberNewActivityVisibility(defaults, gear.offering(ActivityDraft.RECORDED_CATEGORIES))
 
     LaunchedEffect(recording.status) {
         while (recording.status == RecordingState.Status.Recording) {
@@ -72,6 +73,7 @@ fun RecordPresenter(
         saving = saving,
         error = error,
         visibility = visibility.fields,
+        gear = gear.field,
     ) { event ->
         when (event) {
             is RecordEvent.PermissionResult -> {
@@ -108,6 +110,7 @@ fun RecordPresenter(
                                         title.text.toString().ifBlank { null },
                                         null,
                                     )
+                                    .copy(gear = gear.selected)
                                     .withVisibility(visibility.current)
                             )
                         // The saved activity opens, asking whether to combine it with another of the athlete's.

@@ -133,6 +133,7 @@ class ImportActivityPresenterTest {
                 repos.manager,
                 ActivityFileReader { run },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -191,6 +192,7 @@ class ImportActivityPresenterTest {
                 repos.manager,
                 ActivityFileReader { run },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -234,6 +236,7 @@ class ImportActivityPresenterTest {
                 repos.manager,
                 ActivityFileReader { withSettings },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -270,6 +273,7 @@ class ImportActivityPresenterTest {
                 repos.manager,
                 ActivityFileReader { withSettings },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -317,6 +321,7 @@ class ImportActivityPresenterTest {
                 repos.manager,
                 ActivityFileReader { withSettings },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -408,6 +413,7 @@ class ImportActivityPresenterTest {
                 repos.manager,
                 ActivityFileReader { dive },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -499,6 +505,7 @@ class ImportActivityPresenterTest {
                 repos.manager,
                 ActivityFileReader { ride },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -513,6 +520,7 @@ class ImportActivityPresenterTest {
             val offered = read.visibility.categories.map { it.category }
             assertTrue(DetailCategory.DIVE !in offered && DetailCategory.PHYSIOLOGY !in offered, offered.toString())
             assertTrue(DetailCategory.POWER in offered && DetailCategory.CADENCE in offered, offered.toString())
+            assertTrue(DetailCategory.GEAR !in offered, "no gear picked: $offered")
             assertEquals(false, read.visibility.runningForm, "pedalling cadence only")
             assertEquals(82.0, preview.elevationLossMeters)
             assertEquals(CadencePreview(75, 115), preview.cadence)
@@ -545,6 +553,7 @@ class ImportActivityPresenterTest {
                 repos.manager,
                 ActivityFileReader { stepping },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -582,6 +591,7 @@ class ImportActivityPresenterTest {
                 repos.manager,
                 ActivityFileReader { dive },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -629,6 +639,7 @@ class ImportActivityPresenterTest {
                 repos.manager,
                 ActivityFileReader { file },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -677,6 +688,7 @@ class ImportActivityPresenterTest {
                 repos.manager,
                 ActivityFileReader(decoder),
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,

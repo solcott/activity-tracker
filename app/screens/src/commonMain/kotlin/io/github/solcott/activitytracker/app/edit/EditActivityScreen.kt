@@ -6,13 +6,14 @@ import com.slack.circuit.runtime.CircuitUiState
 import com.slack.circuit.runtime.screen.Screen
 import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.record.GearField
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.uistate.ContentState
 
 /**
- * Edits the signed-in athlete's activity at [uri]: its title, description, dive site and photos, who sees it, and whether segment
+ * Edits the signed-in athlete's activity at [uri]: its title, description, dive site, photos and gear, who sees it, and whether segment
  * leaderboards rank it.
  */
 @CircuitSerializable(SessionScope::class) data class EditActivityScreen(val uri: String) : Screen
@@ -45,6 +46,8 @@ data class EditActivityState(
      * it has no segment track, or its choice can't be read now.
      */
     val leaderboardExclusion: Boolean? = null,
+    /** The gear the activity lists, as edited; null while it loads. */
+    val gear: GearField? = null,
     val eventSink: (EditActivityEvent) -> Unit,
 ) : CircuitUiState
 

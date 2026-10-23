@@ -134,6 +134,8 @@ enum class FigureKey {
     BatteryUsed,
     Device,
     Sensor,
+    /** A gear item the activity lists, that the viewer may see. */
+    GearItem,
 }
 
 /** A figure's value in the units records and streams keep; the UI converts to the viewer's units. */
@@ -186,6 +188,9 @@ sealed interface FigureValue {
 
     /** A sensor, named by its kind (a `SensorKind` token) and its make and model. */
     data class Sensor(val kind: String, val manufacturer: String?, val model: String?) : FigureValue
+
+    /** A gear item, named by the athlete, and its kind or else its type (`GearType` tokens). */
+    data class GearItem(val name: String, val type: String, val kind: String?) : FigureValue
 
     /** A token the UI names, like a `WaterType`; one it doesn't know reads as itself. */
     data class Token(val token: String) : FigureValue

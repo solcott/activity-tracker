@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.record.PartOfDay
+import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.CombineCue
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -22,6 +23,10 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
+import io.github.solcott.activitytracker.lexicon.app.GearAutoAssignRecord
+import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
+import io.github.solcott.activitytracker.lexicon.app.GearSportDefault
+import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
@@ -38,6 +43,7 @@ import kotlin.time.Instant
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.bytestring.ByteString
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /** Importing a logbook (UDDF here) of several dives: picking them, and the duplicates among them. */
@@ -103,6 +109,7 @@ class ImportLogbookPresenterTest {
                 repos.manager,
                 ActivityFileReader { error("not FIT") },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -149,6 +156,7 @@ class ImportLogbookPresenterTest {
                 repos.manager,
                 ActivityFileReader { error("not FIT") },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -179,6 +187,7 @@ class ImportLogbookPresenterTest {
                 repos.manager,
                 ActivityFileReader { error("not FIT") },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -217,6 +226,7 @@ class ImportLogbookPresenterTest {
                 repos.manager,
                 ActivityFileReader { error("not FIT") },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -255,6 +265,7 @@ class ImportLogbookPresenterTest {
                 repos.manager,
                 ActivityFileReader { error("not FIT") },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -292,6 +303,7 @@ class ImportLogbookPresenterTest {
                 repos.manager,
                 ActivityFileReader { error("not FIT") },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -510,6 +522,7 @@ class ImportLogbookPresenterTest {
                 repos.manager,
                 ActivityFileReader { error("not FIT") },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -541,6 +554,7 @@ class ImportLogbookPresenterTest {
                 repos.manager,
                 ActivityFileReader { error("not FIT") },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -571,6 +585,7 @@ class ImportLogbookPresenterTest {
                 repos.manager,
                 ActivityFileReader { error("not FIT") },
                 repos.typeChoices,
+                repos.gearChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -587,5 +602,34 @@ class ImportLogbookPresenterTest {
             assertEquals(false, batch.hasNonDuplicates, "so the screen offers no Select all")
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun everyDiveOfABatchListsTheGearPicked() = runTest {
+        val created = Instant.parse("2026-09-01T12:00:00Z")
+        fixture.gear.getOrPut("repo") { mutableMapOf() }["3bcd"] =
+            AtJson.encodeToJsonElement(GearItemRecord.serializer(), GearItemRecord("BCD", GearType.DIVE_GEAR, created)) as JsonObject
+        val bcd = AtUri("at://${fixture.did.value}/${Nsid.GEAR_ITEM}/3bcd")
+        fixture.gearAutoAssign =
+            AtJson.encodeToString(
+                GearAutoAssignRecord.serializer(),
+                GearAutoAssignRecord(created, listOf(GearSportDefault(Sport.DIVE, listOf(bcd)))),
+            )
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ImportActivityScreen())
+        presenterTestOf(presenter(repos, navigator)) {
+            awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
+            val read = awaitUntil { it.dives != null && it.gear?.selected == listOf(bcd) }
+            read.visibility.eventSink(VisibilityEvent.CategoryChanged(DetailCategory.GEAR, Visibility.PUBLIC))
+            val public = awaitUntil { s ->
+                s.visibility.categories.any { it.category == DetailCategory.GEAR && it.visibility == Visibility.PUBLIC }
+            }
+            public.eventSink(ImportActivityEvent.SaveDives(persistentMapOf(1 to "Afternoon Dive", 2 to "Evening Dive")))
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        val saved = savedActivities()
+        assertTrue(saved.isNotEmpty())
+        assertTrue(saved.all { (_, record) -> record.gear == listOf(bcd) }, saved.toString())
     }
 }

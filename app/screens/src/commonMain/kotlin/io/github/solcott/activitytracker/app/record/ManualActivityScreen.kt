@@ -29,6 +29,8 @@ data class ManualActivityState(
     val error: UiError?,
     /** Who may see the activity and each detail category; starts at the athlete's defaults. */
     val visibility: VisibilityFields = VisibilityFields(),
+    /** The gear used; starts at the athlete's defaults for the type. */
+    val gear: GearField = GearField(),
     val eventSink: (ManualActivityEvent) -> Unit,
 ) : CircuitUiState {
     val valid: Boolean

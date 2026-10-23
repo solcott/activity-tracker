@@ -5,6 +5,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
+import io.github.solcott.activitytracker.app.gear.gearKindLabel
+import io.github.solcott.activitytracker.app.gear.gearTypeLabel
 import io.github.solcott.activitytracker.app.ui.DiveFormat
 import io.github.solcott.activitytracker.app.ui.Format
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
@@ -47,6 +49,8 @@ import io.github.solcott.activitytracker.composeApp.resources.page_end_n2
 import io.github.solcott.activitytracker.composeApp.resources.page_exercise_load
 import io.github.solcott.activitytracker.composeApp.resources.page_front_shifts
 import io.github.solcott.activitytracker.composeApp.resources.page_ftp
+import io.github.solcott.activitytracker.composeApp.resources.page_gear_item
+import io.github.solcott.activitytracker.composeApp.resources.page_gear_item_value
 import io.github.solcott.activitytracker.composeApp.resources.page_group_cadence
 import io.github.solcott.activitytracker.composeApp.resources.page_group_counts
 import io.github.solcott.activitytracker.composeApp.resources.page_group_device
@@ -261,6 +265,7 @@ private val LABELS: Map<FigureKey, StringResource> =
         FigureKey.BatteryUsed to Res.string.chart_ebike_battery,
         FigureKey.Device to Res.string.detail_device,
         FigureKey.Sensor to Res.string.page_sensor,
+        FigureKey.GearItem to Res.string.page_gear_item,
     )
 
 @Composable
@@ -330,6 +335,12 @@ internal fun figureText(value: FigureValue): String =
         is FigureValue.StartTime -> startTime(value)
         is FigureValue.Text -> value.text
         is FigureValue.Sensor -> sensorLabel(value.kind, value.manufacturer, value.model)
+        is FigureValue.GearItem ->
+            stringResource(
+                Res.string.page_gear_item_value,
+                value.name,
+                value.kind?.let { gearKindLabel(value.type, it) } ?: gearTypeLabel(value.type),
+            )
         is FigureValue.Token -> waterName(value.token)?.let { stringResource(it) } ?: value.token
         is FigureValue.Gases -> {
             val names = value.mixes.map { DiveFormat.gasName(it.oxygen, it.helium) }.joinToString(" → ")

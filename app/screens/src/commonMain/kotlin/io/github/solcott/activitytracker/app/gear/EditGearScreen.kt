@@ -8,8 +8,10 @@ import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.datetime.LocalDate
 
 /** Adds a gear item ([rkey] null) or edits the athlete's item at [rkey]. */
@@ -44,6 +46,8 @@ data class EditGearState(
     val kinds: ImmutableList<String>,
     /** `Sport` values. */
     val sports: ImmutableList<String>,
+    /** The activity types a new activity starts with this item for ("Use by default for"). */
+    val defaultFor: ImmutableList<ActivityType> = persistentListOf(),
     /** A `Visibility` value; a new item starts at Only me. */
     val visibility: String,
     val acquiredOn: LocalDate?,
@@ -71,6 +75,9 @@ sealed interface EditGearEvent {
     data class KindChanged(val kind: String?) : EditGearEvent
 
     data class ToggleSport(val sport: String) : EditGearEvent
+
+    /** Makes the item a default for [type], or no longer one. */
+    data class ToggleDefault(val type: ActivityType) : EditGearEvent
 
     data class VisibilityChanged(val visibility: String) : EditGearEvent
 

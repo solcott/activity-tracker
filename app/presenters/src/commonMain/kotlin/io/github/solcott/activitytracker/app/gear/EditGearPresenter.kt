@@ -4,6 +4,7 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -21,11 +22,15 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.activity.NewPhoto
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.gear.GearDefaults
 import io.github.solcott.activitytracker.data.gear.GearItem
 import io.github.solcott.activitytracker.data.gear.GearNeedsSignInException
 import io.github.solcott.activitytracker.data.gear.GearPhotoEdit
 import io.github.solcott.activitytracker.data.gear.GearRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
 import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -48,7 +53,8 @@ private val TYPES: ImmutableList<String> = GearType.all.toImmutableList()
 
 /**
  * Adds or edits a gear item. Every save, retire and delete is a direct call ([GearRepository]) that goes back to the list when it's done,
- * and keeps the form as filled in when it fails. A new item starts at Only me.
+ * and keeps the form as filled in when it fails. A new item starts at Only me. The activity types it's a default for are saved after the
+ * item, to the athlete's private defaults ([GearDefaults]), only when they changed.
  */
 @CircuitInject(EditGearScreen::class, SessionScope::class)
 @Composable
@@ -57,6 +63,7 @@ fun EditGearPresenter(
     screen: EditGearScreen,
     navigator: Navigator,
     gear: GearRepository,
+    gearDefaults: GearDefaults,
     profiles: ProfileRepository,
     clock: Clock,
 ): EditGearState {
@@ -73,6 +80,9 @@ fun EditGearPresenter(
     // As stored, so a kind this client doesn't know survives a save unless the type changes.
     var kind by rememberRetained { mutableStateOf<String?>(null) }
     var sports by rememberRetained { mutableStateOf(emptyList<String>()) }
+    // As read for the item, and as the athlete has them now; null until read (a new item has none).
+    var savedDefaults by rememberRetained { mutableStateOf<List<ActivityType>?>(if (rkey == null) emptyList() else null) }
+    var defaultFor by rememberRetained { mutableStateOf<List<ActivityType>?>(null) }
     var visibility by rememberRetained { mutableStateOf(Visibility.SELF) }
     var acquiredOn by rememberRetained { mutableStateOf<LocalDate?>(null) }
     var retiredAt by rememberRetained { mutableStateOf<Instant?>(null) }
@@ -83,6 +93,12 @@ fun EditGearPresenter(
     var error by remember { mutableStateOf<UiError?>(null) }
     val flights = rememberSingleFlight()
     val approvesFollowers = rememberApprovesFollowers(profiles)
+    LaunchedEffect(rkey) {
+        if (rkey != null && savedDefaults == null) {
+            savedDefaults = runSuspendCatching { gearDefaults.typesFor(AtUri.of(gear.did, Nsid.GEAR_ITEM, rkey)) }.getOrNull()
+        }
+    }
+    val shownDefaults = defaultFor ?: savedDefaults.orEmpty()
 
     val seed =
         rememberFormSeed(loaded) { item ->
@@ -125,7 +141,16 @@ fun EditGearPresenter(
                     acquiredAt = acquiredOn?.atStartOfDayIn(TimeZone.UTC),
                     retiredAt = retired,
                 )
-            runSuspendCatching { gear.save(existing, record, visibility, photoEdit) }
+            runSuspendCatching {
+                val saved = gear.save(existing, record, visibility, photoEdit)
+                existing = saved
+                // Only when changed: an older session can still save the item itself.
+                val types = defaultFor
+                if (types != null && types.toSet() != savedDefaults.orEmpty().toSet()) {
+                    gearDefaults.setTypes(saved.uri(gear.did), types)
+                    savedDefaults = types
+                }
+            }
                 .onSuccess { navigator.pop() }
                 .onFailure { error = saveErrorOf(it) }
         }
@@ -145,6 +170,7 @@ fun EditGearPresenter(
         kind = GearType.knownKind(type, kind),
         kinds = GearType.kinds(type).toImmutableList(),
         sports = sports.toImmutableList(),
+        defaultFor = shownDefaults.toImmutableList(),
         visibility = visibility,
         acquiredOn = acquiredOn,
         retiredOn = retiredAt?.toLocalDateTime(TimeZone.currentSystemDefault())?.date,
@@ -165,6 +191,8 @@ fun EditGearPresenter(
             is EditGearEvent.KindChanged -> kind = event.kind
             is EditGearEvent.ToggleSport ->
                 sports = if (event.sport in sports) sports - event.sport else (sports + event.sport).take(GearItemRecord.MAX_SPORTS)
+            is EditGearEvent.ToggleDefault ->
+                defaultFor = if (event.type in shownDefaults) shownDefaults - event.type else shownDefaults + event.type
             is EditGearEvent.VisibilityChanged -> visibility = event.visibility
             is EditGearEvent.AcquiredChanged -> acquiredOn = event.date
             is EditGearEvent.PhotoPicked -> {

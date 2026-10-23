@@ -122,7 +122,7 @@ internal class CombineGroup(val into: OwnActivity?, val drafts: List<ActivityDra
 
 /**
  * The selected [dives] ready to save, oldest first, each with its own type and its site as the title, else its [defaultTitles] entry, and
- * the logbook ([source]) naming its entry. Dives carry no thresholds to update.
+ * the logbook ([source]) naming its entry, and the batch's [gear]. Dives carry no thresholds to update.
  */
 @Suppress("LongParameterList") // Each is a part of the draft.
 internal fun diveImport(
@@ -133,6 +133,7 @@ internal fun diveImport(
     training: TrainingDetails?,
     visibility: VisibilityChoice,
     source: SourceFile?,
+    gear: List<AtUri> = emptyList(),
 ): DiveImport {
     val roots = linkedMapOf<CombineRoot, MutableList<Pair<Int, ActivityDraft>>>()
     for ((index, dive) in dives.orEmpty().withIndex().sortedBy { it.value.startedAt }) {
@@ -142,7 +143,7 @@ internal fun diveImport(
         // A logbook's notes are personal and the batch never shows them, so none are published unseen.
         val draft =
             importDraft(dive, dive.type, title, training, emptyList(), source?.let { DraftSource(it, entry = index) })
-                .copy(description = null)
+                .copy(description = null, gear = gear)
                 .withVisibility(visibility)
         roots.getOrPut(rootOf(index, matches, selection)) { mutableListOf() } += index to draft
     }

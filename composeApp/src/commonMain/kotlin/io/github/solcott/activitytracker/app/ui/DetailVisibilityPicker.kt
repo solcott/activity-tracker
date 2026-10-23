@@ -27,6 +27,8 @@ import io.github.solcott.activitytracker.composeApp.resources.detail_category_ca
 import io.github.solcott.activitytracker.composeApp.resources.detail_category_calories
 import io.github.solcott.activitytracker.composeApp.resources.detail_category_dive
 import io.github.solcott.activitytracker.composeApp.resources.detail_category_dive_help
+import io.github.solcott.activitytracker.composeApp.resources.detail_category_gear
+import io.github.solcott.activitytracker.composeApp.resources.detail_category_gear_help
 import io.github.solcott.activitytracker.composeApp.resources.detail_category_heartRate
 import io.github.solcott.activitytracker.composeApp.resources.detail_category_lock_description
 import io.github.solcott.activitytracker.composeApp.resources.detail_category_map
@@ -102,6 +104,7 @@ fun detailCategoryLabel(category: String): String =
         DetailCategory.PHYSIOLOGY -> stringResource(Res.string.detail_category_physiology)
         DetailCategory.CADENCE -> stringResource(Res.string.detail_category_cadence)
         DetailCategory.DIVE -> stringResource(Res.string.detail_category_dive)
+        DetailCategory.GEAR -> stringResource(Res.string.detail_category_gear)
         else -> category
     }
 
@@ -111,6 +114,7 @@ private fun detailCategoryHelp(category: String): String? =
         DetailCategory.START_TIME -> stringResource(Res.string.detail_category_startTime_help)
         DetailCategory.PHYSIOLOGY -> stringResource(Res.string.detail_category_physiology_help)
         DetailCategory.DIVE -> stringResource(Res.string.detail_category_dive_help)
+        DetailCategory.GEAR -> stringResource(Res.string.detail_category_gear_help)
         else -> null
     }
 

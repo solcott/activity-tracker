@@ -378,12 +378,12 @@ private fun rememberManage(
     )
 }
 
-/** The sections [activity] has data for: one per kind of chart, and the device. */
+/** The sections [activity] has data for: one per kind of chart, and the device (with the gear the viewer may see). */
 internal fun detailSections(activity: ActivityView, charts: ActivityCharts?): ImmutableList<DetailSection> =
-    detailSections(activity.record, charts)
+    detailSections(activity.record, charts, hasGear = !activity.gear.isNullOrEmpty())
 
-/** The sections [record] has data for: one per kind of chart, and the device. */
-internal fun detailSections(record: ActivityRecord, charts: ActivityCharts?): ImmutableList<DetailSection> {
+/** The sections [record] has data for: one per kind of chart, and the device, or the gear when [hasGear]. */
+internal fun detailSections(record: ActivityRecord, charts: ActivityCharts?, hasGear: Boolean = false): ImmutableList<DetailSection> {
     val kinds = charts?.lines.orEmpty().map { it.kind }.toSet()
     return DetailSection.entries
         .filter { section ->
@@ -407,7 +407,7 @@ internal fun detailSections(record: ActivityRecord, charts: ActivityCharts?): Im
                 DetailSection.Lengths -> !charts?.lengths.isNullOrEmpty()
                 DetailSection.Sets -> !charts?.sets.isNullOrEmpty()
                 DetailSection.Laps -> !charts?.laps.isNullOrEmpty()
-                DetailSection.Device -> record.device != null || !record.sensors.isNullOrEmpty()
+                DetailSection.Device -> record.device != null || !record.sensors.isNullOrEmpty() || hasGear
             }
         }
         .toImmutableList()

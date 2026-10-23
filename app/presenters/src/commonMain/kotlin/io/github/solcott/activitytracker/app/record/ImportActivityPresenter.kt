@@ -70,6 +70,7 @@ fun ImportActivityPresenter(
     manager: ActivityManager,
     reader: ActivityFileReader,
     typeChoices: ActivityTypeChoices,
+    gearChoices: GearChoices,
     profiles: ProfileRepository,
     feed: FeedRepository,
     defaults: ActivityDefaults,
@@ -85,6 +86,8 @@ fun ImportActivityPresenter(
     var selection by remember { mutableStateOf(DiveSelection()) }
     val typeChoice = typeChoices.produce(ActivityType(Sport.OTHER))
     val type = typeChoice.selected
+    // A logbook's dives share the gear, which starts at the defaults for its first dive's type.
+    val gear = gearChoices.produce(type)
     val title = rememberTextFieldState()
     val details = rememberDetailsForm()
     // The title the last file filled in, so a file without one clears it but not what the athlete typed.
@@ -117,10 +120,9 @@ fun ImportActivityPresenter(
         remember(placed, placedDives, selection, matches, type) {
             importCategories(placed?.second, type, placedDives) { selection.isSelected(it, matches.getOrNull(it)) }
         }
+    val offered = gear.offering(held.categories)
     val visibility =
-        rememberNewActivityVisibility(defaults, held.categories, runningForm = held.runningForm) {
-            athlete?.followPolicy == FollowPolicy.APPROVE
-        }
+        rememberNewActivityVisibility(defaults, offered, runningForm = held.runningForm) { athlete?.followPolicy == FollowPolicy.APPROVE }
     val training = athlete?.details?.training
     val thresholdChanges = remember(placed, training, type.sport) { pendingThresholds(training, placed?.second, type.sport) }
     val defaultTitle =
@@ -162,6 +164,7 @@ fun ImportActivityPresenter(
         addingTo = adding.preview(zone),
         tooFarFromTarget = tooFar,
         savedSuggestions = savedSuggestions,
+        gear = gear.field.takeIf { picked != null },
     ) { event ->
         when (event) {
             is ImportActivityEvent.FilePicked -> {
@@ -220,7 +223,17 @@ fun ImportActivityPresenter(
 
             is ImportActivityEvent.SaveDives ->
                 flights.launch(ImportActivityEvent.Save::class) {
-                    val import = diveImport(placedDives, selection, matches, event.defaultTitles, training, visibility.current, source)
+                    val import =
+                        diveImport(
+                            placedDives,
+                            selection,
+                            matches,
+                            event.defaultTitles,
+                            training,
+                            visibility.current,
+                            source,
+                            gear.selected,
+                        )
                     runSuspendCatching {
                         saveDives(activities, manager, import)?.let {
                             navigator.afterDives(it, suggestions) { found -> savedSuggestions = found }
@@ -238,6 +251,7 @@ fun ImportActivityPresenter(
                         val draft =
                             importDraft(activity, type, text, training, thresholdChanges, adding.sourceOf(source))
                                 .withDetails(details, isDive = type.sport == Sport.DIVE)
+                                .copy(gear = gear.selected)
                                 .withVisibility(visibility.current)
                         val saved = saveSingle(activities, manager, draft, adding.into(combineTarget(match, selection.action(0, match))))
                         updateThresholds(profiles, activity, type.sport, previewed = thresholdChanges)

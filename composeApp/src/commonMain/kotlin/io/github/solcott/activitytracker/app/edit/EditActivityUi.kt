@@ -18,6 +18,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.record.GearPicker
 import io.github.solcott.activitytracker.app.ui.ActivityDetailsForm
 import io.github.solcott.activitytracker.app.ui.ActivityVisibilityForm
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
@@ -106,6 +107,7 @@ fun EditActivityUi(state: EditActivityState, modifier: Modifier = Modifier) {
                     val details = state.details ?: return@Column
                     val type = state.type ?: return@Column
                     ActivityDetailsForm(state.title, titlePlaceholder = activityTypeLabel(type), fields = details, enabled = !state.saving)
+                    state.gear?.let { GearPicker(it, enabled = !state.saving) }
                     state.visibility?.let { visibility ->
                         ActivityVisibilityForm(
                             visibility,

@@ -199,6 +199,7 @@ private fun SavePanel(state: ImportActivityState, save: (() -> Unit)?) {
         // Present whenever a single activity is: the title, description, dive site and photos.
         state.details?.let { ActivityDetailsForm(state.title, titlePlaceholder = defaultTitle, fields = it, enabled = !state.saving) }
         if (state.thresholdChanges.isNotEmpty()) ThresholdChanges(state.thresholdChanges)
+        state.gear?.let { GearPicker(it, enabled = !state.saving) }
         // A recording added to an activity takes its visibility.
         if (!state.addsRecording) ActivityVisibilityForm(state.visibility, enabled = !state.saving)
         val preview = state.preview

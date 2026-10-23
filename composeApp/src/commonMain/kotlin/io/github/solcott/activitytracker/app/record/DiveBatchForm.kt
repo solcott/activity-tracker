@@ -77,6 +77,7 @@ internal fun DiveBatchForm(state: ImportActivityState, batch: DiveBatch, modifie
             )
         }
         // One choice for every dive in the batch.
+        state.gear?.let { GearPicker(it, enabled = !state.saving) }
         ActivityVisibilityForm(
             state.visibility,
             enabled = !state.saving,
