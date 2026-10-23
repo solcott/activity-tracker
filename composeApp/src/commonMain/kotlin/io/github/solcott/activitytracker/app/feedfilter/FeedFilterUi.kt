@@ -29,6 +29,7 @@ import com.mohamedrejeb.calf.ui.datepicker.DateBounds
 import com.slack.circuit.subcircuit.SubCircuitInject
 import com.slack.circuit.subcircuit.SubUi
 import dev.zacsweers.metro.Inject
+import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.QuickTypeChips
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
 import io.github.solcott.activitytracker.app.ui.activityTypeMatcher
@@ -64,7 +65,6 @@ import io.github.solcott.activitytracker.composeApp.resources.sport_picker_quick
 import io.github.solcott.activitytracker.composeApp.resources.sport_picker_search
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
-import kotlin.time.Clock
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.datetime.LocalDate
@@ -154,7 +154,8 @@ private fun DateChip(range: DateRange?, eventSink: (FeedFilterEvent) -> Unit) {
 /** The first pick is the range's first day, the second its last; neither can be in the future, and the last can't precede the first. */
 @Composable
 private fun CustomRangeDialog(range: CustomRangeState, eventSink: (FeedFilterEvent) -> Unit) {
-    val today = remember { Clock.System.now().toEpochMilliseconds() }
+    val clock = LocalClock.current
+    val today = remember { clock.now().toEpochMilliseconds() }
     val start = range.start
     val bounds = remember(start, today) { DateBounds(minDateMillis = start?.toPickerMillis(), maxDateMillis = today) }
     // Keyed so the second pick opens a fresh dialog rather than reusing the first's selection.

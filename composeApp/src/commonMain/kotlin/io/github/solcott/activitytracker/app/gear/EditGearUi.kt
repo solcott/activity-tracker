@@ -42,6 +42,7 @@ import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.MenuField
 import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
@@ -110,7 +111,6 @@ import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.readBytes
-import kotlin.time.Clock
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -351,7 +351,8 @@ private fun AcquiredField(date: LocalDate?, enabled: Boolean, onChange: (LocalDa
         lineLimits = TextFieldLineLimits.SingleLine,
     )
     if (picking) {
-        val now = remember { Clock.System.now().toEpochMilliseconds() }
+        val clock = LocalClock.current
+        val now = remember { clock.now().toEpochMilliseconds() }
         val pastOnly = remember(now) { DateBounds(maxDateMillis = now) }
         AppDatePickerDialog(
             initialSelectedDateMillis = date?.let { it.toEpochDays() * MILLIS_PER_DAY },

@@ -5,4 +5,4 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.platform.LocalContext
 
-@Composable @ReadOnlyComposable actual fun uses24HourClock(): Boolean = DateFormat.is24HourFormat(LocalContext.current)
+@Composable @ReadOnlyComposable actual fun platformUses24HourClock(): Boolean = DateFormat.is24HourFormat(LocalContext.current)

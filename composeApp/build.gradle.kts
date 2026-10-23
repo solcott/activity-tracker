@@ -15,6 +15,9 @@ val generateNativeNetworkConfig =
         outputDir = layout.buildDirectory.dir("generated/nativeNetworkConfig/kotlin")
     }
 
+// UI tests (AppPreview and :app-fixtures' samples), and Skia for tests that encode images (PhotoCompressionTest).
+composeUiTests { jvm = true }
+
 // Public so the platform shells (desktopApp's window title) can read the shared strings.
 compose.resources { publicResClass = true }
 
@@ -70,10 +73,6 @@ kotlin {
         // api so the framework can export it (see the framework block above).
         iosMain.dependencies { api(projects.coreActivityfile) }
         wasmJsMain.dependencies { implementation(libs.kotlinx.browser) }
-        // Skia's native library, for tests that encode images (PhotoCompressionTest) and draw (ChartReadoutUiTest).
-        jvmTest.dependencies {
-            implementation(compose.desktop.currentOs)
-            implementation(libs.compose.ui.test)
-        }
+        jvmTest.dependencies { implementation(projects.appFixtures) }
     }
 }

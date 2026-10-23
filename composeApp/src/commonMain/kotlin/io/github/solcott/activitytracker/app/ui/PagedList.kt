@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
@@ -17,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
@@ -52,19 +54,19 @@ fun LazyListScope.pagedRefreshStatus(hasAnswer: Boolean, refresh: LoadStatus, er
     if (!hasAnswer) return
     when (refresh) {
         is LoadStatus.Failed -> item(key = "paged-refresh") { FailedRow(UiError(errorKind, refresh.error), onRetry) }
-        LoadStatus.Loading -> item(key = "paged-refresh") { Spinner(small = true) }
+        LoadStatus.Loading -> item(key = "paged-refresh") { Spinner(small = true, TestTags.REFRESHING) }
         LoadStatus.Idle -> Unit
     }
 }
 
 /** [pagedFooter] of [state]. */
 fun LazyListScope.pagedFooter(state: PagedState<*, *>, errorKind: UiError.Kind, onRetry: () -> Unit, empty: @Composable () -> Unit) =
-    pagedFooter(state.hasAnswer, state.items.isEmpty(), state.refresh, state.append, errorKind, onRetry, empty)
+    pagedFooter(state.hasAnswer, state.items.isEmpty(), state.refresh, state.append, errorKind, onRetry, empty, state.endReached)
 
 /**
  * Below a paged list's items (ui/content-loading). Before the first answer: a spinner, or why it failed with [onRetry], or nothing while
  * the list is disabled. Once answered: [empty] when it lists nothing, and a spinner while the next page loads, or why it failed with
- * [onRetry], which tries that page again.
+ * [onRetry], which tries that page again. Once [endReached], an empty marker for tests ([TestTags.LIST_END]).
  */
 @Suppress("LongParameterList") // A paged list's statuses, taken apart for lists that lay their own items over the pages.
 fun LazyListScope.pagedFooter(
@@ -75,40 +77,50 @@ fun LazyListScope.pagedFooter(
     errorKind: UiError.Kind,
     onRetry: () -> Unit,
     empty: @Composable () -> Unit,
+    endReached: Boolean = false,
 ) {
     if (!hasAnswer) {
         when (refresh) {
-            is LoadStatus.Failed -> item(key = "paged-footer") { FailedColumn(UiError(errorKind, refresh.error), onRetry) }
-            LoadStatus.Loading -> item(key = "paged-footer") { Spinner(small = false) }
+            is LoadStatus.Failed ->
+                item(key = "paged-footer") { FailedColumn(UiError(errorKind, refresh.error), onRetry, firstPage = true) }
+            LoadStatus.Loading -> item(key = "paged-footer") { Spinner(small = false, TestTags.LOADING) }
             LoadStatus.Idle -> Unit
         }
         return
     }
     if (isEmpty && refresh !is LoadStatus.Loading) item(key = "paged-empty") { empty() }
     when (append) {
-        is LoadStatus.Failed -> item(key = "paged-footer") { FailedColumn(UiError(errorKind, append.error), onRetry) }
-        LoadStatus.Loading -> item(key = "paged-footer") { Spinner(small = true) }
-        LoadStatus.Idle -> Unit
+        is LoadStatus.Failed -> item(key = "paged-footer") { FailedColumn(UiError(errorKind, append.error), onRetry, firstPage = false) }
+        LoadStatus.Loading -> item(key = "paged-footer") { Spinner(small = true, TestTags.PAGE_LOADING) }
+        LoadStatus.Idle -> if (endReached && !isEmpty) item(key = "paged-end") { Spacer(Modifier.testTag(TestTags.LIST_END)) }
     }
 }
 
 @Composable
-private fun Spinner(small: Boolean) {
-    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { AppProgressIndicator(small = small) }
+private fun Spinner(small: Boolean, tag: String) {
+    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+        AppProgressIndicator(Modifier.testTag(tag), small = small)
+    }
 }
 
 @Composable
-private fun FailedColumn(error: UiError, onRetry: () -> Unit) {
+private fun FailedColumn(error: UiError, onRetry: () -> Unit, firstPage: Boolean) {
     Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(errorText(error), color = MaterialTheme.colorScheme.error)
-        AppTextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
+        Text(
+            errorText(error),
+            Modifier.testTag(if (firstPage) TestTags.LOAD_ERROR else TestTags.PAGE_ERROR),
+            color = MaterialTheme.colorScheme.error,
+        )
+        AppTextButton(onClick = onRetry, Modifier.testTag(if (firstPage) TestTags.RETRY else TestTags.PAGE_RETRY)) {
+            Text(stringResource(Res.string.action_retry))
+        }
     }
 }
 
 @Composable
 private fun FailedRow(error: UiError, onRetry: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag(TestTags.REFRESH_ERROR),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

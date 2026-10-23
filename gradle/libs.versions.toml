@@ -4,7 +4,7 @@ kotlin = "2.4.21"
 # JDK used for every compile/test/run toolchain (Amazon Corretto, provisioned via foojay).
 #noinspection UnusedVersionCatalogEntry
 jdk = "25"
-agp = "9.4.1"
+agp = "9.5.0-rc01"
 ksp = "2.3.12"
 composeMultiplatform = "1.12.2"
 metro = "1.4.5"

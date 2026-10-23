@@ -18,12 +18,12 @@ import androidx.compose.ui.unit.dp
 /**
  * The brand (teal, amber accents) in each platform's idiom. Android: Material 3. iOS: grouped system surfaces, Apple's text styles, rounder
  * corners, no tonal elevation, and dimming instead of ripples. Desktop and web: Inter, a denser scale, tighter corners and smaller touch
- * targets.
+ * targets. [darkTheme] follows the system unless a preview or test sets it.
  */
 @Composable
-fun AppTheme(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun AppTheme(modifier: Modifier = Modifier, darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     val platform = LocalUiPlatform.current
-    val dark = isSystemInDarkTheme()
+    val dark = darkTheme
     val ios = platform == UiPlatform.Ios
     MaterialTheme(
         colorScheme =

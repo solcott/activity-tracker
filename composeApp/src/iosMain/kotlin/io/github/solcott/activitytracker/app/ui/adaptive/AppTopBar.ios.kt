@@ -39,6 +39,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
@@ -49,6 +50,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.blur.HazeBlurStyle
 import dev.chrisbanes.haze.blur.HazeColorEffect
 import dev.chrisbanes.haze.blur.hazeBlur
+import io.github.solcott.activitytracker.app.ui.TestTags
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_back
 import kotlin.math.roundToInt
@@ -103,7 +105,9 @@ private fun IosNavigationBar(
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
         ) {
             CenteredBar(
-                leading = { onBack?.let { AppIconButton(AppIcon.Back, stringResource(Res.string.action_back), it) } },
+                leading = {
+                    onBack?.let { AppIconButton(AppIcon.Back, stringResource(Res.string.action_back), it, Modifier.testTag(TestTags.BACK)) }
+                },
                 title = {
                     Column(
                         Modifier.titleSwap(rise = INLINE_TITLE_RISE) { inlineTitle },
