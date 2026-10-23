@@ -26,6 +26,8 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_follow_
 import io.github.solcott.activitytracker.composeApp.resources.error_load_followers
 import io.github.solcott.activitytracker.composeApp.resources.error_load_following
 import io.github.solcott.activitytracker.composeApp.resources.error_load_gear
+import io.github.solcott.activitytracker.composeApp.resources.error_load_gear_activities
+import io.github.solcott.activitytracker.composeApp.resources.error_load_gear_item
 import io.github.solcott.activitytracker.composeApp.resources.error_load_leaderboard
 import io.github.solcott.activitytracker.composeApp.resources.error_load_likes
 import io.github.solcott.activitytracker.composeApp.resources.error_load_mayors
@@ -150,6 +152,8 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.LoadPrivacyZones -> Res.string.error_load_privacy_zones
             UiError.Kind.SavePrivacyZones -> Res.string.error_save_privacy_zones
             UiError.Kind.LoadGear -> Res.string.error_load_gear
+            UiError.Kind.LoadGearItem -> Res.string.error_load_gear_item
+            UiError.Kind.LoadGearActivities -> Res.string.error_load_gear_activities
             UiError.Kind.SaveGear -> Res.string.error_save_gear
             UiError.Kind.DeleteGear -> Res.string.error_delete_gear
             UiError.Kind.GearSignInAgain -> Res.string.error_gear_sign_in_again

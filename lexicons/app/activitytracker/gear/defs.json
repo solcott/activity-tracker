@@ -5,15 +5,205 @@
     "gearView": {
       "type": "object",
       "description": "A gear item as an activity shows it: what it is, never its notes, weight or dates.",
-      "required": ["uri", "name", "type"],
+      "required": [
+        "uri",
+        "name",
+        "type"
+      ],
       "properties": {
-        "uri": { "type": "string", "format": "at-uri", "description": "The item's canonical URI, wherever it's stored." },
-        "name": { "type": "string" },
-        "type": { "type": "string", "description": "app.activitytracker.gear.item#type." },
-        "kind": { "type": "string", "description": "app.activitytracker.gear.item#kind." },
-        "brand": { "type": "string" },
-        "model": { "type": "string" },
-        "photo": { "type": "string", "format": "uri", "description": "A URL to load the item's photo from; absent when it has none." }
+        "uri": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "The item's canonical URI, wherever it's stored."
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "description": "app.activitytracker.gear.item#type."
+        },
+        "kind": {
+          "type": "string",
+          "description": "app.activitytracker.gear.item#kind."
+        },
+        "brand": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "photo": {
+          "type": "string",
+          "format": "uri",
+          "description": "A URL to load the item's photo from; absent when it has none."
+        }
+      }
+    },
+    "gearTotals": {
+      "type": "object",
+      "description": "Usage totals over the activities counted for an item, for one viewer: each activity counts once (a recording combined into another counts only through it), and only the activities whose gear the viewer may see.",
+      "required": [
+        "activities",
+        "movingTime",
+        "distance",
+        "elevationGain",
+        "elevationLoss",
+        "days"
+      ],
+      "properties": {
+        "activities": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "movingTime": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Seconds: each activity's moving time, or its elapsed time when it has none."
+        },
+        "distance": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Meters."
+        },
+        "elevationGain": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Meters."
+        },
+        "elevationLoss": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Meters: vertical, for skis and boards."
+        },
+        "days": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Distinct local dates the item was used on."
+        },
+        "dives": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Activities of sport dive; absent when there are none."
+        },
+        "bottomTime": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Seconds of bottom time over those dives; absent when there are none."
+        }
+      }
+    },
+    "gearStarting": {
+      "type": "object",
+      "description": "The usage an item had before the athlete started tracking it (app.activitytracker.gear.item#startingDistance, startingTime).",
+      "properties": {
+        "distance": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Meters."
+        },
+        "time": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Seconds."
+        }
+      }
+    },
+    "gearSportTotals": {
+      "type": "object",
+      "required": [
+        "sport",
+        "totals"
+      ],
+      "properties": {
+        "sport": {
+          "type": "string",
+          "description": "app.activitytracker.feed.activity#sport."
+        },
+        "subSport": {
+          "type": "string",
+          "description": "app.activitytracker.feed.activity#subSport; absent for the sport without one."
+        },
+        "totals": {
+          "type": "ref",
+          "ref": "#gearTotals"
+        }
+      }
+    },
+    "gearYearTotals": {
+      "type": "object",
+      "required": [
+        "year",
+        "totals"
+      ],
+      "properties": {
+        "year": {
+          "type": "integer",
+          "description": "The year of the activities' local start dates."
+        },
+        "totals": {
+          "type": "ref",
+          "ref": "#gearTotals"
+        }
+      }
+    },
+    "gearUsage": {
+      "type": "object",
+      "description": "An item's usage for one viewer.",
+      "required": [
+        "totals",
+        "bySport",
+        "byYear"
+      ],
+      "properties": {
+        "totals": {
+          "type": "ref",
+          "ref": "#gearTotals",
+          "description": "Including starting usage."
+        },
+        "starting": {
+          "type": "ref",
+          "ref": "#gearStarting",
+          "description": "Absent when the item has none."
+        },
+        "bySport": {
+          "type": "array",
+          "description": "By activity type, most used first. Never includes starting usage.",
+          "items": {
+            "type": "ref",
+            "ref": "#gearSportTotals"
+          }
+        },
+        "byYear": {
+          "type": "array",
+          "description": "By year, newest first. Never includes starting usage.",
+          "items": {
+            "type": "ref",
+            "ref": "#gearYearTotals"
+          }
+        }
+      }
+    },
+    "actorGearItem": {
+      "type": "object",
+      "required": [
+        "gear",
+        "totals",
+        "retired"
+      ],
+      "properties": {
+        "gear": {
+          "type": "ref",
+          "ref": "#gearView"
+        },
+        "totals": {
+          "type": "ref",
+          "ref": "#gearTotals",
+          "description": "Including starting usage."
+        },
+        "retired": {
+          "type": "boolean"
+        }
       }
     }
   }

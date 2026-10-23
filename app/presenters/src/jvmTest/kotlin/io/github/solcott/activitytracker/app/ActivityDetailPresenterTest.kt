@@ -306,7 +306,10 @@ class ActivityDetailPresenterTest : ActivityDetailTestBase() {
 
         val device = ActivityPage.build(view.record, null, gear = view.gear.orEmpty()).stats.single { it.kind == StatsGroupKind.Device }
         assertEquals(
-            listOf(FigureValue.GearItem("Stumpjumper", GearType.BIKE, "mountain"), FigureValue.GearItem("Helmet", GearType.HELMET, null)),
+            listOf(
+                FigureValue.GearItem("Stumpjumper", GearType.BIKE, "mountain", bike.uri.value),
+                FigureValue.GearItem("Helmet", GearType.HELMET, null, helmet.uri.value),
+            ),
             device.rows.map { it.value },
         )
         assertTrue(device.rows.all { it.key == FigureKey.GearItem })

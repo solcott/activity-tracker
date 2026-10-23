@@ -99,6 +99,12 @@ object Nsid {
     const val GEAR_ITEM = "$NAMESPACE.gear.item"
     /** The gear each activity type starts with, kept only in an athlete's `self` tier space ([SPACE_ATHLETE]); never indexed. */
     const val GEAR_AUTO_ASSIGN = "$NAMESPACE.gear.autoAssign"
+    /** Query: one gear item and its usage for the viewer. */
+    const val GEAR_GET_GEAR = "$NAMESPACE.gear.getGear"
+    /** Query: an athlete's gear items the viewer may see, each with its totals. */
+    const val GEAR_GET_ACTOR_GEAR = "$NAMESPACE.gear.getActorGear"
+    /** Query: the activities counted in an item's usage for the viewer, newest first. */
+    const val GEAR_GET_GEAR_ACTIVITIES = "$NAMESPACE.gear.getGearActivities"
 
     const val GRAPH_FOLLOW = "$NAMESPACE.graph.follow"
     const val GRAPH_GET_FOLLOWERS = "$NAMESPACE.graph.getFollowers"

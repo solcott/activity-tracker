@@ -356,6 +356,9 @@ sealed interface ActivityDetailEvent {
     /** Opens the training zones screen, to set the thresholds zone charts need. */
     data object OpenTrainingZones : ActivityDetailEvent
 
+    /** Opens the page of the gear item at [uri], one the activity lists. */
+    data class OpenGear(val uri: String) : ActivityDetailEvent
+
     /** The owner deletes the activity, confirmed, and its other recordings too [withRecordings] or else leaves them as activities. */
     data class Delete(val withRecordings: Boolean) : ActivityDetailEvent
 

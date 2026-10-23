@@ -104,12 +104,17 @@ import io.github.solcott.activitytracker.composeApp.resources.gear_sports
 import io.github.solcott.activitytracker.composeApp.resources.gear_sports_choose
 import io.github.solcott.activitytracker.composeApp.resources.gear_sports_done
 import io.github.solcott.activitytracker.composeApp.resources.gear_sports_none
+import io.github.solcott.activitytracker.composeApp.resources.gear_starting_distance_km
+import io.github.solcott.activitytracker.composeApp.resources.gear_starting_distance_mi
+import io.github.solcott.activitytracker.composeApp.resources.gear_starting_help
+import io.github.solcott.activitytracker.composeApp.resources.gear_starting_time
 import io.github.solcott.activitytracker.composeApp.resources.gear_type
 import io.github.solcott.activitytracker.composeApp.resources.gear_unretire
 import io.github.solcott.activitytracker.composeApp.resources.gear_visibility_help
 import io.github.solcott.activitytracker.composeApp.resources.gear_weight
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.sport.SportCatalog
+import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
 import io.github.vinceglb.filekit.dialogs.FileKitType
@@ -238,6 +243,37 @@ private fun GearForm(state: EditGearState, modifier: Modifier = Modifier) {
             )
             AcquiredField(state.acquiredOn, enabled, onChange = { send(EditGearEvent.AcquiredChanged(it)) }, Modifier.weight(1f))
         }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            AppTextField(
+                state.startingDistance,
+                Modifier.weight(1f),
+                label =
+                    stringResource(
+                        when (state.units) {
+                            UnitSystem.Metric -> Res.string.gear_starting_distance_km
+                            UnitSystem.Imperial -> Res.string.gear_starting_distance_mi
+                        }
+                    ),
+                enabled = enabled,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                lineLimits = TextFieldLineLimits.SingleLine,
+                inputTransformation = InputTransformation.maxLength(MAX_STARTING_CHARS),
+            )
+            AppTextField(
+                state.startingTime,
+                Modifier.weight(1f),
+                label = stringResource(Res.string.gear_starting_time),
+                enabled = enabled,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                lineLimits = TextFieldLineLimits.SingleLine,
+                inputTransformation = InputTransformation.maxLength(MAX_STARTING_CHARS),
+            )
+        }
+        Text(
+            stringResource(Res.string.gear_starting_help),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         PhotoRow(state.photo, enabled, send)
         AppTextField(
             state.notes,
@@ -469,5 +505,8 @@ private fun PhotoRow(photo: GearPhoto?, enabled: Boolean, send: (EditGearEvent) 
 private val DigitsOnly = InputTransformation { if (asCharSequence().any { !it.isDigit() }) revertAllChanges() }
 
 private const val MAX_WEIGHT_DIGITS = 7
+
+/** Room for a used bike's 100,000 km, or a helmet's thousands of hours, to a decimal. */
+private const val MAX_STARTING_CHARS = 9
 private const val MILLIS_PER_DAY = 86_400_000L
 private val PHOTO_SIZE = 72.dp

@@ -6,19 +6,40 @@ import io.github.solcott.activitytracker.data.FakeAthletePds
 import io.github.solcott.activitytracker.data.activity.HeldPhotos
 import io.github.solcott.activitytracker.data.activity.NewPhoto
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Cid
+import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.ActorGearItem
 import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
+import io.github.solcott.activitytracker.lexicon.app.GearSportTotals
+import io.github.solcott.activitytracker.lexicon.app.GearStarting
+import io.github.solcott.activitytracker.lexicon.app.GearTotals
 import io.github.solcott.activitytracker.lexicon.app.GearType
+import io.github.solcott.activitytracker.lexicon.app.GearUsage
+import io.github.solcott.activitytracker.lexicon.app.GearView
+import io.github.solcott.activitytracker.lexicon.app.GearYearTotals
+import io.github.solcott.activitytracker.lexicon.app.GetGear
+import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.dataresult.DataError
+import io.github.solcott.dataresult.Outcome
+import io.github.solcott.uistate.Page
+import io.ktor.http.encodeURLParameter
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Instant
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 
@@ -178,5 +199,86 @@ class GearRepositoryTest {
         val item = repo.save(null, shoes, Visibility.PUBLIC)
         assertEquals(setOf(pds.repo), placesOf(item.rkey))
         assertNotEquals(true, repo.canSavePrivate)
+    }
+
+    private val tarmac = AtUri.of(pds.did, Nsid.GEAR_ITEM, "3tarmac")
+    private val totals =
+        GearTotals(activities = 3, movingTime = 9_000, distance = 150_000, elevationGain = 900, elevationLoss = 900, days = 2)
+
+    private fun ride(rkey: String) =
+        ActivityView(
+            uri = AtUri.of(pds.did, Nsid.FEED_ACTIVITY, rkey),
+            cid = Cid("bafy$rkey"),
+            author = ProfileViewBasic(pds.did, Handle("alice.test")),
+            record = ActivityRecord(Sport.RIDE, Instant.parse("2026-10-05T07:00:00Z"), 3600, created),
+            likeCount = 0,
+            commentCount = 0,
+            indexedAt = created,
+        )
+
+    @Test
+    fun usageAsksForTheItemAndParsesItsTotalsAndBreakdowns() = runTest {
+        val served =
+            GetGear.Output(
+                gear = GearView(tarmac, "Tarmac", GearType.BIKE),
+                usage =
+                    GearUsage(
+                        totals = totals.copy(distance = 2_150_000),
+                        bySport = listOf(GearSportTotals(Sport.RIDE, totals)),
+                        byYear = listOf(GearYearTotals(2026, totals)),
+                        starting = GearStarting(distance = 2_000_000),
+                    ),
+                retired = false,
+                visibility = Visibility.PUBLIC,
+            )
+        pds.gearUsage[tarmac.value] = served
+
+        assertEquals(served, gear().usage(tarmac))
+        assertEquals(listOf("/xrpc/${Nsid.GEAR_GET_GEAR}?uri=${tarmac.value.encodeURLParameter()}"), pds.gearQueries)
+    }
+
+    @Test
+    fun anItemTheViewerMayNotSeeIsNotFound() = runTest {
+        val usage = gear().usageOutcome(tarmac).toList().last()
+        assertEquals("NotFound", assertIs<DataError.Api>(assertIs<Outcome.Error>(usage).cause).code)
+        val page = gear().activitiesPage(tarmac, null)
+        assertEquals("NotFound", assertIs<DataError.Api>(assertIs<Outcome.Error>(page).cause).code)
+    }
+
+    @Test
+    fun actorGearReadsEveryPage() = runTest {
+        pds.actorGear =
+            (1..150).map { ActorGearItem(GearView(AtUri.of(pds.did, Nsid.GEAR_ITEM, "3g$it"), "Item $it", GearType.OTHER), totals, false) }
+
+        val items = gear().actorGear(pds.did.value)
+
+        assertEquals(150, items.size)
+        assertEquals(
+            listOf(
+                "/xrpc/${Nsid.GEAR_GET_ACTOR_GEAR}?actor=${pds.did.value.encodeURLParameter()}&limit=100",
+                "/xrpc/${Nsid.GEAR_GET_ACTOR_GEAR}?actor=${pds.did.value.encodeURLParameter()}&limit=100&cursor=100",
+            ),
+            pds.gearQueries,
+        )
+    }
+
+    @Test
+    fun activitiesPageSendsTheCursorAndReturnsTheNextOne() = runTest {
+        pds.gearActivities[tarmac.value] = (1..40).map { ride("3r$it") }
+        val repository = gear()
+
+        val first = assertIs<Outcome.Data<Page<ActivityView, Unit>>>(repository.activitiesPage(tarmac, null)).data
+        assertEquals(30, first.items.size)
+        assertEquals("30", first.next)
+        val second = assertIs<Outcome.Data<Page<ActivityView, Unit>>>(repository.activitiesPage(tarmac, first.next)).data
+        assertEquals(listOf("3r31", "3r40"), listOf(second.items.first(), second.items.last()).map { it.uri.rkey })
+        assertNull(second.next)
+        assertEquals(
+            listOf(
+                "/xrpc/${Nsid.GEAR_GET_GEAR_ACTIVITIES}?uri=${tarmac.value.encodeURLParameter()}",
+                "/xrpc/${Nsid.GEAR_GET_GEAR_ACTIVITIES}?uri=${tarmac.value.encodeURLParameter()}&cursor=30",
+            ),
+            pds.gearQueries,
+        )
     }
 }

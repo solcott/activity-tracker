@@ -31,10 +31,14 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.ActorGearItem
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
+import io.github.solcott.activitytracker.lexicon.app.GetActorGear
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
+import io.github.solcott.activitytracker.lexicon.app.GetGear
+import io.github.solcott.activitytracker.lexicon.app.GetGearActivities
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -121,6 +125,15 @@ class SessionTestFixture {
 
     /** The athlete's `gear.item` records by place (`repo` or a tier), then rkey. */
     val gear = mutableMapOf<String, MutableMap<String, JsonObject>>()
+
+    /** What the AppView's `getGear` serves, by item URI; NotFound for any other. */
+    val gearUsage = mutableMapOf<String, GetGear.Output>()
+
+    /** What the AppView's `getActorGear` serves, in one page; null to fail. */
+    var actorGear: List<ActorGearItem>? = emptyList()
+
+    /** What the AppView's `getGearActivities` serves for any item it has usage for, in one page. */
+    var gearActivities: List<ActivityView> = emptyList()
 
     /** The athlete's `gear.autoAssign` record in `self`, as JSON; null for none. */
     var gearAutoAssign: String? = null
@@ -212,6 +225,28 @@ class SessionTestFixture {
                         } else {
                             respond(AtJson.encodeToString(GetActivity.Output.serializer(), GetActivity.Output(view)), headers = json)
                         }
+                    }
+
+                    "/xrpc/${Nsid.GEAR_GET_GEAR}" -> {
+                        val output = gearUsage[request.url.parameters["uri"]]
+                        if (output == null) respond("""{"error":"NotFound"}""", HttpStatusCode.BadRequest, json)
+                        else respond(AtJson.encodeToString(GetGear.Output.serializer(), output), headers = json)
+                    }
+
+                    "/xrpc/${Nsid.GEAR_GET_ACTOR_GEAR}" -> {
+                        val items = actorGear
+                        if (items == null) respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
+                        else respond(AtJson.encodeToString(GetActorGear.Output.serializer(), GetActorGear.Output(items)), headers = json)
+                    }
+
+                    "/xrpc/${Nsid.GEAR_GET_GEAR_ACTIVITIES}" -> {
+                        if (request.url.parameters["uri"] !in gearUsage)
+                            respond("""{"error":"NotFound"}""", HttpStatusCode.BadRequest, json)
+                        else
+                            respond(
+                                AtJson.encodeToString(GetGearActivities.Output.serializer(), GetGearActivities.Output(gearActivities)),
+                                headers = json,
+                            )
                     }
 
                     "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" -> {

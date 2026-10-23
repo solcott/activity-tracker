@@ -1490,6 +1490,10 @@
     <string name="gear_brand">Brand</string>
     <string name="gear_model">Model</string>
     <string name="gear_weight">Weight (g)</string>
+    <string name="gear_starting_distance_km">Starting distance (km)</string>
+    <string name="gear_starting_distance_mi">Starting distance (mi)</string>
+    <string name="gear_starting_time">Starting time (h)</string>
+    <string name="gear_starting_help">Use before you tracked it here, such as a bike bought used. It's added to its totals.</string>
     <string name="gear_notes">Notes</string>
     <string name="gear_sports">Sports</string>
     <string name="gear_sports_none">Any sport</string>
@@ -1510,6 +1514,39 @@
     <string name="gear_delete_message">Deleting removes it for good. Retiring keeps it and its details, out of the way.</string>
     <string name="gear_visibility_help">Who can see this gear once it's shown with your activities.</string>
     <string name="error_load_gear">Couldn't load your gear</string>
+    <string name="error_load_gear_item">Couldn't load this gear</string>
+    <string name="error_load_gear_activities">Couldn't load the activities with this gear</string>
+    <string name="gear_not_found">This gear isn't available. It may have been deleted, or you may not be able to see it.</string>
+    <string name="gear_page_edit">Edit</string>
+    <string name="gear_page_totals">Totals</string>
+    <string name="gear_page_activities">Activities</string>
+    <string name="gear_page_no_activities">No activities with this gear yet.</string>
+    <string name="gear_page_by_sport">By activity type</string>
+    <string name="gear_page_by_year">By year</string>
+    <string name="gear_page_starting">Includes %1$s before tracking</string>
+    <string name="gear_page_moving_time">Moving time</string>
+    <string name="gear_page_distance">Distance</string>
+    <string name="gear_page_elevation_gain">Elevation gain</string>
+    <string name="gear_page_elevation_loss">Vertical</string>
+    <string name="gear_page_days">Days used</string>
+    <string name="gear_page_dives">Dives</string>
+    <string name="gear_page_bottom_time">Bottom time</string>
+    <string name="gear_page_activity_count">Activities</string>
+    <string name="gear_total_none">No activities yet</string>
+    <string name="gear_total_hours">%1$s h</string>
+    <string name="gear_total_joined">%1$s · %2$s</string>
+    <plurals name="gear_total_days">
+        <item quantity="one">%1$s day</item>
+        <item quantity="other">%1$s days</item>
+    </plurals>
+    <plurals name="gear_total_dives">
+        <item quantity="one">%1$s dive</item>
+        <item quantity="other">%1$s dives</item>
+    </plurals>
+    <plurals name="gear_total_activities">
+        <item quantity="one">%1$s activity</item>
+        <item quantity="other">%1$s activities</item>
+    </plurals>
     <string name="error_save_gear">Couldn't save your gear</string>
     <string name="error_delete_gear">Couldn't delete your gear</string>
     <string name="error_gear_sign_in_again">Sign in again to save gear that isn't Public, or what your activities start with</string>

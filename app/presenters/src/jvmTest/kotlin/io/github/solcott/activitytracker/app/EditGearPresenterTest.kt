@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.app.gear.EditGearPresenter
 import io.github.solcott.activitytracker.app.gear.EditGearScreen
 import io.github.solcott.activitytracker.app.gear.EditGearState
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
+import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -46,11 +47,12 @@ class EditGearPresenterTest {
     private suspend fun test(
         screen: EditGearScreen,
         navigator: FakeNavigator = FakeNavigator(screen),
+        units: UnitSystem = UnitSystem.Metric,
         block: suspend ReceiveTurbine<EditGearState>.() -> Unit,
     ) {
-        val repos = fixture.repos()
+        val repos = fixture.repos(defaultUnits = units)
         presenterTestOf(
-            { EditGearPresenter(screen, navigator, repos.gear, repos.gearDefaults, repos.profiles, Clock.System) },
+            { EditGearPresenter(screen, navigator, repos.gear, repos.gearDefaults, repos.profiles, repos.units, Clock.System) },
             block = block,
         )
     }
@@ -215,5 +217,45 @@ class EditGearPresenterTest {
             cancelAndIgnoreRemainingEvents()
         }
         assertNull(fixture.gearAutoAssign)
+    }
+
+    private suspend fun savesStarting(units: UnitSystem, distance: String, hours: String): GearItemRecord {
+        val navigator = FakeNavigator(EditGearScreen())
+        test(EditGearScreen(), navigator, units) {
+            val form = awaitUntil { it.content.hasLoaded }
+            assertEquals(units, form.units)
+            form.name.setTextAndPlaceCursorAtEnd("Used bike")
+            form.startingDistance.setTextAndPlaceCursorAtEnd(distance)
+            form.startingTime.setTextAndPlaceCursorAtEnd(hours)
+            form.eventSink(EditGearEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        return AtJson.decodeFromJsonElement(GearItemRecord.serializer(), fixture.gear.getValue(Visibility.SELF).values.single())
+    }
+
+    @Test
+    fun startingDistanceInKilometersAndTimeInHoursAreSavedInMetersAndSeconds() = runTest {
+        val record = savesStarting(UnitSystem.Metric, "2000", "120.5")
+        assertEquals(2_000_000L, record.startingDistance)
+        assertEquals(433_800L, record.startingTime)
+    }
+
+    @Test
+    fun startingDistanceInMilesIsSavedInMeters() = runTest {
+        val record = savesStarting(UnitSystem.Imperial, "1,5", "")
+        assertEquals(2_414L, record.startingDistance)
+        assertNull(record.startingTime)
+    }
+
+    @Test
+    fun startingUsageIsShownInTheAthletesUnits() = runTest {
+        store("repo", "3bike", bike.copy(startingDistance = 1_609_344, startingTime = 7_200))
+        test(EditGearScreen("3bike"), units = UnitSystem.Imperial) {
+            val form = awaitUntil { it.content.hasLoaded && it.startingDistance.text.isNotEmpty() }
+            assertEquals("1000", form.startingDistance.text.toString())
+            assertEquals("2", form.startingTime.text.toString())
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }

@@ -84,7 +84,7 @@ open class GearTestBase {
     protected fun item(rkey: String, tier: String, name: String, type: String = "bike", extra: String = "") =
         put(Nsid.GEAR_ITEM, tier, rkey, """{"name":"$name","type":"$type",$extra"createdAt":"2026-10-01T09:00:00Z"}""")
 
-    private fun uris(gear: List<String>) = gear.joinToString(",") { "\"$it\"" }
+    protected fun uris(gear: List<String>) = gear.joinToString(",") { "\"$it\"" }
 
     /** Alice's ride at [tier], listing [gear] on its record when given. */
     protected fun ride(tier: String = Visibility.PUBLIC, gear: List<String>? = null) =
@@ -95,6 +95,40 @@ open class GearTestBase {
             """{"sport":"ride","startedAt":"2026-10-05T07:00:00Z","elapsedTime":3600,""" +
                 gear?.let { """"gear":[${uris(it)}],""" }.orEmpty() +
                 """"createdAt":"2026-10-05T08:00:00Z"}""",
+        )
+
+    /**
+     * Alice's activity [rkey] at [tier]: a [sport] starting at [start] for [elapsed] seconds, with [stats] (`"distance":40000,` and so on,
+     * each with its trailing comma), listing [gear] on its record when given.
+     */
+    @Suppress("LongParameterList") // One per field the usage tests vary.
+    protected fun activity(
+        rkey: String,
+        tier: String = Visibility.PUBLIC,
+        sport: String = "ride",
+        start: String = "2026-10-05T07:00:00Z",
+        elapsed: Long = 3600,
+        stats: String = "",
+        gear: List<String>? = null,
+    ) =
+        put(
+            Nsid.FEED_ACTIVITY,
+            tier,
+            rkey,
+            """{"sport":"$sport","startedAt":"$start","elapsedTime":$elapsed,$stats""" +
+                gear?.let { """"gear":[${uris(it)}],""" }.orEmpty() +
+                """"createdAt":"$start"}""",
+        )
+
+    protected fun activityUri(rkey: String) = "at://$alice/${Nsid.FEED_ACTIVITY}/$rkey"
+
+    /** Activity [rkey]'s details record at [tier], listing [gear]. */
+    protected fun details(rkey: String, tier: String, gear: List<String>) =
+        put(
+            Nsid.FEED_ACTIVITY_DETAILS,
+            tier,
+            rkey,
+            """{"activity":"${activityUri(rkey)}","gear":[${uris(gear)}],"createdAt":"2026-10-05T08:00:00Z"}""",
         )
 
     /** The ride's details record at [tier], listing [gear]. */

@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
 import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEventSink
 import io.github.solcott.activitytracker.app.edit.EditActivityScreen
+import io.github.solcott.activitytracker.app.gear.GearScreen
 import io.github.solcott.activitytracker.app.map.RouteMapScreen
 import io.github.solcott.activitytracker.app.media.MediaGalleryScreen
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
@@ -176,6 +177,7 @@ fun ActivityDetailPresenter(
             is ActivityDetailEvent.OpenProfile,
             is ActivityDetailEvent.OpenActivity,
             ActivityDetailEvent.OpenTrainingZones,
+            is ActivityDetailEvent.OpenGear,
             ActivityDetailEvent.Edit,
             ActivityDetailEvent.Combine,
             ActivityDetailEvent.AddRecording,
@@ -533,6 +535,7 @@ private fun Navigator.open(event: ActivityDetailEvent, uri: String, current: Act
         is ActivityDetailEvent.OpenProfile -> goTo(ProfileScreen(event.did.value))
         is ActivityDetailEvent.OpenActivity -> goTo(ActivityDetailScreen(event.uri.value))
         ActivityDetailEvent.OpenTrainingZones -> goTo(TrainingZonesScreen)
+        is ActivityDetailEvent.OpenGear -> goTo(GearScreen(event.uri))
         ActivityDetailEvent.Edit -> goTo(EditActivityScreen(uri))
         is ActivityDetailEvent.OpenMedia -> goTo(MediaGalleryScreen(uri, event.index))
         ActivityDetailEvent.OpenMap -> goTo(RouteMapScreen(uri))

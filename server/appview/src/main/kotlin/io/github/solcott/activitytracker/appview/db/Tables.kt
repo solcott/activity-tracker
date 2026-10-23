@@ -46,6 +46,23 @@ object Activities : Table("activities") {
     val visibility = varchar("visibility", 16).default(Visibility.PUBLIC)
     /** Where the row came from: [Origins.REPO] or the tier space's URI. Only that origin's delete removes it. */
     val origin = varchar("origin", 512).default(Origins.REPO)
+    // The record's core summary fields gear usage totals (`index/ActivitySummary`); nullable only for rows from before V36.
+    /** Seconds. */
+    val elapsedTime = long("elapsed_time").nullable()
+    /** Seconds. */
+    val movingTime = long("moving_time").nullable()
+    /** Meters. */
+    val distance = long("distance").nullable()
+    /** Meters. */
+    val elevationGain = long("elevation_gain").nullable()
+    /** Meters. */
+    val elevationLoss = long("elevation_loss").nullable()
+    /** Seconds: `dive.bottomTime`. */
+    val diveBottomTime = long("dive_bottom_time").nullable()
+    /** The epoch day of the local start date: [startedAt] shifted by the record's `utcOffset`. */
+    val startedOn = long("started_on").nullable()
+    /** The year of [startedOn]. */
+    val startedYear = integer("started_year").nullable()
     override val primaryKey = PrimaryKey(uri)
 }
 
@@ -438,7 +455,7 @@ object ActivityZones : Table("activity_zones") {
 
 /**
  * `gear.item` records, from repos and tier spaces, placed by origin like [Activities]: one row per item at its canonical URI, the narrower
- * copy mid-move, the other in [RecordShadows]. Served only as `gearView`s on activities that list them ([ActivityGear]).
+ * copy mid-move, the other in [RecordShadows]. Served as `gearView`s on activities that list them ([ActivityGear]) and with their usage.
  */
 object GearItems : Table("gear_items") {
     val uri = varchar("uri", 512)
@@ -455,6 +472,10 @@ object GearItems : Table("gear_items") {
     val photoCid = varchar("photo_cid", 255).nullable()
     val photoMime = varchar("photo_mime", 64).nullable()
     val retiredAt = long("retired_at").nullable()
+    /** Meters: `startingDistance`. */
+    val startingDistance = long("starting_distance").nullable()
+    /** Seconds: `startingTime`. */
+    val startingTime = long("starting_time").nullable()
     /** The raw record JSON, so the row can become a [RecordShadows] copy mid-move. */
     val record = text("record")
     val indexedAt = long("indexed_at")

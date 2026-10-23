@@ -210,7 +210,9 @@ private fun ColumnPage(state: ActivityDetailPage, content: ContentState<*>, cont
             item(key = "trainingLoad") { TrainingLoadCard(page.trainingLoad) }
             metricCards(state, columns = if (medium) 2 else 1)
             segments(state)
-            item(key = "stats") { StatsList(page.stats, columns = if (medium) 2 else 1) }
+            item(key = "stats") {
+                StatsList(page.stats, columns = if (medium) 2 else 1, onOpenGear = { state.eventSink(ActivityDetailEvent.OpenGear(it)) })
+            }
             comments(state)
         }
     }
@@ -245,7 +247,7 @@ private fun PanedPage(state: ActivityDetailPage, content: ContentState<*>, conte
                 item(key = "likes") { Likes(state) }
                 item(key = "avgMax") { AvgMaxTable(page.avgMax) }
                 item(key = "trainingLoad") { TrainingLoadCard(page.trainingLoad) }
-                item(key = "stats") { StatsList(page.stats) }
+                item(key = "stats") { StatsList(page.stats, onOpenGear = { state.eventSink(ActivityDetailEvent.OpenGear(it)) }) }
                 comments(state)
             }
             AppVerticalScrollbar(paneState, Modifier.align(Alignment.CenterEnd).padding(contentPadding).fillMaxHeight())

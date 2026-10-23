@@ -127,5 +127,6 @@ private fun GearRowItem(row: GearRow, onOpen: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        row.totals?.let { Text(gearMainTotalLabel(row.mainTotal, it), style = MaterialTheme.typography.bodyMedium) }
     }
 }

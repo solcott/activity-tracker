@@ -8,6 +8,7 @@ import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.uistate.ContentState
 import kotlinx.collections.immutable.ImmutableList
@@ -35,6 +36,12 @@ data class EditGearState(
     val model: TextFieldState,
     /** Grams, as digits. */
     val weight: TextFieldState,
+    /** How far it went before the athlete tracked it (gear/gear-usage), in kilometers or miles per [units]; empty for none. */
+    val startingDistance: TextFieldState,
+    /** How long it was used before the athlete tracked it, in hours; empty for none. */
+    val startingTime: TextFieldState,
+    /** The athlete's units, which [startingDistance] is in. */
+    val units: UnitSystem,
     val notes: TextFieldState,
     /** The type as stored; one this client doesn't know stays until the athlete picks another, and shows as `other`. */
     val type: String,

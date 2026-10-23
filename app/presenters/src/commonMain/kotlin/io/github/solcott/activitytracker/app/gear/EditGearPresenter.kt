@@ -5,6 +5,7 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -28,6 +29,10 @@ import io.github.solcott.activitytracker.data.gear.GearNeedsSignInException
 import io.github.solcott.activitytracker.data.gear.GearPhotoEdit
 import io.github.solcott.activitytracker.data.gear.GearRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.units.UnitConversions
+import io.github.solcott.activitytracker.data.units.UnitsRepository
+import io.github.solcott.activitytracker.data.units.formatDecimal
+import io.github.solcott.activitytracker.data.units.parseDecimal
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
@@ -39,6 +44,7 @@ import io.github.solcott.dataresult.Origin
 import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.LoadStatus
 import io.github.solcott.uistate.circuit.produceRetainedContentState
+import kotlin.math.roundToLong
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableList
@@ -65,6 +71,7 @@ fun EditGearPresenter(
     gear: GearRepository,
     gearDefaults: GearDefaults,
     profiles: ProfileRepository,
+    unitsRepository: UnitsRepository,
     clock: Clock,
 ): EditGearState {
     val rkey = screen.rkey
@@ -75,6 +82,9 @@ fun EditGearPresenter(
     val brand = rememberTextFieldState()
     val model = rememberTextFieldState()
     val weight = rememberTextFieldState()
+    val startingDistance = rememberTextFieldState()
+    val startingTime = rememberTextFieldState()
+    val units by unitsRepository.units.collectAsState()
     val notes = rememberTextFieldState()
     var type by rememberRetained { mutableStateOf(GearType.BIKE) }
     // As stored, so a kind this client doesn't know survives a save unless the type changes.
@@ -108,6 +118,10 @@ fun EditGearPresenter(
             brand.setTextAndPlaceCursorAtEnd(record.brand.orEmpty())
             model.setTextAndPlaceCursorAtEnd(record.model.orEmpty())
             weight.setTextAndPlaceCursorAtEnd(record.weight?.toString().orEmpty())
+            startingDistance.setTextAndPlaceCursorAtEnd(
+                record.startingDistance?.let { formatStarting(UnitConversions.toDistanceUnit(it.toDouble(), units)) }.orEmpty()
+            )
+            startingTime.setTextAndPlaceCursorAtEnd(record.startingTime?.let { formatStarting(it / SECONDS_PER_HOUR) }.orEmpty())
             notes.setTextAndPlaceCursorAtEnd(record.notes.orEmpty())
             type = record.type
             kind = record.kind
@@ -137,6 +151,8 @@ fun EditGearPresenter(
                     model = model.trimmedOrNull(),
                     sports = sports.ifEmpty { null },
                     weight = weight.text.toString().toIntOrNull()?.coerceIn(0, GearItemRecord.MAX_WEIGHT),
+                    startingDistance = startingDistance.parsedOrNull { UnitConversions.fromDistanceUnit(it, units) },
+                    startingTime = startingTime.parsedOrNull { it * SECONDS_PER_HOUR },
                     notes = notes.trimmedOrNull(),
                     acquiredAt = acquiredOn?.atStartOfDayIn(TimeZone.UTC),
                     retiredAt = retired,
@@ -164,6 +180,9 @@ fun EditGearPresenter(
         brand = brand,
         model = model,
         weight = weight,
+        startingDistance = startingDistance,
+        startingTime = startingTime,
+        units = units,
         notes = notes,
         type = type,
         types = TYPES,
@@ -237,3 +256,12 @@ private fun saveErrorOf(e: Throwable): UiError =
         e is XrpcException && e.error == SpaceErrors.SCOPE_MISSING -> UiError(UiError.Kind.GearSignInAgain)
         else -> UiError.of(UiError.Kind.SaveGear, e)
     }
+
+/** The field's number, in its unit, as stored ([toStored]: meters or seconds), rounded; null when empty, unreadable or negative. */
+private fun TextFieldState.parsedOrNull(toStored: (Double) -> Double): Long? =
+    parseDecimal(text.toString())?.takeIf { it >= 0 }?.let { toStored(it).roundToLong() }
+
+/** A starting value for its field: up to one decimal, ungrouped, so [parsedOrNull] reads it back. */
+private fun formatStarting(value: Double): String = formatDecimal(value, decimals = 1, trimZeros = true, grouping = null)
+
+private const val SECONDS_PER_HOUR = 3600.0

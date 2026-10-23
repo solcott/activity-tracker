@@ -33,6 +33,10 @@ data class GearItemRecord(
     val acquiredAt: Instant? = null,
     /** When the athlete retired it; null while it's in use. */
     val retiredAt: Instant? = null,
+    /** Meters it was used for before the athlete tracked it; added to its usage totals, never to their breakdowns. */
+    val startingDistance: Long? = null,
+    /** Seconds it was used for before the athlete tracked it; added to its usage totals, never to their breakdowns. */
+    val startingTime: Long? = null,
     @SerialName($$"$type") val recordType: String = Nsid.GEAR_ITEM,
 ) {
     companion object {
@@ -99,6 +103,98 @@ data class GearView(
     val photo: String? = null,
 )
 
+/**
+ * `app.activitytracker.gear.defs#gearTotals`: usage totals over the activities counted for an item, for one viewer. Each activity counts
+ * once, and only the activities whose gear the viewer may see.
+ */
+@Immutable
+@Serializable
+data class GearTotals(
+    val activities: Long,
+    /** Seconds: each activity's moving time, or its elapsed time when it has none. */
+    val movingTime: Long,
+    /** Meters. */
+    val distance: Long,
+    /** Meters. */
+    val elevationGain: Long,
+    /** Meters: vertical, for skis and boards. */
+    val elevationLoss: Long,
+    /** Distinct local dates the item was used on. */
+    val days: Long,
+    /** Activities of [Sport] dive; null when there are none. */
+    val dives: Long? = null,
+    /** Seconds of bottom time over those dives; null when there are none. */
+    val bottomTime: Long? = null,
+) {
+    companion object {
+        /** No activities counted. */
+        val ZERO = GearTotals(activities = 0, movingTime = 0, distance = 0, elevationGain = 0, elevationLoss = 0, days = 0)
+    }
+}
+
+/** `app.activitytracker.gear.defs#gearStarting`: the usage an item had before the athlete tracked it. */
+@Immutable
+@Serializable
+data class GearStarting(
+    /** Meters. */
+    val distance: Long? = null,
+    /** Seconds. */
+    val time: Long? = null,
+)
+
+/** `app.activitytracker.gear.defs#gearSportTotals`: an item's totals over one activity type. */
+@Immutable
+@Serializable
+data class GearSportTotals(
+    /** A [Sport] value. */
+    val sport: String,
+    val totals: GearTotals,
+    /** A [SubSport] value; null for the sport without one. */
+    val subSport: String? = null,
+)
+
+/** `app.activitytracker.gear.defs#gearYearTotals`: an item's totals over one year of local start dates. */
+@Immutable @Serializable data class GearYearTotals(val year: Int, val totals: GearTotals)
+
+/** `app.activitytracker.gear.defs#gearUsage`: an item's usage for one viewer. */
+@Immutable
+@Serializable
+data class GearUsage(
+    /** Including [starting]. */
+    val totals: GearTotals,
+    /** Most used first; never includes [starting]. */
+    val bySport: List<GearSportTotals>,
+    /** Newest first; never includes [starting]. */
+    val byYear: List<GearYearTotals>,
+    /** Null when the item has none. */
+    val starting: GearStarting? = null,
+)
+
+/** `app.activitytracker.gear.defs#actorGearItem`: one of an athlete's items, with its totals for the viewer. */
+@Immutable
+@Serializable
+data class ActorGearItem(
+    val gear: GearView,
+    /** Including starting usage. */
+    val totals: GearTotals,
+    val retired: Boolean,
+)
+
+/** The one total the gear list shows for an item, by its [GearType] ([GearType.mainTotal]). */
+enum class GearMainTotal {
+    /** [GearTotals.distance]. */
+    DISTANCE,
+
+    /** [GearTotals.days] and [GearTotals.elevationLoss] (vertical). */
+    DAYS_AND_VERTICAL,
+
+    /** [GearTotals.dives]. */
+    DIVES,
+
+    /** [GearTotals.movingTime]. */
+    TIME,
+}
+
 /** [GearItemRecord.type] values, an open set, and the kinds each type offers ([kinds]). */
 object GearType {
     const val BIKE = "bike"
@@ -157,6 +253,24 @@ object GearType {
 
     /** [kind] if [type] offers it, else null: an unknown kind shows as the type alone. */
     fun knownKind(type: String, kind: String?): String? = kind?.takeIf { it in kinds(type) }
+
+    /** The total the gear list shows for an item of [type]; [GearMainTotal.TIME] for a type this client doesn't know. */
+    fun mainTotal(type: String): GearMainTotal =
+        when (type) {
+            BIKE,
+            COMPONENT,
+            SHOES,
+            WHEELCHAIR,
+            STROLLER,
+            SKATES -> GearMainTotal.DISTANCE
+            SKI,
+            SNOWBOARD,
+            XC_SKI,
+            SKI_BOOTS,
+            SNOWBOARD_BOOTS -> GearMainTotal.DAYS_AND_VERTICAL
+            DIVE_GEAR -> GearMainTotal.DIVES
+            else -> GearMainTotal.TIME
+        }
 
     private val KINDS =
         mapOf(
