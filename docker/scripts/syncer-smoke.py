@@ -3,18 +3,21 @@
 Run through syncer-smoke.sh, which starts the quick tunnel the stub's did:web is served through. Standard library plus the
 openssl CLI only. As <name>.test it creates a member-list space and admits the stub DID as a reader; then, as the stub, it mints
 a delegation token, exchanges it for a space credential, registers for write notifications, waits for the notifyWrite a new
-record triggers and reads the ops back with listRepoOps. With --blob it also puts a record referencing an uploaded blob and
-reads the blob back through space getBlob with the stub's credential.
+record triggers and reads the ops back with listRepoOps, checking each commit's MAC (the Oct 22 alpha): a fresh P-256 key share
+per request, ECDH against the author's #atproto_kem key, HKDF, then HMAC-SHA256. With --blob it also puts a record referencing an
+uploaded blob and reads the blob back through space getBlob with the stub's credential.
 
-Usage: syncer-smoke.py <name> <pds-url> <stub-host> <stub-port> <password> [--blob]
+Usage: syncer-smoke.py <name> <pds-url> <stub-host> <stub-port> <password> [--blob]   (PLC_URL defaults to http://localhost:2582)
 """
 
 import base64
 import hashlib
+import hmac
 import http.server
 import json
 import os
 import queue
+import re
 import secrets
 import subprocess
 import sys
@@ -26,6 +29,11 @@ import urllib.parse
 import urllib.request
 
 P256_N = 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551
+P256_P = 0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF
+P256_B = 0x5AC635D8AA3A93E7B3EBBD55769886BC651D06B0CC53B0F63BCE3C3E27D2604B
+# SubjectPublicKeyInfo DER for a P-256 key, up to the uncompressed point.
+P256_SPKI_PREFIX = bytes.fromhex("3059301306072a8648ce3d020106082a8648ce3d030107034200")
+KEM_PREFIX = b"HPKE-v1" + b"KEM" + (0x0010).to_bytes(2, "big")
 B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 SPACE_TYPE = "app.activitytracker.smoke"
 COLLECTION = "app.activitytracker.smoke.note"
@@ -54,6 +62,39 @@ def b58(data):
     return "1" * (len(data) - len(data.lstrip(b"\0"))) + out
 
 
+def b58decode(text):
+    n = 0
+    for ch in text:
+        n = n * 58 + B58.index(ch)
+    raw = n.to_bytes((n.bit_length() + 7) // 8, "big") if n else b""
+    return b"\0" * (len(text) - len(text.lstrip("1"))) + raw
+
+
+def p256_point(multibase):
+    """The uncompressed point (0x04 || X || Y) of a P-256 Multikey or did:key."""
+    data = b58decode(multibase.removeprefix("did:key:").removeprefix("z"))
+    if data[:2] != b"\x80\x24" or len(data) != 35:
+        fail(f"not a P-256 Multikey: {multibase}")
+    x = int.from_bytes(data[3:], "big")
+    y = pow((x * x * x - 3 * x + P256_B) % P256_P, (P256_P + 1) // 4, P256_P)
+    if y & 1 != data[2] & 1:
+        y = P256_P - y
+    return b"\x04" + x.to_bytes(32, "big") + y.to_bytes(32, "big")
+
+
+def hkdf_sha256(ikm, info, length=32, salt=b""):
+    prk = hmac.new(salt or b"\0" * 32, ikm, hashlib.sha256).digest()
+    out, block, i = b"", b"", 1
+    while len(out) < length:
+        block = hmac.new(prk, block + info + bytes([i]), hashlib.sha256).digest()
+        out, i = out + block, i + 1
+    return out[:length]
+
+
+def u16(n):
+    return n.to_bytes(2, "big")
+
+
 def jwt_payload(token):
     part = token.split(".")[1]
     return json.loads(base64.urlsafe_b64decode(part + "=" * (-len(part) % 4)))
@@ -67,6 +108,7 @@ class P256Key:
         subprocess.run(["openssl", "ecparam", "-name", "prime256v1", "-genkey", "-noout", "-out", self.path], check=True)
         der = subprocess.run(["openssl", "ec", "-in", self.path, "-pubout", "-outform", "DER"], check=True, capture_output=True).stdout
         point = der[-65:]
+        self.point = point
         x, y = point[1:33], point[33:]
         compressed = bytes([3 if y[-1] & 1 else 2]) + x
         # Multikey / did:key: multicodec p256-pub (0x1200 as a varint), base58btc with the multibase "z" prefix.
@@ -118,22 +160,49 @@ def must(result, what):
     return payload
 
 
-def http_signature(key, authorization, audience=None):
-    """The RFC 9421 signature @atproto/space puts on credential requests (keyid, no audience) and credentialed reads."""
-    if audience is None:
-        params = f'("authorization");keyid="{key.did_key}"'
-        lines = [f'"authorization": {authorization}']
-    else:
-        params = '("authorization" "atproto-space-audience")'
-        lines = [f'"authorization": {authorization}', f'"atproto-space-audience": {audience}']
-    lines.append(f'"@signature-params": {params}')
-    sig = base64.b64encode(key.sign("\n".join(lines).encode())).rstrip(b"=").decode()
-    return {"Signature-Input": f"atproto-space={params}", "Signature": f"atproto-space=:{sig}:"}
+def http_signature(key, authorization, audience):
+    """The RFC 9421 signature @atproto/space puts on credentialed reads (credential requests carry none)."""
+    params = '("authorization" "atproto-space-audience");tag="atproto-space-credential"'
+    lines = [f'"authorization": {authorization}', f'"atproto-space-audience": {audience}', f'"@signature-params": {params}']
+    sig = base64.b64encode(key.sign("\n".join(lines).encode())).decode()
+    return {"Signature-Input": f"atproto-space-credential={params}", "Signature": f"atproto-space-credential=:{sig}:"}
 
 
 def credential_headers(credential, audience, binding):
-    authorization = f"Atproto-Space {credential}"
+    authorization = f"Atproto-Space-Credential {credential}"
     return {"Authorization": authorization, "Atproto-Space-Audience": audience, **http_signature(binding, authorization, audience)}
+
+
+class RepoMac:
+    """One listRepoOps request's MAC: a fresh ephemeral key agreed with the author's #atproto_kem point, as @atproto/space's encapsulate."""
+
+    def __init__(self, workdir, author_point):
+        eph = P256Key(workdir, f"kem-{secrets.token_hex(4)}")
+        peer = os.path.join(workdir, f"peer-{secrets.token_hex(4)}.der")
+        with open(peer, "wb") as f:
+            f.write(P256_SPKI_PREFIX + author_point)
+        dh = subprocess.run(
+            ["openssl", "pkeyutl", "-derive", "-inkey", eph.path, "-peerkey", peer, "-peerform", "DER"], check=True, capture_output=True
+        ).stdout
+        info = u16(32) + KEM_PREFIX + b"shared_secret" + eph.point + author_point
+        self.secret = hkdf_sha256(KEM_PREFIX + b"eae_prk" + dh, info)
+        self.header = f'type="atproto-space-repo", ver=1, key_share="{eph.did_key}"'
+
+    def check(self, response_headers, space, repo, commit):
+        """Fails unless the response's Atproto-Space-Mac is the HMAC of this commit, and the commit is the one asked for."""
+        if commit["space"] != space or commit["repo"] != repo:
+            fail(f"commit is for {commit['repo']} in {commit['space']}")
+        value = next((v for k, v in response_headers.items() if k.lower() == "atproto-space-mac"), "")
+        m = re.search(r"mac=:([A-Za-z0-9+/=]+):", value)
+        if 'type="atproto-space-repo"' not in value or "ver=1" not in value or not m:
+            fail(f"listRepoOps answered without a repo MAC: {value!r}")
+        b64 = commit["data"]["$bytes"]
+        data = base64.b64decode(b64 + "=" * (-len(b64) % 4))
+        context = b"atproto-space-repo-v1"
+        for field in (space, repo, commit["rev"]):
+            context += u16(len(field.encode())) + field.encode()
+        if not hmac.compare_digest(hmac.new(self.secret, context + data, hashlib.sha256).digest(), base64.b64decode(m.group(1))):
+            fail("commit MAC doesn't verify")
 
 
 def start_stub(port, did_doc, notifications):
@@ -246,39 +315,44 @@ def main():
     claims = {
         "iss": stub_did,
         "sub": space,
-        "aud": f"{did}#atproto_space_host",
+        "aud": f"{did}#atproto_pds",
         "iat": now,
         "exp": now + 60,
         "jti": secrets.token_hex(16),
     }
     signing_input = f"{b64url(json.dumps(header).encode())}.{b64url(json.dumps(claims).encode())}"
     delegation = f"{signing_input}.{b64url(signing.sign(signing_input.encode()))}"
-    authorization = f"Bearer {delegation}"
+    exchange = {"space": space, "credentialKid": binding.did_key, "delegationToken": delegation}
     credential = must(
-        xrpc(
-            pds,
-            "com.atproto.space.getSpaceCredential",
-            "POST",
-            body={"space": space},
-            headers={"Authorization": authorization, **http_signature(binding, authorization)},
-        ),
+        xrpc(pds, "com.atproto.space.getSpaceCredential", "POST", body=exchange),
         "getSpaceCredential with the stub's delegation token",
     )["credential"]
     cred = jwt_payload(credential)
     log(f"ok   getSpaceCredential: iss={cred['iss']} cnf.kid={cred.get('cnf', {}).get('kid', '')[:24]}... lifetime={cred['exp'] - cred['iat']}s")
 
-    status, payload, _ = xrpc(
-        pds,
-        "com.atproto.space.getSpaceCredential",
-        "POST",
-        body={"space": space},
-        headers={"Authorization": authorization, **http_signature(binding, authorization)},
-    )
+    status, payload, _ = xrpc(pds, "com.atproto.space.getSpaceCredential", "POST", body=exchange)
     if status < 400:
         fail("getSpaceCredential accepted a replayed delegation token")
     log(f"ok   replayed delegation token refused: {payload.get('error') if isinstance(payload, dict) else status}")
 
     creds = credential_headers(credential, did, binding)
+
+    plc = os.environ.get("PLC_URL", "http://localhost:2582")
+    with urllib.request.urlopen(f"{plc}/{did}", timeout=30) as resp:
+        author_doc = json.loads(resp.read())
+    kem = next((m for m in author_doc.get("verificationMethod", []) if m["id"].endswith("#atproto_kem")), None)
+    if not kem:
+        fail(f"{did}'s DID document publishes no #atproto_kem key: {json.dumps(author_doc)[:400]}")
+    author_kem = p256_point(kem["publicKeyMultibase"])
+    log(f"ok   {did} publishes #atproto_kem {kem['publicKeyMultibase'][:16]}...")
+
+    def list_repo_ops(params, what):
+        mac = RepoMac(workdir, author_kem)
+        status, page, rh = xrpc(pds, "com.atproto.space.listRepoOps", params=params, headers={**creds, "Atproto-Space-Want-Mac": mac.header})
+        page = must((status, page, rh), what)
+        if page.get("commit"):
+            mac.check(rh, space, did, page["commit"])
+        return page
 
     # 2. Register for notifications, then write as the authority and wait for the callout.
     registered = must(
@@ -312,16 +386,17 @@ def main():
         fail("notifyWrite service auth isn't from the authority to the registered service id")
 
     # 3. Pull the ops with the credential.
-    ops = must(xrpc(pds, "com.atproto.space.listRepoOps", params={"space": space, "repo": did}, headers=creds), "listRepoOps")
+    status, payload, _ = xrpc(pds, "com.atproto.space.listRepoOps", params={"space": space, "repo": did}, headers=creds)
+    if status < 400:
+        fail("listRepoOps answered a credentialed read without Atproto-Space-Want-Mac")
+    log(f"ok   listRepoOps without Want-Mac refused: {payload.get('error') if isinstance(payload, dict) else status}")
+    ops = list_repo_ops({"space": space, "repo": did}, "listRepoOps")
     found = [op for op in ops["ops"] if op["rkey"] == rkey]
     if not found or found[0].get("value", {}).get("text") != marker:
         fail(f"listRepoOps didn't return the new record: {json.dumps(ops)[:400]}")
-    log(f"ok   listRepoOps: {len(ops['ops'])} ops, new record rev {found[0]['rev']}, commit rev {ops.get('commit', {}).get('rev')}")
+    log(f"ok   listRepoOps: {len(ops['ops'])} ops, new record rev {found[0]['rev']}, commit rev {ops.get('commit', {}).get('rev')} (MAC verified)")
     since = ops["ops"][-1]["rev"]
-    tail = must(
-        xrpc(pds, "com.atproto.space.listRepoOps", params={"space": space, "repo": did, "since": since}, headers=creds),
-        "listRepoOps since",
-    )
+    tail = list_repo_ops({"space": space, "repo": did, "since": since}, "listRepoOps since")
     log(f"ok   listRepoOps since {since}: {len(tail['ops'])} ops")
 
     status, payload, _ = xrpc(pds, "com.atproto.space.listRepoOps", params={"space": space, "repo": did})
@@ -337,10 +412,7 @@ def main():
     note, body = wait_for_notification(notifications, 60)
     if not note:
         fail("no notifyWrite for the delete within 60 s")
-    tail = must(
-        xrpc(pds, "com.atproto.space.listRepoOps", params={"space": space, "repo": did, "since": since}, headers=creds),
-        "listRepoOps after delete",
-    )
+    tail = list_repo_ops({"space": space, "repo": did, "since": since}, "listRepoOps after delete")
     log(f"ok   delete notified (rev {body['repoRev']}); ops since: {json.dumps(tail['ops'])[:300]}")
 
     if with_blob:
