@@ -9,11 +9,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
+import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.formContent
 import io.github.solcott.activitytracker.app.profile.rememberApprovesFollowers
@@ -27,6 +29,7 @@ import io.github.solcott.activitytracker.data.gear.GearCollection
 import io.github.solcott.activitytracker.data.gear.GearCollections
 import io.github.solcott.activitytracker.data.gear.GearDefaults
 import io.github.solcott.activitytracker.data.gear.GearItem
+import io.github.solcott.activitytracker.data.gear.GearMountException
 import io.github.solcott.activitytracker.data.gear.GearNeedsSignInException
 import io.github.solcott.activitytracker.data.gear.GearPhotoEdit
 import io.github.solcott.activitytracker.data.gear.GearRepository
@@ -39,6 +42,7 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
+import io.github.solcott.activitytracker.lexicon.app.GearMounts
 import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
@@ -56,6 +60,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.datetime.todayIn
 
 private val TYPES: ImmutableList<String> = GearType.all.toImmutableList()
 
@@ -63,7 +68,8 @@ private val TYPES: ImmutableList<String> = GearType.all.toImmutableList()
  * Adds or edits a gear item. Every save, retire and delete is a direct call ([GearRepository]) that goes back to the list when it's done,
  * and keeps the form as filled in when it fails. A new item starts at Only me. The activity types it's a default for are saved after the
  * item, to the athlete's private defaults ([GearDefaults]), and then the collections it's in ([GearCollections]), each only when they
- * changed.
+ * changed. A new item opened to mount ([EditGearScreen.mountOn]) starts as a component and, once saved, is mounted there from today, in
+ * place of [EditGearScreen.replacing] when that's set (gear/gear-components). An item mounted now shows what it's on, read-only.
  */
 @CircuitInject(EditGearScreen::class, SessionScope::class)
 @Composable
@@ -90,7 +96,7 @@ fun EditGearPresenter(
     val startingTime = rememberTextFieldState()
     val units by unitsRepository.units.collectAsState()
     val notes = rememberTextFieldState()
-    var type by rememberRetained { mutableStateOf(GearType.BIKE) }
+    var type by rememberRetained { mutableStateOf(if (screen.mountOn != null) GearType.COMPONENT else GearType.BIKE) }
     // As stored, so a kind this client doesn't know survives a save unless the type changes.
     var kind by rememberRetained { mutableStateOf<String?>(null) }
     var sports by rememberRetained { mutableStateOf(emptyList<String>()) }
@@ -110,6 +116,13 @@ fun EditGearPresenter(
     var confirmingDelete by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<UiError?>(null) }
     val flights = rememberSingleFlight()
+    val zone = remember { TimeZones.device() }
+    val openMount = GearMounts.open(loaded.data?.record?.mounts)
+    val parentName by
+        produceState<String?>(null, openMount?.parent) {
+            val parent = openMount?.parent?.rkey ?: return@produceState
+            value = runSuspendCatching { gear.item(parent)?.record?.name }.getOrNull()
+        }
     val approvesFollowers = rememberApprovesFollowers(profiles)
     LaunchedEffect(rkey) {
         if (rkey != null && savedDefaults == null) {
@@ -190,9 +203,15 @@ fun EditGearPresenter(
                     collections.setMembership(saved.uri(gear.did), chosen)
                     savedCollections = chosen
                 }
+                val mountOn = screen.mountOn?.let(::AtUri)
+                if (rkey == null && mountOn != null) {
+                    val today = clock.todayIn(zone).atStartOfDayIn(zone)
+                    val replacing = screen.replacing?.let(::AtUri)?.rkey?.let { gear.item(it) }
+                    if (replacing != null) gear.replace(replacing, saved, today) else gear.mount(saved, mountOn, today)
+                }
             }
                 .onSuccess { navigator.pop() }
-                .onFailure { error = saveErrorOf(it) }
+                .onFailure { error = if (it is GearMountException) mountErrorOf(it) else saveErrorOf(it) }
         }
     }
 
@@ -218,6 +237,8 @@ fun EditGearPresenter(
         visibility = visibility,
         acquiredOn = acquiredOn,
         retiredOn = retiredAt?.toLocalDateTime(TimeZone.currentSystemDefault())?.date,
+        mountedOn =
+            openMount?.let { mount -> parentName?.let { GearMountedOn(mount.parent.value, it, mount.from.toLocalDateTime(zone).date) } },
         photo = photo,
         nameMissing = nameMissing && name.text.isBlank(),
         saving = flights.isRunning(SAVE) || flights.isRunning(DELETE),
@@ -257,6 +278,7 @@ fun EditGearPresenter(
             EditGearEvent.Unretire -> save(null)
             EditGearEvent.Delete -> confirmingDelete = true
             EditGearEvent.DismissDelete -> confirmingDelete = false
+            EditGearEvent.OpenMountedOn -> openMount?.let { navigator.goTo(GearScreen(it.parent.value)) }
             EditGearEvent.ConfirmDelete -> {
                 confirmingDelete = false
                 val item = existing ?: return@EditGearState

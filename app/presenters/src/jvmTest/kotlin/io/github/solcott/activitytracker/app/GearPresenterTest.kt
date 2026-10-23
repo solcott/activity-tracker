@@ -1,11 +1,15 @@
 package io.github.solcott.activitytracker.app
 
+import androidx.compose.runtime.Composable
+import app.cash.turbine.ReceiveTurbine
 import com.slack.circuit.test.FakeNavigator
+import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.app.gear.EditGearScreen
 import io.github.solcott.activitytracker.app.gear.GearCollectionChoice
 import io.github.solcott.activitytracker.app.gear.GearEvent
 import io.github.solcott.activitytracker.app.gear.GearPresenter
 import io.github.solcott.activitytracker.app.gear.GearScreen
+import io.github.solcott.activitytracker.app.gear.GearState
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -15,6 +19,9 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.GearCollectionRecord
+import io.github.solcott.activitytracker.lexicon.app.GearComponent
+import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
+import io.github.solcott.activitytracker.lexicon.app.GearMount
 import io.github.solcott.activitytracker.lexicon.app.GearTotals
 import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.GearUsage
@@ -29,8 +36,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.atStartOfDayIn
 import kotlinx.serialization.json.JsonObject
 
 /** A gear item's page (gear/gear-usage): the owner's with Edit, a follower's without, and an item the viewer may not see. */
@@ -69,7 +79,7 @@ class GearPresenterTest {
         fixture.gearActivities = listOf(ride(fixture.did))
         val repos = fixture.repos()
         val navigator = FakeNavigator(GearScreen(uri))
-        presenterTestOf({ GearPresenter(GearScreen(uri), navigator, repos.gear, repos.gearCollections, repos.activities) }) {
+        presenterTestOf({ GearPresenter(GearScreen(uri), navigator, repos.gear, repos.gearCollections, repos.activities, clock) }) {
             val loaded = awaitUntil { it.content.hasLoaded && it.activities.items.isNotEmpty() }
             val page = checkNotNull(loaded.page)
             assertTrue(page.isOwner)
@@ -89,7 +99,7 @@ class GearPresenterTest {
         fixture.gearActivities = listOf(ride(bob))
         val repos = fixture.repos()
         val navigator = FakeNavigator(GearScreen(uri))
-        presenterTestOf({ GearPresenter(GearScreen(uri), navigator, repos.gear, repos.gearCollections, repos.activities) }) {
+        presenterTestOf({ GearPresenter(GearScreen(uri), navigator, repos.gear, repos.gearCollections, repos.activities, clock) }) {
             val loaded = awaitUntil { it.content.hasLoaded && it.activities.items.isNotEmpty() }
             val page = checkNotNull(loaded.page)
             assertFalse(page.isOwner)
@@ -105,7 +115,7 @@ class GearPresenterTest {
         val uri = AtUri.of(Did("did:plc:bob"), Nsid.GEAR_ITEM, "3private").value
         val repos = fixture.repos()
         presenterTestOf({
-            GearPresenter(GearScreen(uri), FakeNavigator(GearScreen(uri)), repos.gear, repos.gearCollections, repos.activities)
+            GearPresenter(GearScreen(uri), FakeNavigator(GearScreen(uri)), repos.gear, repos.gearCollections, repos.activities, clock)
         }) {
             val state = awaitUntil { it.notFound }
             assertFalse(state.content.hasLoaded)
@@ -131,7 +141,7 @@ class GearPresenterTest {
         raceKit(tarmac)
         val repos = fixture.repos()
         presenterTestOf({
-            GearPresenter(GearScreen(helmet), FakeNavigator(GearScreen(helmet)), repos.gear, repos.gearCollections, repos.activities)
+            GearPresenter(GearScreen(helmet), FakeNavigator(GearScreen(helmet)), repos.gear, repos.gearCollections, repos.activities, clock)
         }) {
             val loaded = awaitUntil { it.collections.isNotEmpty() }
             assertEquals(listOf(GearCollectionChoice("3kit", "Race kit", member = false)), loaded.collections)
@@ -152,10 +162,129 @@ class GearPresenterTest {
         raceKit(uri)
         val repos = fixture.repos()
         presenterTestOf({
-            GearPresenter(GearScreen(uri), FakeNavigator(GearScreen(uri)), repos.gear, repos.gearCollections, repos.activities)
+            GearPresenter(GearScreen(uri), FakeNavigator(GearScreen(uri)), repos.gear, repos.gearCollections, repos.activities, clock)
         }) {
             val loaded = awaitUntil { it.content.hasLoaded }
             assertTrue(loaded.collections.isEmpty())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    private val clock =
+        object : Clock {
+            override fun now() = Instant.parse("2026-07-15T12:00:00Z")
+        }
+    private val zone = TimeZones.device()
+    private val today = LocalDate(2026, 7, 15).atStartOfDayIn(zone)
+    private val march = Instant.parse("2026-03-01T00:00:00Z")
+
+    private fun store(rkey: String, record: GearItemRecord) {
+        fixture.gear.getOrPut("repo") { mutableMapOf() }[rkey] =
+            AtJson.encodeToJsonElement(GearItemRecord.serializer(), record) as JsonObject
+    }
+
+    private fun stored(rkey: String): GearItemRecord =
+        AtJson.decodeFromJsonElement(GearItemRecord.serializer(), fixture.gear.getValue("repo").getValue(rkey))
+
+    private fun chain(name: String, vararg mounts: GearMount) =
+        GearItemRecord(name, GearType.COMPONENT, created, kind = "chain", mounts = mounts.toList().ifEmpty { null })
+
+    /** The Tarmac's page, with [components] mounted on it now. */
+    private fun tarmacWith(vararg components: String): AtUri {
+        val tarmac = AtUri(item(fixture.did))
+        store("3tarmac", GearItemRecord("Tarmac", GearType.BIKE, created))
+        fixture.gearUsage[tarmac.value] =
+            fixture.gearUsage
+                .getValue(tarmac.value)
+                .copy(
+                    components =
+                        components.map {
+                            GearComponent(GearView(AtUri.of(fixture.did, Nsid.GEAR_ITEM, it), it, GearType.COMPONENT), march, totals)
+                        }
+                )
+        return tarmac
+    }
+
+    private suspend fun ReceiveTurbine<GearState>.loaded() = awaitUntil { it.content.hasLoaded }
+
+    @Composable
+    private fun presenter(uri: AtUri, repos: SessionTestFixture.Repos) =
+        GearPresenter(
+            GearScreen(uri.value),
+            FakeNavigator(GearScreen(uri.value)),
+            repos.gear,
+            repos.gearCollections,
+            repos.activities,
+            clock,
+        )
+
+    @Test
+    fun theOwnerMountsAChainOnTheBikeFromToday() = runTest {
+        val tarmac = tarmacWith()
+        store("3chain", chain("Chain #3"))
+        store("3stumpy", GearItemRecord("Stumpjumper", GearType.BIKE, created))
+        val repos = fixture.repos()
+        presenterTestOf({ presenter(tarmac, repos) }) {
+            loaded().eventSink(GearEvent.Mount)
+            val picking = awaitUntil { !it.picker?.candidates.isNullOrEmpty() }
+            assertEquals(listOf("Chain #3", "Stumpjumper"), picking.picker!!.candidates.map { it.name })
+            picking.eventSink(GearEvent.ChooseMount("3chain"))
+            awaitUntil { it.picker == null && !it.mountSaving }
+            assertEquals(listOf(GearMount(tarmac, today)), stored("3chain").mounts)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun replacingAChainEndsItsMountTodayAndMountsTheNewOneFromToday() = runTest {
+        val tarmac = tarmacWith("3chain3")
+        store("3chain3", chain("Chain #3", GearMount(tarmac, march)))
+        store("3chain4", chain("Chain #4"))
+        val repos = fixture.repos()
+        presenterTestOf({ presenter(tarmac, repos) }) {
+            val chain3 = AtUri.of(fixture.did, Nsid.GEAR_ITEM, "3chain3")
+            loaded().eventSink(GearEvent.Replace(chain3.value))
+            val picking = awaitUntil { !it.picker?.candidates.isNullOrEmpty() }
+            val picker = checkNotNull(picking.picker)
+            assertEquals(chain3, picker.replacing?.gear?.uri)
+            assertEquals(listOf("Chain #4"), picker.candidates.map { it.name })
+            picking.eventSink(GearEvent.ChooseMount("3chain4"))
+            awaitUntil { it.picker == null && !it.mountSaving }
+            assertEquals(listOf(GearMount(tarmac, march, today)), stored("3chain3").mounts)
+            assertEquals(listOf(GearMount(tarmac, today)), stored("3chain4").mounts)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun unmountingEndsTheMountOnTheChosenDay() = runTest {
+        val tarmac = tarmacWith("3chain3")
+        store("3chain3", chain("Chain #3", GearMount(tarmac, march)))
+        val repos = fixture.repos()
+        presenterTestOf({ presenter(tarmac, repos) }) {
+            loaded().eventSink(GearEvent.Unmount(AtUri.of(fixture.did, Nsid.GEAR_ITEM, "3chain3").value))
+            val asking = awaitUntil { it.unmounting != null }
+            asking.eventSink(GearEvent.ConfirmUnmount(LocalDate(2026, 6, 1)))
+            awaitUntil { it.unmounting == null && !it.mountSaving }
+            assertEquals(listOf(GearMount(tarmac, march, LocalDate(2026, 6, 1).atStartOfDayIn(zone))), stored("3chain3").mounts)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun mountingAChainStillOnAnotherBikeShowsAnOverlapError() = runTest {
+        val tarmac = tarmacWith()
+        store("3stumpy", GearItemRecord("Stumpjumper", GearType.BIKE, created))
+        store("3chain", chain("Chain #3", GearMount(AtUri.of(fixture.did, Nsid.GEAR_ITEM, "3stumpy"), march)))
+        val repos = fixture.repos()
+        presenterTestOf({ presenter(tarmac, repos) }) {
+            loaded().eventSink(GearEvent.Mount)
+            val picking = awaitUntil { !it.picker?.candidates.isNullOrEmpty() }
+            // A chain mounted elsewhere isn't offered; choosing it anyway is refused.
+            assertTrue(picking.picker!!.candidates.none { it.rkey == "3chain" })
+            picking.eventSink(GearEvent.ChooseMount("3chain"))
+            assertEquals(UiError.Kind.MountOverlap, awaitUntil { it.error != null }.error?.kind)
+            assertEquals(listOf(GearMount(AtUri.of(fixture.did, Nsid.GEAR_ITEM, "3stumpy"), march)), stored("3chain").mounts)
             cancelAndIgnoreRemainingEvents()
         }
     }

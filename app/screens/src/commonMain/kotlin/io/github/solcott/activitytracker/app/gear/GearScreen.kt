@@ -9,12 +9,15 @@ import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
 import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.GearComponent
+import io.github.solcott.activitytracker.lexicon.app.GearMountView
 import io.github.solcott.activitytracker.lexicon.app.GearUsage
 import io.github.solcott.activitytracker.lexicon.app.GearView
 import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.PagedState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.datetime.LocalDate
 
 /**
  * The gear item at [uri], its canonical AT-URI (gear/gear-usage): its photo and details, its usage as the viewer may see it, and the
@@ -22,9 +25,28 @@ import kotlinx.collections.immutable.persistentListOf
  */
 @CircuitSerializable(SessionScope::class) data class GearScreen(val uri: String) : Screen
 
-/** The item as the page shows it: [usage] counts only what the viewer may see. [visibility] is a `Visibility` value, the owner's only. */
+/**
+ * The item as the page shows it: [usage] counts only what the viewer may see. [visibility] is a `Visibility` value, the owner's only. The
+ * items mounted on it now ([components]) and before ([previous]), and the items it was mounted on ([mounts], oldest first), are only those
+ * the viewer may see (gear/gear-components).
+ */
 @Immutable
-data class GearPage(val gear: GearView, val usage: GearUsage, val retired: Boolean, val isOwner: Boolean, val visibility: String? = null)
+data class GearPage(
+    val gear: GearView,
+    val usage: GearUsage,
+    val retired: Boolean,
+    val isOwner: Boolean,
+    val visibility: String? = null,
+    val components: ImmutableList<GearComponent> = persistentListOf(),
+    val previous: ImmutableList<GearComponent> = persistentListOf(),
+    val mounts: ImmutableList<GearMountView> = persistentListOf(),
+)
+
+/** One of the athlete's items the page offers to mount: in use, not mounted elsewhere now, and not one this item is mounted on. */
+@Immutable data class GearMountCandidate(val rkey: String, val name: String, val type: String, val kind: String? = null)
+
+/** Choosing an item to mount on the page's item from today, in place of [replacing] when it's set. */
+@Immutable data class GearMountPicker(val candidates: ImmutableList<GearMountCandidate>, val replacing: GearComponent? = null)
 
 @Immutable
 data class GearState(
@@ -39,7 +61,13 @@ data class GearState(
     val revealed: Revealed = Revealed(),
     /** The athlete's collections by name, each marked when the item is in it; only on the owner's page, since collections are private. */
     val collections: ImmutableList<GearCollectionChoice> = persistentListOf(),
-    /** Why the last action failed: on an activity (a like), or adding the item to a collection or taking it out. */
+    /** Choosing an item to mount or to replace a component with; only on the owner's page. */
+    val picker: GearMountPicker? = null,
+    /** The component the owner is choosing an unmount date for. */
+    val unmounting: GearComponent? = null,
+    /** A mount, unmount or replace is saving. */
+    val mountSaving: Boolean = false,
+    /** Why the last action failed: on an activity (a like), a collection change, or a mount, unmount or replace. */
     val error: UiError? = null,
     val eventSink: (GearEvent) -> Unit = {},
 ) : CircuitUiState {
@@ -62,6 +90,31 @@ sealed interface GearEvent {
 
     /** Adds the item to the collection at [rkey], or takes it out, saving at once; only on the owner's page. */
     data class ToggleCollection(val rkey: String) : GearEvent
+
+    /** Opens the gear page at [uri]: a component, or an item this one was mounted on. */
+    data class OpenGear(val uri: String) : GearEvent
+
+    /** Opens the picker to mount one of the owner's items on this one. */
+    data object Mount : GearEvent
+
+    /** Opens the picker to replace the component at [uri] from today. */
+    data class Replace(val uri: String) : GearEvent
+
+    /** Mounts the item at [rkey] from today, or replaces the picker's component with it. */
+    data class ChooseMount(val rkey: String) : GearEvent
+
+    /** Adds a new item to mount, or to replace the picker's component with, once it's saved. */
+    data object MountNew : GearEvent
+
+    data object DismissMount : GearEvent
+
+    /** Asks for the date to unmount the component at [uri] on. */
+    data class Unmount(val uri: String) : GearEvent
+
+    /** Ends [GearState.unmounting]'s mount at the start of [date]. */
+    data class ConfirmUnmount(val date: LocalDate) : GearEvent
+
+    data object DismissUnmount : GearEvent
 
     data class Activity(val event: ActivityListEvent) : GearEvent
 }

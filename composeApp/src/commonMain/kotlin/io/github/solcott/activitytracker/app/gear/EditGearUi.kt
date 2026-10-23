@@ -89,6 +89,7 @@ import io.github.solcott.activitytracker.composeApp.resources.gear_edit_title
 import io.github.solcott.activitytracker.composeApp.resources.gear_kind
 import io.github.solcott.activitytracker.composeApp.resources.gear_kind_none
 import io.github.solcott.activitytracker.composeApp.resources.gear_model
+import io.github.solcott.activitytracker.composeApp.resources.gear_mounted_on_since
 import io.github.solcott.activitytracker.composeApp.resources.gear_name
 import io.github.solcott.activitytracker.composeApp.resources.gear_name_required
 import io.github.solcott.activitytracker.composeApp.resources.gear_new_title
@@ -295,6 +296,11 @@ private fun GearForm(state: EditGearState, modifier: Modifier = Modifier) {
         }
         if (!state.isNew) {
             HorizontalDivider()
+            state.mountedOn?.let { mounted ->
+                AppTextButton(onClick = { send(EditGearEvent.OpenMountedOn) }) {
+                    Text(stringResource(Res.string.gear_mounted_on_since, mounted.name, mounted.since.toString()))
+                }
+            }
             state.retiredOn?.let {
                 Text(stringResource(Res.string.gear_retired_on, it.toString()), style = MaterialTheme.typography.bodyMedium)
             }

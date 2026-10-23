@@ -3,11 +3,14 @@ package io.github.solcott.activitytracker.app
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import app.cash.turbine.ReceiveTurbine
 import com.slack.circuit.test.FakeNavigator
+import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.app.gear.EditGearEvent
 import io.github.solcott.activitytracker.app.gear.EditGearPresenter
 import io.github.solcott.activitytracker.app.gear.EditGearScreen
 import io.github.solcott.activitytracker.app.gear.EditGearState
 import io.github.solcott.activitytracker.app.gear.GearCollectionChoice
+import io.github.solcott.activitytracker.app.gear.GearMountedOn
+import io.github.solcott.activitytracker.app.gear.GearScreen
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -17,6 +20,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.GearAutoAssignRecord
 import io.github.solcott.activitytracker.lexicon.app.GearCollectionRecord
 import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
+import io.github.solcott.activitytracker.lexicon.app.GearMount
 import io.github.solcott.activitytracker.lexicon.app.GearSportDefault
 import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -31,6 +35,7 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.JsonObject
 
 class EditGearPresenterTest {
@@ -317,5 +322,55 @@ class EditGearPresenterTest {
             cancelAndIgnoreRemainingEvents()
         }
         assertEquals(listOf(uri("3tarmac")), raceKitItems())
+    }
+
+    private val march = Instant.parse("2026-03-01T00:00:00Z")
+
+    @Test
+    fun aMountedChainShowsItsBikeAndOpensIt() = runTest {
+        val tarmac = AtUri.of(fixture.did, Nsid.GEAR_ITEM, "3tarmac")
+        store(pdsRepo, "3tarmac", bike.copy(name = "Tarmac"))
+        store(pdsRepo, "3chain", GearItemRecord("Chain #3", GearType.COMPONENT, created, mounts = listOf(GearMount(tarmac, march))))
+        val navigator = FakeNavigator(EditGearScreen("3chain"))
+        test(EditGearScreen("3chain"), navigator) {
+            val form = awaitUntil { it.mountedOn != null }
+            assertEquals(GearMountedOn(tarmac.value, "Tarmac", march.toLocalDateTime(TimeZones.device()).date), form.mountedOn)
+            form.eventSink(EditGearEvent.OpenMountedOn)
+            assertEquals(GearScreen(tarmac.value), navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun anUnmountedItemShowsNoParent() = runTest {
+        store(pdsRepo, "3chain", GearItemRecord("Chain #3", GearType.COMPONENT, created))
+        test(EditGearScreen("3chain")) {
+            assertNull(awaitUntil { it.content.hasLoaded && it.name.text.isNotEmpty() }.mountedOn)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aNewItemAddedToReplaceAChainIsSavedThenMountedInItsPlace() = runTest {
+        val tarmac = AtUri.of(fixture.did, Nsid.GEAR_ITEM, "3tarmac")
+        store(pdsRepo, "3tarmac", bike.copy(name = "Tarmac"))
+        store(pdsRepo, "3chain3", GearItemRecord("Chain #3", GearType.COMPONENT, created, mounts = listOf(GearMount(tarmac, march))))
+        val screen = EditGearScreen(mountOn = tarmac.value, replacing = AtUri.of(fixture.did, Nsid.GEAR_ITEM, "3chain3").value)
+        val navigator = FakeNavigator(screen)
+        test(screen, navigator) {
+            val form = awaitUntil { it.content.hasLoaded }
+            assertEquals(GearType.COMPONENT, form.type)
+            form.name.setTextAndPlaceCursorAtEnd("Chain #4")
+            form.eventSink(EditGearEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        val chain4 =
+            fixture.gear.getValue(Visibility.SELF).values.single().let { AtJson.decodeFromJsonElement(GearItemRecord.serializer(), it) }
+        val from = chain4.mounts.orEmpty().single()
+        assertEquals(tarmac, from.parent)
+        assertNull(from.to)
+        val chain3 = AtJson.decodeFromJsonElement(GearItemRecord.serializer(), fixture.gear.getValue(pdsRepo).getValue("3chain3"))
+        assertEquals(from.from, chain3.mounts.orEmpty().single().to)
     }
 }

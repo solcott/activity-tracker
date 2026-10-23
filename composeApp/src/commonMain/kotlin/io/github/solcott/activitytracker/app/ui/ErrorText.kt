@@ -40,6 +40,10 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_replies
 import io.github.solcott.activitytracker.composeApp.resources.error_load_route
 import io.github.solcott.activitytracker.composeApp.resources.error_load_segment
 import io.github.solcott.activitytracker.composeApp.resources.error_load_starred_segments
+import io.github.solcott.activitytracker.composeApp.resources.error_mount_ends_before_start
+import io.github.solcott.activitytracker.composeApp.resources.error_mount_loop
+import io.github.solcott.activitytracker.composeApp.resources.error_mount_overlap
+import io.github.solcott.activitytracker.composeApp.resources.error_mount_too_deep
 import io.github.solcott.activitytracker.composeApp.resources.error_no_location
 import io.github.solcott.activitytracker.composeApp.resources.error_open_subject
 import io.github.solcott.activitytracker.composeApp.resources.error_original_not_sent
@@ -53,6 +57,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_save_activit
 import io.github.solcott.activitytracker.composeApp.resources.error_save_data_source
 import io.github.solcott.activitytracker.composeApp.resources.error_save_gear
 import io.github.solcott.activitytracker.composeApp.resources.error_save_gear_collection
+import io.github.solcott.activitytracker.composeApp.resources.error_save_mount
 import io.github.solcott.activitytracker.composeApp.resources.error_save_privacy_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_save_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_save_settings
@@ -162,6 +167,11 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.LoadGearCollection -> Res.string.error_load_gear_collection
             UiError.Kind.SaveGearCollection -> Res.string.error_save_gear_collection
             UiError.Kind.DeleteGearCollection -> Res.string.error_delete_gear_collection
+            UiError.Kind.SaveMount -> Res.string.error_save_mount
+            UiError.Kind.MountOverlap -> Res.string.error_mount_overlap
+            UiError.Kind.MountLoop -> Res.string.error_mount_loop
+            UiError.Kind.MountTooDeep -> Res.string.error_mount_too_deep
+            UiError.Kind.MountEndsBeforeStart -> Res.string.error_mount_ends_before_start
             UiError.Kind.GearSignInAgain -> Res.string.error_gear_sign_in_again
             UiError.Kind.TooManyZones -> Res.string.error_too_many_zones
             UiError.Kind.NoLocation -> Res.string.error_no_location

@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.gear
 
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.v2.runComposeUiTest
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
@@ -41,4 +42,39 @@ class GearUiTest {
     @Test
     fun anItemTheViewerMayNotSeeSaysSo() =
         show(GearSamples.notFound) { onNodeWithText("This gear isn't available", substring = true).assertExists() }
+
+    @Test
+    fun aBikeListsItsComponentsNowAndBeforeWithMountForTheOwner() =
+        show(GearSamples.components) {
+            onNodeWithText("Components").assertExists()
+            onNodeWithText("Chain #4").assertExists()
+            onNodeWithText("Since 2026-07-01").assertExists()
+            onNodeWithText("Previous").assertExists()
+            onNodeWithText("2025-03-01 – 2026-07-01").assertExists()
+            onNodeWithText("Mount a component").assertExists()
+            onNodeWithContentDescription("Actions for Chain #4").assertExists()
+        }
+
+    @Test
+    fun aFollowerCannotManageComponents() =
+        show(GearSamples.componentsFollower) {
+            onNodeWithText("Chain #4").assertExists()
+            onNodeWithText("Mount a component").assertDoesNotExist()
+            onNodeWithContentDescription("Actions for Chain #4").assertDoesNotExist()
+        }
+
+    @Test
+    fun aChainShowsTheBikeItWasMountedOn() =
+        show(GearSamples.chain) {
+            onNodeWithText("Mounted on").assertExists()
+            onNodeWithText("Gravel bike").assertExists()
+        }
+
+    @Test
+    fun replacingAChainOffersTheOwnersOtherParts() =
+        show(GearSamples.replacing) {
+            onNodeWithText("Replace Chain #4").assertExists()
+            onNodeWithText("Chain #5").assertExists()
+            onNodeWithText("New item").assertExists()
+        }
 }
