@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.Comments
 import io.github.solcott.activitytracker.appview.db.Follows
+import io.github.solcott.activitytracker.appview.db.GearItems
 import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -16,12 +17,16 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityMediaView
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
+import io.github.solcott.activitytracker.lexicon.app.ActorGearItem
 import io.github.solcott.activitytracker.lexicon.app.FeedFilterParams
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
+import io.github.solcott.activitytracker.lexicon.app.GetActorGear
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
 import io.github.solcott.activitytracker.lexicon.app.GetComments
+import io.github.solcott.activitytracker.lexicon.app.GetGear
+import io.github.solcott.activitytracker.lexicon.app.GetGearActivities
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.Paging
@@ -53,6 +58,7 @@ import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 
 /** Read side: turns indexed rows into lexicon views. */
+@Suppress("TooManyFunctions") // One per feed, activity, profile and gear query, and the hydrate they share.
 class Views(private val db: Database, private val avatars: AvatarUrls, private val mediaUrls: MediaUrls) {
     suspend fun timeline(viewer: Did, params: GetTimeline.Params): GetTimeline.Output = db.tx {
         val authors =
@@ -103,6 +109,43 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                 .toList()
         val next = rows.takeIf { it.size == pageSize }?.last()?.let { "${it[Activities.startedAt]}::${it[Activities.uri]}" }
         GetAuthorActivitiesByStart.Output(hydrate(rows, viewer), next)
+    }
+
+    /** One gear item and its usage for [viewer] (`gear/gear-usage`); `NotFound` when they may not see it. */
+    suspend fun gear(viewer: Did?, params: GetGear.Params): GetGear.Output = db.tx {
+        val item = requireVisibleGear(params.uri.value, viewer)
+        val author = item[GearItems.authorDid]
+        GetGear.Output(
+            gear = item.gearView(mediaUrls, viewer),
+            usage = gearUsage(item, viewer),
+            retired = item[GearItems.retiredAt] != null,
+            visibility = item[GearItems.visibility].takeIf { viewer?.value == author },
+        )
+    }
+
+    /** A page of an athlete's gear items [viewer] may see, each with its totals for them, in use first, then by name. */
+    suspend fun actorGear(viewer: Did?, params: GetActorGear.Params): GetActorGear.Output = db.tx {
+        val did =
+            resolveActor(params.actor) ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
+        val pageSize = Paging.clamp(params.limit)
+        val items = actorGearPage(did, viewer, params.cursor, pageSize)
+        val totals = gearTotals(items, viewer)
+        val next = items.takeIf { it.size == pageSize }?.last()?.let(::actorGearCursor)
+        GetActorGear.Output(
+            items.map {
+                ActorGearItem(it.gearView(mediaUrls, viewer), totals.getValue(it[GearItems.uri]), it[GearItems.retiredAt] != null)
+            },
+            next,
+        )
+    }
+
+    /** The activities counted in an item's usage for [viewer], newest first by start, cursor `"<startedAt>::<uri>"`. */
+    suspend fun gearActivities(viewer: Did?, params: GetGearActivities.Params): GetGearActivities.Output = db.tx {
+        requireVisibleGear(params.uri.value, viewer)
+        val pageSize = Paging.clamp(params.limit)
+        val rows = countedActivities(viewer, params.uri.value, params.cursor, pageSize).toList()
+        val next = rows.takeIf { it.size == pageSize }?.last()?.let { "${it[Activities.startedAt]}::${it[Activities.uri]}" }
+        GetGearActivities.Output(hydrate(rows, viewer), next)
     }
 
     /** The activity alone; its comments come from [comments]. `comments` is still written, empty, for clients from before that. */

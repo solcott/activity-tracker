@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.lexicon.app.FinishSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
+import io.github.solcott.activitytracker.lexicon.app.GetActorGear
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
 import io.github.solcott.activitytracker.lexicon.app.GetBlocks
@@ -27,6 +28,8 @@ import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.GetFollowRequests
 import io.github.solcott.activitytracker.lexicon.app.GetFollowers
 import io.github.solcott.activitytracker.lexicon.app.GetFollows
+import io.github.solcott.activitytracker.lexicon.app.GetGear
+import io.github.solcott.activitytracker.lexicon.app.GetGearActivities
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetModerationRole
 import io.github.solcott.activitytracker.lexicon.app.GetMutes
@@ -80,6 +83,9 @@ fun Route.xrpcRoutes(
     xrpcQuery(GetLikes.method, verifier) { params, viewer -> views.likes(viewer, params) }
     xrpcQuery(GetComments.method, verifier) { params, viewer -> views.comments(viewer, params) }
     xrpcQuery(GetProfile.method, verifier) { params, viewer -> views.profile(viewer, params.actor) }
+    xrpcQuery(GetGear.method, verifier) { params, viewer -> views.gear(viewer, params) }
+    xrpcQuery(GetActorGear.method, verifier) { params, viewer -> views.actorGear(viewer, params) }
+    xrpcQuery(GetGearActivities.method, verifier) { params, viewer -> views.gearActivities(viewer, params) }
     xrpcQuery(SearchActors.method, verifier) { params, viewer -> search.search(requireViewer(viewer), params) }
     xrpcQuery(GetFollowers.method, verifier) { params, viewer -> graph.followers(viewer, params) }
     xrpcQuery(GetFollows.method, verifier) { params, viewer -> graph.follows(viewer, params) }
