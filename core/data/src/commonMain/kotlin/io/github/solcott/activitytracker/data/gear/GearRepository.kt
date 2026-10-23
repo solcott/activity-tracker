@@ -30,9 +30,13 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActorGearItem
 import io.github.solcott.activitytracker.lexicon.app.AspectRatio
 import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
+import io.github.solcott.activitytracker.lexicon.app.GearMount
+import io.github.solcott.activitytracker.lexicon.app.GearMounts
 import io.github.solcott.activitytracker.lexicon.app.GetActorGear
 import io.github.solcott.activitytracker.lexicon.app.GetGear
 import io.github.solcott.activitytracker.lexicon.app.GetGearActivities
+import io.github.solcott.activitytracker.lexicon.app.MountGraph
+import io.github.solcott.activitytracker.lexicon.app.MountProblem
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
@@ -40,6 +44,7 @@ import io.github.solcott.activitytracker.lexicon.atproto.SyncGetBlob
 import io.github.solcott.dataresult.Outcome
 import io.github.solcott.uistate.Page
 import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -90,6 +95,9 @@ class GearNotFoundException : NoSuchElementException("No such gear")
 
 /** The athlete has no gear collection at the rkey asked for. */
 class GearCollectionNotFoundException : NoSuchElementException("No such gear collection")
+
+/** A mount [GearMounts] refuses, for [problem]; nothing was written. */
+class GearMountException(val problem: MountProblem) : IllegalArgumentException("Mount refused: $problem")
 
 /** This session signed in before gear could be stored in tier spaces, so it can save Public gear only until the athlete signs in again. */
 class GearNeedsSignInException : IllegalStateException("Sign in again to save private gear")
@@ -218,12 +226,49 @@ class GearRepository(
                         else moved(kept, existing.visibility) ?: kept.also { log.w { "Photo not moved" } }
                     }
             }
-        val saved = record.copy(photo = photoRef)
+        val saved = record.copy(photo = photoRef, mounts = endedOnRetiring(existing?.record, record))
         clients.writeOwn(Nsid.GEAR_ITEM, rkey, encode(saved), clients.placeOf(to))
         for (old in existing?.places.orEmpty() - to) clients.deleteOwn(Nsid.GEAR_ITEM, rkey, clients.placeOf(old))
         changes.update { it + 1 }
         val item = GearItem(rkey, saved, to)
         return item.copy(photoUrl = photoUrl(item))
+    }
+
+    /**
+     * Mounts [component] on [parent], another of the athlete's items, from [from] (`gear/gear-components`). Throws [GearMountException]
+     * when [GearMounts] refuses it against the athlete's items, or the parent isn't one of them, before writing anything.
+     */
+    suspend fun mount(component: GearItem, parent: AtUri, from: Instant): GearItem {
+        val items = items()
+        val current = items.firstOrNull { it.rkey == component.rkey } ?: throw GearNotFoundException()
+        val mounts = GearMounts.sorted(current.record.mounts.orEmpty() + GearMount(parent, from))
+        checkMounts(items, mapOf(current to mounts), parent)
+        return save(current, current.record.copy(mounts = mounts), current.visibility)
+    }
+
+    /** Ends [component]'s open mount at [at]; it's returned unchanged when it isn't mounted. */
+    suspend fun unmount(component: GearItem, at: Instant): GearItem {
+        val current = item(component.rkey) ?: throw GearNotFoundException()
+        val mounts = ended(current.record.mounts, at) ?: return current
+        if (mounts == current.record.mounts) throw GearMountException(MountProblem.EMPTY)
+        return save(current, current.record.copy(mounts = mounts), current.visibility)
+    }
+
+    /**
+     * Ends [old]'s open mount at [at] and mounts [new] on the same parent from [at], written in that order. Both are checked first, so a
+     * refused replacement writes nothing. Throws [GearMountException] with [MountProblem.EMPTY] when [old] isn't mounted.
+     */
+    suspend fun replace(old: GearItem, new: GearItem, at: Instant): GearItem {
+        val items = items()
+        val (oldItem, newItem) =
+            listOf(old, new).map { wanted -> items.firstOrNull { it.rkey == wanted.rkey } ?: throw GearNotFoundException() }
+        val parent = GearMounts.open(oldItem.record.mounts)?.parent
+        val oldMounts = ended(oldItem.record.mounts, at)
+        if (parent == null || oldMounts == null || oldMounts == oldItem.record.mounts) throw GearMountException(MountProblem.EMPTY)
+        val newMounts = GearMounts.sorted(newItem.record.mounts.orEmpty() + GearMount(parent, at))
+        checkMounts(items, mapOf(oldItem to oldMounts, newItem to newMounts), parent)
+        save(oldItem, oldItem.record.copy(mounts = oldMounts), oldItem.visibility)
+        return save(newItem, newItem.record.copy(mounts = newMounts), newItem.visibility)
     }
 
     /**
@@ -235,6 +280,15 @@ class GearRepository(
         changes.update { it + 1 }
         runSuspendCatching { collections.removeItem(item.uri(clients.did)) }
             .onFailure { e -> log.w(e) { "Couldn't remove a deleted item from its collections" } }
+    }
+
+    /** Throws [GearMountException] when [GearMounts] refuses [changed]'s new mounts among [items], or [parent] isn't one of them. */
+    private fun checkMounts(items: List<GearItem>, changed: Map<GearItem, List<GearMount>>, parent: AtUri) {
+        val did = clients.did
+        if (items.none { it.uri(did) == parent }) throw GearMountException(MountProblem.FOREIGN_PARENT)
+        val byRkey = changed.mapKeys { it.key.rkey }
+        val graph = MountGraph.of(items.associate { it.uri(did) to (byRkey[it.rkey] ?: it.record.mounts.orEmpty()) })
+        for ((item, mounts) in changed) GearMounts.problem(item.uri(did), mounts, graph)?.let { throw GearMountException(it) }
     }
 
     private suspend fun listPlace(visibility: String): List<Pair<String, GearItemRecord>> =
@@ -289,6 +343,27 @@ class GearRepository(
             // SerializationException is an IllegalArgumentException.
             null
         }
+}
+
+/**
+ * [mounts] with the open one ended at [at], or dropped when it starts at or after [at]; null when none is open. A mount ending before it
+ * starts would be refused, so it's left unchanged: the caller tells that from a change.
+ */
+private fun ended(mounts: List<GearMount>?, at: Instant): List<GearMount>? =
+    GearMounts.open(mounts)?.let { open ->
+        if (at <= open.from) mounts else mounts.orEmpty().map { if (it == open) it.copy(to = at) else it }
+    }
+
+/** [record]'s mounts, with the open one ended on its retirement date when [record] retires an item [before] was in use. */
+private fun endedOnRetiring(before: GearItemRecord?, record: GearItemRecord): List<GearMount>? {
+    val retiredAt = record.retiredAt
+    val open = GearMounts.open(record.mounts)
+    return when {
+        before == null || before.retiredAt != null || retiredAt == null || open == null -> record.mounts
+        // Retired before the mount began: it never really started.
+        retiredAt <= open.from -> record.mounts.orEmpty() - open
+        else -> ended(record.mounts, retiredAt)
+    }
 }
 
 /** 2,000 items: more than any athlete keeps, and a bound on a misbehaving cursor. */
