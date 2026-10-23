@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.gear.GearCollections
 import io.github.solcott.activitytracker.data.gear.GearDefaults
 import io.github.solcott.activitytracker.data.gear.GearRepository
 import io.github.solcott.activitytracker.data.moderation.ModerationRepository
@@ -505,6 +506,7 @@ class SessionTestFixture {
             )
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
         val units = UnitsRepository(profiles, Clock.System, Logger, defaultUnits)
+        val gearCollections = GearCollections(clients, Clock.System)
         val activityManager =
             ActivityManager(
                 db,
@@ -537,7 +539,7 @@ class SessionTestFixture {
             BlockRepository(clients, zones.writer, zones.outbox, feed, Clock.System),
             segmentsOf(clients).prefs,
             LeaderboardBracketsRepository(clients, profiles, Clock.System, Logger),
-            GearRepository(clients, Clock.System, feed, Logger),
+            GearRepository(clients, Clock.System, feed, gearCollections, Logger),
             GearDefaults(clients, Clock.System),
         )
     }

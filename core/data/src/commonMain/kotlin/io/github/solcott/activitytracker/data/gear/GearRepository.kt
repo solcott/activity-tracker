@@ -70,6 +70,12 @@ data class GearItem(
     }
 }
 
+/** The athlete's [items] and their [collections], whose members are limited to those items. */
+@Immutable data class GearAndCollections(val items: List<GearItem>, val collections: List<GearCollection>)
+
+/** A [collection] with its [members] in order, and every one of the athlete's [items]. */
+@Immutable data class GearCollectionItems(val collection: GearCollection, val members: List<GearItem>, val items: List<GearItem>)
+
 /** What a save does to an item's photo. */
 sealed interface GearPhotoEdit {
     data object Keep : GearPhotoEdit
@@ -81,6 +87,9 @@ sealed interface GearPhotoEdit {
 
 /** The athlete has no gear item at the rkey asked for. */
 class GearNotFoundException : NoSuchElementException("No such gear")
+
+/** The athlete has no gear collection at the rkey asked for. */
+class GearCollectionNotFoundException : NoSuchElementException("No such gear collection")
 
 /** This session signed in before gear could be stored in tier spaces, so it can save Public gear only until the athlete signs in again. */
 class GearNeedsSignInException : IllegalStateException("Sign in again to save private gear")
@@ -94,7 +103,13 @@ class GearNeedsSignInException : IllegalStateException("Sign in again to save pr
 @SingleIn(SessionScope::class)
 @Inject
 @Suppress("TooManyFunctions") // The reads and writes, and the photo moves they need.
-class GearRepository(private val clients: SessionClients, private val clock: Clock, private val feed: FeedRepository, logger: Logger) {
+class GearRepository(
+    private val clients: SessionClients,
+    private val clock: Clock,
+    private val feed: FeedRepository,
+    private val collections: GearCollections,
+    logger: Logger,
+) {
     private val log = logger.withTag("GearRepository")
     private val held: HeldPhotos = feed.heldPhotos
 
@@ -161,6 +176,22 @@ class GearRepository(private val clients: SessionClients, private val clock: Clo
     /** [items] as a stream: loading, then the items or why they couldn't be read. */
     fun itemsOutcome(): Flow<Outcome<List<GearItem>>> = outcomeFlow { items() }
 
+    /** [items] and the athlete's collections of them ([GearCollections.all]), read together, as a stream. */
+    fun gearAndCollectionsOutcome(): Flow<Outcome<GearAndCollections>> = outcomeFlow {
+        val items = items()
+        GearAndCollections(items, collections.all(items))
+    }
+
+    /**
+     * The collection at [rkey] with its member items and all of [items], as a stream; [GearCollectionNotFoundException] when there's none.
+     */
+    fun collectionOutcome(rkey: String): Flow<Outcome<GearCollectionItems>> = outcomeFlow {
+        val items = items()
+        val collection = collections.collection(rkey, items) ?: throw GearCollectionNotFoundException()
+        val byUri = items.associateBy { it.uri(clients.did) }
+        GearCollectionItems(collection, collection.items.mapNotNull { byUri[it] }, items)
+    }
+
     /** The item at [rkey], or null when the athlete has none there. */
     suspend fun item(rkey: String): GearItem? = items().firstOrNull { it.rkey == rkey }
 
@@ -195,10 +226,15 @@ class GearRepository(private val clients: SessionClients, private val clock: Clo
         return item.copy(photoUrl = photoUrl(item))
     }
 
-    /** Deletes [item] from every place holding it. */
+    /**
+     * Deletes [item] from every place holding it, then from every collection listing it. That second pass is best effort: a failure is
+     * logged, and readers skip the deleted item anyway ([GearCollections.all]).
+     */
     suspend fun delete(item: GearItem) {
         for (place in item.places) clients.deleteOwn(Nsid.GEAR_ITEM, item.rkey, clients.placeOf(place))
         changes.update { it + 1 }
+        runSuspendCatching { collections.removeItem(item.uri(clients.did)) }
+            .onFailure { e -> log.w(e) { "Couldn't remove a deleted item from its collections" } }
     }
 
     private suspend fun listPlace(visibility: String): List<Pair<String, GearItemRecord>> =

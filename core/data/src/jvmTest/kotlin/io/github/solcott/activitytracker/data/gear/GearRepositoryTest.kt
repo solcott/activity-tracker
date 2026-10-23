@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActorGearItem
+import io.github.solcott.activitytracker.lexicon.app.GearCollectionRecord
 import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
 import io.github.solcott.activitytracker.lexicon.app.GearSportTotals
 import io.github.solcott.activitytracker.lexicon.app.GearStarting
@@ -54,7 +55,7 @@ class GearRepositoryTest {
 
     private suspend fun gear(scope: String? = null): GearRepository {
         val s = pds.session(scope)
-        return GearRepository(s.clients, Clock.System, s.feed, Logger)
+        return GearRepository(s.clients, Clock.System, s.feed, GearCollections(s.clients, Clock.System), Logger)
     }
 
     private fun store(place: String, rkey: String, record: GearItemRecord) {
@@ -187,6 +188,35 @@ class GearRepositoryTest {
 
         assertEquals(emptySet(), placesOf("3bike"))
         assertTrue(repo.items().isEmpty())
+    }
+
+    @Test
+    fun aDeletedItemLeavesItsCollections() = runTest {
+        val repo = gear()
+        val shoesItem = repo.save(null, shoes, Visibility.PUBLIC)
+        val helmetItem = repo.save(null, helmet, Visibility.PUBLIC)
+        val collections = GearCollections(pds.session().clients, Clock.System)
+        val kit =
+            collections.save(null, GearCollectionRecord("Race kit", created, items = listOf(helmetItem, shoesItem).map { it.uri(pds.did) }))
+
+        repo.delete(shoesItem)
+
+        val stored = pds.stored.getValue(Visibility.SELF).getValue("${Nsid.GEAR_COLLECTION}/${kit.rkey}") as JsonObject
+        assertEquals(listOf(helmetItem.uri(pds.did)), AtJson.decodeFromJsonElement(GearCollectionRecord.serializer(), stored).items)
+    }
+
+    @Test
+    fun aFailureLeavingCollectionsDoesntFailTheDelete() = runTest {
+        val repo = gear()
+        val shoesItem = repo.save(null, shoes, Visibility.PUBLIC)
+        val collections = GearCollections(pds.session().clients, Clock.System)
+        collections.save(null, GearCollectionRecord("Race kit", created, items = listOf(shoesItem.uri(pds.did))))
+        pds.failSpacePuts = true
+
+        repo.delete(shoesItem)
+
+        assertEquals(emptySet(), placesOf(shoesItem.rkey))
+        assertEquals(emptyList(), collections.all(repo.items()).single().items, "the deleted item is hidden")
     }
 
     @Test

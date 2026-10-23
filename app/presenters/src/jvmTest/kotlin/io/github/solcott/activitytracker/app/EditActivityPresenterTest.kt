@@ -35,6 +35,7 @@ import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.gear.GearCollections
 import io.github.solcott.activitytracker.data.gear.GearDefaults
 import io.github.solcott.activitytracker.data.gear.GearRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
@@ -321,7 +322,11 @@ class EditActivityPresenterTest {
         val defaults = ActivityDefaults(clients)
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
         val segments = testSegments(db, clients, zones.writer, zones.outbox, privacy, zones.tracks)
-        val gearChoices = GearChoices(GearRepository(clients, Clock.System, feed, Logger), GearDefaults(clients, Clock.System))
+        val gearChoices =
+            GearChoices(
+                GearRepository(clients, Clock.System, feed, GearCollections(clients, Clock.System), Logger),
+                GearDefaults(clients, Clock.System),
+            )
         return {
             EditActivityPresenter(
                 EditActivityScreen(uri),
