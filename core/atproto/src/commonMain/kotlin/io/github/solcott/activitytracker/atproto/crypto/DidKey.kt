@@ -20,3 +20,16 @@ internal fun p256DidKey(uncompressed: ByteArray): String {
     val compressed = byteArrayOf(if (yIsOdd) ODD_Y_PREFIX else EVEN_Y_PREFIX) + x
     return "did:key:z" + (P256_PUB_MULTICODEC + compressed).base58Btc()
 }
+
+/**
+ * The uncompressed point (`0x04 || X || Y`) of a P-256 key named as a `did:key` or a bare Multikey (`z…`, as a DID document's
+ * `publicKeyMultibase` holds it). Throws [IllegalArgumentException] for anything else, a secp256k1 key included.
+ */
+internal fun p256PublicKey(multibaseOrDidKey: String): ByteArray {
+    val multibase = multibaseOrDidKey.removePrefix("did:key:")
+    require(multibase.startsWith("z")) { "Not a base58btc multibase key" }
+    val bytes = base58BtcDecode(multibase.substring(1))
+    require(bytes.size == P256_PUB_MULTICODEC.size + 1 + COORDINATE_LENGTH) { "Not a P-256 key" }
+    require(bytes.copyOfRange(0, P256_PUB_MULTICODEC.size).contentEquals(P256_PUB_MULTICODEC)) { "Not a P-256 key" }
+    return decompressP256(bytes.copyOfRange(P256_PUB_MULTICODEC.size, bytes.size))
+}

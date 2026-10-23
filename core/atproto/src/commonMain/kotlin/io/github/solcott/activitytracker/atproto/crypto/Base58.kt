@@ -24,3 +24,24 @@ internal fun ByteArray.base58Btc(): String {
     }
     return "1".repeat(zeros) + digits.asReversed().joinToString("") { ALPHABET[it].toString() }
 }
+
+/** Inverse of [base58Btc]. Throws [IllegalArgumentException] on a character outside the alphabet. */
+internal fun base58BtcDecode(value: String): ByteArray {
+    val zeros = value.takeWhile { it == '1' }.length
+    // Little-endian base-256 digits of the number the base-58 string spells.
+    val bytes = mutableListOf<Int>()
+    for (char in value.drop(zeros)) {
+        var carry = ALPHABET.indexOf(char)
+        require(carry >= 0) { "Not base58btc" }
+        for (i in bytes.indices) {
+            carry += bytes[i] * BASE
+            bytes[i] = carry and BYTE_MASK
+            carry = carry shr BYTE_BITS
+        }
+        while (carry > 0) {
+            bytes += carry and BYTE_MASK
+            carry = carry shr BYTE_BITS
+        }
+    }
+    return ByteArray(zeros) + bytes.asReversed().map { it.toByte() }.toByteArray()
+}
