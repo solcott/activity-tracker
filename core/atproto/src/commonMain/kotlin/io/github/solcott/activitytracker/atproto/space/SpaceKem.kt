@@ -35,13 +35,27 @@ internal class SpaceKem private constructor(val keyShare: String, val sharedSecr
             val authorRaw = p256PublicKey(authorKem)
             val author = ecdh.publicKeyDecoder(EC.Curve.P256).decodeFromByteArray(EC.PublicKey.Format.RAW, authorRaw)
             val dh = ephemeral.sharedSecretGenerator().generateSharedSecretToByteArray(author)
+            return SpaceKem(p256DidKey(ephemeralRaw), derive(dh, ephemeralRaw, authorRaw))
+        }
+
+        /**
+         * The author's side ([SpaceMacHost]): the secret a reader agreed by sending [keyShare] against the author's KEM key
+         * ([authorPrivate], whose public point is [authorRaw]).
+         */
+        internal suspend fun decapsulate(authorPrivate: ECDH.PrivateKey, authorRaw: ByteArray, keyShare: String): ByteArray {
+            val ephemeralRaw = p256PublicKey(keyShare)
+            val ephemeral = ecdh.publicKeyDecoder(EC.Curve.P256).decodeFromByteArray(EC.PublicKey.Format.RAW, ephemeralRaw)
+            val dh = authorPrivate.sharedSecretGenerator().generateSharedSecretToByteArray(ephemeral)
+            return derive(dh, ephemeralRaw, authorRaw)
+        }
+
+        /** HKDF-SHA256 over the DH x-coordinate, with both public points (reader's first) in `info`. */
+        private suspend fun derive(dh: ByteArray, ephemeralRaw: ByteArray, authorRaw: ByteArray): ByteArray {
             val ikm = KEM_PREFIX + "eae_prk".encodeToByteArray() + dh
             val info = uint16be(SECRET_LENGTH) + KEM_PREFIX + "shared_secret".encodeToByteArray() + ephemeralRaw + authorRaw
-            val secret =
-                CryptographyProvider.Default.get(HKDF)
-                    .secretDerivation(SHA256, SECRET_LENGTH.bytes, salt = ByteArray(0), info = info)
-                    .deriveSecretToByteArray(ikm)
-            return SpaceKem(p256DidKey(ephemeralRaw), secret)
+            return CryptographyProvider.Default.get(HKDF)
+                .secretDerivation(SHA256, SECRET_LENGTH.bytes, salt = ByteArray(0), info = info)
+                .deriveSecretToByteArray(ikm)
         }
     }
 }

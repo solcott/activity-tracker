@@ -52,7 +52,7 @@ object SpaceMac {
     }
 
     /** `"$type-v1"` then each field as `uint16be(length) || utf8`. */
-    private fun context(type: String, vararg fields: String): ByteArray =
+    internal fun context(type: String, vararg fields: String): ByteArray =
         fields.fold("$type-v$VERSION".encodeToByteArray()) { bytes, field ->
             val utf8 = field.encodeToByteArray()
             bytes + uint16be(utf8.size) + utf8
