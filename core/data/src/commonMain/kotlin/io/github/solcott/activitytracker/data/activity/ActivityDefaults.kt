@@ -21,7 +21,7 @@ import kotlinx.serialization.json.JsonObject
 
 /**
  * Who an activity and each of its [DetailCategory]s are shown to: [Visibility] values, no category wider than the activity. A category
- * missing from [details] is at the activity's visibility ([tiers]).
+ * missing from [details] is at [DetailCategory.defaultWhenUnset] ([tiers]): the activity's, but Only me for gear.
  */
 data class VisibilityChoice(val activity: String = Visibility.PUBLIC, val details: Map<String, String> = emptyMap()) {
     /** Every [DetailCategory.all] at its visibility, capped at the activity's. */
@@ -119,7 +119,7 @@ class ActivityDefaults(private val clients: SessionClients) {
 
     /**
      * The record's choice, Public where it says nothing or doesn't decode (any client can write it). A category with no default starts at
-     * the activity's, and an old `chartsVisibility` is ignored ([ActivityDefaultsRecord.resolved]).
+     * [DetailCategory.defaultWhenUnset], and an old `chartsVisibility` is ignored ([ActivityDefaultsRecord.resolved]).
      */
     private fun decode(value: JsonObject): VisibilityChoice =
         runCatching { AtJson.decodeFromJsonElement(ActivityDefaultsRecord.serializer(), value) }

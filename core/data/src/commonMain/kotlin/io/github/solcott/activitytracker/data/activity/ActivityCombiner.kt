@@ -134,10 +134,16 @@ object ActivityCombiner {
             .toMap()
     }
 
-    /** Each detail category's narrowest visibility among [members]' (each a category → tier map), for a new combined activity. */
+    /**
+     * Each detail category's narrowest visibility among [members]' (each a category → tier map), for a new combined activity: a category no
+     * member sets starts at [DetailCategory.defaultWhenUnset].
+     */
     fun narrowestTiers(activity: String, members: List<Map<String, String>>): Map<String, String> =
         DetailCategory.all.associateWith { category ->
-            members.map { it[category] ?: activity }.fold(activity) { narrowest, tier -> Visibility.narrower(narrowest, tier) }
+            members
+                .mapNotNull { it[category] }
+                .ifEmpty { listOf(DetailCategory.defaultWhenUnset(category, activity)) }
+                .fold(activity) { narrowest, tier -> Visibility.narrower(narrowest, tier) }
         }
 
     /** How much of [channel] [member] has: samples, track points, or 1 for having laps and the like at all. */

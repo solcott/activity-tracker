@@ -89,6 +89,10 @@ class GearRepository(private val clients: SessionClients, private val clock: Clo
     val changes: StateFlow<Int>
         field = MutableStateFlow(0)
 
+    /** The athlete's DID, which every item's canonical URI ([GearItem.uri]) names. */
+    val did: Did
+        get() = clients.did
+
     /** Whether this session can save non-Public gear: not one signed in before the space declaration listed `gear.item`. */
     val canSavePrivate: Boolean
         get() = clients.canWriteToSpaces(Nsid.GEAR_ITEM)

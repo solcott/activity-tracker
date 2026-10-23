@@ -357,6 +357,25 @@ class ActivityCombinerTest {
     }
 
     @Test
+    fun theCombinedRideListsItsMembersGearInOrderOnce() {
+        val tarmac = AtUri("at://did:plc:alice/${Nsid.GEAR_ITEM}/3tarmac")
+        val strap = AtUri("at://did:plc:alice/${Nsid.GEAR_ITEM}/3strap")
+        val edge = member("edge", "09:00", "10:00", record = { it.copy(gear = listOf(tarmac)) })
+        val watch = member("watch", "09:00", "10:00", record = { it.copy(gear = listOf(tarmac, strap)) })
+        assertEquals(listOf(tarmac, strap), ActivityCombiner.combine(uri("edge"), listOf(edge, watch), now).record.gear)
+        val plain = member("plain", "09:00", "10:00")
+        assertNull(ActivityCombiner.combine(uri("plain"), listOf(plain, member("other", "09:00", "10:00")), now).record.gear)
+    }
+
+    @Test
+    fun gearStartsAtOnlyMeUnlessAMemberSetsIt() {
+        val none = ActivityCombiner.narrowestTiers(Visibility.PUBLIC, listOf(emptyMap(), emptyMap()))
+        assertEquals(Visibility.SELF, none[DetailCategory.GEAR])
+        val one = ActivityCombiner.narrowestTiers(Visibility.PUBLIC, listOf(mapOf(DetailCategory.GEAR to Visibility.FOLLOWERS), emptyMap()))
+        assertEquals(Visibility.FOLLOWERS, one[DetailCategory.GEAR])
+    }
+
+    @Test
     fun detailCategoriesTakeTheNarrowestMembers() {
         val tiers =
             ActivityCombiner.narrowestTiers(

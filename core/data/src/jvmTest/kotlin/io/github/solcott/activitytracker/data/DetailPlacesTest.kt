@@ -132,6 +132,56 @@ class DetailPlacesTest {
     }
 
     @Test
+    fun aRidesGearGoesWhereItsCategoryIs() = runTest {
+        val s = session()
+        val tarmac = AtUri("at://${did.value}/${Nsid.GEAR_ITEM}/3tarmac")
+        val helmet = AtUri("at://${did.value}/${Nsid.GEAR_ITEM}/3helmet")
+        // Gear never set: Only me, so the public record names no gear.
+        val rkey = s.activities.publish(splitRun(VisibilityChoice.PUBLIC).copy(gear = listOf(tarmac, helmet))).rkey!!
+        assertFalse("gear" in record(repo, Nsid.FEED_ACTIVITY, rkey))
+        assertEquals(
+            listOf(tarmac.value, helmet.value),
+            record(Visibility.SELF, Nsid.FEED_ACTIVITY_DETAILS, rkey).getValue("gear").jsonArray.map { it.jsonPrimitive.content },
+        )
+
+        val public = VisibilityChoice(Visibility.PUBLIC, mapOf(DetailCategory.GEAR to Visibility.PUBLIC))
+        val other = s.activities.publish(splitRun(public).copy(gear = listOf(tarmac))).rkey!!
+        assertEquals(
+            listOf(tarmac.value),
+            record(repo, Nsid.FEED_ACTIVITY, other).getValue("gear").jsonArray.map { it.jsonPrimitive.content },
+        )
+        assertEquals(emptySet(), placesOf(Nsid.FEED_ACTIVITY_DETAILS, other))
+    }
+
+    @Test
+    fun anEditRemovingTheOnlyBikeLeavesNoGear() = runTest {
+        val s = session()
+        val tarmac = AtUri("at://${did.value}/${Nsid.GEAR_ITEM}/3tarmac")
+        val uri = s.activities.publish(splitRun(VisibilityChoice.PUBLIC).copy(gear = listOf(tarmac)))
+        val rkey = uri.rkey!!
+        s.manager.setVisibility(view(uri, Visibility.PUBLIC), VisibilityChoice.PUBLIC, gear = emptyList())
+        assertFalse("gear" in record(repo, Nsid.FEED_ACTIVITY, rkey))
+        assertEquals(emptySet(), placesOf(Nsid.FEED_ACTIVITY_DETAILS, rkey), "the self details record held only the gear")
+
+        // Adding it back with Gear at Followers puts it in the followers tier only.
+        val followers = VisibilityChoice(Visibility.PUBLIC, mapOf(DetailCategory.GEAR to Visibility.FOLLOWERS))
+        s.manager.setVisibility(view(uri, Visibility.PUBLIC), followers, gear = listOf(tarmac))
+        assertEquals(setOf(Visibility.FOLLOWERS), placesOf(Nsid.FEED_ACTIVITY_DETAILS, rkey))
+        assertFalse("gear" in record(repo, Nsid.FEED_ACTIVITY, rkey))
+    }
+
+    @Test
+    fun aRideWithoutGearNeedsNoDetailsGrant() = runTest {
+        val scope =
+            "atproto transition:generic space:${Nsid.SPACE_ATHLETE}?collection=${Nsid.FEED_ACTIVITY}" +
+                "&collection=${Nsid.FEED_ACTIVITY_STREAMS}&collection=${Nsid.FEED_ACTIVITY_ZONES}"
+        val s = session(scope = scope)
+        // Gear is Only me by default, but with no gear there's nothing to put in a details record.
+        s.activities.publish(splitRun(VisibilityChoice.PUBLIC))
+        assertTrue(writes.isNotEmpty())
+    }
+
+    @Test
     fun aGrantWithoutDetailsRefusesNarrowerCategoriesUpFront() = runTest {
         val scope =
             "atproto transition:generic space:${Nsid.SPACE_ATHLETE}?collection=${Nsid.FEED_ACTIVITY}" +
