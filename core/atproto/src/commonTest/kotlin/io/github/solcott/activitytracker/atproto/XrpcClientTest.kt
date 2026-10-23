@@ -41,6 +41,21 @@ class XrpcClientTest {
     }
 
     @Test
+    fun queryWithHeadersSendsAndReturnsHeaders() = runTest {
+        network.on("appview.test/xrpc/app.activitytracker.feed.getTimeline") {
+            respond(
+                """{"activities":[],"cursor":"next"}""",
+                HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType to listOf("application/json"), "Atproto-Space-Mac" to listOf("type=\"t\"")),
+            )
+        }
+        val response = client.queryWithHeaders(GetTimeline.method, GetTimeline.Params(), mapOf("Atproto-Space-Want-Mac" to "ver=1"))
+        assertEquals("next", response.value.cursor)
+        assertEquals("type=\"t\"", response.headers["atproto-space-mac"])
+        assertEquals("ver=1", network.requests.single().headers["Atproto-Space-Want-Mac"])
+    }
+
+    @Test
     fun errorsSurfaceXrpcErrorBody() = runTest {
         network.on("appview.test/xrpc/app.activitytracker.feed.getTimeline") {
             respondJson(

@@ -18,6 +18,7 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsBytes
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.URLBuilder
@@ -42,12 +43,19 @@ class XrpcClient(
         authenticator: RequestAuthenticator? = null,
     ) : this(http, { serviceUrl }, authenticator)
 
-    suspend fun <P, O> query(method: XrpcQuery<P, O>, params: P): O {
+    suspend fun <P, O> query(method: XrpcQuery<P, O>, params: P): O = queryWithHeaders(method, params).value
+
+    /**
+     * [query] that also returns the response's headers (a Spaces read's `Atproto-Space-Mac`). [headers] are sent with this call only, after
+     * the client's own. A browser reads only the response headers the server lists in `Access-Control-Expose-Headers`.
+     */
+    suspend fun <P, O> queryWithHeaders(method: XrpcQuery<P, O>, params: P, headers: Map<String, String> = emptyMap()): XrpcResponse<O> {
         val response =
             execute(method.nsid, HttpMethod.Get) {
                 XrpcParams.encode(method.params, params).forEach { (k, v) -> url.parameters.append(k, v) }
+                headers.forEach { (k, v) -> header(k, v) }
             }
-        return decode(response, method.output)
+        return XrpcResponse(decode(response, method.output), response.headers)
     }
 
     /** A query whose output is raw bytes (a blob), not JSON. */
@@ -132,6 +140,9 @@ internal suspend fun HttpResponse.toXrpcException(): XrpcException {
  * itself.
  */
 fun atprotoProxy(did: Did, serviceId: String): Map<String, String> = mapOf("atproto-proxy" to "${did.value}#$serviceId")
+
+/** The output of [XrpcClient.queryWithHeaders]: the decoded body and the response's headers. */
+class XrpcResponse<O>(val value: O, val headers: Headers)
 
 /** The output of [XrpcClient.queryBytes]. */
 class XrpcBytes(val bytes: ByteArray, val contentType: String?)
