@@ -40,8 +40,9 @@ See proposal.md for why, and the spec for behavior. After `gear-usage`:
 
 ## Risks / Trade-offs
 
-- [Mount windows compare instants, and a mount made "today" may miss a ride earlier that day] → `from` defaults to the start of the local day, and `to` to its end, so same-day swaps count by day. An athlete who swaps parts mid-day can edit the times.
+- [Mount windows compare instants, and a mount made "today" may miss a ride earlier that day] → Mounts start, and unmounts end, at the start of the local day (`to` is exclusive), so a part swapped on a date counts that whole day's rides for the new part, and "unmounted on 1 June, mounted elsewhere from 1 June" meet without overlapping. An athlete who swaps parts mid-day can edit the times.
 - [Three self-joins per counted query] → They're bounded by one item's ancestors, and `gear_mounts(component_uri)` is indexed.
+- [A Public component's record shows its parents' URIs and mount dates, whatever their visibility] → Accepted: the URI reveals only an rkey, and the AppView serves mounts and components only for items the viewer may see. An athlete who minds can make the component narrower.
 - [Mounts referencing items the viewer can't see reveal nothing] → The path check runs per viewer, and the components list filters by item visibility.
 
 ## Migration Plan
