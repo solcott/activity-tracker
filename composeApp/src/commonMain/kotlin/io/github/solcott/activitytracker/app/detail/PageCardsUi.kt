@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.app.detail
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +19,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
+import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.chart_pace
 import io.github.solcott.activitytracker.composeApp.resources.detail_avg
@@ -60,12 +62,15 @@ internal fun MetricCardUi(
     }
 }
 
+/** [rows], a gear item's opening its page with [onOpenGear] when given. */
 @Composable
-private fun Rows(rows: ImmutableList<Figure>) {
+private fun Rows(rows: ImmutableList<Figure>, onOpenGear: ((String) -> Unit)? = null) {
     Column {
         rows.forEachIndexed { i, figure ->
             if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            FigureRow(figure)
+            val gear = (figure.value as? FigureValue.GearItem)?.uri
+            if (gear != null && onOpenGear != null) FigureRow(figure, Modifier.clickable { onOpenGear(gear) }.handCursor())
+            else FigureRow(figure)
         }
     }
 }
@@ -82,9 +87,14 @@ internal fun TrainingLoadCard(figures: ImmutableList<Figure>, modifier: Modifier
     }
 }
 
-/** Every figure, a group at a time under its name, in [columns] side by side. */
+/** Every figure, a group at a time under its name, in [columns] side by side. A gear item's row opens its page with [onOpenGear]. */
 @Composable
-internal fun StatsList(groups: ImmutableList<StatsGroup>, modifier: Modifier = Modifier, columns: Int = 1) {
+internal fun StatsList(
+    groups: ImmutableList<StatsGroup>,
+    modifier: Modifier = Modifier,
+    columns: Int = 1,
+    onOpenGear: ((String) -> Unit)? = null,
+) {
     if (groups.isEmpty()) return
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
         Text(
@@ -94,7 +104,7 @@ internal fun StatsList(groups: ImmutableList<StatsGroup>, modifier: Modifier = M
         )
         groups.chunked(columns).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
-                row.forEach { StatsGroupCard(it, Modifier.weight(1f)) }
+                row.forEach { StatsGroupCard(it, Modifier.weight(1f), onOpenGear) }
                 repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
@@ -102,7 +112,7 @@ internal fun StatsList(groups: ImmutableList<StatsGroup>, modifier: Modifier = M
 }
 
 @Composable
-private fun StatsGroupCard(group: StatsGroup, modifier: Modifier = Modifier) {
+private fun StatsGroupCard(group: StatsGroup, modifier: Modifier = Modifier, onOpenGear: ((String) -> Unit)? = null) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             groupTitle(group.kind),
@@ -110,7 +120,7 @@ private fun StatsGroupCard(group: StatsGroup, modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        AppCard { Column(Modifier.padding(horizontal = CARD_PADDING, vertical = 4.dp)) { Rows(group.rows) } }
+        AppCard { Column(Modifier.padding(horizontal = CARD_PADDING, vertical = 4.dp)) { Rows(group.rows, onOpenGear) } }
     }
 }
 

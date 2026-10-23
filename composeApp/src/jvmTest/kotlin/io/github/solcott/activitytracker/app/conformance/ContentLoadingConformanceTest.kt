@@ -22,6 +22,8 @@ import io.github.solcott.activitytracker.app.gear.EditGearSamples
 import io.github.solcott.activitytracker.app.gear.EditGearUi
 import io.github.solcott.activitytracker.app.gear.GearListSamples
 import io.github.solcott.activitytracker.app.gear.GearListUi
+import io.github.solcott.activitytracker.app.gear.GearSamples
+import io.github.solcott.activitytracker.app.gear.GearUi
 import io.github.solcott.activitytracker.app.map.RouteMapSamples
 import io.github.solcott.activitytracker.app.map.RouteMapUi
 import io.github.solcott.activitytracker.app.media.MediaGallerySamples
@@ -120,6 +122,7 @@ class ContentLoadingConformanceTest {
             entry({ PrivacyZonesSamples.all }, null) { PrivacyZonesUi(it) },
             entry({ EditActivitySamples.all }, null) { EditActivityUi(it) },
             entry({ GearListSamples.all }, "Gravel bike") { GearListUi(it) },
+            entry({ GearSamples.all }, "Rivendell Appaloosa") { GearUi(it) },
             entry({ EditGearSamples.all }, null) { EditGearUi(it) },
         )
 

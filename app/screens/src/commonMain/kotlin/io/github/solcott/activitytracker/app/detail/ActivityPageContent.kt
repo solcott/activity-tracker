@@ -189,8 +189,8 @@ sealed interface FigureValue {
     /** A sensor, named by its kind (a `SensorKind` token) and its make and model. */
     data class Sensor(val kind: String, val manufacturer: String?, val model: String?) : FigureValue
 
-    /** A gear item, named by the athlete, and its kind or else its type (`GearType` tokens). */
-    data class GearItem(val name: String, val type: String, val kind: String?) : FigureValue
+    /** A gear item, named by the athlete, and its kind or else its type (`GearType` tokens); [uri] opens its page (gear/gear-usage). */
+    data class GearItem(val name: String, val type: String, val kind: String?, val uri: String? = null) : FigureValue
 
     /** A token the UI names, like a `WaterType`; one it doesn't know reads as itself. */
     data class Token(val token: String) : FigureValue

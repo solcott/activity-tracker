@@ -67,6 +67,12 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         LoadPrivacyZones,
         SavePrivacyZones,
         LoadGear,
+
+        /** One gear item's page (gear/gear-usage), the athlete's own or someone else's. */
+        LoadGearItem,
+
+        /** The activities counted in a gear item's usage. */
+        LoadGearActivities,
         SaveGear,
         DeleteGear,
 

@@ -237,7 +237,7 @@ internal class Figures(
                 StatsGroupKind.Device to
                     listOf(record.device?.let { Figure(FigureKey.Device, FigureValue.Text(it)) }) +
                         record.sensors.orEmpty().map { Figure(FigureKey.Sensor, FigureValue.Sensor(it.kind, it.manufacturer, it.model)) } +
-                        gear.map { Figure(FigureKey.GearItem, FigureValue.GearItem(it.name, it.type, it.kind)) },
+                        gear.map { Figure(FigureKey.GearItem, FigureValue.GearItem(it.name, it.type, it.kind, it.uri.value)) },
             )
             .mapNotNull { (kind, rows) -> rows.filterNotNull().takeIf { it.isNotEmpty() }?.let { StatsGroup(kind, it.toImmutableList()) } }
             .toImmutableList()
