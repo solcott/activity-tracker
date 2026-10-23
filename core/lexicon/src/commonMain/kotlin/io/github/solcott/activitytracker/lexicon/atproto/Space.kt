@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.lexicon.NoOutput
 import io.github.solcott.activitytracker.lexicon.XrpcProcedure
 import io.github.solcott.activitytracker.lexicon.XrpcQuery
 import io.github.solcott.activitytracker.lexicon.app.OpenUnionSerializer
+import kotlin.io.encoding.Base64
 import kotlin.jvm.JvmInline
 import kotlin.time.Instant
 import kotlinx.serialization.SerialName
@@ -78,6 +79,21 @@ object SpaceErrors {
 
     /** The authority revoked the credential; get a new one. */
     const val CREDENTIAL_REVOKED = "CredentialRevoked"
+
+    /** The `Authorization` scheme or credential wasn't accepted (the pre-Oct 22 `Atproto-Space` scheme among them). */
+    const val INVALID_TOKEN = "InvalidToken"
+
+    /** `getSpaceCredential`: the delegation token was malformed, expired or already used (HTTP 400). */
+    const val INVALID_DELEGATION_TOKEN = "InvalidDelegationToken"
+
+    /** A credentialed read's HTTP message signature didn't verify against the credential's key. */
+    const val BAD_SPACE_SIGNATURE = "BadSpaceSignature"
+
+    /** A credentialed read's `Atproto-Space-Audience` wasn't the repo owner (or, at a space host, the authority). */
+    const val BAD_SPACE_AUDIENCE = "BadSpaceAudience"
+
+    /** A credentialed read of a MAC'd method came without a usable `Atproto-Space-Want-Mac` (HTTP 400). */
+    const val BAD_SPACE_MAC = "BadSpaceMac"
 
     /** The OAuth session wasn't granted the `space:` scope this call needs. */
     const val SCOPE_MISSING = "ScopeMissingError"
@@ -212,11 +228,18 @@ object Space {
     }
 
     /**
-     * On the authority's PDS, with the delegation token as `Bearer` and a signed request: a credential for reading the space. The output
-     * carries no expiry; it's the credential JWT's `exp`.
+     * On the authority's PDS, unauthenticated: a credential for reading the space, bound to [Input.credentialKid] (a fresh P-256
+     * `did:key`). [Input.delegationToken] names the reader; without one only a public space answers. The output carries no expiry; it's the
+     * credential JWT's `exp`.
      */
     object GetSpaceCredential {
-        @Serializable data class Input(val space: SpaceUri, val clientAttestation: String? = null)
+        @Serializable
+        data class Input(
+            val space: SpaceUri,
+            val credentialKid: String,
+            val delegationToken: String? = null,
+            val clientAttestation: String? = null,
+        )
 
         @Serializable data class Output(val credential: String)
 
@@ -311,8 +334,11 @@ object Space {
             val value: JsonObject? = null,
         )
 
-        /** `com.atproto.space.defs#signedCommit`: only [rev] is read here. */
-        @Serializable data class Commit(val rev: String)
+        /**
+         * `com.atproto.space.defs#commit`, unsigned: the repo host authenticates it with the `Atproto-Space-Mac` response header, which
+         * covers [space], [repo], [rev] and [data] (the sha256 of the repo's LtHash state).
+         */
+        @Serializable data class Commit(val ver: Int, val repo: Did, val space: SpaceUri, val rev: String, val data: LexBytes)
 
         /** [commit] is present once the page reaches the head of the log, and [cursor] until then. */
         @Serializable data class Output(val ops: List<Op>, val commit: Commit? = null, val cursor: String? = null)
@@ -342,8 +368,8 @@ object Space {
             val space: SpaceUri,
             val repo: Did,
             val repoRev: String,
-            /** `bytes`: `{"$bytes": "<base64>"}`; not read. */
-            val hash: JsonElement? = null,
+            /** The repo's state digest; not read. */
+            val data: LexBytes? = null,
             val spaceRev: String? = null,
             val prevSpaceRev: String? = null,
         )
@@ -416,5 +442,15 @@ object SimpleSpace {
         const val WRITE = "write"
 
         val method = XrpcQuery("com.atproto.simplespace.checkUserAccess", Params.serializer(), Output.serializer())
+    }
+}
+
+/** A lexicon `bytes` value, `{"$bytes": "<base64>"}` (standard alphabet, padding optional). */
+@Serializable
+data class LexBytes(@SerialName("\$bytes") val base64: String) {
+    fun decode(): ByteArray = Base64.Default.withPadding(Base64.PaddingOption.ABSENT_OPTIONAL).decode(base64)
+
+    companion object {
+        fun of(bytes: ByteArray) = LexBytes(Base64.Default.withPadding(Base64.PaddingOption.ABSENT).encode(bytes))
     }
 }

@@ -6,9 +6,11 @@ import io.github.solcott.activitytracker.lexicon.atproto.SpaceAppAccess
 import io.github.solcott.activitytracker.lexicon.atproto.SpacePolicy
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.time.Instant
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
@@ -49,28 +51,42 @@ class SpaceSerializationTest {
 
     @Test
     fun syncerPayloadsDecode() {
-        // Shapes as the pinned PDS sent them in docker/scripts/syncer-smoke.sh.
+        // Shapes as the Oct 22 lexicons in the pinned PDS image define them.
         val ops =
             AtJson.decodeFromString(
                 Space.ListRepoOps.Output.serializer(),
                 """{"ops":[{"rev":"3mxtoijnsfd2r","collection":"c","rkey":"n1","cid":"bafyput","prev":null,"value":{"text":"x"}},""" +
                     """{"rev":"3mxtoijsskd2r","collection":"c","rkey":"n1","cid":null,"prev":"bafyput"}],""" +
-                    """"commit":{"rev":"3mxtoijsskd2r","sig":{"${'$'}bytes":"AA"},"hash":{"${'$'}bytes":"AA"}}}""",
+                    """"commit":{"ver":1,"repo":"did:plc:alice","space":"${space.value}","rev":"3mxtoijsskd2r",""" +
+                    """"data":{"${'$'}bytes":"AAECAwQ"}}}""",
             )
         assertEquals(listOf("bafyput", null), ops.ops.map { it.cid?.value })
         assertEquals(null, ops.ops[1].value)
-        assertEquals("3mxtoijsskd2r", ops.commit?.rev)
+        val commit = assertNotNull(ops.commit)
+        assertEquals("3mxtoijsskd2r", commit.rev)
+        assertEquals(1, commit.ver)
+        assertEquals(space, commit.space)
+        assertEquals("did:plc:alice", commit.repo.value)
+        assertContentEquals(byteArrayOf(0, 1, 2, 3, 4), commit.data.decode())
+        assertEquals(
+            commit,
+            AtJson.decodeFromJsonElement(
+                Space.ListRepoOps.Commit.serializer(),
+                AtJson.encodeToJsonElement(Space.ListRepoOps.Commit.serializer(), commit),
+            ),
+        )
         assertEquals(null, ops.cursor)
 
         val notify =
             AtJson.decodeFromString(
                 Space.NotifyWrite.Input.serializer(),
                 """{"space":"${space.value}","repo":"did:plc:alice","repoRev":"3mxtoijnsfd2r",""" +
-                    """"hash":{"${'$'}bytes":"7DDo6UqL"},"spaceRev":"3mxtoijoa2t2r"}""",
+                    """"data":{"${'$'}bytes":"7DDo6UqL"},"spaceRev":"3mxtoijoa2t2r"}""",
             )
         assertEquals(space, notify.space)
         assertEquals("3mxtoijnsfd2r", notify.repoRev)
         assertEquals(null, notify.prevSpaceRev)
+        assertEquals("7DDo6UqL", notify.data?.base64)
 
         val registered = AtJson.decodeFromString(Space.RegisterNotify.Output.serializer(), """{"expiresAt":"2026-10-15T13:43:16.061Z"}""")
         assertEquals(Instant.parse("2026-10-15T13:43:16.061Z"), registered.expiresAt)
@@ -132,9 +148,9 @@ class SpaceSerializationTest {
         assertEquals("false", putJson["validate"]?.jsonPrimitive?.content)
         assertEquals(put, AtJson.decodeFromJsonElement(Space.PutRecord.Input.serializer(), putJson))
 
-        val credential = Space.GetSpaceCredential.Input(space)
+        val credential = Space.GetSpaceCredential.Input(space, "did:key:zDnaeKey", delegationToken = "eyJ.e30.c2ln")
         val credentialJson = AtJson.encodeToJsonElement(Space.GetSpaceCredential.Input.serializer(), credential).jsonObject
-        assertEquals(setOf("space"), credentialJson.keys)
+        assertEquals(setOf("space", "credentialKid", "delegationToken"), credentialJson.keys)
         assertEquals(credential, AtJson.decodeFromJsonElement(Space.GetSpaceCredential.Input.serializer(), credentialJson))
     }
 
