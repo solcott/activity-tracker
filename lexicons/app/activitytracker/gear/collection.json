@@ -1,0 +1,26 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.gear.collection",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A named group of the athlete's gear.item records used together, such as a race kit or a dive kit. An item can be in any number of collections. Lives only in the athlete's self space (app.activitytracker.space.athlete, key self), never in the public repo. The AppView never indexes or serves it. Adding a collection to an activity adds its items to the activity's gear; the activity never refers to the collection.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["name", "createdAt"],
+        "properties": {
+          "name": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "The athlete's name for the collection, such as Race kit." },
+          "notes": { "type": "string", "maxLength": 10000, "maxGraphemes": 1000 },
+          "items": {
+            "type": "array",
+            "maxLength": 50,
+            "items": { "type": "string", "format": "at-uri" },
+            "description": "The athlete's gear items in the order they chose, by canonical URI (at://{did}/app.activitytracker.gear.item/{rkey}). Readers skip an item that no longer exists."
+          },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

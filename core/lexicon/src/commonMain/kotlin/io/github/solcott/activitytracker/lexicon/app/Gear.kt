@@ -76,6 +76,33 @@ data class GearAutoAssignRecord(
     }
 }
 
+/**
+ * `app.activitytracker.gear.collection`: a named group of the athlete's gear items, keyed by a TID. It lives only in the athlete's
+ * [AthleteSpace.SELF] space, and the AppView never indexes it. An item can be in any number of collections; an activity a collection was
+ * added to keeps the items, never the collection.
+ */
+@Immutable
+@Serializable
+data class GearCollectionRecord(
+    val name: String,
+    val createdAt: Instant,
+    val notes: String? = null,
+    /** Canonical [GearItemRecord] URIs in the athlete's order, at most [MAX_ITEMS]; readers skip ones that no longer exist. */
+    val items: List<AtUri>? = null,
+    @SerialName($$"$type") val type: String = Nsid.GEAR_COLLECTION,
+) {
+    companion object {
+        /** The lexicon's `maxGraphemes` for [name]. */
+        const val MAX_NAME = 100
+
+        /** The lexicon's `maxGraphemes` for [notes]. */
+        const val MAX_NOTES = 1000
+
+        /** The lexicon's `maxLength` for [items]. */
+        const val MAX_ITEMS = 50
+    }
+}
+
 /** `app.activitytracker.gear.autoAssign#sportDefault`: the items an activity of [sport] (and [subSport], when set) starts with. */
 @Serializable
 data class GearSportDefault(
