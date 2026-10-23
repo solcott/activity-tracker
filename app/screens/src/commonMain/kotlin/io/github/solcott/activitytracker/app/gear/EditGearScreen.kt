@@ -18,6 +18,9 @@ import kotlinx.datetime.LocalDate
 /** Adds a gear item ([rkey] null) or edits the athlete's item at [rkey]. */
 @CircuitSerializable(SessionScope::class) data class EditGearScreen(val rkey: String? = null) : Screen
 
+/** One of the athlete's collections as an item's form shows it, and whether the item is a [member]. */
+@Immutable data class GearCollectionChoice(val rkey: String, val name: String, val member: Boolean)
+
 /** The item's photo as the form shows it. */
 @Immutable
 sealed interface GearPhoto {
@@ -55,6 +58,8 @@ data class EditGearState(
     val sports: ImmutableList<String>,
     /** The activity types a new activity starts with this item for ("Use by default for"). */
     val defaultFor: ImmutableList<ActivityType> = persistentListOf(),
+    /** The athlete's collections by name, each marked when the item is in it. */
+    val collections: ImmutableList<GearCollectionChoice> = persistentListOf(),
     /** A `Visibility` value; a new item starts at Only me. */
     val visibility: String,
     val acquiredOn: LocalDate?,
@@ -85,6 +90,9 @@ sealed interface EditGearEvent {
 
     /** Makes the item a default for [type], or no longer one. */
     data class ToggleDefault(val type: ActivityType) : EditGearEvent
+
+    /** Adds the item to the collection at [rkey], or removes it from it. */
+    data class ToggleCollection(val rkey: String) : EditGearEvent
 
     data class VisibilityChanged(val visibility: String) : EditGearEvent
 

@@ -121,6 +121,11 @@ object EditGearSamples {
             confirmingDelete = false,
             approvesFollowers = false,
             error = null,
+            collections =
+                persistentListOf(
+                    GearCollectionChoice("3kcol1", "Race kit", member = true),
+                    GearCollectionChoice("3kcol2", "Winter", member = false),
+                ),
             eventSink = {},
         )
 
@@ -178,7 +183,19 @@ object GearSamples {
     private fun state(
         content: ContentState<GearPage?>,
         activities: PagedState<ActivityView, Unit> = PagedStates.end(this.activities, Unit),
-    ) = GearState(content = content, activities = activities, viewerDid = Fixed.ALICE.value)
+    ) =
+        GearState(
+            content = content,
+            activities = activities,
+            viewerDid = Fixed.ALICE.value,
+            collections = if (content.data?.isOwner == true) collections else persistentListOf(),
+        )
+
+    private val collections =
+        persistentListOf(
+            GearCollectionChoice("3kcol1", "Race kit", member = true),
+            GearCollectionChoice("3kcol2", "Winter", member = false),
+        )
 
     val all: Map<String, GearState>
         get() =

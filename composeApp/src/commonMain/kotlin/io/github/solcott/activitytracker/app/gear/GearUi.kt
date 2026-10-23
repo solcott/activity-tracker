@@ -122,6 +122,16 @@ private fun Loaded(state: GearState, page: GearPage, padding: PaddingValues, onR
         LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 12.dp)) {
             item(key = "refresh") { RefreshStatus(state.content, UiError.Kind.LoadGearItem, onRetry) }
             item(key = "header") { Header(page) }
+            if (page.isOwner && state.collections.isNotEmpty()) {
+                item(key = "collections") {
+                    GearCollectionsField(
+                        state.collections,
+                        enabled = true,
+                        onToggle = { state.eventSink(GearEvent.ToggleCollection(it)) },
+                        modifier = Modifier.padding(vertical = 8.dp),
+                    )
+                }
+            }
             item(key = "totals") {
                 Section(stringResource(Res.string.gear_page_totals))
                 AppCard(Modifier.fillMaxWidth()) { Totals(page.usage.totals, page.gear.type, page.usage.starting) }

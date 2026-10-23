@@ -23,6 +23,8 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.activity.NewPhoto
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.gear.GearCollection
+import io.github.solcott.activitytracker.data.gear.GearCollections
 import io.github.solcott.activitytracker.data.gear.GearDefaults
 import io.github.solcott.activitytracker.data.gear.GearItem
 import io.github.solcott.activitytracker.data.gear.GearNeedsSignInException
@@ -60,7 +62,8 @@ private val TYPES: ImmutableList<String> = GearType.all.toImmutableList()
 /**
  * Adds or edits a gear item. Every save, retire and delete is a direct call ([GearRepository]) that goes back to the list when it's done,
  * and keeps the form as filled in when it fails. A new item starts at Only me. The activity types it's a default for are saved after the
- * item, to the athlete's private defaults ([GearDefaults]), only when they changed.
+ * item, to the athlete's private defaults ([GearDefaults]), and then the collections it's in ([GearCollections]), each only when they
+ * changed.
  */
 @CircuitInject(EditGearScreen::class, SessionScope::class)
 @Composable
@@ -70,6 +73,7 @@ fun EditGearPresenter(
     navigator: Navigator,
     gear: GearRepository,
     gearDefaults: GearDefaults,
+    collections: GearCollections,
     profiles: ProfileRepository,
     unitsRepository: UnitsRepository,
     clock: Clock,
@@ -93,6 +97,10 @@ fun EditGearPresenter(
     // As read for the item, and as the athlete has them now; null until read (a new item has none).
     var savedDefaults by rememberRetained { mutableStateOf<List<ActivityType>?>(if (rkey == null) emptyList() else null) }
     var defaultFor by rememberRetained { mutableStateOf<List<ActivityType>?>(null) }
+    // The athlete's collections, the rkeys of those listing the item as read, and as the athlete has them now; null until changed.
+    var allCollections by rememberRetained { mutableStateOf(emptyList<GearCollection>()) }
+    var savedCollections by rememberRetained { mutableStateOf<Set<String>?>(null) }
+    var inCollections by rememberRetained { mutableStateOf<Set<String>?>(null) }
     var visibility by rememberRetained { mutableStateOf(Visibility.SELF) }
     var acquiredOn by rememberRetained { mutableStateOf<LocalDate?>(null) }
     var retiredAt by rememberRetained { mutableStateOf<Instant?>(null) }
@@ -109,6 +117,17 @@ fun EditGearPresenter(
         }
     }
     val shownDefaults = defaultFor ?: savedDefaults.orEmpty()
+    LaunchedEffect(rkey) {
+        if (savedCollections == null) {
+            runSuspendCatching { collections.all() }
+                .onSuccess { read ->
+                    allCollections = read
+                    val uri = rkey?.let { AtUri.of(gear.did, Nsid.GEAR_ITEM, it) }
+                    savedCollections = read.filter { uri != null && uri in it.items }.map { it.rkey }.toSet()
+                }
+        }
+    }
+    val shownCollections = inCollections ?: savedCollections.orEmpty()
 
     val seed =
         rememberFormSeed(loaded) { item ->
@@ -166,6 +185,11 @@ fun EditGearPresenter(
                     gearDefaults.setTypes(saved.uri(gear.did), types)
                     savedDefaults = types
                 }
+                val chosen = inCollections
+                if (chosen != null && chosen != savedCollections.orEmpty()) {
+                    collections.setMembership(saved.uri(gear.did), chosen)
+                    savedCollections = chosen
+                }
             }
                 .onSuccess { navigator.pop() }
                 .onFailure { error = saveErrorOf(it) }
@@ -190,6 +214,7 @@ fun EditGearPresenter(
         kinds = GearType.kinds(type).toImmutableList(),
         sports = sports.toImmutableList(),
         defaultFor = shownDefaults.toImmutableList(),
+        collections = allCollections.map { GearCollectionChoice(it.rkey, it.record.name, it.rkey in shownCollections) }.toImmutableList(),
         visibility = visibility,
         acquiredOn = acquiredOn,
         retiredOn = retiredAt?.toLocalDateTime(TimeZone.currentSystemDefault())?.date,
@@ -212,6 +237,8 @@ fun EditGearPresenter(
                 sports = if (event.sport in sports) sports - event.sport else (sports + event.sport).take(GearItemRecord.MAX_SPORTS)
             is EditGearEvent.ToggleDefault ->
                 defaultFor = if (event.type in shownDefaults) shownDefaults - event.type else shownDefaults + event.type
+            is EditGearEvent.ToggleCollection ->
+                inCollections = if (event.rkey in shownCollections) shownCollections - event.rkey else shownCollections + event.rkey
             is EditGearEvent.VisibilityChanged -> visibility = event.visibility
             is EditGearEvent.AcquiredChanged -> acquiredOn = event.date
             is EditGearEvent.PhotoPicked -> {

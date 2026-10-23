@@ -2,9 +2,11 @@ package io.github.solcott.activitytracker.app
 
 import com.slack.circuit.test.FakeNavigator
 import io.github.solcott.activitytracker.app.gear.EditGearScreen
+import io.github.solcott.activitytracker.app.gear.GearCollectionChoice
 import io.github.solcott.activitytracker.app.gear.GearEvent
 import io.github.solcott.activitytracker.app.gear.GearPresenter
 import io.github.solcott.activitytracker.app.gear.GearScreen
+import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
@@ -12,6 +14,7 @@ import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.GearCollectionRecord
 import io.github.solcott.activitytracker.lexicon.app.GearTotals
 import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.GearUsage
@@ -28,6 +31,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonObject
 
 /** A gear item's page (gear/gear-usage): the owner's with Edit, a follower's without, and an item the viewer may not see. */
 class GearPresenterTest {
@@ -65,7 +69,7 @@ class GearPresenterTest {
         fixture.gearActivities = listOf(ride(fixture.did))
         val repos = fixture.repos()
         val navigator = FakeNavigator(GearScreen(uri))
-        presenterTestOf({ GearPresenter(GearScreen(uri), navigator, repos.gear, repos.activities) }) {
+        presenterTestOf({ GearPresenter(GearScreen(uri), navigator, repos.gear, repos.gearCollections, repos.activities) }) {
             val loaded = awaitUntil { it.content.hasLoaded && it.activities.items.isNotEmpty() }
             val page = checkNotNull(loaded.page)
             assertTrue(page.isOwner)
@@ -85,7 +89,7 @@ class GearPresenterTest {
         fixture.gearActivities = listOf(ride(bob))
         val repos = fixture.repos()
         val navigator = FakeNavigator(GearScreen(uri))
-        presenterTestOf({ GearPresenter(GearScreen(uri), navigator, repos.gear, repos.activities) }) {
+        presenterTestOf({ GearPresenter(GearScreen(uri), navigator, repos.gear, repos.gearCollections, repos.activities) }) {
             val loaded = awaitUntil { it.content.hasLoaded && it.activities.items.isNotEmpty() }
             val page = checkNotNull(loaded.page)
             assertFalse(page.isOwner)
@@ -100,9 +104,58 @@ class GearPresenterTest {
     fun anItemTheViewerMayNotSeeIsNotFound() = runTest {
         val uri = AtUri.of(Did("did:plc:bob"), Nsid.GEAR_ITEM, "3private").value
         val repos = fixture.repos()
-        presenterTestOf({ GearPresenter(GearScreen(uri), FakeNavigator(GearScreen(uri)), repos.gear, repos.activities) }) {
+        presenterTestOf({
+            GearPresenter(GearScreen(uri), FakeNavigator(GearScreen(uri)), repos.gear, repos.gearCollections, repos.activities)
+        }) {
             val state = awaitUntil { it.notFound }
             assertFalse(state.content.hasLoaded)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    private fun raceKit(vararg members: String) {
+        fixture.gearCollections["3kit"] =
+            AtJson.encodeToJsonElement(
+                GearCollectionRecord.serializer(),
+                GearCollectionRecord("Race kit", created, items = members.map(::AtUri)),
+            ) as JsonObject
+    }
+
+    private fun raceKitItems() =
+        AtJson.decodeFromJsonElement(GearCollectionRecord.serializer(), fixture.gearCollections.getValue("3kit")).items.orEmpty()
+
+    @Test
+    fun theOwnerAddsTheHelmetToRaceKitFromItsPageAndTakesItOut() = runTest {
+        val tarmac = item(fixture.did)
+        val helmet = item(fixture.did, "3helmet")
+        raceKit(tarmac)
+        val repos = fixture.repos()
+        presenterTestOf({
+            GearPresenter(GearScreen(helmet), FakeNavigator(GearScreen(helmet)), repos.gear, repos.gearCollections, repos.activities)
+        }) {
+            val loaded = awaitUntil { it.collections.isNotEmpty() }
+            assertEquals(listOf(GearCollectionChoice("3kit", "Race kit", member = false)), loaded.collections)
+            loaded.eventSink(GearEvent.ToggleCollection("3kit"))
+            val joined = awaitUntil { it.collections.single().member }
+            assertEquals(listOf(AtUri(tarmac), AtUri(helmet)), raceKitItems(), "at the end")
+            joined.eventSink(GearEvent.ToggleCollection("3kit"))
+            awaitUntil { !it.collections.single().member }
+            assertEquals(listOf(AtUri(tarmac)), raceKitItems())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aFollowerNeverSeesTheOwnersCollections() = runTest {
+        val bob = Did("did:plc:bob")
+        val uri = item(bob)
+        raceKit(uri)
+        val repos = fixture.repos()
+        presenterTestOf({
+            GearPresenter(GearScreen(uri), FakeNavigator(GearScreen(uri)), repos.gear, repos.gearCollections, repos.activities)
+        }) {
+            val loaded = awaitUntil { it.content.hasLoaded }
+            assertTrue(loaded.collections.isEmpty())
             cancelAndIgnoreRemainingEvents()
         }
     }

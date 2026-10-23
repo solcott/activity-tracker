@@ -1559,6 +1559,8 @@
     <string name="error_delete_gear_collection">Couldn't delete your collection</string>
     <string name="gear_collections">Collections</string>
     <string name="gear_collections_help">Gear you use together. Only you see your collections.</string>
+    <string name="gear_collections_add_to">Add to a collection</string>
+    <string name="gear_collections_remove_from">Remove from %1$s</string>
     <plurals name="gear_collection_count">
         <item quantity="one">%1$d item</item>
         <item quantity="other">%1$d items</item>

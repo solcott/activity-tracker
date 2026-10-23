@@ -13,6 +13,8 @@ import io.github.solcott.activitytracker.lexicon.app.GearUsage
 import io.github.solcott.activitytracker.lexicon.app.GearView
 import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.PagedState
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * The gear item at [uri], its canonical AT-URI (gear/gear-usage): its photo and details, its usage as the viewer may see it, and the
@@ -35,7 +37,9 @@ data class GearState(
     val viewerDid: String = "",
     /** Labeled photos the viewer revealed on this screen. */
     val revealed: Revealed = Revealed(),
-    /** Why the last action on an activity (a like) failed. */
+    /** The athlete's collections by name, each marked when the item is in it; only on the owner's page, since collections are private. */
+    val collections: ImmutableList<GearCollectionChoice> = persistentListOf(),
+    /** Why the last action failed: on an activity (a like), or adding the item to a collection or taking it out. */
     val error: UiError? = null,
     val eventSink: (GearEvent) -> Unit = {},
 ) : CircuitUiState {
@@ -55,6 +59,9 @@ sealed interface GearEvent {
 
     /** Opens the item's edit screen; only on the owner's page. */
     data object Edit : GearEvent
+
+    /** Adds the item to the collection at [rkey], or takes it out, saving at once; only on the owner's page. */
+    data class ToggleCollection(val rkey: String) : GearEvent
 
     data class Activity(val event: ActivityListEvent) : GearEvent
 }

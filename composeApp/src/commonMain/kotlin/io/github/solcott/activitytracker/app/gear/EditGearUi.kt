@@ -231,6 +231,7 @@ private fun GearForm(state: EditGearState, modifier: Modifier = Modifier) {
         }
         SportsField(state.sports, enabled, onToggle = { send(EditGearEvent.ToggleSport(it)) })
         DefaultForField(state.defaultFor, enabled, onToggle = { send(EditGearEvent.ToggleDefault(it)) })
+        GearCollectionsField(state.collections, enabled, onToggle = { send(EditGearEvent.ToggleCollection(it)) })
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             AppTextField(
                 state.weight,

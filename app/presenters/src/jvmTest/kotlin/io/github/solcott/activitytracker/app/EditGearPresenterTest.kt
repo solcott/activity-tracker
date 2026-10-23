@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.app.gear.EditGearEvent
 import io.github.solcott.activitytracker.app.gear.EditGearPresenter
 import io.github.solcott.activitytracker.app.gear.EditGearScreen
 import io.github.solcott.activitytracker.app.gear.EditGearState
+import io.github.solcott.activitytracker.app.gear.GearCollectionChoice
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -14,6 +15,7 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.GearAutoAssignRecord
+import io.github.solcott.activitytracker.lexicon.app.GearCollectionRecord
 import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
 import io.github.solcott.activitytracker.lexicon.app.GearSportDefault
 import io.github.solcott.activitytracker.lexicon.app.GearType
@@ -52,7 +54,18 @@ class EditGearPresenterTest {
     ) {
         val repos = fixture.repos(defaultUnits = units)
         presenterTestOf(
-            { EditGearPresenter(screen, navigator, repos.gear, repos.gearDefaults, repos.profiles, repos.units, Clock.System) },
+            {
+                EditGearPresenter(
+                    screen,
+                    navigator,
+                    repos.gear,
+                    repos.gearDefaults,
+                    repos.gearCollections,
+                    repos.profiles,
+                    repos.units,
+                    Clock.System,
+                )
+            },
             block = block,
         )
     }
@@ -257,5 +270,52 @@ class EditGearPresenterTest {
             assertEquals("2", form.startingTime.text.toString())
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    private fun uri(rkey: String) = AtUri("at://${fixture.did.value}/${Nsid.GEAR_ITEM}/$rkey")
+
+    private fun raceKit(vararg members: String) {
+        fixture.gearCollections["3kit"] =
+            AtJson.encodeToJsonElement(
+                GearCollectionRecord.serializer(),
+                GearCollectionRecord("Race kit", created, items = members.map(::uri)),
+            ) as JsonObject
+    }
+
+    private fun raceKitItems() =
+        AtJson.decodeFromJsonElement(GearCollectionRecord.serializer(), fixture.gearCollections.getValue("3kit")).items
+
+    @Test
+    fun addingTheHelmetToRaceKitListsItAtTheEnd() = runTest {
+        store(pdsRepo, "3tarmac", GearItemRecord("Tarmac", GearType.BIKE, created))
+        store(pdsRepo, "3helmet", GearItemRecord("Aero helmet", GearType.HELMET, created))
+        raceKit("3tarmac")
+        val navigator = FakeNavigator(EditGearScreen("3helmet"))
+        test(EditGearScreen("3helmet"), navigator) {
+            val form = awaitUntil { it.content.hasLoaded && it.collections.isNotEmpty() }
+            assertEquals(listOf(GearCollectionChoice("3kit", "Race kit", member = false)), form.collections)
+            form.eventSink(EditGearEvent.ToggleCollection("3kit"))
+            awaitUntil { it.collections.single().member }.eventSink(EditGearEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(listOf(uri("3tarmac"), uri("3helmet")), raceKitItems())
+    }
+
+    @Test
+    fun removingTheHelmetFromRaceKit() = runTest {
+        store(pdsRepo, "3tarmac", GearItemRecord("Tarmac", GearType.BIKE, created))
+        store(pdsRepo, "3helmet", GearItemRecord("Aero helmet", GearType.HELMET, created))
+        raceKit("3tarmac", "3helmet")
+        val navigator = FakeNavigator(EditGearScreen("3helmet"))
+        test(EditGearScreen("3helmet"), navigator) {
+            val form = awaitUntil { it.content.hasLoaded && it.collections.isNotEmpty() }
+            assertTrue(form.collections.single().member)
+            form.eventSink(EditGearEvent.ToggleCollection("3kit"))
+            awaitUntil { !it.collections.single().member }.eventSink(EditGearEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(listOf(uri("3tarmac")), raceKitItems())
     }
 }
