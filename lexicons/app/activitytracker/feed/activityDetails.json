@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "An activity's summary fields whose detail category (start time, heart rate, power, pace/speed, calories, map, cadence) the athlete made narrower than the activity. Its rkey is its activity's. It is stored only in the athlete's app.activitytracker.space.athlete space for that category's tier (followers, mutuals or self), at most one per tier, and never in the repo: the AppView ignores a copy in a repo. Where it's stored is its only visibility. Its fields have the same names and units as on app.activitytracker.feed.activity, which leaves them out; a viewer admitted to this tier gets them on top of the activity's.",
+      "description": "An activity's summary fields whose detail category (start time, heart rate, power, pace/speed, calories, map, cadence, gear) the athlete made narrower than the activity. Its rkey is its activity's. It is stored only in the athlete's app.activitytracker.space.athlete space for that category's tier (followers, mutuals or self), at most one per tier, and never in the repo: the AppView ignores a copy in a repo. Where it's stored is its only visibility. Its fields have the same names and units as on app.activitytracker.feed.activity, which leaves them out; a viewer admitted to this tier gets them on top of the activity's.",
       "key": "tid",
       "record": {
         "type": "object",
@@ -34,6 +34,12 @@
           "normalizedPower": { "type": "integer", "minimum": 0, "description": "Watts." },
           "work": { "type": "integer", "minimum": 0, "description": "Kilojoules." },
           "calories": { "type": "integer", "minimum": 0, "description": "Kilocalories." },
+          "gear": {
+            "type": "array",
+            "maxLength": 16,
+            "items": { "type": "string", "format": "at-uri" },
+            "description": "The gear used, as on app.activitytracker.feed.activity, when the gear category is narrower than the activity."
+          },
           "createdAt": { "type": "string", "format": "datetime" }
         }
       }

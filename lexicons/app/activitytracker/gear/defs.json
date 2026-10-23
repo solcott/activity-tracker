@@ -1,0 +1,20 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.gear.defs",
+  "defs": {
+    "gearView": {
+      "type": "object",
+      "description": "A gear item as an activity shows it: what it is, never its notes, weight or dates.",
+      "required": ["uri", "name", "type"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri", "description": "The item's canonical URI, wherever it's stored." },
+        "name": { "type": "string" },
+        "type": { "type": "string", "description": "app.activitytracker.gear.item#type." },
+        "kind": { "type": "string", "description": "app.activitytracker.gear.item#kind." },
+        "brand": { "type": "string" },
+        "model": { "type": "string" },
+        "photo": { "type": "string", "format": "uri", "description": "A URL to load the item's photo from; absent when it has none." }
+      }
+    }
+  }
+}

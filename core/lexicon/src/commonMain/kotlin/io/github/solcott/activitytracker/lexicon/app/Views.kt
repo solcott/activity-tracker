@@ -95,6 +95,11 @@ data class ActivityView(
     val details: List<DetailsView>? = null,
     /** Labels on the activity, which cover its photos too; its author's are on [author]. Null when there are none. */
     val labels: List<LabelView>? = null,
+    /**
+     * The gear the activity lists that the viewer may see (in a tier of its gear category they're admitted to, and an item they may see
+     * that still exists), in the athlete's order; null when there is none. [record] and [details] carry only these items' URIs.
+     */
+    val gear: List<GearView>? = null,
 ) {
     /** [visibility] as a known value: [Visibility.PUBLIC] when absent, [Visibility.SELF] when unknown. */
     val visibilityOrPublic: String

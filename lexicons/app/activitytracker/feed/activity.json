@@ -70,6 +70,12 @@
             "description": "Sensors paired with the recording device. Make and model only: never serial numbers or battery state."
           },
           "dive": { "type": "ref", "ref": "#dive", "description": "The dive computer's summary, for a dive." },
+          "gear": {
+            "type": "array",
+            "maxLength": 16,
+            "items": { "type": "string", "format": "at-uri" },
+            "description": "The athlete's gear used, by the canonical URIs of their app.activitytracker.gear.item records (at://{did}/app.activitytracker.gear.item/{rkey}), in the order they chose. Its detail category is gear. A URI of anyone else's item, or of anything else, is ignored. Absent when the activity lists no gear."
+          },
           "media": {
             "type": "array",
             "maxLength": 10,

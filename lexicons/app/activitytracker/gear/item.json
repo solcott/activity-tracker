@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "One piece of an athlete's gear: a bike, a pair of shoes, a component, skis. Stored in exactly one place by its visibility: the athlete's repo when Public, else their app.activitytracker.space.athlete tier space for that visibility (followers, mutuals or self). It keeps its rkey when it moves, so its canonical URI is at://{did}/app.activitytracker.gear.item/{rkey} wherever it's stored. The AppView doesn't index it yet.",
+      "description": "One piece of an athlete's gear: a bike, a pair of shoes, a component, skis. Stored in exactly one place by its visibility: the athlete's repo when Public, else their app.activitytracker.space.athlete tier space for that visibility (followers, mutuals or self). It keeps its rkey when it moves, so its canonical URI is at://{did}/app.activitytracker.gear.item/{rkey} wherever it's stored. The AppView indexes it from the repo and tier spaces and serves it only as app.activitytracker.gear.defs#gearView on activities that list it (app.activitytracker.feed.activity#gear), to viewers its tier admits.",
       "key": "tid",
       "record": {
         "type": "object",

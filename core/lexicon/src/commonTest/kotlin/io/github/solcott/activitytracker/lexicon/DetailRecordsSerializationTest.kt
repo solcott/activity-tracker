@@ -26,9 +26,17 @@ class DetailRecordsSerializationTest {
         assertEquals(Visibility.MUTUALS, activity)
         assertEquals(Visibility.SELF, categories[DetailCategory.HEART_RATE])
         assertEquals(Visibility.MUTUALS, categories[DetailCategory.POWER])
+        assertEquals(Visibility.SELF, categories[DetailCategory.GEAR], "gear never set starts at Only me")
+        assertEquals(
+            Visibility.PUBLIC,
+            ActivityDefaultsRecord(details = DetailVisibilities(gear = Visibility.PUBLIC)).resolved().second[DetailCategory.GEAR],
+        )
 
         val empty = AtJson.decodeFromString(ActivityDefaultsRecord.serializer(), """{"${'$'}type":"${Nsid.ACTOR_ACTIVITY_DEFAULTS}"}""")
-        assertEquals(Visibility.PUBLIC to DetailCategory.all.associateWith { Visibility.PUBLIC }, empty.resolved())
+        assertEquals(
+            Visibility.PUBLIC to DetailCategory.all.associateWith { if (it == DetailCategory.GEAR) Visibility.SELF else Visibility.PUBLIC },
+            empty.resolved(),
+        )
         val wide = ActivityDefaultsRecord(visibility = Visibility.FOLLOWERS, details = DetailVisibilities(calories = Visibility.PUBLIC))
         assertEquals(Visibility.FOLLOWERS, wide.resolved().second[DetailCategory.CALORIES])
         assertEquals(Visibility.SELF, ActivityDefaultsRecord(visibility = "friends").resolved().first)
@@ -41,7 +49,10 @@ class DetailRecordsSerializationTest {
                 ActivityDefaultsRecord.serializer(),
                 """{"${'$'}type":"${Nsid.ACTOR_ACTIVITY_DEFAULTS}","visibility":"public","chartsVisibility":"self"}""",
             )
-        assertEquals(Visibility.PUBLIC to DetailCategory.all.associateWith { Visibility.PUBLIC }, old.resolved())
+        assertEquals(
+            Visibility.PUBLIC to DetailCategory.all.associateWith { if (it == DetailCategory.GEAR) Visibility.SELF else Visibility.PUBLIC },
+            old.resolved(),
+        )
     }
 
     @Test

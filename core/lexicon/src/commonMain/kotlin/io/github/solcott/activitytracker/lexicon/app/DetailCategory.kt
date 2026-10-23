@@ -23,9 +23,16 @@ object DetailCategory {
     const val PHYSIOLOGY = "physiology"
     const val CADENCE = "cadence"
     const val DIVE = "dive"
+    const val GEAR = "gear"
 
     /** Every known category, in the order pickers list them. */
-    val all = listOf(START_TIME, HEART_RATE, POWER, SPEED, CALORIES, MAP, PHYSIOLOGY, CADENCE, DIVE)
+    val all = listOf(START_TIME, HEART_RATE, POWER, SPEED, CALORIES, MAP, PHYSIOLOGY, CADENCE, DIVE, GEAR)
+
+    /**
+     * The tier [category] starts at when nothing sets it, for an activity at [activity]: the activity's, except [GEAR], which starts at
+     * [Visibility.SELF] (which gear an athlete uses can be personal). Pickers, defaults and the splitter all read it.
+     */
+    fun defaultWhenUnset(category: String, activity: String): String = if (category == GEAR) Visibility.SELF else activity
 
     /** A summary field of [ActivityRecord] in a category, mirrored on [ActivityDetailsRecord] under the same [name]. */
     @Suppress("LongParameterList") // How to read, strip, copy and lay over one field on each record.
@@ -172,6 +179,15 @@ object DetailCategory {
                 { r, d -> d.calories?.let { r.copy(calories = it) } ?: r },
                 { it.calories != null },
             ),
+            SummaryField(
+                "gear",
+                GEAR,
+                { it.gear != null },
+                { it.copy(gear = null) },
+                { d, r -> d.copy(gear = r.gear) },
+                { r, d -> d.gear?.let { r.copy(gear = it) } ?: r },
+                { it.gear != null },
+            ),
         )
 
     /** [ActivityRecord] fields in no category, always at the activity's tier, by serial name. */
@@ -308,10 +324,10 @@ object DetailCategory {
 
     /**
      * The tier ([Visibility] value) each category is stored at for an activity at [activity]: [categories]' value capped at the activity,
-     * or the activity's when a category is missing.
+     * or [defaultWhenUnset] when a category is missing.
      */
     fun tiers(activity: String, categories: Map<String, String>): Map<String, String> = all.associateWith {
-        categories[it]?.let { v -> Visibility.capped(Visibility.known(v), activity) } ?: activity
+        categories[it]?.let { v -> Visibility.capped(Visibility.known(v), activity) } ?: defaultWhenUnset(it, activity)
     }
 
     /** [record] as stored at the activity's tier: without every summary field whose category is narrower ([tiers]). */

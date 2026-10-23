@@ -47,6 +47,11 @@
           "items": { "type": "ref", "ref": "#detailsView" },
           "description": "The activity's app.activitytracker.feed.activityDetails records from the tiers the viewer is admitted to, widest first; absent when there are none. Their fields go on top of record's, a narrower tier's last."
         },
+        "gear": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "app.activitytracker.gear.defs#gearView" },
+          "description": "The gear the activity lists that the viewer may see: in a tier of its gear category they're admitted to, and an item they may see that still exists, in the athlete's order. record and details carry only these items' URIs. Absent when there is none."
+        },
         "labels": {
           "type": "array",
           "items": { "type": "ref", "ref": "app.activitytracker.moderation.defs#label" },
