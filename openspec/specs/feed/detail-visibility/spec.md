@@ -7,7 +7,7 @@ Lets an athlete choose, for each category of an activity's data (start time, hea
 ## Requirements
 
 ### Requirement: Every piece of activity data has one category
-Every summary field, stream channel, and lap or leg field of an activity SHALL belong to exactly one detail category (Start time, Heart rate, Power, Pace/Speed, Calories, Map, Physiology, Cadence & running form, or Dive) or be core. Core data SHALL always be at the activity's visibility. Data in no category SHALL be core.
+Every summary field, stream channel, and lap or leg field of an activity SHALL belong to exactly one detail category (Start time, Heart rate, Power, Pace/Speed, Calories, Map, Physiology, Cadence & running form, Dive, or Gear) or be core. Core data SHALL always be at the activity's visibility. Data in no category SHALL be core.
 
 #### Scenario: Heart rate everywhere it appears
 - **WHEN** an activity has average and max heart rate, a heart rate channel, and laps with heart rate
@@ -28,6 +28,10 @@ Every summary field, stream channel, and lap or leg field of an activity SHALL b
 #### Scenario: Dive
 - **WHEN** a dive has depth, ppO2, CNS, N2 load, NDL, deco stop depth and time, TTS, gas switch, dive alert or tank pressure data
 - **THEN** all of them are in the Dive category, and the dive summary (such as max depth and bottom time) is core
+
+#### Scenario: Gear
+- **WHEN** an activity lists the gear it used
+- **THEN** that list is in the Gear category
 
 #### Scenario: Core fields aren't hidden
 - **WHEN** an athlete sets every category of a Public activity to Only me
@@ -157,19 +161,23 @@ When an activity's category visibilities change, the client SHALL write each pla
 - **THEN** the calories end up on the repo's activity record, and the `self` details record no longer has them
 
 ### Requirement: Default visibility per category
-An athlete SHALL be able to set a default visibility for each category in Settings, stored on their `actor.activityDefaults` record in their `self` space. A category default wider than the default activity visibility SHALL be read as the activity default. A category never set SHALL start at the default activity visibility. There SHALL be no separate charts default.
+An athlete SHALL be able to set a default visibility for each category in Settings, stored on their `actor.activityDefaults` record in their `self` space. A category default wider than the default activity visibility SHALL be read as the activity default. A category never set SHALL start at the default activity visibility, except Gear, which SHALL start at Only me. There SHALL be no separate charts default.
 
 #### Scenario: Never set
 - **WHEN** an athlete who never set any defaults starts a new activity
-- **THEN** the activity and every category start as Public
+- **THEN** the activity and every category except Gear start as Public, and Gear starts as Only me
 
 #### Scenario: Only the activity default set
 - **WHEN** an athlete whose defaults record sets only the activity visibility, Followers, starts a new activity
-- **THEN** every category starts as Followers
+- **THEN** every category except Gear starts as Followers, and Gear starts as Only me
+
+#### Scenario: Gear default set
+- **WHEN** an athlete whose activity default is Public sets the Gear default to Public
+- **THEN** the Gear category of a new activity starts as Public
 
 #### Scenario: Old charts default ignored
 - **WHEN** an athlete's defaults record still has a `chartsVisibility` of Only me and no category defaults, with activity Public
-- **THEN** every category of a new activity starts as Public
+- **THEN** every category of a new activity except Gear starts as Public
 
 #### Scenario: Category default capped
 - **WHEN** an athlete sets the default activity visibility to Mutuals while the Calories default is Public
@@ -180,7 +188,7 @@ An athlete SHALL be able to set a default visibility for each category in Settin
 - **THEN** their past activities keep their heart rate visibility
 
 ### Requirement: Categories chosen for each activity
-Recording, manual entry, import and batch import SHALL each let the athlete set the visibility of each category the new activity has data in (for a batch, any selected activity; for a recording, Start time, Map, and Pace and speed), prefilled from the defaults, on every platform. Changing them SHALL affect only that activity or batch. Editing SHALL let the athlete change them, within the cap. A category with no data SHALL NOT be offered.
+Recording, manual entry, import and batch import SHALL each let the athlete set the visibility of each category the new activity has data in (for a batch, any selected activity; for a recording, Start time, Map, and Pace and speed), prefilled from the defaults, on every platform. Gear SHALL count as data whenever the activity lists gear. Changing them SHALL affect only that activity or batch. Editing SHALL let the athlete change them, within the cap. A category with no data SHALL NOT be offered.
 
 #### Scenario: Override for one activity
 - **WHEN** an athlete whose Power default is Only me sets one import's Power to Public
@@ -195,8 +203,8 @@ Recording, manual entry, import and batch import SHALL each let the athlete set 
 - **THEN** after saving, only the athlete and their mutuals get its power data
 
 #### Scenario: Importing a mountain bike ride
-- **WHEN** an athlete imports a mountain bike ride file with a GPS track, heart rate, power, speed, cadence and calories, and no dive or physiology data
-- **THEN** the form offers Start time, Heart rate, Power, Pace and speed, Calories, Map and Cadence, and doesn't offer Physiology or Dive data
+- **WHEN** an athlete imports a mountain bike ride file with a GPS track, heart rate, power, speed, cadence and calories, and no dive or physiology data, and picks no gear
+- **THEN** the form offers Start time, Heart rate, Power, Pace and speed, Calories, Map and Cadence, and doesn't offer Physiology, Dive data or Gear
 
 #### Scenario: Dive without a GPS track
 - **WHEN** an athlete imports a dive with depth and heart rate data and no GPS track
@@ -217,6 +225,10 @@ Recording, manual entry, import and batch import SHALL each let the athlete set 
 #### Scenario: Recording
 - **WHEN** an athlete starts a recording
 - **THEN** the form offers Start time, Map, and Pace and speed
+
+#### Scenario: Gear picked
+- **WHEN** an athlete picks a bike for a recording before saving it
+- **THEN** the form also offers Gear
 
 #### Scenario: Choice kept while the offer changes
 - **WHEN** an athlete on a manual entry sets Pace and speed to Only me, clears the distance, then enters it again
