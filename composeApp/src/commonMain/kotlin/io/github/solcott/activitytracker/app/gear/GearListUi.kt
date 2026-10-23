@@ -31,6 +31,7 @@ import coil3.compose.AsyncImage
 import com.slack.circuit.codegen.annotations.CircuitInject
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
@@ -68,6 +69,10 @@ fun GearListUi(state: GearListState, modifier: Modifier = Modifier) {
             val listState = rememberLazyListState()
             ReadableList(listState, Modifier.fillMaxSize(), padding, minSidePadding = 0.dp) { listPadding ->
                 LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = listPadding + PaddingValues(vertical = 8.dp)) {
+                    // Over the loaded list: a spinner while it reloads, or why the last reload failed with Retry.
+                    item(key = "refresh") {
+                        RefreshStatus(state.content, UiError.Kind.LoadGear, onRetry = { state.eventSink(GearListEvent.Retry) })
+                    }
                     if (lists.isEmpty) {
                         item(key = "empty") {
                             Column(
