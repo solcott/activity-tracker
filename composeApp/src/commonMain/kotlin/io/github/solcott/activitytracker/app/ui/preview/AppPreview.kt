@@ -1,7 +1,7 @@
 package io.github.solcott.activitytracker.app.ui.preview
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Composable
@@ -89,10 +89,12 @@ fun AppPreview(
         LocalAsyncImagePreviewHandler provides PlaceholderImages,
         LocalSubCircuit provides subCircuit,
     ) {
+        PreviewResources()
         AppTheme(darkTheme = darkTheme) {
             // Required, so the screen gets its width class even in a narrower test window or preview pane.
             val sized = width?.let { modifier.requiredWidth(it.previewWidth) } ?: modifier
-            Box(sized.fillMaxSize()) { content() }
+            // Screens fill the height themselves; a component keeps its own, so a preview can wrap it.
+            Box(sized.fillMaxWidth()) { content() }
         }
     }
 }
