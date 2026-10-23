@@ -8,9 +8,11 @@ import io.github.solcott.activitytracker.composeApp.resources.error_check_segmen
 import io.github.solcott.activitytracker.composeApp.resources.error_combine_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_comment
+import io.github.solcott.activitytracker.composeApp.resources.error_delete_gear
 import io.github.solcott.activitytracker.composeApp.resources.error_download_original
 import io.github.solcott.activitytracker.composeApp.resources.error_export_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_export_not_sent
+import io.github.solcott.activitytracker.composeApp.resources.error_gear_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.error_hide_comment
 import io.github.solcott.activitytracker.composeApp.resources.error_invalid_subject_uri
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activities
@@ -23,6 +25,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_feed
 import io.github.solcott.activitytracker.composeApp.resources.error_load_follow_requests
 import io.github.solcott.activitytracker.composeApp.resources.error_load_followers
 import io.github.solcott.activitytracker.composeApp.resources.error_load_following
+import io.github.solcott.activitytracker.composeApp.resources.error_load_gear
 import io.github.solcott.activitytracker.composeApp.resources.error_load_leaderboard
 import io.github.solcott.activitytracker.composeApp.resources.error_load_likes
 import io.github.solcott.activitytracker.composeApp.resources.error_load_mayors
@@ -44,6 +47,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_reason_unrea
 import io.github.solcott.activitytracker.composeApp.resources.error_remove_follower
 import io.github.solcott.activitytracker.composeApp.resources.error_save_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_save_data_source
+import io.github.solcott.activitytracker.composeApp.resources.error_save_gear
 import io.github.solcott.activitytracker.composeApp.resources.error_save_privacy_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_save_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_save_settings
@@ -145,6 +149,10 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.SaveZones -> Res.string.error_save_zones
             UiError.Kind.LoadPrivacyZones -> Res.string.error_load_privacy_zones
             UiError.Kind.SavePrivacyZones -> Res.string.error_save_privacy_zones
+            UiError.Kind.LoadGear -> Res.string.error_load_gear
+            UiError.Kind.SaveGear -> Res.string.error_save_gear
+            UiError.Kind.DeleteGear -> Res.string.error_delete_gear
+            UiError.Kind.GearSignInAgain -> Res.string.error_gear_sign_in_again
             UiError.Kind.TooManyZones -> Res.string.error_too_many_zones
             UiError.Kind.NoLocation -> Res.string.error_no_location
             UiError.Kind.SignInAgain -> Res.string.error_sign_in_again
