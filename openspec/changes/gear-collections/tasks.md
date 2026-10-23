@@ -20,7 +20,7 @@
 ## 4. Integration
 
 - [x] 4.1 Run `./gradlew check` and verify it passes
-- [ ] 4.2 On the local stack, create Race kit, add it to an import, edit the collection, and confirm the activity's gear didn't change and the collection is only in `self`
+- [x] 4.2 On the local stack, create Race kit, add it to an import, edit the collection, and confirm the activity's gear didn't change and the collection is only in `self`
 
 ## Workflow follow-up
 
