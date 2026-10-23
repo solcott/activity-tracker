@@ -25,6 +25,7 @@ import com.patrykandpatrick.vico.multiplatform.cartesian.layer.rememberLine
 import com.patrykandpatrick.vico.multiplatform.cartesian.layer.rememberLineCartesianLayer
 import com.patrykandpatrick.vico.multiplatform.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.multiplatform.common.Fill
+import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -86,7 +87,7 @@ class ChartReadoutUiTest {
     @Test
     fun aSidewaysDragReadsOutWithoutRedrawingTheChart() = runComposeUiTest {
         val scene = Scene()
-        setContent { MaterialTheme { Chart(scene) } }
+        setContent { AppPreview(width = null) { Chart(scene) } }
         val chart = onNodeWithContentDescription(DESCRIPTION)
         assertEquals(0, chart.bubblePixels(scene.bubble))
         val drawn = scene.counter.draws
@@ -110,7 +111,7 @@ class ChartReadoutUiTest {
     @Test
     fun aVerticalDragHidesTheReadout() = runComposeUiTest {
         val scene = Scene()
-        setContent { MaterialTheme { Chart(scene) } }
+        setContent { AppPreview(width = null) { Chart(scene) } }
         val chart = onNodeWithContentDescription(DESCRIPTION)
         chart.performTouchInput {
             down(Offset(centerX, height * 0.2f))
@@ -124,7 +125,7 @@ class ChartReadoutUiTest {
     @Test
     fun hoveringReadsOutTheNearestPointUntilThePointerLeaves() = runComposeUiTest {
         val scene = Scene()
-        setContent { MaterialTheme { Chart(scene) } }
+        setContent { AppPreview(width = null) { Chart(scene) } }
         val chart = onNodeWithContentDescription(DESCRIPTION)
         val drawn = scene.counter.draws
         chart.performMouseInput {
