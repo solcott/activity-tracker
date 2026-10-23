@@ -10,6 +10,8 @@ composeMultiplatform = "1.12.2"
 metro = "1.4.5"
 detekt = "2.0.0-alpha.6"
 composeRules = "0.6.8"
+# Compose Preview Screenshot Testing engine, for androidApp's screenshotTest suite (AGP test suites).
+screenshot = "0.0.1-alpha16"
 ktfmt = "0.27.0"
 sortDependencies = "0.21.0"
 
@@ -136,6 +138,7 @@ compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", v
 compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }
 compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMultiplatform" }
 compose-ui-test = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "composeMultiplatform" }
+compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "composeMultiplatform" }
 #noinspection UnusedVersionCatalogEntry
 compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "material3" }
 compose-material-icons-core = { module = "org.jetbrains.compose.material:material-icons-core", version.ref = "materialIcons" }
@@ -173,6 +176,7 @@ osmpbf = { module = "org.openstreetmap.pbf:osmpbf", version.ref = "osmpbf" }
 
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 
+screenshot-validation-api = { module = "com.android.tools.screenshot:screenshot-validation-api", version.ref = "screenshot" }
 #noinspection UnusedVersionCatalogEntry
 compose-rules-detekt = { module = "io.nlopez.compose.rules:detekt", version.ref = "composeRules" }
 # The API :detekt-rules builds against and its test harness.
