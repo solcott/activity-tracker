@@ -33,6 +33,10 @@ data class DidDocument(
     val signingKey: String?
         get() = verificationKey("#atproto")
 
+    /** Multibase-encoded P-256 key (`#atproto_kem`) a Spaces reader agrees a MAC key with. */
+    val kemKey: String?
+        get() = verificationKey("#atproto_kem")
+
     /** Multibase-encoded key of the verification method [fragment] (`#atproto_label` for a labeler's label key). */
     fun verificationKey(fragment: String): String? =
         verificationMethod.firstOrNull { it.id == fragment || it.id == "$id$fragment" }?.publicKeyMultibase
