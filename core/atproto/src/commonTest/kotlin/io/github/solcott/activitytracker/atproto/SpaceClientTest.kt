@@ -4,11 +4,14 @@ import io.github.solcott.activitytracker.atproto.crypto.DpopKey
 import io.github.solcott.activitytracker.atproto.space.CreateSpaceResult
 import io.github.solcott.activitytracker.atproto.space.SpaceClient
 import io.github.solcott.activitytracker.atproto.space.SpaceCredentials
+import io.github.solcott.activitytracker.atproto.space.SpaceMacException
+import io.github.solcott.activitytracker.atproto.space.SpaceMacHost
 import io.github.solcott.activitytracker.atproto.space.SpaceRead
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcBytes
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcClient
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.atproto.Space
@@ -37,7 +40,13 @@ class SpaceClientTest {
     private val f = SpaceFixtures()
     private val collection = "app.activitytracker.actor.privateDetails"
     private val getRecord = "alicepds.test/xrpc/com.atproto.space.getRecord"
-    private val record = """{"uri":"at://did:plc:alice/$collection/self","cid":"bafyrec","value":{"weight":70000}}"""
+    private val value = """{"weight":70000}"""
+    private val record =
+        """{"uri":"${f.aliceSpace.value}/did:plc:alice/$collection/self","cid":"${SpaceFixtures.RECORD_CID.value}","value":$value}"""
+
+    private fun memberRecords() = f.network.on(getRecord) { with(f) { respondRecord(it, value) } }
+
+    private suspend fun SpaceClient.readAlice() = getRecord(f.aliceSpace, f.alice, collection, "self")
 
     /** bob, reading alice's spaces as a member. */
     private suspend fun viewer(key: DpopKey? = null): SpaceClient {
@@ -53,28 +62,73 @@ class SpaceClientTest {
 
     @Test
     fun memberReadSendsSignedCredentialToTheRepoOwnersPds() = runTest {
-        f.network.on(getRecord) { respondJson(record) }
+        memberRecords()
         val key = DpopKey.generate()
 
-        val read = viewer(key).getRecord(f.aliceSpace, f.alice, collection, "self")
+        val read = viewer(key).readAlice()
 
         assertEquals("70000", assertIs<SpaceRead.Found<Space.GetRecord.Output>>(read).value.value["weight"]?.jsonPrimitive?.content)
         val request = f.requestsTo(getRecord).single()
-        assertEquals("Atproto-Space ${SpaceFixtures.credential(f.clock.now.epochSeconds + 600)}", request.headers["Authorization"])
+        assertEquals(
+            "Atproto-Space-Credential ${SpaceFixtures.credential(f.clock.now.epochSeconds + 600)}",
+            request.headers["Authorization"],
+        )
         assertEquals("did:plc:alice", request.headers["Atproto-Space-Audience"])
-        assertEquals("""atproto-space=("authorization" "atproto-space-audience")""", request.headers["Signature-Input"])
-        assertTrue(request.headers["Signature"].orEmpty().startsWith("atproto-space=:"))
+        assertEquals(
+            """atproto-space-credential=("authorization" "atproto-space-audience");tag="atproto-space-credential"""",
+            request.headers["Signature-Input"],
+        )
+        assertTrue(request.headers["Signature"].orEmpty().startsWith("atproto-space-credential=:"))
+        val wantMac = request.headers["Atproto-Space-Want-Mac"].orEmpty()
+        assertTrue(wantMac.startsWith("""type="atproto-space-record", ver=1, key_share="did:key:z"""), wantMac)
         assertEquals(f.aliceSpace.value, request.url.parameters["space"])
         assertEquals("self", request.url.parameters["rkey"])
     }
 
     @Test
     fun repeatedMemberReadsReuseTheCredential() = runTest {
-        f.network.on(getRecord) { respondJson(record) }
+        memberRecords()
         val client = viewer()
-        repeat(3) { client.getRecord(f.aliceSpace, f.alice, collection, "self") }
+        repeat(3) { assertIs<SpaceRead.Found<*>>(client.readAlice()) }
         assertEquals(1, f.exchanges)
+        val requests = f.requestsTo(getRecord)
+        assertEquals(3, requests.size)
+        assertEquals(3, requests.map { it.headers["Atproto-Space-Want-Mac"] }.toSet().size, "a fresh key share per request")
+    }
+
+    @Test
+    fun rotatedKemKeyIsResolvedAgainAndTheReadRetried() = runTest {
+        memberRecords()
+        val client = viewer()
+        assertIs<SpaceRead.Found<*>>(client.readAlice())
+        val resolutions = f.requestsTo("plc.test/${f.alice.value}").size
+        f.rotateKem()
+
+        assertIs<SpaceRead.Found<*>>(client.readAlice())
+
+        assertEquals(resolutions + 1, f.requestsTo("plc.test/${f.alice.value}").size)
         assertEquals(3, f.requestsTo(getRecord).size)
+    }
+
+    @Test
+    fun macThatNeverVerifiesFailsTheRead() = runTest {
+        val forged = SpaceMacHost.generateKemKey()
+        f.network.on(getRecord) { with(f) { respondRecord(it, value, macKem = forged) } }
+        assertFailsWith<SpaceMacException> { viewer().readAlice() }
+        assertEquals(2, f.requestsTo(getRecord).size)
+    }
+
+    @Test
+    fun missingMacFailsTheRead() = runTest {
+        f.network.on(getRecord) { with(f) { respondRecord(it, value, withMac = false) } }
+        assertFailsWith<SpaceMacException> { viewer().readAlice() }
+    }
+
+    @Test
+    fun recordForAnotherUriFailsTheRead() = runTest {
+        val other = AtUri("${f.aliceSpace.value}/did:plc:alice/$collection/other")
+        f.network.on(getRecord) { with(f) { respondRecord(it, value, uri = other) } }
+        assertFailsWith<SpaceMacException> { viewer().readAlice() }
     }
 
     @Test
@@ -105,7 +159,7 @@ class SpaceClientTest {
         var calls = 0
         f.network.on(getRecord) {
             if (calls++ == 0) respondJson("""{"error":"JwtExpired","message":"exp"}""", HttpStatusCode.Unauthorized)
-            else respondJson(record)
+            else with(f) { respondRecord(it, value) }
         }
         assertIs<SpaceRead.Found<*>>(viewer().getRecord(f.aliceSpace, f.alice, collection, "self"))
         assertEquals(2, f.exchanges)
@@ -133,7 +187,9 @@ class SpaceClientTest {
         assertIs<SpaceRead.Found<*>>(owner().getRecord(f.aliceSpace, f.alice, collection, "self"))
         assertEquals(0, f.delegations)
         assertEquals(0, f.exchanges)
-        assertNull(f.requestsTo(getRecord).single().headers["Atproto-Space-Audience"])
+        val request = f.requestsTo(getRecord).single()
+        assertNull(request.headers["Atproto-Space-Audience"])
+        assertNull(request.headers["Atproto-Space-Want-Mac"])
     }
 
     @Test

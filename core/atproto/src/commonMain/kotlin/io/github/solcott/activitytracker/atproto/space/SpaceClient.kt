@@ -51,8 +51,11 @@ class SpaceClient(
 ) {
     private val member = SpaceMember(credentials, http)
 
-    suspend fun getRecord(space: SpaceUri, repo: Did, collection: String, rkey: String): SpaceRead<Space.GetRecord.Output> =
-        read(space, repo) { it.query(Space.GetRecord.method, Space.GetRecord.Params(space, repo, collection, rkey)) }
+    /** A member's read is returned only with a verified record MAC; otherwise it throws [SpaceMacException], never a [SpaceRead]. */
+    suspend fun getRecord(space: SpaceUri, repo: Did, collection: String, rkey: String): SpaceRead<Space.GetRecord.Output> = outcome {
+        if (space.authority == did && repo == did) pds.query(Space.GetRecord.method, Space.GetRecord.Params(space, repo, collection, rkey))
+        else member.getRecord(space, repo, collection, rkey)
+    }
 
     suspend fun listRecords(
         space: SpaceUri,
@@ -136,9 +139,14 @@ class SpaceClient(
         pds.procedure(Space.DeleteRecord.method, Space.DeleteRecord.Input(space, did, collection, rkey))
     }
 
-    private suspend fun <T> read(space: SpaceUri, repo: Did, call: suspend (XrpcClient) -> T): SpaceRead<T> =
+    private suspend fun <T> read(space: SpaceUri, repo: Did, call: suspend (XrpcClient) -> T): SpaceRead<T> = outcome {
+        // The athlete's own repo in their own space: read with the session, with no credential or MAC.
+        if (space.authority == did && repo == did) call(pds) else member.call(space, repo, call)
+    }
+
+    private suspend fun <T> outcome(read: suspend () -> T): SpaceRead<T> =
         try {
-            SpaceRead.Found(if (space.authority == did && repo == did) call(pds) else member.call(space, repo, call))
+            SpaceRead.Found(read())
         } catch (e: XrpcException) {
             when (e.error) {
                 in SpaceErrors.denials -> SpaceRead.NoAccess

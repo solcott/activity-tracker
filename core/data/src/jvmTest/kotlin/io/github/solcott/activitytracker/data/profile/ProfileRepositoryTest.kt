@@ -2,9 +2,13 @@ package io.github.solcott.activitytracker.data.profile
 
 import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.activityfile.DeviceThresholds
+import io.github.solcott.activitytracker.atproto.space.SpaceMac
+import io.github.solcott.activitytracker.atproto.space.SpaceMacHost
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.training.ThresholdChange
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
@@ -28,6 +32,8 @@ import io.github.solcott.dataresult.Outcome
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.request.HttpRequestData
+import io.ktor.client.request.HttpResponseData
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
@@ -97,6 +103,11 @@ class ProfileRepositoryTest {
     private var aliceFollowsBob = true
     private var bobFollowsAlice = true
     private val credentialRequests = mutableListOf<String>()
+
+    /** Bob's `#atproto_kem` key, which his PDS MACs member reads with. */
+    private var bobKem: SpaceMacHost.KemKey? = null
+
+    private suspend fun bobKem(): SpaceMacHost.KemKey = bobKem ?: SpaceMacHost.generateKemKey().also { bobKem = it }
 
     /** The tier of each `createSpace` call, in order. */
     private val spacesEnsured = mutableListOf<String>()
@@ -200,7 +211,9 @@ class ProfileRepositoryTest {
 
                     "plc.test/${bob.value}" -> {
                         respond(
-                            """{"id":"${bob.value}","alsoKnownAs":["at://bob.test"],"service":[
+                            """{"id":"${bob.value}","alsoKnownAs":["at://bob.test"],
+                               "verificationMethod":[{"id":"${bob.value}#atproto_kem","type":"Multikey","controller":"${bob.value}",
+                                 "publicKeyMultibase":"${bobKem().multikey}"}],"service":[
                                {"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"http://bobpds.test"}]}""",
                             headers = json,
                         )
@@ -216,7 +229,7 @@ class ProfileRepositoryTest {
                         when {
                             bobPdsDown -> error("InternalServerError", HttpStatusCode.InternalServerError)
                             held == null -> error("RecordNotFound")
-                            else -> respondTier(held)
+                            else -> respondMemberTier(request, held)
                         }
                     }
 
@@ -256,6 +269,23 @@ class ProfileRepositoryTest {
             }}""",
             headers = headersOf("Content-Type", "application/json"),
         )
+
+    /** Bob's PDS answering a member's `getRecord` as the Oct 22 alpha does: at the space record's URI, with a record MAC. */
+    private suspend fun io.ktor.client.engine.mock.MockRequestHandleScope.respondMemberTier(
+        request: HttpRequestData,
+        details: ProfileDetails,
+    ): HttpResponseData {
+        val p = request.url.parameters
+        val uri = AtUri("${p["space"]}/${p["repo"]}/${p["collection"]}/${p["rkey"]}")
+        val cid = Cid(MEMBER_RECORD_CID)
+        val mac = SpaceMacHost.recordMacHeader(bobKem(), request.headers[SpaceMac.WANT_MAC_HEADER], uri, cid).orEmpty()
+        return respond(
+            """{"uri":"$uri","cid":"${cid.value}","value":${
+                AtJson.encodeToString(PrivateDetailsRecord.serializer(), PrivateDetailsRecord(details))
+            }}""",
+            headers = headersOf("Content-Type" to listOf("application/json"), SpaceMac.MAC_HEADER to listOf(mac)),
+        )
+    }
 
     private suspend fun repository(clock: Clock = Clock.System): ProfileRepository {
         return ProfileRepository(signedInTestSession(http, did = did).clients, clock, Logger, TrainingNarrowing {})
@@ -666,6 +696,9 @@ class ProfileRepositoryTest {
                 val payload = b64.encode("""{"exp":${Instant.parse("2100-01-01T00:00:00Z").epochSeconds}}""".encodeToByteArray())
                 "$header.$payload.c2ln"
             }
+
+        /** A real CIDv1, since the record MAC covers its binary form. */
+        const val MEMBER_RECORD_CID = "bafyreidqz2dr7cr5h62etpb4hlhgkr6o6aw7y5h74sgzcjjsu4sl7w7fxe"
     }
 
     @Test
