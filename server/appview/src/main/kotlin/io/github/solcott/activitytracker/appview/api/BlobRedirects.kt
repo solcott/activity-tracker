@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.appview.ProfileDetailRules
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityMediaBlobs
 import io.github.solcott.activitytracker.appview.db.Actors
+import io.github.solcott.activitytracker.appview.db.GearItems
 import io.github.solcott.activitytracker.appview.db.ModerationAccess
 import io.github.solcott.activitytracker.appview.db.Origins
 import io.github.solcott.activitytracker.appview.db.tx
@@ -172,9 +173,13 @@ private fun JdbcTransaction.isCurrentAvatar(did: String, cid: String): Boolean =
         isAccountServed(did, viewer = null) &&
         !isProfileTakenDown(did)
 
-/** Whether [cid] is a photo on one of [did]'s public, served activities, which anyone may fetch from the PDS. */
+/**
+ * Whether [cid] is a photo on one of [did]'s public, served activities, or of one of their public, served gear items, which anyone may
+ * fetch from the PDS.
+ */
 private fun JdbcTransaction.isPublicActivityMedia(did: String, cid: String): Boolean =
-    !mediaRows(did, cid) { (Activities.visibility eq Visibility.PUBLIC) and servedToAll() }.empty()
+    !mediaRows(did, cid) { (Activities.visibility eq Visibility.PUBLIC) and servedToAll() }.empty() ||
+        !gearPhotoRows(did, cid) { GearItems.visibility eq Visibility.PUBLIC }.empty()
 
 /**
  * The tier space holding a photo [cid] of [did]'s that [viewer] may see, if there is one. A taken-down activity's photos are refused even
@@ -184,6 +189,12 @@ private fun JdbcTransaction.visibleMediaOrigin(did: String, cid: String, viewer:
     mediaRows(did, cid) { (visibleTo(viewer) or openedByModerator(viewer)) and servedToAll() and (Activities.origin neq Origins.REPO) }
         .firstOrNull()
         ?.get(Activities.origin)
+        ?: gearPhotoRows(did, cid) {
+                visibleTo(viewer, GearItems.visibility, GearItems.authorDid, GearItems.uri, GearItems.cid) and
+                    (GearItems.origin neq Origins.REPO)
+            }
+            .firstOrNull()
+            ?.get(GearItems.origin)
 
 /**
  * [viewer] is a moderator who opened the activity through `moderation.getSubject` within a signed URL's lifetime: the audit log
@@ -205,6 +216,17 @@ private val MODERATOR_GRANT = 30.minutes
 
 /** The activity and its account are served to anyone at all: [served] without the author's exemption. */
 private fun servedToAll(): Op<Boolean> = served(null as Expression<String>?, Activities.authorDid, Activities.uri, Activities.cid)
+
+/** [did]'s served gear items whose photo is [cid] and that [where] admits (`gearView.photo`). */
+private fun JdbcTransaction.gearPhotoRows(did: String, cid: String, where: () -> Op<Boolean>) =
+    GearItems.select(GearItems.origin)
+        .where {
+            (GearItems.authorDid eq did) and
+                (GearItems.photoCid eq cid) and
+                served(null as Expression<String>?, GearItems.authorDid, GearItems.uri, GearItems.cid) and
+                where()
+        }
+        .limit(1)
 
 private fun JdbcTransaction.mediaRows(did: String, cid: String, where: () -> Op<Boolean>) =
     ActivityMediaBlobs.join(Activities, JoinType.INNER, ActivityMediaBlobs.activityUri, Activities.uri)

@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.appview.index
 import io.github.solcott.activitytracker.appview.ProfileDetailRules
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityDetails
+import io.github.solcott.activitytracker.appview.db.ActivityGear
 import io.github.solcott.activitytracker.appview.db.ActivityMediaBlobs
 import io.github.solcott.activitytracker.appview.db.ActivityMembers
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
@@ -10,6 +11,7 @@ import io.github.solcott.activitytracker.appview.db.ActivityZones
 import io.github.solcott.activitytracker.appview.db.Blocks
 import io.github.solcott.activitytracker.appview.db.CommentHides
 import io.github.solcott.activitytracker.appview.db.Comments
+import io.github.solcott.activitytracker.appview.db.GearItems
 import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.appview.db.Mutes
 import io.github.solcott.activitytracker.appview.db.Origins
@@ -41,8 +43,8 @@ import org.jetbrains.exposed.v1.jdbc.upsert
 // Indexing of `feed.activity` records, and the placing of activities and their zones by origin, which the Indexer hands off here.
 
 /**
- * [placement]'s copy of an activity or its zones: decoded, then indexed as the row unless another origin's narrower copy holds it
- * ([place]). Streams and details aren't placed: each tier's copy is a row of its own.
+ * [placement]'s copy of an activity, its zones or a gear item: decoded, then indexed as the row unless another origin's narrower copy holds
+ * it ([place]). Streams and details aren't placed: each tier's copy is a row of its own.
  */
 @Suppress("LongParameterList") // The record, and where it's from.
 internal fun JdbcTransaction.upsertPlaced(
@@ -62,6 +64,8 @@ internal fun JdbcTransaction.upsertPlaced(
         place(collection, uri, cid, json, placement, placement.visibility, now) {
             upsertZones(record, author, uri, cid, json, placement, now)
         }
+    } else if (collection == Nsid.GEAR_ITEM) {
+        upsertGear(author, uri, cid, json, placement, now)
     } else {
         error("$collection isn't placed by origin")
     }
@@ -82,7 +86,7 @@ internal fun JdbcTransaction.takeShadow(uri: AtUri): ResultRow? {
  * holds the row: then this one waits in [RecordShadows]. A wider copy holding the row steps aside into [RecordShadows] instead.
  */
 @Suppress("LongParameterList") // The copy, where it's from, and how to write it.
-private fun JdbcTransaction.place(
+internal fun JdbcTransaction.place(
     collection: String,
     uri: AtUri,
     cid: String,
@@ -122,6 +126,7 @@ internal fun JdbcTransaction.spaceRkeys(space: SpaceUri, collection: String): Se
                         Nsid.FEED_ACTIVITY -> Activities.uri to Activities.origin
                         Nsid.FEED_ACTIVITY_ZONES -> ActivityZones.uri to ActivityZones.origin
                         Nsid.FEED_ACTIVITY_DETAILS -> ActivityDetails.uri to ActivityDetails.origin
+                        Nsid.GEAR_ITEM -> GearItems.uri to GearItems.origin
                         else -> ActivityStreams.uri to ActivityStreams.origin
                     }
                 val held = uriColumn.table.select(uriColumn).where { originColumn eq origin }.map { it[uriColumn] }
@@ -147,6 +152,11 @@ internal fun JdbcTransaction.heldCopy(collection: String, uri: AtUri): HeldCopy?
                 .where { ActivityZones.uri eq uri.value }
                 .singleOrNull()
                 ?.let { HeldCopy(it[ActivityZones.origin], it[ActivityZones.visibility], it[ActivityZones.cid], it[ActivityZones.record]) }
+        Nsid.GEAR_ITEM ->
+            GearItems.selectAll()
+                .where { GearItems.uri eq uri.value }
+                .singleOrNull()
+                ?.let { HeldCopy(it[GearItems.origin], it[GearItems.visibility], it[GearItems.cid], it[GearItems.record]) }
         else -> null
     }
 
@@ -237,6 +247,7 @@ private fun JdbcTransaction.upsertActivity(
         this[ActivityMembers.combinedUri] = uri.value
         this[ActivityMembers.authorDid] = author.value
     }
+    replaceActivityGear(uri, author, placement, ActivityGear.SOURCE_RECORD, record.gear)
 }
 
 /** Records are untrusted: hold the sensors to the lexicon's limits before serving them. */
@@ -285,7 +296,7 @@ private const val MAX_WATER_TYPE_LENGTH = 64
  * Records are untrusted: keep only photos the lexicon allows, with a real CID, and drop media kinds this AppView can't serve (they stay in
  * the athlete's repo).
  */
-private fun boundedPhotos(media: List<ActivityMedia>?): List<ActivityMedia.Image>? =
+internal fun boundedPhotos(media: List<ActivityMedia>?): List<ActivityMedia.Image>? =
     media
         ?.take(ActivityMedia.MAX)
         ?.filterIsInstance<ActivityMedia.Image>()

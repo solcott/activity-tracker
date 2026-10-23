@@ -436,6 +436,49 @@ object ActivityZones : Table("activity_zones") {
     override val primaryKey = PrimaryKey(uri)
 }
 
+/**
+ * `gear.item` records, from repos and tier spaces, placed by origin like [Activities]: one row per item at its canonical URI, the narrower
+ * copy mid-move, the other in [RecordShadows]. Served only as `gearView`s on activities that list them ([ActivityGear]).
+ */
+object GearItems : Table("gear_items") {
+    val uri = varchar("uri", 512)
+    /** As [Activities.origin]. */
+    val origin = varchar("origin", 512)
+    val cid = varchar("cid", 255)
+    val authorDid = varchar("author_did", 255)
+    val visibility = varchar("visibility", 16)
+    val name = varchar("item_name", 1000)
+    val type = varchar("item_type", 64)
+    val kind = varchar("item_kind", 64).nullable()
+    val brand = varchar("brand", 1280).nullable()
+    val model = varchar("model", 1280).nullable()
+    val photoCid = varchar("photo_cid", 255).nullable()
+    val photoMime = varchar("photo_mime", 64).nullable()
+    val retiredAt = long("retired_at").nullable()
+    /** The raw record JSON, so the row can become a [RecordShadows] copy mid-move. */
+    val record = text("record")
+    val indexedAt = long("indexed_at")
+    override val primaryKey = PrimaryKey(uri)
+}
+
+/**
+ * The gear an activity lists: one row per reference to its author's own `gear.item`, by the [origin] and kind ([listedIn]) of the record
+ * listing it (the activity record, [SOURCE_RECORD], or a details record, [SOURCE_DETAILS]), served at [visibility], that record's tier.
+ */
+object ActivityGear : Table("activity_gear") {
+    val activityUri = varchar("activity_uri", 512)
+    val origin = varchar("origin", 512)
+    val listedIn = varchar("listed_in", 16)
+    val gearUri = varchar("gear_uri", 512)
+    val position = integer("sort_index")
+    val authorDid = varchar("author_did", 255)
+    val visibility = varchar("visibility", 16)
+    override val primaryKey = PrimaryKey(activityUri, origin, listedIn, gearUri)
+
+    const val SOURCE_RECORD = "record"
+    const val SOURCE_DETAILS = "details"
+}
+
 /** Decoded `activityStreams#streamData`, cached by the blob's CID. */
 object ActivityStreamData : Table("activity_stream_data") {
     val blobCid = varchar("blob_cid", 255)
