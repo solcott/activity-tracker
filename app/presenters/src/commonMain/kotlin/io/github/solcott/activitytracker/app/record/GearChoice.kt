@@ -5,6 +5,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -12,6 +13,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import com.slack.circuit.retained.rememberRetained
 import dev.zacsweers.metro.Inject
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
+import io.github.solcott.activitytracker.data.gear.GearCollection
+import io.github.solcott.activitytracker.data.gear.GearCollections
 import io.github.solcott.activitytracker.data.gear.GearDefaults
 import io.github.solcott.activitytracker.data.gear.GearItem
 import io.github.solcott.activitytracker.data.gear.GearRepository
@@ -30,13 +33,16 @@ import kotlinx.collections.immutable.toImmutableSet
  * form's activity type, so changing the type changes them; after, it's what they picked, whatever the type.
  */
 @Stable
+@Suppress("LongParameterList") // The form's states, each read as it changes.
 class GearChoice
 internal constructor(
     private val did: Did,
     private val type: () -> ActivityType,
     private val items: State<List<GearItem>>,
     private val rules: State<GearAutoAssignRecord?>,
+    private val collections: State<List<GearCollection>>,
     private val picked: MutableState<List<AtUri>?>,
+    private val notAdded: MutableState<Int>,
 ) {
     /** Whether the athlete has picked or removed gear on this form, or it was [seed]ed. */
     val touched: Boolean
@@ -65,7 +71,14 @@ internal constructor(
                             retired = it.record.retiredAt != null,
                         )
                     }
-            return GearField(options.toImmutableList(), chosen.toImmutableList(), ::onEvent)
+            val collectionOptions = collections.value.map { GearCollectionOption(it.rkey, it.record.name, it.items.size) }
+            return GearField(
+                options.toImmutableList(),
+                chosen.toImmutableList(),
+                collectionOptions.toImmutableList(),
+                notAdded.value,
+                ::onEvent,
+            )
         }
 
     /** [categories] (those the activity has data in), with Gear once the form lists gear: picked gear is data too. */
@@ -82,27 +95,43 @@ internal constructor(
 
     fun onEvent(event: GearEvent) {
         val now = selected
+        notAdded.value = 0
         picked.value =
             when (event) {
                 is GearEvent.Toggle -> if (event.uri in now) now - event.uri else (now + event.uri).take(ActivityRecord.MAX_GEAR)
                 GearEvent.Clear -> emptyList()
+                is GearEvent.AddCollection -> {
+                    val active = items.value.filter { it.record.retiredAt == null }.map { it.uri(did) }.toSet()
+                    val members = collections.value.firstOrNull { it.rkey == event.rkey }?.items.orEmpty()
+                    val adding = members.filter { it in active && it !in now }.distinct()
+                    val added = adding.take((ActivityRecord.MAX_GEAR - now.size).coerceAtLeast(0))
+                    notAdded.value = adding.size - added.size
+                    now + added
+                }
             }
     }
 }
 
 /**
- * Produces a form's [GearChoice] from the athlete's gear and their defaults per activity type, each read once. Injected into the presenters
- * of the forms that save an activity. Reading either can fail without stopping the form: it then offers no gear, or starts with none.
+ * Produces a form's [GearChoice] from the athlete's gear, their collections and their defaults per activity type, each read once. Injected
+ * into the presenters of the forms that save an activity. Reading either can fail without stopping the form: it then offers no gear, or
+ * starts with none.
  */
 @Inject
-class GearChoices(private val gear: GearRepository, private val defaults: GearDefaults) {
+class GearChoices(private val gear: GearRepository, private val defaults: GearDefaults, private val collections: GearCollections) {
     /** For an activity of [type], read as it changes. */
     @Composable
     fun produce(type: ActivityType): GearChoice {
         val currentType by rememberUpdatedState(type)
         val items = produceState(emptyList<GearItem>()) { value = runSuspendCatching { gear.items() }.getOrDefault(emptyList()) }
         val rules = produceState<GearAutoAssignRecord?>(null) { value = runSuspendCatching { defaults.load() }.getOrNull() }
+        // Once the items are read, so members of deleted items are left out.
+        val groups =
+            produceState(emptyList<GearCollection>(), items.value) {
+                if (items.value.isNotEmpty()) value = runSuspendCatching { collections.all(items.value) }.getOrDefault(emptyList())
+            }
         val picked = rememberRetained { mutableStateOf<List<AtUri>?>(null) }
-        return remember(items, rules, picked) { GearChoice(gear.did, { currentType }, items, rules, picked) }
+        val notAdded = remember { mutableIntStateOf(0) }
+        return remember(items, rules, groups, picked) { GearChoice(gear.did, { currentType }, items, rules, groups, picked, notAdded) }
     }
 }

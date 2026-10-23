@@ -1294,6 +1294,11 @@
     <string name="gear_field_retired">Retired</string>
     <string name="gear_field_clear">Remove all</string>
     <string name="gear_field_done">Done</string>
+    <string name="gear_field_add_collection">Add collection</string>
+    <plurals name="gear_field_not_added">
+        <item quantity="one">%1$d item wasn't added: an activity lists at most 16.</item>
+        <item quantity="other">%1$d items weren't added: an activity lists at most 16.</item>
+    </plurals>
     <string name="gear_default_for">Use by default for</string>
     <string name="gear_default_for_none">No activity types</string>
     <string name="gear_default_for_hint">New activities of these types start with this item. A sub-sport's default replaces its sport's for the same kind of gear.</string>
@@ -1549,6 +1554,10 @@
     </plurals>
     <string name="error_save_gear">Couldn't save your gear</string>
     <string name="error_delete_gear">Couldn't delete your gear</string>
+    <plurals name="gear_collection_count">
+        <item quantity="one">%1$d item</item>
+        <item quantity="other">%1$d items</item>
+    </plurals>
     <string name="error_gear_sign_in_again">Sign in again to save gear that isn't Public, or what your activities start with</string>
     <string name="gear_type_bike">Bike</string>
     <string name="gear_type_component">Component</string>

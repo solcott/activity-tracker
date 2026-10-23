@@ -322,10 +322,12 @@ class EditActivityPresenterTest {
         val defaults = ActivityDefaults(clients)
         val profiles = ProfileRepository(clients, Clock.System, Logger, zones.store)
         val segments = testSegments(db, clients, zones.writer, zones.outbox, privacy, zones.tracks)
+        val gearCollections = GearCollections(clients, Clock.System)
         val gearChoices =
             GearChoices(
-                GearRepository(clients, Clock.System, feed, GearCollections(clients, Clock.System), Logger),
+                GearRepository(clients, Clock.System, feed, gearCollections, Logger),
                 GearDefaults(clients, Clock.System),
+                gearCollections,
             )
         return {
             EditActivityPresenter(

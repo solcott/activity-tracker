@@ -135,6 +135,8 @@ class SessionTestFixture {
 
     /** What the AppView's `getGearActivities` serves for any item it has usage for, in one page. */
     var gearActivities: List<ActivityView> = emptyList()
+    /** The athlete's `gear.collection` records in `self`, by rkey. */
+    val gearCollections = mutableMapOf<String, JsonObject>()
 
     /** The athlete's `gear.autoAssign` record in `self`, as JSON; null for none. */
     var gearAutoAssign: String? = null
@@ -351,6 +353,10 @@ class SessionTestFixture {
                             if (collection == Nsid.ACTOR_SEGMENT_PREFS) segmentPrefs = record?.toString()
                             if (collection == Nsid.ACTOR_LEADERBOARD_BRACKETS) leaderboardBrackets = record?.toString()
                             if (collection == Nsid.GEAR_AUTO_ASSIGN) gearAutoAssign = record?.toString()
+                            if (collection == Nsid.GEAR_COLLECTION) {
+                                val rkey = input.getValue("rkey").jsonPrimitive.content
+                                if (record == null) gearCollections.remove(rkey) else gearCollections[rkey] = record
+                            }
                             if (collection == Nsid.GEAR_ITEM) {
                                 val rkey = input.getValue("rkey").jsonPrimitive.content
                                 if (record == null) gear[tier]?.remove(rkey) else gear.getOrPut(tier) { mutableMapOf() }[rkey] = record
@@ -389,7 +395,11 @@ class SessionTestFixture {
                     "/xrpc/com.atproto.space.listRecords" -> {
                         val place = request.url.parameters["space"]?.substringAfterLast('/') ?: "repo"
                         val records =
-                            if (request.url.parameters["collection"] != Nsid.GEAR_ITEM) emptyList()
+                            if (request.url.parameters["collection"] == Nsid.GEAR_COLLECTION && place == "self")
+                                gearCollections.map { (rkey, value) ->
+                                    """{"collection":"${Nsid.GEAR_COLLECTION}","rkey":"$rkey","cid":"bafyrec","value":$value}"""
+                                }
+                            else if (request.url.parameters["collection"] != Nsid.GEAR_ITEM) emptyList()
                             else
                                 gear[place].orEmpty().map { (rkey, value) ->
                                     if (place == "repo") """{"uri":"at://$did/${Nsid.GEAR_ITEM}/$rkey","cid":"bafyrec","value":$value}"""
@@ -460,6 +470,7 @@ class SessionTestFixture {
         val leaderboardBrackets: LeaderboardBracketsRepository,
         val gear: GearRepository,
         val gearDefaults: GearDefaults,
+        val gearCollections: GearCollections,
     ) {
         /** The type picker's producer, as Metro injects it into the record, manual entry and import presenters. */
         val typeChoices: ActivityTypeChoices
@@ -467,7 +478,7 @@ class SessionTestFixture {
 
         /** The gear picker's producer, as Metro injects it into the record, manual entry, import and edit presenters. */
         val gearChoices: GearChoices
-            get() = GearChoices(gear, gearDefaults)
+            get() = GearChoices(gear, gearDefaults, gearCollections)
     }
 
     /** The moderator side for another session on the same fake services; with no [labelerDid] the athlete can't moderate. */
@@ -541,6 +552,7 @@ class SessionTestFixture {
             LeaderboardBracketsRepository(clients, profiles, Clock.System, Logger),
             GearRepository(clients, Clock.System, feed, gearCollections, Logger),
             GearDefaults(clients, Clock.System),
+            gearCollections,
         )
     }
 }

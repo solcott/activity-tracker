@@ -6,6 +6,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.slack.circuit.runtime.CircuitUiState
 import io.github.solcott.activitytracker.app.record.GearChoice
+import io.github.solcott.activitytracker.app.record.GearCollectionOption
 import io.github.solcott.activitytracker.app.record.GearEvent
 import io.github.solcott.activitytracker.app.record.GearField
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -13,6 +14,7 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.GearAutoAssignRecord
+import io.github.solcott.activitytracker.lexicon.app.GearCollectionRecord
 import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
 import io.github.solcott.activitytracker.lexicon.app.GearSportDefault
 import io.github.solcott.activitytracker.lexicon.app.GearType
@@ -118,6 +120,81 @@ class GearChoiceTest {
             val ride = awaitUntil { it.field.selected.isNotEmpty() }
             ride.field.eventSink(GearEvent.Clear)
             assertEquals(emptyList(), awaitUntil { it.field.selected.isEmpty() }.choice.selected)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    private fun collection(rkey: String, name: String, vararg members: String) {
+        fixture.gearCollections[rkey] =
+            AtJson.encodeToJsonElement(GearCollectionRecord.serializer(), GearCollectionRecord(name, created, items = members.map(::uri)))
+                as JsonObject
+    }
+
+    private fun raceKit() {
+        store("repo", "3tarmac", GearItemRecord("Tarmac", GearType.BIKE, created))
+        store("repo", "3helmet", GearItemRecord("Aero helmet", GearType.HELMET, created))
+        store(Visibility.SELF, "3shoes", GearItemRecord("Race shoes", GearType.SHOES, created))
+        store(Visibility.SELF, "3power", GearItemRecord("Power meter", GearType.COMPONENT, created))
+        collection("3kit", "Race kit", "3tarmac", "3helmet", "3shoes", "3power")
+    }
+
+    @Test
+    fun raceKitAddsItsItemsInOrder() = runTest {
+        raceKit()
+        test(ActivityType(Sport.RIDE)) {
+            val loaded = awaitUntil { it.field.collections.isNotEmpty() }
+            assertEquals(GearCollectionOption("3kit", "Race kit", 4), loaded.field.collections.single())
+            loaded.field.eventSink(GearEvent.AddCollection("3kit"))
+            val added = awaitUntil { it.field.selected.isNotEmpty() }
+            assertEquals(listOf("3tarmac", "3helmet", "3shoes", "3power").map(::uri), added.field.selected)
+            assertTrue(added.choice.touched)
+            assertEquals(0, added.field.notAdded)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun anAlreadyListedTarmacIsListedOnce() = runTest {
+        raceKit()
+        test(ActivityType(Sport.RIDE)) {
+            val loaded = awaitUntil { it.field.collections.isNotEmpty() }
+            loaded.field.eventSink(GearEvent.Toggle(uri("3tarmac")))
+            awaitUntil { it.field.selected.size == 1 }.field.eventSink(GearEvent.AddCollection("3kit"))
+            assertEquals(
+                listOf("3tarmac", "3helmet", "3shoes", "3power").map(::uri),
+                awaitUntil { it.field.selected.size == 4 }.field.selected,
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun retiredAndDeletedMembersAreSkipped() = runTest {
+        raceKit()
+        store("repo", "3oldhelmet", GearItemRecord("Old helmet", GearType.HELMET, created, retiredAt = created))
+        collection("3kit", "Race kit", "3tarmac", "3oldhelmet", "3gone", "3power")
+        test(ActivityType(Sport.RIDE)) {
+            val loaded = awaitUntil { it.field.collections.isNotEmpty() }
+            loaded.field.eventSink(GearEvent.AddCollection("3kit"))
+            assertEquals(listOf(uri("3tarmac"), uri("3power")), awaitUntil { it.field.selected.isNotEmpty() }.field.selected)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun theLimitStopsTheRestAndSaysHowMany() = runTest {
+        raceKit()
+        val listed = (1..14).map { "3item$it" }
+        listed.forEach { store("repo", it, GearItemRecord(it, GearType.OTHER, created)) }
+        test(ActivityType(Sport.RIDE)) {
+            val loaded = awaitUntil { it.field.collections.isNotEmpty() }
+            loaded.choice.seed(listed.map(::uri))
+            awaitUntil { it.field.selected.size == 14 }.field.eventSink(GearEvent.AddCollection("3kit"))
+            val full = awaitUntil { it.field.selected.size == 16 }
+            assertEquals(listed.map(::uri) + uri("3tarmac") + uri("3helmet"), full.field.selected)
+            assertEquals(2, full.field.notAdded)
+            full.field.eventSink(GearEvent.Toggle(uri("3item1")))
+            assertEquals(0, awaitUntil { it.field.selected.size == 15 }.field.notAdded, "until the next pick")
             cancelAndIgnoreRemainingEvents()
         }
     }
