@@ -1554,11 +1554,35 @@
     </plurals>
     <string name="error_save_gear">Couldn't save your gear</string>
     <string name="error_delete_gear">Couldn't delete your gear</string>
+    <string name="error_load_gear_collection">Couldn't load this collection</string>
+    <string name="error_save_gear_collection">Couldn't save your collection</string>
+    <string name="error_delete_gear_collection">Couldn't delete your collection</string>
+    <string name="gear_collections">Collections</string>
+    <string name="gear_collections_help">Gear you use together. Only you see your collections.</string>
     <plurals name="gear_collection_count">
         <item quantity="one">%1$d item</item>
         <item quantity="other">%1$d items</item>
     </plurals>
-    <string name="error_gear_sign_in_again">Sign in again to save gear that isn't Public, or what your activities start with</string>
+    <string name="gear_collection_new">New collection</string>
+    <string name="gear_collection_edit_title">Edit collection</string>
+    <string name="gear_collection_name">Name</string>
+    <string name="gear_collection_name_required">Give your collection a name</string>
+    <string name="gear_collection_notes">Notes</string>
+    <string name="gear_collection_items">Items</string>
+    <string name="gear_collection_empty">No items yet</string>
+    <string name="gear_collection_add_items">Add items</string>
+    <string name="gear_collection_add_items_done">Add</string>
+    <string name="gear_collection_no_more_items">All your gear is in this collection.</string>
+    <string name="gear_collection_full">A collection holds at most 50 items.</string>
+    <string name="gear_collection_move_up">Move %1$s up</string>
+    <string name="gear_collection_move_down">Move %1$s down</string>
+    <string name="gear_collection_remove">Remove %1$s</string>
+    <string name="gear_collection_save">Save</string>
+    <string name="gear_collection_edit">Edit collection</string>
+    <string name="gear_collection_delete">Delete collection</string>
+    <string name="gear_collection_delete_title">Delete this collection?</string>
+    <string name="gear_collection_delete_message">Its items, and the gear on your activities, stay as they are.</string>
+    <string name="error_gear_sign_in_again">Sign in again to save gear that isn't Public, what your activities start with, or your collections</string>
     <string name="gear_type_bike">Bike</string>
     <string name="gear_type_component">Component</string>
     <string name="gear_type_shoes">Shoes</string>

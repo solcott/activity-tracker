@@ -84,7 +84,8 @@ object GearListSamples {
                         ),
                     ),
                 ),
-            retired = persistentListOf(GearRow("3kgear3", "Old road bike", GearType.BIKE, null, Visibility.PUBLIC, null)),
+            retired = persistentListOf(GearRow("3kgear3", "Old road bike", GearType.BIKE, null, Visibility.PUBLIC, null, retired = true)),
+            collections = persistentListOf(GearCollectionRow("3kcol1", "Race kit", 4), GearCollectionRow("3kcol2", "Dive kit", 3)),
         )
 
     val all: Map<String, GearListState>
@@ -204,4 +205,51 @@ object GearSamples {
     /** An item the viewer may not see. */
     val notFound: GearState
         get() = GearState(notFound = true, activities = PagedStates.loading(), viewerDid = Fixed.BOB.value)
+}
+
+object GearCollectionSamples {
+    private val members =
+        persistentListOf(
+            GearRow("3kreg", "Regulator", GearType.DIVE_GEAR, "regulator", Visibility.PUBLIC, null),
+            GearRow("3ksuit", "Wetsuit", GearType.WETSUIT, "fullsuit", Visibility.SELF, null, retired = true),
+            GearRow("3kfins", "Fins", GearType.DIVE_GEAR, "fins", Visibility.PUBLIC, null),
+        )
+    private val detail = GearCollectionDetail("Dive kit", "Cold water setup", members)
+
+    val all: Map<String, GearCollectionState>
+        get() =
+            contentSamples(GearCollectionDetail(), detail) { GearCollectionState(it, eventSink = {}) } +
+                (SampleKind.EMPTY to GearCollectionState(ContentStates.loaded(GearCollectionDetail("Winter training")), eventSink = {}))
+}
+
+object EditGearCollectionSamples {
+    private val members =
+        persistentListOf(
+            GearRow("3ktarmac", "Tarmac", GearType.BIKE, "road", Visibility.PUBLIC, null),
+            GearRow("3khelmet", "Aero helmet", GearType.HELMET, "timeTrial", Visibility.PUBLIC, null),
+            GearRow("3kshoes", "Race shoes", GearType.SHOES, "cycling", Visibility.SELF, null),
+        )
+    private val others = persistentListOf(GearRow("3kpower", "Power meter", GearType.COMPONENT, "powerMeter", Visibility.SELF, null))
+
+    private fun state(content: ContentState<Unit>, name: String = "Race kit", withMembers: Boolean = true, isNew: Boolean = false) =
+        EditGearCollectionState(
+            content = content,
+            isNew = isNew,
+            name = TextFieldState(name),
+            notes = TextFieldState(),
+            members = if (withMembers) members else persistentListOf(),
+            others = others,
+            nameMissing = name.isBlank() && withMembers,
+            eventSink = {},
+        )
+
+    val all: Map<String, EditGearCollectionState>
+        get() =
+            mapOf(
+                SampleKind.LOADING to state(ContentStates.loading(Unit), name = "", withMembers = false),
+                SampleKind.FAILED to state(ContentStates.failed(Unit), name = "", withMembers = false),
+                SampleKind.LOADED to state(ContentStates.loaded(Unit)),
+                SampleKind.INVALID to state(ContentStates.loaded(Unit), name = ""),
+                "new" to state(ContentStates.loaded(Unit), name = "", withMembers = false, isNew = true),
+            )
 }

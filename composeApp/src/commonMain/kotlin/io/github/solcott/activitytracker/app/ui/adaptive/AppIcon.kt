@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
@@ -60,6 +61,7 @@ enum class AppIcon(
     Chevron(Icons.AutoMirrored.Filled.KeyboardArrowRight, CupertinoIcons.chevronForward, "chevron.forward"),
     ChevronBack(Icons.AutoMirrored.Filled.KeyboardArrowLeft, CupertinoIcons.chevronBack, "chevron.backward"),
     ChevronDown(Icons.Filled.KeyboardArrowDown, CupertinoIcons.chevronDown, "chevron.down"),
+    ChevronUp(Icons.Filled.KeyboardArrowUp, CupertinoIcons.chevronUp, "chevron.up"),
     Delete(Icons.Filled.Delete, CupertinoIcons.trash, "trash"),
     More(Icons.Filled.MoreVert, CupertinoIcons.ellipsisCircle, "ellipsis.circle"),
     Hide(MaterialIcons.VisibilityOff, CupertinoIcons.eyeSlash, "eye.slash"),

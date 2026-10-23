@@ -18,8 +18,12 @@ import io.github.solcott.activitytracker.app.feed.FeedSamples
 import io.github.solcott.activitytracker.app.feed.FeedState
 import io.github.solcott.activitytracker.app.feed.FeedUi
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
+import io.github.solcott.activitytracker.app.gear.EditGearCollectionSamples
+import io.github.solcott.activitytracker.app.gear.EditGearCollectionUi
 import io.github.solcott.activitytracker.app.gear.EditGearSamples
 import io.github.solcott.activitytracker.app.gear.EditGearUi
+import io.github.solcott.activitytracker.app.gear.GearCollectionSamples
+import io.github.solcott.activitytracker.app.gear.GearCollectionUi
 import io.github.solcott.activitytracker.app.gear.GearListSamples
 import io.github.solcott.activitytracker.app.gear.GearListUi
 import io.github.solcott.activitytracker.app.gear.GearSamples
@@ -124,6 +128,8 @@ class ContentLoadingConformanceTest {
             entry({ GearListSamples.all }, "Gravel bike") { GearListUi(it) },
             entry({ GearSamples.all }, "Rivendell Appaloosa") { GearUi(it) },
             entry({ EditGearSamples.all }, null) { EditGearUi(it) },
+            entry({ GearCollectionSamples.all }, "Cold water setup") { GearCollectionUi(it) },
+            entry({ EditGearCollectionSamples.all }, null) { EditGearCollectionUi(it) },
         )
 
     @Test

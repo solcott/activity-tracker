@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.slack.circuit.codegen.annotations.CircuitInject
@@ -36,16 +37,22 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppTopBarScrollBehavior
 import io.github.solcott.activitytracker.app.ui.visibilityLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.gear_add
+import io.github.solcott.activitytracker.composeApp.resources.gear_collection_count
+import io.github.solcott.activitytracker.composeApp.resources.gear_collection_new
+import io.github.solcott.activitytracker.composeApp.resources.gear_collections
+import io.github.solcott.activitytracker.composeApp.resources.gear_collections_help
 import io.github.solcott.activitytracker.composeApp.resources.gear_empty
 import io.github.solcott.activitytracker.composeApp.resources.gear_retired
 import io.github.solcott.activitytracker.composeApp.resources.gear_title
 import io.github.solcott.activitytracker.data.di.SessionScope
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /** The athlete's gear: a section per type, then Retired. Each row opens the item; Add opens a new one. */
@@ -85,11 +92,55 @@ fun GearListUi(state: GearListState, modifier: Modifier = Modifier) {
                             }
                         }
                     }
+                    if (!lists.isEmpty) collections(lists.collections, state.eventSink)
                     lists.active.forEach { group -> section(group.type, group.type, group.items, state.eventSink) }
                     if (lists.retired.isNotEmpty()) section("retired", null, lists.retired, state.eventSink)
                 }
             }
         }
+    }
+}
+
+/** The athlete's collections, each with its item count, and New collection. */
+private fun LazyListScope.collections(rows: List<GearCollectionRow>, eventSink: (GearListEvent) -> Unit) {
+    item(key = "header/collections") {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                stringResource(Res.string.gear_collections),
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            AppTextButton(onClick = { eventSink(GearListEvent.AddCollection) }) { Text(stringResource(Res.string.gear_collection_new)) }
+        }
+    }
+    if (rows.isEmpty()) {
+        item(key = "collections/help") {
+            Text(
+                stringResource(Res.string.gear_collections_help),
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    items(rows, key = { "collections/${it.rkey}" }) { row ->
+        Column(
+            Modifier.fillMaxWidth()
+                .clickable(role = Role.Button) { eventSink(GearListEvent.OpenCollection(row.rkey)) }
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Text(row.name, style = MaterialTheme.typography.titleMedium)
+            Text(
+                pluralStringResource(Res.plurals.gear_collection_count, row.count, row.count),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
@@ -109,10 +160,20 @@ private fun LazyListScope.section(key: String, type: String?, rows: List<GearRow
     }
 }
 
+/** One item: its photo, name, kind and who may see it, and Retired when [showRetired] and it is; [trailing] goes at the end. */
 @Composable
-private fun GearRowItem(row: GearRow, onOpen: () -> Unit) {
+internal fun GearRowItem(
+    row: GearRow,
+    onOpen: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    showRetired: Boolean = false,
+    trailing: @Composable () -> Unit = {},
+) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier
+            .fillMaxWidth()
+            .then(if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -121,12 +182,14 @@ private fun GearRowItem(row: GearRow, onOpen: () -> Unit) {
         }
         Column(Modifier.weight(1f)) {
             Text(row.name, style = MaterialTheme.typography.titleMedium)
+            val detail = "${row.kind?.let { gearKindLabel(row.type, it) } ?: gearTypeLabel(row.type)} · ${visibilityLabel(row.visibility)}"
             Text(
-                "${row.kind?.let { gearKindLabel(row.type, it) } ?: gearTypeLabel(row.type)} · ${visibilityLabel(row.visibility)}",
+                if (showRetired && row.retired) "$detail · ${stringResource(Res.string.gear_retired)}" else detail,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         row.totals?.let { Text(gearMainTotalLabel(row.mainTotal, it), style = MaterialTheme.typography.bodyMedium) }
+        trailing()
     }
 }

@@ -75,6 +75,9 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         LoadGearActivities,
         SaveGear,
         DeleteGear,
+        LoadGearCollection,
+        SaveGearCollection,
+        DeleteGearCollection,
 
         /** The session predates gear in the athlete's spaces, so it can save Public gear only until they sign in again. */
         GearSignInAgain,

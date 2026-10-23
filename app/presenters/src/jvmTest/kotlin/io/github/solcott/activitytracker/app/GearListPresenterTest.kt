@@ -41,7 +41,7 @@ class GearListPresenterTest {
         store(Visibility.SELF, "3shoes", GearItemRecord("Speedgoat 5", GearType.SHOES, created))
         store(Visibility.SELF, "3old", GearItemRecord("Old trainers", GearType.SHOES, created, retiredAt = created))
         val repos = fixture.repos()
-        presenterTestOf({ GearListPresenter(FakeNavigator(GearListScreen), repos.gear) }) {
+        presenterTestOf({ GearListPresenter(FakeNavigator(GearListScreen), repos.gear, repos.gearCollections) }) {
             val lists = awaitUntil { it.content.hasLoaded && !it.content.data.isEmpty }.content.data
             assertEquals(listOf(GearType.BIKE, GearType.SHOES, GearType.SKI, GearType.HELMET), lists.active.map { it.type })
             val visibilities = lists.active.flatMap { it.items }.associate { it.name to it.visibility }
@@ -64,7 +64,7 @@ class GearListPresenterTest {
     fun noGearIsAnEmptyListThatOffersToAdd() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(GearListScreen)
-        presenterTestOf({ GearListPresenter(navigator, repos.gear) }) {
+        presenterTestOf({ GearListPresenter(navigator, repos.gear, repos.gearCollections) }) {
             val loaded = awaitUntil { it.content.hasLoaded }
             assertTrue(loaded.content.data.isEmpty)
             loaded.eventSink(GearListEvent.Add)
@@ -77,7 +77,7 @@ class GearListPresenterTest {
     fun anUnknownTypeIsListedUnderOther() = runTest {
         store(Visibility.SELF, "3uni", GearItemRecord("Unicycle", "unicycle", created, kind = "muni"))
         val repos = fixture.repos()
-        presenterTestOf({ GearListPresenter(FakeNavigator(GearListScreen), repos.gear) }) {
+        presenterTestOf({ GearListPresenter(FakeNavigator(GearListScreen), repos.gear, repos.gearCollections) }) {
             val lists = awaitUntil { it.content.hasLoaded && !it.content.data.isEmpty }.content.data
             val group = lists.active.single()
             assertEquals(GearType.OTHER, group.type)
@@ -105,7 +105,7 @@ class GearListPresenterTest {
                 served("3helmet", "Helmet", GearType.HELMET, helmet),
             )
         val repos = fixture.repos()
-        presenterTestOf({ GearListPresenter(FakeNavigator(GearListScreen), repos.gear) }) {
+        presenterTestOf({ GearListPresenter(FakeNavigator(GearListScreen), repos.gear, repos.gearCollections) }) {
             val rows = awaitUntil { s ->
                 s.content.hasLoaded && s.content.data.active.flatMap { it.items }.all { it.totals != null }
             }
@@ -126,7 +126,7 @@ class GearListPresenterTest {
         store("repo", "3new", GearItemRecord("New bike", GearType.BIKE, created, startingDistance = 2_000_000))
         fixture.actorGear = emptyList()
         val repos = fixture.repos()
-        presenterTestOf({ GearListPresenter(FakeNavigator(GearListScreen), repos.gear) }) {
+        presenterTestOf({ GearListPresenter(FakeNavigator(GearListScreen), repos.gear, repos.gearCollections) }) {
             val row = awaitUntil { s ->
                 s.content.data.active.firstOrNull()?.items?.single()?.totals != null
             }
@@ -146,7 +146,7 @@ class GearListPresenterTest {
         store("repo", "3bike", GearItemRecord("Tarmac", GearType.BIKE, created))
         fixture.actorGear = null
         val repos = fixture.repos()
-        presenterTestOf({ GearListPresenter(FakeNavigator(GearListScreen), repos.gear) }) {
+        presenterTestOf({ GearListPresenter(FakeNavigator(GearListScreen), repos.gear, repos.gearCollections) }) {
             val row = awaitUntil { it.content.hasLoaded && !it.content.data.isEmpty }.content.data.active.single().items.single()
             assertEquals(null, row.totals)
             cancelAndIgnoreRemainingEvents()
@@ -158,7 +158,7 @@ class GearListPresenterTest {
         store("repo", "3bike", GearItemRecord("Tarmac", GearType.BIKE, created))
         val repos = fixture.repos()
         val navigator = FakeNavigator(GearListScreen)
-        presenterTestOf({ GearListPresenter(navigator, repos.gear) }) {
+        presenterTestOf({ GearListPresenter(navigator, repos.gear, repos.gearCollections) }) {
             awaitUntil { it.content.hasLoaded && !it.content.data.isEmpty }.eventSink(GearListEvent.Open("3bike"))
             assertEquals(GearScreen(AtUri.of(fixture.did, Nsid.GEAR_ITEM, "3bike").value), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()

@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_combine_acti
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_comment
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_gear
+import io.github.solcott.activitytracker.composeApp.resources.error_delete_gear_collection
 import io.github.solcott.activitytracker.composeApp.resources.error_download_original
 import io.github.solcott.activitytracker.composeApp.resources.error_export_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_export_not_sent
@@ -27,6 +28,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_followe
 import io.github.solcott.activitytracker.composeApp.resources.error_load_following
 import io.github.solcott.activitytracker.composeApp.resources.error_load_gear
 import io.github.solcott.activitytracker.composeApp.resources.error_load_gear_activities
+import io.github.solcott.activitytracker.composeApp.resources.error_load_gear_collection
 import io.github.solcott.activitytracker.composeApp.resources.error_load_gear_item
 import io.github.solcott.activitytracker.composeApp.resources.error_load_leaderboard
 import io.github.solcott.activitytracker.composeApp.resources.error_load_likes
@@ -50,6 +52,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_remove_follo
 import io.github.solcott.activitytracker.composeApp.resources.error_save_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_save_data_source
 import io.github.solcott.activitytracker.composeApp.resources.error_save_gear
+import io.github.solcott.activitytracker.composeApp.resources.error_save_gear_collection
 import io.github.solcott.activitytracker.composeApp.resources.error_save_privacy_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_save_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_save_settings
@@ -156,6 +159,9 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.LoadGearActivities -> Res.string.error_load_gear_activities
             UiError.Kind.SaveGear -> Res.string.error_save_gear
             UiError.Kind.DeleteGear -> Res.string.error_delete_gear
+            UiError.Kind.LoadGearCollection -> Res.string.error_load_gear_collection
+            UiError.Kind.SaveGearCollection -> Res.string.error_save_gear_collection
+            UiError.Kind.DeleteGearCollection -> Res.string.error_delete_gear_collection
             UiError.Kind.GearSignInAgain -> Res.string.error_gear_sign_in_again
             UiError.Kind.TooManyZones -> Res.string.error_too_many_zones
             UiError.Kind.NoLocation -> Res.string.error_no_location
