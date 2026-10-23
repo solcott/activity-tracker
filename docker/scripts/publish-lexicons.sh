@@ -37,7 +37,7 @@ fi
 did=$(jq -r .did <<<"$session")
 auth=(-H "Authorization: Bearer $(jq -r .accessJwt <<<"$session")")
 
-count=0
+published=()
 while IFS= read -r file; do
   [[ $(jq -r '.defs.main.type' "$file") == space ]] || continue
   id=$(jq -r .id "$file")
@@ -45,8 +45,17 @@ while IFS= read -r file; do
   post com.atproto.repo.putRecord "${auth[@]}" -d "{\"repo\":\"$did\",\"collection\":\"com.atproto.lexicon.schema\",
     \"rkey\":\"$id\",\"validate\":false,\"record\":$record}" >/dev/null
   echo "published $id" >&2
-  count=$((count + 1))
+  published+=("$id")
 done < <(find ../lexicons -name '*.json' | sort)
 
-((count > 0)) || { echo "FAIL no space lexicons found under lexicons/" >&2; exit 1; }
+((${#published[@]} > 0)) || { echo "FAIL no space lexicons found under lexicons/" >&2; exit 1; }
+
+# The PDS keeps each declaration it resolved in its database, across restarts, and grants new sessions' space: scopes from that
+# copy until it refreshes on its own schedule, so a collection added here would be refused as ScopeMissingError. Drop the
+# copies of what was just published; the next sign-in resolves them again.
+docker compose -f compose.yaml exec -T -w /app/packages/pds pds node -e '
+  const db = new (require("better-sqlite3"))("/pds/account.sqlite")
+  const drop = db.prepare("delete from lexicon where nsid = ?")
+  for (const nsid of process.argv.slice(1)) drop.run(nsid)
+' "${published[@]}"
 echo "$did"
