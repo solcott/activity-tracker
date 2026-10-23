@@ -76,3 +76,8 @@ kotlin {
         jvmTest.dependencies { implementation(projects.appFixtures) }
     }
 }
+
+// ScreenshotCoverageTest reads :androidApp's screenshot sources, so a removed screenshot file reruns it.
+tasks.named<Test>("jvmTest") {
+    inputs.dir(isolated.rootProject.projectDirectory.dir("androidApp/src/screenshotTest")).withPathSensitivity(PathSensitivity.RELATIVE)
+}

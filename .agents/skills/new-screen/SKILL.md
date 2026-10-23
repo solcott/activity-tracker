@@ -85,11 +85,14 @@ Add `app/presenters/src/jvmTest/kotlin/io/github/solcott/activitytracker/app/Foo
 
 Add `composeApp/src/jvmTest/kotlin/io/github/solcott/activitytracker/app/<pkg>/FooUiTest.kt`, modelled on `SegmentCreditUiTest`: `runComposeUiTest { setContent { AppPreview { FooUi(FooSamples.loaded) } } }`, asserting what the loaded sample shows by text or semantics. If `FooState` holds a `ContentState` or `PagedState`, add `FooSamples.all` and `FooUi` to `ContentLoadingConformanceTest`'s table, which fails until you do.
 
+Add `androidApp/src/screenshotTest/kotlin/io/github/solcott/activitytracker/android/screenshots/FooScreenshots.kt`, modelled on `FeedScreenshots.kt`: a `@PreviewTest @PreviewScreenSizes @PreviewScreenVariants private fun FooLoaded()` rendering `FooUi(FooSamples.all.loaded())` in `ScreenPreview`, and a `@PreviewTest @PreviewPhoneSize private fun FooStates(@PreviewParameter(FooStates::class) state: FooState)` with `class FooStates : OtherSamples<FooState>(FooSamples.all)` (leave it out if `loaded` is the only sample, like `SettingsScreenshots.kt`). `ScreenshotCoverageTest` fails until the file exists.
+
 ## 6. Verify
 
 Use the `gradle-runner` agent/skill or run directly:
 1. `./gradlew :app-presenters:compileKotlinJvm :composeApp:compileKotlinJvm`. Metro/Circuit codegen errors (wrong scope, missing binding) appear here.
 2. `./gradlew :app-presenters:jvmTest --tests "*.FooPresenterTest"` and `./gradlew :composeApp:jvmTest --tests "*.FooUiTest" --tests "*.ContentLoadingConformanceTest"`. Confirm a non-zero test count.
-3. `./gradlew format`, then `./gradlew :app-screens:detekt :app-presenters:detekt :composeApp:detekt :app-fixtures:composeStabilityCheck`. The Compose rules flag modifier ordering and unstable params.
+3. `./gradlew :androidApp:updateDebugScreenshotTestDefaultTestSuite`, then look at the new references in `androidApp/src/screenshotTestDefaultDebug/reference/.../FooScreenshotsKt/` before committing them.
+4. `./gradlew format`, then `./gradlew :app-screens:detekt :app-presenters:detekt :composeApp:detekt :app-fixtures:composeStabilityCheck`. The Compose rules flag modifier ordering and unstable params.
 
 If the user wants to see the screen, launch the web preview (in Claude Code the `web` launch config via `preview_start`; elsewhere `./gradlew :webApp:wasmJsBrowserDevelopmentRun --continuous` in the background) against the local stack (the `local-stack` skill) and navigate to it.

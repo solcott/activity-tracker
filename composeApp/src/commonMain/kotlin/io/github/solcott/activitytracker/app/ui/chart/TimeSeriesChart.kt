@@ -49,7 +49,7 @@ import kotlinx.collections.immutable.toImmutableList
  * itself.
  */
 @Composable
-internal fun TimeSeriesChart(
+fun TimeSeriesChart(
     points: ImmutableList<SeriesPoint>,
     xRange: ClosedFloatingPointRange<Double>,
     description: String,

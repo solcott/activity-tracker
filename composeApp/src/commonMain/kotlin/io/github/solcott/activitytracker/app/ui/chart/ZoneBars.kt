@@ -28,7 +28,7 @@ import kotlinx.collections.immutable.ImmutableList
  * reader. Zones are coloured from cool to hot.
  */
 @Composable
-internal fun ZoneBars(zones: ImmutableList<ZoneBar>, modifier: Modifier = Modifier) {
+fun ZoneBars(zones: ImmutableList<ZoneBar>, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         zones.asReversed().forEachIndexed { reversed, zone ->
             val color = zoneColor(zones.size - 1 - reversed, zones.size)
