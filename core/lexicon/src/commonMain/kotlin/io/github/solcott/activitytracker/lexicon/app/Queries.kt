@@ -79,6 +79,43 @@ object GetAuthorActivitiesByStart {
     val method = XrpcQuery(Nsid.FEED_GET_AUTHOR_ACTIVITIES_BY_START, Params.serializer(), Output.serializer())
 }
 
+/**
+ * One gear item and its usage for the viewer: the author's counts all of their activities that list it, anyone else's only the activities
+ * whose gear they may see. `NotFound` when the item isn't indexed or the viewer may not see it.
+ */
+object GetGear {
+    @Serializable data class Params(val uri: AtUri)
+
+    @Serializable
+    data class Output(
+        val gear: GearView,
+        val usage: GearUsage,
+        val retired: Boolean,
+        /** A [Visibility] value; only for the item's author. */
+        val visibility: String? = null,
+    )
+
+    val method = XrpcQuery(Nsid.GEAR_GET_GEAR, Params.serializer(), Output.serializer())
+}
+
+/** An athlete's gear items the viewer may see, each with its totals for the viewer: items in use first, then by name. */
+object GetActorGear {
+    @Serializable data class Params(val actor: String, val limit: Int? = null, val cursor: String? = null)
+
+    @Serializable data class Output(val items: List<ActorGearItem>, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.GEAR_GET_ACTOR_GEAR, Params.serializer(), Output.serializer())
+}
+
+/** The activities counted in an item's usage for the viewer, newest first by start. `NotFound` as for [GetGear]. */
+object GetGearActivities {
+    @Serializable data class Params(val uri: AtUri, val limit: Int? = null, val cursor: String? = null)
+
+    @Serializable data class Output(val activities: List<ActivityView>, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.GEAR_GET_GEAR_ACTIVITIES, Params.serializer(), Output.serializer())
+}
+
 /** A single activity. Its comments come from [GetComments]. */
 object GetActivity {
     @Serializable data class Params(val uri: AtUri)

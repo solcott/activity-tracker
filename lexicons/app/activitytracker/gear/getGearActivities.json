@@ -1,0 +1,59 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.gear.getGearActivities",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "The activities counted in an item's usage for the viewer, newest first by start.",
+      "parameters": {
+        "type": "params",
+        "required": [
+          "uri"
+        ],
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "The item's canonical URI."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 30
+          },
+          "cursor": {
+            "type": "string"
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "NotFound",
+          "description": "No such item, or the viewer may not see it."
+        }
+      ],
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "activities"
+          ],
+          "properties": {
+            "cursor": {
+              "type": "string"
+            },
+            "activities": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "app.activitytracker.feed.defs#activityView"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.gear.getGear",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "One gear item and its usage for the viewer. The author's usage counts all of their activities that list it; anyone else's counts only the activities whose gear they may see, of an item they may see.",
+      "parameters": {
+        "type": "params",
+        "required": [
+          "uri"
+        ],
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "The item's canonical URI."
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "NotFound",
+          "description": "No such item, or the viewer may not see it."
+        }
+      ],
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "gear",
+            "usage",
+            "retired"
+          ],
+          "properties": {
+            "gear": {
+              "type": "ref",
+              "ref": "app.activitytracker.gear.defs#gearView"
+            },
+            "usage": {
+              "type": "ref",
+              "ref": "app.activitytracker.gear.defs#gearUsage"
+            },
+            "retired": {
+              "type": "boolean"
+            },
+            "visibility": {
+              "type": "string",
+              "description": "app.activitytracker.feed.activity#visibility of the item; only for its author."
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -35,8 +35,11 @@ class GearItemSerializationTest {
                     ),
                 acquiredAt = Instant.parse("2024-04-12T00:00:00Z"),
                 retiredAt = Instant.parse("2026-10-21T00:00:00Z"),
+                startingDistance = 2_000_000,
+                startingTime = 360_000,
             )
         val json = AtJson.encodeToJsonElement(GearItemRecord.serializer(), bike).jsonObject
+        assertEquals(2_000_000, json["startingDistance"]?.jsonPrimitive?.content?.toLong())
         assertEquals(Nsid.GEAR_ITEM, json["\$type"]?.jsonPrimitive?.content)
         assertEquals(GearType.BIKE, json["type"]?.jsonPrimitive?.content)
         assertEquals(bike, AtJson.decodeFromJsonElement(GearItemRecord.serializer(), json))
