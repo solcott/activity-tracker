@@ -26,6 +26,8 @@ kotlin {
                 implementation(libs.sqlite.bundled)
             }
         }
+        // The desktop app's secret key lives in the OS credential store (DesktopSecretCipher).
+        jvmMain.dependencies { implementation(libs.java.keyring) }
         wasmJsMain.dependencies { implementation(projects.webSqliteWorker) }
         commonTest.dependencies {
             implementation(libs.kermit.test)
