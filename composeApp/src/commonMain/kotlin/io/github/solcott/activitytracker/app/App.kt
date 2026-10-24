@@ -59,6 +59,8 @@ fun App(graph: AppGraph, modifier: Modifier = Modifier, onRootPop: () -> Unit = 
                     HeldPhotoFetcher.Factory.session.value = held
                     onDispose { HeldPhotoFetcher.Factory.session.compareAndSet(held, null) }
                 }
+                // Whether the athlete's PDS hosts spaces at all; until it answers, the session's scope decides.
+                LaunchedEffect(Unit) { sessionGraph.sessionClients.resolveSpacesSupport() }
                 LaunchedEffect(Unit) { sessionGraph.unitsRepository.refresh() }
                 // Session-long, so a re-trim after a privacy zones save outlives the settings screen.
                 LaunchedEffect(Unit) { sessionGraph.activityRepository.repairRoutesOnSave() }

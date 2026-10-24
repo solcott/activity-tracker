@@ -161,6 +161,13 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
     /** Refuse uploads larger than this many bytes with `413 PayloadTooLarge`, while set. */
     var blobUploadLimit: Int? = null
 
+    /** The `spacesAlpha` flag `describeServer` answers with; left out while null. */
+    var spacesAlpha: Boolean? = true
+
+    /** `describeServer` answers with a server error, or fails as a dropped connection would, while set. */
+    var describeServerFailing = false
+    var describeServerUnreachable = false
+
     val http =
         HttpClient(
             MockEngine { request ->
@@ -173,6 +180,12 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                 requests += "$path ${request.url.parameters["collection"]}/${request.url.parameters["rkey"]}"
                 when {
                     path == "/xrpc/com.atproto.server.getServiceAuth" -> json("""{"token":"service-jwt"}""")
+                    path == "/xrpc/com.atproto.server.describeServer" -> {
+                        if (describeServerUnreachable) throw IOException("Connection refused")
+                        if (describeServerFailing) return@MockEngine error("InternalServerError", HttpStatusCode.InternalServerError)
+                        val flag = spacesAlpha?.let { ""","spacesAlpha":$it""" }.orEmpty()
+                        json("""{"did":"did:web:pds.test","availableUserDomains":[".test"]$flag}""")
+                    }
                     path == "/.well-known/did.json" ->
                         json(
                             """{"id":"did:web:appview.test","service":[

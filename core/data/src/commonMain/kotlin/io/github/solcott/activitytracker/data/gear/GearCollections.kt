@@ -28,7 +28,8 @@ import kotlinx.serialization.json.JsonObject
 /**
  * The athlete's gear collections (gear/gear-collections): `gear.collection` records in their `self` space only, which the AppView never
  * stores. Membership lives on the collection, so an item's collections are found by scanning them. Saves are direct calls, like gear saves,
- * and refuse a session whose grant predates the record with [GearNeedsSignInException].
+ * and refuse a session whose grant predates the record with [GearNeedsSignInException], or one on a PDS without Spaces with
+ * [io.github.solcott.activitytracker.data.di.SpacesUnsupportedException].
  */
 @SingleIn(SessionScope::class)
 @Inject
@@ -64,7 +65,7 @@ class GearCollections(private val clients: SessionClients, private val clock: Cl
      * [GearCollectionRecord.MAX_ITEMS].
      */
     suspend fun save(existing: GearCollection?, record: GearCollectionRecord): GearCollection = mutex.withLock {
-        if (!canSave) throw GearNeedsSignInException()
+        if (!canSave) throw clients.gearRefused()
         val rkey = existing?.rkey ?: Tid.next(clock)
         val saved = record.copy(items = record.items?.distinct()?.take(GearCollectionRecord.MAX_ITEMS)?.ifEmpty { null })
         write(rkey, saved)
@@ -74,7 +75,7 @@ class GearCollections(private val clients: SessionClients, private val clock: Cl
 
     /** Deletes the collection at [rkey]. Its items, and every activity's gear, are untouched. */
     suspend fun delete(rkey: String) {
-        if (!canSave) throw GearNeedsSignInException()
+        if (!canSave) throw clients.gearRefused()
         clients.deleteOwn(Nsid.GEAR_COLLECTION, rkey, self())
         changes.update { it + 1 }
     }
@@ -87,7 +88,7 @@ class GearCollections(private val clients: SessionClients, private val clock: Cl
      * end of each it joins, while that collection has room, and removed from the others. Only collections that change are written.
      */
     suspend fun setMembership(item: AtUri, rkeys: Set<String>) = mutex.withLock {
-        if (!canSave) throw GearNeedsSignInException()
+        if (!canSave) throw clients.gearRefused()
         var changed = false
         for (collection in stored()) {
             val listed = item in collection.items
