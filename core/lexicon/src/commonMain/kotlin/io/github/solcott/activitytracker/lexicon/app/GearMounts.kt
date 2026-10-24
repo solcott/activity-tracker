@@ -54,6 +54,22 @@ object GearMounts {
     /** The mount covering [at], if any. */
     fun at(mounts: List<GearMount>?, at: Instant): GearMount? = mounts?.firstOrNull { it.from <= at && (it.to == null || at < it.to) }
 
+    /**
+     * The top-level item [item] was mounted under at [at], following each level's mount covering [at] ([mountsOf] gives an item's own
+     * mounts); [item] itself when it was mounted on nothing then. Stops after [MAX_DEPTH] levels and at a loop, which valid mounts never
+     * have.
+     */
+    fun rootAt(item: AtUri, at: Instant, mountsOf: (AtUri) -> List<GearMount>?): AtUri {
+        var current = item
+        val seen = mutableSetOf(item)
+        var parent = at(mountsOf(current), at)?.parent
+        while (parent != null && seen.size <= MAX_DEPTH && seen.add(parent)) {
+            current = parent
+            parent = at(mountsOf(current), at)?.parent
+        }
+        return current
+    }
+
     /** The mount with no end, if any. */
     fun open(mounts: List<GearMount>?): GearMount? = mounts?.firstOrNull { it.to == null }
 

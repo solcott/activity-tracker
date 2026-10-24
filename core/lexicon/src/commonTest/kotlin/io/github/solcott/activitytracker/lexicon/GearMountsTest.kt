@@ -41,6 +41,23 @@ class GearMountsTest {
     }
 
     @Test
+    fun theRootAtAnInstantFollowsTheMountsThen() {
+        val mounts =
+            mapOf(
+                item("pm") to listOf(GearMount(tarmac, day("2026-03-01"), day("2026-06-01")), GearMount(stumpjumper, day("2026-06-01"))),
+                tires to listOf(GearMount(wheelset, day("2026-01-01"))),
+                wheelset to listOf(GearMount(tarmac, day("2026-02-01"))),
+            )
+        val mountsOf = { uri: AtUri -> mounts[uri] }
+        assertEquals(tarmac, GearMounts.rootAt(item("pm"), day("2026-04-15"), mountsOf))
+        assertEquals(tarmac, GearMounts.rootAt(item("pm"), day("2026-05-15"), mountsOf), "moved only in June")
+        assertEquals(stumpjumper, GearMounts.rootAt(item("pm"), day("2026-07-01"), mountsOf))
+        assertEquals(item("pm"), GearMounts.rootAt(item("pm"), day("2026-01-01"), mountsOf), "not mounted yet")
+        assertEquals(tarmac, GearMounts.rootAt(tires, day("2026-03-01"), mountsOf), "through the wheelset")
+        assertEquals(wheelset, GearMounts.rootAt(tires, day("2026-01-15"), mountsOf), "before the wheelset was on the bike")
+    }
+
+    @Test
     fun anOverlappingMountIsRefusedAndOnlyItIsDropped() {
         val mounts = listOf(GearMount(tarmac, day("2026-03-01")), GearMount(stumpjumper, day("2026-05-01")))
         assertEquals(MountProblem.OVERLAP, GearMounts.problem(chain, mounts, graph()))
