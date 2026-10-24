@@ -24,6 +24,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
 import java.util.Base64
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -32,7 +33,7 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -304,8 +305,8 @@ class SpaceSyncTest : SpaceSyncFixture() {
         pds.put(aliceFollowers, Nsid.FEED_ACTIVITY, "3kf2", activity())
         var purge: Job? = null
         pds.duringNextPull = {
-            // Runs until it waits on the space's lock, which the pull holds, so it purges only after the pull has indexed 3kf2.
-            purge = CoroutineScope(Dispatchers.Unconfined).launch { syncer.deleted(aliceFollowers) }
+            // Runs here until it waits on the space's lock, which the pull holds, so it purges only after the pull has indexed 3kf2.
+            purge = CoroutineScope(EmptyCoroutineContext).launch(start = CoroutineStart.UNDISPATCHED) { syncer.deleted(aliceFollowers) }
         }
         client.notifyWrite(aliceFollowers)
         runDue()
