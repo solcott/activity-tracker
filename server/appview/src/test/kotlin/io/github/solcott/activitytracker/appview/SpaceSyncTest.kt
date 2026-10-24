@@ -32,7 +32,7 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -305,7 +305,7 @@ class SpaceSyncTest : SpaceSyncFixture() {
         var purge: Job? = null
         pds.duringNextPull = {
             // Runs until it waits on the space's lock, which the pull holds, so it purges only after the pull has indexed 3kf2.
-            purge = CoroutineScope(Dispatchers.Unconfined).launch { syncer.deleted(aliceFollowers) }
+            purge = CoroutineScope(Job()).launch(start = CoroutineStart.UNDISPATCHED) { syncer.deleted(aliceFollowers) }
         }
         client.notifyWrite(aliceFollowers)
         runDue()
