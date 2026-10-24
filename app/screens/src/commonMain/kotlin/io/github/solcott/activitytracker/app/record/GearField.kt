@@ -17,8 +17,13 @@ data class GearField(
     val collections: ImmutableList<GearCollectionOption> = persistentListOf(),
     /** How many of the last added collection's items the activity's gear limit left out; 0 for none, until the next pick. */
     val notAdded: Int = 0,
+    /** Gear types an import's sensors matched more than one selected item of (two bikes), for the athlete to check. */
+    val conflicts: ImmutableList<GearConflict> = persistentListOf(),
     val eventSink: (GearEvent) -> Unit = {},
 )
+
+/** Sensors matched [names], selected items all of the [type] (a `GearType` value), when an activity usually has one. */
+@Immutable data class GearConflict(val type: String, val names: ImmutableList<String>)
 
 /** One of the athlete's gear collections, with how many of its items still exist. */
 @Immutable data class GearCollectionOption(val rkey: String, val name: String, val count: Int)

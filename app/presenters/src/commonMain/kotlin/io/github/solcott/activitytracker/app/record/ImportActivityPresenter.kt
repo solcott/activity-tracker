@@ -52,6 +52,7 @@ import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import kotlin.math.roundToLong
 import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
@@ -63,6 +64,7 @@ import kotlinx.datetime.toLocalDateTime
 
 @CircuitInject(ImportActivityScreen::class, SessionScope::class)
 @Composable
+@Suppress("CyclomaticComplexMethod") // One branch per event.
 fun ImportActivityPresenter(
     screen: ImportActivityScreen,
     navigator: Navigator,
@@ -71,6 +73,7 @@ fun ImportActivityPresenter(
     reader: ActivityFileReader,
     typeChoices: ActivityTypeChoices,
     gearChoices: GearChoices,
+    newDeviceChoices: NewDeviceChoices,
     profiles: ProfileRepository,
     feed: FeedRepository,
     defaults: ActivityDefaults,
@@ -86,8 +89,9 @@ fun ImportActivityPresenter(
     var selection by remember { mutableStateOf(DiveSelection()) }
     val typeChoice = typeChoices.produce(ActivityType(Sport.OTHER))
     val type = typeChoice.selected
-    // A logbook's dives share the gear, which starts at the defaults for its first dive's type.
-    val gear = gearChoices.produce(type)
+    // The import is saved: what's left to say before leaving, and how it leaves.
+    var afterImport by remember { mutableStateOf<AfterImport?>(null) }
+    var leave by remember { mutableStateOf<(suspend () -> Unit)?>(null) }
     val title = rememberTextFieldState()
     val details = rememberDetailsForm()
     // The title the last file filled in, so a file without one clears it but not what the athlete typed.
@@ -116,6 +120,18 @@ fun ImportActivityPresenter(
     // Keyed on the zone too: a zone with the same offset leaves the activity as it was.
     val preview = remember(placed, zones, zone, matches, selection) { singlePreview(placed, zone, zones, matches, selection) }
     val athlete = rememberOwnProfile(profiles)
+    // What each activity's file says about its gear: a logbook's selected dives share the gear, which starts from the first one's.
+    val gearSources =
+        remember(placed, placedDives, selection, matches) {
+            placed?.second?.let { persistentListOf(GearSource.of(it)) }
+                ?: placedDives
+                    .orEmpty()
+                    .filterIndexed { i, _ -> selection.isSelected(i, matches.getOrNull(i)) }
+                    .map(GearSource::of)
+                    .toImmutableList()
+        }
+    val gear = gearChoices.produce(type, gearSources)
+    val newDevices = newDeviceChoices.produce(gear, gearSources)
     val held =
         remember(placed, placedDives, selection, matches, type) {
             importCategories(placed?.second, type, placedDives) { selection.isSelected(it, matches.getOrNull(it)) }
@@ -165,6 +181,8 @@ fun ImportActivityPresenter(
         tooFarFromTarget = tooFar,
         savedSuggestions = savedSuggestions,
         gear = gear.field.takeIf { picked != null },
+        newDevices = if (picked != null) newDevices.fields else NewDevicesFields(),
+        afterImport = afterImport,
     ) { event ->
         when (event) {
             is ImportActivityEvent.FilePicked -> {
@@ -215,6 +233,24 @@ fun ImportActivityPresenter(
             ImportActivityEvent.Back,
             is ImportActivityEvent.Saved -> navigator.leave(event)
 
+            ImportActivityEvent.After.Done -> flights.launch(ImportActivityEvent.After.Done) { leave?.invoke() ?: navigator.pop() }
+
+            ImportActivityEvent.After.ApplyToPast ->
+                flights.launch(ImportActivityEvent.After.ApplyToPast) {
+                    val offer = afterImport?.pastImports ?: return@launch
+                    afterImport = afterImport?.copy(pastImports = offer.copy(applying = true, done = 0, failed = false))
+                    runSuspendCatching {
+                        newDevices.applyToPast { done ->
+                            afterImport = afterImport?.copy(pastImports = offer.copy(applying = true, done = done))
+                        }
+                    }
+                        .onSuccess { leave?.invoke() ?: navigator.pop() }
+                        .onFailure { e ->
+                            afterImport = afterImport?.copy(pastImports = offer.copy(failed = true))
+                            error = uiErrorOf(UiError.Kind.ApplyGearToPast, e)
+                        }
+                }
+
             is ImportActivityEvent.DiveToggled -> selection = selection.toggled(event.index, matches.getOrNull(event.index))
 
             is ImportActivityEvent.AllDivesSelected -> selection = selection.all(event.selected, placedDives.orEmpty().size)
@@ -223,6 +259,14 @@ fun ImportActivityPresenter(
 
             is ImportActivityEvent.SaveDives ->
                 flights.launch(ImportActivityEvent.Save::class) {
+                    val start = gearSources.minOfOrNull { it.startedAt } ?: return@launch
+                    val linked = runSuspendCatching {
+                        newDevices.save(start)
+                    }
+                        .getOrElse { e ->
+                            error = uiErrorOf(UiError.Kind.SaveNewGear, e)
+                            return@launch
+                        }
                     val import =
                         diveImport(
                             placedDives,
@@ -232,11 +276,19 @@ fun ImportActivityPresenter(
                             training,
                             visibility.current,
                             source,
-                            gear.selected,
+                            linked.gear,
                         )
                     runSuspendCatching {
-                        saveDives(activities, manager, import)?.let {
-                            navigator.afterDives(it, suggestions) { found -> savedSuggestions = found }
+                        saveDives(activities, manager, import)?.let { published ->
+                            val next: suspend () -> Unit = {
+                                navigator.afterDives(published, suggestions) { found -> savedSuggestions = found }
+                            }
+                            val after = newDevices.afterSave(linked, published.map { it.first }.toSet())
+                            if (after == null) next()
+                            else {
+                                leave = next
+                                afterImport = after
+                            }
                         }
                     }
                         .onFailure { e -> error = uiErrorOf(UiError.Kind.SaveActivity, e) }
@@ -246,16 +298,29 @@ fun ImportActivityPresenter(
                 val match = matches.firstOrNull()
                 val activity = adding.saved(placed?.second, selection.isSelected(0, match)) ?: return@ImportActivityState
                 flights.launch(ImportActivityEvent.Save::class) {
+                    // New gear, its mounts and collections go first: a failure keeps the preview, with nothing published.
+                    val linked = runSuspendCatching {
+                        newDevices.save(activity.startedAt)
+                    }
+                        .getOrElse { e ->
+                            error = uiErrorOf(UiError.Kind.SaveNewGear, e)
+                            return@launch
+                        }
                     runSuspendCatching {
                         val text = title.text.toString().ifBlank { event.defaultTitle?.ifBlank { null } }
                         val draft =
                             importDraft(activity, type, text, training, thresholdChanges, adding.sourceOf(source))
                                 .withDetails(details, isDive = type.sport == Sport.DIVE)
-                                .copy(gear = gear.selected)
+                                .copy(gear = linked.gear)
                                 .withVisibility(visibility.current)
                         val saved = saveSingle(activities, manager, draft, adding.into(combineTarget(match, selection.action(0, match))))
                         updateThresholds(profiles, activity, type.sport, previewed = thresholdChanges)
-                        navigator.openSaved(saved, adding)
+                        val after = newDevices.afterSave(linked, setOf(saved.uri))
+                        if (after == null) navigator.openSaved(saved, adding)
+                        else {
+                            leave = { navigator.openSaved(saved, adding) }
+                            afterImport = after
+                        }
                     }
                         .onFailure { e -> error = uiErrorOf(UiError.Kind.SaveActivity, e) }
                 }

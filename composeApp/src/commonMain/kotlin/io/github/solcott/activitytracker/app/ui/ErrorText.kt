@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.error_answer_follow_request
+import io.github.solcott.activitytracker.composeApp.resources.error_apply_gear_to_past
 import io.github.solcott.activitytracker.composeApp.resources.error_check_segment
 import io.github.solcott.activitytracker.composeApp.resources.error_combine_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_activity
@@ -57,7 +58,9 @@ import io.github.solcott.activitytracker.composeApp.resources.error_save_activit
 import io.github.solcott.activitytracker.composeApp.resources.error_save_data_source
 import io.github.solcott.activitytracker.composeApp.resources.error_save_gear
 import io.github.solcott.activitytracker.composeApp.resources.error_save_gear_collection
+import io.github.solcott.activitytracker.composeApp.resources.error_save_gear_links
 import io.github.solcott.activitytracker.composeApp.resources.error_save_mount
+import io.github.solcott.activitytracker.composeApp.resources.error_save_new_gear
 import io.github.solcott.activitytracker.composeApp.resources.error_save_privacy_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_save_profile
 import io.github.solcott.activitytracker.composeApp.resources.error_save_settings
@@ -172,6 +175,9 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.MountLoop -> Res.string.error_mount_loop
             UiError.Kind.MountTooDeep -> Res.string.error_mount_too_deep
             UiError.Kind.MountEndsBeforeStart -> Res.string.error_mount_ends_before_start
+            UiError.Kind.SaveNewGear -> Res.string.error_save_new_gear
+            UiError.Kind.SaveGearLinks -> Res.string.error_save_gear_links
+            UiError.Kind.ApplyGearToPast -> Res.string.error_apply_gear_to_past
             UiError.Kind.GearSignInAgain -> Res.string.error_gear_sign_in_again
             UiError.Kind.TooManyZones -> Res.string.error_too_many_zones
             UiError.Kind.NoLocation -> Res.string.error_no_location

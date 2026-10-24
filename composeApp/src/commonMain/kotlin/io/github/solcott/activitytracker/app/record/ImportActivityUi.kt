@@ -102,7 +102,8 @@ fun ImportActivityUi(state: ImportActivityState, modifier: Modifier = Modifier) 
     WithWindowWidth(modifier) { width ->
         // Below 840dp the save panel follows the preview, so Save stays in reach: in the navigation bar on iOS, a bottom bar elsewhere.
         val wide = width == WindowWidth.Expanded
-        val pinnedSave = preview != null && !wide
+        // Once saved, the after-save panel replaces the form, and Save with it.
+        val pinnedSave = preview != null && !wide && state.afterImport == null
         AppScaffold(
             modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
             topBar = {
@@ -120,7 +121,9 @@ fun ImportActivityUi(state: ImportActivityState, modifier: Modifier = Modifier) 
             bottomBar = { if (pinnedSave && !ios) SaveBar(state, preview, save) },
         ) { padding ->
             val saved = state.savedSuggestions
+            val after = state.afterImport
             when {
+                after != null -> AfterImportPanel(after, state.eventSink, padding)
                 saved != null -> SavedSuggestions(saved, state.eventSink, padding)
                 wide && preview != null -> WidePreview(state, preview, padding, save, pick::launch)
                 else -> NarrowContent(state, padding, width, pick::launch)
@@ -199,7 +202,11 @@ private fun SavePanel(state: ImportActivityState, save: (() -> Unit)?) {
         // Present whenever a single activity is: the title, description, dive site and photos.
         state.details?.let { ActivityDetailsForm(state.title, titlePlaceholder = defaultTitle, fields = it, enabled = !state.saving) }
         if (state.thresholdChanges.isNotEmpty()) ThresholdChanges(state.thresholdChanges)
-        state.gear?.let { GearPicker(it, enabled = !state.saving) }
+        state.gear?.let {
+            GearPicker(it, enabled = !state.saving)
+            GearConflicts(it.conflicts)
+        }
+        NewDevicesForm(state.newDevices, enabled = !state.saving)
         // A recording added to an activity takes its visibility.
         if (!state.addsRecording) ActivityVisibilityForm(state.visibility, enabled = !state.saving)
         val preview = state.preview

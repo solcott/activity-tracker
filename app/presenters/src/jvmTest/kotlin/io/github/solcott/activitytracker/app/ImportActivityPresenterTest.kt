@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app
 
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import androidx.compose.runtime.Composable
 import com.slack.circuit.test.FakeNavigator
 import io.github.solcott.activitytracker.activityfile.ActivityFileException
 import io.github.solcott.activitytracker.activityfile.ActivityFileReader
@@ -125,22 +126,7 @@ class ImportActivityPresenterTest {
     fun readsAFitFileAndPublishesIt() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen())
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { run },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-            )
-        }) {
+        presenterTestOf({ presenter(repos, navigator, ActivityFileReader { run }) }) {
             val initial = awaitItem()
             assertNull(initial.preview)
 
@@ -184,22 +170,7 @@ class ImportActivityPresenterTest {
     fun aDescriptionAndPhotosPublishWithTheActivity() = runTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen())
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { run },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-            )
-        }) {
+        presenterTestOf({ presenter(repos, navigator, ActivityFileReader { run }) }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Morning_Run.FIT", bytes))
             val read = awaitUntil { it.details != null }
             val details = assertNotNull(read.details)
@@ -228,22 +199,7 @@ class ImportActivityPresenterTest {
                 """"setAt":{"maxHeartRate":"2020-01-01T00:00:00Z"}}},"visibility":{"training":"self"}}"""
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen())
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { withSettings },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-            )
-        }) {
+        presenterTestOf({ presenter(repos, navigator, ActivityFileReader { withSettings }) }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Morning_Run.FIT", bytes))
             val read = awaitUntil { it.preview != null && it.thresholdChanges.isNotEmpty() }
             assertEquals(listOf(ThresholdChange(Threshold.MAX_HEART_RATE, 190, 188)), read.thresholdChanges)
@@ -265,22 +221,7 @@ class ImportActivityPresenterTest {
                 """"visibility":{"training":"self"}}"""
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen())
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { withSettings },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-            )
-        }) {
+        presenterTestOf({ presenter(repos, navigator, ActivityFileReader { withSettings }) }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Morning_Run.FIT", bytes))
             // Threshold changes show once the athlete's training has loaded.
             val read = awaitUntil { it.preview != null && it.thresholdChanges.isNotEmpty() }
@@ -313,22 +254,7 @@ class ImportActivityPresenterTest {
         fixture.privateDetails = """{"details":{"training":{"maxHeartRate":190}},"visibility":{"training":"self"}}"""
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen())
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { withSettings },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-            )
-        }) {
+        presenterTestOf({ presenter(repos, navigator, ActivityFileReader { withSettings }) }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Morning_Run.FIT", bytes))
             val read = awaitUntil { it.preview != null }
             assertTrue(read.thresholdChanges.isEmpty())
@@ -405,22 +331,7 @@ class ImportActivityPresenterTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen())
         val dive = diveLog()
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { dive },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-            )
-        }) {
+        presenterTestOf({ presenter(repos, navigator, ActivityFileReader { dive }) }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("dive.fit", bytes))
             val read = awaitUntil { it.preview != null }
             assertEquals(ActivityType(Sport.DIVE, SubSport.MULTI_GAS), read.type.selected)
@@ -497,22 +408,7 @@ class ImportActivityPresenterTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen())
         val ride = mtbRide()
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { ride },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-            )
-        }) {
+        presenterTestOf({ presenter(repos, navigator, ActivityFileReader { ride }) }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("ride.fit", bytes))
             val read = awaitUntil { it.preview != null }
             val preview = assertNotNull(read.preview)
@@ -545,22 +441,7 @@ class ImportActivityPresenterTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen())
         val stepping = run.copy(records = run.records.map { it.copy(cadence = 85) })
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { stepping },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-            )
-        }) {
+        presenterTestOf({ presenter(repos, navigator, ActivityFileReader { stepping }) }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("run.fit", bytes))
             val preview = assertNotNull(awaitUntil { it.preview != null }.preview)
             assertNull(preview.cadence, "a run's cadence is strides, not revolutions")
@@ -583,22 +464,7 @@ class ImportActivityPresenterTest {
                 records = emptyList(),
                 localStart = LocalDateTime(2026, 9, 20, 7, 0),
             )
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { dive },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-            )
-        }) {
+        presenterTestOf({ presenter(repos, navigator, ActivityFileReader { dive }) }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Petrel.xml", bytes))
             val read = awaitUntil { it.preview != null }
             val clock = assertNotNull(read.preview?.clock)
@@ -631,22 +497,7 @@ class ImportActivityPresenterTest {
         val repos = fixture.repos()
         val navigator = FakeNavigator(ImportActivityScreen())
         var file = run.copy(title = "Lake loop")
-        presenterTestOf({
-            ImportActivityPresenter(
-                ImportActivityScreen(),
-                navigator,
-                repos.activities,
-                repos.manager,
-                ActivityFileReader { file },
-                repos.typeChoices,
-                repos.gearChoices,
-                repos.profiles,
-                repos.feed,
-                repos.defaults,
-                repos.units,
-                repos.suggestions,
-            )
-        }) {
+        presenterTestOf({ presenter(repos, navigator, ActivityFileReader { file }) }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Lake.gpx", bytes))
             val titled = awaitUntil { it.preview != null }
             assertEquals("Lake loop", titled.title.text.toString())
@@ -689,6 +540,7 @@ class ImportActivityPresenterTest {
                 ActivityFileReader(decoder),
                 repos.typeChoices,
                 repos.gearChoices,
+                repos.newDeviceChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,
@@ -706,4 +558,22 @@ class ImportActivityPresenterTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    @Composable
+    private fun presenter(repos: SessionTestFixture.Repos, navigator: FakeNavigator, reader: ActivityFileReader) =
+        ImportActivityPresenter(
+            ImportActivityScreen(),
+            navigator,
+            repos.activities,
+            repos.manager,
+            reader,
+            repos.typeChoices,
+            repos.gearChoices,
+            repos.newDeviceChoices,
+            repos.profiles,
+            repos.feed,
+            repos.defaults,
+            repos.units,
+            repos.suggestions,
+        )
 }

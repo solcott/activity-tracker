@@ -77,8 +77,15 @@ data class ImportActivityState(
      * ([ImportActivityEvent.Saved.Open]). Null until a save finds any; a save that finds none leaves the screen.
      */
     val savedSuggestions: ImmutableList<SavedSuggestion>? = null,
-    /** The gear used (for a logbook, by every dive); null until a file is read. Starts at the athlete's defaults for the type. */
+    /**
+     * The gear used (for a logbook, by every dive); null until a file is read. Starts with what the file's linked sensors and activity
+     * profile stand for, then the athlete's defaults for the type.
+     */
     val gear: GearField? = null,
+    /** The devices the file names that aren't linked to gear yet, and the profile link offer. */
+    val newDevices: NewDevicesFields = NewDevicesFields(),
+    /** The import is saved; what's left to say or offer before leaving. */
+    val afterImport: AfterImport? = null,
     val eventSink: (ImportActivityEvent) -> Unit,
 ) : CircuitUiState
 
@@ -351,6 +358,15 @@ sealed interface ImportActivityEvent {
     data class AllDivesSelected(val selected: Boolean) : ImportActivityEvent
 
     data object Back : ImportActivityEvent
+
+    /** The athlete acts on [ImportActivityState.afterImport]. */
+    sealed interface After : ImportActivityEvent {
+        /** Adds the newly linked gear to the earlier imports offered. */
+        data object ApplyToPast : After
+
+        /** Leaves, as saving would have. */
+        data object Done : After
+    }
 
     /** The athlete acts on [ImportActivityState.savedSuggestions]. */
     sealed interface Saved : ImportActivityEvent {

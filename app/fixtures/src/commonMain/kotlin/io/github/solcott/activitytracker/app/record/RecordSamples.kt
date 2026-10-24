@@ -4,11 +4,17 @@ import androidx.compose.foundation.text.input.TextFieldState
 import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.GearType
+import io.github.solcott.activitytracker.lexicon.app.SensorType
 import io.github.solcott.activitytracker.lexicon.app.Sport
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.location.RecordingState
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 
 private val typeField: ActivityTypeField
     get() =
@@ -83,6 +89,67 @@ object ImportActivitySamples {
             clock = null,
         )
 
+    private val tarmac = AtUri("at://${Fixed.ALICE.value}/${Nsid.GEAR_ITEM}/3ktarmac")
+    private val stumpjumper = AtUri("at://${Fixed.ALICE.value}/${Nsid.GEAR_ITEM}/3kstumpy")
+
+    private val gear =
+        GearField(
+            options =
+                persistentListOf(
+                    GearOption(tarmac, "Tarmac", GearType.BIKE, "road", Visibility.PUBLIC),
+                    GearOption(stumpjumper, "Stumpjumper", GearType.BIKE, "mountain", Visibility.PUBLIC),
+                ),
+            selected = persistentListOf(tarmac, stumpjumper),
+            conflicts = persistentListOf(GearConflict(GearType.BIKE, persistentListOf("Tarmac", "Stumpjumper"))),
+        )
+
+    /** An Edge 840 ride naming three devices not linked yet: the power meter being added, mounted on the Tarmac. */
+    private val newDevices =
+        NewDevicesFields(
+            cards =
+                persistentListOf(
+                    NewDeviceCard("edge", "Garmin", "Edge 840", recorder = true, serialTail = "2071", type = GearType.DEVICE),
+                    NewDeviceCard(
+                        "hrm",
+                        "Garmin",
+                        "HRM 200",
+                        recorder = false,
+                        sensorKind = SensorType.HEART_RATE,
+                        weak = true,
+                        decision = NewDeviceDecision.NotGear,
+                        type = GearType.SENSOR,
+                        kind = "heartRate",
+                    ),
+                    NewDeviceCard(
+                        "meter",
+                        "SRAM",
+                        "1052",
+                        recorder = false,
+                        sensorKind = SensorType.POWER,
+                        serialTail = "3426",
+                        decision = NewDeviceDecision.Add,
+                        name = TextFieldState("SRAM Power meter"),
+                        type = GearType.COMPONENT,
+                        kind = "powerMeter",
+                        mountOn = tarmac,
+                        collections = persistentSetOf("3kcol1"),
+                        expanded = true,
+                    ),
+                ),
+            mountOptions = gear.options,
+            collections = persistentListOf(GearCollectionOption("3kcol1", "Race kit", 4), GearCollectionOption("3kcol2", "Winter", 2)),
+            profileOffer = ProfileLinkOffer("MOUNTAIN", gear.options),
+        )
+
     val all: Map<String, ImportActivityState>
-        get() = mapOf(SampleKind.LOADED to state(false, null), "reading" to state(true, null), "preview" to state(false, preview))
+        get() =
+            mapOf(
+                SampleKind.LOADED to state(false, null),
+                "reading" to state(true, null),
+                "preview" to state(false, preview),
+                "newDevices" to state(false, preview).copy(gear = gear, newDevices = newDevices),
+                "afterImport" to
+                    state(false, preview)
+                        .copy(afterImport = AfterImport(pastImports = PastImportsOffer(persistentListOf("Tarmac"), count = 10))),
+            )
 }

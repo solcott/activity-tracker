@@ -3,8 +3,10 @@ package io.github.solcott.activitytracker.app
 import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.app.record.ActivityTypeChoices
 import io.github.solcott.activitytracker.app.record.GearChoices
+import io.github.solcott.activitytracker.app.record.NewDeviceChoices
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
+import io.github.solcott.activitytracker.data.activity.ActivityDevicesStore
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
@@ -18,6 +20,7 @@ import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.gear.GearCollections
 import io.github.solcott.activitytracker.data.gear.GearDefaults
 import io.github.solcott.activitytracker.data.gear.GearRepository
+import io.github.solcott.activitytracker.data.gear.PastImportsMatcher
 import io.github.solcott.activitytracker.data.moderation.ModerationRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
@@ -63,6 +66,12 @@ import kotlinx.serialization.json.jsonPrimitive
 class SessionTestFixture {
     val did = Did("did:plc:alice")
     var failWrites = false
+
+    /** Fail every space put of these collections, while set. */
+    var failSpacePutsOf = setOf<String>()
+
+    /** Alice's `feed.activityDevices` records in `self`, by rkey, as imports queued them or a test stored them. */
+    val activityDevices = mutableMapOf<String, JsonObject>()
 
     /** Alice's followers as the AppView lists them. */
     var followers = listOf<String>()
@@ -117,6 +126,9 @@ class SessionTestFixture {
 
     /** What `getActivity` serves for any activity; null for none. */
     var servedActivity: ActivityView? = null
+
+    /** What `getActivity` serves for these activities, by URI, before [servedActivity]. */
+    val servedActivities = mutableMapOf<String, ActivityView>()
 
     /** What `getActivityStreams` serves for any activity; null for none. */
     var activityStreams: ActivityStreamData? = null
@@ -222,7 +234,7 @@ class SessionTestFixture {
                     }
 
                     "/xrpc/${Nsid.FEED_GET_ACTIVITY}" -> {
-                        val view = servedActivity
+                        val view = servedActivities[request.url.parameters["uri"]] ?: servedActivity
                         if (view == null) {
                             respond("""{"error":"NotFound"}""", HttpStatusCode.BadRequest, json)
                         } else {
@@ -341,7 +353,8 @@ class SessionTestFixture {
 
                     "/xrpc/com.atproto.space.putRecord",
                     "/xrpc/com.atproto.space.deleteRecord" -> {
-                        if (failWrites) {
+                        val failed = failSpacePutsOf.any { "\"collection\":\"$it\"" in body(request) }
+                        if (failWrites || failed) {
                             respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
                         } else {
                             val input = AtJson.parseToJsonElement(body(request)).jsonObject
@@ -353,6 +366,10 @@ class SessionTestFixture {
                             if (collection == Nsid.ACTOR_SEGMENT_PREFS) segmentPrefs = record?.toString()
                             if (collection == Nsid.ACTOR_LEADERBOARD_BRACKETS) leaderboardBrackets = record?.toString()
                             if (collection == Nsid.GEAR_AUTO_ASSIGN) gearAutoAssign = record?.toString()
+                            if (collection == Nsid.FEED_ACTIVITY_DEVICES) {
+                                val rkey = input.getValue("rkey").jsonPrimitive.content
+                                if (record == null) activityDevices.remove(rkey) else activityDevices[rkey] = record
+                            }
                             if (collection == Nsid.GEAR_COLLECTION) {
                                 val rkey = input.getValue("rkey").jsonPrimitive.content
                                 if (record == null) gearCollections.remove(rkey) else gearCollections[rkey] = record
@@ -398,6 +415,10 @@ class SessionTestFixture {
                             if (request.url.parameters["collection"] == Nsid.GEAR_COLLECTION && place == "self")
                                 gearCollections.map { (rkey, value) ->
                                     """{"collection":"${Nsid.GEAR_COLLECTION}","rkey":"$rkey","cid":"bafyrec","value":$value}"""
+                                }
+                            else if (request.url.parameters["collection"] == Nsid.FEED_ACTIVITY_DEVICES && place == "self")
+                                activityDevices.map { (rkey, value) ->
+                                    """{"collection":"${Nsid.FEED_ACTIVITY_DEVICES}","rkey":"$rkey","cid":"bafyrec","value":$value}"""
                                 }
                             else if (request.url.parameters["collection"] != Nsid.GEAR_ITEM) emptyList()
                             else
@@ -471,6 +492,8 @@ class SessionTestFixture {
         val gear: GearRepository,
         val gearDefaults: GearDefaults,
         val gearCollections: GearCollections,
+        val devices: ActivityDevicesStore,
+        val places: ActivityPlaces,
     ) {
         /** The type picker's producer, as Metro injects it into the record, manual entry and import presenters. */
         val typeChoices: ActivityTypeChoices
@@ -479,6 +502,17 @@ class SessionTestFixture {
         /** The gear picker's producer, as Metro injects it into the record, manual entry, import and edit presenters. */
         val gearChoices: GearChoices
             get() = GearChoices(gear, gearDefaults, gearCollections)
+
+        /** The import's new-device prompt, as Metro injects it into the import presenter. */
+        val newDeviceChoices: NewDeviceChoices
+            get() =
+                NewDeviceChoices(
+                    gear,
+                    gearCollections,
+                    gearDefaults,
+                    PastImportsMatcher(devices, places, gear, feed, manager),
+                    Clock.System,
+                )
     }
 
     /** The moderator side for another session on the same fake services; with no [labelerDid] the athlete can't moderate. */
@@ -553,6 +587,8 @@ class SessionTestFixture {
             GearRepository(clients, Clock.System, feed, gearCollections, Logger),
             GearDefaults(clients, Clock.System),
             gearCollections,
+            zones.devices,
+            places,
         )
     }
 }
