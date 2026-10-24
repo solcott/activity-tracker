@@ -33,6 +33,7 @@ internal constructor(
     private val approvesFollowers: () -> Boolean,
     private val offered: () -> Set<String> = { DetailCategory.all.toSet() },
     private val runningForm: () -> Boolean = { true },
+    private val spacesUnsupported: Boolean = false,
 ) {
     internal var choice by mutableStateOf(VisibilityChoice.PUBLIC)
     internal var chosen by mutableStateOf(false)
@@ -41,7 +42,7 @@ internal constructor(
     val fields: VisibilityFields
         get() =
             fieldsOf(choice, canChoose, ::onEvent, approvesFollowers(), DetailCategory.all.filter { it in offered() })
-                .copy(runningForm = runningForm())
+                .copy(runningForm = runningForm(), spacesUnsupported = spacesUnsupported)
 
     /** What to publish with. */
     val current: VisibilityChoice
@@ -72,7 +73,9 @@ fun rememberNewActivityVisibility(
 ): NewActivityVisibility {
     val currentOffered by rememberUpdatedState(offered)
     val currentRunningForm by rememberUpdatedState(runningForm)
-    val state = remember { NewActivityVisibility(defaults.canChoose, approvesFollowers, { currentOffered }, { currentRunningForm }) }
+    val state = remember {
+        NewActivityVisibility(defaults.canChoose, approvesFollowers, { currentOffered }, { currentRunningForm }, defaults.spacesUnsupported)
+    }
     LaunchedEffect(state) {
         val loaded = defaults.load()
         if (!state.chosen) state.choice = loaded

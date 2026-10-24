@@ -1,8 +1,10 @@
 package io.github.solcott.activitytracker.app.record
 
 import androidx.compose.foundation.text.input.TextFieldState
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
+import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -43,7 +45,7 @@ object RecordSamples {
 }
 
 object ManualActivitySamples {
-    private fun state(duration: String) =
+    private fun state(duration: String, error: UiError? = null, visibility: VisibilityFields = VisibilityFields()) =
         ManualActivityState(
             type = typeField,
             title = TextFieldState("Evening Ride"),
@@ -52,12 +54,24 @@ object ManualActivitySamples {
             temperature = TextFieldState(),
             units = UnitSystem.Metric,
             saving = false,
-            error = null,
+            error = error,
+            visibility = visibility,
             eventSink = {},
         )
 
     val all: Map<String, ManualActivityState>
-        get() = mapOf(SampleKind.LOADED to state("55"), SampleKind.INVALID to state("0"))
+        get() =
+            mapOf(
+                SampleKind.LOADED to state("55"),
+                SampleKind.INVALID to state("0"),
+                // On a PDS without Spaces: the picker is Public and says why, and a save the session thought it could make was refused.
+                "spacesUnsupported" to
+                    state(
+                        "55",
+                        UiError(UiError.Kind.SpacesUnsupported),
+                        VisibilityFields(canChoose = false, spacesUnsupported = true),
+                    ),
+            )
 }
 
 object ImportActivitySamples {

@@ -28,7 +28,7 @@ internal constructor(private val defaults: ActivityDefaults, private val flights
     internal var shown by mutableStateOf<VisibilityChoice?>(null)
 
     val fields: VisibilityFields?
-        get() = shown?.let { fieldsOf(it, defaults.canChoose, ::onEvent) }
+        get() = shown?.let { fieldsOf(it, defaults.canChoose, ::onEvent).copy(spacesUnsupported = defaults.spacesUnsupported) }
 
     val saving: Boolean
         get() = flights.isRunning(KEY)

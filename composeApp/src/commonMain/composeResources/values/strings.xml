@@ -985,6 +985,7 @@
     <string name="action_saving">Saving…</string>
     <string name="activity_visibility_heading">Who can see this activity</string>
     <string name="activity_visibility_help">Its details are never shown to more people than the activity. If someone reports it, the app's moderators can see it while they review the report.</string>
+    <string name="activity_visibility_unsupported">Your server doesn't support private activities yet, so they're Public.</string>
     <string name="activity_visibility_sign_in_again">Sign in again to choose who sees your activities. Until then they're Public.</string>
     <string name="activity_visibility_narrowing_title">Make this activity less visible?</string>
     <string name="activity_visibility_narrowing_body">It was Public, so apps and services may already have a copy. Changing who can see it here can't recall those copies.</string>

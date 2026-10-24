@@ -26,6 +26,7 @@ internal constructor(
     private val canChoose: Boolean,
     private val approvesFollowers: () -> Boolean,
     private val listsGear: () -> Boolean = { false },
+    private val spacesUnsupported: Boolean = false,
 ) {
     private var saved by mutableStateOf<VisibilityChoice?>(null)
     private var choice by mutableStateOf<VisibilityChoice?>(null)
@@ -51,7 +52,10 @@ internal constructor(
 
     /** What the form shows; null until loaded. */
     val fields: VisibilityFields?
-        get() = choice?.let { fieldsOf(it, canChoose, ::onEvent, approvesFollowers(), offeredNow).copy(runningForm = runningForm) }
+        get() = choice?.let {
+            fieldsOf(it, canChoose, ::onEvent, approvesFollowers(), offeredNow)
+                .copy(runningForm = runningForm, spacesUnsupported = spacesUnsupported)
+        }
 
     /** The choice as the athlete has it now; null until loaded. */
     val current: VisibilityChoice?
@@ -120,4 +124,5 @@ internal fun rememberEditVisibility(
     canChoose: Boolean,
     approvesFollowers: () -> Boolean,
     listsGear: () -> Boolean = { false },
-): EditVisibility = remember { EditVisibility(canChoose, approvesFollowers, listsGear) }
+    spacesUnsupported: Boolean = false,
+): EditVisibility = remember { EditVisibility(canChoose, approvesFollowers, listsGear, spacesUnsupported) }

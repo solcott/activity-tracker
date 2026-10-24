@@ -25,6 +25,7 @@ import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -271,6 +272,58 @@ class ManualActivityPresenterTest {
         }
         assertTrue(fixture.putRecords.isEmpty(), "never in the repo")
         assertEquals(listOf(Visibility.FOLLOWERS), fixture.spacePuts.map { it.first })
+    }
+
+    @Test
+    fun aPdsWithoutSpacesOffersOnlyPublicAndSaysWhy() = runTest {
+        fixture.activityDefaults = """{"visibility":"followers"}"""
+        fixture.spacesAlpha = null
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ManualActivityScreen)
+        presenterTestOf({
+            ManualActivityPresenter(
+                navigator,
+                repos.activities,
+                repos.units,
+                repos.typeChoices,
+                repos.gearChoices,
+                repos.defaults,
+                Clock.System,
+            )
+        }) {
+            val form = awaitItem()
+            assertEquals(Visibility.PUBLIC, form.visibility.activity, "the Followers default isn't read from a space the PDS can't host")
+            assertFalse(form.visibility.canChoose)
+            assertTrue(form.visibility.spacesUnsupported, "so the form says the server can't, not to sign in again")
+            form.durationMinutes.setTextAndPlaceCursorAtEnd("30")
+            form.eventSink(ManualActivityEvent.Save)
+            navigator.awaitPop()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(1, fixture.putRecords.size, "published Public to the repo")
+        assertTrue(fixture.spacePuts.isEmpty(), "nothing written to spaces")
+    }
+
+    @Test
+    fun aSessionFromBeforeTheSpaceScopeIsAskedToSignInAgain() = runTest {
+        fixture.scope = "atproto transition:generic"
+        val repos = fixture.repos()
+        presenterTestOf({
+            ManualActivityPresenter(
+                FakeNavigator(ManualActivityScreen),
+                repos.activities,
+                repos.units,
+                repos.typeChoices,
+                repos.gearChoices,
+                repos.defaults,
+                Clock.System,
+            )
+        }) {
+            val form = awaitItem()
+            assertFalse(form.visibility.canChoose)
+            assertFalse(form.visibility.spacesUnsupported, "the PDS supports spaces: signing in again lifts it")
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
