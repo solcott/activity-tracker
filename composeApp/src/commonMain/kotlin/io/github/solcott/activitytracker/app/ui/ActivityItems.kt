@@ -16,6 +16,7 @@ import kotlinx.collections.immutable.ImmutableList
  * [viewerDid]. [authorClickable] is false where the author is the page itself, as on a profile. Labeled photos stay blurred until the
  * viewer reveals them on this screen ([revealed]). [gap] goes below each card, for a list that doesn't space its items itself.
  */
+@Suppress("LongParameterList") // What each screen that lists activities varies.
 fun LazyListScope.activityItems(
     activities: ImmutableList<ActivityView>,
     viewerDid: String,
