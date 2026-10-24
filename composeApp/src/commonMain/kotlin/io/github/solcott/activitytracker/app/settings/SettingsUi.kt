@@ -27,11 +27,11 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.app.ui.lockedVisibilityNote
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.profile_sign_out
 import io.github.solcott.activitytracker.composeApp.resources.settings_blocked_accounts
 import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_activity
@@ -161,7 +161,7 @@ private fun DefaultVisibility(
             stringResource(
                 when {
                     saving -> Res.string.settings_saving
-                    !defaults.canChoose -> Res.string.activity_visibility_sign_in_again
+                    !defaults.canChoose -> lockedVisibilityNote(defaults)
                     else -> Res.string.settings_defaults_help
                 }
             ),

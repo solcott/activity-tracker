@@ -3,6 +3,8 @@ package io.github.solcott.activitytracker.data.activity
 import io.github.solcott.activitytracker.atproto.space.SpaceRead
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.di.SessionClients
+import io.github.solcott.activitytracker.data.di.SpacesSupport
+import io.github.solcott.activitytracker.data.di.SpacesUnsupportedException
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -39,13 +41,12 @@ internal fun commentAudience(visibility: String, replyTo: CommentView?): String 
 /**
  * Refuses a non-public [visibility] for a session that can't write to spaces, as the PDS would, so nothing is published wider. With a
  * [collection], also one whose grant doesn't cover that collection ([SessionClients.canWriteToSpaces]), so nothing is queued that the PDS
- * would refuse and leave at the head of the outbox.
+ * would refuse and leave at the head of the outbox. On a PDS without Spaces the refusal is [SpacesUnsupportedException], since signing in
+ * again can't help.
  */
 internal fun SessionClients.requireSpacesFor(visibility: String, collection: String? = null) {
     val allowed = if (collection == null) canUseSpaces else canWriteToSpaces(collection)
-    if (placeOf(visibility) != null && !allowed) {
-        throw XrpcException(SCOPE_MISSING_STATUS, SpaceErrors.SCOPE_MISSING, "Sign in again to choose who sees your activities")
-    }
+    if (placeOf(visibility) != null && !allowed) throw spacesRefused("Sign in again to choose who sees your activities")
 }
 
 /**
@@ -53,10 +54,13 @@ internal fun SessionClients.requireSpacesFor(visibility: String, collection: Str
  * would, so nothing is queued that would sit at the head of the outbox.
  */
 internal fun SessionClients.requireInteractionsFor(collection: String) {
-    if (!canWriteToSpaces(collection)) {
-        throw XrpcException(SCOPE_MISSING_STATUS, SpaceErrors.SCOPE_MISSING, "Sign in again to block or mute accounts")
-    }
+    if (!canWriteToSpaces(collection)) throw spacesRefused("Sign in again to block or mute accounts")
 }
+
+/** Why this session can't write to its spaces: no Spaces on its PDS, or else a grant from before the scope ([scopeMessage]). */
+private fun SessionClients.spacesRefused(scopeMessage: String): Exception =
+    if (spacesSupport.value == SpacesSupport.Unsupported) SpacesUnsupportedException()
+    else XrpcException(SCOPE_MISSING_STATUS, SpaceErrors.SCOPE_MISSING, scopeMessage)
 
 /** The athlete's own [collection]/[rkey] at [place], as stored now; null when it isn't there. */
 internal suspend fun SessionClients.readOwn(collection: String, rkey: String, place: SpaceUri?): JsonObject? =

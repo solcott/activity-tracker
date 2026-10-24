@@ -65,6 +65,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_save_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_search_athletes
 import io.github.solcott.activitytracker.composeApp.resources.error_send_report
 import io.github.solcott.activitytracker.composeApp.resources.error_sign_in_again
+import io.github.solcott.activitytracker.composeApp.resources.error_spaces_unsupported
 import io.github.solcott.activitytracker.composeApp.resources.error_split_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_too_many_zones
 import io.github.solcott.activitytracker.composeApp.resources.error_ungroup_activity
@@ -176,6 +177,7 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.TooManyZones -> Res.string.error_too_many_zones
             UiError.Kind.NoLocation -> Res.string.error_no_location
             UiError.Kind.SignInAgain -> Res.string.error_sign_in_again
+            UiError.Kind.SpacesUnsupported -> Res.string.error_spaces_unsupported
             UiError.Kind.WritesPending -> Res.string.error_writes_pending
             UiError.Kind.ExportActivity -> Res.string.error_export_activity
             UiError.Kind.ExportNotSent -> Res.string.error_export_not_sent
