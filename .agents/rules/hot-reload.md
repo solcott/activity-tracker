@@ -25,8 +25,9 @@ in full.
 
 **Sign-in.** The desktop app uses the ATProto loopback client against the local AppView (`NetworkConfigs.desktop`), so it needs
 the Docker stack and AppView but no tunnel. The browser redirects to `http://127.0.0.1:8091/callback` (`-PoauthPort=` changes it).
-The DB, the `secret.key` and the HTTP cache live in `DesktopAppDirs` (`~/Library/Application Support/ActivityTracker` on macOS).
-Delete that directory to start signed out with an empty DB.
+The DB and the HTTP cache live in `DesktopAppDirs` (`~/Library/Application Support/ActivityTracker` on macOS). The secret key is in the
+Keychain (`io.github.solcott.activitytracker`/`oauth_store_key`), or in a `secret.key` there on Linux. Delete that directory to
+start signed out with an empty DB.
 
 **Reload output is not in the `hotRun` terminal.** `--auto` forks a second Gradle daemon. Its recompile/reload log goes to
 `desktopApp/build/run/main/main.chr.log`. Read it before assuming the app is wedged, and check for a stale app process from an
