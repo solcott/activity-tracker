@@ -106,6 +106,11 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         /** The session predates access to the athlete's spaces, where non-public details live; signing in again grants it. */
         SignInAgain,
 
+        /**
+         * The athlete's PDS doesn't host spaces, so a non-public save was refused before anything was written; signing in again can't help.
+         */
+        SpacesUnsupported,
+
         /** Writes the save depends on haven't been sent yet (offline, or refused for now); trying again later sends them. */
         WritesPending,
 

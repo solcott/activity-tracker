@@ -76,6 +76,12 @@ class SessionTestFixture {
     /** The OAuth scope the session was granted. */
     var scope = OAuthClientConfig.DEFAULT_SCOPE
 
+    /**
+     * The `spacesAlpha` flag the PDS's `describeServer` answers with, which [repos] reads as the app does at session start; left out while
+     * null.
+     */
+    var spacesAlpha: Boolean? = true
+
     /** Every request fails as a dropped connection would, while set. */
     var offline = false
 
@@ -265,6 +271,11 @@ class SessionTestFixture {
 
                     "/xrpc/com.atproto.server.getServiceAuth" -> {
                         respond("""{"token":"service-jwt"}""", headers = json)
+                    }
+
+                    "/xrpc/com.atproto.server.describeServer" -> {
+                        val flag = spacesAlpha?.let { ""","spacesAlpha":$it""" }.orEmpty()
+                        respond("""{"did":"did:web:pds.test","availableUserDomains":[".test"]$flag}""", headers = json)
                     }
 
                     "/.well-known/did.json" -> {
@@ -488,6 +499,7 @@ class SessionTestFixture {
     @Suppress("LongMethod") // Wires every store a test reaches for.
     suspend fun repos(defaultUnits: UnitSystem = UnitSystem.Metric, suggestionClock: Clock = Clock.System): Repos {
         val (db, manager, clients) = signedInTestSession(http, did = did, scope = scope)
+        clients.resolveSpacesSupport()
         val localLikes = LocalLikes()
         val feed = FeedRepository(db, clients, localLikes, Logger)
         val recentTypes = RecentActivityTypes(db, clients, feed)

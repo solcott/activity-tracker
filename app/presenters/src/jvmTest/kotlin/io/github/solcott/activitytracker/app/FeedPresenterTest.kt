@@ -129,6 +129,10 @@ class FeedPresenterTest {
                 val path = request.url.encodedPath
                 when {
                     path == "/xrpc/com.atproto.server.getServiceAuth" -> respond("""{"token":"service-jwt"}""", headers = json)
+                    path == "/xrpc/com.atproto.server.describeServer" -> {
+                        val flag = spacesAlpha?.let { ""","spacesAlpha":$it""" }.orEmpty()
+                        respond("""{"did":"did:web:pds.test","availableUserDomains":[".test"]$flag}""", headers = json)
+                    }
                     path == "/xrpc/com.atproto.space.getRecord" && request.url.parameters["collection"] == Nsid.ACTOR_PRIVACY_ZONES -> {
                         zonesReads.incrementAndGet()
                         zonesRead.complete(Unit)
@@ -166,6 +170,9 @@ class FeedPresenterTest {
     /** What an unfiltered timeline query answers. */
     private var timeline = emptyList<ActivityView>()
 
+    /** The `spacesAlpha` flag the PDS's `describeServer` answers with, which each session reads at its start; left out while null. */
+    private var spacesAlpha: Boolean? = true
+
     private val bobsFollowersRun =
         ActivityView(
             uri = AtUri.of(Did("did:plc:bob"), Nsid.FEED_ACTIVITY, "3kbob"),
@@ -195,6 +202,7 @@ class FeedPresenterTest {
         block: suspend ReceiveTurbine<FeedState>.() -> Unit,
     ) {
         val (db, _, clients) = signedInTestSession(appView, scope = scope)
+        clients.resolveSpacesSupport()
         val localLikes = LocalLikes()
         val feed = FeedRepository(db, clients, localLikes, Logger)
         val zones = TestZones(db, clients)
@@ -269,6 +277,20 @@ class FeedPresenterTest {
             assertEquals(UiError(UiError.Kind.SignInAgain), refused.error)
             assertEquals(null, refused.activities.single().viewer?.like, "the like isn't shown")
             assertEquals(0, refused.activities.single().likeCount)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aPdsWithoutSpacesRefusesALikeOnAFollowersActivityWithItsOwnMessage() = runTest {
+        timeline = listOf(bobsFollowersRun)
+        spacesAlpha = null
+        filterTest {
+            val state = awaitUntil { it.activities.isNotEmpty() && !it.content.isLoading }
+            state.eventSink(FeedEvent.Activity(ActivityListEvent.ToggleLike(state.activities.single())))
+            val refused = awaitUntil { it.error != null }
+            assertEquals(UiError(UiError.Kind.SpacesUnsupported), refused.error, "not a request to sign in again")
+            assertEquals(null, refused.activities.single().viewer?.like, "the like isn't shown")
             cancelAndIgnoreRemainingEvents()
         }
     }

@@ -59,6 +59,7 @@
     <string name="error_export_not_sent">This activity can be exported once it's sent.</string>
     <string name="error_download_original">Couldn't download the original file. Check your connection and try again.</string>
     <string name="error_original_not_sent">The original file can be downloaded once it's sent.</string>
+    <string name="error_spaces_unsupported">Your server doesn't support private activities and details yet, so only Public is available</string>
     <string name="error_sign_in_again">Sign in again to share activities or details with Followers, Mutuals or Only me, to like or comment on activities that aren't public, to decline follow requests, or to block or mute accounts</string>
     <string name="action_sign_in_again">Sign in again</string>
     <string name="error_delete_activity">Couldn't delete activity</string>

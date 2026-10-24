@@ -18,6 +18,7 @@ import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.di.SpacesUnsupportedException
 import io.github.solcott.activitytracker.data.gear.GearCollection
 import io.github.solcott.activitytracker.data.gear.GearCollections
 import io.github.solcott.activitytracker.data.gear.GearItem
@@ -128,6 +129,7 @@ fun EditGearCollectionPresenter(
 internal fun collectionSaveErrorOf(e: Throwable): UiError =
     when {
         e is GearNeedsSignInException -> UiError(UiError.Kind.GearSignInAgain)
+        e is SpacesUnsupportedException -> UiError(UiError.Kind.SpacesUnsupported)
         e is XrpcException && e.error == SpaceErrors.SCOPE_MISSING -> UiError(UiError.Kind.GearSignInAgain)
         else -> UiError.of(UiError.Kind.SaveGearCollection, e)
     }
