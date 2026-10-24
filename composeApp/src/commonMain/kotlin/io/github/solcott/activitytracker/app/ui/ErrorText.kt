@@ -31,6 +31,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_gear
 import io.github.solcott.activitytracker.composeApp.resources.error_load_gear_activities
 import io.github.solcott.activitytracker.composeApp.resources.error_load_gear_collection
 import io.github.solcott.activitytracker.composeApp.resources.error_load_gear_item
+import io.github.solcott.activitytracker.composeApp.resources.error_load_ignored_sensors
 import io.github.solcott.activitytracker.composeApp.resources.error_load_leaderboard
 import io.github.solcott.activitytracker.composeApp.resources.error_load_likes
 import io.github.solcott.activitytracker.composeApp.resources.error_load_mayors
@@ -176,6 +177,7 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.MountTooDeep -> Res.string.error_mount_too_deep
             UiError.Kind.MountEndsBeforeStart -> Res.string.error_mount_ends_before_start
             UiError.Kind.SaveNewGear -> Res.string.error_save_new_gear
+            UiError.Kind.LoadIgnoredSensors -> Res.string.error_load_ignored_sensors
             UiError.Kind.SaveGearLinks -> Res.string.error_save_gear_links
             UiError.Kind.ApplyGearToPast -> Res.string.error_apply_gear_to_past
             UiError.Kind.GearSignInAgain -> Res.string.error_gear_sign_in_again

@@ -1632,7 +1632,17 @@
     <string name="past_imports_apply">Add</string>
     <string name="past_imports_skip">Not now</string>
     <string name="past_imports_progress">%1$d of %2$d done</string>
+    <string name="gear_linked_sensors">Linked devices</string>
+    <string name="gear_linked_profiles">Linked activity profiles</string>
+    <string name="gear_unlink">Unlink</string>
+    <string name="gear_unlink_named">Unlink %1$s</string>
+    <string name="gear_ignored_sensors">Ignored devices</string>
+    <string name="gear_ignored_empty">No ignored devices. Devices you mark as not gear when importing are listed here.</string>
+    <string name="gear_unignore">Un-ignore</string>
+    <string name="gear_unignore_named">Un-ignore %1$s</string>
+    <string name="gear_more">More</string>
     <string name="error_save_new_gear">Couldn't save the new gear</string>
+    <string name="error_load_ignored_sensors">Couldn't load your ignored devices</string>
     <string name="error_save_gear_links">Couldn't save the sensor links</string>
     <string name="error_apply_gear_to_past">Couldn't add the gear to every earlier activity</string>
     <string name="error_gear_sign_in_again">Sign in again to save gear that isn't Public, what your activities start with, or your collections</string>

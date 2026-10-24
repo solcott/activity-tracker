@@ -42,6 +42,19 @@ data class GearPage(
     val mounts: ImmutableList<GearMountView> = persistentListOf(),
 )
 
+/**
+ * A device linked to the item (gear/gear-sensors), by its maker, model and the last characters of its serial ([serialTail]). A [weak] one
+ * is known only by its model, so it may match other units of it. [id] names it to [GearEvent.UnlinkSensor].
+ */
+@Immutable
+data class LinkedSensor(
+    val id: String,
+    val manufacturer: String?,
+    val model: String?,
+    val serialTail: String? = null,
+    val weak: Boolean = false,
+)
+
 /** One of the athlete's items the page offers to mount: in use, not mounted elsewhere now, and not one this item is mounted on. */
 @Immutable data class GearMountCandidate(val rkey: String, val name: String, val type: String, val kind: String? = null)
 
@@ -67,7 +80,11 @@ data class GearState(
     val unmounting: GearComponent? = null,
     /** A mount, unmount or replace is saving. */
     val mountSaving: Boolean = false,
-    /** Why the last action failed: on an activity (a like), a collection change, or a mount, unmount or replace. */
+    /** The devices linked to the item; only on the owner's page, since links are private. */
+    val linkedSensors: ImmutableList<LinkedSensor> = persistentListOf(),
+    /** The activity profiles (`"MOUNTAIN"`) linked to the item; only on the owner's page. */
+    val linkedProfiles: ImmutableList<String> = persistentListOf(),
+    /** Why the last action failed: on an activity (a like), a collection change, a mount, unmount or replace, or an unlink. */
     val error: UiError? = null,
     val eventSink: (GearEvent) -> Unit = {},
 ) : CircuitUiState {
@@ -115,6 +132,12 @@ sealed interface GearEvent {
     data class ConfirmUnmount(val date: LocalDate) : GearEvent
 
     data object DismissUnmount : GearEvent
+
+    /** Unlinks the [LinkedSensor] with [id]: later imports naming it offer it again, and past activities keep their gear. */
+    data class UnlinkSensor(val id: String) : GearEvent
+
+    /** Unlinks the activity profile [name]. */
+    data class UnlinkProfile(val name: String) : GearEvent
 
     data class Activity(val event: ActivityListEvent) : GearEvent
 }

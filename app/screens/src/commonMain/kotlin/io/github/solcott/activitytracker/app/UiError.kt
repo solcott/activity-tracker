@@ -97,6 +97,9 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         /** Gear an import added for a new device, or its mount or collections, couldn't be saved (gear/gear-sensors). */
         SaveNewGear,
 
+        /** The devices the athlete marked as not gear couldn't be read. */
+        LoadIgnoredSensors,
+
         /** A sensor or profile link, or an ignored device, couldn't be changed. */
         SaveGearLinks,
 

@@ -21,6 +21,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +40,8 @@ import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
+import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
@@ -49,9 +55,12 @@ import io.github.solcott.activitytracker.composeApp.resources.gear_collection_ne
 import io.github.solcott.activitytracker.composeApp.resources.gear_collections
 import io.github.solcott.activitytracker.composeApp.resources.gear_collections_help
 import io.github.solcott.activitytracker.composeApp.resources.gear_empty
+import io.github.solcott.activitytracker.composeApp.resources.gear_ignored_sensors
+import io.github.solcott.activitytracker.composeApp.resources.gear_more
 import io.github.solcott.activitytracker.composeApp.resources.gear_retired
 import io.github.solcott.activitytracker.composeApp.resources.gear_title
 import io.github.solcott.activitytracker.data.di.SessionScope
+import kotlinx.collections.immutable.persistentListOf
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -67,7 +76,10 @@ fun GearListUi(state: GearListState, modifier: Modifier = Modifier) {
                 title = stringResource(Res.string.gear_title),
                 onBack = { state.eventSink(GearListEvent.Back) },
                 scrollBehavior = scrollBehavior,
-                actions = { AppIconButton(AppIcon.Add, stringResource(Res.string.gear_add), { state.eventSink(GearListEvent.Add) }) },
+                actions = {
+                    AppIconButton(AppIcon.Add, stringResource(Res.string.gear_add), { state.eventSink(GearListEvent.Add) })
+                    MoreMenu(state.eventSink)
+                },
             )
         },
     ) { padding ->
@@ -98,6 +110,23 @@ fun GearListUi(state: GearListState, modifier: Modifier = Modifier) {
                 }
             }
         }
+    }
+}
+
+/** The bar's overflow menu: Ignored devices. */
+@Composable
+private fun MoreMenu(eventSink: (GearListEvent) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        AppIconButton(AppIcon.More, stringResource(Res.string.gear_more), { open = true })
+        AppMenu(
+            expanded = open,
+            onDismiss = { open = false },
+            items =
+                persistentListOf(
+                    AppMenuItem(stringResource(Res.string.gear_ignored_sensors)) { eventSink(GearListEvent.OpenIgnoredSensors) }
+                ),
+        )
     }
 }
 

@@ -28,6 +28,8 @@ import io.github.solcott.activitytracker.app.gear.GearListSamples
 import io.github.solcott.activitytracker.app.gear.GearListUi
 import io.github.solcott.activitytracker.app.gear.GearSamples
 import io.github.solcott.activitytracker.app.gear.GearUi
+import io.github.solcott.activitytracker.app.gear.IgnoredSensorsSamples
+import io.github.solcott.activitytracker.app.gear.IgnoredSensorsUi
 import io.github.solcott.activitytracker.app.map.RouteMapSamples
 import io.github.solcott.activitytracker.app.map.RouteMapUi
 import io.github.solcott.activitytracker.app.media.MediaGallerySamples
@@ -130,6 +132,7 @@ class ContentLoadingConformanceTest {
             entry({ EditGearSamples.all }, null) { EditGearUi(it) },
             entry({ GearCollectionSamples.all }, "Cold water setup") { GearCollectionUi(it) },
             entry({ EditGearCollectionSamples.all }, null) { EditGearCollectionUi(it) },
+            entry({ IgnoredSensorsSamples.all }, "Serial …2071") { IgnoredSensorsUi(it) },
         )
 
     @Test

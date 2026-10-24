@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +44,8 @@ import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.pagedFooter
 import io.github.solcott.activitytracker.app.ui.visibilityLabel
 import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.gear_linked_profiles
+import io.github.solcott.activitytracker.composeApp.resources.gear_linked_sensors
 import io.github.solcott.activitytracker.composeApp.resources.gear_not_found
 import io.github.solcott.activitytracker.composeApp.resources.gear_page_activities
 import io.github.solcott.activitytracker.composeApp.resources.gear_page_activity_count
@@ -62,6 +65,8 @@ import io.github.solcott.activitytracker.composeApp.resources.gear_page_totals
 import io.github.solcott.activitytracker.composeApp.resources.gear_retired
 import io.github.solcott.activitytracker.composeApp.resources.gear_total_activities
 import io.github.solcott.activitytracker.composeApp.resources.gear_total_joined
+import io.github.solcott.activitytracker.composeApp.resources.gear_unlink
+import io.github.solcott.activitytracker.composeApp.resources.gear_unlink_named
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
@@ -135,6 +140,28 @@ private fun Loaded(state: GearState, page: GearPage, padding: PaddingValues, onR
                 }
             }
             componentItems(state, page) { Section(it) }
+            if (state.linkedSensors.isNotEmpty()) {
+                item(key = "linked-sensors") { Section(stringResource(Res.string.gear_linked_sensors)) }
+                items(state.linkedSensors, key = { "sensor/${it.id}" }) { sensor ->
+                    LinkedSensorRow(
+                        sensor,
+                        stringResource(Res.string.gear_unlink),
+                        stringResource(Res.string.gear_unlink_named, deviceName(sensor.manufacturer, sensor.model)),
+                        { state.eventSink(GearEvent.UnlinkSensor(sensor.id)) },
+                    )
+                }
+            }
+            if (state.linkedProfiles.isNotEmpty()) {
+                item(key = "linked-profiles") { Section(stringResource(Res.string.gear_linked_profiles)) }
+                items(state.linkedProfiles, key = { "profile/$it" }) { name ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                        AppTextButton(onClick = { state.eventSink(GearEvent.UnlinkProfile(name)) }) {
+                            Text(stringResource(Res.string.gear_unlink))
+                        }
+                    }
+                }
+            }
             item(key = "totals") {
                 Section(stringResource(Res.string.gear_page_totals))
                 AppCard(Modifier.fillMaxWidth()) { Totals(page.usage.totals, page.gear.type, page.usage.starting) }

@@ -261,7 +261,21 @@ object GearSamples {
                     state(
                         ContentStates.loaded(page.copy(usage = GearUsage(GearTotals.ZERO, emptyList(), emptyList()))),
                         PagedStates.end(emptyList(), Unit),
-                    ))
+                    )) +
+                ("linked" to linked)
+
+    /** The owner's page with the devices and profile linked to the item (gear/gear-sensors). */
+    val linked: GearState
+        get() =
+            state(ContentStates.loaded(compact), PagedStates.end(emptyList(), Unit))
+                .copy(
+                    linkedSensors =
+                        persistentListOf(
+                            LinkedSensor("meter", "SRAM", "1052", serialTail = "3426"),
+                            LinkedSensor("strap", "Garmin", "HRM 200", weak = true),
+                        ),
+                    linkedProfiles = persistentListOf("ROAD"),
+                )
 
     /**
      * The next page of activities loading, below a page without breakdowns. Not in [all]: like the activity page's comments, the list
@@ -351,4 +365,15 @@ object EditGearCollectionSamples {
                 SampleKind.INVALID to state(ContentStates.loaded(Unit), name = ""),
                 "new" to state(ContentStates.loaded(Unit), name = "", withMembers = false, isNew = true),
             )
+}
+
+object IgnoredSensorsSamples {
+    private val ignored: ImmutableList<LinkedSensor> =
+        persistentListOf(
+            LinkedSensor("edge", "Garmin", "Edge 840", serialTail = "2071"),
+            LinkedSensor("strap", "Polar", "H10", weak = true),
+        )
+
+    val all: Map<String, IgnoredSensorsState>
+        get() = contentSamples<ImmutableList<LinkedSensor>, IgnoredSensorsState>(persistentListOf(), ignored) { IgnoredSensorsState(it) }
 }
