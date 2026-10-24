@@ -94,6 +94,18 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         /** An unmount date isn't after the mount's start. */
         MountEndsBeforeStart,
 
+        /** Gear an import added for a new device, or its mount or collections, couldn't be saved (gear/gear-sensors). */
+        SaveNewGear,
+
+        /** The devices the athlete marked as not gear couldn't be read. */
+        LoadIgnoredSensors,
+
+        /** A sensor or profile link, or an ignored device, couldn't be changed. */
+        SaveGearLinks,
+
+        /** Newly linked gear couldn't be added to every earlier import offered. */
+        ApplyGearToPast,
+
         /** The session predates gear in the athlete's spaces, so it can save Public gear only until they sign in again. */
         GearSignInAgain,
 

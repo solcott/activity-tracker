@@ -9,8 +9,11 @@ import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.GearAutoAssignRecord
 import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
+import io.github.solcott.activitytracker.lexicon.app.GearProfileLink
+import io.github.solcott.activitytracker.lexicon.app.GearSensorLink
 import io.github.solcott.activitytracker.lexicon.app.GearSportDefault
 import io.github.solcott.activitytracker.lexicon.app.GearType
+import io.github.solcott.activitytracker.lexicon.app.SensorKey
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.SubSport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
@@ -102,5 +105,59 @@ class GearDefaultsTest {
         val e = assertFailsWith<XrpcException> { repo.setTypes(uri(tarmac), listOf(ride)) }
         assertEquals(SpaceErrors.SCOPE_MISSING, e.error)
         assertEquals(emptySet(), pds.placesOf(Nsid.GEAR_AUTO_ASSIGN, GearAutoAssignRecord.RKEY))
+    }
+
+    private val meter = SensorKey(manufacturer = "SRAM", serialNumber = "3236233426")
+    private val edge = SensorKey(manufacturer = "Garmin", serialNumber = "3510682071")
+
+    @Test
+    fun linkingADeviceRemovesItsIgnore() = runTest {
+        val repo = defaults()
+        repo.editLinks(GearLinkEdit(ignore = listOf(edge)))
+        val after =
+            repo.editLinks(
+                GearLinkEdit(link = listOf(GearSensorLink(SensorKey(manufacturer = "garmin", serialNumber = "3510682071"), uri(tarmac))))
+            )
+        assertEquals(null, after.ignored)
+        assertEquals(listOf(uri(tarmac)), after.sensors?.map { it.gear })
+        assertEquals(after.sensors, defaults().load().sensors, "stored in self")
+        assertEquals(setOf(Visibility.SELF), pds.placesOf(Nsid.GEAR_AUTO_ASSIGN, GearAutoAssignRecord.RKEY))
+    }
+
+    @Test
+    fun ignoringADeviceRemovesItsLink() = runTest {
+        val repo = defaults()
+        repo.editLinks(GearLinkEdit(link = listOf(GearSensorLink(meter, uri(tarmac)))))
+        val after = repo.editLinks(GearLinkEdit(ignore = listOf(meter)))
+        assertEquals(null, after.sensors)
+        assertEquals(listOf(meter), after.ignored)
+    }
+
+    @Test
+    fun aKeyLinksToOneItemAndUnlinkingLeavesTheRest() = runTest {
+        val repo = defaults()
+        repo.setTypes(uri(tarmac), listOf(ride))
+        repo.editLinks(GearLinkEdit(link = listOf(GearSensorLink(meter, uri(tarmac)), GearSensorLink(edge, uri(tarmac)))))
+        val relinked = repo.editLinks(GearLinkEdit(link = listOf(GearSensorLink(meter, uri(stumpjumper)))))
+        assertEquals(listOf(edge to uri(tarmac), meter to uri(stumpjumper)), relinked.sensors?.map { it.key to it.gear })
+        val after = repo.editLinks(GearLinkEdit(unlink = listOf(meter)))
+        assertEquals(listOf(edge), after.sensors?.map { it.key })
+        assertEquals(listOf(uri(tarmac)), after.sports?.single()?.gear, "defaults are kept")
+    }
+
+    @Test
+    fun aProfileLinksToOneItem() = runTest {
+        val repo = defaults()
+        repo.editLinks(GearLinkEdit(linkProfiles = listOf(GearProfileLink("MOUNTAIN", uri(tarmac)))))
+        val after = repo.editLinks(GearLinkEdit(linkProfiles = listOf(GearProfileLink("MOUNTAIN", uri(stumpjumper)))))
+        assertEquals(listOf(GearProfileLink("MOUNTAIN", uri(stumpjumper))), after.profiles)
+        assertEquals(null, repo.editLinks(GearLinkEdit(unlinkProfiles = setOf("MOUNTAIN"))).profiles)
+    }
+
+    @Test
+    fun anOlderSessionCantLink() = runTest {
+        val repo = defaults(scope = "${OAuthClientConfig.DEFAULT_SCOPE}&collection=${Nsid.FEED_ACTIVITY}")
+        val e = assertFailsWith<XrpcException> { repo.editLinks(GearLinkEdit(ignore = listOf(edge))) }
+        assertEquals(SpaceErrors.SCOPE_MISSING, e.error)
     }
 }

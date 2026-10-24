@@ -76,14 +76,22 @@ data class GearMount(
 )
 
 /**
- * `app.activitytracker.gear.autoAssign`: the gear each activity type starts with. It lives only in the athlete's [AthleteSpace.SELF] space,
- * and the AppView never indexes it. Resolve it for a type with `GearDefaults.forType` (core/data).
+ * `app.activitytracker.gear.autoAssign`: the gear each activity type starts with, and the items the sensors, recording devices and activity
+ * profiles of imported files stand for. It lives only in the athlete's [AthleteSpace.SELF] space, because its keys hold serial numbers, and
+ * the AppView never indexes it. Resolve it for a type with `GearDefaults.forType`, and for an import with `GearAutoAssign.resolve`
+ * (core/data).
  */
 @Serializable
 data class GearAutoAssignRecord(
     val updatedAt: Instant,
     /** At most one entry per sport and sub-sport. */
     val sports: List<GearSportDefault>? = null,
+    /** A key appears at most once across [sensors] and [ignored]. */
+    val sensors: List<GearSensorLink>? = null,
+    /** At most one entry per name. */
+    val profiles: List<GearProfileLink>? = null,
+    /** Devices the athlete marked as not gear. */
+    val ignored: List<SensorKey>? = null,
     @SerialName($$"$type") val type: String = Nsid.GEAR_AUTO_ASSIGN,
 ) {
     companion object {
@@ -91,8 +99,26 @@ data class GearAutoAssignRecord(
 
         /** The lexicon's `maxLength` for [sports]. */
         const val MAX_SPORTS = 256
+
+        /** The lexicon's `maxLength` for [sensors]. */
+        const val MAX_SENSORS = 200
+
+        /** The lexicon's `maxLength` for [profiles]. */
+        const val MAX_PROFILES = 50
+
+        /** The lexicon's `maxLength` for [ignored]. */
+        const val MAX_IGNORED = 200
     }
 }
+
+/** `app.activitytracker.gear.autoAssign#sensorLink`: the device with [key] stands for [gear], a canonical [GearItemRecord] URI. */
+@Serializable data class GearSensorLink(val key: SensorKey, val gear: AtUri)
+
+/**
+ * `app.activitytracker.gear.autoAssign#profileLink`: the activity profile [name] (as the device names it, `"MOUNTAIN"`) stands for [gear],
+ * a canonical [GearItemRecord] URI.
+ */
+@Serializable data class GearProfileLink(val name: String, val gear: AtUri)
 
 /**
  * `app.activitytracker.gear.collection`: a named group of the athlete's gear items, keyed by a TID. It lives only in the athlete's

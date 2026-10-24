@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.app.gear
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -16,13 +17,16 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEventSink
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.di.SpacesUnsupportedException
 import io.github.solcott.activitytracker.data.gear.GearCollection
 import io.github.solcott.activitytracker.data.gear.GearCollections
+import io.github.solcott.activitytracker.data.gear.GearDefaults
 import io.github.solcott.activitytracker.data.gear.GearItem
+import io.github.solcott.activitytracker.data.gear.GearLinkEdit
 import io.github.solcott.activitytracker.data.gear.GearMountException
 import io.github.solcott.activitytracker.data.gear.GearNeedsSignInException
 import io.github.solcott.activitytracker.data.gear.GearNotFoundException
@@ -66,6 +70,7 @@ fun GearPresenter(
     navigator: Navigator,
     gear: GearRepository,
     collections: GearCollections,
+    defaults: GearDefaults,
     activities: ActivityRepository,
     clock: Clock,
 ): GearState {
@@ -84,6 +89,10 @@ fun GearPresenter(
         produceState(emptyList<GearCollection>(), isOwner, collectionChanges) {
             if (isOwner) value = runSuspendCatching { collections.all() }.getOrDefault(value)
         }
+    // The athlete's sensor and profile links, kept by GearDefaults as they're saved.
+    val rules by defaults.current.collectAsState()
+    LaunchedEffect(isOwner) { if (isOwner) runSuspendCatching { defaults.load() } }
+    val links = rules?.sensors.orEmpty().filter { isOwner && it.gear == uri }
     val zone = remember { TimeZones.device() }
     val ownItems by
         produceState(emptyList<GearItem>(), isOwner, changes) {
@@ -125,6 +134,11 @@ fun GearPresenter(
         picker = if (picking) GearMountPicker(candidatesFor(uri, gear.did, ownItems, today()), replacing) else null,
         unmounting = unmounting,
         mountSaving = flights.isRunning(MOUNT),
+        linkedSensors =
+            links
+                .map { LinkedSensor(it.key.id, it.key.manufacturer, it.key.model, it.key.serialNumber?.takeLast(SERIAL_TAIL), it.key.weak) }
+                .toImmutableList(),
+        linkedProfiles = rules?.profiles.orEmpty().filter { isOwner && it.gear == uri }.map { it.name }.toImmutableList(),
         error = error,
     ) { event ->
         when (event) {
@@ -168,6 +182,21 @@ fun GearPresenter(
                 saveMount { gear.unmount(ownItem(component.gear.uri), event.date.atStartOfDayIn(zone)) }
             }
             GearEvent.DismissUnmount -> unmounting = null
+            is GearEvent.UnlinkSensor -> {
+                val key = links.firstOrNull { it.key.id == event.id }?.key ?: return@GearState
+                error = null
+                flights.launch(event) {
+                    runSuspendCatching { defaults.editLinks(GearLinkEdit(unlink = listOf(key))) }
+                        .onFailure { error = uiErrorOf(UiError.Kind.SaveGearLinks, it) }
+                }
+            }
+            is GearEvent.UnlinkProfile -> {
+                error = null
+                flights.launch(event) {
+                    runSuspendCatching { defaults.editLinks(GearLinkEdit(unlinkProfiles = setOf(event.name))) }
+                        .onFailure { error = uiErrorOf(UiError.Kind.SaveGearLinks, it) }
+                }
+            }
             is GearEvent.Activity -> {
                 error = null
                 activityEvents(event.event)
@@ -226,5 +255,8 @@ internal fun mountErrorOf(e: Throwable): UiError =
     }
 
 private const val MOUNT = "mount"
+
+/** How much of a serial number the page shows. */
+private const val SERIAL_TAIL = 4
 
 private const val NOT_FOUND = "NotFound"

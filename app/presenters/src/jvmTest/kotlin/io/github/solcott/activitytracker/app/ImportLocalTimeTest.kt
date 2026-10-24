@@ -63,6 +63,7 @@ class ImportLocalTimeTest {
                 ActivityFileReader { run },
                 repos.typeChoices,
                 repos.gearChoices,
+                repos.newDeviceChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,

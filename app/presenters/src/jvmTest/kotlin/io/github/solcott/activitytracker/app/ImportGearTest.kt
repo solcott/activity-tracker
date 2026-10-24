@@ -69,6 +69,7 @@ class ImportGearTest {
                 ActivityFileReader { ride },
                 repos.typeChoices,
                 repos.gearChoices,
+                repos.newDeviceChoices,
                 repos.profiles,
                 repos.feed,
                 repos.defaults,

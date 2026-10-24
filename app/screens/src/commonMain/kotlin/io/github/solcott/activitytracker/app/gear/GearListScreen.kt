@@ -66,4 +66,7 @@ sealed interface GearListEvent {
 
     /** Starts a new collection. */
     data object AddCollection : GearListEvent
+
+    /** Opens the devices the athlete marked as not gear ([IgnoredSensorsScreen]). */
+    data object OpenIgnoredSensors : GearListEvent
 }

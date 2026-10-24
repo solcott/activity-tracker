@@ -55,6 +55,7 @@ fun GearListPresenter(navigator: Navigator, gear: GearRepository, collections: G
             is GearListEvent.Open -> navigator.goTo(GearScreen(GearItem.uriOf(gear.did, event.rkey).value))
             is GearListEvent.OpenCollection -> navigator.goTo(GearCollectionScreen(event.rkey))
             GearListEvent.AddCollection -> navigator.goTo(EditGearCollectionScreen())
+            GearListEvent.OpenIgnoredSensors -> navigator.goTo(IgnoredSensorsScreen)
         }
     }
 }

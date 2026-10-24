@@ -3,17 +3,18 @@ package io.github.solcott.activitytracker.data.activity
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
-import io.github.solcott.activitytracker.activityfile.ImportedDevice
 import io.github.solcott.activitytracker.activityfile.ImportedDevices
+import io.github.solcott.activitytracker.activityfile.toActivityDevice
+import io.github.solcott.activitytracker.atproto.space.SpaceRead
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityDevice
 import io.github.solcott.activitytracker.lexicon.app.ActivityDevicesRecord
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
-import io.github.solcott.activitytracker.lexicon.app.DeviceRole
 import kotlin.time.Clock
 
 /**
@@ -32,6 +33,12 @@ interface ActivityDevicesStore {
 
     /** Queues deleting [activity]'s devices, if any. */
     suspend fun delete(activity: AtUri)
+
+    /**
+     * Every devices record the athlete has stored, read from the `self` space a page at a time; records that don't decode are left out.
+     * Empty for a session that can't use them. Throws when the space can't be read, so a partial list is never taken as complete.
+     */
+    suspend fun list(): List<ActivityDevicesRecord>
 }
 
 /** Writes devices as `feed.activityDevices` records under the activity's rkey in the athlete's `self` space. */
@@ -58,7 +65,7 @@ class PdsActivityDevicesStore(
             ActivityDevicesRecord.serializer(),
             ActivityDevicesRecord(
                 activity = activity,
-                devices = devices.devices.take(ActivityDevicesRecord.MAX_DEVICES).map { it.toRecord() },
+                devices = devices.devices.take(ActivityDevicesRecord.MAX_DEVICES).map { it.toActivityDevice() },
                 createdAt = clock.now(),
                 activityProfile = devices.activityProfile?.take(ActivityDevice.MAX_NAME),
             ),
@@ -77,27 +84,23 @@ class PdsActivityDevicesStore(
         }
     }
 
+    override suspend fun list(): List<ActivityDevicesRecord> {
+        if (!canWrite) return emptyList()
+        return when (val read = clients.spaces.listAllRecords(self, clients.did, Nsid.FEED_ACTIVITY_DEVICES, LIST_PAGE)) {
+            is SpaceRead.Found ->
+                read.value.mapNotNull { record ->
+                    record.value?.let { runCatching { AtJson.decodeFromJsonElement(ActivityDevicesRecord.serializer(), it) }.getOrNull() }
+                }
+            SpaceRead.NotFound -> emptyList()
+            SpaceRead.NoAccess -> error("The self space refused its own athlete")
+        }
+    }
+
     // A session that can't write devices never wrote any, and the PDS would refuse the delete at the head of the outbox.
     override suspend fun delete(activity: AtUri) {
         if (!canWrite) return
         writer.delete(Nsid.FEED_ACTIVITY_DEVICES, requireNotNull(activity.rkey), self)
     }
-
-    // Every field comes from the file, so it's held to the lexicon's bounds here: a value the PDS would refuse would stall the outbox.
-    private fun ImportedDevice.toRecord() =
-        ActivityDevice(
-            role = if (recorder) DeviceRole.RECORDER else DeviceRole.SENSOR,
-            kind = kind?.token,
-            manufacturer = manufacturer?.take(ActivityDevice.MAX_NAME),
-            model = model?.take(ActivityDevice.MAX_NAME),
-            serialNumber = serialNumber?.take(ActivityDevice.MAX_IDENTIFIER),
-            antDeviceNumber = antDeviceNumber?.takeIf { it in ActivityDevice.ANT_DEVICE_NUMBERS },
-            antTransmissionType = antTransmissionType?.takeIf { it in ActivityDevice.ANT_TRANSMISSION_TYPES },
-            connection = connection,
-            softwareVersion = softwareVersion?.take(ActivityDevice.MAX_IDENTIFIER),
-            battery = battery?.token,
-            batteryPercent = batteryPercent?.takeIf { it in 0..ActivityDevice.MAX_PERCENT },
-            batteryVoltage = batteryMillivolts?.takeIf { it >= 0 },
-            operatingTime = operatingSeconds?.takeIf { it >= 0 },
-        )
 }
+
+private const val LIST_PAGE = 100

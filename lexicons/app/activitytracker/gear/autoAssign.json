@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "The athlete's rules for filling in gear: which of their gear.item records a new activity of each type starts with. Lives only in the athlete's self space (app.activitytracker.space.athlete, key self), never in the public repo. The AppView never indexes or serves it. For each gear type, a new activity takes the items of the entry for its sport and sub-sport if that entry has any of that type, else those of the entry for its sport alone. Retired and deleted items are skipped.",
+      "description": "The athlete's rules for filling in gear: which of their gear.item records a new activity of each type starts with, and which items the sensors, recording devices and activity profiles their imported files name stand for. Lives only in the athlete's self space (app.activitytracker.space.athlete, key self), never in the public repo: its sensor keys hold serial numbers and ANT IDs, which no gear item, activity or repo record holds. The AppView never indexes or serves it. For each gear type, an imported activity takes the items its linked sensors and recording device stand for, else the item its linked activity profile stands for, else the defaults. For the defaults, a new activity takes the items of the entry for its sport and sub-sport if that entry has any of that type, else those of the entry for its sport alone. A linked item mounted on another at the activity's start stands for the top-level item it was mounted on. Retired and deleted items are skipped.",
       "key": "literal:self",
       "record": {
         "type": "object",
@@ -15,6 +15,24 @@
             "maxLength": 256,
             "items": { "type": "ref", "ref": "#sportDefault" },
             "description": "At most one entry per sport and sub-sport."
+          },
+          "sensors": {
+            "type": "array",
+            "maxLength": 200,
+            "items": { "type": "ref", "ref": "#sensorLink" },
+            "description": "Sensors and recording devices linked to items. A key appears at most once across sensors and ignored."
+          },
+          "profiles": {
+            "type": "array",
+            "maxLength": 50,
+            "items": { "type": "ref", "ref": "#profileLink" },
+            "description": "Activity profiles linked to items, at most one entry per name."
+          },
+          "ignored": {
+            "type": "array",
+            "maxLength": 200,
+            "items": { "type": "ref", "ref": "#sensorKey" },
+            "description": "Sensors and recording devices the athlete marked as not gear, which imports don't offer."
           },
           "updatedAt": { "type": "string", "format": "datetime" }
         }
@@ -32,6 +50,37 @@
           "items": { "type": "string", "format": "at-uri" },
           "description": "The athlete's gear items, by canonical URI (at://{did}/app.activitytracker.gear.item/{rkey})."
         }
+      }
+    },
+    "sensorLink": {
+      "type": "object",
+      "required": ["key", "gear"],
+      "properties": {
+        "key": { "type": "ref", "ref": "#sensorKey" },
+        "gear": { "type": "string", "format": "at-uri", "description": "The athlete's gear item, by canonical URI." }
+      }
+    },
+    "profileLink": {
+      "type": "object",
+      "required": ["name", "gear"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "An activity profile as the device names it (app.activitytracker.feed.activityDevices activityProfile), e.g. 'MOUNTAIN'."
+        },
+        "gear": { "type": "string", "format": "at-uri", "description": "The athlete's gear item, by canonical URI." }
+      }
+    },
+    "sensorKey": {
+      "type": "object",
+      "description": "What tells one device from another across imports, from its strongest identifiers (app.activitytracker.feed.activityDevices#device fields): its maker and serial number when it has a serial; else its maker, ANT device number and transmission type; else its maker and model, a weak key that matches every unit of that model. A stronger key may keep the model to name the device, but doesn't match on it. Makers and models match trimmed and case-folded, serials as written.",
+      "properties": {
+        "manufacturer": { "type": "string", "maxLength": 128 },
+        "serialNumber": { "type": "string", "maxLength": 64 },
+        "antDeviceNumber": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "antTransmissionType": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "model": { "type": "string", "maxLength": 128 }
       }
     }
   }

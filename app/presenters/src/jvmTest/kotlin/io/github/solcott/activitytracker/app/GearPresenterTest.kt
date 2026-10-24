@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.app.gear.GearEvent
 import io.github.solcott.activitytracker.app.gear.GearPresenter
 import io.github.solcott.activitytracker.app.gear.GearScreen
 import io.github.solcott.activitytracker.app.gear.GearState
+import io.github.solcott.activitytracker.app.gear.LinkedSensor
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -18,16 +19,20 @@ import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.GearAutoAssignRecord
 import io.github.solcott.activitytracker.lexicon.app.GearCollectionRecord
 import io.github.solcott.activitytracker.lexicon.app.GearComponent
 import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
 import io.github.solcott.activitytracker.lexicon.app.GearMount
+import io.github.solcott.activitytracker.lexicon.app.GearProfileLink
+import io.github.solcott.activitytracker.lexicon.app.GearSensorLink
 import io.github.solcott.activitytracker.lexicon.app.GearTotals
 import io.github.solcott.activitytracker.lexicon.app.GearType
 import io.github.solcott.activitytracker.lexicon.app.GearUsage
 import io.github.solcott.activitytracker.lexicon.app.GearView
 import io.github.solcott.activitytracker.lexicon.app.GetGear
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.SensorKey
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.uistate.hasLoaded
@@ -79,7 +84,9 @@ class GearPresenterTest {
         fixture.gearActivities = listOf(ride(fixture.did))
         val repos = fixture.repos()
         val navigator = FakeNavigator(GearScreen(uri))
-        presenterTestOf({ GearPresenter(GearScreen(uri), navigator, repos.gear, repos.gearCollections, repos.activities, clock) }) {
+        presenterTestOf({
+            GearPresenter(GearScreen(uri), navigator, repos.gear, repos.gearCollections, repos.gearDefaults, repos.activities, clock)
+        }) {
             val loaded = awaitUntil { it.content.hasLoaded && it.activities.items.isNotEmpty() }
             val page = checkNotNull(loaded.page)
             assertTrue(page.isOwner)
@@ -99,7 +106,9 @@ class GearPresenterTest {
         fixture.gearActivities = listOf(ride(bob))
         val repos = fixture.repos()
         val navigator = FakeNavigator(GearScreen(uri))
-        presenterTestOf({ GearPresenter(GearScreen(uri), navigator, repos.gear, repos.gearCollections, repos.activities, clock) }) {
+        presenterTestOf({
+            GearPresenter(GearScreen(uri), navigator, repos.gear, repos.gearCollections, repos.gearDefaults, repos.activities, clock)
+        }) {
             val loaded = awaitUntil { it.content.hasLoaded && it.activities.items.isNotEmpty() }
             val page = checkNotNull(loaded.page)
             assertFalse(page.isOwner)
@@ -115,7 +124,15 @@ class GearPresenterTest {
         val uri = AtUri.of(Did("did:plc:bob"), Nsid.GEAR_ITEM, "3private").value
         val repos = fixture.repos()
         presenterTestOf({
-            GearPresenter(GearScreen(uri), FakeNavigator(GearScreen(uri)), repos.gear, repos.gearCollections, repos.activities, clock)
+            GearPresenter(
+                GearScreen(uri),
+                FakeNavigator(GearScreen(uri)),
+                repos.gear,
+                repos.gearCollections,
+                repos.gearDefaults,
+                repos.activities,
+                clock,
+            )
         }) {
             val state = awaitUntil { it.notFound }
             assertFalse(state.content.hasLoaded)
@@ -141,7 +158,15 @@ class GearPresenterTest {
         raceKit(tarmac)
         val repos = fixture.repos()
         presenterTestOf({
-            GearPresenter(GearScreen(helmet), FakeNavigator(GearScreen(helmet)), repos.gear, repos.gearCollections, repos.activities, clock)
+            GearPresenter(
+                GearScreen(helmet),
+                FakeNavigator(GearScreen(helmet)),
+                repos.gear,
+                repos.gearCollections,
+                repos.gearDefaults,
+                repos.activities,
+                clock,
+            )
         }) {
             val loaded = awaitUntil { it.collections.isNotEmpty() }
             assertEquals(listOf(GearCollectionChoice("3kit", "Race kit", member = false)), loaded.collections)
@@ -162,7 +187,15 @@ class GearPresenterTest {
         raceKit(uri)
         val repos = fixture.repos()
         presenterTestOf({
-            GearPresenter(GearScreen(uri), FakeNavigator(GearScreen(uri)), repos.gear, repos.gearCollections, repos.activities, clock)
+            GearPresenter(
+                GearScreen(uri),
+                FakeNavigator(GearScreen(uri)),
+                repos.gear,
+                repos.gearCollections,
+                repos.gearDefaults,
+                repos.activities,
+                clock,
+            )
         }) {
             val loaded = awaitUntil { it.content.hasLoaded }
             assertTrue(loaded.collections.isEmpty())
@@ -214,6 +247,7 @@ class GearPresenterTest {
             FakeNavigator(GearScreen(uri.value)),
             repos.gear,
             repos.gearCollections,
+            repos.gearDefaults,
             repos.activities,
             clock,
         )
@@ -285,6 +319,61 @@ class GearPresenterTest {
             picking.eventSink(GearEvent.ChooseMount("3chain"))
             assertEquals(UiError.Kind.MountOverlap, awaitUntil { it.error != null }.error?.kind)
             assertEquals(listOf(GearMount(AtUri.of(fixture.did, Nsid.GEAR_ITEM, "3stumpy"), march)), stored("3chain").mounts)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun theOwnerUnlinksTheSoldPowerMeterAndKeepsTheProfile() = runTest {
+        val tarmac = AtUri(item(fixture.did))
+        val meter = SensorKey(manufacturer = "SRAM", serialNumber = "3236233426", model = "1052")
+        val strap = SensorKey(manufacturer = "Garmin", model = "HRM 200")
+        val other = AtUri.of(fixture.did, Nsid.GEAR_ITEM, "3other")
+        fixture.gearAutoAssign =
+            AtJson.encodeToString(
+                GearAutoAssignRecord.serializer(),
+                GearAutoAssignRecord(
+                    created,
+                    sensors =
+                        listOf(
+                            GearSensorLink(meter, tarmac),
+                            GearSensorLink(strap, tarmac),
+                            GearSensorLink(meter.copy(serialNumber = "9"), other),
+                        ),
+                    profiles = listOf(GearProfileLink("ROAD", tarmac)),
+                ),
+            )
+        val repos = fixture.repos()
+        presenterTestOf({ presenter(tarmac, repos) }) {
+            val loaded = awaitUntil { it.linkedSensors.size == 2 }
+            assertEquals(
+                listOf(LinkedSensor(meter.id, "SRAM", "1052", "3426"), LinkedSensor(strap.id, "Garmin", "HRM 200", weak = true)),
+                loaded.linkedSensors.toList(),
+                "only this item's links",
+            )
+            assertEquals(listOf("ROAD"), loaded.linkedProfiles.toList())
+            loaded.eventSink(GearEvent.UnlinkSensor(meter.id))
+            assertEquals(listOf(strap.id), awaitUntil { it.linkedSensors.size == 1 }.linkedSensors.map { it.id })
+            cancelAndIgnoreRemainingEvents()
+        }
+        val saved = AtJson.decodeFromString(GearAutoAssignRecord.serializer(), requireNotNull(fixture.gearAutoAssign))
+        assertEquals(listOf(strap, meter.copy(serialNumber = "9")), saved.sensors?.map { it.key }, "the other item's link stays")
+        assertEquals(listOf(GearProfileLink("ROAD", tarmac)), saved.profiles)
+        assertTrue(fixture.putRecords.none { it["\$type"]?.toString()?.contains(Nsid.FEED_ACTIVITY) == true }, "no activity changes")
+    }
+
+    @Test
+    fun anotherAthletesPageListsNoLinks() = runTest {
+        val bob = AtUri(item(Did("did:plc:bob")))
+        fixture.gearAutoAssign =
+            AtJson.encodeToString(
+                GearAutoAssignRecord.serializer(),
+                GearAutoAssignRecord(created, sensors = listOf(GearSensorLink(SensorKey(manufacturer = "SRAM", serialNumber = "1"), bob))),
+            )
+        val repos = fixture.repos()
+        presenterTestOf({ presenter(bob, repos) }) {
+            val loaded = loaded()
+            assertEquals(emptyList(), loaded.linkedSensors.toList())
             cancelAndIgnoreRemainingEvents()
         }
     }

@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.atproto.space.SpaceRead
 import io.github.solcott.activitytracker.data.activity.requireSpacesFor
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
@@ -15,9 +16,14 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.GearAutoAssignRecord
+import io.github.solcott.activitytracker.lexicon.app.GearProfileLink
+import io.github.solcott.activitytracker.lexicon.app.GearSensorLink
 import io.github.solcott.activitytracker.lexicon.app.GearSportDefault
+import io.github.solcott.activitytracker.lexicon.app.SensorKey
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.dataresult.Outcome
 import kotlin.time.Clock
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
@@ -45,6 +51,12 @@ class GearDefaults(private val clients: SessionClients, private val clock: Clock
     /** The record, read once per session (again after a failed read); empty when there's none or it can't be read now. */
     suspend fun load(): GearAutoAssignRecord = mutex.withLock { current.value ?: read()?.also { current.value = it } ?: empty() }
 
+    /**
+     * The record read afresh, as a stream (`ui/content-loading`): loading, then the record (empty when there's none) or why it couldn't be
+     * read. Keeps it as [current].
+     */
+    fun recordOutcome(): Flow<Outcome<GearAutoAssignRecord>> = outcomeFlow { mutex.withLock { readOrThrow().also { current.value = it } } }
+
     /** The gear a new activity of [type] starts with, from [items], the athlete's gear ([forType]). */
     suspend fun forType(type: ActivityType, items: List<GearItem>): List<AtUri> = forType(load(), type, items, clients.did)
 
@@ -56,9 +68,7 @@ class GearDefaults(private val clients: SessionClients, private val clock: Clock
      * Makes [item] a default for exactly [types], read afresh so a change on another device isn't lost, and returns the record saved.
      * Entries left with no gear are dropped. Throws if the PDS can't be reached, and refuses a session that can't write the record.
      */
-    suspend fun setTypes(item: AtUri, types: Collection<ActivityType>): GearAutoAssignRecord = mutex.withLock {
-        clients.requireSpacesFor(Visibility.SELF, Nsid.GEAR_AUTO_ASSIGN)
-        val before = read() ?: current.value ?: empty()
+    suspend fun setTypes(item: AtUri, types: Collection<ActivityType>): GearAutoAssignRecord = update { before ->
         val wanted = types.toSet()
         val kept =
             before.sports.orEmpty().map { entry ->
@@ -68,12 +78,23 @@ class GearDefaults(private val clients: SessionClients, private val clock: Clock
             }
         val listed = kept.map { ActivityType(it.sport, it.subSport) }.toSet()
         val added = wanted.filter { it !in listed }.map { GearSportDefault(it.sport, listOf(item), it.subSport) }
-        val record =
-            GearAutoAssignRecord(
-                updatedAt = clock.now(),
-                sports = (kept + added).filter { it.gear.isNotEmpty() }.take(GearAutoAssignRecord.MAX_SPORTS).ifEmpty { null },
-            )
-        if (record.sports != before.sports) {
+        before.copy(sports = (kept + added).filter { it.gear.isNotEmpty() }.take(GearAutoAssignRecord.MAX_SPORTS).ifEmpty { null })
+    }
+
+    /**
+     * Applies [edit] to the sensor and profile links and the ignored devices in one write, read afresh like [setTypes], and returns the
+     * record saved. A key is kept at most once across links and ignores: linking a key drops its ignore and any other link of it, and
+     * ignoring it drops its link. Each list keeps its newest entries up to the lexicon's limit.
+     */
+    suspend fun editLinks(edit: GearLinkEdit): GearAutoAssignRecord = update(edit::applyTo)
+
+    /** Reads the record afresh, writes [change]'s result when it differs, and keeps it as [current]. */
+    private suspend fun update(change: (GearAutoAssignRecord) -> GearAutoAssignRecord): GearAutoAssignRecord = mutex.withLock {
+        clients.requireSpacesFor(Visibility.SELF, Nsid.GEAR_AUTO_ASSIGN)
+        val before = read() ?: current.value ?: empty()
+        val changed = change(before)
+        val record = changed.copy(updatedAt = clock.now())
+        if (changed != before) {
             clients.spaces.putRecord(
                 clients.tiers.ensure(AthleteSpace.SELF),
                 Nsid.GEAR_AUTO_ASSIGN,
@@ -88,18 +109,18 @@ class GearDefaults(private val clients: SessionClients, private val clock: Clock
     private fun empty() = GearAutoAssignRecord(updatedAt = clock.now())
 
     /** The record; empty when there's none, null when it can't be read now (or this session can't read it). */
-    private suspend fun read(): GearAutoAssignRecord? {
+    private suspend fun read(): GearAutoAssignRecord? = runSuspendCatching { readOrThrow() }.getOrNull()
+
+    /** The record; empty when there's none or this session can't use spaces. Throws when it can't be read, the space refusing included. */
+    private suspend fun readOrThrow(): GearAutoAssignRecord {
         if (!clients.canUseSpaces) return empty()
-        val read = runSuspendCatching {
+        val read =
             clients.spaces.getRecord(clients.tiers.uri(AthleteSpace.SELF), clients.did, Nsid.GEAR_AUTO_ASSIGN, GearAutoAssignRecord.RKEY)
-        }
-            .getOrNull()
         return when (read) {
             is SpaceRead.Found ->
                 runCatching { AtJson.decodeFromJsonElement(GearAutoAssignRecord.serializer(), read.value.value) }.getOrNull() ?: empty()
             SpaceRead.NotFound -> empty()
-            SpaceRead.NoAccess,
-            null -> null
+            SpaceRead.NoAccess -> error("The self space refused its own athlete")
         }
     }
 
@@ -122,5 +143,34 @@ class GearDefaults(private val clients: SessionClients, private val clock: Clock
                 .take(ActivityRecord.MAX_GEAR)
                 .map { it.uri(did) }
         }
+    }
+}
+
+/** One round of changes to the athlete's sensor and profile links ([GearDefaults.editLinks]). */
+data class GearLinkEdit(
+    val link: List<GearSensorLink> = emptyList(),
+    val ignore: List<SensorKey> = emptyList(),
+    val linkProfiles: List<GearProfileLink> = emptyList(),
+    val unlink: List<SensorKey> = emptyList(),
+    val unignore: List<SensorKey> = emptyList(),
+    val unlinkProfiles: Set<String> = emptySet(),
+) {
+    /** Whether it changes nothing. */
+    val isEmpty: Boolean
+        get() = this == GearLinkEdit()
+
+    /** [before] with this edit applied, as [GearDefaults.editLinks] saves it. */
+    fun applyTo(before: GearAutoAssignRecord): GearAutoAssignRecord {
+        fun SensorKey.isIn(keys: Collection<SensorKey>) = keys.any { it.matches(this) }
+        val linked = link.map { it.key }
+        val sensors = before.sensors.orEmpty().filterNot { it.key.isIn(linked + ignore + unlink) } + link.distinctBy { it.key.normalized() }
+        val ignored = before.ignored.orEmpty().filterNot { it.isIn(linked + ignore + unignore) } + ignore
+        val names = linkProfiles.map { it.name }.toSet() + unlinkProfiles
+        val profiles = before.profiles.orEmpty().filterNot { it.name in names } + linkProfiles.distinctBy { it.name }
+        return before.copy(
+            sensors = sensors.takeLast(GearAutoAssignRecord.MAX_SENSORS).ifEmpty { null },
+            ignored = ignored.distinctBy { it.normalized() }.takeLast(GearAutoAssignRecord.MAX_IGNORED).ifEmpty { null },
+            profiles = profiles.takeLast(GearAutoAssignRecord.MAX_PROFILES).ifEmpty { null },
+        )
     }
 }

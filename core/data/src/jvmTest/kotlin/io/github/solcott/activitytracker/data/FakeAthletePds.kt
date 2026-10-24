@@ -101,6 +101,9 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
      */
     var served: GetActivity.Output? = null
 
+    /** Further activities `getActivity` serves, by URI, when [served] isn't the one asked for. */
+    val servedActivities = mutableMapOf<String, ActivityView>()
+
     /** What the AppView's `getProfile` serves, by DID; `ProfileNotFound` for any other. */
     val profiles = mutableMapOf<String, ProfileView>()
 
@@ -313,8 +316,9 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                     path == "/xrpc/${Nsid.ACTOR_SEARCH_ACTORS}" ->
                         json(AtJson.encodeToString(SearchActors.Output.serializer(), SearchActors.Output(searched)))
                     path == "/xrpc/${Nsid.FEED_GET_ACTIVITY}" ->
-                        served?.let { json(AtJson.encodeToString(GetActivity.Output.serializer(), GetActivity.Output(it.activity))) }
-                            ?: error("NotFound")
+                        (servedActivities[request.url.parameters["uri"]] ?: served?.activity)?.let {
+                            json(AtJson.encodeToString(GetActivity.Output.serializer(), GetActivity.Output(it)))
+                        } ?: error("NotFound")
                     path == "/xrpc/${Nsid.FEED_GET_COMMENTS}" -> {
                         val output = served ?: return@MockEngine error("NotFound")
                         val params = request.url.parameters
