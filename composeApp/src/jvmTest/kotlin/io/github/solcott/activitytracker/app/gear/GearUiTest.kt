@@ -2,12 +2,19 @@ package io.github.solcott.activitytracker.app.gear
 
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import kotlin.test.Test
+import kotlin.test.assertTrue
 
 /** A gear item's page (gear/gear-usage): its totals with starting usage, breakdowns, activities, and Edit for the owner. */
 @OptIn(ExperimentalTestApi::class)
@@ -76,5 +83,15 @@ class GearUiTest {
             onNodeWithText("Replace Chain #4").assertExists()
             onNodeWithText("Chain #5").assertExists()
             onNodeWithText("New item").assertExists()
+        }
+
+    @Test
+    fun activityCardsAreSpacedApart() =
+        show(GearSamples.follower) {
+            fun card(title: String) = onNode(hasClickAction() and hasText(title, substring = true))
+            onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Morning Ride", substring = true))
+            val first = card("Gravel loop").getUnclippedBoundsInRoot()
+            val second = card("Morning Ride").getUnclippedBoundsInRoot()
+            assertTrue(second.top - first.bottom >= 12.dp, "gap ${second.top - first.bottom}")
         }
 }

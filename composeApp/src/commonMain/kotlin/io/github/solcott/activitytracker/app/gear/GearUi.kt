@@ -191,7 +191,13 @@ private fun Loaded(state: GearState, page: GearPage, padding: PaddingValues, onR
                         Text(errorText(error), Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.error)
                     }
                 }
-            activityItems(state.activities.items.toImmutableList(), state.viewerDid, authorClickable = !page.isOwner, state.revealed) {
+            activityItems(
+                state.activities.items.toImmutableList(),
+                state.viewerDid,
+                authorClickable = !page.isOwner,
+                state.revealed,
+                gap = ACTIVITY_GAP,
+            ) {
                 state.eventSink(GearEvent.Activity(it))
             }
             pagedFooter(state.activities, UiError.Kind.LoadGearActivities, onRetry = onRetry) {
@@ -300,3 +306,6 @@ private fun LazyListScope.breakdown(
         }
     }
 }
+
+/** Between activity cards, as the feed spaces them. */
+private val ACTIVITY_GAP = 12.dp
