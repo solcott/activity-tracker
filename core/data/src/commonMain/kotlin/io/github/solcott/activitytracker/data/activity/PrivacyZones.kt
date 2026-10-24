@@ -6,6 +6,7 @@ import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.space.SpaceRead
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.di.SpacesSupport
 import io.github.solcott.activitytracker.data.outcomeOf
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -240,7 +241,14 @@ class PrivacyZones(private val clients: SessionClients, private val clock: Clock
 
     /** The zones now; [Read.fresh] when that's a fresh read rather than the last one this session or [RouteTrim.Unknown]. */
     private suspend fun read(): Read {
-        if (!clients.canUseSpaces) return Read(RouteTrim.Known(PrivacySettings.NONE, null).also(::remember), fresh = true)
+        // A PDS without Spaces can't hold zones, so there are none. A session without the scope can't read zones another one saved, so
+        // they're unknown, and its routes go out with no polyline until the athlete signs in again.
+        if (clients.spacesSupport.value == SpacesSupport.Unsupported) {
+            return Read(RouteTrim.Known(PrivacySettings.NONE, null).also(::remember), fresh = true)
+        }
+        if (!clients.hasSpacesScope) {
+            return Read(RouteTrim.Unknown, fresh = false, failure = DataError.Unknown(message = "No space: scope to read the self space"))
+        }
         val answer = outcomeOf {
             clients.spaces.getRecord(clients.tiers.uri(AthleteSpace.SELF), clients.did, Nsid.ACTOR_PRIVACY_ZONES, RKEY)
         }

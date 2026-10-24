@@ -90,7 +90,14 @@ class SessionClients(
      * public activities only until the athlete signs in again; nor can one on a PDS without Spaces ([spacesSupport]).
      */
     val canUseSpaces: Boolean
-        get() = athleteSpaceScopes.isNotEmpty() && spacesSupport.value != SpacesSupport.Unsupported
+        get() = hasSpacesScope && spacesSupport.value != SpacesSupport.Unsupported
+
+    /**
+     * Whether this session was granted the `space:` scope, whatever the PDS supports: without it, what the athlete has in spaces is
+     * unreadable.
+     */
+    val hasSpacesScope: Boolean
+        get() = athleteSpaceScopes.isNotEmpty()
 
     /**
      * Whether this session may write [collection] to the athlete's tier spaces. The PDS fills each `space:` grant with the collections the

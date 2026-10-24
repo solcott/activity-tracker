@@ -157,11 +157,30 @@ class PrivacyZonesTest {
     }
 
     @Test
-    fun aSessionWithoutSpacesHasNoZones() = runTest {
+    fun aSessionWithoutTheSpaceScopeDoesntKnowTheZones() = runTest {
         pds.session().privacy.save(PrivacySettings(listOf(home)))
 
         val old = pds.session(scope = "atproto transition:generic")
-        assertEquals(RouteTrim.Known(PrivacySettings.NONE, null), old.privacy.forPublish().trim)
+        val trim = old.privacy.forPublish()
+        assertIs<RouteTrim.Unknown>(trim.trim, "zones saved by another session may exist, and this one can't read them")
+        assertIs<ZonesRead.Unreadable>(old.privacy.refresh())
+
+        // No track: writing one needs the self space this session can't use.
+        val uri = old.activities.publish(draft().copy(gpx = null))
+        old.activities.sync()
+        assertNull(stored(uri.rkey!!).polyline, "never an untrimmed route")
+    }
+
+    @Test
+    fun aPdsWithoutSpacesHasNoZones() = runTest {
+        pds.spacesAlpha = null
+        val s = pds.session()
+        s.clients.resolveSpacesSupport()
+
+        assertEquals(RouteTrim.Known(PrivacySettings.NONE, null), s.privacy.forPublish().trim)
+        val uri = s.activities.publish(draft().copy(gpx = null))
+        s.activities.sync()
+        assertTrue(startOf(stored(uri.rkey!!).polyline) < 1, "nothing to hide: zones can't be stored on this PDS")
     }
 
     @Test
