@@ -9,8 +9,9 @@ import kotlinx.collections.immutable.toImmutableList
 /**
  * Who may see an activity and each of its detail categories, as a form shows them: [activity] and each of [categories] are `Visibility`
  * values, no category wider than the activity ([categoryOptions]). A session without access to the athlete's spaces can't choose
- * ([canChoose] false): it's Public, and signing in again lifts that. [approvesFollowers] is the athlete's follow policy, which the
- * Followers choice explains. A change goes to [eventSink], which the holder of the choice fills.
+ * ([canChoose] false): it's Public, and signing in again lifts that, unless the athlete's PDS doesn't host spaces at all
+ * ([spacesUnsupported]). [approvesFollowers] is the athlete's follow policy, which the Followers choice explains. A change goes to
+ * [eventSink], which the holder of the choice fills.
  */
 @Immutable
 data class VisibilityFields(
@@ -21,6 +22,7 @@ data class VisibilityFields(
      */
     val categories: ImmutableList<CategoryVisibility> = persistentListOf(),
     val canChoose: Boolean = true,
+    val spacesUnsupported: Boolean = false,
     val approvesFollowers: Boolean = false,
     /** Whether the cadence category holds running form too, as for the defaults; false for an activity with only cadence itself. */
     val runningForm: Boolean = true,

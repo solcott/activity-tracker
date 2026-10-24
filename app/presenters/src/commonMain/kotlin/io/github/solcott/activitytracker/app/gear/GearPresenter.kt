@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.di.SpacesUnsupportedException
 import io.github.solcott.activitytracker.data.gear.GearCollection
 import io.github.solcott.activitytracker.data.gear.GearCollections
 import io.github.solcott.activitytracker.data.gear.GearDefaults
@@ -249,6 +250,7 @@ internal fun mountErrorOf(e: Throwable): UiError =
                 MountProblem.FOREIGN_PARENT -> UiError(UiError.Kind.SaveMount)
             }
         is GearNeedsSignInException -> UiError(UiError.Kind.GearSignInAgain)
+        is SpacesUnsupportedException -> UiError(UiError.Kind.SpacesUnsupported)
         else -> UiError.of(UiError.Kind.SaveMount, e)
     }
 

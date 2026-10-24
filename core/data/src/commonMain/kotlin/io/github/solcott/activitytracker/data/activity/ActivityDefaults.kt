@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.space.SpaceRead
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.di.SpacesSupport
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityDefaultsRecord
@@ -68,6 +69,10 @@ class ActivityDefaults(private val clients: SessionClients) {
     /** Whether the athlete can choose anything but Public: not in a session signed in before access to their spaces. */
     val canChoose: Boolean
         get() = clients.canUseSpaces
+
+    /** Whether [canChoose] is false because the athlete's PDS doesn't host spaces, which signing in again can't change. */
+    val spacesUnsupported: Boolean
+        get() = clients.spacesSupport.value == SpacesSupport.Unsupported
 
     /** The defaults read again, as Settings shows them on opening: another device may have changed them. */
     suspend fun refresh(): VisibilityChoice = mutex.withLock {

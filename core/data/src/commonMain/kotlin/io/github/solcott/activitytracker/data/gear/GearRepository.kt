@@ -15,6 +15,8 @@ import io.github.solcott.activitytracker.data.activity.placeOf
 import io.github.solcott.activitytracker.data.activity.writeOwn
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.di.SpacesSupport
+import io.github.solcott.activitytracker.data.di.SpacesUnsupportedException
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.data.outcomeOf
@@ -101,6 +103,10 @@ class GearMountException(val problem: MountProblem) : IllegalArgumentException("
 
 /** This session signed in before gear could be stored in tier spaces, so it can save Public gear only until the athlete signs in again. */
 class GearNeedsSignInException : IllegalStateException("Sign in again to save private gear")
+
+/** Why this session can't save non-Public gear: no Spaces on its PDS, or else a grant from before gear ([GearNeedsSignInException]). */
+internal fun SessionClients.gearRefused(): Exception =
+    if (spacesSupport.value == SpacesSupport.Unsupported) SpacesUnsupportedException() else GearNeedsSignInException()
 
 /**
  * The athlete's gear (`gear/gear-items`): `gear.item` records in their repo (Public) and in each tier space (Followers, Mutuals, Only me),
@@ -210,11 +216,11 @@ class GearRepository(
      * Saves [record] at [visibility] as the item [existing] (null: a new item under a new TID), with [photo] changed as asked, and returns
      * it. It's written to its new place first, creating the tier space if need be, then deleted from every other place holding it. A photo
      * is uploaded where the item goes, so a moved item's photo is uploaded again from where it was. Throws [GearNeedsSignInException] for a
-     * non-Public save this session can't make, before writing anything.
+     * non-Public save this session can't make, or [SpacesUnsupportedException] on a PDS without Spaces, before writing anything.
      */
     suspend fun save(existing: GearItem?, record: GearItemRecord, visibility: String, photo: GearPhotoEdit = GearPhotoEdit.Keep): GearItem {
         val to = Visibility.known(visibility)
-        if (to != Visibility.PUBLIC && !canSavePrivate) throw GearNeedsSignInException()
+        if (to != Visibility.PUBLIC && !canSavePrivate) throw clients.gearRefused()
         val rkey = existing?.rkey ?: Tid.next(clock)
         val photoRef =
             when (photo) {

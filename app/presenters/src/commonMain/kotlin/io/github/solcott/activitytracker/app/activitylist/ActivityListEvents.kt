@@ -53,8 +53,8 @@ fun rememberActivityListEventSink(
 }
 
 /**
- * What to show for a like or comment that failed: a session whose scope doesn't cover it in spaces is told to sign in again, and nothing
- * was written. Anything else is left to the outbox, which retries.
+ * What to show for a like or comment that failed: a session whose scope doesn't cover it in spaces is told to sign in again, and one whose
+ * PDS doesn't host spaces is told so; nothing was written. Anything else is left to the outbox, which retries.
  */
 fun interactionErrorOf(cause: Throwable): UiError? =
-    uiErrorOf(UiError.Kind.SaveActivity, cause).takeIf { it.kind == UiError.Kind.SignInAgain }
+    uiErrorOf(UiError.Kind.SaveActivity, cause).takeIf { it.kind == UiError.Kind.SignInAgain || it.kind == UiError.Kind.SpacesUnsupported }

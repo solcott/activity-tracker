@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.lexicon.atproto
 
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
+import io.github.solcott.activitytracker.lexicon.NoParamsSerializer
 import io.github.solcott.activitytracker.lexicon.XrpcProcedure
 import io.github.solcott.activitytracker.lexicon.XrpcQuery
 import kotlinx.serialization.Serializable
@@ -32,6 +33,21 @@ object CreateSession {
     @Serializable data class Output(val accessJwt: String, val refreshJwt: String, val did: Did, val handle: Handle? = null)
 
     val method = XrpcProcedure("com.atproto.server.createSession", Input.serializer(), Output.serializer())
+}
+
+/** `com.atproto.server.describeServer`, unauthenticated: only the fields the client reads. */
+object DescribeServer {
+    @Serializable
+    data class Output(
+        val did: Did,
+        /**
+         * The Spaces alpha's temporary feature flag (not in the lexicon): `true` on a PDS that serves `com.atproto.space.*`. Upstream may
+         * drop or rename it at beta; then every PDS reads as not reporting it.
+         */
+        val spacesAlpha: Boolean? = null,
+    )
+
+    val method = XrpcQuery("com.atproto.server.describeServer", NoParamsSerializer, Output.serializer())
 }
 
 /** `com.atproto.server.refreshSession`: a new [CreateSession.Output], authorized by its refresh JWT rather than an input. */

@@ -24,6 +24,10 @@ On a PDS without Spaces support, a non-public save SHALL be refused before anyth
 - **WHEN** an athlete whose PDS lacks Spaces support publishes an activity as Followers
 - **THEN** nothing is written, and the app shows the unsupported-server message with no sign-in-again action
 
+#### Scenario: Visibility picker on an unsupported PDS
+- **WHEN** an athlete whose PDS lacks Spaces support opens a form with a visibility picker
+- **THEN** it offers only Public and says their server doesn't support private activities yet, not to sign in again
+
 #### Scenario: Old scope on a supported PDS still asks to sign in
 - **WHEN** an athlete whose PDS supports Spaces but whose session predates the `space:` scope makes a non-public save
 - **THEN** the app asks them to sign in again, as before

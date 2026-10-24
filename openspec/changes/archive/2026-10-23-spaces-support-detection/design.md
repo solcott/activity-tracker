@@ -8,7 +8,7 @@
 
 **Goals:** a single, removable support check; a distinct, actionable refusal.
 
-**Non-Goals:** checking other athletes' PDSes (their spaces simply don't exist, which member reads already report as not found), and hiding non-public options in pickers. Pickers may follow later. The refusal comes first.
+**Non-Goals:** checking other athletes' PDSes (their spaces simply don't exist, which member reads already report as not found), and hiding non-public options in pickers. Pickers lock to Public already, through `canUseSpaces` (`ActivityDefaults.canChoose`); D4 only changes what they say.
 
 ## Decisions
 
@@ -19,8 +19,11 @@
 ### D2. A distinct exception
 `requireSpacesFor` throws `SpacesUnsupportedException` when support is `Unsupported`, and the `ScopeMissingError` path stays for the scope. `uiErrorOf` and the gear mappings map it to `UiError.Kind.SpacesUnsupported`, which offers no action.
 
+### D4. Locked pickers say why
+With `canUseSpaces` false, the new-activity, edit and Settings pickers lock to Public and used to say "sign in again", which can't help on an unsupported PDS. `VisibilityFields.spacesUnsupported` (from `ActivityDefaults.spacesUnsupported`) makes them say the server doesn't support private activities yet. A picker shown before the lookup answers stays open, and a non-public save from it gets D2's refusal. Added during apply.
+
 ### D3. Removal
-When upstream drops the flag, `SpacesSupport` becomes `Unknown` for everyone, which is today's behavior. Removing the check is then deleting `spacesSupport` and its one line in `canUseSpaces`. The `data-and-auth.md` note says so.
+When upstream drops the flag, `SpacesSupport` becomes `Unknown` for everyone, which is today's behavior. Removing the check is then deleting `spacesSupport`, its line in `canUseSpaces` and `canWriteToSpaces`, `SpacesUnsupportedException` and `spacesUnsupported` with their mappings. The `data-and-auth.md` note says so.
 
 ## Risks / Trade-offs
 

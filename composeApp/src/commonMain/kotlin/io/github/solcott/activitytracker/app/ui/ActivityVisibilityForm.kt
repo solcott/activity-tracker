@@ -14,11 +14,14 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_heading
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_help
 import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_sign_in_again
+import io.github.solcott.activitytracker.composeApp.resources.activity_visibility_unsupported
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
  * Who may see an activity and each of its detail categories ([DetailVisibilityPicker]), which offers only the activity's visibility or
- * narrower. Changes go to the fields' sink. A session that can't choose shows Public, disabled, and says to sign in again.
+ * narrower. Changes go to the fields' sink. A session that can't choose shows Public, disabled, and says to sign in again, or that the
+ * athlete's server doesn't support private activities yet.
  */
 @Composable
 fun ActivityVisibilityForm(
@@ -36,10 +39,14 @@ fun ActivityVisibilityForm(
             modifier = Modifier.fillMaxWidth(),
             enabled = canChoose,
         )
-        Note(stringResource(if (fields.canChoose) Res.string.activity_visibility_help else Res.string.activity_visibility_sign_in_again))
+        Note(stringResource(if (fields.canChoose) Res.string.activity_visibility_help else lockedVisibilityNote(fields)))
         DetailVisibilityPicker(fields, Modifier.fillMaxWidth(), enabled = enabled)
     }
 }
+
+/** Why [fields] can't be chosen: a session to sign in again, or a PDS without Spaces, where signing in again wouldn't help. */
+internal fun lockedVisibilityNote(fields: VisibilityFields): StringResource =
+    if (fields.spacesUnsupported) Res.string.activity_visibility_unsupported else Res.string.activity_visibility_sign_in_again
 
 @Composable
 private fun Note(text: String) {

@@ -76,7 +76,13 @@ fun EditActivityPresenter(
     val approvesFollowers by rememberUpdatedState(rememberApprovesFollowers(profiles))
     // The activity's own gear is seeded below, so the type only orders the picker.
     val gear = gearChoices.produce(loaded.data?.view?.record?.activityType ?: ActivityType(Sport.OTHER))
-    val visibility = rememberEditVisibility(defaults.canChoose, { approvesFollowers }, listsGear = { gear.selected.isNotEmpty() })
+    val visibility =
+        rememberEditVisibility(
+            defaults.canChoose,
+            { approvesFollowers },
+            listsGear = { gear.selected.isNotEmpty() },
+            spacesUnsupported = defaults.spacesUnsupported,
+        )
     val exclusion = rememberLeaderboardExclusion(AtUri(screen.uri), segmentPrefs, segmentTracks)
 
     // The activity the form was filled from; later loads change neither.

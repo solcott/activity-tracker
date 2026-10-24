@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.lexicon
 
+import io.github.solcott.activitytracker.lexicon.atproto.DescribeServer
 import io.github.solcott.activitytracker.lexicon.atproto.SimpleSpace
 import io.github.solcott.activitytracker.lexicon.atproto.Space
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceAppAccess
@@ -20,6 +21,25 @@ import kotlinx.serialization.json.put
 class SpaceSerializationTest {
     private val alice = Did("did:plc:alice")
     private val space = SpaceUri.of(alice, Nsid.SPACE_ATHLETE, "mutuals")
+
+    @Test
+    fun describeServerReadsTheSpacesFlag() {
+        // As the local Spaces PDS answers, and as one without the flag.
+        val spaces =
+            AtJson.decodeFromString(
+                DescribeServer.Output.serializer(),
+                """{"did":"did:web:localhost","availableUserDomains":[".test"],"inviteCodeRequired":false,""" +
+                    """"blobUploadLimit":10485760,"links":{},"contact":{},"spacesAlpha":true}""",
+            )
+        assertEquals(Did("did:web:localhost"), spaces.did)
+        assertEquals(true, spaces.spacesAlpha)
+        val plain =
+            AtJson.decodeFromString(
+                DescribeServer.Output.serializer(),
+                """{"did":"did:web:bsky.social","availableUserDomains":[".bsky.social"],"inviteCodeRequired":false}""",
+            )
+        assertEquals(null, plain.spacesAlpha)
+    }
 
     @Test
     fun spaceUriFormatsAndParses() {
