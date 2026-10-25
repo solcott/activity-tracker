@@ -126,11 +126,14 @@ class PrivacyZonesPresenterTest {
     }
 
     @Test
-    fun aSessionThatCantSaveZonesAsksToSignInAgain() = runTest {
+    fun aSessionThatCantReadZonesAsksToSignInAgain() = runTest {
+        // Zones saved by another session may exist; this one can't read them, so it shows none rather than "no zones".
+        withZones(home)
         fixture.scope = "atproto transition:generic"
         test {
-            val loaded = awaitUntil { it.zones != null }
-            assertTrue(loaded.needsSignIn)
+            val loaded = awaitUntil { it.needsSignIn }
+            assertTrue(loaded.content.hasLoaded, "the screen asks to sign in again, not a load failure")
+            assertNull(loaded.zones, "unknown, not empty")
             assertNull(loaded.error)
             assertFalse(loaded.canEdit)
             cancelAndIgnoreRemainingEvents()

@@ -156,6 +156,13 @@ class PrivacyZones(private val clients: SessionClients, private val clock: Clock
     val saved: StateFlow<String?>
         field = MutableStateFlow<String?>(null)
 
+    /**
+     * Whether this session can read the athlete's zones: one signed in before the `space:` scope can't, though another session may have
+     * saved some. A PDS without Spaces holds none, which counts as read.
+     */
+    val canRead: Boolean
+        get() = clients.hasSpacesScope || clients.spacesSupport.value == SpacesSupport.Unsupported
+
     /** Whether this session can save zones: not one signed in before its `space:` grant listed them. */
     val canSave: Boolean
         get() = clients.canWriteToSpaces(Nsid.ACTOR_PRIVACY_ZONES)
@@ -243,12 +250,15 @@ class PrivacyZones(private val clients: SessionClients, private val clock: Clock
     private suspend fun read(): Read {
         // A PDS without Spaces can't hold zones, so there are none. A session without the scope can't read zones another one saved, so
         // they're unknown, and its routes go out with no polyline until the athlete signs in again.
-        if (clients.spacesSupport.value == SpacesSupport.Unsupported) {
-            return Read(RouteTrim.Known(PrivacySettings.NONE, null).also(::remember), fresh = true)
-        }
-        if (!clients.hasSpacesScope) {
-            return Read(RouteTrim.Unknown, fresh = false, failure = DataError.Unknown(message = "No space: scope to read the self space"))
-        }
+        val withoutSpaces =
+            when {
+                clients.spacesSupport.value == SpacesSupport.Unsupported ->
+                    Read(RouteTrim.Known(PrivacySettings.NONE, null).also(::remember), fresh = true)
+                !clients.hasSpacesScope ->
+                    Read(RouteTrim.Unknown, fresh = false, failure = DataError.Unknown(message = "No space: scope to read the self space"))
+                else -> null
+            }
+        if (withoutSpaces != null) return withoutSpaces
         val answer = outcomeOf {
             clients.spaces.getRecord(clients.tiers.uri(AthleteSpace.SELF), clients.did, Nsid.ACTOR_PRIVACY_ZONES, RKEY)
         }

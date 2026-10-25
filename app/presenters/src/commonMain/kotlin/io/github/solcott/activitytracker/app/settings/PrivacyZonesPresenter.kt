@@ -25,10 +25,14 @@ import io.github.solcott.activitytracker.data.activity.zonesOutcome
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.PrivacyZonesRecord
 import io.github.solcott.activitytracker.location.LocationTracker
+import io.github.solcott.dataresult.Origin
+import io.github.solcott.uistate.ContentState
+import io.github.solcott.uistate.LoadStatus
 import io.github.solcott.uistate.circuit.produceRetainedContentState
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -50,7 +54,9 @@ private val CHOICES: ImmutableList<Int> =
 @Composable
 fun PrivacyZonesPresenter(navigator: Navigator, privacy: PrivacyZones, tracker: LocationTracker): PrivacyZonesState {
     var loadKey by remember { mutableIntStateOf(0) }
-    val loaded = produceRetainedContentState<PrivacySettings?>(null, loadKey) { privacy.zonesOutcome() }
+    // A session that can't read the zones (signed in before the `space:` scope) doesn't know them: it asks to sign in again instead.
+    val readable = privacy.canRead
+    val loaded = produceRetainedContentState<PrivacySettings?>(null, loadKey) { if (readable) privacy.zonesOutcome() else emptyFlow() }
     // As read when the screen first loaded them, then as each save here returned them. Later loads change nothing.
     var settings by rememberRetained { mutableStateOf<PrivacySettings?>(null) }
     // Why a change failed; never a loading failure, which is [loaded]'s.
@@ -89,7 +95,7 @@ fun PrivacyZonesPresenter(navigator: Navigator, privacy: PrivacyZones, tracker: 
 
     val current = settings
     return PrivacyZonesState(
-        content = loaded.formContent(seeded = seed != null),
+        content = if (readable) loaded.formContent(seeded = seed != null) else ContentState(Unit, Origin.Network, LoadStatus.Idle),
         zones = current?.zones?.toImmutableList(),
         hideEndsMeters = current?.hideEndsMeters ?: 0,
         choices = CHOICES,
@@ -99,7 +105,7 @@ fun PrivacyZonesPresenter(navigator: Navigator, privacy: PrivacyZones, tracker: 
         hasLocationPermission = hasPermission,
         locating = locating,
         label = label,
-        needsSignIn = current != null && !privacy.canSave,
+        needsSignIn = !readable || (current != null && !privacy.canSave),
         error = error,
     ) { event ->
         when (event) {

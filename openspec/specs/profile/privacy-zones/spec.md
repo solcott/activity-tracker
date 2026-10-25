@@ -156,7 +156,7 @@ Saving zones SHALL write to the PDS at once and report a failure, not queue the 
 - **THEN** the app shows the save failed, and new activities are still trimmed by the earlier zones
 
 ### Requirement: Zones that can't be read never widen a route
-When a session can't read the athlete's zones, publishing SHALL trim by the zones last read this session. If none were read, the activity SHALL be written with no polyline, never an untrimmed one, and SHALL get a trimmed one once the zones are read. No segment track SHALL be written until the zones are read in this session. A session without the `space:` scope has no zones and trims nothing.
+When a session can't read the athlete's zones, publishing SHALL trim by the zones last read this session. If none were read, the activity SHALL be written with no polyline, never an untrimmed one, and SHALL get a trimmed one once the zones are read. No segment track SHALL be written until the zones are read in this session.
 
 #### Scenario: Offline after reading zones
 - **WHEN** an athlete reads their zones, goes offline and records an activity
@@ -173,3 +173,14 @@ When a session can't read the athlete's zones, publishing SHALL trim by the zone
 #### Scenario: Segment track waits for zones
 - **WHEN** a session with segment matching on that hasn't read the athlete's zones publishes a GPS activity
 - **THEN** no segment track is written for it until the zones are read
+
+### Requirement: A session without the space scope doesn't know the zones
+A session signed in before the `space:` scope can't read zones another session saved, so its activities SHALL be written with no polyline, and its zones screen SHALL ask the athlete to sign in again instead of showing no zones. A PDS without Spaces holds no zones, so nothing is trimmed there.
+
+#### Scenario: Session from before the space scope
+- **WHEN** an athlete saved a home zone on their phone and records a Public run on a tablet signed in before the `space:` scope existed
+- **THEN** the run is written with no polyline, and the tablet's zones screen asks them to sign in again instead of showing no zones
+
+#### Scenario: PDS without Spaces
+- **WHEN** an athlete on a PDS without Spaces records a Public run
+- **THEN** its polyline is written untrimmed, since no zones can be stored there
