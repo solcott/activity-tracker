@@ -18,12 +18,25 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleOAuthRedirect(intent)
+        handleOpenRecording(intent)
         setContent { App(graph, onRootPop = ::finish) }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleOAuthRedirect(intent)
+        handleOpenRecording(intent)
+    }
+
+    /** The recording notification was tapped: show the recording screen. */
+    private fun handleOpenRecording(intent: Intent?) {
+        if (intent?.action != ACTION_OPEN_RECORDING) return
+        intent.action = null
+        graph.recordScreenRequests.request()
+    }
+
+    companion object {
+        const val ACTION_OPEN_RECORDING = "io.github.solcott.activitytracker.OPEN_RECORDING"
     }
 
     private fun handleOAuthRedirect(intent: Intent?) {

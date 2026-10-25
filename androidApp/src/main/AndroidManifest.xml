@@ -4,6 +4,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Recording goes on with the screen off (record/gps-recording): a location foreground service and its notification. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".ActivityTrackerApplication"
@@ -26,5 +30,14 @@
                 <data android:scheme="${oauthRedirectScheme}" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".RecordingService"
+            android:exported="false"
+            android:foregroundServiceType="location">
+            <intent-filter>
+                <!-- AndroidRecordingForeground.ACTION_START, sent in this package only. -->
+                <action android:name="io.github.solcott.activitytracker.recording.START" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

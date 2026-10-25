@@ -1,8 +1,10 @@
 package io.github.solcott.activitytracker.app.di
 
 import androidx.compose.runtime.Stable
+import io.github.solcott.activitytracker.app.record.RecordScreenRequests
 import io.github.solcott.activitytracker.data.auth.AuthCoordinator
 import io.github.solcott.activitytracker.data.auth.AuthRepository
+import io.github.solcott.activitytracker.location.ActivityRecorder
 
 /**
  * Common view of the app graph. Each platform declares the real `@DependencyGraph(AppScope::class)` (`AndroidAppGraph`, `IosAppGraph`,
@@ -16,4 +18,6 @@ interface AppGraph : SessionGraph.Factory {
     val appCircuit: AppCircuit
     val authRepository: AuthRepository
     val authCoordinator: AuthCoordinator
+    val activityRecorder: ActivityRecorder
+    val recordScreenRequests: RecordScreenRequests
 }

@@ -1,12 +1,17 @@
 package io.github.solcott.activitytracker.data.activity
 
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.location.LocationSample
+import io.github.solcott.activitytracker.location.RecordingResult
+import io.github.solcott.activitytracker.location.RecordingState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlinx.datetime.TimeZone
 
 class RouteBreaksTest {
     private val start = Instant.parse("2026-10-19T07:00:00Z")
@@ -20,6 +25,15 @@ class RouteBreaksTest {
         val first = leg(start, 0.0, 600)
         val last = first.last()
         return first + leg(last.time + gap, 599 * 5.0 + away, 600)
+    }
+
+    @Test
+    fun aRecordingResumedAfterACrashBreaksWhereItWasFar() {
+        // Recovered after the app was killed, resumed 8 minutes and 3 km on (record/gps-recording): the map breaks as for any gap.
+        val samples = withGap(8.minutes, away = 3_000.0)
+        val result = RecordingResult(RecordingState(startedAt = start), samples.last().time, samples)
+        val draft = ActivityDraft.fromRecording(result, ActivityType(Sport.RUN), null, null, TimeZone.UTC)
+        assertEquals(1, RouteTrim.Known(PrivacySettings.NONE, null).polylineOf(draft.route)?.gaps?.size)
     }
 
     @Test

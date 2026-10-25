@@ -100,5 +100,6 @@ With a tunnel set, the AppView's DID is the tunnel host. `:server-appview:run` a
 
 ## Known gaps
 
-- Android records only while in the foreground (no foreground service yet).
+- A recording goes on with the screen off or the app in the background, but if the system kills the app it doesn't restart on its own: the next launch offers it back to resume, save or discard. Restarting by itself would need "Allow all the time" location access, which the app doesn't ask for.
+- The recording notification on Android shows distance in the device region's units, not the athlete's chosen ones.
 - Route maps are a Canvas polyline placeholder.

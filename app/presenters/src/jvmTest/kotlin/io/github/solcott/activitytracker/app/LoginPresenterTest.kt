@@ -16,6 +16,8 @@ import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.auth.InMemorySecretCipher
 import io.github.solcott.activitytracker.data.auth.RoomOAuthStore
 import io.github.solcott.activitytracker.data.db.inMemoryDatabase
+import io.github.solcott.activitytracker.location.ActivityRecorder
+import io.github.solcott.activitytracker.location.FakeLocationTracker
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -58,7 +60,11 @@ class LoginPresenterTest {
                 OAuthClient(http, IdentityResolver(http, config), config.oauth),
                 RoomOAuthStore(db, Clock.System, InMemorySecretCipher(), Logger),
             )
-        return AuthCoordinator(AuthRepository(manager, db, http), AuthBrowser { opened += it }, Logger)
+        return AuthCoordinator(
+            AuthRepository(manager, db, http, ActivityRecorder(FakeLocationTracker(), Clock.System)),
+            AuthBrowser { opened += it },
+            Logger,
+        )
     }
 
     @Test

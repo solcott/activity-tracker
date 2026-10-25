@@ -52,7 +52,9 @@ androidComponents {
 dependencies {
     implementation(projects.composeApp)
     implementation(projects.coreData)
+    implementation(projects.coreLocation)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.core)
 }
 
 // Layoutlib renders every screenshot in one JVM, which outgrows Test's default 512m heap.

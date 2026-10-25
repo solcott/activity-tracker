@@ -696,6 +696,8 @@
     <string name="record_resume">Resume</string>
     <string name="record_finish">Finish &amp; save</string>
     <string name="record_discard">Discard</string>
+    <string name="record_recovered">This recording stopped when the app closed. Resume it, finish and save it, or discard it.</string>
+    <string name="record_save_failed">Couldn't save the recording on this device. Recording goes on and tries again.</string>
     <string name="field_title">Title</string>
     <string name="manual_title">Add activity</string>
     <string name="import_title">Import activity</string>

@@ -20,6 +20,10 @@ data class RecordState(
     val distanceMeters: Double,
     val movingSeconds: Long,
     val elevationGainMeters: Double,
+    /** An unfinished recording offered back after the app stopped: the athlete resumes, finishes or discards it. */
+    val recovered: Boolean = false,
+    /** The recording's last change couldn't be saved on the device; recording goes on and tries again. */
+    val saveFailed: Boolean = false,
     val type: ActivityTypeField,
     val title: TextFieldState,
     val hasPermission: Boolean,

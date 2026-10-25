@@ -44,6 +44,8 @@ import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
 import io.github.solcott.activitytracker.lexicon.app.GetGear
 import io.github.solcott.activitytracker.lexicon.app.GetGearActivities
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.github.solcott.activitytracker.location.ActivityRecorder
+import io.github.solcott.activitytracker.location.FakeLocationTracker
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -586,7 +588,7 @@ class SessionTestFixture {
             activities,
             profiles,
             units,
-            AuthRepository(manager, db, http),
+            AuthRepository(manager, db, http, ActivityRecorder(FakeLocationTracker(), Clock.System)),
             recentTypes,
             feed,
             ActivityDefaults(clients),

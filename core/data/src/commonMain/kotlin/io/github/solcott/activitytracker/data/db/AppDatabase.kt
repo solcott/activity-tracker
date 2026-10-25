@@ -23,7 +23,7 @@ const val DATABASE_NAME = "activity-tracker.db"
  * crashes lowering the `AutoMigration` annotation.
  */
 fun <T : RoomDatabase> RoomDatabase.Builder<T>.addAppMigrations(): RoomDatabase.Builder<T> =
-    addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+    addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
 
 /** Runs one statement: `execSQL` blocks on most platforms and suspends on the web, so it has no common form. */
 internal expect suspend fun SQLiteConnection.runSql(sql: String)
@@ -50,6 +50,20 @@ private val MIGRATION_3_4 =
         )
     }
 
+/** 4 → 5: GPS recordings saved as they happen (record/gps-recording), so a killed app recovers them. */
+private val MIGRATION_4_5 =
+    Migration(4, 5) {
+        it.runSql(
+            "CREATE TABLE IF NOT EXISTS `recording` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `did` TEXT NOT NULL, " +
+                "`startedAt` INTEGER NOT NULL)"
+        )
+        it.runSql(
+            "CREATE TABLE IF NOT EXISTS `recording_event` (`recordingId` INTEGER NOT NULL, `seq` INTEGER NOT NULL, `kind` TEXT NOT NULL, " +
+                "`at` INTEGER NOT NULL, `latitude` REAL, `longitude` REAL, `altitude` REAL, `speed` REAL, `accuracy` REAL, " +
+                "PRIMARY KEY(`recordingId`, `seq`))"
+        )
+    }
+
 @Database(
     entities =
         [
@@ -59,8 +73,10 @@ private val MIGRATION_3_4 =
             OutboxEntity::class,
             OutboxBlobEntity::class,
             CombineDismissalEntity::class,
+            RecordingEntity::class,
+            RecordingEventEntity::class,
         ],
-    version = 4,
+    version = 5,
 )
 @ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -73,6 +89,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun outbox(): OutboxDao
 
     abstract fun combineDismissals(): CombineDismissalDao
+
+    abstract fun recordings(): RecordingDao
 }
 
 @Suppress("KotlinNoActualForExpect")
@@ -238,3 +256,68 @@ interface CombineDismissalDao {
 /** Whether the athlete [did] said not to combine [x] and [y], in either order. */
 suspend fun CombineDismissalDao.dismissed(did: String, x: String, y: String): Boolean =
     CombineDismissalEntity.of(did, x, y).let { exists(it.did, it.uriA, it.uriB) }
+
+/** A GPS recording saved as it happens (record/gps-recording), for the account [did] that started it, until it's published or discarded. */
+@Entity(tableName = "recording")
+data class RecordingEntity(@PrimaryKey(autoGenerate = true) val id: Long = 0, val did: String, val startedAt: Long)
+
+/**
+ * One event of a [RecordingEntity], in [seq] order: a [KIND_SAMPLE] with its position, or a [KIND_PAUSED]/[KIND_RESUMED] with none. [at] is
+ * epoch millis, a sample's time for a sample.
+ */
+@Entity(tableName = "recording_event", primaryKeys = ["recordingId", "seq"])
+data class RecordingEventEntity(
+    val recordingId: Long,
+    val seq: Int,
+    val kind: String,
+    val at: Long,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val altitude: Double? = null,
+    val speed: Double? = null,
+    val accuracy: Double? = null,
+) {
+    companion object {
+        const val KIND_SAMPLE = "sample"
+        const val KIND_PAUSED = "paused"
+        const val KIND_RESUMED = "resumed"
+    }
+}
+
+@Dao
+interface RecordingDao {
+    @Insert suspend fun begin(entity: RecordingEntity): Long
+
+    /** Saves an event after the recording's last one. */
+    @Query(
+        "INSERT INTO recording_event (recordingId, seq, kind, at, latitude, longitude, altitude, speed, accuracy) " +
+            "SELECT :recordingId, COALESCE(MAX(seq) + 1, 0), :kind, :at, :latitude, :longitude, :altitude, :speed, :accuracy " +
+            "FROM recording_event WHERE recordingId = :recordingId"
+    )
+    @Suppress("LongParameterList") // One bind parameter per column.
+    suspend fun append(
+        recordingId: Long,
+        kind: String,
+        at: Long,
+        latitude: Double?,
+        longitude: Double?,
+        altitude: Double?,
+        speed: Double?,
+        accuracy: Double?,
+    )
+
+    @Query("SELECT * FROM recording WHERE did = :did ORDER BY id DESC LIMIT 1") suspend fun latest(did: String): RecordingEntity?
+
+    @Query("SELECT * FROM recording_event WHERE recordingId = :recordingId ORDER BY seq")
+    suspend fun events(recordingId: Long): List<RecordingEventEntity>
+
+    @Query("DELETE FROM recording_event WHERE recordingId = :recordingId") suspend fun deleteEvents(recordingId: Long)
+
+    @Query("DELETE FROM recording WHERE id = :recordingId") suspend fun deleteRecording(recordingId: Long)
+
+    @Transaction
+    suspend fun delete(recordingId: Long) {
+        deleteEvents(recordingId)
+        deleteRecording(recordingId)
+    }
+}

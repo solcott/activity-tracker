@@ -51,6 +51,20 @@ class MigrationTest {
         db.close()
     }
 
+    @Test
+    fun version4GainsEmptyRecordingTables() = runTest {
+        val file = File(createTempDirectory("migration").toFile(), DATABASE_NAME)
+        createVersion(file, 4)
+
+        val db = Room.databaseBuilder<AppDatabase>(file.path).addAppMigrations().setDriver(BundledSQLiteDriver()).build()
+        assertEquals(listOf("3kold"), db.outbox().pending("did:plc:alice").map { it.rkey })
+        assertEquals(null, db.recordings().latest("did:plc:alice"))
+        val id = db.recordings().begin(RecordingEntity(did = "did:plc:alice", startedAt = 0))
+        db.recordings().append(id, RecordingEventEntity.KIND_PAUSED, 1, null, null, null, null, null)
+        assertEquals(listOf(0), db.recordings().events(id).map { it.seq })
+        db.close()
+    }
+
     private fun createVersion1(file: File) = createVersion(file, 1)
 
     /** The [version] schema, from the committed schema export, with one queued write. */

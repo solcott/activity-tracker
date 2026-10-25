@@ -47,6 +47,9 @@ object RecordSamples {
                 SampleKind.LOADED to state(RecordingState.Status.Idle),
                 "recording" to state(RecordingState.Status.Recording),
                 "paused" to state(RecordingState.Status.Paused),
+                // Offered back after the app was killed mid-ride.
+                "recovered" to state(RecordingState.Status.Paused).copy(recovered = true),
+                "saveFailed" to state(RecordingState.Status.Recording).copy(saveFailed = true),
             )
 }
 

@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.location.ActivityRecorder
@@ -40,7 +41,9 @@ fun RecordPresenter(
     gearChoices: GearChoices,
     defaults: ActivityDefaults,
     clock: Clock,
+    profiles: ProfileRepository,
 ): RecordState {
+    val did = profiles.did
     val recording by recorder.state.collectAsState()
     val title = rememberTextFieldState()
     var hasPermission by remember { mutableStateOf(tracker.hasPermission()) }
@@ -67,6 +70,8 @@ fun RecordPresenter(
         distanceMeters = recording.distanceMeters,
         movingSeconds = recording.movingSeconds,
         elevationGainMeters = recording.elevationGainMeters,
+        recovered = recording.recovered,
+        saveFailed = recording.saveFailed,
         type = type.field,
         title = title,
         hasPermission = hasPermission,
@@ -78,11 +83,11 @@ fun RecordPresenter(
         when (event) {
             is RecordEvent.PermissionResult -> {
                 hasPermission = event.granted
-                if (event.granted) recorder.start()
+                if (event.granted) recorder.start(did.value)
             }
 
             RecordEvent.Start -> {
-                recorder.start()
+                recorder.start(did.value)
             }
 
             RecordEvent.Pause -> {
@@ -94,13 +99,17 @@ fun RecordPresenter(
             }
 
             RecordEvent.Discard -> {
-                recorder.stop()
-                navigator.pop()
+                flights.launch(RecordEvent.Discard) {
+                    recorder.discard()
+                    navigator.pop()
+                }
             }
 
             RecordEvent.Finish -> {
-                val result = recorder.stop() ?: return@RecordState
+                error = null
                 flights.launch(RecordEvent.Finish) {
+                    // Paused and still saved: a refused publish leaves it here to try again or discard.
+                    val result = recorder.finish() ?: return@launch
                     runSuspendCatching {
                         val saved =
                             activities.publish(
@@ -113,6 +122,7 @@ fun RecordPresenter(
                                     .copy(gear = gear.selected)
                                     .withVisibility(visibility.current)
                             )
+                        recorder.finished()
                         // The saved activity opens, asking whether to combine it with another of the athlete's.
                         navigator.pop()
                         navigator.goTo(ActivityDetailScreen(saved.value, suggestOnOpen = true))

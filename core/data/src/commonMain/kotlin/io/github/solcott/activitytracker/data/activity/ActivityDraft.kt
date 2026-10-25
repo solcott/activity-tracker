@@ -265,7 +265,7 @@ data class ActivityDraft(
             zone: TimeZone = TimeZones.device(),
         ): ActivityDraft {
             val state = result.state
-            val samples = state.samples
+            val samples = result.samples
             val startedAt = state.startedAt ?: result.endedAt
             return ActivityDraft(
                 type = type,

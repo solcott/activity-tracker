@@ -30,7 +30,9 @@ import io.github.solcott.activitytracker.composeApp.resources.field_title
 import io.github.solcott.activitytracker.composeApp.resources.record_discard
 import io.github.solcott.activitytracker.composeApp.resources.record_finish
 import io.github.solcott.activitytracker.composeApp.resources.record_pause
+import io.github.solcott.activitytracker.composeApp.resources.record_recovered
 import io.github.solcott.activitytracker.composeApp.resources.record_resume
+import io.github.solcott.activitytracker.composeApp.resources.record_save_failed
 import io.github.solcott.activitytracker.composeApp.resources.record_start
 import io.github.solcott.activitytracker.composeApp.resources.record_title
 import io.github.solcott.activitytracker.composeApp.resources.stat_distance
@@ -77,6 +79,8 @@ fun RecordUi(state: RecordState, modifier: Modifier = Modifier) {
                 state.visibility,
                 enabled = !state.saving,
             )
+            if (state.recovered) Text(stringResource(Res.string.record_recovered))
+            if (state.saveFailed) Text(stringResource(Res.string.record_save_failed), color = MaterialTheme.colorScheme.error)
             state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 when (state.status) {

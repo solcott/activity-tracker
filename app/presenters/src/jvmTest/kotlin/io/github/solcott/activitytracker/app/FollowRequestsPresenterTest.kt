@@ -21,6 +21,8 @@ import io.github.solcott.activitytracker.data.profile.FollowRequestsRepository
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
+import io.github.solcott.activitytracker.location.ActivityRecorder
+import io.github.solcott.activitytracker.location.FakeLocationTracker
 import io.github.solcott.uistate.errorOrNull
 import io.github.solcott.uistate.hasLoaded
 import io.github.solcott.uistate.isLoading
@@ -120,7 +122,7 @@ class FollowRequestsPresenterTest {
     private suspend fun presenter(): @Composable () -> FollowRequestsState {
         val (db, manager, clients) = signedInTestSession(http, did = alice)
         val requests = FollowRequestsRepository(clients, Clock.System, Logger)
-        val auth = AuthRepository(manager, db, http)
+        val auth = AuthRepository(manager, db, http, ActivityRecorder(FakeLocationTracker(), Clock.System))
         return { FollowRequestsPresenter(navigator, requests, auth) }
     }
 

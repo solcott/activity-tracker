@@ -2,4 +2,14 @@
 <resources>
     <!-- Launcher label; in-app text lives in composeApp's composeResources. -->
     <string name="app_name">Activity Tracker</string>
+    <!-- The ongoing notification while a GPS recording is in progress (record/gps-recording). -->
+    <string name="recording_channel">Recording</string>
+    <string name="recording_title">Recording</string>
+    <string name="recording_paused_title">Recording paused</string>
+    <!-- Elapsed time, then distance, e.g. "42:10 · 15.3 km". -->
+    <string name="recording_text">%1$s · %2$s</string>
+    <string name="recording_pause">Pause</string>
+    <string name="recording_resume">Resume</string>
+    <string name="unit_km">km</string>
+    <string name="unit_mi">mi</string>
 </resources>

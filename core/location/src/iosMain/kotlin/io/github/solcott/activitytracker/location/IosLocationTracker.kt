@@ -9,6 +9,7 @@ import kotlinx.cinterop.useContents
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import platform.CoreLocation.CLActivityTypeFitness
 import platform.CoreLocation.CLLocation
 import platform.CoreLocation.CLLocationManager
 import platform.CoreLocation.CLLocationManagerDelegateProtocol
@@ -22,6 +23,9 @@ import platform.darwin.NSObject
 @Inject
 class IosLocationTracker : LocationTracker {
     private val manager = CLLocationManager()
+
+    /** CLLocationManager holds its delegate weakly: this keeps the one listening alive until its updates stop. */
+    private var listening: CLLocationManagerDelegateProtocol? = null
 
     override fun hasPermission(): Boolean =
         manager.authorizationStatus.let { it == kCLAuthorizationStatusAuthorizedWhenInUse || it == kCLAuthorizationStatusAuthorizedAlways }
@@ -49,13 +53,22 @@ class IosLocationTracker : LocationTracker {
                     }
                 }
             }
+        listening = delegate
         manager.delegate = delegate
         manager.desiredAccuracy = kCLLocationAccuracyBest
+        // Recording goes on in the background (record/gps-recording). Info.plist's `UIBackgroundModes: location` must be there, or
+        // allowsBackgroundLocationUpdates crashes the app. "When in use" is enough, since a recording always starts in the foreground.
+        manager.allowsBackgroundLocationUpdates = true
+        manager.pausesLocationUpdatesAutomatically = false
+        manager.activityType = CLActivityTypeFitness
+        manager.showsBackgroundLocationIndicator = true
         if (!hasPermission()) manager.requestWhenInUseAuthorization()
         manager.startUpdatingLocation()
         awaitClose {
             manager.stopUpdatingLocation()
+            manager.allowsBackgroundLocationUpdates = false
             manager.delegate = null
+            if (listening === delegate) listening = null
         }
     }
 }

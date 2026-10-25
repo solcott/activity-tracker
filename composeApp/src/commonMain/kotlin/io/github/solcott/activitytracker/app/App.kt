@@ -10,6 +10,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
@@ -26,6 +27,7 @@ import io.github.solcott.activitytracker.app.di.AppGraph
 import io.github.solcott.activitytracker.app.feed.FeedScreen
 import io.github.solcott.activitytracker.app.login.LoginScreen
 import io.github.solcott.activitytracker.app.nav.AppShell
+import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.app.ui.HeldPhotoFetcher
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.adaptive.LocalIsNavRoot
@@ -75,6 +77,22 @@ fun App(graph: AppGraph, modifier: Modifier = Modifier, onRootPop: () -> Unit = 
                     CircuitCompositionLocals(sessionGraph.sessionCircuit.circuit) {
                         val backStack = rememberSaveableBackStack(root = FeedScreen)
                         val navigator = rememberCircuitNavigator(backStack = backStack, onRootPop = { onRootPop() })
+                        // An unfinished recording of this account's, from before the app stopped, is offered back first
+                        // (record/gps-recording).
+                        LaunchedEffect(Unit) {
+                            graph.activityRecorder.recover(current.did.value)
+                            // After the first frame: navigating while the root screen is still being placed crashes Compose's insets on
+                            // iOS.
+                            withFrameNanos {}
+                            if (graph.activityRecorder.state.value.recovered) navigator.goTo(RecordScreen)
+                        }
+                        // The recording notification was tapped.
+                        LaunchedEffect(Unit) {
+                            graph.recordScreenRequests.requests.collect {
+                                graph.recordScreenRequests.handled()
+                                if (backStack.topRecord?.screen != RecordScreen) navigator.goTo(RecordScreen)
+                            }
+                        }
                         AppShell(backStack, navigator, viewerDid = current.did.value) { contentModifier ->
                             NavigableCircuitContent(
                                 navigator = navigator,
