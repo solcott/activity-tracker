@@ -19,7 +19,7 @@ sortDependencies = "0.21.0"
 android-compileSdk = "37"
 
 #noinspection UnusedVersionCatalogEntry
-android-minSdk = "26"
+android-minSdk = "29"
 #noinspection UnusedVersionCatalogEntry
 android-targetSdk = "37"
 

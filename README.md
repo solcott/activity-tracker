@@ -4,7 +4,7 @@ A Strava-style athlete activity tracker built on the [AT Protocol](https://atpro
 likes, comments, follows and profiles are records in each athlete's own repository (their PDS); an
 AppView indexes them from the firehose and serves feeds.
 
-- **Clients:** Android, iOS, Web (Kotlin/Wasm), Desktop (JVM, mainly a hot-reload dev target). GPS recording is phone-only. Compose Multiplatform + Circuit + Metro + Ktor + Room 3.
+- **Clients:** Android (10 / API 29 and up), iOS, Web (Kotlin/Wasm), Desktop (JVM, mainly a hot-reload dev target). GPS recording is phone-only. Compose Multiplatform + Circuit + Metro + Ktor + Room 3.
 - **Backend:** Ktor AppView (Postgres) fed by Jetstream. A local PLC + PDS + relay + Jetstream run in Docker.
 
 ## Local development
