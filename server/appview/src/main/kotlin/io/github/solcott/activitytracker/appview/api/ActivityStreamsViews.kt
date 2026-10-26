@@ -26,7 +26,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.HttpStatusCode
-import io.ktor.utils.io.readRemaining
+import io.ktor.utils.io.readBuffer
 import kotlin.time.Clock
 import kotlinx.io.readByteArray
 import kotlinx.serialization.builtins.ListSerializer
@@ -71,7 +71,7 @@ class PdsBlobStreamSource(private val http: HttpClient, private val pds: PdsLook
         return response
             .takeIf { it.status == HttpStatusCode.OK }
             ?.bodyAsChannel()
-            ?.readRemaining(ActivityStreamsRecord.MAX_DATA_BYTES + 1)
+            ?.readBuffer(ActivityStreamsRecord.MAX_DATA_BYTES + 1)
             ?.readByteArray()
             ?.takeIf(::fits)
     }

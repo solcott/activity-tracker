@@ -114,7 +114,7 @@ class GearPresenterTest {
             assertFalse(page.isOwner)
             assertNull(page.visibility)
             loaded.eventSink(GearEvent.Edit)
-            navigator.expectNoEvents()
+            navigator.expectNoGoToEvents()
             cancelAndIgnoreRemainingEvents()
         }
     }

@@ -153,7 +153,7 @@ class ModerationPresenterTest {
             val state = awaitItem()
             state.eventSink(SettingsEvent.OpenModeration)
             assertEquals(false, state.canModerate)
-            navigator.expectNoEvents()
+            navigator.expectNoGoToEvents()
             cancelAndIgnoreRemainingEvents()
         }
     }
