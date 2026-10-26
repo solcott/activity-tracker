@@ -1,11 +1,16 @@
 package io.github.solcott.activitytracker.appview.auth
 
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
+import io.github.solcott.activitytracker.atproto.identity.isResolvableDid
+import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -36,6 +41,7 @@ class ServiceAuthVerifier(
     ) : this(serviceDid, { did -> resolver.resolveDid(did).signingKey }, extraAudiences = extraAudiences)
 
     private val keyCache = ConcurrentHashMap<Did, SigningKey>()
+    private val failed = FailedLookups(clock)
 
     /** A verifier with the same keys and clock that accepts only [audiences]. */
     fun forAudiences(audiences: Set<String>) = ServiceAuthVerifier(audiences, keys, clock)
@@ -53,7 +59,7 @@ class ServiceAuthVerifier(
     /** Checks the claims and returns the issuing account. */
     private fun issuer(payload: JsonObject, nsid: String): Did {
         val iss = payload.string("iss")
-        val did = iss?.let { runCatching { Did(it.substringBefore('#')) }.getOrNull() }
+        val did = iss?.let { runCatching { Did(it.substringBefore('#')) }.getOrNull() }?.takeIf { isResolvableDid(it.value) }
         val exp = payload["exp"]?.jsonPrimitive?.longOrNull
         val lxm = payload.string("lxm")
         val failure =
@@ -63,7 +69,7 @@ class ServiceAuthVerifier(
                 payload.string("aud") !in audiences -> "Wrong audience"
                 exp == null -> "Missing exp"
                 exp < clock.now().epochSeconds -> "Token expired"
-                lxm != null && lxm != nsid -> "Token not valid for $nsid"
+                lxm != nsid -> "Token not valid for $nsid"
                 else -> return did
             }
         throw AuthException(failure)
@@ -79,10 +85,23 @@ class ServiceAuthVerifier(
         throw AuthException("Invalid signature")
     }
 
-    private suspend fun signingKey(did: Did, fresh: Boolean): SigningKey =
-        keyCache[did]?.takeUnless { fresh }
-            ?: keys(did)?.let(Multikey::decode)?.also { keyCache[did] = it }
-            ?: throw AuthException("No signing key for $did")
+    /** [did]'s key, from the cache unless [fresh]. A DID whose lookup failed recently is refused without another lookup. */
+    private suspend fun signingKey(did: Did, fresh: Boolean): SigningKey {
+        keyCache[did]
+            ?.takeUnless { fresh }
+            ?.let {
+                return it
+            }
+        if (failed.contains(did)) throw AuthException("No signing key for $did")
+        val key = runSuspendCatching { keys(did)?.let(Multikey::decode) }.getOrNull()
+        if (key == null) {
+            failed.add(did)
+            throw AuthException("No signing key for $did")
+        }
+        failed.remove(did)
+        keyCache[did] = key
+        return key
+    }
 
     private fun decodeJson(segment: String): JsonObject = runCatching {
         AtJson.parseToJsonElement(Base64.getUrlDecoder().decode(segment).decodeToString()).jsonObject
@@ -101,3 +120,30 @@ class ServiceAuthVerifier(
 }
 
 class AuthException(message: String) : Exception(message)
+
+/** DIDs whose signing key couldn't be looked up, each remembered for [ttl], at most [capacity] of them (the oldest go first). */
+private class FailedLookups(private val clock: Clock, private val ttl: Duration = 5.minutes, capacity: Int = 10_000) {
+    private val failedAt =
+        object : LinkedHashMap<Did, Instant>() {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Did, Instant>?) = size > capacity
+        }
+
+    fun contains(did: Did): Boolean =
+        synchronized(failedAt) {
+            val at = failedAt[did] ?: return false
+            val recent = clock.now() - at < ttl
+            if (!recent) failedAt.remove(did)
+            recent
+        }
+
+    fun add(did: Did) {
+        synchronized(failedAt) {
+            failedAt.remove(did)
+            failedAt[did] = clock.now()
+        }
+    }
+
+    fun remove(did: Did) {
+        synchronized(failedAt) { failedAt.remove(did) }
+    }
+}

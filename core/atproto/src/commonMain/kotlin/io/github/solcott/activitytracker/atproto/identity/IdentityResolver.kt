@@ -77,11 +77,12 @@ class IdentityResolver(
         return doc
     }
 
+    /** Checks [did]'s syntax before building a URL from it, so a malformed DID is refused without a request. */
     private fun didDocumentUrl(did: Did): String =
-        when (did.method) {
-            "plc" -> "${plcUrl.trimEnd('/')}/${did.value}"
-            "web" -> didWebUrl(did)
-            else -> throw IdentityException("Unsupported DID method: ${did.method}")
+        when {
+            !isResolvableDid(did.value) -> throw IdentityException("Unsupported or malformed DID: $did")
+            did.method == "plc" -> "${plcUrl.trimEnd('/')}/${did.value}"
+            else -> didWebUrl(did)
         }
 
     /** The configured resolver: any XRPC error is its answer that the handle is missing. Null when no resolver is configured. */

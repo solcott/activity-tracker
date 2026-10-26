@@ -227,6 +227,13 @@ class AppViewTest {
         val nsid = GetTimeline.method.nsid
         val unauthenticated = client.get("/xrpc/$nsid")
         assertEquals(HttpStatusCode.Unauthorized, unauthenticated.status)
+        for (lxm in listOf(null, GetProfile.method.nsid)) {
+            val wrongMethod =
+                client.get("/xrpc/$nsid") {
+                    header(HttpHeaders.Authorization, "Bearer ${keys.getValue(alice).serviceJwt(alice, service, lxm)}")
+                }
+            assertEquals(HttpStatusCode.Unauthorized, wrongMethod.status, "lxm $lxm")
+        }
 
         val response =
             client.get("/xrpc/$nsid?limit=10") {

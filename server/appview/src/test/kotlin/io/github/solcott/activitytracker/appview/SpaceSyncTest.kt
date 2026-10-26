@@ -188,6 +188,8 @@ class SpaceSyncTest : SpaceSyncFixture() {
         assertEquals(HttpStatusCode.Unauthorized, client.notifyWrite(aliceFollowers, issuer = bob).status)
         assertEquals(HttpStatusCode.Unauthorized, client.notifyWrite(aliceFollowers, aud = config.managingAppService).status)
         assertEquals(HttpStatusCode.Unauthorized, client.notifyWrite(aliceFollowers, aud = service).status)
+        assertEquals(HttpStatusCode.Unauthorized, client.notifyWrite(aliceFollowers, lxm = null).status)
+        assertEquals(HttpStatusCode.Unauthorized, client.notifyWrite(aliceFollowers, lxm = NotifySpace.method.nsid).status)
         runDue()
         assertEquals(before, pds.requests.size, "nothing fetched")
         assertEquals(emptyMap(), activities())

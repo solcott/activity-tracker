@@ -92,13 +92,14 @@ class SpaceAccessTest {
         issuer: String? = alice,
         aud: String = config.managingAppService,
         clientId: String? = null,
+        lxm: String? = nsid,
     ): HttpResponse =
         get("/xrpc/$nsid") {
             parameter("space", space)
             parameter("user", user)
             access?.let { parameter("access", it) }
             clientId?.let { parameter("clientId", it) }
-            issuer?.let { header(HttpHeaders.Authorization, "Bearer ${keys.getValue(it).serviceJwt(it, aud, nsid)}") }
+            issuer?.let { header(HttpHeaders.Authorization, "Bearer ${keys.getValue(it).serviceJwt(it, aud, lxm)}") }
         }
 
     @Suppress("LongParameterList") // As check.
@@ -350,6 +351,8 @@ class SpaceAccessTest {
         assertEquals(HttpStatusCode.Unauthorized, client.check(bob, issuer = null).status)
         assertEquals(HttpStatusCode.Unauthorized, client.check(bob, aud = service).status)
         assertEquals(HttpStatusCode.Unauthorized, client.check(bob, aud = "$service#activity_appview").status)
+        assertEquals(HttpStatusCode.Unauthorized, client.check(bob, lxm = null).status)
+        assertEquals(HttpStatusCode.Unauthorized, client.check(bob, lxm = GetProfile.method.nsid).status)
     }
 
     @Test

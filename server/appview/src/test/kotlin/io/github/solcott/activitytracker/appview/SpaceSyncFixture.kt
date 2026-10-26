@@ -164,11 +164,10 @@ open class SpaceSyncFixture {
         issuer: String? = space.authority.value,
         aud: String = config.syncerService,
         rev: String = pds.rev(space),
+        lxm: String? = Space.NotifyWrite.method.nsid,
     ): HttpResponse =
         post("/xrpc/${Space.NotifyWrite.method.nsid}") {
-            issuer?.let {
-                header(HttpHeaders.Authorization, "Bearer ${keys.getValue(it).serviceJwt(it, aud, Space.NotifyWrite.method.nsid)}")
-            }
+            issuer?.let { header(HttpHeaders.Authorization, "Bearer ${keys.getValue(it).serviceJwt(it, aud, lxm)}") }
             contentType(ContentType.Application.Json)
             setBody(
                 """{"space":"${space.value}","repo":"${space.authority.value}","repoRev":"$rev",""" +
