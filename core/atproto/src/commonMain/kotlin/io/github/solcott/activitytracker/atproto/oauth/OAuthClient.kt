@@ -145,8 +145,13 @@ class OAuthClient(
         return account
     }
 
+    /**
+     * Refreshes [session]'s tokens. Throws [SessionExpiredException] when the session is dead (the grant was refused, there's no refresh
+     * token, or the refresh named another account) and [OAuthServerException] for any other answer that isn't a success. A transport
+     * failure passes through as itself.
+     */
     suspend fun refresh(session: OAuthSession): OAuthSession {
-        val refreshToken = session.refreshToken ?: throw OAuthException("Session has no refresh token")
+        val refreshToken = session.refreshToken ?: throw SessionExpiredException("Session has no refresh token")
         val key = DpopKey.restore(session.dpopKey)
         val params = Parameters.build {
             append("grant_type", "refresh_token")
@@ -154,14 +159,16 @@ class OAuthClient(
             append("refresh_token", refreshToken)
         }
         val (token, nonce) =
-            postWithDpop(
-                session.tokenEndpoint,
-                params,
-                key,
-                session.authServerNonce,
-                TokenResponse.serializer(),
-            )
-        if (token.sub != session.did.value) throw OAuthException("Refresh returned a different account")
+            classifyingRefreshFailure {
+                postWithDpop(
+                    session.tokenEndpoint,
+                    params,
+                    key,
+                    session.authServerNonce,
+                    TokenResponse.serializer(),
+                )
+            }
+        if (token.sub != session.did.value) throw SessionExpiredException("Refresh returned a different account")
         return session.copy(
             accessToken = token.accessToken,
             refreshToken = token.refreshToken ?: refreshToken,
@@ -170,6 +177,18 @@ class OAuthClient(
             authServerNonce = nonce,
         )
     }
+
+    /**
+     * Runs a refresh's token request, turning a refused grant into [SessionExpiredException] and any other failed answer into
+     * [OAuthServerException].
+     */
+    private suspend fun <T> classifyingRefreshFailure(request: suspend () -> T): T =
+        try {
+            request()
+        } catch (e: OAuthErrorException) {
+            throw if (e.error in DEAD_GRANT_ERRORS) SessionExpiredException("Refresh refused: ${e.error}", e)
+            else OAuthServerException(e.status, e)
+        }
 
     /** Best-effort token revocation on sign-out. */
     suspend fun revoke(session: OAuthSession) {
@@ -230,11 +249,18 @@ class OAuthClient(
                 .getOrNull()
             if (error?.error == "use_dpop_nonce" && attempt == 0) return@repeat
             val reason = error?.error ?: body.take(MAX_ERROR_BODY_CHARS)
-            throw OAuthException("POST $url failed: ${response.status} $reason ${error?.description.orEmpty()}")
+            throw OAuthErrorException(
+                response.status.value,
+                error?.error,
+                "POST $url failed: ${response.status} $reason ${error?.description.orEmpty()}",
+            )
         }
-        throw OAuthException("POST $url failed: DPoP nonce not accepted")
+        error("unreachable: the second attempt returns or throws")
     }
 }
+
+/** OAuth error codes that mean the refresh grant itself is dead, so asking again can't help. */
+private val DEAD_GRANT_ERRORS = setOf("invalid_grant", "invalid_client", "unauthorized_client")
 
 /** Caps how much of a non-JSON error body ends up in an exception message. */
 private const val MAX_ERROR_BODY_CHARS = 300

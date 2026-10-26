@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data
 
+import io.github.solcott.activitytracker.atproto.oauth.OAuthServerException
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.dataresult.DataError
 import io.github.solcott.dataresult.Origin
@@ -87,11 +88,13 @@ private class Latest<T>(val value: T)
 
 /**
  * What [this] failure means to a reader. A non-XRPC error body ([XrpcException.error] `HttpError`) says only its status. Ktor's timeouts
- * are [IOException]s on every engine, so they count as [DataError.Network] too.
+ * are [IOException]s on every engine, so they count as [DataError.Network] too. A token refresh the authorization server failed without
+ * ending the session ([OAuthServerException]) says only its status, like a non-XRPC body.
  */
 fun Throwable.toDataError(): DataError =
     when {
         this is XrpcException -> if (error == HTTP_ERROR) DataError.Http(status) else DataError.Api(listOf(message ?: error), code = error)
+        this is OAuthServerException -> DataError.Http(status)
         this is IOException || isPlatformNetworkFailure() -> DataError.Network
         this is SerializationException -> DataError.Serialization
         else -> DataError.Unknown(this, message)

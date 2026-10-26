@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data
 
+import io.github.solcott.activitytracker.atproto.oauth.OAuthServerException
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.dataresult.DataError
 import io.github.solcott.dataresult.Origin
@@ -39,6 +40,10 @@ class OutcomeOfTest {
     fun xrpcErrorWithoutMessageUsesItsName() = runTest {
         assertEquals(DataError.Api(listOf("NotFound"), code = "NotFound"), failure(XrpcException(400, "NotFound", null)))
     }
+
+    @Test fun failedRefreshServerErrorIsHttp() = runTest { assertEquals(DataError.Http(503), failure(OAuthServerException(503))) }
+
+    @Test fun rateLimitedRefreshIsHttp() = runTest { assertEquals(DataError.Http(429), failure(OAuthServerException(429))) }
 
     @Test fun ioFailureIsNetwork() = runTest { assertEquals(DataError.Network, failure(IOException("Connection refused"))) }
 

@@ -97,7 +97,16 @@ data class OAuthSession(
     }
 }
 
-class OAuthException(message: String, cause: Throwable? = null) : Exception(message, cause)
+open class OAuthException(message: String, cause: Throwable? = null) : Exception(message, cause)
+
+/** The authorization server answered with a non-2xx [status]; [error] is the OAuth `error` code when the body had one. */
+class OAuthErrorException(val status: Int, val error: String?, message: String) : OAuthException(message)
+
+/** The session can't be refreshed any more: the grant was refused, there's no refresh token, or the refresh named another account. */
+class SessionExpiredException(message: String, cause: Throwable? = null) : OAuthException(message, cause)
+
+/** A refresh failed in a way that leaves the session usable, such as a server error or a rate limit. */
+class OAuthServerException(val status: Int, cause: Throwable? = null) : OAuthException("Token refresh failed: HTTP $status", cause)
 
 /** Persistence for the signed-in session and in-flight authorizations (implemented by `core:data`). */
 interface OAuthStore {
