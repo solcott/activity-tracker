@@ -48,7 +48,7 @@ The AppView SHALL serve `com.atproto.simplespace.checkUserAccess` as a query tak
 - **THEN** the decision is the same as without it
 
 ### Requirement: Callouts authenticated as the space's authority
-The endpoint SHALL require a service-auth JWT signed by the issuer's DID-document key, addressed to the managing-app id (`<serviceDid>#activitytracker_space`) and not expired, whose `lxm`, if present, is `com.atproto.simplespace.checkUserAccess`. A valid token whose issuer isn't the space's authority SHALL get `authorized: false`.
+The endpoint SHALL require a service-auth JWT signed by the issuer's DID-document key, addressed to the managing-app id (`<serviceDid>#activitytracker_space`) and not expired, whose `lxm` is `com.atproto.simplespace.checkUserAccess`. A valid token whose issuer isn't the space's authority SHALL get `authorized: false`.
 
 #### Scenario: Callout from the authority's PDS
 - **WHEN** a PDS calls with a token whose `iss` is the space's authority and `aud` is the managing-app id
@@ -69,6 +69,10 @@ The endpoint SHALL require a service-auth JWT signed by the issuer's DID-documen
 #### Scenario: Issuer isn't the authority
 - **WHEN** a validly signed token's `iss` is a DID other than the space's authority
 - **THEN** the AppView answers `{"authorized": false}`
+
+#### Scenario: Token without lxm
+- **WHEN** a callout's token is from the space's authority and addressed to the managing-app id but has no `lxm`, or an `lxm` other than `com.atproto.simplespace.checkUserAccess`
+- **THEN** the AppView answers `401` and makes no decision
 
 ### Requirement: Read access by tier
 For a space of type `app.activitytracker.space.athlete`, a `read` check SHALL be decided by the space key: `public` admits any user; `followers` admits a user whose follow of the authority is effective in this app's follow graph; `mutuals` admits a user whose follow of the authority is effective and whom the authority effectively follows; `self`, `interactions` and every other key admit no one. Any other space type SHALL be denied.
