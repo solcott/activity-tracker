@@ -54,6 +54,11 @@ data class AppViewConfig(
     val segmentImporter: Did? = null,
     /** How many distinct athletes' passes make a staged candidate ridden (`SEGMENT_CANDIDATE_RIDERS`, at least 1). */
     val segmentCandidateRiders: Int = SegmentMatcher.DEFAULT_ACTIVE_ATHLETES,
+    /**
+     * Whether hosts learned from DID documents and handles may be private, loopback or link-local addresses
+     * (`APPVIEW_ALLOW_PRIVATE_ADDRESSES=true`; identity/outbound-requests). Local dev only, where every PDS and `did:web` is `localhost`.
+     */
+    val allowPrivateAddresses: Boolean = false,
 ) {
     /** An account the AppView signs in to with an app password. */
     data class Triage(val did: String, val appPassword: String) {
@@ -109,6 +114,7 @@ data class AppViewConfig(
                 segmentActiveAthletes = athletes(env, "SEGMENT_ACTIVE_ATHLETES"),
                 segmentImporter = env["SEGMENT_IMPORTER_DID"]?.trim()?.takeIf { it.startsWith("did:") }?.let(::Did),
                 segmentCandidateRiders = athletes(env, "SEGMENT_CANDIDATE_RIDERS"),
+                allowPrivateAddresses = env["APPVIEW_ALLOW_PRIVATE_ADDRESSES"]?.trim().equals("true", ignoreCase = true),
             )
         }
 

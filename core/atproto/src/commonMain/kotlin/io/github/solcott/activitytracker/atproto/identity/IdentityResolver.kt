@@ -27,11 +27,16 @@ data class ResolvedIdentity(
     val document: DidDocument,
 )
 
-/** Resolves handles and DIDs to a DID document and PDS endpoint. */
+/**
+ * Resolves handles and DIDs to a DID document and PDS endpoint. [http] reaches the configured endpoints (the PLC directory, the handle
+ * resolver, DNS-over-HTTPS); [untrusted] reaches hosts named by the identity itself (`did:web` documents and handle `.well-known` checks),
+ * which a server can guard against pointing it at its own network.
+ */
 class IdentityResolver(
     private val http: HttpClient,
     private val plcUrl: String,
     private val handleResolverUrl: String?,
+    private val untrusted: HttpClient = http,
 ) {
     constructor(
         http: HttpClient,
@@ -70,7 +75,7 @@ class IdentityResolver(
     }
 
     suspend fun resolveDid(did: Did): DidDocument {
-        val response = http.get(didDocumentUrl(did))
+        val response = (if (did.method == "web") untrusted else http).get(didDocumentUrl(did))
         if (!response.status.isSuccess()) throw IdentityException("DID resolution failed for $did: ${response.status}")
         val doc = AtJson.decodeFromString(DidDocument.serializer(), response.bodyAsText())
         if (doc.id != did.value) throw IdentityException("DID document id mismatch for $did")
@@ -120,7 +125,7 @@ class IdentityResolver(
      * own isn't evidence of being offline, since an unknown domain fails the same way.
      */
     private suspend fun resolveHandleWellKnown(handle: Handle): HandleLookup = lookup {
-        val response = http.get("https://${handle.value}/.well-known/atproto-did")
+        val response = untrusted.get("https://${handle.value}/.well-known/atproto-did")
         if (!response.status.isSuccess()) return@lookup null
         response.bodyAsText().trim().takeIf { it.isDid() }?.let(::Did)
     }

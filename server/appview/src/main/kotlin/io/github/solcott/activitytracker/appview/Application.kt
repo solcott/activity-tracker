@@ -41,6 +41,7 @@ import io.github.solcott.activitytracker.appview.labels.LabelSubscriber
 import io.github.solcott.activitytracker.appview.labels.LabelVerifier
 import io.github.solcott.activitytracker.appview.moderation.ModeratorSubjects
 import io.github.solcott.activitytracker.appview.moderation.OzoneClient
+import io.github.solcott.activitytracker.appview.net.GuardedHttp
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
 import io.github.solcott.activitytracker.appview.sync.BskyBlockBackfill
@@ -80,21 +81,28 @@ fun main() {
     if (config.extraAudiences.isNotEmpty()) log.info("Also accepting service auth for {}", config.extraAudiences)
     if (config.signingKey == null)
         log.warn("APPVIEW_SIGNING_KEY isn't set: space syncing is disabled, so only public activities are served")
+    if (config.allowPrivateAddresses)
+        log.warn("APPVIEW_ALLOW_PRIVATE_ADDRESSES is set: hosts from DID documents and handles may be private addresses (local dev only)")
 
     val db = DatabaseFactory.connect(config.databaseUrl, config.databaseUser, config.databasePassword)
+    // Configured endpoints (PLC, the handle resolver, Jetstream, labelers, Ozone) are trusted; every host learned from a DID document or a
+    // handle goes through the guarded client, which refuses private addresses (identity/outbound-requests).
     val http =
         HttpClient(CIO) {
             expectSuccess = false
             install(WebSockets)
         }
-    val identity = IdentityResolver(http, config.plcUrl, config.handleResolverUrl)
+    val guarded = GuardedHttp.create(config.allowPrivateAddresses)
+    val identity = IdentityResolver(http, config.plcUrl, config.handleResolverUrl, untrusted = guarded)
+    // Only for the operator's own labeler and Ozone DIDs, whose endpoints may be on the local network.
+    val configuredIdentity = IdentityResolver(http, config.plcUrl, config.handleResolverUrl)
     val verifier = ServiceAuthVerifier(config.serviceDid, identity, config.extraAudiences)
 
     val indexer = Indexer(db, ResolvingHandleLookup(identity), segmentImporter = config.segmentImporter)
     val signingKey = config.signingKey?.let(::AppViewSigningKey)
     val member = signingKey?.let { key ->
         val tokens = SignedDelegationTokens(Did(config.serviceDid), key.jwtAlg, key::sign)
-        SpaceMember(SpaceCredentials(tokens, http, identity), http)
+        SpaceMember(SpaceCredentials(tokens, guarded, identity), guarded)
     }
     val syncer = member?.let { SpaceSyncer(db, indexer, it, config.syncerService) }
     val spaceBlobs = member?.let(::MemberSpaceBlobs)
@@ -104,7 +112,9 @@ fun main() {
             val ozone =
                 config.labeler?.let { labeler ->
                     config.triage?.let { triage ->
-                        OzoneClient(http, labeler, triage) { did, service -> identity.resolveDid(Did(did)).serviceEndpoint(service) }
+                        OzoneClient(http, labeler, triage) { did, service ->
+                            configuredIdentity.resolveDid(Did(did)).serviceEndpoint(service)
+                        }
                     }
                 }
             appView(
@@ -112,7 +122,7 @@ fun main() {
                 db,
                 verifier,
                 pds,
-                PdsBlobStreamSource(http, pds, spaceBlobs),
+                PdsBlobStreamSource(guarded, pds, spaceBlobs),
                 signingKey,
                 syncer,
                 spaceBlobs,
@@ -120,11 +130,11 @@ fun main() {
                 segmentJobs = indexer.segmentJobs,
             )
             config.jetstreamUrl?.let { url -> launch { JetstreamConsumer(http, url, db, indexer).run() } }
-            BskyBlockBackfill(db, indexer, http, pds).start(this)
+            BskyBlockBackfill(db, indexer, guarded, pds).start(this)
             syncer?.start(this)
             // Segment tracks live in athletes' `self` spaces, so matching needs the AppView's member credential, as syncing does.
             spaceBlobs?.let { segmentMatcher(config, db, indexer, it).start(this) }
-            startLabelSubscribers(config, db, http, identity)
+            startLabelSubscribers(config, db, http, configuredIdentity)
             // The moderator audit log keeps entries a little over a year.
             ModerationAccessLog(db).start(this)
         }

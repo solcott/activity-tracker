@@ -22,6 +22,8 @@ tasks.named<JavaExec>(ApplicationPlugin.TASK_RUN_NAME) {
             if ("APPVIEW_PUBLIC_URL" in environment && "APPVIEW_EXTRA_AUDIENCES" !in environment) {
                 environment("APPVIEW_EXTRA_AUDIENCES", "did:web:localhost%3A${environment["APPVIEW_PORT"]}")
             }
+            // Every PDS and did:web on the local stack is localhost, which the AppView otherwise refuses (identity/outbound-requests).
+            if ("APPVIEW_ALLOW_PRIVATE_ADDRESSES" !in environment) environment("APPVIEW_ALLOW_PRIVATE_ADDRESSES", "true")
             fun fromDockerEnv(key: String): String? =
                 dockerEnv
                     .takeIf { it.isFile }
@@ -70,6 +72,7 @@ dependencies {
     implementation(libs.jackson.dataformat.cbor)
     implementation(libs.kermit)
     implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.okhttp)
     implementation(libs.ktor.client.websockets)
     implementation(libs.ktor.serialization.json)
     implementation(libs.ktor.server.call.logging)

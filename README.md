@@ -73,6 +73,10 @@ Then rebuild the apps. Quick tunnels get a new hostname each run, so update the 
 With a tunnel set, the AppView's DID is the tunnel host. `:server-appview:run` also sets
 `APPVIEW_EXTRA_AUDIENCES=did:web:localhost%3A8081` so the web app keeps working against the same AppView.
 
+`:server-appview:run` also sets `APPVIEW_ALLOW_PRIVATE_ADDRESSES=true` unless the environment sets it. Outside local
+dev the AppView refuses to fetch from private, loopback or link-local addresses it learns from DID documents and handles,
+and every PDS and `did:web` on the local stack is `localhost`. It logs a warning at startup while the flag is on.
+
 - **Android** (emulator, or a device over USB/wireless adb): run `adb reverse tcp:2582 tcp:2582` (and 2583,
   8081) so the device's `localhost` reaches the stack. Repeat after the emulator/device reconnects.
 - **iOS Simulator** shares the Mac's network, so it needs nothing extra.

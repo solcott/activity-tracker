@@ -92,4 +92,11 @@ class AppViewConfigTest {
         assertEquals(3, AppViewConfig.fromEnv(mapOf("SEGMENT_CANDIDATE_RIDERS" to "")).segmentCandidateRiders)
         assertEquals(3, AppViewConfig.fromEnv(mapOf("SEGMENT_CANDIDATE_RIDERS" to "lots")).segmentCandidateRiders)
     }
+
+    @Test
+    fun privateAddressesAreRefusedUnlessAllowed() {
+        assertEquals(false, AppViewConfig.fromEnv(emptyMap()).allowPrivateAddresses)
+        assertEquals(true, AppViewConfig.fromEnv(mapOf("APPVIEW_ALLOW_PRIVATE_ADDRESSES" to "true")).allowPrivateAddresses)
+        assertEquals(false, AppViewConfig.fromEnv(mapOf("APPVIEW_ALLOW_PRIVATE_ADDRESSES" to "false")).allowPrivateAddresses)
+    }
 }

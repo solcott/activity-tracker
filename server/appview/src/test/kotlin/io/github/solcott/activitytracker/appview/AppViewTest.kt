@@ -7,7 +7,9 @@ import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
+import io.github.solcott.activitytracker.appview.net.GuardedHttp
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
+import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityDive
@@ -35,8 +37,14 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.encodeURLParameter
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.netty.Netty
+import io.ktor.server.response.respondText
+import io.ktor.server.routing.get
+import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import java.util.UUID
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -675,5 +683,42 @@ class AppViewTest {
         val scope = AtJson.parseToJsonElement(metadata).jsonObject.getValue("scope").jsonPrimitive.content
         assertEquals(OAuthClientConfig.DEFAULT_SCOPE, scope)
         assertEquals(true, scope.split(' ').any { it.startsWith("space:app.activitytracker.space.athlete?authority=*&") })
+    }
+
+    /** identity/outbound-requests: a forged token's did:web naming a loopback host makes the AppView fetch nothing. */
+    @Test
+    fun aDidWebIssuerOnLoopbackIsRefusedWithoutARequest() = testApplication {
+        val requests = CopyOnWriteArrayList<String>()
+        val didHost =
+            embeddedServer(Netty, port = 0, host = "127.0.0.1") {
+                    routing {
+                        get("/.well-known/did.json") {
+                            requests += call.request.local.uri
+                            call.respondText("{}")
+                        }
+                    }
+                }
+                .start(wait = false)
+        try {
+            val port = didHost.engine.resolvedConnectors().first().port
+            val iss = "did:web:127.0.0.1%3A$port"
+            val forger = TestAccountKey()
+            fun verifierFor(allowPrivate: Boolean): ServiceAuthVerifier {
+                val untrusted = GuardedHttp.create(allowPrivate)
+                return ServiceAuthVerifier(service, IdentityResolver(untrusted, "http://plc.invalid", null, untrusted))
+            }
+            application { appView(config, db, verifierFor(allowPrivate = false)) }
+            val nsid = GetTimeline.method.nsid
+            val response =
+                client.get("/xrpc/$nsid") { header(HttpHeaders.Authorization, "Bearer ${forger.serviceJwt(iss, service, nsid)}") }
+            assertEquals(HttpStatusCode.Unauthorized, response.status, response.bodyAsText())
+            assertEquals(emptyList(), requests, "nothing fetched from the loopback host")
+
+            // The same token with private addresses allowed does reach it, so the check above is what stopped the request.
+            runCatching { verifierFor(allowPrivate = true).verify(forger.serviceJwt(iss, service, nsid), nsid) }
+            assertEquals(listOf("/.well-known/did.json"), requests)
+        } finally {
+            didHost.stop(0, 0)
+        }
     }
 }
