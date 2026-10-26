@@ -1,5 +1,7 @@
 package io.github.solcott.activitytracker.lexicon
 
+import kotlin.concurrent.atomics.AtomicLong
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.random.Random
 import kotlin.time.Clock
 
@@ -19,14 +21,19 @@ object Tid {
     private const val NANOS_PER_MICRO = 1_000
 
     private val clockId = Random.nextInt(0, 1 shl CLOCK_ID_BITS)
-    private var last = 0L
 
+    // Advanced only by compare-and-set, so threads asking in the same microsecond, or after the clock went back, still get distinct TIDs.
+    @OptIn(ExperimentalAtomicApi::class) private val last = AtomicLong(0L)
+
+    @OptIn(ExperimentalAtomicApi::class)
     fun next(clock: Clock = Clock.System): String {
         val now = clock.now()
-        var micros = now.epochSeconds * MICROS_PER_SECOND + now.nanosecondsOfSecond / NANOS_PER_MICRO
-        if (micros <= last) micros = last + 1
-        last = micros
-        return encode((micros shl CLOCK_ID_BITS) or clockId.toLong())
+        val nowMicros = now.epochSeconds * MICROS_PER_SECOND + now.nanosecondsOfSecond / NANOS_PER_MICRO
+        while (true) {
+            val prev = last.load()
+            val micros = maxOf(nowMicros, prev + 1)
+            if (last.compareAndSet(prev, micros)) return encode((micros shl CLOCK_ID_BITS) or clockId.toLong())
+        }
     }
 
     internal fun encode(value: Long): String {
