@@ -15,8 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.slack.circuit.subcircuit.SubCircuitContent
 import com.slack.circuit.subcircuit.SubCircuitInject
-import com.slack.circuit.subcircuit.SubUi
-import dev.zacsweers.metro.Inject
 import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
 import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
@@ -58,6 +56,7 @@ import org.jetbrains.compose.resources.stringResource
  * The report sheet's content: a reason, an optional note (required for Other) and a word on what moderators may see, then thanks and, when
  * offered, Block.
  */
+@SubCircuitInject(ReportScreen::class, SessionScope::class)
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ReportUi(state: ReportState, modifier: Modifier = Modifier) {
@@ -114,13 +113,6 @@ fun ReportUi(state: ReportState, modifier: Modifier = Modifier) {
             )
         }
     }
-}
-
-/** Registers [ReportUi]. A class rather than the annotated function: that factory crashes Kotlin/Wasm (see compose-screens.md). */
-@SubCircuitInject(ReportScreen::class, SessionScope::class)
-@Inject
-class ReportSubUi : SubUi<ReportState> {
-    @Composable override fun Content(state: ReportState, modifier: Modifier) = ReportUi(state, modifier)
 }
 
 /** A host's [Reporting]: the report sheet while it's open, and the usual Block confirmation once its offer is taken. */

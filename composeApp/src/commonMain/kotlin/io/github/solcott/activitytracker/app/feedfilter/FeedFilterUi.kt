@@ -27,8 +27,6 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import com.mohamedrejeb.calf.ui.datepicker.DateBounds
 import com.slack.circuit.subcircuit.SubCircuitInject
-import com.slack.circuit.subcircuit.SubUi
-import dev.zacsweers.metro.Inject
 import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.QuickTypeChips
 import io.github.solcott.activitytracker.app.ui.activityTypeLabel
@@ -75,6 +73,7 @@ import org.jetbrains.compose.resources.stringResource
  * One row, scrolling sideways when it doesn't fit: a chip each for types and dates, and clear while either narrows the list. It insets
  * itself by the screen margin inside the scroll, so chips scroll to the edge rather than clipping short of it.
  */
+@SubCircuitInject(FeedFilterScreen::class, SessionScope::class)
 @Composable
 fun FeedFilterUi(state: FeedFilterState, modifier: Modifier = Modifier) {
     val filter = state.filter
@@ -96,13 +95,6 @@ fun FeedFilterUi(state: FeedFilterState, modifier: Modifier = Modifier) {
     }
     state.typePicker?.let { TypePickerSheet(it, state.eventSink) }
     state.customRange?.let { CustomRangeDialog(it, state.eventSink) }
-}
-
-/** Registers [FeedFilterUi]. A class rather than the annotated function: that factory crashes Kotlin/Wasm (see compose-screens.md). */
-@SubCircuitInject(FeedFilterScreen::class, SessionScope::class)
-@Inject
-class FeedFilterSubUi : SubUi<FeedFilterState> {
-    @Composable override fun Content(state: FeedFilterState, modifier: Modifier) = FeedFilterUi(state, modifier)
 }
 
 @Composable

@@ -29,10 +29,10 @@ import com.slack.circuit.subcircuit.SubScreen
 import com.slack.circuit.subcircuit.SubUi
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterState
-import io.github.solcott.activitytracker.app.feedfilter.FeedFilterSubUi
+import io.github.solcott.activitytracker.app.feedfilter.FeedFilterUi
 import io.github.solcott.activitytracker.app.report.ReportScreen
 import io.github.solcott.activitytracker.app.report.ReportState
-import io.github.solcott.activitytracker.app.report.ReportSubUi
+import io.github.solcott.activitytracker.app.report.ReportUi
 import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.LocalHourClock
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
@@ -140,8 +140,8 @@ private fun previewSubCircuit(subState: (SubScreen<*>) -> SubCircuitUiState?): S
         }
         .addUiFactory { screen ->
             when (screen) {
-                is FeedFilterScreen -> FeedFilterSubUi()
-                is ReportScreen -> ReportSubUi()
+                is FeedFilterScreen -> SubUi<FeedFilterState> { state, modifier -> FeedFilterUi(state, modifier) }
+                is ReportScreen -> SubUi<ReportState> { state, modifier -> ReportUi(state, modifier) }
                 else -> SubUi<SubCircuitUiState> { _, _ -> }
             }
         }
