@@ -9,8 +9,10 @@ import io.github.solcott.activitytracker.appview.index.JetstreamEvent
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcBytes
+import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
+import io.github.solcott.activitytracker.lexicon.app.SegmentTrackData
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -265,6 +267,81 @@ class SegmentMatcherTest : SegmentTestBase() {
         assertEquals(emptyList(), efforts())
         val attempts = runBlocking { db.tx { SegmentMatchJobs.selectAll().map { it[SegmentMatchJobs.attempts] } } }
         assertEquals(listOf(1), attempts, "kept for a later retry")
+    }
+
+    @Test
+    fun aTrackWithMalformedDataGivesNoEffortsAndIsNotRetried() {
+        matching(true)
+        segment("3ks")
+        val good = trackData()
+        fun SegmentTrackData.withTimes(t: (List<Long>) -> List<Long>) = copy(pieces = pieces.map { it.copy(t = t(it.t)) })
+        val malformed =
+            mapOf(
+                "3ka" to encode(good.withTimes { t -> t.mapIndexed { i, s -> if (i == t.size / 2) s - 30 else s } }),
+                "3kb" to encode(good.withTimes { t -> t.map { it - 10_000 } }),
+                "3kc" to encode(good.withTimes { t -> t.dropLast(1) }),
+                "3kd" to "not json".encodeToByteArray(),
+            )
+        for ((rkey, bytes) in malformed) {
+            activity(rkey)
+            putTrack(rkey, bytes)
+        }
+        match()
+        assertEquals(emptyList(), efforts())
+        assertEquals(emptyList(), jobs(), "never retried")
+        assertEquals(malformed.size, fetched.size, "each fetched once")
+    }
+
+    @Test
+    fun negativeTimesOnTwoLapsDontCollide() {
+        matching(true)
+        segment("3ks")
+        activity("3ka")
+        // Two laps north (the leg back south doesn't follow the segment) whose starts are both before the track's zero.
+        val laps = trackData(listOf(alongStraight + alongStraight.reversed() + alongStraight))
+        putTrack("3ka", encode(laps.copy(pieces = laps.pieces.map { piece -> piece.copy(t = piece.t.map { it - 10_000 }) })))
+        match()
+        assertEquals(emptyList(), efforts())
+        assertEquals(emptyList(), jobs(), "rejected once, not retried until it gives up")
+    }
+
+    @Test
+    fun aMalformedTrackDropsWhatItsEarlierVersionGave() {
+        matching(true)
+        segment("3ks", sport = "ride")
+        stage(candidate("osm-1"))
+        activity("3ka", sport = "ride")
+        track("3ka")
+        match()
+        assertEquals(1, efforts().size)
+        assertEquals(setOf(alice), riders("osm-1"))
+        assertTrue(cells(trackUri("3ka")) > 0)
+
+        putTrack("3ka", "{}garbage".encodeToByteArray())
+        match()
+        assertEquals(emptyList(), efforts())
+        assertEquals(emptySet(), riders("osm-1"))
+        assertEquals(0, cells(trackUri("3ka")))
+        assertEquals(emptyList(), jobs())
+    }
+
+    @Test
+    fun repeatedWholeSecondsAreAValidTrack() {
+        matching(true)
+        segment("3ks")
+        activity("3ka")
+        // A sample every 5 m at 20 m/s is four samples a second, so whole-second times repeat.
+        val data = trackData(speed = 20.0)
+        assertTrue(data.pieces.single().t.zipWithNext().any { (a, b) -> a == b })
+        putTrack("3ka", encode(data))
+        match()
+        assertEquals(listOf(5L to 50L), efforts().map { it.startOffset to it.elapsed })
+    }
+
+    private fun encode(data: SegmentTrackData) = AtJson.encodeToString(SegmentTrackData.serializer(), data).encodeToByteArray()
+
+    private fun cells(trackUri: String): Long = runBlocking {
+        db.tx { SegmentTrackCells.selectAll().where { SegmentTrackCells.trackUri eq trackUri }.count() }
     }
 
     @Test

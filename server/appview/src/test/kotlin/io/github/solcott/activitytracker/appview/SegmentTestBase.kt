@@ -193,35 +193,40 @@ open class SegmentTestBase {
         did: String = alice,
         speed: Double = 5.0,
         excluded: Boolean = false,
-    ) {
+    ) = putTrack(rkey, AtJson.encodeToString(SegmentTrackData.serializer(), trackData(pieces, speed)).encodeToByteArray(), did, excluded)
+
+    /** A segment track's data for [pieces] of waypoints (meters east, north), sampled every 5 m at [speed] m/s, as [track] puts it. */
+    protected fun trackData(pieces: List<List<Pair<Double, Double>>> = listOf(alongStraight), speed: Double = 5.0): SegmentTrackData {
         var clock = 0.0
-        val data =
-            SegmentTrackData(
-                pieces.map { path ->
-                    val lat = mutableListOf<Int>()
-                    val lng = mutableListOf<Int>()
-                    val t = mutableListOf<Long>()
-                    fun sample(east: Double, north: Double) {
-                        val p = at(east, north)
-                        lat += (p.lat * 1e7).roundToInt()
-                        lng += (p.lng * 1e7).roundToInt()
-                        t += clock.toLong()
-                    }
-                    for ((a, b) in path.zipWithNext()) {
-                        val length = hypot(b.first - a.first, b.second - a.second)
-                        var d = 0.0
-                        while (d < length) {
-                            sample(a.first + (b.first - a.first) * d / length, a.second + (b.second - a.second) * d / length)
-                            d += 5.0
-                            clock += 5.0 / speed
-                        }
-                    }
-                    sample(path.last().first, path.last().second)
-                    clock += 60
-                    SegmentTrackPiece(lat, lng, t)
+        return SegmentTrackData(
+            pieces.map { path ->
+                val lat = mutableListOf<Int>()
+                val lng = mutableListOf<Int>()
+                val t = mutableListOf<Long>()
+                fun sample(east: Double, north: Double) {
+                    val p = at(east, north)
+                    lat += (p.lat * 1e7).roundToInt()
+                    lng += (p.lng * 1e7).roundToInt()
+                    t += clock.toLong()
                 }
-            )
-        val bytes = AtJson.encodeToString(SegmentTrackData.serializer(), data).encodeToByteArray()
+                for ((a, b) in path.zipWithNext()) {
+                    val length = hypot(b.first - a.first, b.second - a.second)
+                    var d = 0.0
+                    while (d < length) {
+                        sample(a.first + (b.first - a.first) * d / length, a.second + (b.second - a.second) * d / length)
+                        d += 5.0
+                        clock += 5.0 / speed
+                    }
+                }
+                sample(path.last().first, path.last().second)
+                clock += 60
+                SegmentTrackPiece(lat, lng, t)
+            }
+        )
+    }
+
+    /** [did]'s segment track for activity [rkey] with [bytes] as its blob, under a CID that changes with them. */
+    protected fun putTrack(rkey: String, bytes: ByteArray, did: String = alice, excluded: Boolean = false) {
         val cid = "bafkdata$rkey${bytes.contentHashCode()}"
         blobs[cid] = bytes
         spaceWrite(

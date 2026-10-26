@@ -34,6 +34,7 @@ import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.SegmentCells
 import io.github.solcott.activitytracker.location.SegmentGeometry
+import io.github.solcott.activitytracker.location.SegmentPass
 import io.github.solcott.activitytracker.location.TimedPoint
 import java.time.ZoneOffset
 import kotlin.coroutines.cancellation.CancellationException
@@ -88,7 +89,8 @@ import org.slf4j.LoggerFactory
  *
  * Nothing is read from a track whose athlete's matching is off ([usableSegmentTracks]), and that is checked again before efforts are
  * written. An activity that isn't indexed yet, or is a valid member of a combined activity, has no efforts. A failed fetch is retried with
- * backoff, then given up.
+ * backoff, then given up. A blob that isn't a valid track ([piecesOf]) isn't retried: its activity's efforts, its cells and its candidate
+ * riders are dropped.
  */
 @Suppress("TooManyFunctions") // The loop, the four jobs, the status pass, and the reads they share.
 class SegmentMatcher(
@@ -238,14 +240,26 @@ class SegmentMatcher(
     /** What a `track` job needs before fetching: the usable track and the sport group its activity can match. */
     private data class TrackToMatch(val author: Did, val activity: String, val dataCid: String, val group: SegmentSport.Grouped)
 
+    /** A pass over [segment], starting [offset] whole seconds into the activity. */
+    private data class Pass(val segment: String, val offset: Long, val pass: SegmentPass)
+
     private suspend fun matchTrack(trackUri: String) {
         val track = db.tx { trackToMatch(trackUri) } ?: return
         val space = SpaceUri.of(track.author, Nsid.SPACE_ATHLETE, AthleteSpace.SELF)
         val blob = checkNotNull(blobs.fetch(space, track.author, track.dataCid)) { "the space doesn't have blob ${track.dataCid}" }
         val pieces =
-            AtJson.decodeFromString(SegmentTrackData.serializer(), blob.bytes.decodeToString()).pieces.map { piece ->
-                require(piece.lat.size == piece.t.size && piece.lng.size == piece.t.size) { "a piece's arrays don't line up" }
-                piece.t.indices.map { TimedPoint(piece.lat[it] / E7, piece.lng[it] / E7, piece.t[it].toDouble()) }
+            try {
+                piecesOf(blob.bytes)
+            } catch (e: IllegalArgumentException) {
+                // Never valid however often it's fetched, so it gives nothing, and nothing an earlier version gave stays.
+                log.info("Segment track {} isn't a valid track, so it gives no efforts: {}", trackUri, e.message)
+                db.tx {
+                    if (trackToMatch(trackUri) != track) return@tx
+                    SegmentEfforts.deleteWhere { activityUri eq track.activity }
+                    SegmentTrackCells.deleteWhere { SegmentTrackCells.trackUri eq trackUri }
+                    SegmentCandidateRiders.deleteWhere { SegmentCandidateRiders.trackUri eq trackUri }
+                }
+                return
             }
         val cells = pieces.flatMapTo(mutableSetOf()) { piece -> SegmentCells.cellsOf(piece.map { it.point }) }
         db.tx {
@@ -260,6 +274,18 @@ class SegmentMatcher(
             replaceCandidateRiders(trackUri, track, pieces, cells)
         }
     }
+
+    /**
+     * A segment track blob's pieces, or [IllegalArgumentException] when it isn't a valid track: it doesn't decode, a piece's arrays don't
+     * line up, or a piece's times are negative or go backwards. Times may repeat, since they're whole seconds.
+     */
+    private fun piecesOf(bytes: ByteArray): List<List<TimedPoint>> =
+        AtJson.decodeFromString(SegmentTrackData.serializer(), bytes.decodeToString()).pieces.map { piece ->
+            require(piece.lat.size == piece.t.size && piece.lng.size == piece.t.size) { "a piece's arrays don't line up" }
+            require(piece.t.all { it >= 0 }) { "a piece's times are negative" }
+            require(piece.t.zipWithNext().all { (a, b) -> b >= a }) { "a piece's times go backwards" }
+            piece.t.indices.map { TimedPoint(piece.lat[it] / E7, piece.lng[it] / E7, piece.t[it].toDouble()) }
+        }
 
     /**
      * The track at [trackUri] if it's usable and its activity can have efforts; otherwise null, after deleting the efforts and candidate
@@ -301,13 +327,16 @@ class SegmentMatcher(
         val activity = Activities.selectAll().where { Activities.uri eq track.activity }.first()
         val visibility = effortVisibility(activity)
         val startedOn = startedOn(activity)
-        val efforts = segments.flatMap { (uri, line) ->
-            val ref = SegmentGeometry.resample(SegmentGeometry.decodePolyline(line).orEmpty())
-            pieces.flatMap { SegmentGeometry.passes(it, ref) }.map { pass -> uri to pass }
-        }
+        // Passes starting in the same second on one segment are one effort, and that second is part of its id.
+        val efforts =
+            segments
+                .flatMap { (uri, line) ->
+                    val ref = SegmentGeometry.resample(SegmentGeometry.decodePolyline(line).orEmpty())
+                    pieces.flatMap { SegmentGeometry.passes(it, ref) }.map { pass -> Pass(uri, pass.start.roundToLong(), pass) }
+                }
+                .distinctBy { it.segment to it.offset }
         SegmentEfforts.deleteWhere { activityUri eq track.activity }
-        SegmentEfforts.batchInsert(efforts.distinctBy { (uri, pass) -> uri to pass.start.roundToLong() }) { (uri, pass) ->
-            val offset = pass.start.roundToLong().coerceAtLeast(0)
+        SegmentEfforts.batchInsert(efforts) { (uri, offset, pass) ->
             this[SegmentEfforts.id] = "${track.activity} $uri $offset"
             this[SegmentEfforts.segmentUri] = uri
             this[SegmentEfforts.activityUri] = track.activity
@@ -320,7 +349,7 @@ class SegmentMatcher(
             this[SegmentEfforts.visibility] = visibility
             this[SegmentEfforts.startedOn] = startedOn
         }
-        promote(efforts.map { (uri, _) -> uri }.toSet())
+        promote(efforts.map { it.segment }.toSet())
     }
 
     /**
