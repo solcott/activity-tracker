@@ -1,5 +1,5 @@
 [versions]
-# Toolchain. Circuit 0.39 requires Kotlin 2.4.20 / Compose Multiplatform 1.12.x; Metro 1.4.5 supports this Kotlin.
+# Toolchain. Circuit 0.39 requires Kotlin 2.4.20 / Compose Multiplatform 1.12.x; Metro 1.5.0 supports this Kotlin.
 kotlin = "2.4.21"
 # JDK used for every compile/test/run toolchain (Amazon Corretto, provisioned via foojay).
 #noinspection UnusedVersionCatalogEntry
@@ -7,7 +7,7 @@ jdk = "25"
 agp = "9.5.0-rc01"
 ksp = "2.3.12"
 composeMultiplatform = "1.12.2"
-metro = "1.4.5"
+metro = "1.5.0"
 detekt = "2.0.0-alpha.6"
 composeRules = "0.6.8"
 # Compose Preview Screenshot Testing engine, for androidApp's screenshotTest suite (AGP test suites).
