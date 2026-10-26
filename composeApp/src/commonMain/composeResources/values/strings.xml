@@ -320,6 +320,8 @@
     <string name="login_handle_label">Handle (e.g. alice.test)</string>
     <string name="login_waiting_for_browser">Continue in your browser…</string>
     <string name="login_sign_in">Sign in</string>
+    <string name="login_session_expired">Your session expired. Sign in again to carry on.</string>
+    <string name="login_session_expired_recording">Your recording is still running.</string>
 
     <!-- Top-level navigation (tabs, rail, sidebar) -->
     <string name="nav_feed">Feed</string>
