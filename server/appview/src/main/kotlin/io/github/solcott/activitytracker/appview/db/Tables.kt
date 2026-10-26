@@ -27,6 +27,8 @@ object Actors : Table("actors") {
     val bskyBlocksSyncedAt = long("bsky_blocks_synced_at").nullable()
     /** The `#account` status while the account isn't active (`takendown`, `suspended`, `deactivated`); null while it is. */
     val status = varchar("status", 32).nullable()
+    /** When [handle] is next checked both ways (identity/handle-verification), in epoch ms; null means due now. */
+    val handleCheckDueAt = long("handle_check_due_at").nullable()
     override val primaryKey = PrimaryKey(did)
 }
 

@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.Likes
+import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
@@ -21,8 +22,11 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 
 // Query helpers shared by [Views] and [GraphViews].
 
+/** The DID [actor] names: a DID, or a verified handle. `handle.invalid` names no one (identity/handle-verification). */
 internal fun JdbcTransaction.resolveActor(actor: String): String? {
-    val condition = if (actor.isDid()) Actors.did eq actor else Actors.handle eq actor.lowercase()
+    val handle = actor.lowercase()
+    if (!actor.isDid() && handle == IdentityResolver.INVALID_HANDLE.value) return null
+    val condition = if (actor.isDid()) Actors.did eq actor else Actors.handle eq handle
     return Actors.select(Actors.did).where(condition).firstOrNull()?.get(Actors.did)
 }
 

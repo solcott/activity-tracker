@@ -26,6 +26,7 @@ import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
 import io.github.solcott.activitytracker.atproto.commentHideRkey
+import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
@@ -45,7 +46,9 @@ import io.github.solcott.activitytracker.lexicon.app.ProfileRecord
 import io.github.solcott.activitytracker.lexicon.app.ReplyRef
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -88,14 +91,18 @@ class Indexer(
     /** The segment matcher's queue, which indexing fills in the transaction of each change that calls for a match. */
     val segmentJobs = SegmentJobs()
 
+    /** DIDs known to have an `actors` row, whose handle was checked at first sight; later checks come from [recheckHandle]. */
+    private val knownActors = ConcurrentHashMap.newKeySet<String>()
+
     suspend fun handle(event: JetstreamEvent) {
         when (event) {
             is JetstreamEvent.Commit -> {
                 commit(Did(event.did), event)
             }
 
+            // identity/handle-verification: the event's handle is never trusted; the account is checked again instead.
             is JetstreamEvent.Identity -> {
-                event.identity.handle?.let { updateHandle(Did(event.did), it) }
+                recheckHandle(Did(event.did))
             }
 
             // `moderation/account-status`: a deleted account's data goes; a takendown, suspended or deactivated one is kept but not served
@@ -162,13 +169,13 @@ class Indexer(
 
     @Suppress("LongParameterList") // The record, and where it's from.
     private suspend fun index(author: Did, collection: String, uri: AtUri, cid: String, record: JsonObject, placement: Placement) {
-        val handle = handles.handleFor(author)
+        val check = firstSightCheck(author)
         try {
             // Checked before the transaction: the rkey is a SHA-256, which suspends.
             if (collection == Nsid.FEED_COMMENT_HIDE) requireHideKey(uri, record)
             db.tx {
                 val now = clock.now().toEpochMilliseconds()
-                ensureActor(author, handle, now)
+                ensureActor(author, check, now)
                 // Segment tracks and the setting come only from `self` (spaceCollections), so they have no placement to keep.
                 if (collection in SEGMENT_COLLECTIONS) {
                     upsertSegments(collection, record, author, uri, segmentJobs, now)
@@ -378,12 +385,49 @@ class Indexer(
         }
     }
 
-    private suspend fun updateHandle(did: Did, handle: String) {
-        handles.invalidate(did)
-        db.tx { Actors.update({ Actors.did eq did.value }) { it[Actors.handle] = handle } }
+    /**
+     * Checks a known account's handle both ways again and stores the result (identity/handle-verification): the verified handle or
+     * `handle.invalid`, and the next check a day on; when the lookups can't be reached, the stored handle stays and the next check is
+     * sooner. An account with no `actors` row is left alone. Called for `#identity` events and by `HandleSweep`.
+     */
+    suspend fun recheckHandle(did: Did) {
+        if (!actorExists(did)) return
+        val check = handles.check(did)
+        val now = clock.now()
+        db.tx {
+            Actors.update({ Actors.did eq did.value }) {
+                handleOf(check)?.let { handle -> it[Actors.handle] = handle }
+                it[handleCheckDueAt] = nextHandleCheck(check, now)
+            }
+        }
+    }
+
+    /** The handle check for [author]'s first record, or null when their `actors` row already exists. */
+    private suspend fun firstSightCheck(author: Did): HandleCheck? =
+        when {
+            author.value in knownActors -> null
+            actorExists(author) -> null.also { knownActors += author.value }
+            else -> handles.check(author)
+        }
+
+    private suspend fun actorExists(did: Did) = db.tx { Actors.select(Actors.did).where { Actors.did eq did.value }.any() }
+
+    /**
+     * Inserts [did]'s row unless it exists, with the handle [check] found (`handle.invalid` until a check verifies one). With no check (a
+     * row seen before), it only restores a row deleted since, due for a check at once.
+     */
+    private fun JdbcTransaction.ensureActor(did: Did, check: HandleCheck?, now: Long) {
+        Actors.insertIgnore {
+            it[Actors.did] = did.value
+            it[handle] = check?.let(::handleOf) ?: IdentityResolver.INVALID_HANDLE.value
+            it[handleCheckDueAt] = check?.let { found -> nextHandleCheck(found, Instant.fromEpochMilliseconds(now)) }
+            it[indexedAt] = now
+        }
+        knownActors += did.value
     }
 
     private suspend fun deleteActor(did: Did) = db.tx {
+        knownActors -= did.value
         Activities.deleteWhere { authorDid eq did.value }
         ActivityMediaBlobs.deleteWhere { authorDid eq did.value }
         ActivityMembers.deleteWhere { authorDid eq did.value }
@@ -601,14 +645,6 @@ private fun JdbcTransaction.updateProfile(record: ProfileRecord, author: Did, no
         it[heightMm] = details?.height
         it[training] = ProfileDetailRules.encodeTraining(details?.training)
         it[followPolicy] = record.followPolicy?.takeIf { policy -> policy == FollowPolicy.APPROVE }
-        it[indexedAt] = now
-    }
-}
-
-private fun JdbcTransaction.ensureActor(did: Did, handle: String, now: Long) {
-    Actors.insertIgnore {
-        it[Actors.did] = did.value
-        it[Actors.handle] = handle
         it[indexedAt] = now
     }
 }

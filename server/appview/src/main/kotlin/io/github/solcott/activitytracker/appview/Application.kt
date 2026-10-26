@@ -33,9 +33,10 @@ import io.github.solcott.activitytracker.appview.auth.AppViewSigningKey
 import io.github.solcott.activitytracker.appview.auth.AuthException
 import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
+import io.github.solcott.activitytracker.appview.index.HandleSweep
+import io.github.solcott.activitytracker.appview.index.HandleVerifier
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamConsumer
-import io.github.solcott.activitytracker.appview.index.ResolvingHandleLookup
 import io.github.solcott.activitytracker.appview.labels.LabelStore
 import io.github.solcott.activitytracker.appview.labels.LabelSubscriber
 import io.github.solcott.activitytracker.appview.labels.LabelVerifier
@@ -98,7 +99,7 @@ fun main() {
     val configuredIdentity = IdentityResolver(http, config.plcUrl, config.handleResolverUrl)
     val verifier = ServiceAuthVerifier(config.serviceDid, identity, config.extraAudiences)
 
-    val indexer = Indexer(db, ResolvingHandleLookup(identity), segmentImporter = config.segmentImporter)
+    val indexer = Indexer(db, HandleVerifier(identity), segmentImporter = config.segmentImporter)
     val signingKey = config.signingKey?.let(::AppViewSigningKey)
     val member = signingKey?.let { key ->
         val tokens = SignedDelegationTokens(Did(config.serviceDid), key.jwtAlg, key::sign)
@@ -131,6 +132,7 @@ fun main() {
             )
             config.jetstreamUrl?.let { url -> launch { JetstreamConsumer(http, url, db, indexer).run() } }
             BskyBlockBackfill(db, indexer, guarded, pds).start(this)
+            HandleSweep(db, indexer).start(this)
             syncer?.start(this)
             // Segment tracks live in athletes' `self` spaces, so matching needs the AppView's member credential, as syncing does.
             spaceBlobs?.let { segmentMatcher(config, db, indexer, it).start(this) }
