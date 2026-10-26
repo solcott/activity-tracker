@@ -4,7 +4,7 @@ kotlin = "2.4.21"
 # JDK used for every compile/test/run toolchain (Amazon Corretto, provisioned via foojay).
 #noinspection UnusedVersionCatalogEntry
 jdk = "25"
-agp = "9.5.0-rc01"
+agp = "9.5.0-rc02"
 ksp = "2.3.12"
 composeMultiplatform = "1.12.2"
 metro = "1.5.0"
@@ -69,12 +69,12 @@ playServicesLocation = "21.4.0"
 
 # Server
 exposed = "1.6.0"
-flyway = "13.10.3"
+flyway = "13.11.1"
 postgresql = "42.7.14"
 hikari = "7.1.0"
-logback = "1.6.5"
+logback = "1.6.6"
 bouncycastle = "1.86"
-jackson = "2.22.3"
+jackson = "2.22.4"
 h2 = "2.5.252"
 # OSM-Binary: the PBF parser osmosis uses, for the segment importer (LGPL-3.0, used unmodified as a library).
 osmpbf = "1.8.0"
