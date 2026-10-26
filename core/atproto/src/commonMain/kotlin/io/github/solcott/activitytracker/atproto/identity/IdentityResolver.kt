@@ -50,13 +50,20 @@ class IdentityResolver(
         val claimed = doc.handle
         val handle =
             when {
-                input.isDid() -> claimed?.let(::Handle) ?: INVALID_HANDLE
+                input.isDid() -> claimed?.let { verifiedHandle(did, Handle(it.lowercase())) } ?: INVALID_HANDLE
                 claimed.equals(input, ignoreCase = true) -> Handle(input.lowercase())
                 else -> INVALID_HANDLE
             }
         val pds = doc.pdsEndpoint ?: throw IdentityException("$did has no #atproto_pds service")
         return ResolvedIdentity(did, handle, pds.trimEnd('/'), doc)
     }
+
+    /**
+     * [claimed] if it resolves back to [did], else [INVALID_HANDLE], also when no lookup could be made: a DID's document can claim anyone's
+     * handle, and signing in must not fail over it (identity/handle-verification).
+     */
+    private suspend fun verifiedHandle(did: Did, claimed: Handle): Handle =
+        runSuspendCatching { resolveHandle(claimed) }.getOrNull()?.takeIf { it == did }?.let { claimed } ?: INVALID_HANDLE
 
     /**
      * The DID [handle] points at, from the first lookup that finds one. Throws [HandleNotFoundException] only when a lookup answered that
