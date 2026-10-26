@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.atproto.xrpc.RequestAuthenticator
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.request
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import kotlin.time.Clock
@@ -17,7 +18,8 @@ import kotlinx.coroutines.sync.withLock
 
 /**
  * Owns the signed-in [OAuthSession]: persists it, refreshes tokens before expiry, and authenticates PDS requests with DPoP
- * ([pdsAuthenticator]).
+ * ([pdsAuthenticator]). Every write of the session (a refresh, a nonce, signing in and signing out) runs under one lock, so none undoes
+ * another.
  */
 class OAuthSessionManager(
     private val client: OAuthClient,
@@ -26,6 +28,13 @@ class OAuthSessionManager(
     logger: Logger = Logger,
 ) {
     val session: StateFlow<OAuthSession?>
+        field = MutableStateFlow<OAuthSession?>(null)
+
+    /**
+     * The session a refresh found dead ([SessionExpiredException]), until [signOut] ends it. It stays in [session] meanwhile, and every
+     * request fails at once without asking the authorization server again.
+     */
+    val expired: StateFlow<OAuthSession?>
         field = MutableStateFlow<OAuthSession?>(null)
 
     private val log = logger.withTag("OAuthSessionManager")
@@ -48,39 +57,69 @@ class OAuthSessionManager(
         val pending = store.loadPending(state) ?: throw OAuthException("No sign-in in progress for this state")
         try {
             val session = client.completeAuthorization(pending, callback)
-            store.saveSession(session)
-            this.session.value = session
+            mutex.withLock {
+                store.saveSession(session)
+                expired.value = null
+                this.session.value = session
+            }
             return session
         } finally {
             store.clearPending(state)
         }
     }
 
-    suspend fun signOut() {
-        val current = session.value ?: return
-        client.revoke(current)
+    /**
+     * Forgets the session, revoking its newest refresh token unless [revoke] is false (an [expired] session's is already dead). Waits for a
+     * refresh in flight, so that refresh can't save the session again afterwards.
+     */
+    suspend fun signOut(revoke: Boolean = true) = mutex.withLock {
+        val current = session.value
+        expired.value = null
+        if (current == null) return@withLock
+        if (revoke) client.revoke(current)
         store.clearSession()
         session.value = null
     }
 
-    /** The current session, refreshed if it expires within a minute. */
+    /**
+     * The current session, refreshed if it expires within a minute. Throws [SessionExpiredException] once a refresh found it dead, and
+     * passes on any other refresh failure, keeping the session for the next request to try again.
+     */
     suspend fun freshSession(forceRefresh: Boolean = false): OAuthSession = mutex.withLock {
-        val current = session.value ?: throw OAuthException("Not signed in")
+        val current = liveSession()
         val expiring = current.expiresAt?.let { it - 60.seconds < clock.now() } ?: false
         if (!forceRefresh && !expiring) return current
+        refresh(current)
+    }
+
+    /** Refreshes the session if [accessToken] is still its access token: a token another request already replaced needs no refresh. */
+    private suspend fun refreshIfCurrent(accessToken: String) {
+        mutex.withLock {
+            val current = liveSession()
+            if (current.accessToken == accessToken) refresh(current)
+        }
+    }
+
+    /** The session, unless there's none or it's [expired]. Call under [mutex]. */
+    private fun liveSession(): OAuthSession {
+        val current = session.value ?: throw OAuthException("Not signed in")
+        if (expired.value != null) throw SessionExpiredException("Session expired")
+        return current
+    }
+
+    /** Call under [mutex]. */
+    private suspend fun refresh(current: OAuthSession): OAuthSession {
         val refreshed =
             try {
                 client.refresh(current)
-            } catch (e: OAuthException) {
-                // Refresh token rejected: the session is dead.
-                log.w(e) { "Token refresh failed; signing out" }
-                store.clearSession()
-                session.value = null
+            } catch (e: SessionExpiredException) {
+                log.w(e) { "Session expired; signing out" }
+                expired.value = current
                 throw e
             }
         store.saveSession(refreshed)
         session.value = refreshed
-        refreshed
+        return refreshed
     }
 
     private suspend fun updatePdsNonce(nonce: String) = mutex.withLock {
@@ -99,12 +138,10 @@ class OAuthSessionManager(
     /** DPoP authentication for requests to the signed-in account's PDS. */
     val pdsAuthenticator: RequestAuthenticator =
         object : RequestAuthenticator {
-            private var lastTokenRejected = false
-
             override suspend fun authenticate(request: HttpRequestBuilder, nsid: String) {
-                val session = freshSession(forceRefresh = lastTokenRejected.also { lastTokenRejected = false })
+                val session = freshSession()
                 val url = request.url.buildString()
-                request.header(HttpHeaders.Authorization, "DPoP ${session.accessToken}")
+                request.header(HttpHeaders.Authorization, "$DPOP_SCHEME${session.accessToken}")
                 request.header(
                     "DPoP",
                     proofs.create(
@@ -127,7 +164,8 @@ class OAuthSessionManager(
                     }
 
                     "invalid_token" in challenge -> {
-                        lastTokenRejected = true
+                        // The token this request carried, as authenticate wrote it.
+                        response.request.headers[HttpHeaders.Authorization]?.removePrefix(DPOP_SCHEME)?.let { refreshIfCurrent(it) }
                         true
                     }
 
@@ -138,3 +176,5 @@ class OAuthSessionManager(
             }
         }
 }
+
+private const val DPOP_SCHEME = "DPoP "
