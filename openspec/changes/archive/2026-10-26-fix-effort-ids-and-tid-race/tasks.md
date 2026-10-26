@@ -19,7 +19,7 @@
 ## 4. Integration
 
 - [x] 4.1 Run `./gradlew check` and confirm it passes (ktfmt, detekt, all targets)
-- [ ] 4.2 Remove C3 and C11 from `docs/reviews/2026-10-23-codebase-review.md`, listing them under "Fixed since the review" with their commits, and update "Suggested order"; verify the doc no longer lists them as open
+- [x] 4.2 Remove C3 and C11 from `docs/reviews/2026-10-23-codebase-review.md`, listing them under "Fixed since the review" with their commits, and update "Suggested order"; verify the doc no longer lists them as open
 
 ## Workflow follow-up
 

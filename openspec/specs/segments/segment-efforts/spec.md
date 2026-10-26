@@ -7,7 +7,7 @@ Defines segment efforts: how the AppView finds where a consenting athlete's acti
 ## Requirements
 
 ### Requirement: Efforts come only from usable segment tracks
-The AppView SHALL match an activity against segments only from its athlete's segment track, and only while that athlete's segment matching is on. It SHALL NOT match from polylines, streams or anything else, and an activity without a usable segment track SHALL have no efforts.
+The AppView SHALL match an activity against segments only from its athlete's segment track, and only while that athlete's segment matching is on. It SHALL NOT match from polylines, streams or anything else, and an activity without a usable segment track SHALL have no efforts. A segment track SHALL NOT be usable when its data can't be read, a piece's arrays differ in length, or a piece's times are negative or go backwards; times that repeat SHALL be allowed. Such a track SHALL give no efforts and no candidate riders, and SHALL remove those an earlier version of it gave.
 
 #### Scenario: Matching off
 - **WHEN** an athlete with matching off publishes a ride along a segment
@@ -16,6 +16,22 @@ The AppView SHALL match an activity against segments only from its athlete's seg
 #### Scenario: Matching turned on later
 - **WHEN** an athlete turns matching on and their earlier ride's segment track arrives
 - **THEN** the ride gets its efforts
+
+#### Scenario: Times going backwards
+- **WHEN** a segment track's piece has a time earlier than the one before it
+- **THEN** its activity has no efforts and its track is counted as a rider of no candidate
+
+#### Scenario: Negative times
+- **WHEN** a segment track's piece starts at a negative time and passes a segment twice
+- **THEN** its activity has no efforts, and the AppView doesn't keep retrying the track
+
+#### Scenario: Repeated times
+- **WHEN** a phone records several samples within one second, so a segment track's piece repeats a time, and the piece passes a segment
+- **THEN** the activity gets its effort on the segment
+
+#### Scenario: Valid track replaced by a malformed one
+- **WHEN** an activity with efforts gets a new segment track whose data can't be read
+- **THEN** the activity's earlier efforts are removed
 
 ### Requirement: An effort is a pass from start to end
 An activity SHALL get an effort on a segment of its sport group each time one piece of its segment track passes within 25 m of the segment's start, then follows the segment's line in order to within 25 m of its end, staying within 30 m of every point of the line. Following the line in reverse SHALL NOT count, and a pass SHALL NOT span two pieces.
