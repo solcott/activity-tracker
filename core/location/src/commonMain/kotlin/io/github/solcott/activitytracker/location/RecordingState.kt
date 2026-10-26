@@ -54,6 +54,9 @@ data class RecordingState(
         Paused,
     }
 
+    /** Whether this is [did]'s recording, recorded or paused, so signing in as [did] belongs on the record screen. */
+    fun inProgressFor(did: String): Boolean = status != Status.Idle && this.did == did
+
     fun elapsed(now: Instant): Duration = activeBeforeSegment + (segmentStartedAt?.let { now - it } ?: Duration.ZERO)
 
     /** This state after [event]. Pure, so the recorder and a replay of the journal agree. */

@@ -100,11 +100,17 @@ class ActivityRecorder(
     suspend fun discard() = forget()
 
     /**
-     * Offers back [did]'s unfinished recording, if it has one and nothing is recording now: rebuilt from the journal, paused at its last
-     * event, [RecordingState.recovered] until it's resumed. Nothing listens for positions until then.
+     * Offers back [did]'s unfinished recording, if it has one: rebuilt from the journal, paused at its last event,
+     * [RecordingState.recovered] until it's resumed. Nothing listens for positions until then. A recording of [did]'s still in progress
+     * (its session expired and it kept going) is left as it is, and so is one with no account. One of another account's stops first, kept
+     * for that account as if it had signed out.
      */
     suspend fun recover(did: String) = mutex.withLock {
-        if (state.value.status != RecordingState.Status.Idle) return@withLock
+        val current = state.value
+        if (current.status != RecordingState.Status.Idle) {
+            if (current.did == null || current.did == did) return@withLock
+            stopForSignOut()
+        }
         val saved = saving { journal.unfinished(did) } ?: return@withLock
         samples.clear()
         samples += saved.samples
@@ -117,8 +123,11 @@ class ActivityRecorder(
     }
 
     /** Stops recording as its account signs out, keeping it saved to be offered back when that account signs in again. */
-    suspend fun suspendForSignOut() = mutex.withLock {
-        if (state.value.status == RecordingState.Status.Idle) return@withLock
+    suspend fun suspendForSignOut() = mutex.withLock { stopForSignOut() }
+
+    /** [suspendForSignOut], under [mutex]. */
+    private suspend fun stopForSignOut() {
+        if (state.value.status == RecordingState.Status.Idle) return
         stopCollecting()
         record(RecordingEvent.Paused(clock.now()))
         samples.clear()

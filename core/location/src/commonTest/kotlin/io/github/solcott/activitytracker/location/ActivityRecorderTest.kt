@@ -2,7 +2,9 @@ package io.github.solcott.activitytracker.location
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -224,6 +226,50 @@ class ActivityRecorderTest {
         recorder.recover(ALICE)
         assertTrue(recorder.state.value.recovered)
         assertEquals(30.0, recorder.state.value.distanceMeters, 0.5)
+    }
+
+    @Test
+    fun signingBackInAfterAnExpiryLeavesTheRunningRecordingAsItIs() = runTest {
+        val recorder = recorder()
+        recorder.start(ALICE)
+        advance(0.seconds)
+        (0..10).forEach { recorder.onSample(at(it * 3.0, it.seconds)) }
+
+        recorder.recover(ALICE)
+
+        assertEquals(RecordingState.Status.Recording, recorder.state.value.status)
+        assertFalse(recorder.state.value.recovered)
+        assertEquals(11, recorder.state.value.sampleCount)
+        assertTrue(recorder.state.value.inProgressFor(ALICE), "signing in lands on it")
+        assertFalse(recorder.state.value.inProgressFor("did:plc:bob"))
+    }
+
+    @Test
+    fun anotherAccountSigningInStopsTheRecordingAndKeepsItForItsAccount() = runTest {
+        val recorder = recorder()
+        recorder.start(ALICE)
+        advance(0.seconds)
+        (0..10).forEach { recorder.onSample(at(it * 3.0, it.seconds)) }
+
+        recorder.recover("did:plc:bob")
+        assertEquals(RecordingState.Status.Idle, recorder.state.value.status, "bob sees no recording")
+        assertFalse(recorder.state.value.inProgressFor(ALICE))
+
+        recorder.recover(ALICE)
+        assertTrue(recorder.state.value.recovered)
+        assertEquals(30.0, recorder.state.value.distanceMeters, 0.5)
+    }
+
+    @Test
+    fun aRecordingWithNoAccountIsLeftAlone() = runTest {
+        val recorder = recorder()
+        recorder.start()
+        advance(0.seconds)
+
+        recorder.recover(ALICE)
+
+        assertEquals(RecordingState.Status.Recording, recorder.state.value.status)
+        assertNull(recorder.state.value.did)
     }
 
     @Test

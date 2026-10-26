@@ -44,6 +44,8 @@ fun App(graph: AppGraph, modifier: Modifier = Modifier, onRootPop: () -> Unit = 
         graph.authRepository.restore()
         restored = true
     }
+    // A session whose refresh was refused ends the way a sign-out does, for as long as the app runs (auth/oauth-session).
+    LaunchedEffect(Unit) { graph.authRepository.endExpiredSessions() }
     val session by graph.authRepository.session.collectAsState()
     setSingletonImageLoaderFactory { context -> ImageLoader.Builder(context).components { add(HeldPhotoFetcher.Factory()) }.build() }
 
@@ -77,14 +79,15 @@ fun App(graph: AppGraph, modifier: Modifier = Modifier, onRootPop: () -> Unit = 
                     CircuitCompositionLocals(sessionGraph.sessionCircuit.circuit) {
                         val backStack = rememberSaveableBackStack(root = FeedScreen)
                         val navigator = rememberCircuitNavigator(backStack = backStack, onRootPop = { onRootPop() })
-                        // An unfinished recording of this account's, from before the app stopped, is offered back first
-                        // (record/gps-recording).
+                        // An unfinished recording of this account's, from before the app stopped, is offered back first, and one
+                        // still going since its session expired is shown as it is (record/gps-recording).
                         LaunchedEffect(Unit) {
                             graph.activityRecorder.recover(current.did.value)
                             // After the first frame: navigating while the root screen is still being placed crashes Compose's insets on
                             // iOS.
                             withFrameNanos {}
-                            if (graph.activityRecorder.state.value.recovered) navigator.goTo(RecordScreen)
+                            val recording = graph.activityRecorder.state.value
+                            if (recording.recovered || recording.inProgressFor(current.did.value)) navigator.goTo(RecordScreen)
                         }
                         // The recording notification was tapped.
                         LaunchedEffect(Unit) {
