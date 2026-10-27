@@ -12,8 +12,10 @@ import kotlin.io.encoding.Base64
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.exists
 import kotlin.io.path.readBytes
+import kotlin.io.path.writeBytes
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFails
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -127,5 +129,45 @@ class DesktopSecretCipherTest {
 
         assertEquals(32, Base64.decode(assertNotNull(store.value)).size)
         assertEquals("token", cipher(store).decrypt(sealed))
+    }
+
+    @Test
+    fun aKeyFileLeftHalfWrittenIsNeverInPlace() = runTest {
+        // A crash after the temporary file was created but before it was renamed.
+        val temp = dirs.data.resolve("secret.key.tmp")
+        temp.writeBytes(ByteArray(5))
+        val sealed = cipher(FakeKeyStore(available = false)).encrypt("token")
+
+        assertEquals(32, keyFile.readBytes().size)
+        assertFalse(temp.exists())
+        if ("posix" in keyFile.fileSystem.supportedFileAttributeViews()) {
+            assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(keyFile)))
+        }
+        assertEquals("token", cipher(FakeKeyStore(available = false)).decrypt(sealed))
+    }
+
+    @Test
+    fun anEmptyKeyFileIsReplacedByANewKey() = runTest {
+        val earlier = cipher(FakeKeyStore(value = Base64.encode(ByteArray(32) { 2 }))).encrypt("token")
+        keyFile.writeBytes(ByteArray(0))
+        val store = FakeKeyStore(available = false)
+
+        assertFails { cipher(store).decrypt(earlier) }
+        assertEquals(32, keyFile.readBytes().size)
+        val sealed = cipher(store).encrypt("token")
+        assertEquals("token", cipher(store).decrypt(sealed))
+        assertTrue(logs.logs.any { it.severity == Severity.Warn && "holds no key" in it.message })
+    }
+
+    @Test
+    fun aDamagedKeyFileGivesWayToTheStoredKey() = runTest {
+        val storedKey = Base64.encode(ByteArray(32) { 3 })
+        val sealed = cipher(FakeKeyStore(value = storedKey)).encrypt("token")
+        keyFile.writeBytes(byteArrayOf(1, 2, 3))
+        val store = FakeKeyStore(value = storedKey)
+
+        assertEquals("token", cipher(store).decrypt(sealed))
+        assertFalse(keyFile.exists())
+        assertEquals(storedKey, store.value)
     }
 }
