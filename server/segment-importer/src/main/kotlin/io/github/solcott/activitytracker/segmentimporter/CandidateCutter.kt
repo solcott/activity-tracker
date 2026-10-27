@@ -26,7 +26,7 @@ internal class Candidate(
     val lengthMeters: Long,
     /** The OSM ways it follows, in its direction of travel; empty for an agency's. */
     val osmWays: List<Long>,
-    val fromRelation: Boolean,
+    val kind: TrailKind,
     val whole: Boolean,
     val source: String = SegmentSource.OSM,
     val license: String = LICENSE_OSM,
@@ -117,7 +117,7 @@ internal class CandidateCutter(data: OsmData) {
             points = line,
             lengthMeters = length.roundToLong(),
             osmWays = if (agency) emptyList() else ways,
-            fromRelation = trail.fromRelation,
+            kind = trail.kind,
             whole = piece.part == null,
             source = trail.rules.source,
             license = trail.rules.license,

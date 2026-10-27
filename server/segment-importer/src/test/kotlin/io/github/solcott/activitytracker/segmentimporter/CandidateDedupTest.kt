@@ -19,15 +19,17 @@ class CandidateDedupTest {
         id: String,
         points: List<GeoPoint> = line,
         group: String = RIDE,
-        relation: Boolean = false,
+        kind: TrailKind = TrailKind.NAMED,
         whole: Boolean = true,
         source: String = SegmentSource.OSM,
-    ) = Candidate(id, group, id, SegmentGeometry.encodePolyline(points), points, 1000, emptyList(), relation, whole, source = source)
+    ) = Candidate(id, group, id, SegmentGeometry.encodePolyline(points), points, 1000, emptyList(), kind, whole, source = source)
 
     @Test
     fun anAgencyTrailWinsOverTheSameOsmTrail() {
         val kept =
-            CandidateDedup.dedup(listOf(candidate("aaa", relation = true), candidate("zzz", nudged, group = RIDE, source = "agency")))
+            CandidateDedup.dedup(
+                listOf(candidate("aaa", kind = TrailKind.RELATION), candidate("zzz", nudged, group = RIDE, source = "agency"))
+            )
         assertEquals(listOf("zzz"), kept.map { it.id })
     }
 
@@ -47,7 +49,7 @@ class CandidateDedupTest {
 
     @Test
     fun aRouteRelationsCandidateWinsOverANamedTrails() {
-        val kept = CandidateDedup.dedup(listOf(candidate("aaa"), candidate("zzz", nudged, relation = true)))
+        val kept = CandidateDedup.dedup(listOf(candidate("aaa"), candidate("zzz", nudged, kind = TrailKind.RELATION)))
         assertEquals(listOf("zzz"), kept.map { it.id })
     }
 
@@ -79,6 +81,6 @@ class CandidateDedupTest {
         val all = TrailBuilder.build(data).filter { it.group == RIDE }.flatMap(cutter::cut)
         val kept = CandidateDedup.dedup(all)
         assertEquals(2, kept.size, "one each way")
-        assertEquals(true, kept.all { it.fromRelation })
+        assertEquals(true, kept.all { it.kind == TrailKind.RELATION })
     }
 }

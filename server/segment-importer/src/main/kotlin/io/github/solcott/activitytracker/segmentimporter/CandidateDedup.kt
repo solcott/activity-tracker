@@ -19,7 +19,9 @@ internal object CandidateDedup {
                 val kept = mutableListOf<Candidate>()
                 val byEnds = mutableMapOf<Pair<Long, Long>, MutableList<Candidate>>()
                 for (candidate in
-                    group.sortedWith(compareBy({ it.source != SegmentSource.AGENCY }, { !it.fromRelation }, { !it.whole }, { it.id }))) {
+                    group.sortedWith(
+                        compareBy({ it.source != SegmentSource.AGENCY }, { it.kind != TrailKind.RELATION }, { !it.whole }, { it.id })
+                    )) {
                     val start = candidate.points.first()
                     val end = candidate.points.last()
                     val near =

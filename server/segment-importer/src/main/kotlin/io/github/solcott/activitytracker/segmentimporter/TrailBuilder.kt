@@ -2,6 +2,12 @@ package io.github.solcott.activitytracker.segmentimporter
 
 import io.github.solcott.activitytracker.location.GeoPoint
 
+/** Where a trail comes from: same-named ways joined end to end, or a route relation. */
+internal enum class TrailKind {
+    NAMED,
+    RELATION,
+}
+
 /**
  * A trail for one sport group: a named line through [nodes], from named ways joined end to end or a route relation's members joined in
  * order. Edge `i` runs from `nodes[i]` to `nodes[i + 1]` along way `edgeWays[i]`, against the way's node order when `edgeReversed[i]`, and
@@ -13,7 +19,7 @@ internal class Trail(
     /** The rules of the source its ways came from: a trail never mixes sources, since they share no nodes. */
     val rules: TrailRules,
     val group: String,
-    val fromRelation: Boolean,
+    val kind: TrailKind,
     val nodes: LongArray,
     val points: List<GeoPoint>,
     val edgeWays: LongArray,
@@ -69,7 +75,7 @@ internal object TrailBuilder {
                             used += way.id
                             chain.addFirst(Placed(way, reversed = way.nodes.first() == first.nodes.first()))
                         }
-                        trail(name, group, fromRelation = false, chain, data)
+                        trail(name, group, TrailKind.NAMED, chain, data)
                     }
             }
 
@@ -89,7 +95,7 @@ internal object TrailBuilder {
                 val joined = current?.let { join(it, way) } ?: false
                 if (!joined) stretches += mutableListOf(Placed(way, reversed = false))
             }
-            stretches.flatMap { chain -> groups.map { group -> trail(name, group, fromRelation = true, chain, data) } }
+            stretches.flatMap { chain -> groups.map { group -> trail(name, group, TrailKind.RELATION, chain, data) } }
         }
 
     /**
@@ -113,7 +119,7 @@ internal object TrailBuilder {
         return true
     }
 
-    private fun trail(name: String, group: String, fromRelation: Boolean, chain: Collection<Placed>, data: OsmData): Trail {
+    private fun trail(name: String, group: String, kind: TrailKind, chain: Collection<Placed>, data: OsmData): Trail {
         val nodes = mutableListOf<Long>()
         val edgeWays = mutableListOf<Long>()
         val edgeReversed = mutableListOf<Boolean>()
@@ -135,7 +141,7 @@ internal object TrailBuilder {
             name = name,
             rules = chain.first().way.rules,
             group = group,
-            fromRelation = fromRelation,
+            kind = kind,
             nodes = nodes.toLongArray(),
             points = nodes.map { requireNotNull(data.coords[it]) },
             edgeWays = edgeWays.toLongArray(),

@@ -55,7 +55,7 @@ class TrailBuilderTest {
         assertEquals(setOf(RUN, HIKE), trails.map { it.group }.toSet())
         trails.forEach { trail ->
             assertEquals("Ridge Loop", trail.name)
-            assertTrue(trail.fromRelation)
+            assertEquals(TrailKind.RELATION, trail.kind)
             assertEquals(listOf(40L, 41L, 42L, 43L), trail.nodes.toList())
             assertEquals(listOf(150L, 151L, 152L), trail.edgeWays.toList())
         }
