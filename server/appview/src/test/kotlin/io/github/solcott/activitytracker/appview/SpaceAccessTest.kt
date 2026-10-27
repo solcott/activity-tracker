@@ -149,6 +149,39 @@ class SpaceAccessTest {
         assertEquals(true, client.authorized(bob, AthleteSpace.FOLLOWERS), "negated: decided by tier again")
     }
 
+    /** [did]'s hosting status, as a Jetstream `#account` event reports it. */
+    private fun account(did: String, active: Boolean, status: String? = null) = runBlocking {
+        indexer.handle(
+            JetstreamEvent.Account(did, "2026-10-21T12:00:00.000000Z", account = JetstreamEvent.Account.Body(did, active, status))
+        )
+    }
+
+    @Test
+    fun anInactiveAccountsTiersAdmitOnlyTheAppViewUntilReactivated() = testApplication {
+        start()
+        policy(alice, null) // A status is kept only for an account with a row.
+        follow(bob, alice)
+        account(alice, active = false, status = "suspended")
+        assertEquals(false, client.authorized(bob, AthleteSpace.FOLLOWERS), "alice is suspended")
+        for (tier in listOf(AthleteSpace.PUBLIC, AthleteSpace.FOLLOWERS, AthleteSpace.MUTUALS, AthleteSpace.SELF)) {
+            assertEquals(true, client.authorized(config.serviceDid, tier), "the AppView keeps syncing: $tier")
+        }
+        assertEquals(true, client.authorized(config.serviceDid, AthleteSpace.INTERACTIONS))
+        account(alice, active = false, status = "deactivated")
+        assertEquals(false, client.authorized(carol, AthleteSpace.PUBLIC), "alice is deactivated")
+        account(alice, active = true)
+        assertEquals(true, client.authorized(bob, AthleteSpace.FOLLOWERS), "reactivated: decided by tier again")
+    }
+
+    @Test
+    fun anInactiveReaderIsDecidedByTier() = testApplication {
+        start()
+        policy(bob, null)
+        follow(bob, alice)
+        account(bob, active = false, status = "suspended")
+        assertEquals(true, client.authorized(bob, AthleteSpace.FOLLOWERS))
+    }
+
     @Test
     fun blockedUserIsDeniedEveryTier() = testApplication {
         start()

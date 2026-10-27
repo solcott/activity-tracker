@@ -13,7 +13,8 @@ import org.slf4j.LoggerFactory
  * Each `app.activitytracker.space.athlete` space is one visibility tier, named by its key. Every decision is an answer, never an error, and
  * anything this AppView doesn't recognise is denied. The PDS admits the authority itself without asking. The AppView's own DID ([self]) may
  * read every tier, so it can sync the activities in them; it serves each one only to the viewers its tier admits. It alone may also read
- * the athlete's [AthleteSpace.INTERACTIONS] space, whose likes it shows only to viewers who may see the liked activity.
+ * the athlete's [AthleteSpace.INTERACTIONS] space, whose likes it shows only to viewers who may see the liked activity. While the athlete's
+ * account isn't served (an inactive hosting status, or `!takedown`), their spaces admit no one else, so the AppView keeps what it indexed.
  */
 class SpaceAccess(private val db: Database, private val self: Did) {
     private val log = LoggerFactory.getLogger(SpaceAccess::class.java)
@@ -39,9 +40,9 @@ class SpaceAccess(private val db: Database, private val self: Did) {
     /** Every other key, [AthleteSpace.SELF] and [AthleteSpace.INTERACTIONS] included, admits no one, and a block admits no one to any. */
     private suspend fun canRead(authority: Did, key: String, user: Did): Boolean = db.tx {
         // A user in a block with the authority, made by either, reads none of their spaces, public included; nor does anyone while the
-        // authority's account is taken down.
+        // authority's account isn't served: taken down, suspended or deactivated. The user's own status doesn't matter, as in visibleTo.
         !isBlocked(user.value, authority.value) &&
-            !labelledOnly(authority.value, LabelValues.TAKEDOWN) &&
+            isAccountServed(authority.value, viewer = null) &&
             when (key) {
                 AthleteSpace.PUBLIC -> true
                 AthleteSpace.FOLLOWERS -> follows(user.value, authority.value)
