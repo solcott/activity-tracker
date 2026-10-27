@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.lexicon.atproto.GetServiceAuth
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.request
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import kotlin.time.Clock
@@ -48,9 +49,11 @@ class ServiceAuthAuthenticator(
         request.header(HttpHeaders.Authorization, "Bearer $token")
     }
 
+    /** On a 401, forgets the refused method's token so the retry mints a new one. Other methods' tokens stay. */
     override suspend fun shouldRetry(response: HttpResponse): Boolean {
         if (response.status.value != HttpStatusCode.Unauthorized.value) return false
-        mutex.withLock { tokens.clear() }
+        val nsid = response.request.url.encodedPath.substringAfterLast("/xrpc/")
+        mutex.withLock { tokens.remove(nsid) }
         return true
     }
 

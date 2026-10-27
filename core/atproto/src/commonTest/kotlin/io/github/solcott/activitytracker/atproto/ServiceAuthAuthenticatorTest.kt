@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.atproto
 
 import io.github.solcott.activitytracker.atproto.xrpc.ServiceAuthAuthenticator
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcClient
+import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -105,6 +106,19 @@ class ServiceAuthAuthenticatorTest {
         appView.query(GetTimeline.method, GetTimeline.Params())
 
         assertEquals(2, minted, "the retry mints a new token")
+    }
+
+    @Test
+    fun anUnauthorizedAnswerKeepsOtherMethodsTokens() = runTest {
+        appView.query(GetTimeline.method, GetTimeline.Params())
+        network.on("appview.test/xrpc/${GetProfile.method.nsid}") {
+            respondJson("""{"error":"AuthRequired"}""", HttpStatusCode.Unauthorized)
+        }
+        runCatching { appView.query(GetProfile.method, GetProfile.Params("did:plc:bob")) }
+        val mintedBefore = minted
+
+        appView.query(GetTimeline.method, GetTimeline.Params())
+        assertEquals(mintedBefore, minted, "the timeline's token is still reused")
     }
 
     private fun appViewCalls() = network.requests.filter { it.url.host == "appview.test" }
