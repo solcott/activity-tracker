@@ -230,7 +230,9 @@ class SpaceSyncer(
                     }
                 page.records.forEach { record ->
                     listed += record.rkey
-                    record.value?.let { indexer.spaceWrite(space, record.collection, record.rkey, record.cid.value, it) }
+                    record.value?.let {
+                        indexer.spaceWrite(space, record.collection, record.rkey, record.cid.value, it, whileSynced = true)
+                    }
                 }
                 cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
             } while (cursor != null)
@@ -264,7 +266,7 @@ class SpaceSyncer(
             val cid = op.cid
             when {
                 cid == null -> indexer.spaceDelete(space, op.collection, op.rkey)
-                value != null -> indexer.spaceWrite(space, op.collection, op.rkey, cid.value, value)
+                value != null -> indexer.spaceWrite(space, op.collection, op.rkey, cid.value, value, whileSynced = true)
                 else -> log.warn("{} op {}/{} at {} has no value; skipped", space, op.collection, op.rkey, op.rev)
             }
         }

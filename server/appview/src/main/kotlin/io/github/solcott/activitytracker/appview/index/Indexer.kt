@@ -49,6 +49,8 @@ import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
 import kotlin.time.Instant
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -60,6 +62,7 @@ import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import org.jetbrains.exposed.v1.jdbc.select
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import org.jetbrains.exposed.v1.jdbc.upsert
 import org.slf4j.LoggerFactory
@@ -94,6 +97,15 @@ class Indexer(
     /** DIDs known to have an `actors` row, whose handle was checked at first sight; later checks come from [recheckHandle]. */
     private val knownActors = ConcurrentHashMap.newKeySet<String>()
 
+    /**
+     * Locks by AT-URI (striped), held around each transaction that writes or deletes a record: Jetstream and the space syncer can index two
+     * copies of one URI at once (a move between the repo and a space), and each decides from the other's row, so they mustn't overlap.
+     */
+    private val uriLocks = Array(URI_LOCK_STRIPES) { Mutex() }
+
+    private suspend fun <T> lockedOn(uri: AtUri, block: suspend () -> T): T =
+        uriLocks[uri.value.hashCode().mod(URI_LOCK_STRIPES)].withLock { block() }
+
     suspend fun handle(event: JetstreamEvent) {
         when (event) {
             is JetstreamEvent.Commit -> {
@@ -125,22 +137,36 @@ class Indexer(
         val record = commit.record
         val cid = commit.cid
         when {
-            commit.operation == "delete" -> db.tx { delete(commit.collection, uri, Placement.REPO) }
+            commit.operation == "delete" -> lockedOn(uri) { db.tx { delete(commit.collection, uri, Placement.REPO) } }
             record != null && cid != null && commit.collection == Nsid.BSKY_GRAPH_BLOCK -> bskyBlocks.put(author, uri, record)
             record != null && cid != null -> index(author, commit.collection, uri, cid, record, Placement.REPO)
         }
     }
 
-    /** A put of [collection]/[rkey] in [space]'s authority repo. Only [spaceCollections] for the space's key are indexed. */
-    suspend fun spaceWrite(space: SpaceUri, collection: String, rkey: String, cid: String, record: JsonObject) {
+    /**
+     * A put of [collection]/[rkey] in [space]'s authority repo. Only [spaceCollections] for the space's key are indexed. [whileSynced] (the
+     * syncer's writes) indexes it only while the space is still synced, checked in the same transaction: an account deleted meanwhile
+     * ([deleteActor]) drops the space first, so a sync still running can't bring its records back.
+     */
+    @Suppress("LongParameterList") // The record, where it's from, and whether its space must still be synced.
+    suspend fun spaceWrite(
+        space: SpaceUri,
+        collection: String,
+        rkey: String,
+        cid: String,
+        record: JsonObject,
+        whileSynced: Boolean = false,
+    ) {
         if (collection !in spaceCollections(space.skey)) return
-        index(space.authority, collection, AtUri.of(space.authority, collection, rkey), cid, record, Placement.of(space))
+        val uri = AtUri.of(space.authority, collection, rkey)
+        index(space.authority, collection, uri, cid, record, Placement.of(space), syncedSpace = space.takeIf { whileSynced })
     }
 
     /** A delete of [collection]/[rkey] in [space]'s authority repo. */
     suspend fun spaceDelete(space: SpaceUri, collection: String, rkey: String) {
         if (collection !in spaceCollections(space.skey)) return
-        db.tx { delete(collection, AtUri.of(space.authority, collection, rkey), Placement.of(space)) }
+        val uri = AtUri.of(space.authority, collection, rkey)
+        lockedOn(uri) { db.tx { delete(collection, uri, Placement.of(space)) } }
     }
 
     /** Everything indexed from [space], after it was deleted: as if each record in it were deleted. */
@@ -168,22 +194,37 @@ class Indexer(
     }
 
     @Suppress("LongParameterList") // The record, and where it's from.
-    private suspend fun index(author: Did, collection: String, uri: AtUri, cid: String, record: JsonObject, placement: Placement) {
+    private suspend fun index(
+        author: Did,
+        collection: String,
+        uri: AtUri,
+        cid: String,
+        record: JsonObject,
+        placement: Placement,
+        syncedSpace: SpaceUri? = null,
+    ) {
         val check = firstSightCheck(author)
         try {
             // Checked before the transaction: the rkey is a SHA-256, which suspends.
             if (collection == Nsid.FEED_COMMENT_HIDE) requireHideKey(uri, record)
-            db.tx {
-                val now = clock.now().toEpochMilliseconds()
-                ensureActor(author, check, now)
-                // Segment tracks and the setting come only from `self` (spaceCollections), so they have no placement to keep.
-                if (collection in SEGMENT_COLLECTIONS) {
-                    upsertSegments(collection, record, author, uri, segmentJobs, now)
-                } else {
-                    val activity = effortActivity(collection, uri)
-                    val before = activity?.let { matchInputs(it) }
-                    upsert(collection, author, uri, cid, record, placement)
-                    if (activity != null) activityChanged(activity, before, segmentJobs, now)
+            lockedOn(uri) {
+                db.tx {
+                    // Locks the space's sync row until this commits, so deleteActor (which drops it first) waits for this write or skips
+                    // it.
+                    if (syncedSpace != null && SpaceSync.selectAll().where { SpaceSync.space eq syncedSpace.value }.forUpdate().empty()) {
+                        return@tx
+                    }
+                    val now = clock.now().toEpochMilliseconds()
+                    ensureActor(author, check, now)
+                    // Segment tracks and the setting come only from `self` (spaceCollections), so they have no placement to keep.
+                    if (collection in SEGMENT_COLLECTIONS) {
+                        upsertSegments(collection, record, author, uri, segmentJobs, now)
+                    } else {
+                        val activity = effortActivity(collection, uri)
+                        val before = activity?.let { matchInputs(it) }
+                        upsert(collection, author, uri, cid, record, placement)
+                        if (activity != null) activityChanged(activity, before, segmentJobs, now)
+                    }
                 }
             }
         } catch (e: SerializationException) {
@@ -314,7 +355,7 @@ class Indexer(
                 if (heldCopy(collection, uri)?.origin != placement.origin) return
                 when (collection) {
                     Nsid.FEED_ACTIVITY -> {
-                        Activities.deleteWhere { Activities.uri eq uri.value }
+                        Activities.deleteWhere { (Activities.uri eq uri.value) and (Activities.origin eq placement.origin) }
                         ActivityMediaBlobs.deleteWhere { activityUri eq uri.value }
                         ActivityMembers.deleteWhere { combinedUri eq uri.value }
                         ActivityGear.deleteWhere { (activityUri eq uri.value) and (listedIn eq ActivityGear.SOURCE_RECORD) }
@@ -427,6 +468,8 @@ class Indexer(
     }
 
     private suspend fun deleteActor(did: Did) = db.tx {
+        // First, so a space sync still running finds its space gone ([spaceWrite]), or this waits for its write and then deletes it too.
+        SpaceSync.deleteWhere { authorityDid eq did.value }
         knownActors -= did.value
         Activities.deleteWhere { authorDid eq did.value }
         ActivityMediaBlobs.deleteWhere { authorDid eq did.value }
@@ -450,12 +493,12 @@ class Indexer(
         dropSegmentTracks(did)
         deleteSegmentsBy(did, segmentJobs, clock.now().toEpochMilliseconds())
         RecordShadows.deleteWhere { uri like "at://${did.value}/%" }
-        SpaceSync.deleteWhere { authorityDid eq did.value }
         Actors.deleteWhere { Actors.did eq did.value }
     }
 
     companion object {
         private const val DELETED = "deleted"
+        private const val URI_LOCK_STRIPES = 64
 
         /** `#account` statuses whose account is kept but not served. */
         private val INACTIVE = setOf("takendown", "suspended", "deactivated")
