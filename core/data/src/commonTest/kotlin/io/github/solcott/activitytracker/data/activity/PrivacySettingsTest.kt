@@ -58,6 +58,19 @@ class PrivacySettingsTest {
         assertSameEnds(trim.segmentedPolylineOf(route + back), settings.shownEnds(route + back, combined = true))
     }
 
+    @Test
+    fun aZoneBetweenSparseSamplesSplitsTheSegmentTrack() {
+        // A sample every 1.1 km, and a zone mid-route that none of them falls in.
+        val sparse = listOf(0, 100, 200, 300).map { at(it) }
+        val shop = PrivacyZone(latitudeE7 = 0, longitudeE7 = 150_000, radiusMeters = 200)
+        val pieces = PrivacySettings(listOf(shop)).pieces(sparse)
+        assertEquals(2, pieces.size)
+        val center = at(150)
+        for (point in pieces.flatten()) assertTrue(TrackMath.distanceMeters(center, point) >= 199.0)
+        assertTrue(TrackMath.distanceMeters(center, pieces[0].last()) in 199.0..201.0)
+        assertTrue(TrackMath.distanceMeters(center, pieces[1].first()) in 199.0..201.0)
+    }
+
     private fun assertSameEnds(published: SegmentedPolyline?, ends: Pair<LocationSample, LocationSample>?) {
         val line = TrackMath.decodePolyline(published!!.polyline)
         val (first, last) = ends!!
