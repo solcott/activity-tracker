@@ -7,17 +7,21 @@ import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.index.MAX_NAME_LENGTH
 import io.github.solcott.activitytracker.appview.index.MAX_TOKEN_LENGTH
+import io.github.solcott.activitytracker.appview.index.duplicatesOf
 import io.github.solcott.activitytracker.appview.index.e7
 import io.github.solcott.activitytracker.appview.index.validAttribution
 import io.github.solcott.activitytracker.appview.index.validLine
 import io.github.solcott.activitytracker.appview.index.validName
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.CheckSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.FinishSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.GetRiddenSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.PutSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidate
+import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateCheck
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateRejection
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidates
 import io.github.solcott.activitytracker.location.GeoPoint
@@ -132,6 +136,37 @@ class SegmentCandidateViews(
                 }
         }
         return GetRiddenSegmentCandidates.Output(page, cursor = page.takeIf { it.size == limit }?.last()?.id)
+    }
+
+    /**
+     * The duplicate test `checkSegment` and indexing apply (segments/segment-import), run on each of the region's staged candidates named
+     * in [input] against the live segments the importer is served, in one transaction; writes nothing. An id not staged in the region is
+     * left out, and so is a staged line that no longer decodes.
+     */
+    suspend fun check(caller: Did, input: CheckSegmentCandidates.Input): CheckSegmentCandidates.Output {
+        requireImporter(caller)
+        requireRegion(input.region)
+        if (input.ids.size > SegmentCandidates.MAX_BATCH)
+            invalid("At most ${SegmentCandidates.MAX_BATCH} ids per call, not ${input.ids.size}")
+        val checked = db.tx {
+            SegmentCandidateRows.select(SegmentCandidateRows.id, SegmentCandidateRows.sport, SegmentCandidateRows.line)
+                .where { (SegmentCandidateRows.region eq input.region) and (SegmentCandidateRows.id inList input.ids.distinct()) }
+                .mapNotNull { row ->
+                    val line = SegmentGeometry.decodePolyline(row[SegmentCandidateRows.line]) ?: return@mapNotNull null
+                    val uris = duplicatesOf(row[SegmentCandidateRows.sport], line)
+                    val served =
+                        if (uris.isEmpty()) {
+                            emptySet()
+                        } else {
+                            Segments.select(Segments.uri)
+                                .where { (Segments.uri inList uris) and served(importer, Segments.authorDid, Segments.uri, Segments.cid) }
+                                .mapTo(mutableSetOf()) { it[Segments.uri] }
+                        }
+                    row[SegmentCandidateRows.id] to uris.filter { it in served }.map(::AtUri)
+                }
+                .toMap()
+        }
+        return CheckSegmentCandidates.Output(input.ids.distinct().mapNotNull { id -> checked[id]?.let { SegmentCandidateCheck(id, it) } })
     }
 
     /** A candidate that passed validation, with its decoded line. */

@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.lexicon.XrpcParams
 import io.github.solcott.activitytracker.lexicon.XrpcProcedure
 import io.github.solcott.activitytracker.lexicon.XrpcQuery
 import io.github.solcott.activitytracker.lexicon.app.CheckSegment
+import io.github.solcott.activitytracker.lexicon.app.CheckSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.FinishSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
 import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
@@ -111,12 +112,13 @@ fun Route.segmentRoutes(segments: SegmentViews, verifier: ServiceAuthVerifier) {
 
 /**
  * The segment importer's candidate calls ([SegmentCandidateViews]; segments/segment-candidates): service auth from the configured importer
- * only. The two procedures write to the AppView's own staging tables, never to a repo or space.
+ * only. `put` and `finish` write to the AppView's own staging tables, never to a repo or space; `check` writes nothing.
  */
 fun Route.segmentCandidateRoutes(candidates: SegmentCandidateViews, verifier: ServiceAuthVerifier) {
     xrpcProcedure(PutSegmentCandidates.method, verifier) { input, caller -> candidates.put(requireViewer(caller), input) }
     xrpcProcedure(FinishSegmentCandidates.method, verifier) { input, caller -> candidates.finish(requireViewer(caller), input) }
     xrpcQuery(GetRiddenSegmentCandidates.method, verifier) { params, viewer -> candidates.ridden(requireViewer(viewer), params) }
+    xrpcProcedure(CheckSegmentCandidates.method, verifier) { input, caller -> candidates.check(requireViewer(caller), input) }
 }
 
 /**
