@@ -60,6 +60,25 @@ class CandidateDedupTest {
     }
 
     @Test
+    fun aSectionsWholeTrailWinsOverAParentTrailThatDuplicatesIt() {
+        val kept = CandidateDedup.dedup(listOf(candidate("aaa", kind = TrailKind.PARENT), candidate("zzz", nudged)))
+        assertEquals(listOf("zzz"), kept.map { it.id })
+    }
+
+    @Test
+    fun aParentTrailWinsOverAStretch() {
+        val kept = CandidateDedup.dedup(listOf(candidate("aaa", whole = false), candidate("zzz", nudged, kind = TrailKind.PARENT)))
+        assertEquals(listOf("zzz"), kept.map { it.id })
+    }
+
+    @Test
+    fun aRouteRelationOverAParentTrailsWaysLeavesOneCandidateOfThatId() {
+        // The same ways between the same ends give both the same id.
+        val kept = CandidateDedup.dedup(listOf(candidate("same", kind = TrailKind.PARENT), candidate("same", kind = TrailKind.RELATION)))
+        assertEquals(listOf(TrailKind.RELATION), kept.map { it.kind })
+    }
+
+    @Test
     fun otherwiseTheLowerIdWins() {
         assertEquals(listOf("bbb"), CandidateDedup.dedup(listOf(candidate("ccc", nudged), candidate("bbb"))).map { it.id })
     }

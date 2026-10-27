@@ -7,8 +7,8 @@ import io.github.solcott.activitytracker.location.SegmentGeometry
 /**
  * Drops candidates that duplicate another of their sport group by the AppView's test ([SegmentGeometry.duplicates]), keeping an agency's
  * over OSM's (the land manager's statement of allowed use, in the public domain), a route relation's over a named way's, a whole trail over
- * a stretch, then the lower id. Only candidates whose ends share cells are compared, since a duplicate's ends lie within the test's
- * distance of each other's.
+ * a stretch, a trail of one name over a parent trail of sections, then the lower id. Only candidates whose ends share cells are compared,
+ * since a duplicate's ends lie within the test's distance of each other's.
  */
 internal object CandidateDedup {
     fun dedup(candidates: List<Candidate>): List<Candidate> =
@@ -20,7 +20,13 @@ internal object CandidateDedup {
                 val byEnds = mutableMapOf<Pair<Long, Long>, MutableList<Candidate>>()
                 for (candidate in
                     group.sortedWith(
-                        compareBy({ it.source != SegmentSource.AGENCY }, { it.kind != TrailKind.RELATION }, { !it.whole }, { it.id })
+                        compareBy(
+                            { it.source != SegmentSource.AGENCY },
+                            { it.kind != TrailKind.RELATION },
+                            { !it.whole },
+                            { it.kind == TrailKind.PARENT },
+                            { it.id },
+                        )
                     )) {
                     val start = candidate.points.first()
                     val end = candidate.points.last()

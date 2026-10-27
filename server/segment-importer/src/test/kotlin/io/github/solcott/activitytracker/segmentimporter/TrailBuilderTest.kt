@@ -111,4 +111,130 @@ class TrailBuilderTest {
         assertEquals(listOf(true, true), plunge.forward.toList())
         assertEquals(listOf(false, true), plunge.backward.toList())
     }
+
+    private fun down(name: String) = path(name, "oneway" to "yes")
+
+    private fun parents(data: OsmData) = TrailBuilder.build(data).filter { it.group == RIDE && it.kind == TrailKind.PARENT }
+
+    @Test
+    fun sectionsMeetingEndToEndAlsoFormTheirParentTrail() {
+        val data = osm {
+            column(1L..4L, -72.7)
+            way(10, 1, 2, tags = down("Rush Trail - Tom Sawyer Section"))
+            way(11, 2, 3, tags = down("Rush Trail"))
+            way(12, 3, 4, tags = down("Rush Trail - 2112 Section"))
+        }
+        val rush = parents(data).single()
+        assertEquals("Rush Trail", rush.name)
+        assertEquals(listOf(1L, 2L, 3L, 4L), rush.nodes.toList())
+        assertEquals(listOf(true, true, true), rush.forward.toList())
+        assertEquals(listOf(false, false, false), rush.backward.toList())
+        assertEquals(3, TrailBuilder.build(data).count { it.group == RIDE && it.kind == TrailKind.NAMED }, "each section is still a trail")
+    }
+
+    @Test
+    fun aFamilyOfOneNameHasNoParentTrail() {
+        val data = osm {
+            column(1L..3L, -72.7)
+            way(10, 1, 2, tags = path("Oak Trail - Upper Section"))
+            way(11, 2, 3, tags = path("Oak Trail - Upper Section"))
+        }
+        assertEquals(emptyList(), parents(data))
+    }
+
+    @Test
+    fun aTwoWayFamilyIsOneParentTrailBothWays() {
+        val data = osm {
+            column(1L..3L, -72.7)
+            way(10, 1, 2, tags = path("Ridge Trail - North Section"))
+            way(11, 3, 2, tags = path("Ridge Trail - South Section"))
+        }
+        val ridge = parents(data).single()
+        assertEquals("Ridge Trail", ridge.name)
+        assertTrue(ridge.forward.all { it } && ridge.backward.all { it })
+    }
+
+    @Test
+    fun aForkThatRejoinsGivesAParentTrailPerBranch() {
+        val data = osm {
+            column(1L..2L, -72.7)
+            node(3, north(44.4, 500.0), -72.695)
+            node(4, north(44.4, 500.0), -72.705)
+            node(5, north(44.4, 750.0), -72.7)
+            node(6, north(44.4, 1000.0), -72.7)
+            way(10, 1, 2, tags = down("Rush Trail - Tom Sawyer Section"))
+            way(11, 2, 3, 5, tags = down("Rush Trail - Exit Stage Left Section"))
+            way(12, 2, 4, 5, tags = down("Rush Trail - Through the Trees Trail Section"))
+            way(13, 5, 6, tags = down("Rush Trail"))
+        }
+        assertEquals(
+            setOf("Rush Trail via Exit Stage Left Section", "Rush Trail via Through the Trees Trail Section"),
+            parents(data).map { it.name }.toSet(),
+        )
+    }
+
+    @Test
+    fun anEntryJoiningPartwayDownIsNamedFromItsFirstSection() {
+        val data = osm {
+            column(1L..2L, -72.7)
+            node(3, north(44.4, 500.0), -72.695)
+            node(4, north(44.4, 500.0), -72.705)
+            node(5, north(44.4, 750.0), -72.7)
+            node(6, north(44.4, 1000.0), -72.7)
+            node(7, north(44.4, 750.0), -72.69)
+            way(10, 1, 2, tags = down("Rush Trail - Tom Sawyer Section"))
+            way(11, 2, 3, 5, tags = down("Rush Trail - Exit Stage Left Section"))
+            way(12, 2, 4, 5, tags = down("Rush Trail - Through the Trees Trail Section"))
+            way(13, 5, 6, tags = down("Rush Trail - Mystic Rhythms Section"))
+            // A bare "Rush Trail" way joining at the top of Mystic Rhythms from elsewhere.
+            way(14, 7, 5, tags = down("Rush Trail"))
+        }
+        assertEquals(
+            setOf(
+                "Rush Trail via Exit Stage Left Section",
+                "Rush Trail via Through the Trees Trail Section",
+                "Rush Trail from Mystic Rhythms Section",
+            ),
+            parents(data).map { it.name }.toSet(),
+        )
+    }
+
+    @Test
+    fun aFamilyWithTooManyPathsKeepsOnlyItsLongest() {
+        val data = osm {
+            column(1L..2L, -72.7)
+            // Three ways from 2 to 6, one by a detour to the east, then two ways from 6 to 9: six paths.
+            node(3, north(44.4, 500.0), -72.69)
+            node(4, north(44.4, 500.0), -72.7)
+            node(5, north(44.4, 500.0), -72.71)
+            node(6, north(44.4, 750.0), -72.7)
+            node(7, north(44.4, 1000.0), -72.699)
+            node(8, north(44.4, 1000.0), -72.701)
+            node(9, north(44.4, 1250.0), -72.7)
+            way(10, 1, 2, tags = down("Rush Trail - Tom Sawyer Section"))
+            way(11, 2, 3, 6, tags = down("Rush Trail - East Section"))
+            way(12, 2, 4, 6, tags = down("Rush Trail - Middle Section"))
+            way(13, 2, 5, 6, tags = down("Rush Trail - West Section"))
+            way(14, 6, 7, 9, tags = down("Rush Trail - Left Section"))
+            way(15, 6, 8, 9, tags = down("Rush Trail - Right Section"))
+        }
+        val longest = parents(data).single()
+        assertEquals("Rush Trail", longest.name)
+        assertTrue(11L in longest.ways, "the detour east is the longest")
+    }
+
+    @Test
+    fun aWayMeetingAFamilyMidWayIsOnNoParentTrail() {
+        val data = osm {
+            column(1L..4L, -72.7)
+            node(5, north(44.4, 500.0), -72.69)
+            way(10, 1, 2, tags = down("Rush Trail - Dreamline Section"))
+            way(11, 2, 3, 4, tags = down("Rush Trail - Limelight Section"))
+            // A second Limelight way, a feeder that ends in the middle of the main one.
+            way(12, 5, 3, tags = down("Rush Trail - Limelight Section"))
+        }
+        val rush = parents(data).single()
+        assertEquals(listOf(1L, 2L, 3L, 4L), rush.nodes.toList())
+        assertEquals(setOf(10L, 11L), rush.ways)
+    }
 }

@@ -1,11 +1,13 @@
 package io.github.solcott.activitytracker.segmentimporter
 
 import io.github.solcott.activitytracker.location.GeoPoint
+import io.github.solcott.activitytracker.location.SegmentGeometry
 
-/** Where a trail comes from: same-named ways joined end to end, or a route relation. */
+/** Where a trail comes from: same-named ways joined end to end, a route relation, or a family of sectioned ways (a parent trail). */
 internal enum class TrailKind {
     NAMED,
     RELATION,
+    PARENT,
 }
 
 /**
@@ -35,8 +37,17 @@ internal class Trail(
 internal object TrailBuilder {
     fun build(data: OsmData): List<Trail> {
         val usable = data.ways.filter { way -> way.nodes.size >= 2 && way.nodes.all { data.coords[it] != null } }.associateBy { it.id }
-        return namedTrails(usable.values, data) + relationTrails(data.relations, usable, data)
+        return namedTrails(usable.values, data) + relationTrails(data.relations, usable, data) + parentTrails(usable.values, data)
     }
+
+    /** How many parent trails a family keeps per group; with more paths, it keeps only its longest. */
+    private const val MAX_PARENT_PATHS = 4
+
+    /** How many steps a family's path search may take per group before it settles for the paths found so far. */
+    private const val PARENT_SEARCH_STEPS = 1_000
+
+    /** The family a way named [name] belongs to: the part before the first `" - "`, or the whole name. */
+    fun familyOf(name: String): String = name.substringBefore(" - ").trim().ifEmpty { name }
 
     /** A way placed in a trail: [reversed] when the trail runs against the way's node order. */
     private data class Placed(val way: OsmWay, val reversed: Boolean) {
@@ -97,6 +108,80 @@ internal object TrailBuilder {
             }
             stretches.flatMap { chain -> groups.map { group -> trail(name, group, TrailKind.RELATION, chain, data) } }
         }
+
+    /**
+     * Parent trails: OSM ways named `<Parent>` or `<Parent> - <Section>` joined at their ends along each path through them that their ways
+     * allow, from a way nothing joins into to one that joins into nothing further, crossing at least two names. Only ends join, so a way
+     * meeting the family mid-way is on no path. A path and its reverse are one trail. A family keeps up to [MAX_PARENT_PATHS], or only its
+     * longest when it has more, each named after its first section that is on none of the others, or else its first section.
+     */
+    private fun parentTrails(ways: Collection<OsmWay>, data: OsmData): List<Trail> =
+        ways
+            .filter { it.rules == TrailTags }
+            .flatMap { way ->
+                way.name?.let { name -> way.rules.wayGroups(way.tags).map { group -> Triple(group, familyOf(name), way) } }.orEmpty()
+            }
+            .groupBy({ (group, family, _) -> group to family }, { it.third })
+            .filter { (key, family) -> family.any { it.name != key.second } }
+            .flatMap { (key, family) ->
+                val (group, name) = key
+                val paths =
+                    familyPaths(name, group, family)
+                        .filter { path -> path.mapTo(mutableSetOf()) { it.way.name }.size >= 2 }
+                        .distinctBy { path -> path.mapTo(mutableSetOf()) { it.way.id } }
+                val kept = if (paths.size > MAX_PARENT_PATHS) listOf(paths.maxBy { lengthOf(it, data) }) else paths
+                kept.map { path ->
+                    val trailName = if (kept.size == 1) name else viaName(name, path, kept)
+                    trail(trailName, group, TrailKind.PARENT, path, data)
+                }
+            }
+
+    /**
+     * Every path through [family]'s ways joined at their ends, each way in a direction it allows for [group]: from a way nothing else joins
+     * into, along ways not yet on the path, to where none continues. Stops after [PARENT_SEARCH_STEPS] steps, keeping what it found.
+     */
+    private fun familyPaths(name: String, group: String, family: List<OsmWay>): List<List<Placed>> {
+        val steps = family.flatMap { way ->
+            val (along, against) = way.rules.directions(way.tags, group)
+            listOfNotNull(Placed(way, reversed = false).takeIf { along }, Placed(way, reversed = true).takeIf { against })
+        }
+        val from = steps.groupBy { it.nodes.first() }
+        val into = steps.groupBy { it.nodes.last() }
+        val paths = mutableListOf<List<Placed>>()
+        var budget = PARENT_SEARCH_STEPS
+        fun walk(path: List<Placed>) {
+            val next = from[path.last().nodes.last()].orEmpty().filter { step -> path.none { it.way.id == step.way.id } }
+            if (next.isEmpty()) paths += path
+            for (step in next) {
+                if (budget-- <= 0) return
+                walk(path + step)
+            }
+        }
+        for (start in steps) {
+            if (budget <= 0) break
+            if (into[start.nodes.first()].orEmpty().none { it.way.id != start.way.id }) walk(listOf(start))
+        }
+        if (budget <= 0) println("Searched only part of the $group ways of $name for parent trails; kept the paths found")
+        return paths
+    }
+
+    /**
+     * [path]'s name among [paths]: `<name> via <section>` after its first section that no other path follows, or, when the others follow
+     * all its sections, `<name> from <section>` after its first, so an entry that joins partway down doesn't read as the whole trail.
+     */
+    private fun viaName(name: String, path: List<Placed>, paths: List<List<Placed>>): String {
+        val elsewhere = paths.filter { it !== path }.flatMapTo(mutableSetOf()) { other -> other.map { it.way.name } }
+        val sections = path.mapNotNull { it.way.name }.filter { it != name }
+        sections
+            .firstOrNull { it !in elsewhere }
+            ?.let {
+                return "$name via ${it.substringAfter(" - ")}"
+            }
+        return sections.firstOrNull()?.let { "$name from ${it.substringAfter(" - ")}" } ?: name
+    }
+
+    private fun lengthOf(path: List<Placed>, data: OsmData): Double =
+        path.flatMap { it.nodes }.mapNotNull { data.coords[it] }.zipWithNext().sumOf { (a, b) -> SegmentGeometry.distanceMeters(a, b) }
 
     /**
      * Adds [way] to the end of [chain] if it meets the chain's end, turning the chain's only way around first if that's what joins them.

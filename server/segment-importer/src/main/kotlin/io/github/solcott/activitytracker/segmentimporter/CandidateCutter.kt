@@ -36,9 +36,9 @@ internal class Candidate(
 )
 
 /**
- * Cuts [Trail]s into candidates: the whole trail, and its stretches between junctions with named ways that aren't its own, joined until
- * each reaches the group's minimum; each in every direction all its edges allow. Lines are simplified and kept only within the group's
- * length bounds, measured on the simplified line as the AppView measures it.
+ * Cuts [Trail]s into candidates: the whole trail, and, unless it's a parent trail, its stretches between junctions with named ways that
+ * aren't its own, joined until each reaches the group's minimum; each in every direction all its edges allow. Lines are simplified and kept
+ * only within the group's length bounds, measured on the simplified line as the AppView measures it.
  */
 internal class CandidateCutter(data: OsmData) {
     /** The named ways through each node, for junctions and their names. */
@@ -73,7 +73,9 @@ internal class CandidateCutter(data: OsmData) {
 
         val pieces = buildList {
             add(Piece(0..last, part = null))
-            if (stretches.size > 1) stretches.forEachIndexed { k, range -> add(Piece(range, part = k + 1)) }
+            // A parent trail's stretches are its sections' own candidates.
+            if (stretches.size > 1 && trail.kind != TrailKind.PARENT)
+                stretches.forEachIndexed { k, range -> add(Piece(range, part = k + 1)) }
         }
         return pieces.flatMap { piece -> directions(trail, piece) }
     }
