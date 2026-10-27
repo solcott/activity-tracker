@@ -14,6 +14,9 @@ object PerSecond {
     /** How many of the stream's median gaps a sample holds across, so steady 10–30 s recording counts in full. */
     const val HOLD_INTERVALS = 2
 
+    /** The most seconds [hold] and [clock] give: a week, past any real activity, so untrusted times can't exhaust memory. */
+    const val MAX_SECONDS = 7 * 24 * 60 * 60
+
     /** Fewer gaps than this say nothing about the recording interval (two samples 10 minutes apart are a pause), so 5 s holds. */
     private const val MIN_GAPS_FOR_INTERVAL = 3
 
@@ -37,15 +40,19 @@ object PerSecond {
         val interval = if (positive.size >= MIN_GAPS_FOR_INTERVAL) median(positive) else 0
         val limit = maxOf(MAX_HOLD_SECONDS, HOLD_INTERVALS * interval)
         val seconds = mutableListOf<Int>()
-        samples.forEachIndexed { i, (_, value) ->
+        // Times come from files and other athletes' records, so a gap can be years: never more than MAX_SECONDS in all.
+        fun add(count: Int, value: Int) = repeat(minOf(count, MAX_SECONDS - seconds.size)) { seconds += value }
+        for ((i, sample) in samples.withIndex()) {
+            if (seconds.size >= MAX_SECONDS) break
+            val value = sample.second
             val gap = gaps.getOrNull(i) ?: 1
             when {
-                gap in 1..limit -> repeat(gap) { seconds += value }
+                gap in 1..limit -> add(gap, value)
                 pauseValue != null && gap > limit -> {
-                    seconds += value
-                    repeat(gap - 1) { seconds += pauseValue }
+                    add(1, value)
+                    add(gap - 1, pauseValue)
                 }
-                else -> seconds += value
+                else -> add(1, value)
             }
         }
         return seconds

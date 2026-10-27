@@ -45,4 +45,12 @@ class PerSecondTest {
         val samples = listOf(0.0 to 100, 600.0 to 300)
         assertEquals(listOf(100, 300), PerSecond.hold(samples))
     }
+
+    @Test
+    fun aHugeGapIsCappedRatherThanFilled() {
+        val apart = listOf(0.0 to 200, 2_000_000_000.0 to 210)
+        assertEquals(PerSecond.MAX_SECONDS, PerSecond.clock(apart).size)
+        val evenlyApart = listOf(0.0 to 200, 1e9 to 210, 2e9 to 220, 3e9 to 230)
+        assertEquals(PerSecond.MAX_SECONDS, PerSecond.hold(evenlyApart).size)
+    }
 }
