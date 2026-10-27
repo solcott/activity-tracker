@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.atproto.xrpc
 
+import io.github.solcott.activitytracker.atproto.crypto.jwtPayload
 import io.github.solcott.activitytracker.lexicon.atproto.GetServiceAuth
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
@@ -7,15 +8,22 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import kotlin.time.Clock
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 
 /**
  * Authenticates direct calls to the AppView with short-lived service-auth JWTs minted by the user's PDS
  * (`com.atproto.server.getServiceAuth`), bound to the AppView DID and the method NSID. [pds] must be an authenticated client for the
  * signed-in account; null means anonymous reads.
+ *
+ * The PDS sets each token's expiry by its own clock, so a device clock that's off never gets a token refused. A token is reused for the
+ * lifetime it states (`exp - iat`, both the PDS's), counted on [clock] from when it arrived, so the offset cancels out. A token whose
+ * claims can't be read is sent once and not reused: the AppView decides whether it's good.
  */
 class ServiceAuthAuthenticator(
     private val pds: () -> XrpcClient?,
@@ -28,21 +36,12 @@ class ServiceAuthAuthenticator(
     override suspend fun authenticate(request: HttpRequestBuilder, nsid: String) {
         val client = pds() ?: return
         val token = mutex.withLock {
-            tokens[nsid]?.takeIf { (_, exp) -> exp - 10.seconds > clock.now() }?.first
+            tokens[nsid]?.takeIf { (_, expiresAt) -> expiresAt > clock.now() }?.first
                 ?: run {
-                    val exp = clock.now() + TOKEN_LIFETIME
-                    val minted =
-                        client
-                            .query(
-                                GetServiceAuth.method,
-                                GetServiceAuth.Params(
-                                    aud = appViewDid,
-                                    lxm = nsid,
-                                    exp = exp.epochSeconds,
-                                ),
-                            )
-                            .token
-                    tokens[nsid] = minted to exp
+                    val minted = client.query(GetServiceAuth.method, GetServiceAuth.Params(aud = appViewDid, lxm = nsid)).token
+                    val lifetime = lifetimeOf(minted)
+                    if (lifetime != null && lifetime > MARGIN) tokens[nsid] = minted to clock.now() + lifetime - MARGIN
+                    else tokens.remove(nsid)
                     minted
                 }
         }
@@ -55,11 +54,20 @@ class ServiceAuthAuthenticator(
         return true
     }
 
-    fun clear() {
-        tokens.clear()
-    }
+    /** The token's `exp - iat`, or null when it isn't a JWT carrying both with `exp` after `iat`. */
+    private fun lifetimeOf(token: String): Duration? =
+        try {
+            val claims = jwtPayload(token)
+            val iat = claims["iat"]?.jsonPrimitive?.longOrNull
+            val exp = claims["exp"]?.jsonPrimitive?.longOrNull
+            if (iat != null && exp != null && exp > iat) (exp - iat).seconds else null
+        } catch (_: IllegalArgumentException) {
+            // Not a JWT, or its payload isn't JSON (SerializationException is one too).
+            null
+        }
 
     private companion object {
-        val TOKEN_LIFETIME = 60.seconds
+        /** How long before a token's stated end it's no longer reused. */
+        val MARGIN = 10.seconds
     }
 }
