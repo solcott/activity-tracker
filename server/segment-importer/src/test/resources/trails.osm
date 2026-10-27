@@ -24,6 +24,17 @@
   <node id="70" version="1" lat="44.4071946" lon="-72.6600000"/>
   <node id="71" version="1" lat="44.4035973" lon="-72.6600000"/>
   <node id="72" version="1" lat="44.4000000" lon="-72.6600000"/>
+  <node id="80" version="1" lat="44.4000000" lon="-72.6600000"/>
+  <node id="81" version="1" lat="44.4044966" lon="-72.6600000"/>
+  <node id="82" version="1" lat="44.4089932" lon="-72.6550000"/>
+  <node id="83" version="1" lat="44.4089932" lon="-72.6650000"/>
+  <node id="84" version="1" lat="44.4134898" lon="-72.6600000"/>
+  <node id="85" version="1" lat="44.4139898" lon="-72.6600000"/>
+  <node id="86" version="1" lat="44.4184864" lon="-72.6600000"/>
+  <node id="87" version="1" lat="44.4229830" lon="-72.6600000"/>
+  <node id="88" version="1" lat="44.4184864" lon="-72.6550000"/>
+  <node id="89" version="1" lat="44.4134898" lon="-72.6700000"/>
+  <node id="90" version="1" lat="44.4134898" lon="-72.6500000"/>
   <way id="100" version="1">
     <nd ref="1"/>
     <nd ref="2"/>
@@ -93,6 +104,58 @@
     <tag k="name" v="Plunge"/>
     <tag k="mtb:scale" v="3"/>
     <tag k="oneway" v="yes"/>
+  </way>
+  <way id="170" version="1">
+    <nd ref="80"/>
+    <nd ref="81"/>
+    <tag k="highway" v="path"/>
+    <tag k="name" v="Rush Trail - Tom Sawyer Section"/>
+    <tag k="oneway" v="yes"/>
+  </way>
+  <way id="171" version="1">
+    <nd ref="81"/>
+    <nd ref="82"/>
+    <nd ref="84"/>
+    <tag k="highway" v="path"/>
+    <tag k="name" v="Rush Trail - Exit Stage Left Section"/>
+    <tag k="oneway" v="yes"/>
+  </way>
+  <way id="172" version="1">
+    <nd ref="81"/>
+    <nd ref="83"/>
+    <nd ref="84"/>
+    <tag k="highway" v="path"/>
+    <tag k="name" v="Rush Trail - Through the Trees Trail Section"/>
+    <tag k="oneway" v="yes"/>
+  </way>
+  <way id="173" version="1">
+    <nd ref="84"/>
+    <nd ref="85"/>
+    <tag k="highway" v="path"/>
+    <tag k="name" v="Rush Trail - Mystic Rhythms Section"/>
+    <tag k="oneway" v="yes"/>
+  </way>
+  <way id="174" version="1">
+    <nd ref="85"/>
+    <nd ref="86"/>
+    <nd ref="87"/>
+    <tag k="highway" v="path"/>
+    <tag k="name" v="Rush Trail - Limelight Section"/>
+    <tag k="oneway" v="yes"/>
+  </way>
+  <way id="175" version="1">
+    <nd ref="88"/>
+    <nd ref="86"/>
+    <tag k="highway" v="path"/>
+    <tag k="name" v="Rush Trail - Limelight Section"/>
+    <tag k="oneway" v="yes"/>
+  </way>
+  <way id="176" version="1">
+    <nd ref="89"/>
+    <nd ref="84"/>
+    <nd ref="90"/>
+    <tag k="highway" v="path"/>
+    <tag k="name" v="Canyon Hollow Trail"/>
   </way>
   <relation id="200" version="1">
     <member type="way" ref="150" role=""/>

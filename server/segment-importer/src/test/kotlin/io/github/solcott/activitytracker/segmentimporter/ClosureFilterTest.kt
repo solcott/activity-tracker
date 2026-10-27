@@ -30,7 +30,7 @@ class ClosureFilterTest {
             points,
             SegmentGeometry.lengthMeters(points).toLong(),
             osmWays = if (source == SegmentSource.OSM) listOf(100L) else emptyList(),
-            fromRelation = false,
+            kind = TrailKind.NAMED,
             whole = true,
             source = source,
         )

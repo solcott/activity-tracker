@@ -1,6 +1,6 @@
 # Segment importer
 
-Turns public trail data (OpenStreetMap and US agency datasets) into candidate segments (`openspec/specs/segments/trail-candidates`), offline. It is a command-line tool, separate from the AppView, which stays an indexer. Each candidate is a line that could become a `feed.segment`: a whole named trail or route, or a stretch of one between junctions, for one sport group, in each direction the trail may be travelled. Staging candidates in the AppView and publishing the ridden ones come later (`segment-candidate-ridership`, `segment-import-publishing`).
+Turns public trail data (OpenStreetMap and US agency datasets) into candidate segments (`openspec/specs/segments/trail-candidates`), offline. It is a command-line tool, separate from the AppView, which stays an indexer. Each candidate is a line that could become a `feed.segment`: a whole named trail or route, a whole trail OSM maps as named sections, or a stretch of one between junctions, for one sport group, in each direction the trail may be travelled. Staging candidates in the AppView and publishing the ridden ones come later (`segment-candidate-ridership`, `segment-import-publishing`).
 
 ## Extract
 
@@ -21,6 +21,17 @@ An OSM candidate's id stays the same while it follows the same ways between the 
 Wrote 2554 candidates for us-vermont to build/us-vermont.ndjson: 876 hike, 398 ride, 876 run, 404 ski
 Left out 12 ride candidates along agency closures
 ```
+
+## Parent trails
+
+OSM often maps a known trail as a chain of sections with names of their own and no route relation over them, such as Corner Canyon's Rush descent: `Rush Trail - Tom Sawyer Section`, `Rush Trail - 2112 Section`, `Rush Trail - Limelight Section` and a way named just `Rush Trail`. Ways named `<Parent>` or `<Parent> - <Section>` form a family per sport group. Besides each name's own trail, every path through the family's ways joined at their ends, in a direction the ways allow and crossing at least two names, is a parent trail named `<Parent>`:
+
+- Where the family forks, each path is its own parent trail, named after its first section on no other path: `Rush Trail via Exit Stage Left Section` and `Rush Trail via Through the Trees Trail Section`. A path whose sections are all on other paths too, such as an entry that joins partway down, is named after its first section instead: `Rush Trail from Mystic Rhythms Section`. A family keeps at most 4 parent trails per sport group, counting a path and its reverse as one, or only its longest when it has more.
+- Ways join only at their ends, so a way that meets the family in the middle of a section, such as a feeder into Limelight, is on no parent trail.
+- A parent trail gives its whole candidate and, where a named trail or road from outside the family meets it between two differently named sections, a span from its start to that junction and one from the junction to its end. Riders start and stop runs at those crossings: Rush is mostly ridden from Tom Sawyer to where Canyon Hollow Trail meets the top of Dreamline, which gives `Rush Trail via Exit Stage Left Section to Canyon Hollow Trail`. A span is named `<trail> to <junction>` or `<trail> from <junction>` in its direction of travel, after its own parent trail when it follows a way no other parent trail of the family does, and else after the family, so a span every branch shares, such as `Rush Trail from Canyon Hollow Trail`, is one candidate. A junction is named after its way's family, so `Bonneville Shoreline Trail - Draper Section` reads `Bonneville Shoreline Trail`. A span of a single section is left out, and a parent trail gives no other stretches: those are its sections' own. A section too short for a candidate of its own still counts as part of the parent.
+- When candidates duplicate each other, a route relation's wins over a parent trail's, and a single section's whole trail wins over a parent trail that adds only a short piece to it.
+
+Agency datasets don't form families: their features already join at shared ends whatever their names.
 
 ## Agency trail data
 
@@ -76,7 +87,7 @@ Raise the heap with `JAVA_OPTS=-Xmx6g` if needed.
 
 ## Test fixture
 
-`src/test/resources/trails.osm` is a hand-written extract: a mountain-bike trail crossed by a named road, an unnamed side path, a private track, a sidewalk, a one-way descent and a hiking route over unnamed paths. `trails.osm.pbf` is built from it, and `ExtractTest` checks the importer's output on it against `expected-candidates.ndjson`. After editing `trails.osm`, rebuild the PBF and the expected output, then review both diffs:
+`src/test/resources/trails.osm` is a hand-written extract: a mountain-bike trail crossed by a named road, an unnamed side path, a private track, a sidewalk, a one-way descent, a hiking route over unnamed paths, and a one-way family of named sections that forks and rejoins, with a section shorter than any group's minimum and a feeder ending in the middle of a section, crossed by a named trail where its branches rejoin. `trails.osm.pbf` is built from it, and `ExtractTest` checks the importer's output on it against `expected-candidates.ndjson`. After editing `trails.osm`, rebuild the PBF and the expected output, then review both diffs:
 
 ```bash
 osmium cat server/segment-importer/src/test/resources/trails.osm -o server/segment-importer/src/test/resources/trails.osm.pbf -O --output-header="osmosis_replication_timestamp=2026-10-01T00:00:00Z"

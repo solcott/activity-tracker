@@ -102,7 +102,7 @@ class StageTest {
                     emptyList(),
                     900,
                     listOf(1L, 2L),
-                    fromRelation = false,
+                    kind = TrailKind.NAMED,
                     whole = true,
                 )
             )
