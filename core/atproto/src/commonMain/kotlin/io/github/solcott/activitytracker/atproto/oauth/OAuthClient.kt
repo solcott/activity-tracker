@@ -72,6 +72,7 @@ class OAuthClient(
                     revocationEndpoint = server.revocationEndpoint,
                     expectedDid = account.did,
                     dpopNonce = nonce,
+                    issRequired = server.issParameterSupported,
                 ),
         )
     }
@@ -118,7 +119,10 @@ class OAuthClient(
         )
     }
 
-    /** Validates the redirect's query params against [pending] and returns the authorization code. */
+    /**
+     * Validates the redirect's query params against [pending] and returns the authorization code. An `iss` must be the expected issuer, and
+     * must be there when the server advertised it (RFC 9207), so another server's response can't be replayed into this sign-in.
+     */
     private fun authorizationCode(pending: PendingAuthorization, callback: Map<String, String>): String {
         val code = callback["code"]
         val failure =
@@ -126,6 +130,7 @@ class OAuthClient(
                 "error" in callback -> "Authorization failed: ${callback["error"]} ${callback["error_description"].orEmpty()}"
                 callback["state"] != pending.state -> "State mismatch"
                 callback["iss"] != null && callback["iss"] != pending.issuer -> "Issuer mismatch"
+                callback["iss"] == null && pending.issRequired -> "Missing issuer"
                 code == null -> "Missing authorization code"
                 else -> return code
             }

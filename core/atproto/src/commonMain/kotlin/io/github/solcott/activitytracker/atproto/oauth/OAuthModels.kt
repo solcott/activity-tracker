@@ -22,6 +22,8 @@ internal data class AuthorizationServerMetadata(
     @SerialName("pushed_authorization_request_endpoint") val parEndpoint: String,
     @SerialName("revocation_endpoint") val revocationEndpoint: String? = null,
     @SerialName("dpop_signing_alg_values_supported") val dpopAlgs: List<String> = emptyList(),
+    /** RFC 9207: the server puts `iss` on every authorization response. */
+    @SerialName("authorization_response_iss_parameter_supported") val issParameterSupported: Boolean = false,
 )
 
 @Serializable
@@ -61,6 +63,10 @@ data class PendingAuthorization(
     /** Known up front when the user signed in with a handle/DID. */
     val expectedDid: Did?,
     val dpopNonce: String? = null,
+    /**
+     * The server advertised `iss` on authorization responses, so a redirect without one is refused. False for records from older builds.
+     */
+    val issRequired: Boolean = false,
 ) {
     fun encode(): String = AtJson.encodeToString(serializer(), this)
 
