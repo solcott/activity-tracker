@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_delete_activ
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_comment
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_gear
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_gear_collection
+import io.github.solcott.activitytracker.composeApp.resources.error_discard_change
 import io.github.solcott.activitytracker.composeApp.resources.error_download_original
 import io.github.solcott.activitytracker.composeApp.resources.error_export_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_export_not_sent
@@ -55,6 +56,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_reason_offli
 import io.github.solcott.activitytracker.composeApp.resources.error_reason_server
 import io.github.solcott.activitytracker.composeApp.resources.error_reason_unreadable
 import io.github.solcott.activitytracker.composeApp.resources.error_remove_follower
+import io.github.solcott.activitytracker.composeApp.resources.error_retry_change
 import io.github.solcott.activitytracker.composeApp.resources.error_save_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_save_data_source
 import io.github.solcott.activitytracker.composeApp.resources.error_save_gear
@@ -191,5 +193,7 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.ExportNotSent -> Res.string.error_export_not_sent
             UiError.Kind.DownloadOriginal -> Res.string.error_download_original
             UiError.Kind.OriginalNotSent -> Res.string.error_original_not_sent
+            UiError.Kind.RetryChange -> Res.string.error_retry_change
+            UiError.Kind.DiscardChange -> Res.string.error_discard_change
         }
     )

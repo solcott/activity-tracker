@@ -137,6 +137,12 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
 
         /** The activity's original file is still waiting to be sent, so it can't be downloaded yet. */
         OriginalNotSent,
+
+        /** A change the server refused couldn't be sent again (data/outbox). */
+        RetryChange,
+
+        /** A change the server refused couldn't be discarded (data/outbox). */
+        DiscardChange,
     }
 
     companion object {

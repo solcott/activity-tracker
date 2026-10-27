@@ -60,6 +60,10 @@ object FeedSamples {
     val refreshFailed: FeedState
         get() = state(ContentStates.refreshFailed(activities))
 
+    /** Loaded, with one change still uploading and two the server refused (data/outbox). */
+    val unsent: FeedState
+        get() = state(ContentStates.loaded(activities)).copy(pendingWrites = 1, rejectedChanges = 2)
+
     val all: Map<String, FeedState>
         get() =
             mapOf(
@@ -69,5 +73,6 @@ object FeedSamples {
                 SampleKind.LOADED to loaded,
                 SampleKind.REFRESHING to refreshing,
                 SampleKind.REFRESH_FAILED to refreshFailed,
+                "unsent" to unsent,
             )
 }

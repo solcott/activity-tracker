@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
+import io.github.solcott.activitytracker.data.activity.RejectedChanges
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -154,6 +155,7 @@ class SegmentsPromptTest {
                     UnsupportedLocationTracker(),
                     Clock.System,
                     segments.prefs,
+                    RejectedChanges(db, clients, zones.outbox, feed, localLikes),
                 )
             },
             timeout = 10.seconds,

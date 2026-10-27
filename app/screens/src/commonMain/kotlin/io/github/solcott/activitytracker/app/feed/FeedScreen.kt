@@ -31,6 +31,7 @@ data class FeedState(
     val content: ContentState<ImmutableList<ActivityView>>,
     /** An action that failed (a like, the segments answer); load failures are [content]'s. */
     val error: UiError?,
+    /** Writes still uploading, apart from [rejectedChanges]. */
     val pendingWrites: Int,
     /** The signed-in athlete, so the UI can leave likes off their own activities. */
     val viewerDid: String,
@@ -47,6 +48,8 @@ data class FeedState(
     val revealed: Revealed = Revealed(),
     /** Whether to ask, once, whether to turn segment matching on ([FeedEvent.AnswerSegments]). */
     val askSegments: Boolean = false,
+    /** Changes the athlete's server refused, which wait for them in [UnsentChangesScreen] (data/outbox). */
+    val rejectedChanges: Int = 0,
     val eventSink: (FeedEvent) -> Unit,
 ) : CircuitUiState {
     /** [content]'s activities: the last loaded, or none yet. */
@@ -73,6 +76,9 @@ sealed interface FeedEvent {
     data object AddManual : FeedEvent
 
     data object Import : FeedEvent
+
+    /** Opens the changes the server refused ([FeedState.rejectedChanges]). */
+    data object UnsentChanges : FeedEvent
 
     /**
      * The athlete's answer to [FeedState.askSegments]: turn segment matching [on], or leave it off. Either way, they're not asked again.

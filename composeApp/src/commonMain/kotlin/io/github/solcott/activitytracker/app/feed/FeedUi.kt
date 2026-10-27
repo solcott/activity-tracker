@@ -65,6 +65,7 @@ import io.github.solcott.activitytracker.composeApp.resources.feed_import
 import io.github.solcott.activitytracker.composeApp.resources.feed_pending_writes
 import io.github.solcott.activitytracker.composeApp.resources.feed_record
 import io.github.solcott.activitytracker.composeApp.resources.feed_refresh
+import io.github.solcott.activitytracker.composeApp.resources.feed_rejected_changes
 import io.github.solcott.activitytracker.composeApp.resources.feed_segments_body
 import io.github.solcott.activitytracker.composeApp.resources.feed_segments_not_now
 import io.github.solcott.activitytracker.composeApp.resources.feed_segments_title
@@ -176,6 +177,16 @@ private fun Timeline(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
+            if (state.rejectedChanges > 0) {
+                item(key = "rejected") {
+                    AppTextButton(onClick = { state.eventSink(FeedEvent.UnsentChanges) }) {
+                        Text(
+                            pluralStringResource(Res.plurals.feed_rejected_changes, state.rejectedChanges, state.rejectedChanges),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            }
             if (state.pendingWrites > 0) {
                 item {
                     Text(

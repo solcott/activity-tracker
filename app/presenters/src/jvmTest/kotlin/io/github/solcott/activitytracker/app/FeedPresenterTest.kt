@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.app.feed.FeedPresenter
 import io.github.solcott.activitytracker.app.feed.FeedScope
 import io.github.solcott.activitytracker.app.feed.FeedScreen
 import io.github.solcott.activitytracker.app.feed.FeedState
+import io.github.solcott.activitytracker.app.feed.UnsentChangesScreen
 import io.github.solcott.activitytracker.app.feedfilter.DateRange
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
@@ -18,7 +19,10 @@ import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
+import io.github.solcott.activitytracker.data.activity.RejectedChanges
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
+import io.github.solcott.activitytracker.data.db.AppDatabase
+import io.github.solcott.activitytracker.data.db.OutboxEntity
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
@@ -73,6 +77,8 @@ class FeedPresenterTest {
         val activities: ActivityRepository,
         val profiles: ProfileRepository,
         val segmentPrefs: SegmentPrefsRepository,
+        val rejected: RejectedChanges,
+        val db: AppDatabase,
     )
 
     private suspend fun repos(): Repos {
@@ -102,17 +108,25 @@ class FeedPresenterTest {
                 testSegments(db, clients, zones.writer, zones.outbox, privacy, zones.tracks).tracks,
                 testSegments(db, clients, zones.writer, zones.outbox, privacy, zones.tracks).sweeper,
             )
-        return Repos(feed, activities, ProfileRepository(clients, Clock.System, Logger, zones.store), segmentsOf(clients).prefs)
+        return Repos(
+            feed,
+            activities,
+            ProfileRepository(clients, Clock.System, Logger, zones.store),
+            segmentsOf(clients).prefs,
+            RejectedChanges(db, clients, zones.outbox, feed, localLikes),
+            db,
+        )
     }
 
     private suspend fun presenterTest(
         navigator: FakeNavigator,
         tracker: LocationTracker,
+        seed: suspend Repos.() -> Unit = {},
         block: suspend ReceiveTurbine<FeedState>.() -> Unit,
     ) {
-        val r = repos()
+        val r = repos().apply { seed() }
         presenterTestOf(
-            { FeedPresenter(navigator, r.feed, r.activities, r.profiles, tracker, Clock.System, r.segmentPrefs) },
+            { FeedPresenter(navigator, r.feed, r.activities, r.profiles, tracker, Clock.System, r.segmentPrefs, r.rejected) },
             timeout = TURBINE_TIMEOUT,
             block = block,
         )
@@ -239,6 +253,7 @@ class FeedPresenterTest {
                     UnsupportedLocationTracker(),
                     Clock.System,
                     segmentsOf(clients).prefs,
+                    RejectedChanges(db, clients, zones.outbox, feed, localLikes),
                 )
             },
             timeout = TURBINE_TIMEOUT,
@@ -449,6 +464,27 @@ class FeedPresenterTest {
             assertTrue(state.canRecord)
             state.eventSink(FeedEvent.Record)
             assertEquals(RecordScreen, navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun refusedChangesAreCountedApartAndOpenTheirList() = runTest {
+        val navigator = FakeNavigator(FeedScreen)
+        val seed: suspend Repos.() -> Unit = {
+            val outbox = db.outbox()
+            val did = "did:plc:alice"
+            fun row(collection: String, rkey: String) =
+                OutboxEntity(did = did, operation = "put", collection = collection, rkey = rkey, recordJson = "{}", createdAt = 0)
+            outbox.markRejected(outbox.insert(row(Nsid.FEED_ACTIVITY, "3kact")), at = 1, error = "refused")
+            outbox.insert(row(Nsid.FEED_ACTIVITY_DETAILS, "3kact"))
+            outbox.markRejected(outbox.insert(row(Nsid.FEED_LIKE, "3klike")), at = 1, error = "refused")
+        }
+        presenterTest(navigator, FakeLocationTracker(), seed) {
+            val state = awaitUntil { it.rejectedChanges == 2 }
+            assertEquals(0, state.pendingWrites, "refused changes and what they hold aren't uploading")
+            state.eventSink(FeedEvent.UnsentChanges)
+            assertEquals(UnsentChangesScreen, navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
         }
     }

@@ -59,6 +59,8 @@
     <string name="error_export_not_sent">This activity can be exported once it's sent.</string>
     <string name="error_download_original">Couldn't download the original file. Check your connection and try again.</string>
     <string name="error_original_not_sent">The original file can be downloaded once it's sent.</string>
+    <string name="error_retry_change">Couldn't send the change again</string>
+    <string name="error_discard_change">Couldn't discard the change</string>
     <string name="error_spaces_unsupported">Your server doesn't support private activities and details yet, so only Public is available</string>
     <string name="error_sign_in_again">Sign in again to share activities or details with Followers, Mutuals or Only me, to like or comment on activities that aren't public, to decline follow requests, or to block or mute accounts</string>
     <string name="action_sign_in_again">Sign in again</string>
@@ -334,6 +336,28 @@
     <string name="feed_add_manual">Add manual activity</string>
     <string name="feed_import">Import activity file</string>
     <string name="feed_record">Record</string>
+    <plurals name="feed_rejected_changes">
+        <item quantity="one">%1$d change couldn't be published</item>
+        <item quantity="other">%1$d changes couldn't be published</item>
+    </plurals>
+    <string name="unsent_changes_title">Couldn't publish</string>
+    <string name="unsent_changes_empty">Nothing is waiting. Every change was sent.</string>
+    <string name="unsent_change_refused">The server refused this change.</string>
+    <string name="unsent_change_activity_named">%1$s, %2$s</string>
+    <string name="unsent_change_activity">An activity</string>
+    <string name="unsent_change_like">A like</string>
+    <string name="unsent_change_comment">A comment</string>
+    <string name="unsent_change_comment_hide">A hidden comment</string>
+    <string name="unsent_change_block">A block</string>
+    <string name="unsent_change_mute">A mute</string>
+    <string name="unsent_change_segment">A segment</string>
+    <string name="unsent_change_segment_star">A starred segment</string>
+    <string name="unsent_change_other">A change</string>
+    <string name="unsent_change_retry_named">Retry %1$s</string>
+    <string name="unsent_change_discard">Discard</string>
+    <string name="unsent_change_discard_named">Discard %1$s</string>
+    <string name="unsent_change_discard_title">Discard this change?</string>
+    <string name="unsent_change_discard_message">It's removed from this device and won't be published.</string>
     <plurals name="feed_pending_writes">
         <item quantity="one">Uploading %1$d change…</item>
         <item quantity="other">Uploading %1$d changes…</item>
