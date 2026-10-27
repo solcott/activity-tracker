@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.appview.api.MediaUrls
 import io.github.solcott.activitytracker.appview.api.PrivateMediaTokens
 import io.github.solcott.activitytracker.appview.api.SpaceBlobs
 import io.github.solcott.activitytracker.appview.db.ModerationAccess
@@ -22,6 +23,7 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.encodeURLParameter
+import io.ktor.http.formUrlEncode
 import io.ktor.http.headersOf
 import io.ktor.server.testing.testApplication
 import java.io.IOException
@@ -78,10 +80,12 @@ class ModeratorSubjectsTest : ModerationTestBase() {
         }
 
     private val photoCid = "bafkreihwzzyxpay7qndclffr6usq5te3of4fra7yucklue2b5ckxhq7aeq"
+    private val shoesCid = "bafkreiab5jo52o7fi55mh2xcgzx2cidemfoeqwsuc2bnwptc2kbsiecvuy"
     private val spaceBlobs = SpaceBlobs { _, repo, cid ->
-        if (repo.value == bob && cid == photoCid) XrpcBytes(byteArrayOf(7), "image/jpeg") else null
+        if (repo.value == bob && cid in setOf(photoCid, shoesCid)) XrpcBytes(byteArrayOf(7), "image/jpeg") else null
     }
     private val mediaClock = MutableClock(Instant.parse("2026-10-15T12:00:01Z"))
+    private val mediaTokens = PrivateMediaTokens(TEST_SIGNING_KEY, mediaClock)
 
     private fun postWithPhoto(rkey: String, tier: String) {
         val json =
@@ -99,8 +103,28 @@ class ModeratorSubjectsTest : ModerationTestBase() {
         }
     }
 
+    /** [json] at [rkey] of [collection] in bob's [tier] space. */
+    private fun spacePut(tier: String, collection: String, rkey: String, json: String) = runBlocking {
+        val space = SpaceUri.of(Did(bob), Nsid.SPACE_ATHLETE, tier)
+        indexer.spaceWrite(space, collection, rkey, "bafy$rkey", AtJson.parseToJsonElement(json).jsonObject)
+    }
+
+    /** Bob's gear item [rkey] at [tier], with the photo [cid]. */
+    private fun gearWithPhoto(rkey: String, tier: String, type: String, cid: String) =
+        spacePut(
+            tier,
+            Nsid.GEAR_ITEM,
+            rkey,
+            """{"name":"$rkey","type":"$type","photo":{"${'$'}type":"${Nsid.FEED_ACTIVITY}#image","image":{"${'$'}type":"blob",""" +
+                """"ref":{"${'$'}link":"$cid"},"mimeType":"image/jpeg","size":1}},"createdAt":"2026-10-01T09:00:00Z"}""",
+        )
+
+    /** The path of a photo URL signed for [viewer] to bob's [cid], as views build it. */
+    private fun signedPath(cid: String, viewer: String) =
+        "${MediaUrls.PATH}/$bob/$cid?" + mediaTokens.params(bob, cid, Did(viewer)).formUrlEncode()
+
     private fun io.ktor.server.testing.ApplicationTestBuilder.startModerated() =
-        start(ozone = ozone, spaceBlobs = spaceBlobs, mediaTokens = PrivateMediaTokens(TEST_SIGNING_KEY, mediaClock))
+        start(ozone = ozone, spaceBlobs = spaceBlobs, mediaTokens = mediaTokens)
 
     private suspend fun HttpClient.subject(uri: String, viewer: String = moderator) =
         raw(GetSubject.method.nsid, viewer, "?uri=${uri.encodeURLParameter()}")
@@ -130,6 +154,36 @@ class ModeratorSubjectsTest : ModerationTestBase() {
         // Past the URL's lifetime the link stops working, as viewers' do.
         mediaClock.now += 31.minutes
         assertEquals(HttpStatusCode.NotFound, client.get(photo.removePrefix(config.publicUrl)).status)
+    }
+
+    @Test
+    fun aModeratorSeesTheGearPhotosOfTheSubjectTheyOpened() = testApplication {
+        startModerated()
+        listOf(bob, carol).forEach(::profile)
+        gearWithPhoto("3bike", Visibility.FOLLOWERS, "bike", photoCid)
+        gearWithPhoto("3shoes", AthleteSpace.SELF, "shoes", shoesCid)
+        val bike = "at://$bob/${Nsid.GEAR_ITEM}/3bike"
+        spacePut(
+            Visibility.FOLLOWERS,
+            Nsid.FEED_ACTIVITY,
+            "3kg",
+            """{"sport":"ride","startedAt":"2026-10-02T07:00:00Z","elapsedTime":1800,"gear":["$bike"],""" +
+                """"createdAt":"2026-10-02T07:31:00Z"}""",
+        )
+        spacePut(AthleteSpace.INTERACTIONS, Nsid.GRAPH_BLOCK, moderator, """{"subject":"$moderator","createdAt":"2026-10-21T09:00:00Z"}""")
+        reviews[activityUri(bob, "3kg")] = 7L to "reviewOpen"
+
+        val output = AtJson.decodeFromString(GetSubject.method.output, client.subject(activityUri(bob, "3kg")).bodyAsText())
+        val photo = output.activity!!.gear!!.single().photo!!
+        assertTrue(photo.contains("viewer=${moderator.encodeURLParameter()}"), "signed for the moderator: $photo")
+        assertEquals(HttpStatusCode.OK, client.get(photo.removePrefix(config.publicUrl)).status, "the bike's photo works")
+
+        // The shoes are on no activity the moderator opened; the same link works for bob, so only the grant is missing.
+        assertEquals(HttpStatusCode.NotFound, client.get(signedPath(shoesCid, moderator)).status, "the shoes' photo is refused")
+        assertEquals(HttpStatusCode.OK, client.get(signedPath(shoesCid, bob)).status)
+
+        mediaClock.now += 31.minutes
+        assertEquals(HttpStatusCode.NotFound, client.get(photo.removePrefix(config.publicUrl)).status, "and the bike's expires")
     }
 
     @Test
