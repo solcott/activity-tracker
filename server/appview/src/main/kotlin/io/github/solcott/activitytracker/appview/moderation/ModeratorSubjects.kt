@@ -29,7 +29,8 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 /**
  * `moderation/private-subjects`: serves moderators a reported activity or comment as the AppView indexed it, at any visibility, read as its
  * athlete (so no block between them hides it) with photo links signed for the moderator. The caller must be on the labeler's team as a
- * moderator or admin ([roles]). A Public subject needs nothing more; any other only while Ozone has an open report or review on it or its
+ * moderator or admin ([roles]). A Public subject that shows nothing beyond what a public viewer sees needs nothing more; any other (a
+ * non-public one, or a public activity with details or gear in a narrower tier) only while Ozone has an open report or review on it or its
  * author, and each answer is written to the audit [log]. If Ozone can't be asked, the request is refused.
  */
 class ModeratorSubjects(
@@ -48,14 +49,15 @@ class ModeratorSubjects(
     suspend fun subject(moderator: Did, uri: AtUri): GetSubject.Output {
         val ozone = requireModerator(moderator)
         val subject = load(uri, moderator) ?: throw notFound()
-        if (subject.visibility != Visibility.PUBLIC) {
+        if (subject.visibility != Visibility.PUBLIC || subject.holdsPrivate) {
             val report = openReview(ozone, uri.value, subject.author) ?: throw notFound()
             log.record(moderator.value, uri.value, report.toString())
         }
         return subject.output
     }
 
-    private class Loaded(val author: String, val visibility: String, val output: GetSubject.Output)
+    /** [holdsPrivate]: [output] shows more than a public viewer sees (details or gear in a narrower tier), so it needs a review too. */
+    private class Loaded(val author: String, val visibility: String, val output: GetSubject.Output, val holdsPrivate: Boolean = false)
 
     /**
      * The activity or comment at [uri], at any visibility, as its athlete sees it, with photo links for [moderator]; null if not indexed.
@@ -66,7 +68,12 @@ class ModeratorSubjects(
                 val row = Activities.selectAll().where { Activities.uri eq uri.value }.singleOrNull() ?: return@tx null
                 val author = row[Activities.authorDid]
                 val view = with(views) { hydrate(listOf(row), Did(author), mediaViewer = moderator) }.single()
-                Loaded(author, view.visibilityOrPublic, GetSubject.Output(view.visibilityOrPublic, activity = view))
+                val holdsPrivate =
+                    view.visibilityOrPublic == Visibility.PUBLIC &&
+                        with(views) { hydrate(listOf(row), viewer = null) }
+                            .single()
+                            .let { it.details != view.details || it.gear != view.gear }
+                Loaded(author, view.visibilityOrPublic, GetSubject.Output(view.visibilityOrPublic, activity = view), holdsPrivate)
             }
             Nsid.FEED_COMMENT -> {
                 val row =

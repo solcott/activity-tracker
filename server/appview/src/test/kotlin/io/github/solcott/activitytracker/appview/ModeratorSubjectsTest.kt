@@ -247,6 +247,27 @@ class ModeratorSubjectsTest : ModerationTestBase() {
     }
 
     @Test
+    fun aPublicActivityWithOnlyMeDetailsNeedsAReport() = testApplication {
+        startModerated()
+        profile(bob)
+        post(bob, "3kh")
+        spacePut(
+            AthleteSpace.SELF,
+            Nsid.FEED_ACTIVITY_DETAILS,
+            "3kh",
+            """{"activity":"${activityUri(bob, "3kh")}","avgHeartRate":151,"createdAt":"2026-10-02T07:31:00Z"}""",
+        )
+        assertEquals(notFound, client.subject(activityUri(bob, "3kh")).status, "its Only-me heart rate needs a report")
+        assertEquals(emptyList(), audit())
+
+        reviews[activityUri(bob, "3kh")] = 5L to "reviewOpen"
+        val output = AtJson.decodeFromString(GetSubject.method.output, client.subject(activityUri(bob, "3kh")).bodyAsText())
+        assertEquals(Visibility.PUBLIC, output.visibility)
+        assertTrue(output.activity!!.details.orEmpty().isNotEmpty(), "served once reported")
+        assertEquals(listOf(listOf(moderator, activityUri(bob, "3kh"), "5")), audit())
+    }
+
+    @Test
     fun aReportedCommentOpensWithItsVisibility() = testApplication {
         startModerated()
         listOf(alice, bob).forEach(::profile)
