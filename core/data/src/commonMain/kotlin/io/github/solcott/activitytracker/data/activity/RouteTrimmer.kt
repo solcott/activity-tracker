@@ -60,7 +60,7 @@ class RouteTrimmer(
 
     /** Re-trims the activities this session published without a fresh read of the zones, once they can be read. Best effort. */
     suspend fun trimStale() {
-        if (!privacy.hasStale) return
+        if (!privacy.hasStale()) return
         runSuspendCatching {
             mutex.withLock {
                 val zones = privacy.readFresh() ?: return@withLock
