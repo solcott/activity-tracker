@@ -264,6 +264,16 @@ class FeedRepository(
         return deletes.filter(views)
     }
 
+    /**
+     * Replaces every cached copy of [uri] with what the AppView serves now, or drops them when it serves nothing or can't be reached: after
+     * the athlete discarded a change to it that was never sent (data/outbox).
+     */
+    suspend fun reloadCached(uri: AtUri) {
+        if (db.feed().byUri(uri.value).isEmpty()) return
+        val served = runSuspendCatching { clients.appView.query(GetActivity.method, GetActivity.Params(uri)).activity }.getOrNull()
+        if (served == null) db.feed().deleteByUri(uri.value) else updateCached(uri) { served }
+    }
+
     /** Optimistically rewrites every cached copy of [uri]. */
     suspend fun updateCached(uri: AtUri, transform: (ActivityView) -> ActivityView) {
         val items = db.feed().byUri(uri.value)

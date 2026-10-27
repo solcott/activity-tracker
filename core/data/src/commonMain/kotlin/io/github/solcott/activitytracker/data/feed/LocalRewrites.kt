@@ -21,6 +21,9 @@ class LocalRewrites(private val held: HeldPhotos, private val ownBlobUrl: (cid: 
 
     fun set(uri: AtUri, record: ActivityRecord) = records.update { it + (uri.value to record) }
 
+    /** Stops laying a rewrite over [uri]: the athlete discarded it before it was sent (data/outbox). */
+    fun forget(uri: AtUri) = records.update { it - uri.value }
+
     /** The record the athlete rewrote [uri] to, while the AppView hasn't caught up; null otherwise. */
     fun observe(uri: AtUri): Flow<ActivityRecord?> = records.map { it[uri.value] }.distinctUntilChanged()
 

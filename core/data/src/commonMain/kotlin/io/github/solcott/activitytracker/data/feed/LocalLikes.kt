@@ -26,6 +26,9 @@ class LocalLikes {
 
     fun set(subject: AtUri, like: AtUri?) = overrides.update { it + (subject.value to like) }
 
+    /** Drops the override that set [like]: the athlete discarded it before it was sent (data/outbox). */
+    fun forget(like: AtUri) = overrides.update { held -> held.filterValues { it != like } }
+
     fun applyTo(view: ActivityView): ActivityView = view.withLikeOverrides(overrides.value)
 }
 

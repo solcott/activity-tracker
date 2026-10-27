@@ -17,6 +17,9 @@ class LocalDeletes {
 
     fun delete(uri: AtUri) = deleted.update { it + uri.value }
 
+    /** Shows [uri] again: the athlete discarded its delete before it was sent (data/outbox). */
+    fun forget(uri: AtUri) = deleted.update { it - uri.value }
+
     fun ungroup(recording: AtUri) = ungrouped.update { it + recording.value }
 
     /** [members] were combined into one activity: lists show only that one. */

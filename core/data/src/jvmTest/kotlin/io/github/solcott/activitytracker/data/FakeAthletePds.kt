@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.data.activity.PdsActivitySourceStore
 import io.github.solcott.activitytracker.data.activity.PdsActivityStreamsStore
 import io.github.solcott.activitytracker.data.activity.PdsActivityTrackStore
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
+import io.github.solcott.activitytracker.data.activity.RejectedChanges
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.FeedItemEntity
@@ -436,6 +437,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
         val routes: RouteTrimmer,
         val exporter: ActivityExporter,
         val blocks: BlockRepository,
+        val rejected: RejectedChanges,
     )
 
     @Suppress("LongMethod") // Builds every store a test reaches for.
@@ -507,6 +509,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
             routes,
             ActivityExporter(db, clients, tracks, sources, feed),
             BlockRepository(clients, writer, outbox, feed, Clock.System),
+            RejectedChanges(db, clients, outbox, feed, likes),
         )
     }
 }
