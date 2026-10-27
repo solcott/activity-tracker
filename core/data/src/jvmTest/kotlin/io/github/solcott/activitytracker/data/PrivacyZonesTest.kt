@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.data
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityEdit
 import io.github.solcott.activitytracker.data.activity.PrivacySettings
+import io.github.solcott.activitytracker.data.activity.PublishTrim
 import io.github.solcott.activitytracker.data.activity.RouteTrim
 import io.github.solcott.activitytracker.data.activity.TooManyZonesException
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
@@ -44,9 +45,16 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.last
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -343,6 +351,105 @@ class PrivacyZonesTest {
         val record = stored(uri.rkey!!)
         assertEquals("Renamed", record.title)
         assertTrue(startOf(record.polyline) >= 199)
+    }
+
+    // Batches and concurrent publishes
+
+    @Test
+    fun aPublishOutsideABatchReadsTheZonesForItself() = runTest {
+        val s = pds.session()
+        val entered = CompletableDeferred<Unit>()
+        val done = CompletableDeferred<Unit>()
+        val batch = async {
+            s.privacy.withReadOnce {
+                entered.complete(Unit)
+                done.await()
+            }
+        }
+        entered.await()
+
+        pds.session().privacy.save(PrivacySettings(listOf(home)))
+        val outside = s.privacy.forPublish()
+        done.complete(Unit)
+        batch.await()
+
+        assertEquals(listOf(home), assertIs<RouteTrim.Known>(outside.trim).settings.zones, "not the batch's read from before the save")
+    }
+
+    @Test
+    fun anUnreadPublishOutsideABatchIsStaleWhateverTheBatchRead() = runTest {
+        val s = pds.session()
+        val entered = CompletableDeferred<Unit>()
+        val done = CompletableDeferred<Unit>()
+        val batch = async {
+            s.privacy.withReadOnce {
+                entered.complete(Unit)
+                done.await()
+            }
+        }
+        entered.await()
+
+        pds.offline = true
+        s.activities.publish(draft())
+        done.complete(Unit)
+        batch.await()
+
+        assertTrue(s.privacy.hasStale(), "trimmed by the last read, not a fresh one: trimmed again once the zones are read")
+    }
+
+    @Test
+    fun aZoneSavedMidBatchTrimsItsLaterPublishes() = runTest {
+        val s = pds.session()
+        val uri =
+            s.privacy.withReadOnce {
+                s.privacy.save(PrivacySettings(listOf(home)))
+                s.activities.publish(draft())
+            }
+
+        assertTrue(startOf(stored(uri.rkey!!).polyline) >= 199)
+    }
+
+    @Test
+    fun aSaveDuringAPublishMakesItStale() = runTest {
+        val s = pds.session()
+        val segments = segmentsOf(s.clients)
+        segments.prefs.save(true)
+        val trim = s.privacy.forPublish()
+        assertTrue(trim.fresh)
+
+        s.privacy.save(PrivacySettings(listOf(home)))
+        val uri = AtUri.of(pds.did, Nsid.FEED_ACTIVITY, "3l2aaaaaaab22")
+        val published = s.privacy.published(uri, Visibility.PUBLIC, route, trim)
+        segments.tracks.put(uri, route, published)
+
+        assertFalse(published.fresh)
+        assertTrue(segments.tracks.takeStale(), "its segment track is swept to the saved zones")
+        val latest = assertIs<ZonesRead.Known>(s.privacy.refresh()).trim
+        assertEquals(listOf(uri), s.privacy.takeStale(latest).map { it.uri })
+    }
+
+    @Test
+    @Suppress("InjectDispatcher") // Real threads on purpose: the race needs them.
+    fun staleRoutesPublishedWhileTakenAreEachTakenOnce() = runTest {
+        val s = pds.session()
+        val latest = RouteTrim.Known(PrivacySettings(listOf(home)), "3l2aaaaaaaa22")
+        val unread = PublishTrim(RouteTrim.Unknown, fresh = false)
+        val taken = mutableListOf<String>()
+
+        withContext(Dispatchers.Default) {
+            val publishers =
+                (0 until 500).map { i ->
+                    launch { s.privacy.published(AtUri.of(pds.did, Nsid.FEED_ACTIVITY, "r$i"), Visibility.PUBLIC, route, unread) }
+                }
+            while (publishers.any { it.isActive }) {
+                taken += s.privacy.takeStale(latest).map { it.uri.rkey!! }
+                yield()
+            }
+            publishers.joinAll()
+        }
+        taken += s.privacy.takeStale(latest).map { it.uri.rkey!! }
+
+        assertEquals((0 until 500).map { "r$it" }.sorted(), taken.sorted())
     }
 
     // Trimming again when zones change

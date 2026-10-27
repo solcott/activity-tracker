@@ -24,14 +24,18 @@ import io.github.solcott.activitytracker.location.trimPieces
 import io.github.solcott.dataresult.DataError
 import io.github.solcott.dataresult.Origin
 import io.github.solcott.dataresult.Outcome
+import kotlin.coroutines.AbstractCoroutineContextElement
+import kotlin.coroutines.CoroutineContext
 import kotlin.random.Random
 import kotlin.time.Clock
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /** The athlete's privacy zones (stored centers, already offset) and how many meters of each route's start and end they hide (0: off). */
 data class PrivacySettings(val zones: List<PrivacyZone> = emptyList(), val hideEndsMeters: Int = 0) {
@@ -133,16 +137,22 @@ class ZonesUnreadableException : IllegalStateException("Couldn't read your priva
  * The athlete's privacy zones: the `actor.privacyZones` record in their `self` space, which every polyline is trimmed by before it's
  * written. Read fresh for every publish ([forPublish]), since a stale read publishes a route the athlete has since hidden; when a read
  * fails it falls back to the last read this session, and with none to [RouteTrim.Unknown], so an unreadable zone set hides the route rather
- * than showing it. Activities published without a fresh read are remembered ([takeStale]) to be trimmed again by the zones once they're
- * read. Saves are direct calls, like [ActivityDefaults]: a privacy setting that silently applied later would be the wrong failure.
+ * than showing it. A batch ([withReadOnce]) reads once for its own publishes only, and a save or read during it replaces that read for the
+ * rest. Activities published without a fresh read, or whose read was replaced before they finished ([published]), are remembered
+ * ([takeStale]) to be trimmed again by the zones once they're read. Saves are direct calls, like [ActivityDefaults]: a privacy setting that
+ * silently applied later would be the wrong failure.
  */
 @SingleIn(SessionScope::class)
 @Inject
+@Suppress("TooManyFunctions") // Reads, saves, the batch and the stale routes share the zones' state.
 class PrivacyZones(private val clients: SessionClients, private val clock: Clock, logger: Logger) {
     private val log = logger.withTag("PrivacyZones")
+    /** Reads and saves of the zones, one at a time: held across their PDS calls. */
     private val mutex = Mutex()
+
+    /** [last] and [stale], held only for in-memory work, never across a PDS call, and taken after [mutex] when both are. */
+    private val state = Mutex()
     private var last: RouteTrim.Known? = null
-    private var batch: PublishTrim? = null
     private val stale = mutableMapOf<String, StaleRoute>()
 
     /** Random for new zones' offsets; replaced in tests. */
@@ -167,41 +177,48 @@ class PrivacyZones(private val clients: SessionClients, private val clock: Clock
     val canSave: Boolean
         get() = clients.canWriteToSpaces(Nsid.ACTOR_PRIVACY_ZONES)
 
-    /** How to trim a route published now: the zones read fresh, or the batch's ([withReadOnce]). */
-    suspend fun forPublish(): PublishTrim = batch ?: mutex.withLock { read().let { PublishTrim(it.trim, it.fresh) } }
+    /**
+     * How to trim a route published now: the zones read fresh, or inside [withReadOnce] the batch's read, unless this session has saved or
+     * read other zones since, which replace it.
+     */
+    suspend fun forPublish(): PublishTrim {
+        val batch = currentCoroutineContext()[BatchRead]?.takeIf { it.owner === this }?.trim
+        return if (batch == null) mutex.withLock { read().let { PublishTrim(it.trim, it.fresh) } }
+        else state.withLock { last?.takeIf { it != batch.trim }?.let { PublishTrim(it, fresh = true) } ?: batch }
+    }
 
-    /** Runs [block] with the zones read once for every publish in it, as a logbook import queues hundreds. */
+    /**
+     * Runs [block] with the zones read once for every publish in it, as a logbook import queues hundreds. Only [block]'s coroutines see
+     * that read: any other publish meanwhile reads for itself.
+     */
     suspend fun <T> withReadOnce(block: suspend () -> T): T {
-        batch = mutex.withLock { read().let { PublishTrim(it.trim, it.fresh) } }
-        try {
-            return block()
-        } finally {
-            batch = null
-        }
+        val trim = mutex.withLock { read().let { PublishTrim(it.trim, it.fresh) } }
+        return withContext(BatchRead(this, trim)) { block() }
     }
 
     /**
      * Remembers [uri], published at [visibility] with [with], to trim again by the zones once they're read ([takeStale]), unless they were
-     * read fresh for it.
+     * read fresh for it and are still the latest: a save or read since replaced them. Returns [with] as the rest of the publish should take
+     * it, not fresh when it was replaced.
      */
-    fun published(uri: AtUri, visibility: String, route: List<LocationSample>, with: PublishTrim) {
-        if (route.size < 2 || with.fresh) return
-        stale[requireNotNull(uri.rkey)] = StaleRoute(uri, visibility, route, with.trim)
+    suspend fun published(uri: AtUri, visibility: String, route: List<LocationSample>, with: PublishTrim): PublishTrim = state.withLock {
+        val current = if (with.fresh && with.trim == last) with else PublishTrim(with.trim, fresh = false)
+        if (route.size >= 2 && !current.fresh) stale[requireNotNull(uri.rkey)] = StaleRoute(uri, visibility, route, with.trim)
+        current
     }
 
     /**
      * The activities this session published by zones other than [latest], removed from the list: [RouteTrimmer] trims them again. Ones
      * trimmed by [latest] already are dropped.
      */
-    fun takeStale(latest: RouteTrim.Known): List<StaleRoute> {
+    suspend fun takeStale(latest: RouteTrim.Known): List<StaleRoute> = state.withLock {
         val taken = stale.values.filter { it.trimmedWith != latest }
         stale.clear()
-        return taken
+        taken
     }
 
     /** Whether any activity waits to be trimmed again ([takeStale]). */
-    val hasStale: Boolean
-        get() = stale.isNotEmpty()
+    suspend fun hasStale(): Boolean = state.withLock { stale.isNotEmpty() }
 
     /**
      * The settings read now, as Settings shows them on opening: the last read this session when this one fails, and [ZonesRead.Unreadable]
@@ -253,7 +270,7 @@ class PrivacyZones(private val clients: SessionClients, private val clock: Clock
         val withoutSpaces =
             when {
                 clients.spacesSupport.value == SpacesSupport.Unsupported ->
-                    Read(RouteTrim.Known(PrivacySettings.NONE, null).also(::remember), fresh = true)
+                    Read(RouteTrim.Known(PrivacySettings.NONE, null).also { remember(it) }, fresh = true)
                 !clients.hasSpacesScope ->
                     Read(RouteTrim.Unknown, fresh = false, failure = DataError.Unknown(message = "No space: scope to read the self space"))
                 else -> null
@@ -277,14 +294,14 @@ class PrivacyZones(private val clients: SessionClients, private val clock: Clock
                 is Outcome.Error -> null to answer.cause.also { log.w { "Couldn't read the athlete's privacy zones: $it" } }
                 Outcome.Loading -> null to DataError.Unknown()
             }
-        return if (known != null) Read(known.also(::remember), fresh = true)
-        else Read(last ?: RouteTrim.Unknown, fresh = false, failure = failure)
+        return if (known != null) Read(known.also { remember(it) }, fresh = true)
+        else Read(state.withLock { last } ?: RouteTrim.Unknown, fresh = false, failure = failure)
     }
 
     /** What [read] found: [trim] to use, whether it's [fresh], and why the read failed when it isn't. */
     private class Read(val trim: RouteTrim, val fresh: Boolean, val failure: DataError? = null)
 
-    private fun remember(known: RouteTrim.Known) {
+    private suspend fun remember(known: RouteTrim.Known) = state.withLock {
         last = known
         current.value = known.settings
     }
@@ -292,6 +309,11 @@ class PrivacyZones(private val clients: SessionClients, private val clock: Clock
     private companion object {
         const val RKEY = PrivacyZonesRecord.RKEY
     }
+}
+
+/** The zones [PrivacyZones.withReadOnce] read for its publishes, seen only by the coroutines it runs, and only by its [owner]. */
+private class BatchRead(val owner: PrivacyZones, val trim: PublishTrim) : AbstractCoroutineContextElement(BatchRead) {
+    companion object Key : CoroutineContext.Key<BatchRead>
 }
 
 /** [PrivacyZones.refresh] as the zones screen loads it: [Outcome.Loading], then the settings, or why they can't be read. */

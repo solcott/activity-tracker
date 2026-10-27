@@ -89,7 +89,7 @@ class ActivityRepository(
         val photos = draft.photos.map { clients.upload(it, feed.heldPhotos) }
         val uri = queue(draft, photos, privacy.forPublish())
         outbox.drain()
-        if (privacy.hasStale) routes.trimStale()
+        if (privacy.hasStale()) routes.trimStale()
         recentTypes.remember(draft.type)
         return uri
     }
@@ -142,10 +142,10 @@ class ActivityRepository(
             record = layout.record,
             space = clients.placeOf(draft.visibility),
         )
-        privacy.published(uri, draft.visibility, draft.route, trim)
+        val published = privacy.published(uri, draft.visibility, draft.route, trim)
         draft.gpx?.let {
             tracks.put(uri, it)
-            segmentTracks.put(uri, draft.route, trim)
+            segmentTracks.put(uri, draft.route, published)
         }
         draft.streams?.let {
             streams.put(
