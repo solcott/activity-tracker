@@ -9,6 +9,7 @@ import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlinx.serialization.json.JsonObject
@@ -40,7 +41,8 @@ class ServiceAuthVerifier(
         extraAudiences: Set<String> = emptySet(),
     ) : this(serviceDid, { did -> resolver.resolveDid(did).signingKey }, extraAudiences = extraAudiences)
 
-    private val keyCache = ConcurrentHashMap<Did, SigningKey>()
+    /** Keys by account, each with when it was looked up: reused for [KEY_TTL], so a rotated key stops verifying soon after. */
+    private val keyCache = ConcurrentHashMap<Did, Pair<SigningKey, Instant>>()
     private val failed = FailedLookups(clock)
 
     /** A verifier with the same keys and clock that accepts only [audiences]. */
@@ -69,6 +71,8 @@ class ServiceAuthVerifier(
                 payload.string("aud") !in audiences -> "Wrong audience"
                 exp == null -> "Missing exp"
                 exp < clock.now().epochSeconds -> "Token expired"
+                // A PDS issues service tokens for at most an hour; a longer one would outlive a revoked key or session.
+                exp - clock.now().epochSeconds > MAX_LIFETIME.inWholeSeconds -> "Token lifetime too long"
                 lxm != nsid -> "Token not valid for $nsid"
                 else -> return did
             }
@@ -88,9 +92,9 @@ class ServiceAuthVerifier(
     /** [did]'s key, from the cache unless [fresh]. A DID whose lookup failed recently is refused without another lookup. */
     private suspend fun signingKey(did: Did, fresh: Boolean): SigningKey {
         keyCache[did]
-            ?.takeUnless { fresh }
+            ?.takeUnless { fresh || clock.now() - it.second >= KEY_TTL }
             ?.let {
-                return it
+                return it.first
             }
         if (failed.contains(did)) throw AuthException("No signing key for $did")
         val key = runSuspendCatching { keys(did)?.let(Multikey::decode) }.getOrNull()
@@ -99,7 +103,9 @@ class ServiceAuthVerifier(
             throw AuthException("No signing key for $did")
         }
         failed.remove(did)
-        keyCache[did] = key
+        // Anyone can make DIDs (did:web on a wildcard domain), so the cache is bounded: past the limit it starts over.
+        if (keyCache.size >= MAX_CACHED_KEYS) keyCache.clear()
+        keyCache[did] = key to clock.now()
         return key
     }
 
@@ -116,6 +122,9 @@ class ServiceAuthVerifier(
             (extraAudiences + serviceDid).flatMap { listOf(it, "$it#activity_appview") }.toSet()
 
         private const val JWT_PARTS = 3
+        private const val MAX_CACHED_KEYS = 10_000
+        private val KEY_TTL = 10.minutes
+        private val MAX_LIFETIME = 1.hours
     }
 }
 

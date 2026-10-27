@@ -37,6 +37,33 @@ class ServiceAuthVerifierTest {
     }
 
     @Test
+    fun rejectsATokenLivingLongerThanAnHour() = runTest {
+        assertFailsWith<AuthException> { verifier.verify(key.serviceJwt(alice, service, "app.x.y", expSeconds = 2 * 3600), "app.x.y") }
+    }
+
+    @Test
+    fun aCachedKeyIsLookedUpAgainAfterItsTtl() = runTest {
+        var lookups = 0
+        val clock = MutableClock(Clock.System.now())
+        val cached =
+            ServiceAuthVerifier(
+                service,
+                keys = {
+                    lookups++
+                    key.multibase
+                },
+                clock = clock,
+            )
+        cached.verify(key.serviceJwt(alice, service, "app.x.y"), "app.x.y")
+        cached.verify(key.serviceJwt(alice, service, "app.x.y"), "app.x.y")
+        assertEquals(1, lookups)
+
+        clock.now += 11.minutes
+        cached.verify(key.serviceJwt(alice, service, "app.x.y", expSeconds = 60 + 11 * 60), "app.x.y")
+        assertEquals(2, lookups, "a rotated key stops verifying within the TTL")
+    }
+
+    @Test
     fun acceptsExtraAudiences() = runTest {
         val tunnel = "did:web:example.trycloudflare.com"
         val both = ServiceAuthVerifier(tunnel, keys = { key.multibase }, extraAudiences = setOf(service))
