@@ -311,7 +311,11 @@ object GetSegment {
     val method = XrpcQuery(Nsid.FEED_GET_SEGMENT, Params.serializer(), Output.serializer())
 }
 
-/** Segments whose line passes through a box (1e-7 degrees), at most [MAX_SPAN_E7] on either side, else `InvalidRequest`. */
+/**
+ * Segments whose line passes through a box (1e-7 degrees), at most [MAX_SPAN_E7] on either side, else `InvalidRequest`. One request
+ * examines a bounded number of segments, so a page may hold fewer than `limit`, or none, with a cursor: keep paging while there is one.
+ * Only a page without a cursor ends the search.
+ */
 object SearchSegments {
     @Serializable
     data class Params(

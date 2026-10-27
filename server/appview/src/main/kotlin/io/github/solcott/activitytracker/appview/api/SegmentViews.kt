@@ -92,6 +92,10 @@ class SegmentViews(
     private val clock: Clock = Clock.System,
     /** The segment importer's account, whose allowance is always the whole [DAILY_SEGMENT_LIMIT]. */
     private val segmentImporter: Did? = null,
+    /** How many candidate segments [search] reads at a time, whatever page size the caller asks for. */
+    private val searchBatch: Int = Paging.MAX_LIMIT,
+    /** How many batches one [search] reads at most, so a request's work is bounded however many segments lie near its box. */
+    private val searchBatches: Int = SEARCH_BATCHES,
 ) {
     suspend fun segment(viewer: Did?, params: GetSegment.Params): GetSegment.Output = db.tx {
         val row =
@@ -107,26 +111,25 @@ class SegmentViews(
 
     /**
      * Segments in a box of at most [SearchSegments.MAX_SPAN_E7] a side whose line has a point in it, oldest indexed first: active ones, and
-     * proposed ones the viewer created or has an effort on.
+     * proposed ones the viewer created or has an effort on. It reads at most [searchBatches] batches of [searchBatch] candidates, so a page
+     * may hold fewer than the limit, or none, with a cursor to carry on from; only a page without one ends the search.
      */
     suspend fun search(viewer: Did?, params: SearchSegments.Params): SearchSegments.Output {
         val minLat = params.minLat
         val minLng = params.minLng
         val maxLat = params.maxLat
         val maxLng = params.maxLng
-        if (listOf(minLat, maxLat).any { abs(it) > MAX_LAT_E7 } || listOf(minLng, maxLng).any { abs(it) > MAX_LNG_E7 })
-            invalidRequest("The box is outside the globe")
-        if (minLat > maxLat || minLng > maxLng) invalidRequest("The box's minimum is above its maximum")
-        if (maxLat - minLat > SearchSegments.MAX_SPAN_E7 || maxLng - minLng > SearchSegments.MAX_SPAN_E7)
-            invalidRequest("The box is wider than one degree")
+        requireSearchBox(minLat, minLng, maxLat, maxLng)
         val cells = SegmentCells.cellsIn(minLat / E7, minLng / E7, maxLat / E7, maxLng / E7)
         val limit = Paging.clamp(params.limit)
         return db.tx {
             val found = mutableListOf<ResultRow>()
             var cursor = params.cursor
             var exhausted = false
-            // Cells and the stored box only narrow it down: each candidate's line is checked against the box, a page at a time.
-            while (found.size < limit && !exhausted) {
+            var batches = 0
+            // Cells and the stored box only narrow it down: each candidate's line is checked against the box, a batch at a time.
+            while (found.size < limit && !exhausted && batches < searchBatches) {
+                batches++
                 val page =
                     Segments.selectAll()
                         .where {
@@ -146,9 +149,9 @@ class SegmentViews(
                                 keysetAfter(Segments.indexedAt, Segments.uri, cursor)
                         }
                         .orderBy(Segments.indexedAt to SortOrder.ASC, Segments.uri to SortOrder.ASC)
-                        .limit(limit)
+                        .limit(searchBatch)
                         .toList()
-                exhausted = page.size < limit
+                exhausted = page.size < searchBatch
                 page.lastOrNull()?.let { cursor = "${it[Segments.indexedAt]}::${it[Segments.uri]}" }
                 found += page.filter { crosses(it[Segments.line], minLat, minLng, maxLat, maxLng) }
             }
@@ -682,6 +685,15 @@ class SegmentViews(
         }
     }
 
+    /** Refuses a search box off the globe, upside down, or wider than [SearchSegments.MAX_SPAN_E7] on either side as `InvalidRequest`. */
+    private fun requireSearchBox(minLat: Int, minLng: Int, maxLat: Int, maxLng: Int) {
+        if (listOf(minLat, maxLat).any { abs(it) > MAX_LAT_E7 } || listOf(minLng, maxLng).any { abs(it) > MAX_LNG_E7 })
+            invalidRequest("The box is outside the globe")
+        if (minLat > maxLat || minLng > maxLng) invalidRequest("The box's minimum is above its maximum")
+        if (maxLat - minLat > SearchSegments.MAX_SPAN_E7 || maxLng - minLng > SearchSegments.MAX_SPAN_E7)
+            invalidRequest("The box is wider than one degree")
+    }
+
     /** Whether the precision-6 [line] has a point (every [SegmentGeometry.REFERENCE_SPACING_M]) in the box, in 1e-7 degrees. */
     private fun crosses(line: String, minLat: Int, minLng: Int, maxLat: Int, maxLng: Int): Boolean =
         SegmentGeometry.resample(SegmentGeometry.decodePolyline(line).orEmpty()).any {
@@ -693,6 +705,9 @@ class SegmentViews(
         private const val MAX_LAT_E7 = 900_000_000
         private const val MAX_LNG_E7 = 1_800_000_000
         private const val MM_PER_M = 1_000L
+
+        /** The batches of candidates one search reads at most: 300 rows at the default batch size. */
+        private const val SEARCH_BATCHES = 3
 
         /** The ranks an activity's efforts show (segments/segment-efforts). */
         private const val TOP_RANKS = 10

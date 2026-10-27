@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "query",
-      "description": "Segments whose line passes through a bounding box, oldest indexed first.",
+      "description": "Segments whose line passes through a bounding box, oldest indexed first. One request examines a bounded number of segments, so a page may hold fewer than limit, or none, with a cursor: keep paging while there is one. Only a page without a cursor ends the search.",
       "parameters": {
         "type": "params",
         "required": ["minLat", "minLng", "maxLat", "maxLng"],

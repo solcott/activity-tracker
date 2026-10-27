@@ -1,5 +1,7 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.appview.api.AvatarUrls
+import io.github.solcott.activitytracker.appview.api.SegmentViews
 import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.tx
@@ -236,6 +238,46 @@ class SegmentsTest : SegmentTestBase() {
             assertEquals("agency", record.getValue("source").jsonPrimitive.content, "still indexed")
             assertFalse("attribution" in record, rkey)
         }
+    }
+
+    @Test
+    fun aSearchReadsABoundedNumberOfCandidatesAndCarriesOnByCursor() = runBlocking {
+        // Each decoy's box and cells overlap the search box, but its line goes round the box's south-east corner.
+        val decoys =
+            (0 until 5).map { i ->
+                "3kd$i"
+                    .also {
+                        segment(it, path = listOf(-1000.0 to 300.0 - i * 20, 700.0 + i * 20 to 300.0 - i * 20, 700.0 + i * 20 to 1000.0))
+                    }
+            }
+        segment("3kz")
+        setStatus(SegmentStatus.ACTIVE, *(decoys + "3kz").map { segmentUri(it) }.toTypedArray())
+        val sw = at(-500.0, 400.0)
+        val ne = at(500.0, 600.0)
+        fun box(cursor: String?) =
+            SearchSegments.Params(
+                (sw.lat * 1e7).roundToInt(),
+                (sw.lng * 1e7).roundToInt(),
+                (ne.lat * 1e7).roundToInt(),
+                (ne.lng * 1e7).roundToInt(),
+                cursor = cursor,
+            )
+        // Two batches of two: four candidates a request.
+        val views = SegmentViews(db, AvatarUrls("https://appview.test"), searchBatch = 2, searchBatches = 2)
+
+        val first = views.search(null, box(null))
+        assertEquals(emptyList(), first.segments, "the first four candidates are all decoys")
+        val found = mutableListOf<String>()
+        var cursor = first.cursor
+        var requests = 1
+        while (cursor != null) {
+            val page = views.search(null, box(cursor))
+            found += page.segments.map { it.uri.value }
+            cursor = page.cursor
+            requests++
+            assertTrue(requests < 10, "the search ends")
+        }
+        assertEquals(listOf(segmentUri("3kz")), found)
     }
 
     @Test
