@@ -107,20 +107,30 @@ class OAuthSessionManager(
         return current
     }
 
-    /** Call under [mutex]. */
-    private suspend fun refresh(current: OAuthSession): OAuthSession {
-        val refreshed =
-            try {
-                client.refresh(current)
+    /**
+     * Refreshes [current], unless the store already holds a newer session for the same account: another tab sharing the store (the web's
+     * OPFS) refreshed it, which rotated the refresh token [current] holds, so refreshing with it would fail as expired. Call under [mutex].
+     */
+    private suspend fun refresh(current: OAuthSession): OAuthSession =
+        rotatedElsewhere(current)
+            ?: try {
+                client.refresh(current).also {
+                    store.saveSession(it)
+                    session.value = it
+                }
             } catch (e: SessionExpiredException) {
-                log.w(e) { "Session expired; signing out" }
-                expired.value = current
-                throw e
+                // Another tab may have rotated the token while this refresh was on its way.
+                rotatedElsewhere(current)
+                    ?: run {
+                        log.w(e) { "Session expired; signing out" }
+                        expired.value = current
+                        throw e
+                    }
             }
-        store.saveSession(refreshed)
-        session.value = refreshed
-        return refreshed
-    }
+
+    /** The stored session, taken as current, when it's [current]'s account with another refresh token; else null. Call under [mutex]. */
+    private suspend fun rotatedElsewhere(current: OAuthSession): OAuthSession? =
+        store.loadSession()?.takeIf { it.did == current.did && it.refreshToken != current.refreshToken }?.also { session.value = it }
 
     private suspend fun updatePdsNonce(nonce: String) = mutex.withLock {
         val current = session.value ?: return@withLock
