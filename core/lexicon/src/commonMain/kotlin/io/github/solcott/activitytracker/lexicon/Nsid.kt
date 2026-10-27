@@ -94,6 +94,8 @@ object Nsid {
     const val IMPORTER_FINISH_SEGMENT_CANDIDATES = "$NAMESPACE.importer.finishSegmentCandidates"
     /** Query: the segment importer lists a region's ridden candidates. */
     const val IMPORTER_GET_RIDDEN_SEGMENT_CANDIDATES = "$NAMESPACE.importer.getRiddenSegmentCandidates"
+    /** Procedure: the segment importer checks staged candidates for duplicates of live segments, writing nothing. */
+    const val IMPORTER_CHECK_SEGMENT_CANDIDATES = "$NAMESPACE.importer.checkSegmentCandidates"
 
     /** One piece of an athlete's gear: in their repo when Public, else in their tier space for its visibility ([SPACE_ATHLETE]). */
     const val GEAR_ITEM = "$NAMESPACE.gear.item"

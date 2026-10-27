@@ -628,3 +628,18 @@ object GetRiddenSegmentCandidates {
 
     val method = XrpcQuery(Nsid.IMPORTER_GET_RIDDEN_SEGMENT_CANDIDATES, Params.serializer(), Output.serializer())
 }
+
+/** `app.activitytracker.importer.defs#duplicateCheck`: a staged candidate and the live segments it duplicates, none when it's new. */
+@Serializable data class SegmentCandidateCheck(val id: String, val duplicates: List<AtUri>)
+
+/**
+ * `app.activitytracker.importer.checkSegmentCandidates`: checks up to [SegmentCandidates.MAX_BATCH] of a region's staged candidates, by id,
+ * for duplicates of live segments, writing nothing. An id not staged in the region is left out of [Output.candidates].
+ */
+object CheckSegmentCandidates {
+    @Serializable data class Input(val region: String, val ids: List<String>)
+
+    @Serializable data class Output(val candidates: List<SegmentCandidateCheck>)
+
+    val method = XrpcProcedure(Nsid.IMPORTER_CHECK_SEGMENT_CANDIDATES, Input.serializer(), Output.serializer())
+}
