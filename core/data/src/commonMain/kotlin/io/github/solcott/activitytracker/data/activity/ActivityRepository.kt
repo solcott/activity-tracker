@@ -27,6 +27,7 @@ import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.CommentHideRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentRecord
 import io.github.solcott.activitytracker.lexicon.app.CommentView
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.LikeRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.ReplyRef
@@ -142,7 +143,8 @@ class ActivityRepository(
             record = layout.record,
             space = clients.placeOf(draft.visibility),
         )
-        val published = privacy.published(uri, draft.visibility, draft.route, trim)
+        val mapTier = DetailCategory.tiers(draft.visibility, draft.categories).getValue(DetailCategory.MAP)
+        val published = privacy.published(uri, draft.visibility, mapTier, draft.route, trim)
         draft.gpx?.let {
             tracks.put(uri, it)
             segmentTracks.put(uri, draft.route, published)

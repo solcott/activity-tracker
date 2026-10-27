@@ -377,7 +377,8 @@ class ActivityManager(
                 ?: ActivityCombiner.narrowestTiers(visibility, members.map { it.tiers })
         val layout = ActivityLayout.split(record, null, uri, visibility, categories)
         queueLayout(layout, uri, visibility)
-        val published = privacy.published(uri, visibility, built.route, trim)
+        val mapTier = DetailCategory.tiers(visibility, categories).getValue(DetailCategory.MAP)
+        val published = privacy.published(uri, visibility, mapTier, built.route, trim)
         if (built.route.isNotEmpty()) {
             val segments = CombinedRoute.segments(built.route)
             tracks.put(uri, Gpx.writeSegments(record.title ?: record.sport, record.sport, segments).encodeToByteArray())
