@@ -357,10 +357,13 @@ class ActivityPlaces(private val clients: SessionClients, private val clock: Clo
         )
     }
 
-    /** The data a stored streams record names, from the repo's blobs or the tier space's; null when it can't be read. */
+    /**
+     * The data a stored streams record names, from the repo's blobs or the tier space's; null when the record or its data doesn't decode.
+     * Throws when the blob can't be had: read as no streams, a save would write this tier's streams without the channels it holds.
+     */
     private suspend fun streamData(value: JsonObject, tier: String): ActivityStreamData? {
         val cid = decodeOrNull { AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), value) }?.data?.ref?.link?.let(::Cid)
-        val bytes = cid?.let { blob(it, clients.placeOf(tier)) }
+        val bytes = cid?.let { blob(it, clients.placeOf(tier)) ?: throw StreamsUnreadableException(tier) }
         return bytes?.let { decodeOrNull { AtJson.decodeFromString(ActivityStreamData.serializer(), it.decodeToString()) } }
     }
 
@@ -372,6 +375,9 @@ class ActivityPlaces(private val clients: SessionClients, private val clock: Clo
             (clients.spaces.getBlob(place, clients.did, cid) as? SpaceRead.Found)?.value?.bytes
         }
 }
+
+/** A streams record at [tier] names data its space doesn't have, so the activity can't be rewritten without losing channels. */
+class StreamsUnreadableException(tier: String) : IllegalStateException("The streams data at $tier can't be read")
 
 /** [block]'s record, or null when it doesn't decode: any client can write the athlete's records. */
 private inline fun <T> decodeOrNull(block: () -> T): T? = runCatching(block).getOrNull()

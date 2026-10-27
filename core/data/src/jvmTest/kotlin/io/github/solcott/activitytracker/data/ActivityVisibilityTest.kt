@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityEdit
 import io.github.solcott.activitytracker.data.activity.ActivityStreams
 import io.github.solcott.activitytracker.data.activity.PendingWritesException
+import io.github.solcott.activitytracker.data.activity.StreamsUnreadableException
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
 import io.github.solcott.activitytracker.data.db.FeedItemEntity
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -245,6 +246,20 @@ class ActivityVisibilityTest {
         s.manager.delete(view(uri, Visibility.SELF), withRecordings = false)
         assertEquals(emptySet(), placesOf(Nsid.FEED_ACTIVITY, rkey))
         assertEquals(0, s.activities.sync())
+    }
+
+    @Test
+    fun aMoveWhoseStreamsDataCantBeReadFailsAndKeepsThem() = runTest {
+        val s = session()
+        val uri = s.activities.publish(draft(VisibilityChoice(Visibility.MUTUALS)))
+        val rkey = uri.rkey!!
+        val before = stored.getValue(Visibility.MUTUALS).getValue("${Nsid.FEED_ACTIVITY_STREAMS}/$rkey")
+        pds.blobs.clear()
+
+        assertFailsWith<StreamsUnreadableException> {
+            s.manager.setVisibility(view(uri, Visibility.MUTUALS), VisibilityChoice(Visibility.SELF))
+        }
+        assertEquals(before, stored.getValue(Visibility.MUTUALS)["${Nsid.FEED_ACTIVITY_STREAMS}/$rkey"], "not rewritten without its data")
     }
 
     @Test
