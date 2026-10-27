@@ -128,12 +128,17 @@ internal fun validAttribution(attribution: String?): String? {
     return trimmed
 }
 
+/** The longest encoded line any segment or candidate may have: far past 50 km of a densely mapped trail. */
+internal const val MAX_LINE_CHARS = 100_000
+
 /**
  * [encoded] decoded, if it's a valid line for a segment of [sport]: a known group, at least two positions in range, and a length from the
  * group's minimum to [SegmentSportGroup.MAX_METERS]. Throws [IllegalArgumentException] naming what's wrong otherwise.
  */
 internal fun validLine(sport: String, encoded: String): List<GeoPoint> {
     require(sport in SegmentSportGroup.all) { "unknown sport group $sport" }
+    // Bounded before decoding: every search and match resamples the whole line, and thousands of zero-length steps stay under 50 km.
+    require(encoded.length <= MAX_LINE_CHARS) { "a line over $MAX_LINE_CHARS characters" }
     val line = requireNotNull(SegmentGeometry.decodePolyline(encoded)) { "a malformed line" }
     require(line.size >= 2) { "a line of ${line.size} positions" }
     require(line.all { it.lat in -MAX_LAT..MAX_LAT && it.lng in -MAX_LNG..MAX_LNG }) { "a position out of range" }
