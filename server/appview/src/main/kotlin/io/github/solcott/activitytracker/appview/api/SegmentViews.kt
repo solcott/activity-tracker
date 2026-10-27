@@ -101,10 +101,15 @@ class SegmentViews(
         val row =
             Segments.selectAll().where { (Segments.uri eq params.uri.value) and segmentServed(viewer) }.firstOrNull()
                 ?: throw notFound("Segment not found")
+        // Only the fastest the viewer may see is read, however often they've ridden it.
         val best = viewer?.let { own ->
-            effortViews(viewer, (SegmentEfforts.segmentUri eq params.uri.value) and (SegmentEfforts.authorDid eq own.value)).minByOrNull {
-                it.elapsed
-            }
+            effortViews(
+                    viewer,
+                    (SegmentEfforts.segmentUri eq params.uri.value) and (SegmentEfforts.authorDid eq own.value),
+                    order = listOf(SegmentEfforts.elapsedS to SortOrder.ASC, SegmentEfforts.id to SortOrder.ASC),
+                    limit = 1,
+                )
+                .singleOrNull()
         }
         GetSegment.Output(views(listOf(row)).single().copy(viewer = best?.let { SegmentViewerState(it) }))
     }

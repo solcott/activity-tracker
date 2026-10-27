@@ -281,6 +281,25 @@ class SegmentsTest : SegmentTestBase() {
     }
 
     @Test
+    fun theViewersBestIsTheirFastestNotTheirFirst() = testApplication {
+        application { appView(config, db, verifier) }
+        matching(true)
+        activity("3ka")
+        track("3ka", speed = 4.0)
+        activity("3kb")
+        track("3kb", speed = 5.0)
+        activity("3kc")
+        track("3kc", speed = 4.5)
+        segment("3ks")
+        match()
+
+        val best = client.xrpcOk(GetSegment.method, mapOf("uri" to segmentUri("3ks")), viewer = alice).segment.viewer?.best
+        assertEquals(activityUri("3kb"), best?.activity?.value)
+        assertEquals(200, best?.elapsed)
+        assertEquals(true, best?.best)
+    }
+
+    @Test
     fun getSegmentServesTheSegmentAndTheViewersBest() = testApplication {
         application { appView(config, db, verifier) }
         matching(true)
