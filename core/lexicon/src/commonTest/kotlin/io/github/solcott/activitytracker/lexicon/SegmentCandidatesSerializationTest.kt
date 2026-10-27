@@ -1,9 +1,11 @@
 package io.github.solcott.activitytracker.lexicon
 
+import io.github.solcott.activitytracker.lexicon.app.CheckSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.FinishSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.GetRiddenSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.PutSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidate
+import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateCheck
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateRejection
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentSource
@@ -80,6 +82,29 @@ class SegmentCandidatesSerializationTest {
         assertNull(last.cursor)
         assertEquals(Nsid.IMPORTER_GET_RIDDEN_SEGMENT_CANDIDATES, GetRiddenSegmentCandidates.method.nsid)
         assertEquals(Nsid.IMPORTER_FINISH_SEGMENT_CANDIDATES, FinishSegmentCandidates.method.nsid)
+    }
+
+    @Test
+    fun checkingCandidatesRoundTrips() {
+        val input = CheckSegmentCandidates.Input("us-vermont", listOf("osm-way-1", "osm-way-2"))
+        assertEquals(
+            """{"region":"us-vermont","ids":["osm-way-1","osm-way-2"]}""",
+            AtJson.encodeToString(CheckSegmentCandidates.Input.serializer(), input),
+        )
+        val output =
+            AtJson.decodeFromString(
+                CheckSegmentCandidates.Output.serializer(),
+                """{"candidates":[{"id":"osm-way-1","duplicates":["at://did:plc:alice/app.activitytracker.feed.segment/3ks"]},""" +
+                    """{"id":"osm-way-2","duplicates":[]}]}""",
+            )
+        assertEquals(
+            listOf(
+                SegmentCandidateCheck("osm-way-1", listOf(AtUri("at://did:plc:alice/app.activitytracker.feed.segment/3ks"))),
+                SegmentCandidateCheck("osm-way-2", emptyList()),
+            ),
+            output.candidates,
+        )
+        assertEquals(Nsid.IMPORTER_CHECK_SEGMENT_CANDIDATES, CheckSegmentCandidates.method.nsid)
     }
 
     @Test

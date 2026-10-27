@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.CheckSegment
+import io.github.solcott.activitytracker.lexicon.app.CheckSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.FinishSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetRiddenSegmentCandidates
@@ -95,6 +96,22 @@ class SegmentCandidatesTest : SegmentTestBase() {
             AtJson.encodeToString(FinishSegmentCandidates.Input.serializer(), FinishSegmentCandidates.Input(region, revision)),
             caller,
         )
+
+    private suspend fun HttpClient.check(ids: List<String>, region: String = "us-vermont", caller: String? = importer) =
+        call(
+            Nsid.IMPORTER_CHECK_SEGMENT_CANDIDATES,
+            AtJson.encodeToString(CheckSegmentCandidates.Input.serializer(), CheckSegmentCandidates.Input(region, ids)),
+            caller,
+        )
+
+    private suspend fun HttpClient.checked(ids: List<String>): Map<String, List<String>> {
+        val response = check(ids)
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        return AtJson.decodeFromString(CheckSegmentCandidates.Output.serializer(), response.bodyAsText()).candidates.associate { candidate
+            ->
+            candidate.id to candidate.duplicates.map { it.value }
+        }
+    }
 
     private suspend fun HttpResponse.error(status: HttpStatusCode): String {
         val body = bodyAsText()
@@ -246,7 +263,36 @@ class SegmentCandidatesTest : SegmentTestBase() {
             "NotImporter",
             client.xrpc(GetRiddenSegmentCandidates.method, mapOf("region" to "us-vermont"), importer).error(HttpStatusCode.Forbidden),
         )
+        assertEquals("NotImporter", client.check(listOf("c-1")).error(HttpStatusCode.Forbidden))
         assertEquals(emptyList(), stagedIds())
+    }
+
+    @Test
+    fun checkingListsEachStagedCandidatesLiveDuplicates() = testApplication {
+        start()
+        stage(candidate("c-covered"), candidate("c-new", path = listOf(5000.0 to 0.0, 5000.0 to 1000.0)))
+        stage(candidate("c-elsewhere"), region = "us-maine")
+        segment("3ks", sport = "ride", did = alice)
+
+        assertEquals(
+            mapOf("c-covered" to listOf(segmentUri("3ks")), "c-new" to emptyList()),
+            client.checked(listOf("c-covered", "c-new", "c-gone", "c-elsewhere")),
+            "an id not staged in the region is left out",
+        )
+
+        // A duplicate that's deleted no longer counts, so the candidate can be published.
+        commit(alice, Nsid.FEED_SEGMENT, "3ks", null)
+        assertEquals(mapOf("c-covered" to emptyList<String>()), client.checked(listOf("c-covered")))
+        assertEquals(listOf("c-covered", "c-elsewhere", "c-new").sorted(), stagedIds(), "checking writes nothing")
+    }
+
+    @Test
+    fun checkingIsTheImportersAndBounded() = testApplication {
+        start()
+        stage(candidate("c-1"))
+        assertEquals("NotImporter", client.check(listOf("c-1"), caller = alice).error(HttpStatusCode.Forbidden))
+        assertEquals("InvalidRequest", client.check((1..501).map { "c-$it" }).error(HttpStatusCode.BadRequest))
+        assertEquals("InvalidRequest", client.check(listOf("c-1"), region = "US Vermont").error(HttpStatusCode.BadRequest))
     }
 
     @Test

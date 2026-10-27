@@ -1,0 +1,35 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.importer.checkSegmentCandidates",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Checks a region's staged candidates, by id, against the live segments of their sport groups, with the duplicate test the AppView applies when indexing, and writes nothing. Lists each candidate staged in the region; an id that isn't is left out. Only the AppView's configured segment importer may call it, with service auth.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["region", "ids"],
+          "properties": {
+            "region": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "ids": { "type": "array", "maxLength": 500, "items": { "type": "string", "minLength": 1, "maxLength": 64 } }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["candidates"],
+          "properties": {
+            "candidates": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.importer.defs#duplicateCheck" } }
+          }
+        }
+      },
+      "errors": [
+        { "name": "InvalidRequest", "description": "More than 500 ids, or a malformed region." },
+        { "name": "NotImporter", "description": "The caller isn't the configured segment importer, or none is configured." }
+      ]
+    }
+  }
+}

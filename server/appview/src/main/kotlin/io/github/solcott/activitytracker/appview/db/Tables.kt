@@ -523,6 +523,26 @@ object ActivityStreamData : Table("activity_stream_data") {
     override val primaryKey = PrimaryKey(blobCid)
 }
 
+/**
+ * Stream data that couldn't be fetched (feed/detail-visibility), by where it came from: [KIND_CONTENT] isn't fetched again under its CID,
+ * [KIND_UNAVAILABLE] not before [retryAt].
+ */
+object ActivityStreamFetchFailures : Table("activity_stream_fetch_failures") {
+    val blobCid = varchar("blob_cid", 255)
+    val authorDid = varchar("author_did", 255)
+    val origin = varchar("origin", 512)
+    val kind = varchar("kind", 16)
+    val failures = integer("failures")
+    val retryAt = long("retry_at").nullable()
+    override val primaryKey = PrimaryKey(blobCid, authorDid, origin)
+
+    /** Fetched, but not valid stream data or too large: the CID names those bytes, so they're as bad from anywhere. */
+    const val KIND_CONTENT = "content"
+
+    /** Missing, or its host couldn't be reached. */
+    const val KIND_UNAVAILABLE = "unavailable"
+}
+
 /** Values of [Activities.origin], [ActivityStreams.origin] and [ActivityZones.origin] besides a space URI. */
 object Origins {
     /** The athlete's repo, through Jetstream. */
