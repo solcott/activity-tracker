@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityStreamData as StreamDataCache
+import io.github.solcott.activitytracker.appview.db.ActivityStreamFetchFailures
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.appview.db.ActivityZones
 import io.github.solcott.activitytracker.appview.db.Origins
@@ -27,7 +28,12 @@ import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.HttpStatusCode
 import io.ktor.utils.io.readBuffer
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.io.readByteArray
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -35,9 +41,11 @@ import org.jetbrains.exposed.v1.core.NotExists
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.not
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.upsert
@@ -48,7 +56,10 @@ import org.slf4j.LoggerFactory
  * athlete's repo, or one of their tier spaces).
  */
 fun interface StreamSource {
-    /** The blob's bytes, or null when it can't be had. */
+    /**
+     * The blob's bytes, or null when it's missing; throws when its host can't be reached. Bytes past [ActivityStreamsRecord.MAX_DATA_BYTES]
+     * may be cut off, but there are more of them than that, so a blob too large is still told apart.
+     */
     suspend fun fetch(did: Did, blobCid: String, origin: String): ByteArray?
 }
 
@@ -59,7 +70,7 @@ fun interface StreamSource {
 class PdsBlobStreamSource(private val http: HttpClient, private val pds: PdsLookup, private val spaceBlobs: SpaceBlobs? = null) :
     StreamSource {
     override suspend fun fetch(did: Did, blobCid: String, origin: String): ByteArray? =
-        if (origin == Origins.REPO) fromPds(did, blobCid) else spaceBlobs?.fetch(SpaceUri(origin), did, blobCid)?.bytes?.takeIf(::fits)
+        if (origin == Origins.REPO) fromPds(did, blobCid) else spaceBlobs?.fetch(SpaceUri(origin), did, blobCid)?.bytes
 
     private suspend fun fromPds(did: Did, blobCid: String): ByteArray? {
         val host = pds.pdsFor(did) ?: return null
@@ -73,10 +84,7 @@ class PdsBlobStreamSource(private val http: HttpClient, private val pds: PdsLook
             ?.bodyAsChannel()
             ?.readBuffer(ActivityStreamsRecord.MAX_DATA_BYTES + 1)
             ?.readByteArray()
-            ?.takeIf(::fits)
     }
-
-    private fun fits(bytes: ByteArray) = bytes.size <= ActivityStreamsRecord.MAX_DATA_BYTES
 }
 
 /**
@@ -90,16 +98,31 @@ class PdsBlobStreamSource(private val http: HttpClient, private val pds: PdsLook
 class ActivityStreamsViews(private val db: Database, private val source: StreamSource, private val clock: Clock = Clock.System) {
     private val log = LoggerFactory.getLogger(ActivityStreamsViews::class.java)
 
+    /** Fetches running now, by where they fetch from, so views asking at once for the same data share one (feed/detail-visibility). */
+    private val inFlight = ConcurrentHashMap<Source, CompletableDeferred<ActivityStreamData?>>()
+
     /**
      * The union of the activity's streams records in the tiers [viewer] is admitted to, widest first, each narrower one's channels and lap
-     * and leg fields laid over the wider ([mergeStreams]). A part whose blob can't be had is left out; with none left it's `NotFound`.
+     * and leg fields laid over the wider ([mergeStreams]). A part whose blob can't be had is left out; with none left it's `NotFound`. The
+     * parts not held are fetched at once, and a failed fetch is remembered ([ActivityStreamFetchFailures]) so later views don't repeat it.
      */
     suspend fun streams(viewer: Did?, params: GetActivityStreams.Params): GetActivityStreams.Output {
         val visible = db.tx { visibleStreams(viewer, params.uri) } ?: notFound()
-        val parts =
-            visible.parts.mapNotNull { part ->
-                (cached(part.blobCid) ?: fetch(Did(part.author), part.blobCid, part.origin))?.let { part to it }
-            }
+        val held = db.tx { held(visible.parts, clock.now().toEpochMilliseconds()) }
+        val parts = coroutineScope {
+            visible.parts
+                .map { part ->
+                    async {
+                        when (val h = held.getValue(part.source)) {
+                            is Held.Data -> h.data
+                            Held.Skip -> null
+                            Held.Fetch -> fetchShared(part.source)
+                        }?.let { part to it }
+                    }
+                }
+                .awaitAll()
+        }
+            .filterNotNull()
         val data = mergeStreams(parts.map { it.second }) ?: notFound()
         return GetActivityStreams.Output(
             uri = params.uri,
@@ -114,7 +137,21 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
     }
 
     /** One streams record the viewer may see: where its blob is, and the tier it's served at. */
-    private class Part(val author: String, val origin: String, val visibility: String, val channels: List<String>, val blobCid: String)
+    private class Part(val author: String, val origin: String, val visibility: String, val channels: List<String>, val blobCid: String) {
+        val source = Source(blobCid, author, origin)
+    }
+
+    /** Where a blob is fetched from: a failure, and a fetch in flight, are per source, since a missing blob depends on its host. */
+    private data class Source(val blobCid: String, val author: String, val origin: String)
+
+    /** What a part's data is without fetching it: held, known not to be had for now, or to be fetched. */
+    private sealed interface Held {
+        class Data(val data: ActivityStreamData) : Held
+
+        data object Skip : Held
+
+        data object Fetch : Held
+    }
 
     private class Visible(
         /** Widest first. */
@@ -188,38 +225,134 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
     private fun activityVisible(activity: AtUri, viewer: Did?): Op<Boolean> =
         NotExists(Activities.select(Activities.uri).where { (Activities.uri eq activity.value) and not(visibleTo(viewer)) })
 
-    private suspend fun cached(blobCid: String): ActivityStreamData? = db.tx {
-        StreamDataCache.selectAll()
-            .where { StreamDataCache.blobCid eq blobCid }
-            .singleOrNull()
-            // A row an older AppView wrote in another shape is fetched again.
-            ?.let { runCatching { AtJson.decodeFromString(ActivityStreamData.serializer(), it[StreamDataCache.data]) }.getOrNull() }
+    /** Each part's [Held] at [now], from the cached data and the remembered failures of every part's blob in one read. */
+    private fun JdbcTransaction.held(parts: List<Part>, now: Long): Map<Source, Held> {
+        val cids = parts.map { it.blobCid }.distinct()
+        val cached =
+            StreamDataCache.selectAll()
+                .where { StreamDataCache.blobCid inList cids }
+                .mapNotNull { row ->
+                    // A row an older AppView wrote in another shape is fetched again.
+                    runCatching { AtJson.decodeFromString(ActivityStreamData.serializer(), row[StreamDataCache.data]) }
+                        .getOrNull()
+                        ?.let { row[StreamDataCache.blobCid] to it }
+                }
+                .toMap()
+        val failures = ActivityStreamFetchFailures.selectAll().where { ActivityStreamFetchFailures.blobCid inList cids }.toList()
+        val badContent =
+            failures
+                .filter { it[ActivityStreamFetchFailures.kind] == ActivityStreamFetchFailures.KIND_CONTENT }
+                .map { it[ActivityStreamFetchFailures.blobCid] }
+        val waiting =
+            failures
+                .filter { it[ActivityStreamFetchFailures.kind] == ActivityStreamFetchFailures.KIND_UNAVAILABLE }
+                .filter { (it[ActivityStreamFetchFailures.retryAt] ?: 0) > now }
+                .map {
+                    Source(
+                        it[ActivityStreamFetchFailures.blobCid],
+                        it[ActivityStreamFetchFailures.authorDid],
+                        it[ActivityStreamFetchFailures.origin],
+                    )
+                }
+                .toSet()
+        return parts.associate { part ->
+            part.source to
+                when {
+                    part.blobCid in cached -> Held.Data(cached.getValue(part.blobCid))
+                    part.blobCid in badContent || part.source in waiting -> Held.Skip
+                    else -> Held.Fetch
+                }
+        }
     }
 
-    /** The blob from [StreamSource], held to sane limits (it's untrusted) and cached. Null when it's missing or isn't stream data. */
-    private suspend fun fetch(author: Did, blobCid: String, origin: String): ActivityStreamData? {
-        val data =
-            runSuspendCatching { source.fetch(author, blobCid, origin) }
-                .getOrNull()
-                ?.let { bytes ->
-                    runCatching { AtJson.decodeFromString(ActivityStreamData.serializer(), bytes.decodeToString()) }
-                        .onFailure { log.debug("Skipping undecodable stream data {} from {}: {}", blobCid, author, it.message) }
-                        .getOrNull()
-                }
-                ?.let(::bounded) ?: return null
+    /** [fetch], or the fetch from [source] already running for another view. Null for a view whose own fetch was cancelled. */
+    private suspend fun fetchShared(source: Source): ActivityStreamData? {
+        val mine = CompletableDeferred<ActivityStreamData?>()
+        inFlight.putIfAbsent(source, mine)?.let {
+            return it.await()
+        }
+        try {
+            return fetch(source).also { mine.complete(it) }
+        } finally {
+            mine.complete(null)
+            inFlight.remove(source, mine)
+        }
+    }
+
+    /**
+     * The blob from [StreamSource], held to sane limits (it's untrusted) and cached. Null when it's missing or isn't stream data, which is
+     * remembered as a failure.
+     */
+    private suspend fun fetch(source: Source): ActivityStreamData? {
+        val bytes = runSuspendCatching {
+            this.source.fetch(Did(source.author), source.blobCid, source.origin)
+        }
+            .onFailure { log.debug("Couldn't fetch stream data {} from {}: {}", source.blobCid, source.author, it.message) }
+            .getOrNull()
+        val data = bytes?.takeIf { it.size <= ActivityStreamsRecord.MAX_DATA_BYTES }?.let { decoded(source, it) }?.let(::bounded)
+        when {
+            bytes == null -> failed(source, ActivityStreamFetchFailures.KIND_UNAVAILABLE)
+            data == null -> failed(source, ActivityStreamFetchFailures.KIND_CONTENT)
+            else -> held(source, data)
+        }
+        return data
+    }
+
+    /** [bytes] as stream data, or null when they aren't. */
+    private fun decoded(source: Source, bytes: ByteArray): ActivityStreamData? = runCatching {
+        AtJson.decodeFromString(ActivityStreamData.serializer(), bytes.decodeToString())
+    }
+        .onFailure { log.debug("Skipping undecodable stream data {} from {}: {}", source.blobCid, source.author, it.message) }
+        .getOrNull()
+
+    /** Caches [data] by its CID and forgets the CID's failures. */
+    private suspend fun held(source: Source, data: ActivityStreamData) {
         db.tx {
             StreamDataCache.upsert {
-                it[StreamDataCache.blobCid] = blobCid
+                it[StreamDataCache.blobCid] = source.blobCid
                 it[StreamDataCache.data] = AtJson.encodeToString(ActivityStreamData.serializer(), data)
                 it[fetchedAt] = clock.now().toEpochMilliseconds()
             }
+            ActivityStreamFetchFailures.deleteWhere { blobCid eq source.blobCid }
         }
-        return data
+    }
+
+    /** Remembers a failed fetch from [source]: [kind] content for good, unavailable until a pause that doubles with each failure. */
+    private suspend fun failed(source: Source, kind: String) {
+        val now = clock.now().toEpochMilliseconds()
+        db.tx {
+            val key =
+                (ActivityStreamFetchFailures.blobCid eq source.blobCid) and
+                    (ActivityStreamFetchFailures.authorDid eq source.author) and
+                    (ActivityStreamFetchFailures.origin eq source.origin)
+            val failures =
+                (ActivityStreamFetchFailures.selectAll().where { key }.singleOrNull()?.get(ActivityStreamFetchFailures.failures) ?: 0) + 1
+            ActivityStreamFetchFailures.upsert {
+                it[blobCid] = source.blobCid
+                it[authorDid] = source.author
+                it[origin] = source.origin
+                it[this.kind] = kind
+                it[this.failures] = failures
+                it[retryAt] = if (kind == ActivityStreamFetchFailures.KIND_CONTENT) null else now + retryAfterMillis(failures)
+            }
+        }
     }
 
     private fun notFound(): Nothing = throw XrpcError(HttpStatusCode.NotFound.value, "NotFound", "No streams the viewer may see")
 
     companion object {
+        /** The pause after a first failed fetch of data that was missing or unreachable, doubling with each failure after. */
+        const val FIRST_RETRY_MS = 60_000L
+
+        /** The longest pause between fetches of data that keeps failing. */
+        const val MAX_RETRY_MS = 3_600_000L
+
+        /** How long after its [failures]th failure a fetch is tried again. */
+        fun retryAfterMillis(failures: Int): Long = minOf(MAX_RETRY_MS, FIRST_RETRY_MS shl (failures - 1).coerceIn(0, MAX_DOUBLINGS))
+
+        // 2^6 minutes is past the hour already.
+        private const val MAX_DOUBLINGS = 6
+
         /** Four days at one sample a second. */
         const val MAX_SAMPLES = 345_600
         const val MAX_GEAR_CHANGES = 100_000

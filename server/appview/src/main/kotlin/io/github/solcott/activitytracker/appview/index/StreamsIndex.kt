@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.appview.index
 
 import io.github.solcott.activitytracker.appview.ProfileDetailRules
 import io.github.solcott.activitytracker.appview.db.ActivityStreamData as StreamDataCache
+import io.github.solcott.activitytracker.appview.db.ActivityStreamFetchFailures
 import io.github.solcott.activitytracker.appview.db.ActivityStreams
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -58,9 +59,12 @@ internal fun JdbcTransaction.upsertStreams(
     dropOrphanedStreamData()
 }
 
-/** Cached stream data no streams record names any more (deleted, or replaced by a new blob). */
+/** Cached stream data, and failed fetches of it, that no streams record names any more (deleted, or replaced by a new blob). */
 internal fun JdbcTransaction.dropOrphanedStreamData() {
     StreamDataCache.deleteWhere { StreamDataCache.blobCid notInSubQuery ActivityStreams.select(ActivityStreams.blobCid) }
+    ActivityStreamFetchFailures.deleteWhere {
+        ActivityStreamFetchFailures.blobCid notInSubQuery ActivityStreams.select(ActivityStreams.blobCid)
+    }
 }
 
 // Records are untrusted, so text is clamped to the lexicon maxLength before it's stored.

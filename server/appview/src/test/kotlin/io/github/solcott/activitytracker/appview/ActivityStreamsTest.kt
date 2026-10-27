@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.appview.api.ActivityStreamsViews
 import io.github.solcott.activitytracker.appview.api.StreamSource
 import io.github.solcott.activitytracker.appview.auth.ServiceAuthVerifier
 import io.github.solcott.activitytracker.appview.db.ActivityStreamData as StreamDataCache
+import io.github.solcott.activitytracker.appview.db.ActivityStreamFetchFailures
 import io.github.solcott.activitytracker.appview.db.ActivityZones
 import io.github.solcott.activitytracker.appview.db.DatabaseFactory
 import io.github.solcott.activitytracker.appview.db.tx
@@ -11,9 +12,11 @@ import io.github.solcott.activitytracker.appview.index.HandleLookup
 import io.github.solcott.activitytracker.appview.index.Indexer
 import io.github.solcott.activitytracker.appview.index.JetstreamEvent
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
+import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.DiveAlert
 import io.github.solcott.activitytracker.lexicon.app.DiveAlertKind
@@ -46,7 +49,14 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.jsonObject
 import org.h2.jdbcx.JdbcDataSource
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -148,6 +158,136 @@ class ActivityStreamsTest {
         follow(bob, alice)
         // Carol follows Alice, but Alice doesn't follow back: not a mutual.
         follow(carol, alice)
+    }
+
+    /** A source for [views] that answers [cid] from [answers] by default, counting calls per CID; [down] throws, [gates] wait. */
+    private inner class FetchFake {
+        val calls = java.util.concurrent.ConcurrentHashMap<String, Int>()
+        val down = mutableSetOf<String>()
+        val gates = mutableMapOf<String, CompletableDeferred<Unit>>()
+        val answers =
+            mutableMapOf(
+                "bafkdata" to AtJson.encodeToString(ActivityStreamData.serializer(), data).encodeToByteArray(),
+                "bafkfollow" to AtJson.encodeToString(ActivityStreamData.serializer(), followersData).encodeToByteArray(),
+                "bafkbad" to "not stream data".encodeToByteArray(),
+                "bafkhuge" to ByteArray(ActivityStreamsRecord.MAX_DATA_BYTES.toInt() + 1) { ' '.code.toByte() },
+            )
+        val source = StreamSource { _, cid, _ ->
+            calls.merge(cid, 1, Int::plus)
+            gates[cid]?.await()
+            if (cid in down) throw java.io.IOException("unreachable")
+            answers[cid]
+        }
+
+        fun calls(cid: String) = calls[cid] ?: 0
+    }
+
+    private val followersData = ActivityStreamData(time = listOf(0, 1, 2), cadence = listOf(80, 82, 84))
+    private val clock = MutableClock(Instant.parse("2026-10-27T12:00:00Z"))
+
+    private fun views(fake: FetchFake) = ActivityStreamsViews(db, fake.source, clock)
+
+    private suspend fun ActivityStreamsViews.of(viewer: String?) =
+        streams(viewer?.let(::Did), GetActivityStreams.Params(AtUri(activityUri)))
+
+    private fun mutuals() {
+        follow(alice, bob)
+        follow(bob, alice)
+    }
+
+    @Test
+    fun anUnreachablePartIsFetchedOncePerPause() = runBlocking {
+        mutuals()
+        streams(Visibility.PUBLIC)
+        streams(Visibility.FOLLOWERS, blob = "bafkfollow", channels = listOf(StreamChannel.CADENCE))
+        val fake = FetchFake().apply { down += "bafkfollow" }
+        val views = views(fake)
+
+        repeat(10) { _ -> assertEquals(listOf(Visibility.PUBLIC), views.of(bob).parts!!.map { it.visibility }) }
+        assertEquals(1, fake.calls("bafkfollow"))
+
+        clock.now += 61.seconds
+        views.of(bob)
+        assertEquals(2, fake.calls("bafkfollow"), "fetched again after the first pause")
+        clock.now += 61.seconds
+        views.of(bob)
+        assertEquals(2, fake.calls("bafkfollow"), "the second pause is longer")
+
+        fake.down.clear()
+        clock.now += 60.seconds
+        val back = views.of(bob)
+        assertEquals(listOf(Visibility.PUBLIC, Visibility.FOLLOWERS), back.parts!!.map { it.visibility })
+        assertEquals(followersData.cadence, back.data.cadence)
+        views.of(bob)
+        assertEquals(3, fake.calls("bafkfollow"), "held once fetched")
+        assertEquals(0L, db.tx { ActivityStreamFetchFailures.selectAll().count() }, "the failure is forgotten")
+    }
+
+    @Test
+    fun dataThatIsntStreamDataIsNeverFetchedAgain() = runBlocking {
+        mutuals()
+        streams(Visibility.PUBLIC)
+        streams(Visibility.FOLLOWERS, blob = "bafkbad", channels = listOf(StreamChannel.CADENCE))
+        streams(Visibility.MUTUALS, blob = "bafkhuge", channels = listOf(StreamChannel.TEMPERATURE))
+        val fake = FetchFake()
+        val views = views(fake)
+
+        repeat(3) { _ ->
+            assertEquals(listOf(Visibility.PUBLIC), views.of(bob).parts!!.map { it.visibility })
+            clock.now += 2.hours
+        }
+        assertEquals(1, fake.calls("bafkbad"))
+        assertEquals(1, fake.calls("bafkhuge"))
+    }
+
+    @Test
+    fun anActivitysPartsAreFetchedTogether() = runBlocking {
+        mutuals()
+        streams(Visibility.PUBLIC)
+        streams(Visibility.FOLLOWERS, blob = "bafkfollow", channels = listOf(StreamChannel.CADENCE))
+        val gate = CompletableDeferred<Unit>()
+        val fake = FetchFake().apply { gates += mapOf("bafkdata" to gate, "bafkfollow" to gate) }
+
+        val output = async { views(fake).of(bob) }
+        withTimeout(5.seconds) { while (fake.calls.size < 2) delay(10) }
+        gate.complete(Unit)
+        assertEquals(listOf(Visibility.PUBLIC, Visibility.FOLLOWERS), output.await().parts!!.map { it.visibility })
+    }
+
+    @Test
+    fun viewersAskingAtOnceShareOneFetch() = runBlocking {
+        streams(Visibility.PUBLIC)
+        val gate = CompletableDeferred<Unit>()
+        val fake = FetchFake().apply { gates["bafkdata"] = gate }
+        val views = views(fake)
+
+        val first = async { views.of(null) }
+        val second = async { views.of(carol) }
+        withTimeout(5.seconds) { while (fake.calls("bafkdata") < 1) delay(10) }
+        // Long enough for the second view to reach the fetch the first one started.
+        delay(200)
+        gate.complete(Unit)
+        assertEquals(data, first.await().data)
+        assertEquals(data, second.await().data)
+        assertEquals(1, fake.calls("bafkdata"))
+    }
+
+    @Test
+    fun aSharedFetchServesNoOneItsTierDoesntAdmit() = runBlocking {
+        mutuals()
+        streams(Visibility.PUBLIC)
+        streams(Visibility.FOLLOWERS, blob = "bafkfollow", channels = listOf(StreamChannel.CADENCE))
+        val gate = CompletableDeferred<Unit>()
+        val fake = FetchFake().apply { gates["bafkfollow"] = gate }
+        val views = views(fake)
+
+        val follower = async { views.of(bob) }
+        withTimeout(5.seconds) { while (fake.calls("bafkfollow") < 1) delay(10) }
+        val stranger = views.of(null)
+        assertEquals(listOf(Visibility.PUBLIC), stranger.parts!!.map { it.visibility })
+        assertNull(stranger.data.cadence)
+        gate.complete(Unit)
+        assertEquals(followersData.cadence, follower.await().data.cadence)
     }
 
     @Test
