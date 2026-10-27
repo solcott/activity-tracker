@@ -98,6 +98,17 @@ Retiring an item SHALL record the date it was retired and move it to the Retired
 - **WHEN** the athlete un-retires them
 - **THEN** they are listed with the active shoes again and have no retired date
 
+### Requirement: A retired date is the day in the device's zone
+The retired date an item shows SHALL be the calendar day, in the device's time zone, of the moment it was retired. That's the same zone the app uses for the day a component was mounted, so one form never shows dates read in two different zones.
+
+#### Scenario: Retired late in the evening
+- **WHEN** an athlete whose device is set to a zone behind UTC retires their shoes at 23:30 local time
+- **THEN** the shoes show that day as their retired date, not the next day
+
+#### Scenario: Same zone as the mounted date
+- **WHEN** an athlete opens a component that is both mounted and retired
+- **THEN** its mounted date and its retired date are both read in the device's zone
+
 ### Requirement: Deleting an item is confirmed
 Deleting an item SHALL ask for confirmation, and the confirmation SHALL offer to retire the item instead. A confirmed delete SHALL remove the item from wherever it is stored.
 
