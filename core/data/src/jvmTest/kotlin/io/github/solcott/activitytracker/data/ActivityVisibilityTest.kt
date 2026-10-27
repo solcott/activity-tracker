@@ -4,7 +4,9 @@ import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.FakeAthletePds.Session
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
+import io.github.solcott.activitytracker.data.activity.ActivityEdit
 import io.github.solcott.activitytracker.data.activity.ActivityStreams
+import io.github.solcott.activitytracker.data.activity.PendingWritesException
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
 import io.github.solcott.activitytracker.data.db.FeedItemEntity
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -30,6 +32,7 @@ import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.StreamChannel
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
+import io.ktor.http.HttpStatusCode
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -194,6 +197,28 @@ class ActivityVisibilityTest {
         failSpaceDeletes = false
         s.manager.setVisibility(view(uri, Visibility.MUTUALS), VisibilityChoice(Visibility.SELF))
         assertEquals(setOf(Visibility.SELF), placesOf(Nsid.FEED_ACTIVITY, rkey))
+    }
+
+    @Test
+    fun aMoveWaitsForTheActivitysQueuedWrites() = runTest {
+        val s = session()
+        val uri = s.activities.publish(draft(withStreams = false))
+        val rkey = uri.rkey!!
+        pds.failPutsOf = Nsid.FEED_ACTIVITY
+        pds.failPutsStatus = HttpStatusCode.ServiceUnavailable
+        s.manager.edit(
+            view(uri, Visibility.PUBLIC),
+            ActivityEdit(title = "Renamed", description = "", diveSite = null, media = emptyList()),
+        )
+
+        assertFailsWith<PendingWritesException> { s.manager.setVisibility(view(uri, Visibility.PUBLIC), VisibilityChoice(Visibility.SELF)) }
+        assertEquals(setOf(repo), placesOf(Nsid.FEED_ACTIVITY, rkey), "not moved while its edit could put it back in the repo")
+
+        pds.failPutsOf = null
+        s.manager.setVisibility(view(uri, Visibility.PUBLIC), VisibilityChoice(Visibility.SELF))
+        assertEquals(setOf(Visibility.SELF), placesOf(Nsid.FEED_ACTIVITY, rkey))
+        assertEquals(0, s.activities.sync())
+        assertEquals(setOf(Visibility.SELF), placesOf(Nsid.FEED_ACTIVITY, rkey), "the edit, sent first, didn't come back afterwards")
     }
 
     @Test
