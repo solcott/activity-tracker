@@ -188,11 +188,13 @@ object SegmentGeometry {
             val prev = piece[k].point
             val p = piece[k + 1].point
             val step = distanceMeters(prev, p)
-            val window = minOf(last, reached + ceil(step / REFERENCE_SPACING_M).toInt() + LOOKAHEAD)
+            // Once the last reference point is reached, its last stretch is still the one to stay near until the finish.
+            val first = minOf(reached, last - 1)
+            val window = minOf(last, first + ceil(step / REFERENCE_SPACING_M).toInt() + LOOKAHEAD)
             // The stretch of line in the window the sample is closest to.
-            var nearest = reached
+            var nearest = first
             var nearestDistance = Double.MAX_VALUE
-            for (s in reached until window) {
+            for (s in first until window) {
                 val d = toSegmentMeters(p, ref[s], ref[s + 1])
                 if (d < nearestDistance) {
                     nearestDistance = d
