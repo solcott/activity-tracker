@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.appview.db.Mutes
 import io.github.solcott.activitytracker.appview.db.Origins
 import io.github.solcott.activitytracker.appview.db.RecordShadows
+import io.github.solcott.activitytracker.appview.db.SegmentCreations
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
 import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.db.tx
@@ -490,6 +491,7 @@ class Indexer(
         Mutes.deleteWhere { authorDid eq did.value }
         SegmentPrefs.deleteWhere { SegmentPrefs.did eq did.value }
         LeaderboardBrackets.deleteWhere { LeaderboardBrackets.did eq did.value }
+        SegmentCreations.deleteWhere { authorDid eq did.value }
         dropSegmentTracks(did)
         deleteSegmentsBy(did, segmentJobs, clock.now().toEpochMilliseconds())
         RecordShadows.deleteWhere { uri like "at://${did.value}/%" }

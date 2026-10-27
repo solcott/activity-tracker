@@ -3,6 +3,7 @@
 package io.github.solcott.activitytracker.appview.index
 
 import io.github.solcott.activitytracker.appview.db.SegmentCellIndex
+import io.github.solcott.activitytracker.appview.db.SegmentCreations
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
@@ -24,9 +25,11 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
+import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
@@ -34,7 +37,7 @@ import org.jetbrains.exposed.v1.jdbc.upsert
 
 // Indexing of `feed.segment` records (segments/segment-records), from the repo only.
 
-/** How many new segments one creator may have indexed in any [CREATION_WINDOW_MS]. */
+/** How many new or re-lined segments one creator may have indexed in any [CREATION_WINDOW_MS]. */
 internal const val DAILY_SEGMENT_LIMIT = 10L
 internal const val CREATION_WINDOW_MS = 24L * 60 * 60 * 1000
 
@@ -51,10 +54,11 @@ private const val E7 = 1e7
 /**
  * A segment from [author]'s repo. Indexed only with a name, a known sport group and a line of at least two valid positions whose length,
  * computed here, is its group's minimum to 50 km; anything else is dropped like an undecodable record, as is a new segment past its
- * creator's [DAILY_SEGMENT_LIMIT] while [limited] (every creator but the segment importer). A new segment, or one whose line or sport
- * changed, loses its efforts, gets its status again (duplicate of the earliest live segment it duplicates, else proposed) and, unless a
- * duplicate, is queued to be matched against past tracks; the segments that duplicated its old version are checked again. A rename keeps
- * its status. A blank or over-long attribution is left out of the stored record.
+ * creator's [DAILY_SEGMENT_LIMIT] (new and re-lined ones in the last day, deleted ones included) while [limited] (every creator but the
+ * segment importer). A new segment, or one whose line or sport changed, loses its efforts, gets its status again (duplicate of the earliest
+ * live segment it duplicates, else proposed) and, unless a duplicate, is queued to be matched against past tracks; the segments that
+ * duplicated its old version are checked again. A rename keeps its status. A blank or over-long attribution is left out of the stored
+ * record.
  */
 @Suppress("LongParameterList", "LongMethod") // The record, and where it's from; then each part of indexing it.
 internal fun JdbcTransaction.upsertSegment(
@@ -76,10 +80,18 @@ internal fun JdbcTransaction.upsertSegment(
         Segments.select(Segments.line, Segments.sport, Segments.status, Segments.duplicateOf, Segments.firstIndexedAt)
             .where { Segments.uri eq uri.value }
             .firstOrNull()
-    if (old == null && limited) {
+    val relined = old == null || old[Segments.line] != record.line
+    // A re-lined segment is matched afresh like a new one, so it counts the same; deleting one frees nothing (SegmentCreations).
+    if (relined && limited) {
         require(segmentsCreatedSince(author, now) < DAILY_SEGMENT_LIMIT) { "over the daily limit of new segments" }
+        SegmentCreations.deleteWhere { (authorDid eq author.value) and (createdAt lessEq now - CREATION_WINDOW_MS) }
+        SegmentCreations.insert {
+            it[authorDid] = author.value
+            it[segmentUri] = uri.value
+            it[createdAt] = now
+        }
     }
-    val changed = old == null || old[Segments.line] != record.line || old[Segments.sport] != record.sport
+    val changed = relined || old[Segments.sport] != record.sport
     val firstIndexed = old?.get(Segments.firstIndexedAt) ?: now
     val original = if (changed) duplicatesOf(record.sport, line, before = firstIndexed to uri.value).firstOrNull() else null
     Segments.upsert {
@@ -150,10 +162,10 @@ internal fun validLine(sport: String, encoded: String): List<GeoPoint> {
     return line
 }
 
-/** How many of [author]'s segments were first indexed in the [CREATION_WINDOW_MS] before [now]. */
+/** How many segments [author] had indexed new or re-lined in the [CREATION_WINDOW_MS] before [now], deleted ones included. */
 internal fun JdbcTransaction.segmentsCreatedSince(author: Did, now: Long): Long =
-    Segments.select(Segments.uri)
-        .where { (Segments.authorDid eq author.value) and (Segments.firstIndexedAt greater now - CREATION_WINDOW_MS) }
+    SegmentCreations.select(SegmentCreations.createdAt)
+        .where { (SegmentCreations.authorDid eq author.value) and (SegmentCreations.createdAt greater now - CREATION_WINDOW_MS) }
         .count()
 
 /**

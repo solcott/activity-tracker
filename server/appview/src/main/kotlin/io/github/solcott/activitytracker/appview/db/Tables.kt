@@ -120,6 +120,16 @@ object SegmentTracks : Table("segment_tracks") {
     override val primaryKey = PrimaryKey(uri)
 }
 
+/**
+ * Each new or re-lined segment a creator had indexed (segments/segment-records), by when: what the daily limit counts, so deleting a
+ * segment doesn't free its slot. Pruned past the window as new rows arrive, and dropped with the account.
+ */
+object SegmentCreations : Table("segment_creations") {
+    val authorDid = varchar("author_did", 255)
+    val segmentUri = varchar("segment_uri", 512)
+    val createdAt = long("created_at")
+}
+
 /** A segment (`feed.segment`), indexed from its creator's repo only. [distanceM] and the bounding box are computed from [line]. */
 object Segments : Table("segments") {
     val uri = varchar("uri", 512)
