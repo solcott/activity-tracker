@@ -72,6 +72,10 @@ class SpaceSyncer(
     private val log = LoggerFactory.getLogger(SpaceSyncer::class.java)
     private val wakeups = Channel<Unit>(Channel.CONFLATED)
     private val permits = Semaphore(parallelism)
+    /**
+     * One lock per space, so syncs and drops of a space never overlap. Never removed: a waiter could still hold an old one when a new one
+     * is made, and two syncs of the same space would run at once. A Mutex per space ever synced is small.
+     */
     private val locks = ConcurrentHashMap<String, Mutex>()
 
     /** Spaces with a sync launched by [launchDue] and not yet finished, so a slow one is never launched twice. */
@@ -107,7 +111,7 @@ class SpaceSyncer(
      * for a sync of it in progress, so nothing that sync indexes outlives the drop. Does nothing for a space this AppView doesn't sync.
      */
     suspend fun deleted(space: SpaceUri) {
-        locks.computeIfAbsent(space.value) { Mutex() }.withLock { if (isSynced(db, space)) dropped(space) else locks.remove(space.value) }
+        locks.computeIfAbsent(space.value) { Mutex() }.withLock { if (isSynced(db, space)) dropped(space) }
     }
 
     /**
@@ -278,8 +282,6 @@ class SpaceSyncer(
         log.info("{} was deleted; dropping it", space)
         indexer.dropSpace(space)
         db.tx { SpaceSync.deleteWhere { SpaceSync.space eq space.value } }
-        // Held by the caller; a later announcement makes a new one, and a sync still waiting on this one finds no space to sync.
-        locks.remove(space.value)
         renotified.remove(space.value)
     }
 
