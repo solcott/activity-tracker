@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.appview.api
 
 import io.github.solcott.activitytracker.appview.ProfileDetailRules
 import io.github.solcott.activitytracker.appview.db.Activities
+import io.github.solcott.activitytracker.appview.db.ActivityGear
 import io.github.solcott.activitytracker.appview.db.ActivityMediaBlobs
 import io.github.solcott.activitytracker.appview.db.Actors
 import io.github.solcott.activitytracker.appview.db.GearItems
@@ -31,6 +32,7 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
+import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
@@ -182,30 +184,34 @@ private fun JdbcTransaction.isPublicActivityMedia(did: String, cid: String): Boo
         !gearPhotoRows(did, cid) { GearItems.visibility eq Visibility.PUBLIC }.empty()
 
 /**
- * The tier space holding a photo [cid] of [did]'s that [viewer] may see, if there is one. A taken-down activity's photos are refused even
- * to its athlete, as its public ones are: nothing here tells the routes apart.
+ * The tier space holding a photo [cid] of [did]'s that [viewer] may see, if there is one, or that a moderator was shown with a subject they
+ * opened. A taken-down activity's photos are refused even to its athlete, as its public ones are: nothing here tells the routes apart.
  */
 private fun JdbcTransaction.visibleMediaOrigin(did: String, cid: String, viewer: Did): String? =
     mediaRows(did, cid) { (visibleTo(viewer) or openedByModerator(viewer)) and servedToAll() and (Activities.origin neq Origins.REPO) }
         .firstOrNull()
         ?.get(Activities.origin)
         ?: gearPhotoRows(did, cid) {
-                visibleTo(viewer, GearItems.visibility, GearItems.authorDid, GearItems.uri, GearItems.cid) and
-                    (GearItems.origin neq Origins.REPO)
+                (visibleTo(viewer, GearItems.visibility, GearItems.authorDid, GearItems.uri, GearItems.cid) or
+                    openedByModerator(viewer, gear = GearItems.uri)) and (GearItems.origin neq Origins.REPO)
             }
             .firstOrNull()
             ?.get(GearItems.origin)
 
 /**
  * [viewer] is a moderator who opened the activity through `moderation.getSubject` within a signed URL's lifetime: the audit log
- * ([ModerationAccess]) is the grant, so the link works for them as the spec asks and stops with the URL.
+ * ([ModerationAccess]) is the grant, so the link works for them as the spec asks and stops with the URL. With [gear], the grant is for that
+ * gear item instead, through an activity they opened that lists it: `getSubject` showed it with the activity, at any visibility.
  */
-private fun openedByModerator(viewer: Did): Op<Boolean> {
+private fun openedByModerator(viewer: Did, gear: Column<String>? = null): Op<Boolean> {
     val since = System.currentTimeMillis() - MODERATOR_GRANT.inWholeMilliseconds
+    val opened =
+        if (gear == null) ModerationAccess
+        else ModerationAccess.join(ActivityGear, JoinType.INNER, ModerationAccess.subjectUri, ActivityGear.activityUri)
     return exists(
-        ModerationAccess.select(ModerationAccess.subjectUri).where {
+        opened.select(ModerationAccess.subjectUri).where {
             (ModerationAccess.moderatorDid eq viewer.value) and
-                (ModerationAccess.subjectUri eq Activities.uri) and
+                (gear?.let { ActivityGear.gearUri eq it } ?: (ModerationAccess.subjectUri eq Activities.uri)) and
                 (ModerationAccess.at greaterEq since)
         }
     )
