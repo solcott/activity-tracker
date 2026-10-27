@@ -46,6 +46,7 @@ import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.inSubQuery
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.max
@@ -61,13 +62,12 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 @Suppress("TooManyFunctions") // One per feed, activity, profile and gear query, and the hydrate they share.
 class Views(private val db: Database, private val avatars: AvatarUrls, private val mediaUrls: MediaUrls) {
     suspend fun timeline(viewer: Did, params: GetTimeline.Params): GetTimeline.Output = db.tx {
-        val authors =
-            Follows.select(Follows.subjectDid)
-                .where { (Follows.authorDid eq viewer.value) and effectiveFollow() }
-                .map { it[Follows.subjectDid] } + viewer.value
+        // A subquery rather than a list of DIDs: an athlete may follow more accounts than a query takes parameters.
+        val followed = Follows.select(Follows.subjectDid).where { (Follows.authorDid eq viewer.value) and effectiveFollow() }
+        val authors = (Activities.authorDid eq viewer.value) or (Activities.authorDid inSubQuery followed)
         val filter = feedFilter(params.type, params.since, params.until)
         // A muted athlete's activities leave only the muter's timeline; their profile still lists them.
-        val shown = (Activities.authorDid inList authors) and filter and notMuted(viewer, Activities.authorDid)
+        val shown = authors and filter and notMuted(viewer, Activities.authorDid)
         val (views, cursor) = activityPage(shown, params.limit, params.cursor, viewer)
         GetTimeline.Output(views, cursor)
     }
