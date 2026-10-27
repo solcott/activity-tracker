@@ -86,7 +86,7 @@ Re-writing a segment record SHALL replace its indexed version. Deleting it SHALL
 - **THEN** the AppView answers `NotFound`
 
 ### Requirement: Segments can be found by area
-`feed.searchSegments` SHALL return the indexed segments whose line passes through a bounding box, optionally only those of one sport group, at most 100 per page with a cursor. It SHALL return `active` segments to every viewer, and a `proposed` segment only to its creator and to athletes who have an effort on it. It SHALL never return `duplicate` or `archived` segments. A bounding box wider than 1 degree on either side SHALL be refused as `InvalidRequest`. One request SHALL examine at most a fixed number of segments, whoever asks and however many segments lie near the box. When it stops before filling a page, it SHALL return the segments it found, which may be fewer than asked for or none, with a cursor that continues the search. A page without a cursor SHALL mean the search is complete, and following the cursors SHALL return every matching segment exactly once.
+`feed.searchSegments` SHALL return the indexed segments whose line passes through a bounding box, optionally only those of one sport group, at most 100 per page with a cursor. It SHALL return `active` segments to every viewer, and a `proposed` segment only to its creator and to athletes who have an effort on it. It SHALL never return `duplicate` or `archived` segments. A bounding box wider than 1 degree on either side SHALL be refused as `InvalidRequest`.
 
 #### Scenario: Map area
 - **WHEN** a viewer searches a 5 km box around a trail centre for `ride` segments
@@ -99,6 +99,9 @@ Re-writing a segment record SHALL replace its indexed version. Deleting it SHALL
 #### Scenario: Box too large
 - **WHEN** a viewer searches a box 3 degrees wide
 - **THEN** the AppView answers `InvalidRequest`
+
+### Requirement: A segment search does bounded work
+One `feed.searchSegments` request SHALL examine at most a fixed number of segments, whoever asks and however many lie near the box. A page MAY hold fewer segments than asked for, or none, with a cursor that continues the search. Only a page without a cursor SHALL end the search, and following the cursors SHALL return every matching segment exactly once.
 
 #### Scenario: Many segments near the box but not through it
 - **WHEN** more segments than one request examines have a bounding box overlapping the search box but a line that misses it, and one segment indexed after them crosses the box
