@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.appview.db.SegmentCandidateRiders
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateRows
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.db.tx
+import io.github.solcott.activitytracker.appview.index.MAX_LINE_CHARS
 import io.github.solcott.activitytracker.appview.index.MAX_NAME_LENGTH
 import io.github.solcott.activitytracker.appview.index.MAX_TOKEN_LENGTH
 import io.github.solcott.activitytracker.appview.index.duplicatesOf
@@ -259,6 +260,6 @@ class SegmentCandidateViews(
 
     private companion object {
         /** `importer.defs#candidate.line`'s maxLength, as `feed.segment#line`'s. */
-        const val MAX_LINE_LENGTH = 100_000
+        const val MAX_LINE_LENGTH = MAX_LINE_CHARS
     }
 }

@@ -109,8 +109,18 @@ private fun String.decodeUrlComponent(): String {
     while (i < length) {
         when (val c = this[i]) {
             '%' -> {
-                bytes += substring(i + 1, i + 1 + PERCENT_HEX_DIGITS).toInt(HEX_RADIX).toByte()
-                i += PERCENT_HEX_DIGITS
+                // A stray or cut-off escape (`?x=%`, `%zz`) is kept as written rather than failing the whole redirect.
+                val escape = substring(i + 1, minOf(length, i + 1 + PERCENT_HEX_DIGITS))
+                val byte =
+                    escape
+                        .takeIf { it.length == PERCENT_HEX_DIGITS && it.all { c -> c.digitToIntOrNull(HEX_RADIX) != null } }
+                        ?.toInt(HEX_RADIX)
+                if (byte == null) {
+                    bytes += '%'.code.toByte()
+                } else {
+                    bytes += byte.toByte()
+                    i += PERCENT_HEX_DIGITS
+                }
             }
 
             '+' -> {

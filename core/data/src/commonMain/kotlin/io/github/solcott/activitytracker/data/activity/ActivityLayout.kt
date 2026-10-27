@@ -230,9 +230,9 @@ class ActivityPlaces(private val clients: SessionClients, private val clock: Clo
     private var repaired = false
 
     /**
-     * Once a session, finishes the athlete's split activities that an interrupted save (here or on another device) left in two places: each
-     * category goes to the narrowest place it's in, capped at the activity's narrowest record, so this never widens. Best effort: a failure
-     * is logged and left for the next session.
+     * Once a session, finishes the athlete's activities that an interrupted save (here or on another device) left in two places, split or
+     * with the record itself in two: each category goes to the narrowest place it's in, capped at the activity's narrowest record, so this
+     * never widens. Best effort: a failure is logged and left for the next session.
      */
     suspend fun repairOnce() {
         if (repaired || !clients.canUseSpaces) return
@@ -244,10 +244,13 @@ class ActivityPlaces(private val clients: SessionClients, private val clock: Clo
         val streams = Visibility.all.map { clients.listOwn(Nsid.FEED_ACTIVITY_STREAMS, clients.placeOf(it)).keys }
         val details = AthleteSpaces.TIERS.flatMap { clients.listOwn(Nsid.FEED_ACTIVITY_DETAILS, clients.placeOf(it)).keys }.toSet()
         val inTwo = streams.flatten().groupingBy { it }.eachCount().filterValues { it > 1 }.keys
-        for (rkey in details + inTwo) {
+        // A move cut short between writing the new place and deleting the old leaves the record in both, split or not.
+        val records = Visibility.all.flatMap { clients.listOwn(Nsid.FEED_ACTIVITY, clients.placeOf(it)).keys }
+        val recordsInTwo = records.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+        for (rkey in details + inTwo + recordsInTwo) {
             val stored = read(AtUri.of(clients.did, Nsid.FEED_ACTIVITY, rkey))
             val desired = stored.narrowestShares() ?: continue
-            if (stored.isSplit && desired != stored.shares) save(stored, desired)
+            if ((stored.isSplit || stored.recordTiers.size > 1) && desired != stored.shares) save(stored, desired)
         }
     }
 
@@ -354,10 +357,13 @@ class ActivityPlaces(private val clients: SessionClients, private val clock: Clo
         )
     }
 
-    /** The data a stored streams record names, from the repo's blobs or the tier space's; null when it can't be read. */
+    /**
+     * The data a stored streams record names, from the repo's blobs or the tier space's; null when the record or its data doesn't decode.
+     * Throws when the blob can't be had: read as no streams, a save would write this tier's streams without the channels it holds.
+     */
     private suspend fun streamData(value: JsonObject, tier: String): ActivityStreamData? {
         val cid = decodeOrNull { AtJson.decodeFromJsonElement(ActivityStreamsRecord.serializer(), value) }?.data?.ref?.link?.let(::Cid)
-        val bytes = cid?.let { blob(it, clients.placeOf(tier)) }
+        val bytes = cid?.let { blob(it, clients.placeOf(tier)) ?: throw StreamsUnreadableException(tier) }
         return bytes?.let { decodeOrNull { AtJson.decodeFromString(ActivityStreamData.serializer(), it.decodeToString()) } }
     }
 
@@ -369,6 +375,9 @@ class ActivityPlaces(private val clients: SessionClients, private val clock: Clo
             (clients.spaces.getBlob(place, clients.did, cid) as? SpaceRead.Found)?.value?.bytes
         }
 }
+
+/** A streams record at [tier] names data its space doesn't have, so the activity can't be rewritten without losing channels. */
+class StreamsUnreadableException(tier: String) : IllegalStateException("The streams data at $tier can't be read")
 
 /** [block]'s record, or null when it doesn't decode: any client can write the athlete's records. */
 private inline fun <T> decodeOrNull(block: () -> T): T? = runCatching(block).getOrNull()

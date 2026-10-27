@@ -16,6 +16,7 @@ import platform.CoreLocation.CLLocationManagerDelegateProtocol
 import platform.CoreLocation.kCLAuthorizationStatusAuthorizedAlways
 import platform.CoreLocation.kCLAuthorizationStatusAuthorizedWhenInUse
 import platform.CoreLocation.kCLLocationAccuracyBest
+import platform.Foundation.NSDate
 import platform.Foundation.timeIntervalSince1970
 import platform.darwin.NSObject
 
@@ -32,13 +33,20 @@ class IosLocationTracker : LocationTracker {
 
     @OptIn(ExperimentalForeignApi::class)
     override fun updates(): Flow<LocationSample> = callbackFlow {
+        // Core Location often hands over its last known fix first, from before this started: maybe minutes old and far away.
+        val startedAt = NSDate().timeIntervalSince1970
         val delegate =
             object : NSObject(), CLLocationManagerDelegateProtocol {
                 override fun locationManager(
                     manager: CLLocationManager,
                     didUpdateLocations: List<*>,
                 ) {
-                    didUpdateLocations.filterIsInstance<CLLocation>().forEach { location ->
+                    // A negative horizontal accuracy means the coordinate is invalid, not that it's exact.
+                    val valid =
+                        didUpdateLocations.filterIsInstance<CLLocation>().filter {
+                            it.horizontalAccuracy >= 0 && it.timestamp.timeIntervalSince1970 >= startedAt - CACHED_FIX_TOLERANCE_S
+                        }
+                    valid.forEach { location ->
                         val (lat, lon) = location.coordinate.useContents { latitude to longitude }
                         trySend(
                             LocationSample(
@@ -72,3 +80,6 @@ class IosLocationTracker : LocationTracker {
         }
     }
 }
+
+/** How far before updates start a fix may be dated and still count as fresh (a fix computed as they started). */
+private const val CACHED_FIX_TOLERANCE_S = 1.0

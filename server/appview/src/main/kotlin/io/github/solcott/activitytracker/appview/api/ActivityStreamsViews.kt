@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
@@ -280,8 +281,8 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
     }
 
     /**
-     * The blob from [StreamSource], held to sane limits (it's untrusted) and cached. Null when it's missing or isn't stream data, which is
-     * remembered as a failure.
+     * The blob from [StreamSource], held to sane limits (it's untrusted), checked against its CID and cached by it. Null when it's missing,
+     * doesn't match its CID or isn't stream data, which is remembered as a failure.
      */
     private suspend fun fetch(source: Source): ActivityStreamData? {
         val bytes = runSuspendCatching {
@@ -289,7 +290,15 @@ class ActivityStreamsViews(private val db: Database, private val source: StreamS
         }
             .onFailure { log.debug("Couldn't fetch stream data {} from {}: {}", source.blobCid, source.author, it.message) }
             .getOrNull()
-        val data = bytes?.takeIf { it.size <= ActivityStreamsRecord.MAX_DATA_BYTES }?.let { decoded(source, it) }?.let(::bounded)
+        // Bytes that aren't the blob the CID names say nothing about it: only this source is wrong, so it's retried like a missing blob,
+        // never cached under the CID or marked bad for every source that names it.
+        val genuine = bytes?.takeIf { it.size <= ActivityStreamsRecord.MAX_DATA_BYTES }?.takeIf { blobMatchesCid(Cid(source.blobCid), it) }
+        if (bytes != null && bytes.size <= ActivityStreamsRecord.MAX_DATA_BYTES && genuine == null) {
+            log.debug("Stream data from {} doesn't match its CID {}", source.author, source.blobCid)
+            failed(source, ActivityStreamFetchFailures.KIND_UNAVAILABLE)
+            return null
+        }
+        val data = genuine?.let { decoded(source, it) }?.let(::bounded)
         when {
             bytes == null -> failed(source, ActivityStreamFetchFailures.KIND_UNAVAILABLE)
             data == null -> failed(source, ActivityStreamFetchFailures.KIND_CONTENT)

@@ -205,4 +205,15 @@ class SegmentGeometryTest {
         val took = measureTime { assertTrue(SegmentGeometry.duplicates(original, copy)) }
         assertTrue(took < 2.seconds, "took $took")
     }
+
+    @Test
+    fun aSampleBesideTheEndThenOneWithinItFinishes() {
+        val approach = track(listOf(0.0 to 0.0, 0.0 to 990.0))
+        val t = approach.last().t
+        // 28 m beside the end (closer to it than to the point before, but outside the end circle), then within it.
+        val beside = at(28.0, 1003.0)
+        val within = at(10.0, 1002.0)
+        val piece = approach + TimedPoint(beside.lat, beside.lng, t + 6) + TimedPoint(within.lat, within.lng, t + 9)
+        assertEquals(1, passesOver(straight, piece).size)
+    }
 }

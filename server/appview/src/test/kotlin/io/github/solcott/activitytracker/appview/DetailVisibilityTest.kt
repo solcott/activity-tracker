@@ -91,7 +91,7 @@ class DetailVisibilityTest {
                 "bafkold" to ActivityStreamData(time = time, heartRate = listOf(120, 130, 140), power = listOf(200, 210, 220)),
             )
             .mapValues { (_, d) -> AtJson.encodeToString(ActivityStreamData.serializer(), d).encodeToByteArray() }
-    private val source = StreamSource { _, cid, _ -> blobs[cid] }
+    private val source = StreamSource { _, cid, _ -> nameOf(blobs, cid)?.let(blobs::get) }
 
     private val rkey = "3kride"
     private val activityUri = "at://$alice/${Nsid.FEED_ACTIVITY}/$rkey"
@@ -148,8 +148,8 @@ class DetailVisibilityTest {
             Nsid.FEED_ACTIVITY_STREAMS,
             tier,
             """{"activity":"$activityUri","channels":[${channels.joinToString(",") { "\"$it\"" }}],""" +
-                """"data":{"${'$'}type":"blob","ref":{"${'$'}link":"$blob"},"mimeType":"application/json","size":100},""" +
-                """"createdAt":"2026-10-05T08:00:00Z"}""",
+                """"data":{"${'$'}type":"blob","ref":{"${'$'}link":"${blobs[blob]?.let(::blobCid) ?: blob}"},""" +
+                """"mimeType":"application/json","size":100},"createdAt":"2026-10-05T08:00:00Z"}""",
         )
 
     /** A Public ride with Power at Followers and Heart rate and Start time at Only me. */

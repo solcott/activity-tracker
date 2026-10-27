@@ -4,7 +4,10 @@ import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.FakeAthletePds.Session
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
+import io.github.solcott.activitytracker.data.activity.ActivityEdit
 import io.github.solcott.activitytracker.data.activity.ActivityStreams
+import io.github.solcott.activitytracker.data.activity.PendingWritesException
+import io.github.solcott.activitytracker.data.activity.StreamsUnreadableException
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
 import io.github.solcott.activitytracker.data.db.FeedItemEntity
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -30,6 +33,7 @@ import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.StreamChannel
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
+import io.ktor.http.HttpStatusCode
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -194,6 +198,68 @@ class ActivityVisibilityTest {
         failSpaceDeletes = false
         s.manager.setVisibility(view(uri, Visibility.MUTUALS), VisibilityChoice(Visibility.SELF))
         assertEquals(setOf(Visibility.SELF), placesOf(Nsid.FEED_ACTIVITY, rkey))
+    }
+
+    @Test
+    fun aMoveWaitsForTheActivitysQueuedWrites() = runTest {
+        val s = session()
+        val uri = s.activities.publish(draft(withStreams = false))
+        val rkey = uri.rkey!!
+        pds.failPutsOf = Nsid.FEED_ACTIVITY
+        pds.failPutsStatus = HttpStatusCode.ServiceUnavailable
+        s.manager.edit(
+            view(uri, Visibility.PUBLIC),
+            ActivityEdit(title = "Renamed", description = "", diveSite = null, media = emptyList()),
+        )
+
+        assertFailsWith<PendingWritesException> { s.manager.setVisibility(view(uri, Visibility.PUBLIC), VisibilityChoice(Visibility.SELF)) }
+        assertEquals(setOf(repo), placesOf(Nsid.FEED_ACTIVITY, rkey), "not moved while its edit could put it back in the repo")
+
+        pds.failPutsOf = null
+        s.manager.setVisibility(view(uri, Visibility.PUBLIC), VisibilityChoice(Visibility.SELF))
+        assertEquals(setOf(Visibility.SELF), placesOf(Nsid.FEED_ACTIVITY, rkey))
+        assertEquals(0, s.activities.sync())
+        assertEquals(setOf(Visibility.SELF), placesOf(Nsid.FEED_ACTIVITY, rkey), "the edit, sent first, didn't come back afterwards")
+    }
+
+    @Test
+    fun aRecordLeftInTwoPlacesIsRepairedToTheNarrower() = runTest {
+        val s = session()
+        val uri = s.activities.publish(draft(VisibilityChoice(Visibility.SELF), withStreams = false))
+        val rkey = uri.rkey!!
+        // As a move from Public cut short between its two phases left it: unsplit, in the repo and in Only me.
+        stored.getOrPut(repo) { mutableMapOf() }["${Nsid.FEED_ACTIVITY}/$rkey"] =
+            stored.getValue(Visibility.SELF).getValue("${Nsid.FEED_ACTIVITY}/$rkey")
+
+        session().activities.repairZones()
+        assertEquals(setOf(Visibility.SELF), placesOf(Nsid.FEED_ACTIVITY, rkey))
+    }
+
+    @Test
+    fun deletingAnActivityClearsACopyLeftAtAnotherPlace() = runTest {
+        val s = session()
+        val uri = s.activities.publish(draft(VisibilityChoice(Visibility.SELF), withStreams = false))
+        val rkey = uri.rkey!!
+        stored.getOrPut(repo) { mutableMapOf() }["${Nsid.FEED_ACTIVITY}/$rkey"] =
+            stored.getValue(Visibility.SELF).getValue("${Nsid.FEED_ACTIVITY}/$rkey")
+
+        s.manager.delete(view(uri, Visibility.SELF), withRecordings = false)
+        assertEquals(emptySet(), placesOf(Nsid.FEED_ACTIVITY, rkey))
+        assertEquals(0, s.activities.sync())
+    }
+
+    @Test
+    fun aMoveWhoseStreamsDataCantBeReadFailsAndKeepsThem() = runTest {
+        val s = session()
+        val uri = s.activities.publish(draft(VisibilityChoice(Visibility.MUTUALS)))
+        val rkey = uri.rkey!!
+        val before = stored.getValue(Visibility.MUTUALS).getValue("${Nsid.FEED_ACTIVITY_STREAMS}/$rkey")
+        pds.blobs.clear()
+
+        assertFailsWith<StreamsUnreadableException> {
+            s.manager.setVisibility(view(uri, Visibility.MUTUALS), VisibilityChoice(Visibility.SELF))
+        }
+        assertEquals(before, stored.getValue(Visibility.MUTUALS)["${Nsid.FEED_ACTIVITY_STREAMS}/$rkey"], "not rewritten without its data")
     }
 
     @Test

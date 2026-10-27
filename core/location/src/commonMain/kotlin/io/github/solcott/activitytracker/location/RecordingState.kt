@@ -31,7 +31,11 @@ data class RecordingState(
     val activeBeforeSegment: Duration = Duration.ZERO,
     val segmentStartedAt: Instant? = null,
     val distanceMeters: Double = 0.0,
-    val movingSeconds: Long = 0,
+    /**
+     * Time spent moving, in milliseconds, summed exactly: fixes are rarely a whole second apart, so whole seconds per step would lose most
+     * of it.
+     */
+    val movingMillis: Long = 0,
     val elevationGainMeters: Double = 0.0,
     val maxSpeedMps: Double = 0.0,
     /** The current segment: 0 from the start, one more at each resume. */
@@ -53,6 +57,10 @@ data class RecordingState(
         Recording,
         Paused,
     }
+
+    /** [movingMillis] in whole seconds, rounded once. */
+    val movingSeconds: Long
+        get() = (movingMillis + MILLIS_PER_SECOND / 2) / MILLIS_PER_SECOND
 
     /** Whether this is [did]'s recording, recorded or paused, so signing in as [did] belongs on the record screen. */
     fun inProgressFor(did: String): Boolean = status != Status.Idle && this.did == did
@@ -82,15 +90,16 @@ data class RecordingState(
     private fun accept(sample: LocationSample): RecordingState {
         val previous = last
         val step = previous?.let { TrackMath.distanceMeters(it, sample) } ?: 0.0
-        val seconds = previous?.let { (sample.time - it.time).inWholeSeconds } ?: 0
-        val speed = sample.speed ?: if (seconds > 0) step / seconds else 0.0
+        // A fix dated before the last (a clock adjustment) counts no time.
+        val millis = previous?.let { (sample.time - it.time).inWholeMilliseconds }?.coerceAtLeast(0) ?: 0
+        val speed = sample.speed ?: if (millis > 0) step * MILLIS_PER_SECOND / millis else 0.0
         val altitude = sample.altitude
         val base = climbBase
         val climb = if (altitude != null && base != null && altitude - base > ELEVATION_HYSTERESIS_M) altitude - base else 0.0
         val nextBase = if (altitude != null && (base == null || abs(altitude - base) > ELEVATION_HYSTERESIS_M)) altitude else base
         return copy(
             distanceMeters = distanceMeters + step,
-            movingSeconds = movingSeconds + if (speed > MOVING_SPEED_MPS) seconds else 0,
+            movingMillis = movingMillis + if (speed > MOVING_SPEED_MPS) millis else 0,
             elevationGainMeters = elevationGainMeters + climb,
             maxSpeedMps = maxOf(maxSpeedMps, speed),
             last = sample,
@@ -103,6 +112,7 @@ data class RecordingState(
         const val MAX_ACCURACY_M = 50.0
         private const val MOVING_SPEED_MPS = 0.5
         private const val ELEVATION_HYSTERESIS_M = 3.0
+        private const val MILLIS_PER_SECOND = 1000L
 
         /** A recording started at [startedAt] by [did]. */
         fun started(did: String?, startedAt: Instant) =

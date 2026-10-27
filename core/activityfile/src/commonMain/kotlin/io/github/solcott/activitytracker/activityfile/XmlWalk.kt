@@ -16,6 +16,7 @@ internal fun walkXml(
     onStart: (path: List<String>, attribute: (String) -> String?) -> Unit,
     onEnd: (path: List<String>, text: String) -> Unit,
 ) {
+    if (declaresEntities(xml)) activityFileError(DECLARED_ENTITIES)
     val reader =
         try {
             xmlStreaming.newGenericReader(xml, expandEntities = true)
@@ -53,21 +54,32 @@ internal fun walkXml(
 /** Shown to the athlete, so no parser detail; that stays on the exception's cause. */
 private const val DAMAGED_XML = "The file is damaged or cut off"
 
+private const val DECLARED_ENTITIES = "The file declares XML entities, which activity files never do"
+
+/**
+ * Whether [xml] declares entities in a DTD. No activity format does, and the parser expands them without limit, so a few nested ones
+ * ("billion laughs") would take gigabytes: such a file is refused before it's parsed.
+ */
+private fun declaresEntities(xml: String): Boolean = xml.contains("<!ENTITY")
+
 /** The document's root element's local name, or null when [xml] isn't XML. Reads no further than the root. */
 internal fun xmlRootElement(xml: String): String? =
-    try {
-        val reader = xmlStreaming.newGenericReader(xml, expandEntities = true)
-        var root: String? = null
-        while (root == null && reader.hasNext()) {
-            if (reader.next() == EventType.START_ELEMENT) root = reader.localName
+    if (declaresEntities(xml)) {
+        null
+    } else
+        try {
+            val reader = xmlStreaming.newGenericReader(xml, expandEntities = true)
+            var root: String? = null
+            while (root == null && reader.hasNext()) {
+                if (reader.next() == EventType.START_ELEMENT) root = reader.localName
+            }
+            root
+        } catch (_: XmlException) {
+            null
+        } catch (_: IllegalStateException) {
+            // xmlutil reports some malformed input (binary data, an early end) this way rather than as XmlException.
+            null
         }
-        root
-    } catch (_: XmlException) {
-        null
-    } catch (_: IllegalStateException) {
-        // xmlutil reports some malformed input (binary data, an early end) this way rather than as XmlException.
-        null
-    }
 
 /** An ISO 8601 time as epoch millis. A time without a zone is read as UTC, which is what GPX requires anyway. Null if unparseable. */
 internal fun parseXmlTime(text: String?): Long? {

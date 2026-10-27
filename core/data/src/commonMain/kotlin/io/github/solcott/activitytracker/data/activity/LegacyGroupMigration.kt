@@ -92,7 +92,8 @@ class LegacyGroupMigration(
                 val recordings = primary.recordings.orEmpty().map { it.uri }.distinct() - primary.uri
                 if (recordings.isNotEmpty()) groups += primary to Group(primary.uri, primary.visibilityOrPublic, recordings)
             }
-            cursor = page.cursor
+            // An empty page, or a cursor that doesn't move, would page forever.
+            cursor = page.cursor?.takeIf { page.activities.isNotEmpty() && it != cursor }
         } while (cursor != null)
         return groups
     }

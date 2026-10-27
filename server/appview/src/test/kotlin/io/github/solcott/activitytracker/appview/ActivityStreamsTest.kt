@@ -88,8 +88,11 @@ class ActivityStreamsTest {
     private var fetches = 0
     private val source = StreamSource { did, cid, _ ->
         fetches++
-        blobs[cid]?.takeIf { did.value == alice }
+        nameOf(blobs, cid)?.let(blobs::get)?.takeIf { did.value == alice }
     }
+
+    /** The real CID of the blob named [name] in [blobs] or [fetchAnswers]; [name] itself for a blob no test holds. */
+    private fun link(name: String): String = (blobs[name] ?: fetchAnswers[name])?.let(::blobCid) ?: name
 
     private val activityUri = "at://$alice/${Nsid.FEED_ACTIVITY}/3kride"
 
@@ -120,7 +123,7 @@ class ActivityStreamsTest {
         val tokens = channels.joinToString(",") { "\"$it\"" }
         val record =
             """{"activity":"$activity",${claim?.let { """"visibility":"$it",""" }.orEmpty()}"channels":[$tokens],""" +
-                """"data":{"${'$'}type":"blob","ref":{"${'$'}link":"$blob"},"mimeType":"application/json","size":100},""" +
+                """"data":{"${'$'}type":"blob","ref":{"${'$'}link":"${link(blob)}"},"mimeType":"application/json","size":100},""" +
                 """"powerZones":{"model":"coggan6","lows":[0,138,188,225,263,300]},"createdAt":"2026-09-30T12:00:00Z"}"""
         if (tier == Visibility.PUBLIC) {
             commit(alice, Nsid.FEED_ACTIVITY_STREAMS, rkey, record)
@@ -165,24 +168,28 @@ class ActivityStreamsTest {
         val calls = java.util.concurrent.ConcurrentHashMap<String, Int>()
         val down = mutableSetOf<String>()
         val gates = mutableMapOf<String, CompletableDeferred<Unit>>()
-        val answers =
-            mutableMapOf(
-                "bafkdata" to AtJson.encodeToString(ActivityStreamData.serializer(), data).encodeToByteArray(),
-                "bafkfollow" to AtJson.encodeToString(ActivityStreamData.serializer(), followersData).encodeToByteArray(),
-                "bafkbad" to "not stream data".encodeToByteArray(),
-                "bafkhuge" to ByteArray(ActivityStreamsRecord.MAX_DATA_BYTES.toInt() + 1) { ' '.code.toByte() },
-            )
         val source = StreamSource { _, cid, _ ->
-            calls.merge(cid, 1, Int::plus)
-            gates[cid]?.await()
-            if (cid in down) throw java.io.IOException("unreachable")
-            answers[cid]
+            val name = nameOf(fetchAnswers, cid) ?: cid
+            calls.merge(name, 1, Int::plus)
+            gates[name]?.await()
+            if (name in down) throw java.io.IOException("unreachable")
+            fetchAnswers[name]
         }
 
         fun calls(cid: String) = calls[cid] ?: 0
     }
 
     private val followersData = ActivityStreamData(time = listOf(0, 1, 2), cadence = listOf(80, 82, 84))
+
+    /** What [FetchFake] answers, by blob name. */
+    private val fetchAnswers by lazy {
+        mapOf(
+            "bafkdata" to AtJson.encodeToString(ActivityStreamData.serializer(), data).encodeToByteArray(),
+            "bafkfollow" to AtJson.encodeToString(ActivityStreamData.serializer(), followersData).encodeToByteArray(),
+            "bafkbad" to "not stream data".encodeToByteArray(),
+            "bafkhuge" to ByteArray(ActivityStreamsRecord.MAX_DATA_BYTES.toInt() + 1) { ' '.code.toByte() },
+        )
+    }
     private val clock = MutableClock(Instant.parse("2026-10-27T12:00:00Z"))
 
     private fun views(fake: FetchFake) = ActivityStreamsViews(db, fake.source, clock)
@@ -221,6 +228,27 @@ class ActivityStreamsTest {
         views.of(bob)
         assertEquals(3, fake.calls("bafkfollow"), "held once fetched")
         assertEquals(0L, db.tx { ActivityStreamFetchFailures.selectAll().count() }, "the failure is forgotten")
+    }
+
+    @Test
+    fun bytesThatDontMatchTheirCidAreNeitherCachedNorMarkedBad() = runBlocking {
+        mutuals()
+        streams(Visibility.FOLLOWERS, blob = "bafkfollow", channels = listOf(StreamChannel.CADENCE))
+        val forged = AtJson.encodeToString(ActivityStreamData.serializer(), followersData.copy(cadence = listOf(1, 1, 1)))
+        val fake = FetchFake()
+        val views = views(fake)
+        // Another PDS answers the same CID with forged data, then with junk: neither is the blob the CID names.
+        val impostor = StreamSource { _, _, _ -> forged.encodeToByteArray() }
+        val forging = ActivityStreamsViews(db, impostor, clock)
+        assertNull(runCatching { forging.of(bob) }.getOrNull()?.data?.cadence, "forged data is never served")
+        clock.now += 1.hours
+        val junk = ActivityStreamsViews(db, StreamSource { _, _, _ -> "junk".encodeToByteArray() }, clock)
+        assertNull(runCatching { junk.of(bob) }.getOrNull()?.data?.cadence)
+        assertEquals(0L, db.tx { StreamDataCache.selectAll().count() }, "nothing cached under the CID")
+
+        clock.now += 1.hours
+        assertEquals(followersData.cadence, views.of(bob).data.cadence, "the genuine blob is still fetched and served")
+        assertEquals(1, fake.calls("bafkfollow"))
     }
 
     @Test

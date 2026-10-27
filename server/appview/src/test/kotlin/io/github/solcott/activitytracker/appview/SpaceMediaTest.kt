@@ -384,10 +384,11 @@ class SpaceMediaTest {
     @Test
     fun spaceHeldStreamsComeFromTheSpaceByTier() = testApplication {
         val origins = mutableListOf<String>()
+        val streams = """{"time":[0,1],"heartRate":[120,121]}""".encodeToByteArray()
         startSigning(
             StreamSource { _, _, origin ->
                 origins += origin
-                """{"time":[0,1],"heartRate":[120,121]}""".encodeToByteArray()
+                streams
             }
         )
         follow(bob, alice)
@@ -400,7 +401,8 @@ class SpaceMediaTest {
                 "bafystreams",
                 AtJson.parseToJsonElement(
                         """{"activity":"${uri("3kfol")}","visibility":"public","channels":["heartRate"],""" +
-                            """"createdAt":"2026-10-01T07:31:00Z","data":{"${'$'}type":"blob","ref":{"${'$'}link":"$photoCid"},""" +
+                            """"createdAt":"2026-10-01T07:31:00Z",""" +
+                            """"data":{"${'$'}type":"blob","ref":{"${'$'}link":"${blobCid(streams)}"},""" +
                             """"mimeType":"application/json","size":40}}"""
                     )
                     .jsonObject,
@@ -416,14 +418,15 @@ class SpaceMediaTest {
 
     @Test
     fun publicStreamsOfAnOnlyMeActivityStayHidden() = testApplication {
-        startSigning(StreamSource { _, _, _ -> """{"time":[0]}""".encodeToByteArray() })
+        val streams = """{"time":[0]}""".encodeToByteArray()
+        startSigning(StreamSource { _, _, _ -> streams })
         postSpace("3kme", Visibility.SELF, record(1))
         commit(
             alice,
             Nsid.FEED_ACTIVITY_STREAMS,
             "3kme",
             """{"activity":"${uri("3kme")}","visibility":"public","channels":[],"createdAt":"2026-10-01T07:31:00Z",""" +
-                """"data":{"${'$'}type":"blob","ref":{"${'$'}link":"$photoCid"},"mimeType":"application/json","size":12}}""",
+                """"data":{"${'$'}type":"blob","ref":{"${'$'}link":"${blobCid(streams)}"},"mimeType":"application/json","size":12}}""",
         )
         val streamsUri = "?uri=${uri("3kme").encodeURLParameter()}"
         assertEquals(HttpStatusCode.NotFound, client.raw(GetActivityStreams.method.nsid, carol, streamsUri).status)

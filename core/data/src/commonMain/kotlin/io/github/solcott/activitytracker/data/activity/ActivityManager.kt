@@ -115,16 +115,17 @@ class ActivityManager(
      * where they are unless they're now wider than the activity. Each activity is read from every place it could be ([ActivityPlaces]) and
      * rewritten narrowest place first, then cut down widest first ([ActivityPlaces.save]), so an interrupted save leaves everything stored
      * at least once and saving again finishes it. Zones move first when the heart rate or power tier changes. Pending outbox writes go
-     * first, so the save reads what the athlete last saved. [gear], when given, replaces [activity]'s gear, placed by its Gear category
-     * like any other summary field. Throws on failure.
+     * first, so the save reads what the athlete last saved, and it throws [PendingWritesException] while any of these activities' records
+     * is still queued: sent after the move, it would put a copy back where it was. [gear], when given, replaces [activity]'s gear, placed
+     * by its Gear category like any other summary field. Throws on failure.
      */
     suspend fun setVisibility(activity: ActivityView, choice: VisibilityChoice, gear: List<AtUri>? = null) {
         val capped = choice.capped()
         val to = Visibility.known(capped.activity)
         clients.requireSpacesFor(to)
         clients.requireDetailsGrant(activity.effectiveRecord().withGear(gear), capped.tiers, to)
-        outbox.drain()
         val targets = listOf(activity.uri) + activity.recordings.orEmpty().map { it.uri } + activity.record.combined?.members.orEmpty()
+        drainBeforeMoving(targets)
         for (uri in targets) {
             val stored = places.read(uri)
             // Nowhere at all: it was deleted since, so saving nothing isn't success.
@@ -169,7 +170,7 @@ class ActivityManager(
         val members = existing?.members.orEmpty().ifEmpty { listOf(into.uri) } + other.uri
         require(members.size <= CombinedActivity.MAX_MEMBERS) { "At most ${CombinedActivity.MAX_MEMBERS} members" }
         val visibility = into.visibilityOrPublic
-        outbox.drain()
+        drainBeforeMoving(listOf(into.uri) + members)
         if (other.visibilityOrPublic != visibility) follow(other.uri, visibility)
         val uri = if (existing != null) into.uri else AtUri.of(clients.did, Nsid.FEED_ACTIVITY, Tid.next(clock))
         build(
@@ -377,7 +378,8 @@ class ActivityManager(
                 ?: ActivityCombiner.narrowestTiers(visibility, members.map { it.tiers })
         val layout = ActivityLayout.split(record, null, uri, visibility, categories)
         queueLayout(layout, uri, visibility)
-        val published = privacy.published(uri, visibility, built.route, trim)
+        val mapTier = DetailCategory.tiers(visibility, categories).getValue(DetailCategory.MAP)
+        val published = privacy.published(uri, visibility, mapTier, built.route, trim)
         if (built.route.isNotEmpty()) {
             val segments = CombinedRoute.segments(built.route)
             tracks.put(uri, Gpx.writeSegments(record.title ?: record.sport, record.sport, segments).encodeToByteArray())
@@ -447,13 +449,33 @@ class ActivityManager(
         outbox.drain()
     }
 
+    /**
+     * Sends every queued write, then throws [PendingWritesException] if an activity, details or streams write of [uris] is still queued
+     * (unsent or rejected): a move reads and rewrites every place directly, and that write, sent later, would put a copy back at its old
+     * place, the repo included.
+     */
+    private suspend fun drainBeforeMoving(uris: List<AtUri>) {
+        outbox.drain()
+        val rkeys = uris.mapNotNullTo(mutableSetOf()) { it.rkey }
+        val left = outbox.drain { it.rkey in rkeys && it.collection in PLACED_COLLECTIONS }
+        if (left > 0) throw PendingWritesException(left)
+    }
+
     private suspend fun queueDelete(uri: AtUri, visibility: String, recordingOf: AtUri? = null) {
-        writer.delete(Nsid.FEED_ACTIVITY, requireNotNull(uri.rkey), clients.placeOf(visibility))
+        val rkey = requireNotNull(uri.rkey)
+        writer.delete(Nsid.FEED_ACTIVITY, rkey, clients.placeOf(visibility))
         streams.delete(uri)
         tracks.delete(uri)
         segmentTracks.delete(uri)
         sources.delete(uri)
         devices.delete(uri)
+        // A copy an interrupted move left at another place goes too, last, so a refusal can't hold back the rest. Deleting what isn't
+        // there counts as done, and a session that can't write activities to spaces never put one there.
+        for (other in Visibility.all - Visibility.known(visibility)) {
+            if (other == Visibility.PUBLIC || clients.canWriteToSpaces(Nsid.FEED_ACTIVITY)) {
+                writer.delete(Nsid.FEED_ACTIVITY, rkey, clients.placeOf(other))
+            }
+        }
         feed.deletes.delete(uri)
         db.feed().deleteByUri(uri.value)
         recordingOf?.let { feed.updateCached(it, feed.deletes::applyTo) }
@@ -502,3 +524,6 @@ private fun keptFrom(kept: ActivityRecord?, built: ActivityRecord, line: Segment
     )
 
 private const val NOT_FOUND_STATUS = 400
+
+/** The collections an activity keeps by tier, so a queued write of one names a place. */
+private val PLACED_COLLECTIONS = setOf(Nsid.FEED_ACTIVITY, Nsid.FEED_ACTIVITY_DETAILS, Nsid.FEED_ACTIVITY_STREAMS)

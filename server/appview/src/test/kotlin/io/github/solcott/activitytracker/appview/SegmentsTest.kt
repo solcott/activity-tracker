@@ -396,6 +396,21 @@ class SegmentsTest : SegmentTestBase() {
     }
 
     @Test
+    fun deletingOrReliningASegmentFreesNoSlot() {
+        (0 until 10).forEach { k -> segment("3k$k", path = listOf(k * 2000.0 to 0.0, k * 2000.0 to 1000.0)) }
+        commit(alice, Nsid.FEED_SEGMENT, "3k0", null)
+        segment("3kagain", path = listOf(0.0 to 0.0, 0.0 to 1000.0))
+        assertTrue(segmentUri("3kagain") !in segmentRows(), "the deleted segment still counts")
+
+        segment("3k1", path = listOf(2000.0 to 0.0, 2000.0 to 1500.0))
+        assertEquals(
+            1000L,
+            runBlocking { db.tx { Segments.selectAll().where { Segments.uri eq segmentUri("3k1") }.single()[Segments.distanceM] } },
+            "a new line is limited like a new segment",
+        )
+    }
+
+    @Test
     fun theSegmentImporterIsNotLimited() = testApplication {
         application { appView(config.copy(segmentImporter = Did(importer)), db, verifier) }
         (0 until 12).forEach { k -> segment("osm$k", path = listOf(k * 2000.0 to 0.0, k * 2000.0 to 1000.0), did = importer) }

@@ -75,4 +75,10 @@ class AuthCoordinatorTest {
             params,
         )
     }
+
+    @Test
+    fun aMalformedEscapeInTheRedirectIsKeptAsWritten() {
+        assertEquals(mapOf("x" to "%", "state" to "a%2", "code" to "c d"), parseRedirectParams("app://cb?x=%&state=a%2&code=c%20d"))
+        assertEquals(mapOf("x" to "%zz-1"), parseRedirectParams("app://cb?x=%zz-1"))
+    }
 }

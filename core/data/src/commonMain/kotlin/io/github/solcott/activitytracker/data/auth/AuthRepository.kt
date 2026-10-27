@@ -13,9 +13,11 @@ import io.github.solcott.activitytracker.location.ActivityRecorder
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.cache.HttpCache
 import io.ktor.client.plugins.pluginOrNull
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.withContext
 
 /** The account whose session last expired, so the login screen can say so and fill in its handle. */
 @Immutable data class ExpiredSession(val did: Did, val handle: Handle)
@@ -51,8 +53,16 @@ class AuthRepository(
         sessionManager.expired.filterNotNull().collect { endSession(expired = it) }
     }
 
-    /** Ends the session: the athlete's chosen sign-out when [expired] is null, else [expired], whose refresh was refused. */
+    /**
+     * Ends the session: the athlete's chosen sign-out when [expired] is null, else [expired], whose refresh was refused. It runs to the end
+     * even if its caller is cancelled: dropping the session drops the session's screens, and with them the scope that called this, while
+     * the caches it clears still hold other athletes' non-public data.
+     */
     private suspend fun endSession(expired: OAuthSession?) {
+        withContext(NonCancellable) { endSessionNow(expired) }
+    }
+
+    private suspend fun endSessionNow(expired: OAuthSession?) {
         if (expired == null) {
             // A recording in progress stops, kept on the device for this account's next sign-in. An expiry leaves it running, for the
             // athlete to sign back in to (record/gps-recording).

@@ -12,7 +12,10 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.JsonObject
-import org.jetbrains.exposed.v1.core.notInSubQuery
+import org.jetbrains.exposed.v1.core.Op
+import org.jetbrains.exposed.v1.core.and
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.select
@@ -40,6 +43,7 @@ internal fun JdbcTransaction.upsertStreams(
         "streams not under their activity's rkey"
     }
     val blob = requireNotNull(record.data?.ref?.link?.takeIf(ProfileDetailRules::isCid)) { "no data blob" }
+    val replaced = streamBlobs { (ActivityStreams.uri eq uri.value) and (ActivityStreams.origin eq placement.origin) }
     ActivityStreams.upsert {
         it[ActivityStreams.uri] = uri.value
         it[ActivityStreams.cid] = cid
@@ -56,15 +60,27 @@ internal fun JdbcTransaction.upsertStreams(
         it[blobCid] = blob
         it[indexedAt] = now
     }
-    dropOrphanedStreamData()
+    dropOrphanedStreamData(replaced - blob)
 }
 
-/** Cached stream data, and failed fetches of it, that no streams record names any more (deleted, or replaced by a new blob). */
-internal fun JdbcTransaction.dropOrphanedStreamData() {
-    StreamDataCache.deleteWhere { StreamDataCache.blobCid notInSubQuery ActivityStreams.select(ActivityStreams.blobCid) }
-    ActivityStreamFetchFailures.deleteWhere {
-        ActivityStreamFetchFailures.blobCid notInSubQuery ActivityStreams.select(ActivityStreams.blobCid)
-    }
+/** The blob CIDs the streams rows matching [where] name: what to pass [dropOrphanedStreamData] once they're deleted or replaced. */
+internal fun JdbcTransaction.streamBlobs(where: () -> Op<Boolean>): Set<String> =
+    ActivityStreams.select(ActivityStreams.blobCid).where { where() }.mapTo(mutableSetOf()) { it[ActivityStreams.blobCid] }
+
+/**
+ * Cached stream data, and failed fetches of it, for those of [cids] that no streams record names any more (deleted, or replaced by a new
+ * blob). Only the CIDs a change let go of are checked, so a write costs a lookup per CID rather than a pass over the whole cache.
+ */
+internal fun JdbcTransaction.dropOrphanedStreamData(cids: Collection<String>) {
+    if (cids.isEmpty()) return
+    val stillNamed =
+        ActivityStreams.select(ActivityStreams.blobCid)
+            .where { ActivityStreams.blobCid inList cids }
+            .mapTo(mutableSetOf()) { it[ActivityStreams.blobCid] }
+    val orphans = cids - stillNamed
+    if (orphans.isEmpty()) return
+    StreamDataCache.deleteWhere { StreamDataCache.blobCid inList orphans }
+    ActivityStreamFetchFailures.deleteWhere { ActivityStreamFetchFailures.blobCid inList orphans }
 }
 
 // Records are untrusted, so text is clamped to the lexicon maxLength before it's stored.

@@ -98,6 +98,18 @@ class OAuthSessionManagerTest {
     }
 
     @Test
+    fun aRefreshByAnotherTabIsTakenRatherThanRepeated() = runTest {
+        signedIn()
+        tokensIssued()
+        // Another tab, sharing the store, refreshed first: rt1 is spent.
+        store.session = store.session!!.copy(accessToken = "at9", refreshToken = "rt9")
+
+        assertEquals("at9", manager.freshSession(forceRefresh = true).accessToken)
+        assertEquals(0, tokenRequests.size, "no refresh with the spent token")
+        assertNull(manager.expired.value)
+    }
+
+    @Test
     fun rateLimitKeepsTheSession() = runTest {
         signedIn()
         tokenEndpointAnswers(HttpStatusCode.TooManyRequests, """{"error":"rate_limited"}""")

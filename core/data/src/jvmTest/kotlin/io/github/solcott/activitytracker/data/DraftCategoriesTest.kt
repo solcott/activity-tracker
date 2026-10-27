@@ -106,7 +106,7 @@ class DraftCategoriesTest {
                 startedAt = start,
                 activeBeforeSegment = 4.seconds,
                 distanceMeters = 50.0,
-                movingSeconds = 4,
+                movingMillis = 4_000,
             )
         val recorded = ActivityDraft.fromRecording(RecordingResult(state, start + 4.seconds, route), draft().type, null, null, TimeZone.UTC)
         assertTrue(ActivityDraft.RECORDED_CATEGORIES.containsAll(recorded.heldCategories()), "${recorded.heldCategories()}")

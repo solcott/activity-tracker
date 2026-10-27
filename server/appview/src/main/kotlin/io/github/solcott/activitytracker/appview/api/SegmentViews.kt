@@ -183,10 +183,19 @@ class SegmentViews(
         val sport = Activities.select(Activities.sport).where { Activities.uri eq params.activity.value }.first()[Activities.sport]
         val own = viewer != null && params.activity.authority == viewer.value
         val reasons = if (own) notRankedReasons(params.activity.value) else emptyMap()
+        // Only an active segment has boards, and only the fastest of this activity's efforts on a board can be the athlete's entry on it,
+        // so the rest skip the board queries.
+        val candidates =
+            efforts
+                .filter { SegmentStatus.of(it.segment.status) == SegmentStatus.ACTIVE }
+                .groupBy { it.segment.uri to it.eBike }
+                .values
+                .mapNotNull { onBoard -> onBoard.minByOrNull { it.elapsed } }
+                .mapTo(mutableSetOf()) { effortId(it) }
         GetActivitySegments.Output(
             efforts.map { effort ->
                 effort.copy(
-                    rank = topRank(viewer, params.activity.authority, effort, sport),
+                    rank = if (effortId(effort) in candidates) topRank(viewer, params.activity.authority, effort, sport) else null,
                     notRanked = reasons[effortId(effort)].takeIf { SegmentStatus.of(effort.segment.status) == SegmentStatus.ACTIVE },
                 )
             }

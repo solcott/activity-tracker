@@ -53,12 +53,14 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
-import io.ktor.server.request.receiveText
+import io.ktor.server.request.receiveChannel
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.util.toMap
+import io.ktor.utils.io.readBuffer
+import kotlinx.io.readByteArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
@@ -195,15 +197,22 @@ fun Route.moderationRoutes(moderators: ModeratorSubjects, verifier: ServiceAuthV
     xrpcQuery(GetModerationRole.method, verifier) { _, viewer -> moderators.role(requireViewer(viewer)) }
 }
 
-/** Serves a typed procedure, decoding its JSON input. Auth is optional here, as for [xrpcQuery]. */
+/**
+ * Serves a typed procedure, decoding its JSON input. Every procedure needs a caller, so one without is refused before its body is read, and
+ * a body over [MAX_PROCEDURE_BODY_BYTES] (far past the importer's largest batch) is refused unread past the limit.
+ */
 private fun <I, O> Route.xrpcProcedure(
     method: XrpcProcedure<I, O>,
     verifier: ServiceAuthVerifier,
-    handler: suspend (input: I, caller: Did?) -> O,
+    handler: suspend (input: I, caller: Did) -> O,
 ) {
     post("/xrpc/${method.nsid}") {
-        val caller = call.viewer(verifier, method.nsid)
-        val body = call.receiveText()
+        val caller = requireViewer(call.viewer(verifier, method.nsid))
+        val bytes = call.receiveChannel().readBuffer(MAX_PROCEDURE_BODY_BYTES + 1).readByteArray()
+        if (bytes.size > MAX_PROCEDURE_BODY_BYTES) {
+            throw XrpcError(HttpStatusCode.PayloadTooLarge.value, "PayloadTooLarge", "The input is too large")
+        }
+        val body = bytes.decodeToString()
         val input = runCatching {
             AtJson.decodeFromString(method.input, body)
         }
@@ -308,3 +317,6 @@ private fun didDocument(config: AppViewConfig, signingKey: AppViewSigningKey?): 
         )
     }
 }
+
+/** The most a procedure's input may be: 500 candidates of the longest lines `put` accepts fit with room to spare. */
+private const val MAX_PROCEDURE_BODY_BYTES = 64L * 1024 * 1024

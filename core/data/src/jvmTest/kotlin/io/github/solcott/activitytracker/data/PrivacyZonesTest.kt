@@ -15,9 +15,11 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityDetailsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.PrivacyZone
 import io.github.solcott.activitytracker.lexicon.app.PrivacyZonesRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
@@ -95,6 +97,14 @@ class PrivacyZonesTest {
         val (lat, lon) = TrackMath.decodePolyline(assertNotNull(polyline)).first()
         return TrackMath.distanceMeters(0.0, 0.0, lat, lon)
     }
+
+    private fun details(rkey: String, at: String): ActivityDetailsRecord? =
+        pds.stored[at]?.get("${Nsid.FEED_ACTIVITY_DETAILS}/$rkey")?.let {
+            AtJson.decodeFromJsonElement(ActivityDetailsRecord.serializer(), it)
+        }
+
+    /** Public, with the map at Only me. */
+    private val hiddenMap = VisibilityChoice.PUBLIC.withCategory(DetailCategory.MAP, Visibility.SELF)
 
     private fun zonesRecord(): PrivacyZonesRecord? =
         pds.stored[Visibility.SELF]?.get("${Nsid.ACTOR_PRIVACY_ZONES}/self")?.let {
@@ -419,7 +429,7 @@ class PrivacyZonesTest {
 
         s.privacy.save(PrivacySettings(listOf(home)))
         val uri = AtUri.of(pds.did, Nsid.FEED_ACTIVITY, "3l2aaaaaaab22")
-        val published = s.privacy.published(uri, Visibility.PUBLIC, route, trim)
+        val published = s.privacy.published(uri, Visibility.PUBLIC, Visibility.PUBLIC, route, trim)
         segments.tracks.put(uri, route, published)
 
         assertFalse(published.fresh)
@@ -439,7 +449,15 @@ class PrivacyZonesTest {
         withContext(Dispatchers.Default) {
             val publishers =
                 (0 until 500).map { i ->
-                    launch { s.privacy.published(AtUri.of(pds.did, Nsid.FEED_ACTIVITY, "r$i"), Visibility.PUBLIC, route, unread) }
+                    launch {
+                        s.privacy.published(
+                            AtUri.of(pds.did, Nsid.FEED_ACTIVITY, "r$i"),
+                            Visibility.PUBLIC,
+                            Visibility.PUBLIC,
+                            route,
+                            unread,
+                        )
+                    }
                 }
             while (publishers.any { it.isActive }) {
                 taken += s.privacy.takeStale(latest).map { it.uri.rkey!! }
@@ -496,6 +514,50 @@ class PrivacyZonesTest {
         s.activities.repairRoutes()
         assertEquals(ActivityDraft.polylineOf(gapped)?.gaps, stored(uri.rkey!!).polylineGaps)
         assertEquals(1, stored(uri.rkey!!).polylineGaps?.size)
+    }
+
+    @Test
+    fun aReTrimKeepsAHiddenMapInItsTier() = runTest {
+        val s = pds.session()
+        val uri = s.activities.publish(draft(hiddenMap))
+        assertNull(stored(uri.rkey!!).polyline)
+
+        s.privacy.save(PrivacySettings(listOf(home)))
+        s.activities.repairRoutes()
+
+        assertNull(stored(uri.rkey!!).polyline, "the public record never gets the hidden map")
+        assertNull(stored(uri.rkey!!).polylineGaps)
+        assertTrue(startOf(details(uri.rkey!!, Visibility.SELF)?.polyline) >= 199, "the Only-me details record is trimmed again")
+    }
+
+    @Test
+    fun aStaleReTrimKeepsAHiddenMapInItsTier() = runTest {
+        pds.session().privacy.save(PrivacySettings(listOf(home)))
+        val s = pds.session()
+        pds.offline = true
+        val uri = s.activities.publish(draft(hiddenMap))
+        pds.offline = false
+
+        s.activities.sync()
+
+        assertNull(stored(uri.rkey!!).polyline, "the public record never gets the hidden map")
+        assertTrue(startOf(details(uri.rkey!!, Visibility.SELF)?.polyline) >= 199)
+    }
+
+    @Test
+    fun aReTrimTakesAHiddenMapOffThePublicRecord() = runTest {
+        val s = pds.session()
+        val uri = s.activities.publish(draft(hiddenMap))
+        // As an earlier sweep left it: the map on the public record too.
+        val leaked = stored(uri.rkey!!).copy(polyline = details(uri.rkey!!, Visibility.SELF)?.polyline)
+        pds.stored.getValue(pds.repo)["${Nsid.FEED_ACTIVITY}/${uri.rkey}"] =
+            AtJson.encodeToJsonElement(ActivityRecord.serializer(), leaked) as JsonObject
+
+        s.privacy.save(PrivacySettings(listOf(home)))
+        s.activities.repairRoutes()
+
+        assertNull(stored(uri.rkey!!).polyline)
+        assertTrue(startOf(details(uri.rkey!!, Visibility.SELF)?.polyline) >= 199)
     }
 
     @Test

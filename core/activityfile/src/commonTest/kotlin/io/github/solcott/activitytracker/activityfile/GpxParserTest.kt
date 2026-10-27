@@ -116,6 +116,18 @@ class GpxParserTest {
     }
 
     @Test
+    fun aFileDeclaringEntitiesIsRefusedUnexpanded() {
+        // "Billion laughs": ten levels of ten references each would expand to gigabytes.
+        val entities = (1..9).joinToString("\n") { i -> """<!ENTITY l$i "${"&l${i - 1};".repeat(10)}">""" }
+        val gpx =
+            """<?xml version="1.0"?><!DOCTYPE gpx [<!ENTITY l0 "lol">$entities]>""" +
+                """<gpx version="1.1"><trk><name>&l9;</name><trkseg><trkpt lat="1" lon="1"><time>2024-01-01T00:00:00Z</time></trkpt>""" +
+                """</trkseg></trk></gpx>"""
+        assertFailsWith<ActivityFileException> { GpxParser.parse(gpx) }
+        assertNull(xmlRootElement(gpx), "not taken for XML either")
+    }
+
+    @Test
     fun aTimeWithoutAZoneIsUtc() {
         assertEquals(Instant.parse("2026-09-20T07:00:00Z").toEpochMilliseconds(), parseXmlTime("2026-09-20T07:00:00"))
         assertEquals(Instant.parse("2026-09-20T05:00:00Z").toEpochMilliseconds(), parseXmlTime("2026-09-20T07:00:00+02:00"))
