@@ -8,6 +8,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
@@ -44,6 +45,16 @@ class ActivityRecorderTest {
     private fun TestScope.advance(to: Duration) {
         clock.now = start + to
         testScheduler.advanceUntilIdle()
+    }
+
+    @Test
+    fun fixesLessThanASecondApartCountTheirMovingTime() = runTest {
+        val recorder = recorder()
+        recorder.start()
+        advance(0.seconds)
+        // 1 Hz with jitter: every fix 980 ms after the last, at 3 m/s.
+        (0..100).forEach { recorder.onSample(at(it * 2.94, (it * 980).milliseconds)) }
+        assertEquals(98, recorder.state.value.movingSeconds, "not 0 for every step under a second")
     }
 
     @Test
