@@ -30,6 +30,7 @@ import io.github.solcott.dataresult.DataError
 import io.github.solcott.dataresult.Origin
 import io.github.solcott.dataresult.Outcome
 import io.github.solcott.dataresult.dataOrNull
+import io.ktor.http.HttpStatusCode
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -332,7 +333,9 @@ class PrivacyZonesTest {
         val s = pds.session()
         val uri = s.activities.publish(draft())
         s.privacy.save(PrivacySettings(listOf(home)))
+        // A server error, so the re-trim stays queued rather than rejected.
         pds.failPutsOf = Nsid.FEED_ACTIVITY
+        pds.failPutsStatus = HttpStatusCode.InternalServerError
         s.activities.repairRoutes()
         pds.failPutsOf = null
 
@@ -407,9 +410,11 @@ class PrivacyZonesTest {
         val uri = s.activities.publish(draft())
         s.privacy.save(PrivacySettings(listOf(home)))
 
+        // Refused for good (data/outbox): the rewrite is kept as rejected, and a rejected rewrite isn't a sent one.
         pds.failPutsOf = Nsid.FEED_ACTIVITY
         s.activities.repairRoutes()
         assertNull(marker(), "not marked done while a rewrite is unsent")
+        assertNotNull(s.db.outbox().pending(pds.did.value).single { it.collection == Nsid.FEED_ACTIVITY }.rejectedAt)
         pds.failPutsOf = null
 
         val later = pds.session()

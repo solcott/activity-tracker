@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.SourceFormat
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
@@ -136,7 +137,7 @@ class OutboxSharedBlobTest {
     }
 
     @Test
-    fun otherWritesRefusedAsTooLargeStillHoldTheOutbox() = runTest {
+    fun otherWritesRefusedAsTooLargeAreRejectedAndTheRestSent() = runTest {
         val outbox = outbox()
         pds.blobUploadLimit = 4
         outbox.writer.put(
@@ -149,6 +150,8 @@ class OutboxSharedBlobTest {
         )
         outbox.putRepo("3knext")
 
-        assertEquals(2, outbox.processor.drain())
+        assertEquals(1, outbox.processor.drain(), "only the track's original is dropped; a track is kept as rejected (data/outbox)")
+        assertNotNull(outbox.session.db.outbox().pending(pds.did.value).single().rejectedAt)
+        assertEquals(setOf("${Nsid.FEED_ACTIVITY}/3knext"), pds.stored.getValue(pds.repo).keys)
     }
 }

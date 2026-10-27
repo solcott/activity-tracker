@@ -75,7 +75,8 @@ class ActivityRepository(
     private val segmentTracks: SegmentTracks,
     private val segmentSweeper: SegmentTrackSweeper,
 ) {
-    val pendingWrites: Flow<Int> = db.outbox().count(clients.did.value)
+    /** Writes still to upload: not rejected, and not held back by a rejected write (data/outbox). */
+    val pendingWrites: Flow<Int> = db.outbox().pendingCount(clients.did.value)
 
     private val likeMutex = Mutex()
     private val hideMutex = Mutex()

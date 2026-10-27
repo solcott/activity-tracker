@@ -23,7 +23,7 @@ const val DATABASE_NAME = "activity-tracker.db"
  * crashes lowering the `AutoMigration` annotation.
  */
 fun <T : RoomDatabase> RoomDatabase.Builder<T>.addAppMigrations(): RoomDatabase.Builder<T> =
-    addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+    addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
 
 /** Runs one statement: `execSQL` blocks on most platforms and suspends on the web, so it has no common form. */
 internal expect suspend fun SQLiteConnection.runSql(sql: String)
@@ -64,6 +64,9 @@ private val MIGRATION_4_5 =
         )
     }
 
+/** 5 → 6: a write the PDS refused is kept as rejected (data/outbox), so the writes behind it go on. */
+private val MIGRATION_5_6 = Migration(5, 6) { it.runSql("ALTER TABLE outbox ADD COLUMN rejectedAt INTEGER") }
+
 @Database(
     entities =
         [
@@ -76,7 +79,7 @@ private val MIGRATION_4_5 =
             RecordingEntity::class,
             RecordingEventEntity::class,
         ],
-    version = 5,
+    version = 6,
 )
 @ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -165,7 +168,8 @@ interface FeedDao {
 
 /**
  * Pending writes for the signed-in account, applied in order by `OutboxProcessor`: to their repo, or to one of their tier spaces ([space]).
- * Keys are client-generated TIDs so retries are idempotent (`putRecord` overwrites).
+ * Keys are client-generated TIDs so retries are idempotent (`putRecord` overwrites). A write the PDS refused is kept with [rejectedAt] set
+ * until the athlete retries or discards it, and holds back the later writes with its [rkey] (data/outbox).
  */
 @Entity(tableName = "outbox")
 data class OutboxEntity(
@@ -187,6 +191,18 @@ data class OutboxEntity(
     val space: String? = null,
     /** A shared blob ([OutboxBlobEntity.key]) to write into [blobField] instead of an inline [blob]. */
     val blobKey: String? = null,
+    /** When the PDS refused this write (epoch millis), or null while it's still to send. */
+    val rejectedAt: Long? = null,
+)
+
+/** A rejected outbox write ([OutboxDao.rejected]), without its record or blob. */
+data class RejectedOutboxWrite(
+    val rkey: String,
+    val collection: String,
+    val operation: String,
+    val rejectedAt: Long,
+    /** The record of the activity this write belongs to, while its `put` is queued. */
+    val activityJson: String?,
 )
 
 /**
@@ -203,6 +219,7 @@ data class OutboxBlobEntity(
 )
 
 @Dao
+@Suppress("TooManyFunctions") // One query per use: the queue, its shared blobs, and the writes the PDS rejected (data/outbox).
 interface OutboxDao {
     @Insert suspend fun insert(entity: OutboxEntity): Long
 
@@ -211,6 +228,42 @@ interface OutboxDao {
     @Query("SELECT COUNT(*) FROM outbox WHERE did = :did") fun count(did: String): Flow<Int>
 
     @Query("UPDATE outbox SET attempts = attempts + 1, lastError = :error WHERE id = :id") suspend fun markFailed(id: Long, error: String)
+
+    @Query("UPDATE outbox SET attempts = attempts + 1, lastError = :error, rejectedAt = :at WHERE id = :id")
+    suspend fun markRejected(id: Long, at: Long, error: String)
+
+    /** Writes still to send: not rejected, and not held back by a rejected write with their rkey. */
+    @Query(
+        "SELECT COUNT(*) FROM outbox WHERE did = :did AND rejectedAt IS NULL " +
+            "AND rkey NOT IN (SELECT rkey FROM outbox WHERE did = :did AND rejectedAt IS NOT NULL)"
+    )
+    fun pendingCount(did: String): Flow<Int>
+
+    /**
+     * The account's rejected writes, oldest first, each with the record of the latest `put` of [activityCollection] under its rkey, if any:
+     * the activity it belongs to.
+     */
+    @Query(
+        "SELECT o.rkey, o.collection, o.operation, o.rejectedAt, " +
+            "(SELECT a.recordJson FROM outbox a WHERE a.did = o.did AND a.rkey = o.rkey AND a.collection = :activityCollection " +
+            "AND a.operation = 'put' ORDER BY a.id DESC LIMIT 1) AS activityJson " +
+            "FROM outbox o WHERE o.did = :did AND o.rejectedAt IS NOT NULL ORDER BY o.id"
+    )
+    fun rejected(did: String, activityCollection: String): Flow<List<RejectedOutboxWrite>>
+
+    @Query("UPDATE outbox SET rejectedAt = NULL WHERE did = :did AND rkey = :rkey") suspend fun clearRejected(did: String, rkey: String)
+
+    @Query("SELECT * FROM outbox WHERE did = :did AND rkey = :rkey ORDER BY id")
+    suspend fun group(did: String, rkey: String): List<OutboxEntity>
+
+    @Query("DELETE FROM outbox WHERE did = :did AND rkey = :rkey") suspend fun deleteGroupRows(did: String, rkey: String)
+
+    /** Deletes every write with [rkey], and the shared blobs no write names any more. */
+    @Transaction
+    suspend fun deleteGroup(did: String, rkey: String) {
+        deleteGroupRows(did, rkey)
+        deleteUnreferencedBlobs()
+    }
 
     @Query("DELETE FROM outbox WHERE id = :id") suspend fun delete(id: Long)
 

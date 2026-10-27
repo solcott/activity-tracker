@@ -7,6 +7,7 @@ import java.io.File
 import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
@@ -62,6 +63,19 @@ class MigrationTest {
         val id = db.recordings().begin(RecordingEntity(did = "did:plc:alice", startedAt = 0))
         db.recordings().append(id, RecordingEventEntity.KIND_PAUSED, 1, null, null, null, null, null)
         assertEquals(listOf(0), db.recordings().events(id).map { it.seq })
+        db.close()
+    }
+
+    @Test
+    fun version5OutboxRowsAreStillToSend() = runTest {
+        val file = File(createTempDirectory("migration").toFile(), DATABASE_NAME)
+        createVersion(file, 5)
+
+        val db = Room.databaseBuilder<AppDatabase>(file.path).addAppMigrations().setDriver(BundledSQLiteDriver()).build()
+        val pending = db.outbox().pending("did:plc:alice")
+        assertEquals(listOf("3kold"), pending.map { it.rkey })
+        assertEquals(null, pending.single().rejectedAt, "a write queued before rejections is sent again, not shown as rejected")
+        assertEquals(1, db.outbox().pendingCount("did:plc:alice").first())
         db.close()
     }
 

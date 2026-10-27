@@ -89,7 +89,13 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
 
     /** Fail every put of this collection, wherever it goes, while set. */
     var failPutsOf: String? = null
+
+    /** The status [failPutsOf]'s puts get: 400 (`InvalidRecord`) refuses them for good, a 5xx or 429 is worth retrying. */
+    var failPutsStatus = HttpStatusCode.BadRequest
     var offline = false
+
+    /** Every request to the PDS fails as a dropped connection would, while set. */
+    var pdsUnreachable = false
 
     /** Every request to the AppView fails as a dropped connection would, while set. */
     var appViewOffline = false
@@ -174,6 +180,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
     val http =
         HttpClient(
             MockEngine { request ->
+                if (pdsUnreachable && request.url.host == "pds.test") throw IOException("Connection refused")
                 if (offline && request.url.host == "pds.test")
                     return@MockEngine error("InternalServerError", HttpStatusCode.InternalServerError)
                 if (appViewOffline && request.url.host != "pds.test") throw IOException("Connection refused")
@@ -230,7 +237,10 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                         val input = body(request)
                         val place = placeOf(input)
                         if (place != repo && failSpacePuts) return@MockEngine error("RateLimitExceeded", HttpStatusCode.TooManyRequests)
-                        if (input.getValue("collection").jsonPrimitive.content == failPutsOf) return@MockEngine error("InvalidRecord")
+                        if (input.getValue("collection").jsonPrimitive.content == failPutsOf) {
+                            val name = if (failPutsStatus == HttpStatusCode.BadRequest) "InvalidRecord" else "Failure"
+                            return@MockEngine error(name, failPutsStatus)
+                        }
                         // An original names its blob by CID; the PDS refuses one it doesn't hold (never uploaded, or reclaimed).
                         val source =
                             input.getValue("record").jsonObject.takeIf {
@@ -433,7 +443,8 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
         val (db, _, clients) =
             if (scope == null) signedInTestSession(http, did = did) else signedInTestSession(http, did = did, scope = scope)
         val outbox = OutboxProcessor(db, clients, Logger)
-        val feed = FeedRepository(db, clients, LocalLikes(), Logger)
+        val likes = LocalLikes()
+        val feed = FeedRepository(db, clients, likes, Logger)
         val writer = OutboxWriter(db, clients, Clock.System)
         val zones = ActivityZonesStore(db, writer, outbox, clients, Clock.System, Logger)
         val places = ActivityPlaces(clients, Clock.System, Logger)
@@ -458,7 +469,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                 privacy,
                 routes,
                 feed,
-                LocalLikes(),
+                likes,
                 RecentActivityTypes(db, clients, feed),
                 Clock.System,
                 testSegments(db, clients, writer, outbox, privacy, tracks).tracks,

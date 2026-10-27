@@ -3,12 +3,14 @@ package io.github.solcott.activitytracker.data.activity
 import co.touchlab.kermit.Logger
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import io.github.solcott.activitytracker.atproto.oauth.OAuthException
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.OutboxEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.toDataError
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.atproto.BlobRef
@@ -16,17 +18,22 @@ import io.github.solcott.activitytracker.lexicon.atproto.DeleteRecord
 import io.github.solcott.activitytracker.lexicon.atproto.PutRecord
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
+import io.github.solcott.dataresult.DataError
+import kotlin.time.Clock
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 
 /**
- * Applies queued writes to the user's PDS in order, stopping at the first failure. A write with a space goes to that tier space, which is
- * created (and announced to the AppView) first if need be; its blob is uploaded the same way as a repo write's, and the space record takes
- * it over. Writes sharing a blob ([OutboxEntity.blobKey]) upload it once. Deleting from a space that doesn't exist, or a record that isn't
- * there, is done already. The one write dropped rather than retried is an original file (`feed.activitySource`) the PDS refuses as too
- * large.
+ * Applies queued writes to the user's PDS in order (data/outbox). A failure that may pass ([isTransient]: no connection, a server error,
+ * the session, being asked to wait) stops the run, and the write is sent again on the next. Any other failure means the PDS refused the
+ * write: it's kept as rejected ([OutboxEntity.rejectedAt]) until the athlete retries or discards it ([RejectedChanges]), and it holds back
+ * the later writes with its rkey (an activity's other records share its rkey), while the rest go on. A write with a space goes to that tier
+ * space, which is created (and announced to the AppView) first if need be; its blob is uploaded the same way as a repo write's, and the
+ * space record takes it over. Writes sharing a blob ([OutboxEntity.blobKey]) upload it once. Deleting from a space that doesn't exist, or a
+ * record that isn't there, is done already. The one write dropped rather than rejected is an original file (`feed.activitySource`) the PDS
+ * refuses as too large.
  */
 @SingleIn(SessionScope::class)
 @Inject
@@ -34,35 +41,54 @@ class OutboxProcessor(
     private val db: AppDatabase,
     private val clients: SessionClients,
     logger: Logger,
+    private val clock: Clock = Clock.System,
 ) {
     private val log = logger.withTag("OutboxProcessor")
     private val mutex = Mutex()
 
     /**
-     * Returns the number of writes still pending. With [only], applies just the writes it accepts, in order, so a stuck write it skips
-     * doesn't hold them up; the count is then of those.
+     * Returns the number of writes not applied, rejected and held ones included, so zero means everything was sent. With [only], applies
+     * just the writes it accepts, in order, so a stuck write it skips doesn't hold them up; the count is then of those. A write held back
+     * by a rejected one is skipped whether or not [only] accepts the rejected one.
      */
     suspend fun drain(only: (OutboxEntity) -> Boolean = { true }): Int = mutex.withLock {
-        val pending = db.outbox().pending(clients.did.value).filter(only)
-        for ((index, item) in pending.withIndex()) {
+        val all = db.outbox().pending(clients.did.value)
+        val held = all.filter { it.rejectedAt != null }.mapTo(mutableSetOf()) { it.rkey }
+        val selected = all.filter(only)
+        var notApplied = 0
+        for ((index, item) in selected.withIndex()) {
+            if (item.rkey in held) {
+                notApplied++
+                continue
+            }
             runSuspendCatching {
                 apply(item)
                 db.outbox().delete(item.id)
             }
                 .onFailure { e ->
-                    if (item.collection == Nsid.FEED_ACTIVITY_SOURCE && e.isBlobTooLarge()) {
-                        // Only the original is lost: the activity just offers no download. Retrying would block every write behind it.
-                        log.w(e) { "Dropping outbox write ${item.id}: the PDS refused its original file as too large" }
-                        db.outbox().delete(item.id)
-                    } else {
-                        log.w(e) { "Outbox write ${item.id} failed; ${pending.size - index} pending" }
-                        db.outbox().markFailed(item.id, e.message ?: e::class.simpleName.orEmpty())
-                        return pending.size - index
+                    val error = e.message ?: e::class.simpleName.orEmpty()
+                    when {
+                        item.collection == Nsid.FEED_ACTIVITY_SOURCE && e.isBlobTooLarge() -> {
+                            // Only the original is lost: the activity just offers no download.
+                            log.w(e) { "Dropping outbox write ${item.id}: the PDS refused its original file as too large" }
+                            db.outbox().delete(item.id)
+                        }
+                        e.isTransient() -> {
+                            log.w(e) { "Outbox write ${item.id} failed; ${selected.size - index} pending" }
+                            db.outbox().markFailed(item.id, error)
+                            return notApplied + selected.size - index
+                        }
+                        else -> {
+                            log.w(e) { "Outbox write ${item.id} rejected; the writes behind it with its rkey wait for the athlete" }
+                            db.outbox().markRejected(item.id, clock.now().toEpochMilliseconds(), error)
+                            held += item.rkey
+                            notApplied++
+                        }
                     }
                 }
             if (item.blobKey != null) db.outbox().deleteUnreferencedBlobs()
         }
-        0
+        notApplied
     }
 
     private suspend fun apply(item: OutboxEntity) {
@@ -141,6 +167,17 @@ class OutboxProcessor(
     private fun JsonObject.withBlob(field: String, ref: BlobRef) =
         JsonObject(this + (field to AtJson.encodeToJsonElement(BlobRef.serializer(), ref)))
 
+    /**
+     * Whether this failure may pass if the write is sent again: no connection, a server error, an expired or refreshing session, a timeout
+     * or being asked to slow down. Anything else is the PDS refusing the write, or a write that can't be built (data/outbox).
+     */
+    private fun Throwable.isTransient(): Boolean =
+        when (this) {
+            is XrpcException -> status >= HTTP_SERVER_ERROR || status in RETRYABLE_STATUSES
+            is OAuthException -> true
+            else -> toDataError() == DataError.Network
+        }
+
     /** The PDS's answer to an upload over its blob limit (`413 PayloadTooLarge`). */
     private fun Throwable.isBlobTooLarge() = this is XrpcException && (status == HTTP_PAYLOAD_TOO_LARGE || error == PAYLOAD_TOO_LARGE)
 
@@ -151,6 +188,10 @@ class OutboxProcessor(
         private const val BLOB_NOT_FOUND = "BlobNotFound"
         private const val PAYLOAD_TOO_LARGE = "PayloadTooLarge"
         private const val HTTP_PAYLOAD_TOO_LARGE = 413
+        private const val HTTP_SERVER_ERROR = 500
+
+        /** An expired session (401), a timed-out request (408) and being asked to slow down (429). */
+        private val RETRYABLE_STATUSES = setOf(401, 408, 429)
     }
 }
 
