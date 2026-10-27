@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Only ridden candidates that duplicate nothing are published
-`publish` SHALL list the region's ridden candidates and check each one's line against the live segments of its sport group, by the same duplicate test the AppView applies when indexing. It SHALL check each page of up to 500 listed candidates with one call to the AppView, naming the candidates by id, not one call per candidate. It SHALL publish a candidate only when the check finds no duplicate. A candidate that isn't ridden, that duplicates a proposed or active segment, or that the check no longer finds staged in the region SHALL NOT be published. Only the importer account SHALL be able to make that check.
+`publish` SHALL list the region's ridden candidates and check their lines against the live segments of their sport groups, by the duplicate test the AppView applies when indexing, in one call per page of up to 500. It SHALL publish a candidate only when the check finds no duplicate. A candidate that isn't ridden, duplicates a proposed or active segment, or is no longer staged SHALL NOT be published. Only the importer SHALL be able to make the check.
 
 #### Scenario: Ridden trail
 - **WHEN** a staged candidate is ridden and no segment covers its line

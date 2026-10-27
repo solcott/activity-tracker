@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: A segment track leaves out privacy zones
-A segment track SHALL hold every point of the activity's full track except those inside any of the athlete's privacy zones or within the hide-start/end distance of either end, cut where the track crosses each boundary. The track SHALL be treated as the lines between its points, not only the points: a line between two points outside a zone that passes through the zone SHALL be cut where it enters the zone and where it leaves. Where the track leaves and later re-enters the shown area, the parts SHALL be separate pieces, never joined across what was left out.
+A segment track SHALL hold every point of the activity's full track except those inside any of the athlete's privacy zones or within the hide-start/end distance of either end, cut where the track crosses each boundary. A line between two points that passes through a zone SHALL be cut where it enters and where it leaves. Where the track leaves and later re-enters the shown area, the parts SHALL be separate pieces, never joined across what was left out.
 
 #### Scenario: Starts at home
 - **WHEN** an athlete with a zone around home publishes a ride that starts there

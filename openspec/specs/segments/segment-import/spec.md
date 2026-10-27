@@ -37,7 +37,7 @@ The importer SHALL sign in to one account of its own on a PDS, with credentials 
 - **THEN** the importer refuses it before uploading anything
 
 ### Requirement: Only ridden candidates that duplicate nothing are published
-`publish` SHALL list the region's ridden candidates and check each one's line against the live segments of its sport group, by the same duplicate test the AppView applies when indexing. It SHALL publish a candidate only when the check finds no duplicate. A candidate that isn't ridden, or that duplicates a proposed or active segment, SHALL NOT be published.
+`publish` SHALL list the region's ridden candidates and check their lines against the live segments of their sport groups, by the duplicate test the AppView applies when indexing, in one call per page of up to 500. It SHALL publish a candidate only when the check finds no duplicate. A candidate that isn't ridden, duplicates a proposed or active segment, or is no longer staged SHALL NOT be published. Only the importer SHALL be able to make the check.
 
 #### Scenario: Ridden trail
 - **WHEN** a staged candidate is ridden and no segment covers its line
@@ -50,6 +50,18 @@ The importer SHALL sign in to one account of its own on a PDS, with credentials 
 #### Scenario: Not ridden yet
 - **WHEN** a staged candidate has two riders and the threshold is three
 - **THEN** `publish` doesn't write a segment for it
+
+#### Scenario: Many known duplicates
+- **WHEN** a region has 300 ridden candidates that each duplicate a live segment, and `publish` runs again
+- **THEN** it checks them with one call to the AppView, reports all 300 as duplicates, and writes nothing
+
+#### Scenario: Duplicate no longer live
+- **WHEN** the live segment a ridden candidate duplicated is deleted, and `publish` runs again
+- **THEN** the check finds no duplicate, and `publish` writes a segment for the candidate
+
+#### Scenario: Check by another account
+- **WHEN** an athlete's account asks the AppView to check staged candidates
+- **THEN** the AppView refuses it as not the importer
 
 ### Requirement: A published segment carries its candidate's data
 A segment the importer publishes SHALL be a `feed.segment` in the service account's repo, with the candidate's sport group, name, line, source and licence, and its attribution when it has one, keyed by the candidate's id. It SHALL be indexed, matched and given a status like any other segment.
