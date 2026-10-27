@@ -462,12 +462,20 @@ class ActivityManager(
     }
 
     private suspend fun queueDelete(uri: AtUri, visibility: String, recordingOf: AtUri? = null) {
-        writer.delete(Nsid.FEED_ACTIVITY, requireNotNull(uri.rkey), clients.placeOf(visibility))
+        val rkey = requireNotNull(uri.rkey)
+        writer.delete(Nsid.FEED_ACTIVITY, rkey, clients.placeOf(visibility))
         streams.delete(uri)
         tracks.delete(uri)
         segmentTracks.delete(uri)
         sources.delete(uri)
         devices.delete(uri)
+        // A copy an interrupted move left at another place goes too, last, so a refusal can't hold back the rest. Deleting what isn't
+        // there counts as done, and a session that can't write activities to spaces never put one there.
+        for (other in Visibility.all - Visibility.known(visibility)) {
+            if (other == Visibility.PUBLIC || clients.canWriteToSpaces(Nsid.FEED_ACTIVITY)) {
+                writer.delete(Nsid.FEED_ACTIVITY, rkey, clients.placeOf(other))
+            }
+        }
         feed.deletes.delete(uri)
         db.feed().deleteByUri(uri.value)
         recordingOf?.let { feed.updateCached(it, feed.deletes::applyTo) }

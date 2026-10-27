@@ -222,6 +222,32 @@ class ActivityVisibilityTest {
     }
 
     @Test
+    fun aRecordLeftInTwoPlacesIsRepairedToTheNarrower() = runTest {
+        val s = session()
+        val uri = s.activities.publish(draft(VisibilityChoice(Visibility.SELF), withStreams = false))
+        val rkey = uri.rkey!!
+        // As a move from Public cut short between its two phases left it: unsplit, in the repo and in Only me.
+        stored.getOrPut(repo) { mutableMapOf() }["${Nsid.FEED_ACTIVITY}/$rkey"] =
+            stored.getValue(Visibility.SELF).getValue("${Nsid.FEED_ACTIVITY}/$rkey")
+
+        session().activities.repairZones()
+        assertEquals(setOf(Visibility.SELF), placesOf(Nsid.FEED_ACTIVITY, rkey))
+    }
+
+    @Test
+    fun deletingAnActivityClearsACopyLeftAtAnotherPlace() = runTest {
+        val s = session()
+        val uri = s.activities.publish(draft(VisibilityChoice(Visibility.SELF), withStreams = false))
+        val rkey = uri.rkey!!
+        stored.getOrPut(repo) { mutableMapOf() }["${Nsid.FEED_ACTIVITY}/$rkey"] =
+            stored.getValue(Visibility.SELF).getValue("${Nsid.FEED_ACTIVITY}/$rkey")
+
+        s.manager.delete(view(uri, Visibility.SELF), withRecordings = false)
+        assertEquals(emptySet(), placesOf(Nsid.FEED_ACTIVITY, rkey))
+        assertEquals(0, s.activities.sync())
+    }
+
+    @Test
     fun aMoveFromAnOutdatedViewMovesItFromWhereItIsNow() = runTest {
         val s = session()
         // Moved to Mutuals elsewhere; this view still says Followers. Every place is read, so it moves from Mutuals.
