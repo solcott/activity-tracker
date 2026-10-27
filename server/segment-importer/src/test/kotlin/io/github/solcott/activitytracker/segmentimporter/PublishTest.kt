@@ -7,8 +7,9 @@ import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
-import io.github.solcott.activitytracker.lexicon.app.CheckSegment
+import io.github.solcott.activitytracker.lexicon.app.CheckSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.SegmentCandidateCheck
 import io.github.solcott.activitytracker.lexicon.app.SegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
@@ -20,6 +21,7 @@ import kotlin.test.assertNull
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -54,18 +56,33 @@ class PublishTest {
             """{"id":"$id","sport":"ride","name":"Trail $id","line":"line-$id","source":"osm","license":"ODbL-1.0"}"""
         }
 
-    /** The AppView lists [ids] as ridden, [pageSize] at a time, and reports the lines of [duplicates] as duplicates. */
-    private fun appView(ids: List<String>, duplicates: Set<String> = emptySet(), pageSize: Int = 500) {
+    /** Candidates [appView]'s check reports as duplicates of [athleteSegment]; a test may change them between runs. */
+    private val liveDuplicates = mutableSetOf<String>()
+
+    /**
+     * The AppView lists [ids] as ridden, [pageSize] at a time, and its check reports [duplicates] (added to [liveDuplicates]) as duplicates
+     * and leaves out [unstaged], as candidates a `stage` finished away.
+     */
+    private fun appView(
+        ids: List<String>,
+        duplicates: Set<String> = emptySet(),
+        pageSize: Int = 500,
+        unstaged: Set<String> = emptySet(),
+    ) {
+        liveDuplicates += duplicates
         fake.on(Nsid.IMPORTER_GET_RIDDEN_SEGMENT_CANDIDATES) { call ->
             val after = call.params["cursor"]
             val page = ids.filter { after == null || it > after }.take(pageSize)
             val cursor = if (page.size == pageSize) ""","cursor":"${page.last()}"""" else ""
             json("""{"candidates":[${page.joinToString(",") { candidate(it) }}]$cursor}""")
         }
-        fake.on(Nsid.FEED_CHECK_SEGMENT) { call ->
-            val line = call.body!!.getValue("line").jsonPrimitive.content
-            val found = if (line.removePrefix("line-") in duplicates) listOf(athleteSegment) else emptyList()
-            json(AtJson.encodeToString(CheckSegment.Output.serializer(), CheckSegment.Output(found, remaining = 10)))
+        fake.on(Nsid.IMPORTER_CHECK_SEGMENT_CANDIDATES) { call ->
+            val input = AtJson.decodeFromJsonElement(CheckSegmentCandidates.Input.serializer(), call.body!!)
+            val checked =
+                input.ids
+                    .filter { it !in unstaged }
+                    .map { id -> SegmentCandidateCheck(id, if (id in liveDuplicates) listOf(athleteSegment.uri) else emptyList()) }
+            json(AtJson.encodeToString(CheckSegmentCandidates.Output.serializer(), CheckSegmentCandidates.Output(checked)))
         }
         fake.on("com.atproto.repo.getRecord") { call ->
             val rkey = call.params.getValue("rkey")
@@ -98,8 +115,8 @@ class PublishTest {
             record,
         )
         assertEquals(
-            "Bearer svc:${FakeServices.APPVIEW_DID}:${Nsid.FEED_CHECK_SEGMENT}",
-            fake.calls(Nsid.FEED_CHECK_SEGMENT).single().auth,
+            "Bearer svc:${FakeServices.APPVIEW_DID}:${Nsid.IMPORTER_CHECK_SEGMENT_CANDIDATES}",
+            fake.calls(Nsid.IMPORTER_CHECK_SEGMENT_CANDIDATES).single().auth,
         )
     }
 
@@ -127,6 +144,37 @@ class PublishTest {
         appView(listOf("c1", "c2"), duplicates = setOf("c1"))
         val result = publish(clients, "us-vermont", clock)
         assertEquals(listOf("c1") to listOf("c2"), result.duplicates to result.published)
+        assertEquals(setOf("c2"), repo.keys)
+    }
+
+    @Test
+    fun knownDuplicatesAreCheckedInOneCallPerPage() = runTest {
+        val ids = (100 until 400).map { "c$it" }
+        appView(ids, duplicates = ids.toSet())
+        val result = publish(clients, "us-vermont", clock)
+        assertEquals(ids, result.duplicates)
+        assertEquals(1, fake.calls(Nsid.IMPORTER_CHECK_SEGMENT_CANDIDATES).size)
+        assertEquals(
+            ids,
+            fake.calls(Nsid.IMPORTER_CHECK_SEGMENT_CANDIDATES).single().body!!.getValue("ids").jsonArray.map { it.jsonPrimitive.content },
+        )
+        assertEquals(emptyList(), fake.calls("com.atproto.repo.getRecord") + fake.calls("com.atproto.repo.createRecord"))
+    }
+
+    @Test
+    fun aDuplicateWhoseSegmentIsGoneIsPublishedNextRun() = runTest {
+        appView(listOf("c1"), duplicates = setOf("c1"))
+        assertEquals(listOf("c1"), publish(clients, "us-vermont", clock).duplicates)
+        liveDuplicates.clear()
+        assertEquals(listOf("c1"), publish(clients, "us-vermont", clock).published)
+        assertEquals(setOf("c1"), repo.keys)
+    }
+
+    @Test
+    fun aCandidateNoLongerStagedIsntPublished() = runTest {
+        appView(listOf("c1", "c2"), unstaged = setOf("c1"))
+        val result = publish(clients, "us-vermont", clock)
+        assertEquals(listOf("c1") to listOf("c2"), result.gone to result.published)
         assertEquals(setOf("c2"), repo.keys)
     }
 

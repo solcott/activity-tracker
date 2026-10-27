@@ -6,7 +6,7 @@ import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
-import io.github.solcott.activitytracker.lexicon.app.CheckSegment
+import io.github.solcott.activitytracker.lexicon.app.CheckSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.GetRiddenSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidate
 import io.github.solcott.activitytracker.lexicon.app.SegmentCandidates
@@ -16,24 +16,30 @@ import io.github.solcott.activitytracker.lexicon.atproto.GetRecord
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 
-/** What a `publish` run did; [stoppedBy] is the error that ended it early, if one did. */
+/**
+ * What a `publish` run did; [gone] were listed but no longer staged when checked (a `stage` finished meanwhile), and [stoppedBy] is the
+ * error that ended the run early, if one did.
+ */
 internal data class PublishResult(
     val published: List<String> = emptyList(),
     val duplicates: List<String> = emptyList(),
     val present: List<String> = emptyList(),
+    val gone: List<String> = emptyList(),
     val stoppedBy: Exception? = null,
 )
 
 /**
- * Publishes [region]'s ridden candidates (segments/segment-import): each one `feed.checkSegment` finds no live duplicate of becomes a
- * `feed.segment` in the service account's repo, keyed by its id, with its own source, licence and attribution. A key the repo already holds
- * is never written again, so a published segment is never doubled or rewritten. Stops at the first failed call, keeping what it did;
- * running again carries on.
+ * Publishes [region]'s ridden candidates (segments/segment-import): each one `importer.checkSegmentCandidates` finds no live duplicate of
+ * becomes a `feed.segment` in the service account's repo, keyed by its id, with its own source, licence and attribution. Each page is
+ * checked in one call, so a run's AppView calls grow with its pages, not with the duplicates it lists again every run. A key the repo
+ * already holds is never written again, so a published segment is never doubled or rewritten. Stops at the first failed call, keeping what
+ * it did; running again carries on.
  */
 internal suspend fun publish(clients: Clients, region: String, clock: Clock = Clock.System): PublishResult {
     val published = mutableListOf<String>()
     val duplicates = mutableListOf<String>()
     val present = mutableListOf<String>()
+    val gone = mutableListOf<String>()
     val stoppedBy =
         try {
             val repo = clients.session.did()
@@ -45,10 +51,25 @@ internal suspend fun publish(clients: Clients, region: String, clock: Clock = Cl
                         GetRiddenSegmentCandidates.Params(region, SegmentCandidates.MAX_BATCH, cursor),
                     )
                 }
+                val checks =
+                    if (page.candidates.isEmpty()) {
+                        emptyMap()
+                    } else {
+                        clients
+                            .asImporter {
+                                clients.appView.procedure(
+                                    CheckSegmentCandidates.method,
+                                    CheckSegmentCandidates.Input(region, page.candidates.map { it.id }),
+                                )
+                            }
+                            .candidates
+                            .associate { it.id to it.duplicates }
+                    }
                 for (candidate in page.candidates) {
-                    val check = clients.appView.procedure(CheckSegment.method, CheckSegment.Input(candidate.sport, candidate.line))
+                    val found = checks[candidate.id]
                     when {
-                        check.duplicates.isNotEmpty() -> duplicates += candidate.id
+                        found == null -> gone += candidate.id
+                        found.isNotEmpty() -> duplicates += candidate.id
                         exists(clients, repo, candidate.id) -> present += candidate.id
                         create(clients, repo, candidate, clock) -> published += candidate.id
                         else -> present += candidate.id
@@ -62,7 +83,7 @@ internal suspend fun publish(clients: Clients, region: String, clock: Clock = Cl
         } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
             e
         }
-    return PublishResult(published, duplicates, present, stoppedBy)
+    return PublishResult(published, duplicates, present, gone, stoppedBy)
 }
 
 /** Whether [repo] already holds a segment under [rkey]. */
@@ -114,7 +135,7 @@ internal suspend fun publishRegion(clients: Clients, region: String) {
     for (id in result.duplicates) println("Duplicate of a live segment, not published: $id")
     println(
         "Published ${result.published.size} segments for $region; ${result.duplicates.size} duplicates, " +
-            "${result.present.size} already published"
+            "${result.present.size} already published, ${result.gone.size} no longer staged"
     )
     result.stoppedBy?.let { throw it }
 }
