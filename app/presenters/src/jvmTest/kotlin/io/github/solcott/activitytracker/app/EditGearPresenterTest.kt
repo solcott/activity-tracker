@@ -35,6 +35,7 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.JsonObject
 
@@ -191,6 +192,24 @@ class EditGearPresenterTest {
             cancelAndIgnoreRemainingEvents()
         }
         assertNull(assertNotNull(stored(Visibility.SELF, "3shoes")).retiredAt)
+    }
+
+    @Test
+    fun theRetiredDateIsTheDayInTheDevicesZone() = runTest {
+        val system = java.util.TimeZone.getDefault()
+        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/New_York"))
+        try {
+            // 23:30 on the 21st in New York.
+            val retired = Instant.parse("2026-10-22T03:30:00Z")
+            store(Visibility.SELF, "3shoes", GearItemRecord("Speedgoat 5", GearType.SHOES, created, retiredAt = retired))
+            test(EditGearScreen("3shoes")) {
+                val form = awaitUntil { it.content.hasLoaded && it.retiredOn != null }
+                assertEquals(LocalDate(2026, 10, 21), form.retiredOn)
+                cancelAndIgnoreRemainingEvents()
+            }
+        } finally {
+            java.util.TimeZone.setDefault(system)
+        }
     }
 
     private companion object {

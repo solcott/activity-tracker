@@ -237,7 +237,7 @@ fun EditGearPresenter(
         collections = allCollections.map { GearCollectionChoice(it.rkey, it.record.name, it.rkey in shownCollections) }.toImmutableList(),
         visibility = visibility,
         acquiredOn = acquiredOn,
-        retiredOn = retiredAt?.toLocalDateTime(TimeZone.currentSystemDefault())?.date,
+        retiredOn = retiredAt?.toLocalDateTime(zone)?.date,
         mountedOn =
             openMount?.let { mount -> parentName?.let { GearMountedOn(mount.parent.value, it, mount.from.toLocalDateTime(zone).date) } },
         photo = photo,
