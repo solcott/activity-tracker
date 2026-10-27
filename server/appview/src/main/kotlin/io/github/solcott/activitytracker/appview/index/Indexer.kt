@@ -368,8 +368,9 @@ class Indexer(
             }
 
             Nsid.FEED_ACTIVITY_STREAMS -> {
+                val dropped = streamBlobs { (ActivityStreams.uri eq uri.value) and (ActivityStreams.origin eq placement.origin) }
                 ActivityStreams.deleteWhere { (ActivityStreams.uri eq uri.value) and (origin eq placement.origin) }
-                dropOrphanedStreamData()
+                dropOrphanedStreamData(dropped)
             }
 
             Nsid.FEED_ACTIVITY_DETAILS -> {
@@ -475,13 +476,14 @@ class Indexer(
         Activities.deleteWhere { authorDid eq did.value }
         ActivityMediaBlobs.deleteWhere { authorDid eq did.value }
         ActivityMembers.deleteWhere { authorDid eq did.value }
+        val streamBlobs = streamBlobs { ActivityStreams.authorDid eq did.value }
         ActivityStreams.deleteWhere { authorDid eq did.value }
         ActivityDetails.deleteWhere { authorDid eq did.value }
         ActivityZones.deleteWhere { authorDid eq did.value }
         ActivityGear.deleteWhere { authorDid eq did.value }
         GearItems.deleteWhere { authorDid eq did.value }
         GearMountRows.deleteWhere { authorDid eq did.value }
-        dropOrphanedStreamData()
+        dropOrphanedStreamData(streamBlobs)
         Likes.deleteWhere { authorDid eq did.value }
         Comments.deleteWhere { authorDid eq did.value }
         CommentHides.deleteWhere { authorDid eq did.value }
