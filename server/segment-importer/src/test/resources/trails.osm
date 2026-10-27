@@ -33,6 +33,8 @@
   <node id="86" version="1" lat="44.4184864" lon="-72.6600000"/>
   <node id="87" version="1" lat="44.4229830" lon="-72.6600000"/>
   <node id="88" version="1" lat="44.4184864" lon="-72.6550000"/>
+  <node id="89" version="1" lat="44.4134898" lon="-72.6700000"/>
+  <node id="90" version="1" lat="44.4134898" lon="-72.6500000"/>
   <way id="100" version="1">
     <nd ref="1"/>
     <nd ref="2"/>
@@ -147,6 +149,13 @@
     <tag k="highway" v="path"/>
     <tag k="name" v="Rush Trail - Limelight Section"/>
     <tag k="oneway" v="yes"/>
+  </way>
+  <way id="176" version="1">
+    <nd ref="89"/>
+    <nd ref="84"/>
+    <nd ref="90"/>
+    <tag k="highway" v="path"/>
+    <tag k="name" v="Canyon Hollow Trail"/>
   </way>
   <relation id="200" version="1">
     <member type="way" ref="150" role=""/>

@@ -79,6 +79,41 @@ class CandidateDedupTest {
     }
 
     @Test
+    fun aNamedWholeTrailWinsOverAJunctionSpanThatDuplicatesIt() {
+        val kept = CandidateDedup.dedup(listOf(candidate("aaa", kind = TrailKind.PARENT, whole = false), candidate("zzz", nudged)))
+        assertEquals(listOf("zzz"), kept.map { it.id })
+    }
+
+    @Test
+    fun aSpanEveryBranchSharesIsKeptOnceUnderItsFamilysName() {
+        val data = osm {
+            for (i in 0..1) node(i + 1L, north(44.4, i * 500.0), -72.7)
+            node(3, north(44.4, 1000.0), -72.69)
+            node(4, north(44.4, 1000.0), -72.71)
+            for (i in 0..2) node(i + 5L, north(44.4, 1500.0 + i * 500.0), -72.7)
+            way(10, 1, 2, tags = path("Rush Trail - Tom Sawyer Section", "oneway" to "yes"))
+            way(11, 2, 3, 5, tags = path("Rush Trail - Exit Stage Left Section", "oneway" to "yes"))
+            way(12, 2, 4, 5, tags = path("Rush Trail - Through the Trees Trail Section", "oneway" to "yes"))
+            way(13, 5, 6, tags = path("Rush Trail", "oneway" to "yes"))
+            way(14, 6, 7, tags = path("Rush Trail - 2112 Section", "oneway" to "yes"))
+            node(30, 0.0, 0.0)
+            way(30, 30, 5, tags = path("Canyon Hollow Trail"))
+        }
+        val cutter = CandidateCutter(data)
+        val kept = CandidateDedup.dedup(TrailBuilder.build(data).filter { it.group == RIDE }.flatMap(cutter::cut))
+        val spans = kept.filter { it.kind == TrailKind.PARENT && !it.whole }.map { it.name }.sorted()
+        assertEquals(
+            listOf(
+                "Rush Trail from Canyon Hollow Trail",
+                "Rush Trail via Exit Stage Left Section to Canyon Hollow Trail",
+                "Rush Trail via Through the Trees Trail Section to Canyon Hollow Trail",
+            ),
+            spans,
+        )
+        assertEquals(kept.size, kept.map { it.id }.toSet().size, "no duplicate ids")
+    }
+
+    @Test
     fun otherwiseTheLowerIdWins() {
         assertEquals(listOf("bbb"), CandidateDedup.dedup(listOf(candidate("ccc", nudged), candidate("bbb"))).map { it.id })
     }

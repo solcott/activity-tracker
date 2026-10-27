@@ -28,6 +28,12 @@ internal class Trail(
     val edgeReversed: BooleanArray,
     val forward: BooleanArray,
     val backward: BooleanArray,
+    /** A parent trail's family name, the part of its sections' names before `" - "`; null for any other trail. */
+    val family: String? = null,
+    /** The ways on no other parent trail of a parent trail's family, which tell its spans apart from theirs. */
+    val ownWays: Set<Long> = emptySet(),
+    /** A parent trail's ways' names, by way id, for finding where its sections meet. */
+    val wayNames: Map<Long, String> = emptyMap(),
 ) {
     /** The ways it follows, so a crossing by one of its own ways isn't a junction. */
     val ways: Set<Long> = edgeWays.toSet()
@@ -132,7 +138,9 @@ internal object TrailBuilder {
                 val kept = if (paths.size > MAX_PARENT_PATHS) listOf(paths.maxBy { lengthOf(it, data) }) else paths
                 kept.map { path ->
                     val trailName = if (kept.size == 1) name else viaName(name, path, kept)
-                    trail(trailName, group, TrailKind.PARENT, path, data)
+                    val elsewhere = kept.filter { it !== path }.flatMapTo(mutableSetOf()) { other -> other.map { it.way.id } }
+                    val own = path.map { it.way.id }.filterTo(mutableSetOf()) { it !in elsewhere }
+                    trail(trailName, group, TrailKind.PARENT, path, data, family = name, ownWays = own)
                 }
             }
 
@@ -204,7 +212,16 @@ internal object TrailBuilder {
         return true
     }
 
-    private fun trail(name: String, group: String, kind: TrailKind, chain: Collection<Placed>, data: OsmData): Trail {
+    @Suppress("LongParameterList") // A parent trail's family and own ways come along with the line.
+    private fun trail(
+        name: String,
+        group: String,
+        kind: TrailKind,
+        chain: Collection<Placed>,
+        data: OsmData,
+        family: String? = null,
+        ownWays: Set<Long> = emptySet(),
+    ): Trail {
         val nodes = mutableListOf<Long>()
         val edgeWays = mutableListOf<Long>()
         val edgeReversed = mutableListOf<Boolean>()
@@ -233,6 +250,9 @@ internal object TrailBuilder {
             edgeReversed = edgeReversed.toBooleanArray(),
             forward = forward.toBooleanArray(),
             backward = backward.toBooleanArray(),
+            family = family,
+            ownWays = ownWays,
+            wayNames = if (family == null) emptyMap() else chain.associate { it.way.id to it.way.name.orEmpty() },
         )
     }
 }

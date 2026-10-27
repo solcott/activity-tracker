@@ -69,6 +69,50 @@ class CandidateCutterTest {
         )
     }
 
+    private fun parentSpans(data: OsmData) = candidates(data).filter { it.kind == TrailKind.PARENT && !it.whole }.map { it.name }.toSet()
+
+    @Test
+    fun aParentTrailGivesSpansToNamedTrailsAtItsSectionBoundaries() {
+        val data = osm {
+            for (i in 0 until 5) node(i + 1L, north(44.4, i * 500.0), -72.7)
+            way(10, 1, 2, tags = path("Rush Trail - Tom Sawyer Section", "oneway" to "yes"))
+            way(11, 2, 3, tags = path("Rush Trail - 2112 Section", "oneway" to "yes"))
+            way(12, 3, 4, tags = path("Rush Trail - Dreamline Section", "oneway" to "yes"))
+            way(13, 4, 5, tags = path("Rush Trail - Limelight Section", "oneway" to "yes"))
+            crossing(20, at = 3, tags = path("Coyote Hollow Foot Path"))
+            crossing(22, at = 3, tags = path("Canyon Hollow Trail"))
+            crossing(24, at = 4, tags = highway("track", "Bonneville Shoreline Trail - Draper Section"))
+        }
+        assertEquals(
+            setOf("Rush Trail to Canyon Hollow Trail", "Rush Trail to Bonneville Shoreline Trail", "Rush Trail from Canyon Hollow Trail"),
+            parentSpans(data),
+            "nothing from the Bonneville Shoreline Trail, which is Limelight alone",
+        )
+    }
+
+    @Test
+    fun aRoadCrossingMidSectionGivesNoSpan() {
+        val data = osm {
+            for (i in 0 until 4) node(i + 1L, north(44.4, i * 500.0), -72.7)
+            way(10, 1, 2, 3, tags = path("Rush Trail - Tom Sawyer Section", "oneway" to "yes"))
+            way(11, 3, 4, tags = path("Rush Trail - 2112 Section", "oneway" to "yes"))
+            crossing(20, at = 2, tags = highway("unclassified", "Fire Road 3"))
+        }
+        assertEquals(emptySet(), parentSpans(data))
+    }
+
+    @Test
+    fun aTwoWayParentsSpansReadFromInReverse() {
+        val data = osm {
+            for (i in 0 until 9) node(i + 1L, north(44.4, i * 500.0), -72.7)
+            way(100, 1, 2, 3, tags = path("Ridge Trail - South Section"))
+            way(101, 3, 4, 5, 6, tags = path("Ridge Trail - Middle Section"))
+            way(102, 6, 7, 8, 9, tags = path("Ridge Trail - North Section"))
+            crossing(20, at = 6, tags = highway("unclassified", "Fire Road 3"))
+        }
+        assertEquals(setOf("Ridge Trail to Fire Road 3", "Ridge Trail from Fire Road 3"), parentSpans(data))
+    }
+
     @Test
     fun aParentTrailOverFiftyKilometersGivesNoCandidate() {
         val data = osm { ridge(nodes = 3, split = 2, spacing = 30_000.0) }

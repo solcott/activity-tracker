@@ -76,11 +76,41 @@ internal class CandidateCutter(data: OsmData) {
             // A parent trail's stretches are its sections' own candidates.
             if (stretches.size > 1 && trail.kind != TrailKind.PARENT)
                 stretches.forEachIndexed { k, range -> add(Piece(range, part = k + 1)) }
+            if (trail.kind == TrailKind.PARENT) addAll(junctionSpans(trail))
         }
         return pieces.flatMap { piece -> directions(trail, piece) }
     }
 
-    private data class Piece(val range: IntRange, val part: Int?)
+    /** A piece of a trail to cut: the whole trail, its stretch number [part], or a parent trail's span to or from the node [junction]. */
+    private data class Piece(val range: IntRange, val part: Int?, val junction: Long? = null) {
+        val whole: Boolean
+            get() = part == null && junction == null
+    }
+
+    /**
+     * A parent trail's spans from its start to each junction and from each junction to its end, where a junction is a node between two
+     * differently named sections that a named way outside its family meets. A span following ways of one name is its section's own.
+     */
+    private fun junctionSpans(trail: Trail): List<Piece> {
+        val last = trail.nodes.lastIndex
+        fun section(edge: Int) = trail.wayNames[trail.edgeWays[edge]]
+        return (1 until last)
+            .filter { i -> section(i - 1) != section(i) && junctionName(trail, trail.nodes[i]) != null }
+            .flatMap { i ->
+                listOf(Piece(0..i, part = null, junction = trail.nodes[i]), Piece(i..last, part = null, junction = trail.nodes[i]))
+            }
+            .filter { piece -> (piece.range.first until piece.range.last).mapTo(mutableSetOf(), ::section).size >= 2 }
+    }
+
+    /**
+     * What to call a parent trail's junction at [node]: the family name of the first, by name, of the named ways outside its family there.
+     */
+    private fun junctionName(trail: Trail, node: Long): String? =
+        others(trail, node)
+            .mapNotNull { it.name }
+            .filter { TrailBuilder.familyOf(it) != trail.family }
+            .minOrNull()
+            ?.let(TrailBuilder::familyOf)
 
     private fun directions(trail: Trail, piece: Piece): List<Candidate> {
         val edges = piece.range.first until piece.range.last
@@ -120,7 +150,7 @@ internal class CandidateCutter(data: OsmData) {
             lengthMeters = length.roundToLong(),
             osmWays = if (agency) emptyList() else ways,
             kind = trail.kind,
-            whole = piece.part == null,
+            whole = piece.whole,
             source = trail.rules.source,
             license = trail.rules.license,
             attribution = trail.rules.attribution,
@@ -129,14 +159,27 @@ internal class CandidateCutter(data: OsmData) {
     }
 
     /**
-     * A candidate's name: a whole trail's, with its direction when it goes both ways, or a stretch's, named after the places at its ends or
-     * else numbered.
+     * A candidate's name: a whole trail's, with its direction when it goes both ways; a junction span's, `<trail> to <junction>` or
+     * `<trail> from <junction>` in its direction of travel, after its own parent trail when it follows a way no other one does and else its
+     * family; or a stretch's, named after the places at its ends or else numbered.
      */
     private fun nameOf(trail: Trail, piece: Piece, nodes: List<Long>, points: List<GeoPoint>, bothWays: Boolean): String {
-        if (piece.part == null) return if (bothWays) "${trail.name} (${heading(points)})" else trail.name
         val from = nameAt(trail, nodes.first())
         val to = nameAt(trail, nodes.last())
-        return if (from != null && to != null) "${trail.name}: $from to $to" else "${trail.name} (part ${piece.part})"
+        return when {
+            piece.junction != null -> spanName(trail, piece, piece.junction, nodes)
+            piece.part == null -> if (bothWays) "${trail.name} (${heading(points)})" else trail.name
+            from != null && to != null -> "${trail.name}: $from to $to"
+            else -> "${trail.name} (part ${piece.part})"
+        }
+    }
+
+    /** A junction span's name, travelling along [nodes]: to [junction] when it ends there, else from it. */
+    private fun spanName(trail: Trail, piece: Piece, junction: Long, nodes: List<Long>): String {
+        val place = junctionName(trail, junction)
+        val own = (piece.range.first until piece.range.last).any { trail.edgeWays[it] in trail.ownWays }
+        val base = if (own) trail.name else trail.family ?: trail.name
+        return if (nodes.last() == junction) "$base to $place" else "$base from $place"
     }
 
     /**

@@ -171,6 +171,8 @@ class TrailBuilderTest {
             setOf("Rush Trail via Exit Stage Left Section", "Rush Trail via Through the Trees Trail Section"),
             parents(data).map { it.name }.toSet(),
         )
+        assertEquals(setOf(setOf(11L), setOf(12L)), parents(data).map { it.ownWays }.toSet(), "only each branch is its own")
+        assertTrue(parents(data).all { it.family == "Rush Trail" })
     }
 
     @Test
