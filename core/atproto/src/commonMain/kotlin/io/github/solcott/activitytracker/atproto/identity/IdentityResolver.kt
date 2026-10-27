@@ -66,18 +66,21 @@ class IdentityResolver(
         runSuspendCatching { resolveHandle(claimed) }.getOrNull()?.takeIf { it == did }?.let { claimed } ?: INVALID_HANDLE
 
     /**
-     * The DID [handle] points at, from the first lookup that finds one. Throws [HandleNotFoundException] only when a lookup answered that
-     * the handle has none, and otherwise rethrows the first lookup's transport failure: a device that couldn't ask is never told the handle
-     * doesn't exist.
+     * The DID [handle] points at, from the first lookup that finds one. Throws [HandleNotFoundException] when a lookup answered that the
+     * handle has none or that it's invalid (DNS records naming several DIDs, which ends the search), and otherwise rethrows the first
+     * lookup's transport failure: a device that couldn't ask is never told the handle doesn't exist.
      */
     suspend fun resolveHandle(handle: Handle): Did {
         val lookups = mutableListOf<HandleLookup>()
         for (resolver in listOf(::resolveHandleXrpc, ::resolveHandleDns, ::resolveHandleWellKnown)) {
-            val result = resolver(handle) ?: continue
-            if (result is HandleLookup.Found) return result.did
-            lookups += result
+            when (val result = resolver(handle)) {
+                null -> Unit
+                is HandleLookup.Found -> return result.did
+                else -> lookups += result
+            }
+            if (lookups.lastOrNull() is HandleLookup.Invalid) break
         }
-        if (lookups.any { it is HandleLookup.Missing }) throw HandleNotFoundException(handle)
+        if (lookups.any { it is HandleLookup.Missing || it is HandleLookup.Invalid }) throw HandleNotFoundException(handle)
         throw lookups.filterIsInstance<HandleLookup.Unreachable>().first().cause
     }
 
@@ -107,8 +110,11 @@ class IdentityResolver(
             )
     }
 
-    /** DNS-over-HTTPS for `_atproto.<handle>`: an answer without a DID means missing; a failed request means unreachable. */
-    private suspend fun resolveHandleDns(handle: Handle): HandleLookup = lookup {
+    /**
+     * DNS-over-HTTPS for `_atproto.<handle>`: an answer without a valid DID means missing, `did=` records naming more than one DID make the
+     * handle invalid (atproto handle spec), and a failed request means unreachable.
+     */
+    private suspend fun resolveHandleDns(handle: Handle): HandleLookup = runSuspendCatching {
         val response =
             http.get("https://cloudflare-dns.com/dns-query") {
                 url.parameters.append("name", "_atproto.${handle.value}")
@@ -117,15 +123,24 @@ class IdentityResolver(
             }
         if (!response.status.isSuccess()) throw IdentityException("DNS-over-HTTPS answered ${response.status}")
         val answers = AtJson.parseToJsonElement(response.bodyAsText()).jsonObject["Answer"]?.jsonArray.orEmpty()
-        answers.firstNotNullOfOrNull { answer ->
-            answer.jsonObject["data"]
-                ?.jsonPrimitive
-                ?.content
-                ?.trim('"')
-                ?.takeIf { it.startsWith("did=") }
-                ?.let { Did(it.removePrefix("did=")) }
-        }
+        answers
+            .mapNotNull { answer ->
+                answer.jsonObject["data"]?.jsonPrimitive?.content?.trim('"')?.takeIf { it.startsWith("did=") }?.removePrefix("did=")
+            }
+            .filter { it.isDid() }
+            .distinct()
+            .map(::Did)
     }
+        .fold(
+            { dids ->
+                when (dids.size) {
+                    0 -> HandleLookup.Missing
+                    1 -> HandleLookup.Found(dids.single())
+                    else -> HandleLookup.Invalid
+                }
+            },
+            { HandleLookup.Unreachable(it) },
+        )
 
     /**
      * `https://<handle>/.well-known/atproto-did`: any answer without a DID means missing. A failed request means unreachable, which on its
@@ -145,6 +160,9 @@ class IdentityResolver(
         data class Found(val did: Did) : HandleLookup
 
         data object Missing : HandleLookup
+
+        /** The handle's records contradict each other, so it resolves to no DID wherever else one is found. */
+        data object Invalid : HandleLookup
 
         data class Unreachable(val cause: Throwable) : HandleLookup
     }
