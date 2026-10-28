@@ -50,7 +50,7 @@ kotlinxDatetime = "0.8.0"
 jsJodaTimezone = "2.22.0"
 kotlinxIo = "0.9.1"
 maplibreCompose = "0.20.0"
-filekit = "0.16.0"
+filekit = "0.17.0"
 # ZoomImage: pinch, double-tap, wheel and keyboard zoom for Coil images on every client target (the media gallery).
 zoomimage = "1.7.0"
 # Garmin FIT SDK: the Java artifact (Maven) and the JS package (npm) share this version.
