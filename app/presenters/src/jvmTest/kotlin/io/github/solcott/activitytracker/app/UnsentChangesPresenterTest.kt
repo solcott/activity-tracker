@@ -112,10 +112,15 @@ class UnsentChangesPresenterTest {
     @Test
     fun aRetryRefusedAgainKeepsTheChange() = runTest {
         presenterTest(seed = { reject(Nsid.FEED_ACTIVITY, "3kact") }) { db ->
-            awaitUntil { it.changes?.size == 1 }.eventSink(UnsentChangesEvent.Retry("3kact"))
-            awaitUntil { it.busy.isEmpty() && puts.isNotEmpty() }
+            val seeded = awaitUntil { it.changes?.size == 1 }
+            seeded.eventSink(UnsentChangesEvent.Retry("3kact"))
+            // The retry clears the refusal, so the list empties before the PDS refuses it again: wait for the new refusal itself.
+            val refused = awaitUntil { state ->
+                state.busy.isEmpty() && state.changes?.singleOrNull()?.let { it.rejectedAt > seeded.changes!!.single().rejectedAt } == true
+            }
+            assertEquals("3kact", refused.changes!!.single().rkey)
+            assertEquals(1, puts.size)
             assertEquals(1, db.outbox().pending(did).size)
-            assertEquals(1, awaitUntil { it.changes?.size == 1 }.changes!!.size)
             cancelAndIgnoreRemainingEvents()
         }
     }
