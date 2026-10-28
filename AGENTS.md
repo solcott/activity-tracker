@@ -31,7 +31,8 @@ scripts/check-agent-sync.sh                       # Claude Code <-> Antigravity 
 ./gradlew :server-segment-importer:run --args="extract region.osm.pbf --agency usfs=build/usfs.geojsonl --region us-vermont --out build/us-vermont.ndjson"   # OSM and agency trails -> candidate segments
 ./gradlew :server-segment-importer:run --args="stage build/us-vermont.ndjson"      # upload candidates to the AppView as the importer account
 ./gradlew :server-segment-importer:run --args="publish --region us-vermont"        # publish ridden candidates as feed.segment records
-scripts/segment-import.sh us-vermont vermont-latest.osm.pbf [--agency usfs=<file>]...   # extract, stage and publish in one run
+./gradlew :server-segment-importer:run --args="refine build/us-vermont.ndjson"     # give published segments their candidates' finer lines (same path only)
+scripts/segment-import.sh us-vermont vermont-latest.osm.pbf [--agency usfs=<file>]...   # extract, stage, publish and refine in one run
 scripts/dev.sh [--seed alice]                     # whole local env: Docker, tunnel, local.properties, AppView, adb reverse (idempotent)
 scripts/dev.sh status | down
 docker compose -f docker/compose.yaml up -d       # local PLC/PDS/relay/Jetstream/Postgres

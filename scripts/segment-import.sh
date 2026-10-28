@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One import run for a region (segments/segment-import): extract its candidate segments from an OpenStreetMap extract and any agency trail
-# datasets for it (GeoJSON text sequences, see server/segment-importer/README.md), stage them in the AppView, then publish the ridden ones
-# as the importer's service account. Each step must succeed before the next runs, and every step is safe to repeat, so a scheduler can
+# datasets for it (GeoJSON text sequences, see server/segment-importer/README.md), stage them in the AppView, publish the ridden ones as
+# the importer's service account, then refine the segments already published with the candidates' finer lines. Each step must succeed before the next runs, and every step is safe to repeat, so a scheduler can
 # simply run this again.
 #
 #   scripts/segment-import.sh <region> [file.osm.pbf] [--agency usfs|nps=<file.geojsonl>]...
@@ -46,3 +46,5 @@ echo "==> stage $out"
 importer stage "$out"
 echo "==> publish $region"
 importer publish --region "$region"
+echo "==> refine $region"
+importer refine "$out"

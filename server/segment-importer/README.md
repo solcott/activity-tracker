@@ -75,6 +75,14 @@ Every feature with a key counts, named or not, including those that give no cand
 
 BLM codes are read literally, so a mis-coded trail closes OSM's candidates along it. Moab's Slickrock Trail is coded `MTC_ONLY` (motorcycles only), so OSM's Slickrock rides, runs and hikes are all left out. Check the report's counts after each run.
 
+## Refine
+
+Publishing never rewrites a segment, so segments published from older files keep their lines. `refine` takes the candidates file of a fresh `extract` and gives each segment the importer already published under one of its candidate ids that candidate's line, when the two are the same path: within 6 m of each other all along (their Hausdorff distance on points every 2 m), which a 5 m line and a 1 m line of one unchanged trail always are. Only `line` changes; every other field stays as stored, and the AppView recomputes the segment's efforts. A trail that moved further keeps its line, and is reported. Running it again with the same file writes nothing. `scripts/segment-import.sh` runs it after `publish`:
+
+```bash
+./gradlew :server-segment-importer:run --args="refine build/us-vermont.ndjson"
+```
+
 ## Memory
 
 The importer reads the file three times (relations, ways, then only the nodes trails use) and holds ids and coordinates in primitive arrays, so one region the size of a US state fits in a couple of GB of heap. For a large extract, shrink it first with [osmium](https://osmcode.org/osmium-tool/) (`brew install osmium-tool`) to the features the importer reads:

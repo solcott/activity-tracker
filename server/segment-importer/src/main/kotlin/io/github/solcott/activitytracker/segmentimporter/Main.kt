@@ -22,8 +22,11 @@ Commands:
       Uploads a candidates file to the AppView as one import run, replacing the region's candidates from earlier runs.
   publish --region <id>
       Publishes the region's ridden candidates that duplicate no live segment as feed.segment records.
+  refine <candidates.ndjson>
+      Gives segments already published from the file's candidates their candidate's line when it's the same path drawn finer, within 6 m
+      of the published line all along; a trail that moved further keeps its line.
 
-stage and publish act as the importer's service account: set SEGMENT_IMPORTER_IDENTIFIER, SEGMENT_IMPORTER_PASSWORD (an app password)
+stage, publish and refine act as the importer's service account: set SEGMENT_IMPORTER_IDENTIFIER, SEGMENT_IMPORTER_PASSWORD (an app password)
 and SEGMENT_IMPORTER_PDS_URL, and APPVIEW_URL and APPVIEW_DID unless the AppView is the local one."""
 
 private val REGION_ID = Regex("[a-z0-9-]{1,64}")
@@ -38,6 +41,7 @@ fun main(args: Array<String>) {
         is Command.Extract -> extract(command.pbf, command.agency, command.region, command.out)
         is Command.Stage -> asServiceAccount { stageFile(it, command.file) }
         is Command.Publish -> asServiceAccount { publishRegion(it, command.region) }
+        is Command.Refine -> asServiceAccount { refineFile(it, command.file) }
     }
 }
 
@@ -74,6 +78,8 @@ internal sealed interface Command {
     data class Stage(val file: File) : Command
 
     data class Publish(val region: String) : Command
+
+    data class Refine(val file: File) : Command
 }
 
 /** [args] as a [Command], or null when they don't make one. */
@@ -82,6 +88,7 @@ internal fun parse(args: List<String>): Command? =
         "extract" -> parseExtract(args.drop(1))
         "stage" -> args.drop(1).singleOrNull()?.takeUnless { it.startsWith("--") }?.let { Command.Stage(File(it)) }
         "publish" -> parsePublish(args.drop(1))
+        "refine" -> args.drop(1).singleOrNull()?.takeUnless { it.startsWith("--") }?.let { Command.Refine(File(it)) }
         else -> null
     }
 
