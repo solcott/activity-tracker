@@ -11,3 +11,6 @@
 -keep class dev.whyoleg.cryptography.CryptographyProviderContainer
 -keep class * implements dev.whyoleg.cryptography.CryptographyProviderContainer { <init>(); }
 
+# MapLibre: maplibre-native-ffi's rules keep org.bytedeco.javacpp.* but not its presets subpackage, whose `javacpp` preset Loader
+# instantiates reflectively for its @Properties ("Could not create an instance of class presets.javacpp" otherwise).
+-keep class org.bytedeco.javacpp.presets.** { *; }
