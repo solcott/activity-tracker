@@ -188,4 +188,27 @@ class GroupEffortsTest {
             groupEfforts(listOf(parent, section)).single().rows.map { it.label },
         )
     }
+
+    @Test
+    fun shortenedNamesNestUnderTheirTrail() {
+        fun labels(parent: String, child: String) =
+            groupEfforts(listOf(effort(parent, 500, 492), effort(child, 520, 89))).single().rows.map { it.label }
+        assertEquals(
+            listOf("Rattler (eastbound)", "Upper Rattler Connector → Ghost Falls"),
+            labels("Rattler (eastbound)", "Rattler: Upper Rattler Connector → Ghost Falls"),
+        )
+        assertEquals(
+            listOf("Rush › Exit Stage Left → Canyon Hollow", "Exit Stage Left"),
+            labels("Rush › Exit Stage Left → Canyon Hollow", "Rush - Exit Stage Left"),
+        )
+        assertEquals(
+            listOf("Rush from Mystic Rhythms → Canyon Hollow", "2112"),
+            labels("Rush from Mystic Rhythms → Canyon Hollow", "Rush - 2112"),
+        )
+        assertEquals(listOf("Rush → Bonneville Shoreline", "Dreamline"), labels("Rush → Bonneville Shoreline", "Rush - Dreamline"))
+        assertEquals(
+            listOf("Rattler (eastbound)", "Ghost Falls: Ghost Connector → Corner Canyon Road"),
+            labels("Rattler (eastbound)", "Ghost Falls: Ghost Connector → Corner Canyon Road"),
+        )
+    }
 }

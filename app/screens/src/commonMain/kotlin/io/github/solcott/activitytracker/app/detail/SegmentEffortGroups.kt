@@ -40,7 +40,7 @@ private const val TOLERANCE_S = 2L
  */
 private const val GROUP_OVERLAP_SHARE = 0.25
 
-private val TRAIL_NAME_ENDS = listOf(": ", " (", " via ", " from ")
+private val TRAIL_NAME_ENDS = listOf(": ", " (", " › ", " → ", " via ", " from ")
 private val NESTED_NAME_SEPARATORS = listOf(": ", " - ")
 
 /**

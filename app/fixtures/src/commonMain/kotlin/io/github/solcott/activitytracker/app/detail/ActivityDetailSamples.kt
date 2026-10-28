@@ -63,18 +63,13 @@ object ActivityDetailSamples {
                 )
             return groupEfforts(
                 listOf(
-                    effort("3ksrattler", "Rattler Trail (eastbound)", 300, 908),
-                    effort(
-                        "3ksrattler1",
-                        "Rattler Trail: Bonneville Shoreline Trail - Draper Section to Upper Rattler Connector Trail",
-                        300,
-                        534,
-                    ),
-                    effort("3ksrattler2", "Rattler Trail: Upper Rattler Connector Trail to Ghost Falls Trail", 834, 374),
-                    effort("3ksghost", "Ghost Falls Trail: Ghost Connector Trail to Corner Canyon Road", 1300, 601),
-                    effort("3ksrushcanyon", "Rush Trail via Exit Stage Left Section to Canyon Hollow Trail", 2400, 492),
-                    effort("3ksrushshore", "Rush Trail via Exit Stage Left Section to Bonneville Shoreline Trail", 2400, 574),
-                    effort("3ksesl", "Rush Trail - Exit Stage Left Section", 2420, 89, rank = null),
+                    effort("3ksrattler", "Rattler (eastbound)", 300, 908),
+                    effort("3ksrattler1", "Rattler: Bonneville Shoreline - Draper → Upper Rattler Connector", 300, 534),
+                    effort("3ksrattler2", "Rattler: Upper Rattler Connector → Ghost Falls", 834, 374),
+                    effort("3ksghost", "Ghost Falls: Ghost Connector → Corner Canyon Road", 1300, 601),
+                    effort("3ksrushcanyon", "Rush › Exit Stage Left → Canyon Hollow", 2400, 492),
+                    effort("3ksrushshore", "Rush › Exit Stage Left → Bonneville Shoreline", 2400, 574),
+                    effort("3ksesl", "Rush - Exit Stage Left", 2420, 89, rank = null),
                 )
             )
         }
