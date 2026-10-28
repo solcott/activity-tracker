@@ -55,7 +55,13 @@ class ActivityDetailSegmentsTest : ActivityDetailTestBase() {
             )
         }) {
             val state = awaitUntil { s -> s.loaded()?.let(ready) == true }.page()!!
-            block(state.eventSink, state.segments.map { "${it.segment.name} ${it.elapsed}${if (it.best == true) " PR" else ""}" })
+            block(
+                state.eventSink,
+                state.segments
+                    .flatMap { it.rows }
+                    .map { it.effort }
+                    .map { "${it.segment.name} ${it.elapsed}${if (it.best == true) " PR" else ""}" },
+            )
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -117,7 +123,7 @@ class ActivityDetailSegmentsTest : ActivityDetailTestBase() {
         val r = repos()
         detail(r) {
             val loaded = awaitUntil { it.loaded()?.segments?.isNotEmpty() == true }.loaded()!!
-            assertEquals(SegmentStatus.PROPOSED, loaded.segments.single().segment.status)
+            assertEquals(SegmentStatus.PROPOSED, loaded.segments.single().rows.single().effort.segment.status)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -130,8 +136,8 @@ class ActivityDetailSegmentsTest : ActivityDetailTestBase() {
         val r = repos()
         detail(r) {
             val loaded = awaitUntil { it.loaded()?.segments?.isNotEmpty() == true }.loaded()!!
-            assertEquals(listOf(2, null), loaded.segments.map { it.rank })
-            assertEquals(listOf(null, NotRanked.EXCLUDED), loaded.segments.map { it.notRanked })
+            assertEquals(listOf(2, null), loaded.segments.flatMap { it.rows }.map { it.effort.rank })
+            assertEquals(listOf(null, NotRanked.EXCLUDED), loaded.segments.flatMap { it.rows }.map { it.effort.notRanked })
             cancelAndIgnoreRemainingEvents()
         }
     }

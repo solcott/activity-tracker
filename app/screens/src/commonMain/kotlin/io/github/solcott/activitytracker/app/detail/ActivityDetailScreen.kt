@@ -20,7 +20,6 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
-import io.github.solcott.activitytracker.lexicon.app.EffortView
 import io.github.solcott.activitytracker.lexicon.app.MemberView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.uistate.ContentState
@@ -114,8 +113,11 @@ data class ActivityDetailPage(
     val reporting: Reporting = Reporting(),
     /** Its blurred photos, or the page of a hidden activity, once the viewer chose to see them on this screen. */
     val revealed: Revealed = Revealed(),
-    /** Its segment efforts the viewer may see, in the order they began; empty while loading, when it has none, or when they failed. */
-    val segments: ImmutableList<EffortView> = persistentListOf(),
+    /**
+     * Its segment efforts the viewer may see, grouped by overlapping time spans ([groupEfforts]); empty while loading, when it has none, or
+     * when they failed.
+     */
+    val segments: ImmutableList<SegmentEffortGroup> = persistentListOf(),
     /**
      * The owner can create a segment from the activity (segments/segment-creation): it has a full track, its sport has a segment sport
      * group, and their privacy zones were read.

@@ -95,7 +95,7 @@ class ActivityDetailLoadingTest : ActivityDetailTestBase() {
             assertEquals(DataError.Network, failed.content.errorOrNull)
             val page = assertNotNull(failed.page())
             assertNotNull(page.charts)
-            assertEquals(listOf("Hill"), page.segments.map { it.segment.name })
+            assertEquals(listOf("Hill"), page.segments.flatMap { it.rows }.map { it.label })
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -122,7 +122,7 @@ class ActivityDetailLoadingTest : ActivityDetailTestBase() {
             shown = true
             val back = assertNotNull(awaitItem().page(), "no loading state in between")
             assertNotNull(back.charts)
-            assertEquals(listOf("Hill"), back.segments.map { it.segment.name })
+            assertEquals(listOf("Hill"), back.segments.flatMap { it.rows }.map { it.label })
             val failed = awaitUntil { it.content.errorOrNull != null }
             assertNotNull(failed.page()?.charts, "kept through the failed reload")
             cancelAndIgnoreRemainingEvents()

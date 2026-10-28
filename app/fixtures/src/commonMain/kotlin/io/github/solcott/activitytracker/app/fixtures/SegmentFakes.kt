@@ -59,7 +59,8 @@ fun fakeEffort(
     startedOn: String = "2026-05-31",
     rank: Int? = null,
     best: Boolean? = null,
-): EffortView = EffortView(segment, activity, startOffset = 600, elapsed = elapsed, startedOn = startedOn, best = best, rank = rank)
+    startOffset: Long = 600,
+): EffortView = EffortView(segment, activity, startOffset = startOffset, elapsed = elapsed, startedOn = startedOn, best = best, rank = rank)
 
 fun fakeLeaderboardEntry(rank: Int = 1, athlete: ProfileViewBasic = fakeProfileBasic(), elapsed: Long = 245): LeaderboardEntry =
     LeaderboardEntry(rank, athlete, fakeEffort(activity = fakeActivity(author = athlete).uri, elapsed = elapsed, rank = rank))

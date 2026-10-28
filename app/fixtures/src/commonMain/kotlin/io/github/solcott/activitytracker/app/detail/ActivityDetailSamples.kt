@@ -11,6 +11,9 @@ import io.github.solcott.activitytracker.app.fixtures.fakeActivity
 import io.github.solcott.activitytracker.app.fixtures.fakeComment
 import io.github.solcott.activitytracker.app.fixtures.fakeEffort
 import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
+import io.github.solcott.activitytracker.app.fixtures.fakeSegment
+import io.github.solcott.activitytracker.app.fixtures.fakeSegmentBasic
+import io.github.solcott.activitytracker.app.fixtures.fakeSegmentRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.uistate.LoadStatus
 import kotlinx.collections.immutable.ImmutableList
@@ -39,7 +42,40 @@ object ActivityDetailSamples {
                 likesList = null,
                 eventSink = {},
                 route = activity.record.polyline?.let { ShownRoute(it, gaps = null, ends = null) },
-                segments = persistentListOf(fakeEffort(activity = activity.uri)),
+                segments = groupEfforts(listOf(fakeEffort(activity = activity.uri))),
+            )
+        }
+
+    /**
+     * Overlapping efforts from the Corner Canyon trails, grouped: a whole trail over its two stretches, a lone effort, and two parent
+     * trails that start together, the shorter nested in the longer and over a section.
+     */
+    val nestedSegments: ImmutableList<SegmentEffortGroup>
+        get() {
+            fun effort(rkey: String, name: String, start: Long, elapsed: Long, rank: Int? = 1) =
+                fakeEffort(
+                    fakeSegmentBasic(fakeSegment(rkey, record = fakeSegmentRecord(name = name))),
+                    activity.uri,
+                    elapsed = elapsed,
+                    rank = rank,
+                    best = true,
+                    startOffset = start,
+                )
+            return groupEfforts(
+                listOf(
+                    effort("3ksrattler", "Rattler Trail (eastbound)", 300, 908),
+                    effort(
+                        "3ksrattler1",
+                        "Rattler Trail: Bonneville Shoreline Trail - Draper Section to Upper Rattler Connector Trail",
+                        300,
+                        534,
+                    ),
+                    effort("3ksrattler2", "Rattler Trail: Upper Rattler Connector Trail to Ghost Falls Trail", 834, 374),
+                    effort("3ksghost", "Ghost Falls Trail: Ghost Connector Trail to Corner Canyon Road", 1300, 601),
+                    effort("3ksrushcanyon", "Rush Trail via Exit Stage Left Section to Canyon Hollow Trail", 2400, 492),
+                    effort("3ksrushshore", "Rush Trail via Exit Stage Left Section to Bonneville Shoreline Trail", 2400, 574),
+                    effort("3ksesl", "Rush Trail - Exit Stage Left Section", 2420, 89, rank = null),
+                )
             )
         }
 
