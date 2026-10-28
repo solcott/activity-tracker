@@ -26,6 +26,8 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                     sourceCompatibility = JavaVersion.VERSION_17
                     targetCompatibility = JavaVersion.VERSION_17
                 }
+                // R8 shrinks, optimizes and obfuscates release builds, with AGP's default rules plus the module's src/*/keepRules.
+                buildTypes.named("release") { optimization { enable = true } }
             }
 
             // AGP 9's built-in Kotlin registers the `kotlin` extension.

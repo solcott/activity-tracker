@@ -1,0 +1,13 @@
+# R8 rules for the release build, on top of AGP's defaults and the rules libraries ship. Only what those leave out goes here.
+#
+# Covered by the libraries' own rules, so nothing here:
+# - kotlinx.serialization keeps each @Serializable class's Companion.serializer() and INSTANCE. Lexicon models are serialized only through
+#   AtJson with generated or hand-written serializers, and `$type` is an ordinary @SerialName property, so no class-name polymorphism.
+#   Circuit screens' serial names are compile-time strings registered through Metro (CircuitBindings.kt).
+# - Room 3 builds AppDatabase through @ConstructedBy, with no reflection; Metro graphs and Metro-generated Circuit factories are plain code.
+
+# cryptography-kotlin: CryptographyProvider.Default finds the JDK provider through ServiceLoader
+# (META-INF/services/dev.whyoleg.cryptography.CryptographyProviderContainer) and ships no rules.
+-keep class dev.whyoleg.cryptography.CryptographyProviderContainer
+-keep class * implements dev.whyoleg.cryptography.CryptographyProviderContainer { <init>(); }
+
