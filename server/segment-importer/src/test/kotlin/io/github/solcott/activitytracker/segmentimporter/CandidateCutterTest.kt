@@ -358,17 +358,35 @@ class CandidateCutterTest {
     }
 
     @Test
-    fun aSimplifiedLineStaysWithinFiveMetersOfTheTrail() {
-        // A trail wiggling 3 m either side every 20 m.
-        val trail = (0..200).map { i -> GeoPoint(north(44.4, i * 20.0), -72.7 + (if (i % 2 == 0) 3.0 else -3.0) / metersPerLngDegree) }
+    fun aSimplifiedLineStaysWithinOneMeterOfTheTrail() {
+        // A trail wiggling 0.4 m either side every 20 m.
+        val trail = (0..200).map { i -> GeoPoint(north(44.4, i * 20.0), -72.7 + (if (i % 2 == 0) 0.4 else -0.4) / metersPerLngDegree) }
         val line = CandidateCutter.simplified(trail)
         assertTrue(line.size < trail.size)
         assertTrue(trail.all { p -> distanceToLine(p, line) <= CandidateCutter.TOLERANCE_M + 0.01 })
     }
 
     @Test
+    fun aSimplifiedLineKeepsASwitchbacksTurn() {
+        // 40 m up, a hairpin 10 m across mapped a node every meter or so, and 40 m back down: as a switchback is drawn in OSM.
+        val radius = 5.0
+        val up = (0..40).map { i -> GeoPoint(north(44.4, i.toDouble()), -72.7) }
+        val turn =
+            (1 until 16).map { k ->
+                val a = Math.PI * k / 16
+                GeoPoint(north(44.4, 40 + radius * Math.sin(a)), -72.7 + (radius - radius * Math.cos(a)) / metersPerLngDegree)
+            }
+        val down = (0..40).map { i -> GeoPoint(north(44.4, 40.0 - i), -72.7 + 2 * radius / metersPerLngDegree) }
+        val trail = up + turn + down
+        val line = CandidateCutter.simplified(trail)
+        assertTrue(trail.all { p -> distanceToLine(p, line) <= CandidateCutter.TOLERANCE_M + 0.01 })
+        // A 5 m line kept only the turn's tip; this one rounds it.
+        assertTrue(line.size >= 6, "${line.size} points")
+    }
+
+    @Test
     fun aLineTooLongForARecordIsSimplifiedFurther() {
-        // 48 km zigzagging 30 m either side every 1.6 m: too many points to keep at 5 m.
+        // 48 km zigzagging 30 m either side every 1.6 m: too many points to keep at 1 m.
         val trail = (0..30_000).map { i -> GeoPoint(north(44.4, i * 1.6), -72.7 + (if (i % 2 == 0) 30.0 else -30.0) / metersPerLngDegree) }
         assertTrue(SegmentGeometry.encodePolyline(trail).length > CandidateCutter.MAX_LINE_CHARS, "the raw line is too long for a record")
         val line = SegmentGeometry.encodePolyline(CandidateCutter.simplified(trail))

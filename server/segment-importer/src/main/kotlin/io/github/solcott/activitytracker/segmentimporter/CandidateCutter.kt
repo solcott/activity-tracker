@@ -196,8 +196,11 @@ internal class CandidateCutter(data: OsmData) {
         others(trail, node).mapNotNull { it.name }.distinct().sortedWith(compareBy({ it == trail.name }, { it })).firstOrNull()
 
     companion object {
-        /** How far a simplified line may stray from the trail, in meters: well inside the matcher's 30 m corridor. */
-        const val TOLERANCE_M = 5.0
+        /**
+         * How far a simplified line may stray from the trail, in meters: close enough to keep switchbacks' turns on a segment's map, and
+         * well inside the matcher's 30 m corridor.
+         */
+        const val TOLERANCE_M = 1.0
 
         /** The longest a `feed.segment` line may be, in characters. */
         const val MAX_LINE_CHARS = 100_000
@@ -216,16 +219,17 @@ internal class CandidateCutter(data: OsmData) {
         private const val EIGHTH_TURN = 45.0
         private val COMPASS = listOf("northbound", "eastbound", "southbound", "westbound")
 
-        /** [points] simplified at [TOLERANCE_M], doubling the tolerance until its encoding fits a record. */
+        /** [points] simplified at [TOLERANCE_M], coarser only as far as its encoding needs to fit a record (`TrackMath.simplifyToFit`). */
         fun simplified(points: List<GeoPoint>): List<GeoPoint> {
             val samples = points.map { LocationSample(it.lat, it.lng, null, null, null, Instant.DISTANT_PAST) }
-            var tolerance = TOLERANCE_M
-            while (true) {
-                val line = TrackMath.simplify(samples, tolerance).map { GeoPoint(it.latitude, it.longitude) }
-                if (SegmentGeometry.encodePolyline(line).length <= MAX_LINE_CHARS) return line
-                tolerance *= 2
-            }
+            val line =
+                TrackMath.simplifyToFit(listOf(samples), TOLERANCE_M, MAX_LINE_CHARS) {
+                    SegmentGeometry.encodePolyline(it.single().map(::geoPoint))
+                }
+            return line.single().map(::geoPoint)
         }
+
+        private fun geoPoint(sample: LocationSample) = GeoPoint(sample.latitude, sample.longitude)
 
         /**
          * A stable id from the group, the direction of travel ([alongFirstWay]: whether it follows its first way's node order), the ways

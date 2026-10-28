@@ -85,6 +85,8 @@ class StageTest {
         assertEquals(true, "format version" in version.message.orEmpty())
         val first = assertFailsWith<IllegalArgumentException> { file(3, version = 1) }
         assertEquals(true, "format version 1" in first.message.orEmpty(), "re-extract a version 1 file")
+        val coarse = assertFailsWith<IllegalArgumentException> { file(3, version = 2) }
+        assertEquals(true, "format version 2" in coarse.message.orEmpty(), "re-extract a file of 5 m lines")
         val region = assertFailsWith<IllegalArgumentException> { file(3, otherRegion = 1) }
         assertEquals(true, "us-maine" in region.message.orEmpty())
         assertEquals(emptyList(), fake.calls)

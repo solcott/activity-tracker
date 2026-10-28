@@ -1,4 +1,4 @@
-{"region":"test-region","extractTimestamp":"2026-10-01T00:00:00Z","importerVersion":2}
+{"region":"test-region","extractTimestamp":"2026-10-01T00:00:00Z","importerVersion":3}
 {"id":"23ji3qfi7eehi2tthslix6p77d","region":"test-region","sport":"hike","name":"Rush Trail from Canyon Hollow Trail","line":"cbxusA~`yqiCipQ?","lengthMeters":1056,"source":"osm","license":"ODbL-1.0","osmWays":[173,174]}
 {"id":"254n4pcwiamqbkswaopuavme57","region":"test-region","sport":"run","name":"Rush Trail - Exit Stage Left Section","line":"apfusA~`yqiC_xGowHaxGnwH","lengthMeters":1277,"source":"osm","license":"ODbL-1.0","osmWays":[171]}
 {"id":"3jetzzpu5fu72qrm2sfqwqufgw","region":"test-region","sport":"ride","name":"Canyon Hollow Trail (part 1)","line":"cbxusA~qlriC?_pR","lengthMeters":794,"source":"osm","license":"ODbL-1.0","osmWays":[176]}

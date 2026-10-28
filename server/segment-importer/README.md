@@ -12,8 +12,8 @@ Relative paths resolve from the repository root. The inputs are an OpenStreetMap
 
 The output is NDJSON:
 
-- a header line with `region`, `extractTimestamp` (the OSM extract's replication timestamp, when its header has one) and `importerVersion` (2);
-- one line per candidate, sorted by `id`, with `region`, `sport`, `name`, `line` (a precision-6 encoded polyline, as `feed.segment` stores it), `lengthMeters`, `source`, `license`, and then either `osmWays` (the OSM ways it follows, in its direction of travel; `source` `osm`, `license` `ODbL-1.0`) or `attribution` and `agencyFeatures` (the agency's name and the `<kind>:<feature key>`s it follows; `source` `agency`, `license` `CC0-1.0`).
+- a header line with `region`, `extractTimestamp` (the OSM extract's replication timestamp, when its header has one) and `importerVersion` (3: lines within 1 m of the trail; version 2 files hold 5 m lines and are refused);
+- one line per candidate, sorted by `id`, with `region`, `sport`, `name`, `line` (a precision-6 encoded polyline, as `feed.segment` stores it, within 1 m of the trail, coarser only as far as it needs to be to fit a record), `lengthMeters`, `source`, `license`, and then either `osmWays` (the OSM ways it follows, in its direction of travel; `source` `osm`, `license` `ODbL-1.0`) or `attribution` and `agencyFeatures` (the agency's name and the `<kind>:<feature key>`s it follows; `source` `agency`, `license` `CC0-1.0`).
 
 An OSM candidate's id stays the same while it follows the same ways between the same end nodes, and an agency candidate's while it follows the same features between the same ends (to about a metre), so re-extracting newer data keeps the ids of unchanged trails. The run prints how many candidates each sport group got, how many OSM candidates of each group it left out along agency closures (below), and how many agency features it skipped for having no feature id or no line:
 

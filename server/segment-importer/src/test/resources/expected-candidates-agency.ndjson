@@ -1,4 +1,4 @@
-{"region":"test-region","extractTimestamp":"2026-10-01T00:00:00Z","importerVersion":2}
+{"region":"test-region","extractTimestamp":"2026-10-01T00:00:00Z","importerVersion":3}
 {"id":"23ji3qfi7eehi2tthslix6p77d","region":"test-region","sport":"hike","name":"Rush Trail from Canyon Hollow Trail","line":"cbxusA~`yqiCipQ?","lengthMeters":1056,"source":"osm","license":"ODbL-1.0","osmWays":[173,174]}
 {"id":"254n4pcwiamqbkswaopuavme57","region":"test-region","sport":"run","name":"Rush Trail - Exit Stage Left Section","line":"apfusA~`yqiC_xGowHaxGnwH","lengthMeters":1277,"source":"osm","license":"ODbL-1.0","osmWays":[171]}
 {"id":"2a7e6gow7xtuuoqikncerjnloc","region":"test-region","sport":"hike","name":"Oak Trail (southbound)","line":"i_dwsA~dgtiChgeA?","lengthMeters":4000,"source":"agency","license":"CC0-1.0","attribution":"USDA Forest Service","agencyFeatures":["usfs:2002.007841@0"]}
