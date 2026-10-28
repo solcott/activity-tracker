@@ -62,14 +62,15 @@ class RefineTest {
     private val coarse = line(trail(), 5.0)
     private val fine = SegmentGeometry.encodePolyline(CandidateCutter.simplified(trail()))
 
-    private fun segment(line: String) =
+    private fun segment(line: String, name: String = "Rush") =
         AtJson.parseToJsonElement(
-                """{"${'$'}type":"${Nsid.FEED_SEGMENT}","name":"Rush Trail","sport":"ride","line":"$line","source":"osm",""" +
+                """{"${'$'}type":"${Nsid.FEED_SEGMENT}","name":"$name","sport":"ride","line":"$line","source":"osm",""" +
                     """"license":"ODbL-1.0","createdAt":"2026-10-21T12:00:00Z","later":1}"""
             )
             .jsonObject
 
-    private fun candidate(id: String, line: String = fine) = SegmentCandidate(id, "ride", "Rush Trail", line, "osm", "ODbL-1.0")
+    private fun candidate(id: String, line: String = fine, name: String = "Rush") =
+        SegmentCandidate(id, "ride", name, line, "osm", "ODbL-1.0")
 
     private fun file(vararg candidates: SegmentCandidate) = CandidatesFile("us-utah", candidates.toList())
 
@@ -148,6 +149,48 @@ class RefineTest {
 
         assertEquals(listOf("c1", "c2"), again.unchanged)
         assertEquals(2, fake.calls("com.atproto.repo.putRecord").size)
+    }
+
+    @Test
+    fun aSegmentPublishedWithALongNameTakesItsCandidatesName() = runTest {
+        val long = "Gas Line Trail: Lower Corner Canyon Trail to Hoof N Boot Path"
+        val short = "Gas Line: Lower Corner Canyon → Hoof N Boot"
+        repo["c1"] = segment(fine, name = long)
+        pds()
+
+        val result = refine(clients, file(candidate("c1", name = short)))
+
+        assertEquals(listOf(Renamed("c1", long, short)), result.renamed)
+        assertEquals(listOf("c1"), result.unchanged, "its line was already fine")
+        assertEquals(segment(fine, name = short), repo.getValue("c1"), "every other field kept")
+    }
+
+    @Test
+    fun aMovedTrailIsStillRenamed() = runTest {
+        val moved = line(trail(east = 20.0), 5.0)
+        repo["c1"] = segment(moved, name = "Rush Trail")
+        pds()
+
+        val result = refine(clients, file(candidate("c1")))
+
+        assertEquals(listOf("c1"), result.moved)
+        assertEquals(listOf(Renamed("c1", "Rush Trail", "Rush")), result.renamed)
+        assertEquals(segment(moved), repo.getValue("c1"), "its line kept")
+    }
+
+    @Test
+    fun aNewLineAndNameAreOneWrite() = runTest {
+        repo["c1"] = segment(coarse, name = "Rush Trail")
+        pds()
+
+        val result = refine(clients, file(candidate("c1")))
+
+        assertEquals(listOf("c1"), result.refined)
+        assertEquals(listOf("c1"), result.renamed.map { it.id })
+        assertEquals(1, fake.calls("com.atproto.repo.putRecord").size)
+        assertEquals(segment(fine), repo.getValue("c1"))
+        assertTrue(refine(clients, file(candidate("c1"))).renamed.isEmpty(), "a second run renames nothing")
+        assertEquals(1, fake.calls("com.atproto.repo.putRecord").size)
     }
 
     @Test

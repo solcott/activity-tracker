@@ -3,6 +3,7 @@
 package io.github.solcott.activitytracker.segmentimporter
 
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.SegmentCandidate
 import io.github.solcott.activitytracker.lexicon.atproto.ListRecords
 import io.github.solcott.activitytracker.lexicon.atproto.PutRecord
 import io.github.solcott.activitytracker.location.SegmentGeometry
@@ -15,16 +16,20 @@ import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * What a `refine` run did: segments given their candidate's finer line ([refined]), already holding it ([unchanged]), whose trail moved
- * further than [REFINE_MAX_M] ([moved]), or whose candidate isn't in the file ([missing]); [stoppedBy] is the error that ended the run
- * early, if one did.
+ * further than [REFINE_MAX_M] ([moved]), or whose candidate isn't in the file ([missing]), and those given their candidate's name
+ * ([renamed]), whatever their line; [stoppedBy] is the error that ended the run early, if one did.
  */
 internal data class RefineResult(
     val refined: List<String> = emptyList(),
     val unchanged: List<String> = emptyList(),
     val moved: List<String> = emptyList(),
     val missing: List<String> = emptyList(),
+    val renamed: List<Renamed> = emptyList(),
     val stoppedBy: Exception? = null,
 )
+
+/** A segment [id] renamed [from] its stored name, if it had one, [to] its candidate's. */
+internal data class Renamed(val id: String, val from: String?, val to: String)
 
 /** How far apart a published line and its candidate's may be and still be the same path drawn finer: the old 5 m tolerance plus 1 m. */
 internal const val REFINE_MAX_M = 6.0
@@ -36,11 +41,11 @@ private const val COMPARE_EVERY_M = 2.0
 private const val PAGE = 100
 
 /**
- * Gives the service account's published segments [file]'s finer lines (segments/segment-import): each `feed.segment` in its repo whose rkey
- * is a candidate id in [file] gets the candidate's line, every other field kept as stored, when the lines differ and lie within
- * [REFINE_MAX_M] of each other everywhere ([SegmentGeometry.hausdorffMeters]). A trail that moved further keeps its line, as it does for
- * `publish`. Nothing is deleted, and only the account's own repo is read or written. Stops at the first failed call, keeping what it did;
- * running again carries on.
+ * Gives the service account's published segments [file]'s finer lines and names (segments/segment-import): each `feed.segment` in its repo
+ * whose rkey is a candidate id in [file] gets the candidate's line when the lines differ and lie within [REFINE_MAX_M] of each other
+ * everywhere ([SegmentGeometry.hausdorffMeters]), and the candidate's name when the names differ, in one write, every other field kept as
+ * stored. A trail that moved further keeps its line, as it does for `publish`, but still takes the name. Nothing is deleted, and only the
+ * account's own repo is read or written. Stops at the first failed call, keeping what it did; running again carries on.
  */
 internal suspend fun refine(clients: Clients, file: CandidatesFile): RefineResult {
     val candidates = file.candidates.associateBy { it.id }
@@ -48,6 +53,7 @@ internal suspend fun refine(clients: Clients, file: CandidatesFile): RefineResul
     val unchanged = mutableListOf<String>()
     val moved = mutableListOf<String>()
     val missing = mutableListOf<String>()
+    val renamed = mutableListOf<Renamed>()
     val stoppedBy =
         try {
             val repo = clients.session.did()
@@ -56,18 +62,18 @@ internal suspend fun refine(clients: Clients, file: CandidatesFile): RefineResul
                 val page = clients.pds.query(ListRecords.method, ListRecords.Params(repo.value, Nsid.FEED_SEGMENT, PAGE, cursor))
                 for (record in page.records) {
                     val rkey = record.uri.rkey ?: continue
-                    val candidate = candidates[rkey]
-                    val stored = record.value.lineOrNull()
-                    when {
-                        candidate == null -> missing += rkey
-                        stored == candidate.line -> unchanged += rkey
-                        stored == null || !samePath(stored, candidate.line) -> moved += rkey
-                        else -> {
-                            val rewritten = JsonObject(record.value + ("line" to JsonPrimitive(candidate.line)))
-                            clients.pds.procedure(PutRecord.method, PutRecord.Input(repo, Nsid.FEED_SEGMENT, rkey, rewritten))
-                            refined += rkey
-                        }
+                    val (line, changes) = candidates[rkey]?.let { refinementOf(record.value, it) } ?: (null to emptyMap())
+                    if (changes.isNotEmpty()) {
+                        val rewritten = JsonObject(record.value + changes)
+                        clients.pds.procedure(PutRecord.method, PutRecord.Input(repo, Nsid.FEED_SEGMENT, rkey, rewritten))
                     }
+                    when (line) {
+                        null -> missing += rkey
+                        LineChange.UNCHANGED -> unchanged += rkey
+                        LineChange.MOVED -> moved += rkey
+                        LineChange.REFINED -> refined += rkey
+                    }
+                    changes["name"]?.let { renamed += Renamed(rkey, record.value.stringOrNull("name"), it.content) }
                 }
                 cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
             } while (cursor != null)
@@ -77,7 +83,33 @@ internal suspend fun refine(clients: Clients, file: CandidatesFile): RefineResul
         } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
             e
         }
-    return RefineResult(refined, unchanged, moved, missing, stoppedBy)
+    return RefineResult(refined, unchanged, moved, missing, renamed, stoppedBy)
+}
+
+/** How a stored segment's line compares with its candidate's. */
+private enum class LineChange {
+    UNCHANGED,
+    MOVED,
+    REFINED,
+}
+
+/**
+ * How [value], a stored segment, compares with its [candidate]'s line, and the fields to rewrite to give it the candidate's line and name.
+ */
+private fun refinementOf(value: JsonObject, candidate: SegmentCandidate): Pair<LineChange?, Map<String, JsonPrimitive>> {
+    val stored = value.stringOrNull("line")
+    val line =
+        when {
+            stored == candidate.line -> LineChange.UNCHANGED
+            stored == null || !samePath(stored, candidate.line) -> LineChange.MOVED
+            else -> LineChange.REFINED
+        }
+    val changes =
+        buildMap<String, JsonPrimitive> {
+            if (line == LineChange.REFINED) put("line", JsonPrimitive(candidate.line))
+            if (value.stringOrNull("name") != candidate.name) put("name", JsonPrimitive(candidate.name))
+        }
+    return line to changes
 }
 
 /** Whether two encoded segment lines are the same path: within [REFINE_MAX_M] of each other all along. */
@@ -87,16 +119,18 @@ internal fun samePath(a: String, b: String): Boolean {
     return first != null && second != null && SegmentGeometry.hausdorffMeters(first, second, COMPARE_EVERY_M) <= REFINE_MAX_M
 }
 
-private fun JsonObject.lineOrNull(): String? = (this["line"] as? JsonPrimitive)?.takeIf { it.isString }?.jsonPrimitive?.contentOrNull
+private fun JsonObject.stringOrNull(key: String): String? =
+    (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.jsonPrimitive?.contentOrNull
 
 /** Reads [path] and refines the published segments it names, printing what happened; throws what stopped it, after the summary. */
 internal suspend fun refineFile(clients: Clients, path: File) {
     val file = path.bufferedReader().useLines { readCandidates(it) }
     val result = refine(clients, file)
     for (id in result.moved) println("Trail moved, line kept: $id")
+    for ((id, from, to) in result.renamed) println("Renamed $id: \"${from.orEmpty()}\" -> \"$to\"")
     println(
         "Refined ${result.refined.size} segments from ${file.region}'s candidates; ${result.unchanged.size} unchanged, " +
-            "${result.moved.size} moved, ${result.missing.size} not in this file"
+            "${result.moved.size} moved, ${result.missing.size} not in this file; renamed ${result.renamed.size}"
     )
     result.stoppedBy?.let { throw it }
 }
