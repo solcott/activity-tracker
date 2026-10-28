@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview
 
 import io.github.solcott.activitytracker.appview.api.SpaceBlobs
+import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.SegmentMatchJobs
 import io.github.solcott.activitytracker.appview.db.SegmentTrackCells
 import io.github.solcott.activitytracker.appview.db.Segments
@@ -13,7 +14,9 @@ import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.SegmentStatus
 import io.github.solcott.activitytracker.lexicon.app.SegmentTrackData
+import io.github.solcott.activitytracker.lexicon.app.SegmentTrackPiece
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import kotlin.math.roundToInt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -336,6 +339,47 @@ class SegmentMatcherTest : SegmentTestBase() {
         putTrack("3ka", encode(data))
         match()
         assertEquals(listOf(5L to 50L), efforts().map { it.startOffset to it.elapsed })
+    }
+
+    @Test
+    fun aStopShortOfTheStartDoesNotCount() {
+        matching(true)
+        segment("3ks")
+        activity("3ka")
+        // Waits 1 m short of the start, 7 m to the side, for 144 s, then rides the segment at 5 m/s.
+        val samples =
+            (0..19).map { Triple(7.0, -100.0 + it * 5, it.toLong()) } +
+                Triple(6.5, -0.5, 20L) +
+                (21..163).map { Triple(if (it % 2 == 0) 7.3 else 6.7, -1.0, it.toLong()) } +
+                (0..220).map { Triple(7.0, -1.0 + it * 5, 164L + it) }
+        val points = samples.map { (east, north, _) -> at(east, north) }
+        val piece =
+            SegmentTrackPiece(
+                points.map { (it.lat * 1e7).roundToInt() },
+                points.map { (it.lng * 1e7).roundToInt() },
+                samples.map { it.third },
+            )
+        putTrack("3ka", encode(SegmentTrackData(listOf(piece))))
+        match()
+        assertEquals(listOf(164L to 200L), efforts().map { it.startOffset to it.elapsed })
+    }
+
+    @Test
+    fun theRematchMigrationMatchesEveryTrackAgain() {
+        matching(true)
+        segment("3ks")
+        activity("3ka")
+        track("3ka")
+        match()
+        runBlocking { db.tx { SegmentEfforts.update { it[elapsedS] = 999 } } }
+        assertEquals(emptyList(), jobs())
+
+        val sql = checkNotNull(javaClass.getResource("/db/migration/V43__rematch_segment_tracks.sql")).readText()
+        // Twice, so a track already queued isn't queued again.
+        repeat(2) { dataSource.connection.use { connection -> connection.createStatement().execute(sql) } }
+        assertEquals(listOf(SegmentJobs.TRACK to trackUri("3ka")), jobs())
+        match()
+        assertEquals(listOf(20L to 200L), efforts().map { it.startOffset to it.elapsed })
     }
 
     private fun encode(data: SegmentTrackData) = AtJson.encodeToString(SegmentTrackData.serializer(), data).encodeToByteArray()
