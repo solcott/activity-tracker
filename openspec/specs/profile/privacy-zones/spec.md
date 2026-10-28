@@ -127,7 +127,7 @@ A re-trim that doesn't finish, because the app was closed, went offline or faile
 
 #### Scenario: Re-trim done
 - **WHEN** a re-trim has rewritten every activity
-- **THEN** later sessions don't rewrite them again until the zones change
+- **THEN** later sessions don't rewrite them again until the zones change or the app's polyline detail does (feed/route-line-detail)
 
 #### Scenario: Segment tracks left behind
 - **WHEN** an athlete with segment matching on adds a zone and the app closes before every segment track is rewritten
