@@ -1738,12 +1738,16 @@ data class PrivacyZone(
 
 /**
  * `app.activitytracker.actor.routeTrim`: the [PrivacyZonesRecord.revision] every one of the athlete's polylines has been trimmed by and
- * sent. It lives only in their [AthleteSpace.SELF] space, apart from the zones so finishing a re-trim never overwrites a zone saved since.
+ * sent, and the polyline detail they were built at. It lives only in their [AthleteSpace.SELF] space, apart from the zones so finishing a
+ * re-trim never overwrites a zone saved since.
  */
 @Serializable
 data class RouteTrimRecord(
-    val revision: String,
+    /** Null when the athlete has never saved zones. */
+    val revision: String? = null,
     val updatedAt: Instant,
+    /** The polyline detail the polylines were rebuilt at; null means 0, the first. */
+    val lineVersion: Int? = null,
     @SerialName($$"$type") val type: String = Nsid.ACTOR_ROUTE_TRIM,
 ) {
     companion object {

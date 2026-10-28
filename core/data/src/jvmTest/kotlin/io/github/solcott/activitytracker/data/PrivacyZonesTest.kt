@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityEdit
 import io.github.solcott.activitytracker.data.activity.PrivacySettings
 import io.github.solcott.activitytracker.data.activity.PublishTrim
 import io.github.solcott.activitytracker.data.activity.RouteTrim
+import io.github.solcott.activitytracker.data.activity.SegmentedPolyline
 import io.github.solcott.activitytracker.data.activity.TooManyZonesException
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
 import io.github.solcott.activitytracker.data.activity.ZonesRead
@@ -602,6 +603,98 @@ class PrivacyZonesTest {
 
         pds.session().activities.repairRoutes()
         assertEquals(writes, pds.writes.size)
+    }
+
+    // Rebuilding when the polyline detail changes (feed/route-line-detail)
+
+    /** [route] wiggling 3 m either side of the equator: a 5 m polyline is two points, a 2 m one keeps the wiggles. */
+    private val wiggly = route.mapIndexed { i, p -> p.copy(latitude = if (i % 2 == 0) 0.000027 else -0.000027) }
+
+    private fun markerRecord(): RouteTrimRecord? =
+        pds.stored[Visibility.SELF]?.get("${Nsid.ACTOR_ROUTE_TRIM}/self")?.let {
+            AtJson.decodeFromJsonElement(RouteTrimRecord.serializer(), it)
+        }
+
+    /** Makes [rkey]'s public polyline the 5 m one an older app wrote, and the marker [marker], as an older app left them. */
+    private fun asBuiltByAnOlderApp(rkey: String, points: List<LocationSample>, marker: RouteTrimRecord?) {
+        val coarse = TrackMath.encodePolyline(TrackMath.simplify(points, 5.0))
+        pds.stored.getValue(pds.repo)["${Nsid.FEED_ACTIVITY}/$rkey"] =
+            AtJson.encodeToJsonElement(ActivityRecord.serializer(), stored(rkey).copy(polyline = coarse)) as JsonObject
+        val self = pds.stored.getValue(Visibility.SELF)
+        if (marker == null) self.remove("${Nsid.ACTOR_ROUTE_TRIM}/self")
+        else self["${Nsid.ACTOR_ROUTE_TRIM}/self"] = AtJson.encodeToJsonElement(RouteTrimRecord.serializer(), marker) as JsonObject
+    }
+
+    @Test
+    fun anOlderDetailIsRebuiltOnceAtTheSameZones() = runTest {
+        val s = pds.session()
+        s.privacy.save(PrivacySettings(listOf(home)))
+        val uri = s.activities.publish(draft(points = wiggly))
+        s.activities.repairRoutes()
+        val trimmed = stored(uri.rkey!!).polyline
+        val revision = zonesRecord()!!.revision
+        asBuiltByAnOlderApp(uri.rkey!!, TrackMath.simplify(wiggly, 5.0), RouteTrimRecord(revision, Clock.System.now()))
+        val segmentTrackWrites = pds.writes.count { Nsid.FEED_SEGMENT_TRACK in it }
+
+        pds.session().activities.repairRoutes()
+
+        assertEquals(trimmed, stored(uri.rkey!!).polyline, "rebuilt from the track, trimmed by the same zones")
+        assertTrue(startOf(stored(uri.rkey!!).polyline) >= 199)
+        assertEquals(RouteTrimRecord(revision, markerRecord()!!.updatedAt, SegmentedPolyline.LINE_VERSION), markerRecord())
+        assertEquals(segmentTrackWrites, pds.writes.count { Nsid.FEED_SEGMENT_TRACK in it }, "segment tracks are left alone")
+
+        val writes = pds.writes.size
+        pds.session().activities.repairRoutes()
+        assertEquals(writes, pds.writes.size, "done once")
+    }
+
+    @Test
+    fun anAthleteWhoNeverSavedZonesIsRebuiltToo() = runTest {
+        val s = pds.session()
+        val uri = s.activities.publish(draft(points = wiggly))
+        val fine = stored(uri.rkey!!).polyline
+        asBuiltByAnOlderApp(uri.rkey!!, wiggly, marker = null)
+
+        pds.session().activities.repairRoutes()
+
+        assertEquals(fine, stored(uri.rkey!!).polyline)
+        assertEquals(ActivityDraft.polylineOf(wiggly)?.polyline, fine)
+        val marker = assertNotNull(markerRecord())
+        assertNull(marker.revision, "no zones were ever saved")
+        assertEquals(SegmentedPolyline.LINE_VERSION, marker.lineVersion)
+    }
+
+    @Test
+    fun anOlderAppsReTrimMakesTheNextSessionRebuild() = runTest {
+        val s = pds.session()
+        val uri = s.activities.publish(draft(points = wiggly))
+        s.privacy.save(PrivacySettings(listOf(home)))
+        s.activities.repairRoutes()
+        val trimmed = stored(uri.rkey!!).polyline
+        // The other device finished a re-trim and wrote its marker without the detail.
+        asBuiltByAnOlderApp(uri.rkey!!, TrackMath.simplify(wiggly, 5.0), RouteTrimRecord(zonesRecord()!!.revision, Clock.System.now()))
+
+        pds.session().activities.repairRoutes()
+
+        assertEquals(trimmed, stored(uri.rkey!!).polyline)
+    }
+
+    @Test
+    fun anInterruptedRebuildLeavesTheOlderMarker() = runTest {
+        val s = pds.session()
+        val uri = s.activities.publish(draft(points = wiggly))
+        val old = RouteTrimRecord(updatedAt = Instant.parse("2026-10-01T00:00:00Z"))
+        asBuiltByAnOlderApp(uri.rkey!!, wiggly, old)
+
+        val later = pds.session()
+        pds.failPutsOf = Nsid.FEED_ACTIVITY
+        later.activities.repairRoutes()
+        assertEquals(old, markerRecord(), "not marked done while a rewrite is unsent")
+        pds.failPutsOf = null
+
+        pds.session().activities.repairRoutes()
+        assertEquals(ActivityDraft.polylineOf(wiggly)?.polyline, stored(uri.rkey!!).polyline)
+        assertEquals(SegmentedPolyline.LINE_VERSION, markerRecord()?.lineVersion)
     }
 
     private suspend fun assertFails(block: suspend () -> Unit) {

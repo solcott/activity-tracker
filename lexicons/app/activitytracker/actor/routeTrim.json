@@ -4,13 +4,18 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "Which app.activitytracker.actor.privacyZones save every one of the athlete's activity polylines has been trimmed by and sent. A client whose zones revision differs re-trims the athlete's activities from their tracks, then writes this. Lives only in the athlete's self space, never in the repo; the AppView ignores it. Kept apart from privacyZones so finishing a re-trim never overwrites a zone saved meanwhile.",
+      "description": "Which app.activitytracker.actor.privacyZones save every one of the athlete's activity polylines has been trimmed by and sent, and at which polyline detail they were built. A client whose zones revision differs, or whose polyline detail is newer than lineVersion, rebuilds the athlete's polylines from their tracks, then writes this. Lives only in the athlete's self space, never in the repo; the AppView ignores it. Kept apart from privacyZones so finishing a re-trim never overwrites a zone saved meanwhile.",
       "key": "literal:self",
       "record": {
         "type": "object",
-        "required": ["revision", "updatedAt"],
+        "required": ["updatedAt"],
         "properties": {
-          "revision": { "type": "string", "format": "tid", "description": "The privacyZones revision the polylines were trimmed by." },
+          "revision": { "type": "string", "format": "tid", "description": "The privacyZones revision the polylines were trimmed by. Absent when the athlete has never saved zones." },
+          "lineVersion": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The polyline detail the polylines were built at, as the client numbers it: 1 is within 2 m of the track. Absent means 0, the earlier 5 m detail."
+          },
           "updatedAt": { "type": "string", "format": "datetime" }
         }
       }

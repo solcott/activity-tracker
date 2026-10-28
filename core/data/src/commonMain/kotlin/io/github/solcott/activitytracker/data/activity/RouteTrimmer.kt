@@ -29,11 +29,13 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
 
 /**
- * Trims the signed-in athlete's existing polylines again when their privacy zones change. [sweep] rebuilds every activity that has a track
- * from that track, at every visibility, once the zones' revision differs from the `actor.routeTrim` marker, and writes the marker only once
- * every rewrite is sent, so an interrupted sweep finishes in a later session on any device. [trimStale] fixes what this session published
- * without reading the zones. Rewrites go through the outbox and change only `polyline` and `polylineGaps`, where the Map category keeps
- * them: on the activity record when Map is at the activity's tier, else on the details record in Map's narrower tier, never wider.
+ * Trims the signed-in athlete's existing polylines again when their privacy zones change, or when the app's polyline detail
+ * ([SegmentedPolyline.LINE_VERSION]) is newer than they were built at (feed/route-line-detail). [sweep] rebuilds every activity that has a
+ * track from that track, at every visibility, once the zones' revision or the detail differs from the `actor.routeTrim` marker, and writes
+ * the marker only once every rewrite is sent, so an interrupted sweep finishes in a later session on any device. [trimStale] fixes what
+ * this session published without reading the zones. Rewrites go through the outbox and change only `polyline` and `polylineGaps`, where the
+ * Map category keeps them: on the activity record when Map is at the activity's tier, else on the details record in Map's narrower tier,
+ * never wider.
  */
 @SingleIn(SessionScope::class)
 @Inject
@@ -55,7 +57,10 @@ class RouteTrimmer(
     private val self
         get() = clients.tiers.uri(AthleteSpace.SELF)
 
-    /** Re-trims every activity once the zones have changed since the last finished sweep. Best effort: a failure waits for the next run. */
+    /**
+     * Re-trims every activity once the zones or the polyline detail have changed since the last finished sweep. Best effort: a failure
+     * waits for the next run.
+     */
     suspend fun sweep() {
         if (!clients.canUseSpaces) return
         runSuspendCatching { mutex.withLock { sweepLocked() } }.onFailure { e -> log.w(e) { "Couldn't re-trim the athlete's routes" } }
@@ -77,8 +82,11 @@ class RouteTrimmer(
         val zones = privacy.readFresh() ?: return
         trimStale(zones)
         val revision = zones.revision
-        // Never saved means nothing was ever trimmed, so nothing needs trimming again.
-        if (revision == null || marker() == revision) {
+        val marker = marker()
+        // Zones never saved need no trimming again, but polylines built at an older detail still need rebuilding.
+        val zonesChanged = revision != null && marker?.revision != revision
+        val detailChanged = (marker?.lineVersion ?: 0) < SegmentedPolyline.LINE_VERSION
+        if (!zonesChanged && !detailChanged) {
             drainActivities()
             return
         }
@@ -99,7 +107,7 @@ class RouteTrimmer(
             }
         }
         if (drainActivities() == 0 && complete) {
-            val record = RouteTrimRecord(revision, clock.now())
+            val record = RouteTrimRecord(revision, clock.now(), SegmentedPolyline.LINE_VERSION)
             clients.spaces.putRecord(
                 clients.tiers.ensure(AthleteSpace.SELF),
                 Nsid.ACTOR_ROUTE_TRIM,
@@ -217,9 +225,10 @@ class RouteTrimmer(
         it.collection == Nsid.FEED_ACTIVITY || it.collection == Nsid.FEED_ACTIVITY_DETAILS
     }
 
-    private suspend fun marker(): String? =
+    /** The last finished sweep's marker; null when there's none, or it doesn't decode, which a sweep then replaces. */
+    private suspend fun marker(): RouteTrimRecord? =
         clients.readOwn(Nsid.ACTOR_ROUTE_TRIM, RouteTrimRecord.RKEY, self)?.let {
-            runCatching { AtJson.decodeFromJsonElement(RouteTrimRecord.serializer(), it).revision }.getOrNull()
+            runCatching { AtJson.decodeFromJsonElement(RouteTrimRecord.serializer(), it) }.getOrNull()
         }
 
     private companion object {
