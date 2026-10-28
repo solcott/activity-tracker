@@ -216,4 +216,34 @@ class SegmentGeometryTest {
         val piece = approach + TimedPoint(beside.lat, beside.lng, t + 6) + TimedPoint(within.lat, within.lng, t + 9)
         assertEquals(1, passesOver(straight, piece).size)
     }
+
+    // Comparing two drawings of one trail (segments/segment-import's refine)
+
+    private fun simplified(tolerance: Double) = TrackMath.simplify(TomSawyer.samples, tolerance).map { GeoPoint(it.latitude, it.longitude) }
+
+    @Test
+    fun identicalLinesAreZeroApart() {
+        assertEquals(0.0, SegmentGeometry.hausdorffMeters(TomSawyer.points, TomSawyer.points, 2.0), absoluteTolerance = 1e-6)
+    }
+
+    @Test
+    fun fiveAndOneMeterDrawingsOfOneTrailAreWithinSixMeters() {
+        val apart = SegmentGeometry.hausdorffMeters(simplified(5.0), simplified(1.0), 2.0)
+        assertTrue(apart <= 6.0, "$apart m")
+        assertTrue(apart > 1.0, "the 5 m drawing really is coarser")
+    }
+
+    @Test
+    fun aReroutedStretchIsFurtherThanSixMeters() {
+        // Half the trail moved 20 m north.
+        val moved =
+            TomSawyer.points.mapIndexed { i, p -> if (i < TomSawyer.points.size / 2) p else GeoPoint(p.lat + 20.0 / 111_195.0, p.lng) }
+        assertTrue(SegmentGeometry.hausdorffMeters(simplified(5.0), moved, 2.0) > 6.0)
+    }
+
+    @Test
+    fun theDistanceToALineIsToItsNearestStretch() {
+        val line = listOf(GeoPoint(0.0, 0.0), GeoPoint(0.0, 0.001))
+        assertEquals(10.0, SegmentGeometry.distanceToLineMeters(GeoPoint(10.0 / 111_195.0, 0.0005), line), absoluteTolerance = 0.01)
+    }
 }

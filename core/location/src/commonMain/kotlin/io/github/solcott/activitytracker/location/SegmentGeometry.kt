@@ -143,6 +143,20 @@ object SegmentGeometry {
         return frechetWithin(pa, pb, distance)
     }
 
+    /** How far [p] is from the nearest stretch of [line], in meters; from its one point when it has only one. */
+    fun distanceToLineMeters(p: GeoPoint, line: List<GeoPoint>): Double =
+        if (line.size < 2) line.minOfOrNull { distanceMeters(p, it) } ?: Double.POSITIVE_INFINITY
+        else line.zipWithNext().minOf { (a, b) -> toSegmentMeters(p, a, b) }
+
+    /**
+     * The furthest either of [a] and [b] gets from the other (their Hausdorff distance), in meters, measured from points every [every]
+     * meters along each to the other line. Infinite when either is empty.
+     */
+    fun hausdorffMeters(a: List<GeoPoint>, b: List<GeoPoint>, every: Double = REFERENCE_SPACING_M): Double {
+        if (a.isEmpty() || b.isEmpty()) return Double.POSITIVE_INFINITY
+        return maxOf(resample(a, every).maxOf { distanceToLineMeters(it, b) }, resample(b, every).maxOf { distanceToLineMeters(it, a) })
+    }
+
     /**
      * Whether the discrete Fréchet distance between [a] and [b] (points in local meters) is at most [eps]. Only couplings within a band
      * around the diagonal, scaled to the two lengths, are tried: wide enough for one line to run ahead of the other by their whole

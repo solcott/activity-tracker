@@ -8,6 +8,7 @@ import kotlin.math.roundToLong
 import kotlin.math.sin
 import kotlin.math.sqrt
 
+@Suppress("TooManyFunctions") // Distances, simplification and the polyline format, each with its helpers.
 object TrackMath {
     private const val EARTH_RADIUS_M = 6_371_000.0
     private const val DEGREES_PER_HALF_TURN = 180.0
@@ -62,6 +63,25 @@ object TrackMath {
             }
         }
         return points.filterIndexed { i, _ -> keep[i] }
+    }
+
+    /**
+     * [pieces] each [simplify]d at one tolerance, starting at [toleranceMeters] and doubling until [encode] of the result is at most
+     * [maxChars] long: as fine as a record's limit allows, and never more than twice as coarse as it needs to be. Stops at the pieces' ends
+     * when even they don't fit.
+     */
+    fun simplifyToFit(
+        pieces: List<List<LocationSample>>,
+        toleranceMeters: Double,
+        maxChars: Int,
+        encode: (List<List<LocationSample>>) -> String,
+    ): List<List<LocationSample>> {
+        var tolerance = toleranceMeters
+        while (true) {
+            val simplified = pieces.map { simplify(it, tolerance) }
+            if (encode(simplified).length <= maxChars || simplified.all { it.size <= 2 }) return simplified
+            tolerance *= 2
+        }
     }
 
     private fun perpendicularMeters(
