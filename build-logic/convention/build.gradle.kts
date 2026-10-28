@@ -27,10 +27,11 @@ dependencies {
     testPluginClasspath(libs.compose.compiler.gradle.plugin)
     testPluginClasspath(libs.compose.gradle.plugin)
     testPluginClasspath(libs.kotlin.gradle.plugin)
+    testPluginClasspath(libs.ksp.gradle.plugin)
 }
 
 // KGP and the Compose compiler plugin are compileOnly (each build supplies its own), but TestKit fixtures need them to apply the
-// convention plugins.
+// convention plugins. KSP is only for fixtures that apply it next to them.
 tasks.pluginUnderTestMetadata { pluginClasspath.from(testPluginClasspath) }
 
 // Fixtures that apply the KMP conventions need the real catalog, which those plugins read versions and libraries from.

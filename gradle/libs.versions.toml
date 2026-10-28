@@ -196,6 +196,7 @@ detekt-gradle-plugin = { module = "dev.detekt:detekt-gradle-plugin", version.ref
 ktfmt-gradle-plugin = { module = "com.ncorti.ktfmt.gradle:plugin", version.ref = "ktfmt" }
 sort-dependencies-gradle-plugin = { module = "com.squareup:sort-dependencies-gradle-plugin", version.ref = "sortDependencies" }
 cryptography-gradle-plugin = { module = "dev.whyoleg.cryptography:cryptography-gradle-plugin", version.ref = "cryptography" }
+ksp-gradle-plugin = { module = "com.google.devtools.ksp:symbol-processing-gradle-plugin", version.ref = "ksp" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

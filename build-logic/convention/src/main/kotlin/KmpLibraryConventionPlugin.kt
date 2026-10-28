@@ -27,6 +27,15 @@ class KmpLibraryConventionPlugin : Plugin<Project> {
             pluginManager.apply("dev.whyoleg.cryptography")
             extensions.configure<CryptographyExtension> { configureSwiftLinkerOpts.set(true) }
 
+            // Lint's Kotlin analysis, building its index, can pick up files a concurrently running KSP task of
+            // this module is moving between its output and kspCaches/…/backups, and then fails with
+            // FileNotFoundException. Ordering only: lint doesn't need any KSP output, so it adds no work. By name, since
+            // iterating a filtered task collection would realize every task in the module.
+            pluginManager.withPlugin("com.google.devtools.ksp") {
+                val kspTasks = provider { tasks.names.filter { it.startsWith("ksp") } }
+                tasks.named { it.startsWith("lint") }.configureEach { mustRunAfter(kspTasks) }
+            }
+
             extensions.configure<KotlinMultiplatformExtension> {
                 amazonJdkToolchain(target)
                 (this as ExtensionAware).extensions.configure<KotlinMultiplatformAndroidLibraryTarget>("android") {
