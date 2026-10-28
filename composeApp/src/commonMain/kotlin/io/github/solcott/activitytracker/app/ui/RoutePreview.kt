@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.RouteEnds
 import io.github.solcott.activitytracker.data.activity.SegmentedPolyline
+import io.github.solcott.activitytracker.location.RouteCurve
 import io.github.solcott.activitytracker.location.TrackMath
 import kotlin.math.cos
 import kotlinx.collections.immutable.ImmutableList
@@ -42,6 +43,9 @@ fun RoutePreview(
     val stretch = remember(highlight) { highlight?.let { runCatching { TrackMath.decodePolyline(it) }.getOrNull() }.orEmpty() }
     val highlightColor = MaterialTheme.colorScheme.tertiary
     val markers = remember(points, gaps, ends) { RouteMarkers.of(SegmentedPolyline.pieces(points, gaps))?.shownAt(ends) }
+    // Drawn as curves through the stored points (feed/route-line-detail); markers and framing keep the points themselves.
+    val curves = remember(points, gaps) { SegmentedPolyline.pieces(points, gaps).map(RouteCurve::smooth) }
+    val stretchCurve = remember(stretch) { RouteCurve.smooth(stretch) }
     val color = MaterialTheme.colorScheme.primary
     Canvas(modifier.fillMaxWidth().height(height)) {
         val latScale = cos(points.first().first * kotlin.math.PI / 180)
@@ -61,17 +65,15 @@ fun RoutePreview(
                 ((point.second * latScale - minX) * scale + offsetX).toFloat(),
                 ((-point.first - minY) * scale + offsetY).toFloat(),
             )
-        fun at(i: Int) = at(points[i])
-        val pieces = SegmentedPolyline.pieces(points.indices.toList(), gaps)
         val path =
             Path().apply {
-                for (piece in pieces) {
+                for (piece in curves) {
                     moveTo(at(piece.first()).x, at(piece.first()).y)
-                    for (i in piece.drop(1)) lineTo(at(i).x, at(i).y)
+                    for (p in piece.drop(1)) lineTo(at(p).x, at(p).y)
                 }
             }
-        drawPath(path, color, style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round))
-        drawHighlight(stretch.map(::at), highlightColor)
+        drawPath(path, color, style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawHighlight(stretchCurve.map(::at), highlightColor)
         markers?.let { (start, end, breaks) ->
             val dashes = PathEffect.dashPathEffect(floatArrayOf(RouteMarkers.CONNECTOR_DASH.toPx(), RouteMarkers.CONNECTOR_SPACE.toPx()))
             for ((stop, resume) in breaks) {

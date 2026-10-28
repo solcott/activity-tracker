@@ -26,6 +26,7 @@ import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.map_expand
 import io.github.solcott.activitytracker.composeApp.resources.map_recenter
 import io.github.solcott.activitytracker.data.activity.SegmentedPolyline
+import io.github.solcott.activitytracker.location.RouteCurve
 import io.github.solcott.activitytracker.location.TrackMath
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -72,7 +73,8 @@ actual fun ActivityMap(
     val points = remember(polyline) { runCatching { TrackMath.decodePolyline(polyline) }.getOrDefault(emptyList()) }
     if (points.size < 2) return
     val pieces = remember(points, gaps) { SegmentedPolyline.pieces(points, gaps) }
-    val routeJson = remember(pieces) { lineJson(pieces) }
+    // Drawn as curves through the stored points (feed/route-line-detail); markers and framing keep the points themselves.
+    val routeJson = remember(pieces) { lineJson(pieces.map(RouteCurve::smooth)) }
     val markers = remember(pieces, ends) { RouteMarkers.of(pieces)?.shownAt(ends) }
     val bounds =
         remember(points) {
@@ -90,7 +92,7 @@ actual fun ActivityMap(
             highlight
                 ?.let { runCatching { TrackMath.decodePolyline(it) }.getOrNull() }
                 ?.takeIf { it.size >= 2 }
-                ?.let { lineJson(listOf(it)) }
+                ?.let { lineJson(listOf(RouteCurve.smooth(it))) }
         }
     val style = BaseStyle.Uri(if (isSystemInDarkTheme()) MapStyles.DARK else MapStyles.LIGHT)
     val mapState =
