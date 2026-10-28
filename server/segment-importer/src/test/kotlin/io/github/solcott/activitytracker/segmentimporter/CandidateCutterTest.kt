@@ -48,7 +48,7 @@ class CandidateCutterTest {
             crossing(20, at = 3, tags = highway("unclassified", "Fire Road 3"))
         }
         val parents = candidates(data).filter { it.kind == TrailKind.PARENT }
-        assertEquals(setOf("Ridge Trail (northbound)", "Ridge Trail (southbound)"), parents.map { it.name }.toSet())
+        assertEquals(setOf("Ridge (northbound)", "Ridge (southbound)"), parents.map { it.name }.toSet())
         assertTrue(parents.all { it.whole && (it.meters + 50) / 100 * 100 == 4000L })
     }
 
@@ -64,7 +64,7 @@ class CandidateCutterTest {
             way(12, 2, 4, 5, tags = path("Rush Trail - Through the Trees Trail Section", "oneway" to "yes"))
         }
         assertEquals(
-            listOf("Rush Trail via Exit Stage Left Section", "Rush Trail via Through the Trees Trail Section"),
+            listOf("Rush › Exit Stage Left", "Rush › Through the Trees Trail"),
             candidates(data).filter { it.kind == TrailKind.PARENT }.map { it.name }.sorted(),
         )
     }
@@ -84,7 +84,7 @@ class CandidateCutterTest {
             crossing(24, at = 4, tags = highway("track", "Bonneville Shoreline Trail - Draper Section"))
         }
         assertEquals(
-            setOf("Rush Trail to Canyon Hollow Trail", "Rush Trail to Bonneville Shoreline Trail", "Rush Trail from Canyon Hollow Trail"),
+            setOf("Rush → Canyon Hollow", "Rush → Bonneville Shoreline", "Rush from Canyon Hollow"),
             parentSpans(data),
             "nothing from the Bonneville Shoreline Trail, which is Limelight alone",
         )
@@ -110,7 +110,7 @@ class CandidateCutterTest {
             way(102, 6, 7, 8, 9, tags = path("Ridge Trail - North Section"))
             crossing(20, at = 6, tags = highway("unclassified", "Fire Road 3"))
         }
-        assertEquals(setOf("Ridge Trail to Fire Road 3", "Ridge Trail from Fire Road 3"), parentSpans(data))
+        assertEquals(setOf("Ridge → Fire Road 3", "Ridge from Fire Road 3"), parentSpans(data))
     }
 
     @Test
@@ -170,7 +170,7 @@ class CandidateCutterTest {
         val data = osm { oak(nodes = 5, spacing = 250.0, "oneway" to "yes") }
         val whole = candidates(data).single()
         assertTrue(whole.points.last().lat > whole.points.first().lat, "north, as the ways are drawn")
-        assertEquals("Oak Trail", whole.name, "no direction in the name of a one-way trail")
+        assertEquals("Oak", whole.name, "no direction in the name of a one-way trail")
     }
 
     @Test
@@ -182,16 +182,40 @@ class CandidateCutterTest {
             crossing(30, at = 6, tags = path("Pine Trail"))
         }
         val names = candidates(data).map { it.name }.toSet()
-        assertTrue("Oak Trail: Fire Road 3 to Pine Trail" in names, "$names")
-        assertTrue("Oak Trail: Pine Trail to Fire Road 3" in names, "the way back")
-        assertTrue("Oak Trail (part 1)" in names, "the stretch from the trail's unnamed start")
-        assertTrue("Oak Trail (part 3)" in names, "the stretch to its unnamed end")
+        assertTrue("Oak: Fire Road 3 → Pine" in names, "$names")
+        assertTrue("Oak: Pine → Fire Road 3" in names, "the way back")
+        assertTrue("Oak (part 1)" in names, "the stretch from the trail's unnamed start")
+        assertTrue("Oak (part 3)" in names, "the stretch to its unnamed end")
+    }
+
+    @Test
+    fun aStretchEndingAtASectionKeepsTheSection() {
+        val data = osm {
+            oak(nodes = 8)
+            crossing(20, at = 3, tags = path("Rush Trail - Dreamline Section"))
+            crossing(30, at = 6, tags = path("Aqueduct Trail"))
+        }
+        val names = candidates(data).map { it.name }.toSet()
+        assertTrue("Oak: Rush - Dreamline → Aqueduct" in names, "$names")
+    }
+
+    @Test
+    fun aRegionWithNoWordListKeepsItsNames() {
+        val data = osm {
+            oak(nodes = 8)
+            crossing(20, at = 3, tags = highway("track", "Fire Road 3"))
+            crossing(30, at = 6, tags = path("Pine Trail"))
+        }
+        val german = GenericWords.forLanguage("de")
+        val kept = TrailBuilder.build(data, german).filter { it.group == RIDE }.flatMap(CandidateCutter(data, german)::cut)
+        assertTrue("Oak Trail: Fire Road 3 → Pine Trail" in kept.map { it.name }, "${kept.map { it.name }}")
+        assertEquals(candidates(data).map { it.id }.toSet(), kept.map { it.id }.toSet(), "names never change ids")
     }
 
     @Test
     fun aWholeTwoWayTrailIsNamedWithItsDirection() {
         val data = osm { oak(nodes = 9) }
-        assertEquals(setOf("Oak Trail (northbound)", "Oak Trail (southbound)"), candidates(data).map { it.name }.toSet())
+        assertEquals(setOf("Oak (northbound)", "Oak (southbound)"), candidates(data).map { it.name }.toSet())
     }
 
     @Test

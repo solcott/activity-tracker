@@ -13,23 +13,26 @@ private const val USAGE =
     """Usage: segment-importer <command>
 
 Commands:
-  extract [file.osm.pbf] [--agency <kind>=<file.geojsonl>]... --region <id> --out <candidates.ndjson>
+  extract [file.osm.pbf] [--agency <kind>=<file.geojsonl>]... --region <id> [--lang <code>] --out <candidates.ndjson>
       Reads a region's OpenStreetMap extract and agency trail datasets, at least one of them, and writes its candidate segments, one JSON
       object per line. An agency dataset is a GeoJSON text sequence in WGS 84 (made with ogr2ogr, see the README), of the kind usfs (Forest
       Service trails, TrailNFS_Publish), nps (Park Service trails) or blm (BLM managed trails). The region id is lower-case letters, digits
-      and dashes, such as us-vermont.
+      and dashes, such as us-vermont. The language, a two-letter ISO 639-1 code (en unless given), picks the generic words names drop,
+      such as Trail; a language with no list keeps names as their source has them.
   stage <candidates.ndjson>
       Uploads a candidates file to the AppView as one import run, replacing the region's candidates from earlier runs.
   publish --region <id>
       Publishes the region's ridden candidates that duplicate no live segment as feed.segment records.
   refine <candidates.ndjson>
       Gives segments already published from the file's candidates their candidate's line when it's the same path drawn finer, within 6 m
-      of the published line all along; a trail that moved further keeps its line.
+      of the published line all along; a trail that moved further keeps its line. Each also takes its candidate's name.
 
 stage, publish and refine act as the importer's service account: set SEGMENT_IMPORTER_IDENTIFIER, SEGMENT_IMPORTER_PASSWORD (an app password)
 and SEGMENT_IMPORTER_PDS_URL, and APPVIEW_URL and APPVIEW_DID unless the AppView is the local one."""
 
 private val REGION_ID = Regex("[a-z0-9-]{1,64}")
+
+private val LANGUAGE = Regex("[a-z]{2}")
 
 fun main(args: Array<String>) {
     val command = parse(args.toList())
@@ -38,7 +41,7 @@ fun main(args: Array<String>) {
         exitProcess(2)
     }
     when (command) {
-        is Command.Extract -> extract(command.pbf, command.agency, command.region, command.out)
+        is Command.Extract -> extract(command.pbf, command.agency, command.region, command.out, GenericWords.forLanguage(command.language))
         is Command.Stage -> asServiceAccount { stageFile(it, command.file) }
         is Command.Publish -> asServiceAccount { publishRegion(it, command.region) }
         is Command.Refine -> asServiceAccount { refineFile(it, command.file) }
@@ -73,7 +76,14 @@ private fun asServiceAccount(block: suspend (Clients) -> Unit) {
 
 /** A parsed command line. */
 internal sealed interface Command {
-    data class Extract(val pbf: File?, val agency: List<Pair<AgencyRules, File>>, val region: String, val out: File) : Command
+    data class Extract(
+        val pbf: File?,
+        val agency: List<Pair<AgencyRules, File>>,
+        val region: String,
+        val out: File,
+        /** The region's language, as an ISO 639-1 code. */
+        val language: String = "en",
+    ) : Command
 
     data class Stage(val file: File) : Command
 
@@ -117,8 +127,10 @@ private fun parseExtract(args: List<String>): Command.Extract? {
     if (positional.size > 1 || (positional.isEmpty() && agency.isEmpty())) return null
     val region = options["--region"]?.takeIf { REGION_ID.matches(it) } ?: return null
     val out = options["--out"] ?: return null
-    if (options.keys.any { it !in setOf("--region", "--out") }) return null
-    return Command.Extract(positional.singleOrNull()?.let(::File), agency, region, File(out))
+    val language = options["--lang"] ?: "en"
+    if (!LANGUAGE.matches(language)) return null
+    if (options.keys.any { it !in setOf("--region", "--out", "--lang") }) return null
+    return Command.Extract(positional.singleOrNull()?.let(::File), agency, region, File(out), language)
 }
 
 private fun parsePublish(args: List<String>): Command.Publish? {

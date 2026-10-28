@@ -104,9 +104,9 @@ class CandidateDedupTest {
         val spans = kept.filter { it.kind == TrailKind.PARENT && !it.whole }.map { it.name }.sorted()
         assertEquals(
             listOf(
-                "Rush Trail from Canyon Hollow Trail",
-                "Rush Trail via Exit Stage Left Section to Canyon Hollow Trail",
-                "Rush Trail via Through the Trees Trail Section to Canyon Hollow Trail",
+                "Rush from Canyon Hollow",
+                "Rush › Exit Stage Left → Canyon Hollow",
+                "Rush › Through the Trees Trail → Canyon Hollow",
             ),
             spans,
         )

@@ -72,7 +72,7 @@ class AgencyReaderTest {
         val data = OsmData(emptyList(), emptyList(), NodeCoords(LongArray(0))) + AgencyReader.read(listOf(AgencyRules.USFS to file))
         val cutter = CandidateCutter(data)
         val hikes = TrailBuilder.build(data).filter { it.group == HIKE }.flatMap(cutter::cut)
-        assertEquals(listOf("Wilkinson Trail (northbound)", "Wilkinson Trail (southbound)"), hikes.map { it.name }.sorted())
+        assertEquals(listOf("Wilkinson (northbound)", "Wilkinson (southbound)"), hikes.map { it.name }.sorted())
     }
 
     @Test

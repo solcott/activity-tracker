@@ -18,6 +18,11 @@ internal enum class TrailKind {
 @Suppress("LongParameterList") // The trail's line and what each of its edges allows.
 internal class Trail(
     val name: String,
+    /**
+     * What candidates call it: [name] without its generic words, or for a parent trail that branches, `<Parent> › <section>` or `<Parent>
+     * from <section>` from its shortened parts.
+     */
+    val label: String,
     /** The rules of the source its ways came from: a trail never mixes sources, since they share no nodes. */
     val rules: TrailRules,
     val group: String,
@@ -41,13 +46,19 @@ internal class Trail(
 
 /** Joins [OsmData]'s ways into [Trail]s per sport group (segments/trail-candidates). */
 internal object TrailBuilder {
-    fun build(data: OsmData): List<Trail> {
+    /** [data]'s trails, labelled without [words]. */
+    fun build(data: OsmData, words: GenericWords = GenericWords.ENGLISH): List<Trail> {
         val usable = data.ways.filter { way -> way.nodes.size >= 2 && way.nodes.all { data.coords[it] != null } }.associateBy { it.id }
-        return namedTrails(usable.values, data) + relationTrails(data.relations, usable, data) + parentTrails(usable.values, data)
+        return namedTrails(usable.values, data, words) +
+            relationTrails(data.relations, usable, data, words) +
+            parentTrails(usable.values, data, words)
     }
 
     /** How many parent trails a family keeps per group; with more paths, it keeps only its longest. */
     private const val MAX_PARENT_PATHS = 4
+
+    /** How a branching parent trail's label joins its parent and section, by the word its name uses. */
+    private val LABEL_JOINERS = mapOf("via" to "›", "from" to "from")
 
     /** How many steps a family's path search may take per group before it settles for the paths found so far. */
     private const val PARENT_SEARCH_STEPS = 1_000
@@ -65,7 +76,7 @@ internal object TrailBuilder {
      * Named ways of each group joined where they share the name and an end node. A trail ends where more than two such ways meet, so a fork
      * never picks a branch.
      */
-    private fun namedTrails(ways: Collection<OsmWay>, data: OsmData): List<Trail> =
+    private fun namedTrails(ways: Collection<OsmWay>, data: OsmData, words: GenericWords): List<Trail> =
         ways
             .flatMap { way -> way.name?.let { name -> way.rules.wayGroups(way.tags).map { group -> Triple(group, name, way) } }.orEmpty() }
             .groupBy({ (group, name, _) -> group to name }, { it.third })
@@ -92,7 +103,7 @@ internal object TrailBuilder {
                             used += way.id
                             chain.addFirst(Placed(way, reversed = way.nodes.first() == first.nodes.first()))
                         }
-                        trail(name, group, TrailKind.NAMED, chain, data)
+                        trail(name, words.shorten(name), group, TrailKind.NAMED, chain, data)
                     }
             }
 
@@ -100,7 +111,7 @@ internal object TrailBuilder {
      * Each named route relation's way members, in order, joined end to end and reversed as needed. Ways that are [TrailRules.excluded] or
      * missing are left out, and a member that doesn't join starts a new trail, so a relation with gaps gives one trail per joined stretch.
      */
-    private fun relationTrails(relations: List<OsmRelation>, ways: Map<Long, OsmWay>, data: OsmData): List<Trail> =
+    private fun relationTrails(relations: List<OsmRelation>, ways: Map<Long, OsmWay>, data: OsmData, words: GenericWords): List<Trail> =
         relations.flatMap { relation ->
             val name = relation.name ?: return@flatMap emptyList()
             val groups = TrailTags.relationGroups(relation.tags)
@@ -112,7 +123,7 @@ internal object TrailBuilder {
                 val joined = current?.let { join(it, way) } ?: false
                 if (!joined) stretches += mutableListOf(Placed(way, reversed = false))
             }
-            stretches.flatMap { chain -> groups.map { group -> trail(name, group, TrailKind.RELATION, chain, data) } }
+            stretches.flatMap { chain -> groups.map { group -> trail(name, words.shorten(name), group, TrailKind.RELATION, chain, data) } }
         }
 
     /**
@@ -121,7 +132,7 @@ internal object TrailBuilder {
      * meeting the family mid-way is on no path. A path and its reverse are one trail. A family keeps up to [MAX_PARENT_PATHS], or only its
      * longest when it has more, each named after its first section that is on none of the others, or else its first section.
      */
-    private fun parentTrails(ways: Collection<OsmWay>, data: OsmData): List<Trail> =
+    private fun parentTrails(ways: Collection<OsmWay>, data: OsmData, words: GenericWords): List<Trail> =
         ways
             .filter { it.rules == TrailTags }
             .flatMap { way ->
@@ -137,10 +148,14 @@ internal object TrailBuilder {
                         .distinctBy { path -> path.mapTo(mutableSetOf()) { it.way.id } }
                 val kept = if (paths.size > MAX_PARENT_PATHS) listOf(paths.maxBy { lengthOf(it, data) }) else paths
                 kept.map { path ->
-                    val trailName = if (kept.size == 1) name else viaName(name, path, kept)
+                    val branch = if (kept.size == 1) null else branchOf(name, path, kept)
+                    val trailName = branch?.let { (joiner, section) -> "$name $joiner $section" } ?: name
+                    val label =
+                        branch?.let { (joiner, section) -> "${words.shorten(name)} ${LABEL_JOINERS[joiner]} ${words.shorten(section)}" }
+                            ?: words.shorten(name)
                     val elsewhere = kept.filter { it !== path }.flatMapTo(mutableSetOf()) { other -> other.map { it.way.id } }
                     val own = path.map { it.way.id }.filterTo(mutableSetOf()) { it !in elsewhere }
-                    trail(trailName, group, TrailKind.PARENT, path, data, family = name, ownWays = own)
+                    trail(trailName, label, group, TrailKind.PARENT, path, data, family = name, ownWays = own)
                 }
             }
 
@@ -174,18 +189,14 @@ internal object TrailBuilder {
     }
 
     /**
-     * [path]'s name among [paths]: `<name> via <section>` after its first section that no other path follows, or, when the others follow
-     * all its sections, `<name> from <section>` after its first, so an entry that joins partway down doesn't read as the whole trail.
+     * What tells [path] apart among [paths]: `via` its first section that no other path follows, or, when the others follow all its
+     * sections, `from` its first, so an entry that joins partway down doesn't read as the whole trail. Null with no sections.
      */
-    private fun viaName(name: String, path: List<Placed>, paths: List<List<Placed>>): String {
+    private fun branchOf(name: String, path: List<Placed>, paths: List<List<Placed>>): Pair<String, String>? {
         val elsewhere = paths.filter { it !== path }.flatMapTo(mutableSetOf()) { other -> other.map { it.way.name } }
         val sections = path.mapNotNull { it.way.name }.filter { it != name }
-        sections
-            .firstOrNull { it !in elsewhere }
-            ?.let {
-                return "$name via ${it.substringAfter(" - ")}"
-            }
-        return sections.firstOrNull()?.let { "$name from ${it.substringAfter(" - ")}" } ?: name
+        val via = sections.firstOrNull { it !in elsewhere }
+        return if (via != null) "via" to via.substringAfter(" - ") else sections.firstOrNull()?.let { "from" to it.substringAfter(" - ") }
     }
 
     private fun lengthOf(path: List<Placed>, data: OsmData): Double =
@@ -215,6 +226,7 @@ internal object TrailBuilder {
     @Suppress("LongParameterList") // A parent trail's family and own ways come along with the line.
     private fun trail(
         name: String,
+        label: String,
         group: String,
         kind: TrailKind,
         chain: Collection<Placed>,
@@ -241,6 +253,7 @@ internal object TrailBuilder {
         }
         return Trail(
             name = name,
+            label = label,
             rules = chain.first().way.rules,
             group = group,
             kind = kind,

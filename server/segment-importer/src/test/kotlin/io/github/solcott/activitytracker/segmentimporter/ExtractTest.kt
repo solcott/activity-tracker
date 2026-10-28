@@ -42,10 +42,12 @@ class ExtractTest {
             out.readLines()
                 .drop(1)
                 .map { Json.parseToJsonElement(it).jsonObject }
-                .filter { it.getValue("source").jsonPrimitive.content == "osm" && "Oak Trail" in it.getValue("name").jsonPrimitive.content }
+                .filter {
+                    it.getValue("source").jsonPrimitive.content == "osm" && it.getValue("name").jsonPrimitive.content.startsWith("Oak (")
+                }
                 .map { "${it.getValue("sport").jsonPrimitive.content} ${it.getValue("name").jsonPrimitive.content}" }
         assertEquals(
-            listOf("hike Oak Trail (part 1)", "hike Oak Trail (part 2)", "run Oak Trail (part 1)", "run Oak Trail (part 2)"),
+            listOf("hike Oak (part 1)", "hike Oak (part 2)", "run Oak (part 1)", "run Oak (part 2)"),
             oak.distinct().sorted(),
             "no rides; the whole trail's runs and hikes are the agency's",
         )
@@ -110,6 +112,28 @@ class ExtractTest {
         assertNull(extract("--region", "us-vermont", "--out", "out.ndjson"), "no input")
         assertNull(extract("a.osm.pbf", "b.osm.pbf", "--region", "us-vermont", "--out", "out.ndjson"), "two extracts")
         assertNull(extract("a.osm.pbf", "--region", "us-vermont", "--region", "us-maine", "--out", "out.ndjson"), "two regions")
+    }
+
+    @Test
+    fun extractTakesTheRegionsLanguage() {
+        fun extract(vararg args: String) = parse(listOf("extract", *args))
+        assertEquals("en", (extract("a.osm.pbf", "--region", "us-utah", "--out", "out.ndjson") as Command.Extract).language)
+        assertEquals(
+            "de",
+            (extract("a.osm.pbf", "--region", "de-bayern", "--lang", "de", "--out", "out.ndjson") as Command.Extract).language,
+        )
+        assertNull(extract("a.osm.pbf", "--region", "us-utah", "--lang", "english", "--out", "out.ndjson"), "not a two-letter code")
+        assertNull(extract("a.osm.pbf", "--region", "us-utah", "--lang", "EN", "--out", "out.ndjson"), "upper case")
+    }
+
+    @Test
+    fun aLanguageWithNoWordListKeepsNamesAndSaysSo() {
+        val out = createTempFile("candidates", ".ndjson").toFile()
+        val report = captured { extract(fixture(), emptyList(), "test-region", out, GenericWords.forLanguage("de")) }
+        assertTrue("No generic words for the language 'de'" in report, report)
+        assertTrue(out.readLines().any { "\"name\":\"Oak Trail (part 1)\"" in it }, "names kept")
+        val english = createTempFile("candidates", ".ndjson").toFile()
+        assertFalse("No generic words" in captured { extract(fixture(), emptyList(), "test-region", english) })
     }
 
     private fun resource(name: String) = File(requireNotNull(javaClass.getResource("/$name")).toURI())

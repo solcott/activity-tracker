@@ -25,6 +25,7 @@ class TrailBuilderTest {
         }
         val oak = TrailBuilder.build(data).single { it.group == RIDE }
         assertEquals("Oak Trail", oak.name)
+        assertEquals("Oak", oak.label, "without its generic word")
         assertEquals((1L..9L).toList(), oak.nodes.toList().let { if (it.first() == 1L) it else it.reversed() })
         assertEquals(setOf(10L, 11L, 12L, 13L), oak.ways)
     }
@@ -171,6 +172,7 @@ class TrailBuilderTest {
             setOf("Rush Trail via Exit Stage Left Section", "Rush Trail via Through the Trees Trail Section"),
             parents(data).map { it.name }.toSet(),
         )
+        assertEquals(setOf("Rush › Exit Stage Left", "Rush › Through the Trees Trail"), parents(data).map { it.label }.toSet())
         assertEquals(setOf(setOf(11L), setOf(12L)), parents(data).map { it.ownWays }.toSet(), "only each branch is its own")
         assertTrue(parents(data).all { it.family == "Rush Trail" })
     }
@@ -198,6 +200,10 @@ class TrailBuilderTest {
                 "Rush Trail from Mystic Rhythms Section",
             ),
             parents(data).map { it.name }.toSet(),
+        )
+        assertEquals(
+            setOf("Rush › Exit Stage Left", "Rush › Through the Trees Trail", "Rush from Mystic Rhythms"),
+            parents(data).map { it.label }.toSet(),
         )
     }
 
