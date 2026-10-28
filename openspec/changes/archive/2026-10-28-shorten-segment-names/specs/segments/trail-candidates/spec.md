@@ -51,7 +51,7 @@ Each OSM, route or agency name a candidate name is built from SHALL lose one tra
 ## MODIFIED Requirements
 
 ### Requirement: Candidates are named after their trail
-A whole-trail candidate SHALL be named after its trail. A stretch SHALL be named after its trail and the named trails or roads at its ends, as "<trail>: <start> → <end>", or "<trail> (part n)" when an end has no name. An end that is a `<Parent> - <Section>` way SHALL be named with its section. When a trail has candidates in both directions, a whole-trail name SHALL add its direction of travel: clockwise or counterclockwise for a loop, whose ends are within 30 m, otherwise the compass direction. Names SHALL be at most 100 graphemes.
+A whole-trail candidate SHALL be named after its trail. A stretch SHALL be named after its trail and the full names, sections included, of the named trails or roads at its ends, as "<trail>: <start> → <end>", or "<trail> (part n)" when an end has no name. When a trail has candidates in both directions, a whole-trail name SHALL add its direction of travel: clockwise or counterclockwise for a loop, whose ends are within 30 m, otherwise the compass direction. Names SHALL be at most 100 graphemes.
 
 #### Scenario: Stretch between two crossings
 - **WHEN** a stretch of "Oak Trail" runs from where "Fire Road 3" crosses it to where "Pine Trail" meets it
