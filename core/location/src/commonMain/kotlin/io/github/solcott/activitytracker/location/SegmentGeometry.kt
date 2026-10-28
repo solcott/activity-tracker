@@ -13,7 +13,7 @@ data class GeoPoint(val lat: Double, val lng: Double)
 /** A track sample: a position in degrees and [t], seconds on the track's clock. */
 data class TimedPoint(val lat: Double, val lng: Double, val t: Double)
 
-/** One pass over a segment from its start to its end, as interpolated track times in seconds. */
+/** One pass over a segment, as the track times in seconds it crosses the segment's start line and then its end line. */
 data class SegmentPass(val start: Double, val end: Double)
 
 /**
@@ -39,6 +39,11 @@ object SegmentGeometry {
 
     /** How many times longer one line may be than the other and still be its duplicate. */
     const val DUPLICATE_LENGTH_RATIO = 1.2
+
+    /**
+     * Below this speed, in meters per second, a stretch of track crossing a segment's start or end line is a stop or a gap in recording.
+     */
+    const val STOPPED_SPEED_M_PER_S = 1.0
 
     /** Reference points a track sample may look ahead past the farthest its last step could reach. */
     private const val LOOKAHEAD = 3
@@ -88,7 +93,15 @@ object SegmentGeometry {
      * A pass starts at the sample closest to the segment's start among a run of samples within [startRadius] of it. It then follows the
      * line forward, each sample within [corridor] of the line just ahead of how far it has got, and every reference point it passes within
      * [corridor] of the track, and finishes at the closest sample to the end within [endRadius] once it has reached the last stretch. Going
-     * backwards, cutting a corner or leaving the corridor fails the pass. Its times are interpolated on the track at each endpoint.
+     * backwards, cutting a corner or leaving the corridor fails the pass.
+     *
+     * Its times are where the track crosses two lines at right angles to the segment: the start line through its start, square to its first
+     * stretch, the last time the track crosses it going forward near the start before it gets past the start of the line, and the end line
+     * through its end, square to its last stretch, the first time after the track reaches that stretch, so switchbacks near either end that
+     * cross a line early or late don't move it. Each is interpolated between the samples either side, but a stretch slower than
+     * [STOPPED_SPEED_M_PER_S] is a stop or a gap in recording, so the start takes its later sample and the end its earlier one: waiting
+     * short of the start or standing past the end never counts. Without a crossing near an endpoint, it's the start or finish sample's
+     * time.
      */
     fun passes(
         piece: List<TimedPoint>,
@@ -113,11 +126,16 @@ object SegmentGeometry {
                 runEnd++
                 if (distanceMeters(piece[runEnd].point, start) < distanceMeters(piece[closest].point, start)) closest = runEnd
             }
-            val end = follow(piece, closest, ref, endRadius, corridor)
-            if (end == null) {
+            val followed = follow(piece, closest, ref, endRadius, corridor)
+            if (followed == null) {
                 i = runEnd + 1
             } else {
-                passes += SegmentPass(timeAt(piece, closest, start), timeAt(piece, end, ref.last()))
+                val end = followed.end
+                passes +=
+                    SegmentPass(
+                        startTime(piece, i, minOf(runEnd, followed.leftStart - 1), closest, ref),
+                        endTime(piece, followed.arrived, end, ref, endRadius),
+                    )
                 // A loop's end is its next lap's start.
                 i = end
                 if (end == closest) i++
@@ -191,12 +209,20 @@ object SegmentGeometry {
     private fun reachedFrom(i: Int, j: Int, prev: BooleanArray, cur: BooleanArray): Boolean =
         (i == 0 && j == 0) || (i > 0 && (prev[j] || (j > 0 && prev[j - 1]))) || (j > 0 && cur[j - 1])
 
-    /** The index of the sample a pass from [from] finishes at, or null when it fails. */
+    /**
+     * How a pass followed the line, by sample index: [leftStart], the first sample past the line's second reference point (or
+     * [Int.MAX_VALUE] if none was before the finish), [arrived], the first sample near the end once the last stretch was reached, and
+     * [end], the one it finishes at.
+     */
+    private data class Followed(val leftStart: Int, val arrived: Int, val end: Int)
+
+    /** How a pass from [from] followed the line, or null when it fails. */
     @Suppress("ReturnCount") // Each way a pass fails, and where it finishes.
-    private fun follow(piece: List<TimedPoint>, from: Int, ref: List<GeoPoint>, endRadius: Double, corridor: Double): Int? {
+    private fun follow(piece: List<TimedPoint>, from: Int, ref: List<GeoPoint>, endRadius: Double, corridor: Double): Followed? {
         val last = ref.lastIndex
         // The reference point reached so far.
         var reached = 0
+        var leftStart = Int.MAX_VALUE
         var k = from
         while (k + 1 < piece.size) {
             val prev = piece[k].point
@@ -221,7 +247,10 @@ object SegmentGeometry {
             for (j in reached + 1..now) if (toSegmentMeters(ref[j], prev, p) > corridor) return null
             reached = maxOf(reached, now)
             k++
-            if (reached >= last - 1 && distanceMeters(p, ref[last]) <= endRadius) return closestToEnd(piece, k, ref[last], endRadius)
+            if (reached >= 2 && leftStart == Int.MAX_VALUE) leftStart = k
+            if (reached >= last - 1 && distanceMeters(p, ref[last]) <= endRadius) {
+                return Followed(leftStart, k, closestToEnd(piece, k, ref[last], endRadius))
+            }
         }
         return null
     }
@@ -239,16 +268,64 @@ object SegmentGeometry {
         return best
     }
 
-    /** The time [piece] passes [target], interpolated on whichever stretch next to sample [k] runs closer to it. */
-    private fun timeAt(piece: List<TimedPoint>, k: Int, target: GeoPoint): Double {
-        val candidates =
-            listOfNotNull(
-                (k - 1).takeIf { it >= 0 }?.let { piece[it] to piece[k] },
-                (k + 1).takeIf { it < piece.size }?.let { piece[k] to piece[it] },
-            )
-        val (a, b) = candidates.minBy { (a, b) -> toSegmentMeters(target, a.point, b.point) }
-        val f = projection(target, a.point, b.point)
-        return a.t + (b.t - a.t) * f
+    /**
+     * When a pass starts: the last time [piece] crosses the start line going forward among the stretches from the one into the run of
+     * samples near the start, which begins at [runStart], to the one ending at [until] (the run's last sample, or the last before the pass
+     * got past the start of the line), else sample [closest]'s time.
+     */
+    private fun startTime(piece: List<TimedPoint>, runStart: Int, until: Int, closest: Int, ref: List<GeoPoint>): Double {
+        val across = direction(ref[0], ref[1])
+        return (maxOf(runStart - 1, 0) until minOf(until + 1, piece.lastIndex)).reversed().firstNotNullOfOrNull {
+            crossing(piece[it], piece[it + 1], ref.first(), across, slowAtLater = true)
+        } ?: piece[closest].t
+    }
+
+    /**
+     * When a pass that finishes at sample [end] ends: the first time [piece] crosses the end line, from the stretch into sample [arrived],
+     * the first near the end once the pass reached the last stretch, while samples stay near the end, else sample [end]'s time.
+     */
+    private fun endTime(piece: List<TimedPoint>, arrived: Int, end: Int, ref: List<GeoPoint>, endRadius: Double): Double {
+        val point = ref.last()
+        val across = direction(ref[ref.lastIndex - 1], point)
+        var j = maxOf(arrived - 1, 0)
+        while (j + 1 < piece.size) {
+            crossing(piece[j], piece[j + 1], point, across, slowAtLater = false)?.let {
+                return it
+            }
+            if (j + 1 > end && distanceMeters(piece[j + 1].point, point) > endRadius) break
+            j++
+        }
+        return piece[end].t
+    }
+
+    /**
+     * When a→b crosses, going forward, the line through [point] at right angles to [across], or null when it doesn't. A stretch slower than
+     * [STOPPED_SPEED_M_PER_S] is a stop or a gap in recording, so the crossing takes its later sample's time when [slowAtLater], else its
+     * earlier one's.
+     */
+    private fun crossing(a: TimedPoint, b: TimedPoint, point: GeoPoint, across: Pair<Double, Double>, slowAtLater: Boolean): Double? {
+        val from = along(a.point, point, across)
+        val to = along(b.point, point, across)
+        if (from >= 0.0 || to < 0.0) return null
+        val dt = b.t - a.t
+        return when {
+            distanceMeters(a.point, b.point) >= STOPPED_SPEED_M_PER_S * dt -> a.t + dt * -from / (to - from)
+            slowAtLater -> b.t
+            else -> a.t
+        }
+    }
+
+    /** The unit vector from [a] to [b] in local meters, or zero when they coincide. */
+    private fun direction(a: GeoPoint, b: GeoPoint): Pair<Double, Double> {
+        val (x, y) = local(b, a)
+        val length = sqrt(x * x + y * y)
+        return if (length == 0.0) 0.0 to 0.0 else x / length to y / length
+    }
+
+    /** How far [p] is past the line through [point] at right angles to [across], in meters; negative short of it. */
+    private fun along(p: GeoPoint, point: GeoPoint, across: Pair<Double, Double>): Double {
+        val (x, y) = local(p, point)
+        return x * across.first + y * across.second
     }
 
     /** How far along a→b, from 0 to 1, [p] projects. */
