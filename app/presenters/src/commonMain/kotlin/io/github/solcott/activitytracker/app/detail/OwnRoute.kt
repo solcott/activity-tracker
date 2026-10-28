@@ -14,9 +14,9 @@ import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.visibility.uiErrorOf
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
-import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.CombinedRoute
+import io.github.solcott.activitytracker.data.activity.RouteBreaks
 import io.github.solcott.activitytracker.data.activity.SegmentedPolyline
 import io.github.solcott.activitytracker.data.activity.TooManyZonesException
 import io.github.solcott.activitytracker.data.outcomeFlow
@@ -86,9 +86,13 @@ internal fun rememberOwnRoute(
         .takeIf { activity != null }
     var zoneAdded by remember(activity) { mutableStateOf(false) }
     var error by remember(activity) { mutableStateOf<UiError?>(null) }
+    // Broken as the published polyline is, but finer and never cut down to a record's size (feed/route-line-detail).
     val line =
         remember(route, combined) {
-            route?.let { if (combined) SegmentedPolyline.of(CombinedRoute.segments(it)) else ActivityDraft.polylineOf(it) }
+            route?.let {
+                val pieces = if (combined) CombinedRoute.segments(it) else RouteBreaks.segments(it)
+                SegmentedPolyline.of(pieces, SegmentedPolyline.OWN_TOLERANCE_M, maxChars = Int.MAX_VALUE)
+            }
         }
     // Read only on the owner's own activity.
     val settings by remember(activity) { if (activity == null) flowOf(null) else activities.privacySettings() }.collectAsState(null)

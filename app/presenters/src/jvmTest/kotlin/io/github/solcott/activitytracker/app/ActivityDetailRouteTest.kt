@@ -4,7 +4,9 @@ import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.app.PrivacyZonesRecord
+import io.github.solcott.activitytracker.location.GeoPoint
 import io.github.solcott.activitytracker.location.LocationSample
+import io.github.solcott.activitytracker.location.SegmentGeometry
 import io.github.solcott.activitytracker.location.TrackMath
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -30,6 +32,22 @@ class ActivityDetailRouteTest : ActivityDetailTestBase() {
             val loaded = awaitUntil { it.loaded()?.route?.ends != null }.loaded()!!
             assertEquals(ActivityDraft.polylineOf(route)?.polyline, loaded.route?.polyline)
             assertTrue(loaded.canHideRouteEnds)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun theOwnersLineKeepsTheTrackWithinOneMeter() = runTest {
+        author = staleAlice
+        // A wiggle of 0.7 m either side, 1.4 m across: finer than the published polyline keeps, coarser than the owner's map.
+        val wiggly = route.mapIndexed { i, p -> p.copy(latitude = p.latitude + if (i % 2 == 0) 0.0000063 else -0.0000063) }
+        track = wiggly
+        detail(repos()) {
+            val loaded = awaitUntil { it.loaded()?.route?.ends != null }.loaded()!!
+            val line = TrackMath.decodePolyline(loaded.route!!.polyline).map { (lat, lng) -> GeoPoint(lat, lng) }
+            val furthest = wiggly.maxOf { SegmentGeometry.distanceToLineMeters(GeoPoint(it.latitude, it.longitude), line) }
+            assertTrue(furthest <= 1.0 + PRECISION_5_M, "a track point was $furthest m off")
+            assertTrue(line.size > TrackMath.decodePolyline(ActivityDraft.polylineOf(wiggly)!!.polyline).size, "finer than published")
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -134,6 +152,9 @@ class ActivityDetailRouteTest : ActivityDetailTestBase() {
     }
 
     internal companion object {
+        /** The most a precision-5 encoding moves a point: half of 1e-5 degrees on each axis. */
+        const val PRECISION_5_M = 0.8
+
         /** A trimmed polyline of three points, as the AppView serves it. */
         const val SERVED_POLYLINE = "_p~iF~ps|U_ulLnnqC_mqNvxq`@"
 

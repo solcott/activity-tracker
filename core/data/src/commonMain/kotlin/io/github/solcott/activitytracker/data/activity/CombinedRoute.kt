@@ -61,10 +61,36 @@ object CombinedRoute {
  */
 data class SegmentedPolyline(val polyline: String, val gaps: List<Int>?) {
     companion object {
-        /** [segments], each simplified, with fewer than two points left out; null when none is left. */
-        fun of(segments: List<List<LocationSample>>): SegmentedPolyline? {
-            val pieces = segments.filter { it.size >= 2 }.map { TrackMath.simplify(it) }
-            if (pieces.isEmpty()) return null
+        /**
+         * How closely a published polyline follows its track, in meters (feed/route-line-detail). [LINE_VERSION] names it, so a change here
+         * bumps that too and existing polylines are rebuilt.
+         */
+        const val TOLERANCE_M = 2.0
+
+        /** How closely the owner's map follows their full track, in meters: there's no record to fit. */
+        const val OWN_TOLERANCE_M = 1.0
+
+        /** The longest a published polyline may be (`feed.activity#polyline`'s `maxLength`); the AppView drops a longer one. */
+        const val MAX_CHARS = 50_000
+
+        /**
+         * The polyline detail [TOLERANCE_M] gives, as `actor.routeTrim#lineVersion` records it: 0 was 5 m. Polylines last rebuilt at a
+         * lower version are rebuilt from their tracks ([RouteTrimmer]).
+         */
+        const val LINE_VERSION = 1
+
+        /**
+         * [segments], with fewer than two points left out, each simplified at one tolerance: [toleranceMeters], or coarser only as far as
+         * the whole encoding needs to fit [maxChars] (`TrackMath.simplifyToFit`). Null when none is left.
+         */
+        fun of(
+            segments: List<List<LocationSample>>,
+            toleranceMeters: Double = TOLERANCE_M,
+            maxChars: Int = MAX_CHARS,
+        ): SegmentedPolyline? {
+            val kept = segments.filter { it.size >= 2 }
+            if (kept.isEmpty()) return null
+            val pieces = TrackMath.simplifyToFit(kept, toleranceMeters, maxChars) { TrackMath.encodePolyline(it.flatten()) }
             val gaps = pieces.dropLast(1).runningFold(0) { end, piece -> end + piece.size }.drop(1).map { it - 1 }
             return SegmentedPolyline(TrackMath.encodePolyline(pieces.flatten()), gaps.ifEmpty { null })
         }
