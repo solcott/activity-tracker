@@ -146,6 +146,90 @@ class SegmentGeometryTest {
         assertNear(204.0, passes[0].end)
     }
 
+    private fun sample(east: Double, north: Double, t: Double) = at(east, north).let { TimedPoint(it.lat, it.lng, t) }
+
+    /** [count] samples a second apart heading north at [speed] along [east], from [north] at [t]. */
+    private fun rideNorth(east: Double, north: Double, t: Double, count: Int, speed: Double = 5.0) =
+        (0 until count).map { sample(east, north + it * speed, t + it) }
+
+    @Test
+    fun stopShortOfTheStartDoesNotCount() {
+        // Waits 1 m short of the start, 7 m to the side, for 144 s; its closest sample is early in the wait.
+        val piece =
+            rideNorth(7.0, -100.0, 0.0, 20) +
+                sample(6.5, -0.5, 20.0) +
+                (21..163).map { sample(if (it % 2 == 0) 7.3 else 6.7, -1.0, it.toDouble()) } +
+                rideNorth(7.0, -1.0, 164.0, 210)
+        val passes = passesOver(straight, piece)
+        assertEquals(1, passes.size)
+        assertNear(164.2, passes[0].start)
+        assertNear(364.2, passes[0].end)
+    }
+
+    @Test
+    fun recordingGapAcrossTheStartLineDoesNotCount() {
+        // The last sample before a 144 s gap is 8 m short of the start, the first after it 7 m past.
+        val piece = rideNorth(7.0, -100.0, 0.0, 19) + sample(7.0, -8.0, 19.0) + rideNorth(7.0, 7.0, 163.0, 210)
+        val passes = passesOver(straight, piece)
+        assertEquals(1, passes.size)
+        assertNear(163.0, passes[0].start)
+        assertNear(361.6, passes[0].end)
+    }
+
+    @Test
+    fun stopJustPastTheStartCounts() {
+        val piece = rideNorth(0.0, -100.0, 0.0, 22) + (22..81).map { sample(0.0, 8.0, it.toDouble()) } + rideNorth(0.0, 8.0, 82.0, 210)
+        val passes = passesOver(straight, piece)
+        assertEquals(1, passes.size)
+        assertNear(20.0, passes[0].start)
+        assertNear(280.4, passes[0].end)
+    }
+
+    @Test
+    fun stopAfterTheEndLineDoesNotCount() {
+        // Crosses the end line between 997 m and 1002 m, then drifts back toward the end while standing.
+        val piece =
+            rideNorth(0.0, -103.0, 0.0, 222) +
+                listOf(1001.5, 1001.0, 1000.5).mapIndexed { i, north -> sample(0.0, north, 222.0 + i) } +
+                (225..390).map { sample(0.0, 1000.3, it.toDouble()) }
+        val passes = passesOver(straight, piece)
+        assertEquals(1, passes.size)
+        assertNear(20.6, passes[0].start)
+        assertNear(220.6, passes[0].end)
+    }
+
+    @Test
+    fun slowCrossingTakesTheLaterSample() {
+        // Walks across the start line at 0.8 m/s, too slow to say when within the second.
+        val piece = rideNorth(0.0, -100.0, 0.0, 20) + sample(0.0, -0.4, 20.0) + rideNorth(0.0, 0.4, 21.0, 210)
+        val passes = passesOver(straight, piece)
+        assertEquals(1, passes.size)
+        assertNear(21.0, passes[0].start, tolerance = 0.1)
+        assertNear(220.92, passes[0].end, tolerance = 0.1)
+    }
+
+    @Test
+    fun switchbacksRecrossingTheStartLineDontMoveTheStart() {
+        // Three stacked legs 8 m apart right after the start; the third crosses the start line again, going forward, 16 m from the start.
+        val path = listOf(0.0 to 0.0, 20.0 to 0.0, 20.0 to 8.0, -10.0 to 8.0, -10.0 to 16.0, 20.0 to 16.0, 20.0 to 300.0)
+        val line = path.map { (east, north) -> at(east, north) }
+        val passes = passesOver(line, track(listOf(-100.0 to 0.0) + path))
+        assertEquals(1, passes.size)
+        assertNear(20.0, passes[0].start)
+        assertNear(96.0, passes[0].end)
+    }
+
+    @Test
+    fun switchbacksCrossingTheEndLineEarlyDontEndThePass() {
+        // Three stacked legs 8 m apart at the finish; the first crosses the end line, going forward, 16 m from the end.
+        val path = listOf(0.0 to 0.0, 30.0 to 0.0, 30.0 to 8.0, 0.0 to 8.0, 0.0 to 16.0, 20.0 to 16.0)
+        val line = path.map { (east, north) -> at(east, north) }
+        val passes = passesOver(line, track(listOf(-100.0 to 0.0) + path))
+        assertEquals(1, passes.size)
+        assertNear(20.0, passes[0].start)
+        assertNear(39.2, passes[0].end)
+    }
+
     @Test
     fun e7RoundTripLeavesResultsUnchanged() {
         val piece = track(listOf(0.0 to -100.0, 0.0 to 1100.0)) { d -> if ((d / 5).toInt() % 3 == 0) 7.0 else -4.0 }
