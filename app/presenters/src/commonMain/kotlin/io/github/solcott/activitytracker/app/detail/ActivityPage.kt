@@ -38,6 +38,7 @@ internal object ActivityPage {
     ): ActivityPageContent {
         val figures = Figures(record, charts, gear)
         return ActivityPageContent(
+            start = figures.startTime(marks[DetailCategory.START_TIME]),
             hero = figures.hero(),
             trainingLoad = trainingLoad(charts?.trainingLoad),
             cards = cards(record, charts, figures, marks),
@@ -195,7 +196,6 @@ internal class Figures(
         listOf(
                 StatsGroupKind.Timing to
                     listOf(
-                        startTime(marks[DetailCategory.START_TIME]),
                         record.movingTime?.let { Figure(FigureKey.MovingTime, FigureValue.Duration(it)) },
                         Figure(FigureKey.ElapsedTime, FigureValue.Duration(record.elapsedTime)),
                     ),
@@ -420,7 +420,7 @@ internal class Figures(
         (dive?.minTemperature ?: record.avgTemperature)?.let { Figure(FigureKey.WaterTemp, FigureValue.Temperature(it)) }
 
     /** When it started, or only its day when the viewer wasn't served the time: the record then holds the local midnight. */
-    private fun startTime(mark: String?): Figure {
+    fun startTime(mark: String?): Figure {
         val dateOnly = record.startedAt == DetailCategory.localMidnight(record.startedAt, record.utcOffset)
         return Figure(
             FigureKey.StartTime,

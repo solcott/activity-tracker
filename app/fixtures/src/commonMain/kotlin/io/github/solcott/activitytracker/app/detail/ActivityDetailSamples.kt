@@ -41,6 +41,14 @@ object ActivityDetailSamples {
                 isOwn = false,
                 likesList = null,
                 eventSink = {},
+                page =
+                    ActivityPageContent(
+                        start =
+                            Figure(
+                                FigureKey.StartTime,
+                                FigureValue.StartTime(activity.record.startedAt.epochSeconds, activity.record.utcOffset, dateOnly = false),
+                            )
+                    ),
                 route = activity.record.polyline?.let { ShownRoute(it, gaps = null, ends = null) },
                 segments = groupEfforts(listOf(fakeEffort(activity = activity.uri))),
             )

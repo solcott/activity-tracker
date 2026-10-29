@@ -11,6 +11,8 @@ import kotlinx.collections.immutable.persistentListOf
  */
 @Immutable
 data class ActivityPageContent(
+    /** When it started, shown in the page's header rather than the stats list, marked on the owner's page when Start time is narrower. */
+    val start: Figure? = null,
     /** At most six, by sport family. */
     val hero: ImmutableList<Figure> = persistentListOf(),
     /** FTP, IF, TSS, training effect and HRV, each where recorded; empty when the viewer wasn't served training load, so no card shows. */

@@ -299,7 +299,10 @@ private val SIDE_PANE_WIDTH = 400.dp
 private val CARDS_MAX_WIDTH = 1040.dp
 private val TWO_CARD_COLUMNS = 640.dp
 
-/** Who and what: the author, the title and type, the dive site and description, the other recordings, and what an action reported. */
+/**
+ * Who, when and what: the author, the start, the title and type, the dive site and description, the other recordings, and what an action
+ * reported.
+ */
 @Composable
 private fun Header(state: ActivityDetailPage, modifier: Modifier = Modifier) {
     val record = state.activity.record
@@ -319,6 +322,7 @@ private fun Header(state: ActivityDetailPage, modifier: Modifier = Modifier) {
             )
             VisibilityBadge(state.activity.visibilityOrPublic)
         }
+        StartLine(state.page.start)
         Text(record.title ?: activityTypeLabel(record.activityType), style = MaterialTheme.typography.headlineSmall)
         if (record.title != null) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -4,6 +4,7 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.v2.runComposeUiTest
+import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.fakeActivity
 import io.github.solcott.activitytracker.app.fixtures.fakeActivityRecord
 import io.github.solcott.activitytracker.app.ui.ActivityCard
@@ -85,5 +86,13 @@ class StartTimeUiTest {
             AppPreview { ActivityCard(fakeActivity(record = record), onClick = {}, onAuthorClick = null, onLike = null, onOpenMedia = {}) }
         }
         onNodeWithText("Yesterday").assertExists()
+    }
+
+    @Test
+    fun aPageShowsTheStartInItsHeader() = runComposeUiTest {
+        val state = ActivityDetailState(ContentStates.loaded(ActivityDetailSamples.page), eventSink = {})
+        setContent { AppPreview(use24Hour = false) { ActivityDetailUi(state) } }
+        onNodeWithText("Yesterday at 1:00 AM").assertExists()
+        onNodeWithText("Start time").assertDoesNotExist()
     }
 }

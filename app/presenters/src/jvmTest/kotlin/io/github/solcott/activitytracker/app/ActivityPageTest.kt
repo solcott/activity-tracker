@@ -24,6 +24,7 @@ import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
@@ -256,9 +257,10 @@ class ActivityPageTest {
     fun `the owner sees a narrower start time and map where they show`() {
         val marks = mapOf(DetailCategory.START_TIME to Visibility.FOLLOWERS, DetailCategory.MAP to Visibility.SELF)
         val page = ActivityPage.build(mtb.copy(polyline = "abc"), null, marks)
-        val start = page.stats.first { it.kind == StatsGroupKind.Timing }.rows.first()
+        val start = assertNotNull(page.start)
         assertEquals(FigureKey.StartTime, start.key)
         assertEquals(Visibility.FOLLOWERS, start.mark)
+        assertTrue(page.stats.flatMap { it.rows }.none { it.key == FigureKey.StartTime }, "the start is in the header, not the stats list")
         assertEquals(Visibility.SELF, page.mapMark)
     }
 

@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.app.detail.HeroRow
 import io.github.solcott.activitytracker.app.detail.ITEM_GAP
 import io.github.solcott.activitytracker.app.detail.MetricCard
 import io.github.solcott.activitytracker.app.detail.MetricCardUi
+import io.github.solcott.activitytracker.app.detail.StartLine
 import io.github.solcott.activitytracker.app.detail.StatsList
 import io.github.solcott.activitytracker.app.detail.TrainingLoadCard
 import io.github.solcott.activitytracker.app.ui.ActivityMap
@@ -32,7 +33,7 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * What the activity's page will show once saved, read-only: the file, then the notices that change what shows (its time zone, a duplicate),
- * the hero, the map, and the training load, cards and stats as the page lays them out.
+ * the start, the hero, the map, and the training load, cards and stats as the page lays them out.
  */
 @Composable
 internal fun PreviewContent(state: ImportActivityState, preview: ImportPreview, medium: Boolean) {
@@ -48,6 +49,7 @@ internal fun PreviewContent(state: ImportActivityState, preview: ImportPreview, 
             AppProgressIndicator()
             return@Column
         }
+        StartLine(page.start)
         HeroRow(page.hero)
         preview.polyline?.let { ActivityMap(it, gaps = preview.polylineGaps) }
         page.mapMark?.let { CategoryLock(DetailCategory.MAP, it) }
