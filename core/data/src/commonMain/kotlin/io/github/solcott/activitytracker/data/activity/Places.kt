@@ -53,8 +53,8 @@ internal fun SessionClients.requireSpacesFor(visibility: String, collection: Str
  * Refuses a write of [collection] to the athlete's interactions space for a session whose `space:` grant doesn't cover it, as the PDS
  * would, so nothing is queued that would sit at the head of the outbox.
  */
-internal fun SessionClients.requireInteractionsFor(collection: String) {
-    if (!canWriteToSpaces(collection)) throw spacesRefused("Sign in again to block or mute accounts")
+internal fun SessionClients.requireInteractionsFor(collection: String, scopeMessage: String = "Sign in again to block or mute accounts") {
+    if (!canWriteToSpaces(collection)) throw spacesRefused(scopeMessage)
 }
 
 /** Why this session can't write to its spaces: no Spaces on its PDS, or else a grant from before the scope ([scopeMessage]). */
