@@ -98,3 +98,11 @@ Reports, labels and takedown come first (`content-moderation`), with a self-host
 - **Provider.** A hosted classifier (Hive, AWS Rekognition, Google SafeSearch) or an LLM moderation call. Compare cost per item, latency and how well each handles sport photos (swimwear, injuries).
 - **Private content.** Non-public activities live in tier spaces only the AppView reads, so the AppView must send that content to the classifier itself. Pick a provider that doesn't keep or train on it.
 - **Video.** Once `feed.activity#media` gains `#video` (see "Videos on activities"), classify sampled frames and the thumbnail.
+
+## Tell a segment's riders when a rename proposal opens
+
+Locals propose new names for segments and other riders vote on them (`segments/segment-names`). Without a nudge, only athletes who happen to open the segment screen will vote, so tell the segment's riders when a proposal opens there.
+
+- **Blocked on notifications.** The app has no notifications of any kind yet. Build those first (in-app at least, push later), then add this as one of their events.
+- **Who to tell.** Athletes who could vote: those with at least one effort on the segment, counting efforts of every visibility. Only the athlete themselves learns they were told, so this reveals nothing about their efforts to anyone else.
+- **Respect blocks and mutes.** Don't tell an athlete about a proposal from someone they've blocked or muted, or who has blocked them.
