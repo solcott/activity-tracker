@@ -112,7 +112,7 @@ For a sport timed by pace (runs, walks, hikes and swims), the speed card SHALL b
 - **THEN** its pace chart shows the run's elevation faintly behind the pace line, with each climb drawn rising, as on a wide window
 
 ### Requirement: All stats list
-The page SHALL list every summary figure the viewer was served, including the hero's, as label and value rows in named groups: Timing, Distance & speed, Heart rate, Power, Cadence, Elevation, Work & energy, Temperature, Counts, Dive and Device. A group with no figures SHALL be left out.
+The page SHALL list every summary figure the viewer was served, including the hero's, as label and value rows in named groups: Timing, Distance & speed, Heart rate, Power, Cadence, Elevation, Work & energy, Temperature, Counts, Dive and Device. The start is the exception: it shows in the page's header instead (feed/activity-start-time). A group with no figures SHALL be left out.
 
 #### Scenario: Dive computer summary
 - **WHEN** a dive with a bottom time, a gas, a surface interval and end CNS is opened
@@ -125,6 +125,10 @@ The page SHALL list every summary figure the viewer was served, including the he
 #### Scenario: Device
 - **WHEN** an activity recorded on a Garmin Edge with a heart rate strap is opened
 - **THEN** the stats list's Device group names the Edge and the heart rate sensor
+
+#### Scenario: Timing without the start
+- **WHEN** a ride with moving and elapsed times is opened
+- **THEN** the Timing group shows moving time and elapsed time, and no start time
 
 ### Requirement: Elevation gain only when it says something
 The hero and the stats list SHALL show elevation gain only when it is recorded, and for a swim only when it is above zero. Unlike distance, a missing elevation gain SHALL NOT be shown as a dash.
