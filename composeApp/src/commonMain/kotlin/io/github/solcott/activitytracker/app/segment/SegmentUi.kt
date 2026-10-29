@@ -48,8 +48,8 @@ import io.github.solcott.activitytracker.lexicon.app.SegmentView
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * A segment: a star to keep it in the viewer's starred list, its line on a map, its length, sport group and creator, then the viewer's own
- * efforts on it, fastest first.
+ * A segment: a star to keep it in the viewer's starred list, its line on a map, its original name when renamed, its length, sport group and
+ * creator, its community names (segments/segment-names), then the viewer's own efforts on it, fastest first.
  */
 @CircuitInject(SegmentScreen::class, SessionScope::class)
 @Composable
@@ -60,7 +60,7 @@ fun SegmentUi(state: SegmentState, modifier: Modifier = Modifier) {
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             AppTopBar(
-                title = segment?.record?.name.orEmpty(),
+                title = segment?.currentName.orEmpty(),
                 onBack = { state.eventSink(SegmentEvent.Back) },
                 scrollBehavior = scrollBehavior,
                 actions = {
@@ -83,6 +83,7 @@ fun SegmentUi(state: SegmentState, modifier: Modifier = Modifier) {
             if (loaded != null) Loaded(state, loaded, padding, retry)
         }
     }
+    SegmentNameDialogs(state)
 }
 
 @Composable
@@ -96,6 +97,7 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
             }
             item {
                 Column(Modifier.padding(vertical = 12.dp)) {
+                    state.originalName?.let { OriginalName(it, Modifier.padding(bottom = 4.dp)) }
                     Text(
                         "${Format.distance(segment.distanceMeters.toDouble())} · ${segmentSportLabel(segment.record.sport)}",
                         style = MaterialTheme.typography.titleMedium,
@@ -117,6 +119,7 @@ private fun Loaded(state: SegmentState, segment: SegmentView, padding: PaddingVa
                     }
                 }
             }
+            item { SegmentNames(state, segment) }
             item { Text(stringResource(Res.string.segment_your_efforts), style = MaterialTheme.typography.titleMedium) }
             if (state.efforts.isEmpty()) {
                 item {

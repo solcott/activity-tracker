@@ -112,7 +112,7 @@ private fun StarredRow(starred: StarredSegment, removing: Boolean, onOpen: () ->
     ) {
         Column(Modifier.weight(1f)) {
             if (segment != null) {
-                Text(segment.record.name, style = MaterialTheme.typography.titleMedium)
+                Text(segment.currentName, style = MaterialTheme.typography.titleMedium)
                 Text(
                     "${Format.distance(segment.distanceMeters.toDouble())} · ${segmentSportLabel(segment.record.sport)}",
                     style = MaterialTheme.typography.bodyMedium,

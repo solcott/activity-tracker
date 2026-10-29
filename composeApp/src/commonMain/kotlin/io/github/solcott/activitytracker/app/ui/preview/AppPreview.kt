@@ -33,6 +33,9 @@ import io.github.solcott.activitytracker.app.feedfilter.FeedFilterUi
 import io.github.solcott.activitytracker.app.report.ReportScreen
 import io.github.solcott.activitytracker.app.report.ReportState
 import io.github.solcott.activitytracker.app.report.ReportUi
+import io.github.solcott.activitytracker.app.segment.ProposeSegmentNameScreen
+import io.github.solcott.activitytracker.app.segment.ProposeSegmentNameState
+import io.github.solcott.activitytracker.app.segment.ProposeSegmentNameUi
 import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.LocalHourClock
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
@@ -142,6 +145,7 @@ private fun previewSubCircuit(subState: (SubScreen<*>) -> SubCircuitUiState?): S
             when (screen) {
                 is FeedFilterScreen -> SubUi<FeedFilterState> { state, modifier -> FeedFilterUi(state, modifier) }
                 is ReportScreen -> SubUi<ReportState> { state, modifier -> ReportUi(state, modifier) }
+                is ProposeSegmentNameScreen -> SubUi<ProposeSegmentNameState> { state, modifier -> ProposeSegmentNameUi(state, modifier) }
                 else -> SubUi<SubCircuitUiState> { _, _ -> }
             }
         }

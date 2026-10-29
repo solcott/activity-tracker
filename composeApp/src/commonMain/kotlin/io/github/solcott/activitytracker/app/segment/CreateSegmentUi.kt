@@ -156,7 +156,7 @@ private fun Duplicates(duplicates: ImmutableList<SegmentView>, onOpen: (SegmentV
         Text(stringResource(Res.string.segment_create_duplicates), style = MaterialTheme.typography.bodyMedium)
         duplicates.forEach { segment ->
             AppTextButton(onClick = { onOpen(segment) }) {
-                Text("${segment.record.name} · ${Format.distance(segment.distanceMeters.toDouble())}")
+                Text("${segment.currentName} · ${Format.distance(segment.distanceMeters.toDouble())}")
             }
         }
     }

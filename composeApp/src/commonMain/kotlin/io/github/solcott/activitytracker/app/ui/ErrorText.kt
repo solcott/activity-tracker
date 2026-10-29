@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_delete_activ
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_comment
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_gear
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_gear_collection
+import io.github.solcott.activitytracker.composeApp.resources.error_delete_segment_name
 import io.github.solcott.activitytracker.composeApp.resources.error_discard_change
 import io.github.solcott.activitytracker.composeApp.resources.error_download_original
 import io.github.solcott.activitytracker.composeApp.resources.error_export_activity
@@ -50,6 +51,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_mount_too_de
 import io.github.solcott.activitytracker.composeApp.resources.error_no_location
 import io.github.solcott.activitytracker.composeApp.resources.error_open_subject
 import io.github.solcott.activitytracker.composeApp.resources.error_original_not_sent
+import io.github.solcott.activitytracker.composeApp.resources.error_propose_segment_name
 import io.github.solcott.activitytracker.composeApp.resources.error_publish_segment
 import io.github.solcott.activitytracker.composeApp.resources.error_read_activity_file
 import io.github.solcott.activitytracker.composeApp.resources.error_reason_offline
@@ -81,6 +83,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_update_block
 import io.github.solcott.activitytracker.composeApp.resources.error_update_follow
 import io.github.solcott.activitytracker.composeApp.resources.error_update_mute
 import io.github.solcott.activitytracker.composeApp.resources.error_update_star
+import io.github.solcott.activitytracker.composeApp.resources.error_vote_segment_name
 import io.github.solcott.activitytracker.composeApp.resources.error_with_reason
 import io.github.solcott.activitytracker.composeApp.resources.error_writes_pending
 import io.github.solcott.dataresult.DataError
@@ -137,6 +140,9 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.UpdateFollow -> Res.string.error_update_follow
             UiError.Kind.UpdateBlock -> Res.string.error_update_block
             UiError.Kind.SendReport -> Res.string.error_send_report
+            UiError.Kind.ProposeSegmentName -> Res.string.error_propose_segment_name
+            UiError.Kind.VoteSegmentName -> Res.string.error_vote_segment_name
+            UiError.Kind.DeleteSegmentName -> Res.string.error_delete_segment_name
             UiError.Kind.OpenSubject -> Res.string.error_open_subject
             UiError.Kind.InvalidSubjectUri -> Res.string.error_invalid_subject_uri
             UiError.Kind.UpdateMute -> Res.string.error_update_mute

@@ -36,6 +36,11 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         UpdateBlock,
         UpdateMute,
         SendReport,
+
+        /** A segment name proposal, or an edit of one, wasn't sent (segments/segment-names). */
+        ProposeSegmentName,
+        VoteSegmentName,
+        DeleteSegmentName,
         OpenSubject,
 
         /** Text typed as a moderation subject isn't an AT-URI, so nothing was asked for. */

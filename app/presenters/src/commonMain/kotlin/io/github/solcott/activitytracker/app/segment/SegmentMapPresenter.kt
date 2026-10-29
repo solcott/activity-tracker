@@ -23,7 +23,7 @@ fun SegmentMapPresenter(screen: SegmentMapScreen, navigator: Navigator, segments
     val loaded = produceRetainedContentState<SegmentView?>(null, uri, loadKey) { segments.segmentOutcome(uri) }
     val segment = loaded.data
     // As the segment screen draws and credits it.
-    val content = remember(segment) { segment?.let { SegmentMapContent(mapLine(it.record.line), it.record.name, creditOf(it.record)) } }
+    val content = remember(segment) { segment?.let { SegmentMapContent(mapLine(it.record.line), it.currentName, creditOf(it.record)) } }
     return SegmentMapState(content = loaded.mapContent { _ -> content }) { event ->
         when (event) {
             SegmentMapEvent.Back -> navigator.pop()

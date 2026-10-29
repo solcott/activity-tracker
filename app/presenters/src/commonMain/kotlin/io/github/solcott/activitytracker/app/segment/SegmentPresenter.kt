@@ -10,10 +10,12 @@ import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.retained.rememberRetained
 import com.slack.circuit.runtime.Navigator
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.segments.SegmentNames
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.data.segments.SegmentStars
 import io.github.solcott.activitytracker.lexicon.AtUri
@@ -31,11 +33,19 @@ import io.github.solcott.uistate.contentStatesOf
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 @CircuitInject(SegmentScreen::class, SessionScope::class)
 @Composable
-fun SegmentPresenter(screen: SegmentScreen, navigator: Navigator, segments: SegmentRepository, stars: SegmentStars): SegmentState {
+@Suppress("LongMethod", "CyclomaticComplexMethod") // An event per action on the segment, its board and its names.
+fun SegmentPresenter(
+    screen: SegmentScreen,
+    navigator: Navigator,
+    segments: SegmentRepository,
+    stars: SegmentStars,
+    names: SegmentNames,
+): SegmentState {
     val uri = AtUri(screen.uri)
     var starred by remember { mutableStateOf<Boolean?>(null) }
     var loadKey by remember { mutableIntStateOf(0) }
@@ -45,7 +55,8 @@ fun SegmentPresenter(screen: SegmentScreen, navigator: Navigator, segments: Segm
     val (content, ownEfforts) =
         produceRetainedContentStates(contentStatesOf<SegmentView?, ImmutableList<EffortView>>(null, persistentListOf()), loadKey) {
             combineOutcomes(
-                segments.segmentOutcome(uri),
+                // The viewer's own proposals, edits and votes show at once, laid over each read until the AppView catches up.
+                combine(segments.segmentOutcome(uri), names.changes) { outcome, _ -> outcome.mapData(names::applyTo) },
                 segments.ownEffortsOutcome(uri).map { outcome ->
                     outcome.mapData { efforts -> efforts.sortedBy { it.elapsed }.toImmutableList() }
                 },
@@ -68,6 +79,12 @@ fun SegmentPresenter(screen: SegmentScreen, navigator: Navigator, segments: Segm
         }
     }
 
+    var nameSheet by rememberRetained { mutableStateOf<ProposeSegmentNameScreen?>(null) }
+    var confirmDelete by rememberRetained { mutableStateOf<AtUri?>(null) }
+    var nameError by rememberRetained { mutableStateOf<UiError?>(null) }
+    /** The viewer's own open proposal [proposal], as listed. */
+    fun own(proposal: AtUri) = segment?.nameProposals?.firstOrNull { it.uri == proposal && it.proposer.did == names.self }
+
     return SegmentState(
         content = content,
         polyline = polyline,
@@ -76,6 +93,11 @@ fun SegmentPresenter(screen: SegmentScreen, navigator: Navigator, segments: Segm
         starred = starred,
         credit = segment?.record?.let(::creditOf),
         mayor = mayor,
+        canVoteHere = names.canVote,
+        nameSheet = nameSheet,
+        confirmDelete = confirmDelete,
+        nameError = nameError,
+        self = names.self.value,
     ) { event ->
         when (event) {
             SegmentEvent.Back -> navigator.pop()
@@ -98,9 +120,43 @@ fun SegmentPresenter(screen: SegmentScreen, navigator: Navigator, segments: Segm
             SegmentEvent.OpenLeaderboard ->
                 segment
                     ?.takeIf { SegmentStatus.of(it.status) == SegmentStatus.ACTIVE }
-                    ?.let { navigator.goTo(SegmentLeaderboardScreen(it.uri.value, it.record.name, screen.board)) }
+                    ?.let { navigator.goTo(SegmentLeaderboardScreen(it.uri.value, it.currentName, screen.board)) }
             SegmentEvent.OpenMayors ->
-                segment?.takeIf { active }?.let { navigator.goTo(SegmentMayorsScreen(it.uri.value, it.record.name, screen.board)) }
+                segment?.takeIf { active }?.let { navigator.goTo(SegmentMayorsScreen(it.uri.value, it.currentName, screen.board)) }
+            SegmentEvent.ProposeName ->
+                segment
+                    ?.takeIf { it.viewer?.canProposeName == true }
+                    ?.let { nameSheet = ProposeSegmentNameScreen(it.uri.value, it.currentName) }
+            is SegmentEvent.EditProposal ->
+                own(event.proposal)?.let {
+                    nameSheet = ProposeSegmentNameScreen(screen.uri, segment?.currentName.orEmpty(), it.uri.value, it.name)
+                }
+            is SegmentEvent.DeleteProposal -> if (own(event.proposal) != null) confirmDelete = event.proposal
+            is SegmentEvent.ConfirmDelete -> {
+                val proposal = confirmDelete
+                confirmDelete = null
+                if (event.confirmed && proposal != null) {
+                    nameError = null
+                    flights.launch(proposal) {
+                        runSuspendCatching { names.delete(uri, proposal) }
+                            .onFailure { nameError = UiError.of(UiError.Kind.DeleteSegmentName, it) }
+                    }
+                }
+            }
+            is SegmentEvent.Vote -> {
+                val proposal = segment?.nameProposals?.firstOrNull { it.uri == event.proposal }
+                if (proposal != null && segment.viewer?.canVoteOnNames == true && proposal.proposer.did != names.self) {
+                    nameError = null
+                    flights.launch(proposal.uri) {
+                        runSuspendCatching { names.vote(uri, proposal, event.direction, proposal.viewerVote) }
+                            .onFailure { nameError = UiError.of(UiError.Kind.VoteSegmentName, it) }
+                    }
+                }
+            }
+            is SegmentEvent.NameSheet ->
+                when (event.event) {
+                    ProposeSegmentNameOuterEvent.Closed -> nameSheet = null
+                }
         }
     }
 }

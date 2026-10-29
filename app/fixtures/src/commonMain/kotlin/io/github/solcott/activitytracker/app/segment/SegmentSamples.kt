@@ -14,10 +14,17 @@ import io.github.solcott.activitytracker.app.fixtures.fakeSegment
 import io.github.solcott.activitytracker.app.fixtures.fakeSegmentBasic
 import io.github.solcott.activitytracker.app.fixtures.pagedSamples
 import io.github.solcott.activitytracker.data.segments.BoardMeta
+import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.LeaderboardEntry
 import io.github.solcott.activitytracker.lexicon.app.MayorEntry
+import io.github.solcott.activitytracker.lexicon.app.SegmentNameAdoption
+import io.github.solcott.activitytracker.lexicon.app.SegmentNameProposalView
+import io.github.solcott.activitytracker.lexicon.app.SegmentNameViewerVote
+import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
 import io.github.solcott.activitytracker.lexicon.app.SegmentView
+import io.github.solcott.activitytracker.lexicon.app.SegmentViewerState
 import io.github.solcott.uistate.ContentState
+import kotlin.time.Duration.Companion.days
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -47,6 +54,60 @@ object SegmentSamples {
     val refreshFailed: SegmentState
         get() = state(ContentStates.refreshFailed(segment))
 
+    /**
+     * A segment the community renamed (segments/segment-names): its history, Bob's open proposal with the viewer's vote, and Alice's own.
+     */
+    val renamed: SegmentState
+        get() {
+            val alice = fakeProfileBasic(Fixed.ALICE)
+            val bob = fakeProfileBasic(Fixed.BOB)
+            val named =
+                segment.copy(
+                    record = segment.record.copy(name = "Trail 214 Connector"),
+                    name = "Wiggly Woods",
+                    nameHistory = listOf(SegmentNameAdoption("Wiggly Woods", Fixed.NOW - 40.days, up = 12, down = 2, proposer = bob)),
+                    nameProposals =
+                        listOf(
+                            SegmentNameProposalView(
+                                uri = Fixed.uri(bob.did, Nsid.FEED_SEGMENT_NAME_PROPOSAL, "3kproposal1"),
+                                cid = Fixed.cid("3kproposal1"),
+                                name = "Rooty Run",
+                                proposer = bob,
+                                openedAt = Fixed.NOW - 3.days,
+                                up = 4,
+                                down = 1,
+                                viewerVote =
+                                    SegmentNameViewerVote(
+                                        Fixed.uri(alice.did, Nsid.FEED_SEGMENT_NAME_VOTE, "3kvote1"),
+                                        SegmentNameVoteDirection.UP,
+                                    ),
+                            ),
+                            SegmentNameProposalView(
+                                uri = Fixed.uri(alice.did, Nsid.FEED_SEGMENT_NAME_PROPOSAL, "3kproposal2"),
+                                cid = Fixed.cid("3kproposal2"),
+                                name = "Rooty Ridge",
+                                proposer = alice,
+                                openedAt = Fixed.NOW - 1.days,
+                                up = 2,
+                                down = 0,
+                            ),
+                        ),
+                    viewer = SegmentViewerState(canProposeName = false, canVoteOnNames = true),
+                )
+            return state(ContentStates.loaded(named)).copy(self = alice.did.value)
+        }
+
+    /** [renamed], for a viewer who may propose and whose session can't vote. */
+    val votingUnavailable: SegmentState
+        get() = renamed.let {
+            val segment = checkNotNull(it.segment)
+            it.copy(
+                content = ContentStates.loaded(segment.copy(viewer = segment.viewer?.copy(canProposeName = true))),
+                canVoteHere = false,
+                self = Fixed.CAROL.value,
+            )
+        }
+
     val all: Map<String, SegmentState>
         get() =
             mapOf(
@@ -55,7 +116,29 @@ object SegmentSamples {
                 SampleKind.LOADED to loaded,
                 SampleKind.REFRESHING to refreshing,
                 SampleKind.REFRESH_FAILED to refreshFailed,
+                RENAMED to renamed,
+                VOTING_UNAVAILABLE to votingUnavailable,
             )
+
+    const val RENAMED = "renamed"
+    const val VOTING_UNAVAILABLE = "votingUnavailable"
+}
+
+object ProposeSegmentNameSamples {
+    private fun state(name: String, editing: Boolean = false, unchanged: String = "Trail 214") =
+        ProposeSegmentNameState(TextFieldState(name), editing, unchanged, sending = false, error = null, eventSink = {})
+
+    val propose: ProposeSegmentNameState
+        get() = state("Wiggly Woods")
+
+    val edit: ProposeSegmentNameState
+        get() = state("Rooty Ridge Loop", editing = true, unchanged = "Rooty Ridge")
+
+    val invalid: ProposeSegmentNameState
+        get() = state("trail 214")
+
+    val all: Map<String, ProposeSegmentNameState>
+        get() = mapOf(SampleKind.LOADED to propose, "edit" to edit, SampleKind.INVALID to invalid)
 }
 
 object SegmentMapSamples {
