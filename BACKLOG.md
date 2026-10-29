@@ -35,6 +35,13 @@ The activity detail screen shows the route on a MapLibre map (`ActivityMap`) on 
   - Merge `ActivityMap.nonWeb.kt` into `commonMain` and delete the wasmJs actual.
   - Follow the release's web setup steps in `:webApp` (e.g. `installMapLibreCompose()` before `ComposeViewport`).
 - **Renderer notes.** Every MapLibre Compose target is still alpha or beta, so MapLibre's API stays inside `ActivityMap`. Keep `RoutePreview` as the fallback. The track is a GeoJSON line layer, so it can later be coloured by speed, HR or elevation. The map's pan and zoom stay off inside the detail list; tapping it (or its expand button) opens `RouteMapScreen`, the full-screen map that pans and zooms (`feed/route-map-viewer`).
+- **Android renderer: Vulkan.** Android uses `maplibre-compose-runtime-vulkan-android` (`android-maplibre-vulkan`). It was tested on:
+  - the arm64 emulator (SwiftShader), in debug
+  - a Pixel 9 Pro XL (Mali), in a minified release build
+
+  On both, the map and the full-screen map render, the page scrolls over the map cleanly, and back from the full-screen map shows no black frame. R8 needs no new keep rule. The emulator logs harmless `dequeueBuffer timed out` warnings under Vulkan only.
+
+  It costs about 3 MB more per ABI than OpenGL (release APK 53.5 to 61.7 MB universal, about +11.5% for an arm64-only download), mostly the glslang shader compiler. No older Mali or Adreno phone has been tried. Go back to OpenGL (`maplibre-compose-runtime-opengl-android`) if a device-specific rendering bug shows up, or if APK size becomes a constraint.
 - **Tiles.** Use OpenFreeMap (no key, no limits) by default and in dev. Use MapTiler Outdoor/Topo or Stadia Outdoors for a trail and contour style. Self-hosted Protomaps PMTiles on S3 or R2 behind a CDN is the cost-control option. Keep the style URL in config so providers can change without a release.
 - **Avoid.** Google Maps SDK (no wasmJs or desktop target, Google tiles only, billed per load). Mapbox v2+ (proprietary licence, billed per active user). `tile.openstreetmap.org` (its usage policy forbids app traffic). MapKit (iOS only).
 - **Feed vs detail.** Use the interactive map only on the activity detail screen. Feed cards show a static map image instead, drawn on the viewer's device by MapLibre's offscreen snapshotter from the route they were served, cached by its own Coil loader and dropped at sign-out (`RouteMapTile`, `feed/feed-route-map`). It falls back to the Canvas polyline while drawing, when it can't draw, and on web.
