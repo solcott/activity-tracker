@@ -31,6 +31,7 @@ import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.app.ui.HeldPhotoFetcher
 import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.adaptive.LocalIsNavRoot
+import io.github.solcott.activitytracker.app.ui.onRouteImageSession
 import io.github.solcott.activitytracker.app.ui.theme.AppTheme
 
 /**
@@ -47,6 +48,8 @@ fun App(graph: AppGraph, modifier: Modifier = Modifier, onRootPop: () -> Unit = 
     // A session whose refresh was refused ends the way a sign-out does, for as long as the app runs (auth/oauth-session).
     LaunchedEffect(Unit) { graph.authRepository.endExpiredSessions() }
     val session by graph.authRepository.session.collectAsState()
+    // Signing out, or starting signed out, drops the feed's map images (feed/feed-route-map).
+    LaunchedEffect(restored, session?.did) { if (restored) onRouteImageSession(session?.did?.value) }
     setSingletonImageLoaderFactory { context -> ImageLoader.Builder(context).components { add(HeldPhotoFetcher.Factory()) }.build() }
 
     AppTheme(modifier) {
