@@ -115,7 +115,7 @@ fun ActivityCard(
                 onOpen = { onOpenMedia(it) },
                 height = 160.dp,
                 map =
-                    record.polyline?.let { polyline -> { mapModifier, mapHeight -> RoutePreview(polyline, mapModifier, mapHeight, gaps) } },
+                    record.polyline?.let { polyline -> { mapModifier, mapHeight -> RouteMapTile(polyline, mapHeight, gaps, mapModifier) } },
                 blur = blur,
                 revealed = revealed,
                 onReveal = onReveal,

@@ -916,6 +916,8 @@
     <string name="details_photo">Photo</string>
     <string name="map_expand">Enlarge map</string>
     <string name="map_recenter">Recenter on route</string>
+    <!-- The map data's credit on a feed card's map image. -->
+    <string name="map_credit">© OpenFreeMap © OpenStreetMap</string>
     <string name="edit_discard_title">Discard your changes?</string>
     <string name="edit_leaderboard_exclusion">Leave out of segment leaderboards</string>
     <string name="edit_leaderboard_exclusion_help">For a group ride or a stretch in a car. The activity keeps its segment efforts. No one else sees this choice.</string>
