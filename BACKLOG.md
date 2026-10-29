@@ -39,7 +39,7 @@ The activity detail screen shows the route on a MapLibre map (`ActivityMap`) on 
   - the arm64 emulator (SwiftShader), in debug
   - a Pixel 9 Pro XL (Mali), in a minified release build
 
-  On both, the map and the full-screen map render, the page scrolls over the map cleanly, and back from the full-screen map shows no black frame. R8 needs no new keep rule. The emulator logs harmless `dequeueBuffer timed out` warnings under Vulkan only.
+  On both, the detail map, the full-screen map and the feed cards' snapshotter images render, the page scrolls over the map cleanly, and back from the full-screen map shows no black frame. R8 needs no new keep rule. The emulator logs harmless `dequeueBuffer timed out` warnings under Vulkan only.
 
   It costs about 3 MB more per ABI than OpenGL (release APK 53.5 to 61.7 MB universal, about +11.5% for an arm64-only download), mostly the glslang shader compiler. No older Mali or Adreno phone has been tried. Go back to OpenGL (`maplibre-compose-runtime-opengl-android`) if a device-specific rendering bug shows up, or if APK size becomes a constraint.
 - **Tiles.** Use OpenFreeMap (no key, no limits) by default and in dev. Use MapTiler Outdoor/Topo or Stadia Outdoors for a trail and contour style. Self-hosted Protomaps PMTiles on S3 or R2 behind a CDN is the cost-control option. Keep the style URL in config so providers can change without a release.
