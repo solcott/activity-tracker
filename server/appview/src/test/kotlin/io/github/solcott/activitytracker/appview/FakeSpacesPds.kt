@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.appview.sync.LtHash
 import io.github.solcott.activitytracker.atproto.space.SpaceCredentials
 import io.github.solcott.activitytracker.atproto.space.SpaceMac
 import io.github.solcott.activitytracker.atproto.space.SpaceMacHost
@@ -35,18 +36,47 @@ import kotlinx.serialization.json.put
  * The Spaces side of an athlete's PDS, as the AppView's syncer sees it: credentials, `registerNotify`, `listRepoOps` and `listRecords` for
  * the authority's repo in each space. Every athlete is on `http://<name>pds.test`, resolved through `http://plc.test`, whose DID document
  * publishes a `#atproto_kem` key ([rotateKem] replaces it). `listRepoOps` answers as the Oct 22 alpha does: it requires
- * `Atproto-Space-Want-Mac` and MACs the commit, which [macMode] and [commitSpace] can spoil. Writes go straight into the op log; nothing is
- * sent to the AppView unless a test calls `notifyWrite` itself.
+ * `Atproto-Space-Want-Mac` and MACs the commit, which [macMode] and [commitSpace] can spoil. The commit's `data` is the repo's real set
+ * hash ([LtHash]), as the Oct 29 alpha's is, which [clear] and [migrate] change the way `clearRecords` and an account move do. Writes go
+ * straight into the op log; nothing is sent to the AppView unless a test calls `notifyWrite` itself.
  */
 /** [clock] dates notification registrations; credentials use real time, as [SpaceCredentials] reads them with its own clock. */
 class FakeSpacesPds(private val clock: Clock = Clock.System) {
-    private class Op(val rev: String, val collection: String, val rkey: String, val cid: String?, val value: JsonObject?)
+    private class Op(
+        val rev: String,
+        val collection: String,
+        val rkey: String,
+        val cid: String?,
+        val prev: String?,
+        val value: JsonObject?,
+    )
 
-    private val logs = mutableMapOf<SpaceUri, MutableList<Op>>()
+    private class Record(val cid: String, val value: JsonObject)
+
+    /** One space's authority repo: its op log (which [clear] and [migrate] empty), its records, its set hash and its head revision. */
+    private class Repo {
+        val log = mutableListOf<Op>()
+        val records = sortedMapOf<String, Record>()
+        val hash = LtHash()
+        var head: String? = null
+    }
+
+    private val repos = mutableMapOf<SpaceUri, Repo>()
     private var tick = 0
 
     /** Spaces whose `getSpaceCredential` answers `SpaceDeleted`. */
     val deleted = mutableSetOf<SpaceUri>()
+
+    /** Spaces whose `getSpaceCredential` answers `SpaceNotFound`: missing, or refusing the AppView (the managing app unreachable). */
+    val notFound = mutableSetOf<SpaceUri>()
+
+    /** Spaces whose commits carry a `data` their records don't fold to, as a host that lost track would. */
+    val wrongData = mutableSetOf<SpaceUri>()
+
+    /**
+     * Runs once, the next time `listRecords` is answered, before the answer is built: a write that lands after the backfill read its head.
+     */
+    var duringNextListing: (() -> Unit)? = null
 
     /** Authorities whose PDS can't be reached. */
     val unreachable = mutableSetOf<Did>()
@@ -91,18 +121,45 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
 
     fun put(space: SpaceUri, collection: String, rkey: String, value: String): String {
         val cid = "bafyrei${collection.substringAfterLast('.').lowercase()}$rkey${++tick}"
-        log(space) += Op(nextRev(), collection, rkey, cid, AtJson.parseToJsonElement(value).jsonObject)
+        val json = AtJson.parseToJsonElement(value).jsonObject
+        write(space, collection, rkey, Record(cid, json))
         return cid
     }
 
-    fun delete(space: SpaceUri, collection: String, rkey: String) {
-        log(space) += Op(nextRev(), collection, rkey, null, null)
+    fun delete(space: SpaceUri, collection: String, rkey: String) = write(space, collection, rkey, null)
+
+    /** `clearRecords` on [space]'s authority repo: no records, an empty op log, and a new revision whose `data` is the empty set's. */
+    fun clear(space: SpaceUri) {
+        val repo = repo(space)
+        repo.records.forEach { (path, record) -> repo.hash.remove("$path/${record.cid}") }
+        repo.records.clear()
+        repo.log.clear()
+        repo.head = nextRev()
+    }
+
+    /** The authority's account moved hosts: the same records and `data` at a new revision, with an empty op log. */
+    fun migrate(space: SpaceUri) {
+        val repo = repo(space)
+        repo.log.clear()
+        repo.head = nextRev()
     }
 
     /** The current revision of [space]'s authority repo, for a `notifyWrite`. */
-    fun rev(space: SpaceUri): String = log(space).last().rev
+    fun rev(space: SpaceUri): String = repo(space).head!!
 
-    private fun log(space: SpaceUri) = logs.getOrPut(space) { mutableListOf() }
+    private fun write(space: SpaceUri, collection: String, rkey: String, record: Record?) {
+        val repo = repo(space)
+        val path = "$collection/$rkey"
+        val prev = repo.records[path]?.cid
+        prev?.let { repo.hash.remove(LtHash.element(collection, rkey, it)) }
+        if (record == null) repo.records.remove(path) else repo.records[path] = record
+        record?.let { repo.hash.add(LtHash.element(collection, rkey, it.cid)) }
+        val rev = nextRev()
+        repo.log += Op(rev, collection, rkey, record?.cid, prev, record?.value)
+        repo.head = rev
+    }
+
+    private fun repo(space: SpaceUri) = repos.getOrPut(space) { Repo() }
 
     // TIDs sort as strings; these do too.
     private fun nextRev() = "3m" + (++tick).toString().padStart(REV_DIGITS, '0')
@@ -122,6 +179,7 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
                     // The Oct 22 exchange is unauthenticated and binds the credential to a P-256 did:key.
                     request.headers[HttpHeaders.Authorization] != null || !kid.startsWith(P256_DID_KEY) -> error("InvalidRequest")
                     space in deleted -> error("SpaceDeleted")
+                    space in notFound -> error("SpaceNotFound")
                     else -> json("""{"credential":"${credential()}"}""")
                 }
             }
@@ -138,7 +196,10 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
                 if (params["since"] != null) duringNextPull?.also { duringNextPull = null }?.invoke()
                 json(answer.toString(), extraHeaders = listOfNotNull(mac?.let { SpaceMac.MAC_HEADER to it }))
             }
-            path == "/xrpc/com.atproto.space.listRecords" -> json(listRecords(request.url.parameters).toString())
+            path == "/xrpc/com.atproto.space.listRecords" -> {
+                duringNextListing?.also { duringNextListing = null }?.invoke()
+                json(listRecords(request.url.parameters).toString())
+            }
             else -> respond("", HttpStatusCode.NotFound)
         }
     }
@@ -159,11 +220,12 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
         val space = SpaceUri(params["space"]!!)
         val repo = Did(params["repo"]!!)
         val since = params["since"]
-        val head = log(space).lastOrNull()
-        val commit = head?.let {
-            val data = MessageDigest.getInstance("SHA-256").digest(it.rev.toByteArray())
-            Space.ListRepoOps.Commit(ver = 1, repo = repo, space = commitSpace ?: space, rev = it.rev, data = LexBytes.of(data))
-        }
+        val held = repo(space)
+        val commit =
+            held.head?.let {
+                val data = if (space in wrongData) MessageDigest.getInstance("SHA-256").digest(it.toByteArray()) else held.hash.digest()
+                Space.ListRepoOps.Commit(ver = 1, repo = repo, space = commitSpace ?: space, rev = it, data = LexBytes.of(data))
+            }
         val mac = commit?.let {
             when (macMode) {
                 MacMode.VALID -> SpaceMacHost.commitMacHeader(kem(repo.value), wantMac, it)
@@ -175,7 +237,7 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
             put(
                 "ops",
                 buildJsonArray {
-                    log(space)
+                    held.log
                         .filter { since == null || it.rev > since }
                         .filter { op -> compactedTo[space]?.let { op.rev > it } ?: true }
                         .forEach { op ->
@@ -185,6 +247,7 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
                                     put("collection", op.collection)
                                     put("rkey", op.rkey)
                                     put("cid", op.cid)
+                                    put("prev", op.prev)
                                     if (params["excludeValues"] != "true" && op.value != null) put("value", op.value)
                                 }
                             )
@@ -195,26 +258,22 @@ class FakeSpacesPds(private val clock: Clock = Clock.System) {
         } to mac
     }
 
-    /** Each record of `collection` as it stands: the last op for its rkey, unless that deleted it. */
+    /** Each record of `collection`, or of every collection when there's none, as it stands, in path order. */
     private fun listRecords(params: Parameters): JsonObject {
         val space = SpaceUri(params["space"]!!)
         val collection = params["collection"]
-        val current =
-            log(space)
-                .filter { collection == null || it.collection == collection }
-                .groupBy { it.collection to it.rkey }
-                .mapNotNull { (_, ops) -> ops.last().takeIf { it.cid != null } }
+        val current = repo(space).records.filterKeys { collection == null || it.substringBeforeLast('/') == collection }
         return buildJsonObject {
             put(
                 "records",
                 buildJsonArray {
-                    current.forEach { op ->
+                    current.forEach { (path, record) ->
                         add(
                             buildJsonObject {
-                                put("collection", op.collection)
-                                put("rkey", op.rkey)
-                                put("cid", op.cid)
-                                put("value", op.value!!)
+                                put("collection", path.substringBeforeLast('/'))
+                                put("rkey", path.substringAfterLast('/'))
+                                put("cid", record.cid)
+                                put("value", record.value)
                             }
                         )
                     }

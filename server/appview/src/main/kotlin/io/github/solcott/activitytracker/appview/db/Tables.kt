@@ -625,6 +625,10 @@ object SpaceSync : Table("space_sync") {
     val failures = integer("failures").default(0)
     /** When the last sync succeeded, epoch millis; null before the first one. */
     val syncedAt = long("synced_at").nullable()
+    /** The authority repo's LtHash state as of [repoRev]; null until a backfill matches its head commit. */
+    val setHash = binary("set_hash").nullable()
+    /** When the current run of `SpaceNotFound` answers began, epoch millis; null while there's none. */
+    val notFoundSince = long("not_found_since").nullable()
     val nextAttemptAt = long("next_attempt_at")
     val createdAt = long("created_at")
     override val primaryKey = PrimaryKey(space)

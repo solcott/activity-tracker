@@ -45,10 +45,13 @@ import org.slf4j.LoggerFactory
  * - an athlete's client announces a space ([announce]); the AppView joins it with its own credential, registers for `notifyWrite` at
  *   [service], and backfills it;
  * - each notification ([notified]) pulls the space's ops since the last indexed revision, and applies them only once the commit ending the
- *   pull has a verified MAC ([SpaceMember.listRepoOps]);
+ *   pull has a verified MAC ([SpaceMember.listRepoOps]) and its `data` matches the stored set hash ([LtHash]) with the ops folded in; a
+ *   mismatch, which is how a `clearRecords` shows, backfills the space instead;
  * - every space is also pulled every [reconcileInterval], since the authority's PDS sends each notification once, and its registration is
  *   renewed within [renewalMargin] of expiring;
- * - a deleted space is dropped when the authority's PDS says so ([deleted]), or else when a sync is answered `SpaceDeleted`.
+ * - a deleted space is dropped when the authority's PDS says so ([deleted]), or else when a sync is answered `SpaceDeleted`. A sync
+ *   answered `SpaceNotFound`, which is also how the authority refuses a user (such as when it can't reach the managing app), keeps the
+ *   space and backs off, and drops it only once every sync for [notFoundGrace] has been answered so.
  *
  * Only the authority writes to an athlete's space, so the authority's repo is the only one synced. Ops go through the [Indexer], which
  * keeps only what [Indexer.spaceCollections] allows for the space's key. A space whose sync fails is retried with backoff; it never holds
@@ -67,6 +70,7 @@ class SpaceSyncer(
     private val reconcileInterval: Duration = 15.minutes,
     private val renewalMargin: Duration = 2.hours,
     private val resyncAfter: Duration = 1.hours,
+    private val notFoundGrace: Duration = 24.hours,
     parallelism: Int = 4,
 ) {
     private val log = LoggerFactory.getLogger(SpaceSyncer::class.java)
@@ -111,7 +115,7 @@ class SpaceSyncer(
      * for a sync of it in progress, so nothing that sync indexes outlives the drop. Does nothing for a space this AppView doesn't sync.
      */
     suspend fun deleted(space: SpaceUri) {
-        locks.computeIfAbsent(space.value) { Mutex() }.withLock { if (isSynced(db, space)) dropped(space) }
+        locks.computeIfAbsent(space.value) { Mutex() }.withLock { if (isSynced(db, space)) dropped(space, "was deleted") }
     }
 
     /**
@@ -176,13 +180,12 @@ class SpaceSyncer(
                             } else {
                                 registeredUntil
                             }
-                        // Ops after the last revision may have been compacted away if the space hasn't synced for a while.
-                        val rev =
-                            state[SpaceSync.repoRev]?.takeIf { state.syncedWithin(resyncAfter, now) }?.let { pull(space, it) }
-                                ?: backfill(space)
+                        val synced = pullOrBackfill(space, state, now)
                         db.tx {
                             SpaceSync.update({ SpaceSync.space eq space.value }) {
-                                it[repoRev] = rev
+                                it[repoRev] = synced.rev
+                                it[setHash] = synced.state
+                                it[notFoundSince] = null
                                 it[SpaceSync.registeredUntil] = renewed
                                 it[failures] = 0
                                 it[SpaceSync.syncedAt] = clock.now().toEpochMilliseconds()
@@ -193,8 +196,11 @@ class SpaceSyncer(
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: XrpcException) {
-                        if (e.error == SpaceErrors.SPACE_DELETED || e.error == SpaceErrors.SPACE_NOT_FOUND) dropped(space)
-                        else failed(space, state, e)
+                        when (e.error) {
+                            SpaceErrors.SPACE_DELETED -> dropped(space, "was deleted")
+                            SpaceErrors.SPACE_NOT_FOUND -> notFound(space, state, e)
+                            else -> failed(space, state, e)
+                        }
                     } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
                         // Network, identity resolution or a malformed response: this space's problem only.
                         failed(space, state, e)
@@ -209,62 +215,118 @@ class SpaceSyncer(
     }
 
     /**
-     * First sync, or one after a gap: the head revision, then every record the space's key indexes as it stands, dropping indexed ones the
-     * space no longer has, then ops after the head on later syncs. The PDS may have compacted the op log, so it can't stand in for the
-     * records. Returns the head revision, or null if nothing was ever written.
+     * A pull after the last indexed revision, or a backfill: ops after it may have been compacted away if the space hasn't synced for a
+     * while, a row with no set hash was synced before they were kept, and a pull that doesn't match its commit falls back to one.
      */
-    private suspend fun backfill(space: SpaceUri): String? {
-        val head = headRev(member, space)
-        for (collection in Indexer.spaceCollections(space.skey)) {
-            val listed = mutableSetOf<String>()
-            var cursor: String? = null
-            do {
-                val page =
-                    member.call(space, space.authority) { pds ->
-                        try {
-                            pds.query(
-                                Space.ListRecords.method,
-                                Space.ListRecords.Params(space, space.authority, collection, limit = PAGE, cursor = cursor),
-                            )
-                        } catch (e: XrpcException) {
-                            // The authority hasn't written to this space yet.
-                            if (e.error != REPO_NOT_FOUND) throw e
-                            Space.ListRecords.Output(emptyList())
-                        }
-                    }
-                page.records.forEach { record ->
-                    listed += record.rkey
-                    record.value?.let {
-                        indexer.spaceWrite(space, record.collection, record.rkey, record.cid.value, it, whileSynced = true)
-                    }
-                }
-                cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
-            } while (cursor != null)
-            (db.tx { spaceRkeys(space, collection) } - listed).forEach { indexer.spaceDelete(space, collection, it) }
-        }
-        log.info("Backfilled {} at rev {}", space, head)
-        return head
+    private suspend fun pullOrBackfill(space: SpaceUri, state: ResultRow, now: Instant): Synced {
+        val rev = state[SpaceSync.repoRev]
+        val stored = state[SpaceSync.setHash]
+        val pulled = if (rev != null && stored != null && state.syncedWithin(resyncAfter, now)) pull(space, rev, stored) else null
+        return pulled ?: backfill(space)
     }
 
     /**
-     * Reads every page of ops after [since], then, once the commit ending them has a verified MAC, applies them in order and returns the
-     * commit's revision. A failed MAC throws before anything is applied; a pull that reaches no commit applies nothing and keeps [since].
+     * First sync, one after a gap, or one after a set-hash mismatch: the verified head commit, then every record the authority's repo holds
+     * as it stands, indexing those the space's key allows, folded into a fresh set hash. Only if that matches the head's `data` are indexed
+     * records the listing lacks dropped and the head recorded. A write landing mid-listing moves the head, and the backfill starts over, up
+     * to [BACKFILL_ATTEMPTS] times; a mismatch at an unmoved head throws, keeping everything indexed. The PDS may have compacted the op
+     * log, so it can't stand in for the records.
      */
-    private suspend fun pull(space: SpaceUri, since: String): String {
+    private suspend fun backfill(space: SpaceUri): Synced {
+        var attempt = 0
+        while (true) {
+            attempt++
+            val head = headCommit(member, space)
+            val hash = LtHash()
+            val indexed = Indexer.spaceCollections(space.skey)
+            val listed = listAll(space, hash, indexed)
+            if (hash.digest().contentEquals(head?.data?.decode() ?: EMPTY_DIGEST)) {
+                for (collection in indexed) {
+                    val kept = listed[collection].orEmpty()
+                    (db.tx { spaceRkeys(space, collection) } - kept).forEach { indexer.spaceDelete(space, collection, it) }
+                }
+                log.info("Backfilled {} at rev {}", space, head?.rev)
+                return Synced(head?.rev, hash.state())
+            }
+            val moved = headCommit(member, space)?.rev != head?.rev
+            if (!moved || attempt >= BACKFILL_ATTEMPTS) {
+                throw SetHashMismatchException(
+                    "$space's records don't match its commit at ${head?.rev}${if (moved) ", still moving" else ""}"
+                )
+            }
+            log.info("{} was written during its backfill; starting over", space)
+        }
+    }
+
+    /**
+     * Lists every record in [space]'s authority repo, folding each into [hash] and indexing those of the [indexed] collections, and returns
+     * the rkeys listed per indexed collection.
+     */
+    private suspend fun listAll(space: SpaceUri, hash: LtHash, indexed: Set<String>): Map<String, Set<String>> {
+        val listed = mutableMapOf<String, MutableSet<String>>()
+        var cursor: String? = null
+        do {
+            val page =
+                member.call(space, space.authority) { pds ->
+                    try {
+                        pds.query(Space.ListRecords.method, Space.ListRecords.Params(space, space.authority, limit = PAGE, cursor = cursor))
+                    } catch (e: XrpcException) {
+                        // The authority hasn't written to this space yet.
+                        if (e.error != REPO_NOT_FOUND) throw e
+                        Space.ListRecords.Output(emptyList())
+                    }
+                }
+            page.records.forEach { record ->
+                hash.add(LtHash.element(record.collection, record.rkey, record.cid.value))
+                if (record.collection !in indexed) return@forEach
+                listed.getOrPut(record.collection) { mutableSetOf() } += record.rkey
+                record.value?.let { indexer.spaceWrite(space, record.collection, record.rkey, record.cid.value, it, whileSynced = true) }
+            }
+            cursor = page.cursor?.takeIf { page.records.isNotEmpty() }
+        } while (cursor != null)
+        return listed
+    }
+
+    /**
+     * Reads every page of ops after [since], folding each into the set hash [stored] (as of [since]), then, once the commit ending them has
+     * a verified MAC and its `data` matches the folded hash, applies them in order and returns the commit's revision and hash. A failed MAC
+     * throws before anything is applied; a pull that reaches no commit applies nothing and keeps [since]. A `data` mismatch (a cleared
+     * repo, or anything else that left the hash behind) applies nothing and returns null, so the caller backfills.
+     */
+    private suspend fun pull(space: SpaceUri, since: String, stored: ByteArray): Synced? {
         val ops = mutableListOf<Space.ListRepoOps.Op>()
-        var head: String? = null
+        val hash = LtHash(stored)
+        var head: Space.ListRepoOps.Commit? = null
         var cursor: String? = null
         do {
             val page = member.listRepoOps(space, space.authority, Space.ListRepoOps.Params(space, space.authority, since, PAGE, cursor))
+            for (op in page.ops) {
+                op.prev?.let { hash.remove(LtHash.element(op.collection, op.rkey, it.value)) }
+                op.cid?.let { hash.add(LtHash.element(op.collection, op.rkey, it.value)) }
+            }
             ops += page.ops
-            page.commit?.let { head = it.rev }
+            page.commit?.let { head = it }
             cursor = page.cursor
         } while (cursor != null)
-        val rev = head
-        if (rev == null) {
-            if (ops.isNotEmpty()) log.warn("{} listed {} ops after {} but no commit; none applied", space, ops.size, since)
-            return since
+        val commit = head
+        return when {
+            commit == null -> {
+                if (ops.isNotEmpty()) log.warn("{} listed {} ops after {} but no commit; none applied", space, ops.size, since)
+                Synced(since, stored)
+            }
+            !hash.digest().contentEquals(commit.data.decode()) -> {
+                log.info("{} at {} doesn't match its set hash after {} ops since {}; backfilling", space, commit.rev, ops.size, since)
+                null
+            }
+            else -> {
+                apply(space, ops)
+                Synced(commit.rev, hash.state())
+            }
         }
+    }
+
+    /** Indexes pulled [ops] in order. */
+    private suspend fun apply(space: SpaceUri, ops: List<Space.ListRepoOps.Op>) {
         for (op in ops) {
             val value = op.value
             val cid = op.cid
@@ -274,24 +336,39 @@ class SpaceSyncer(
                 else -> log.warn("{} op {}/{} at {} has no value; skipped", space, op.collection, op.rkey, op.rev)
             }
         }
-        return rev
     }
 
-    /** The space is gone: stop syncing it and drop what was indexed from it. */
-    private suspend fun dropped(space: SpaceUri) {
-        log.info("{} was deleted; dropping it", space)
+    /**
+     * A sync answered `SpaceNotFound`: no such space, or the authority refusing the AppView, which looks the same. Keeps what was indexed
+     * and backs off, unless every sync since [notFoundGrace] ago was answered so, which drops it.
+     */
+    private suspend fun notFound(space: SpaceUri, state: ResultRow, e: XrpcException) {
+        val now = clock.now().toEpochMilliseconds()
+        val since = state[SpaceSync.notFoundSince]
+        if (since != null && now - since >= notFoundGrace.inWholeMilliseconds) {
+            dropped(space, "has answered SpaceNotFound since ${Instant.fromEpochMilliseconds(since)}")
+        } else {
+            failed(space, state, e, notFoundSince = since ?: now)
+        }
+    }
+
+    /** The space is gone, as [reason] says: stop syncing it and drop what was indexed from it. */
+    private suspend fun dropped(space: SpaceUri, reason: String) {
+        log.info("{} {}; dropping it", space, reason)
         indexer.dropSpace(space)
         db.tx { SpaceSync.deleteWhere { SpaceSync.space eq space.value } }
         renotified.remove(space.value)
     }
 
-    private suspend fun failed(space: SpaceUri, state: ResultRow, e: Exception) {
+    /** A failed sync: back off. [notFoundSince] is the `SpaceNotFound` run this failure continues, or null for any other failure. */
+    private suspend fun failed(space: SpaceUri, state: ResultRow, e: Exception, notFoundSince: Long? = null) {
         val failures = state[SpaceSync.failures] + 1
         val delay = minOf(BACKOFF_BASE * (1 shl minOf(failures - 1, BACKOFF_DOUBLINGS)), BACKOFF_MAX)
         log.warn("Syncing {} failed ({} in a row), retrying in {}: {}", space, failures, delay, e.message)
         db.tx {
             SpaceSync.update({ SpaceSync.space eq space.value }) {
                 it[SpaceSync.failures] = failures
+                it[SpaceSync.notFoundSince] = notFoundSince
                 it[nextAttemptAt] = (clock.now() + delay).toEpochMilliseconds()
             }
         }
@@ -319,11 +396,21 @@ class SpaceSyncer(
         private val BACKOFF_BASE = 1.minutes
         private val BACKOFF_MAX = 1.hours
         private const val BACKOFF_DOUBLINGS = 6
+        private const val BACKFILL_ATTEMPTS = 3
+
+        /** The `data` of a repo with no records: sha256 of the zero LtHash state. */
+        private val EMPTY_DIGEST = LtHash().digest()
     }
 }
 
-/** The head revision of [space]'s authority repo, from a commit with a verified MAC, or null if the repo was never written. */
-private suspend fun headRev(member: SpaceMember, space: SpaceUri): String? {
+/** What a sync recorded: the authority repo's revision (null before its first write) and its LtHash state there. */
+private class Synced(val rev: String?, val state: ByteArray)
+
+/** A backfill's records never folded to its head commit's `data`. */
+class SetHashMismatchException(message: String) : Exception(message)
+
+/** The head commit of [space]'s authority repo, with a verified MAC, or null if the repo was never written. */
+private suspend fun headCommit(member: SpaceMember, space: SpaceUri): Space.ListRepoOps.Commit? {
     var cursor: String? = null
     while (true) {
         val page =
@@ -337,7 +424,7 @@ private suspend fun headRev(member: SpaceMember, space: SpaceUri): String? {
                 if (e.error != SpaceSyncer.REPO_NOT_FOUND) throw e
                 return null
             }
-        if (page.commit != null || page.cursor == null) return page.commit?.rev
+        if (page.commit != null || page.cursor == null) return page.commit
         cursor = page.cursor
     }
 }
