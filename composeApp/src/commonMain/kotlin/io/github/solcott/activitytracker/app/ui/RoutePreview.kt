@@ -26,8 +26,8 @@ import kotlinx.collections.immutable.ImmutableList
 
 /**
  * Draws an encoded polyline scaled to fit, broken at [gaps] (`feed.activity#polylineGaps`), with its [RouteMarkers] (the start and end at
- * [ends] when given), and a [highlight] polyline over it in the accent colour, as `ActivityMap` draws one. Placeholder until a real map is
- * integrated.
+ * [ends] when given), and a [highlight] polyline over it in the accent colour, as `ActivityMap` draws one. The maps' stand-in: under a feed
+ * card's map image until it's drawn or when it can't be (`RouteMapTile`), in previews and tests, and on web, which can't draw maps yet.
  */
 @Composable
 fun RoutePreview(
