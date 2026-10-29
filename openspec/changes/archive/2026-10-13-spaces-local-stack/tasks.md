@@ -28,7 +28,7 @@
 - [x] 5.2 Run S1 (member round trip via delegation token, `getSpaceCredential` and `getRecord`) and S7 (TTL and error codes). Record findings S1 and S7 in `design.md`.
 - [x] 5.3 Run S2: create a space with a `managingAppPolicy` naming `<AppView did:web>#activitytracker_space`, request a credential as bob, and confirm the AppView log shows the `checkUserAccess` request (a 404 is expected). Record finding S2. If the PDS blocks the callout, record the needed patch before changing anything.
 - [x] 5.4 Run S3 (an accepted `space:` scope string with `transition:generic`), S4 (blobs on space records and their visibility), S5 (public read policy) and S6 (owner reads with `read_self`). Record each finding in `design.md`.
-- [x] 5.5 Review findings S1 to S7 against the plan for changes 2 to 5 (`~/.claude/plans/atprocol-spaces-is-close-shimmying-zebra.md`). Write any change of approach into this design's Decisions, or as an open question for the affected change. Verify that no finding is left _pending_.
+- [x] 5.5 Review findings S1 to S7 against the plan for changes 2 to 5 (the session plan). Write any change of approach into this design's Decisions, or as an open question for the affected change. Verify that no finding is left _pending_.
 
 ## 6. Documentation
 

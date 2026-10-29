@@ -16,7 +16,7 @@ See proposal.md (Why) for the motivation, and `specs/ui/content-loading` for the
 - XRPC failures are one type: `XrpcException(status, error, message)` in `core/atproto`. A non-XRPC error body becomes `error = "HttpError"`.
 - Ktor transport failures, such as `kotlinx.io.IOException` and `HttpRequestTimeoutException`, pass through unwrapped.
 
-**Library.** Version 0.1.0-SNAPSHOT on GitHub Packages. Its `uistate-circuit` folds `Flow<Outcome<T>>` into a `ContentState<T>` held by `produceRetainedState`. A local checkout is at `~/projects/kmp-dataresult`.
+**Library.** Version 0.1.0-SNAPSHOT on GitHub Packages. Its `uistate-circuit` folds `Flow<Outcome<T>>` into a `ContentState<T>` held by `produceRetainedState`. A local checkout can replace it (see `dataresult.dir` in the README).
 
 ## Goals / Non-Goals
 
