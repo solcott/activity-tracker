@@ -46,15 +46,13 @@ space="at://$did/space/$space_type/smoke"
 echo "ok   signed in as $name.test ($did)"
 
 allow="SpaceAlreadyExists"
-created=$(xrpc com.atproto.simplespace.createSpace POST "${auth[@]}" -H 'Content-Type: application/json' -d "{
+created=$(xrpc com.atproto.space.createSpace POST "${auth[@]}" -H 'Content-Type: application/json' -d "{
   \"spaceType\":\"$space_type\",\"skey\":\"smoke\",
-  \"readPolicy\":{\"\$type\":\"com.atproto.simplespace.defs#memberListPolicy\"},
-  \"writePolicy\":{\"\$type\":\"com.atproto.simplespace.defs#memberListPolicy\"},
-  \"appAccess\":{\"\$type\":\"com.atproto.simplespace.defs#open\"}}")
+  \"policy\":{\"\$type\":\"com.atproto.memberspace.policy\"}}")
 allow=""
 [[ $created == *SpaceAlreadyExists* ]] && echo "ok   createSpace: already exists" || echo "ok   createSpace: $(json_field uri <<<"$created")"
 
-xrpc com.atproto.simplespace.getSpace GET "${auth[@]}" -G --data "space=$(urlencode "$space")" >/dev/null
+xrpc com.atproto.space.getSpace GET "${auth[@]}" -G --data "space=$(urlencode "$space")" >/dev/null
 echo "ok   getSpace"
 
 marker="smoke-$(date +%s)"

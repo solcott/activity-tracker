@@ -115,15 +115,13 @@ followers_uri="at://$(did bob)/app.activitytracker.feed.activity/$followers_rkey
 put_repo bob app.activitytracker.feed.activity "$public_rkey" "$(run 'Moderation smoke (Public)' "$public_blob")"
 
 followers_space="at://$(did bob)/space/app.activitytracker.space.athlete/followers"
-created=$(curl -sS -X POST -H "Authorization: Bearer $(jwt bob)" -H 'Content-Type: application/json' "$pds/xrpc/com.atproto.simplespace.createSpace" -d "{
+created=$(curl -sS -X POST -H "Authorization: Bearer $(jwt bob)" -H 'Content-Type: application/json' "$pds/xrpc/com.atproto.space.createSpace" -d "{
   \"spaceType\":\"app.activitytracker.space.athlete\",\"skey\":\"followers\",
-  \"readPolicy\":{\"\$type\":\"com.atproto.simplespace.defs#managingAppPolicy\",\"managingApp\":\"$appview_did#activitytracker_space\"},
-  \"writePolicy\":{\"\$type\":\"com.atproto.simplespace.defs#memberListPolicy\"},
-  \"appAccess\":{\"\$type\":\"com.atproto.simplespace.defs#open\"}}")
+  \"policy\":{\"\$type\":\"com.atproto.managedspace.policy\",\"managingApp\":\"$appview_did#activitytracker_space\"}}")
 if [[ $created == *SpaceAlreadyExists* ]]; then
-  xrpc "$pds" com.atproto.simplespace.updateSpace POST -H "Authorization: Bearer $(jwt bob)" -H 'Content-Type: application/json' -d "{
+  xrpc "$pds" com.atproto.space.updateSpace POST -H "Authorization: Bearer $(jwt bob)" -H 'Content-Type: application/json' -d "{
     \"space\":\"$followers_space\",
-    \"readPolicy\":{\"\$type\":\"com.atproto.simplespace.defs#managingAppPolicy\",\"managingApp\":\"$appview_did#activitytracker_space\"}}" >/dev/null
+    \"policy\":{\"\$type\":\"com.atproto.managedspace.policy\",\"managingApp\":\"$appview_did#activitytracker_space\"}}" >/dev/null
 fi
 xrpc "$pds" com.atproto.space.putRecord POST -H "Authorization: Bearer $(jwt bob)" -H 'Content-Type: application/json' -d "{
   \"space\":\"$followers_space\",\"repo\":\"$(did bob)\",\"collection\":\"app.activitytracker.feed.activity\",

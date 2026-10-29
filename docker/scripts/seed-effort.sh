@@ -97,16 +97,14 @@ self_space = f"at://{did}/space/{SPACE_TYPE}/self"
 with urllib.request.urlopen(f"{args.appview}/.well-known/did.json", timeout=10) as resp:
     appview_did = json.loads(resp.read())["id"]
 
-read_policy = {"$type": "com.atproto.simplespace.defs#managingAppPolicy", "managingApp": f"{appview_did}#activitytracker_space"}
-status, payload = call(args.pds, "com.atproto.simplespace.createSpace", "POST", token=token, body={
-    "spaceType": SPACE_TYPE, "skey": "self", "readPolicy": read_policy,
-    "writePolicy": {"$type": "com.atproto.simplespace.defs#memberListPolicy"},
-    "appAccess": {"$type": "com.atproto.simplespace.defs#open"},
+policy = {"$type": "com.atproto.managedspace.policy", "managingApp": f"{appview_did}#activitytracker_space"}
+status, payload = call(args.pds, "com.atproto.space.createSpace", "POST", token=token, body={
+    "spaceType": SPACE_TYPE, "skey": "self", "policy": policy,
 })
 if payload.get("error") == "SpaceAlreadyExists":
     # A tunnel restart changes the AppView's DID: point an existing space at the current one, as the app does.
-    must(call(args.pds, "com.atproto.simplespace.updateSpace", "POST", token=token,
-              body={"space": self_space, "readPolicy": read_policy}), "updateSpace")
+    must(call(args.pds, "com.atproto.space.updateSpace", "POST", token=token,
+              body={"space": self_space, "policy": policy}), "updateSpace")
 elif not 200 <= status < 300:
     fail(f"createSpace: HTTP {status} {payload}")
 

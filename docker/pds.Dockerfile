@@ -1,10 +1,11 @@
 # syntax=docker/dockerfile:1
 # The atproto Spaces alpha PDS, patched for the local stack.
 #
-# Image: ghcr.io/bluesky-social/atproto:pds-spaces-alpha, built 2026-10-22. Pinned by digest because the alpha ships breaking
-# changes under the same tag; bump deliberately and re-run docker/scripts/spaces-smoke.sh. It is amd64-only, so compose runs it
-# with `platform: linux/amd64` (Rosetta on Apple Silicon). Unlike the pds distribution image this is the atproto monorepo, so
-# packages live under /app/packages rather than node_modules/.pnpm.
+# Image: ghcr.io/bluesky-social/atproto:pds-spaces-alpha, built 2026-10-29 (atproto 11c5d98, the 0.0.0-spaces-alpha-20261029171913
+# release). Pinned by digest because the alpha ships breaking changes under the same tag; bump deliberately and re-run
+# docker/scripts/spaces-smoke.sh. It is amd64-only, so compose runs it with `platform: linux/amd64` (Rosetta on Apple Silicon).
+# Unlike the pds distribution image this is the atproto monorepo, so packages live under /app/packages rather than
+# node_modules/.pnpm.
 #
 # The OAuth sign-in page sets its CSRF cookie with `Secure` and its JS echoes the cookie back as a
 # header. The local PDS serves plain http://localhost:2583: Chrome treats localhost as a secure
@@ -13,7 +14,7 @@
 # cookies were never Secure. Upstream notes the CSRF cookie is redundant with SameSite sessions.
 # The find must match exactly one file, and the grep fails the build if the line has drifted.
 
-FROM ghcr.io/bluesky-social/atproto:pds-spaces-alpha@sha256:3ebb6d0e2c587adb0142de6e95a9b11d5f4704a418cf1db33576d701688d945a
+FROM ghcr.io/bluesky-social/atproto:pds-spaces-alpha@sha256:f003adf7ca7cbb8ff60a4d99323fd009dfc1259b208f468f71accf0366ecab1e
 # The image runs as `node`, which can't write under /app; patch as root, then drop back.
 USER root
 RUN set -e; \

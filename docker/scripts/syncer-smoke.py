@@ -287,24 +287,17 @@ def main():
     space = f"at://{did}/space/{SPACE_TYPE}/{skey}"
     log(f"ok   signed in as {name}.test ({did})")
 
-    policy = {"$type": "com.atproto.simplespace.defs#memberListPolicy"}
     status, payload, _ = xrpc(
         pds,
-        "com.atproto.simplespace.createSpace",
+        "com.atproto.space.createSpace",
         "POST",
-        body={
-            "spaceType": SPACE_TYPE,
-            "skey": skey,
-            "readPolicy": policy,
-            "writePolicy": policy,
-            "appAccess": {"$type": "com.atproto.simplespace.defs#open"},
-        },
+        body={"spaceType": SPACE_TYPE, "skey": skey, "policy": {"$type": "com.atproto.memberspace.policy"}},
         headers=owner,
     )
     if status != 200 and not (isinstance(payload, dict) and payload.get("error") == "SpaceAlreadyExists"):
         fail(f"createSpace: HTTP {status} {payload}")
     must(
-        xrpc(pds, "com.atproto.simplespace.putMember", "POST", body={"space": space, "did": stub_did, "read": True, "write": False}, headers=owner),
+        xrpc(pds, "com.atproto.memberspace.putMember", "POST", body={"space": space, "did": stub_did, "read": True, "write": False}, headers=owner),
         "putMember",
     )
     log(f"ok   space {space} with the stub as a reader")
