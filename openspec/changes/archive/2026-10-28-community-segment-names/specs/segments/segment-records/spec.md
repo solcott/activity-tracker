@@ -18,7 +18,7 @@ Re-writing a segment record SHALL replace its indexed version. Deleting it SHALL
 - **THEN** its original name changes and its current name stays "Wiggly Woods"
 
 ### Requirement: A segment can be looked up by URI
-`feed.getSegment` SHALL return a segment's view by its URI, whatever its status: its creator, current and original names, sport group, line, length, source, licence and status, and for a duplicate the segment it duplicates. It SHALL include its name history and open name proposals (`segments/segment-names`). For a signed-in viewer it SHALL also give the viewer's own fastest effort on it, if they have one, whether they may propose a name or vote, and their own votes. A segment that isn't indexed SHALL be `NotFound`.
+`feed.getSegment` SHALL return a segment's view by its URI, whatever its status: its creator, current and original names, sport group, line, length, source, licence and status, and for a duplicate the segment it duplicates. It SHALL include its name history and open name proposals. For a signed-in viewer it SHALL also give the viewer's own fastest effort on it, if they have one, whether they may propose a name or vote, and their own votes. A segment that isn't indexed SHALL be `NotFound`.
 
 #### Scenario: Viewer has efforts
 - **WHEN** a signed-in athlete with three efforts on a segment opens it
