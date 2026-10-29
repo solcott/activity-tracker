@@ -159,7 +159,7 @@ class ProfileRepositoryTest {
                         )
                     }
 
-                    "pds.test/xrpc/com.atproto.simplespace.createSpace" -> {
+                    "pds.test/xrpc/com.atproto.space.createSpace" -> {
                         val tier = AtJson.parseToJsonElement(body()).jsonObject.getValue("skey").jsonPrimitive.content
                         spacesEnsured += tier
                         respond("""{"uri":"at://$did/space/${Nsid.SPACE_ATHLETE}/$tier"}""", headers = json)

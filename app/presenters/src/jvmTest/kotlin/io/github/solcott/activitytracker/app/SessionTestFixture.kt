@@ -300,7 +300,7 @@ class SessionTestFixture {
                         )
                     }
 
-                    "/xrpc/com.atproto.simplespace.createSpace" -> {
+                    "/xrpc/com.atproto.space.createSpace" -> {
                         val tier = AtJson.parseToJsonElement(body(request)).jsonObject.getValue("skey").jsonPrimitive.content
                         respond("""{"uri":"${space(tier)}"}""", headers = json)
                     }

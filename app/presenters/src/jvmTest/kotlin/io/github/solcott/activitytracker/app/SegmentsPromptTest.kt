@@ -72,7 +72,7 @@ class SegmentsPromptTest {
                                {"id":"#activitytracker_space","type":"AtprotoSpaceService","serviceEndpoint":"http://appview.test"}]}""",
                             headers = json,
                         )
-                    "/xrpc/com.atproto.simplespace.createSpace" ->
+                    "/xrpc/com.atproto.space.createSpace" ->
                         respond("""{"uri":"at://$did/space/${Nsid.SPACE_ATHLETE}/self"}""", headers = json)
                     "/xrpc/com.atproto.space.getRecord" -> {
                         val value = prefs

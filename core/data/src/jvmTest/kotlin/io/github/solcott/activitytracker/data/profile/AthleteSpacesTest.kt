@@ -27,12 +27,12 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-/** Alice's PDS answering `createSpace`/`getSpace`/`updateSpace`, with the space's current read policy in [readPolicy]. */
+/** Alice's PDS answering `createSpace`/`getSpace`/`updateSpace`, with the space's current policy, as JSON, in [storedPolicy]. */
 class AthleteSpacesTest {
     private val alice = Did("did:plc:alice")
     private val current = "did:web:appview.test#activitytracker_space"
     private var exists = false
-    private var readPolicy = current
+    private var storedPolicy = managed(current)
     private var failCreate = false
 
     /** The `value` of the tier's `actor.privateDetails` record that `space.getRecord` returns. */
@@ -57,21 +57,14 @@ class AthleteSpacesTest {
                 val skey = body?.get("skey")?.jsonPrimitive?.content ?: AthleteSpace.MUTUALS
                 val space = "at://${alice.value}/space/app.activitytracker.space.athlete/$skey"
                 when (method) {
-                    "com.atproto.simplespace.createSpace" ->
+                    "com.atproto.space.createSpace" ->
                         when {
                             failCreate -> respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
                             exists -> respond("""{"error":"SpaceAlreadyExists"}""", HttpStatusCode.BadRequest, json)
                             else -> respond("""{"uri":"$space"}""", headers = json).also { exists = true }
                         }
-                    "com.atproto.simplespace.getSpace" ->
-                        respond(
-                            """{"uri":"$space",
-                               "readPolicy":{"${'$'}type":"com.atproto.simplespace.defs#managingAppPolicy","managingApp":"$readPolicy"},
-                               "writePolicy":{"${'$'}type":"com.atproto.simplespace.defs#memberListPolicy"},
-                               "appAccess":{"${'$'}type":"com.atproto.simplespace.defs#open"}}""",
-                            headers = json,
-                        )
-                    "com.atproto.simplespace.updateSpace" -> respond("{}", headers = json)
+                    "com.atproto.space.getSpace" -> respond("""{"uri":"$space","policy":$storedPolicy}""", headers = json)
+                    "com.atproto.space.updateSpace" -> respond("{}", headers = json)
                     "com.atproto.space.putRecord" -> respond("""{"uri":"$space/x","cid":"bafyrec"}""", headers = json)
                     "com.atproto.space.deleteRecord" -> respond("{}", headers = json)
                     "com.atproto.space.listRecords" -> {
@@ -108,33 +101,58 @@ class AthleteSpacesTest {
     }
 
     @Test
-    fun createsTheTierSpaceWithTheAppViewReadingAndOnlyTheAthleteWriting() = runTest {
+    fun createsTheTierSpaceManagedByTheAppView() = runTest {
         val uri = spaces().ensure(AthleteSpace.MUTUALS)
 
         assertEquals("at://did:plc:alice/space/app.activitytracker.space.athlete/mutuals", uri.value)
         val (method, body) = calls.single()
-        assertEquals("com.atproto.simplespace.createSpace", method)
-        assertEquals(current, body!!["readPolicy"]!!.jsonObject["managingApp"]?.jsonPrimitive?.content)
-        assertEquals("com.atproto.simplespace.defs#memberListPolicy", body["writePolicy"]!!.jsonObject["\$type"]?.jsonPrimitive?.content)
-        assertEquals("com.atproto.simplespace.defs#open", body["appAccess"]!!.jsonObject["\$type"]?.jsonPrimitive?.content)
+        assertEquals("com.atproto.space.createSpace", method)
+        val policy = body!!["policy"]!!.jsonObject
+        assertEquals("com.atproto.managedspace.policy", policy["\$type"]?.jsonPrimitive?.content)
+        assertEquals(current, policy["managingApp"]?.jsonPrimitive?.content)
+        assertEquals("false", policy["publishPolicy"]?.jsonPrimitive?.content)
     }
 
     @Test
-    fun anExistingSpaceWithTheCurrentManagingAppIsLeftAlone() = runTest {
+    fun anExistingSpaceWithTheCurrentPolicyIsLeftAlone() = runTest {
         exists = true
         spaces().ensure(AthleteSpace.MUTUALS)
-        assertEquals(listOf("com.atproto.simplespace.createSpace", "com.atproto.simplespace.getSpace"), calls.map { it.first })
+        assertEquals(listOf("com.atproto.space.createSpace", "com.atproto.space.getSpace"), calls.map { it.first })
+    }
+
+    @Test
+    fun aPolicyWithItsDefaultsLeftOutIsTheCurrentOne() = runTest {
+        exists = true
+        storedPolicy = """{"${'$'}type":"com.atproto.managedspace.policy","managingApp":"$current"}"""
+        spaces().ensure(AthleteSpace.MUTUALS)
+        assertEquals(listOf("com.atproto.space.createSpace", "com.atproto.space.getSpace"), calls.map { it.first })
     }
 
     @Test
     fun aStaleManagingAppIsReplaced() = runTest {
         exists = true
-        readPolicy = "did:web:old-tunnel.test#activitytracker_space"
+        storedPolicy = managed("did:web:old-tunnel.test#activitytracker_space")
         spaces().ensure(AthleteSpace.MUTUALS)
 
-        val update = calls.single { it.first == "com.atproto.simplespace.updateSpace" }.second!!
-        assertEquals(current, update["readPolicy"]!!.jsonObject["managingApp"]?.jsonPrimitive?.content)
-        assertEquals(setOf("space", "readPolicy"), update.keys)
+        assertReplaced()
+    }
+
+    @Test
+    fun anotherPolicyTypeIsReplaced() = runTest {
+        exists = true
+        storedPolicy = """{"${'$'}type":"com.atproto.memberspace.policy","publicRead":false,"publicWrite":false}"""
+        spaces().ensure(AthleteSpace.MUTUALS)
+
+        assertReplaced()
+    }
+
+    @Test
+    fun aPublishedPolicyIsReplaced() = runTest {
+        exists = true
+        storedPolicy = """{"${'$'}type":"com.atproto.managedspace.policy","managingApp":"$current","publishPolicy":true}"""
+        spaces().ensure(AthleteSpace.MUTUALS)
+
+        assertReplaced()
     }
 
     @Test
@@ -142,24 +160,34 @@ class AthleteSpacesTest {
         val uri = spaces().ensure(AthleteSpace.INTERACTIONS)
 
         assertEquals("at://did:plc:alice/space/app.activitytracker.space.athlete/interactions", uri.value)
-        val body = calls.single { it.first == "com.atproto.simplespace.createSpace" }.second!!
+        val body = calls.single { it.first == "com.atproto.space.createSpace" }.second!!
         assertEquals(AthleteSpace.INTERACTIONS, body["skey"]?.jsonPrimitive?.content)
-        assertEquals(current, body["readPolicy"]!!.jsonObject["managingApp"]?.jsonPrimitive?.content)
-        assertEquals("com.atproto.simplespace.defs#memberListPolicy", body["writePolicy"]!!.jsonObject["\$type"]?.jsonPrimitive?.content)
+        assertEquals(current, body["policy"]!!.jsonObject["managingApp"]?.jsonPrimitive?.content)
     }
 
     @Test
     fun anExistingInteractionsSpaceIsLeftAloneOrRepointed() = runTest {
         exists = true
         spaces().ensure(AthleteSpace.INTERACTIONS)
-        assertEquals(listOf("com.atproto.simplespace.createSpace", "com.atproto.simplespace.getSpace"), calls.map { it.first })
+        assertEquals(listOf("com.atproto.space.createSpace", "com.atproto.space.getSpace"), calls.map { it.first })
 
         calls.clear()
-        readPolicy = "did:web:old-tunnel.test#activitytracker_space"
+        storedPolicy = managed("did:web:old-tunnel.test#activitytracker_space")
         spaces().ensure(AthleteSpace.INTERACTIONS)
-        val update = calls.single { it.first == "com.atproto.simplespace.updateSpace" }.second!!
-        assertEquals(current, update["readPolicy"]!!.jsonObject["managingApp"]?.jsonPrimitive?.content)
+        assertReplaced()
     }
+
+    /** The one `updateSpace` sent the whole current policy. */
+    private fun assertReplaced() {
+        val update = calls.single { it.first == "com.atproto.space.updateSpace" }.second!!
+        assertEquals(setOf("space", "policy"), update.keys)
+        val policy = update["policy"]!!.jsonObject
+        assertEquals("com.atproto.managedspace.policy", policy["\$type"]?.jsonPrimitive?.content)
+        assertEquals(current, policy["managingApp"]?.jsonPrimitive?.content)
+        assertEquals("false", policy["publishPolicy"]?.jsonPrimitive?.content)
+    }
+
+    private fun managed(app: String) = """{"${'$'}type":"com.atproto.managedspace.policy","managingApp":"$app","publishPolicy":false}"""
 
     @Test fun theInteractionsSpaceIsNotATier() = runTest { assertEquals(false, AthleteSpace.INTERACTIONS in AthleteSpaces.TIERS) }
 
@@ -168,7 +196,7 @@ class AthleteSpacesTest {
         val spaces = spaces()
         List(3) { async { spaces.ensure(AthleteSpace.MUTUALS) } }.awaitAll()
         spaces.ensure(AthleteSpace.MUTUALS)
-        assertEquals(1, calls.count { it.first == "com.atproto.simplespace.createSpace" })
+        assertEquals(1, calls.count { it.first == "com.atproto.space.createSpace" })
     }
 
     @Test
@@ -178,14 +206,14 @@ class AthleteSpacesTest {
         assertFailsWith<XrpcException> { spaces.ensure(AthleteSpace.MUTUALS) }
         failCreate = false
         spaces.ensure(AthleteSpace.MUTUALS)
-        assertEquals(2, calls.count { it.first == "com.atproto.simplespace.createSpace" })
+        assertEquals(2, calls.count { it.first == "com.atproto.space.createSpace" })
     }
 
     @Test
     fun aDeclineGoesInTheSelfSpaceCreatingItFirst() = runTest {
         spaces().putDecline(Did("did:plc:bob"), Instant.parse("2026-10-13T09:00:00Z"))
 
-        assertEquals(listOf("com.atproto.simplespace.createSpace", "com.atproto.space.putRecord"), calls.map { it.first })
+        assertEquals(listOf("com.atproto.space.createSpace", "com.atproto.space.putRecord"), calls.map { it.first })
         assertEquals(AthleteSpace.SELF, calls[0].second!!["skey"]?.jsonPrimitive?.content)
         val put = calls[1].second!!
         assertEquals("at://did:plc:alice/space/app.activitytracker.space.athlete/self", put["space"]?.jsonPrimitive?.content)

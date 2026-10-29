@@ -11,7 +11,7 @@ import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
-import io.github.solcott.activitytracker.lexicon.atproto.SimpleSpace.CheckUserAccess
+import io.github.solcott.activitytracker.lexicon.atproto.ManagedSpace.CheckUserAccess
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
@@ -386,6 +386,21 @@ class SpaceAccessTest {
         assertEquals(HttpStatusCode.Unauthorized, client.check(bob, aud = "$service#activity_appview").status)
         assertEquals(HttpStatusCode.Unauthorized, client.check(bob, lxm = null).status)
         assertEquals(HttpStatusCode.Unauthorized, client.check(bob, lxm = GetProfile.method.nsid).status)
+        assertEquals(HttpStatusCode.Unauthorized, client.check(bob, lxm = "com.atproto.simplespace.checkUserAccess").status)
+    }
+
+    @Test
+    fun theOldMethodNameIsNotServed() = testApplication {
+        start()
+        val old = "com.atproto.simplespace.checkUserAccess"
+        val response =
+            client.get("/xrpc/$old") {
+                parameter("space", space(AthleteSpace.MUTUALS))
+                parameter("user", bob)
+                parameter("access", CheckUserAccess.READ)
+                header(HttpHeaders.Authorization, "Bearer ${keys.getValue(alice).serviceJwt(alice, config.managingAppService, old)}")
+            }
+        assertEquals(HttpStatusCode.NotFound, response.status)
     }
 
     @Test

@@ -17,9 +17,9 @@ import kotlinx.serialization.json.JsonEncoder
 import kotlinx.serialization.json.JsonObject
 
 /*
- * atproto Spaces (permissioned repos), mirrored from the `com.atproto.space.*` and `com.atproto.simplespace.*` lexicons in the PDS image
- * pinned in docker/pds.Dockerfile. The protocol is an alpha that changes weekly, so every Spaces wire type lives in this file; bump it
- * together with the image.
+ * atproto Spaces (permissioned repos), mirrored from the `com.atproto.space.*` lexicons and the `personalspace`, `memberspace` and
+ * `managedspace` policies in the PDS image pinned in docker/pds.Dockerfile. The protocol is an alpha that changes weekly, so every
+ * Spaces wire type lives in this file; bump it together with the image.
  */
 
 /** `space-ref`: `at://{authority}/space/{type}/{skey}`, one space of a type under its authority. */
@@ -65,7 +65,10 @@ value class SpaceUri(val value: String) {
  * Error names the Spaces methods and their auth layer return, as they appear in [io.github.solcott.activitytracker.lexicon.XrpcErrorBody].
  */
 object SpaceErrors {
-    /** The authority refused this user. */
+    /**
+     * The authority refused this user. The reference authority answers [SPACE_NOT_FOUND] instead, so a refusal discloses nothing; other
+     * authorities may still send this.
+     */
     const val USER_NOT_AUTHORIZED = "UserNotAuthorized"
 
     /** The authority refused this app. */
@@ -99,6 +102,7 @@ object SpaceErrors {
     const val SCOPE_MISSING = "ScopeMissingError"
 
     const val SPACE_ALREADY_EXISTS = "SpaceAlreadyExists"
+    /** No such space, or (from `getSpaceCredential`) the authority refused the user: the two look the same on purpose. */
     const val SPACE_NOT_FOUND = "SpaceNotFound"
 
     /** From `getSpaceCredential`: the space was deleted, and a syncer should drop it. */
@@ -109,81 +113,74 @@ object SpaceErrors {
     /** `updateSpace`: the caller isn't the space's authority. */
     const val NOT_SPACE_OWNER = "NotSpaceOwner"
 
-    /** `updateSpace`: the host doesn't implement a requested policy. */
+    /** `createSpace`/`updateSpace`: the host doesn't implement the requested policy. */
     const val UNSUPPORTED_POLICY = "UnsupportedPolicy"
 
-    /** `updateSpace`: the host doesn't implement the requested app access. */
-    const val UNSUPPORTED_APP_ACCESS = "UnsupportedAppAccess"
+    /** `memberspace.*` methods on a space governed by another policy. */
+    const val POLICY_MISMATCH = "PolicyMismatch"
 
     /** Errors meaning the viewer may not read the space. */
     val denials = setOf(USER_NOT_AUTHORIZED, APP_NOT_AUTHORIZED, NOT_AUTHORIZED)
 }
 
 /**
- * A member of `com.atproto.simplespace.createSpace#readPolicy`/`#writePolicy`: how the authority decides which users may read a space or
- * write to it. An open union, so a policy a newer PDS reports decodes as [Unknown].
+ * The policy governing a space, the `policy` union of `com.atproto.space.createSpace`/`getSpace`/`updateSpace`: its `$type` picks the
+ * policy and its fields configure it. An open union, so a policy a newer PDS reports decodes as [Unknown]. Fields default as in the
+ * lexicons, so a policy the PDS returns with its defaults filled in equals the one built here.
  */
 @Serializable(with = SpacePolicySerializer::class)
 sealed interface SpacePolicy {
-    /** `#publicPolicy`: any signed-in user. */
+    /** `com.atproto.personalspace.policy`: only the authority reads, and no other writers are tracked. */
     @Serializable
-    data class Public(@SerialName("\$type") val type: String = TYPE) : SpacePolicy {
+    data class Personal(@SerialName("\$type") val type: String = TYPE) : SpacePolicy {
         companion object {
-            const val TYPE = "com.atproto.simplespace.defs#publicPolicy"
+            const val TYPE = "com.atproto.personalspace.policy"
         }
     }
 
-    /** `#memberListPolicy`: users the authority added with `simplespace.putMember`. */
+    /**
+     * `com.atproto.memberspace.policy`: members the authority adds with `memberspace.putMember`, or anyone with [publicRead]/[publicWrite].
+     */
     @Serializable
-    data class MemberList(@SerialName("\$type") val type: String = TYPE) : SpacePolicy {
-        companion object {
-            const val TYPE = "com.atproto.simplespace.defs#memberListPolicy"
-        }
-    }
-
-    /** `#managingAppPolicy`: the PDS asks [managingApp] through `simplespace.checkUserAccess`. */
-    @Serializable
-    data class ManagingApp(
-        /** Service identifier of the managing app: a DID plus an optional service fragment (`did:web:host#activitytracker_space`). */
-        val managingApp: String,
+    data class Member(
+        val publicRead: Boolean = false,
+        val publicWrite: Boolean = false,
+        /** Attested OAuth client ids that may read; null admits any app without an attestation. Doesn't apply to writes. */
+        val allowedApps: List<String>? = null,
+        /** Publishes the policy as a `com.atproto.space.policy` record in the authority's repo in the space. */
+        val publishPolicy: Boolean = false,
+        /** Publishes the member list as `com.atproto.memberspace.member` records in the authority's repo in the space. */
+        val publishMembers: Boolean = false,
         @SerialName("\$type") val type: String = TYPE,
     ) : SpacePolicy {
         companion object {
-            const val TYPE = "com.atproto.simplespace.defs#managingAppPolicy"
+            const val TYPE = "com.atproto.memberspace.policy"
+        }
+    }
+
+    /** `com.atproto.managedspace.policy`: the PDS asks [managingApp] about every read and write through `managedspace.checkUserAccess`. */
+    @Serializable
+    data class Managed(
+        /** Service identifier of the managing app: a DID plus an optional service fragment (`did:web:host#activitytracker_space`). */
+        val managingApp: String,
+        /** Publishes the policy as a `com.atproto.space.policy` record in the authority's repo in the space. */
+        val publishPolicy: Boolean = false,
+        @SerialName("\$type") val type: String = TYPE,
+    ) : SpacePolicy {
+        companion object {
+            const val TYPE = "com.atproto.managedspace.policy"
         }
     }
 
     data class Unknown(val json: JsonObject) : SpacePolicy
 }
 
-/** A member of `com.atproto.simplespace.createSpace#appAccess`: which apps may use a space. An open union. */
-@Serializable(with = SpaceAppAccessSerializer::class)
-sealed interface SpaceAppAccess {
-    /** `#open`: any app, no client attestation. Our native clients are public clients, so this is the only one they can use. */
-    @Serializable
-    data class Open(@SerialName("\$type") val type: String = TYPE) : SpaceAppAccess {
-        companion object {
-            const val TYPE = "com.atproto.simplespace.defs#open"
-        }
-    }
-
-    /** `#allowList`: only the attested OAuth client IDs in [allowed]. */
-    @Serializable
-    data class AllowList(val allowed: List<String>, @SerialName("\$type") val type: String = TYPE) : SpaceAppAccess {
-        companion object {
-            const val TYPE = "com.atproto.simplespace.defs#allowList"
-        }
-    }
-
-    data class Unknown(val json: JsonObject) : SpaceAppAccess
-}
-
 internal object SpacePolicySerializer : OpenUnionSerializer<SpacePolicy>("SpacePolicy") {
     override fun memberFor(type: String?) =
         when (type) {
-            SpacePolicy.Public.TYPE -> SpacePolicy.Public.serializer()
-            SpacePolicy.MemberList.TYPE -> SpacePolicy.MemberList.serializer()
-            SpacePolicy.ManagingApp.TYPE -> SpacePolicy.ManagingApp.serializer()
+            SpacePolicy.Personal.TYPE -> SpacePolicy.Personal.serializer()
+            SpacePolicy.Member.TYPE -> SpacePolicy.Member.serializer()
+            SpacePolicy.Managed.TYPE -> SpacePolicy.Managed.serializer()
             else -> null
         }
 
@@ -191,33 +188,50 @@ internal object SpacePolicySerializer : OpenUnionSerializer<SpacePolicy>("SpaceP
 
     override fun encode(encoder: JsonEncoder, value: SpacePolicy) =
         when (value) {
-            is SpacePolicy.Public -> encoder.encodeSerializableValue(SpacePolicy.Public.serializer(), value)
-            is SpacePolicy.MemberList -> encoder.encodeSerializableValue(SpacePolicy.MemberList.serializer(), value)
-            is SpacePolicy.ManagingApp -> encoder.encodeSerializableValue(SpacePolicy.ManagingApp.serializer(), value)
+            is SpacePolicy.Personal -> encoder.encodeSerializableValue(SpacePolicy.Personal.serializer(), value)
+            is SpacePolicy.Member -> encoder.encodeSerializableValue(SpacePolicy.Member.serializer(), value)
+            is SpacePolicy.Managed -> encoder.encodeSerializableValue(SpacePolicy.Managed.serializer(), value)
             is SpacePolicy.Unknown -> encoder.encodeJsonElement(value.json)
         }
 }
 
-internal object SpaceAppAccessSerializer : OpenUnionSerializer<SpaceAppAccess>("SpaceAppAccess") {
-    override fun memberFor(type: String?) =
-        when (type) {
-            SpaceAppAccess.Open.TYPE -> SpaceAppAccess.Open.serializer()
-            SpaceAppAccess.AllowList.TYPE -> SpaceAppAccess.AllowList.serializer()
-            else -> null
-        }
-
-    override fun unknown(json: JsonObject) = SpaceAppAccess.Unknown(json)
-
-    override fun encode(encoder: JsonEncoder, value: SpaceAppAccess) =
-        when (value) {
-            is SpaceAppAccess.Open -> encoder.encodeSerializableValue(SpaceAppAccess.Open.serializer(), value)
-            is SpaceAppAccess.AllowList -> encoder.encodeSerializableValue(SpaceAppAccess.AllowList.serializer(), value)
-            is SpaceAppAccess.Unknown -> encoder.encodeJsonElement(value.json)
-        }
-}
-
-/** `com.atproto.space.*`: credentials and reads and writes of space repos. */
+/** `com.atproto.space.*`: the space lifecycle, credentials, and reads and writes of space repos. */
 object Space {
+    /** On the owner's PDS: creates a space governed by [Input.policy], anchored on the signed-in account. */
+    object CreateSpace {
+        @Serializable
+        data class Input(
+            /** The space type's NSID. */
+            val spaceType: String,
+            /** Omitted gets a TID. */
+            val skey: String? = null,
+            val policy: SpacePolicy,
+        )
+
+        @Serializable data class Output(val uri: SpaceUri)
+
+        val method = XrpcProcedure("com.atproto.space.createSpace", Input.serializer(), Output.serializer())
+    }
+
+    /** On the owner's PDS, for the owner only (a space credential isn't accepted): the space and its policy. */
+    object GetSpace {
+        @Serializable data class Params(val space: SpaceUri)
+
+        @Serializable data class Output(val uri: SpaceUri, val policy: SpacePolicy)
+
+        val method = XrpcQuery("com.atproto.space.getSpace", Params.serializer(), Output.serializer())
+    }
+
+    /**
+     * Replaces a space's policy wholesale; only the authority may. A policy of another `$type` migrates the space and discards the previous
+     * policy's state, such as a member list.
+     */
+    object UpdateSpace {
+        @Serializable data class Input(val space: SpaceUri, val policy: SpacePolicy)
+
+        val method = XrpcProcedure("com.atproto.space.updateSpace", Input.serializer(), NoOutput.serializer())
+    }
+
     /** On the viewer's own PDS: a 60 s, single-use token naming the viewer, to exchange at the space's authority. */
     object GetDelegationToken {
         @Serializable data class Params(val space: SpaceUri)
@@ -388,52 +402,11 @@ object Space {
     }
 }
 
-/** `com.atproto.simplespace.*`: the PDS's built-in space authority, on the owner's PDS. */
-object SimpleSpace {
-    object CreateSpace {
-        @Serializable
-        data class Input(
-            /** The space type's NSID. */
-            val spaceType: String,
-            /** Omitted gets a TID. */
-            val skey: String? = null,
-            val readPolicy: SpacePolicy,
-            val writePolicy: SpacePolicy,
-            val appAccess: SpaceAppAccess,
-        )
-
-        @Serializable data class Output(val uri: SpaceUri)
-
-        val method = XrpcProcedure("com.atproto.simplespace.createSpace", Input.serializer(), Output.serializer())
-    }
-
-    object GetSpace {
-        @Serializable data class Params(val space: SpaceUri)
-
-        @Serializable
-        data class Output(val uri: SpaceUri, val readPolicy: SpacePolicy, val writePolicy: SpacePolicy, val appAccess: SpaceAppAccess)
-
-        val method = XrpcQuery("com.atproto.simplespace.getSpace", Params.serializer(), Output.serializer())
-    }
-
+/** `com.atproto.managedspace.*`: the callout to the managing app of a space governed by [SpacePolicy.Managed]. */
+object ManagedSpace {
     /**
-     * Changes a space's configuration; only the authority may. Each policy given replaces the current one wholesale, an omitted one stays.
-     */
-    object UpdateSpace {
-        @Serializable
-        data class Input(
-            val space: SpaceUri,
-            val readPolicy: SpacePolicy? = null,
-            val writePolicy: SpacePolicy? = null,
-            val appAccess: SpaceAppAccess? = null,
-        )
-
-        val method = XrpcProcedure("com.atproto.simplespace.updateSpace", Input.serializer(), NoOutput.serializer())
-    }
-
-    /**
-     * Served by the managing app, not the PDS: the space authority's PDS asks whether [Params.user] may read or write a space whose policy
-     * for that access is `#managingAppPolicy`. Authenticated with a service-auth token from the authority, addressed to the managing app.
+     * Served by the managing app, not the PDS: the space authority's PDS asks whether [Params.user] may read or write the space.
+     * Authenticated with a service-auth token from the authority, addressed to the managing app, whose `lxm` is this method.
      */
     object CheckUserAccess {
         @Serializable
@@ -451,7 +424,7 @@ object SimpleSpace {
         const val READ = "read"
         const val WRITE = "write"
 
-        val method = XrpcQuery("com.atproto.simplespace.checkUserAccess", Params.serializer(), Output.serializer())
+        val method = XrpcQuery("com.atproto.managedspace.checkUserAccess", Params.serializer(), Output.serializer())
     }
 }
 

@@ -4,13 +4,15 @@ import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
-import io.github.solcott.activitytracker.lexicon.atproto.SimpleSpace.CheckUserAccess
+import io.github.solcott.activitytracker.lexicon.atproto.ManagedSpace.CheckUserAccess
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.slf4j.LoggerFactory
 
 /**
- * Answers `checkUserAccess`, the managing-app callout: an athlete's PDS asks whether a user may read or write one of the athlete's spaces.
- * Each `app.activitytracker.space.athlete` space is one visibility tier, named by its key. Every decision is an answer, never an error, and
+ * Answers `com.atproto.managedspace.checkUserAccess`, the managing-app callout: an athlete's PDS asks whether a user may read or write one
+ * of the athlete's spaces, each governed by a `managedspace` policy naming this AppView. The PDS asks about writes as well as reads (a
+ * write check carries no `clientId`), and denies whenever this AppView can't be reached or answers an error. Each
+ * `app.activitytracker.space.athlete` space is one visibility tier, named by its key. Every decision is an answer, never an error, and
  * anything this AppView doesn't recognise is denied. The PDS admits the authority itself without asking. The AppView's own DID ([self]) may
  * read every tier, so it can sync the activities in them; it serves each one only to the viewers its tier admits. It alone may also read
  * the athlete's [AthleteSpace.INTERACTIONS] space, whose likes it shows only to viewers who may see the liked activity. While the athlete's

@@ -11,7 +11,6 @@ import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.FollowDeclineRecord
 import io.github.solcott.activitytracker.lexicon.app.PrivateDetailsRecord
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
-import io.github.solcott.activitytracker.lexicon.atproto.SpaceAppAccess
 import io.github.solcott.activitytracker.lexicon.atproto.SpacePolicy
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import kotlin.time.Instant
@@ -111,12 +110,16 @@ class AthleteSpaces(
         }
     }
 
+    /**
+     * Creates [tier]'s space with the AppView as its managing app, or, when it exists, puts that policy back if it differs in any way (an
+     * old tunnel's managing app, another policy type, published records), since `updateSpace` replaces the whole policy.
+     */
     private suspend fun create(tier: String): SpaceUri {
-        val readPolicy = SpacePolicy.ManagingApp(managingApp())
-        val result = spaces.createSpace(Nsid.SPACE_ATHLETE, tier, readPolicy, SpacePolicy.MemberList(), SpaceAppAccess.Open())
+        val policy = SpacePolicy.Managed(managingApp())
+        val result = spaces.createSpace(Nsid.SPACE_ATHLETE, tier, policy)
         if (result is CreateSpaceResult.AlreadyExists) {
             val current = spaces.getSpace(result.uri)
-            if (current?.readPolicy != readPolicy) spaces.updateSpace(result.uri, readPolicy = readPolicy)
+            if (current?.policy != policy) spaces.updateSpace(result.uri, policy)
         }
         return result.uri
     }

@@ -225,7 +225,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
                         blobs[request.url.parameters["cid"]]?.let {
                             respond(it, headers = headersOf("Content-Type", "application/gpx+xml"))
                         } ?: error("BlobNotFound")
-                    path == "/xrpc/com.atproto.simplespace.createSpace" -> {
+                    path == "/xrpc/com.atproto.space.createSpace" -> {
                         val tier = body(request).getValue("skey").jsonPrimitive.content
                         created += tier
                         json("""{"uri":"at://$did/space/${Nsid.SPACE_ATHLETE}/$tier"}""")

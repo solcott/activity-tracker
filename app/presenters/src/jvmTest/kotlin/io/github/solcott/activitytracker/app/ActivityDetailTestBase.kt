@@ -342,7 +342,7 @@ open class ActivityDetailTestBase {
                         )
                     }
 
-                    "/xrpc/com.atproto.simplespace.createSpace" -> {
+                    "/xrpc/com.atproto.space.createSpace" -> {
                         respond("""{"uri":"at://did:plc:alice/space/${Nsid.SPACE_ATHLETE}/self"}""", headers = json)
                     }
 

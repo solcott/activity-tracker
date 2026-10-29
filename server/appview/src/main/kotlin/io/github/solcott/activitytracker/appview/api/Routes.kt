@@ -46,7 +46,7 @@ import io.github.solcott.activitytracker.lexicon.app.NotifySpace
 import io.github.solcott.activitytracker.lexicon.app.PutSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.SearchActors
 import io.github.solcott.activitytracker.lexicon.app.SearchSegments
-import io.github.solcott.activitytracker.lexicon.atproto.SimpleSpace
+import io.github.solcott.activitytracker.lexicon.atproto.ManagedSpace
 import io.github.solcott.activitytracker.lexicon.atproto.Space
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.ktor.http.ContentType
@@ -96,7 +96,7 @@ fun Route.xrpcRoutes(
     xrpcQuery(GetBlocks.method, verifier) { params, viewer -> graph.blocks(requireViewer(viewer), params) }
     xrpcQuery(GetMutes.method, verifier) { params, viewer -> graph.mutes(requireViewer(viewer), params) }
     // The managing-app callout from an athlete's PDS, whose token is addressed to the managing app rather than the AppView.
-    xrpcQuery(SimpleSpace.CheckUserAccess.method, managingAppVerifier) { params, issuer ->
+    xrpcQuery(ManagedSpace.CheckUserAccess.method, managingAppVerifier) { params, issuer ->
         spaceAccess.check(requireViewer(issuer), params)
     }
 }

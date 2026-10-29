@@ -5,9 +5,7 @@ import io.github.solcott.activitytracker.atproto.xrpc.XrpcClient
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
-import io.github.solcott.activitytracker.lexicon.atproto.SimpleSpace
 import io.github.solcott.activitytracker.lexicon.atproto.Space
-import io.github.solcott.activitytracker.lexicon.atproto.SpaceAppAccess
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.activitytracker.lexicon.atproto.SpacePolicy
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
@@ -96,39 +94,30 @@ class SpaceClient(
     suspend fun getBlob(space: SpaceUri, repo: Did, cid: Cid): SpaceRead<XrpcBytes> =
         read(space, repo) { it.queryBytes(Space.GetBlob.method, Space.GetBlob.Params(space, repo, cid)) }
 
-    /** Creates one of the athlete's spaces, or reports that it already exists, so callers can create spaces lazily. */
-    suspend fun createSpace(
-        type: String,
-        skey: String,
-        readPolicy: SpacePolicy,
-        writePolicy: SpacePolicy,
-        appAccess: SpaceAppAccess = SpaceAppAccess.Open(),
-    ): CreateSpaceResult =
+    /** Creates one of the athlete's spaces governed by [policy], or reports that it already exists, so callers can create spaces lazily. */
+    suspend fun createSpace(type: String, skey: String, policy: SpacePolicy): CreateSpaceResult =
         try {
-            val input = SimpleSpace.CreateSpace.Input(type, skey, readPolicy, writePolicy, appAccess)
-            CreateSpaceResult.Created(pds.procedure(SimpleSpace.CreateSpace.method, input).uri)
+            CreateSpaceResult.Created(pds.procedure(Space.CreateSpace.method, Space.CreateSpace.Input(type, skey, policy)).uri)
         } catch (e: XrpcException) {
             if (e.error != SpaceErrors.SPACE_ALREADY_EXISTS) throw e
             CreateSpaceResult.AlreadyExists(SpaceUri.of(did, type, skey))
         }
 
-    /** The athlete's space at [space] and its policies, or null if there is none. */
-    suspend fun getSpace(space: SpaceUri): SimpleSpace.GetSpace.Output? =
+    /** The athlete's space at [space] and its policy, or null if there is none. */
+    suspend fun getSpace(space: SpaceUri): Space.GetSpace.Output? =
         try {
-            pds.query(SimpleSpace.GetSpace.method, SimpleSpace.GetSpace.Params(space))
+            pds.query(Space.GetSpace.method, Space.GetSpace.Params(space))
         } catch (e: XrpcException) {
             if (e.error != SpaceErrors.SPACE_NOT_FOUND) throw e
             null
         }
 
-    /** Changes the athlete's space at [space]: each policy given replaces the current one, an omitted one stays. */
-    suspend fun updateSpace(
-        space: SpaceUri,
-        readPolicy: SpacePolicy? = null,
-        writePolicy: SpacePolicy? = null,
-        appAccess: SpaceAppAccess? = null,
-    ) {
-        pds.procedure(SimpleSpace.UpdateSpace.method, SimpleSpace.UpdateSpace.Input(space, readPolicy, writePolicy, appAccess))
+    /**
+     * Replaces the policy of the athlete's space at [space] with [policy], wholesale: fields left out take their defaults. A policy of
+     * another type discards the old one's state, such as a member list.
+     */
+    suspend fun updateSpace(space: SpaceUri, policy: SpacePolicy) {
+        pds.procedure(Space.UpdateSpace.method, Space.UpdateSpace.Input(space, policy))
     }
 
     /** Writes [record] to the athlete's repo in [space]. Idempotent: the same put twice leaves one record. */
@@ -156,6 +145,7 @@ class SpaceClient(
         }
 
     private companion object {
+        /** `SpaceNotFound` is also how the reference authority refuses a user, so a refusal there reads as not found, as it means to. */
         val NOT_FOUND = setOf(SpaceErrors.RECORD_NOT_FOUND, SpaceErrors.BLOB_NOT_FOUND, SpaceErrors.SPACE_NOT_FOUND, "RepoNotFound")
     }
 }

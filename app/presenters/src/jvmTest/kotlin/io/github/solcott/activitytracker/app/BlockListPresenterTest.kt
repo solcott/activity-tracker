@@ -82,7 +82,7 @@ class BlockListPresenterTest {
                                {"id":"#activitytracker_space","type":"AtprotoSpaceService","serviceEndpoint":"http://appview.test"}]}""",
                             headers = json,
                         )
-                    "/xrpc/com.atproto.simplespace.createSpace" ->
+                    "/xrpc/com.atproto.space.createSpace" ->
                         respond("""{"uri":"at://$alice/space/${Nsid.SPACE_ATHLETE}/interactions"}""", headers = json)
                     "/xrpc/com.atproto.space.deleteRecord" -> {
                         val input = AtJson.parseToJsonElement((request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString())

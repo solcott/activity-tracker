@@ -147,6 +147,15 @@ class SpaceClientTest {
     }
 
     @Test
+    fun refusalAnsweredAsSpaceNotFoundIsNotFound() = runTest {
+        f.network.on("alicepds.test/xrpc/com.atproto.space.getSpaceCredential") {
+            respondJson("""{"error":"SpaceNotFound","message":"space not found"}""", HttpStatusCode.BadRequest)
+        }
+        assertEquals(SpaceRead.NotFound, viewer().getRecord(f.aliceSpace, f.alice, collection, "self"))
+        assertTrue(f.requestsTo(getRecord).isEmpty())
+    }
+
+    @Test
     fun undisclosedRefusalIsNoAccess() = runTest {
         f.network.on("alicepds.test/xrpc/com.atproto.space.getSpaceCredential") {
             respondJson("""{"error":"NotAuthorized","message":"no"}""", HttpStatusCode.BadRequest)
@@ -217,58 +226,65 @@ class SpaceClientTest {
     }
 
     @Test
-    fun createSpaceSendsPoliciesAndOpenAppAccess() = runTest {
-        f.network.on("alicepds.test/xrpc/com.atproto.simplespace.createSpace") { respondJson("""{"uri":"${f.aliceSpace.value}"}""") }
-        val result =
-            owner()
-                .createSpace(
-                    Nsid.SPACE_ATHLETE,
-                    "mutuals",
-                    SpacePolicy.ManagingApp("did:web:appview.test#activitytracker_space"),
-                    SpacePolicy.ManagingApp("did:web:appview.test#activitytracker_space"),
-                )
+    fun createSpaceSendsThePolicy() = runTest {
+        f.network.on("alicepds.test/xrpc/com.atproto.space.createSpace") { respondJson("""{"uri":"${f.aliceSpace.value}"}""") }
+        val result = owner().createSpace(Nsid.SPACE_ATHLETE, "mutuals", SpacePolicy.Managed("did:web:appview.test#activitytracker_space"))
         assertEquals(CreateSpaceResult.Created(f.aliceSpace), result)
-        val body = f.requestsTo("alicepds.test/xrpc/com.atproto.simplespace.createSpace").single().jsonBody()
+        val body = f.requestsTo("alicepds.test/xrpc/com.atproto.space.createSpace").single().jsonBody()
         assertEquals(Nsid.SPACE_ATHLETE, body["spaceType"]?.jsonPrimitive?.content)
         assertEquals("mutuals", body["skey"]?.jsonPrimitive?.content)
-        assertEquals("com.atproto.simplespace.defs#managingAppPolicy", body["readPolicy"]!!.jsonObject["\$type"]?.jsonPrimitive?.content)
-        assertEquals("com.atproto.simplespace.defs#open", body["appAccess"]!!.jsonObject["\$type"]?.jsonPrimitive?.content)
+        val policy = body["policy"]!!.jsonObject
+        assertEquals("com.atproto.managedspace.policy", policy["\$type"]?.jsonPrimitive?.content)
+        assertEquals("did:web:appview.test#activitytracker_space", policy["managingApp"]?.jsonPrimitive?.content)
     }
 
     @Test
     fun createExistingSpaceReportsItExists() = runTest {
-        f.network.on("alicepds.test/xrpc/com.atproto.simplespace.createSpace") {
+        f.network.on("alicepds.test/xrpc/com.atproto.space.createSpace") {
             respondJson("""{"error":"SpaceAlreadyExists","message":"exists"}""", HttpStatusCode.BadRequest)
         }
-        val result = owner().createSpace(Nsid.SPACE_ATHLETE, "mutuals", SpacePolicy.MemberList(), SpacePolicy.MemberList())
+        val result = owner().createSpace(Nsid.SPACE_ATHLETE, "mutuals", SpacePolicy.Member())
         assertEquals(CreateSpaceResult.AlreadyExists(f.aliceSpace), result)
     }
 
     @Test
+    fun getSpaceReturnsThePolicy() = runTest {
+        f.network.on("alicepds.test/xrpc/com.atproto.space.getSpace") {
+            respondJson(
+                """{"uri":"${f.aliceSpace.value}","policy":""" +
+                    """{"${'$'}type":"com.atproto.managedspace.policy","managingApp":"did:web:a.test#x","publishPolicy":false}}"""
+            )
+        }
+        assertEquals(SpacePolicy.Managed("did:web:a.test#x"), owner().getSpace(f.aliceSpace)?.policy)
+    }
+
+    @Test
     fun getSpaceIsNullWhenThereIsNone() = runTest {
-        f.network.on("alicepds.test/xrpc/com.atproto.simplespace.getSpace") {
+        f.network.on("alicepds.test/xrpc/com.atproto.space.getSpace") {
             respondJson("""{"error":"SpaceNotFound","message":"none"}""", HttpStatusCode.BadRequest)
         }
         assertNull(owner().getSpace(f.aliceSpace))
     }
 
     @Test
-    fun updateSpaceSendsOnlyTheGivenPolicy() = runTest {
-        f.network.on("alicepds.test/xrpc/com.atproto.simplespace.updateSpace") { respondJson("{}") }
-        owner().updateSpace(f.aliceSpace, readPolicy = SpacePolicy.ManagingApp("did:web:new.test#activitytracker_space"))
+    fun updateSpaceSendsTheWholePolicy() = runTest {
+        f.network.on("alicepds.test/xrpc/com.atproto.space.updateSpace") { respondJson("{}") }
+        owner().updateSpace(f.aliceSpace, SpacePolicy.Managed("did:web:new.test#activitytracker_space"))
 
-        val body = f.requestsTo("alicepds.test/xrpc/com.atproto.simplespace.updateSpace").single().jsonBody()
-        assertEquals(setOf("space", "readPolicy"), body.keys)
+        val body = f.requestsTo("alicepds.test/xrpc/com.atproto.space.updateSpace").single().jsonBody()
+        assertEquals(setOf("space", "policy"), body.keys)
         assertEquals(f.aliceSpace.value, body["space"]?.jsonPrimitive?.content)
-        assertEquals("did:web:new.test#activitytracker_space", body["readPolicy"]!!.jsonObject["managingApp"]?.jsonPrimitive?.content)
+        val policy = body["policy"]!!.jsonObject
+        assertEquals("did:web:new.test#activitytracker_space", policy["managingApp"]?.jsonPrimitive?.content)
+        assertEquals("false", policy["publishPolicy"]?.jsonPrimitive?.content)
     }
 
     @Test
     fun updateMissingSpaceIsAnError() = runTest {
-        f.network.on("alicepds.test/xrpc/com.atproto.simplespace.updateSpace") {
+        f.network.on("alicepds.test/xrpc/com.atproto.space.updateSpace") {
             respondJson("""{"error":"SpaceNotFound","message":"none"}""", HttpStatusCode.BadRequest)
         }
-        val e = assertFailsWith<XrpcException> { owner().updateSpace(f.aliceSpace, readPolicy = SpacePolicy.MemberList()) }
+        val e = assertFailsWith<XrpcException> { owner().updateSpace(f.aliceSpace, SpacePolicy.Member()) }
         assertEquals("SpaceNotFound", e.error)
     }
 

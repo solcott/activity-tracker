@@ -1,9 +1,8 @@
 package io.github.solcott.activitytracker.lexicon
 
 import io.github.solcott.activitytracker.lexicon.atproto.DescribeServer
-import io.github.solcott.activitytracker.lexicon.atproto.SimpleSpace
+import io.github.solcott.activitytracker.lexicon.atproto.ManagedSpace
 import io.github.solcott.activitytracker.lexicon.atproto.Space
-import io.github.solcott.activitytracker.lexicon.atproto.SpaceAppAccess
 import io.github.solcott.activitytracker.lexicon.atproto.SpacePolicy
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import kotlin.test.Test
@@ -118,39 +117,77 @@ class SpaceSerializationTest {
     }
 
     @Test
-    fun createSpaceWritesUnionTypes() {
+    fun createSpaceWritesThePolicyUnion() {
         val input =
-            SimpleSpace.CreateSpace.Input(
+            Space.CreateSpace.Input(
                 spaceType = Nsid.SPACE_ATHLETE,
                 skey = "mutuals",
-                readPolicy = SpacePolicy.ManagingApp("did:web:appview.test#activitytracker_space"),
-                writePolicy = SpacePolicy.MemberList(),
-                appAccess = SpaceAppAccess.Open(),
+                policy = SpacePolicy.Managed("did:web:appview.test#activitytracker_space"),
             )
-        val json = AtJson.encodeToJsonElement(SimpleSpace.CreateSpace.Input.serializer(), input).jsonObject
-        val read = json["readPolicy"]!!.jsonObject
-        assertEquals("com.atproto.simplespace.defs#managingAppPolicy", read["\$type"]?.jsonPrimitive?.content)
-        assertEquals("did:web:appview.test#activitytracker_space", read["managingApp"]?.jsonPrimitive?.content)
-        assertEquals("com.atproto.simplespace.defs#memberListPolicy", json["writePolicy"]!!.jsonObject["\$type"]?.jsonPrimitive?.content)
-        assertEquals("com.atproto.simplespace.defs#open", json["appAccess"]!!.jsonObject["\$type"]?.jsonPrimitive?.content)
-        assertEquals(input, AtJson.decodeFromJsonElement(SimpleSpace.CreateSpace.Input.serializer(), json))
+        val json = AtJson.encodeToJsonElement(Space.CreateSpace.Input.serializer(), input).jsonObject
+        val policy = json["policy"]!!.jsonObject
+        assertEquals("com.atproto.managedspace.policy", policy["\$type"]?.jsonPrimitive?.content)
+        assertEquals("did:web:appview.test#activitytracker_space", policy["managingApp"]?.jsonPrimitive?.content)
+        assertEquals(setOf("spaceType", "skey", "policy"), json.keys)
+        assertEquals(input, AtJson.decodeFromJsonElement(Space.CreateSpace.Input.serializer(), json))
     }
 
     @Test
-    fun updateSpaceOmitsUnchangedPolicies() {
-        val space = SpaceUri.of(Did("did:plc:alice"), Nsid.SPACE_ATHLETE, "mutuals")
-        val input = SimpleSpace.UpdateSpace.Input(space, readPolicy = SpacePolicy.ManagingApp("did:web:appview.test#activitytracker_space"))
-        val json = AtJson.encodeToJsonElement(SimpleSpace.UpdateSpace.Input.serializer(), input).jsonObject
+    fun everyPolicyRoundTrips() {
+        val policies =
+            listOf(
+                SpacePolicy.Personal(),
+                SpacePolicy.Member(publicRead = true, allowedApps = listOf("https://app.test/client-metadata.json"), publishMembers = true),
+                SpacePolicy.Managed("did:web:appview.test#activitytracker_space", publishPolicy = true),
+            )
+        for (policy in policies) {
+            val json = AtJson.encodeToJsonElement(SpacePolicy.serializer(), policy)
+            assertEquals(policy, AtJson.decodeFromJsonElement(SpacePolicy.serializer(), json))
+        }
+        val personal = AtJson.encodeToJsonElement(SpacePolicy.serializer(), SpacePolicy.Personal()).jsonObject
+        assertEquals("com.atproto.personalspace.policy", personal["\$type"]?.jsonPrimitive?.content)
+        val member = AtJson.encodeToJsonElement(SpacePolicy.serializer(), SpacePolicy.Member()).jsonObject
+        assertEquals("com.atproto.memberspace.policy", member["\$type"]?.jsonPrimitive?.content)
+        assertEquals(null, member["allowedApps"])
+    }
+
+    @Test
+    fun policyWithDefaultsLeftOutEqualsOneBuiltWithThem() {
+        val managed =
+            AtJson.decodeFromString(
+                SpacePolicy.serializer(),
+                """{"${'$'}type":"com.atproto.managedspace.policy","managingApp":"did:web:appview.test#activitytracker_space"}""",
+            )
+        assertEquals(SpacePolicy.Managed("did:web:appview.test#activitytracker_space"), managed)
+        val member = AtJson.decodeFromString(SpacePolicy.serializer(), """{"${'$'}type":"com.atproto.memberspace.policy"}""")
+        assertEquals(SpacePolicy.Member(), member)
+    }
+
+    @Test
+    fun updateSpaceSendsTheWholePolicy() {
+        val input = Space.UpdateSpace.Input(space, SpacePolicy.Managed("did:web:appview.test#activitytracker_space"))
+        val json = AtJson.encodeToJsonElement(Space.UpdateSpace.Input.serializer(), input).jsonObject
         assertEquals(space.value, json["space"]?.jsonPrimitive?.content)
-        assertEquals("com.atproto.simplespace.defs#managingAppPolicy", json["readPolicy"]!!.jsonObject["\$type"]?.jsonPrimitive?.content)
-        assertEquals(setOf("space", "readPolicy"), json.keys)
-        assertEquals(input, AtJson.decodeFromJsonElement(SimpleSpace.UpdateSpace.Input.serializer(), json))
+        assertEquals(setOf("space", "policy"), json.keys)
+        assertEquals(setOf("\$type", "managingApp", "publishPolicy"), json["policy"]!!.jsonObject.keys)
+        assertEquals(input, AtJson.decodeFromJsonElement(Space.UpdateSpace.Input.serializer(), json))
+    }
+
+    @Test
+    fun getSpaceOutputDecodes() {
+        val output =
+            AtJson.decodeFromString(
+                Space.GetSpace.method.output,
+                """{"uri":"${space.value}","policy":""" +
+                    """{"${'$'}type":"com.atproto.managedspace.policy","managingApp":"did:web:a.test#x","publishPolicy":false}}""",
+            )
+        assertEquals(Space.GetSpace.Output(space, SpacePolicy.Managed("did:web:a.test#x")), output)
     }
 
     @Test
     fun unknownPolicyRoundTrips() {
         val policy = buildJsonObject {
-            put("\$type", "com.atproto.simplespace.defs#futurePolicy")
+            put("\$type", "com.atproto.groupspace.policy")
             put("setting", 3)
         }
         val decoded = AtJson.decodeFromJsonElement(SpacePolicy.serializer(), policy)
@@ -193,10 +230,10 @@ class SpaceSerializationTest {
     @Test
     fun checkUserAccessParamsDecodeFromQuery() {
         val query = mapOf("space" to listOf(space.value), "user" to listOf("did:plc:bob"), "access" to listOf("read"))
-        val params = XrpcParams.decode(SimpleSpace.CheckUserAccess.method.params, query)
-        assertEquals(SimpleSpace.CheckUserAccess.Params(space, Did("did:plc:bob"), SimpleSpace.CheckUserAccess.READ), params)
+        val params = XrpcParams.decode(ManagedSpace.CheckUserAccess.method.params, query)
+        assertEquals(ManagedSpace.CheckUserAccess.Params(space, Did("did:plc:bob"), ManagedSpace.CheckUserAccess.READ), params)
 
-        val withClient = XrpcParams.decode(SimpleSpace.CheckUserAccess.method.params, query + ("clientId" to listOf("https://app.test/c")))
+        val withClient = XrpcParams.decode(ManagedSpace.CheckUserAccess.method.params, query + ("clientId" to listOf("https://app.test/c")))
         assertEquals("https://app.test/c", withClient.clientId)
     }
 
@@ -210,15 +247,16 @@ class SpaceSerializationTest {
             )
             .forEach { query ->
                 assertFailsWith<IllegalArgumentException>(query.toString()) {
-                    XrpcParams.decode(SimpleSpace.CheckUserAccess.method.params, query)
+                    XrpcParams.decode(ManagedSpace.CheckUserAccess.method.params, query)
                 }
             }
     }
 
     @Test
     fun checkUserAccessOutputRoundTrips() {
-        val json = AtJson.encodeToString(SimpleSpace.CheckUserAccess.method.output, SimpleSpace.CheckUserAccess.Output(authorized = false))
+        val json =
+            AtJson.encodeToString(ManagedSpace.CheckUserAccess.method.output, ManagedSpace.CheckUserAccess.Output(authorized = false))
         assertEquals("""{"authorized":false}""", json)
-        assertEquals(true, AtJson.decodeFromString(SimpleSpace.CheckUserAccess.method.output, """{"authorized":true}""").authorized)
+        assertEquals(true, AtJson.decodeFromString(ManagedSpace.CheckUserAccess.method.output, """{"authorized":true}""").authorized)
     }
 }

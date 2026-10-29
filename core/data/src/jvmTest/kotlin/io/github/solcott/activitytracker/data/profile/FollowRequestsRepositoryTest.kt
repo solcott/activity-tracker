@@ -109,7 +109,7 @@ class FollowRequestsRepositoryTest {
                         }
                     }
 
-                    "pds.test/xrpc/com.atproto.simplespace.createSpace" -> {
+                    "pds.test/xrpc/com.atproto.space.createSpace" -> {
                         selfSpace = true
                         respond("""{"uri":"at://$alice/space/${Nsid.SPACE_ATHLETE}/self"}""", headers = json)
                     }

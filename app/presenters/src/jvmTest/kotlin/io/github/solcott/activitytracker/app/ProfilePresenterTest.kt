@@ -132,7 +132,7 @@ class ProfilePresenterTest {
                         )
                     }
 
-                    "/xrpc/com.atproto.simplespace.createSpace" -> {
+                    "/xrpc/com.atproto.space.createSpace" -> {
                         respond("""{"uri":"at://$alice/space/${Nsid.SPACE_ATHLETE}/interactions"}""", headers = json)
                     }
 
