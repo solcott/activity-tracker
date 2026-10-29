@@ -42,6 +42,7 @@ jobs:
 
       # gradle.properties sizes the heaps for a developer machine. On the 16 GB runner they plus lint and the test JVMs run
       # it out of memory, so CI gets smaller heaps and fewer parallel workers. User-home properties override the project's.
+      # Linux can't run the iOS tests, so CI doesn't cross-compile the iOS klibs either.
       - name: Size Gradle for the runner
         run: |
           mkdir -p ~/.gradle
@@ -49,6 +50,7 @@ jobs:
           org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8
           kotlin.daemon.jvmargs=-Xmx3g
           org.gradle.workers.max=2
+          kotlin.native.enableKlibsCrossCompilation=false
           EOF
           free -m
 
