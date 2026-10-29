@@ -22,6 +22,7 @@ A Kotlin Multiplatform, Strava-style athlete activity tracker backed by ATProtoc
 ./gradlew :androidApp:testDebugScreenshotTestDefaultTestSuite     # screenshots vs references (part of check); report in androidApp/build/reports/tests/
 ./gradlew :androidApp:updateDebugScreenshotTestDefaultTestSuite   # rewrite references in androidApp/src/screenshotTestDefaultDebug/reference after an intended UI change
 scripts/check-agent-sync.sh                       # Claude Code <-> Antigravity config symlinks, hook and command parity
+scripts/check-public-safety.sh                    # no un-noted activity files, openspec/ screenshots or home-folder paths in tracked files (CI runs it)
 
 ./gradlew :webApp:wasmJsBrowserDevelopmentRun     # web app; PORT env overrides 8080
 ./gradlew kotlinWasmUpgradeYarnLock               # after an npm dependency change: refresh kotlin-js-store/wasm/yarn.lock (Yarn, so the *PackageLock tasks fail)
