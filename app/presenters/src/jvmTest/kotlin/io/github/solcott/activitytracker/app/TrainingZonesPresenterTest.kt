@@ -93,8 +93,10 @@ class TrainingZonesPresenterTest {
         presenterTestOf({ TrainingZonesPresenter(FakeNavigator(TrainingZonesScreen), repos.profiles, repos.units) }) {
             val loaded = awaitUntil { it.zones != null }
             assertTrue(loaded.zones?.hasZones == true)
+            val save = CompletableDeferred<Unit>().also { fixture.gate = it }
             loaded.eventSink(TrainingZonesEvent.VisibilityChanged(Visibility.MUTUALS))
             assertEquals(Visibility.MUTUALS, awaitUntil { it.savingVisibility }.visibility, "the pick shows while it saves")
+            save.complete(Unit)
             assertEquals(Visibility.MUTUALS, awaitUntil { !it.savingVisibility }.visibility)
             cancelAndIgnoreRemainingEvents()
         }

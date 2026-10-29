@@ -40,8 +40,8 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      # gradle.properties sizes the heaps for a developer machine. On the 16 GB runner they plus lint and the test JVMs run
-      # it out of memory, so CI gets smaller heaps and fewer parallel workers. User-home properties override the project's.
+      # gradle.properties sizes the heaps for a developer machine. With lint and the test JVMs on top they ran an 8 GB runner
+      # out of memory, so CI gets smaller heaps and fewer parallel workers. User-home properties override the project's.
       # Linux can't run the iOS tests, so CI doesn't cross-compile the iOS klibs either.
       - name: Size Gradle for the runner
         run: |

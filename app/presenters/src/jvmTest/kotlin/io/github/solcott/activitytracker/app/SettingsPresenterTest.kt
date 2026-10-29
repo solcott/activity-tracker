@@ -19,6 +19,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -226,8 +227,11 @@ class SettingsPresenterTest {
                 repos.leaderboardBrackets,
             )
         }) {
-            awaitUntil { it.defaults != null }.defaults!!.eventSink(VisibilityEvent.ActivityChanged(Visibility.SELF))
+            val defaults = awaitUntil { it.defaults != null }.defaults!!
+            val save = CompletableDeferred<Unit>().also { fixture.gate = it }
+            defaults.eventSink(VisibilityEvent.ActivityChanged(Visibility.SELF))
             awaitUntil { it.savingDefaults }
+            save.complete(Unit)
             val narrowed = awaitUntil { !it.savingDefaults }
             assertEquals(Visibility.SELF, narrowed.defaults?.activity)
             assertEquals(Visibility.SELF, narrowed.defaults?.tierOf(DetailCategory.CALORIES), "category default capped")
