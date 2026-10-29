@@ -17,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.solcott.activitytracker.app.detail.startTime
+import io.github.solcott.activitytracker.app.detail.startTimeValue
 import io.github.solcott.activitytracker.app.media.mediaItems
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIconButton
@@ -70,8 +72,17 @@ fun ActivityCard(
             ) {
                 // Revealed on the athlete's profile: a tap here opens it.
                 Avatar(activity.author.avatar, author, 32.dp, blur = ModerationDecision.mediaOf(null, activity.author.labels))
-                Text(author, style = MaterialTheme.typography.labelLarge)
-                VisibilityBadge(activity.visibilityOrPublic)
+                Column {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(author, style = MaterialTheme.typography.labelLarge)
+                        VisibilityBadge(activity.visibilityOrPublic)
+                    }
+                    Text(
+                        startTime(remember(record) { record.startTimeValue() }),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             ModerationNotice(decision, isOwn, warn = ModerationDecision.warnOf(activity.labels, activity.author.labels))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
