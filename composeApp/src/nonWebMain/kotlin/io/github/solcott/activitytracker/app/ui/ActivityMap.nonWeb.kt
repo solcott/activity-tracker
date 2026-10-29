@@ -15,7 +15,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -29,7 +28,6 @@ import io.github.solcott.activitytracker.data.activity.SegmentedPolyline
 import io.github.solcott.activitytracker.location.RouteCurve
 import io.github.solcott.activitytracker.location.TrackMath
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -39,7 +37,6 @@ import org.maplibre.compose.expressions.value.LineCap
 import org.maplibre.compose.expressions.value.LineJoin
 import org.maplibre.compose.interaction.ClickResult
 import org.maplibre.compose.interaction.MapInteractions
-import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
@@ -94,36 +91,21 @@ actual fun ActivityMap(
     val style = BaseStyle.Uri(if (isSystemInDarkTheme()) MapStyles.DARK else MapStyles.LIGHT)
     val mapState =
         rememberMapState(baseStyle = style) {
-            val route = rememberGeoJsonSource(GeoJsonData.JsonString(routeJson))
-            LineLayer(
-                id = "route-casing",
-                source = route,
-                color = const(Color.White),
-                width = const(7.dp),
-                cap = const(LineCap.Round),
-                join = const(LineJoin.Round),
-            )
-            LineLayer(
-                id = "route",
-                source = route,
-                color = const(color),
-                width = const(4.dp),
-                cap = const(LineCap.Round),
-                join = const(LineJoin.Round),
-            )
-            // MapLibre Compose can't replace a source's data, so a new stretch makes a new source and layer, in this place in the order.
-            key(highlightJson) {
-                val stretch = rememberGeoJsonSource(GeoJsonData.JsonString(highlightJson ?: lineJson(emptyList())))
-                LineLayer(
-                    id = "route-highlight",
-                    source = stretch,
-                    color = const(highlightColor),
-                    width = const(6.dp),
-                    cap = const(LineCap.Round),
-                    join = const(LineJoin.Round),
-                )
+            RouteLayers(routeJson, markers, color) {
+                // MapLibre Compose can't replace a source's data, so a new stretch makes a new source and layer, in this place in the
+                // order.
+                key(highlightJson) {
+                    val stretch = rememberGeoJsonSource(GeoJsonData.JsonString(highlightJson ?: lineJson(emptyList())))
+                    LineLayer(
+                        id = "route-highlight",
+                        source = stretch,
+                        color = const(highlightColor),
+                        width = const(6.dp),
+                        cap = const(LineCap.Round),
+                        join = const(LineJoin.Round),
+                    )
+                }
             }
-            markers?.let { RouteMarkerLayers(it) }
         }
     val fit =
         remember(overlayTop) {
@@ -190,75 +172,3 @@ private fun MapButton(icon: AppIcon, label: StringResource, onClick: () -> Unit,
 }
 
 private const val BUTTON_ALPHA = 0.9f
-
-/**
- * [markers] above the route, as `RoutePreview` draws them: each break's dashed connector, its stop and resume markers, then the start, then
- * the end on top.
- */
-@Composable
-private fun RouteMarkerLayers(markers: RouteMarkers<Pair<Double, Double>>) {
-    val connectorJson = remember(markers.breaks) { lineJson(markers.breaks.map { listOf(it.stop, it.resume) }) }
-    val connectors = rememberGeoJsonSource(GeoJsonData.JsonString(connectorJson))
-    LineLayer(
-        id = "route-break-connectors",
-        source = connectors,
-        color = const(RouteMarkers.BREAK_COLOR),
-        width = const(RouteMarkers.CONNECTOR_WIDTH),
-        // MapLibre measures dashes in line widths.
-        dasharray =
-            const(
-                listOf(
-                    RouteMarkers.CONNECTOR_DASH / RouteMarkers.CONNECTOR_WIDTH,
-                    RouteMarkers.CONNECTOR_SPACE / RouteMarkers.CONNECTOR_WIDTH,
-                )
-            ),
-        cap = const(LineCap.Butt),
-    )
-    val stops = remember(markers.breaks) { markers.breaks.map { it.stop }.toImmutableList() }
-    val resumes = remember(markers.breaks) { markers.breaks.map { it.resume }.toImmutableList() }
-    MarkerLayer("route-break-stops", stops, RouteMarkers.BREAK_RADIUS, fill = RouteMarkers.BREAK_COLOR, ring = Color.White)
-    MarkerLayer(
-        "route-break-resumes",
-        resumes,
-        RouteMarkers.BREAK_RADIUS,
-        fill = Color.White,
-        ring = RouteMarkers.BREAK_COLOR,
-        ringWidth = RouteMarkers.RESUME_RING,
-    )
-    // A hidden end still gets its (empty) layer, so the layers keep their order when it shows.
-    val start = listOfNotNull(markers.start).toImmutableList()
-    val end = listOfNotNull(markers.end).toImmutableList()
-    MarkerLayer("route-start", start, RouteMarkers.END_RADIUS, fill = RouteMarkers.START_COLOR, ring = Color.White)
-    MarkerLayer("route-end", end, RouteMarkers.END_RADIUS, fill = RouteMarkers.END_COLOR, ring = Color.White)
-}
-
-/** A dot at each of [at] of [radius], ringed [ringWidth] wide (MapLibre strokes outside a circle's radius, so the ring is taken off it). */
-@Composable
-private fun MarkerLayer(
-    id: String,
-    at: ImmutableList<Pair<Double, Double>>,
-    radius: Dp,
-    fill: Color,
-    ring: Color,
-    ringWidth: Dp = RouteMarkers.RING,
-) {
-    val source = rememberGeoJsonSource(GeoJsonData.JsonString(pointsJson(at)))
-    CircleLayer(
-        id = id,
-        source = source,
-        color = const(fill),
-        radius = const(radius - ringWidth),
-        strokeColor = const(ring),
-        strokeWidth = const(ringWidth),
-    )
-}
-
-/** A GeoJSON MultiPoint of [points], longitude first. */
-private fun pointsJson(points: List<Pair<Double, Double>>): String =
-    points.joinToString(",", prefix = """{"type":"MultiPoint","coordinates":[""", postfix = "]}") { (lat, lng) -> "[$lng,$lat]" }
-
-/** A GeoJSON MultiLineString of [pieces]; GeoJSON orders each position longitude first. */
-private fun lineJson(pieces: List<List<Pair<Double, Double>>>): String =
-    pieces.joinToString(",", prefix = """{"type":"MultiLineString","coordinates":[""", postfix = "]}") { piece ->
-        piece.joinToString(",", prefix = "[", postfix = "]") { (lat, lng) -> "[$lng,$lat]" }
-    }
