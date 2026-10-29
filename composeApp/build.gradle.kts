@@ -63,8 +63,9 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)
             implementation(libs.androidx.browser)
-            // OpenGL rather than Vulkan: wider device and emulator support.
-            runtimeOnly(libs.maplibre.compose.runtime.opengl.android)
+            // Vulkan, like desktop off macOS and MapLibre Android's default. Tested on the arm64 emulator and a Pixel 9 Pro XL. It costs
+            // about 3 MB more per ABI than OpenGL, mostly the glslang shader compiler (see BACKLOG.md).
+            runtimeOnly(libs.maplibre.compose.runtime.vulkan.android)
         }
         // MapLibre Compose has no wasmJs target yet (maplibre/maplibre-compose#209, needs CMP 1.13), so the web app keeps the Canvas
         // RoutePreview (see ActivityMap and BACKLOG.md).
