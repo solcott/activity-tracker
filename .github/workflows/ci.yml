@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+  # kmp-dataresult comes from GitHub Packages, which wants a token even for public reads (settings.gradle.kts).
+  packages: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GITHUB_ACTOR: ${{ github.actor }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Public-safety check
+        run: scripts/check-public-safety.sh
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: "25"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # On Linux, Kotlin/Native skips the Apple targets, so this runs the JVM, Android and server tests and every static
+      # check. The screenshot suite is left out: its references are layoutlib renders from macOS, and Linux rasterises
+      # fonts differently.
+      - name: Check
+        run: ./gradlew check -x :androidApp:testDebugScreenshotTestDefaultTestSuite --continue
