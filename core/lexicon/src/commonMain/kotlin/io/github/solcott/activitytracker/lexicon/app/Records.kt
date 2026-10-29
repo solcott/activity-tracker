@@ -639,6 +639,42 @@ data class SegmentStarRecord(
 )
 
 /**
+ * `app.activitytracker.feed.segmentNameProposal`: a proposed new name for [segment] (segments/segment-names). Public, so it lives only in
+ * the proposer's repo and names them. Rewriting it with a different name while it's open clears its votes.
+ */
+@Serializable
+data class SegmentNameProposalRecord(
+    val segment: AtUri,
+    /** At most 100 graphemes, not empty once trimmed. */
+    val name: String,
+    val createdAt: Instant,
+    @SerialName($$"$type") val type: String = Nsid.FEED_SEGMENT_NAME_PROPOSAL,
+) {
+    companion object {
+        const val MAX_NAME_GRAPHEMES = 100
+    }
+}
+
+/** `app.activitytracker.feed.segmentNameVote#direction` values. */
+object SegmentNameVoteDirection {
+    const val UP = "up"
+    const val DOWN = "down"
+}
+
+/**
+ * `app.activitytracker.feed.segmentNameVote`: a vote on a [SegmentNameProposalRecord] at the version [subject] names. Private, so it lives
+ * only in the voter's [AthleteSpace.INTERACTIONS] space; the AppView serves only totals.
+ */
+@Serializable
+data class SegmentNameVoteRecord(
+    val subject: StrongRef,
+    /** A [SegmentNameVoteDirection] value; any other is ignored. */
+    val direction: String,
+    val createdAt: Instant,
+    @SerialName($$"$type") val type: String = Nsid.FEED_SEGMENT_NAME_VOTE,
+)
+
+/**
  * `app.activitytracker.feed.activitySource`: the file an activity was imported from, gzipped, under its activity's rkey. It can hold device
  * serial numbers and exact positions, so it's stored only in the athlete's [AthleteSpace.SELF] space, whatever the activity's visibility,
  * and only the athlete reads it: the AppView ignores it. Activities imported from one logbook file each have their own record naming the

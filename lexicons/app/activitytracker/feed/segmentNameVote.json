@@ -1,0 +1,20 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.segmentNameVote",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A vote on a segment name proposal (app.activitytracker.feed.segmentNameProposal). Private: stored only in the voter's interactions space, and the AppView ignores one in a repo or a tier space. It counts only while the voter has an effort on the segment and its subject's CID is the proposal's current version, and the AppView never serves who voted.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["subject", "direction", "createdAt"],
+        "properties": {
+          "subject": { "type": "ref", "ref": "com.atproto.repo.strongRef", "description": "The proposal, at the version voted on." },
+          "direction": { "type": "string", "maxLength": 16, "knownValues": ["up", "down"], "description": "Any other value is ignored." },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

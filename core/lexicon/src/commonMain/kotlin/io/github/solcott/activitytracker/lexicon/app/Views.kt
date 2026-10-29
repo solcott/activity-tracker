@@ -190,7 +190,59 @@ data class SegmentView(
     val status: String? = null,
     /** The earlier segment this one duplicates, when [status] is [SegmentStatus.DUPLICATE]. */
     val duplicateOf: AtUri? = null,
+    /**
+     * The current name: the latest adopted community name in effect, or [record]'s name (the original) when there's none. Null from older
+     * AppViews; use [currentName].
+     */
+    val name: String? = null,
+    /** Adopted names still in effect, newest first; only from `getSegment`. */
+    val nameHistory: List<SegmentNameAdoption> = emptyList(),
+    /** Open name proposals the viewer may see; only from `getSegment`. */
+    val nameProposals: List<SegmentNameProposalView> = emptyList(),
     val viewer: SegmentViewerState? = null,
+) {
+    /** [name], or the original name when the AppView didn't send one. */
+    val currentName: String
+        get() = name ?: record.name
+}
+
+/** `app.activitytracker.feed.defs#segmentNameAdoption`: a community name the segment adopted. */
+@Immutable
+@Serializable
+data class SegmentNameAdoption(
+    val name: String,
+    val adoptedAt: Instant,
+    /** Votes counted when it was adopted. */
+    val up: Int,
+    val down: Int,
+    /** Null when the viewer and the proposer block each other, or the proposal record was deleted. */
+    val proposer: ProfileViewBasic? = null,
+)
+
+/** `app.activitytracker.feed.defs#segmentNameProposalView`: an open name proposal with its totals. */
+@Immutable
+@Serializable
+data class SegmentNameProposalView(
+    val uri: AtUri,
+    /** The version votes count for. */
+    val cid: Cid,
+    val name: String,
+    val proposer: ProfileViewBasic,
+    /** When it was accepted, or last edited. */
+    val openedAt: Instant,
+    val up: Int,
+    val down: Int,
+    val viewerVote: SegmentNameViewerVote? = null,
+)
+
+/** `app.activitytracker.feed.defs#segmentNameViewerVote`: the viewer's own counted vote. */
+@Immutable
+@Serializable
+data class SegmentNameViewerVote(
+    /** The vote record, in the viewer's `interactions` space. */
+    val uri: AtUri,
+    /** A [SegmentNameVoteDirection] value. */
+    val direction: String,
 )
 
 /** `app.activitytracker.feed.defs#segmentViewerState` */
@@ -198,7 +250,11 @@ data class SegmentView(
 @Serializable
 data class SegmentViewerState(
     /** The viewer's own fastest effort on the segment; null when they have none. */
-    val best: EffortView? = null
+    val best: EffortView? = null,
+    /** The viewer may propose a name now; only from `getSegment`. */
+    val canProposeName: Boolean = false,
+    /** The viewer has an effort on the segment, so may vote on its name proposals; only from `getSegment`. */
+    val canVoteOnNames: Boolean = false,
 )
 
 /** `app.activitytracker.feed.defs#segmentViewBasic` */
@@ -206,6 +262,7 @@ data class SegmentViewerState(
 @Serializable
 data class SegmentViewBasic(
     val uri: AtUri,
+    /** The segment's current name, as [SegmentView.name]. */
     val name: String,
     /** A [SegmentSportGroup] value. */
     val sport: String,

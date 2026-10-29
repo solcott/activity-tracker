@@ -178,13 +178,73 @@
           "description": "Derived by the AppView, never read from the record. Absent or unknown means active."
         },
         "duplicateOf": { "type": "string", "format": "at-uri", "description": "The earlier segment this one duplicates, when status is duplicate." },
+        "name": {
+          "type": "string",
+          "maxLength": 1000,
+          "maxGraphemes": 100,
+          "description": "The segment's current name: its latest adopted community name still in effect, or record.name (its original name) when it has none. Absent from older AppViews; use record.name then."
+        },
+        "nameHistory": {
+          "type": "array",
+          "maxLength": 100,
+          "items": { "type": "ref", "ref": "#segmentNameAdoption" },
+          "description": "Adopted names still in effect, newest first. Served by app.activitytracker.feed.getSegment only."
+        },
+        "nameProposals": {
+          "type": "array",
+          "maxLength": 100,
+          "items": { "type": "ref", "ref": "#segmentNameProposalView" },
+          "description": "Open name proposals the viewer may see. Served by app.activitytracker.feed.getSegment only."
+        },
         "viewer": { "type": "ref", "ref": "#segmentViewerState" }
+      }
+    },
+    "segmentNameAdoption": {
+      "type": "object",
+      "description": "A community name a segment adopted.",
+      "required": ["name", "adoptedAt", "up", "down"],
+      "properties": {
+        "name": { "type": "string", "maxLength": 1000, "maxGraphemes": 100 },
+        "adoptedAt": { "type": "string", "format": "datetime" },
+        "up": { "type": "integer", "minimum": 0, "description": "Up votes counted when it was adopted." },
+        "down": { "type": "integer", "minimum": 0, "description": "Down votes counted when it was adopted." },
+        "proposer": {
+          "type": "ref",
+          "ref": "app.activitytracker.actor.defs#profileViewBasic",
+          "description": "Absent when the viewer and the proposer block each other, or the proposal record was deleted."
+        }
+      }
+    },
+    "segmentNameProposalView": {
+      "type": "object",
+      "description": "An open name proposal with its vote totals. Never says who voted, except the viewer's own vote.",
+      "required": ["uri", "cid", "name", "proposer", "openedAt", "up", "down"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid", "description": "The version votes count for; a vote names it in its subject." },
+        "name": { "type": "string", "maxLength": 1000, "maxGraphemes": 100 },
+        "proposer": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
+        "openedAt": { "type": "string", "format": "datetime", "description": "When it was accepted, or last edited." },
+        "up": { "type": "integer", "minimum": 0 },
+        "down": { "type": "integer", "minimum": 0 },
+        "viewerVote": { "type": "ref", "ref": "#segmentNameViewerVote" }
+      }
+    },
+    "segmentNameViewerVote": {
+      "type": "object",
+      "description": "The viewer's own counted vote on a proposal.",
+      "required": ["uri", "direction"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri", "description": "The vote record, in the viewer's interactions space." },
+        "direction": { "type": "string", "maxLength": 16, "knownValues": ["up", "down"] }
       }
     },
     "segmentViewerState": {
       "type": "object",
       "properties": {
-        "best": { "type": "ref", "ref": "#effortView", "description": "The viewer's own fastest effort on the segment; absent when they have none." }
+        "best": { "type": "ref", "ref": "#effortView", "description": "The viewer's own fastest effort on the segment; absent when they have none." },
+        "canProposeName": { "type": "boolean", "description": "The viewer may propose a name now (segments/segment-names). Served by getSegment only; absent means false." },
+        "canVoteOnNames": { "type": "boolean", "description": "The viewer may vote on name proposals: they have an effort on the segment. Served by getSegment only; absent means false." }
       }
     },
     "segmentViewBasic": {
@@ -192,7 +252,7 @@
       "required": ["uri", "name", "sport", "distanceMeters"],
       "properties": {
         "uri": { "type": "string", "format": "at-uri" },
-        "name": { "type": "string", "maxLength": 1000, "maxGraphemes": 100 },
+        "name": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "The segment's current name, as segmentView's name." },
         "sport": { "type": "string", "maxLength": 64, "knownValues": ["ride", "run", "hike", "ski", "paddle"] },
         "distanceMeters": { "type": "integer", "minimum": 0, "description": "The line's length, computed by the AppView." },
         "status": {

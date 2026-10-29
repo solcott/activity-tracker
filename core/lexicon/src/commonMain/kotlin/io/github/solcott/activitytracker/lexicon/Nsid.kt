@@ -68,6 +68,16 @@ object Nsid {
      * (`segmentStarRkey` in `core/atproto`).
      */
     const val FEED_SEGMENT_STAR = "$NAMESPACE.feed.segmentStar"
+    /**
+     * A proposed new name for a segment (segments/segment-names), kept only in the proposer's repo and indexed from the firehose; a copy in
+     * a space is ignored.
+     */
+    const val FEED_SEGMENT_NAME_PROPOSAL = "$NAMESPACE.feed.segmentNameProposal"
+    /**
+     * A vote on a [FEED_SEGMENT_NAME_PROPOSAL], kept only in the voter's `interactions` space ([SPACE_ATHLETE]) and indexed only from
+     * there, so it isn't in [indexedCollections].
+     */
+    const val FEED_SEGMENT_NAME_VOTE = "$NAMESPACE.feed.segmentNameVote"
     const val FEED_GET_SEGMENT = "$NAMESPACE.feed.getSegment"
     const val FEED_SEARCH_SEGMENTS = "$NAMESPACE.feed.searchSegments"
     const val FEED_GET_ACTIVITY_SEGMENTS = "$NAMESPACE.feed.getActivitySegments"
@@ -151,6 +161,7 @@ object Nsid {
             FEED_COMMENT,
             FEED_COMMENT_HIDE,
             FEED_SEGMENT,
+            FEED_SEGMENT_NAME_PROPOSAL,
             GEAR_ITEM,
             GRAPH_FOLLOW,
             GRAPH_FOLLOW_APPROVAL,

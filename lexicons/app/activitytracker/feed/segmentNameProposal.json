@@ -1,0 +1,20 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.segmentNameProposal",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A proposed new name for a segment (segments/segment-names). Public: stored only in the proposer's repo, never in a space, and names its proposer. The AppView accepts it only from an athlete with efforts on the segment on enough distinct dates, while the segment is active and outside the cooldown after an adoption, and only one open proposal per athlete per segment. Rewriting an open proposal with a different name clears its votes; a rewrite of a closed one is ignored.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["segment", "name", "createdAt"],
+        "properties": {
+          "segment": { "type": "string", "format": "at-uri", "description": "The app.activitytracker.feed.segment the name is for." },
+          "name": { "type": "string", "maxLength": 1000, "maxGraphemes": 100, "description": "Not empty once trimmed." },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}
