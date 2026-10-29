@@ -49,9 +49,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.util.DpPadding
 import org.maplibre.spatialk.geojson.BoundingBox
 
-/** The margin left around the route when it's framed. */
-private val FIT_MARGIN = 24.dp
-
 @Composable
 actual fun ActivityMap(
     polyline: String,
