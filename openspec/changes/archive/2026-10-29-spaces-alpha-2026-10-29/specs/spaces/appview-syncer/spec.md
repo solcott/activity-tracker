@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Space sync failures are contained
-A failure to sync one space, including a revoked or refused credential or a deleted space, SHALL NOT stop the AppView from syncing other spaces or from indexing Jetstream. A space reported as deleted (`SpaceDeleted`) SHALL stop being synced, and its records SHALL be removed from the index. Because the authority answers a refusal as `SpaceNotFound` too, a space answered `SpaceNotFound` SHALL keep its indexed records and be retried with backoff, and SHALL be dropped only once every sync for 24 hours has been answered `SpaceNotFound`.
+A failure to sync one space, including a revoked or refused credential or a deleted space, SHALL NOT stop the AppView from syncing other spaces or from indexing Jetstream. A space reported deleted (`SpaceDeleted`) SHALL stop being synced and its records removed. A space answered `SpaceNotFound`, which is also a refusal, SHALL keep its records and back off, and be dropped only after 24 hours of `SpaceNotFound` answers.
 
 #### Scenario: Space deleted
 - **WHEN** alice deletes her `mutuals` space

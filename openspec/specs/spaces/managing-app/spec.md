@@ -33,7 +33,7 @@ In local development with the tunnel enabled, the PDS SHALL be able to resolve t
 - **THEN** non-Spaces features keep working, and the documentation states that managing-app callouts need the tunnel
 
 ### Requirement: Access check endpoint
-The AppView SHALL serve `com.atproto.simplespace.checkUserAccess` as a query taking `space`, `user`, `access` and optional `clientId`, answering `{"authorized": <boolean>}`. Every access decision, including a denial, SHALL be a 200 response; errors are only for failed authentication or invalid parameters.
+The AppView SHALL serve `com.atproto.managedspace.checkUserAccess` as a query taking `space`, `user`, `access` and optional `clientId`, answering `{"authorized": <boolean>}`. Every access decision, including a denial, SHALL be a 200 response; errors are only for failed authentication or invalid parameters.
 
 #### Scenario: Denial is a 200
 - **WHEN** an authenticated callout asks about a user the space's tier doesn't admit
@@ -47,8 +47,12 @@ The AppView SHALL serve `com.atproto.simplespace.checkUserAccess` as a query tak
 - **WHEN** a callout includes a `clientId`
 - **THEN** the decision is the same as without it
 
+#### Scenario: Old method name
+- **WHEN** a request calls `com.atproto.simplespace.checkUserAccess`
+- **THEN** the AppView doesn't serve it
+
 ### Requirement: Callouts authenticated as the space's authority
-The endpoint SHALL require a service-auth JWT signed by the issuer's DID-document key, addressed to the managing-app id (`<serviceDid>#activitytracker_space`) and not expired, whose `lxm` is `com.atproto.simplespace.checkUserAccess`. A valid token whose issuer isn't the space's authority SHALL get `authorized: false`.
+The endpoint SHALL require a service-auth JWT signed by the issuer's DID-document key, addressed to the managing-app id (`<serviceDid>#activitytracker_space`) and not expired, whose `lxm` is `com.atproto.managedspace.checkUserAccess`. A valid token whose issuer isn't the space's authority SHALL get `authorized: false`.
 
 #### Scenario: Callout from the authority's PDS
 - **WHEN** a PDS calls with a token whose `iss` is the space's authority and `aud` is the managing-app id
@@ -71,7 +75,7 @@ The endpoint SHALL require a service-auth JWT signed by the issuer's DID-documen
 - **THEN** the AppView answers `{"authorized": false}`
 
 #### Scenario: Token without lxm
-- **WHEN** a callout's token is from the space's authority and addressed to the managing-app id but has no `lxm`, or an `lxm` other than `com.atproto.simplespace.checkUserAccess`
+- **WHEN** a callout's token is from the space's authority and addressed to the managing-app id but has no `lxm`, or an `lxm` other than `com.atproto.managedspace.checkUserAccess` (the old `com.atproto.simplespace.checkUserAccess` included)
 - **THEN** the AppView answers `401` and makes no decision
 
 ### Requirement: Read access by tier
@@ -156,7 +160,7 @@ The AppView's own service DID SHALL be admitted for `read` on an athlete's `publ
 - **THEN** the answer is `authorized: false`
 
 ### Requirement: Only the authority writes
-A `write` check, or a check with any `access` value other than `read`, SHALL be denied for every user and tier, the AppView's own service DID included.
+A `write` check, or a check with any `access` value other than `read`, SHALL be denied for every user and tier, the AppView's own service DID included. Under a `managedspace` policy the PDS asks about writes as well as reads, so these checks do arrive; a write check carries no `clientId`.
 
 #### Scenario: Mutual asks to write
 - **WHEN** a mutual of the authority is checked for `write` on any of the authority's spaces
@@ -169,6 +173,10 @@ A `write` check, or a check with any `access` value other than `read`, SHALL be 
 #### Scenario: Unknown access kind
 - **WHEN** a check sends an `access` value other than `read` or `write`
 - **THEN** the answer is `authorized: false`
+
+#### Scenario: Authority writes without a check
+- **WHEN** the authority writes to one of their own spaces
+- **THEN** the PDS admits the write without asking the AppView, and the write succeeds
 
 ### Requirement: Managing-app spaces readable end to end
 On the local stack with the tunnel, a viewer the tier admits SHALL be able to obtain a credential and read a record from an athlete's managing-app space, and a viewer it doesn't admit SHALL be refused.

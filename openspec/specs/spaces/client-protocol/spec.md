@@ -63,8 +63,12 @@ The client SHALL reuse a space's credential until shortly before it expires, SHA
 When the authority's PDS refuses a viewer access to a space, the client SHALL report "no access" for that read as a distinct outcome from failures such as network errors.
 
 #### Scenario: Non-member read
-- **WHEN** a viewer the space's policy doesn't admit reads a record from it and the PDS answers `UserNotAuthorized`
+- **WHEN** a viewer the space's policy doesn't admit reads a record from it and the PDS answers `UserNotAuthorized`, `AppNotAuthorized` or `NotAuthorized`
 - **THEN** the read returns a no-access outcome, not an exception, and the denial is not cached as a credential
+
+#### Scenario: Refusal answered as not found
+- **WHEN** a viewer the space's policy doesn't admit reads a record from it and the PDS answers `SpaceNotFound`, as the reference authority now does for a refused user
+- **THEN** the read returns a not-found outcome, not an exception, and the client draws no conclusion about whether the space exists
 
 #### Scenario: Network failure stays an error
 - **WHEN** the authority's PDS can't be reached during a read
@@ -93,10 +97,10 @@ With a credential, the client SHALL fetch a single record, list a collection's r
 - **THEN** the client returns the blob's bytes
 
 ### Requirement: Owner writes
-The signed-in athlete SHALL be able to create one of their spaces, look it up, update its policies, and put and delete records in it, all authenticated with their session.
+The signed-in athlete SHALL be able to create one of their spaces, look it up, update its policy, and put and delete records in it, all authenticated with their session. A space is created and updated with a single `policy` (`com.atproto.space.createSpace`, `getSpace`, `updateSpace`); an update replaces the whole policy.
 
 #### Scenario: Create a space
-- **WHEN** the athlete creates a space of type `app.activitytracker.space.athlete` with a given key and the AppView as managing app
+- **WHEN** the athlete creates a space of type `app.activitytracker.space.athlete` with a given key and a `com.atproto.managedspace.policy` naming the AppView as managing app
 - **THEN** the space exists at `at://{did}/space/app.activitytracker.space.athlete/{key}`
 
 #### Scenario: Create an existing space
@@ -104,8 +108,12 @@ The signed-in athlete SHALL be able to create one of their spaces, look it up, u
 - **THEN** the client reports that it exists rather than failing, so callers can create spaces lazily
 
 #### Scenario: Update a space's policies
-- **WHEN** the athlete updates their space's read policy to name a different managing app
-- **THEN** a later lookup of the space returns the new read policy
+- **WHEN** the athlete's existing space has a policy other than a `managedspace` policy naming the current AppView (another managing app, another policy type, or published records turned on)
+- **THEN** the client replaces it with that policy, and a later lookup of the space returns exactly it
+
+#### Scenario: Matching policy left alone
+- **WHEN** the athlete's existing space's policy, with the PDS's defaults filled in, already equals the one the client would set
+- **THEN** the client sends no update
 
 #### Scenario: Put is idempotent
 - **WHEN** the athlete puts the same record at the same collection and rkey twice
