@@ -84,7 +84,7 @@ internal object ChartsBuilder {
             charts
         }
 
-    /** Lines in the order Strava draws them, then Garmin's extras, then a dive's. */
+    /** Lines in a fixed order: the everyday metrics, then the rarer device metrics, then a dive's. */
     private fun lines(data: ActivityStreamData): List<LineSeries> {
         val distance = data.distance
         val altitude = data.altitude

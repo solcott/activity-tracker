@@ -24,7 +24,7 @@ The brackets record SHALL hold only an age group, a weight class and a gender bu
 - **WHEN** an athlete whose birth date is Only me and who is 41 turns brackets on
 - **THEN** the record says `35-44` and holds no date
 
-### Requirement: Brackets use Strava's boundaries
+### Requirement: Bracket boundaries
 Age groups SHALL be `0-19`, `20-24`, `25-34`, `35-44`, `45-54`, `55-64`, `65-69`, `70-74` and `75+`, by whole years of age on the day computed. Weight classes SHALL be `0-54`, `55-64`, `65-74`, `75-84`, `85-94`, `95-104`, `105-114` and `115+`, by whole kilograms rounded down. Gender buckets SHALL be `female`, `male` and `nonBinary`.
 
 #### Scenario: Weight on a boundary

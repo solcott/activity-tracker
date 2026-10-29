@@ -41,7 +41,7 @@ Measured ppO₂ wins over calculated (UDDF has both; a rebreather's cells are th
 `laps: [{ start, elapsed, moving, distance, avgSpeed, maxSpeed, avgHeartRate, maxHeartRate, avgPower, avgCadence, ascent, descent }]` in lexicon units, beside `gears`. Alternative: a `feed.activityLaps` record. Rejected: a lap's splits reveal what the streams already reveal, so they share the streams' visibility for free, with no new record, collection, space declaration or move logic. A file whose only lap spans the session (within a second) stores none, so "has laps" means real laps.
 
 ### Public summary fields on the activity
-Elevation loss (m), avg/max cadence (rpm or spm), avg/max/normalized power (W), work (kJ), calories (kcal), front and rear shifts, jumps, grit and flow (both in tenths) go on `feed.activity`, as Strava and Garmin Connect show them to anyone who sees the activity. `ActivityDraft.fromImport` maps them from `ImportedActivity` (`power`, `shifting`, `mtb`, cadence, elevation loss), and `ActivityMerge.fillGaps` fills them.
+Elevation loss (m), avg/max cadence (rpm or spm), avg/max/normalized power (W), work (kJ), calories (kcal), front and rear shifts, jumps, grit and flow (both in tenths) go on `feed.activity`, shown to anyone who sees the activity. `ActivityDraft.fromImport` maps them from `ImportedActivity` (`power`, `shifting`, `mtb`, cadence, elevation loss), and `ActivityMerge.fillGaps` fills them.
 
 ### Training load on the zones record
 FTP (W), intensity factor (hundredths), TSS (tenths), aerobic and anaerobic training effect (tenths) go in a `#trainingLoad` object on `feed.activityZones`. FTP is a threshold outright, and IF and TSS give it away with normalized power, so they belong with zone bounds, which already live at the narrower of charts and training visibility and already move when either changes. Alternative: public fields on the activity. Rejected: it would publish thresholds an athlete set to Only me. Alternative: a new record. Rejected: it would duplicate the zones record's placement and move logic exactly. The zones record is now written when there are zone snapshots or a training load.
@@ -81,7 +81,7 @@ A dive with no GPS records gets its track (`feed.activityTrack`, `self` space) b
 
 - [The Swift or JS FIT SDK pinned here lacks a newer field such as `po2` or `tank_update`] → Check each SDK's profile version first (task 2.1); a field missing on one platform is passed as null there, and the platform test notes it.
 - [Stream blobs grow with ~15 more channels] → Each array is one int per sample; a 2-hour run at 1 Hz adds about 50 KB of JSON per channel, well under the 5 MB blob limit. Absent channels cost nothing.
-- [Calories and power are now public on Public activities] → They're what Strava shows publicly; thresholds and load stay with the zones.
+- [Calories and power are now public on Public activities] → They're ordinary public summary figures; thresholds and load stay with the zones.
 - [Two-point dive tracks make GPX export available for dives] → Intended: it's the only way the positions leave the app, and only for the owner.
 - [A merge could pair a record's tanks from one file with tank pressure series from another] → `fillMissing` adds `tankPressures` only when the dive has no tanks of its own (the record then takes the other's tanks too) or the same number of tanks, else leaves them out.
 - [Notes prefilling the description publish personal text] → The athlete sees and edits it on the import screen before publishing; nothing is published without that step.

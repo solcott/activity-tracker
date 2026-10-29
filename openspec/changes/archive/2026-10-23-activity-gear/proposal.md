@@ -2,7 +2,7 @@
 
 ## Why
 
-A gear list (`gear-items`) is only useful once activities say which gear they used. Athletes need to pick the bike, shoes or skis for an activity when they record, enter, import or edit it, and their usual gear should be filled in for them per activity type, the way Strava and Garmin default a bike or shoes. Which gear an athlete uses can be personal (an expensive bike, a commute), so it needs its own visibility, which defaults to Only me.
+A gear list (`gear-items`) is only useful once activities say which gear they used. Athletes need to pick the bike, shoes or skis for an activity when they record, enter, import or edit it, and their usual gear should be filled in for them per activity type. Which gear an athlete uses can be personal (an expensive bike, a commute), so it needs its own visibility, which defaults to Only me.
 
 ## What Changes
 

@@ -2,7 +2,7 @@
 
 ## Why
 
-`segments-core` defines segments and matches efforts on them, but the only way to make one is a dev script. This change is the third step of the segments roadmap. It lets athletes create segments from their own activities while keeping out the duplicate and unused segments that clutter Strava's map. `segment-leaderboards` and `segment-osm-import` build on the duplicate check and the segment statuses it adds.
+`segments-core` defines segments and matches efforts on them, but the only way to make one is a dev script. This change is the third step of the segments roadmap. It lets athletes create segments from their own activities while keeping out duplicate and unused segments that would clutter the map. `segment-leaderboards` and `segment-osm-import` build on the duplicate check and the segment statuses it adds.
 
 ## What Changes
 

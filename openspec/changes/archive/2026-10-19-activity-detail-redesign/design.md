@@ -87,7 +87,7 @@ compact              medium                    expanded
 - The expanded left pane scrolls on its own and keeps the map on screen.
 - The avg/max table shows only in medium and expanded windows, where the header has room. On compact windows each card's headline already says the same.
 - We use our own width classes instead of adding `material3-adaptive`. Three thresholds don't justify a dependency, and the helper is trivial to swap later.
-- *Alternative:* tabs (Overview / Stats / Charts / Laps), Garmin's pattern. Top tabs aren't idiomatic on iOS, and they would need a third structure on desktop. That's more divergence for less on screen.
+- *Alternative:* tabs (Overview / Stats / Charts / Laps). Top tabs aren't idiomatic on iOS, and they would need a third structure on desktop. That's more divergence for less on screen.
 
 ### 6. Platform look stays in `ui/adaptive`
 

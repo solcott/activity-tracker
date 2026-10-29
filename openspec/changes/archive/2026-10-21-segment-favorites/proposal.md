@@ -2,7 +2,7 @@
 
 ## Why
 
-Athletes want to keep a short list of segments they care about, as Strava's stars allow. This is a step of the segments roadmap that can run alongside `segment-creation` and `segment-leaderboards` now that `segments-core` is applied. Stars are private: only the athlete reads them. The AppView syncs the `self` space they live in, but never stores or serves them, as with privacy zones and full tracks.
+Athletes want to keep a short list of segments they care about. This is a step of the segments roadmap that can run alongside `segment-creation` and `segment-leaderboards` now that `segments-core` is applied. Stars are private: only the athlete reads them. The AppView syncs the `self` space they live in, but never stores or serves them, as with privacy zones and full tracks.
 
 ## What Changes
 

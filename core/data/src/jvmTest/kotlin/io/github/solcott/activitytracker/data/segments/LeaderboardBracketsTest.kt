@@ -7,7 +7,8 @@ import kotlin.test.assertNull
 import kotlinx.datetime.LocalDate
 
 /**
- * Brackets computed from an athlete's own details (segments/leaderboard-brackets): Strava's boundaries, and nothing for a missing detail.
+ * Brackets computed from an athlete's own details (segments/leaderboard-brackets): the standard boundaries, and nothing for a missing
+ * detail.
  */
 class LeaderboardBracketsTest {
     private val today = LocalDate(2025, 6, 10)

@@ -11,8 +11,8 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Known values of [ActivityRecord.sport]; the field is an open string. Tokens follow Garmin's activity profiles, plus what Apple Health,
- * Health Connect and Strava track that Garmin doesn't.
+ * Known values of [ActivityRecord.sport]; the field is an open string. Tokens cover every FIT activity profile, so FIT files import
+ * exactly, plus the other types Apple Health, Health Connect and Strava exports use.
  */
 object Sport {
     // Running, cycling, swimming, multisport

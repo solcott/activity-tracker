@@ -33,7 +33,7 @@ Each decoder passes FIT `hr` messages through raw as `DecodedHrMessage(timestamp
 
 `StreamBuilder` and the heart rate summary then see ordinary samples. The JS decoder passes `mergeHeartRates: false`, the only SDK that merges by default, so all three platforms take the same path.
 - *Alternative:* each SDK's own merge (Java's `HrToRecordMesgBroadcastPlugin`, JS's `mergeHeartRates`, Swift's `HrMesgUtil`). Rejected: it overwrites a record's own heart rate, the three can only be tested on Java, and the Swift one runs outside Kotlin.
-- *Alternative (the first sketch):* the nearest record within 2 s. Rejected for Garmin's interval average, which is what Garmin Connect shows.
+- *Alternative (the first sketch):* the nearest record within 2 s. Rejected for the file's own interval average, which is what the recording device reports.
 
 ### HRV: RMSSD in `TrainingLoad`
 The decoders pass each `hrv` message's `time` array (seconds, invalid values dropped). The mapper computes RMSSD in whole milliseconds. Before that, it keeps intervals between 300 and 2000 ms and drops any that differ from the previous kept interval by more than 20%. It needs at least 30 intervals left, or it stores none. RMSSD goes in `TrainingLoad.hrvRmssd` (`feed/activityZones.json#trainingLoad`), so it is placed, moved and repaired with the zones by the existing rules. The AppView's `trainingLoad` clamps it to 0–500.

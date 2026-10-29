@@ -2,7 +2,7 @@
 
 ## Why
 
-Every activity is a public repo record today. Anyone can read it from the athlete's repo or the firehose, and the AppView serves it to everyone. Athletes need to share some activities only with followers or mutuals, or keep them to themselves, as Strava allows. Follow requests (`followPolicy: approve`) shipped recently, and they mean little while every activity stays public.
+Every activity is a public repo record today. Anyone can read it from the athlete's repo or the firehose, and the AppView serves it to everyone. Athletes need to share some activities only with followers or mutuals, or keep them to themselves. Follow requests (`followPolicy: approve`) shipped recently, and they mean little while every activity stays public.
 
 ## What Changes
 

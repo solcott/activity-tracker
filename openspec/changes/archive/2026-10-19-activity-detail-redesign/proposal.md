@@ -2,7 +2,7 @@
 
 ## Why
 
-The activity page shows its summary as one grid of equal 96dp tiles. At our reading width that is seven tiles to a row with about 65dp per label, so labels are cut off ("Avg caden…"), nothing stands out, and avg/max pairs repeat across tiles. Below it, each metric is a collapsed section that shows its chart only after a tap. The page also keeps one centred column on every window, which leaves desktop and web mostly empty. The import screen is a form with a four-stat preview mixed in, so the athlete sees much less of the activity before saving than after. Strava and Garmin agree on a better shape: a few headline numbers, one consistent card per metric with its chart open, and a complete stats list for the rest. This change adopts that shape on Android, iOS, desktop and web.
+The activity page shows its summary as one grid of equal 96dp tiles. At our reading width that is seven tiles to a row with about 65dp per label, so labels are cut off ("Avg caden…"), nothing stands out, and avg/max pairs repeat across tiles. Below it, each metric is a collapsed section that shows its chart only after a tap. The page also keeps one centred column on every window, which leaves desktop and web mostly empty. The import screen is a form with a four-stat preview mixed in, so the athlete sees much less of the activity before saving than after. A better shape: a few headline numbers, one consistent card per metric with its chart open, and a complete stats list for the rest. This change adopts that shape on Android, iOS, desktop and web.
 
 ## What Changes
 

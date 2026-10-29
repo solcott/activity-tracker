@@ -134,8 +134,8 @@ internal object MetricCards {
         }
 
     /**
-     * The headline average and maximum, as the record has them, else over the stream. [withMin] adds the stream's minimum between them, in
-     * Garmin's order, for a metric that ranges rather than peaks, like temperature.
+     * The headline average and maximum, as the record has them, else over the stream. [withMin] adds the stream's minimum between them
+     * (average, minimum, maximum), for a metric that ranges rather than peaks, like temperature.
      */
     private fun avgMax(kind: StreamKind, figures: Figures, withMin: Boolean = false): List<Figure> =
         listOfNotNull(

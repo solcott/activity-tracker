@@ -468,8 +468,8 @@ object LeaderboardScope {
 }
 
 /**
- * Known values of [GetSegmentLeaderboard.Params.ageGroup], [GetSegmentMayors.Params.ageGroup] and [LeaderboardBracketsRecord.ageGroup]:
- * Strava's, by whole years of age.
+ * Known values of [GetSegmentLeaderboard.Params.ageGroup], [GetSegmentMayors.Params.ageGroup] and [LeaderboardBracketsRecord.ageGroup]: the
+ * usual leaderboard age groups, by whole years of age.
  */
 object LeaderboardAgeGroup {
     const val UNDER_20 = "0-19"
@@ -487,7 +487,7 @@ object LeaderboardAgeGroup {
 
 /**
  * Known values of [GetSegmentLeaderboard.Params.weightClass], [GetSegmentMayors.Params.weightClass] and
- * [LeaderboardBracketsRecord.weightClass]: Strava's, by whole kilograms rounded down.
+ * [LeaderboardBracketsRecord.weightClass]: by whole kilograms rounded down.
  */
 object LeaderboardWeightClass {
     const val UNDER_55 = "0-54"

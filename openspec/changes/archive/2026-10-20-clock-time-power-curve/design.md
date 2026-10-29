@@ -18,13 +18,13 @@ Garmin's own chart for this ride also reaches 2 h on a ride with 1:38 of timer t
 ## Goals / Non-Goals
 
 **Goals:**
-- Match Garmin's best-power figures on rides with stops.
-- Match Garmin's even spacing of durations on the curve.
+- Agree with the recording device's own best-power figures on rides with stops.
+- Space durations evenly along the curve.
 
 **Non-Goals:**
 - Changing normalized power or time in zone. They keep `PerSecond.hold`, and the NP of 177 W already matches Garmin.
 - Reading Garmin's device-computed best-power messages (FIT msg 113). They are undocumented, give only one duration, and only exist in Garmin files.
-- Records or comparison curves (Garmin's grey "Record" area).
+- Records or comparison curves.
 
 ## Decisions
 
@@ -32,10 +32,10 @@ Garmin's own chart for this ride also reaches 2 h on a ride with 1:38 of timer t
 - *Rejected: making `PerSecond.hold` fill pauses.* That would change time in zone and NP, which the existing spec deliberately keeps free of stopped time.
 - *Rejected: windows confined to unbroken stretches.* That gives no 20 min figure at all for this ride, and Garmin gives 179 W.
 
-**2. The duration list becomes Garmin's.** `CURVE_SECONDS` = 1, 2, 5, 10, 20, 30, 60, 120, 300, 600, 1200, 1800, 3600, 7200, 10800, 18000. Garmin's list stops at 2 h on this ride. We keep 3 h and 5 h for longer days, since Garmin extends the same way. `meanMax` already drops durations longer than its input, and that input is now the clock span, so a ride with 2:08 of clock time gets a 2 h point.
+**2. A standard duration list.** `CURVE_SECONDS` = 1, 2, 5, 10, 20, 30, 60, 120, 300, 600, 1200, 1800, 3600, 7200, 10800, 18000. The list stops at 2 h on this ride, and keeps 3 h and 5 h for longer days. `meanMax` already drops durations longer than its input, and that input is now the clock span, so a ride with 2:08 of clock time gets a 2 h point.
 
 **3. An index axis with log interpolation.** `PowerCurve` maps each curve point to its index (0, 1, 2, …) as its x. A marker x between index i and i+1 converts back to seconds by log interpolation between those two durations, so hover reads sensible values such as "40s". Axis labels sit at the integer indices (`xLabelsAt`). At compact widths the labels thin to every other one, always keeping the first and last. The chart keeps `TimeSeriesChart`, so the theme, the marker and the content description stay shared.
-- *Rejected: log axis starting at 5 s.* Under a minute still takes 38% of the width, and it isn't what Garmin does.
+- *Rejected: log axis starting at 5 s.* Under a minute still takes 38% of the width.
 
 **4. No point labels.** `pointLabels` is dropped for the curve. The screen-reader description keeps `CURVE_STATS` (5 s, 1 m, 5 m, 20 m, 1 h).
 

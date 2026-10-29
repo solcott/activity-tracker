@@ -21,7 +21,7 @@ See proposal.md (Why) for the motivation and specs/feed/detail-visibility for th
 **Non-Goals:**
 - Hiding the upload time (rkey TID, `createdAt`) or the activity's existence.
 - Per-category visibility for zones beyond the Heart rate and Power tiers. Zones stay one record.
-- Strava's "hide the map for every activity" setting as a separate toggle. A Map default of Only me covers it.
+- A "hide the map for every activity" setting as a separate toggle. A Map default of Only me covers it.
 - Rewriting past activities when the defaults change.
 
 ## Decisions
@@ -72,7 +72,7 @@ A shared `DetailVisibilityPicker` (built from `ui/adaptive` components) shows on
 
 - [Data is briefly visible at the wider tier during a narrowing edit] → Narrower places are written before wider ones are stripped, which matches today's mid-move window. A failed strip shows as an error and is retried on save.
 - [Several blobs per activity increase PDS storage] → Each tier blob carries only its channels, so the total stays close to one full blob plus repeated `time` arrays.
-- [The upload time reveals roughly when a recorded activity ended] → This is accepted and documented (proposal Known limit). Strava behaves the same way.
+- [The upload time reveals roughly when a recorded activity ended] → This is accepted and documented (proposal Known limit).
 - [The AppView feed query gets a join per page] → One batched `IN (activity_uri)` query per page, filtered by admitted tiers, plus an index on `activity_uri`.
 - [An older client reading a split activity shows fewer stats] → It shows only what is on the record. It still never shows more than the viewer is allowed.
 - [An athlete's saved `chartsVisibility` default stops applying, so new activities' charts follow the activity default] → The categories are new pickers prefilled at the activity default, and the change is called out in the release notes. The app is pre-release, so there are no outside clients to keep in step.

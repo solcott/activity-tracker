@@ -2,7 +2,7 @@
 
 ## Why
 
-Segment leaderboards (`segments/segment-leaderboards`) reward speed, so only the fastest athletes ever see their names at the top. Strava's Local Legends reward showing up instead: whoever rides or runs a segment most over the last 90 days holds it. We want the same idea under our own name, **Mayor**: the athlete with the most efforts on a segment is its Mayor ("Mayor of Hill Road climb"). It reuses everything the time boards already settle (which efforts are rankable, who may see them, the scope, e-bike and bracket filters), so it needs no new private data.
+Segment leaderboards (`segments/segment-leaderboards`) reward speed, so only the fastest athletes ever see their names at the top. This change rewards showing up instead, over the last 90 days, as **Mayor**: the athlete with the most efforts on a segment is its Mayor ("Mayor of Hill Road climb"). It reuses everything the time boards already settle (which efforts are rankable, who may see them, the scope, e-bike and bracket filters), so it needs no new private data.
 
 ## What Changes
 

@@ -74,7 +74,7 @@ A file's span can outlast its recording. A bike computer that died keeps its sta
   - the route keeps only covered points;
   - elapsed time ends at the last piece;
   - a member's totals are shared among its groups by covered seconds (D5).
-- Checked against a real ride: an Edge 840 that died 34 minutes in, then a Fenix 7s. Elapsed (5,136 s), distance, heart rate, power and track points match Strava's gotoes merge of the same two files.
+- Checked against a real ride: an Edge 840 that died 34 minutes in, then a Fenix 7s. Elapsed (5,136 s), distance, heart rate, power and track points match gotoes' merge of the same two files.
 
 ### D4. Legs, laps and the map
 - **Groups:** pieces (D3b) are sorted by start, and each one overlapping the group's span by at least half the shorter of the two joins that group. Every other piece starts a new group.

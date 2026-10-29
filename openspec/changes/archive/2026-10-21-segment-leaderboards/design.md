@@ -150,7 +150,7 @@ The same parts, evaluated one at a time for a single row, give `notRanked`, in t
 
 ## Risks / Trade-offs
 
-- **[An athlete's absence from a board can hint that they opted out or excluded a ride]** → Same as Strava. The choice itself is never served. A viewer only sees a Public effort that isn't on the board, which they could already see on the activity.
+- **[An athlete's absence from a board can hint that they opted out or excluded a ride]** → Accepted. The choice itself is never served. A viewer only sees a Public effort that isn't on the board, which they could already see on the activity.
 - **[Board query cost on popular segments]** → It groups every visible effort on one segment, using `segment_efforts_board_idx`. `visibleTo` per row is the main cost, as in `getSegmentEfforts`. If a segment grows past thousands of athletes, a per-tier pre-aggregate is the next step, kept out of scope here.
 - **[Periods use the AppView's UTC date against the effort's local date]** → An effort near midnight on the 1st can count in the neighbouring month for a few hours. The spec states it, so it's deliberate and testable.
 - **[Matching off forgets exclusions]** → The tracks that hold them are deleted. The spec states it, and the editor shows the current state when matching is back on.

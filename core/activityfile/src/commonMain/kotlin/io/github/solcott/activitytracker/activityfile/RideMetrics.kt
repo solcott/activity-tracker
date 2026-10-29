@@ -28,7 +28,7 @@ internal object RideMetrics {
         return power.takeIf { it.avgWatts != null || it.maxWatts != null }
     }
 
-    /** Average and max; the average leaves out zeros (coasting), as Garmin's does. */
+    /** Average and max; the average leaves out zeros (coasting), as the device's own average does. */
     fun cadence(sessions: List<DecodedSummary>, records: List<DecodedSample>): Pair<Int?, Int?> {
         val samples = records.mapNotNull { it.cadence }.filter { it > 0 }
         val avg = sessions.weightedAverage { it.avgCadence?.toDouble() }?.roundToInt()?.takeIf { it > 0 } ?: samples.averageOrNull()

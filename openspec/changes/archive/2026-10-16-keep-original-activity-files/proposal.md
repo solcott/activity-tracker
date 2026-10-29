@@ -2,7 +2,7 @@
 
 ## Why
 
-An imported FIT, GPX, TCX, Shearwater, UDDF or Subsurface file holds more than we store: laps, developer fields, running dynamics, dive deco state, device events. Once parsed, it's discarded (`ActivityFileReader`). A rebuilt export (`export-activity-files`) can't bring those back, and keeping the file would also let a future import re-read it as parsers improve. Strava's and Garmin's "Export original" exist for this reason. It has to be done at import time: a file that wasn't kept can't be recovered later.
+An imported FIT, GPX, TCX, Shearwater, UDDF or Subsurface file holds more than we store: laps, developer fields, running dynamics, dive deco state, device events. Once parsed, it's discarded (`ActivityFileReader`). A rebuilt export (`export-activity-files`) can't bring those back, and keeping the file would also let a future import re-read it as parsers improve. An "Export original" gives athletes the file exactly as it came. It has to be done at import time: a file that wasn't kept can't be recovered later.
 
 ## What Changes
 

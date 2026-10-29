@@ -20,9 +20,9 @@ Step 3 is the faulty part (see proposal.md, Why). When the closest sample is jus
 - Leave unchanged which passes are found: their count, direction, corridor, corner-cut and lap handling.
 
 **Non-Goals:**
-- Moving time. A stop past the start line or before the end line still counts, as on Strava.
+- Moving time. A stop past the start line or before the end line still counts.
 - Changing radii, the corridor, or segment geometry from the importer.
-- Matching Strava's segment endpoints.
+- Matching another service's segment endpoints.
 
 ## Decisions
 

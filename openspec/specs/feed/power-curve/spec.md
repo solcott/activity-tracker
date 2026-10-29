@@ -2,7 +2,7 @@
 
 ## Purpose
 
-How an activity's best average power for each length of time is worked out from its power stream, and how the activity page's power curve lays those durations out, so the figures match what Garmin Connect reports for the same ride.
+How an activity's best average power for each length of time is worked out from its power stream, and how the activity page's power curve lays those durations out, so the figures agree with what the recording device's own software reports for the same ride.
 
 ## Requirements
 

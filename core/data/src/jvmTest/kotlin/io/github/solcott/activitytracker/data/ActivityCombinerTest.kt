@@ -168,7 +168,7 @@ class ActivityCombinerTest {
 
     /**
      * The athlete's real ride, in shape: an Edge whose file spans 09:00 to 10:33 but which died at 09:34, saving 5 stray points at 10:33,
-     * and a watch started at 09:57 that finished the ride at 10:26. Strava's merge of the two runs 09:00 to 10:26.
+     * and a watch started at 09:57 that finished the ride at 10:26. A reference merge of the two (gotoes) runs 09:00 to 10:26.
      */
     @Test
     fun aDeviceThatDiedIsCoveredOnlyWhileItRecorded() {

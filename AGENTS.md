@@ -4,7 +4,7 @@ This file provides guidance to AI coding assistants (Claude Code, Antigravity) w
 
 ## Project
 
-A Kotlin Multiplatform, Strava-style athlete activity tracker backed by ATProtocol. Clients target Android, iOS, Web (wasmJs) and Desktop (JVM) and share a Compose Multiplatform UI. GPS recording is phone-only: desktop and web offer manual entry only. The backend is our own AppView (Ktor + Postgres). User data lives in each user's PDS. See [README.md](README.md) for local setup.
+A Kotlin Multiplatform activity tracker for athletes, backed by ATProtocol. Clients target Android, iOS, Web (wasmJs) and Desktop (JVM) and share a Compose Multiplatform UI. GPS recording is phone-only: desktop and web offer manual entry only. The backend is our own AppView (Ktor + Postgres). User data lives in each user's PDS. See [README.md](README.md) for local setup.
 
 ## Commands
 

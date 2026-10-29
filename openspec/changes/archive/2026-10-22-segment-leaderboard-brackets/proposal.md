@@ -2,13 +2,13 @@
 
 ## Why
 
-Strava lets athletes filter leaderboards by age group, weight class and gender. This is the last step of the segments roadmap, after `segment-leaderboards`. It needs profile details the AppView never indexes today: birth date, weight and gender live in the public profile or in `actor.privateDetails` in the athlete's tier spaces. Even "Only me" details would leak through a bracket (a 40–49 board reveals an age range), so a bracket may be used only for athletes who consent to this feature, and the AppView should never see the details themselves.
+Athletes want to compare themselves with others of similar age, weight and gender. This is the last step of the segments roadmap, after `segment-leaderboards`. It needs profile details the AppView never indexes today: birth date, weight and gender live in the public profile or in `actor.privateDetails` in the athlete's tier spaces. Even "Only me" details would leak through a bracket (a 40–49 board reveals an age range), so a bracket may be used only for athletes who consent to this feature, and the AppView should never see the details themselves.
 
 ## What Changes
 
 - **Consent.** A separate opt-in in Settings, offered while segment matching is on, off by default. Turning it on makes the client write a small brackets record to the athlete's `self` space; turning it off deletes it, and the AppView drops what it held.
 - **Brackets, computed on the device.** The record holds only the athlete's age group, weight class and gender bucket, each present only when the athlete has that detail. The client computes them from the athlete's own details and rewrites the record when a bracket changes (a birthday, a profile edit). The AppView never reads `birthDate`, `weight` or `gender` from any record.
-- **Strava's brackets.** Age: 19 and under, 20–24, 25–34, 35–44, 45–54, 55–64, 65–69, 70–74, 75+. Weight: under 55 kg, 55–64, 65–74, 75–84, 85–94, 95–104, 105–114, 115 kg and over. Gender: women, men, non-binary, from the profile's known values only.
+- **Standard brackets.** Age: 19 and under, 20–24, 25–34, 35–44, 45–54, 55–64, 65–69, 70–74, 75+. Weight: under 55 kg, 55–64, 65–74, 75–84, 85–94, 95–104, 105–114, 115 kg and over. Gender: women, men, non-binary, from the profile's known values only.
 - **Filters.** `feed.getSegmentLeaderboard` gains age-group, weight-class and gender filters. Athletes without consent, or without that bracket, never appear on a board filtered by it.
 - **Client.** The consent toggle in Settings and the three filters on the leaderboard screen.
 

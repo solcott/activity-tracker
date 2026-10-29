@@ -2,7 +2,7 @@
 
 ## Why
 
-Feed cards don't say when an activity happened, so a feed ordered by upload date gives no sense of when each ride or run took place. The activity page shows a start time, but only as a full date ("May 31, 2026, 1:00 AM"), even for something done today. Athletes expect the Strava-style "Today at 7:12 AM", in the time zone where the activity happened.
+Feed cards don't say when an activity happened, so a feed ordered by upload date gives no sense of when each ride or run took place. The activity page shows a start time, but only as a full date ("May 31, 2026, 1:00 AM"), even for something done today. Athletes expect a relative "Today at 7:12 AM", in the time zone where the activity happened.
 
 ## What Changes
 

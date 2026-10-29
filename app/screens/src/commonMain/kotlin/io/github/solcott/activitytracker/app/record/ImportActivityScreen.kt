@@ -187,7 +187,7 @@ data class DiveRow(
     val duplicate: DuplicateInfo? = null,
 )
 
-/** A title in Strava's style, "Morning Mountain Bike Ride": when the activity started, then its type. The UI words it. */
+/** A default title, "Morning Mountain Bike Ride": when the activity started, then its type. The UI words it. */
 @Immutable data class DefaultTitle(val partOfDay: PartOfDay, val type: ActivityType)
 
 /** Morning is 5:00 to noon, afternoon to 17:00, evening to 21:00, and night the rest, on the clock where the activity happened. */

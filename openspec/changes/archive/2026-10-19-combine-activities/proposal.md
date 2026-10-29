@@ -8,7 +8,7 @@ An athlete often has more than one recording of what was really one activity:
 - MTB runs with a shuttle between them;
 - a ski day saved before lunch and started again after.
 
-Today the only options are an import-time Merge, which fills gaps and loses the other recording, and Group (`recordingOf`), which shows one feed card but leaves the activity's figures and charts as the primary's alone. Group is the Strava model, a stack of separate activities, and it will double-count once totals, segments and Local Legends exist. This change adds one real combined activity, built from its members, which can still open each member on its own.
+Today the only options are an import-time Merge, which fills gaps and loses the other recording, and Group (`recordingOf`), which shows one feed card but leaves the activity's figures and charts as the primary's alone. Group is a stack of separate activities, and it will double-count once totals, segments and segment rankings exist. This change adds one real combined activity, built from its members, which can still open each member on its own.
 
 This is the first of four changes:
 1. `combine-activities` (this one): the model, the AppView, building the combined activity, and combining by hand from the activity page.

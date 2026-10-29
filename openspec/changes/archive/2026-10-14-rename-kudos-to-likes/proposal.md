@@ -2,7 +2,7 @@
 
 ## Why
 
-The app calls a like on an activity "kudos" (Strava's word). We want the plain, familiar word "likes" everywhere: the lexicon, the AppView, the client and the UI. The next change, likes on non-public activities stored in the giver's own private space, should use "likes" from the start. So this rename lands first, while the namespace is still a placeholder and nothing is deployed.
+The app calls a like on an activity "kudos". We want the plain, familiar word "likes" everywhere: the lexicon, the AppView, the client and the UI. The next change, likes on non-public activities stored in the giver's own private space, should use "likes" from the start. So this rename lands first, while the namespace is still a placeholder and nothing is deployed.
 
 ## What Changes
 

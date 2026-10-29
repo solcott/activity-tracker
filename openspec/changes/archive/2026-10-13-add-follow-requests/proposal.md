@@ -2,7 +2,7 @@
 
 ## Why
 
-Anyone can follow an athlete. Following is a record in the follower's own repo, and the athlete is never asked. Today that's harmless, because the only tier between public and Only me is Mutuals, and Mutuals already needs the athlete to follow back. But athletes have no way to share data with a wider group they choose, like Strava's "Followers" with "approve followers" turned on. This change lets an athlete opt in to approving followers, and adds a **Followers** visibility tier that only effective followers can read. A pending or declined follower then can't see Followers-only data.
+Anyone can follow an athlete. Following is a record in the follower's own repo, and the athlete is never asked. Today that's harmless, because the only tier between public and Only me is Mutuals, and Mutuals already needs the athlete to follow back. But athletes have no way to share data with a wider group they choose: followers they have approved. This change lets an athlete opt in to approving followers, and adds a **Followers** visibility tier that only effective followers can read. A pending or declined follower then can't see Followers-only data.
 
 ## What Changes
 

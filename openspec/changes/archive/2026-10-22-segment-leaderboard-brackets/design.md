@@ -17,7 +17,7 @@ See proposal.md for why. Today:
 - Filters compose with the existing period, scope and e-bike choices and the existing visibility rules.
 
 **Non-Goals:**
-- Age at the time of the effort. Boards use the athlete's current bracket, as Strava does.
+- Age at the time of the effort. Boards use the athlete's current bracket.
 - Per-bracket consent (sharing weight but not age). One choice covers all three; the record's optional fields leave room for it later.
 - Custom gender descriptions as boards, or counts of athletes per bracket.
 
@@ -55,7 +55,7 @@ The record is added to `space.athlete`'s collections and description. Old sessio
 ## Risks / Trade-offs
 
 - [A filtered board reveals a bracket to anyone who can see the effort] → That's what the athlete consented to; the Settings text says so, and existing effort visibility still applies.
-- [Stale age group when the athlete doesn't open the app around a birthday] → Accepted; Strava has the same lag. Refreshes run every session.
+- [Stale age group when the athlete doesn't open the app around a birthday] → Accepted. Refreshes run every session.
 - [Combining filters narrows a board to one person, revealing all three brackets] → Each bracket is already revealed singly; combining adds nothing beyond what consent covers.
 - [Old sessions can't write the record] → The choice is hidden for them; they sign in again to get it, as with every new space collection.
 

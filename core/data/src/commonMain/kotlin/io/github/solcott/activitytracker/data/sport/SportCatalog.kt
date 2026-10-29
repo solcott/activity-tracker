@@ -64,9 +64,9 @@ data class SportInfo(
 @Immutable data class CategoryTypes(val category: SportCategory, val types: List<ActivityType>)
 
 /**
- * The known activity types, modeled on Garmin's activity profiles and extended with what Apple Health, Health Connect and Strava track.
- * Sport and sub-sport tokens are open strings in the lexicon, so a type this catalog doesn't know (from another client) still displays,
- * falling back to [RateKind.Pace] like the original sports did.
+ * The known activity types: every FIT activity profile, so FIT files import exactly, plus the types Apple Health, Health Connect and Strava
+ * exports use. Sport and sub-sport tokens are open strings in the lexicon, so a type this catalog doesn't know (from another client) still
+ * displays, falling back to [RateKind.Pace] like the original sports did.
  */
 object SportCatalog {
     val sports: List<SportInfo> = buildList {

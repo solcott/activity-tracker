@@ -73,7 +73,7 @@ Alternative: a share sheet everywhere through Calf. Calf has no desktop/web shar
 
 - [Streams not indexed yet: the AppView serves streams a little after the activity, so an export right after sending may miss channels] → the outbox check covers unsent writes; for indexing lag, `formats` comes from what the screen loaded, and a TCX/GPX with a track but no streams is still correct, just thinner. Accept.
 - [Large multi-day activities: tens of thousands of points held as strings in memory] → files of this size are a few MB; build once in `Dispatchers.Default`, as charts are.
-- [Untrimmed track leaves the device: the file holds positions inside privacy zones] → it's the owner's own data, as Strava's and Garmin's exports are; the spec says so, and the dialog's note mentions it.
+- [Untrimmed track leaves the device: the file holds positions inside privacy zones] → it's the owner's own data; the spec says so, and the dialog's note mentions it.
 - [GPX extension support varies by tool] → `gpxtpx` v2 and bare `<power>` are what Garmin Connect and Strava import; tests pin the element names.
 - [FileKit's share/save API differs from what's assumed on some target] → the first task checks each platform's API in 0.16.0 before the UI work; fall back to a per-platform implementation (Android `Intent.ACTION_SEND` with a `FileProvider`, `UIActivityViewController` on iOS) only where needed.
 

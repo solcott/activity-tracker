@@ -24,8 +24,8 @@ import kotlin.math.roundToInt
 import kotlinx.collections.immutable.ImmutableList
 
 /**
- * Time in each zone as horizontal bars, highest zone on top, as Strava and Garmin show it. Each row reads as one sentence to a screen
- * reader. Zones are coloured from cool to hot.
+ * Time in each zone as horizontal bars, highest zone on top. Each row reads as one sentence to a screen reader. Zones are coloured from
+ * cool to hot.
  */
 @Composable
 fun ZoneBars(zones: ImmutableList<ZoneBar>, modifier: Modifier = Modifier) {

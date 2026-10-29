@@ -16,7 +16,7 @@
 
 **Non-Goals:**
 - Backfilling the average temperature of activities already imported.
-- Minimums for other streams (heart rate, power, speed, cadence), which Garmin doesn't show either: their minimum is a stop, not part of the effort.
+- Minimums for other streams (heart rate, power, speed, cadence): their minimum is a stop, not part of the effort.
 - A combined range figure ("60.8–80.6 °F") or a range bar. The athlete chose separate Min and Max figures, which match Garmin and the cards' existing Avg/Max figures.
 
 ## Decisions

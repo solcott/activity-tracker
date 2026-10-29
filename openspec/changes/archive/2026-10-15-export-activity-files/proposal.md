@@ -2,7 +2,7 @@
 
 ## Why
 
-Athletes expect to take their data with them. Strava and Garmin both let an athlete download any of their own activities as GPX or TCX (and Garmin as FIT), rebuilt from what the service stores. Everything needed is already stored for the athlete:
+Athletes expect to take their data with them: any of their own activities as GPX or TCX, rebuilt from what we store. Everything needed is already stored for the athlete:
 
 - the activity record: sport, start time, duration, distance and the other summary fields
 - its streams: per-second distance, altitude, speed, heart rate, power, cadence, temperature, depth and gear changes

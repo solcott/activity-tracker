@@ -34,8 +34,8 @@ import kotlinx.collections.immutable.ImmutableList
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * An activity's route and photos side by side, as Strava shows them: the [map] (when it has a route) first, then each of [media], scrolled
- * sideways. With no photos the map takes the whole width; with neither, nothing shows. Tapping a photo calls [onOpen] with its index.
+ * An activity's route and photos side by side: the [map] (when it has a route) first, then each of [media], scrolled sideways. With no
+ * photos the map takes the whole width; with neither, nothing shows. Tapping a photo calls [onOpen] with its index.
  */
 @Composable
 fun MediaRow(

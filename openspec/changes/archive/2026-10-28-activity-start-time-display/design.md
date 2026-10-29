@@ -28,7 +28,7 @@ The activity page already formats its Start time figure in the UI: the presenter
 
 **The page's start is its own figure.** `ActivityPageContent.start` carries the Start time figure, mark included, and the stats list's Timing group no longer does. The header renders it with `StartLine` (the shared `startTime()` and a `VisibilityBadge` for the mark), the way `mapMark` sits by the map. Built by the presenter rather than from `activity.record` in the header, because the owner's page merges the Start time details record into the record it builds from, while `activity.record` holds only the local midnight when the start is narrower. The import preview renders the same `start` above the hero, so it keeps showing the start it would publish.
 
-**Card placement.** A `bodySmall`, `onSurfaceVariant` line under the author's name in the author row's column, like Strava. It stays inside the clickable author area only if that reads naturally; otherwise directly below the row. Choose by screenshot.
+**Card placement.** A `bodySmall`, `onSurfaceVariant` line under the author's name in the author row's column. It stays inside the clickable author area only if that reads naturally; otherwise directly below the row. Choose by screenshot.
 
 ## Risks / Trade-offs
 

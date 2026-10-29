@@ -6,9 +6,9 @@ The power curve overstates long efforts on any ride with stops. A Garmin Edge 84
 
 ## What Changes
 
-- Best average power for each duration is taken over the activity's clock time, as Garmin does: a pause counts its real length at 0 W, so no window joins efforts from either side of a stop. Time in zone and normalized power keep counting a pause once.
-- The curve is read at Garmin's durations: 1, 2, 5, 10, 20 and 30 s, 1, 2, 5, 10, 20 and 30 min, then 1, 2, 3 and 5 h, each where the activity's clock time is long enough.
-- The curve's chart puts those durations equally apart along its x axis, as Garmin's chart does, instead of on a log scale from 1 s. It drops the watt labels on the line; tapping or hovering a point still shows its duration and watts, and the screen-reader description is unchanged.
+- Best average power for each duration is taken over the activity's clock time: a pause counts its real length at 0 W, so no window joins efforts from either side of a stop. Time in zone and normalized power keep counting a pause once.
+- The curve is read at standard durations: 1, 2, 5, 10, 20 and 30 s, 1, 2, 5, 10, 20 and 30 min, then 1, 2, 3 and 5 h, each where the activity's clock time is long enough.
+- The curve's chart puts those durations equally apart along its x axis instead of on a log scale from 1 s. It drops the watt labels on the line; tapping or hovering a point still shows its duration and watts, and the screen-reader description is unchanged.
 - "Best 20 min power" and the curve's 20 min point both follow the new calculation, so a ride's figure matches Garmin Connect's "Max Avg Power (20 min)".
 
 ## Capabilities

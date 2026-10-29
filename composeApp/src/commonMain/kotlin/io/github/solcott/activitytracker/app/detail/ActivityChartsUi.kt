@@ -63,8 +63,8 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * [card]'s charts in full: its lines, then zones (or how to get them, [onSetThresholds], when the owner has none) after heart rate and
- * power, and the power curve before power zones. Elevation sits faintly behind the effort lines at every width, as Strava draws it, so
- * effort reads against the climbs; a chart without an elevation series draws none.
+ * power, and the power curve before power zones. Elevation sits faintly behind the effort lines at every width, so effort reads against the
+ * climbs; a chart without an elevation series draws none.
  */
 @Composable
 internal fun CardCharts(
@@ -320,7 +320,7 @@ private fun Zones(title: StringResource, zones: ImmutableList<ZoneTime>, unit: S
 @Composable
 private fun PowerCurve(curve: ImmutableList<CurvePoint>) {
     val watts = stringResource(Res.string.unit_watts, "")
-    // As Garmin draws it: each duration an equal step along the axis, so 1 s to 1 min takes no more room than 1 min to 1 h.
+    // Each duration is an equal step along the axis, so 1 s to 1 min takes no more room than 1 min to 1 h.
     val points = remember(curve) { curve.mapIndexed { i, point -> SeriesPoint(i.toDouble(), point.watts.toDouble()) }.toImmutableList() }
     // Between two durations the axis runs on a log scale, so a marker between points reads a duration between theirs.
     val secondsAt = { x: Double ->

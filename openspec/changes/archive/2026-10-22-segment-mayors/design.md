@@ -19,7 +19,7 @@ See proposal.md for why, and `specs/segments/segment-mayors/spec.md` for the beh
 - A "You're the Mayor" badge on activities or in `getActivitySegments` (a later change could add a `mayor` flag).
 - Notifications when someone loses or takes a title.
 - New periods on `getSegmentLeaderboard`.
-- Histograms or counts of how many efforts others need, as Strava shows.
+- Histograms or counts of how many efforts others need.
 
 ## Decisions
 

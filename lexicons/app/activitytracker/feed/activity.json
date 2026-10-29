@@ -13,7 +13,7 @@
           "sport": {
             "type": "string",
             "maxLength": 64,
-            "description": "Activity type, following Garmin's activity profiles plus types Apple Health, Health Connect and Strava track.",
+            "description": "Activity type: every FIT activity profile, plus the other types Apple Health, Health Connect and Strava exports use.",
             "knownValues": ["run", "ride", "handcycle", "swim", "multisport", "waterFitness", "walk", "hike", "rucking", "mountaineering", "climb", "inlineSkate", "horseback", "golf", "discGolf", "archery", "hunt", "fish", "adventureRace", "expedition", "wheelchair", "skateboard", "kickScooter", "orienteering", "parkour", "ski", "snowboard", "xcSki", "snowshoe", "iceSkate", "curling", "row", "kayak", "canoe", "sup", "surf", "kiteboard", "windsurf", "sail", "wakeboard", "wakesurf", "waterSki", "whitewater", "tube", "snorkel", "boat", "dive", "strength", "cardio", "hiit", "yoga", "pilates", "mobility", "elliptical", "stairStepper", "floorClimb", "jumpRope", "boxing", "mma", "wrestling", "fencing", "taiChi", "dance", "gymnastics", "recovery", "soccer", "americanFootball", "baseball", "softball", "basketball", "volleyball", "iceHockey", "fieldHockey", "lacrosse", "rugby", "cricket", "ultimate", "handball", "waterPolo", "australianFootball", "rollerHockey", "floorball", "tennis", "pickleball", "padel", "badminton", "squash", "racquetball", "tableTennis", "platformTennis", "motorcycle", "motocross", "atv", "snowmobile", "overland", "meditation", "breathwork", "flying", "skydive", "gaming", "bowling", "play", "yardWork", "housework", "other"]
           },
           "subSport": {
