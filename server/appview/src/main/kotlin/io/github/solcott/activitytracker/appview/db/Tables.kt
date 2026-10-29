@@ -157,6 +157,45 @@ object Segments : Table("segments") {
     val duplicateOf = varchar("duplicate_of", 512).nullable()
     /** When the segment was first indexed, never changed by an edit: which of two segments came first. */
     val firstIndexedAt = long("first_indexed_at")
+    /**
+     * The name every view serves (segments/segment-names): its latest adopted [SegmentNameProposals] row still in effect, else [name] (the
+     * record's, the original). Recomputed by `recomputeCurrentName`.
+     */
+    val currentName = varchar("current_name", 1000)
+    override val primaryKey = PrimaryKey(uri)
+}
+
+/**
+ * An accepted `feed.segmentNameProposal` (segments/segment-names), from its proposer's repo. [state] is a `ProposalState` value. An adopted
+ * proposal whose record was deleted keeps its row with [recordGone] set.
+ */
+object SegmentNameProposals : Table("segment_name_proposals") {
+    val uri = varchar("uri", 512)
+    /** The version votes count for. */
+    val cid = varchar("cid", 255)
+    val segmentUri = varchar("segment_uri", 512)
+    val proposerDid = varchar("proposer_did", 255)
+    val name = varchar("proposed_name", 1000)
+    val state = varchar("proposal_state", 16)
+    /** When it was accepted, or last edited. */
+    val openedAt = long("opened_at")
+    val closedAt = long("closed_at").nullable()
+    /** The counted totals when it closed. */
+    val finalUp = integer("final_up").nullable()
+    val finalDown = integer("final_down").nullable()
+    val recordGone = bool("record_gone").default(false)
+    override val primaryKey = PrimaryKey(uri)
+}
+
+/** A `feed.segmentNameVote` from its voter's `interactions` space, on the proposal version [proposalCid]. Never served. */
+object SegmentNameVotes : Table("segment_name_votes") {
+    val uri = varchar("uri", 512)
+    val voterDid = varchar("voter_did", 255)
+    val proposalUri = varchar("proposal_uri", 512)
+    val proposalCid = varchar("proposal_cid", 255)
+    val up = bool("vote_up")
+    /** When this version was indexed: of a voter's votes on one proposal, the latest counts. */
+    val indexedAt = long("indexed_at")
     override val primaryKey = PrimaryKey(uri)
 }
 

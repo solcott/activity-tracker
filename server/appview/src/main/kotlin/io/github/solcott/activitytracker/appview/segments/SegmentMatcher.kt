@@ -92,7 +92,7 @@ import org.slf4j.LoggerFactory
  * backoff, then given up. A blob that isn't a valid track ([piecesOf]) isn't retried: its activity's efforts, its cells and its candidate
  * riders are dropped.
  */
-@Suppress("TooManyFunctions") // The loop, the four jobs, the status pass, and the reads they share.
+@Suppress("TooManyFunctions", "LongParameterList") // The loop, the four jobs, the status and naming passes, the reads they share; config.
 class SegmentMatcher(
     private val db: Database,
     private val jobs: SegmentJobs,
@@ -100,12 +100,14 @@ class SegmentMatcher(
     private val clock: Clock = Clock.System,
     private val activeAthletes: Int = DEFAULT_ACTIVE_ATHLETES,
     private val candidateRiders: Int = DEFAULT_ACTIVE_ATHLETES,
+    names: SegmentNameRules = SegmentNameRules(),
 ) {
     private val log = LoggerFactory.getLogger(SegmentMatcher::class.java)
+    private val naming = SegmentNaming(db, clock, names)
 
     /**
      * Runs until [scope] is cancelled: the one-off backfill, then the due jobs, waking on each enqueue or every [POLL_INTERVAL], and the
-     * status pass on start and every [STATUS_INTERVAL].
+     * status pass, then the naming pass, on start and every [STATUS_INTERVAL].
      */
     fun start(scope: CoroutineScope): Job = scope.launch {
         guarded("Backfilling segment tracks") { backfill() }
@@ -114,6 +116,7 @@ class SegmentMatcher(
             val now = clock.now().toEpochMilliseconds()
             if (statusesAt == null || now - statusesAt >= STATUS_INTERVAL.inWholeMilliseconds) {
                 guarded("Updating segment statuses") { updateStatuses() }
+                guarded("Updating segment names") { updateNames() }
                 statusesAt = now
             }
             guarded("Running segment jobs") { runDue() }
@@ -142,6 +145,9 @@ class SegmentMatcher(
             recheckDuplicatesOf(stale, jobs, now)
         }
     }
+
+    /** The naming pass ([SegmentNaming]), run after each status pass. Exposed for tests. */
+    suspend fun updateNames() = naming.update()
 
     /** Makes each of [uris] that is proposed active once efforts on it come from [activeAthletes] distinct athletes. */
     private fun JdbcTransaction.promote(uris: Collection<String>) {

@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
 import io.github.solcott.activitytracker.lexicon.Did
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -91,6 +92,47 @@ class AppViewConfigTest {
         assertEquals(1, AppViewConfig.fromEnv(mapOf("SEGMENT_CANDIDATE_RIDERS" to "-2")).segmentCandidateRiders)
         assertEquals(3, AppViewConfig.fromEnv(mapOf("SEGMENT_CANDIDATE_RIDERS" to "")).segmentCandidateRiders)
         assertEquals(3, AppViewConfig.fromEnv(mapOf("SEGMENT_CANDIDATE_RIDERS" to "lots")).segmentCandidateRiders)
+    }
+
+    @Test
+    fun segmentNameRulesHaveDefaultsAndIgnoreInvalidValues() {
+        assertEquals(SegmentNameRules(), AppViewConfig.fromEnv(emptyMap()).segmentNames)
+        val custom =
+            AppViewConfig.fromEnv(
+                    mapOf(
+                        "SEGMENT_NAME_PROPOSER_DAYS" to "2",
+                        "SEGMENT_NAME_MIN_UP" to " 1 ",
+                        "SEGMENT_NAME_RIDER_PERCENT" to "0",
+                        "SEGMENT_NAME_MIN_OPEN_DAYS" to "0",
+                        "SEGMENT_NAME_REJECT_SCORE" to "-2",
+                        "SEGMENT_NAME_EXPIRY_DAYS" to "30",
+                        "SEGMENT_NAME_COOLDOWN_DAYS" to "0",
+                    )
+                )
+                .segmentNames
+        assertEquals(SegmentNameRules(2, 1, 0, 0, -2, 30, 0), custom)
+        val invalid =
+            AppViewConfig.fromEnv(
+                    mapOf(
+                        "SEGMENT_NAME_PROPOSER_DAYS" to "0",
+                        "SEGMENT_NAME_MIN_UP" to "lots",
+                        "SEGMENT_NAME_RIDER_PERCENT" to "150",
+                        "SEGMENT_NAME_MIN_OPEN_DAYS" to "-1",
+                        "SEGMENT_NAME_REJECT_SCORE" to "3",
+                        "SEGMENT_NAME_EXPIRY_DAYS" to "",
+                        "SEGMENT_NAME_COOLDOWN_DAYS" to "-5",
+                    )
+                )
+                .segmentNames
+        assertEquals(SegmentNameRules(), invalid)
+    }
+
+    @Test
+    fun upNeededIsTheLargerOfTheMinimumAndTheRiderShareRoundedUp() {
+        val rules = SegmentNameRules()
+        assertEquals(5, rules.upNeeded(20))
+        assertEquals(30, rules.upNeeded(300))
+        assertEquals(31, rules.upNeeded(301))
     }
 
     @Test

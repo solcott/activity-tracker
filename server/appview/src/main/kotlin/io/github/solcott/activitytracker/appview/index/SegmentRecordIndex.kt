@@ -7,6 +7,8 @@ import io.github.solcott.activitytracker.appview.db.SegmentCreations
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
 import io.github.solcott.activitytracker.appview.db.Segments
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
+import io.github.solcott.activitytracker.appview.segments.deleteSegmentNames
+import io.github.solcott.activitytracker.appview.segments.recomputeCurrentName
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
@@ -57,8 +59,8 @@ private const val E7 = 1e7
  * creator's [DAILY_SEGMENT_LIMIT] (new and re-lined ones in the last day, deleted ones included) while [limited] (every creator but the
  * segment importer). A new segment, or one whose line or sport changed, loses its efforts, gets its status again (duplicate of the earliest
  * live segment it duplicates, else proposed) and, unless a duplicate, is queued to be matched against past tracks; the segments that
- * duplicated its old version are checked again. A rename keeps its status. A blank or over-long attribution is left out of the stored
- * record.
+ * duplicated its old version are checked again. A rename keeps its status and changes only its original name: an adopted community name in
+ * effect stays its current name. A blank or over-long attribution is left out of the stored record.
  */
 @Suppress("LongParameterList", "LongMethod") // The record, and where it's from; then each part of indexing it.
 internal fun JdbcTransaction.upsertSegment(
@@ -113,7 +115,10 @@ internal fun JdbcTransaction.upsertSegment(
         it[firstIndexedAt] = firstIndexed
         it[status] = if (changed) (if (original != null) SegmentStatus.DUPLICATE else SegmentStatus.PROPOSED) else old[Segments.status]
         it[duplicateOf] = if (changed) original else old[Segments.duplicateOf]
+        // The record's name until an adopted community name in effect replaces it, just below (segments/segment-names).
+        it[currentName] = name.take(MAX_NAME_LENGTH)
     }
+    recomputeCurrentName(uri.value)
     if (!changed) return
     SegmentEfforts.deleteWhere { segmentUri eq uri.value }
     replaceSegmentCells(uri.value, line)
@@ -214,7 +219,10 @@ internal fun JdbcTransaction.recheckDuplicatesOf(originals: List<String>, jobs: 
     }
 }
 
-/** A deleted segment: it, its cells and every effort on it go, and the segments that duplicated it are checked again. */
+/**
+ * A deleted segment: it, its cells, every effort on it and its name proposals and their votes go, and the segments that duplicated it are
+ * checked again.
+ */
 internal fun JdbcTransaction.deleteSegment(uri: AtUri, jobs: SegmentJobs, now: Long) = deleteSegments(listOf(uri.value), jobs, now)
 
 /** [author]'s segments, for a deleted account. */
@@ -224,6 +232,7 @@ internal fun JdbcTransaction.deleteSegmentsBy(author: Did, jobs: SegmentJobs, no
 private fun JdbcTransaction.deleteSegments(uris: List<String>, jobs: SegmentJobs, now: Long) {
     if (uris.isEmpty()) return
     SegmentEfforts.deleteWhere { segmentUri inList uris }
+    deleteSegmentNames(uris)
     SegmentCellIndex.deleteWhere { segmentUri inList uris }
     Segments.deleteWhere { Segments.uri inList uris }
     recheckDuplicatesOf(uris, jobs, now)

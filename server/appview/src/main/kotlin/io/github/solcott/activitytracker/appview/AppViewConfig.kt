@@ -1,6 +1,7 @@
 package io.github.solcott.activitytracker.appview
 
 import io.github.solcott.activitytracker.appview.segments.SegmentMatcher
+import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
 import io.github.solcott.activitytracker.lexicon.Did
 
 /** Environment-driven config. Defaults match `docker/compose.yaml` so `./gradlew :server-appview:run` just works. */
@@ -54,6 +55,8 @@ data class AppViewConfig(
     val segmentImporter: Did? = null,
     /** How many distinct athletes' passes make a staged candidate ridden (`SEGMENT_CANDIDATE_RIDERS`, at least 1). */
     val segmentCandidateRiders: Int = SegmentMatcher.DEFAULT_ACTIVE_ATHLETES,
+    /** Who may propose segment names and when a proposal is adopted (`SEGMENT_NAME_*`; segments/segment-names). */
+    val segmentNames: SegmentNameRules = SegmentNameRules(),
     /**
      * Whether hosts learned from DID documents and handles may be private, loopback or link-local addresses
      * (`APPVIEW_ALLOW_PRIVATE_ADDRESSES=true`; identity/outbound-requests). Local dev only, where every PDS and `did:web` is `localhost`.
@@ -114,6 +117,7 @@ data class AppViewConfig(
                 segmentActiveAthletes = athletes(env, "SEGMENT_ACTIVE_ATHLETES"),
                 segmentImporter = env["SEGMENT_IMPORTER_DID"]?.trim()?.takeIf { it.startsWith("did:") }?.let(::Did),
                 segmentCandidateRiders = athletes(env, "SEGMENT_CANDIDATE_RIDERS"),
+                segmentNames = SegmentNameRules.fromEnv(env),
                 allowPrivateAddresses = env["APPVIEW_ALLOW_PRIVATE_ADDRESSES"]?.trim().equals("true", ignoreCase = true),
             )
         }

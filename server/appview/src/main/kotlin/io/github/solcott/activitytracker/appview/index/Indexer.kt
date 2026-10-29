@@ -22,10 +22,12 @@ import io.github.solcott.activitytracker.appview.db.Mutes
 import io.github.solcott.activitytracker.appview.db.Origins
 import io.github.solcott.activitytracker.appview.db.RecordShadows
 import io.github.solcott.activitytracker.appview.db.SegmentCreations
+import io.github.solcott.activitytracker.appview.db.SegmentNameVotes
 import io.github.solcott.activitytracker.appview.db.SegmentPrefs
 import io.github.solcott.activitytracker.appview.db.SpaceSync
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.segments.SegmentJobs
+import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
 import io.github.solcott.activitytracker.atproto.commentHideRkey
 import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -86,6 +88,8 @@ class Indexer(
     private val clock: Clock = Clock.System,
     /** The segment importer's account (`SEGMENT_IMPORTER_DID`), whose new segments aren't limited per day. */
     private val segmentImporter: Did? = null,
+    /** Who may propose segment names (segments/segment-names). */
+    private val segmentNames: SegmentNameRules = SegmentNameRules(),
 ) {
     private val log = LoggerFactory.getLogger(Indexer::class.java)
 
@@ -187,6 +191,7 @@ class Indexer(
         CommentHides.deleteWhere { origin eq placement.origin }
         Blocks.deleteWhere { origin eq placement.origin }
         Mutes.deleteWhere { origin eq placement.origin }
+        if (space.skey == AthleteSpace.INTERACTIONS) SegmentNameVotes.deleteWhere { voterDid eq space.authority.value }
         if (space.skey == AthleteSpace.SELF) {
             SegmentPrefs.deleteWhere { did eq space.authority.value }
             LeaderboardBrackets.deleteWhere { did eq space.authority.value }
@@ -236,7 +241,7 @@ class Indexer(
         }
     }
 
-    @Suppress("LongParameterList", "LongMethod") // The record, and where it's from; a branch per indexed collection.
+    @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod") // The record, and where it's from; a branch per collection.
     private fun JdbcTransaction.upsert(
         collection: String,
         author: Did,
@@ -315,6 +320,16 @@ class Indexer(
                     upsertSegment(json, author, uri, cid, segmentJobs, now, limited = author != segmentImporter)
             }
 
+            // Public, so from the repo only; a copy in a space is ignored.
+            Nsid.FEED_SEGMENT_NAME_PROPOSAL -> {
+                if (placement.origin == Origins.REPO) upsertNameProposal(json, author, uri, cid, segmentNames, now)
+            }
+
+            // Private, so from the interactions space only (spaceCollections); the firehose never delivers it (indexedCollections).
+            Nsid.FEED_SEGMENT_NAME_VOTE -> {
+                if (placement.origin != Origins.REPO) upsertNameVote(json, author, uri, now)
+            }
+
             Nsid.ACTOR_PROFILE -> {
                 if (uri.rkey == ProfileRecord.RKEY)
                     updateProfile(AtJson.decodeFromJsonElement(ProfileRecord.serializer(), json), author, now)
@@ -346,7 +361,7 @@ class Indexer(
         if (activity != null) activityChanged(activity, before, segmentJobs, clock.now().toEpochMilliseconds())
     }
 
-    @Suppress("LongMethod") // A branch per indexed collection.
+    @Suppress("LongMethod", "CyclomaticComplexMethod") // A branch per indexed collection.
     private fun JdbcTransaction.deleteRecord(collection: String, uri: AtUri, placement: Placement) {
         when (collection) {
             Nsid.FEED_ACTIVITY,
@@ -405,6 +420,14 @@ class Indexer(
 
             Nsid.FEED_SEGMENT -> {
                 if (placement.origin == Origins.REPO) deleteSegment(uri, segmentJobs, clock.now().toEpochMilliseconds())
+            }
+
+            Nsid.FEED_SEGMENT_NAME_PROPOSAL -> {
+                if (placement.origin == Origins.REPO) deleteNameProposals(listOf(uri.value))
+            }
+
+            Nsid.FEED_SEGMENT_NAME_VOTE -> {
+                if (placement.origin != Origins.REPO) deleteNameVote(uri)
             }
 
             Nsid.ACTOR_PROFILE -> {
@@ -495,6 +518,7 @@ class Indexer(
         LeaderboardBrackets.deleteWhere { LeaderboardBrackets.did eq did.value }
         SegmentCreations.deleteWhere { authorDid eq did.value }
         dropSegmentTracks(did)
+        deleteSegmentNamesBy(did)
         deleteSegmentsBy(did, segmentJobs, clock.now().toEpochMilliseconds())
         RecordShadows.deleteWhere { uri like "at://${did.value}/%" }
         Actors.deleteWhere { Actors.did eq did.value }
@@ -523,20 +547,21 @@ class Indexer(
         private val BLOCKS_AND_MUTES = setOf(Nsid.GRAPH_BLOCK, Nsid.BSKY_GRAPH_BLOCK, Nsid.GRAPH_MUTE)
 
         private val INTERACTION_COLLECTIONS =
-            setOf(Nsid.FEED_LIKE, Nsid.FEED_COMMENT, Nsid.FEED_COMMENT_HIDE, Nsid.GRAPH_BLOCK, Nsid.GRAPH_MUTE)
+            setOf(Nsid.FEED_LIKE, Nsid.FEED_COMMENT, Nsid.FEED_COMMENT_HIDE, Nsid.GRAPH_BLOCK, Nsid.GRAPH_MUTE, Nsid.FEED_SEGMENT_NAME_VOTE)
 
         /** Segment tracks, the segment matching setting and the leaderboard brackets, indexed only from `self`. */
         private val SEGMENT_COLLECTIONS = setOf(Nsid.FEED_SEGMENT_TRACK, Nsid.ACTOR_SEGMENT_PREFS, Nsid.ACTOR_LEADERBOARD_BRACKETS)
         private val SELF_COLLECTIONS = TIER_COLLECTIONS + SEGMENT_COLLECTIONS
 
         /**
-         * What the AppView indexes from the athlete space with key [skey]: likes, comments, comment hides, blocks and mutes from the
-         * interactions space, and activities, their details, streams and zones and gear items from a tier (an unknown key is a tier only
-         * the athlete sees), plus from `self` the segment matching setting and segment tracks (zone-trimmed copies of tracks, used only
-         * while matching is on and never served) and the leaderboard brackets (used only to filter leaderboards, never served). Private
-         * details, follow declines, defaults, full tracks, imported files and their devices (`feed.activityTrack`, `feed.activitySource`,
-         * `feed.activityDevices`, in `self`), privacy zones and their trim marker (`actor.privacyZones`, `actor.routeTrim`, in `self`),
-         * stars on segments (`feed.segmentStar`, in `self`) and gear collections (`gear.collection`, in `self`) are never stored.
+         * What the AppView indexes from the athlete space with key [skey]: likes, comments, comment hides, blocks, mutes and segment name
+         * votes from the interactions space, and activities, their details, streams and zones and gear items from a tier (an unknown key is
+         * a tier only the athlete sees), plus from `self` the segment matching setting and segment tracks (zone-trimmed copies of tracks,
+         * used only while matching is on and never served) and the leaderboard brackets (used only to filter leaderboards, never served).
+         * Private details, follow declines, defaults, full tracks, imported files and their devices (`feed.activityTrack`,
+         * `feed.activitySource`, `feed.activityDevices`, in `self`), privacy zones and their trim marker (`actor.privacyZones`,
+         * `actor.routeTrim`, in `self`), stars on segments (`feed.segmentStar`, in `self`) and gear collections (`gear.collection`, in
+         * `self`) are never stored.
          */
         fun spaceCollections(skey: String): Set<String> =
             when (skey) {

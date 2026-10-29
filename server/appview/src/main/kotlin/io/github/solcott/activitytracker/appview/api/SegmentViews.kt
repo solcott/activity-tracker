@@ -13,6 +13,10 @@ import io.github.solcott.activitytracker.appview.index.DAILY_SEGMENT_LIMIT
 import io.github.solcott.activitytracker.appview.index.duplicatesOf
 import io.github.solcott.activitytracker.appview.index.segmentsCreatedSince
 import io.github.solcott.activitytracker.appview.index.validLine
+import io.github.solcott.activitytracker.appview.segments.SegmentNameRules
+import io.github.solcott.activitytracker.appview.segments.mayPropose
+import io.github.solcott.activitytracker.appview.segments.plausibleEffort
+import io.github.solcott.activitytracker.appview.segments.ridersAmong
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -53,6 +57,7 @@ import java.time.ZoneOffset
 import java.time.temporal.TemporalAdjusters
 import kotlin.math.abs
 import kotlin.time.Clock
+import kotlin.time.Instant
 import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
@@ -85,7 +90,7 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
  * Whether an effort is the athlete's best is judged among the efforts the same viewer may see. Search lists active segments, and proposed
  * ones only to their creator and their riders; every view carries the status the AppView derived.
  */
-@Suppress("TooManyFunctions") // The seven segment routes, and the filters and views they share.
+@Suppress("TooManyFunctions", "LongParameterList") // The seven segment routes, and the filters and views they share; its config.
 class SegmentViews(
     private val db: Database,
     private val avatars: AvatarUrls,
@@ -96,6 +101,8 @@ class SegmentViews(
     private val searchBatch: Int = Paging.MAX_LIMIT,
     /** How many batches one [search] reads at most, so a request's work is bounded however many segments lie near its box. */
     private val searchBatches: Int = SEARCH_BATCHES,
+    /** Who may propose segment names (segments/segment-names), for the viewer's flag. */
+    private val names: SegmentNameRules = SegmentNameRules(),
 ) {
     suspend fun segment(viewer: Did?, params: GetSegment.Params): GetSegment.Output = db.tx {
         val row =
@@ -111,7 +118,19 @@ class SegmentViews(
                 )
                 .singleOrNull()
         }
-        GetSegment.Output(views(listOf(row)).single().copy(viewer = best?.let { SegmentViewerState(it) }))
+        val uri = params.uri.value
+        val state = viewer?.let {
+            SegmentViewerState(
+                best = best,
+                canProposeName = mayPropose(uri, it.value, clock.now().toEpochMilliseconds(), names),
+                canVoteOnNames = ridersAmong(uri, listOf(it.value)).isNotEmpty(),
+            )
+        }
+        GetSegment.Output(
+            views(listOf(row))
+                .single()
+                .copy(nameHistory = nameHistory(viewer, uri, avatars), nameProposals = nameProposals(viewer, uri, avatars), viewer = state)
+        )
     }
 
     /**
@@ -345,7 +364,9 @@ class SegmentViews(
     ): List<EffortView> {
         val rows =
             visibleEfforts()
-                .select(SegmentEfforts.columns + listOf(Segments.uri, Segments.name, Segments.sport, Segments.distanceM, Segments.status))
+                .select(
+                    SegmentEfforts.columns + listOf(Segments.uri, Segments.currentName, Segments.sport, Segments.distanceM, Segments.status)
+                )
                 .where { where and effortsVisibleTo(viewer) }
                 .apply { order.forEach { (expression, direction) -> orderBy(expression, direction) } }
                 .let { if (limit != null) it.limit(limit) else it }
@@ -365,7 +386,7 @@ class SegmentViews(
                 segment =
                     SegmentViewBasic(
                         AtUri(it[Segments.uri]),
-                        it[Segments.name],
+                        it[Segments.currentName],
                         it[Segments.sport],
                         it[Segments.distanceM],
                         status = it[Segments.status],
@@ -400,17 +421,7 @@ class SegmentViews(
                     (SegmentPrefs.did eq SegmentEfforts.authorDid) and (SegmentPrefs.hideFromLeaderboards eq true)
                 }
             ) and
-            plausible()
-
-    /** The effort's average speed is within its segment's group cap: `elapsed * cap >= distance * 1000`, in integers both databases run. */
-    private fun plausible(): Op<Boolean> =
-        SegmentSportGroup.all
-            .map { group ->
-                (Segments.sport eq group) and
-                    (SegmentEfforts.elapsedS.times(SegmentSportGroup.maxSpeedMmPerS(group).toLong()) greaterEq
-                        Segments.distanceM.times(MM_PER_M))
-            }
-            .reduce { a, b -> a or b }
+            plausibleEffort()
 
     /**
      * The efforts on [segment]'s [board] (a [SegmentBoard] type) that [viewer] may see and that are [rankable], from [since] and before
@@ -695,6 +706,7 @@ class SegmentViews(
                 distanceMeters = it[Segments.distanceM],
                 status = it[Segments.status],
                 duplicateOf = it[Segments.duplicateOf]?.let(::AtUri),
+                name = it[Segments.currentName],
             )
         }
     }
