@@ -16,7 +16,7 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 45
     env:
       GITHUB_ACTOR: ${{ github.actor }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -26,12 +26,31 @@ jobs:
       - name: Public-safety check
         run: scripts/check-public-safety.sh
 
+      # The build (Android SDK pieces, Gradle cache, Kotlin/Native toolchain, every module's outputs) outgrows the runner's
+      # free disk. These preinstalled toolchains aren't used; the Android SDK stays.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h /
+
       - uses: actions/setup-java@v4
         with:
           distribution: corretto
           java-version: "25"
 
       - uses: gradle/actions/setup-gradle@v4
+
+      # gradle.properties sizes the heaps for a developer machine. On the 16 GB runner they plus lint and the test JVMs run
+      # it out of memory, so CI gets smaller heaps and fewer parallel workers. User-home properties override the project's.
+      - name: Size Gradle for the runner
+        run: |
+          mkdir -p ~/.gradle
+          cat >> ~/.gradle/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8
+          kotlin.daemon.jvmargs=-Xmx3g
+          org.gradle.workers.max=2
+          EOF
+          free -m
 
       # On Linux, Kotlin/Native skips the Apple targets, so this runs the JVM, Android and server tests and every static
       # check. The screenshot suite is left out: its references are layoutlib renders from macOS, and Linux rasterises
