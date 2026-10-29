@@ -1,11 +1,80 @@
 # Activity Tracker
 
-A Strava-style athlete activity tracker built on the [AT Protocol](https://atproto.com). Activities,
-likes, comments, follows and profiles are records in each athlete's own repository (their PDS); an
-AppView indexes them from the firehose and serves feeds.
+[![CI](https://github.com/solcott/activity-tracker/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/solcott/activity-tracker/actions/workflows/ci.yml)
 
-- **Clients:** Android (10 / API 29 and up), iOS, Web (Kotlin/Wasm), Desktop (JVM, mainly a hot-reload dev target). GPS recording is phone-only. Compose Multiplatform + Circuit + Metro + Ktor + Room 3.
-- **Backend:** Ktor AppView (Postgres) fed by Jetstream. A local PLC + PDS + relay + Jetstream run in Docker.
+A social activity tracker for athletes, built on the [AT Protocol](https://atproto.com), the open network behind
+Bluesky. Athletes own their data: activities, likes, comments, follows, gear and profiles are records in each
+athlete's own repository (their PDS), and this project's AppView indexes them from the network and serves feeds,
+segments and leaderboards. One Kotlin Multiplatform codebase runs on Android, iOS, the web and desktop.
+
+<p>
+  <img src="androidApp/src/screenshotTestDefaultDebug/reference/io/github/solcott/activitytracker/android/screenshots/FeedScreenshotsKt/FeedLoaded_400x1000_28c0a104_0.png" width="200" alt="Feed">
+  <img src="androidApp/src/screenshotTestDefaultDebug/reference/io/github/solcott/activitytracker/android/screenshots/ActivityDetailScreenshotsKt/ActivityDetailLoaded_400x1000_28c0a104_0.png" width="200" alt="Activity">
+  <img src="androidApp/src/screenshotTestDefaultDebug/reference/io/github/solcott/activitytracker/android/screenshots/SegmentLeaderboardScreenshotsKt/SegmentLeaderboardLoaded_400x500_323b3034_0.png" width="200" alt="Segment leaderboard">
+  <img src="androidApp/src/screenshotTestDefaultDebug/reference/io/github/solcott/activitytracker/android/screenshots/ProfileScreenshotsKt/ProfileLoaded_400x500_323b3034_0.png" width="200" alt="Profile">
+</p>
+
+<sub>Screenshots are the app's screenshot-test references, rendered from fixture data.</sub>
+
+## Features
+
+- **Record and import.** GPS recording on phones, with pause, auto-recovery and privacy zones. Import and export of
+  FIT, GPX and TCX, plus dive logs (Garmin, Shearwater, UDDF, Subsurface) with gases, tanks and depth profiles.
+- **Rich activity pages.** Maps (MapLibre), elevation, heart rate, power curve, zones, laps, multisport legs,
+  swim lengths and strength sets. Recordings from several devices can be combined into one activity.
+- **Segments.** Trail segments imported from OpenStreetMap and public agency data or created by athletes, matched
+  against tracks in the background, with leaderboards (age, weight and gender brackets), mayors and
+  community-voted names.
+- **Privacy per detail.** Each activity is Public, Followers, Mutuals or Only me, and each category of detail (map,
+  heart rate, power, start time…) can be narrower. Non-public data lives in ATProto *spaces*, and the AppView
+  serves each piece only to the viewers its tier admits.
+- **Social.** Follows (with approval), likes, comments with audiences, blocks, mutes, reports and labels.
+- **Gear.** Bikes, shoes and components with usage totals, and sensors.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Clients["Clients: Android, iOS, Web, Desktop"]
+    UI["Compose UI + Circuit presenters"] --> Outbox["Room outbox"]
+  end
+  Outbox -- "putRecord (OAuth + DPoP)" --> PDS["Athlete's PDS<br/>repo + spaces"]
+  PDS --> Relay["Relay"] --> Jetstream["Jetstream"]
+  Jetstream --> AppView["AppView (Ktor)"]
+  PDS <-- "space sync, access checks" --> AppView
+  AppView --> DB[("Postgres")]
+  UI -- "XRPC queries (service-auth JWT)" --> AppView
+```
+
+Clients write straight to the athlete's PDS through an offline-first outbox. The AppView never writes to a
+repository: it tails Jetstream, indexes records into Postgres and answers `app.activitytracker.*` queries. It also
+syncs the athletes' non-public spaces as their managing app, and decides who may read what. The lexicons in
+`lexicons/` are the schema source of truth, mirrored by hand in `core/lexicon` and shared by clients and server.
+
+## Tech highlights
+
+- **Kotlin Multiplatform** on four targets with a shared **Compose Multiplatform** UI that follows each platform's
+  conventions. **Circuit** handles screens, **Metro** handles compile-time DI, and **Room 3** caches on every target
+  (SQLite-WASM in a Web Worker on the web).
+- A hand-written **ATProto client** on Ktor: XRPC, identity resolution, OAuth with PAR, PKCE and DPoP, and
+  service-auth JWTs. No SDK, so it also runs on Kotlin/Wasm.
+- A **Ktor + Postgres AppView**: a Jetstream indexer, a spaces syncer, ES256K/ES256 JWT verification, a background
+  segment matcher and Flyway migrations.
+- Per-platform **FIT decoders** and GPX, TCX, UDDF and Subsurface readers and writers.
+- **Quality gates**: tests on the JVM for every module, Android screenshot tests for every screen, ktfmt, detekt with
+  the repo's own rules, Compose stability checks, Gradle convention plugins and a local Docker ATProto network for
+  end-to-end runs.
+
+## How it was built
+
+This project was developed with AI coding assistants (Claude Code, Antigravity) under a spec-driven workflow with
+[OpenSpec](https://github.com/Fission-AI/OpenSpec). Each feature starts as a change with a proposal, a design, delta
+specs and tasks. It is then implemented and verified, and archived into the living specs:
+
+- [`openspec/specs`](openspec/specs): what the system does today, by capability
+- [`openspec/changes/archive`](openspec/changes/archive): every change, with its reasoning
+- [`AGENTS.md`](AGENTS.md), [`.agents/`](.agents) and [`.claude/`](.claude): the project rules, skills, hooks and
+  subagents the assistants work under
 
 ## Local development
 
@@ -93,17 +162,29 @@ and every PDS and `did:web` on the local stack is `localhost`. It logs a warning
 | `core/atproto` | XRPC client, identity resolution, OAuth (PAR/PKCE/DPoP), service auth |
 | `core/data` | Room 3 cache + outbox, repositories, Metro bindings |
 | `core/location` | GPS trackers per platform, recording engine, polyline/GPX |
+| `core/activityfile` | FIT, GPX, TCX, UDDF, Subsurface and Shearwater readers and writers, per-platform FIT decoders |
 | `app/screens` | Circuit contracts: each feature's `Screen`, `State` and `Event` |
 | `app/presenters` | Circuit presenters (Compose runtime, no UI) |
+| `app/fixtures` | Sample states for every screen, used by UI tests, previews and screenshot tests |
 | `composeApp` | Circuit UIs, shared components, Metro graphs and scopes, platform actuals |
-| `androidApp`, `iosApp`, `webApp`, `desktopApp` | Thin platform shells (entry points, graph roots) |
+| `androidApp`, `iosApp`, `webApp`, `desktopApp` | Thin platform shells (entry points, graph roots); `androidApp` also holds the screenshot tests |
 | `web/sqlite-worker` | SQLite-WASM Web Worker backing Room on the web |
-| `server/appview` | Ktor AppView: Jetstream indexer, XRPC queries, did:web |
+| `server/appview` | Ktor AppView: Jetstream indexer, spaces syncer, XRPC queries, segment matcher, did:web |
+| `server/segment-importer` | CLI that turns OSM and agency trails into candidate segments and publishes ridden ones |
 | `docker/` | Local ATProto network |
+| `build-logic`, `config/` | Gradle convention plugins and the detekt config |
 | `detekt-rules` | The repo's own detekt rules, run by every module's detekt |
+| `samples/` | Third-party sample files for trying imports by hand |
+| `scripts/` | Local environment, segment import and repository checks |
+| `openspec/` | Specs and the change history (see [How it was built](#how-it-was-built)) |
 
 ## Known gaps
 
 - A recording goes on with the screen off or the app in the background, but if the system kills the app it doesn't restart on its own: the next launch offers it back to resume, save or discard. Restarting by itself would need "Allow all the time" location access, which the app doesn't ask for.
 - The recording notification on Android shows distance in the device region's units, not the athlete's chosen ones.
-- Route maps are a Canvas polyline placeholder.
+- On the web, route maps are a static canvas preview with no enlarged map. Android, iOS and desktop draw them with MapLibre.
+
+## License
+
+[Apache License 2.0](LICENSE). Third-party sample and test files keep their own licenses, which sit beside them in
+[`samples/dive-logs/`](samples/dive-logs) and [`core/activityfile/src/jvmTest/resources/dives/`](core/activityfile/src/jvmTest/resources/dives).
