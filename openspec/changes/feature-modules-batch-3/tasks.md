@@ -140,7 +140,7 @@ Baseline (task 1.1), `main` at 3508b04d, all passing:
   The run failed only in the root `ktfmtCheckScripts`, which couldn't read a build file another task was rewriting under `--rerun-tasks` (the race batches 1 and 2 met). It passes on its own.
 
   CI: pending the push.
-- [ ] 8.3 Run the apps:
+- [x] 8.3 Run the apps:
   - iOS (the documented `xcodebuild`, then the simulator): open a profile, edit the profile, open followers; record a run with a simulated route, then save it; open the activity, its charts, comments and the combine picker; import an activity file and see the preview;
   - web: the profile, an activity's detail and an import preview;
   - desktop: the feed, a profile and an activity;
@@ -160,10 +160,9 @@ Baseline (task 1.1), `main` at 3508b04d, all passing:
     - the menu's Combine with… opened the combine picker, listing the earlier run (not combined);
     - the feed then listed the new run.
   - Android (emulator, signed in as carol): the profile; Search for "bob" → bob's profile → the new run's detail, with its Pace chart.
-  - Desktop: `:desktopApp:run` launched signed in as bob, and the feed rendered (sidebar, filter chips, bob's run with its route map).
-  - Not driven:
-    - the import preview, on any platform: it starts from a native file picker the tools can't drive. `ImportPreviewPageTest` and `ActivityPagePreviewTest` cover the preview page.
-    - desktop past the feed: there is no click tool for the window, and the hot-reload MCP server is attached to the main checkout.
+  - Desktop (`:desktopApp:hotRun`, signed in as bob): the feed rendered (sidebar, filter chips, bob's run with its route map); tapping the author opened bob's profile, and tapping the run there opened its detail, with route, stats, averages and its Pace chart.
+  - Web import preview (the user picked a `.fit` file): the preview page showed its stats, route, Training load and the Heart rate and Power charts, built by the shared `ActivityPage` from record's import screen.
+  - Not driven: the import preview on iOS and Android, which starts from the same native file picker. `ImportPreviewPageTest` and `ActivityPagePreviewTest` cover the page.
 
 ## Workflow follow-up
 
