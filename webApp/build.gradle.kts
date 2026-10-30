@@ -26,6 +26,8 @@ kotlin {
             implementation(projects.appScreens)
             implementation(projects.composeApp)
             implementation(projects.coreData)
+            implementation(projects.featureFeedfilterPresenter)
+            implementation(projects.featureFeedfilterUi)
             implementation(projects.featureMediaPresenter)
             implementation(projects.featureMediaUi)
             implementation(projects.featureReportPresenter)
