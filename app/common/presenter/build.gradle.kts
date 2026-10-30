@@ -4,8 +4,8 @@ plugins {
     alias(libs.plugins.metro)
 }
 
-// Presenter helpers several features share: rememberSingleFlight, content-state seeds, the details form, new-activity visibility, the
-// activity-list event sink, reporting and revealing. Compose runtime and no UI, like every presenter module.
+// Presenter helpers several features share: rememberSingleFlight, content-state seeds, the details form, the gear picker's choices,
+// new-activity visibility, the activity-list event sink, reporting and revealing. Compose runtime and no UI, like every presenter module.
 kotlin {
     sourceSets {
         commonMain.dependencies {

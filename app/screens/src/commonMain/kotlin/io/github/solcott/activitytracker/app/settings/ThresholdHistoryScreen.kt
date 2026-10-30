@@ -90,9 +90,6 @@ data class ThresholdHistoryRow(
     val current: Boolean,
 )
 
-/** A calendar date, month 1–12. */
-@Immutable data class HistoryDate(val year: Int, val month: Int, val day: Int)
-
 /**
  * A threshold's dated values as a step chart running from the first to today: a threshold holds until it changes. Each point's
  * [ChartPoint.x] and [ChartPoint.y] are 0–1, left to right and bottom to top, so a higher value (more watts, a faster pace) is higher.

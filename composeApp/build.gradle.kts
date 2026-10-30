@@ -41,6 +41,8 @@ kotlin {
             // api so the framework can export it (see the framework block above).
             api(libs.calf.ui)
 
+            // GearChoices, which the record, import and edit presenters inject.
+            implementation(projects.appCommonPresenter)
             implementation(projects.appCommonUi)
             // Only so the platform Metro graphs here aggregate the presenter factories. UI code never imports from it.
             implementation(projects.appPresenters)

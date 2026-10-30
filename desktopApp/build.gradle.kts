@@ -12,6 +12,8 @@ val maplibreJvmArgs = listOf("--enable-native-access=ALL-UNNAMED")
 // listener. Shared UI and JVM actuals live in :composeApp. Mostly a dev target: run it with hot reload (`hotRun --auto`).
 dependencies {
     // The graph is generated here, so every module that contributes bindings must be on the classpath.
+    // GearChoices, which the record, import and edit presenters inject.
+    implementation(projects.appCommonPresenter)
     implementation(projects.appPresenters)
     implementation(projects.appScreens)
     implementation(projects.composeApp)
