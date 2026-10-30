@@ -27,7 +27,7 @@ import kotlin.test.assertNull
 import kotlinx.coroutines.test.runTest
 
 /** The full-screen photos (ui/content-loading): a first-load phase, retry, retention, and a failed block kept apart from the load. */
-class MediaGalleryPresenterTest : ActivityDetailTestBase() {
+class MediaGalleryPresenterTest : ActivityTestBase() {
     private val gallery = MediaGalleryScreen(activityUri, 0)
 
     private val photo =

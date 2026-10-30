@@ -6,9 +6,6 @@ import io.github.solcott.activitytracker.app.moderation.ModerationEvent
 import io.github.solcott.activitytracker.app.moderation.ModerationPresenter
 import io.github.solcott.activitytracker.app.moderation.ModerationScreen
 import io.github.solcott.activitytracker.app.moderation.ModerationSubject
-import io.github.solcott.activitytracker.app.settings.SettingsEvent
-import io.github.solcott.activitytracker.app.settings.SettingsPresenter
-import io.github.solcott.activitytracker.app.settings.SettingsScreen
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.moderation.ModerationRepository
 import io.github.solcott.activitytracker.lexicon.Did
@@ -27,7 +24,7 @@ import kotlinx.coroutines.test.runTest
 /** The Moderation screen (`moderation/private-subjects`): opening a subject by URI, and "not under review" for the AppView's NotFound. */
 class ModerationPresenterTest {
     private val followersActivity = "at://did:plc:bob/${Nsid.FEED_ACTIVITY}/3kf"
-    private var role: String? = "moderator"
+    private val role: String? = "moderator"
     private var appViewDown = false
     private var subjectRequests = 0
 
@@ -109,51 +106,6 @@ class ModerationPresenterTest {
             initial.eventSink(ModerationEvent.Open)
             assertNull(awaitUntil { it.error?.kind == UiError.Kind.InvalidSubjectUri }.subject)
             assertEquals(requested, subjectRequests)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun settingsOffersModerationOnlyToModerators() = runTest {
-        val fixture = SessionTestFixture()
-        val repos = fixture.repos()
-        val navigator = FakeNavigator(SettingsScreen)
-        val forModerator = moderation()
-        presenterTestOf({
-            SettingsPresenter(
-                navigator,
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                forModerator,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-            )
-        }) {
-            val offered = awaitUntil { it.canModerate }
-            offered.eventSink(SettingsEvent.OpenModeration)
-            assertEquals(ModerationScreen, navigator.awaitNextScreen())
-            cancelAndIgnoreRemainingEvents()
-        }
-        role = "triage"
-        val forTriage = moderation()
-        presenterTestOf({
-            SettingsPresenter(
-                navigator,
-                repos.units,
-                repos.auth,
-                repos.defaults,
-                repos.privacy,
-                forTriage,
-                repos.segmentPrefs,
-                repos.leaderboardBrackets,
-            )
-        }) {
-            val state = awaitItem()
-            state.eventSink(SettingsEvent.OpenModeration)
-            assertEquals(false, state.canModerate)
-            navigator.expectNoGoToEvents()
             cancelAndIgnoreRemainingEvents()
         }
     }

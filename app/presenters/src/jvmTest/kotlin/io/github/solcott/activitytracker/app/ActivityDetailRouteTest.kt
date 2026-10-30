@@ -1,6 +1,11 @@
 package io.github.solcott.activitytracker.app
 
+import com.slack.circuit.test.FakeNavigator
+import io.github.solcott.activitytracker.app.TestRoutes.SERVED_POLYLINE
+import io.github.solcott.activitytracker.app.TestRoutes.SERVED_ROUTE
 import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent
+import io.github.solcott.activitytracker.app.detail.ActivityDetailPresenter
+import io.github.solcott.activitytracker.app.map.RouteMapScreen
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.app.PrivacyZonesRecord
@@ -151,14 +156,35 @@ class ActivityDetailRouteTest : ActivityDetailTestBase() {
         assertTrue(TrackMath.distanceMeters(first.latitude, first.longitude, zone.latitudeE7 / 1e7, zone.longitudeE7 / 1e7) <= 200.0)
     }
 
+    @Test
+    fun theDetailMapOpensTheEnlargedMap() = runTest {
+        val navigator = FakeNavigator(screen)
+        val r = repos()
+        presenterTestOf({
+            ActivityDetailPresenter(
+                screen,
+                navigator,
+                r.feed,
+                r.activities,
+                r.profiles,
+                localLikes,
+                r.manager,
+                r.exporter,
+                r.units,
+                r.suggestions,
+                r.blocks,
+                r.reports,
+                r.segments,
+            )
+        }) {
+            awaitLoaded().eventSink(ActivityDetailEvent.OpenMap)
+            assertEquals(RouteMapScreen(activityUri), navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     internal companion object {
         /** The most a precision-5 encoding moves a point: half of 1e-5 degrees on each axis. */
         const val PRECISION_5_M = 0.8
-
-        /** A trimmed polyline of three points, as the AppView serves it. */
-        const val SERVED_POLYLINE = "_p~iF~ps|U_ulLnnqC_mqNvxq`@"
-
-        /** [SERVED_POLYLINE] on the activity's record, broken after its second point. */
-        const val SERVED_ROUTE = """"polyline":"$SERVED_POLYLINE","polylineGaps":[1],"""
     }
 }

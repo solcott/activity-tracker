@@ -9,10 +9,8 @@ import com.slack.circuit.retained.LocalRetainedStateRegistry
 import com.slack.circuit.retained.RetainedStateRegistry
 import com.slack.circuit.test.CircuitReceiveTurbine
 import com.slack.circuit.test.FakeNavigator
-import io.github.solcott.activitytracker.app.ActivityDetailRouteTest.Companion.SERVED_POLYLINE
-import io.github.solcott.activitytracker.app.ActivityDetailRouteTest.Companion.SERVED_ROUTE
-import io.github.solcott.activitytracker.app.detail.ActivityDetailEvent
-import io.github.solcott.activitytracker.app.detail.ActivityDetailPresenter
+import io.github.solcott.activitytracker.app.TestRoutes.SERVED_POLYLINE
+import io.github.solcott.activitytracker.app.TestRoutes.SERVED_ROUTE
 import io.github.solcott.activitytracker.app.map.RouteMapEvent
 import io.github.solcott.activitytracker.app.map.RouteMapPresenter
 import io.github.solcott.activitytracker.app.map.RouteMapScreen
@@ -33,8 +31,11 @@ import kotlin.time.Instant
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.test.runTest
 
-/** The enlarged route map (`feed/route-map-viewer`): opened from the detail page, drawing what its map draws, and left with back. */
-class RouteMapPresenterTest : ActivityDetailTestBase() {
+/**
+ * The enlarged route map (`feed/route-map-viewer`): drawing what the detail page's map draws, and left with back. Opening it from the page
+ * is `ActivityDetailRouteTest`'s.
+ */
+class RouteMapPresenterTest : ActivityTestBase() {
     private val start = Instant.parse("2026-09-30T10:00:00Z")
     private val route =
         (0..100).map { LocationSample(51.5, -0.12 + it * 0.0001, null, speed = null, accuracy = 5.0, time = start + it.seconds) }
@@ -50,33 +51,6 @@ class RouteMapPresenterTest : ActivityDetailTestBase() {
 
     private val RouteMapState.route
         get() = content.data?.route
-
-    @Test
-    fun theDetailMapOpensTheEnlargedMap() = runTest {
-        val navigator = FakeNavigator(screen)
-        val r = repos()
-        presenterTestOf({
-            ActivityDetailPresenter(
-                screen,
-                navigator,
-                r.feed,
-                r.activities,
-                r.profiles,
-                localLikes,
-                r.manager,
-                r.exporter,
-                r.units,
-                r.suggestions,
-                r.blocks,
-                r.reports,
-                r.segments,
-            )
-        }) {
-            awaitLoaded().eventSink(ActivityDetailEvent.OpenMap)
-            assertEquals(RouteMapScreen(activityUri), navigator.awaitNextScreen())
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
 
     @Test
     fun aViewerSeesTheServedPolylineMarkedAtItsOwnEnds() = runTest {

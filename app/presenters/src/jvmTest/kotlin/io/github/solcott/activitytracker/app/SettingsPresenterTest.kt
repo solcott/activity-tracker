@@ -2,16 +2,25 @@ package io.github.solcott.activitytracker.app
 
 import com.slack.circuit.test.FakeNavigator
 import io.github.solcott.activitytracker.app.gear.GearListScreen
+import io.github.solcott.activitytracker.app.moderation.ModerationScreen
 import io.github.solcott.activitytracker.app.settings.SettingsEvent
 import io.github.solcott.activitytracker.app.settings.SettingsPresenter
 import io.github.solcott.activitytracker.app.settings.SettingsScreen
 import io.github.solcott.activitytracker.app.settings.TrainingZonesScreen
 import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
+import io.github.solcott.activitytracker.data.di.signedInTestSession
+import io.github.solcott.activitytracker.data.moderation.ModerationRepository
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtJson
+import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.DetailCategory
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -481,5 +490,66 @@ class SettingsPresenterTest {
             cancelAndIgnoreRemainingEvents()
         }
         assertEquals(1, fixture.spacePuts.count { (_, record) -> "matching" in record })
+    }
+
+    @Test
+    fun settingsOffersModerationOnlyToModerators() = runTest {
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(SettingsScreen)
+        val forModerator = moderationAs("moderator")
+        presenterTestOf({
+            SettingsPresenter(
+                navigator,
+                repos.units,
+                repos.auth,
+                repos.defaults,
+                repos.privacy,
+                forModerator,
+                repos.segmentPrefs,
+                repos.leaderboardBrackets,
+            )
+        }) {
+            val offered = awaitUntil { it.canModerate }
+            offered.eventSink(SettingsEvent.OpenModeration)
+            assertEquals(ModerationScreen, navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+        val forTriage = moderationAs("triage")
+        presenterTestOf({
+            SettingsPresenter(
+                navigator,
+                repos.units,
+                repos.auth,
+                repos.defaults,
+                repos.privacy,
+                forTriage,
+                repos.segmentPrefs,
+                repos.leaderboardBrackets,
+            )
+        }) {
+            val state = awaitItem()
+            state.eventSink(SettingsEvent.OpenModeration)
+            assertEquals(false, state.canModerate)
+            navigator.expectNoGoToEvents()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** A moderation repository whose AppView answers `getRole` with [role]. */
+    private suspend fun moderationAs(role: String): ModerationRepository {
+        val http =
+            HttpClient(
+                MockEngine { request ->
+                    val json = headersOf("Content-Type", "application/json")
+                    when (request.url.encodedPath) {
+                        "/xrpc/com.atproto.server.getServiceAuth" -> respond("""{"token":"service-jwt"}""", headers = json)
+                        "/xrpc/${Nsid.MODERATION_GET_ROLE}" -> respond("""{"role":"$role"}""", headers = json)
+                        else -> respond("", HttpStatusCode.NotFound)
+                    }
+                }
+            ) {
+                expectSuccess = false
+            }
+        return ModerationRepository(signedInTestSession(http, labelerDid = Did("did:plc:labeler")).clients)
     }
 }
