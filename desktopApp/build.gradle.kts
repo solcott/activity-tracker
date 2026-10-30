@@ -36,6 +36,8 @@ dependencies {
     implementation(projects.featureReportUi)
     implementation(projects.featureSearchPresenter)
     implementation(projects.featureSearchUi)
+    implementation(projects.featureSegmentPresenter)
+    implementation(projects.featureSegmentUi)
     implementation(projects.uiResources)
     implementation(compose.desktop.currentOs)
     implementation(libs.compose.components.resources)

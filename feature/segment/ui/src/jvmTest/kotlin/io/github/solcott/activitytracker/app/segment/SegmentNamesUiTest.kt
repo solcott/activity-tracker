@@ -9,7 +9,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.v2.runComposeUiTest
-import io.github.solcott.activitytracker.app.preview.SessionPreviewSubUis
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.SegmentNameVoteDirection
@@ -22,7 +21,7 @@ class SegmentNamesUiTest {
     private val events = mutableListOf<SegmentEvent>()
 
     private fun show(state: SegmentState, checks: ComposeUiTest.() -> Unit) = runComposeUiTest {
-        setContent { AppPreview(subUis = SessionPreviewSubUis) { SegmentUi(state.copy(eventSink = { events += it })) } }
+        setContent { AppPreview { SegmentUi(state.copy(eventSink = { events += it })) } }
         checks()
     }
 
@@ -68,21 +67,21 @@ class SegmentNamesUiTest {
 
     @Test
     fun theProposeSheetTellsWhatProposingShows() = runComposeUiTest {
-        setContent { AppPreview(subUis = SessionPreviewSubUis) { ProposeSegmentNameUi(ProposeSegmentNameSamples.propose) } }
+        setContent { AppPreview { ProposeSegmentNameUi(ProposeSegmentNameSamples.propose) } }
         onNodeWithText("Proposing shows others, under your name,", substring = true).assertExists()
         onNodeWithText("Send").assertExists()
     }
 
     @Test
     fun theEditSheetWarnsThatVotesAreCleared() = runComposeUiTest {
-        setContent { AppPreview(subUis = SessionPreviewSubUis) { ProposeSegmentNameUi(ProposeSegmentNameSamples.edit) } }
+        setContent { AppPreview { ProposeSegmentNameUi(ProposeSegmentNameSamples.edit) } }
         onNodeWithText("Editing the name clears every vote it has.").assertExists()
         onNodeWithText("Save").assertExists()
     }
 
     @Test
     fun anUnchangedNameIsRefused() = runComposeUiTest {
-        setContent { AppPreview(subUis = SessionPreviewSubUis) { ProposeSegmentNameUi(ProposeSegmentNameSamples.invalid) } }
+        setContent { AppPreview { ProposeSegmentNameUi(ProposeSegmentNameSamples.invalid) } }
         onNodeWithText("Enter a new name of at most 100 characters.").assertExists()
     }
 }

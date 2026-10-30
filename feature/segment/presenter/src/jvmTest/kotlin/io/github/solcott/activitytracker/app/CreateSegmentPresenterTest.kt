@@ -38,7 +38,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
 
 /** Creating a segment from one's own activity (segments/segment-creation). */
-class CreateSegmentPresenterTest : ActivityDetailTestBase() {
+class CreateSegmentPresenterTest : ActivityTestBase() {
     private val start = Instant.parse("2026-09-30T10:00:00Z")
 
     /** About 2.75 km east at 51.5° N, a sample every ~7 m. */

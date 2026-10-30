@@ -9,7 +9,6 @@ import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
 import io.github.solcott.activitytracker.app.fixtures.fakeSegment
 import io.github.solcott.activitytracker.app.fixtures.fakeSegmentRecord
-import io.github.solcott.activitytracker.app.preview.SessionPreviewSubUis
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import io.github.solcott.activitytracker.app.ui.preview.RecordingUriHandler
 import io.github.solcott.activitytracker.lexicon.Did
@@ -34,7 +33,7 @@ class SegmentCreditUiTest {
         )
 
     private fun show(state: SegmentState, checks: ComposeUiTest.() -> Unit) = runComposeUiTest {
-        setContent { AppPreview(subUis = SessionPreviewSubUis, uriHandler = links) { SegmentUi(state) } }
+        setContent { AppPreview(uriHandler = links) { SegmentUi(state) } }
         checks()
     }
 

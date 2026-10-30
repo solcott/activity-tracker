@@ -21,6 +21,7 @@ kotlin {
             api(projects.featureModerationApi)
             api(projects.featureReportApi)
             api(projects.featureSearchApi)
+            api(projects.featureSegmentApi)
             api(libs.dataresult.uistate)
 
             implementation(libs.compose.runtime)
