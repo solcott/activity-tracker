@@ -127,7 +127,7 @@ Baseline (task 1.1), `main` at d8061cbd, all passing:
   Verify: all pass.
 
   Done: `./gradlew check composeStabilityCheck --continue` ran 4633 tasks in 15m 1s, including `checkModuleBoundaries` in all 54 modules and `testDebugScreenshotTestDefaultTestSuite`, and everything passed except one task, `:ui-designsystem:ktfmtCheckScripts`. That task couldn't read `build/intermediates/.../stripped.dir`, which the module's Android resource packaging was rewriting at the same time: the same race batch 1 met, in a module this change doesn't touch. It passes on its own. `scripts/check-public-safety.sh` passes.
-- [ ] 9.3 Measure `./gradlew check --rerun-tasks --continue` locally as in batch 1, and record wall time, task count and peak RSS here, next to batch 1's (11m 48s, 3355 tasks, 7017 MB). After the push, record the GitHub Actions `Check` time against batch 1's 14m 5s. Verify: the numbers are recorded with the percentage change, and CI is green.
+- [x] 9.3 Measure `./gradlew check --rerun-tasks --continue` locally as in batch 1, and record wall time, task count and peak RSS here, next to batch 1's (11m 48s, 3355 tasks, 7017 MB). After the push, record the GitHub Actions `Check` time against batch 1's 14m 5s. Verify: the numbers are recorded with the percentage change, and CI is green.
 
   Local, after this change (same machine, `--no-daemon` as in batch 1):
   - Wall time: 15m 2s (902 s), +27% against batch 1's 708 s.
@@ -136,7 +136,10 @@ Baseline (task 1.1), `main` at d8061cbd, all passing:
 
   The run failed in one place, `:feature-gear-presenter:ktfmtCheckScripts`, which couldn't read a temp file another task had deleted under `--rerun-tasks` (the race batch 1 met). It passes on its own.
 
-  CI: pending the push.
+  On GitHub Actions, the run after the push (run 41121580091, at 3508b04d) passed:
+  - Gradle reported 15m 50s for `check`, +12% against batch 1's 14m 5s. The job took 17m 44s.
+  - 3725 tasks, +38% against batch 1's 2702; 107 came from the build cache.
+  - Like batch 1's, the run was mostly uncached because moved files changed most tasks' inputs. It stays well within the 45-minute timeout.
 - [x] 9.4 Run the apps:
   - iOS (the documented `xcodebuild`, then the simulator): the feed loads; edit an activity; open gear from an activity and add an item; open a segment, its leaderboard and its map from an activity; open Settings, zones and privacy zones;
   - web: the same;
