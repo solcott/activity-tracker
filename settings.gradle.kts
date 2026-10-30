@@ -27,6 +27,14 @@ dependencyResolutionManagement {
             }
         }
         mavenCentral()
+        // Snapshots of io.github.solcott libraries (kmp-dataresult) from the Central Portal. Releases come from mavenCentral().
+        maven("https://central.sonatype.com/repository/maven-snapshots/") {
+            name = "MavenCentralSnapshots"
+            mavenContent {
+                snapshotsOnly()
+                includeGroup("io.github.solcott")
+            }
+        }
     }
 }
 

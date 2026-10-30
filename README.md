@@ -81,8 +81,9 @@ specs and tasks. It is then implemented and verified, and archived into the livi
 Requires JDK 25, Docker, Android SDK (for Android), Xcode (for iOS), and `cloudflared` for native sign-in
 (`brew install cloudflared`).
 
-The build resolves [kmp-dataresult](https://github.com/solcott/kmp-dataresult) from Maven Central.
-To build against a local checkout instead, name it in `~/.gradle/gradle.properties` (an absolute path):
+The build resolves [kmp-dataresult](https://github.com/solcott/kmp-dataresult) from Maven Central (its
+`-SNAPSHOT` versions from the Central snapshot repository). To build against a local checkout instead, name it
+in `~/.gradle/gradle.properties` (an absolute path):
 
 ```properties
 dataresult.dir=/path/to/kmp-dataresult
