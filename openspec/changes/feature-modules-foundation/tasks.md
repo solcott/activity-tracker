@@ -8,7 +8,9 @@ Baseline (task 1.1), `main` at 8eb2658d:
 - Local (10-core Apple silicon, 32 GB), `./gradlew check --rerun-tasks --continue` with fresh daemons: 15m 17s (921 s wall), 1006 tasks, peak RSS of the new Gradle, Kotlin and worker JVMs together 6435 MB.
 - GitHub Actions (`ubuntu-26.04`, 2 workers, 4 GB heap): the `Check` step took 23m 27s cold (run 40958572200, after the iOS klib change emptied the cache) and 1m 13s / 2m 52s warm (runs 40962485842, 40965571694). The runner reports no memory figure.
 
-After this change (task 10.2), same machine and command: 10m 17s (618 s wall), 1843 tasks (+83%, from the 9 new modules' per-target tasks), peak RSS 4936 MB. The wall time is below the baseline's, which ran in a brand-new checkout, so treat it as "no measurable slowdown locally" rather than a speed-up. CI not measured yet: it needs this branch pushed.
+After this change (task 10.2), same machine and command: 10m 17s (618 s wall), 1843 tasks (+83%, from the 9 new modules' per-target tasks), peak RSS 4936 MB. The wall time is below the baseline's, which ran in a brand-new checkout, so treat it as "no measurable slowdown locally" rather than a speed-up.
+
+On GitHub Actions: the first run after the push (run 41072806726, 22 of 1495 tasks from cache, since a kmp-dataresult change landed with it) took 25m 35s in `Check` against the 23m 27s cold baseline (+9%), and failed. Linking `:webApp`'s development and production executables together ran the 3 GB Kotlin daemon out of heap, so CI's daemon now gets 5 GB (8a07f249). The next run (41077466664, 641 of 1496 from cache) passed in 3m 15s, against the 2m 52s warm baseline (+13%), with a different share of the build cached.
 
 ## 2. Convention plugins and module check
 
@@ -91,7 +93,7 @@ After this change (task 10.2), same machine and command: 10m 17s (618 s wall), 1
   - The `new-screen` skill scaffolds a new feature into `feature/<name>/{api,presenter,ui}`.
 
   Verify: `scripts/check-agent-sync.sh` passes.
-- [ ] 10.2 Measure `./gradlew check` again, locally and on the GitHub runner, and record both next to the task 1.1 baseline. Verify: the numbers are recorded with the percentage change.
+- [x] 10.2 Measure `./gradlew check` again, locally and on the GitHub runner, and record both next to the task 1.1 baseline. Verify: the numbers are recorded with the percentage change.
 - [x] 10.3 Run the full checks: `./gradlew check`, `./gradlew composeStabilityCheck`, `./gradlew -p build-logic :convention:test`, `scripts/check-public-safety.sh`. Verify: all pass.
 - [x] 10.4 Run the app on each platform:
   - iOS: the documented `xcodebuild`, then launch in the simulator;
