@@ -10,7 +10,6 @@ composeStability { strictClasses.set(true) }
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            api(projects.appScreens)
             api(projects.coreLexicon)
             api(projects.featureDetailApi)
             api(projects.featureEditApi)

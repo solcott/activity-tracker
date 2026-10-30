@@ -24,8 +24,6 @@ kotlin {
             // classpath.
             // GearChoices, which the record, import and edit presenters inject.
             implementation(projects.appCommonPresenter)
-            implementation(projects.appPresenters)
-            implementation(projects.appScreens)
             implementation(projects.composeApp)
             implementation(projects.coreData)
             implementation(projects.featureDetailPresenter)

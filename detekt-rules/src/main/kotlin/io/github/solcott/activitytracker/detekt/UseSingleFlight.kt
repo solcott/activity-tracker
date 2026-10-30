@@ -11,8 +11,8 @@ import org.jetbrains.kotlin.psi.KtCallExpression
  * save, follow or like twice.
  *
  * Applies to files named `*Presenter.kt`, the presenters' naming convention. That holds for every task (a source-set task sees paths
- * relative to its own source dir, so a path filter in `detekt.yml` can't pick out `:app-presenters` reliably), and UIs, which can launch
- * animations from a `rememberCoroutineScope()`, never match.
+ * relative to its own source dir, so a path filter in `detekt.yml` can't pick out the presenter modules reliably), and UIs, which can
+ * launch animations from a `rememberCoroutineScope()`, never match.
  */
 class UseSingleFlight(config: Config) :
     Rule(config, "Presenters launch event work through rememberSingleFlight(), which drops a repeat while the first runs.") {

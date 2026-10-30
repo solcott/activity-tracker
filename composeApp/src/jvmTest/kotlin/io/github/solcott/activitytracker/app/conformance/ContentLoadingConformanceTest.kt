@@ -8,6 +8,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.v2.runComposeUiTest
 import com.slack.circuit.runtime.CircuitUiState
+import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.ActivityDetailSamples
 import io.github.solcott.activitytracker.app.detail.ActivityDetailUi
 import io.github.solcott.activitytracker.app.detail.CombinePickerSamples
@@ -15,7 +16,6 @@ import io.github.solcott.activitytracker.app.detail.CombinePickerUi
 import io.github.solcott.activitytracker.app.edit.EditActivitySamples
 import io.github.solcott.activitytracker.app.edit.EditActivityUi
 import io.github.solcott.activitytracker.app.feed.FeedSamples
-import io.github.solcott.activitytracker.app.feed.FeedState
 import io.github.solcott.activitytracker.app.feed.FeedUi
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
 import io.github.solcott.activitytracker.app.gear.EditGearCollectionSamples
@@ -203,11 +203,11 @@ class ContentLoadingConformanceTest {
         }
     }
 
-    /** Every `CircuitUiState` in `:app-screens` or a feature's `-api` module with a `ContentState` or `PagedState` field. */
+    /** Every `CircuitUiState` in `:app-common-api` or a feature's `-api` module with a `ContentState` or `PagedState` field. */
     private fun contentLoadingStates(): List<Class<*>> {
-        val screens = File(FeedState::class.java.protectionDomain.codeSource.location.toURI())
+        val common = File(UiError::class.java.protectionDomain.codeSource.location.toURI())
         val roots =
-            listOf(screens) +
+            listOf(common) +
                 System.getProperty("java.class.path").split(File.pathSeparatorChar).map(::File).filter {
                     FEATURE_API.containsMatchIn(it.path)
                 }

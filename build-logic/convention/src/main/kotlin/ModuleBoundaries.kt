@@ -28,9 +28,9 @@ internal const val UI_RESOURCES = ":ui-resources"
 
 /** What a client module holds, read from its path alone (dev/module-boundaries). */
 internal enum class ModuleKind {
-    /** Screens, States, Events and shared contracts: `-api` modules, and `:app-screens` until every feature has moved out of it. */
+    /** Screens, States, Events and shared contracts: `-api` modules. */
     Api,
-    /** Presenters and their helpers: `-presenter` modules, `:app-common-presenter(-testing)`, and `:app-presenters` until it's empty. */
+    /** Presenters and their helpers: `-presenter` modules and `:app-common-presenter(-testing)`. */
     Presenter,
     /** Compose UI: `-ui` modules and the `:ui-*` modules (design system, resources). */
     Ui,
@@ -40,8 +40,8 @@ internal enum class ModuleKind {
     companion object {
         fun of(path: String): ModuleKind =
             when {
-                path.endsWith(API_SUFFIX) || path == ":app-screens" -> Api
-                path.endsWith(PRESENTER_SUFFIX) || path == APP_COMMON_PRESENTER_TESTING || path == ":app-presenters" -> Presenter
+                path.endsWith(API_SUFFIX) -> Api
+                path.endsWith(PRESENTER_SUFFIX) || path == APP_COMMON_PRESENTER_TESTING -> Presenter
                 path.endsWith(UI_SUFFIX) || path.startsWith(":ui-") -> Ui
                 else -> Other
             }

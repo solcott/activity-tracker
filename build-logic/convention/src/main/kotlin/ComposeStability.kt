@@ -27,7 +27,7 @@ const val COMPOSE_STABILITY_CHECK_TASK_NAME = "composeStabilityCheck"
 abstract class ComposeStabilityExtension {
     /**
      * Also fail on any unstable class, or class field that isn't statically stable (`unstable` or `runtime`, e.g. a `List`), in this
-     * module's classes report. For modules that only declare UI-facing types, like the Circuit State contracts in `:app-screens`.
+     * module's classes report. For modules that only declare UI-facing types, like the Circuit State contracts in `-api` modules.
      */
     abstract val strictClasses: Property<Boolean>
 }

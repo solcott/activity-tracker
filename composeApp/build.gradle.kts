@@ -44,9 +44,6 @@ kotlin {
             // GearChoices, which the record, import and edit presenters inject.
             implementation(projects.appCommonPresenter)
             implementation(projects.appCommonUi)
-            // Only so the platform Metro graphs here aggregate the presenter factories. UI code never imports from it.
-            implementation(projects.appPresenters)
-            implementation(projects.appScreens)
             implementation(projects.coreData)
             implementation(projects.featureDetailApi)
             implementation(projects.featureDetailPresenter)

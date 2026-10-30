@@ -59,8 +59,6 @@ listOf(
         "app/common/presenter",
         "app/common/presenter-testing",
         "app/common/ui",
-        "app/screens",
-        "app/presenters",
         "app/fixtures",
         "ui/designsystem",
         "ui/resources",

@@ -18,7 +18,7 @@ class ModuleBoundariesTest {
         assertNotNull(boundaryViolation(":app-common-presenter", ":ui-designsystem"))
         assertNotNull(boundaryViolation(":feature-search-ui", ":feature-search-presenter"))
         assertNotNull(boundaryViolation(":feature-search-ui", ":app-common-presenter"))
-        assertNotNull(boundaryViolation(":app-common-ui", ":app-presenters"))
+        assertNotNull(boundaryViolation(":app-common-ui", ":app-common-presenter"))
     }
 
     @Test
@@ -33,7 +33,6 @@ class ModuleBoundariesTest {
     fun `API modules depend only on contracts and core`() {
         assertNull(boundaryViolation(":feature-search-api", ":app-common-api"))
         assertNull(boundaryViolation(":feature-search-api", ":feature-profile-api"))
-        assertNull(boundaryViolation(":feature-search-api", ":app-screens"))
         assertNull(boundaryViolation(":app-common-api", ":core-data"))
         assertNotNull(boundaryViolation(":feature-search-api", ":feature-search-presenter"))
         assertNotNull(boundaryViolation(":feature-search-api", ":app-common-ui"))
@@ -45,7 +44,6 @@ class ModuleBoundariesTest {
         assertNull(boundaryViolation(":feature-search-presenter", ":feature-search-api"))
         assertNull(boundaryViolation(":feature-search-presenter", ":app-common-presenter"))
         assertNull(boundaryViolation(":feature-search-presenter", ":app-common-presenter-testing"))
-        assertNull(boundaryViolation(":feature-search-presenter", ":app-screens"))
         assertNull(boundaryViolation(":feature-search-ui", ":feature-search-api"))
         assertNull(boundaryViolation(":feature-search-ui", ":app-common-ui"))
         assertNull(boundaryViolation(":feature-search-ui", ":app-fixtures"))
