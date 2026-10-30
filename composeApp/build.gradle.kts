@@ -46,6 +46,9 @@ kotlin {
             implementation(projects.appPresenters)
             implementation(projects.appScreens)
             implementation(projects.coreData)
+            implementation(projects.featureReportApi)
+            implementation(projects.featureReportPresenter)
+            implementation(projects.featureReportUi)
             // Feature modules, so the platform Metro graphs here aggregate their presenter and UI factories.
             implementation(projects.featureSearchApi)
             implementation(projects.featureSearchPresenter)

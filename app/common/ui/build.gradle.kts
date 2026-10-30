@@ -11,6 +11,8 @@ kotlin {
             // Contracts of features that haven't moved out yet (an activity's figures, an import's previews); each goes when its feature
             // gets its own -api module.
             api(projects.appScreens)
+            // ReportingHost embeds ReportScreen by key.
+            api(projects.featureReportApi)
             api(projects.uiDesignsystem)
             api(libs.coil.compose)
 

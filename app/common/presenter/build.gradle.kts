@@ -13,6 +13,9 @@ kotlin {
             // The shared helpers open screens that still live in :app-screens (the activity, profile and gallery). This goes once those
             // features have their own -api modules.
             api(projects.appScreens)
+            // rememberReporting builds report's Reporting.
+            api(projects.featureReportApi)
+
             implementation(libs.circuit.retained)
             implementation(libs.circuit.runtime)
             implementation(libs.compose.runtime)
