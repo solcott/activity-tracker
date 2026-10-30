@@ -4,11 +4,13 @@ plugins {
 }
 
 // What every presenter test uses: presenterTestOf / Presenter.test on a fixed thread, and awaitUntil, plus the fixtures several features'
-// tests share (ActivityTestBase's served activity, test segment stores, routes). JVM only, since presenter tests run there; presenter
-// modules add it to jvmTest.
+// tests share (SessionTestFixture's fake services and repositories, ActivityTestBase's served activity, test segment stores, routes). JVM
+// only, since presenter tests run there; presenter modules add it to jvmTest.
 kotlin {
     sourceSets {
         jvmMain.dependencies {
+            // The gear picker's producer, which SessionTestFixture's repositories build.
+            api(projects.appCommonPresenter)
             api(projects.coreData)
             api(libs.circuit.test)
             api(libs.kotlinx.coroutines.test)

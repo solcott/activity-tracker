@@ -13,7 +13,7 @@ import io.github.solcott.activitytracker.data.di.SessionClients
 import kotlin.time.Clock
 
 /** The outbox, and the streams, zones, track and source stores over it, shared by a test's repositories. */
-internal class TestZones(db: AppDatabase, clients: SessionClients) {
+class TestZones(db: AppDatabase, clients: SessionClients) {
     val outbox = OutboxProcessor(db, clients, Logger)
     val writer = OutboxWriter(db, clients, Clock.System)
     val store = ActivityZonesStore(db, writer, outbox, clients, Clock.System, Logger)

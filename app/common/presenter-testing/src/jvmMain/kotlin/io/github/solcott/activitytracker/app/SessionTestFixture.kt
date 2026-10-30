@@ -1,9 +1,7 @@
 package io.github.solcott.activitytracker.app
 
 import co.touchlab.kermit.Logger
-import io.github.solcott.activitytracker.app.record.ActivityTypeChoices
 import io.github.solcott.activitytracker.app.record.GearChoices
-import io.github.solcott.activitytracker.app.record.NewDeviceChoices
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityDevicesStore
@@ -20,7 +18,6 @@ import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.gear.GearCollections
 import io.github.solcott.activitytracker.data.gear.GearDefaults
 import io.github.solcott.activitytracker.data.gear.GearRepository
-import io.github.solcott.activitytracker.data.gear.PastImportsMatcher
 import io.github.solcott.activitytracker.data.moderation.ModerationRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
@@ -508,24 +505,9 @@ class SessionTestFixture {
         val devices: ActivityDevicesStore,
         val places: ActivityPlaces,
     ) {
-        /** The type picker's producer, as Metro injects it into the record, manual entry and import presenters. */
-        val typeChoices: ActivityTypeChoices
-            get() = ActivityTypeChoices(recentTypes)
-
         /** The gear picker's producer, as Metro injects it into the record, manual entry, import and edit presenters. */
         val gearChoices: GearChoices
             get() = GearChoices(gear, gearDefaults, gearCollections)
-
-        /** The import's new-device prompt, as Metro injects it into the import presenter. */
-        val newDeviceChoices: NewDeviceChoices
-            get() =
-                NewDeviceChoices(
-                    gear,
-                    gearCollections,
-                    gearDefaults,
-                    PastImportsMatcher(devices, places, gear, feed, manager),
-                    Clock.System,
-                )
     }
 
     /** The moderator side for another session on the same fake services; with no [labelerDid] the athlete can't moderate. */
