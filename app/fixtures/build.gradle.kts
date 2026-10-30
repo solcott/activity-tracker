@@ -15,6 +15,7 @@ kotlin {
             api(projects.featureFeedfilterApi)
             api(projects.featureMapApi)
             api(projects.featureMediaApi)
+            api(projects.featureModerationApi)
             api(projects.featureReportApi)
             api(projects.featureSearchApi)
             api(libs.dataresult.uistate)

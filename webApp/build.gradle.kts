@@ -32,6 +32,8 @@ kotlin {
             implementation(projects.featureMapUi)
             implementation(projects.featureMediaPresenter)
             implementation(projects.featureMediaUi)
+            implementation(projects.featureModerationPresenter)
+            implementation(projects.featureModerationUi)
             implementation(projects.featureReportPresenter)
             implementation(projects.featureReportUi)
             implementation(projects.featureSearchPresenter)
