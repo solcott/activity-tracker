@@ -46,6 +46,9 @@ kotlin {
             implementation(projects.appPresenters)
             implementation(projects.appScreens)
             implementation(projects.coreData)
+            implementation(projects.featureMediaApi)
+            implementation(projects.featureMediaPresenter)
+            implementation(projects.featureMediaUi)
             implementation(projects.featureReportApi)
             implementation(projects.featureReportPresenter)
             implementation(projects.featureReportUi)
@@ -67,7 +70,6 @@ kotlin {
             implementation(libs.haze)
             implementation(libs.haze.blur)
             implementation(libs.vico.multiplatform)
-            implementation(libs.zoomimage.compose.coil3)
         }
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)

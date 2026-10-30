@@ -12,6 +12,7 @@ kotlin {
         commonMain.dependencies {
             api(projects.appScreens)
             api(projects.coreLexicon)
+            api(projects.featureMediaApi)
             api(projects.featureReportApi)
             api(projects.featureSearchApi)
             api(libs.dataresult.uistate)

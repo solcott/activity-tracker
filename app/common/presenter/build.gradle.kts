@@ -10,9 +10,11 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(projects.appCommonApi)
-            // The shared helpers open screens that still live in :app-screens (the activity, profile and gallery). This goes once those
+            // The shared helpers open screens that still live in :app-screens (the activity and profile). This goes once those
             // features have their own -api modules.
             api(projects.appScreens)
+            // The activity-list sink opens the gallery.
+            api(projects.featureMediaApi)
             // rememberReporting builds report's Reporting.
             api(projects.featureReportApi)
 

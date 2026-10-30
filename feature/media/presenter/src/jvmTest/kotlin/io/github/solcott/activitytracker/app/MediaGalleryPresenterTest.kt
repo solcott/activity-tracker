@@ -14,6 +14,7 @@ import io.github.solcott.activitytracker.app.media.MediaGalleryState
 import io.github.solcott.activitytracker.app.report.ReportOuterEvent
 import io.github.solcott.activitytracker.app.report.ReportingEvent
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
+import io.github.solcott.activitytracker.data.moderation.BlurReason
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.uistate.errorOrNull
@@ -24,14 +25,21 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
-/** The full-screen photos (ui/content-loading): a first-load phase, retry, retention, and a failed block kept apart from the load. */
+/**
+ * The full-screen photos (ui/content-loading): a first-load phase, retry, retention, and a failed block kept apart from the load; and what
+ * labels blur, revealed before zooming (`moderation/labels`).
+ */
 class MediaGalleryPresenterTest : ActivityTestBase() {
     private val gallery = MediaGalleryScreen(activityUri, 0)
 
     private val photo =
         "\"media\":[{\"\$type\":\"app.activitytracker.feed.defs#imageView\",\"fullsize\":\"http://appview.test/img/media/did:plc:bob/bafkphoto\"}],"
+
+    private fun labels(vararg values: String) =
+        values.joinToString(",", "\"labels\":[", "],") { """{"src":"did:plc:labeler","val":"$it"}""" }
 
     @Test
     fun loadsThenShowsThePhotos() = runTest {
@@ -103,6 +111,36 @@ class MediaGalleryPresenterTest : ActivityTestBase() {
             assertNotNull(failed.error)
             assertNull(failed.content.errorOrNull)
             assertEquals(1, failed.items.size)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aBlurredPhotoRevealsBeforeItZooms() = runTest {
+        viewExtra = photo + labels("nudity")
+        val r = repos()
+        presenterTestOf({ MediaGalleryPresenter(gallery, FakeNavigator(gallery), r.feed, r.profiles, r.blocks, r.reports) }) {
+            var state = awaitUntil { it.items.isNotEmpty() }
+            assertEquals(BlurReason.Nudity, state.blur)
+            assertFalse(activityUri in state.revealed)
+            state.eventSink(MediaGalleryEvent.ToggleZoom)
+            state = awaitUntil { activityUri in it.revealed }
+            assertFalse(state.zoomed, "the first tap reveals")
+            state.eventSink(MediaGalleryEvent.ToggleZoom)
+            assertTrue(awaitUntil { it.zoomed }.zoomed)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun theAthletesOwnTakenDownActivityShowsPlaceholders() = runTest {
+        author = staleAlice
+        viewExtra = photo + labels("!takedown")
+        val r = repos()
+        presenterTestOf({ MediaGalleryPresenter(gallery, FakeNavigator(gallery), r.feed, r.profiles, r.blocks, r.reports) }) {
+            val state = awaitUntil { it.items.isNotEmpty() }
+            assertTrue(state.takenDown)
+            assertFalse(state.canReport, "nor can they report their own")
             cancelAndIgnoreRemainingEvents()
         }
     }

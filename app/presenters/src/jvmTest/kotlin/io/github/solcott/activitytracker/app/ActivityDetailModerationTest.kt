@@ -1,14 +1,9 @@
 package io.github.solcott.activitytracker.app
 
-import com.slack.circuit.test.FakeNavigator
-import io.github.solcott.activitytracker.app.media.MediaGalleryEvent
-import io.github.solcott.activitytracker.app.media.MediaGalleryPresenter
-import io.github.solcott.activitytracker.app.media.MediaGalleryScreen
 import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.app.report.BlockOffer
 import io.github.solcott.activitytracker.app.report.ReportOuterEvent
 import io.github.solcott.activitytracker.app.report.ReportingEvent
-import io.github.solcott.activitytracker.data.moderation.BlurReason
 import io.github.solcott.activitytracker.data.moderation.ModerationDecision
 import io.github.solcott.activitytracker.data.moderation.ReportTarget
 import io.github.solcott.activitytracker.lexicon.Did
@@ -20,15 +15,12 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
 /**
- * Moderation on the detail page and in the gallery: what labels blur or hide, and revealing it for this view only (`moderation/labels`);
- * reporting a comment and the block it offers (`moderation/reports`).
+ * Moderation on the detail page: what labels hide, and revealing it for this view only (`moderation/labels`); reporting a comment and the
+ * block it offers (`moderation/reports`). The gallery's side is `MediaGalleryPresenterTest`'s.
  */
 class ActivityDetailModerationTest : ActivityDetailTestBase() {
     private fun labels(vararg values: String) =
         values.joinToString(",", "\"labels\":[", "],") { """{"src":"did:plc:labeler","val":"$it"}""" }
-
-    private val photo =
-        "\"media\":[{\"\$type\":\"app.activitytracker.feed.defs#imageView\",\"fullsize\":\"http://appview.test/img/media/did:plc:bob/bafkphoto\"}],"
 
     @Test
     fun aHiddenActivityOpensBehindAWarningUntilRevealed() = runTest {
@@ -47,38 +39,6 @@ class ActivityDetailModerationTest : ActivityDetailTestBase() {
         // A new view of the screen starts covered again.
         detail(r) {
             assertFalse(Revealed.hiddenKey(activityUri) in awaitLoaded().revealed)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun aBlurredPhotoRevealsBeforeItZooms() = runTest {
-        viewExtra = photo + labels("nudity")
-        val r = repos()
-        val screen = MediaGalleryScreen(activityUri, 0)
-        presenterTestOf({ MediaGalleryPresenter(screen, FakeNavigator(screen), r.feed, r.profiles, r.blocks, r.reports) }) {
-            var state = awaitUntil { it.items.isNotEmpty() }
-            assertEquals(BlurReason.Nudity, state.blur)
-            assertFalse(activityUri in state.revealed)
-            state.eventSink(MediaGalleryEvent.ToggleZoom)
-            state = awaitUntil { activityUri in it.revealed }
-            assertFalse(state.zoomed, "the first tap reveals")
-            state.eventSink(MediaGalleryEvent.ToggleZoom)
-            assertTrue(awaitUntil { it.zoomed }.zoomed)
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
-    fun theAthletesOwnTakenDownActivityShowsPlaceholders() = runTest {
-        author = staleAlice
-        viewExtra = photo + labels("!takedown")
-        val r = repos()
-        val screen = MediaGalleryScreen(activityUri, 0)
-        presenterTestOf({ MediaGalleryPresenter(screen, FakeNavigator(screen), r.feed, r.profiles, r.blocks, r.reports) }) {
-            val state = awaitUntil { it.items.isNotEmpty() }
-            assertTrue(state.takenDown)
-            assertFalse(state.canReport, "nor can they report their own")
             cancelAndIgnoreRemainingEvents()
         }
     }
