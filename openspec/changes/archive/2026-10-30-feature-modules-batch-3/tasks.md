@@ -130,7 +130,7 @@ Baseline (task 1.1), `main` at 3508b04d, all passing:
 
   Done: `./gradlew check composeStabilityCheck --continue` passed in 15m 13s (5267 tasks), screenshot suite included, with no failures. `scripts/check-public-safety.sh` passes.
 
-- [ ] 8.2 Measure `./gradlew check --rerun-tasks --continue` locally as in batch 2, and record it against batch 2's numbers. After the push, record the GitHub Actions `Check` time. Verify: the numbers are recorded, and CI is green.
+- [x] 8.2 Measure `./gradlew check --rerun-tasks --continue` locally as in batch 2, and record it against batch 2's numbers. After the push, record the GitHub Actions `Check` time. Verify: the numbers are recorded, and CI is green.
 
   Local, after this change (same machine, `--no-daemon` as before):
   - Wall time: 15m 40s (940 s), +4% against batch 2's 902 s.
@@ -139,7 +139,10 @@ Baseline (task 1.1), `main` at 3508b04d, all passing:
 
   The run failed only in the root `ktfmtCheckScripts`, which couldn't read a build file another task was rewriting under `--rerun-tasks` (the race batches 1 and 2 met). It passes on its own.
 
-  CI: pending the push.
+  On GitHub Actions, the run after the push (run 41132228959, at fc638973) passed:
+  - Gradle reported 20m 6s for `check`, +27% against batch 2's 15m 50s. The job took 22m 4s.
+  - 4237 tasks, +14% against batch 2's 3725; 117 came from the build cache.
+  - Like batch 2's, the run was mostly uncached because moved files changed most tasks' inputs. Both CI runs were close to fully uncached, so that doesn't explain why CI grew more than the local run (+4%); a single run on shared runners may vary. It stays well within the 45-minute timeout.
 - [x] 8.3 Run the apps:
   - iOS (the documented `xcodebuild`, then the simulator): open a profile, edit the profile, open followers; record a run with a simulated route, then save it; open the activity, its charts, comments and the combine picker; import an activity file and see the preview;
   - web: the profile, an activity's detail and an import preview;
