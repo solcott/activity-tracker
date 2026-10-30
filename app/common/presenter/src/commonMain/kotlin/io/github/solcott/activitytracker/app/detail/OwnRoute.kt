@@ -34,7 +34,7 @@ import kotlinx.coroutines.flow.flowOf
  * the track can't be read (the trimmed polyline shows then). [hide] adds a privacy zone at its start or end.
  */
 @Suppress("LongParameterList") // What the owner's map shows, and what can be done with the route.
-internal class OwnRoute(
+class OwnRoute(
     /** The full track's points, two or more; null like [map]. */
     val track: List<LocationSample>?,
     val map: OwnMap?,
@@ -47,7 +47,7 @@ internal class OwnRoute(
 )
 
 /** The owner's map of their route. */
-internal class OwnMap(
+class OwnMap(
     /**
      * The full track, broken where a combined activity's members were recorded one after another, or a single one's positions far apart
      * ([SegmentedPolyline]).
@@ -61,12 +61,12 @@ internal class OwnMap(
  * What [record]'s map draws: [own], the owner's full track marked at the route others see, once it's read; else the polyline the viewer was
  * served, marked at its own ends.
  */
-internal fun shownRoute(record: ActivityRecord, own: OwnMap?): ShownRoute? =
+fun shownRoute(record: ActivityRecord, own: OwnMap?): ShownRoute? =
     if (own != null) ShownRoute(own.line.polyline, own.line.gaps?.toImmutableList(), own.ends)
     else record.polyline?.let { ShownRoute(it, record.polylineGaps?.toImmutableList(), ends = null) }
 
 @Composable
-internal fun rememberOwnRoute(
+fun rememberOwnRoute(
     activity: AtUri?,
     loadKey: Int,
     activities: ActivityRepository,
