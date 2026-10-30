@@ -12,14 +12,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
+  # Runs on every push, including docs-only ones: the public-safety check looks at openspec/ and docs most of all. It also
+  # decides whether the build below is needed.
+  preflight:
     runs-on: ubuntu-26.04
-    timeout-minutes: 45
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.changes.outputs.code }}
     steps:
       - uses: actions/checkout@v7
 
       - name: Public-safety check
         run: scripts/check-public-safety.sh
+
+      - name: Detect code changes
+        id: changes
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: echo "code=$(scripts/ci-code-changed.sh "$BASE" "$GITHUB_SHA")" | tee -a "$GITHUB_OUTPUT"
+
+  # Skipped when only docs, openspec/ or agent configuration changed. A job skipped by `if` reports success.
+  check:
+    needs: preflight
+    if: needs.preflight.outputs.code == 'true'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
 
       # The build (Android SDK pieces, Gradle cache, Kotlin/Native toolchain, every module's outputs) outgrows the runner's
       # free disk. These preinstalled toolchains aren't used; the Android SDK stays.

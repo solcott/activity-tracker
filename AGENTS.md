@@ -24,6 +24,7 @@ A Kotlin Multiplatform activity tracker for athletes, backed by ATProtocol. Clie
 ./gradlew :androidApp:updateDebugScreenshotTestDefaultTestSuite   # rewrite references in androidApp/src/screenshotTestDefaultDebug/reference after an intended UI change
 scripts/check-agent-sync.sh                       # Claude Code <-> Antigravity config symlinks, hook and command parity
 scripts/check-public-safety.sh                    # no un-noted activity files, openspec/ screenshots or home-folder paths in tracked files (CI runs it)
+scripts/ci-code-changed.sh <base> <head>          # CI's build gate: false when only *.md, openspec/, .agents/ or .claude/ changed, so CI skips the Gradle job
 
 ./gradlew :webApp:wasmJsBrowserDevelopmentRun     # web app; PORT env overrides 8080
 ./gradlew kotlinWasmUpgradeYarnLock               # after an npm dependency change: refresh kotlin-js-store/wasm/yarn.lock (Yarn, so the *PackageLock tasks fail)
