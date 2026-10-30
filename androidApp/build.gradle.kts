@@ -31,6 +31,7 @@ android {
             dependencies {
                 implementation(projects.appCommonUi)
                 implementation(projects.appFixtures)
+                implementation(projects.featureEditUi)
                 implementation(projects.featureFeedfilterUi)
                 implementation(projects.featureGearUi)
                 implementation(projects.featureLoginUi)

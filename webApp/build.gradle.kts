@@ -28,6 +28,8 @@ kotlin {
             implementation(projects.appScreens)
             implementation(projects.composeApp)
             implementation(projects.coreData)
+            implementation(projects.featureEditPresenter)
+            implementation(projects.featureEditUi)
             implementation(projects.featureFeedfilterPresenter)
             implementation(projects.featureFeedfilterUi)
             implementation(projects.featureGearPresenter)

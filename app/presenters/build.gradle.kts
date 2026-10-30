@@ -13,8 +13,9 @@ kotlin {
         commonMain.dependencies {
             api(projects.appScreens)
             implementation(projects.appCommonPresenter)
-            // Moved features' screens these presenters open: gear and the route map and gallery (detail), the gear list and
-            // moderation (settings).
+            // Moved features' screens these presenters open: editing, gear and the route map and gallery (detail), the gear list
+            // and moderation (settings).
+            implementation(projects.featureEditApi)
             implementation(projects.featureGearApi)
             implementation(projects.featureMapApi)
             implementation(projects.featureMediaApi)
