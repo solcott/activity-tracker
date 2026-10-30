@@ -11,8 +11,8 @@ import org.gradle.kotlin.dsl.withType
 import org.gradle.language.base.plugins.LifecycleBasePlugin
 
 /**
- * Formatting and static analysis for every module: ktfmt, sort-dependencies, detekt with the Compose rules, and (in modules that apply the
- * Compose compiler) the Compose stability check.
+ * Formatting and static analysis for every module: ktfmt, sort-dependencies, detekt with the Compose rules, the module-boundaries check,
+ * and (in modules that apply the Compose compiler) the Compose stability check.
  */
 class QualityConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
@@ -54,6 +54,7 @@ class QualityConventionPlugin : Plugin<Project> {
             plugins.withType<LifecycleBasePlugin> { tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) { dependsOn(detektAll) } }
 
             pluginManager.withPlugin("org.jetbrains.kotlin.plugin.compose") { configureComposeStability() }
+            configureModuleBoundaries()
         }
     }
 }

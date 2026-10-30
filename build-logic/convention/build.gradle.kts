@@ -27,7 +27,9 @@ dependencies {
     testPluginClasspath(libs.compose.compiler.gradle.plugin)
     testPluginClasspath(libs.compose.gradle.plugin)
     testPluginClasspath(libs.kotlin.gradle.plugin)
+    testPluginClasspath(libs.kotlin.serialization.gradle.plugin)
     testPluginClasspath(libs.ksp.gradle.plugin)
+    testPluginClasspath(libs.metro.gradle.plugin)
 }
 
 // KGP and the Compose compiler plugin are compileOnly (each build supplies its own), but TestKit fixtures need them to apply the
@@ -70,6 +72,18 @@ gradlePlugin {
         register("quality") {
             id = "activitytracker.quality"
             implementationClass = "QualityConventionPlugin"
+        }
+        register("featureApi") {
+            id = "activitytracker.feature.api"
+            implementationClass = "FeatureApiConventionPlugin"
+        }
+        register("featurePresenter") {
+            id = "activitytracker.feature.presenter"
+            implementationClass = "FeaturePresenterConventionPlugin"
+        }
+        register("featureUi") {
+            id = "activitytracker.feature.ui"
+            implementationClass = "FeatureUiConventionPlugin"
         }
         register("nativeOAuth") {
             id = "activitytracker.native.oauth"
