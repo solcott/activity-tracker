@@ -118,7 +118,7 @@ Baseline (task 1.1), `main` at ade6db32, all passing: `LoginPresenterTest` 5, `R
   - `scripts/check-public-safety.sh`.
 
   Verify: all pass.
-- [ ] 10.3 Measure `./gradlew check --rerun-tasks --continue` locally with fresh daemons and record wall time, task count and peak RSS here, next to the foundation's numbers (10m 17s, 1843 tasks, 4936 MB). After the push, record the GitHub Actions `Check` time against the foundation's cold 25m 35s and warm 3m 15s. Verify: the numbers are recorded with the percentage change, and CI is green.
+- [x] 10.3 Measure `./gradlew check --rerun-tasks --continue` locally with fresh daemons and record wall time, task count and peak RSS here, next to the foundation's numbers (10m 17s, 1843 tasks, 4936 MB). After the push, record the GitHub Actions `Check` time against the foundation's cold 25m 35s and warm 3m 15s. Verify: the numbers are recorded with the percentage change, and CI is green.
 
   Local, after this change (same machine). The running Gradle daemon couldn't be stopped, so this ran with `--no-daemon`, which gives the build a fresh Gradle JVM. A Kotlin daemon that was already running may have been reused, and its RSS isn't counted.
   - Wall time: 11m 48s (708 s), +15% against 618 s.
@@ -129,7 +129,14 @@ Baseline (task 1.1), `main` at ade6db32, all passing: `LoginPresenterTest` 5, `R
   - 3 `ktfmtCheckScripts` tasks, which couldn't read temp and generated files that other tasks had deleted under `--rerun-tasks`;
   - 2 detekt findings from the moves, now fixed.
 
-  After the fix, `./gradlew check composeStabilityCheck` passed. The GitHub Actions numbers wait for the push.
+  After the fix, `./gradlew check composeStabilityCheck` passed.
+
+  On GitHub Actions, the first run after the push (run 41103764549, at 84796026) passed:
+  - Gradle reported 14m 5s for `check`, and the job took 15m 32s.
+  - 73 of 2702 tasks came from the build cache, against 22 of 1495 in the foundation's first run.
+  - That is 45% under the foundation's cold 25m 35s, but the two runs aren't alike. Moving files changed nearly every task's inputs, so the task graph ran almost uncached. The Gradle home cache (dependencies, transforms, toolchains), though, was restored from 8a07f249's run, whereas the foundation's cold run started with it emptied.
+  - Read it as no CI slowdown from the 18 new modules. 2702 tasks (+81% against 1496) fit well within the 45-minute timeout.
+  - The next push gives the warm figure to set against 3m 15s.
 - [x] 10.4 Run the apps:
   - iOS (the documented `xcodebuild`, then the simulator): sign out and sign back in, open a route map and the photo gallery from an activity, and open the feed filter;
   - desktop and web: the same, except signing out;
