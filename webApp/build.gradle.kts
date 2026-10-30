@@ -30,6 +30,8 @@ kotlin {
             implementation(projects.coreData)
             implementation(projects.featureEditPresenter)
             implementation(projects.featureEditUi)
+            implementation(projects.featureFeedPresenter)
+            implementation(projects.featureFeedUi)
             implementation(projects.featureFeedfilterPresenter)
             implementation(projects.featureFeedfilterUi)
             implementation(projects.featureGearPresenter)

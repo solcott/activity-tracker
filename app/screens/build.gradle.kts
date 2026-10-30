@@ -17,8 +17,7 @@ kotlin {
         commonMain.dependencies {
             api(projects.appCommonApi)
             api(projects.coreData)
-            // Moved features' contracts that States here hold: the feed filter (feed), Reporting (detail, profile).
-            api(projects.featureFeedfilterApi)
+            // Moved features' contracts that States here hold: Reporting (detail, profile).
             api(projects.featureReportApi)
             api(libs.circuit.runtime)
             api(libs.circuit.serialization)

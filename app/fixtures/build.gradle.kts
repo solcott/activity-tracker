@@ -13,6 +13,7 @@ kotlin {
             api(projects.appScreens)
             api(projects.coreLexicon)
             api(projects.featureEditApi)
+            api(projects.featureFeedApi)
             api(projects.featureFeedfilterApi)
             api(projects.featureGearApi)
             api(projects.featureLoginApi)
