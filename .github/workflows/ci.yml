@@ -6,8 +6,6 @@ on:
 
 permissions:
   contents: read
-  # kmp-dataresult comes from GitHub Packages, which wants a token even for public reads (settings.gradle.kts).
-  packages: read
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -17,9 +15,6 @@ jobs:
   check:
     runs-on: ubuntu-26.04
     timeout-minutes: 45
-    env:
-      GITHUB_ACTOR: ${{ github.actor }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v7
 

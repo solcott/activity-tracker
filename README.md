@@ -81,14 +81,10 @@ specs and tasks. It is then implemented and verified, and archived into the livi
 Requires JDK 25, Docker, Android SDK (for Android), Xcode (for iOS), and `cloudflared` for native sign-in
 (`brew install cloudflared`).
 
-The build also resolves [kmp-dataresult](https://github.com/solcott/kmp-dataresult) from GitHub Packages,
-which authenticates even public reads. Create a classic GitHub token with the `read:packages` scope and
-add it to `~/.gradle/gradle.properties` (CI can set `GITHUB_ACTOR` and `GITHUB_TOKEN` instead):
+The build resolves [kmp-dataresult](https://github.com/solcott/kmp-dataresult) from Maven Central.
+To build against a local checkout instead, name it in `~/.gradle/gradle.properties` (an absolute path):
 
 ```properties
-gpr.user=your-github-username
-gpr.key=ghp_yourtoken
-# Optional: build against a local kmp-dataresult checkout instead (an absolute path).
 dataresult.dir=/path/to/kmp-dataresult
 ```
 

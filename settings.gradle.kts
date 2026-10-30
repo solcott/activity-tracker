@@ -27,17 +27,6 @@ dependencyResolutionManagement {
             }
         }
         mavenCentral()
-        // io.github.solcott:dataresult / uistate / uistate-circuit. GitHub Packages authenticates even public reads: put a classic
-        // PAT with read:packages in ~/.gradle/gradle.properties as gpr.user / gpr.key. Only that group resolves here, so a token
-        // problem can't break anything else.
-        maven("https://maven.pkg.github.com/solcott/kmp-dataresult") {
-            name = "GitHubPackages"
-            credentials {
-                username = providers.gradleProperty("gpr.user").orNull ?: System.getenv("GITHUB_ACTOR")
-                password = providers.gradleProperty("gpr.key").orNull ?: System.getenv("GITHUB_TOKEN")
-            }
-            content { includeGroup("io.github.solcott") }
-        }
     }
 }
 

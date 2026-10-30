@@ -58,9 +58,9 @@ garminFit = "21.218.0"
 xmlutil = "1.0.2.1"
 # androidx artifact that Compose Multiplatform's runtime already resolves to; @Immutable/@Stable for modules without Compose.
 composeRuntimeAnnotation = "1.12.1"
-# Outcome / ContentState for loading screens (github.com/solcott/kmp-dataresult, GitHub Packages). A local checkout replaces it
+# Outcome / ContentState for loading screens (github.com/solcott/kmp-dataresult, Maven Central). A local checkout replaces it
 # when the dataresult.dir Gradle property is set (settings.gradle.kts).
-dataresult = "0.1.0-SNAPSHOT"
+dataresult = "0.1.0"
 
 androidx-activity = "1.13.0"
 androidx-browser = "1.10.0"
