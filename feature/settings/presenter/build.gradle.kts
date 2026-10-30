@@ -3,11 +3,10 @@ plugins { id("activitytracker.feature.presenter") }
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            // BlockListScreen, which Settings opens, until profile moves into its own -api module.
-            implementation(projects.appScreens)
-            // Screens Settings opens: the gear list and moderation.
+            // Screens Settings opens: the gear list, moderation and the block lists.
             implementation(projects.featureGearApi)
             implementation(projects.featureModerationApi)
+            implementation(projects.featureProfileApi)
         }
     }
 }
