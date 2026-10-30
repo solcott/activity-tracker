@@ -18,6 +18,8 @@ dependencies {
     implementation(projects.appScreens)
     implementation(projects.composeApp)
     implementation(projects.coreData)
+    implementation(projects.featureDetailPresenter)
+    implementation(projects.featureDetailUi)
     implementation(projects.featureEditPresenter)
     implementation(projects.featureEditUi)
     implementation(projects.featureFeedPresenter)

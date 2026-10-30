@@ -7,7 +7,6 @@ import androidx.compose.ui.test.v2.runComposeUiTest
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.fakeActivity
 import io.github.solcott.activitytracker.app.fixtures.fakeActivityRecord
-import io.github.solcott.activitytracker.app.preview.SessionPreviewSubUis
 import io.github.solcott.activitytracker.app.ui.ActivityCard
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import kotlin.test.Test
@@ -28,11 +27,7 @@ class StartTimeUiTest {
         FigureValue.StartTime(Instant.parse(iso).epochSeconds, offset, dateOnly)
 
     private fun assertReads(expected: String, value: FigureValue.StartTime, viewer: Viewer = Viewer()) = runComposeUiTest {
-        setContent {
-            AppPreview(subUis = SessionPreviewSubUis, now = viewer.at, timeZone = viewer.zone, use24Hour = viewer.use24Hour) {
-                Text(startTime(value))
-            }
-        }
+        setContent { AppPreview(now = viewer.at, timeZone = viewer.zone, use24Hour = viewer.use24Hour) { Text(startTime(value)) } }
         onNodeWithText(expected).assertExists()
     }
 
@@ -76,7 +71,7 @@ class StartTimeUiTest {
     fun aCardShowsTheStart() = runComposeUiTest {
         // The sample ride started 1:00 AM MDT on May 31, the day before the preview's June 1.
         setContent {
-            AppPreview(subUis = SessionPreviewSubUis, use24Hour = false) {
+            AppPreview(use24Hour = false) {
                 ActivityCard(fakeActivity(), onClick = {}, onAuthorClick = null, onLike = null, onOpenMedia = {})
             }
         }
@@ -88,9 +83,7 @@ class StartTimeUiTest {
         // Local midnight at MDT, as the record holds it when the start is narrower than the activity.
         val record = fakeActivityRecord(startedAt = Instant.parse("2026-05-31T06:00:00Z"))
         setContent {
-            AppPreview(subUis = SessionPreviewSubUis) {
-                ActivityCard(fakeActivity(record = record), onClick = {}, onAuthorClick = null, onLike = null, onOpenMedia = {})
-            }
+            AppPreview { ActivityCard(fakeActivity(record = record), onClick = {}, onAuthorClick = null, onLike = null, onOpenMedia = {}) }
         }
         onNodeWithText("Yesterday").assertExists()
     }
@@ -98,7 +91,7 @@ class StartTimeUiTest {
     @Test
     fun aPageShowsTheStartInItsHeader() = runComposeUiTest {
         val state = ActivityDetailState(ContentStates.loaded(ActivityDetailSamples.page), eventSink = {})
-        setContent { AppPreview(subUis = SessionPreviewSubUis, use24Hour = false) { ActivityDetailUi(state) } }
+        setContent { AppPreview(use24Hour = false) { ActivityDetailUi(state) } }
         onNodeWithText("Yesterday at 1:00 AM").assertExists()
         onNodeWithText("Start time").assertDoesNotExist()
     }

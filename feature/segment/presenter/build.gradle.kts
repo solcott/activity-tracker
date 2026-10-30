@@ -3,9 +3,8 @@ plugins { id("activitytracker.feature.presenter") }
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            // ActivityDetailScreen, which an effort opens, until detail moves into its own -api module.
-            implementation(projects.appScreens)
-            // ProfileScreen, which a leaderboard row opens.
+            // Screens a segment opens: an effort's activity and a leaderboard row's profile.
+            implementation(projects.featureDetailApi)
             implementation(projects.featureProfileApi)
         }
     }

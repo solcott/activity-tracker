@@ -11,9 +11,8 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(projects.appCommonApi)
-            // The activity-list sink opens the activity, which still lives in :app-screens until detail moves into its own -api module.
-            api(projects.appScreens)
-            // The activity-list sink opens the gallery and profiles.
+            // The activity-list sink opens the activity, the gallery and profiles.
+            api(projects.featureDetailApi)
             api(projects.featureMediaApi)
             api(projects.featureProfileApi)
             // rememberReporting builds report's Reporting.
