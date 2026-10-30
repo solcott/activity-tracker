@@ -1,0 +1,91 @@
+package io.github.solcott.activitytracker.app.ui.adaptive
+
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.ThumbUp
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.mohamedrejeb.calf.cupertino.icons.CupertinoIcons
+
+/**
+ * The app's chrome icons, each as a Material icon, a Cupertino glyph (for Compose-drawn iOS UI) and an SF Symbol name (for UIKit menus and
+ * the tab bar). The `filled*` variants are the selected or active form; they default to the plain one.
+ */
+enum class AppIcon(
+    val material: ImageVector,
+    internal val cupertino: Int,
+    val sfSymbol: String,
+    internal val filledMaterial: ImageVector = material,
+    internal val filledCupertino: Int = cupertino,
+    val filledSfSymbol: String = sfSymbol,
+) {
+    Back(Icons.AutoMirrored.Filled.ArrowBack, CupertinoIcons.chevronBack, "chevron.backward"),
+    Search(Icons.Filled.Search, CupertinoIcons.search, "magnifyingglass"),
+    Add(Icons.Filled.Add, CupertinoIcons.plus, "plus"),
+    Record(Icons.Filled.PlayArrow, CupertinoIcons.largecircleFillCircle, "record.circle"),
+    ManualEntry(Icons.Filled.Edit, CupertinoIcons.squarePencil, "square.and.pencil"),
+    Import(Icons.Filled.AddCircle, CupertinoIcons.trayArrowDown, "tray.and.arrow.down"),
+    Settings(Icons.Filled.Settings, CupertinoIcons.gear, "gearshape"),
+    Refresh(Icons.Filled.Refresh, CupertinoIcons.arrowClockwise, "arrow.clockwise"),
+    Send(Icons.AutoMirrored.Filled.Send, CupertinoIcons.arrowUpCircleFill, "arrow.up.circle.fill"),
+    Clear(Icons.Filled.Clear, CupertinoIcons.xmarkCircleFill, "xmark.circle.fill"),
+    Calendar(Icons.Filled.DateRange, CupertinoIcons.calendar, "calendar"),
+    Check(Icons.Filled.Check, CupertinoIcons.checkmark, "checkmark"),
+    Chevron(Icons.AutoMirrored.Filled.KeyboardArrowRight, CupertinoIcons.chevronForward, "chevron.forward"),
+    ChevronBack(Icons.AutoMirrored.Filled.KeyboardArrowLeft, CupertinoIcons.chevronBack, "chevron.backward"),
+    ChevronDown(Icons.Filled.KeyboardArrowDown, CupertinoIcons.chevronDown, "chevron.down"),
+    ChevronUp(Icons.Filled.KeyboardArrowUp, CupertinoIcons.chevronUp, "chevron.up"),
+    Delete(Icons.Filled.Delete, CupertinoIcons.trash, "trash"),
+    More(Icons.Filled.MoreVert, CupertinoIcons.ellipsisCircle, "ellipsis.circle"),
+    Hide(MaterialIcons.VisibilityOff, CupertinoIcons.eyeSlash, "eye.slash"),
+    Unhide(MaterialIcons.Visibility, CupertinoIcons.eye, "eye"),
+    Ungroup(MaterialIcons.CallSplit, CupertinoIcons.arrowBranch, "arrow.branch"),
+    Export(Icons.Filled.Share, CupertinoIcons.squareArrowUp, "square.and.arrow.up"),
+    Close(Icons.Filled.Close, CupertinoIcons.xmark, "xmark"),
+    Location(Icons.Filled.Place, CupertinoIcons.location, "location"),
+    Lock(Icons.Filled.Lock, CupertinoIcons.lockFill, "lock.fill"),
+    AddPhoto(Icons.Filled.Add, CupertinoIcons.photoOnRectangle, "photo.badge.plus"),
+    DropDown(Icons.Filled.ArrowDropDown, CupertinoIcons.chevronUpChevronDown, "chevron.up.chevron.down"),
+    ExpandAll(MaterialIcons.UnfoldMore, CupertinoIcons.rectangleExpandVertical, "rectangle.expand.vertical"),
+    CollapseAll(MaterialIcons.UnfoldLess, CupertinoIcons.rectangleCompressVertical, "rectangle.compress.vertical"),
+    Expand(MaterialIcons.Fullscreen, CupertinoIcons.arrowUpLeftArrowDownRight, "arrow.up.left.and.arrow.down.right"),
+    Recenter(MaterialIcons.CenterFocusStrong, CupertinoIcons.scope, "scope"),
+    Like(
+        Icons.Outlined.ThumbUp,
+        CupertinoIcons.handThumbsup,
+        "hand.thumbsup",
+        Icons.Filled.ThumbUp,
+        CupertinoIcons.handThumbsupFill,
+        "hand.thumbsup.fill",
+    ),
+    Star(MaterialIcons.StarBorder, CupertinoIcons.star, "star", Icons.Filled.Star, CupertinoIcons.starFill, "star.fill"),
+    Feed(Icons.Outlined.Home, CupertinoIcons.house, "house", Icons.Filled.Home, CupertinoIcons.houseFill, "house.fill"),
+    You(Icons.Outlined.Person, CupertinoIcons.person, "person", Icons.Filled.Person, CupertinoIcons.personFill, "person.fill"),
+}

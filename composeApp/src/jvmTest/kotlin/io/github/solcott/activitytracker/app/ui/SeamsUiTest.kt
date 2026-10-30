@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.app.detail.startTime
 import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.fakeProfile
+import io.github.solcott.activitytracker.app.preview.SessionPreviewSubUis
 import io.github.solcott.activitytracker.app.profile.ProfileSamples
 import io.github.solcott.activitytracker.app.profile.ProfileUi
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
@@ -32,11 +33,11 @@ class SeamsUiTest {
     @Test
     fun aProfilesAgeIsFromTheSetTime() {
         runComposeUiTest {
-            setContent { AppPreview { ProfileUi(profile) } }
+            setContent { AppPreview(subUis = SessionPreviewSubUis) { ProfileUi(profile) } }
             onNodeWithText("36 years old", substring = true).assertExists()
         }
         runComposeUiTest {
-            setContent { AppPreview(now = Instant.parse("2027-06-01T12:00:00Z")) { ProfileUi(profile) } }
+            setContent { AppPreview(subUis = SessionPreviewSubUis, now = Instant.parse("2027-06-01T12:00:00Z")) { ProfileUi(profile) } }
             onNodeWithText("37 years old", substring = true).assertExists()
         }
     }
@@ -48,11 +49,17 @@ class SeamsUiTest {
         val sources =
             DataSources(persistentListOf(DataSourceRow(DataKind.HeartRate, included = true, chosen = member, offered = persistentListOf())))
         runComposeUiTest {
-            setContent { AppPreview(timeZone = TimeZone.UTC) { DataSourcesSection(sources, eventSink = {}) } }
+            setContent {
+                AppPreview(subUis = SessionPreviewSubUis, timeZone = TimeZone.UTC) { DataSourcesSection(sources, eventSink = {}) }
+            }
             onNodeWithText("Recording started 07:00", substring = true).assertExists()
         }
         runComposeUiTest {
-            setContent { AppPreview(timeZone = TimeZone.of("America/Denver")) { DataSourcesSection(sources, eventSink = {}) } }
+            setContent {
+                AppPreview(subUis = SessionPreviewSubUis, timeZone = TimeZone.of("America/Denver")) {
+                    DataSourcesSection(sources, eventSink = {})
+                }
+            }
             onNodeWithText("Recording started 01:00", substring = true).assertExists()
         }
     }
@@ -61,11 +68,11 @@ class SeamsUiTest {
     fun aStartTimeFollowsTheSetClockStyle() {
         val value = FigureValue.StartTime(Instant.parse("2026-05-31T14:05:00Z").epochSeconds, utcOffsetMinutes = 0, dateOnly = false)
         runComposeUiTest {
-            setContent { AppPreview(use24Hour = true) { Text(startTime(value)) } }
+            setContent { AppPreview(subUis = SessionPreviewSubUis, use24Hour = true) { Text(startTime(value)) } }
             onNodeWithText("14:05", substring = true).assertExists()
         }
         runComposeUiTest {
-            setContent { AppPreview(use24Hour = false) { Text(startTime(value)) } }
+            setContent { AppPreview(subUis = SessionPreviewSubUis, use24Hour = false) { Text(startTime(value)) } }
             onNodeWithText("2:05 PM", substring = true).assertExists()
         }
     }

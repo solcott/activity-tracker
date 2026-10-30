@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
+import io.github.solcott.activitytracker.app.preview.SessionPreviewSubUis
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -21,7 +22,9 @@ class UnsentChangesUiTest {
     @Test
     fun eachChangeIsNamedAndSaysTheServerRefusedIt() = runComposeUiTest {
         val events = mutableListOf<UnsentChangesEvent>()
-        setContent { AppPreview { UnsentChangesUi(UnsentChangesSamples.loaded.copy(eventSink = { events += it })) } }
+        setContent {
+            AppPreview(subUis = SessionPreviewSubUis) { UnsentChangesUi(UnsentChangesSamples.loaded.copy(eventSink = { events += it })) }
+        }
         onNodeWithText("Morning Ride").assertExists()
         onNodeWithText("Run, 2026-05-31").assertExists()
         onNodeWithText("A like").assertExists()
@@ -35,7 +38,7 @@ class UnsentChangesUiTest {
 
     @Test
     fun aChangeBeingSentCantBeTappedAgain() = runComposeUiTest {
-        setContent { AppPreview { UnsentChangesUi(UnsentChangesSamples.retrying) } }
+        setContent { AppPreview(subUis = SessionPreviewSubUis) { UnsentChangesUi(UnsentChangesSamples.retrying) } }
         onNodeWithContentDescription("Retry Morning Ride").assertIsNotEnabled()
         onNodeWithContentDescription("Discard Morning Ride").assertIsNotEnabled()
     }
@@ -43,7 +46,11 @@ class UnsentChangesUiTest {
     @Test
     fun discardingAsksFirst() = runComposeUiTest {
         val events = mutableListOf<UnsentChangesEvent>()
-        setContent { AppPreview { UnsentChangesUi(UnsentChangesSamples.confirmingDiscard.copy(eventSink = { events += it })) } }
+        setContent {
+            AppPreview(subUis = SessionPreviewSubUis) {
+                UnsentChangesUi(UnsentChangesSamples.confirmingDiscard.copy(eventSink = { events += it }))
+            }
+        }
         onNodeWithText("Discard this change?").assertExists()
         onNode(hasText("Discard") and hasAnyAncestor(isDialog())).performClick()
         // The dialog dismisses before it acts, so the confirm names the change.
@@ -52,20 +59,20 @@ class UnsentChangesUiTest {
 
     @Test
     fun aFailedRetrySaysWhy() = runComposeUiTest {
-        setContent { AppPreview { UnsentChangesUi(UnsentChangesSamples.retryFailed) } }
+        setContent { AppPreview(subUis = SessionPreviewSubUis) { UnsentChangesUi(UnsentChangesSamples.retryFailed) } }
         onNodeWithText("Couldn't send the change again", substring = true).assertExists()
     }
 
     @Test
     fun nothingWaitingSaysSo() = runComposeUiTest {
-        setContent { AppPreview { UnsentChangesUi(UnsentChangesSamples.empty) } }
+        setContent { AppPreview(subUis = SessionPreviewSubUis) { UnsentChangesUi(UnsentChangesSamples.empty) } }
         onNodeWithText("Nothing is waiting. Every change was sent.").assertExists()
     }
 
     @Test
     fun theFeedCountsRefusedChangesAndOpensThem() = runComposeUiTest {
         val events = mutableListOf<FeedEvent>()
-        setContent { AppPreview { FeedUi(FeedSamples.unsent.copy(eventSink = { events += it })) } }
+        setContent { AppPreview(subUis = SessionPreviewSubUis) { FeedUi(FeedSamples.unsent.copy(eventSink = { events += it })) } }
         onNodeWithText("Uploading 1 change…").assertExists()
         onNodeWithText("2 changes couldn't be published").performClick()
         assertEquals(listOf<FeedEvent>(FeedEvent.UnsentChanges), events)

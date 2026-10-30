@@ -16,6 +16,7 @@ dependencies {
     implementation(projects.appScreens)
     implementation(projects.composeApp)
     implementation(projects.coreData)
+    implementation(projects.uiResources)
     implementation(compose.desktop.currentOs)
     implementation(libs.compose.components.resources)
     implementation(libs.compose.runtime)

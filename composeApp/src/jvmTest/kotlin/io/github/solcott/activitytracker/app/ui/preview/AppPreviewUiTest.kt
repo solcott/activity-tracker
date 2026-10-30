@@ -15,6 +15,7 @@ import io.github.solcott.activitytracker.app.detail.ActivityDetailUi
 import io.github.solcott.activitytracker.app.feed.FeedSamples
 import io.github.solcott.activitytracker.app.feed.FeedUi
 import io.github.solcott.activitytracker.app.fixtures.Fixed
+import io.github.solcott.activitytracker.app.preview.SessionPreviewSubUis
 import io.github.solcott.activitytracker.app.ui.ActivityMap
 import io.github.solcott.activitytracker.app.ui.adaptive.WindowWidth
 import io.github.solcott.activitytracker.app.ui.theme.AppTheme
@@ -35,13 +36,13 @@ class AppPreviewUiTest {
 
     @Test
     fun aRouteMapDrawsItsPreviewUnderInspection() = runComposeUiTest {
-        setContent { AppPreview { ActivityMap(Fixed.POLYLINE) } }
+        setContent { AppPreview(subUis = SessionPreviewSubUis) { ActivityMap(Fixed.POLYLINE) } }
         waitForIdle()
     }
 
     @Test
     fun theFeedRendersOfflineWithItsFilterBar() = runComposeUiTest {
-        setContent { AppPreview { FeedUi(FeedSamples.loaded) } }
+        setContent { AppPreview(subUis = SessionPreviewSubUis) { FeedUi(FeedSamples.loaded) } }
         onNodeWithText("Morning Ride").assertExists()
         // The filter sub-screen's own UI, from the harness's sub-circuit.
         onNodeWithText("Any time", substring = true).assertExists()
@@ -49,7 +50,7 @@ class AppPreviewUiTest {
 
     @Test
     fun imperialUnitsShowMiles() = runComposeUiTest {
-        setContent { AppPreview(units = UnitSystem.Imperial) { FeedUi(FeedSamples.loaded) } }
+        setContent { AppPreview(subUis = SessionPreviewSubUis, units = UnitSystem.Imperial) { FeedUi(FeedSamples.loaded) } }
         onNodeWithText("20.13 mi", substring = true).assertExists()
     }
 
@@ -60,7 +61,7 @@ class AppPreviewUiTest {
         fun listsAt(width: WindowWidth): Int {
             var count = 0
             runComposeUiTest {
-                setContent { AppPreview(width = width) { ActivityDetailUi(state) } }
+                setContent { AppPreview(subUis = SessionPreviewSubUis, width = width) { ActivityDetailUi(state) } }
                 count = onAllNodes(lists).fetchSemanticsNodes().size
             }
             return count
@@ -71,7 +72,7 @@ class AppPreviewUiTest {
 
     @Test
     fun anUnknownSubScreenRendersNothing() = runComposeUiTest {
-        setContent { AppPreview { SubCircuitContent(UnknownScreen, outerEventSink = {}) } }
+        setContent { AppPreview(subUis = SessionPreviewSubUis) { SubCircuitContent(UnknownScreen, outerEventSink = {}) } }
         onNodeWithText("SubCircuitScreen", substring = true).assertDoesNotExist()
         onNodeWithText("not available", substring = true).assertDoesNotExist()
     }

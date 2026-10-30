@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app.record
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.v2.runComposeUiTest
+import io.github.solcott.activitytracker.app.preview.SessionPreviewSubUis
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import kotlin.test.Test
 
@@ -11,7 +12,7 @@ import kotlin.test.Test
 class RecordUiTest {
     @Test
     fun aRecoveredRecordingOffersResumeFinishOrDiscard() = runComposeUiTest {
-        setContent { AppPreview { RecordUi(RecordSamples.all.getValue("recovered")) } }
+        setContent { AppPreview(subUis = SessionPreviewSubUis) { RecordUi(RecordSamples.all.getValue("recovered")) } }
         onNodeWithText("This recording stopped when the app closed", substring = true).assertExists()
         onNodeWithText("Resume").assertExists()
         onNodeWithText("Finish & save").assertExists()
@@ -21,7 +22,7 @@ class RecordUiTest {
 
     @Test
     fun aFailedSaveIsShown() = runComposeUiTest {
-        setContent { AppPreview { RecordUi(RecordSamples.all.getValue("saveFailed")) } }
+        setContent { AppPreview(subUis = SessionPreviewSubUis) { RecordUi(RecordSamples.all.getValue("saveFailed")) } }
         onNodeWithText("Couldn't save the recording on this device", substring = true).assertExists()
     }
 }

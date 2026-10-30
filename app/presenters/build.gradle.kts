@@ -12,6 +12,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(projects.appScreens)
+            implementation(projects.appCommonPresenter)
             implementation(libs.circuit.codegen.annotations)
             implementation(libs.circuit.retained)
             implementation(libs.circuit.runtime)
@@ -20,6 +21,7 @@ kotlin {
             implementation(libs.compose.runtime.saveable)
             implementation(libs.dataresult.uistate.circuit)
         }
+        jvmTest.dependencies { implementation(projects.appCommonPresenterTesting) }
         commonTest.dependencies {
             implementation(libs.circuit.test)
             implementation(libs.circuitx.subcircuit.test)

@@ -4,6 +4,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.v2.runComposeUiTest
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
+import io.github.solcott.activitytracker.app.preview.SessionPreviewSubUis
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import kotlin.test.Test
@@ -13,7 +14,9 @@ import kotlin.test.Test
 class ManualActivityUiTest {
     @Test
     fun aPdsWithoutSpacesSaysTheServerCantNotToSignInAgain() = runComposeUiTest {
-        setContent { AppPreview { ManualActivityUi(ManualActivitySamples.all.getValue("spacesUnsupported")) } }
+        setContent {
+            AppPreview(subUis = SessionPreviewSubUis) { ManualActivityUi(ManualActivitySamples.all.getValue("spacesUnsupported")) }
+        }
         onNodeWithText("Your server doesn't support private activities yet, so they're Public.").assertExists()
         onNodeWithText("Your server doesn't support private activities and details yet", substring = true).assertExists()
         onNodeWithText("Sign in again", substring = true).assertDoesNotExist()
@@ -22,7 +25,7 @@ class ManualActivityUiTest {
     @Test
     fun aSessionFromBeforeTheSpaceScopeIsAskedToSignInAgain() = runComposeUiTest {
         val state = ManualActivitySamples.all.getValue(SampleKind.LOADED).copy(visibility = VisibilityFields(canChoose = false))
-        setContent { AppPreview { ManualActivityUi(state) } }
+        setContent { AppPreview(subUis = SessionPreviewSubUis) { ManualActivityUi(state) } }
         onNodeWithText("Sign in again to choose who sees your activities", substring = true).assertExists()
     }
 }

@@ -15,11 +15,11 @@ val generateNativeNetworkConfig =
         outputDir = layout.buildDirectory.dir("generated/nativeNetworkConfig/kotlin")
     }
 
+// The strings and drawables live in :ui-resources, whose Res keeps this module's old package, so this module must not generate its own.
+compose.resources { generateResClass = never }
+
 // UI tests (AppPreview and :app-fixtures' samples), and Skia for tests that encode images (PhotoCompressionTest).
 composeUiTests { jvm = true }
-
-// Public so the platform shells (desktopApp's window title) can read the shared strings.
-compose.resources { publicResClass = true }
 
 kotlin {
     // SubCircuit is experimental. Opted in module-wide so Metro's generated sub-factories compile too.
@@ -40,12 +40,14 @@ kotlin {
         commonMain.dependencies {
             // api so the framework can export it (see the framework block above).
             api(libs.calf.ui)
+
+            implementation(projects.appCommonUi)
             // Only so the platform Metro graphs here aggregate the presenter factories. UI code never imports from it.
             implementation(projects.appPresenters)
             implementation(projects.appScreens)
             implementation(projects.coreData)
-            // SF Symbols-style glyphs for the Compose-drawn iOS chrome (the native bars take SF Symbol names instead).
-            implementation(libs.calf.cupertino.icons)
+            implementation(projects.uiDesignsystem)
+            implementation(projects.uiResources)
             implementation(libs.circuit.foundation)
             implementation(libs.circuit.runtime)
             implementation(libs.circuit.serialization)

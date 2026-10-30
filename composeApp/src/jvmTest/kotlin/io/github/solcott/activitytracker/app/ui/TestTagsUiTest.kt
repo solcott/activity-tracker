@@ -4,6 +4,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.v2.runComposeUiTest
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
+import io.github.solcott.activitytracker.app.preview.SessionPreviewSubUis
 import io.github.solcott.activitytracker.app.profile.BlockListSamples
 import io.github.solcott.activitytracker.app.profile.BlockListUi
 import io.github.solcott.activitytracker.app.segment.SegmentSamples
@@ -15,12 +16,12 @@ import kotlin.test.Test
 @OptIn(ExperimentalTestApi::class)
 class TestTagsUiTest {
     private fun segment(kind: String, tag: String) = runComposeUiTest {
-        setContent { AppPreview { SegmentUi(SegmentSamples.all.getValue(kind)) } }
+        setContent { AppPreview(subUis = SessionPreviewSubUis) { SegmentUi(SegmentSamples.all.getValue(kind)) } }
         onNodeWithTag(tag, useUnmergedTree = true).assertExists()
     }
 
     private fun blocked(kind: String, tag: String) = runComposeUiTest {
-        setContent { AppPreview { BlockListUi(BlockListSamples.all.getValue(kind)) } }
+        setContent { AppPreview(subUis = SessionPreviewSubUis) { BlockListUi(BlockListSamples.all.getValue(kind)) } }
         onNodeWithTag(tag, useUnmergedTree = true).assertExists()
     }
 

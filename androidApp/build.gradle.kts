@@ -29,7 +29,9 @@ android {
             // Layoutlib renders the same sources identically on one machine; this only absorbs anti-aliasing noise.
             imageDifferenceThreshold = 0.0001f
             dependencies {
+                implementation(projects.appCommonUi)
                 implementation(projects.appFixtures)
+                implementation(projects.uiDesignsystem)
                 implementation(libs.compose.material3)
                 implementation(libs.compose.ui.tooling)
                 implementation(libs.screenshot.validation.api)

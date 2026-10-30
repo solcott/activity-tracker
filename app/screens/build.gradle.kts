@@ -15,6 +15,7 @@ kotlin {
     compilerOptions { optIn.add("com.slack.circuit.subcircuit.ExperimentalSubCircuitApi") }
     sourceSets {
         commonMain.dependencies {
+            api(projects.appCommonApi)
             api(projects.coreData)
             api(libs.circuit.runtime)
             api(libs.circuit.serialization)

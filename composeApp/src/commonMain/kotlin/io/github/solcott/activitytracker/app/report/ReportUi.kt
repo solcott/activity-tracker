@@ -13,24 +13,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.slack.circuit.subcircuit.SubCircuitContent
 import com.slack.circuit.subcircuit.SubCircuitInject
-import io.github.solcott.activitytracker.app.ui.adaptive.AppAlertDialog
-import io.github.solcott.activitytracker.app.ui.adaptive.AppBottomSheet
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
-import io.github.solcott.activitytracker.app.ui.adaptive.AppDialogAction
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSheetHeader
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
-import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
-import io.github.solcott.activitytracker.composeApp.resources.action_block
 import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.action_done
-import io.github.solcott.activitytracker.composeApp.resources.block_confirm_message
-import io.github.solcott.activitytracker.composeApp.resources.block_confirm_title
 import io.github.solcott.activitytracker.composeApp.resources.report_block_offer
 import io.github.solcott.activitytracker.composeApp.resources.report_note
 import io.github.solcott.activitytracker.composeApp.resources.report_note_required
@@ -49,7 +41,6 @@ import io.github.solcott.activitytracker.composeApp.resources.report_title
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.moderation.ReportReason
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
-import kotlinx.collections.immutable.persistentListOf
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -112,30 +103,6 @@ fun ReportUi(state: ReportState, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-    }
-}
-
-/** A host's [Reporting]: the report sheet while it's open, and the usual Block confirmation once its offer is taken. */
-@Composable
-fun ReportingHost(reporting: Reporting) {
-    reporting.sheet?.let { sheet ->
-        AppBottomSheet(
-            onDismiss = { reporting.eventSink(ReportingEvent.Sheet(ReportOuterEvent.Closed)) },
-            sheetState = rememberAppSheetState(),
-        ) {
-            SubCircuitContent(sheet, outerEventSink = { reporting.eventSink(ReportingEvent.Sheet(it)) })
-        }
-    }
-    reporting.confirmBlock?.let { offer ->
-        val block = stringResource(Res.string.action_block)
-        AppAlertDialog(
-            title = stringResource(Res.string.block_confirm_title, offer.name),
-            message = stringResource(Res.string.block_confirm_message),
-            actions =
-                persistentListOf(AppDialogAction(block, destructive = true) { reporting.eventSink(ReportingEvent.ConfirmBlock(true)) }),
-            cancelLabel = stringResource(Res.string.action_cancel),
-            onDismiss = { reporting.eventSink(ReportingEvent.ConfirmBlock(false)) },
-        )
     }
 }
 

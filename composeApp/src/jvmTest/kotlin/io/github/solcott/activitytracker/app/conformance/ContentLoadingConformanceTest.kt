@@ -34,6 +34,7 @@ import io.github.solcott.activitytracker.app.map.RouteMapSamples
 import io.github.solcott.activitytracker.app.map.RouteMapUi
 import io.github.solcott.activitytracker.app.media.MediaGallerySamples
 import io.github.solcott.activitytracker.app.media.MediaGalleryUi
+import io.github.solcott.activitytracker.app.preview.SessionPreviewSubUis
 import io.github.solcott.activitytracker.app.profile.BlockListSamples
 import io.github.solcott.activitytracker.app.profile.BlockListUi
 import io.github.solcott.activitytracker.app.profile.EditProfileSamples
@@ -156,7 +157,7 @@ class ContentLoadingConformanceTest {
         }
 
     private fun <S : Any> Entry<S>.render(state: S, checks: ComposeUiTest.() -> Unit) = runComposeUiTest {
-        setContent { AppPreview { ui(state) } }
+        setContent { AppPreview(subUis = SessionPreviewSubUis) { ui(state) } }
         checks()
     }
 

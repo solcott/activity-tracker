@@ -15,6 +15,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
+import io.github.solcott.activitytracker.app.preview.SessionPreviewSubUis
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 
 /** A screen's primary sample at compact, medium and expanded widths (400, 610, 900dp), each 400, 500 and 1000dp tall. */
@@ -50,7 +51,7 @@ annotation class PreviewComponentVariants
 /** [AppPreview] sized by the preview, in the preview's theme. */
 @Composable
 fun ScreenPreview(content: @Composable () -> Unit) {
-    AppPreview(width = null, darkTheme = isSystemInDarkTheme(), content = content)
+    AppPreview(subUis = SessionPreviewSubUis, width = null, darkTheme = isSystemInDarkTheme(), content = content)
 }
 
 /** Shared components stacked on the theme's background. */
