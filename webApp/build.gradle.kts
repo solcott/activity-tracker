@@ -46,6 +46,8 @@ kotlin {
             implementation(projects.featureModerationUi)
             implementation(projects.featureProfilePresenter)
             implementation(projects.featureProfileUi)
+            implementation(projects.featureRecordPresenter)
+            implementation(projects.featureRecordUi)
             implementation(projects.featureReportPresenter)
             implementation(projects.featureReportUi)
             implementation(projects.featureSearchPresenter)

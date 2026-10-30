@@ -6,7 +6,6 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
-import io.github.solcott.activitytracker.app.preview.SessionPreviewSubUis
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -19,7 +18,7 @@ class ImportSensorsUiTest {
         val events = mutableListOf<NewDeviceEvent>()
         val state = ImportActivitySamples.all.getValue("newDevices")
         val fields = state.newDevices.copy(eventSink = { events += it })
-        setContent { AppPreview(subUis = SessionPreviewSubUis) { NewDevicesForm(fields) } }
+        setContent { AppPreview { NewDevicesForm(fields) } }
         onNodeWithText("Edge 840", substring = true).assertExists()
         onNodeWithText("Recording device · Serial …2071").assertExists()
         onNodeWithText("Known only by its model, so it may match other units").assertExists()
@@ -34,7 +33,7 @@ class ImportSensorsUiTest {
     fun theImportScreenShowsTheConflictAndAfterSavingTheOffer() = runComposeUiTest {
         val events = mutableListOf<ImportActivityEvent>()
         val state = ImportActivitySamples.all.getValue("afterImport").copy(eventSink = { events += it })
-        setContent { AppPreview(subUis = SessionPreviewSubUis) { ImportActivityUi(state) } }
+        setContent { AppPreview { ImportActivityUi(state) } }
         onNodeWithText("Add Tarmac to 10 earlier activities that name this device?").assertExists()
         onNodeWithText("Add").performClick()
         onNodeWithText("Not now").performClick()
