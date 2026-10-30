@@ -38,6 +38,8 @@ dependencies {
     implementation(projects.featureSearchUi)
     implementation(projects.featureSegmentPresenter)
     implementation(projects.featureSegmentUi)
+    implementation(projects.featureSettingsPresenter)
+    implementation(projects.featureSettingsUi)
     implementation(projects.uiResources)
     implementation(compose.desktop.currentOs)
     implementation(libs.compose.components.resources)

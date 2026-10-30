@@ -48,6 +48,8 @@ kotlin {
             implementation(projects.featureSearchUi)
             implementation(projects.featureSegmentPresenter)
             implementation(projects.featureSegmentUi)
+            implementation(projects.featureSettingsPresenter)
+            implementation(projects.featureSettingsUi)
             implementation(projects.uiResources)
             implementation(libs.compose.components.resources)
             implementation(libs.compose.runtime)
