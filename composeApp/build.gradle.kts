@@ -46,6 +46,10 @@ kotlin {
             implementation(projects.appPresenters)
             implementation(projects.appScreens)
             implementation(projects.coreData)
+            // Feature modules, so the platform Metro graphs here aggregate their presenter and UI factories.
+            implementation(projects.featureSearchApi)
+            implementation(projects.featureSearchPresenter)
+            implementation(projects.featureSearchUi)
             implementation(projects.uiDesignsystem)
             implementation(projects.uiResources)
             implementation(libs.circuit.foundation)
@@ -80,7 +84,12 @@ kotlin {
     }
 }
 
-// ScreenshotCoverageTest reads :androidApp's screenshot sources, so a removed screenshot file reruns it.
+// ScreenshotCoverageTest reads :androidApp's screenshot sources and the feature UI modules' sources, so a removed screenshot file or a
+// new feature UI reruns it.
 tasks.named<Test>("jvmTest") {
     inputs.dir(isolated.rootProject.projectDirectory.dir("androidApp/src/screenshotTest")).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs
+        .files(isolated.rootProject.projectDirectory.dir("feature").asFileTree.matching { include("*/ui/src/commonMain/**") })
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+        .withPropertyName("featureUiSources")
 }

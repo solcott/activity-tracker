@@ -16,6 +16,8 @@ dependencies {
     implementation(projects.appScreens)
     implementation(projects.composeApp)
     implementation(projects.coreData)
+    implementation(projects.featureSearchPresenter)
+    implementation(projects.featureSearchUi)
     implementation(projects.uiResources)
     implementation(compose.desktop.currentOs)
     implementation(libs.compose.components.resources)

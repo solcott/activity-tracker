@@ -26,6 +26,8 @@ kotlin {
             implementation(projects.appScreens)
             implementation(projects.composeApp)
             implementation(projects.coreData)
+            implementation(projects.featureSearchPresenter)
+            implementation(projects.featureSearchUi)
             implementation(projects.uiResources)
             implementation(libs.compose.components.resources)
             implementation(libs.compose.runtime)

@@ -203,17 +203,29 @@ class ContentLoadingConformanceTest {
         }
     }
 
-    /** Every `CircuitUiState` in `:app-screens` with a `ContentState` or `PagedState` field. */
+    /** Every `CircuitUiState` in `:app-screens` or a feature's `-api` module with a `ContentState` or `PagedState` field. */
     private fun contentLoadingStates(): List<Class<*>> {
-        val root = File(FeedState::class.java.protectionDomain.codeSource.location.toURI())
-        val names =
-            if (root.isDirectory) root.walk().filter { it.isFile }.map { it.relativeTo(root).path }.toList()
-            else JarFile(root).use { jar -> jar.entries().asSequence().map { it.name }.toList() }
-        return names
+        val screens = File(FeedState::class.java.protectionDomain.codeSource.location.toURI())
+        val roots =
+            listOf(screens) +
+                System.getProperty("java.class.path").split(File.pathSeparatorChar).map(::File).filter {
+                    FEATURE_API.containsMatchIn(it.path)
+                }
+        return roots
+            .flatMap(::classNames)
             .filter { it.endsWith("State.class") && '$' !in it }
             .map { Class.forName(it.removeSuffix(".class").replace(File.separatorChar, '.').replace('/', '.')) }
             .filter { CircuitUiState::class.java.isAssignableFrom(it) && !it.isInterface }
             .filter { state -> state.declaredFields.any { it.type == ContentState::class.java || it.type == PagedState::class.java } }
-            .ifEmpty { fail("Found no content-loading states in $root") }
+            .ifEmpty { fail("Found no content-loading states in $roots") }
+    }
+
+    private fun classNames(root: File): List<String> =
+        if (root.isDirectory) root.walk().filter { it.isFile }.map { it.relativeTo(root).path }.toList()
+        else JarFile(root).use { jar -> jar.entries().asSequence().map { it.name }.toList() }
+
+    private companion object {
+        /** A feature `-api` module's classes on the test classpath: its jar or class output under `feature/<name>/api`. */
+        val FEATURE_API = Regex("""[/\\]feature[/\\][^/\\]+[/\\]api[/\\]""")
     }
 }

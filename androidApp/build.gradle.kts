@@ -31,6 +31,7 @@ android {
             dependencies {
                 implementation(projects.appCommonUi)
                 implementation(projects.appFixtures)
+                implementation(projects.featureSearchUi)
                 implementation(projects.uiDesignsystem)
                 implementation(libs.compose.material3)
                 implementation(libs.compose.ui.tooling)
