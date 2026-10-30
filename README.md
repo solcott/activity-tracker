@@ -160,10 +160,11 @@ and every PDS and `did:web` on the local stack is `localhost`. It logs a warning
 | `core/data` | Room 3 cache + outbox, repositories, Metro bindings |
 | `core/location` | GPS trackers per platform, recording engine, polyline/GPX |
 | `core/activityfile` | FIT, GPX, TCX, UDDF, Subsurface and Shearwater readers and writers, per-platform FIT decoders |
-| `app/screens` | Circuit contracts: each feature's `Screen`, `State` and `Event` |
-| `app/presenters` | Circuit presenters (Compose runtime, no UI) |
+| `feature/<name>/{api,presenter,ui}` | One feature each: its Circuit contracts (`Screen`, `State`, `Event`), presenters (Compose runtime, no UI) and UIs |
+| `app/common/{api,presenter,ui}` | What several features share: contracts, presenter helpers, domain widgets |
+| `ui/designsystem`, `ui/resources` | Adaptive components, theme and charts; every string and drawable |
 | `app/fixtures` | Sample states for every screen, used by UI tests, previews and screenshot tests |
-| `composeApp` | Circuit UIs, shared components, Metro graphs and scopes, platform actuals |
+| `composeApp` | The app shell: `App`, navigation, Metro graphs and scopes, platform actuals |
 | `androidApp`, `iosApp`, `webApp`, `desktopApp` | Thin platform shells (entry points, graph roots); `androidApp` also holds the screenshot tests |
 | `web/sqlite-worker` | SQLite-WASM Web Worker backing Room on the web |
 | `server/appview` | Ktor AppView: Jetstream indexer, spaces syncer, XRPC queries, segment matcher, did:web |

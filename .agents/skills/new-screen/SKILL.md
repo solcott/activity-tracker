@@ -14,7 +14,7 @@ Read one existing screen (all three of its files) that resembles the new one: `p
 
 ## 2. Write three files in the same feature package `io.github.solcott.activitytracker.app.<pkg>`
 
-A new feature gets its own modules: `feature/<pkg>/api`, `feature/<pkg>/presenter` and `feature/<pkg>/ui`, each with a `build.gradle.kts` of just `plugins { id("activitytracker.feature.api") }` (`.presenter`, `.ui`), plus `implementation(projects.feature<Other>Api)` in the presenter for each other feature whose screen it opens (`implementation(projects.appScreens)` for one that hasn't moved yet). Register the three in `settings.gradle.kts`' list, and add `-presenter` and `-ui` to `composeApp`'s, `webApp`'s and `desktopApp`'s dependencies (Metro aggregates their factories there), `-api` to `:app-fixtures`, and `-ui` to `androidApp`'s screenshot suite. A screen in a feature that hasn't moved yet (its package is still in `app/screens`) goes beside its siblings in `app/screens`, `app/presenters` and `composeApp` instead.
+A new feature gets its own modules: `feature/<pkg>/api`, `feature/<pkg>/presenter` and `feature/<pkg>/ui`, each with a `build.gradle.kts` of just `plugins { id("activitytracker.feature.api") }` (`.presenter`, `.ui`), plus `implementation(projects.feature<Other>Api)` in the presenter for each other feature whose screen it opens. Register the three in `settings.gradle.kts`' list, and add `-presenter` and `-ui` to `composeApp`'s, `webApp`'s and `desktopApp`'s dependencies (Metro aggregates their factories there), `-api` to `:app-fixtures`, and `-ui` to `androidApp`'s screenshot suite.
 
 Prefix each path with `src/commonMain/kotlin/io/github/solcott/activitytracker/app/<pkg>/`:
 

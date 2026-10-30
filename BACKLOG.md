@@ -81,7 +81,7 @@ Each sport can override the default thresholds (`actor.defs#sportTraining`, `Spo
 
 ## Videos on activities
 
-Activities carry photos (`feed.activity#media`, an open union with `#image` only). Videos join it as a `#video` member, and the code is laid out for that: `ActivityMedia`/`ActivityMediaView` decode an unknown member as `Unknown` and write it back untouched, `MediaItem` (`:app-screens`) gets a `Video` case whose `when`s then fail to compile wherever they need handling (`MediaRow`, the gallery, the details form), and the AppView's `/img/media/{did}/{cid}` redirect serves any blob an indexed activity lists.
+Activities carry photos (`feed.activity#media`, an open union with `#image` only). Videos join it as a `#video` member, and the code is laid out for that: `ActivityMedia`/`ActivityMediaView` decode an unknown member as `Unknown` and write it back untouched, `MediaItem` (`:app-common-api`) gets a `Video` case whose `when`s then fail to compile wherever they need handling (`MediaRow`, the gallery, the details form), and the AppView's `/img/media/{did}/{cid}` redirect serves any blob an indexed activity lists.
 
 - **Lexicon.** `#video`: a `video/mp4` blob of at most about 50 MB, `aspectRatio`, an optional `thumb` image blob for the feed, and `alt`. The view gets `#videoView` with the video's and the thumbnail's URLs.
 - **Compression.** Phones re-encode to 720p H.264/AAC before upload: Media3 Transformer on Android, `AVAssetExportSession` on iOS. Desktop and web have no encoder, so they upload only a file already under the cap and refuse a larger one.
