@@ -4,7 +4,8 @@ plugins {
 }
 
 // Contracts several features share: UiError, the route and visibility types, the details-form and gear-picker fields, history
-// dates and the activity-list events. Feature API modules and :app-screens build on these; nothing here belongs to one feature.
+// dates, the activity page (detail's, and record's import preview) and the activity-list events. Feature API modules build on these;
+// nothing here belongs to one feature.
 composeStability { strictClasses.set(true) }
 
 kotlin {

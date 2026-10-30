@@ -253,9 +253,6 @@ data class ShiftingPreview(
     val gears: ImmutableList<GearTimePreview>,
 )
 
-/** By gear number, not teeth: devices report teeth from a gearing setup that is often a default rather than the bike's. */
-@Immutable data class GearTimePreview(val gear: Int, val seconds: Long)
-
 @Immutable
 data class MtbPreview(
     val jumps: Int?,
@@ -332,8 +329,6 @@ data class DivePreview(
 @Immutable data class DiveTankPreview(val startPressureBar: Double?, val endPressureBar: Double?)
 
 @Immutable data class DiveSitePreview(val latitude: Double, val longitude: Double)
-
-@Immutable data class DepthPreviewPoint(val seconds: Long, val depthMeters: Double)
 
 sealed interface ImportActivityEvent {
     /** The athlete picked a file. [name] is shown in the preview; the format comes from the content. */

@@ -22,7 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /** Works out an activity's [ActivityCharts] from its streams. Pure, so it runs off the main thread and tests directly. */
-internal object ChartsBuilder {
+object ChartsBuilder {
     private const val CENTI = 100.0
 
     private const val DECI = 10.0

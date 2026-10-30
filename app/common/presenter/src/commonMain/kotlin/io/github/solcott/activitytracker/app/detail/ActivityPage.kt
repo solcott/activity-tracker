@@ -25,7 +25,7 @@ import kotlinx.collections.immutable.toImmutableList
  * Works out an activity's [ActivityPageContent] from its record as served (narrower categories the viewer wasn't admitted to already left
  * out) and its charts. Pure, so the activity page and the import preview build the same content, and tests call it directly.
  */
-internal object ActivityPage {
+object ActivityPage {
     /**
      * [marks] holds, on the owner's own page, each detail category stored narrower than the activity with its visibility; empty for anyone
      * else's, so nothing is marked.
@@ -121,7 +121,7 @@ internal object ActivityPage {
 
 /** What the page shows of [shown] and its [charts]: each of the owner's [narrower] categories marked on its card. */
 @Composable
-internal fun rememberPage(shown: ActivityView?, charts: ActivityCharts?, narrower: ImmutableList<CategoryVisibility>): ActivityPageContent =
+fun rememberPage(shown: ActivityView?, charts: ActivityCharts?, narrower: ImmutableList<CategoryVisibility>): ActivityPageContent =
     remember(shown, charts, narrower) {
         shown?.let { ActivityPage.build(it.record, charts, narrower.associate { c -> c.category to c.visibility }, it.gear.orEmpty()) }
             ?: ActivityPageContent()
