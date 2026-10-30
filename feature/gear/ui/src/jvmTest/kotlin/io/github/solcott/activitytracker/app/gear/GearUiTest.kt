@@ -11,7 +11,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
-import io.github.solcott.activitytracker.app.preview.SessionPreviewSubUis
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import kotlin.test.Test
@@ -21,7 +20,7 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalTestApi::class)
 class GearUiTest {
     private fun show(state: GearState, units: UnitSystem = UnitSystem.Metric, checks: ComposeUiTest.() -> Unit) = runComposeUiTest {
-        setContent { AppPreview(subUis = SessionPreviewSubUis, units = units) { GearUi(state) } }
+        setContent { AppPreview(units = units) { GearUi(state) } }
         checks()
     }
 

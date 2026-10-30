@@ -32,6 +32,7 @@ android {
                 implementation(projects.appCommonUi)
                 implementation(projects.appFixtures)
                 implementation(projects.featureFeedfilterUi)
+                implementation(projects.featureGearUi)
                 implementation(projects.featureLoginUi)
                 implementation(projects.featureMapUi)
                 implementation(projects.featureMediaUi)

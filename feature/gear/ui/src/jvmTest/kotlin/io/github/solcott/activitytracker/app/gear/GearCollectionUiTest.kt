@@ -5,7 +5,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
-import io.github.solcott.activitytracker.app.preview.SessionPreviewSubUis
 import io.github.solcott.activitytracker.app.record.GearCollectionOption
 import io.github.solcott.activitytracker.app.record.GearEvent
 import io.github.solcott.activitytracker.app.record.GearField
@@ -27,7 +26,7 @@ class GearCollectionUiTest {
     fun theGearListShowsCollectionsWithTheirItemCounts() = runComposeUiTest {
         val events = mutableListOf<GearListEvent>()
         val state = GearListSamples.all.getValue(SampleKind.LOADED).copy(eventSink = { events += it })
-        setContent { AppPreview(subUis = SessionPreviewSubUis) { GearListUi(state) } }
+        setContent { AppPreview { GearListUi(state) } }
         onNodeWithText("Collections").assertExists()
         onNodeWithText("4 items").assertExists()
         onNodeWithText("Race kit").performClick()
@@ -37,7 +36,7 @@ class GearCollectionUiTest {
 
     @Test
     fun aCollectionMarksItsRetiredWetsuit() = runComposeUiTest {
-        setContent { AppPreview(subUis = SessionPreviewSubUis) { GearCollectionUi(GearCollectionSamples.all.getValue(SampleKind.LOADED)) } }
+        setContent { AppPreview { GearCollectionUi(GearCollectionSamples.all.getValue(SampleKind.LOADED)) } }
         onNodeWithText("Cold water setup").assertExists()
         onNodeWithText("Wetsuit").assertExists()
         onNodeWithText("Retired", substring = true).assertExists()
@@ -53,7 +52,7 @@ class GearCollectionUiTest {
                 notAdded = 2,
                 eventSink = { events += it },
             )
-        setContent { AppPreview(subUis = SessionPreviewSubUis) { GearPicker(field) } }
+        setContent { AppPreview { GearPicker(field) } }
         onNodeWithText("No gear").performClick()
         onNodeWithText("2 items weren't added: an activity lists at most 16.").assertExists()
         onNodeWithText("Add collection").performClick()
