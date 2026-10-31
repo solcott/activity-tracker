@@ -184,4 +184,9 @@ It reads the metadata file before the scan. The result is an `ExportMetadata` wi
 
 ## Open Questions
 
-- **Exact Strava privacy column name(s) and values, and Garmin's privacy key, in current exports.** These can be settled when verifying against real exports. The readers already treat them as optional.
+- **Exact Strava privacy column name(s) and values, and Garmin's privacy key, in current exports.** Settled against a real export of each (October 2026). Strava's `activities.csv` has no privacy column at all; its `Activity Private Note` is a personal note and is never read. The Garmin export checked gave no activity a privacy setting either. Both readers keep the optional lookups, for exports that do include privacy. The batch form says when an export gives none, and every activity then saves at the batch's visibility.
+- **Also found in those exports, and fixed.**
+  - Garmin's uploaded files are mostly FIT files of other types, such as wellness monitoring and segments, about 45,000 of them. These now count as left out (`NotAnActivityFileException`) instead of being listed as damaged.
+  - Some of Strava's TCX files start with blank space before the XML declaration, which is now trimmed.
+  - Garmin's versioned type keys now map (`wakeboarding_v2`, `boating_v2`, `snow_shoe_ws`, `whitewater_rafting_v2`).
+  - Each export of about 1,100 to 1,300 activities scanned in under 75 s with the scan's heap under 350 MB, and every file read back for saving.

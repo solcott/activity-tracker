@@ -136,7 +136,7 @@ Each group lands its own tests. Test fixtures are synthetic files written by `Fi
   - Confirm the AppView shows the saved activities with sources.
   - Re-pick the Strava export and see every activity flagged as already logged.
   - Verify: screenshots from the hot-reload MCP and the activity counts.
-- [ ] 8.3 Verify the Strava and Garmin readers against a real export of each, on the developer's machine and never committed.
+- [x] 8.3 Verify the Strava and Garmin readers against a real export of each, on the developer's machine and never committed.
   - Fix the column and key names, and close design.md's open question.
   - Verify: the export's titles and privacy appear on its rows.
 - [x] 8.4 Run `./gradlew check`.

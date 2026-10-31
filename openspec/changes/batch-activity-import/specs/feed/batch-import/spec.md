@@ -89,6 +89,10 @@ When an export says an activity is private or followers-only, that activity's vi
 - **WHEN** the batch's visibility is Followers and an activity's export setting is everyone
 - **THEN** the activity is saved as Followers
 
+#### Scenario: Export without privacy
+- **WHEN** an athlete imports an export that gives no activity a privacy setting, as Strava's `activities.csv` doesn't
+- **THEN** the batch form says the export doesn't say who could see each activity, and every activity saves at the batch's visibility
+
 ### Requirement: Combining never widens a narrowed activity
 Combining SHALL NOT widen any activity's visibility. Copies combined within a batch SHALL all be saved at the narrowest of their visibilities. A copy narrower than the logged activity it repeats SHALL be saved on its own instead of combined, and the logged activity SHALL be left unchanged.
 
