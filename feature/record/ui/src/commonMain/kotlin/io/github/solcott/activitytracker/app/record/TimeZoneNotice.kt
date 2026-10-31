@@ -30,15 +30,27 @@ import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.import_time_zone
 import io.github.solcott.activitytracker.composeApp.resources.import_time_zone_notice
+import io.github.solcott.activitytracker.composeApp.resources.import_time_zone_notice_file
 import io.github.solcott.activitytracker.composeApp.resources.import_time_zone_option
 import org.jetbrains.compose.resources.stringResource
 
-/** Warns that the file's clock has no zone, and lets the athlete pick the one it was recorded in. */
+/**
+ * Warns that the file's clock has no zone, and lets the athlete pick the one it was recorded in. In a batch, [fileName] says which file.
+ */
 @Composable
-fun TimeZoneNotice(clock: ImportClock, onPick: (String) -> Unit, enabled: Boolean, modifier: Modifier = Modifier) {
+fun TimeZoneNotice(
+    clock: ImportClock,
+    onPick: (String) -> Unit,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    fileName: String? = null,
+) {
     Card(modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(Res.string.import_time_zone_notice, clock.localStart), style = MaterialTheme.typography.bodyMedium)
+            val notice =
+                if (fileName == null) stringResource(Res.string.import_time_zone_notice, clock.localStart)
+                else stringResource(Res.string.import_time_zone_notice_file, fileName, clock.localStart)
+            Text(notice, style = MaterialTheme.typography.bodyMedium)
             TimeZoneField(clock, onPick, enabled)
         }
     }

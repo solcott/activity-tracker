@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.detail.ActivityCharts
+import io.github.solcott.activitytracker.app.detail.ActivityPageContent
 import io.github.solcott.activitytracker.app.detail.AvgMaxTable
 import io.github.solcott.activitytracker.app.detail.DetailSection
 import io.github.solcott.activitytracker.app.detail.HeroRow
@@ -44,7 +45,14 @@ internal fun PreviewContent(state: ImportActivityState, preview: ImportPreview, 
         }
         PreviewDuplicate(state, preview)
         state.addingTo?.let { AddingTo(it, tooFar = state.tooFarFromTarget) }
-        val page = state.page
+        PreviewPage(preview, state.page, medium)
+    }
+}
+
+/** What the activity's page will show once saved ([page], a spinner until it's built): its start, hero, map, cards and stats. */
+@Composable
+internal fun PreviewPage(preview: ImportPreview, page: ActivityPageContent?, medium: Boolean) {
+    Column(verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
         if (page == null) {
             AppProgressIndicator()
             return@Column

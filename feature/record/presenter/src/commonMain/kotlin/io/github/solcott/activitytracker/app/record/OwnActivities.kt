@@ -6,14 +6,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import io.github.solcott.activitytracker.activityfile.ImportedActivity
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityMatch
 import io.github.solcott.activitytracker.data.activity.ActivityMatcher
 import io.github.solcott.activitytracker.data.activity.DuplicateOf
+import io.github.solcott.activitytracker.data.activity.MatchSpan
 import io.github.solcott.activitytracker.data.activity.OwnActivity
 import io.github.solcott.activitytracker.data.feed.FeedRepository
-import kotlin.time.Duration.Companion.hours
+import io.github.solcott.activitytracker.data.feed.ownActivitiesAround
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.datetime.TimeZone
@@ -24,41 +23,37 @@ import kotlinx.datetime.toLocalDateTime
 internal class OwnActivities(val activities: List<OwnActivity>?, val check: DuplicateCheck)
 
 /**
- * Loads the athlete's activities of any sport from 14 hours either side of [file]'s: wide enough for any zone the athlete might place a
- * zone-less clock in. Nothing loads unless [search]: adding a recording to an activity has no duplicates to find.
+ * Loads the athlete's activities of any sport from 14 hours either side of each of [spans] (wide enough for any zone the athlete might
+ * place a zone-less clock in), however many years they cover ([ownActivitiesAround]). A search that can't finish keeps what it found and
+ * says so ([DuplicateCheck.Failed]). Nothing loads unless [search]: adding a recording to an activity has no duplicates to find.
  */
 @Composable
-internal fun rememberOwnActivities(feed: FeedRepository, file: ImmutableList<ImportedActivity>?, search: Boolean = true): OwnActivities {
+internal fun rememberOwnActivities(feed: FeedRepository, spans: ImmutableList<MatchSpan>?, search: Boolean = true): OwnActivities {
     var own by
-        remember(file, search) {
+        remember(spans, search) {
             mutableStateOf(if (search) OwnActivities(null, DuplicateCheck.Checking) else OwnActivities(emptyList(), DuplicateCheck.Done))
         }
-    LaunchedEffect(file, search) {
-        val activities = file.orEmpty()
-        if (activities.isEmpty() || !search) {
-            own = OwnActivities(emptyList(), DuplicateCheck.Done)
-            return@LaunchedEffect
-        }
-        val since = activities.minOf { it.startedAt } - SEARCH_MARGIN
-        val until = activities.maxOf { it.startedAt + it.elapsed } + SEARCH_MARGIN
+    LaunchedEffect(spans, search) {
         own =
-            runSuspendCatching { feed.ownActivitiesStartedBetween(since, until) }
-                .fold({ OwnActivities(it, DuplicateCheck.Done) }, { OwnActivities(emptyList(), DuplicateCheck.Failed) })
+            if (spans.isNullOrEmpty() || !search) {
+                OwnActivities(emptyList(), DuplicateCheck.Done)
+            } else {
+                val found = feed.ownActivitiesAround(spans)
+                OwnActivities(found.activities, if (found.complete) DuplicateCheck.Done else DuplicateCheck.Failed)
+            }
     }
     return own
 }
 
-/** UTC-12 to UTC+14 apart, rounded: the most a zone-less clock can be off. */
-private val SEARCH_MARGIN = 14.hours
-
 /**
- * What each of the file's activities ([activities] for a logbook, else [single]) duplicates, among [own] activities and the file's own. A
- * logged activity that's a member of a combined one stands for that combined activity, when it's among [own]: Combine adds to it.
+ * What each of an import's activities ([spans], placed in their zones, oldest first) duplicates, among [own] activities and the earlier
+ * ones in the import. A logged activity that's a member of a combined one stands for that combined activity, when it's among [own]: Combine
+ * adds to it.
  */
-internal fun importMatches(single: ImportedActivity?, activities: List<ImportedActivity>?, own: OwnActivities): List<ActivityMatch?> {
+internal fun importMatches(spans: List<MatchSpan>, own: OwnActivities): List<ActivityMatch?> {
     val logged = own.activities.orEmpty()
     val byUri = logged.associateBy { it.uri }
-    return ActivityMatcher.match(activities ?: listOfNotNull(single), logged).map { match ->
+    return ActivityMatcher.matchSpans(spans, logged).map { match ->
         val member = (match?.of as? DuplicateOf.Existing)?.activity
         val combined = member?.combinedInto?.let(byUri::get)
         if (combined != null) match.copy(of = DuplicateOf.Existing(combined)) else match
@@ -71,7 +66,7 @@ internal fun duplicateInfo(match: ActivityMatch?, action: DuplicateAction, zone:
     val existing = (of as? DuplicateOf.Existing)?.activity?.record
     return DuplicateInfo(
         existing = existing?.let { ExistingActivityPreview(it.title, it.startedAt.toLocalDateTime(zone).format(LOCAL_START), it.device) },
-        inFileIndex = (of as? DuplicateOf.InFile)?.index,
+        inBatchIndex = (of as? DuplicateOf.InBatch)?.index,
         hoursApart = match.hoursApart,
         action = action,
         actions = ACTIONS,
@@ -82,13 +77,13 @@ internal fun duplicateInfo(match: ActivityMatch?, action: DuplicateAction, zone:
 private val ACTIONS = persistentListOf(DuplicateAction.Ignore, DuplicateAction.ImportAnyway, DuplicateAction.Combine)
 
 /**
- * Whether [match]'s activity can be combined with what it repeats: an earlier one in the file always can, a logged one once it's sent,
+ * Whether [match]'s activity can be combined with what it repeats: an earlier one in the batch always can, a logged one once it's sent,
  * since combining reads it as stored.
  */
 internal fun canCombine(match: ActivityMatch?): Boolean =
     when (val of = match?.of) {
         is DuplicateOf.Existing -> of.activity.cid != null
-        is DuplicateOf.InFile -> true
+        is DuplicateOf.InBatch -> true
         null -> false
     }
 

@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.app.record
 
 import androidx.compose.foundation.text.input.TextFieldState
+import io.github.solcott.activitytracker.activityfile.ExportKind
+import io.github.solcott.activitytracker.activityfile.SkipReason
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
@@ -17,6 +19,7 @@ import io.github.solcott.activitytracker.location.RecordingState
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.datetime.LocalDate
 
 private val typeField: ActivityTypeField
     get() =
@@ -158,11 +161,114 @@ object ImportActivitySamples {
             profileOffer = ProfileLinkOffer("MOUNTAIN", gear.options),
         )
 
+    /** A new, selected row of a run or ride from [file]; samples copy in the rest. */
+    private fun row(index: Int, start: String, type: ActivityType, title: String?, file: String) =
+        ImportRow(
+            index = index,
+            title = title,
+            defaultTitle = DefaultTitle(PartOfDay.Morning, type),
+            type = type,
+            start = start,
+            month = LocalDate.parse(start.substringBeforeLast('-') + "-01"),
+            elapsed = ROW_ELAPSED,
+            distanceMeters = null,
+            dive = null,
+            device = "Garmin Forerunner 965",
+            fileName = file,
+            selected = true,
+            duplicate = null,
+            narrowedTo = null,
+        )
+
+    private val logged =
+        DuplicateInfo(
+            existing = ExistingActivityPreview("Lunch loop", "2024-05-14 12:01", "Garmin Fenix 7"),
+            inBatchIndex = null,
+            hoursApart = 0,
+            action = DuplicateAction.Combine,
+            actions = persistentListOf(DuplicateAction.Ignore, DuplicateAction.ImportAnyway, DuplicateAction.Combine),
+        )
+
+    private val mixedRows =
+        persistentListOf(
+            row(0, "2024-04-28 07:02", ActivityType(Sport.RUN), "Easy run", "run.fit").copy(distanceMeters = 8_120.0),
+            row(1, "2024-05-03 18:15", ActivityType(Sport.RIDE), null, "ride.fit").copy(distanceMeters = 42_300.0),
+            row(2, "2024-05-03 18:16", ActivityType(Sport.RIDE), null, "edge.fit")
+                .copy(distanceMeters = 42_100.0, selected = false, duplicate = logged.copy(existing = null, inBatchIndex = 1)),
+            row(3, "2024-05-14 12:00", ActivityType(Sport.RUN), "Lunch loop", "lunch.gpx")
+                .copy(distanceMeters = 6_400.0, selected = false, duplicate = logged),
+            row(4, "2024-05-20 09:30", ActivityType(Sport.DIVE), "Blue Hole", "dives.uddf")
+                .copy(dive = DiveRowExtras(31.2, 112), device = "Shearwater Perdix"),
+        )
+
+    private val mixed =
+        ImportBatch(
+            rows = mixedRows,
+            // The dive logbook keeps local time with no zone.
+            clocks =
+                persistentListOf(
+                    FileClock(
+                        key = 4,
+                        fileName = "dives.uddf",
+                        clock =
+                            ImportClock(
+                                "2024-05-20 09:30",
+                                TimeZoneOption("America/Denver", "UTC-06:00"),
+                                persistentListOf(TimeZoneOption("America/Denver", "UTC-06:00"), TimeZoneOption("UTC", "UTC+00:00")),
+                            ),
+                    )
+                ),
+            originalsBytes = 3_400_000,
+        )
+
+    private val strava =
+        ImportBatch(
+            rows =
+                persistentListOf(
+                    row(0, "2019-11-02 08:00", ActivityType(Sport.RUN), "Parkrun", "2843.fit.gz").copy(distanceMeters = 5_000.0),
+                    row(1, "2019-11-09 08:00", ActivityType(Sport.RUN), "Parkrun PB!", "2911.fit.gz")
+                        .copy(distanceMeters = 5_000.0, narrowedTo = Visibility.SELF),
+                    row(2, "2020-01-04 10:12", ActivityType(Sport.RIDE), "Zwift: Watopia", "3070.fit.gz").copy(distanceMeters = 30_500.0),
+                ),
+            skipped = persistentListOf(SkippedFile("4410.tcx.gz", SkipReason.Damaged), SkippedFile("notes.xml", SkipReason.Unsupported)),
+            ignoredFiles = 214,
+            export = ExportKind.Strava,
+            originalsTooLarge = persistentListOf("9001.gpx"),
+            originalsBytes = 812_000_000,
+        )
+
+    private fun batchState(batch: ImportBatch) = state(false, null).copy(batch = batch, gear = gear.copy(conflicts = persistentListOf()))
+
+    /**
+     * A batch with one activity opened in its sheet. Not in [all]: the screenshot renderer can't draw a modal sheet's window, so UI tests
+     * render it instead.
+     */
+    val batchPreview: ImportActivityState
+        get() =
+            batchState(
+                mixed.copy(
+                    preview =
+                        ImportItemPreview(
+                            index = 1,
+                            title = TextFieldState(),
+                            type = typeField,
+                            defaultTitle = DefaultTitle(PartOfDay.Evening, ActivityType(Sport.RIDE)),
+                            preview = preview.copy(fileName = "ride.fit"),
+                        )
+                )
+            )
+
     val all: Map<String, ImportActivityState>
         get() =
             mapOf(
                 SampleKind.LOADED to state(false, null),
                 "reading" to state(true, null),
+                "readingProgress" to state(true, null).copy(readProgress = ReadProgress(files = 812, activities = 790)),
+                "batch" to batchState(mixed),
+                "batchExport" to batchState(strava),
+                "batchDuplicates" to batchState(mixed.copy(filter = BatchFilter.Duplicates)),
+                "batchSaving" to batchState(mixed.copy(progress = SaveProgress(queued = 2, total = 4))).copy(saving = true),
+                "batchSaved" to state(false, null).copy(batchSaved = BatchSaved(saved = 1_986, skipped = 3)),
                 "preview" to state(false, preview),
                 "newDevices" to state(false, preview).copy(gear = gear, newDevices = newDevices),
                 "afterImport" to
@@ -170,3 +276,5 @@ object ImportActivitySamples {
                         .copy(afterImport = AfterImport(pastImports = PastImportsOffer(persistentListOf("Tarmac"), count = 10))),
             )
 }
+
+private val ROW_ELAPSED = 52.minutes

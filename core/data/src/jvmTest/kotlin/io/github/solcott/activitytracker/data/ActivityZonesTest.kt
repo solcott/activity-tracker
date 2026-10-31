@@ -35,6 +35,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -343,6 +344,19 @@ class ActivityZonesTest {
         val s = pds.session()
         val before = pds.requests.count { it.endsWith(" ${Nsid.ACTOR_PROFILE}/self") }
         val uris = s.activities.publishAll(List(3) { draft(Visibility.PUBLIC) })
+        assertEquals(1, pds.requests.count { it.endsWith(" ${Nsid.ACTOR_PROFILE}/self") } - before)
+        uris.forEach { assertEquals(setOf(Visibility.MUTUALS), zonesAt(it.rkey!!)) }
+    }
+
+    @Test
+    fun aBatchReadsTheTrainingOnceAcrossItsChunks() = runTest {
+        trainingAt(Visibility.MUTUALS)
+        val s = pds.session()
+        val before = pds.requests.count { it.endsWith(" ${Nsid.ACTOR_PROFILE}/self") }
+        // Drafts built as the batch goes, as a batch import's chunks are.
+        val drafts = flow { repeat(6) { emit(draft(Visibility.PUBLIC)) } }
+        val uris = s.activities.publishBatch(drafts)
+        assertEquals(6, uris.size)
         assertEquals(1, pds.requests.count { it.endsWith(" ${Nsid.ACTOR_PROFILE}/self") } - before)
         uris.forEach { assertEquals(setOf(Visibility.MUTUALS), zonesAt(it.rkey!!)) }
     }

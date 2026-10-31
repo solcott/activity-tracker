@@ -16,9 +16,18 @@ sealed interface DuplicateOf {
     /** An activity already in the athlete's log. */
     data class Existing(val activity: OwnActivity) : DuplicateOf
 
-    /** An earlier activity in the same file, by its index there. */
-    data class InFile(val index: Int) : DuplicateOf
+    /** An earlier activity in the same batch (one file, or several picked together), by its index there. */
+    data class InBatch(val index: Int) : DuplicateOf
 }
+
+/**
+ * What [ActivityMatcher] needs of an import: when it [startedAt] (placed in the zone the athlete picked), how long it took, and whether its
+ * file's times had no zone ([zoneless], a dive log's), which lets a whole number of hours off still match.
+ */
+data class MatchSpan(val startedAt: Instant, val elapsed: Duration, val zoneless: Boolean)
+
+/** This activity as [ActivityMatcher] matches it. */
+fun ImportedActivity.matchSpan(): MatchSpan = MatchSpan(startedAt, elapsed, localStart != null)
 
 /** [hoursApart] is 0 for the same activity; otherwise it's one of the same length that many hours off, likely read in the wrong zone. */
 data class ActivityMatch(val of: DuplicateOf, val hoursApart: Int = 0)
@@ -43,19 +52,56 @@ enum class Pairing {
  */
 object ActivityMatcher {
     /** For each of [activities] (placed in the zone the athlete picked), what it duplicates, or null. */
-    fun match(activities: List<ImportedActivity>, existing: List<OwnActivity>): List<ActivityMatch?> {
-        val logged = existing.map { it to Span(it.record.startedAt, it.record.elapsedTime.seconds) }
-        val spans = activities.map { Span(it.startedAt, it.elapsed) }
-        return activities.indices.map { i ->
-            val span = spans[i]
-            val zoneless = activities[i].localStart != null
-            logged.firstOrNull { (_, other) -> span.sameAs(other) }?.let { (activity) -> ActivityMatch(DuplicateOf.Existing(activity)) }
-                ?: logged
-                    .takeIf { zoneless }
-                    ?.firstNotNullOfOrNull { (activity, other) ->
-                        span.hoursFrom(other)?.let { ActivityMatch(DuplicateOf.Existing(activity), it) }
+    fun match(activities: List<ImportedActivity>, existing: List<OwnActivity>): List<ActivityMatch?> =
+        matchSpans(activities.map { it.matchSpan() }, existing)
+
+    /**
+     * For each of [imports], in batch order, what it duplicates, or null: the first of [existing] (in their order) it's the same as, else
+     * for a zoneless one the first a whole number of hours off, else the earliest in the batch before it that it's the same as. Only
+     * activities within [MAX_ZONE_HOURS] of each other are compared, so a batch of thousands against a log of thousands stays quick.
+     */
+    fun matchSpans(imports: List<MatchSpan>, existing: List<OwnActivity>): List<ActivityMatch?> {
+        val logged = Nearby(existing.map { it.record.span() })
+        val batch = Nearby(imports.map { Span(it.startedAt, it.elapsed) })
+        return imports.indices.map { i ->
+            val span = batch.spans[i]
+            val near = logged.near(span)
+            near.firstOrNull { span.sameAs(logged.spans[it]) }?.let { ActivityMatch(DuplicateOf.Existing(existing[it])) }
+                ?: near
+                    .takeIf { imports[i].zoneless }
+                    ?.firstNotNullOfOrNull { j ->
+                        span.hoursFrom(logged.spans[j])?.let { ActivityMatch(DuplicateOf.Existing(existing[j]), it) }
                     }
-                ?: (0 until i).firstOrNull { j -> span.sameAs(spans[j]) }?.let { ActivityMatch(DuplicateOf.InFile(it)) }
+                ?: batch
+                    .near(span)
+                    .firstOrNull { j -> j < i && span.sameAs(batch.spans[j]) }
+                    ?.let { ActivityMatch(DuplicateOf.InBatch(it)) }
+        }
+    }
+
+    /** [spans] indexed by start, so those near one are found without comparing every pair. */
+    private class Nearby(val spans: List<Span>) {
+        private val byStart = spans.indices.sortedBy { spans[it].start }
+        private val longest = spans.maxOfOrNull { it.length }?.coerceAtLeast(Duration.ZERO) ?: Duration.ZERO
+
+        /**
+         * The indices, ascending, of every span that could overlap [span] or start within [MAX_ZONE_HOURS] (and drift) of it: those
+         * starting from the longest span's length plus that margin before it to that margin after its end.
+         */
+        fun near(span: Span): List<Int> {
+            val margin = MAX_ZONE_HOURS.hours + CLOCK_DRIFT
+            val from = span.start - longest - margin
+            val until = span.end + margin
+            var low = 0
+            var high = byStart.size
+            while (low < high) {
+                val mid = (low + high) ushr 1
+                if (spans[byStart[mid]].start < from) low = mid + 1 else high = mid
+            }
+            val found = mutableListOf<Int>()
+            var at = low
+            while (at < byStart.size && spans[byStart[at]].start <= until) found += byStart[at++]
+            return found.sorted()
         }
     }
 

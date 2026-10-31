@@ -19,26 +19,22 @@ internal fun Navigator.openSaved(saved: SavedSingle, adding: AddingRecording) {
 }
 
 /**
- * After a logbook's [published] dives (those saved on their own) are saved: leaves when none likely belongs with another of the athlete's
- * activities, else hands the ones that do to [onSuggested] to list. A failed lookup suggests nothing.
+ * Which of a batch's [published] activities (those saved on their own) likely belong with another of the athlete's activities, to list. A
+ * failed lookup suggests nothing.
  */
-internal suspend fun Navigator.afterDives(
+internal suspend fun savedSuggestionsFor(
     published: List<Pair<AtUri, ActivityDraft>>,
     suggestions: CombineSuggestions,
-    onSuggested: (ImmutableList<SavedSuggestion>) -> Unit,
-) {
-    val found =
-        published
-            .mapNotNull { (uri, draft) ->
-                runSuspendCatching { suggestions.forSaved(uri, draft) }
-                    .getOrNull()
-                    ?.let { SavedSuggestion(uri, draft.title, draft.startedAt.epochSeconds, it.cue, it.shown) }
-            }
-            .toImmutableList()
-    if (found.isEmpty()) pop() else onSuggested(found)
-}
+): ImmutableList<SavedSuggestion> =
+    published
+        .mapNotNull { (uri, draft) ->
+            runSuspendCatching { suggestions.forSaved(uri, draft) }
+                .getOrNull()
+                ?.let { SavedSuggestion(uri, draft.title, draft.startedAt.epochSeconds, it.cue, it.shown) }
+        }
+        .toImmutableList()
 
-/** Back, or the athlete opens a just-saved dive's page to combine it, or leaves the list of them. */
+/** Back, or the athlete opens a just-saved activity's page to combine it, or leaves the batch's summary. */
 internal fun Navigator.leave(event: ImportActivityEvent) {
     when (event) {
         is ImportActivityEvent.Saved.Open -> goTo(ActivityDetailScreen(event.uri.value, suggestOnOpen = true))

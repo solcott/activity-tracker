@@ -414,7 +414,7 @@ class ImportSensorGearTest {
             )
         presenterTestOf(presenter(repos, FakeNavigator(ImportActivityScreen()))) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
-            val read = awaitUntil { it.dives?.dives?.size == 5 && it.newDevices.cards.isNotEmpty() }
+            val read = awaitUntil { it.batch?.rows?.size == 5 && it.newDevices.cards.isNotEmpty() }
             val card = read.newDevices.cards.single()
             assertTrue(card.recorder)
             assertEquals("B2C3", card.serialTail)

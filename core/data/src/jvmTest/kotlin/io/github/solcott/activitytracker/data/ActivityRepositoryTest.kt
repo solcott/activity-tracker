@@ -70,6 +70,7 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -339,6 +340,29 @@ class ActivityRepositoryTest {
         assertEquals(0, repo.sync())
         val titles = putBodies.map { AtJson.parseToJsonElement(it).jsonObject["record"]!!.jsonObject["title"]?.jsonPrimitive?.content }
         assertEquals(listOf("Dive 10", "Dive 14", "Dive 18"), titles)
+        assertEquals(uris.map { it.rkey }, putBodies.map { AtJson.parseToJsonElement(it).jsonObject["rkey"]?.jsonPrimitive?.content })
+    }
+
+    @Test
+    fun publishBatchQueuesEachDraftAsItArrivesWithoutSending() = runTest {
+        val repo = repository()
+        fun dive(hour: Int) =
+            ActivityDraft(
+                type = ActivityType(Sport.DIVE, SubSport.SINGLE_GAS),
+                title = "Dive $hour",
+                description = null,
+                startedAt = Instant.parse("2024-05-12T${hour}:00:00Z"),
+                elapsed = 45.minutes,
+            )
+        val queuedSoFar = mutableListOf<Int>()
+
+        val uris =
+            repo.publishBatch(flowOf(dive(10), dive(14), dive(18)), drain = false) { _, _ -> queuedSoFar += repo.pendingWrites.first() }
+
+        assertEquals(listOf(1, 2, 3), queuedSoFar, "each queued before the next")
+        assertEquals(3, uris.distinct().size)
+        assertEquals(emptyList(), putBodies, "nothing sent until the next sync")
+        assertEquals(0, repo.sync())
         assertEquals(uris.map { it.rkey }, putBodies.map { AtJson.parseToJsonElement(it).jsonObject["rkey"]?.jsonPrimitive?.content })
     }
 

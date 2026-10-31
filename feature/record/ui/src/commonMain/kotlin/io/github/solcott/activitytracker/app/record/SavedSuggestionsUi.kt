@@ -24,25 +24,42 @@ import io.github.solcott.activitytracker.app.ui.adaptive.ScrollbarBox
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.combine_suggestion_combine
+import io.github.solcott.activitytracker.composeApp.resources.import_batch_saved
+import io.github.solcott.activitytracker.composeApp.resources.import_batch_saved_skipped
+import io.github.solcott.activitytracker.composeApp.resources.import_batch_saved_title
+import io.github.solcott.activitytracker.composeApp.resources.import_batch_uploading
 import io.github.solcott.activitytracker.composeApp.resources.import_saved_suggestion_row
 import io.github.solcott.activitytracker.composeApp.resources.import_saved_suggestions_done
 import io.github.solcott.activitytracker.composeApp.resources.import_saved_suggestions_explained
 import io.github.solcott.activitytracker.composeApp.resources.import_saved_suggestions_title
+import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlinx.collections.immutable.ImmutableList
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
-/** After a logbook save: the dives that likely belong with activities already logged, each opening its page to combine it. */
+/**
+ * After a batch save: how many were saved and skipped ([result]), then the activities that likely belong with ones already logged
+ * ([saved]), each opening its page to combine it.
+ */
 @Composable
-internal fun SavedSuggestions(saved: ImmutableList<SavedSuggestion>, eventSink: (ImportActivityEvent) -> Unit, padding: PaddingValues) {
+internal fun SavedSuggestions(
+    result: BatchSaved?,
+    saved: ImmutableList<SavedSuggestion>?,
+    eventSink: (ImportActivityEvent) -> Unit,
+    padding: PaddingValues,
+) {
     val scroll = rememberScrollState()
     ScrollbarBox(scroll, contentPadding = padding) {
         Column(
             Modifier.verticalScroll(scroll).padding(padding).readableWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
         ) {
-            Text(stringResource(Res.string.import_saved_suggestions_title), style = MaterialTheme.typography.titleMedium)
-            Text(stringResource(Res.string.import_saved_suggestions_explained), style = MaterialTheme.typography.bodyMedium)
-            saved.forEach { suggestion ->
+            result?.let { BatchSavedSummary(it) }
+            if (!saved.isNullOrEmpty()) {
+                Text(stringResource(Res.string.import_saved_suggestions_title), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(Res.string.import_saved_suggestions_explained), style = MaterialTheme.typography.bodyMedium)
+            }
+            saved.orEmpty().forEach { suggestion ->
                 AppCard {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(combineCueLabel(suggestion.cue), style = MaterialTheme.typography.titleSmall)
@@ -64,5 +81,22 @@ internal fun SavedSuggestions(saved: ImmutableList<SavedSuggestion>, eventSink: 
                 Text(stringResource(Res.string.import_saved_suggestions_done))
             }
         }
+    }
+}
+
+/** "40 activities saved.", and how many couldn't be read again, and that they upload while the app is open. */
+@Composable
+private fun BatchSavedSummary(result: BatchSaved) {
+    val lines =
+        listOfNotNull(
+            pluralStringResource(Res.plurals.import_batch_saved, result.saved, formatWhole(result.saved)),
+            pluralStringResource(Res.plurals.import_batch_saved_skipped, result.skipped, formatWhole(result.skipped)).takeIf {
+                result.skipped > 0
+            },
+            stringResource(Res.string.import_batch_uploading),
+        )
+    Column(verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
+        Text(stringResource(Res.string.import_batch_saved_title), style = MaterialTheme.typography.titleMedium)
+        Text(lines.joinToString(" "), style = MaterialTheme.typography.bodyMedium)
     }
 }

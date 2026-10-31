@@ -21,17 +21,18 @@ import org.jetbrains.compose.resources.stringResource
 /**
  * Who may see an activity and each of its detail categories ([DetailVisibilityPicker]), which offers only the activity's visibility or
  * narrower. Changes go to the fields' sink. A session that can't choose shows Public, disabled, and says to sign in again, or that the
- * athlete's server doesn't support private activities yet.
+ * athlete's server doesn't support private activities yet. [heading] names what it applies to (one activity unless given).
  */
 @Composable
 fun ActivityVisibilityForm(
     fields: VisibilityFields,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    heading: StringResource = Res.string.activity_visibility_heading,
 ) {
     val canChoose = enabled && fields.canChoose
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(Res.string.activity_visibility_heading), style = MaterialTheme.typography.labelLarge)
+        Text(stringResource(heading), style = MaterialTheme.typography.labelLarge)
         VisibilityPicker(
             fields.activity,
             onSelect = { fields.eventSink(VisibilityEvent.ActivityChanged(it)) },

@@ -742,39 +742,76 @@
     <string name="field_title">Title</string>
     <string name="manual_title">Add activity</string>
     <string name="import_title">Import activity</string>
-    <string name="import_hint">Import a FIT, GPX or TCX file, a Shearwater dive (.xml) or a UDDF or Subsurface dive log (gzipped is fine) from a watch, bike computer, dive computer or app.</string>
+    <string name="import_hint">Import FIT, GPX or TCX files, Shearwater dives (.xml) or UDDF or Subsurface dive logs from a watch, bike computer, dive computer or app. Pick several at once, a zip or gzip of them, or a whole Strava or Garmin Connect account export.</string>
     <!-- A title for an imported activity without one: the type's label, as in "Morning Mountain Bike Ride". -->
     <string name="default_title_morning">Morning %1$s</string>
     <string name="default_title_afternoon">Afternoon %1$s</string>
     <string name="default_title_evening">Evening %1$s</string>
     <string name="default_title_night">Night %1$s</string>
-    <string name="import_pick">Choose file</string>
-    <string name="import_pick_another">Choose another file</string>
-    <string name="import_reading">Reading file…</string>
+    <string name="import_pick">Choose files</string>
+    <string name="import_pick_another">Choose other files</string>
+    <string name="import_reading">Reading files…</string>
+    <string name="import_reading_progress">%1$s files read, %2$s activities found…</string>
     <string name="import_original_too_large">This file is over 10 MB even compressed, so its original file won't be kept and you can't download it later. Everything read from it still imports.</string>
-    <plurals name="import_dives_found">
-        <item quantity="one">%1$d dive in this logbook</item>
-        <item quantity="other">%1$d dives in this logbook</item>
+    <plurals name="import_batch_found">
+        <item quantity="one">%1$s activity to import</item>
+        <item quantity="other">%1$s activities to import</item>
     </plurals>
-    <string name="import_dives_selected">%1$d of %2$d selected</string>
+    <string name="import_batch_strava">From a Strava export: titles, descriptions, types and privacy come from it.</string>
+    <string name="import_batch_garmin">From a Garmin Connect export: titles, types and privacy come from it.</string>
+    <plurals name="import_batch_skipped">
+        <item quantity="one">%1$s file couldn't be read:</item>
+        <item quantity="other">%1$s files couldn't be read:</item>
+    </plurals>
+    <string name="import_skip_unsupported">%1$s (not a file this app reads)</string>
+    <string name="import_skip_damaged">%1$s (damaged)</string>
+    <string name="import_skip_too_large">%1$s (too large)</string>
+    <plurals name="import_batch_ignored">
+        <item quantity="one">%1$s other file in the archive was left out.</item>
+        <item quantity="other">%1$s other files in the archive were left out.</item>
+    </plurals>
+    <string name="import_batch_originals_too_large">Over 10 MB even compressed, so their original files won't be kept: %1$s</string>
+    <string name="import_batch_originals_size">Up to %1$s of original files stay on this device until they're uploaded.</string>
+    <string name="import_batch_uploading">Large imports upload in the background while the app is open, and can take a while.</string>
+    <string name="import_filter_all">All</string>
+    <string name="import_filter_new">New</string>
+    <string name="import_filter_duplicates">Duplicates</string>
+    <string name="import_batch_month">%1$s %2$d</string>
+    <string name="import_batch_narrowed_self">Private in the export, so saved as Only me</string>
+    <string name="import_batch_narrowed_followers">Followers only in the export, so saved as Followers</string>
+    <string name="import_dives_selected">%1$s of %2$s selected</string>
     <string name="import_select_all">Select all</string>
     <string name="import_deselect_all">Deselect all</string>
-    <plurals name="import_dives_save">
-        <item quantity="one">Import %1$d dive</item>
-        <item quantity="other">Import %1$d dives</item>
+    <plurals name="import_batch_save">
+        <item quantity="one">Import %1$s activity</item>
+        <item quantity="other">Import %1$s activities</item>
     </plurals>
     <string name="import_dives_none">Import</string>
+    <string name="import_batch_saving">Saving %1$s of %2$s…</string>
+    <string name="import_item_title">Activity</string>
+    <string name="import_megabytes">%1$s MB</string>
+    <string name="import_item_title_label">Title</string>
+    <string name="import_item_done">Done</string>
+    <string name="import_batch_saved_title">Import saved</string>
+    <plurals name="import_batch_saved">
+        <item quantity="one">%1$s activity saved.</item>
+        <item quantity="other">%1$s activities saved.</item>
+    </plurals>
+    <plurals name="import_batch_saved_skipped">
+        <item quantity="one">%1$s couldn't be read again and wasn't saved.</item>
+        <item quantity="other">%1$s couldn't be read again and weren't saved.</item>
+    </plurals>
     <string name="import_duplicate_existing">Already in your log: %1$s</string>
     <string name="import_duplicate_shifted">Same length as one in your log, %2$d h apart (check the time zone): %1$s</string>
-    <string name="import_duplicate_in_file">Same activity as #%1$d in this file</string>
+    <string name="import_duplicate_in_file">Same activity as #%1$d in this import</string>
     <string name="import_duplicate_untitled">Untitled activity</string>
     <plurals name="import_duplicates_existing">
-        <item quantity="one">%1$d dive is already in your log.</item>
-        <item quantity="other">%1$d dives are already in your log.</item>
+        <item quantity="one">%1$d activity is already in your log.</item>
+        <item quantity="other">%1$d activities are already in your log.</item>
     </plurals>
     <plurals name="import_duplicates_in_file">
-        <item quantity="one">%1$d appears twice in this file.</item>
-        <item quantity="other">%1$d appear twice in this file.</item>
+        <item quantity="one">%1$d appears twice in this import.</item>
+        <item quantity="other">%1$d appear twice in this import.</item>
     </plurals>
     <string name="import_duplicates_unchecked">Duplicates are combined with what they repeat unless you pick otherwise.</string>
     <string name="import_duplicates_checking">Checking your log for duplicates…</string>
@@ -923,7 +960,7 @@
     <string name="edit_leaderboard_exclusion_help">For a group ride or a stretch in a car. The activity keeps its segment efforts. No one else sees this choice.</string>
     <string name="edit_discard_message">What you changed here won't be saved.</string>
     <string name="edit_discard">Discard</string>
-    <string name="import_dives_details_hint">To add a description or photos to a dive, open it once it's imported and choose Edit.</string>
+    <string name="import_dives_details_hint">To add a description or photos to an activity, open it once it's imported and choose Edit.</string>
     <string name="media_counter">%1$d / %2$d</string>
     <string name="media_close">Close</string>
     <string name="media_previous">Previous photo</string>
@@ -937,6 +974,7 @@
     <string name="detail_open_recorded">See the activity</string>
     <string name="import_recorded_with">Recorded with %1$s</string>
     <string name="import_time_zone_notice">This file logs local time with no time zone, so its start (%1$s) is read in the zone below. If it was recorded somewhere else, pick that zone so it saves at the right time.</string>
+    <string name="import_time_zone_notice_file">%1$s logs local time with no time zone, so its activities are read in the zone below (its first starts %2$s). If it was recorded somewhere else, pick that zone so they save at the right time.</string>
     <string name="import_time_zone">Time zone</string>
     <string name="import_time_zone_option">%1$s (%2$s)</string>
     <string name="stat_max_depth">Max depth</string>
@@ -1029,6 +1067,7 @@
     <string name="action_save">Save</string>
     <string name="action_saving">Saving…</string>
     <string name="activity_visibility_heading">Who can see this activity</string>
+    <string name="import_batch_visibility_heading">Who can see these activities</string>
     <string name="activity_visibility_help">Its details are never shown to more people than the activity. If someone reports it, the app's moderators can see it while they review the report.</string>
     <string name="activity_visibility_unsupported">Your server doesn't support private activities yet, so they're Public.</string>
     <string name="activity_visibility_sign_in_again">Sign in again to choose who sees your activities. Until then they're Public.</string>

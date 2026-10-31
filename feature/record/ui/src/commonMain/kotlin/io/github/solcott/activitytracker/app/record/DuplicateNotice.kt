@@ -33,7 +33,7 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * Why an activity looks like a duplicate ("Already in your log: Blue Hole · 2024-05-12 10:02 · Garmin Descent Mk3") and what to do with it.
- * [inFileNumber] numbers the activity [DuplicateInfo.inFileIndex] names, as the list shows it. Combine is left out, with the reason, while
+ * [inFileNumber] numbers the activity [DuplicateInfo.inBatchIndex] names, as the list shows it. Combine is left out, with the reason, while
  * the logged activity is still uploading.
  */
 @Composable
@@ -42,7 +42,7 @@ internal fun DuplicateWarning(
     onAction: (DuplicateAction) -> Unit,
     enabled: Boolean,
     modifier: Modifier = Modifier,
-    inFileNumber: Int? = info.inFileIndex?.plus(1),
+    inFileNumber: Int? = info.inBatchIndex?.plus(1),
 ) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(warningText(info, inFileNumber), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)

@@ -14,11 +14,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.runtime.Navigator
+import io.github.solcott.activitytracker.activityfile.ActivityFileException
 import io.github.solcott.activitytracker.activityfile.ActivityFileReader
+import io.github.solcott.activitytracker.activityfile.BatchReader
+import io.github.solcott.activitytracker.activityfile.ByteArrayImportSource
+import io.github.solcott.activitytracker.activityfile.EntryRef
+import io.github.solcott.activitytracker.activityfile.ImportSource
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
 import io.github.solcott.activitytracker.activityfile.ImportedDive
 import io.github.solcott.activitytracker.activityfile.ImportedPower
 import io.github.solcott.activitytracker.activityfile.ImportedShifting
+import io.github.solcott.activitytracker.activityfile.SkipReason
 import io.github.solcott.activitytracker.activityfile.SourceFile
 import io.github.solcott.activitytracker.activityfile.TimeZones
 import io.github.solcott.activitytracker.activityfile.UnsupportedActivityFileException
@@ -36,6 +42,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.CombineSuggestions
+import io.github.solcott.activitytracker.data.activity.matchSpan
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.profile.OwnProfile
@@ -54,6 +61,8 @@ import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.coroutines.Job
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -64,7 +73,7 @@ import kotlinx.datetime.toLocalDateTime
 
 @CircuitInject(ImportActivityScreen::class, SessionScope::class)
 @Composable
-@Suppress("CyclomaticComplexMethod") // One branch per event.
+@Suppress("CyclomaticComplexMethod", "LongMethod") // One branch per event; a single file and a batch share the screen.
 fun ImportActivityPresenter(
     screen: ImportActivityScreen,
     navigator: Navigator,
@@ -80,15 +89,31 @@ fun ImportActivityPresenter(
     units: UnitsRepository,
     suggestions: CombineSuggestions,
 ): ImportActivityState {
-    // The parsed file isn't saveable; after process death the athlete picks it again. A logbook holds many dives.
+    // The parsed file isn't saveable; after process death the athlete picks it again. A single activity, or for adding a recording, a
+    // logbook's several.
     var file by remember { mutableStateOf<ImportFile?>(null) }
     // The file as it's kept with every activity saved from it; null when it's too large to keep (originalTooLarge).
     var source by remember { mutableStateOf<SourceFile?>(null) }
     var originalTooLarge by remember { mutableStateOf(false) }
-    // Which of the file's dives import, and what to do with duplicates.
-    var selection by remember { mutableStateOf(DiveSelection()) }
+    // Several activities: the picked files, read again as needed, and what's kept of each activity.
+    var batchFiles by remember { mutableStateOf<BatchReader?>(null) }
+    var scanned by remember { mutableStateOf<ScannedBatch?>(null) }
+    var readProgress by remember { mutableStateOf<ReadProgress?>(null) }
+    var readJob by remember { mutableStateOf<Job?>(null) }
+    // Where each of a batch's zone-less files was, by file; this device's zone until the athlete says.
+    var fileZones by remember { mutableStateOf(mapOf<Int, String>()) }
+    var filter by remember { mutableStateOf(BatchFilter.All) }
+    var opened by remember { mutableStateOf<Int?>(null) }
+    var openedActivity by remember { mutableStateOf<ImportedActivity?>(null) }
+    var openedError by remember { mutableStateOf<UiError?>(null) }
+    var saveProgress by remember { mutableStateOf<SaveProgress?>(null) }
+    var batchSaved by remember { mutableStateOf<BatchSaved?>(null) }
+    // Which of the activities import, what to do with duplicates, and the athlete's changes to a batch's activities.
+    var selection by remember { mutableStateOf(BatchSelection()) }
     val typeChoice = typeChoices.produce(ActivityType(Sport.OTHER))
     val type = typeChoice.selected
+    val openedType = typeChoices.produce(ActivityType(Sport.OTHER))
+    val openedTitle = rememberTextFieldState()
     // The import is saved: what's left to say before leaving, and how it leaves.
     var afterImport by remember { mutableStateOf<AfterImport?>(null) }
     var leave by remember { mutableStateOf<(suspend () -> Unit)?>(null) }
@@ -102,39 +127,46 @@ fun ImportActivityPresenter(
     var savedSuggestions by remember { mutableStateOf<ImmutableList<SavedSuggestion>?>(null) }
     val flights = rememberSingleFlight()
     val saving = flights.isRunning(ImportActivityEvent.Save::class)
-    val reading = flights.isRunning(ImportActivityEvent.FilePicked::class)
 
     val zone = remember(zoneId) { zoneId?.let(TimeZone::of) ?: TimeZones.device() }
+    val zoneOf = remember(fileZones) { { file: Int -> fileZones[file]?.let(TimeZone::of) ?: TimeZones.device() } }
     // Adding a recording to an activity: it, once loaded, and of a logbook only the entry nearest it.
     val adding = rememberAddingRecording(feed, screen, file, zone) { error = it }
     val picked = adding.offered
     val imported = singleActivity(picked)
-    val logbook = picked?.takeIf { it.second.size > 1 }
     val placed = remember(imported, zone) { imported?.let { (name, activity) -> name to activity.inZone(zone) } }
-    val placedDives = remember(logbook, zone) { logbook?.second?.map { it.inZone(zone) } }
+    val placedBatch = remember(scanned, zoneOf) { scanned?.placed(zoneOf) }
     val zones = remember(file) { file?.second?.firstNotNullOfOrNull { it.localStart }?.let(::zoneOptions) }
-    val own = rememberOwnActivities(feed, picked?.second, search = !adding.requested)
+    // Searched around the activities as read: the search's margin covers any zone the athlete places them in.
+    val spans =
+        remember(picked, scanned) { (scanned?.items?.map { it.summary } ?: picked?.second)?.map { it.matchSpan() }?.toImmutableList() }
+    val own = rememberOwnActivities(feed, spans, search = !adding.requested)
     // Matched where the athlete placed the clock: a zone change can make or break a duplicate.
-    val matches = remember(placed, placedDives, own) { importMatches(placed?.second, placedDives, own) }
+    val matches = remember(placed, placedBatch, own) { importMatches((placedBatch ?: listOfNotNull(placed?.second)).spans(), own) }
     val tooFar = adding.tooFar(placed?.second)
     // Keyed on the zone too: a zone with the same offset leaves the activity as it was.
     val preview = remember(placed, zones, zone, matches, selection) { singlePreview(placed, zone, zones, matches, selection) }
     val athlete = rememberOwnProfile(profiles)
-    // What each activity's file says about its gear: a logbook's selected dives share the gear, which starts from the first one's.
-    val gearSources =
-        remember(placed, placedDives, selection, matches) {
-            placed?.second?.let { persistentListOf(GearSource.of(it)) }
-                ?: placedDives
-                    .orEmpty()
-                    .filterIndexed { i, _ -> selection.isSelected(i, matches.getOrNull(i)) }
-                    .map(GearSource::of)
-                    .toImmutableList()
+    val batchSelected =
+        remember(scanned, selection, matches) {
+            scanned?.items?.indices?.filter { selection.isSelected(it, matches.getOrNull(it)) }.orEmpty()
         }
-    val gear = gearChoices.produce(type, gearSources)
+    // What each activity's file says about its gear: a batch's selected activities share the gear, which starts from the first one's.
+    val gearSources =
+        remember(placed, placedBatch, batchSelected) {
+            placed?.second?.let { persistentListOf(GearSource.of(it)) }
+                ?: batchSelected.mapNotNull { placedBatch?.getOrNull(it)?.let(GearSource::of) }.toImmutableList()
+        }
+    // A batch's gear starts from the defaults for its first selected activity's type.
+    val gearType = scanned?.let { batch -> batchSelected.firstOrNull()?.let { batch.items[it].type(selection.overrides[it]) } } ?: type
+    val gear = gearChoices.produce(gearType, gearSources)
     val newDevices = newDeviceChoices.produce(gear, gearSources)
     val held =
-        remember(placed, placedDives, selection, matches, type) {
-            importCategories(placed?.second, type, placedDives) { selection.isSelected(it, matches.getOrNull(it)) }
+        remember(placed, scanned, batchSelected, type) {
+            scanned?.let { batch ->
+                val items = batchSelected.map { batch.items[it] }
+                ImportCategories(items.flatMap { it.categories }.toImmutableSet(), items.any { it.runningForm })
+            } ?: importCategories(placed?.second, type, null) { false }
         }
     val offered = gear.offering(held.categories)
     val visibility =
@@ -155,24 +187,161 @@ fun ImportActivityPresenter(
                 ActivityPage.fromDraft(adding.placed(draft.withVisibility(visibility.current)), unitSystem)
             }
         }
-    val dives =
-        remember(logbook, placedDives, selection, matches, zones, zone) {
-            diveBatch(logbook?.first, placedDives, selection, matches, zone, zones)
+    val rows =
+        remember(scanned, placedBatch, matches, selection, visibility.current, zoneOf) {
+            scanned?.let { batch -> batchRows(batch, placedBatch.orEmpty(), matches, selection, visibility.current.activity, zoneOf) }
         }
+    // One of a batch's activities, opened: read again from its file, shown as it would publish with the type the athlete gives it.
+    val openedFile = opened?.let { scanned?.items?.getOrNull(it) }?.file
+    val openedZones = remember(openedActivity) { openedActivity?.localStart?.let(::zoneOptions) }
+    val openedPage by
+        produceState<ActivityPageContent?>(null, openedActivity, openedType.selected, training, visibility.current, unitSystem) {
+            value = openedActivity?.let { activity ->
+                val draft = importDraft(activity, openedType.selected, title = null, training, emptyList(), source = null)
+                ActivityPage.fromDraft(draft.withVisibility(visibility.current), unitSystem)
+            }
+        }
+    val batch = rows?.let { rowList ->
+        val scan = checkNotNull(scanned)
+        val openedRow = opened?.let(rowList::getOrNull)
+        ImportBatch(
+            rows = rowList,
+            filter = filter,
+            clocks = batchClocks(scan, placedBatch.orEmpty(), zoneOf),
+            skipped = scan.skipped,
+            ignoredFiles = scan.ignored,
+            export = scan.export,
+            originalsTooLarge = scan.files.filter { it.originalTooLarge }.map { it.name }.toImmutableList(),
+            originalsBytes = batchSelected.map { scan.items[it].file }.distinct().sumOf { scan.files[it].originalBytes },
+            preview =
+                openedRow?.let { row ->
+                    ImportItemPreview(
+                        index = row.index,
+                        title = openedTitle,
+                        type = openedType.field,
+                        defaultTitle = row.defaultTitle.copy(type = openedType.selected),
+                        preview =
+                            openedActivity?.let { activity ->
+                                val fileZone = zoneOf(checkNotNull(openedFile))
+                                activity.toPreview(row.fileName, fileZone, openedZones).copy(duplicate = row.duplicate)
+                            },
+                        page = openedPage.takeIf { openedActivity != null },
+                        error = openedError,
+                    )
+                },
+            progress = saveProgress,
+        )
+    }
+
+    fun clear() {
+        file = null
+        source = null
+        originalTooLarge = false
+        batchFiles = null
+        scanned = null
+        fileZones = emptyMap()
+        filter = BatchFilter.All
+        opened = null
+        openedActivity = null
+        selection = BatchSelection()
+        zoneId = null
+        error = null
+    }
+
+    /** Takes in a single file's activities, read whole, as the single-file form shows them. */
+    fun takeSingle(name: String, read: List<ImportedActivity>, prepared: SourceFile?) {
+        file = name to read.toImmutableList()
+        source = prepared
+        originalTooLarge = prepared == null
+        val first = read.first()
+        typeChoice.select(first.type)
+        val named = first.title.takeIf { read.size == 1 }
+        when {
+            named != null -> title.setTextAndPlaceCursorAtEnd(named)
+            fileTitle != null && title.text.toString() == fileTitle -> title.clearText()
+        }
+        fileTitle = named
+        // The file's notes (a logbook's, GPX `desc`, TCX `Notes`) start the description, for the athlete to keep, change or clear.
+        details.seed(description = first.description.takeIf { read.size == 1 }, diveSite = first.dive?.siteName.takeIf { read.size == 1 })
+    }
+
+    fun pick(sources: List<ImportSource>) {
+        // Drop the previous files first, so a failed pick can't leave their preview (and Save) behind.
+        clear()
+        // A newer pick replaces one still being read.
+        readJob =
+            flights.launchLatest(ImportActivityEvent.FilePicked::class) {
+                runSuspendCatching {
+                    val one = sources.singleOrNull()
+                    if (adding.requested && one != null) {
+                        // A recording to add is one file, a logbook's dives all offered to pick the nearest from.
+                        val whole = BatchReader(sources, reader).read(EntryRef(0))
+                        val (read, prepared) = reader.readKeeping(whole.name, whole.bytes)
+                        takeSingle(whole.name, read.activities, prepared)
+                        return@runSuspendCatching
+                    }
+                    val files = BatchReader(sources, reader)
+                    val found = files.collect { readProgress = it }
+                    val only = found.items.singleOrNull()
+                    when {
+                        found.items.isEmpty() ->
+                            error =
+                                if (found.skipped.all { it.reason == SkipReason.Unsupported }) UiError(UiError.Kind.UnsupportedActivityFile)
+                                else UiError.of(UiError.Kind.ReadActivityFile, ActivityFileException("No activity could be read"))
+                        only != null -> {
+                            val one = files.read(found.files[only.file].ref)
+                            val (read, prepared) = reader.readKeeping(one.name, one.bytes)
+                            takeSingle(one.name, read.activities, prepared)
+                        }
+                        else -> {
+                            batchFiles = files
+                            scanned = found
+                        }
+                    }
+                }
+                    .onFailure { e ->
+                        error =
+                            if (e is UnsupportedActivityFileException) UiError(UiError.Kind.UnsupportedActivityFile)
+                            else UiError.of(UiError.Kind.ReadActivityFile, e)
+                    }
+                readProgress = null
+            }
+    }
+
+    /** Keeps the opened activity's title and type as the athlete left them, unless they match what it had. */
+    fun closeOpened() {
+        val index = opened ?: return
+        val item = scanned?.items?.getOrNull(index)
+        if (item != null && openedActivity != null) {
+            val shown = item.title(selection.overrides[index])
+            val typed = openedTitle.text.toString()
+            val override =
+                ItemOverride(
+                    title = typed.takeIf { it != shown.orEmpty() },
+                    type = openedType.selected.takeIf { it != item.type(selection.overrides[index]) },
+                )
+            val previous = selection.overrides[index] ?: ItemOverride()
+            selection = selection.withOverride(index, ItemOverride(override.title ?: previous.title, override.type ?: previous.type))
+        }
+        opened = null
+        openedActivity = null
+        openedError = null
+    }
 
     return ImportActivityState(
-        reading,
-        preview,
-        typeChoice.field,
-        title,
-        defaultTitle,
-        saving,
-        error,
-        thresholdChanges,
-        visibility.fields,
-        dives,
-        own.check,
-        placed?.let { details.fields(isDive = type.sport == Sport.DIVE) },
+        reading = flights.isRunning(ImportActivityEvent.FilePicked::class),
+        preview = preview,
+        type = typeChoice.field,
+        title = title,
+        defaultTitle = defaultTitle,
+        saving = saving,
+        error = error,
+        thresholdChanges = thresholdChanges,
+        visibility = visibility.fields,
+        batch = batch,
+        readProgress = readProgress,
+        duplicateCheck = own.check,
+        details = placed?.let { details.fields(isDive = type.sport == Sport.DIVE) },
         approvesFollowers = athlete?.followPolicy == FollowPolicy.APPROVE,
         originalTooLarge = originalTooLarge,
         page = page.takeIf { placed != null },
@@ -180,55 +349,50 @@ fun ImportActivityPresenter(
         addingTo = adding.preview(zone),
         tooFarFromTarget = tooFar,
         savedSuggestions = savedSuggestions,
-        gear = gear.field.takeIf { picked != null },
-        newDevices = if (picked != null) newDevices.fields else NewDevicesFields(),
+        batchSaved = batchSaved,
+        gear = gear.field.takeIf { picked != null || scanned != null },
+        newDevices = if (picked != null || scanned != null) newDevices.fields else NewDevicesFields(),
         afterImport = afterImport,
     ) { event ->
         when (event) {
-            is ImportActivityEvent.FilePicked -> {
-                // Drop the previous file first, so a failed pick can't leave its preview (and Save) behind.
-                file = null
-                source = null
-                originalTooLarge = false
-                selection = DiveSelection()
-                zoneId = null
-                error = null
-                // A newer pick replaces one still being read.
-                flights.launchLatest(ImportActivityEvent.FilePicked::class) {
-                    // The format comes from the file's content, not its name.
-                    runSuspendCatching { reader.readKeeping(event.name, event.bytes.toByteArray()) }
-                        .onSuccess { (readFile, prepared) ->
-                            val read = readFile.activities
-                            file = event.name to read.toImmutableList()
-                            source = prepared
-                            originalTooLarge = prepared == null
-                            // A logbook's dives keep their own types and titles; these fields are for a single activity.
-                            val first = read.first()
-                            typeChoice.select(first.type)
-                            val named = first.title.takeIf { read.size == 1 }
-                            when {
-                                named != null -> title.setTextAndPlaceCursorAtEnd(named)
-                                fileTitle != null && title.text.toString() == fileTitle -> title.clearText()
-                            }
-                            fileTitle = named
-                            // The file's notes (a logbook's, GPX `desc`, TCX `Notes`) start the description, for the athlete to keep,
-                            // change or clear.
-                            details.seed(
-                                description = first.description.takeIf { read.size == 1 },
-                                diveSite = first.dive?.siteName.takeIf { read.size == 1 },
-                            )
-                        }
-                        .onFailure { e ->
-                            error =
-                                if (e is UnsupportedActivityFileException) UiError(UiError.Kind.UnsupportedActivityFile)
-                                else UiError.of(UiError.Kind.ReadActivityFile, e)
-                        }
-                }
+            is ImportActivityEvent.FilePicked -> pick(listOf(ByteArrayImportSource(event.name, event.bytes.toByteArray())))
+
+            is ImportActivityEvent.FilesPicked -> pick(event.sources)
+
+            ImportActivityEvent.CancelReading -> {
+                readJob?.cancel()
+                readProgress = null
+                clear()
             }
 
             is ImportActivityEvent.TimeZoneChanged -> {
                 zoneId = event.id
             }
+
+            is ImportActivityEvent.FileZoneChanged -> fileZones = fileZones + (event.key to event.id)
+
+            is ImportActivityEvent.FilterChanged -> filter = event.filter
+
+            is ImportActivityEvent.ItemOpened -> {
+                closeOpened()
+                val item = scanned?.items?.getOrNull(event.index) ?: return@ImportActivityState
+                val row = rows?.getOrNull(event.index) ?: return@ImportActivityState
+                opened = event.index
+                openedTitle.setTextAndPlaceCursorAtEnd(row.title.orEmpty())
+                openedType.select(row.type)
+                val files = batchFiles ?: return@ImportActivityState
+                val batchFile = checkNotNull(scanned).files[item.file]
+                flights.launchLatest(ImportActivityEvent.ItemOpened::class) {
+                    runSuspendCatching {
+                        val read = reader.readFile(files.read(batchFile.ref).bytes)
+                        val full = read.activities[item.entry]
+                        openedActivity = if (batchFile.zoneless) full.inZone(zoneOf(item.file)) else full
+                    }
+                        .onFailure { e -> openedError = UiError.of(UiError.Kind.ReadActivityFile, e) }
+                }
+            }
+
+            ImportActivityEvent.ItemClosed -> closeOpened()
 
             ImportActivityEvent.Back,
             is ImportActivityEvent.Saved -> navigator.leave(event)
@@ -251,14 +415,24 @@ fun ImportActivityPresenter(
                         }
                 }
 
-            is ImportActivityEvent.DiveToggled -> selection = selection.toggled(event.index, matches.getOrNull(event.index))
+            is ImportActivityEvent.ItemToggled -> selection = selection.toggled(event.index, matches.getOrNull(event.index))
 
-            is ImportActivityEvent.AllDivesSelected -> selection = selection.all(event.selected, placedDives.orEmpty().size)
+            is ImportActivityEvent.AllShownSelected ->
+                selection =
+                    selection.all(
+                        event.selected,
+                        batch?.shown?.map { it.index }.orEmpty(),
+                        matches::getOrNull,
+                        duplicates = filter == BatchFilter.Duplicates,
+                    )
 
             is ImportActivityEvent.DuplicateActionChanged -> selection = selection.withAction(event.index, event.action)
 
-            is ImportActivityEvent.SaveDives ->
+            is ImportActivityEvent.SaveBatch ->
                 flights.launch(ImportActivityEvent.Save::class) {
+                    closeOpened()
+                    val scan = scanned ?: return@launch
+                    val files = batchFiles ?: return@launch
                     val start = gearSources.minOfOrNull { it.startedAt } ?: return@launch
                     val linked = runSuspendCatching {
                         newDevices.save(start)
@@ -267,31 +441,37 @@ fun ImportActivityPresenter(
                             error = uiErrorOf(UiError.Kind.SaveNewGear, e)
                             return@launch
                         }
-                    val import =
-                        diveImport(
-                            placedDives,
+                    val drafting =
+                        BatchDrafting(
+                            scan,
+                            files,
+                            reader,
                             selection,
-                            matches,
                             event.defaultTitles,
-                            training,
-                            visibility.current,
-                            source,
-                            linked.gear,
+                            BatchChoices(training, visibility.current, linked.gear, zoneOf),
                         )
                     runSuspendCatching {
-                        saveDives(activities, manager, import)?.let { published ->
-                            val next: suspend () -> Unit = {
-                                navigator.afterDives(published, suggestions) { found -> savedSuggestions = found }
-                            }
-                            val after = newDevices.afterSave(linked, published.map { it.first }.toSet())
-                            if (after == null) next()
-                            else {
-                                leave = next
-                                afterImport = after
-                            }
+                        val result =
+                            saveBatch(activities, manager, batchPlan(scan.items.size, matches, selection), drafting) { saveProgress = it }
+                        val small = result.published.size <= MAX_SUGGESTED
+                        val next: suspend () -> Unit = {
+                            // A small batch is sent before it's summed up, as a single save is; a large one goes on sending while the
+                            // athlete reads the summary (leaving stops it, and the feed sends the rest).
+                            if (small) runSuspendCatching { activities.sync() }
+                            batchSaved = BatchSaved(result.saved, result.skipped)
+                            // Suggestions ask the AppView about each saved activity: only for a batch small enough to look through.
+                            if (small) savedSuggestions = savedSuggestionsFor(result.published, suggestions).takeIf { it.isNotEmpty() }
+                            if (!small) runSuspendCatching { activities.sync() }
+                        }
+                        val after = newDevices.afterSave(linked, result.published.map { it.first }.toSet())
+                        if (after == null) next()
+                        else {
+                            leave = next
+                            afterImport = after
                         }
                     }
                         .onFailure { e -> error = uiErrorOf(UiError.Kind.SaveActivity, e) }
+                    saveProgress = null
                 }
 
             is ImportActivityEvent.Save -> {
@@ -328,6 +508,9 @@ fun ImportActivityPresenter(
         }
     }
 }
+
+/** Saved batches this size or smaller are looked through for combine suggestions. */
+private const val MAX_SUGGESTED = 50
 
 /** The thresholds saving [activity] as [sport] would update from its device's settings; none until [training] loads. */
 private fun pendingThresholds(training: TrainingDetails?, activity: ImportedActivity?, sport: String): ImmutableList<ThresholdChange> =
@@ -390,7 +573,7 @@ internal fun ImportedActivity.toPreview(fileName: String, zone: TimeZone, zones:
 }
 
 /** Every zone, with the offset in force when the activity started: a zone with daylight saving shows the one that applied. */
-private fun zoneOptions(localStart: LocalDateTime): ImmutableList<TimeZoneOption> {
+internal fun zoneOptions(localStart: LocalDateTime): ImmutableList<TimeZoneOption> {
     val device = TimeZones.device().id
     // The device's zone can be one the list leaves out, like "GMT".
     val ids = if (device in TimeZones.ids) TimeZones.ids else (TimeZones.ids + device).sorted()

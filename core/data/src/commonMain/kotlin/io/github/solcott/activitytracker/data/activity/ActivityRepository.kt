@@ -22,6 +22,7 @@ import io.github.solcott.activitytracker.lexicon.Tid
 import io.github.solcott.activitytracker.lexicon.app.ActivityDetailsRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.CommentHideRecord
@@ -38,6 +39,7 @@ import io.github.solcott.dataresult.Outcome
 import kotlin.time.Clock
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filterNotNull
@@ -103,11 +105,40 @@ class ActivityRepository(
         drafts.forEach { clients.requireSpacesFor(it.visibility) }
         clients.requireDetailsSpaceFor(drafts)
         requireSelfSpaceFor(drafts)
-        val uris = privacy.withReadOnce {
-            zones.withTrainingReadOnce { drafts.map { queue(it, photos = emptyList(), trim = privacy.forPublish()) } }
+        return publishBatch(drafts.asFlow())
+    }
+
+    /**
+     * Publishes [drafts] as they arrive, like [publishAll] with one read of the zones and training for them all, but queueing each before
+     * the next is built, so a batch of thousands is never held at once. Each is checked as it comes: one this session can't write throws,
+     * those before it staying queued. [onQueued] hears each draft's URI. The outbox drains after the last when [drain]; otherwise the next
+     * [sync] sends them (an import goes on to the feed, which syncs), so saving a batch needn't wait for its upload.
+     */
+    suspend fun publishBatch(
+        drafts: Flow<ActivityDraft>,
+        drain: Boolean = true,
+        onQueued: suspend (ActivityDraft, AtUri) -> Unit = { _, _ -> },
+    ): List<AtUri> {
+        val uris = mutableListOf<AtUri>()
+        val types = mutableSetOf<ActivityType>()
+        try {
+            privacy.withReadOnce {
+                zones.withTrainingReadOnce {
+                    drafts.collect { draft ->
+                        clients.requireSpacesFor(draft.visibility)
+                        clients.requireDetailsSpaceFor(listOf(draft))
+                        requireSelfSpaceFor(listOf(draft))
+                        val uri = queue(draft, photos = emptyList(), trim = privacy.forPublish())
+                        uris += uri
+                        types += draft.type
+                        onQueued(draft, uri)
+                    }
+                }
+            }
+        } finally {
+            types.forEach { recentTypes.remember(it) }
         }
-        outbox.drain()
-        drafts.map { it.type }.distinct().forEach { recentTypes.remember(it) }
+        if (drain) outbox.drain()
         return uris
     }
 

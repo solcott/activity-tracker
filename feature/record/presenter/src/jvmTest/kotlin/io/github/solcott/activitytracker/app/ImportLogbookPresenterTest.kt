@@ -119,19 +119,19 @@ class ImportLogbookPresenterTest {
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
-            val read = awaitUntil { it.dives != null }
+            val read = awaitUntil { it.batch != null }
             assertNull(read.preview, "a logbook isn't one activity")
-            val batch = assertNotNull(read.dives)
-            assertEquals("logbook.uddf", batch.fileName)
-            assertEquals(listOf(1, 2, 3), batch.dives.map { it.diveNumber })
-            assertEquals(listOf("Blue Hole", null, null), batch.dives.map { it.title })
+            val batch = assertNotNull(read.batch)
+            assertEquals(listOf("logbook.uddf"), batch.rows.map { it.fileName }.distinct())
+            assertEquals(listOf(1, 2, 3), batch.rows.map { it.dive?.diveNumber })
+            assertEquals(listOf("Blue Hole", null, null), batch.rows.map { it.title })
             assertEquals(3, batch.selectedCount)
-            assertTrue(batch.allSelected)
-            assertEquals("2026-09-20 10:02", assertNotNull(batch.clock).localStart)
-            assertEquals(PartOfDay.Afternoon, batch.dives[1].defaultTitle.partOfDay)
-            assertEquals(ActivityType(Sport.DIVE, SubSport.SINGLE_GAS), batch.dives[1].defaultTitle.type)
-            assertEquals(18.0, batch.dives[0].maxDepthMeters)
-            assertEquals(2400.seconds, batch.dives[0].elapsed)
+            assertTrue(batch.allShownSelected)
+            assertEquals("2026-09-20 10:02", assertNotNull(batch.clocks.singleOrNull()).clock.localStart)
+            assertEquals(PartOfDay.Afternoon, batch.rows[1].defaultTitle.partOfDay)
+            assertEquals(ActivityType(Sport.DIVE, SubSport.SINGLE_GAS), batch.rows[1].defaultTitle.type)
+            assertEquals(18.0, batch.rows[0].dive?.maxDepthMeters)
+            assertEquals(2400.seconds, batch.rows[0].elapsed)
             // Later states (the defaults and recent types loading) may still arrive; they're not this test's concern.
             cancelAndIgnoreRemainingEvents()
         }
@@ -167,11 +167,11 @@ class ImportLogbookPresenterTest {
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", withHeartRate))
-            val read = awaitUntil { it.dives != null && it.visibility.tierOf(DetailCategory.HEART_RATE) != null }
+            val read = awaitUntil { it.batch != null && it.visibility.tierOf(DetailCategory.HEART_RATE) != null }
             assertTrue(read.visibility.tierOf(DetailCategory.DIVE) != null, "every dive has depths")
 
-            read.eventSink(ImportActivityEvent.DiveToggled(0))
-            val without = awaitUntil { it.dives?.selectedCount == 2 }
+            read.eventSink(ImportActivityEvent.ItemToggled(0))
+            val without = awaitUntil { it.batch?.selectedCount == 2 }
             assertEquals(null, without.visibility.tierOf(DetailCategory.HEART_RATE), "no selected dive has heart rate")
             cancelAndIgnoreRemainingEvents()
         }
@@ -199,19 +199,19 @@ class ImportLogbookPresenterTest {
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
-            val read = awaitUntil { it.dives != null }
+            val read = awaitUntil { it.batch != null }
 
-            read.eventSink(ImportActivityEvent.DiveToggled(1))
-            val one = awaitUntil { it.dives?.selectedCount == 2 }
-            assertEquals(listOf(true, false, true), one.dives?.dives?.map { it.selected })
-            assertEquals(false, one.dives?.allSelected)
+            read.eventSink(ImportActivityEvent.ItemToggled(1))
+            val one = awaitUntil { it.batch?.selectedCount == 2 }
+            assertEquals(listOf(true, false, true), one.batch?.rows?.map { it.selected })
+            assertEquals(false, one.batch?.allShownSelected)
 
-            one.eventSink(ImportActivityEvent.AllDivesSelected(false))
-            val none = awaitUntil { it.dives?.selectedCount == 0 }
-            none.eventSink(ImportActivityEvent.SaveDives(persistentMapOf()))
+            one.eventSink(ImportActivityEvent.AllShownSelected(false))
+            val none = awaitUntil { it.batch?.selectedCount == 0 }
+            none.eventSink(ImportActivityEvent.SaveBatch(persistentMapOf()))
 
-            none.eventSink(ImportActivityEvent.AllDivesSelected(true))
-            assertEquals(true, awaitUntil { it.dives?.selectedCount == 3 }.dives?.allSelected)
+            none.eventSink(ImportActivityEvent.AllShownSelected(true))
+            assertEquals(true, awaitUntil { it.batch?.selectedCount == 3 }.batch?.allShownSelected)
             cancelAndIgnoreRemainingEvents()
         }
         assertTrue(fixture.putRecords.isEmpty(), "nothing selected, nothing saved")
@@ -239,11 +239,11 @@ class ImportLogbookPresenterTest {
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
-            awaitUntil { it.dives != null }.eventSink(ImportActivityEvent.DiveToggled(1))
-            awaitUntil { it.dives?.selectedCount == 2 }.eventSink(ImportActivityEvent.TimeZoneChanged("America/Cancun"))
-            val placed = awaitUntil { it.dives?.clock?.zone?.id == "America/Cancun" }
-            placed.eventSink(ImportActivityEvent.SaveDives(persistentMapOf(1 to "Afternoon Dive", 2 to "Evening Dive")))
-            navigator.awaitPop()
+            awaitUntil { it.batch != null }.eventSink(ImportActivityEvent.ItemToggled(1))
+            awaitUntil { it.batch?.selectedCount == 2 }.eventSink(ImportActivityEvent.FileZoneChanged(0, "America/Cancun"))
+            val placed = awaitUntil { it.batch?.clocks?.singleOrNull()?.clock?.zone?.id == "America/Cancun" }
+            placed.eventSink(ImportActivityEvent.SaveBatch(persistentMapOf(1 to "Afternoon Dive", 2 to "Evening Dive")))
+            awaitUntil { it.batchSaved != null }
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -279,11 +279,11 @@ class ImportLogbookPresenterTest {
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
-            val read = awaitUntil { it.dives != null }
+            val read = awaitUntil { it.batch != null }
             assertFalse(read.originalTooLarge)
-            read.eventSink(ImportActivityEvent.DiveToggled(1))
-            awaitUntil { it.dives?.selectedCount == 2 }.eventSink(ImportActivityEvent.SaveDives(persistentMapOf(2 to "Evening Dive")))
-            navigator.awaitPop()
+            read.eventSink(ImportActivityEvent.ItemToggled(1))
+            awaitUntil { it.batch?.selectedCount == 2 }.eventSink(ImportActivityEvent.SaveBatch(persistentMapOf(2 to "Evening Dive")))
+            awaitUntil { it.batchSaved != null }
             cancelAndIgnoreRemainingEvents()
         }
 
@@ -333,10 +333,12 @@ class ImportLogbookPresenterTest {
         val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf(presenter(repos, navigator)) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
-            awaitUntil { it.dives != null }.eventSink(ImportActivityEvent.TimeZoneChanged("UTC"))
-            val checked = awaitUntil { it.dives?.clock?.zone?.id == "UTC" && it.duplicateCheck == DuplicateCheck.Done }
-            val batch = assertNotNull(checked.dives)
-            val duplicate = assertNotNull(batch.dives[0].duplicate)
+            awaitUntil { it.batch != null }.eventSink(ImportActivityEvent.FileZoneChanged(0, "UTC"))
+            val checked = awaitUntil {
+                it.batch?.clocks?.singleOrNull()?.clock?.zone?.id == "UTC" && it.duplicateCheck == DuplicateCheck.Done
+            }
+            val batch = assertNotNull(checked.batch)
+            val duplicate = assertNotNull(batch.rows[0].duplicate)
             assertEquals(ExistingActivityPreview("Blue Hole", "2026-09-20 10:00", "Garmin Descent Mk3"), duplicate.existing)
             assertEquals(DuplicateAction.Combine, duplicate.action, "Combine is the default")
             assertEquals(
@@ -345,25 +347,25 @@ class ImportLogbookPresenterTest {
                 "no merge, no group",
             )
             assertFalse(duplicate.stillUploading)
-            assertEquals(listOf(true, true, true), batch.dives.map { it.selected })
-            assertEquals(1 to 0, batch.existingDuplicates to batch.inFileDuplicates)
-            assertTrue(batch.allSelected, "duplicates aside")
-            assertTrue(batch.hasNonDuplicates)
+            assertEquals(listOf(true, true, true), batch.rows.map { it.selected })
+            assertEquals(1 to 0, batch.existingDuplicates to batch.inBatchDuplicates)
+            assertTrue(batch.allShownSelected, "duplicates aside")
+            assertTrue(batch.selectable.isNotEmpty())
 
-            checked.eventSink(ImportActivityEvent.AllDivesSelected(false))
-            val none = awaitUntil { it.dives?.selectedCount == 1 }
-            assertEquals(true, none.dives?.dives?.get(0)?.selected, "Deselect all leaves duplicates as they are")
-            none.eventSink(ImportActivityEvent.AllDivesSelected(true))
-            val all = awaitUntil { it.dives?.selectedCount == 3 }
+            checked.eventSink(ImportActivityEvent.AllShownSelected(false))
+            val none = awaitUntil { it.batch?.selectedCount == 1 }
+            assertEquals(true, none.batch?.rows?.get(0)?.selected, "Deselect all leaves duplicates as they are")
+            none.eventSink(ImportActivityEvent.AllShownSelected(true))
+            val all = awaitUntil { it.batch?.selectedCount == 3 }
 
-            all.eventSink(ImportActivityEvent.DiveToggled(0))
-            val ignored = awaitUntil { it.dives?.selectedCount == 2 }
-            assertEquals(DuplicateAction.Ignore, ignored.dives?.dives?.get(0)?.duplicate?.action)
-            ignored.eventSink(ImportActivityEvent.DiveToggled(0))
-            assertEquals(DuplicateAction.Combine, awaitUntil { it.dives?.selectedCount == 3 }.dives?.dives?.get(0)?.duplicate?.action)
+            all.eventSink(ImportActivityEvent.ItemToggled(0))
+            val ignored = awaitUntil { it.batch?.selectedCount == 2 }
+            assertEquals(DuplicateAction.Ignore, ignored.batch?.rows?.get(0)?.duplicate?.action)
+            ignored.eventSink(ImportActivityEvent.ItemToggled(0))
+            assertEquals(DuplicateAction.Combine, awaitUntil { it.batch?.selectedCount == 3 }.batch?.rows?.get(0)?.duplicate?.action)
             all.eventSink(ImportActivityEvent.DuplicateActionChanged(0, DuplicateAction.Ignore))
-            awaitUntil { it.dives?.selectedCount == 2 }.eventSink(ImportActivityEvent.SaveDives(persistentMapOf()))
-            navigator.awaitPop()
+            awaitUntil { it.batch?.selectedCount == 2 }.eventSink(ImportActivityEvent.SaveBatch(persistentMapOf()))
+            awaitUntil { it.batchSaved != null }
             cancelAndIgnoreRemainingEvents()
         }
         val saved = savedActivities().map { it.second }
@@ -382,11 +384,13 @@ class ImportLogbookPresenterTest {
         val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf(presenter(repos, navigator)) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
-            awaitUntil { it.dives != null }.eventSink(ImportActivityEvent.TimeZoneChanged("UTC"))
-            val checked = awaitUntil { it.dives?.clock?.zone?.id == "UTC" && it.duplicateCheck == DuplicateCheck.Done }
+            awaitUntil { it.batch != null }.eventSink(ImportActivityEvent.FileZoneChanged(0, "UTC"))
+            val checked = awaitUntil {
+                it.batch?.clocks?.singleOrNull()?.clock?.zone?.id == "UTC" && it.duplicateCheck == DuplicateCheck.Done
+            }
             checked.eventSink(ImportActivityEvent.DuplicateActionChanged(0, DuplicateAction.ImportAnyway))
-            awaitUntil { it.dives?.dives?.get(0)?.duplicate?.action == DuplicateAction.ImportAnyway }
-                .eventSink(ImportActivityEvent.SaveDives(persistentMapOf()))
+            awaitUntil { it.batch?.rows?.get(0)?.duplicate?.action == DuplicateAction.ImportAnyway }
+                .eventSink(ImportActivityEvent.SaveBatch(persistentMapOf()))
 
             val listed = awaitUntil { it.savedSuggestions != null }
             val suggestion = listed.savedSuggestions!!.single()
@@ -408,9 +412,9 @@ class ImportLogbookPresenterTest {
         val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf(presenter(repos, navigator)) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
-            awaitUntil { it.dives != null && it.duplicateCheck == DuplicateCheck.Done }
-                .eventSink(ImportActivityEvent.SaveDives(persistentMapOf()))
-            navigator.awaitPop()
+            awaitUntil { it.batch != null && it.duplicateCheck == DuplicateCheck.Done }
+                .eventSink(ImportActivityEvent.SaveBatch(persistentMapOf()))
+            awaitUntil { it.batchSaved != null }
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -500,11 +504,11 @@ class ImportLogbookPresenterTest {
         val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf(presenter(repos, navigator)) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("two-computers.uddf", logbook("10:02", "10:03")))
-            val read = awaitUntil { it.dives != null && it.duplicateCheck == DuplicateCheck.Done }
-            assertEquals(DuplicateAction.Combine, read.dives?.dives?.get(1)?.duplicate?.action)
-            assertEquals(2, read.dives?.selectedCount)
-            read.eventSink(ImportActivityEvent.SaveDives(persistentMapOf(1 to "Morning Dive")))
-            navigator.awaitPop()
+            val read = awaitUntil { it.batch != null && it.duplicateCheck == DuplicateCheck.Done }
+            assertEquals(DuplicateAction.Combine, read.batch?.rows?.get(1)?.duplicate?.action)
+            assertEquals(2, read.batch?.selectedCount)
+            read.eventSink(ImportActivityEvent.SaveBatch(persistentMapOf(1 to "Morning Dive")))
+            awaitUntil { it.batchSaved != null }
             cancelAndIgnoreRemainingEvents()
         }
         val (first, second, combined) = savedActivities()
@@ -538,12 +542,17 @@ class ImportLogbookPresenterTest {
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
-            awaitUntil { it.dives != null }.eventSink(ImportActivityEvent.TimeZoneChanged("America/Cancun"))
-            val cancun = awaitUntil { it.dives?.clock?.zone?.id == "America/Cancun" && it.duplicateCheck == DuplicateCheck.Done }
-            assertEquals(5, cancun.dives?.dives?.get(0)?.duplicate?.hoursApart, "the file's dive is 5 hours after the logged one")
+            awaitUntil { it.batch != null }.eventSink(ImportActivityEvent.FileZoneChanged(0, "America/Cancun"))
+            val cancun = awaitUntil {
+                it.batch?.clocks?.singleOrNull()?.clock?.zone?.id == "America/Cancun" && it.duplicateCheck == DuplicateCheck.Done
+            }
+            assertEquals(5, cancun.batch?.rows?.get(0)?.duplicate?.hoursApart, "the file's dive is 5 hours after the logged one")
 
-            cancun.eventSink(ImportActivityEvent.TimeZoneChanged("UTC"))
-            assertEquals(0, awaitUntil { it.dives?.clock?.zone?.id == "UTC" }.dives?.dives?.get(0)?.duplicate?.hoursApart)
+            cancun.eventSink(ImportActivityEvent.FileZoneChanged(0, "UTC"))
+            assertEquals(
+                0,
+                awaitUntil { it.batch?.clocks?.singleOrNull()?.clock?.zone?.id == "UTC" }.batch?.rows?.get(0)?.duplicate?.hoursApart,
+            )
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -571,11 +580,11 @@ class ImportLogbookPresenterTest {
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("two-computers.uddf", logbook("10:02", "10:03", "14:30")))
-            val read = awaitUntil { it.duplicateCheck == DuplicateCheck.Failed && it.dives != null }
-            val batch = assertNotNull(read.dives)
-            assertEquals(listOf(null, 0, null), batch.dives.map { it.duplicate?.inFileIndex })
-            assertEquals(listOf(true, true, true), batch.dives.map { it.selected }, "the copy combines with the first")
-            assertEquals(0 to 1, batch.existingDuplicates to batch.inFileDuplicates)
+            val read = awaitUntil { it.duplicateCheck == DuplicateCheck.Failed && it.batch != null }
+            val batch = assertNotNull(read.batch)
+            assertEquals(listOf(null, 0, null), batch.rows.map { it.duplicate?.inBatchIndex })
+            assertEquals(listOf(true, true, true), batch.rows.map { it.selected }, "the copy combines with the first")
+            assertEquals(0 to 1, batch.existingDuplicates to batch.inBatchDuplicates)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -604,11 +613,13 @@ class ImportLogbookPresenterTest {
         }) {
             // Both computers' copies of the logged dive: one matches the log, the other the log too.
             awaitItem().eventSink(ImportActivityEvent.FilePicked("two-computers.uddf", logbook("10:02", "10:03")))
-            awaitUntil { it.dives != null }.eventSink(ImportActivityEvent.TimeZoneChanged("UTC"))
-            val checked = awaitUntil { it.dives?.clock?.zone?.id == "UTC" && it.duplicateCheck == DuplicateCheck.Done }
-            val batch = assertNotNull(checked.dives)
+            awaitUntil { it.batch != null }.eventSink(ImportActivityEvent.FileZoneChanged(0, "UTC"))
+            val checked = awaitUntil {
+                it.batch?.clocks?.singleOrNull()?.clock?.zone?.id == "UTC" && it.duplicateCheck == DuplicateCheck.Done
+            }
+            val batch = assertNotNull(checked.batch)
             assertEquals(2, batch.selectedCount, "both combine with the logged dive")
-            assertEquals(false, batch.hasNonDuplicates, "so the screen offers no Select all")
+            assertEquals(false, batch.selectable.isNotEmpty(), "so the screen offers no Select all")
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -628,13 +639,13 @@ class ImportLogbookPresenterTest {
         val navigator = FakeNavigator(ImportActivityScreen())
         presenterTestOf(presenter(repos, navigator)) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
-            val read = awaitUntil { it.dives != null && it.gear?.selected == listOf(bcd) }
+            val read = awaitUntil { it.batch != null && it.gear?.selected == listOf(bcd) }
             read.visibility.eventSink(VisibilityEvent.CategoryChanged(DetailCategory.GEAR, Visibility.PUBLIC))
             val public = awaitUntil { s ->
                 s.visibility.categories.any { it.category == DetailCategory.GEAR && it.visibility == Visibility.PUBLIC }
             }
-            public.eventSink(ImportActivityEvent.SaveDives(persistentMapOf(1 to "Afternoon Dive", 2 to "Evening Dive")))
-            navigator.awaitPop()
+            public.eventSink(ImportActivityEvent.SaveBatch(persistentMapOf(1 to "Afternoon Dive", 2 to "Evening Dive")))
+            awaitUntil { it.batchSaved != null }
             cancelAndIgnoreRemainingEvents()
         }
         val saved = savedActivities()

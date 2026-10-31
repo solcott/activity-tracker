@@ -220,7 +220,16 @@ class FeedRepository(
      * AppView has, plus any still in the outbox (published moments ago, or offline), which it hasn't seen yet. An import compares its
      * activities against these to find duplicates.
      */
-    suspend fun ownActivitiesStartedBetween(since: Instant, until: Instant, sport: String? = null): List<OwnActivity> {
+    suspend fun ownActivitiesStartedBetween(since: Instant, until: Instant, sport: String? = null): List<OwnActivity> =
+        ownActivitiesInRange(since, until, sport).activities
+
+    /** [ownActivitiesStartedBetween], reading at most [maxPages] pages, and whether the AppView had more ([OwnActivityRange.truncated]). */
+    suspend fun ownActivitiesInRange(
+        since: Instant,
+        until: Instant,
+        sport: String? = null,
+        maxPages: Int = MAX_RANGE_PAGES,
+    ): OwnActivityRange {
         val indexed = mutableListOf<OwnActivity>()
         var cursor: String? = null
         var pages = 0
@@ -232,7 +241,7 @@ class FeedRepository(
                 )
             indexed += page.activities.map { OwnActivity(it.uri, it.cid, it.record, it.visibilityOrPublic, it.combinedInto) }
             cursor = page.cursor
-        } while (cursor != null && ++pages < MAX_RANGE_PAGES)
+        } while (cursor != null && ++pages < maxPages)
         val known = indexed.mapTo(mutableSetOf()) { it.uri }
         val pending =
             db.outbox()
@@ -241,7 +250,7 @@ class FeedRepository(
                 .filter { (uri, _, record) ->
                     uri !in known && record.startedAt >= since && record.startedAt < until && (sport == null || record.sport == sport)
                 }
-        return (indexed + pending).sortedBy { it.record.startedAt }
+        return OwnActivityRange((indexed + pending).sortedBy { it.record.startedAt }, truncated = cursor != null)
     }
 
     /**
@@ -309,9 +318,6 @@ class FeedRepository(
         const val PROFILE_NOT_FOUND = "ProfileNotFound"
         const val TIMELINE = "timeline"
 
-        /** 5,000 activities: far more than one import spans, and a bound on a misbehaving cursor. */
-        const val MAX_RANGE_PAGES = 50
-
         fun authorKey(did: String) = "author:$did"
     }
 }
@@ -336,3 +342,6 @@ private suspend fun AppDatabase.trackFilteredFeed(key: String) {
 private fun List<ActivityView>.toFeedItems(key: String, shown: (ActivityView) -> ActivityView) = mapIndexed { index, view ->
     FeedItemEntity(key, view.uri.value, index, AtJson.encodeToString(ActivityView.serializer(), shown(view)))
 }
+
+/** 5,000 activities: far more than one search window holds, and a bound on a misbehaving cursor. */
+internal const val MAX_RANGE_PAGES = 50

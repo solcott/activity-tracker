@@ -18,7 +18,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -43,8 +42,8 @@ import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.app.ui.sportLabel
 import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.app.ui.theme.UiPlatform
-import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.action_cancel
 import io.github.solcott.activitytracker.composeApp.resources.action_save
 import io.github.solcott.activitytracker.composeApp.resources.action_saving
 import io.github.solcott.activitytracker.composeApp.resources.default_title_afternoon
@@ -57,6 +56,7 @@ import io.github.solcott.activitytracker.composeApp.resources.import_original_to
 import io.github.solcott.activitytracker.composeApp.resources.import_pick
 import io.github.solcott.activitytracker.composeApp.resources.import_pick_another
 import io.github.solcott.activitytracker.composeApp.resources.import_reading
+import io.github.solcott.activitytracker.composeApp.resources.import_reading_progress
 import io.github.solcott.activitytracker.composeApp.resources.import_threshold_change
 import io.github.solcott.activitytracker.composeApp.resources.import_threshold_change_sport
 import io.github.solcott.activitytracker.composeApp.resources.import_thresholds_heading
@@ -72,26 +72,22 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.training.ThresholdChange
 import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.Threshold
+import io.github.vinceglb.filekit.dialogs.FileKitMode
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
-import io.github.vinceglb.filekit.name
-import io.github.vinceglb.filekit.readBytes
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.coroutines.launch
-import kotlinx.io.bytestring.ByteString
+import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.stringResource
 
 @CircuitInject(ImportActivityScreen::class, SessionScope::class)
 @Composable
 fun ImportActivityUi(state: ImportActivityState, modifier: Modifier = Modifier) {
-    val scope = rememberCoroutineScope()
-    // Unfiltered: Android and iOS have no MIME type or UTType for .fit, so an extension filter hides the files. The presenter checks it.
+    // Unfiltered: Android and iOS have no MIME type or UTType for .fit, so an extension filter hides the files. The presenter checks them.
+    // Each picked file is read a range at a time, never whole: an account export can be gigabytes.
     val pick =
-        rememberFilePickerLauncher(type = FileKitType.File()) { file ->
-            file ?: return@rememberFilePickerLauncher
-            scope.launch {
-                runSuspendCatching { file.readBytes() }
-                    .onSuccess { state.eventSink(ImportActivityEvent.FilePicked(file.name, ByteString(it))) }
+        rememberFilePickerLauncher(type = FileKitType.File(), mode = FileKitMode.Multiple()) { files ->
+            if (!files.isNullOrEmpty()) {
+                state.eventSink(ImportActivityEvent.FilesPicked(files.map { it.toImportSource() }.toImmutableList()))
             }
         }
     val scrollBehavior = rememberAppTopBarScrollBehavior()
@@ -122,9 +118,11 @@ fun ImportActivityUi(state: ImportActivityState, modifier: Modifier = Modifier) 
         ) { padding ->
             val saved = state.savedSuggestions
             val after = state.afterImport
+            val batch = state.batch
             when {
                 after != null -> AfterImportPanel(after, state.eventSink, padding)
-                saved != null -> SavedSuggestions(saved, state.eventSink, padding)
+                saved != null || state.batchSaved != null -> SavedSuggestions(state.batchSaved, saved, state.eventSink, padding)
+                batch != null -> BatchContent(state, batch, padding, pick::launch)
                 wide && preview != null -> WidePreview(state, preview, padding, save, pick::launch)
                 else -> NarrowContent(state, padding, width, pick::launch)
             }
@@ -147,7 +145,6 @@ private fun NarrowContent(state: ImportActivityState, padding: PaddingValues, wi
                 PreviewContent(state, preview, medium = width == WindowWidth.Medium)
                 SavePanel(state, save = null)
             }
-            state.dives?.let { DiveBatchForm(state, it) }
         }
     }
 }
@@ -173,18 +170,25 @@ private fun WidePreview(state: ImportActivityState, preview: ImportPreview, padd
     }
 }
 
-/** Picking a file, and how reading it went. */
+/** Picking files, and how reading them went: progress and Cancel while they're read. */
 @Composable
-private fun PickSection(state: ImportActivityState, onPick: () -> Unit) {
-    val picked = state.preview != null || state.dives != null
-    Column(verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
+internal fun PickSection(state: ImportActivityState, onPick: () -> Unit, modifier: Modifier = Modifier) {
+    val picked = state.preview != null || state.batch != null
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
         if (!picked) Text(stringResource(Res.string.import_hint))
         AppSecondaryButton(onClick = onPick, enabled = !state.reading && !state.saving) {
             Text(stringResource(if (picked) Res.string.import_pick_another else Res.string.import_pick))
         }
         if (state.reading) {
             AppProgressIndicator()
-            Text(stringResource(Res.string.import_reading))
+            val progress = state.readProgress
+            Text(
+                if (progress == null) stringResource(Res.string.import_reading)
+                else stringResource(Res.string.import_reading_progress, formatWhole(progress.files), formatWhole(progress.activities))
+            )
+            AppTextButton(onClick = { state.eventSink(ImportActivityEvent.CancelReading) }) {
+                Text(stringResource(Res.string.action_cancel))
+            }
         }
         state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
         if (picked && state.originalTooLarge) {
