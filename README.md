@@ -146,9 +146,44 @@ and every PDS and `did:web` on the local stack is `localhost`. It logs a warning
 - **Android** (emulator, or a device over USB/wireless adb): run `adb reverse tcp:2582 tcp:2582` (and 2583,
   8081) so the device's `localhost` reaches the stack. Repeat after the emulator/device reconnects.
 - **iOS Simulator** shares the Mac's network, so it needs nothing extra.
-- **Physical iPhone** is not supported against the local stack: the PDS identifies itself as
-  `http://localhost:2583` (in DID docs and as the OAuth issuer), which a phone can't reach, and iOS has
-  no `adb reverse`. That needs a config against public services instead.
+- **Physical iPhone or iPad** (or any device off your Mac) needs **device mode**, below: in localhost mode the
+  PDS identifies itself as `http://localhost:2583` (in DID docs and as the OAuth issuer), which a phone can't
+  reach, and iOS has no `adb reverse`.
+
+### Device mode (physical phones)
+
+Device mode puts the PDS, PLC and the AppView on stable public HTTPS hostnames through a named Cloudflare
+tunnel, so a phone can sign in and upload from anywhere, on Wi-Fi or cellular. You need a domain whose
+nameservers are on Cloudflare (the free plan is enough). Use your own domain: nothing in the repo names one.
+
+1. Pick a host one label below your zone and add it to `local.properties`. PLC and the AppView get siblings,
+   because Cloudflare's free certificate covers `*.example.com` but not `*.dev.example.com`:
+
+   ```properties
+   activitytracker.deviceHost=dev.example.com   # PDS; PLC on plc-dev.example.com, AppView on appview-dev.example.com
+   ```
+
+2. Set it up once. This logs `cloudflared` in, creates the `activitytracker-dev` tunnel, adds the three DNS
+   records and writes `.dev/cloudflared-device.yml`:
+
+   ```bash
+   scripts/dev.sh device-setup
+   ```
+
+3. Switch the stack over. Accounts' DID documents name their PDS's hostname, so switching modes deletes the
+   local data (`--reset` asks first), and `scripts/dev.sh` refuses to start in the other mode without it:
+
+   ```bash
+   scripts/dev.sh --reset --seed alice
+   ```
+
+4. Rebuild the native apps. They read the device host from `local.properties` too, and the AppView's URL
+   (and so the redirect scheme) is now `appview-dev.example.com`. A free Personal Team signature is enough
+   on iOS.
+
+The PDS requires invite codes in device mode, since its hostname is public. The account scripts mint one
+through the admin API, so `--seed` and `create-account.sh` work as usual. Run `scripts/dev.sh down` when you
+aren't using it. To go back, remove `activitytracker.deviceHost` and run `scripts/dev.sh --reset`.
 
 ## Layout
 
