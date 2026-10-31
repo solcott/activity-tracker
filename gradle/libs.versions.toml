@@ -65,6 +65,8 @@ dataresult = "0.1.0"
 androidx-activity = "1.13.0"
 androidx-browser = "1.10.0"
 androidx-core = "1.19.1"
+androidx-lifecycle = "2.11.0"
+androidx-work = "2.11.2"
 playServicesLocation = "21.4.0"
 
 # Server
@@ -164,6 +166,8 @@ java-keyring = { module = "com.github.javakeyring:java-keyring", version.ref = "
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
 androidx-browser = { module = "androidx.browser:browser", version.ref = "androidx-browser" }
 androidx-core = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }
+androidx-lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "androidx-lifecycle" }
+androidx-work-runtime = { module = "androidx.work:work-runtime", version.ref = "androidx-work" }
 play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServicesLocation" }
 
 exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }
