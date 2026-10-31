@@ -11,6 +11,8 @@ import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.uistate.ContentState
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -64,6 +66,10 @@ object FeedSamples {
     val unsent: FeedState
         get() = state(ContentStates.loaded(activities)).copy(pendingWrites = 1, rejectedChanges = 2)
 
+    /** Loaded, with an import's 3,000 changes waiting out the server's rate limit until 3:40 PM (data/outbox). */
+    val paused: FeedState
+        get() = state(ContentStates.loaded(activities)).copy(pendingWrites = 3000, uploadPausedUntil = Fixed.NOW + 3.hours + 40.minutes)
+
     val all: Map<String, FeedState>
         get() =
             mapOf(
@@ -74,5 +80,6 @@ object FeedSamples {
                 SampleKind.REFRESHING to refreshing,
                 SampleKind.REFRESH_FAILED to refreshFailed,
                 "unsent" to unsent,
+                "paused" to paused,
             )
 }

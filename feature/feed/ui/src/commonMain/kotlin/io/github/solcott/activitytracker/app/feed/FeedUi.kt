@@ -31,8 +31,11 @@ import androidx.compose.ui.unit.dp
 import com.slack.circuit.codegen.annotations.CircuitInject
 import com.slack.circuit.subcircuit.SubCircuitContent
 import io.github.solcott.activitytracker.app.UiError
+import io.github.solcott.activitytracker.app.detail.timeFormat
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterOuterEvent
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
+import io.github.solcott.activitytracker.app.ui.LocalClock
+import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
 import io.github.solcott.activitytracker.app.ui.activityItems
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
@@ -70,9 +73,14 @@ import io.github.solcott.activitytracker.composeApp.resources.feed_segments_body
 import io.github.solcott.activitytracker.composeApp.resources.feed_segments_not_now
 import io.github.solcott.activitytracker.composeApp.resources.feed_segments_title
 import io.github.solcott.activitytracker.composeApp.resources.feed_segments_turn_on
+import io.github.solcott.activitytracker.composeApp.resources.feed_upload_paused
+import io.github.solcott.activitytracker.composeApp.resources.feed_upload_paused_tomorrow
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.uistate.isLoading
+import kotlin.time.Instant
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.datetime.format
+import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -189,10 +197,19 @@ private fun Timeline(
             }
             if (state.pendingWrites > 0) {
                 item {
-                    Text(
-                        pluralStringResource(Res.plurals.feed_pending_writes, state.pendingWrites, state.pendingWrites),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                    Column {
+                        Text(
+                            pluralStringResource(Res.plurals.feed_pending_writes, state.pendingWrites, state.pendingWrites),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        state.uploadPausedUntil?.let { until ->
+                            Text(
+                                pausedUntil(until),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
             }
             item {
@@ -279,3 +296,13 @@ private fun scopeLabel(scope: FeedScope): String =
         FeedScope.Following -> stringResource(Res.string.feed_filter_following)
         FeedScope.Mine -> stringResource(Res.string.feed_filter_mine)
     }
+
+/** "Paused by the server until 3:40 PM", or "until tomorrow at" when the pause ends after midnight (data/outbox). */
+@Composable
+private fun pausedUntil(until: Instant): String {
+    val zone = LocalTimeZone.current
+    val end = until.toLocalDateTime(zone)
+    val time = end.format(timeFormat())
+    return if (end.date > LocalClock.current.now().toLocalDateTime(zone).date) stringResource(Res.string.feed_upload_paused_tomorrow, time)
+    else stringResource(Res.string.feed_upload_paused, time)
+}

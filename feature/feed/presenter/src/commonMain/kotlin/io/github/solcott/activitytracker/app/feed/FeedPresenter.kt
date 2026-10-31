@@ -25,6 +25,7 @@ import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
+import io.github.solcott.activitytracker.data.activity.OutboxPacer
 import io.github.solcott.activitytracker.data.activity.RejectedChanges
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -53,6 +54,7 @@ fun FeedPresenter(
     clock: Clock,
     segmentPrefs: SegmentPrefsRepository,
     rejected: RejectedChanges,
+    pacer: OutboxPacer,
 ): FeedState {
     val viewerDid = profiles.did.value
     // Retained, so the scope and filter survive opening an activity and coming back.
@@ -64,6 +66,7 @@ fun FeedPresenter(
     val query = remember(filter) { filter.toActivityFilter(clock.todayIn(zone), zone) }
     val mine = scope == FeedScope.Mine
     val pending by activities.pendingWrites.collectAsState(0)
+    val pausedUntil by pacer.pausedUntil.collectAsState(null)
     val rejectedChanges by remember { rejected.changes.map { it.size } }.collectAsState(0)
     var error by remember { mutableStateOf<UiError?>(null) }
     var refreshKey by remember { mutableIntStateOf(0) }
@@ -101,6 +104,7 @@ fun FeedPresenter(
         content,
         error,
         pending,
+        pausedUntil,
         viewerDid,
         locationTracker.isSupported,
         scope,

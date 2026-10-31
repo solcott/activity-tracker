@@ -18,11 +18,13 @@ import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
+import io.github.solcott.activitytracker.data.activity.OutboxPacer
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.activity.RejectedChanges
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.OutboxEntity
+import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
@@ -61,6 +63,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.collections.immutable.persistentSetOf
@@ -72,6 +75,7 @@ import kotlinx.datetime.atStartOfDayIn
 class FeedPresenterTest {
     private val http = HttpClient(MockEngine { respond("", HttpStatusCode.NotFound) }) { expectSuccess = false }
 
+    @Suppress("LongParameterList") // What each test reaches for.
     private class Repos(
         val feed: FeedRepository,
         val activities: ActivityRepository,
@@ -79,7 +83,11 @@ class FeedPresenterTest {
         val segmentPrefs: SegmentPrefsRepository,
         val rejected: RejectedChanges,
         val db: AppDatabase,
-    )
+        val clients: SessionClients,
+    ) {
+        /** The session's outbox loop, as `App` runs it. */
+        val pacer = OutboxPacer(db, clients, activities, Clock.System, Logger)
+    }
 
     private suspend fun repos(): Repos {
         val (db, _, clients) = signedInTestSession(http)
@@ -115,6 +123,7 @@ class FeedPresenterTest {
             segmentsOf(clients).prefs,
             RejectedChanges(db, clients, zones.outbox, feed, localLikes),
             db,
+            clients,
         )
     }
 
@@ -126,7 +135,7 @@ class FeedPresenterTest {
     ) {
         val r = repos().apply { seed() }
         presenterTestOf(
-            { FeedPresenter(navigator, r.feed, r.activities, r.profiles, tracker, Clock.System, r.segmentPrefs, r.rejected) },
+            { FeedPresenter(navigator, r.feed, r.activities, r.profiles, tracker, Clock.System, r.segmentPrefs, r.rejected, r.pacer) },
             timeout = TURBINE_TIMEOUT,
             block = block,
         )
@@ -254,6 +263,7 @@ class FeedPresenterTest {
                     Clock.System,
                     segmentsOf(clients).prefs,
                     RejectedChanges(db, clients, zones.outbox, feed, localLikes),
+                    OutboxPacer(db, clients, activities, Clock.System, Logger),
                 )
             },
             timeout = TURBINE_TIMEOUT,
@@ -464,6 +474,42 @@ class FeedPresenterTest {
             assertTrue(state.canRecord)
             state.eventSink(FeedEvent.Record)
             assertEquals(RecordScreen, navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun aServerPauseShowsUntilWhenWhileChangesWait() = runTest {
+        val until = Clock.System.now() + 2.hours
+        var queued = 0L
+        val seed: suspend Repos.() -> Unit = {
+            clients.pacing.pause(until)
+            queued =
+                db.outbox()
+                    .insert(
+                        OutboxEntity(
+                            did = "did:plc:alice",
+                            operation = "put",
+                            collection = Nsid.FEED_LIKE,
+                            rkey = "3klike",
+                            recordJson = "{}",
+                            createdAt = 0,
+                        )
+                    )
+        }
+        var repos: Repos? = null
+        presenterTest(
+            FakeNavigator(FeedScreen),
+            FakeLocationTracker(),
+            {
+                seed()
+                repos = this
+            },
+        ) {
+            val paused = awaitUntil { it.pendingWrites == 1 && it.uploadPausedUntil != null }
+            assertEquals(until, paused.uploadPausedUntil)
+            repos!!.db.outbox().delete(queued)
+            awaitUntil { it.pendingWrites == 0 && it.uploadPausedUntil == null }
             cancelAndIgnoreRemainingEvents()
         }
     }

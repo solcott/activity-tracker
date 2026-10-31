@@ -15,10 +15,13 @@ import androidx.compose.ui.test.v2.runComposeUiTest
 import com.slack.circuit.subcircuit.SubCircuitUiState
 import com.slack.circuit.subcircuit.SubScreen
 import com.slack.circuit.subcircuit.SubUi
+import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import io.github.solcott.activitytracker.app.ui.preview.PreviewSubUis
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Duration.Companion.hours
+import kotlinx.datetime.TimeZone
 
 /** The changes the server refused (data/outbox), and the feed's row that leads to them. */
 @OptIn(ExperimentalTestApi::class)
@@ -74,6 +77,24 @@ class UnsentChangesUiTest {
         onNodeWithText("Uploading 1 change…").assertExists()
         onNodeWithText("2 changes couldn't be published").performClick()
         assertEquals(listOf<FeedEvent>(FeedEvent.UnsentChanges), events)
+    }
+
+    @Test
+    fun theFeedSaysUntilWhenTheServerPausedUploads() = runComposeUiTest {
+        setContent {
+            AppPreview(subUis = FilterPlaceholder, now = Fixed.NOW, timeZone = TimeZone.UTC, use24Hour = false) {
+                FeedUi(FeedSamples.paused)
+            }
+        }
+        onNodeWithText("Uploading 3000 changes…").assertExists()
+        onNodeWithText("Paused by the server until 3:40 PM").assertExists()
+    }
+
+    @Test
+    fun aPauseEndingAfterMidnightSaysTomorrow() = runComposeUiTest {
+        val state = FeedSamples.paused.copy(uploadPausedUntil = Fixed.NOW + 13.hours)
+        setContent { AppPreview(subUis = FilterPlaceholder, now = Fixed.NOW, timeZone = TimeZone.UTC) { FeedUi(state) } }
+        onNodeWithText("Paused by the server until tomorrow at 01:00").assertExists()
     }
 
     /**

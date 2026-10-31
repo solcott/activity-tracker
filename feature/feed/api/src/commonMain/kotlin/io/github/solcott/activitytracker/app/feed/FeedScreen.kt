@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.uistate.ContentState
+import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableList
 
 @CircuitSerializable(SessionScope::class) data object FeedScreen : Screen
@@ -33,6 +34,8 @@ data class FeedState(
     val error: UiError?,
     /** Writes still uploading, apart from [rejectedChanges]. */
     val pendingWrites: Int,
+    /** Until when the server paused [pendingWrites]' upload (data/outbox); null while it isn't paused. */
+    val uploadPausedUntil: Instant? = null,
     /** The signed-in athlete, so the UI can leave likes off their own activities. */
     val viewerDid: String,
     /** Whether GPS recording is available here (phones only); otherwise only manual entry is offered. */
