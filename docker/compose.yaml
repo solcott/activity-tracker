@@ -6,6 +6,9 @@
 #   docker/scripts/create-account.sh alice
 #
 # Host ports: PLC 2582, PDS 2583, relay 2470, Jetstream 6008, Ozone 3010, AppView Postgres 5433.
+# Device mode instead gives the PDS a public hostname behind a Cloudflare tunnel (PDS_HOSTNAME, RELAY_CRAWL_HOST and
+# PDS_INVITE_REQUIRED in docker/.env, which scripts/dev.sh writes), so physical phones can sign in. Its URL is then
+# https://<host>, and the relay, Jetstream and the AppView reach it through the tunnel; the localhost patches go unused.
 # The PDS only serves plain HTTP when PDS_HOSTNAME=localhost, so its public URL is
 # http://localhost:2583. The relay and Jetstream share the PDS container's network namespace so
 # that "localhost:2583" (what DID documents say) reaches the PDS from inside Docker too.
@@ -55,12 +58,14 @@ services:
     platform: linux/amd64
     env_file: .env
     environment:
-      PDS_HOSTNAME: localhost
+      # Device mode (scripts/dev.sh with activitytracker.deviceHost set) writes its public hostname to docker/.env, which makes the
+      # PDS's URL https://<host> and turns on invites, since that hostname is reachable from anywhere.
+      PDS_HOSTNAME: ${PDS_HOSTNAME:-localhost}
       PDS_PORT: "2583"
       PDS_DEV_MODE: "true"
       PDS_DID_PLC_URL: http://plc:2582
       PDS_SERVICE_HANDLE_DOMAINS: .test
-      PDS_INVITE_REQUIRED: "false"
+      PDS_INVITE_REQUIRED: ${PDS_INVITE_REQUIRED:-false}
       PDS_DATA_DIRECTORY: /pds
       PDS_BLOBSTORE_DISK_LOCATION: /pds/blocks
       PDS_CRAWLERS: ""
@@ -124,7 +129,7 @@ services:
       - -H
       - "Content-Type: application/json"
       - -d
-      - '{"hostname":"localhost:2583"}'
+      - '{"hostname":"${RELAY_CRAWL_HOST:-localhost:2583}"}'
       - http://localhost:2470/admin/pds/requestCrawl
     depends_on:
       relay:

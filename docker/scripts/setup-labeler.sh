@@ -49,7 +49,7 @@ ensure_account() {
   if ! session=$(post "$pds" com.atproto.server.createSession \
     -d "{\"identifier\":\"$name.test\",\"password\":\"$TEST_ACCOUNT_PASSWORD\"}" 2>/dev/null); then
     session=$(post "$pds" com.atproto.server.createAccount \
-      -d "{\"handle\":\"$name.test\",\"email\":\"$name@example.test\",\"password\":\"$TEST_ACCOUNT_PASSWORD\"}")
+      -d "{$(scripts/invite-code.sh)\"handle\":\"$name.test\",\"email\":\"$name@example.test\",\"password\":\"$TEST_ACCOUNT_PASSWORD\"}")
     echo "created $name.test" >&2
   fi
   jq -r .did <<<"$session"

@@ -31,7 +31,7 @@ post() {
 login="{\"identifier\":\"$name.test\",\"password\":\"$TEST_ACCOUNT_PASSWORD\"}"
 if ! session=$(post com.atproto.server.createSession -d "$login" 2>/dev/null); then
   session=$(post com.atproto.server.createAccount \
-    -d "{\"handle\":\"$name.test\",\"email\":\"$name@example.test\",\"password\":\"$TEST_ACCOUNT_PASSWORD\"}")
+    -d "{$(scripts/invite-code.sh)\"handle\":\"$name.test\",\"email\":\"$name@example.test\",\"password\":\"$TEST_ACCOUNT_PASSWORD\"}")
   echo "created $name.test" >&2
 fi
 did=$(jq -r .did <<<"$session")

@@ -26,7 +26,7 @@ post() {
 }
 
 session=$(post "$pds/xrpc/com.atproto.server.createAccount" \
-  -d "{\"handle\":\"$handle\",\"email\":\"$name@example.test\",\"password\":\"$TEST_ACCOUNT_PASSWORD\"}")
+  -d "{$(scripts/invite-code.sh)\"handle\":\"$handle\",\"email\":\"$name@example.test\",\"password\":\"$TEST_ACCOUNT_PASSWORD\"}")
 
 did=$(echo "$session" | sed -E 's/.*"did":"([^"]+)".*/\1/')
 jwt=$(echo "$session" | sed -E 's/.*"accessJwt":"([^"]+)".*/\1/')
