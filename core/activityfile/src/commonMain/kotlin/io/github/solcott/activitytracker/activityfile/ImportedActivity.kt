@@ -94,6 +94,12 @@ data class ImportedActivity(
 
 private const val SECONDS_PER_MINUTE = 60
 
+/**
+ * This activity without its samples, streams and depth profile: what a batch keeps of each activity until it's previewed or saved, when
+ * it's read from its file again.
+ */
+fun ImportedActivity.summary(): ImportedActivity = copy(samples = emptyList(), streams = null, dive = dive?.copy(profile = emptyList()))
+
 /** Where this activity's clock was: its UTC offset as a fixed zone, else [fallback] (the zone the athlete placed a zone-less file in). */
 fun ImportedActivity.localZone(fallback: TimeZone): TimeZone =
     utcOffsetMinutes?.let { FixedOffsetTimeZone(UtcOffset(seconds = it * SECONDS_PER_MINUTE)) } ?: fallback

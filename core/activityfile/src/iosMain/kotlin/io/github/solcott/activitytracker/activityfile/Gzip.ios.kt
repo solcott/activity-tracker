@@ -29,8 +29,6 @@ import platform.zlib.z_stream
 /** zlib's window bits for a gzip (not zlib or raw deflate) stream: the maximum window, 15, plus 16. */
 private const val GZIP_WINDOW_BITS = 15 + 16
 
-private const val CHUNK_BYTES = 64 * 1024
-
 /** zlib's default memory level for deflate. */
 private const val DEFLATE_MEM_LEVEL = 8
 

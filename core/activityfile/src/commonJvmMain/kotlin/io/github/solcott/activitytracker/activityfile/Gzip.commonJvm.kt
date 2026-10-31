@@ -25,5 +25,3 @@ internal actual suspend fun gunzip(bytes: ByteArray, maxBytes: Int): ByteArray =
 
 internal actual suspend fun gzip(bytes: ByteArray): ByteArray =
     ByteArrayOutputStream().also { out -> GZIPOutputStream(out).use { it.write(bytes) } }.toByteArray()
-
-private const val CHUNK_BYTES = 64 * 1024

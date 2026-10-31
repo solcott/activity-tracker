@@ -11,7 +11,12 @@ kotlin {
         commonMain.dependencies {
             api(projects.coreLocation)
             api(libs.kotlinx.datetime)
+
             implementation(projects.coreLexicon)
+            // @Stable on ImportSource, which the import screen's events carry. Annotation-only, so harmless on the AppView classpath.
+            implementation(libs.compose.runtime.annotation)
+            // Garmin Connect exports' activity summaries.
+            implementation(libs.kotlinx.serialization.json)
             implementation(libs.xmlutil.core)
         }
         commonJvmMain.dependencies { implementation(libs.garmin.fit) }
