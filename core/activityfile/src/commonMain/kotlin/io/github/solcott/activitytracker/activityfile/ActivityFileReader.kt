@@ -45,14 +45,14 @@ class ActivityFileReader(private val fitDecoder: FitDecoder) {
         /**
          * UTF-8, or UTF-16 when the file starts with its byte-order mark. The XML prolog's `encoding` isn't trusted: Shearwater Cloud
          * declares "utf-16" on plain ASCII. Some exporters (Garmin's TCX among them) start with a UTF-8 byte-order mark, which isn't part
-         * of the XML.
+         * of the XML, and Strava's account exports put blank space before some TCX files' declaration, which XML doesn't allow: both go.
          */
         fun decodeText(bytes: ByteArray): String {
             val bigEndian =
                 when {
                     bytes.startsWith(0xFE, 0xFF) -> true
                     bytes.startsWith(0xFF, 0xFE) -> false
-                    else -> return bytes.decodeToString().removePrefix("\uFEFF")
+                    else -> return bytes.decodeToString().removePrefix("\uFEFF").trimStart()
                 }
             val chars =
                 CharArray((bytes.size - 2) / 2) { i ->
@@ -60,7 +60,7 @@ class ActivityFileReader(private val fitDecoder: FitDecoder) {
                     val low = bytes[2 + 2 * i + (if (bigEndian) 1 else 0)].toInt() and 0xFF
                     ((high shl 8) or low).toChar()
                 }
-            return chars.concatToString()
+            return chars.concatToString().trimStart()
         }
 
         private fun ByteArray.startsWith(first: Int, second: Int) = size >= 2 && this[0] == first.toByte() && this[1] == second.toByte()

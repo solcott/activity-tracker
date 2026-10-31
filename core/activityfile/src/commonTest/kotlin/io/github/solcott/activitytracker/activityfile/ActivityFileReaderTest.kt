@@ -98,6 +98,17 @@ class ActivityFileReaderTest {
     }
 
     @Test
+    fun readsXmlAfterLeadingBlankSpace() = runTest {
+        // Strava's account exports write some TCX files with spaces before the XML declaration, which XML itself doesn't allow.
+        val tcx =
+            """          <?xml version="1.0" encoding="UTF-8"?>
+              <TrainingCenterDatabase><Activities><Activity Sport="Running"><Id>2026-09-20T07:00:00Z</Id>
+              <Lap StartTime="2026-09-20T07:00:00Z"><TotalTimeSeconds>60</TotalTimeSeconds></Lap></Activity></Activities>
+              </TrainingCenterDatabase>"""
+        assertEquals(Sport.RUN, reader.read(tcx.encodeToByteArray()).single().type.sport)
+    }
+
+    @Test
     fun readsUtf16WithAByteOrderMark() = runTest {
         val xml = ShearwaterFixtures.dive()
         fun utf16(bigEndian: Boolean): ByteArray {
