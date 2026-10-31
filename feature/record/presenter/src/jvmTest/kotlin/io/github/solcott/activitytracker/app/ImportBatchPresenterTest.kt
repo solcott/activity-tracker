@@ -423,4 +423,71 @@ class ImportBatchPresenterTest {
 
     private fun gzip(bytes: ByteArray): ByteArray =
         ByteArrayOutputStream().also { out -> java.util.zip.GZIPOutputStream(out).use { it.write(bytes) } }.toByteArray()
+
+    @Test
+    fun theSameRideInTwoExportsIsSavedOnce() = runTest {
+        val ride = gpx("2026-09-01T09:00:00Z", minutes = 120, type = "cycling")
+        val csv = "Activity ID,Activity Name,Activity Type,Filename\n1,Saturday ride,Ride,activities/1.gpx\n"
+        val strava = zip("activities.csv" to csv.encodeToByteArray(), "activities/1.gpx" to ride)
+        val other = zip("rides/saturday.gpx" to ride)
+        presenterTestOf(presenter(fixture.repos(), FakeNavigator(ImportActivityScreen()))) {
+            awaitItem().eventSink(picked("strava.zip" to strava, "other.zip" to other))
+            val read = awaitUntil { it.batch != null && it.duplicateCheck == DuplicateCheck.Done }
+            val copy = assertNotNull(read.batch?.rows?.get(1)?.duplicate)
+            assertTrue(copy.exactCopy)
+            assertEquals(DuplicateAction.Ignore, copy.action)
+            assertEquals(1, read.batch?.exactCopies)
+            read.eventSink(ImportActivityEvent.SaveBatch(persistentMapOf()))
+            awaitUntil { it.batchSaved != null }
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(listOf("Saturday ride"), saved().map { it.second.title })
+    }
+
+    @Test
+    fun ignoringEveryShownDuplicateLeavesTheNewOnes() = runTest {
+        presenterTestOf(presenter(fixture.repos(), FakeNavigator(ImportActivityScreen()))) {
+            awaitItem()
+                .eventSink(
+                    picked(
+                        "watch.gpx" to gpx("2026-09-01T09:00:00Z", minutes = 120, type = "cycling"),
+                        "edge.gpx" to gpx("2026-09-01T08:58:00Z", minutes = 123, type = "cycling"),
+                        "run.gpx" to gpx("2026-09-03T07:00:00Z"),
+                    )
+                )
+            awaitUntil { it.batch != null && it.duplicateCheck == DuplicateCheck.Done }
+                .eventSink(ImportActivityEvent.FilterChanged(BatchFilter.Duplicates))
+            awaitUntil { it.batch?.filter == BatchFilter.Duplicates }
+                .eventSink(ImportActivityEvent.ShownDuplicatesAction(DuplicateAction.Ignore))
+            val ignored = awaitUntil { it.batch?.rows?.get(1)?.duplicate?.action == DuplicateAction.Ignore }
+            assertEquals(2, ignored.batch?.selectedCount)
+            ignored.eventSink(ImportActivityEvent.SaveBatch(persistentMapOf()))
+            awaitUntil { it.batchSaved != null }
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(2, saved().size)
+        assertTrue(saved().none { it.second.combined != null })
+    }
+
+    @Test
+    fun anOpenedDuplicateShowsWhatItRepeats() = runTest {
+        presenterTestOf(presenter(fixture.repos(), FakeNavigator(ImportActivityScreen()))) {
+            awaitItem()
+                .eventSink(
+                    picked(
+                        "watch.gpx" to gpx("2026-09-01T09:00:00Z", minutes = 120, type = "cycling"),
+                        "edge.gpx" to gpx("2026-09-01T08:58:00Z", minutes = 123, type = "cycling"),
+                    )
+                )
+            val read = awaitUntil { it.batch != null && it.duplicateCheck == DuplicateCheck.Done }
+            val first = assertNotNull(read.batch?.rows?.first())
+            read.eventSink(ImportActivityEvent.ItemOpened(1))
+            val matched = assertNotNull(awaitUntil { it.batch?.preview?.matched != null }.batch?.preview?.matched)
+            assertEquals(first.start, matched.start)
+            assertEquals(first.type, matched.type)
+            assertEquals(first.elapsed, matched.elapsed)
+            assertEquals(first.distanceMeters, matched.distanceMeters)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 }

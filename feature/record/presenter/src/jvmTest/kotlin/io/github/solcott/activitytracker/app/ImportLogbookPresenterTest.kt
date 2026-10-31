@@ -38,6 +38,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.collections.immutable.persistentMapOf
@@ -339,7 +340,10 @@ class ImportLogbookPresenterTest {
             }
             val batch = assertNotNull(checked.batch)
             val duplicate = assertNotNull(batch.rows[0].duplicate)
-            assertEquals(ExistingActivityPreview("Blue Hole", "2026-09-20 10:00", "Garmin Descent Mk3"), duplicate.existing)
+            assertEquals(
+                ExistingActivityPreview("Blue Hole", "2026-09-20 10:00", "Garmin Descent Mk3", ActivityType(Sport.DIVE), 40.minutes),
+                duplicate.existing,
+            )
             assertEquals(DuplicateAction.Combine, duplicate.action, "Combine is the default")
             assertEquals(
                 listOf(DuplicateAction.Ignore, DuplicateAction.ImportAnyway, DuplicateAction.Combine),

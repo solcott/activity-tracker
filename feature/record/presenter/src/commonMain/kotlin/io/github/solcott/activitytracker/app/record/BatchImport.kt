@@ -19,10 +19,8 @@ import io.github.solcott.activitytracker.data.activity.ActivityMatch
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.DraftSource
 import io.github.solcott.activitytracker.data.activity.DuplicateOf
-import io.github.solcott.activitytracker.data.activity.MatchSpan
 import io.github.solcott.activitytracker.data.activity.OwnActivity
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
-import io.github.solcott.activitytracker.data.activity.matchSpan
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.CombinedActivity
@@ -121,16 +119,25 @@ internal data class ItemOverride(val title: String? = null, val type: ActivityTy
 /**
  * Which of a batch's activities import, what to do with each duplicate, and the athlete's changes to each. One that isn't a duplicate
  * imports unless the athlete cleared it ([deselected]); a duplicate unless the athlete picked [DuplicateAction.Ignore] for it ([actions]).
- * A duplicate's action starts as Combine, or Ignore while what it repeats is still uploading.
+ * A duplicate's action starts as Ignore for an exact copy; in a [batch], Import anyway for one of another sport, so a chain of defaults
+ * never merges a day's different activities; else Combine, or Ignore while what it repeats is still uploading.
  */
 internal data class BatchSelection(
     val deselected: Set<Int> = emptySet(),
     val actions: Map<Int, DuplicateAction> = emptyMap(),
     val overrides: Map<Int, ItemOverride> = emptyMap(),
+    val batch: Boolean = false,
 ) {
     fun action(index: Int, match: ActivityMatch?): DuplicateAction =
-        actions[index]?.takeIf { it != DuplicateAction.Combine || canCombine(match) }
-            ?: if (canCombine(match)) DuplicateAction.Combine else DuplicateAction.Ignore
+        actions[index]?.takeIf { it != DuplicateAction.Combine || canCombine(match) } ?: defaultAction(match)
+
+    private fun defaultAction(match: ActivityMatch?): DuplicateAction =
+        when {
+            match?.exactCopy == true -> DuplicateAction.Ignore
+            batch && match?.sameSport == false -> DuplicateAction.ImportAnyway
+            canCombine(match) -> DuplicateAction.Combine
+            else -> DuplicateAction.Ignore
+        }
 
     fun isSelected(index: Int, match: ActivityMatch?): Boolean =
         if (match == null) index !in deselected else action(index, match) != DuplicateAction.Ignore
@@ -165,7 +172,18 @@ internal data class BatchSelection(
 
     fun withOverride(index: Int, override: ItemOverride): BatchSelection = copy(overrides = overrides + (index to override))
 
-    private fun selectedAction(match: ActivityMatch) = if (canCombine(match)) DuplicateAction.Combine else DuplicateAction.ImportAnyway
+    /**
+     * Sets [action] for each of [shown] that's a duplicate (its match from [matchOf]); Combine imports anyway one that can't combine yet.
+     */
+    fun withShownAction(action: DuplicateAction, shown: List<Int>, matchOf: (Int) -> ActivityMatch?): BatchSelection =
+        shown.fold(this) { next, index ->
+            val match = matchOf(index) ?: return@fold next
+            next.withAction(index, if (action == DuplicateAction.Combine && !canCombine(match)) DuplicateAction.ImportAnyway else action)
+        }
+
+    /** What ticking a duplicate chooses: Combine where it can, else Import anyway, and Import anyway for an exact copy. */
+    private fun selectedAction(match: ActivityMatch) =
+        if (canCombine(match) && !match.exactCopy) DuplicateAction.Combine else DuplicateAction.ImportAnyway
 }
 
 /** [item]'s title and type as it saves: the athlete's change, else its export's, else its file's. */
@@ -221,9 +239,6 @@ internal fun batchRows(
         }
         .toImmutableList()
 
-/** Each activity [placed] in its zone, as the matcher compares it. */
-internal fun List<ImportedActivity>.spans(): List<MatchSpan> = map { it.matchSpan() }
-
 /**
  * The batch's selected activities to save: groups to combine, each with a logged activity or among the batch's copies of one activity, and
  * the rest on their own, oldest first.
@@ -264,12 +279,14 @@ private sealed interface CombineRoot {
 
 /**
  * Where a chain of Combine choices from [index] leads: to the logged activity it repeats, or back through earlier copies in the batch to
- * the first one not combined further. One that isn't combined is its own root.
+ * the first one not combined further. One that isn't combined is its own root. A copy the athlete left out stands for what it repeats
+ * ([through]), so nothing is combined under an activity that isn't saved.
  */
-private tailrec fun rootOf(index: Int, matches: List<ActivityMatch?>, selection: BatchSelection): CombineRoot {
+private tailrec fun rootOf(index: Int, matches: List<ActivityMatch?>, selection: BatchSelection, through: Boolean = false): CombineRoot {
     val match = matches.getOrNull(index)
-    return when (val of = match?.of.takeIf { selection.action(index, match) == DuplicateAction.Combine }) {
-        is DuplicateOf.InBatch -> rootOf(of.index, matches, selection)
+    return when (val of = match?.of.takeIf { through || selection.action(index, match) == DuplicateAction.Combine }) {
+        is DuplicateOf.InBatch ->
+            rootOf(of.index, matches, selection, through = !selection.isSelected(of.index, matches.getOrNull(of.index)))
         is DuplicateOf.Existing -> combineTarget(match, DuplicateAction.Combine)?.let(CombineRoot::Logged) ?: CombineRoot.InBatch(index)
         null -> CombineRoot.InBatch(index)
     }

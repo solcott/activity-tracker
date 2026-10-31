@@ -172,6 +172,10 @@ data class ImportBatch(
     /** Activities that repeat an earlier one in this batch. */
     val inBatchDuplicates: Int
         get() = rows.count { it.duplicate?.inBatchIndex != null }
+
+    /** Duplicates that are the very same recording as what they repeat, of either kind. */
+    val exactCopies: Int
+        get() = rows.count { it.duplicate?.exactCopy == true }
 }
 
 /** Which of a batch's rows show. */
@@ -207,6 +211,8 @@ data class ImportItemPreview(
     val preview: ImportPreview? = null,
     val page: ActivityPageContent? = null,
     val error: UiError? = null,
+    /** For a duplicate, what it repeats (already logged, or earlier in the batch), to compare with it; null for any other. */
+    val matched: ExistingActivityPreview? = null,
 )
 
 enum class DuplicateCheck {
@@ -245,15 +251,23 @@ data class DuplicateInfo(
     val actions: ImmutableList<DuplicateAction>,
     /** The logged activity is still uploading, so [DuplicateAction.Combine] can't be chosen yet; Import anyway can. */
     val stillUploading: Boolean = false,
+    /** The very same recording as what it repeats (two exports of one upload, say), not another device's: Ignore by default. */
+    val exactCopy: Boolean = false,
 )
 
-/** An activity already in the athlete's log, as a duplicate warning (or the recording it's added to) names it. */
+/**
+ * An activity a duplicate repeats (already in the athlete's log, or earlier in the batch), as a duplicate warning (or the recording it's
+ * added to) names it. Its [type], [elapsed] and [distanceMeters] are there to compare with, where known.
+ */
 @Immutable
 data class ExistingActivityPreview(
     val title: String?,
     /** When it started, on the clock of the picked zone ("2024-05-12 10:02"). */
     val start: String,
     val device: String?,
+    val type: ActivityType? = null,
+    val elapsed: Duration? = null,
+    val distanceMeters: Double? = null,
 )
 
 /** One activity of an [ImportBatch], in SI units. */
@@ -468,6 +482,9 @@ sealed interface ImportActivityEvent {
 
     /** Selects or clears every [ImportBatch.selectable] activity; a duplicate's [DuplicateAction] follows. */
     data class AllShownSelected(val selected: Boolean) : ImportActivityEvent
+
+    /** Sets [action] for every duplicate the list shows; Combine imports anyway one that can't be combined yet. */
+    data class ShownDuplicatesAction(val action: DuplicateAction) : ImportActivityEvent
 
     /** Which of the batch's rows show. */
     data class FilterChanged(val filter: BatchFilter) : ImportActivityEvent

@@ -6,13 +6,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import io.github.solcott.activitytracker.activityfile.ImportedActivity
 import io.github.solcott.activitytracker.data.activity.ActivityMatch
 import io.github.solcott.activitytracker.data.activity.ActivityMatcher
 import io.github.solcott.activitytracker.data.activity.DuplicateOf
 import io.github.solcott.activitytracker.data.activity.MatchSpan
 import io.github.solcott.activitytracker.data.activity.OwnActivity
+import io.github.solcott.activitytracker.data.activity.matchSpan
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.ownActivitiesAround
+import io.github.solcott.activitytracker.lexicon.app.ActivityType
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.datetime.TimeZone
@@ -65,12 +69,23 @@ internal fun duplicateInfo(match: ActivityMatch?, action: DuplicateAction, zone:
     val of = match?.of ?: return null
     val existing = (of as? DuplicateOf.Existing)?.activity?.record
     return DuplicateInfo(
-        existing = existing?.let { ExistingActivityPreview(it.title, it.startedAt.toLocalDateTime(zone).format(LOCAL_START), it.device) },
+        existing =
+            existing?.let {
+                ExistingActivityPreview(
+                    it.title,
+                    it.startedAt.toLocalDateTime(zone).format(LOCAL_START),
+                    it.device,
+                    ActivityType(it.sport, it.subSport),
+                    it.elapsedTime.seconds,
+                    it.distance?.toDouble(),
+                )
+            },
         inBatchIndex = (of as? DuplicateOf.InBatch)?.index,
         hoursApart = match.hoursApart,
         action = action,
         actions = ACTIONS,
         stillUploading = !canCombine(match),
+        exactCopy = match.exactCopy,
     )
 }
 
@@ -90,3 +105,14 @@ internal fun canCombine(match: ActivityMatch?): Boolean =
 /** The logged activity to combine [match]'s with, when the athlete chose to. */
 internal fun combineTarget(match: ActivityMatch?, action: DuplicateAction): OwnActivity? =
     (match?.of as? DuplicateOf.Existing)?.activity?.takeIf { action == DuplicateAction.Combine && it.cid != null }
+
+/** This earlier activity of the batch as a duplicate of it is compared with. */
+internal fun ImportRow.compared(): ExistingActivityPreview = ExistingActivityPreview(title, start, device, type, elapsed, distanceMeters)
+
+/** Each activity [placed] in its zone, as the matcher compares it. */
+internal fun List<ImportedActivity>.spans(): List<MatchSpan> = map { it.matchSpan() }
+
+/** The batch's activities [placed] in their zones, as the matcher compares them: each as the sport it saves as unless changed. */
+internal fun ScannedBatch.spans(placed: List<ImportedActivity>): List<MatchSpan> = placed.mapIndexed { index, activity ->
+    activity.matchSpan(items[index].type(null).sport)
+}

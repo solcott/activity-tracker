@@ -142,7 +142,10 @@ fun ImportActivityPresenter(
         remember(picked, scanned) { (scanned?.items?.map { it.summary } ?: picked?.second)?.map { it.matchSpan() }?.toImmutableList() }
     val own = rememberOwnActivities(feed, spans, search = !adding.requested)
     // Matched where the athlete placed the clock: a zone change can make or break a duplicate.
-    val matches = remember(placed, placedBatch, own) { importMatches((placedBatch ?: listOfNotNull(placed?.second)).spans(), own) }
+    val matches =
+        remember(placed, placedBatch, own) {
+            importMatches(placedBatch?.let { scanned?.spans(it) } ?: listOfNotNull(placed?.second).spans(), own)
+        }
     val tooFar = adding.tooFar(placed?.second)
     // Keyed on the zone too: a zone with the same offset leaves the activity as it was.
     val preview = remember(placed, zones, zone, matches, selection) { singlePreview(placed, zone, zones, matches, selection) }
@@ -228,6 +231,10 @@ fun ImportActivityPresenter(
                             },
                         page = openedPage.takeIf { openedActivity != null },
                         error = openedError,
+                        matched =
+                            row.duplicate?.let { duplicate ->
+                                duplicate.existing ?: duplicate.inBatchIndex?.let(rowList::getOrNull)?.compared()
+                            },
                     )
                 },
             progress = saveProgress,
@@ -297,6 +304,7 @@ fun ImportActivityPresenter(
                         else -> {
                             batchFiles = files
                             scanned = found
+                            selection = BatchSelection(batch = true)
                         }
                     }
                 }
@@ -428,6 +436,9 @@ fun ImportActivityPresenter(
                     )
 
             is ImportActivityEvent.DuplicateActionChanged -> selection = selection.withAction(event.index, event.action)
+
+            is ImportActivityEvent.ShownDuplicatesAction ->
+                selection = selection.withShownAction(event.action, batch?.shown?.map { it.index }.orEmpty(), matches::getOrNull)
 
             is ImportActivityEvent.SaveBatch ->
                 flights.launch(ImportActivityEvent.Save::class) {
