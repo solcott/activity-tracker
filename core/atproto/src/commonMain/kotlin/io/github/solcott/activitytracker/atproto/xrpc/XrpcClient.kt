@@ -25,17 +25,21 @@ import io.ktor.http.URLBuilder
 import io.ktor.http.appendPathSegments
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlinx.serialization.KSerializer
 
 /**
  * Minimal XRPC client. One instance talks to one service (a user's PDS or the AppView); auth is pluggable via [RequestAuthenticator] (DPoP
- * for the PDS, service-auth JWTs for the AppView).
+ * for the PDS, service-auth JWTs for the AppView). [onRateLimit] hears the [RateLimit] of every response that states one, success or not.
  */
 class XrpcClient(
     private val http: HttpClient,
     private val serviceUrl: () -> String,
     private val authenticator: RequestAuthenticator? = null,
     private val extraHeaders: Map<String, String> = emptyMap(),
+    private val onRateLimit: ((RateLimit) -> Unit)? = null,
+    private val clock: Clock = Clock.System,
 ) {
     constructor(
         http: HttpClient,
@@ -102,9 +106,11 @@ class XrpcClient(
                 configure()
                 authenticator?.authenticate(this, nsid)
             }
+            val now = clock.now()
+            if (onRateLimit != null) RateLimit.of(response.headers, now)?.let(onRateLimit)
             if (response.status.isSuccess()) return response
             if (attempt++ < MAX_RETRIES && authenticator?.shouldRetry(response) == true) continue
-            throw response.toXrpcException()
+            throw response.toXrpcException(now)
         }
     }
 
@@ -129,10 +135,16 @@ private fun URLBuilder.takeFrom(other: URLBuilder) {
 /** Caps how much of a non-JSON error body ends up in an exception message. */
 private const val MAX_ERROR_BODY_CHARS = 500
 
-internal suspend fun HttpResponse.toXrpcException(): XrpcException {
+internal suspend fun HttpResponse.toXrpcException(now: Instant = Clock.System.now()): XrpcException {
     val text = runSuspendCatching { bodyAsText() }.getOrDefault("")
     val body = runCatching { AtJson.decodeFromString(XrpcErrorBody.serializer(), text) }.getOrNull()
-    return XrpcException(status.value, body?.error ?: "HttpError", body?.message ?: text.take(MAX_ERROR_BODY_CHARS))
+    return XrpcException(
+        status.value,
+        body?.error ?: "HttpError",
+        body?.message ?: text.take(MAX_ERROR_BODY_CHARS),
+        rateLimit = RateLimit.of(headers, now),
+        retryAfter = RateLimit.retryAfter(headers, now),
+    )
 }
 
 /**
@@ -147,7 +159,17 @@ class XrpcResponse<O>(val value: O, val headers: Headers)
 /** The output of [XrpcClient.queryBytes]. */
 class XrpcBytes(val bytes: ByteArray, val contentType: String?)
 
-class XrpcException(val status: Int, val error: String, override val message: String?) : Exception("XRPC $status $error: $message")
+/**
+ * A failed XRPC call. [rateLimit] is the limit the response stated, and [retryAfter] when a 429 said to try again; both null when the
+ * server sent no such headers.
+ */
+class XrpcException(
+    val status: Int,
+    val error: String,
+    override val message: String?,
+    val rateLimit: RateLimit? = null,
+    val retryAfter: Instant? = null,
+) : Exception("XRPC $status $error: $message")
 
 /** Adds credentials to outgoing requests and decides whether a failed response is retryable. */
 interface RequestAuthenticator {
