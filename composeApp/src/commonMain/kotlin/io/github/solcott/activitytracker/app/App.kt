@@ -73,6 +73,8 @@ fun App(graph: AppGraph, modifier: Modifier = Modifier, onRootPop: () -> Unit = 
                 LaunchedEffect(Unit) { sessionGraph.activityRepository.repairRoutesOnSave() }
                 // Session-long too: leaderboard brackets refreshed at sign-in (a birthday) and after each profile save.
                 LaunchedEffect(Unit) { sessionGraph.leaderboardBrackets.refreshOnSave() }
+                // Session-long: queued writes go on their own, waiting out the PDS's rate limits (data/outbox).
+                LaunchedEffect(Unit) { sessionGraph.outboxPacer.run() }
                 // Once per account: legacy `recordingOf` groups become combined activities (retried each sign-in until all succeed).
                 LaunchedEffect(Unit) { sessionGraph.legacyGroupMigration.runOncePerSession() }
                 // So the AppView knows this athlete (and others can find them) before they post anything.

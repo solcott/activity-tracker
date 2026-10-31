@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.CombineSuggestions
+import io.github.solcott.activitytracker.data.activity.OutboxPacer
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.auth.AuthRepository
@@ -504,6 +505,8 @@ class SessionTestFixture {
         val gearCollections: GearCollections,
         val devices: ActivityDevicesStore,
         val places: ActivityPlaces,
+        /** The session's outbox loop, as `App` runs it; a test starts it ([OutboxPacer.run]) when writes should go on their own. */
+        val pacer: OutboxPacer,
     ) {
         /** The gear picker's producer, as Metro injects it into the record, manual entry, import and edit presenters. */
         val gearChoices: GearChoices
@@ -585,6 +588,7 @@ class SessionTestFixture {
             gearCollections,
             zones.devices,
             places,
+            OutboxPacer(db, clients, activities, Clock.System, Logger),
         )
     }
 }

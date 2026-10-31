@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityMatch
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
+import io.github.solcott.activitytracker.data.activity.BulkWrites
 import io.github.solcott.activitytracker.data.activity.DraftSource
 import io.github.solcott.activitytracker.data.activity.DuplicateOf
 import io.github.solcott.activitytracker.data.activity.OwnActivity
@@ -384,7 +385,8 @@ internal suspend fun saveBatch(
     plan: BatchPlan,
     drafting: BatchDrafting,
     onProgress: (SaveProgress) -> Unit,
-): BatchResult {
+): BatchResult = BulkWrites.run {
+    // Every write the batch queues, combines included, waits behind the athlete's own (data/outbox).
     val total = plan.alone.size + plan.groups.sumOf { it.items.size }
     var queued = 0
     var skipped = 0
@@ -427,7 +429,7 @@ internal suspend fun saveBatch(
         queued++
         onProgress(SaveProgress(queued + skipped, total))
     }
-    return BatchResult(published, saved = queued, skipped = skipped)
+    BatchResult(published, saved = queued, skipped = skipped)
 }
 
 /** Activities read again and drafted at a time while saving a batch: few enough to hold, many enough to keep reads few. */

@@ -467,13 +467,12 @@ fun ImportActivityPresenter(
                             saveBatch(activities, manager, batchPlan(scan.items.size, matches, selection), drafting) { saveProgress = it }
                         val small = result.published.size <= MAX_SUGGESTED
                         val next: suspend () -> Unit = {
-                            // A small batch is sent before it's summed up, as a single save is; a large one goes on sending while the
-                            // athlete reads the summary (leaving stops it, and the feed sends the rest).
+                            // A small batch is sent before it's summed up, as a single save is; a large one is the session's pacer's
+                            // to send, waiting out the PDS's limits whatever screen is open (data/outbox).
                             if (small) runSuspendCatching { activities.sync() }
                             batchSaved = BatchSaved(result.saved, result.skipped)
                             // Suggestions ask the AppView about each saved activity: only for a batch small enough to look through.
                             if (small) savedSuggestions = savedSuggestionsFor(result.published, suggestions).takeIf { it.isNotEmpty() }
-                            if (!small) runSuspendCatching { activities.sync() }
                         }
                         val after = newDevices.afterSave(linked, result.published.map { it.first }.toSet())
                         if (after == null) next()

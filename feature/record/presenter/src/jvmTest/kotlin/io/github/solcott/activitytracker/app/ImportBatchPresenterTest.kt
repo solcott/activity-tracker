@@ -39,7 +39,12 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -442,6 +447,28 @@ class ImportBatchPresenterTest {
             cancelAndIgnoreRemainingEvents()
         }
         assertEquals(listOf("Saturday ride"), saved().map { it.second.title })
+    }
+
+    @Test
+    @Suppress("InjectDispatcher") // The pacer runs on real threads, as the app's does, apart from the presenter's test clock.
+    fun aLargeImportIsSentByTheSessionsPacerWithNoFeedLoad() = runTest {
+        val repos = fixture.repos()
+        // As `App` runs it for the session.
+        backgroundScope.launch(Dispatchers.Default) { repos.pacer.run() }
+        val days = 60
+        val files =
+            (1..days).map { day ->
+                "run$day.gpx" to gpx("2026-07-${(day % 28 + 1).toString().padStart(2, '0')}T0${day % 10}:00:00Z", minutes = 1)
+            }
+        presenterTestOf(presenter(repos, FakeNavigator(ImportActivityScreen()))) {
+            awaitItem().eventSink(picked(*files.toTypedArray()))
+            awaitUntil { it.batch != null && it.duplicateCheck == DuplicateCheck.Done }
+                .eventSink(ImportActivityEvent.SaveBatch(persistentMapOf()))
+            awaitUntil { it.batchSaved != null }
+            cancelAndIgnoreRemainingEvents()
+        }
+        withContext(Dispatchers.Default) { withTimeout(30.seconds) { repos.activities.pendingWrites.first { it == 0 } } }
+        assertEquals(days, saved().size, "every activity reached the PDS though nothing synced after the save")
     }
 
     @Test
