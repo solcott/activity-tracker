@@ -22,6 +22,8 @@ class NativeOAuthConventionPluginTest {
                         appviewPublicUrl.set(nativeOAuth.appviewPublicUrl)
                         redirectScheme.set(nativeOAuth.redirectScheme)
                         labelerDid.set(nativeOAuth.labelerDid)
+                        plcUrl.set(nativeOAuth.plcUrl)
+                        handleResolverUrl.set(nativeOAuth.handleResolverUrl)
                         outputDir.set(layout.buildDirectory.dir("generated"))
                     }
                     """
@@ -45,6 +47,28 @@ class NativeOAuthConventionPluginTest {
         assertContains(generated, """APPVIEW_PUBLIC_URL = "http://localhost:8081"""")
         assertContains(generated, """REDIRECT_SCHEME = "localhost"""")
         assertContains(generated, """LABELER_DID = """"")
+        assertContains(generated, """PLC_URL = "http://localhost:2582"""")
+        assertContains(generated, """HANDLE_RESOLVER_URL = "http://localhost:2583"""")
+    }
+
+    @Test
+    fun `device host moves PLC and the handle resolver to it and its sibling`() {
+        projectDir.resolve("local.properties").writeText("$DEVICE_HOST_PROPERTY=dev.example.com\n")
+
+        generate()
+
+        assertContains(generated, """PLC_URL = "https://plc-dev.example.com"""")
+        assertContains(generated, """HANDLE_RESOLVER_URL = "https://dev.example.com"""")
+    }
+
+    @Test
+    fun `device host gradle property wins and is trimmed`() {
+        projectDir.resolve("local.properties").writeText("$DEVICE_HOST_PROPERTY=dev.example.com\n")
+
+        generate("-P$DEVICE_HOST_PROPERTY= https://phone.example.org/ ")
+
+        assertContains(generated, """PLC_URL = "https://plc-phone.example.org"""")
+        assertContains(generated, """HANDLE_RESOLVER_URL = "https://phone.example.org"""")
     }
 
     @Test
@@ -112,5 +136,6 @@ class NativeOAuthConventionPluginTest {
 
     private companion object {
         const val PROPERTY = "activitytracker.appviewPublicUrl"
+        const val DEVICE_HOST_PROPERTY = "activitytracker.deviceHost"
     }
 }

@@ -21,6 +21,14 @@ object NetworkConfigs {
     const val NATIVE_APPVIEW_PUBLIC_URL = GeneratedNativeNetworkConfig.APPVIEW_PUBLIC_URL
     const val NATIVE_REDIRECT_SCHEME = GeneratedNativeNetworkConfig.REDIRECT_SCHEME
 
+    /**
+     * Identity endpoints for native builds: the local stack's unless `activitytracker.deviceHost` is set in `local.properties`, which moves
+     * them to the public hosts `scripts/dev.sh` tunnels to in device mode, so a physical phone can sign in. Web and desktop run on the Mac
+     * and keep [PLC_URL] and [HANDLE_RESOLVER_URL]: they resolve the same DIDs and then follow each DID document to the PDS.
+     */
+    const val NATIVE_PLC_URL = GeneratedNativeNetworkConfig.PLC_URL
+    const val NATIVE_HANDLE_RESOLVER_URL = GeneratedNativeNetworkConfig.HANDLE_RESOLVER_URL
+
     /** The labeler reports go to, `activitytracker.labelerDid` in `local.properties` (`scripts/dev.sh` writes the local Ozone's). */
     val LABELER_DID: Did? = GeneratedNativeNetworkConfig.LABELER_DID.takeIf(String::isNotEmpty)?.let(::Did)
 
@@ -28,14 +36,14 @@ object NetworkConfigs {
      * [origin] is the page origin. The OAuth loopback client only accepts 127.0.0.1 redirects, so the dev server binds there (see
      * `webpack.config.d/devserver.js`).
      */
-    fun web(origin: String): AtprotoConfig = config(APPVIEW_URL, OAuthClientConfig.loopback("$origin/"))
+    fun web(origin: String): AtprotoConfig = config(APPVIEW_URL, OAuthClientConfig.loopback("$origin/"), PLC_URL, HANDLE_RESOLVER_URL)
 
     /** Port of the desktop app's OAuth loopback listener (the web dev server has 8080, the AppView 8081). */
     const val DESKTOP_OAUTH_PORT = 8091
 
     /** Desktop uses the loopback client like web, with the redirect caught by a listener on [port], so it needs no tunnel. */
     fun desktop(port: Int = DESKTOP_OAUTH_PORT): AtprotoConfig =
-        config(APPVIEW_URL, OAuthClientConfig.loopback("http://127.0.0.1:$port/callback"))
+        config(APPVIEW_URL, OAuthClientConfig.loopback("http://127.0.0.1:$port/callback"), PLC_URL, HANDLE_RESOLVER_URL)
 
     fun native(): AtprotoConfig =
         config(
@@ -45,12 +53,14 @@ object NetworkConfigs {
                 redirectUri = "$NATIVE_REDIRECT_SCHEME:/oauth/callback",
                 scope = OAuthClientConfig.DEFAULT_SCOPE,
             ),
+            NATIVE_PLC_URL,
+            NATIVE_HANDLE_RESOLVER_URL,
         )
 
-    private fun config(appViewUrl: String, oauth: OAuthClientConfig) =
+    private fun config(appViewUrl: String, oauth: OAuthClientConfig, plcUrl: String, handleResolverUrl: String) =
         AtprotoConfig(
-            plcUrl = PLC_URL,
-            handleResolverUrl = HANDLE_RESOLVER_URL,
+            plcUrl = plcUrl,
+            handleResolverUrl = handleResolverUrl,
             appViewUrl = appViewUrl,
             appViewDid = "did:web:" + appViewUrl.substringAfter("://").substringBefore('/').replace(":", "%3A"),
             oauth = oauth,
