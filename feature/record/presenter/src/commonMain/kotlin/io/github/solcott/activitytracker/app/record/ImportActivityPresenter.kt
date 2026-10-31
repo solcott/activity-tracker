@@ -211,6 +211,7 @@ fun ImportActivityPresenter(
             skipped = scan.skipped,
             ignoredFiles = scan.ignored,
             export = scan.export,
+            exportPrivacy = scan.items.any { it.export?.visibility != null },
             originalsTooLarge = scan.files.filter { it.originalTooLarge }.map { it.name }.toImmutableList(),
             originalsBytes = batchSelected.map { scan.items[it].file }.distinct().sumOf { scan.files[it].originalBytes },
             preview =

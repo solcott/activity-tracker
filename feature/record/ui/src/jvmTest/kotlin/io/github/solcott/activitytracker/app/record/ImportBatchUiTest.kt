@@ -39,6 +39,13 @@ class ImportBatchUiTest {
     }
 
     @Test
+    fun anExportWithoutPrivacySaysEveryActivityTakesTheChosenVisibility() = runComposeUiTest {
+        val state = ImportActivitySamples.all.getValue("batchExport")
+        setContent { AppPreview { ImportActivityUi(state.copy(batch = state.batch?.copy(exportPrivacy = false))) } }
+        onNodeWithText("doesn't say who could see each activity", substring = true).assertExists()
+    }
+
+    @Test
     fun anOpenedActivityOffersOnlyItsTitleAndType() = runComposeUiTest {
         val events = mutableListOf<ImportActivityEvent>()
         val state = ImportActivitySamples.batchPreview.copy(eventSink = { events += it })

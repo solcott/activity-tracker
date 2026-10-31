@@ -759,6 +759,8 @@
     </plurals>
     <string name="import_batch_strava">From a Strava export: titles, descriptions, types and privacy come from it.</string>
     <string name="import_batch_garmin">From a Garmin Connect export: titles, types and privacy come from it.</string>
+    <string name="import_batch_strava_no_privacy">From a Strava export: titles, descriptions and types come from it. It doesn't say who could see each activity, so they all save as chosen below.</string>
+    <string name="import_batch_garmin_no_privacy">From a Garmin Connect export: titles and types come from it. It doesn't say who could see each activity, so they all save as chosen below.</string>
     <plurals name="import_batch_skipped">
         <item quantity="one">%1$s file couldn't be read:</item>
         <item quantity="other">%1$s files couldn't be read:</item>

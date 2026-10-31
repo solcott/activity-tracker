@@ -209,6 +209,7 @@ class ImportBatchPresenterTest {
             val read = awaitUntil { it.batch != null && it.duplicateCheck == DuplicateCheck.Done }
             assertEquals(listOf("Lunch loop", "Secret spot"), read.batch?.rows?.map { it.title })
             assertEquals(listOf(null, Visibility.SELF), read.batch?.rows?.map { it.narrowedTo })
+            assertEquals(true, read.batch?.exportPrivacy)
             read.eventSink(ImportActivityEvent.SaveBatch(persistentMapOf()))
             awaitUntil { it.batchSaved != null }
             cancelAndIgnoreRemainingEvents()

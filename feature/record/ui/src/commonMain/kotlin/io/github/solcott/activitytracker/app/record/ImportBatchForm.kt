@@ -43,6 +43,7 @@ import io.github.solcott.activitytracker.composeApp.resources.action_saving
 import io.github.solcott.activitytracker.composeApp.resources.dive_number
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_found
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_garmin
+import io.github.solcott.activitytracker.composeApp.resources.import_batch_garmin_no_privacy
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_ignored
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_month
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_narrowed_followers
@@ -53,6 +54,7 @@ import io.github.solcott.activitytracker.composeApp.resources.import_batch_save
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_saving
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_skipped
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_strava
+import io.github.solcott.activitytracker.composeApp.resources.import_batch_strava_no_privacy
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_uploading
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_visibility_heading
 import io.github.solcott.activitytracker.composeApp.resources.import_deselect_all
@@ -118,7 +120,14 @@ private fun BatchSummary(state: ImportActivityState, batch: ImportBatch, enabled
         )
         batch.export?.let { export ->
             Text(
-                stringResource(if (export == ExportKind.Strava) Res.string.import_batch_strava else Res.string.import_batch_garmin),
+                stringResource(
+                    when {
+                        export == ExportKind.Strava && batch.exportPrivacy -> Res.string.import_batch_strava
+                        export == ExportKind.Strava -> Res.string.import_batch_strava_no_privacy
+                        batch.exportPrivacy -> Res.string.import_batch_garmin
+                        else -> Res.string.import_batch_garmin_no_privacy
+                    }
+                ),
                 style = MaterialTheme.typography.bodyMedium,
             )
         }

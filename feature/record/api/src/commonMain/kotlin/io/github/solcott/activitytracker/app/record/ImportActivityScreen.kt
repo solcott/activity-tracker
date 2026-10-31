@@ -126,8 +126,10 @@ data class ImportBatch(
     val skipped: ImmutableList<SkippedFile> = persistentListOf(),
     /** Archive members that aren't activity files (photos, notes), left out. */
     val ignoredFiles: Int = 0,
-    /** The account export the activities came in, whose titles, types and privacy they take; null for any other files. */
+    /** The account export the activities came in, whose titles and types they take; null for any other files. */
     val export: ExportKind? = null,
+    /** Whether the [export] says who could see its activities (Strava's doesn't); else each saves at the batch's visibility. */
+    val exportPrivacy: Boolean = false,
     /** Files over 10 MB even compressed, whose activities import without their original. */
     val originalsTooLarge: ImmutableList<String> = persistentListOf(),
     /** At most how many bytes of original files the selected activities keep on this device until they're uploaded. */
