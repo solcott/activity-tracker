@@ -1,0 +1,155 @@
+# feed/batch-import Specification
+
+## Purpose
+
+Lets an athlete import many activities at once from several files, compressed archives or a whole Strava or Garmin Connect account export: review them, decline any, and save the rest as one batch.
+
+## Requirements
+
+### Requirement: Several files in one pick
+The import screen SHALL let the athlete pick several files at once on every platform. Every activity read from the picked files SHALL join one batch.
+
+#### Scenario: A week of watch files
+- **WHEN** an athlete picks five FIT files at once
+- **THEN** the import screen shows one batch holding the five activities
+
+#### Scenario: One file with one activity
+- **WHEN** an athlete picks a single GPX file
+- **THEN** the import screen shows that activity's preview form, as before
+
+### Requirement: Archives are opened
+A picked file SHALL be read as a zip archive when it is one, and each member SHALL be read as if it had been picked, including gzipped members and zips inside the zip. Members that are not activity files SHALL be skipped. A gzipped file SHALL keep importing as today.
+
+#### Scenario: Zip of FIT files
+- **WHEN** an athlete picks `rides.zip` holding three FIT files and a `readme.txt`
+- **THEN** the batch holds the three rides, and the screen says one file was skipped
+
+#### Scenario: Gzip inside a zip
+- **WHEN** a picked zip holds `activities/123.fit.gz`
+- **THEN** the batch holds the activity read from the decompressed FIT file
+
+#### Scenario: Zip inside a zip
+- **WHEN** a picked zip holds `UploadedFiles_0-_Part1.zip`, which holds FIT files
+- **THEN** the batch holds the activities from those FIT files
+
+### Requirement: Archive limits
+Reading an archive SHALL stop at limits on each member's decompressed size, on the archive's total decompressed size and on its number of members. Members past a limit SHALL be skipped with a reason, and the rest of the batch SHALL still import.
+
+#### Scenario: Decompression bomb
+- **WHEN** a picked zip holds a member that decompresses past the per-member limit
+- **THEN** that member is listed as skipped, too large, and the other members import
+
+### Requirement: Unreadable files are reported
+A picked file or archive member that looks like an activity file but can't be read SHALL be listed in the batch as skipped, with its name and whether it was unsupported, damaged or too large. Skipped files SHALL NOT stop the rest of the batch.
+
+#### Scenario: One damaged file
+- **WHEN** an athlete picks four FIT files, one of them truncated
+- **THEN** the batch holds three activities and lists the truncated file as damaged
+
+### Requirement: Large archives import without holding them in memory
+An archive SHALL be read without loading it whole, and the batch SHALL keep only each activity's summary until the athlete previews or saves it. A batch of thousands of activities from an archive of several gigabytes SHALL be reviewable on a phone and in the browser.
+
+#### Scenario: Full account export on a phone
+- **WHEN** an athlete picks a 3 GB Strava export holding 2,000 activities on an Android phone
+- **THEN** the batch shows all 2,000 rows without the app running out of memory
+
+### Requirement: Reading shows progress and can be cancelled
+While picked files are read, the import screen SHALL show how many files and activities have been read so far. The athlete SHALL be able to cancel, which discards the batch and saves nothing.
+
+#### Scenario: Cancel a long read
+- **WHEN** an athlete cancels while a large export is still being read
+- **THEN** the screen returns to picking a file, and nothing is saved
+
+### Requirement: Strava exports are recognized
+A picked archive holding Strava's `activities.csv` and its `activities/` folder SHALL be read as a Strava export. Each activity file the CSV names SHALL take that row's name as its title and its description, and its type where the CSV's type maps to one of ours. A file the CSV doesn't name SHALL import as from any archive.
+
+#### Scenario: Titles from the export
+- **WHEN** an athlete imports a Strava export whose CSV names `activities/123.fit.gz` "Lunch loop" with description "Windy"
+- **THEN** that activity's row and saved title is "Lunch loop", with description "Windy"
+
+#### Scenario: Unmapped type
+- **WHEN** the CSV gives an activity a type the app doesn't know
+- **THEN** the activity keeps the type read from its file
+
+### Requirement: Garmin Connect exports are recognized
+A picked archive holding Garmin Connect's summarized activities JSON and its uploaded-files archives SHALL be read as a Garmin Connect export. Each activity file SHALL be matched to its summary by activity ID where the file name carries one, otherwise by start time and duration. A matched summary's name and type SHALL apply as for a Strava export.
+
+#### Scenario: Named Garmin activity
+- **WHEN** an athlete imports a Garmin export whose summary names activity 987654 "Track Tuesday" and whose uploaded files include that activity's FIT file
+- **THEN** the activity's title is "Track Tuesday"
+
+### Requirement: Export privacy never widens visibility
+When an export says an activity is private or followers-only, that activity's visibility SHALL be the narrower of the export's setting (Only me for private, Followers for followers-only) and the batch's visibility. An export setting of everyone SHALL use the batch's visibility. Detail categories SHALL stay within the activity's visibility.
+
+#### Scenario: Private Strava activity in a Public batch
+- **WHEN** an athlete imports a Strava export with batch visibility Public and one activity marked Only You
+- **THEN** that activity is saved as Only me, and the others as Public
+
+#### Scenario: Export wider than the batch
+- **WHEN** the batch's visibility is Followers and an activity's export setting is everyone
+- **THEN** the activity is saved as Followers
+
+#### Scenario: Export without privacy
+- **WHEN** an athlete imports an export that gives no activity a privacy setting, as Strava's `activities.csv` doesn't
+- **THEN** the batch form says the export doesn't say who could see each activity, and every activity saves at the batch's visibility
+
+### Requirement: Combining never widens a narrowed activity
+Combining SHALL NOT widen any activity's visibility. Copies combined within a batch SHALL all be saved at the narrowest of their visibilities. A copy narrower than the logged activity it repeats SHALL be saved on its own instead of combined, and the logged activity SHALL be left unchanged.
+
+#### Scenario: Private copy combined with a public one
+- **WHEN** a batch holds a public ride and an Only me copy of it from the export, and the athlete keeps Combine
+- **THEN** both and their combined activity are saved as Only me
+
+#### Scenario: Private copy of a public logged activity
+- **WHEN** a batch's Only me activity repeats a public activity already logged, and the athlete keeps Combine
+- **THEN** it is saved on its own as Only me, and the logged activity is not changed
+
+### Requirement: The batch form lists every activity
+An import of two or more activities SHALL show the batch form. It SHALL list one row per activity, oldest first and grouped by month. Each row SHALL give the activity's title or default title, type, start, duration and distance, or maximum depth for a dive, and its device. A count of selected, duplicate and skipped items SHALL be shown.
+
+#### Scenario: Mixed batch
+- **WHEN** an athlete picks a zip holding a run, a ride and a dive
+- **THEN** the batch form lists the three with their types, the dive showing its depth
+
+### Requirement: Activities can be declined
+Each row SHALL have a checkbox, every non-duplicate selected at first. The athlete SHALL be able to select or deselect all and filter the list to all, new or duplicate activities. Only selected activities SHALL be saved, and select or deselect all SHALL apply to the activities the filter shows.
+
+#### Scenario: Decline two
+- **WHEN** an athlete deselects two of ten activities and saves
+- **THEN** eight activities are saved, and the two declined aren't in their log
+
+#### Scenario: Deselect duplicates only
+- **WHEN** an athlete filters to duplicates and taps Deselect all
+- **THEN** every duplicate is deselected and the new activities stay selected
+
+### Requirement: Each activity can be previewed
+Tapping a row SHALL open a preview of that activity showing its map, stats and charts, as the single-file preview shows them. The preview SHALL let the athlete change only its title and type. It SHALL NOT offer visibility, categories, gear or description.
+
+#### Scenario: Check a ride before saving
+- **WHEN** an athlete taps a ride's row
+- **THEN** they see its map, distance, time and heart rate chart, and fields for its title and type only
+
+### Requirement: Title and type overrides apply to one activity
+A title or type changed in an activity's preview SHALL apply only to that activity, and its row SHALL show the change. Saving SHALL use it. A blank title SHALL save as the default title for its type and start.
+
+#### Scenario: Fix a GPX with no sport
+- **WHEN** an athlete changes a GPX activity's type from Run to Hike in its preview and saves the batch
+- **THEN** that activity is saved as a hike, and the others keep their types
+
+### Requirement: Batch-wide settings
+Visibility, detail categories and gear SHALL be chosen once for the batch and apply to every selected activity, subject to export privacy. Categories SHALL be offered for any data any selected activity has. Each picked file whose times have no zone SHALL have its own zone choice, applied to every activity read from it.
+
+#### Scenario: Two dive logs from different trips
+- **WHEN** an athlete picks two zone-less dive logs in one batch
+- **THEN** the batch offers a zone for each log, and changing one moves only that log's dives
+
+### Requirement: Saving a batch
+Saving SHALL publish every selected activity, oldest first, and handle each duplicate as the athlete chose. An activity whose data can't be read again at save SHALL be skipped and reported, and the rest SHALL still be saved. After saving, the screen SHALL say how many were saved and skipped.
+
+#### Scenario: Batch saved
+- **WHEN** an athlete saves a batch of 40 selected activities
+- **THEN** 40 activities are queued for their log and the screen says 40 were saved
+
+#### Scenario: Source vanished before save
+- **WHEN** a picked file can no longer be read when the athlete saves
+- **THEN** its activities are reported as skipped, and the others are saved

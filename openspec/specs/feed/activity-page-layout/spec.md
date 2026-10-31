@@ -227,7 +227,7 @@ The import screen SHALL keep its choices (type, title, description, photos, visi
 - **THEN** the save panel follows the preview, and Save is in a bottom action bar
 
 ### Requirement: Import notices above the preview
-The import screen's duplicate notice and its time zone choice for a file without one SHALL show above the preview, since they change what it shows. A logbook of several dives SHALL keep its batch form in place of the preview.
+The import screen's duplicate notice and its time zone choice for a file without one SHALL show above the preview, since they change what it shows. An import of several activities, from a logbook or from several files or an archive, SHALL show its batch form in place of the preview.
 
 #### Scenario: Zone-less dive log
 - **WHEN** the athlete picks a dive log whose times have no zone
@@ -235,6 +235,10 @@ The import screen's duplicate notice and its time zone choice for a file without
 
 #### Scenario: Logbook
 - **WHEN** the athlete picks a logbook of several dives
+- **THEN** they see the batch form, not a single activity's preview
+
+#### Scenario: Several files
+- **WHEN** the athlete picks two FIT files at once
 - **THEN** they see the batch form, not a single activity's preview
 
 ### Requirement: Charts break at gaps in their samples
