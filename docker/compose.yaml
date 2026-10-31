@@ -66,6 +66,9 @@ services:
       PDS_CRAWLERS: ""
       # The image defaults to 5 MiB, below the 10 MB maxSize of feed.activityTrack and feed.activitySource blobs.
       PDS_BLOB_UPLOAD_LIMIT: "10485760"
+      # Off by default; `PDS_RATE_LIMITS_ENABLED=true docker compose up -d pds` turns on the PDS's real limits to check the outbox's
+      # pacing (data/outbox). Limits are kept in memory, so restarting the PDS resets them.
+      PDS_RATE_LIMITS_ENABLED: ${PDS_RATE_LIMITS_ENABLED:-false}
       # Account whose com.atproto.lexicon.schema records the PDS resolves lexicons from, so OAuth can grant
       # space: scopes for our space types. scripts/dev.sh creates it and fills this in (publish-lexicons.sh).
       PDS_LEXICON_AUTHORITY_DID: ${PDS_LEXICON_AUTHORITY_DID:-}
