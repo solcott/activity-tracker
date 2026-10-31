@@ -7,9 +7,15 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Your location is used to record the route of your activities.</string>
 	<!-- Recording goes on with the screen locked; IosLocationTracker turns allowsBackgroundLocationUpdates on. -->
+	<!-- Queued writes upload in the background (IosBackgroundUploads, data/outbox). -->
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
+		<string>processing</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>io.github.solcott.activitytracker.outbox</string>
 	</array>
 	<!-- Local docker stack is plain HTTP on localhost. -->
 	<key>NSAppTransportSecurity</key>

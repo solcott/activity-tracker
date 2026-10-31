@@ -38,10 +38,14 @@ interface IosAppGraph : AppGraph {
 
 private var graph: IosAppGraph? = null
 
-/** Entry point used by `iosApp/iosApp/ContentView.swift`. The graph is created once, by the first call. */
+/** The app's one graph, created by the first caller: the UI, or a background upload when iOS launches the app for one. */
+internal fun appGraph(fitDecoder: FitDecoder): IosAppGraph =
+    graph ?: createGraphFactory<IosAppGraph.Factory>().create(fitDecoder).also { graph = it }
+
+/** Entry point used by `iosApp/iosApp/ContentView.swift`. */
 @Suppress("FunctionName", "unused")
 fun MainViewController(fitDecoder: FitDecoder): UIViewController {
-    val appGraph = graph ?: createGraphFactory<IosAppGraph.Factory>().create(fitDecoder).also { graph = it }
+    val appGraph = appGraph(fitDecoder)
     return ComposeUIViewController { App(appGraph) }
 }
 
