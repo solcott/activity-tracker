@@ -194,7 +194,12 @@ object ImportActivitySamples {
             row(0, "2024-04-28 07:02", ActivityType(Sport.RUN), "Easy run", "run.fit").copy(distanceMeters = 8_120.0),
             row(1, "2024-05-03 18:15", ActivityType(Sport.RIDE), null, "ride.fit").copy(distanceMeters = 42_300.0),
             row(2, "2024-05-03 18:16", ActivityType(Sport.RIDE), null, "edge.fit")
-                .copy(distanceMeters = 42_100.0, selected = false, duplicate = logged.copy(existing = null, inBatchIndex = 1)),
+                // The same upload as ride.fit, found again in another export: an exact copy, left out.
+                .copy(
+                    distanceMeters = 42_100.0,
+                    selected = false,
+                    duplicate = logged.copy(existing = null, inBatchIndex = 1, exactCopy = true, action = DuplicateAction.Ignore),
+                ),
             row(3, "2024-05-14 12:00", ActivityType(Sport.RUN), "Lunch loop", "lunch.gpx")
                 .copy(distanceMeters = 6_400.0, selected = false, duplicate = logged),
             row(4, "2024-05-20 09:30", ActivityType(Sport.DIVE), "Blue Hole", "dives.uddf")
@@ -250,11 +255,21 @@ object ImportActivitySamples {
                 mixed.copy(
                     preview =
                         ImportItemPreview(
-                            index = 1,
+                            index = 2,
                             title = TextFieldState(),
                             type = typeField,
                             defaultTitle = DefaultTitle(PartOfDay.Evening, ActivityType(Sport.RIDE)),
-                            preview = preview.copy(fileName = "ride.fit"),
+                            preview = preview.copy(fileName = "edge.fit"),
+                            // The earlier copy it repeats, ride.fit, to compare with.
+                            matched =
+                                ExistingActivityPreview(
+                                    title = null,
+                                    start = "2024-05-03 18:15",
+                                    device = "Garmin Forerunner 965",
+                                    type = ActivityType(Sport.RIDE),
+                                    elapsed = ROW_ELAPSED,
+                                    distanceMeters = 42_300.0,
+                                ),
                         )
                 )
             )

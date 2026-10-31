@@ -1,6 +1,8 @@
 package io.github.solcott.activitytracker.app.record
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
@@ -43,6 +45,37 @@ class ImportBatchUiTest {
         val state = ImportActivitySamples.all.getValue("batchExport")
         setContent { AppPreview { ImportActivityUi(state.copy(batch = state.batch?.copy(exportPrivacy = false))) } }
         onNodeWithText("doesn't say who could see each activity", substring = true).assertExists()
+    }
+
+    @Test
+    fun exactCopiesAreLabelledAndCounted() = runComposeUiTest {
+        // Filtered to duplicates, so the copy's row is near the top of the lazy list.
+        setContent { AppPreview { ImportActivityUi(ImportActivitySamples.all.getValue("batchDuplicates")) } }
+        onNodeWithText("1 is an exact copy of what it repeats.", substring = true).assertExists()
+        onNodeWithText("Exact copy of #2 in this import").assertExists()
+    }
+
+    @Test
+    fun theDuplicatesFilterSetsEveryShownDuplicateAtOnce() = runComposeUiTest {
+        val events = mutableListOf<ImportActivityEvent>()
+        val state = ImportActivitySamples.all.getValue("batchDuplicates").copy(eventSink = { events += it })
+        setContent { AppPreview { ImportActivityUi(state) } }
+        onNodeWithText("Set every duplicate shown to:").assertExists()
+        // The bulk buttons come before the rows' own choices.
+        onAllNodesWithText("Ignore").onFirst().performClick()
+        assertEquals(
+            listOf(ImportActivityEvent.ShownDuplicatesAction(DuplicateAction.Ignore)),
+            events.filterIsInstance<ImportActivityEvent.ShownDuplicatesAction>(),
+        )
+    }
+
+    @Test
+    fun anOpenedDuplicateIsComparedWithWhatItRepeats() = runComposeUiTest {
+        setContent { AppPreview { ImportActivityUi(ImportActivitySamples.batchPreview) } }
+        onNodeWithText("This activity").assertExists()
+        onNodeWithText("Earlier in this import").assertExists()
+        onNodeWithText("Exact copy").assertExists()
+        onAllNodesWithText("Garmin Forerunner 965").onFirst().assertExists()
     }
 
     @Test

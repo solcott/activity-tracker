@@ -17,15 +17,20 @@ import io.github.solcott.activitytracker.composeApp.resources.duplicate_action_i
 import io.github.solcott.activitytracker.composeApp.resources.duplicate_action_import_anyway
 import io.github.solcott.activitytracker.composeApp.resources.import_combine_explained
 import io.github.solcott.activitytracker.composeApp.resources.import_combine_uploading
+import io.github.solcott.activitytracker.composeApp.resources.import_copy_explained
+import io.github.solcott.activitytracker.composeApp.resources.import_duplicate_copy_existing
+import io.github.solcott.activitytracker.composeApp.resources.import_duplicate_copy_in_file
 import io.github.solcott.activitytracker.composeApp.resources.import_duplicate_existing
 import io.github.solcott.activitytracker.composeApp.resources.import_duplicate_in_file
 import io.github.solcott.activitytracker.composeApp.resources.import_duplicate_shifted
 import io.github.solcott.activitytracker.composeApp.resources.import_duplicate_untitled
 import io.github.solcott.activitytracker.composeApp.resources.import_duplicates_checking
+import io.github.solcott.activitytracker.composeApp.resources.import_duplicates_copies
 import io.github.solcott.activitytracker.composeApp.resources.import_duplicates_existing
 import io.github.solcott.activitytracker.composeApp.resources.import_duplicates_failed
 import io.github.solcott.activitytracker.composeApp.resources.import_duplicates_in_file
 import io.github.solcott.activitytracker.composeApp.resources.import_duplicates_unchecked
+import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlin.math.abs
 import kotlinx.collections.immutable.toImmutableList
 import org.jetbrains.compose.resources.pluralStringResource
@@ -56,6 +61,7 @@ internal fun DuplicateWarning(
         )
         val explained =
             when {
+                info.exactCopy && info.action == DuplicateAction.Ignore -> stringResource(Res.string.import_copy_explained)
                 info.stillUploading -> stringResource(Res.string.import_combine_uploading)
                 info.action == DuplicateAction.Combine -> stringResource(Res.string.import_combine_explained)
                 else -> null
@@ -87,13 +93,14 @@ internal fun ImportActivityState.canSave(preview: ImportPreview): Boolean =
 
 /** Above a logbook's dives: how many are duplicates, or that the search for them is running or failed. */
 @Composable
-internal fun DuplicatesBanner(check: DuplicateCheck, existing: Int, inFile: Int, modifier: Modifier = Modifier) {
+internal fun DuplicatesBanner(check: DuplicateCheck, existing: Int, inFile: Int, modifier: Modifier = Modifier, copies: Int = 0) {
     val lines =
         listOfNotNull(
             stringResource(Res.string.import_duplicates_checking).takeIf { check == DuplicateCheck.Checking },
             stringResource(Res.string.import_duplicates_failed).takeIf { check == DuplicateCheck.Failed },
-            pluralStringResource(Res.plurals.import_duplicates_existing, existing, existing).takeIf { existing > 0 },
-            pluralStringResource(Res.plurals.import_duplicates_in_file, inFile, inFile).takeIf { inFile > 0 },
+            pluralStringResource(Res.plurals.import_duplicates_existing, existing, formatWhole(existing)).takeIf { existing > 0 },
+            pluralStringResource(Res.plurals.import_duplicates_in_file, inFile, formatWhole(inFile)).takeIf { inFile > 0 },
+            pluralStringResource(Res.plurals.import_duplicates_copies, copies, formatWhole(copies)).takeIf { copies > 0 },
             stringResource(Res.string.import_duplicates_unchecked).takeIf { existing + inFile > 0 },
         )
     if (lines.isEmpty()) return
@@ -108,15 +115,23 @@ internal fun DuplicatesBanner(check: DuplicateCheck, existing: Int, inFile: Int,
 @Composable
 private fun warningText(info: DuplicateInfo, inFileNumber: Int?): String {
     val existing = info.existing
-    if (existing == null) return stringResource(Res.string.import_duplicate_in_file, inFileNumber ?: 0)
+    if (existing == null) {
+        return stringResource(
+            if (info.exactCopy) Res.string.import_duplicate_copy_in_file else Res.string.import_duplicate_in_file,
+            inFileNumber ?: 0,
+        )
+    }
     val title = existing.title ?: stringResource(Res.string.import_duplicate_untitled)
     val details = listOfNotNull(title, existing.start, existing.device).joinToString(" · ")
-    return if (info.hoursApart == 0) stringResource(Res.string.import_duplicate_existing, details)
-    else stringResource(Res.string.import_duplicate_shifted, details, abs(info.hoursApart))
+    return when {
+        info.hoursApart != 0 -> stringResource(Res.string.import_duplicate_shifted, details, abs(info.hoursApart))
+        info.exactCopy -> stringResource(Res.string.import_duplicate_copy_existing, details)
+        else -> stringResource(Res.string.import_duplicate_existing, details)
+    }
 }
 
 @Composable
-private fun actionLabel(action: DuplicateAction): String =
+internal fun actionLabel(action: DuplicateAction): String =
     when (action) {
         DuplicateAction.Ignore -> stringResource(Res.string.duplicate_action_ignore)
         DuplicateAction.ImportAnyway -> stringResource(Res.string.duplicate_action_import_anyway)

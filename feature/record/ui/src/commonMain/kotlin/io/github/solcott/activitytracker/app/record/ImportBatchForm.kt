@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app.record
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,6 +34,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCheckbox
 import io.github.solcott.activitytracker.app.ui.adaptive.AppFilterChip
 import io.github.solcott.activitytracker.app.ui.adaptive.AppProgressIndicator
+import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
@@ -57,6 +59,11 @@ import io.github.solcott.activitytracker.composeApp.resources.import_batch_strav
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_strava_no_privacy
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_uploading
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_visibility_heading
+import io.github.solcott.activitytracker.composeApp.resources.import_bulk_duplicates
+import io.github.solcott.activitytracker.composeApp.resources.import_compare_exact
+import io.github.solcott.activitytracker.composeApp.resources.import_compare_in_import
+import io.github.solcott.activitytracker.composeApp.resources.import_compare_logged
+import io.github.solcott.activitytracker.composeApp.resources.import_compare_this
 import io.github.solcott.activitytracker.composeApp.resources.import_deselect_all
 import io.github.solcott.activitytracker.composeApp.resources.import_dives_details_hint
 import io.github.solcott.activitytracker.composeApp.resources.import_dives_none
@@ -74,6 +81,8 @@ import io.github.solcott.activitytracker.composeApp.resources.import_skip_too_la
 import io.github.solcott.activitytracker.composeApp.resources.import_skip_unsupported
 import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.Visibility
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableMap
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -107,7 +116,7 @@ internal fun BatchContent(state: ImportActivityState, batch: ImportBatch, paddin
             item(key = "settings") { BatchSettings(state, batch, enabled, Modifier.padding(vertical = 16.dp)) }
         }
     }
-    batch.preview?.let { ItemSheet(it, enabled, state.eventSink) }
+    batch.preview?.let { ItemSheet(it, batch.rows.getOrNull(it.index), enabled, state.eventSink) }
 }
 
 /** How many were read, what they came in, and what wasn't read or kept. */
@@ -142,7 +151,7 @@ private fun BatchSummary(state: ImportActivityState, batch: ImportBatch, enabled
                 )
             }
         }
-        DuplicatesBanner(state.duplicateCheck, batch.existingDuplicates, batch.inBatchDuplicates)
+        DuplicatesBanner(state.duplicateCheck, batch.existingDuplicates, batch.inBatchDuplicates, copies = batch.exactCopies)
         if (batch.skipped.isNotEmpty()) {
             val names = batch.skipped.map { skippedLabel(it) }
             Text(
@@ -216,6 +225,20 @@ private fun BatchFilters(state: ImportActivityState, batch: ImportBatch, enabled
                     enabled = enabled,
                 ) {
                     Text(stringResource(if (batch.allShownSelected) Res.string.import_deselect_all else Res.string.import_select_all))
+                }
+            }
+        }
+        if (batch.filter == BatchFilter.Duplicates && batch.shown.isNotEmpty()) {
+            Text(stringResource(Res.string.import_bulk_duplicates), style = MaterialTheme.typography.labelLarge)
+            // Buttons, not a segmented control: the shown duplicates can each be set differently, so none is "selected".
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                DuplicateAction.entries.forEach { action ->
+                    AppSecondaryButton(
+                        onClick = { state.eventSink(ImportActivityEvent.ShownDuplicatesAction(action)) },
+                        enabled = enabled,
+                    ) {
+                        Text(actionLabel(action))
+                    }
                 }
             }
         }
@@ -329,7 +352,7 @@ private fun BatchSettings(state: ImportActivityState, batch: ImportBatch, enable
 
 /** One of the batch's activities opened: its type and title, the only things to change here, then its page as it would publish. */
 @Composable
-private fun ItemSheet(item: ImportItemPreview, enabled: Boolean, eventSink: (ImportActivityEvent) -> Unit) {
+private fun ItemSheet(item: ImportItemPreview, row: ImportRow?, enabled: Boolean, eventSink: (ImportActivityEvent) -> Unit) {
     val close = { eventSink(ImportActivityEvent.ItemClosed) }
     AppBottomSheet(onDismiss = close, sheetState = rememberAppSheetState()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -350,6 +373,9 @@ private fun ItemSheet(item: ImportItemPreview, enabled: Boolean, eventSink: (Imp
                 lineLimits = TextFieldLineLimits.SingleLine,
             )
             item.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+            val matched = item.matched
+            val duplicate = row?.duplicate
+            if (row != null && matched != null && duplicate != null) Comparison(row, matched, duplicate)
             val preview = item.preview
             when {
                 preview != null -> {
@@ -358,6 +384,48 @@ private fun ItemSheet(item: ImportItemPreview, enabled: Boolean, eventSink: (Imp
                 }
                 item.error == null -> AppProgressIndicator()
             }
+        }
+    }
+}
+
+/** A duplicate beside what it repeats: sport, start, length, distance and device, one column each, and whether it's an exact copy. */
+@Composable
+private fun Comparison(row: ImportRow, matched: ExistingActivityPreview, duplicate: DuplicateInfo) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (duplicate.exactCopy) Text(stringResource(Res.string.import_compare_exact), style = MaterialTheme.typography.titleSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            CompareColumn(
+                stringResource(Res.string.import_compare_this),
+                persistentListOf(
+                    activityTypeLabel(row.type),
+                    row.start,
+                    Format.duration(row.elapsed),
+                    row.distanceMeters?.let { Format.distance(it) },
+                    row.device,
+                ),
+                Modifier.weight(1f),
+            )
+            CompareColumn(
+                stringResource(if (duplicate.existing != null) Res.string.import_compare_logged else Res.string.import_compare_in_import),
+                persistentListOf(
+                    matched.type?.let { activityTypeLabel(it) },
+                    matched.start,
+                    matched.elapsed?.let { Format.duration(it) },
+                    matched.distanceMeters?.let { Format.distance(it) },
+                    matched.device,
+                ),
+                Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompareColumn(heading: String, values: ImmutableList<String?>, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(heading, style = MaterialTheme.typography.labelLarge)
+        values.forEach { value ->
+            Text(value ?: "–", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
