@@ -120,4 +120,13 @@ class ExportMetadataJvmTest {
 
     private fun gzipped(bytes: ByteArray): ByteArray =
         java.io.ByteArrayOutputStream().also { out -> java.util.zip.GZIPOutputStream(out).use { it.write(bytes) } }.toByteArray()
+
+    @Test
+    fun garminsVersionedTypeKeysMap() {
+        // Keys seen in a real Garmin Connect export.
+        assertEquals(ActivityType(Sport.WAKEBOARD), GarminTypes.of("wakeboarding_v2"))
+        assertEquals(ActivityType(Sport.BOAT), GarminTypes.of("boating_v2"))
+        assertEquals(ActivityType(Sport.SNOWSHOE), GarminTypes.of("snow_shoe_ws"))
+        assertEquals(ActivityType(Sport.WHITEWATER), GarminTypes.of("whitewater_rafting_v2"))
+    }
 }
