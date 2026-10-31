@@ -6,6 +6,7 @@
 #   scripts/dev.sh [up] [options]   bring everything up (default)
 #   scripts/dev.sh status           show what is running
 #   scripts/dev.sh down             stop the AppView and tunnel, stop (not delete) the containers
+#   scripts/dev.sh device-setup     one-time named-tunnel setup for device mode (below)
 #
 # up options:
 #   --seed NAME        create NAME.test if it doesn't exist (repeatable); runs after the AppView is up
@@ -13,6 +14,11 @@
 #   --no-android       skip adb reverse and the Android install
 #   --no-tunnel        skip cloudflared and local.properties (web-only work; atproto Spaces need the tunnel)
 #   --restart-appview  restart the AppView even if it is healthy and current
+#   --reset [--yes]    delete the stack's volumes (every account and record) first; needed to switch modes
+#
+# Device mode, for physical phones: set activitytracker.deviceHost in local.properties to a subdomain of a zone you
+# have on Cloudflare (e.g. dev.example.com) and run device-setup once. The PDS then runs as https://dev.example.com, with
+# PLC on plc-dev.example.com and the AppView on appview-dev.example.com, through a named tunnel instead of a quick one.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -24,6 +30,10 @@ PROPS="$ROOT/local.properties"
 PROP_KEY="activitytracker.appviewPublicUrl"
 LABELER_PROP_KEY="activitytracker.labelerDid"
 APPVIEW_PORT=8081
+DEVICE_HOST_KEY="activitytracker.deviceHost"
+DEVICE_TUNNEL="activitytracker-dev"
+DEVICE_CONFIG="$STATE_DIR/cloudflared-device.yml"
+DEVICE_METRICS_PORT=20249
 ADB_PORTS=(2582 2583 "$APPVIEW_PORT")
 METRICS_PORTS=(20241 20242 20243 20244 20245)
 
@@ -53,10 +63,78 @@ wait_http() {
   ok "$label"
 }
 
+# ---------------------------------------------------------------- mode
+
+# The device host from local.properties (bare, no scheme), or nothing in localhost mode. PLC and the AppView sit on siblings
+# one level below the same zone (Cloudflare's free certificate covers only *.zone): dev.example.com -> plc-dev.example.com.
+# NativeOAuthConventionPlugin derives the same names for the apps.
+device_host() {
+  local h
+  h=$(property "$DEVICE_HOST_KEY")
+  h=${h#https://}
+  echo "${h%/}"
+}
+sibling() { echo "$1-$2"; }
+
+env_value() { sed -nE "s/^$1=(.*)$/\1/p" docker/.env | tail -1; }
+
+# Sets KEY=VALUE in docker/.env, replacing an existing line.
+set_env() {
+  if grep -q "^$1=" docker/.env; then
+    sed -i.bak "s|^$1=.*|$1=$2|" docker/.env && rm docker/.env.bak
+  else
+    printf '\n%s=%s\n' "$1" "$2" >>docker/.env
+  fi
+}
+
+# Accounts' DID documents, the relay's host table and Jetstream's cursor all embed the PDS hostname, so volumes made
+# under one hostname can't run under another. docker/.env's PDS_HOSTNAME records which one the volumes were made under.
+# On a mismatch, refuse unless --reset, which deletes the volumes and the DIDs docker/.env remembers from them; the rest
+# of `up` then recreates the accounts.
+ensure_mode() {
+  step "Mode"
+  if [[ ! -f docker/.env ]]; then
+    cp docker/.env.example docker/.env
+    ok "created docker/.env from .env.example"
+  fi
+  local want current volumes answer key
+  want=$(device_host)
+  current=$(env_value PDS_HOSTNAME)
+  volumes=$(docker volume ls -q --filter "name=^activity-tracker_pds-data$" 2>/dev/null || true)
+  if [[ ${WIPE:-0} == 1 ]]; then
+    if [[ ${YES:-0} != 1 ]]; then
+      [[ -t 0 ]] || die "--reset deletes every local account and record; add --yes to confirm non-interactively"
+      read -r -p "    Delete the local stack's volumes (every account, record and the AppView DB)? [y/N] " answer
+      [[ $answer == [yY]* ]] || die "not reset"
+    fi
+    stop_appview
+    "${COMPOSE[@]}" down -v --remove-orphans
+    for key in PDS_LEXICON_AUTHORITY_DID OZONE_SERVER_DID APPVIEW_TRIAGE_DID APPVIEW_TRIAGE_PASSWORD SEGMENT_IMPORTER_DID; do
+      set_env "$key" ""
+    done
+    RESTART_APPVIEW=1
+    ok "volumes deleted"
+  elif [[ -n $volumes && $current != "$want" ]]; then
+    die "the stack's accounts were created for ${current:-localhost}, but local.properties asks for ${want:-localhost}
+      ($DEVICE_HOST_KEY), and their DID documents would point at the wrong PDS. Rerun with --reset to delete the
+      local data and recreate it (add --seed NAME for test accounts), or change $DEVICE_HOST_KEY back."
+  fi
+  if [[ -n $want ]]; then
+    set_env PDS_HOSTNAME "$want"
+    set_env RELAY_CRAWL_HOST "$want"
+    set_env PDS_INVITE_REQUIRED true
+    ok "device mode: PDS https://$want, PLC https://$(sibling plc "$want"), AppView https://$(sibling appview "$want")"
+  else
+    set_env PDS_HOSTNAME ""
+    set_env RELAY_CRAWL_HOST ""
+    set_env PDS_INVITE_REQUIRED ""
+    ok "localhost mode"
+  fi
+}
+
 # ---------------------------------------------------------------- docker
 
-ensure_docker() {
-  step "Docker stack"
+ensure_docker_running() {
   if ! docker info >/dev/null 2>&1; then
     [[ $(uname) == Darwin ]] || die "Docker isn't running"
     warn "Docker isn't running; starting Docker Desktop"
@@ -68,10 +146,10 @@ ensure_docker() {
       waited=$((waited + 3))
     done
   fi
-  if [[ ! -f docker/.env ]]; then
-    cp docker/.env.example docker/.env
-    ok "created docker/.env from .env.example"
-  fi
+}
+
+ensure_docker() {
+  step "Docker stack"
   # Idempotent: only (re)creates containers whose config changed. The first run builds PLC, the
   # relay and Jetstream from source and takes a few minutes.
   "${COMPOSE[@]}" up -d --remove-orphans
@@ -249,6 +327,116 @@ ensure_tunnel() {
   TUNNEL_URL="https://$host"
 }
 
+# Device mode's named tunnel: three stable hostnames, from the ingress file device-setup writes.
+named_tunnel_pids() { pgrep -f "cloudflared tunnel --config $DEVICE_CONFIG" || true; }
+
+ensure_named_tunnel() {
+  step "cloudflared named tunnel"
+  local host=$1 waited=0
+  [[ -f $DEVICE_CONFIG ]] && grep -q "hostname: $host\$" "$DEVICE_CONFIG" \
+    || die "no tunnel config for $host; run: scripts/dev.sh device-setup"
+  if [[ -n $(tunnel_pids) ]]; then
+    pkill -f "cloudflared tunnel --url http://localhost:$APPVIEW_PORT" || true
+    ok "stopped the quick tunnel (device mode doesn't use it)"
+  fi
+  if [[ -n $(named_tunnel_pids) ]] && tunnel_registered "$DEVICE_METRICS_PORT"; then
+    ok "already running"
+  else
+    pkill -f "cloudflared tunnel --config $DEVICE_CONFIG" || true
+    mkdir -p "$STATE_DIR"
+    nohup cloudflared tunnel --config "$DEVICE_CONFIG" run >"$STATE_DIR/cloudflared-device.log" 2>&1 &
+    until tunnel_registered "$DEVICE_METRICS_PORT"; do
+      ((waited >= 30)) && die "cloudflared didn't register a connection; see .dev/cloudflared-device.log"
+      sleep 1
+      waited=$((waited + 1))
+    done
+    ok "started (log: .dev/cloudflared-device.log)"
+  fi
+  TUNNEL_URL="https://$(sibling appview "$host")"
+}
+
+# The relay crawls the PDS through the tunnel (relay-crawl runs during compose up), so the tunnel starts first and this
+# checks the PDS answers through it once compose is up.
+check_named_tunnel() {
+  local host=$1 waited=0
+  until [[ $(tunnel_http_code "$host" /xrpc/_health 10) == 2* ]]; do
+    ((waited >= 60)) && die "https://$host/xrpc/_health isn't reachable; see .dev/cloudflared-device.log"
+    sleep 2
+    waited=$((waited + 2))
+  done
+  ok "https://$host reaches the PDS"
+}
+
+stop_named_tunnel() {
+  [[ -n $(named_tunnel_pids) ]] || return 0
+  pkill -f "cloudflared tunnel --config $DEVICE_CONFIG" || true
+  ok "stopped the named tunnel"
+}
+
+# ---------------------------------------------------------------- device-setup
+
+# One-time: log in to Cloudflare, create the named tunnel, point the three hostnames at it and write the ingress file.
+# Safe to rerun; it only does what's missing.
+cmd_device_setup() {
+  command -v cloudflared >/dev/null || die "cloudflared not installed: brew install cloudflared"
+  local host zone plc appview id creds name config
+  host=$(device_host)
+  [[ -n $host ]] || die "set $DEVICE_HOST_KEY in local.properties to a subdomain of your Cloudflare zone, e.g. dev.example.com"
+  [[ $host =~ ^[a-z0-9-]+(\.[a-z0-9-]+){2,}$ ]] || die "$host should be one label below a zone, e.g. dev.example.com"
+  zone=${host#*.}
+  plc=$(sibling plc "$host")
+  appview=$(sibling appview "$host")
+  step "Zone $zone"
+  # Exactly one level: Cloudflare's free certificate covers *.zone, not *.dev.zone, so the host's parent must be the zone.
+  [[ -n $(dig +noall +answer SOA "$zone" @1.1.1.1 | awk -v z="$zone." '$1 == z && $4 == "SOA"') ]] \
+    || die "$zone isn't a DNS zone: $DEVICE_HOST_KEY must be exactly one label below the zone you added to Cloudflare"
+  dig +short NS "$zone" @1.1.1.1 | grep -q '\.ns\.cloudflare\.com\.$' \
+    || die "$zone isn't on Cloudflare's nameservers yet (dig NS $zone): add it to Cloudflare and switch its nameservers first"
+  ok "$zone is on Cloudflare"
+  step "Tunnel $DEVICE_TUNNEL"
+  if [[ ! -f $HOME/.cloudflared/cert.pem ]]; then
+    warn "logging in: pick $zone on the page that opens"
+    cloudflared tunnel login
+  fi
+  id=$(cloudflared tunnel list --name "$DEVICE_TUNNEL" --output json 2>/dev/null | jq -r '.[0].id // empty')
+  if [[ -z $id ]]; then
+    cloudflared tunnel create "$DEVICE_TUNNEL" >/dev/null 2>&1 || die "cloudflared tunnel create failed"
+    id=$(cloudflared tunnel list --name "$DEVICE_TUNNEL" --output json | jq -r '.[0].id // empty')
+    [[ -n $id ]] || die "couldn't create the tunnel"
+    ok "created $DEVICE_TUNNEL ($id)"
+  else
+    ok "$DEVICE_TUNNEL exists ($id)"
+  fi
+  creds="$HOME/.cloudflared/$id.json"
+  [[ -f $creds ]] || die "$creds is missing (the tunnel was created elsewhere); remove it with: cloudflared tunnel delete $DEVICE_TUNNEL"
+  step "DNS"
+  for name in "$host" "$plc" "$appview"; do
+    cloudflared tunnel route dns --overwrite-dns "$DEVICE_TUNNEL" "$name" 2>&1 | grep -v '^$' | tail -1 | sed 's/^/    /'
+  done
+  step "Ingress"
+  mkdir -p "$STATE_DIR"
+  config="# Written by scripts/dev.sh device-setup from $DEVICE_HOST_KEY.
+tunnel: $id
+credentials-file: $creds
+metrics: 127.0.0.1:$DEVICE_METRICS_PORT
+ingress:
+  - hostname: $host
+    service: http://localhost:2583
+  - hostname: $plc
+    service: http://localhost:2582
+  - hostname: $appview
+    service: http://localhost:$APPVIEW_PORT
+  - service: http_status:404"
+  if [[ -f $DEVICE_CONFIG && $(cat "$DEVICE_CONFIG") == "$config" ]]; then
+    ok "$DEVICE_CONFIG is current"
+  else
+    echo "$config" >"$DEVICE_CONFIG"
+    ok "wrote $DEVICE_CONFIG"
+  fi
+  echo
+  echo "${BOLD}Done.${RESET} Next: scripts/dev.sh --reset --seed alice (moves the stack to https://$host), then rebuild the apps."
+}
+
 # ---------------------------------------------------------------- local.properties
 
 property() { [[ -f $PROPS ]] && grep "^$1=" "$PROPS" | tail -1 | cut -d= -f2- || true; }
@@ -422,14 +610,25 @@ cmd_up() {
       --no-android) NO_ANDROID=1 ;;
       --no-tunnel) NO_TUNNEL=1 ;;
       --restart-appview) RESTART_APPVIEW=1 ;;
+      --reset) WIPE=1 ;;
+      --yes) YES=1 ;;
       *) die "unknown option: $1 (see the header of scripts/dev.sh)" ;;
     esac
     shift
   done
+  ensure_docker_running
+  ensure_mode
+  local host
+  host=$(device_host)
+  [[ -n $host ]] && ensure_named_tunnel "$host"
   ensure_docker
   ensure_lexicons
   ensure_labeler
-  if [[ ${NO_TUNNEL:-0} != 1 ]]; then
+  if [[ -n $host ]]; then
+    check_named_tunnel "$host"
+    ensure_local_properties
+  elif [[ ${NO_TUNNEL:-0} != 1 ]]; then
+    stop_named_tunnel
     ensure_tunnel
     ensure_local_properties
   else
@@ -464,9 +663,16 @@ cmd_status() {
     warn "Ozone not running (scripts/dev.sh sets it up)"
   fi
   step "Tunnel"
-  local host
+  local host device
+  device=$(device_host)
   host=$(running_tunnel_host)
-  if [[ -z $host ]]; then
+  if [[ -n $device ]]; then
+    if [[ -n $(named_tunnel_pids) ]] && tunnel_registered "$DEVICE_METRICS_PORT"; then
+      ok "named tunnel $DEVICE_TUNNEL: https://$device, https://$(sibling plc "$device"), https://$(sibling appview "$device")"
+    else
+      warn "device mode ($device), but the named tunnel isn't running (scripts/dev.sh starts it)"
+    fi
+  elif [[ -z $host ]]; then
     warn "not running (the PDS can't reach the AppView's Spaces checkUserAccess without it)"
   elif tunnel_alive "$host"; then
     ok "https://$host"
@@ -507,9 +713,10 @@ cmd_down() {
   if [[ -n $(tunnel_pids) ]]; then
     pkill -f "cloudflared tunnel --url http://localhost:$APPVIEW_PORT"
     ok "stopped"
-  else
+  elif [[ -z $(named_tunnel_pids) ]]; then
     ok "not running"
   fi
+  stop_named_tunnel
   step "Docker stack"
   if docker info >/dev/null 2>&1; then
     # stop, not down: keeps containers and volumes (accounts, records, the AppView DB).
@@ -524,7 +731,8 @@ case ${1:-up} in
   up) shift || true; cmd_up "$@" ;;
   status) cmd_status ;;
   down) cmd_down ;;
-  -h | --help) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//' ;;
+  device-setup) cmd_device_setup ;;
+  -h | --help) sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//' ;;
   -*) cmd_up "$@" ;;
-  *) die "unknown command: $1 (up, status, down)" ;;
+  *) die "unknown command: $1 (up, status, down, device-setup)" ;;
 esac
