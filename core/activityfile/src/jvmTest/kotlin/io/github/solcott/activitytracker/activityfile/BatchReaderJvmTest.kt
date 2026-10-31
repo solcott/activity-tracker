@@ -57,6 +57,20 @@ class BatchReaderJvmTest {
     }
 
     @Test
+    fun aDevicesOtherFitFilesInAnArchiveAreLeftOutNotDamaged() = runTest {
+        val monitoring = FitFixtures.monitoring(Instant.parse("2026-09-01T00:00:00Z"))
+        val uploads = zipOf("run.fit" to run, "wellness.fit" to monitoring)
+        val events = BatchReader(listOf(ByteArrayImportSource("export.zip", zipOf("uploads.zip" to uploads))), reader).scan().toList()
+        assertEquals(listOf("run.fit"), events.filterIsInstance<ScanEvent.Read>().map { it.name })
+        assertEquals(emptyList(), events.filterIsInstance<ScanEvent.Skipped>())
+        assertEquals(ScanEvent.Progress(files = 1, activities = 1, ignored = 1), events.filterIsInstance<ScanEvent.Progress>().last())
+
+        // Picked on its own, it's listed: the athlete chose it.
+        val picked = BatchReader(listOf(ByteArrayImportSource("wellness.fit", monitoring)), reader).scan().toList()
+        assertEquals(listOf(ScanEvent.Skipped("wellness.fit", SkipReason.Unsupported)), picked.filterIsInstance<ScanEvent.Skipped>())
+    }
+
+    @Test
     fun scansAZipInsideAZip() = runTest {
         val inner = zipOf("1.fit" to run, "2.fit" to ride, "summary.json" to "{}".encodeToByteArray())
         val outer = zipOf("DI_CONNECT/DI-Connect-Uploaded-Files/UploadedFiles_0-_Part1.zip" to inner, "other.gpx" to gpx)

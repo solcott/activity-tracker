@@ -67,6 +67,19 @@ object FitFixtures {
             record.distance = i * 100f
         }
 
+    /** A day's wellness monitoring file, as a Garmin watch uploads alongside its activities: a FIT file, but not an activity. */
+    fun monitoring(start: Instant): ByteArray {
+        val encoder = BufferEncoder(Fit.ProtocolVersion.V2_0)
+        encoder.write(
+            FileIdMesg().apply {
+                type = File.MONITORING_B
+                manufacturer = Manufacturer.GARMIN
+                timeCreated = DateTime(start.toJavaInstant())
+            }
+        )
+        return encoder.close()
+    }
+
     /** The athlete's settings a Garmin watch writes into each activity: `zones_target`, and `user_profile` with resting heart rate. */
     fun athleteSettings(maxHr: Int, thresholdHr: Int, ftp: Int, restingHr: Int): List<Mesg> =
         listOf(

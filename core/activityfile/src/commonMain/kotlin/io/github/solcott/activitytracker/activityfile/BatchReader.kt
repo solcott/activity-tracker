@@ -185,8 +185,14 @@ class BatchReader(private val sources: List<ImportSource>, private val reader: A
                 }
                 else -> {
                     val outcome = runSuspendCatchingFile { scanContent(ref, entry, kind, archiveName, open) }
-                    // A nested zip that ends early can't be read further; the archive itself still can.
-                    outcome.exceptionOrNull()?.let { out.emit(ScanEvent.Skipped(entry.name, it.skipReason())) }
+                    // A nested zip that ends early can't be read further; the archive itself still can. A device's other FIT files
+                    // (Garmin's
+                    // uploads are mostly daily wellness monitoring) are left out like any other file that isn't an activity.
+                    when (val failure = outcome.exceptionOrNull()) {
+                        null -> Unit
+                        is NotAnActivityFileException -> ignored++
+                        else -> out.emit(ScanEvent.Skipped(entry.name, failure.skipReason()))
+                    }
                 }
             }
         }
@@ -293,6 +299,7 @@ class BatchReader(private val sources: List<ImportSource>, private val reader: A
             when (this) {
                 is FileTooLargeException -> SkipReason.TooLarge
                 is UnsupportedActivityFileException,
+                is NotAnActivityFileException,
                 is UnsupportedArchiveEntryException,
                 is ZipStreamEndedException -> SkipReason.Unsupported
                 else -> SkipReason.Damaged
