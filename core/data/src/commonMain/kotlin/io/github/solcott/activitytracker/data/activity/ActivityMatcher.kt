@@ -22,15 +22,28 @@ sealed interface DuplicateOf {
 
 /**
  * What [ActivityMatcher] needs of an import: when it [startedAt] (placed in the zone the athlete picked), how long it took, and whether its
- * file's times had no zone ([zoneless], a dive log's), which lets a whole number of hours off still match.
+ * file's times had no zone ([zoneless], a dive log's), which lets a whole number of hours off still match. Its [sport], [distanceMeters]
+ * and [device], where known, tell an exact copy and a match of another sport apart.
  */
-data class MatchSpan(val startedAt: Instant, val elapsed: Duration, val zoneless: Boolean)
+data class MatchSpan(
+    val startedAt: Instant,
+    val elapsed: Duration,
+    val zoneless: Boolean,
+    val sport: String? = null,
+    val distanceMeters: Double? = null,
+    val device: String? = null,
+)
 
-/** This activity as [ActivityMatcher] matches it. */
-fun ImportedActivity.matchSpan(): MatchSpan = MatchSpan(startedAt, elapsed, localStart != null)
+/** This activity as [ActivityMatcher] matches it, as its file's sport. */
+fun ImportedActivity.matchSpan(sport: String? = type.sport): MatchSpan =
+    MatchSpan(startedAt, elapsed, localStart != null, sport, distanceMeters, device)
 
-/** [hoursApart] is 0 for the same activity; otherwise it's one of the same length that many hours off, likely read in the wrong zone. */
-data class ActivityMatch(val of: DuplicateOf, val hoursApart: Int = 0)
+/**
+ * [hoursApart] is 0 for the same activity; otherwise it's one of the same length that many hours off, likely read in the wrong zone.
+ * [exactCopy] when it's the very same recording (same start and length to the second, same distance and device); [sameSport] unless both
+ * name a sport and they differ.
+ */
+data class ActivityMatch(val of: DuplicateOf, val hoursApart: Int = 0, val exactCopy: Boolean = false, val sameSport: Boolean = true)
 
 /** How two of an athlete's activities likely belong in one combined activity. */
 enum class Pairing {
@@ -56,28 +69,62 @@ object ActivityMatcher {
         matchSpans(activities.map { it.matchSpan() }, existing)
 
     /**
-     * For each of [imports], in batch order, what it duplicates, or null: the first of [existing] (in their order) it's the same as, else
-     * for a zoneless one the first a whole number of hours off, else the earliest in the batch before it that it's the same as. Only
-     * activities within [MAX_ZONE_HOURS] of each other are compared, so a batch of thousands against a log of thousands stays quick.
+     * For each of [imports], in batch order, what it duplicates, or null: of [existing] it's the same as, an exact copy, else the first (in
+     * their order); else for a zoneless one the first a whole number of hours off; else of the activities before it in the batch it's the
+     * same as, an exact copy, else the earliest. Only activities within [MAX_ZONE_HOURS] of each other are compared, so a batch of
+     * thousands against a log of thousands stays quick.
      */
     fun matchSpans(imports: List<MatchSpan>, existing: List<OwnActivity>): List<ActivityMatch?> {
-        val logged = Nearby(existing.map { it.record.span() })
-        val batch = Nearby(imports.map { Span(it.startedAt, it.elapsed) })
+        val loggedKeys = existing.map { it.record.key() }
+        val keys = imports.map { it.key() }
+        val logged = Nearby(loggedKeys.map { it.span })
+        val batch = Nearby(keys.map { it.span })
         return imports.indices.map { i ->
-            val span = batch.spans[i]
-            val near = logged.near(span)
-            near.firstOrNull { span.sameAs(logged.spans[it]) }?.let { ActivityMatch(DuplicateOf.Existing(existing[it])) }
+            val key = keys[i]
+            val near = logged.near(key.span)
+            fun of(of: DuplicateOf, other: Key, hoursApart: Int = 0) =
+                ActivityMatch(of, hoursApart, hoursApart == 0 && key.copyOf(other), key.sameSport(other))
+            near
+                .filter { key.span.sameAs(logged.spans[it]) }
+                .preferringCopies(key, loggedKeys)
+                ?.let { of(DuplicateOf.Existing(existing[it]), loggedKeys[it]) }
                 ?: near
                     .takeIf { imports[i].zoneless }
                     ?.firstNotNullOfOrNull { j ->
-                        span.hoursFrom(logged.spans[j])?.let { ActivityMatch(DuplicateOf.Existing(existing[j]), it) }
+                        key.span.hoursFrom(logged.spans[j])?.let { of(DuplicateOf.Existing(existing[j]), loggedKeys[j], it) }
                     }
                 ?: batch
-                    .near(span)
-                    .firstOrNull { j -> j < i && span.sameAs(batch.spans[j]) }
-                    ?.let { ActivityMatch(DuplicateOf.InBatch(it)) }
+                    .near(key.span)
+                    .filter { j -> j < i && key.span.sameAs(batch.spans[j]) }
+                    .preferringCopies(key, keys)
+                    ?.let { of(DuplicateOf.InBatch(it), keys[it]) }
         }
     }
+
+    /** The first of these indices into [keys] that [key] is an exact copy of, else the first. */
+    private fun List<Int>.preferringCopies(key: Key, keys: List<Key>): Int? = firstOrNull { key.copyOf(keys[it]) } ?: firstOrNull()
+
+    /** An activity as compared: when and how long, and what tells a copy of it apart. */
+    private class Key(val span: Span, val sport: String?, val distanceMeters: Double?, val device: String?) {
+        /** The same recording: starts and lengths within a second, distances within [COPY_DISTANCE_TOLERANCE] (or none), one device. */
+        fun copyOf(other: Key): Boolean =
+            (span.start - other.span.start).absoluteValue <= COPY_TIME_TOLERANCE &&
+                (span.length - other.span.length).absoluteValue <= COPY_TIME_TOLERANCE &&
+                sameDistance(other) &&
+                (device == null || other.device == null || device == other.device)
+
+        private fun sameDistance(other: Key): Boolean {
+            val a = distanceMeters
+            val b = other.distanceMeters
+            return if (a == null || b == null) a == b else abs(a - b) <= maxOf(a, b) * COPY_DISTANCE_TOLERANCE
+        }
+
+        fun sameSport(other: Key): Boolean = sport == null || other.sport == null || sport == other.sport
+    }
+
+    private fun MatchSpan.key() = Key(Span(startedAt, elapsed), sport, distanceMeters, device)
+
+    private fun ActivityRecord.key() = Key(span(), sport, distance?.toDouble(), device)
 
     /** [spans] indexed by start, so those near one are found without comparing every pair. */
     private class Nearby(val spans: List<Span>) {
@@ -153,6 +200,10 @@ object ActivityMatcher {
     }
 
     private val CLOCK_DRIFT = 3.minutes
+    /** Two exports of one upload agree to the second; a second recording of the activity doesn't. */
+    private val COPY_TIME_TOLERANCE = 1.seconds
+    /** A distance stored in whole metres against the file's, and rounding between exports. */
+    private const val COPY_DISTANCE_TOLERANCE = 0.005
     /** A ski lunch, a shuttle or a device swap, but not a morning and evening double. */
     val MAX_BREAK = 2.hours
     private const val LENGTH_TOLERANCE = 0.1

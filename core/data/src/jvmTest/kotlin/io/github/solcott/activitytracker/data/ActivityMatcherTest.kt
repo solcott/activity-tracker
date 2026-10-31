@@ -105,7 +105,11 @@ class ActivityMatcherTest {
     fun theLogWinsOverTheFile() {
         val logged = logged("3kl", "2024-05-12T10:00:00Z")
         val dives = listOf(imported("2024-05-12T10:00:00Z"), imported("2024-05-12T10:01:00Z"))
-        assertEquals(List(2) { ActivityMatch(DuplicateOf.Existing(logged)) }, ActivityMatcher.match(dives, listOf(logged)))
+        // The first starts and lasts exactly as the logged dive does, with no distance or device to tell them apart: a copy of it.
+        assertEquals(
+            listOf(ActivityMatch(DuplicateOf.Existing(logged), exactCopy = true), ActivityMatch(DuplicateOf.Existing(logged))),
+            ActivityMatcher.match(dives, listOf(logged)),
+        )
     }
 
     @Test
@@ -128,7 +132,7 @@ class ActivityMatcherTest {
     fun sportsDontNeedToAgree() {
         val walk = logged("3kk", "2024-05-12T10:00:00Z", 60.minutes, sport = Sport.WALK)
         assertEquals(
-            listOf(ActivityMatch(DuplicateOf.Existing(walk))),
+            listOf(ActivityMatch(DuplicateOf.Existing(walk), sameSport = false)),
             ActivityMatcher.match(listOf(imported("2024-05-12T10:05:00Z", 50.minutes, sport = Sport.RUN)), listOf(walk)),
         )
     }
@@ -181,5 +185,74 @@ class ActivityMatcherTest {
         val took = started.elapsedNow()
         assertEquals(spans.size, matches.count { it?.of is DuplicateOf.Existing })
         assertTrue(took < 2.seconds, "matched in $took")
+    }
+
+    /** A ride as a batch item, with the distance and device that tell an exact copy apart. */
+    private fun ride(start: String, length: Duration = 120.minutes, meters: Double? = 40_000.0, device: String? = "Forerunner 965") =
+        MatchSpan(Instant.parse(start), length, zoneless = false, sport = Sport.RIDE, distanceMeters = meters, device = device)
+
+    private fun loggedRide(rkey: String, start: String, meters: Long? = 40_000, device: String? = "Forerunner 965") =
+        OwnActivity(
+            AtUri.of(did, Nsid.FEED_ACTIVITY, rkey),
+            Cid("bafy$rkey"),
+            ActivityRecord(
+                Sport.RIDE,
+                Instant.parse(start),
+                120.minutes.inWholeSeconds,
+                Instant.parse("2026-10-01T00:00:00Z"),
+                distance = meters,
+                device = device,
+            ),
+        )
+
+    private fun exact(span: MatchSpan, logged: OwnActivity) = ActivityMatcher.matchSpans(listOf(span), listOf(logged)).single()?.exactCopy
+
+    @Test
+    fun theSameUploadIsAnExactCopyAndASecondRecordingIsNot() {
+        val logged = loggedRide("3kr", "2024-05-12T09:00:00Z")
+        assertEquals(true, exact(ride("2024-05-12T09:00:00Z"), logged))
+        assertEquals(true, exact(ride("2024-05-12T09:00:01Z", 120.minutes - 1.seconds), logged))
+        assertEquals(false, exact(ride("2024-05-12T09:00:02Z"), logged))
+        assertEquals(false, exact(ride("2024-05-12T09:00:00Z", meters = 40_400.0), logged))
+        assertEquals(true, exact(ride("2024-05-12T09:00:00Z", meters = 40_150.0), logged))
+        assertEquals(false, exact(ride("2024-05-12T09:00:00Z", device = "Edge 840"), logged))
+        assertEquals(true, exact(ride("2024-05-12T09:00:00Z", device = null), logged))
+        assertEquals(false, exact(ride("2024-05-12T09:00:00Z", meters = null), logged))
+    }
+
+    @Test
+    fun onlyTheSportDecidesSameSport() {
+        val logged = loggedRide("3kr", "2024-05-12T09:00:00Z")
+        val walk = ride("2024-05-12T09:30:00Z", 30.minutes).copy(sport = Sport.WALK)
+        assertEquals(false, ActivityMatcher.matchSpans(listOf(walk), listOf(logged)).single()?.sameSport)
+        // A mountain ride and a road ride are both rides: sub-sports aren't compared.
+        assertEquals(true, ActivityMatcher.matchSpans(listOf(ride("2024-05-12T09:00:00Z")), listOf(logged)).single()?.sameSport)
+    }
+
+    @Test
+    fun aCopyIsMatchedToWhatItCopiesNotTheFirstOverlap() {
+        // An Edge ride starting first, then two exports of the watch's ride.
+        val spans =
+            listOf(
+                ride("2024-05-12T08:58:00Z", 123.minutes, 40_300.0, "Edge 840"),
+                ride("2024-05-12T09:00:00Z"),
+                ride("2024-05-12T09:00:00Z"),
+            )
+        assertEquals(
+            listOf(
+                null,
+                ActivityMatch(DuplicateOf.InBatch(0)),
+                ActivityMatch(DuplicateOf.InBatch(1), exactCopy = true),
+            ),
+            ActivityMatcher.matchSpans(spans, emptyList()),
+        )
+    }
+
+    @Test
+    fun aZoneShiftedMatchIsNeverACopy() {
+        val logged = logged("3kd", "2024-05-12T16:00:00Z")
+        val shifted = ActivityMatcher.match(listOf(imported("2024-05-12T18:00:00Z")), listOf(logged)).single()
+        assertEquals(2, shifted?.hoursApart)
+        assertEquals(false, shifted?.exactCopy)
     }
 }
