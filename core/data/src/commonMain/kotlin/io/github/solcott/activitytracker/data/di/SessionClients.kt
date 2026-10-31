@@ -12,6 +12,8 @@ import io.github.solcott.activitytracker.atproto.space.SpaceClient
 import io.github.solcott.activitytracker.atproto.space.SpaceCredentials
 import io.github.solcott.activitytracker.atproto.xrpc.ServiceAuthAuthenticator
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcClient
+import io.github.solcott.activitytracker.data.activity.AccountPacing
+import io.github.solcott.activitytracker.data.activity.OutboxPacing
 import io.github.solcott.activitytracker.data.profile.AthleteSpaces
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
@@ -33,6 +35,7 @@ import kotlinx.coroutines.sync.withLock
  */
 @SingleIn(SessionScope::class)
 @Inject
+@Suppress("LongParameterList") // Injected collaborators.
 class SessionClients(
     private val session: OAuthSession,
     private val http: HttpClient,
@@ -40,8 +43,12 @@ class SessionClients(
     private val config: AtprotoConfig,
     identity: IdentityResolver,
     clock: Clock,
+    pacing: OutboxPacing,
 ) {
     val did: Did = session.did
+
+    /** This account's upload pacing, shared with any other session of it the app holds (data/outbox). */
+    val pacing: AccountPacing = pacing.of(did)
 
     val handle: Handle = session.handle
 
@@ -57,6 +64,8 @@ class SessionClients(
             http = http,
             serviceUrl = { pdsUrl },
             authenticator = sessionManager.pdsAuthenticator,
+            onRateLimit = this.pacing::heard,
+            clock = clock,
         )
 
     val appView: XrpcClient =

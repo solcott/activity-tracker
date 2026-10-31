@@ -1,12 +1,14 @@
 package io.github.solcott.activitytracker.data
 
 import co.touchlab.kermit.Logger
+import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.activity.ActivityDefaults
 import io.github.solcott.activitytracker.data.activity.ActivityExporter
 import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.ActivityZonesStore
+import io.github.solcott.activitytracker.data.activity.OutboxPacing
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.PdsActivityDevicesStore
@@ -54,13 +56,19 @@ import io.github.solcott.activitytracker.lexicon.app.mergeStreams
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.MockEngineConfig
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.request.HttpRequestData
+import io.ktor.http.Headers
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
 import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Instant
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.io.IOException
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -70,7 +78,7 @@ import kotlinx.serialization.json.jsonPrimitive
  * A fake PDS and AppView for [did]'s session: her repo and each of her spaces as `place → collection/rkey → record`, every write in order,
  * and the AppView's answers. Shared by the data-layer tests of where records are stored.
  */
-class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
+class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher: CoroutineDispatcher? = null) {
     val repo = "repo"
 
     /** Every place's records: [repo] or a tier, then `collection/rkey`. */
@@ -174,202 +182,249 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
     /** The `spacesAlpha` flag `describeServer` answers with; left out while null. */
     var spacesAlpha: Boolean? = true
 
+    /**
+     * The PDS's write limit while set: puts and deletes cost [FakeRateLimit.putCost] and [FakeRateLimit.deleteCost], blob uploads 1. Each
+     * answer states it in `RateLimit-*` headers, and a write over it gets a 429 with `Retry-After`, as the real PDS does.
+     */
+    var rateLimit: FakeRateLimit? = null
+
+    /** How many writes the PDS answered 429. */
+    var rateLimited = 0
+
     /** `describeServer` answers with a server error, or fails as a dropped connection would, while set. */
     var describeServerFailing = false
     var describeServerUnreachable = false
 
     val http =
         HttpClient(
-            MockEngine { request ->
-                if (pdsUnreachable && request.url.host == "pds.test") throw IOException("Connection refused")
-                if (offline && request.url.host == "pds.test")
-                    return@MockEngine error("InternalServerError", HttpStatusCode.InternalServerError)
-                if (appViewOffline && request.url.host != "pds.test") throw IOException("Connection refused")
-                if (appViewFailing && request.url.host != "pds.test")
-                    return@MockEngine error("InternalServerError", HttpStatusCode.InternalServerError)
-                val path = request.url.encodedPath
-                requests += "$path ${request.url.parameters["collection"]}/${request.url.parameters["rkey"]}"
-                when {
-                    path == "/xrpc/com.atproto.server.getServiceAuth" -> json("""{"token":"service-jwt"}""")
-                    path == "/xrpc/com.atproto.server.describeServer" -> {
-                        if (describeServerUnreachable) throw IOException("Connection refused")
-                        if (describeServerFailing) return@MockEngine error("InternalServerError", HttpStatusCode.InternalServerError)
-                        val flag = spacesAlpha?.let { ""","spacesAlpha":$it""" }.orEmpty()
-                        json("""{"did":"did:web:pds.test","availableUserDomains":[".test"]$flag}""")
-                    }
-                    path == "/.well-known/did.json" ->
-                        json(
-                            """{"id":"did:web:appview.test","service":[
-                               {"id":"#activitytracker_space","type":"AtprotoSpaceService","serviceEndpoint":"http://appview.test"}]}"""
-                        )
-                    path == "/xrpc/com.atproto.repo.uploadBlob" -> {
-                        val bytes = (request.body as OutgoingContent.ByteArrayContent).bytes()
-                        uploads++
-                        if (bytes.size > (blobUploadLimit ?: Int.MAX_VALUE))
-                            return@MockEngine error("PayloadTooLarge", HttpStatusCode.PayloadTooLarge)
-                        // Every blob gets a CID from its content, so each reads back ([blobs]); all start with "bafyblob".
-                        val cid =
+            MockEngine(
+                MockEngineConfig()
+                    .apply { this@FakeAthletePds.dispatcher?.let { dispatcher = it } }
+                    .apply {
+                        addHandler { request ->
+                            if (pdsUnreachable && request.url.host == "pds.test") throw IOException("Connection refused")
+                            if (offline && request.url.host == "pds.test")
+                                return@addHandler error("InternalServerError", HttpStatusCode.InternalServerError)
+                            if (appViewOffline && request.url.host != "pds.test") throw IOException("Connection refused")
+                            if (appViewFailing && request.url.host != "pds.test")
+                                return@addHandler error("InternalServerError", HttpStatusCode.InternalServerError)
+                            val path = request.url.encodedPath
+                            requests += "$path ${request.url.parameters["collection"]}/${request.url.parameters["rkey"]}"
+                            val limit = rateLimit
+                            val cost = limit?.costOf(path) ?: 0
+                            if (limit != null && cost > 0 && !limit.consume(cost)) {
+                                rateLimited++
+                                return@addHandler respond(
+                                    """{"error":"RateLimitExceeded","message":"Rate Limit Exceeded"}""",
+                                    HttpStatusCode.TooManyRequests,
+                                    limit.headers(retryAfter = true),
+                                )
+                            }
+                            val limitHeaders = if (cost > 0) limit?.headers() else null
                             when {
-                                bytes.decodeToString().startsWith("<?xml") -> "bafyblobgpx${bytes.contentHashCode().toUInt()}"
-                                bytes.size >= 2 && bytes[0] == 0x1f.toByte() && bytes[1] == 0x8b.toByte() ->
-                                    "bafyblobgz${bytes.contentHashCode().toUInt()}"
-                                else -> "bafyblob${bytes.contentHashCode().toUInt()}"
-                            }
-                        blobs[cid] = bytes
-                        json($$"""{"blob":{"$type":"blob","ref":{"$link":"$$cid"},"mimeType":"application/json","size":10}}""")
-                    }
-                    path == "/xrpc/com.atproto.sync.getBlob" ->
-                        blobs[request.url.parameters["cid"]]?.let { respond(it, headers = headersOf("Content-Type", "application/json")) }
-                            ?: error("BlobNotFound")
-                    path == "/xrpc/com.atproto.space.getBlob" ->
-                        blobs[request.url.parameters["cid"]]?.let {
-                            respond(it, headers = headersOf("Content-Type", "application/gpx+xml"))
-                        } ?: error("BlobNotFound")
-                    path == "/xrpc/com.atproto.space.createSpace" -> {
-                        val tier = body(request).getValue("skey").jsonPrimitive.content
-                        created += tier
-                        json("""{"uri":"at://$did/space/${Nsid.SPACE_ATHLETE}/$tier"}""")
-                    }
-                    path == "/xrpc/${Nsid.SPACE_NOTIFY_SPACE}" -> {
-                        announced += body(request).getValue("space").jsonPrimitive.content.substringAfterLast('/')
-                        json("{}")
-                    }
-                    path == "/xrpc/com.atproto.repo.putRecord" || path == "/xrpc/com.atproto.space.putRecord" -> {
-                        val input = body(request)
-                        val place = placeOf(input)
-                        if (place != repo && failSpacePuts) return@MockEngine error("RateLimitExceeded", HttpStatusCode.TooManyRequests)
-                        if (input.getValue("collection").jsonPrimitive.content == failPutsOf) {
-                            val name = if (failPutsStatus == HttpStatusCode.BadRequest) "InvalidRecord" else "Failure"
-                            return@MockEngine error(name, failPutsStatus)
-                        }
-                        // An original names its blob by CID; the PDS refuses one it doesn't hold (never uploaded, or reclaimed).
-                        val source =
-                            input.getValue("record").jsonObject.takeIf {
-                                input["collection"]?.jsonPrimitive?.content == Nsid.FEED_ACTIVITY_SOURCE
-                            }
-                        val sourceCid = source?.get("file")?.jsonObject?.get("ref")?.jsonObject?.get("\$link")?.jsonPrimitive?.content
-                        if (source != null && sourceCid !in blobs) return@MockEngine error("BlobNotFound")
-                        val key = "${input.getValue("collection").jsonPrimitive.content}/${input.getValue("rkey").jsonPrimitive.content}"
-                        stored.getOrPut(place) { mutableMapOf() }[key] = input.getValue("record").jsonObject
-                        writes += "put $place $key"
-                        onPut?.invoke(key, input.getValue("record").jsonObject)
-                        json("""{"uri":"at://$did/x/y","cid":"bafyrec"}""")
-                    }
-                    path == "/xrpc/com.atproto.repo.deleteRecord" || path == "/xrpc/com.atproto.space.deleteRecord" -> {
-                        val input = body(request)
-                        val place = placeOf(input)
-                        if (place != repo && failSpaceDeletes)
-                            return@MockEngine error("InternalServerError", HttpStatusCode.InternalServerError)
-                        val key = "${input.getValue("collection").jsonPrimitive.content}/${input.getValue("rkey").jsonPrimitive.content}"
-                        if (place != repo && place !in stored && place !in created) return@MockEngine error(SpaceErrors.SPACE_NOT_FOUND)
-                        stored[place]?.remove(key)
-                        writes += "delete $place $key"
-                        json("{}")
-                    }
-                    path == "/xrpc/com.atproto.repo.getRecord" || path == "/xrpc/com.atproto.space.getRecord" -> {
-                        val params = request.url.parameters
-                        val place = params["space"]?.substringAfterLast('/') ?: repo
-                        val key = "${params["collection"]}/${params["rkey"]}"
-                        if (key == failReadsOf) return@MockEngine error("InternalServerError", HttpStatusCode.InternalServerError)
-                        val value = stored[place]?.get(key) ?: return@MockEngine error("RecordNotFound")
-                        json("""{"uri":"at://$did/$key","cid":"bafyrec","value":$value}""")
-                    }
-                    path == "/xrpc/com.atproto.repo.listRecords" || path == "/xrpc/com.atproto.space.listRecords" -> {
-                        val params = request.url.parameters
-                        val place = params["space"]?.substringAfterLast('/') ?: repo
-                        val collection = params["collection"]!!
-                        val records =
-                            stored[place]
-                                .orEmpty()
-                                .filterKeys { it.startsWith("$collection/") }
-                                .map { (key, value) ->
-                                    val rkey = key.substringAfter('/')
-                                    if (place == repo) """{"uri":"at://$did/$key","cid":"bafyrec","value":$value}"""
-                                    else """{"collection":"$collection","rkey":"$rkey","cid":"bafyrec","value":$value}"""
+                                path == "/xrpc/com.atproto.server.getServiceAuth" -> json("""{"token":"service-jwt"}""")
+                                path == "/xrpc/com.atproto.server.describeServer" -> {
+                                    if (describeServerUnreachable) throw IOException("Connection refused")
+                                    if (describeServerFailing)
+                                        return@addHandler error("InternalServerError", HttpStatusCode.InternalServerError)
+                                    val flag = spacesAlpha?.let { ""","spacesAlpha":$it""" }.orEmpty()
+                                    json("""{"did":"did:web:pds.test","availableUserDomains":[".test"]$flag}""")
                                 }
-                        json("""{"records":[${records.joinToString(",")}]}""")
+                                path == "/.well-known/did.json" ->
+                                    json(
+                                        """{"id":"did:web:appview.test","service":[
+                               {"id":"#activitytracker_space","type":"AtprotoSpaceService","serviceEndpoint":"http://appview.test"}]}"""
+                                    )
+                                path == "/xrpc/com.atproto.repo.uploadBlob" -> {
+                                    val bytes = (request.body as OutgoingContent.ByteArrayContent).bytes()
+                                    uploads++
+                                    if (bytes.size > (blobUploadLimit ?: Int.MAX_VALUE))
+                                        return@addHandler error("PayloadTooLarge", HttpStatusCode.PayloadTooLarge)
+                                    // Every blob gets a CID from its content, so each reads back ([blobs]); all start with "bafyblob".
+                                    val cid =
+                                        when {
+                                            bytes.decodeToString().startsWith("<?xml") -> "bafyblobgpx${bytes.contentHashCode().toUInt()}"
+                                            bytes.size >= 2 && bytes[0] == 0x1f.toByte() && bytes[1] == 0x8b.toByte() ->
+                                                "bafyblobgz${bytes.contentHashCode().toUInt()}"
+                                            else -> "bafyblob${bytes.contentHashCode().toUInt()}"
+                                        }
+                                    blobs[cid] = bytes
+                                    json(
+                                        $$"""{"blob":{"$type":"blob","ref":{"$link":"$$cid"},"mimeType":"application/json","size":10}}""",
+                                        limitHeaders,
+                                    )
+                                }
+                                path == "/xrpc/com.atproto.sync.getBlob" ->
+                                    blobs[request.url.parameters["cid"]]?.let {
+                                        respond(it, headers = headersOf("Content-Type", "application/json"))
+                                    } ?: error("BlobNotFound")
+                                path == "/xrpc/com.atproto.space.getBlob" ->
+                                    blobs[request.url.parameters["cid"]]?.let {
+                                        respond(it, headers = headersOf("Content-Type", "application/gpx+xml"))
+                                    } ?: error("BlobNotFound")
+                                path == "/xrpc/com.atproto.space.createSpace" -> {
+                                    val tier = body(request).getValue("skey").jsonPrimitive.content
+                                    created += tier
+                                    json("""{"uri":"at://$did/space/${Nsid.SPACE_ATHLETE}/$tier"}""")
+                                }
+                                path == "/xrpc/${Nsid.SPACE_NOTIFY_SPACE}" -> {
+                                    announced += body(request).getValue("space").jsonPrimitive.content.substringAfterLast('/')
+                                    json("{}")
+                                }
+                                path == "/xrpc/com.atproto.repo.putRecord" || path == "/xrpc/com.atproto.space.putRecord" -> {
+                                    val input = body(request)
+                                    val place = placeOf(input)
+                                    if (place != repo && failSpacePuts)
+                                        return@addHandler error("ServiceUnavailable", HttpStatusCode.ServiceUnavailable)
+                                    if (input.getValue("collection").jsonPrimitive.content == failPutsOf) {
+                                        val name = if (failPutsStatus == HttpStatusCode.BadRequest) "InvalidRecord" else "Failure"
+                                        return@addHandler error(name, failPutsStatus)
+                                    }
+                                    // An original names its blob by CID; the PDS refuses one it doesn't hold (never uploaded, or
+                                    // reclaimed).
+                                    val source =
+                                        input.getValue("record").jsonObject.takeIf {
+                                            input["collection"]?.jsonPrimitive?.content == Nsid.FEED_ACTIVITY_SOURCE
+                                        }
+                                    val sourceCid =
+                                        source?.get("file")?.jsonObject?.get("ref")?.jsonObject?.get("\$link")?.jsonPrimitive?.content
+                                    if (source != null && sourceCid !in blobs) return@addHandler error("BlobNotFound")
+                                    val key =
+                                        "${input.getValue("collection").jsonPrimitive.content}/${input.getValue("rkey").jsonPrimitive.content}"
+                                    stored.getOrPut(place) { mutableMapOf() }[key] = input.getValue("record").jsonObject
+                                    writes += "put $place $key"
+                                    onPut?.invoke(key, input.getValue("record").jsonObject)
+                                    json("""{"uri":"at://$did/x/y","cid":"bafyrec"}""", limitHeaders)
+                                }
+                                path == "/xrpc/com.atproto.repo.deleteRecord" || path == "/xrpc/com.atproto.space.deleteRecord" -> {
+                                    val input = body(request)
+                                    val place = placeOf(input)
+                                    if (place != repo && failSpaceDeletes)
+                                        return@addHandler error("InternalServerError", HttpStatusCode.InternalServerError)
+                                    val key =
+                                        "${input.getValue("collection").jsonPrimitive.content}/${input.getValue("rkey").jsonPrimitive.content}"
+                                    if (place != repo && place !in stored && place !in created)
+                                        return@addHandler error(SpaceErrors.SPACE_NOT_FOUND)
+                                    stored[place]?.remove(key)
+                                    writes += "delete $place $key"
+                                    json("{}", limitHeaders)
+                                }
+                                path == "/xrpc/com.atproto.repo.getRecord" || path == "/xrpc/com.atproto.space.getRecord" -> {
+                                    val params = request.url.parameters
+                                    val place = params["space"]?.substringAfterLast('/') ?: repo
+                                    val key = "${params["collection"]}/${params["rkey"]}"
+                                    if (key == failReadsOf)
+                                        return@addHandler error("InternalServerError", HttpStatusCode.InternalServerError)
+                                    val value = stored[place]?.get(key) ?: return@addHandler error("RecordNotFound")
+                                    json("""{"uri":"at://$did/$key","cid":"bafyrec","value":$value}""")
+                                }
+                                path == "/xrpc/com.atproto.repo.listRecords" || path == "/xrpc/com.atproto.space.listRecords" -> {
+                                    val params = request.url.parameters
+                                    val place = params["space"]?.substringAfterLast('/') ?: repo
+                                    val collection = params["collection"]!!
+                                    val records =
+                                        stored[place]
+                                            .orEmpty()
+                                            .filterKeys { it.startsWith("$collection/") }
+                                            .map { (key, value) ->
+                                                val rkey = key.substringAfter('/')
+                                                if (place == repo) """{"uri":"at://$did/$key","cid":"bafyrec","value":$value}"""
+                                                else """{"collection":"$collection","rkey":"$rkey","cid":"bafyrec","value":$value}"""
+                                            }
+                                    json("""{"records":[${records.joinToString(",")}]}""")
+                                }
+                                path == "/xrpc/${Nsid.FEED_GET_AUTHOR_ACTIVITIES}" ->
+                                    authorActivities?.let {
+                                        json(AtJson.encodeToString(GetAuthorActivities.Output.serializer(), GetAuthorActivities.Output(it)))
+                                    } ?: error("InternalServerError", HttpStatusCode.InternalServerError)
+                                path == "/xrpc/${Nsid.GEAR_GET_GEAR}" -> {
+                                    gearQueries += request.url.encodedPathAndQuery
+                                    gearUsage[request.url.parameters["uri"]]?.let {
+                                        json(AtJson.encodeToString(GetGear.Output.serializer(), it))
+                                    } ?: error("NotFound")
+                                }
+                                path == "/xrpc/${Nsid.GEAR_GET_ACTOR_GEAR}" -> {
+                                    gearQueries += request.url.encodedPathAndQuery
+                                    val (items, cursor) =
+                                        fakePage(actorGear, request.url.parameters["cursor"], request.url.parameters["limit"])
+                                    json(AtJson.encodeToString(GetActorGear.Output.serializer(), GetActorGear.Output(items, cursor)))
+                                }
+                                path == "/xrpc/${Nsid.GEAR_GET_GEAR_ACTIVITIES}" -> {
+                                    gearQueries += request.url.encodedPathAndQuery
+                                    val all = gearActivities[request.url.parameters["uri"]] ?: return@addHandler error("NotFound")
+                                    val (activities, cursor) =
+                                        fakePage(all, request.url.parameters["cursor"], request.url.parameters["limit"])
+                                    json(
+                                        AtJson.encodeToString(
+                                            GetGearActivities.Output.serializer(),
+                                            GetGearActivities.Output(activities, cursor),
+                                        )
+                                    )
+                                }
+                                path == "/xrpc/${Nsid.ACTOR_GET_PROFILE}" ->
+                                    profiles[request.url.parameters["actor"]]?.let {
+                                        json(AtJson.encodeToString(ProfileView.serializer(), it))
+                                    } ?: error("ProfileNotFound")
+                                path == "/xrpc/${Nsid.GRAPH_GET_BLOCKS}" ->
+                                    json(AtJson.encodeToString(GetBlocks.Output.serializer(), GetBlocks.Output(blocks)))
+                                path == "/xrpc/${Nsid.GRAPH_GET_MUTES}" ->
+                                    json(AtJson.encodeToString(GetMutes.Output.serializer(), GetMutes.Output(mutes)))
+                                path == "/xrpc/${Nsid.GRAPH_GET_FOLLOWERS}" -> {
+                                    val subject = ProfileViewBasic(Did(request.url.parameters["actor"]!!), Handle("subject.test"))
+                                    json(AtJson.encodeToString(GetFollowers.Output.serializer(), GetFollowers.Output(subject, followers)))
+                                }
+                                path == "/xrpc/${Nsid.GRAPH_GET_FOLLOWS}" -> {
+                                    val subject = ProfileViewBasic(Did(request.url.parameters["actor"]!!), Handle("subject.test"))
+                                    json(AtJson.encodeToString(GetFollows.Output.serializer(), GetFollows.Output(subject, follows)))
+                                }
+                                path == "/xrpc/${Nsid.ACTOR_SEARCH_ACTORS}" ->
+                                    json(AtJson.encodeToString(SearchActors.Output.serializer(), SearchActors.Output(searched)))
+                                path == "/xrpc/${Nsid.FEED_GET_ACTIVITY}" ->
+                                    (servedActivities[request.url.parameters["uri"]] ?: served?.activity)?.let {
+                                        json(AtJson.encodeToString(GetActivity.Output.serializer(), GetActivity.Output(it)))
+                                    } ?: error("NotFound")
+                                path == "/xrpc/${Nsid.FEED_GET_COMMENTS}" -> {
+                                    val output = served ?: return@addHandler error("NotFound")
+                                    val params = request.url.parameters
+                                    val uris = params.getAll("uris")
+                                    if (uris != null) lookups += uris
+                                    val page =
+                                        fakeGetComments(
+                                            output.activity.uri,
+                                            output.comments,
+                                            uris,
+                                            params["root"],
+                                            params["cursor"],
+                                            params["limit"]?.toInt(),
+                                        )
+                                    json(AtJson.encodeToString(GetComments.Output.serializer(), page))
+                                }
+                                path == "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" -> {
+                                    if (failStreams) return@addHandler error("InternalServerError", HttpStatusCode.InternalServerError)
+                                    val uri = AtUri(request.url.parameters["uri"]!!)
+                                    val visibility =
+                                        streamsVisibility[uri.rkey]
+                                            ?: return@addHandler servedFromStored(uri)?.let {
+                                                json(AtJson.encodeToString(GetActivityStreams.Output.serializer(), it))
+                                            } ?: error("NotFound")
+                                    json(
+                                        AtJson.encodeToString(
+                                            GetActivityStreams.Output.serializer(),
+                                            GetActivityStreams.Output(
+                                                uri,
+                                                visibility,
+                                                emptyList(),
+                                                streamsData[uri.rkey] ?: ActivityStreamData(time = listOf(0)),
+                                                trainingLoad = streamsLoad[uri.rkey],
+                                            ),
+                                        )
+                                    )
+                                }
+                                else -> respond("", HttpStatusCode.NotFound)
+                            }
+                        }
                     }
-                    path == "/xrpc/${Nsid.FEED_GET_AUTHOR_ACTIVITIES}" ->
-                        authorActivities?.let {
-                            json(AtJson.encodeToString(GetAuthorActivities.Output.serializer(), GetAuthorActivities.Output(it)))
-                        } ?: error("InternalServerError", HttpStatusCode.InternalServerError)
-                    path == "/xrpc/${Nsid.GEAR_GET_GEAR}" -> {
-                        gearQueries += request.url.encodedPathAndQuery
-                        gearUsage[request.url.parameters["uri"]]?.let { json(AtJson.encodeToString(GetGear.Output.serializer(), it)) }
-                            ?: error("NotFound")
-                    }
-                    path == "/xrpc/${Nsid.GEAR_GET_ACTOR_GEAR}" -> {
-                        gearQueries += request.url.encodedPathAndQuery
-                        val (items, cursor) = fakePage(actorGear, request.url.parameters["cursor"], request.url.parameters["limit"])
-                        json(AtJson.encodeToString(GetActorGear.Output.serializer(), GetActorGear.Output(items, cursor)))
-                    }
-                    path == "/xrpc/${Nsid.GEAR_GET_GEAR_ACTIVITIES}" -> {
-                        gearQueries += request.url.encodedPathAndQuery
-                        val all = gearActivities[request.url.parameters["uri"]] ?: return@MockEngine error("NotFound")
-                        val (activities, cursor) = fakePage(all, request.url.parameters["cursor"], request.url.parameters["limit"])
-                        json(AtJson.encodeToString(GetGearActivities.Output.serializer(), GetGearActivities.Output(activities, cursor)))
-                    }
-                    path == "/xrpc/${Nsid.ACTOR_GET_PROFILE}" ->
-                        profiles[request.url.parameters["actor"]]?.let { json(AtJson.encodeToString(ProfileView.serializer(), it)) }
-                            ?: error("ProfileNotFound")
-                    path == "/xrpc/${Nsid.GRAPH_GET_BLOCKS}" ->
-                        json(AtJson.encodeToString(GetBlocks.Output.serializer(), GetBlocks.Output(blocks)))
-                    path == "/xrpc/${Nsid.GRAPH_GET_MUTES}" ->
-                        json(AtJson.encodeToString(GetMutes.Output.serializer(), GetMutes.Output(mutes)))
-                    path == "/xrpc/${Nsid.GRAPH_GET_FOLLOWERS}" -> {
-                        val subject = ProfileViewBasic(Did(request.url.parameters["actor"]!!), Handle("subject.test"))
-                        json(AtJson.encodeToString(GetFollowers.Output.serializer(), GetFollowers.Output(subject, followers)))
-                    }
-                    path == "/xrpc/${Nsid.GRAPH_GET_FOLLOWS}" -> {
-                        val subject = ProfileViewBasic(Did(request.url.parameters["actor"]!!), Handle("subject.test"))
-                        json(AtJson.encodeToString(GetFollows.Output.serializer(), GetFollows.Output(subject, follows)))
-                    }
-                    path == "/xrpc/${Nsid.ACTOR_SEARCH_ACTORS}" ->
-                        json(AtJson.encodeToString(SearchActors.Output.serializer(), SearchActors.Output(searched)))
-                    path == "/xrpc/${Nsid.FEED_GET_ACTIVITY}" ->
-                        (servedActivities[request.url.parameters["uri"]] ?: served?.activity)?.let {
-                            json(AtJson.encodeToString(GetActivity.Output.serializer(), GetActivity.Output(it)))
-                        } ?: error("NotFound")
-                    path == "/xrpc/${Nsid.FEED_GET_COMMENTS}" -> {
-                        val output = served ?: return@MockEngine error("NotFound")
-                        val params = request.url.parameters
-                        val uris = params.getAll("uris")
-                        if (uris != null) lookups += uris
-                        val page =
-                            fakeGetComments(
-                                output.activity.uri,
-                                output.comments,
-                                uris,
-                                params["root"],
-                                params["cursor"],
-                                params["limit"]?.toInt(),
-                            )
-                        json(AtJson.encodeToString(GetComments.Output.serializer(), page))
-                    }
-                    path == "/xrpc/${Nsid.FEED_GET_ACTIVITY_STREAMS}" -> {
-                        if (failStreams) return@MockEngine error("InternalServerError", HttpStatusCode.InternalServerError)
-                        val uri = AtUri(request.url.parameters["uri"]!!)
-                        val visibility =
-                            streamsVisibility[uri.rkey]
-                                ?: return@MockEngine servedFromStored(uri)?.let {
-                                    json(AtJson.encodeToString(GetActivityStreams.Output.serializer(), it))
-                                } ?: error("NotFound")
-                        json(
-                            AtJson.encodeToString(
-                                GetActivityStreams.Output.serializer(),
-                                GetActivityStreams.Output(
-                                    uri,
-                                    visibility,
-                                    emptyList(),
-                                    streamsData[uri.rkey] ?: ActivityStreamData(time = listOf(0)),
-                                    trainingLoad = streamsLoad[uri.rkey],
-                                ),
-                            )
-                        )
-                    }
-                    else -> respond("", HttpStatusCode.NotFound)
-                }
-            }
+            )
         ) {
             expectSuccess = false
         }
@@ -402,7 +457,15 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
     private fun body(request: HttpRequestData): JsonObject =
         AtJson.parseToJsonElement((request.body as OutgoingContent.ByteArrayContent).bytes().decodeToString()).jsonObject
 
-    private fun MockRequestHandleScope.json(body: String) = respond(body, headers = headersOf("Content-Type", "application/json"))
+    private fun MockRequestHandleScope.json(body: String, extra: Headers? = null) =
+        respond(
+            body,
+            headers =
+                Headers.build {
+                    append("Content-Type", "application/json")
+                    extra?.let { appendAll(it) }
+                },
+        )
 
     /** A page of [all] after an index [cursor], [limit] long (30 by default), and the next page's cursor when there's more. */
     private fun <T> fakePage(all: List<T>, cursor: String?, limit: String?): Pair<List<T>, String?> {
@@ -438,13 +501,21 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
         val exporter: ActivityExporter,
         val blocks: BlockRepository,
         val rejected: RejectedChanges,
+        val outbox: OutboxProcessor,
     )
 
     @Suppress("LongMethod") // Builds every store a test reaches for.
-    suspend fun session(scope: String? = null): Session {
+    suspend fun session(scope: String? = null, pacing: OutboxPacing = OutboxPacing(), clock: Clock = Clock.System): Session {
         val (db, _, clients) =
-            if (scope == null) signedInTestSession(http, did = did) else signedInTestSession(http, did = did, scope = scope)
-        val outbox = OutboxProcessor(db, clients, Logger)
+            signedInTestSession(
+                http,
+                did = did,
+                scope = scope ?: OAuthClientConfig.DEFAULT_SCOPE,
+                pacing = pacing,
+                clock = clock,
+                queryContext = dispatcher,
+            )
+        val outbox = OutboxProcessor(db, clients, Logger, clock)
         val likes = LocalLikes()
         val feed = FeedRepository(db, clients, likes, Logger)
         val writer = OutboxWriter(db, clients, Clock.System)
@@ -510,7 +581,51 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice")) {
             ActivityExporter(db, clients, tracks, sources, feed),
             BlockRepository(clients, writer, outbox, feed, Clock.System),
             RejectedChanges(db, clients, outbox, feed, likes),
+            outbox,
         )
+    }
+}
+
+/**
+ * A PDS write limit for [FakeAthletePds.rateLimit]: [limit] points per [window], starting at [resetAt] and refilled whenever [now] passes
+ * it, as `repo-write-hour` is.
+ */
+class FakeRateLimit(
+    val limit: Int,
+    var resetAt: Instant,
+    val window: Duration = 1.hours,
+    val putCost: Int = 2,
+    val deleteCost: Int = 1,
+    val now: () -> Instant = { Clock.System.now() },
+) {
+    var remaining = limit
+
+    fun costOf(path: String): Int =
+        when (path) {
+            "/xrpc/com.atproto.repo.putRecord",
+            "/xrpc/com.atproto.space.putRecord" -> putCost
+            "/xrpc/com.atproto.repo.deleteRecord",
+            "/xrpc/com.atproto.space.deleteRecord" -> deleteCost
+            "/xrpc/com.atproto.repo.uploadBlob" -> 1
+            else -> 0
+        }
+
+    fun consume(cost: Int): Boolean {
+        while (now() >= resetAt) {
+            resetAt += window
+            remaining = limit
+        }
+        if (remaining < cost) return false
+        remaining -= cost
+        return true
+    }
+
+    fun headers(retryAfter: Boolean = false): Headers = Headers.build {
+        append("RateLimit-Limit", "$limit")
+        append("RateLimit-Remaining", "$remaining")
+        append("RateLimit-Reset", "${resetAt.epochSeconds}")
+        append("RateLimit-Policy", "$limit;w=${window.inWholeSeconds}")
+        if (retryAfter) append("Retry-After", "${(resetAt - now()).inWholeSeconds.coerceAtLeast(1)}")
     }
 }
 

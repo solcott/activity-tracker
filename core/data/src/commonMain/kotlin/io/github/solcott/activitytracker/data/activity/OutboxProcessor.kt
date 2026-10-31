@@ -20,20 +20,21 @@ import io.github.solcott.activitytracker.lexicon.atproto.SpaceErrors
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.github.solcott.dataresult.DataError
 import kotlin.time.Clock
-import kotlinx.coroutines.sync.Mutex
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 
 /**
- * Applies queued writes to the user's PDS in order (data/outbox). A failure that may pass ([isTransient]: no connection, a server error,
- * the session, being asked to wait) stops the run, and the write is sent again on the next. Any other failure means the PDS refused the
- * write: it's kept as rejected ([OutboxEntity.rejectedAt]) until the athlete retries or discards it ([RejectedChanges]), and it holds back
- * the later writes with its rkey (an activity's other records share its rkey), while the rest go on. A write with a space goes to that tier
- * space, which is created (and announced to the AppView) first if need be; its blob is uploaded the same way as a repo write's, and the
- * space record takes it over. Writes sharing a blob ([OutboxEntity.blobKey]) upload it once. Deleting from a space that doesn't exist, or a
- * record that isn't there, is done already. The one write dropped rather than rejected is an original file (`feed.activitySource`) the PDS
- * refuses as too large.
+ * Applies queued writes to the user's PDS in order (data/outbox), the athlete's own before a batch import's ([sendOrder]). A failure that
+ * may pass ([isTransient]: no connection, a server error, the session) stops the run, and the write is sent again on the next. Being asked
+ * to slow down (429) pauses the account's outbox until the PDS says ([AccountPacing]), and isn't counted as an attempt; [OutboxPacer]
+ * resumes it. Any other failure means the PDS refused the write: it's kept as rejected ([OutboxEntity.rejectedAt]) until the athlete
+ * retries or discards it ([RejectedChanges]), and it holds back the later writes with its rkey (an activity's other records share its
+ * rkey), while the rest go on. A write with a space goes to that tier space, which is created (and announced to the AppView) first if need
+ * be; its blob is uploaded the same way as a repo write's, and the space record takes it over. Writes sharing a blob
+ * ([OutboxEntity.blobKey]) upload it once. Deleting from a space that doesn't exist, or a record that isn't there, is done already. The one
+ * write dropped rather than rejected is an original file (`feed.activitySource`) the PDS refuses as too large.
  */
 @SingleIn(SessionScope::class)
 @Inject
@@ -44,51 +45,117 @@ class OutboxProcessor(
     private val clock: Clock = Clock.System,
 ) {
     private val log = logger.withTag("OutboxProcessor")
-    private val mutex = Mutex()
+    private val pacing
+        get() = clients.pacing
 
     /**
      * Returns the number of writes not applied, rejected and held ones included, so zero means everything was sent. With [only], applies
      * just the writes it accepts, in order, so a stuck write it skips doesn't hold them up; the count is then of those. A write held back
      * by a rejected one is skipped whether or not [only] accepts the rejected one.
      */
-    suspend fun drain(only: (OutboxEntity) -> Boolean = { true }): Int = mutex.withLock {
-        val all = db.outbox().pending(clients.did.value)
-        val held = all.filter { it.rejectedAt != null }.mapTo(mutableSetOf()) { it.rkey }
-        val selected = all.filter(only)
-        var notApplied = 0
-        for ((index, item) in selected.withIndex()) {
-            if (item.rkey in held) {
-                notApplied++
-                continue
-            }
-            runSuspendCatching {
-                apply(item)
-                db.outbox().delete(item.id)
-            }
-                .onFailure { e ->
-                    val error = e.message ?: e::class.simpleName.orEmpty()
-                    when {
-                        item.collection == Nsid.FEED_ACTIVITY_SOURCE && e.isBlobTooLarge() -> {
-                            // Only the original is lost: the activity just offers no download.
-                            log.w(e) { "Dropping outbox write ${item.id}: the PDS refused its original file as too large" }
-                            db.outbox().delete(item.id)
-                        }
-                        e.isTransient() -> {
-                            log.w(e) { "Outbox write ${item.id} failed; ${selected.size - index} pending" }
-                            db.outbox().markFailed(item.id, error)
-                            return notApplied + selected.size - index
-                        }
-                        else -> {
-                            log.w(e) { "Outbox write ${item.id} rejected; the writes behind it with its rkey wait for the athlete" }
-                            db.outbox().markRejected(item.id, clock.now().toEpochMilliseconds(), error)
-                            held += item.rkey
-                            notApplied++
-                        }
-                    }
+    suspend fun drain(only: (OutboxEntity) -> Boolean = { true }): Int = run(only).notApplied
+
+    /**
+     * [drain], also saying whether the run stopped at a failure that may pass ([DrainRun.failed]). Writes go non-bulk first, each in the
+     * order queued, except that a write for a record a bulk write is still queued for stays behind it ([sendOrder]). Nothing is sent while
+     * the PDS's pause lasts ([AccountPacing.isPaused]), and no bulk write while less than a tenth of its stated limit is left: the rest is
+     * kept for the athlete's own writes, and bulk writes wait for the limit to reset.
+     */
+    suspend fun run(only: (OutboxEntity) -> Boolean = { true }): DrainRun =
+        pacing.lock.withLock {
+            val all = db.outbox().pending(clients.did.value)
+            val held = all.filter { it.rejectedAt != null }.mapTo(mutableSetOf()) { it.rkey }
+            val selected = sendOrder(all.filter(only))
+            if (pacing.isPaused(clock.now())) return@withLock DrainRun(selected.size)
+            val bulkRkeys = selected.filter { it.bulk }.mapTo(mutableSetOf()) { it.rkey }
+            var notApplied = 0
+            for ((index, item) in selected.withIndex()) {
+                if (item.rkey in held) {
+                    notApplied++
+                    continue
                 }
-            if (item.blobKey != null) db.outbox().deleteUnreferencedBlobs()
+                if ((item.bulk || item.rkey in bulkRkeys) && !bulkMaySend()) {
+                    // Everything left waits behind a bulk write.
+                    return@withLock DrainRun(notApplied + selected.size - index)
+                }
+                val failure = runSuspendCatching {
+                    apply(item)
+                    db.outbox().delete(item.id)
+                }
+                    .exceptionOrNull()
+                when (failure?.let { failed(item, it, pending = selected.size - index) }) {
+                    null -> Unit
+                    Failure.Stop -> return@withLock DrainRun(notApplied + selected.size - index)
+                    Failure.StopFailed -> return@withLock DrainRun(notApplied + selected.size - index, failed = true)
+                    Failure.Rejected -> {
+                        held += item.rkey
+                        notApplied++
+                    }
+                    Failure.Dropped -> Unit
+                }
+                if (item.blobKey != null) db.outbox().deleteUnreferencedBlobs()
+            }
+            DrainRun(notApplied)
         }
-        notApplied
+
+    /** What a write's failure means for the run: [Failure.Stop] at a pause, [Failure.StopFailed] at a failure that may pass. */
+    private enum class Failure {
+        Dropped,
+        Stop,
+        StopFailed,
+        Rejected,
+    }
+
+    private suspend fun failed(item: OutboxEntity, e: Throwable, pending: Int): Failure {
+        val error = e.message ?: e::class.simpleName.orEmpty()
+        return when {
+            item.collection == Nsid.FEED_ACTIVITY_SOURCE && e.isBlobTooLarge() -> {
+                // Only the original is lost: the activity just offers no download.
+                log.w(e) { "Dropping outbox write ${item.id}: the PDS refused its original file as too large" }
+                db.outbox().delete(item.id)
+                Failure.Dropped
+            }
+            e is XrpcException && e.status == HTTP_TOO_MANY_REQUESTS -> {
+                // Not an attempt: the PDS said when to come back.
+                val until = e.retryAfter ?: e.rateLimit?.resetAt ?: (clock.now() + RATE_LIMIT_FALLBACK)
+                log.i { "Outbox paused by the PDS until $until; $pending pending" }
+                pacing.pause(until)
+                Failure.Stop
+            }
+            e.isTransient() -> {
+                log.w(e) { "Outbox write ${item.id} failed; $pending pending" }
+                db.outbox().markFailed(item.id, error)
+                Failure.StopFailed
+            }
+            else -> {
+                log.w(e) { "Outbox write ${item.id} rejected; the writes behind it with its rkey wait for the athlete" }
+                db.outbox().markRejected(item.id, clock.now().toEpochMilliseconds(), error)
+                Failure.Rejected
+            }
+        }
+    }
+
+    /**
+     * Whether a bulk write may go now: no bulk pause, and each limit the PDS stated has a tenth left or has reset since. Otherwise bulk
+     * writes wait for the latest reset among the limits running low.
+     */
+    private fun bulkMaySend(): Boolean {
+        val now = clock.now()
+        if (!pacing.isBulkPaused(now)) {
+            val low =
+                pacing.rateLimits.value.values.filter { limit ->
+                    val reset = limit.resetAt
+                    reset != null && reset > now && limit.remaining * RESERVE_FRACTION < limit.limit
+                }
+            low.mapNotNull { it.resetAt }
+                .maxOrNull()
+                ?.let { until ->
+                    val left = low.joinToString { "${it.remaining} of ${it.limit}" }
+                    log.i { "Bulk writes wait until $until: $left left, kept for the athlete's own writes" }
+                    pacing.pauseBulk(until)
+                }
+        }
+        return !pacing.isBulkPaused(now)
     }
 
     private suspend fun apply(item: OutboxEntity) {
@@ -190,9 +257,29 @@ class OutboxProcessor(
         private const val HTTP_PAYLOAD_TOO_LARGE = 413
         private const val HTTP_SERVER_ERROR = 500
 
-        /** An expired session (401), a timed-out request (408) and being asked to slow down (429). */
+        /** An expired session (401), a timed-out request (408) and being asked to slow down (429, which also pauses the outbox). */
         private val RETRYABLE_STATUSES = setOf(401, 408, 429)
+        private const val HTTP_TOO_MANY_REQUESTS = 429
+
+        /** How long to wait after a 429 that says nothing of when to come back. */
+        private val RATE_LIMIT_FALLBACK = 1.minutes
+
+        /** Bulk writes stop once less than 1 / this of the PDS's limit is left. */
+        private const val RESERVE_FRACTION = 10
     }
+}
+
+/** One [OutboxProcessor.run]: the writes [notApplied], and whether it stopped at a failure that may pass, other than a rate limit. */
+data class DrainRun(val notApplied: Int, val failed: Boolean = false)
+
+/**
+ * [writes] in the order they're sent (data/outbox): the athlete's own before bulk ones, each in the order queued, except that a write for a
+ * record a bulk write is queued for keeps its place among the bulk writes, so one record's writes never change order.
+ */
+internal fun sendOrder(writes: List<OutboxEntity>): List<OutboxEntity> {
+    val bulkRkeys = writes.filter { it.bulk }.mapTo(mutableSetOf()) { it.rkey }
+    val (own, rest) = writes.partition { !it.bulk && it.rkey !in bulkRkeys }
+    return own + rest
 }
 
 /** Deletes [collection]/[rkey] from the athlete's [space]; a space or record that isn't there counts as deleted. */

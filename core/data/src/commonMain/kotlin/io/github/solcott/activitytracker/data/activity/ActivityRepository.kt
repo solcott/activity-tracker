@@ -111,8 +111,9 @@ class ActivityRepository(
     /**
      * Publishes [drafts] as they arrive, like [publishAll] with one read of the zones and training for them all, but queueing each before
      * the next is built, so a batch of thousands is never held at once. Each is checked as it comes: one this session can't write throws,
-     * those before it staying queued. [onQueued] hears each draft's URI. The outbox drains after the last when [drain]; otherwise the next
-     * [sync] sends them (an import goes on to the feed, which syncs), so saving a batch needn't wait for its upload.
+     * those before it staying queued. [onQueued] hears each draft's URI. Every write is bulk ([BulkWrites]), sent after the athlete's own.
+     * The outbox drains after the last when [drain]; otherwise the session's [OutboxPacer] sends them, so saving a batch needn't wait for
+     * its upload.
      */
     suspend fun publishBatch(
         drafts: Flow<ActivityDraft>,
@@ -122,16 +123,18 @@ class ActivityRepository(
         val uris = mutableListOf<AtUri>()
         val types = mutableSetOf<ActivityType>()
         try {
-            privacy.withReadOnce {
-                zones.withTrainingReadOnce {
-                    drafts.collect { draft ->
-                        clients.requireSpacesFor(draft.visibility)
-                        clients.requireDetailsSpaceFor(listOf(draft))
-                        requireSelfSpaceFor(listOf(draft))
-                        val uri = queue(draft, photos = emptyList(), trim = privacy.forPublish())
-                        uris += uri
-                        types += draft.type
-                        onQueued(draft, uri)
+            BulkWrites.run {
+                privacy.withReadOnce {
+                    zones.withTrainingReadOnce {
+                        drafts.collect { draft ->
+                            clients.requireSpacesFor(draft.visibility)
+                            clients.requireDetailsSpaceFor(listOf(draft))
+                            requireSelfSpaceFor(listOf(draft))
+                            val uri = queue(draft, photos = emptyList(), trim = privacy.forPublish())
+                            uris += uri
+                            types += draft.type
+                            onQueued(draft, uri)
+                        }
                     }
                 }
             }
@@ -337,10 +340,13 @@ class ActivityRepository(
      * Retries anything left in the outbox (e.g. on app start or reconnect), first trimming again any route this session published without
      * reading the zones ([RouteTrimmer.trimStale]).
      */
-    suspend fun sync(): Int {
+    suspend fun sync(): Int = syncRun().notApplied
+
+    /** [sync], also saying whether the drain stopped at a failure that may pass ([DrainRun.failed]), for [OutboxPacer]. */
+    suspend fun syncRun(): DrainRun {
         routes.trimStale()
         if (segmentTracks.takeStale()) segmentSweeper.sweep()
-        return outbox.drain()
+        return outbox.run()
     }
 
     /**

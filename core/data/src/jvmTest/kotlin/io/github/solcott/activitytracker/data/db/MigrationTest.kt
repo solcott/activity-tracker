@@ -79,6 +79,18 @@ class MigrationTest {
         db.close()
     }
 
+    @Test
+    fun version6OutboxRowsAreTheAthletesOwn() = runTest {
+        val file = File(createTempDirectory("migration").toFile(), DATABASE_NAME)
+        createVersion(file, 6)
+
+        val db = Room.databaseBuilder<AppDatabase>(file.path).addAppMigrations().setDriver(BundledSQLiteDriver()).build()
+        val pending = db.outbox().pending("did:plc:alice")
+        assertEquals(listOf("3kold"), pending.map { it.rkey })
+        assertEquals(false, pending.single().bulk, "a write queued before bulk writes goes first, as it did")
+        db.close()
+    }
+
     private fun createVersion1(file: File) = createVersion(file, 1)
 
     /** The [version] schema, from the committed schema export, with one queued write. */

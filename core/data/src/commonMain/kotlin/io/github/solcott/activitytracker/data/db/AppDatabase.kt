@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.data.db
 
+import androidx.room3.ColumnInfo
 import androidx.room3.ConstructedBy
 import androidx.room3.Dao
 import androidx.room3.Database
@@ -23,7 +24,7 @@ const val DATABASE_NAME = "activity-tracker.db"
  * crashes lowering the `AutoMigration` annotation.
  */
 fun <T : RoomDatabase> RoomDatabase.Builder<T>.addAppMigrations(): RoomDatabase.Builder<T> =
-    addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+    addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
 
 /** Runs one statement: `execSQL` blocks on most platforms and suspends on the web, so it has no common form. */
 internal expect suspend fun SQLiteConnection.runSql(sql: String)
@@ -67,6 +68,9 @@ private val MIGRATION_4_5 =
 /** 5 → 6: a write the PDS refused is kept as rejected (data/outbox), so the writes behind it go on. */
 private val MIGRATION_5_6 = Migration(5, 6) { it.runSql("ALTER TABLE outbox ADD COLUMN rejectedAt INTEGER") }
 
+/** 6 → 7: a batch import's writes are bulk (data/outbox), sent after the athlete's own; a write queued before is not. */
+private val MIGRATION_6_7 = Migration(6, 7) { it.runSql("ALTER TABLE outbox ADD COLUMN bulk INTEGER NOT NULL DEFAULT 0") }
+
 @Database(
     entities =
         [
@@ -79,7 +83,7 @@ private val MIGRATION_5_6 = Migration(5, 6) { it.runSql("ALTER TABLE outbox ADD 
             RecordingEntity::class,
             RecordingEventEntity::class,
         ],
-    version = 6,
+    version = 7,
 )
 @ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -193,7 +197,12 @@ data class OutboxEntity(
     val blobKey: String? = null,
     /** When the PDS refused this write (epoch millis), or null while it's still to send. */
     val rejectedAt: Long? = null,
+    /** Queued by a batch import (`BulkWrites`): sent after the athlete's own writes, and only while the PDS's limit has room to spare. */
+    @ColumnInfo(defaultValue = "0") val bulk: Boolean = false,
 )
+
+/** [OutboxDao.queueState]: how many writes are queued and the newest's id. */
+data class OutboxQueueState(val size: Int, val latest: Long?)
 
 /** A rejected outbox write ([OutboxDao.rejected]), without its record or blob. */
 data class RejectedOutboxWrite(
@@ -226,6 +235,9 @@ interface OutboxDao {
     @Query("SELECT * FROM outbox WHERE did = :did ORDER BY id") suspend fun pending(did: String): List<OutboxEntity>
 
     @Query("SELECT COUNT(*) FROM outbox WHERE did = :did") fun count(did: String): Flow<Int>
+
+    /** The account's queue at a glance: changes whenever a write is queued or leaves it. */
+    @Query("SELECT COUNT(*) AS size, MAX(id) AS latest FROM outbox WHERE did = :did") fun queueState(did: String): Flow<OutboxQueueState>
 
     @Query("UPDATE outbox SET attempts = attempts + 1, lastError = :error WHERE id = :id") suspend fun markFailed(id: Long, error: String)
 

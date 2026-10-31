@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.atproto.identity.IdentityResolver
 import io.github.solcott.activitytracker.atproto.oauth.OAuthClient
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSession
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSessionManager
+import io.github.solcott.activitytracker.data.activity.OutboxPacing
 import io.github.solcott.activitytracker.data.auth.InMemorySecretCipher
 import io.github.solcott.activitytracker.data.auth.RoomOAuthStore
 import io.github.solcott.activitytracker.data.db.AppDatabase
@@ -15,6 +16,7 @@ import io.github.solcott.activitytracker.data.db.inMemoryDatabase
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.ktor.client.HttpClient
+import kotlin.coroutines.CoroutineContext
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
 
@@ -23,16 +25,21 @@ data class TestSession(val db: AppDatabase, val manager: OAuthSessionManager, va
 
 /**
  * Saves a fresh session for [did] in an in-memory database and restores it, so every request goes through [http]. Its [scope] is the app's
- * own by default; pass `"atproto"` for a session signed in before the `space:` scope existed. Reports go to [labelerDid].
+ * own by default; pass `"atproto"` for a session signed in before the `space:` scope existed. Reports go to [labelerDid]. Sessions sharing
+ * [pacing] share a drain lock and pauses, as two session graphs of one account do.
  */
+@Suppress("LongParameterList") // Each test sets only what it needs.
 suspend fun signedInTestSession(
     http: HttpClient,
     did: Did = Did("did:plc:alice"),
     logger: Logger = Logger,
     scope: String = OAuthClientConfig.DEFAULT_SCOPE,
     labelerDid: Did? = null,
+    pacing: OutboxPacing = OutboxPacing(),
+    clock: Clock = Clock.System,
+    queryContext: CoroutineContext? = null,
 ): TestSession {
-    val db = inMemoryDatabase()
+    val db = inMemoryDatabase(queryContext)
     val store = RoomOAuthStore(db, Clock.System, InMemorySecretCipher(), logger)
     val session =
         OAuthSession(
@@ -59,5 +66,5 @@ suspend fun signedInTestSession(
         )
     val identity = IdentityResolver(http, config)
     val manager = OAuthSessionManager(OAuthClient(http, identity, config.oauth), store).apply { restore() }
-    return TestSession(db, manager, SessionClients(session, http, manager, config, identity, Clock.System))
+    return TestSession(db, manager, SessionClients(session, http, manager, config, identity, clock, pacing))
 }

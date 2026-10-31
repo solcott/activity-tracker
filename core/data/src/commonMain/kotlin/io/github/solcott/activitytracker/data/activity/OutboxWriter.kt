@@ -9,7 +9,10 @@ import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
+import kotlin.coroutines.CoroutineContext
 import kotlin.time.Clock
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 
 /**
@@ -46,7 +49,7 @@ class OutboxWriter(private val db: AppDatabase, private val clients: SessionClie
         db.outbox().insert(entity(OutboxProcessor.OP_DELETE, collection, rkey, null, space))
     }
 
-    private fun entity(operation: String, collection: String, rkey: String, json: String?, space: SpaceUri?) =
+    private suspend fun entity(operation: String, collection: String, rkey: String, json: String?, space: SpaceUri?) =
         OutboxEntity(
             did = clients.did.value,
             operation = operation,
@@ -55,7 +58,20 @@ class OutboxWriter(private val db: AppDatabase, private val clients: SessionClie
             recordJson = json,
             createdAt = clock.now().toEpochMilliseconds(),
             space = space?.value,
+            bulk = currentCoroutineContext()[BulkWrites] != null,
         )
+}
+
+/**
+ * Marks every write queued in its scope as bulk (data/outbox): a batch import's, sent after the athlete's own writes and only while the
+ * PDS's limit has room to spare. [ActivityRepository.publishBatch] runs under it, and so does anything a batch save queues within it,
+ * combines included.
+ */
+object BulkWrites : CoroutineContext.Element, CoroutineContext.Key<BulkWrites> {
+    override val key: CoroutineContext.Key<*>
+        get() = this
+
+    suspend fun <T> run(block: suspend () -> T): T = withContext(BulkWrites) { block() }
 }
 
 /**
