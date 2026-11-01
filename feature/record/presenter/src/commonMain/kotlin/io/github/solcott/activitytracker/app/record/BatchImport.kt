@@ -339,20 +339,43 @@ internal class BatchDrafting(
      * whose file can't be read again.
      */
     suspend fun draftsOf(indices: List<Int>): List<Pair<Int, ActivityDraft?>> {
+        val drafts = mutableMapOf<Int, ActivityDraft?>()
+        eachDraft(indices) { index, draft -> drafts[index] = draft }
+        return indices.map { it to drafts[it] }
+    }
+
+    /**
+     * Drafts the items at [indices] in one pass over their files, so a nested archive is inflated once however many of its files are saved,
+     * handing each to [onDraft] as its file is read, in the order the sources hold them; null for one whose file can't be read again. Only
+     * one file is held at a time.
+     */
+    suspend fun eachDraft(indices: List<Int>, onDraft: suspend (Int, ActivityDraft?) -> Unit) {
         val byFile = indices.groupBy { batch.items[it].file }
-        val found = mutableMapOf<Int, Pair<FoundFile, ImportedFile>?>()
+        val done = mutableSetOf<Int>()
         reader.readEach(byFile.keys.map { batch.files[it].ref }) { ref, result ->
             val file = fileOf.getValue(ref)
-            found[file] = result.getOrNull()?.let { bytes -> runCatchingRead { bytes to files.readFile(bytes.bytes) } }
+            // A file is reported again as failed when its archive fails after it: the first report stands.
+            if (!done.add(file)) return@readEach
+            val read = result.getOrNull()?.let { bytes -> runCatchingRead { bytes to files.readFile(bytes.bytes) } }
+            byFile.getValue(file).forEach { index ->
+                onDraft(index, read?.let { (bytes, imported) -> draft(index, bytes, imported) })
+                drafted(file)
+            }
         }
-        val drafts = indices.map { index -> index to found[batch.items[index].file]?.let { (bytes, read) -> draft(index, bytes, read) } }
-        // A file's original goes once its last activity is drafted.
-        indices.forEach { index ->
-            val file = batch.items[index].file
-            val left = (remaining[file] ?: 1) - 1
-            if (left <= 0) sources.remove(file) else remaining[file] = left
-        }
-        return drafts
+        byFile
+            .filterKeys { it !in done }
+            .forEach { (file, missed) ->
+                missed.forEach { index ->
+                    onDraft(index, null)
+                    drafted(file)
+                }
+            }
+    }
+
+    /** A file's original goes once its last activity is drafted. */
+    private fun drafted(file: Int) {
+        val left = (remaining[file] ?: 1) - 1
+        if (left <= 0) sources.remove(file) else remaining[file] = left
     }
 
     private suspend fun draft(index: Int, found: FoundFile, read: ImportedFile): ActivityDraft? {
@@ -387,7 +410,7 @@ internal class BatchResult(val published: List<Pair<AtUri, ActivityDraft>>, val 
 
 /**
  * Saves [plan]: each combined group first, because combining sends the outbox and so would wait on the whole batch's upload, then the rest,
- * read again and queued [CHUNK] at a time, [onProgress] counting them. Leaves sending the bulk to the next sync.
+ * read again in one pass over their files and queued one at a time, [onProgress] counting them. Leaves sending the bulk to the next sync.
  */
 internal suspend fun saveBatch(
     activities: ActivityRepository,
@@ -423,14 +446,13 @@ internal suspend fun saveBatch(
     }
     val published = mutableListOf<Pair<AtUri, ActivityDraft>>()
     val bulk = flow {
-        for (chunk in plan.alone.chunked(CHUNK)) {
-            for ((_, draft) in drafting.draftsOf(chunk)) {
-                if (draft == null) {
-                    skipped++
-                    onProgress(SaveProgress(queued + skipped, total))
-                } else {
-                    emit(draft)
-                }
+        // One pass over the files: each draft is queued before the next file is read.
+        drafting.eachDraft(plan.alone) { _, draft ->
+            if (draft == null) {
+                skipped++
+                onProgress(SaveProgress(queued + skipped, total))
+            } else {
+                emit(draft)
             }
         }
     }
@@ -441,9 +463,6 @@ internal suspend fun saveBatch(
     }
     BatchResult(published, saved = queued, skipped = skipped)
 }
-
-/** Activities read again and drafted at a time while saving a batch: few enough to hold, many enough to keep reads few. */
-private const val CHUNK = 25
 
 /** [block]'s result, or null when reading a file failed: that file's activities are skipped. Cancellation still propagates. */
 @Suppress("TooGenericExceptionCaught") // Any failure reading one file is that file's.
