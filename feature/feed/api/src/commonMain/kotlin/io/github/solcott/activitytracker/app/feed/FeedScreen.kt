@@ -11,9 +11,12 @@ import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
 import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.ImportCardView
+import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.github.solcott.uistate.ContentState
 import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 @CircuitSerializable(SessionScope::class) data object FeedScreen : Screen
 
@@ -28,8 +31,11 @@ enum class FeedScope {
 
 @Immutable
 data class FeedState(
-    /** The feed's activities, with whether a refresh is in flight or failed. */
-    val content: ContentState<ImmutableList<ActivityView>>,
+    /**
+     * The feed's activities and, on the unfiltered Following feed, import cards (feed/import-cards) in their places, with whether a refresh
+     * is in flight or failed.
+     */
+    val content: ContentState<ImmutableList<TimelineItem>>,
     /** An action that failed (a like, the segments answer); load failures are [content]'s. */
     val error: UiError?,
     /** Writes still uploading, apart from [rejectedChanges]. */
@@ -55,9 +61,13 @@ data class FeedState(
     val rejectedChanges: Int = 0,
     val eventSink: (FeedEvent) -> Unit,
 ) : CircuitUiState {
-    /** [content]'s activities: the last loaded, or none yet. */
-    val activities: ImmutableList<ActivityView>
+    /** [content]'s items: the last loaded, or none yet. */
+    val items: ImmutableList<TimelineItem>
         get() = content.data
+
+    /** [items]' activities, without the import cards. */
+    val activities: ImmutableList<ActivityView>
+        get() = items.mapNotNull { (it as? TimelineItem.Activity)?.view }.toImmutableList()
 }
 
 sealed interface FeedEvent {
@@ -73,6 +83,9 @@ sealed interface FeedEvent {
 
     /** A tap on one of [FeedState.activities]. */
     data class Activity(val event: ActivityListEvent) : FeedEvent
+
+    /** A tap on an import card: opens its batch ([ImportBatchScreen]). */
+    data class OpenImportBatch(val card: ImportCardView) : FeedEvent
 
     data object Record : FeedEvent
 

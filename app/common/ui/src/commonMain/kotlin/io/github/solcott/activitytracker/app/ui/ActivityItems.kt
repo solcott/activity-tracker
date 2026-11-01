@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app.ui
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -26,16 +27,30 @@ fun LazyListScope.activityItems(
     onEvent: (ActivityListEvent) -> Unit,
 ) {
     items(activities, key = { it.uri.value }) { activity ->
-        ActivityCard(
-            activity = activity,
-            onClick = { onEvent(ActivityListEvent.Open(activity)) },
-            onAuthorClick = { onEvent(ActivityListEvent.OpenAuthor(activity)) }.takeIf { authorClickable },
-            onOpenMedia = { onEvent(ActivityListEvent.OpenMedia(activity, it)) },
-            onLike = { onEvent(ActivityListEvent.ToggleLike(activity)) }.takeUnless { activity.author.did.value == viewerDid },
-            isOwn = activity.author.did.value == viewerDid,
-            revealed = activity.uri.value in revealed,
-            onReveal = { revealed.eventSink(activity.uri.value) },
-            modifier = Modifier.padding(bottom = gap),
-        )
+        ActivityListCard(activity, viewerDid, authorClickable, revealed, onEvent, Modifier.padding(bottom = gap))
     }
+}
+
+/** One of [activityItems]' cards, for a lazy list that mixes activities with other items (the timeline's import cards). */
+@Composable
+@Suppress("LongParameterList") // As activityItems.
+fun ActivityListCard(
+    activity: ActivityView,
+    viewerDid: String,
+    authorClickable: Boolean,
+    revealed: Revealed,
+    onEvent: (ActivityListEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    ActivityCard(
+        activity = activity,
+        onClick = { onEvent(ActivityListEvent.Open(activity)) },
+        onAuthorClick = { onEvent(ActivityListEvent.OpenAuthor(activity)) }.takeIf { authorClickable },
+        onOpenMedia = { onEvent(ActivityListEvent.OpenMedia(activity, it)) },
+        onLike = { onEvent(ActivityListEvent.ToggleLike(activity)) }.takeUnless { activity.author.did.value == viewerDid },
+        isOwn = activity.author.did.value == viewerDid,
+        revealed = activity.uri.value in revealed,
+        onReveal = { revealed.eventSink(activity.uri.value) },
+        modifier = modifier,
+    )
 }

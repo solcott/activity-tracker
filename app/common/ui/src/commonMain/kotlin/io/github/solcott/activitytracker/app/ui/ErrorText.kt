@@ -34,6 +34,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_gear_ac
 import io.github.solcott.activitytracker.composeApp.resources.error_load_gear_collection
 import io.github.solcott.activitytracker.composeApp.resources.error_load_gear_item
 import io.github.solcott.activitytracker.composeApp.resources.error_load_ignored_sensors
+import io.github.solcott.activitytracker.composeApp.resources.error_load_import_batch
 import io.github.solcott.activitytracker.composeApp.resources.error_load_leaderboard
 import io.github.solcott.activitytracker.composeApp.resources.error_load_likes
 import io.github.solcott.activitytracker.composeApp.resources.error_load_mayors
@@ -123,6 +124,7 @@ private fun kindText(kind: UiError.Kind): String =
     stringResource(
         when (kind) {
             UiError.Kind.LoadFeed -> Res.string.error_load_feed
+            UiError.Kind.LoadImportBatch -> Res.string.error_load_import_batch
             UiError.Kind.LoadActivity -> Res.string.error_load_activity
             UiError.Kind.LoadSegment -> Res.string.error_load_segment
             UiError.Kind.LoadRoute -> Res.string.error_load_route

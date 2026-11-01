@@ -17,6 +17,8 @@ import io.github.solcott.activitytracker.app.edit.EditActivitySamples
 import io.github.solcott.activitytracker.app.edit.EditActivityUi
 import io.github.solcott.activitytracker.app.feed.FeedSamples
 import io.github.solcott.activitytracker.app.feed.FeedUi
+import io.github.solcott.activitytracker.app.feed.ImportBatchSamples
+import io.github.solcott.activitytracker.app.feed.ImportBatchUi
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
 import io.github.solcott.activitytracker.app.gear.EditGearCollectionSamples
 import io.github.solcott.activitytracker.app.gear.EditGearCollectionUi
@@ -106,6 +108,7 @@ class ContentLoadingConformanceTest {
     private val screens: List<Entry<*>> =
         listOf(
             entry({ FeedSamples.all }, "Morning Ride") { FeedUi(it) },
+            entry({ ImportBatchSamples.all }, "Evening Ride") { ImportBatchUi(it) },
             entry({ SegmentSamples.all }, "Ridge Trail") { SegmentUi(it) },
             entry({ SegmentMapSamples.all }, null) { SegmentMapUi(it) },
             entry({ SegmentLeaderboardSamples.all }, "Carol") { SegmentLeaderboardUi(it) },

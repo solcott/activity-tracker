@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.MaterialTheme
@@ -33,11 +35,11 @@ import com.slack.circuit.subcircuit.SubCircuitContent
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.detail.timeFormat
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterOuterEvent
+import io.github.solcott.activitytracker.app.ui.ActivityListCard
 import io.github.solcott.activitytracker.app.ui.ContentStateLayout
 import io.github.solcott.activitytracker.app.ui.LocalClock
 import io.github.solcott.activitytracker.app.ui.LocalTimeZone
 import io.github.solcott.activitytracker.app.ui.RefreshStatus
-import io.github.solcott.activitytracker.app.ui.activityItems
 import io.github.solcott.activitytracker.app.ui.adaptive.AppButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppCard
 import io.github.solcott.activitytracker.app.ui.adaptive.AppIcon
@@ -76,6 +78,7 @@ import io.github.solcott.activitytracker.composeApp.resources.feed_segments_turn
 import io.github.solcott.activitytracker.composeApp.resources.feed_upload_paused
 import io.github.solcott.activitytracker.composeApp.resources.feed_upload_paused_tomorrow
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.github.solcott.uistate.isLoading
 import kotlin.time.Instant
 import kotlinx.collections.immutable.toImmutableList
@@ -222,10 +225,8 @@ private fun Timeline(
             }
             state.error?.let { item { Text(errorText(it), color = MaterialTheme.colorScheme.error) } }
             if (state.askSegments) item { SegmentsPrompt(state) }
-            activityItems(state.activities, state.viewerDid, authorClickable = true, state.revealed) {
-                state.eventSink(FeedEvent.Activity(it))
-            }
-            if (state.activities.isEmpty() && !state.content.isLoading) {
+            timelineItems(state)
+            if (state.items.isEmpty() && !state.content.isLoading) {
                 item {
                     Column(
                         Modifier.fillMaxSize().padding(32.dp),
@@ -305,4 +306,31 @@ private fun pausedUntil(until: Instant): String {
     val time = end.format(timeFormat())
     return if (end.date > LocalClock.current.now().toLocalDateTime(zone).date) stringResource(Res.string.feed_upload_paused_tomorrow, time)
     else stringResource(Res.string.feed_upload_paused, time)
+}
+
+/** The timeline's activities and import cards, in their order. */
+private fun LazyListScope.timelineItems(state: FeedState) {
+    items(
+        state.items,
+        key = {
+            when (it) {
+                is TimelineItem.Activity -> it.view.uri.value
+                is TimelineItem.ImportCard -> "importCard:${it.card.author.did.value}/${it.card.batch}"
+                is TimelineItem.Unknown -> it.hashCode()
+            }
+        },
+    ) { item ->
+        when (item) {
+            is TimelineItem.Activity ->
+                ActivityListCard(
+                    item.view,
+                    state.viewerDid,
+                    authorClickable = true,
+                    state.revealed,
+                    onEvent = { state.eventSink(FeedEvent.Activity(it)) },
+                )
+            is TimelineItem.ImportCard -> ImportCard(item.card, onClick = { state.eventSink(FeedEvent.OpenImportBatch(item.card)) })
+            is TimelineItem.Unknown -> Unit
+        }
+    }
 }

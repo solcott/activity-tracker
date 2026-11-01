@@ -12,6 +12,7 @@ import io.github.solcott.dataresult.DataError
 data class UiError(val kind: Kind, val reason: DataError? = null) {
     enum class Kind {
         LoadFeed,
+        LoadImportBatch,
         LoadActivity,
         LoadSegment,
 

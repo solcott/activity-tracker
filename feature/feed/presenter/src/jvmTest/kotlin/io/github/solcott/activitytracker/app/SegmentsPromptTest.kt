@@ -109,7 +109,10 @@ class SegmentsPromptTest {
                         }
                     }
                     "/xrpc/${Nsid.FEED_GET_TIMELINE}" ->
-                        respond(AtJson.encodeToString(GetTimeline.Output.serializer(), GetTimeline.Output(emptyList())), headers = json)
+                        respond(
+                            AtJson.encodeToString(GetTimeline.Output.serializer(), GetTimeline.Output.ofActivities(emptyList())),
+                            headers = json,
+                        )
                     else -> respond("", HttpStatusCode.NotFound)
                 }
             }

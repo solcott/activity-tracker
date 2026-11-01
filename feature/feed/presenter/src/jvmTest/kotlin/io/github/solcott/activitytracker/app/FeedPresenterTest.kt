@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.app.feed.FeedPresenter
 import io.github.solcott.activitytracker.app.feed.FeedScope
 import io.github.solcott.activitytracker.app.feed.FeedScreen
 import io.github.solcott.activitytracker.app.feed.FeedState
+import io.github.solcott.activitytracker.app.feed.ImportBatchScreen
 import io.github.solcott.activitytracker.app.feed.UnsentChangesScreen
 import io.github.solcott.activitytracker.app.feedfilter.DateRange
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
@@ -42,7 +43,9 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActivityViewerState
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
+import io.github.solcott.activitytracker.lexicon.app.ImportCardView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
+import io.github.solcott.activitytracker.lexicon.app.SportCount
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.location.FakeLocationTracker
 import io.github.solcott.activitytracker.location.LocationTracker
@@ -168,7 +171,10 @@ class FeedPresenterTest {
                         feedGate?.await()
                         if (feedFails) return@MockEngine respond("", HttpStatusCode.InternalServerError)
                         val activities = if ("type" in params) listOf(ride) else timeline
-                        respond(AtJson.encodeToString(GetTimeline.Output.serializer(), GetTimeline.Output(activities)), headers = json)
+                        respond(
+                            AtJson.encodeToString(GetTimeline.Output.serializer(), GetTimeline.Output.ofActivities(activities)),
+                            headers = json,
+                        )
                     }
                     else -> respond("", HttpStatusCode.NotFound)
                 }
@@ -474,6 +480,26 @@ class FeedPresenterTest {
             assertTrue(state.canRecord)
             state.eventSink(FeedEvent.Record)
             assertEquals(RecordScreen, navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun anImportCardOpensItsBatch() = runTest {
+        val navigator = FakeNavigator(FeedScreen)
+        val card =
+            ImportCardView(
+                author = ProfileViewBasic(Did("did:plc:bob"), Handle("bob.test"), displayName = "Bob"),
+                batch = "3m5abcdefghij",
+                count = 40,
+                earliestStartedAt = Instant.parse("2019-03-02T08:00:00Z"),
+                latestStartedAt = Instant.parse("2026-01-01T08:00:00Z"),
+                sports = listOf(SportCount("ride", 40)),
+                postedAt = Instant.parse("2026-10-30T12:00:00Z"),
+            )
+        presenterTest(navigator, UnsupportedLocationTracker()) {
+            awaitItem().eventSink(FeedEvent.OpenImportBatch(card))
+            assertEquals(ImportBatchScreen("did:plc:bob", "3m5abcdefghij", "Bob"), navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
         }
     }

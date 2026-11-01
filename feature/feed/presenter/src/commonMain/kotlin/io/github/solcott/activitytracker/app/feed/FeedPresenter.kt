@@ -31,7 +31,7 @@ import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
-import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.github.solcott.activitytracker.location.LocationTracker
 import io.github.solcott.dataresult.mapData
 import io.github.solcott.uistate.circuit.produceRetainedContentState
@@ -75,7 +75,7 @@ fun FeedPresenter(
     // the stream under the same state, so the activities stay listed while it runs and after it fails.
     val content =
         key(mine, query) {
-            produceRetainedContentState<ImmutableList<ActivityView>>(persistentListOf(), refreshKey) {
+            produceRetainedContentState<ImmutableList<TimelineItem>>(persistentListOf(), refreshKey) {
                 feed
                     .feedOutcomes(mine, viewerDid, query) {
                         // The outbox drains on the first load and on an explicit refresh, not on every filter change.
@@ -138,6 +138,11 @@ fun FeedPresenter(
 
             is FeedEvent.Activity -> {
                 activityEvents(event.event)
+            }
+
+            is FeedEvent.OpenImportBatch -> {
+                val author = event.card.author
+                navigator.goTo(ImportBatchScreen(author.did.value, event.card.batch, author.displayName ?: author.handle.value))
             }
 
             FeedEvent.Record -> {

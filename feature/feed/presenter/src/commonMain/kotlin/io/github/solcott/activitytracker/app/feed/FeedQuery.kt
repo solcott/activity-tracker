@@ -4,9 +4,11 @@ import io.github.solcott.activitytracker.app.feedfilter.DateRange
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
 import io.github.solcott.activitytracker.data.feed.ActivityFilter
 import io.github.solcott.activitytracker.data.feed.FeedRepository
-import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.github.solcott.dataresult.Outcome
+import io.github.solcott.dataresult.mapData
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -35,11 +37,13 @@ internal fun FeedFilter.toActivityFilter(today: LocalDate, zone: TimeZone): Acti
 
 /**
  * The feed for [mine] (the viewer's own) or Following, narrowed to [query]: its cache, then the AppView's first page once refreshed, after
- * [beforeRefresh].
+ * [beforeRefresh]. Only Following has import cards; the viewer's own feed is their activities alone, as their profile lists them.
  */
 internal fun FeedRepository.feedOutcomes(
     mine: Boolean,
     viewerDid: String,
     query: ActivityFilter,
     beforeRefresh: suspend () -> Unit,
-): Flow<Outcome<List<ActivityView>>> = if (mine) authorOutcomes(viewerDid, query, beforeRefresh) else timelineOutcomes(query, beforeRefresh)
+): Flow<Outcome<List<TimelineItem>>> =
+    if (mine) authorOutcomes(viewerDid, query, beforeRefresh).map { outcome -> outcome.mapData { it.map(TimelineItem::Activity) } }
+    else timelineItemOutcomes(query, beforeRefresh)
