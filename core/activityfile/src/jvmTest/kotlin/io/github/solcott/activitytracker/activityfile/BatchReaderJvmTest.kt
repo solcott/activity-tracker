@@ -71,6 +71,18 @@ class BatchReaderJvmTest {
     }
 
     @Test
+    fun savedRoutesAndWaypointsInAnArchiveAreLeftOutNotDamaged() = runTest {
+        val route =
+            """<gpx version="1.1"><rte><rtept lat="47.6" lon="-122.3"/><rtept lat="47.7" lon="-122.3"/></rte></gpx>""".encodeToByteArray()
+        val waypoints = """<gpx version="1.1"><wpt lat="47.6" lon="-122.3"><name>Trailhead</name></wpt></gpx>""".encodeToByteArray()
+        val export = zipOf("run.fit" to run, "mapdata-routes.gpx" to route, "mapdata-waypoints.gpx" to waypoints)
+        val events = BatchReader(listOf(ByteArrayImportSource("garmin.zip", export)), reader).scan().toList()
+        assertEquals(listOf("run.fit"), events.filterIsInstance<ScanEvent.Read>().map { it.name })
+        assertEquals(emptyList(), events.filterIsInstance<ScanEvent.Skipped>())
+        assertEquals(ScanEvent.Progress(files = 1, activities = 1, ignored = 2), events.filterIsInstance<ScanEvent.Progress>().last())
+    }
+
+    @Test
     fun scansAZipInsideAZip() = runTest {
         val inner = zipOf("1.fit" to run, "2.fit" to ride, "summary.json" to "{}".encodeToByteArray())
         val outer = zipOf("DI_CONNECT/DI-Connect-Uploaded-Files/UploadedFiles_0-_Part1.zip" to inner, "other.gpx" to gpx)

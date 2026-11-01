@@ -36,8 +36,9 @@ internal object GpxParser {
                 }
             },
         )
+        // A route or waypoints (Garmin's mapdata-routes.gpx) with no times isn't an activity: an archive leaves it out like other files.
         if (samples.none { it.timestampMillis != null }) {
-            activityFileError("This GPX file has no times, so it's a planned route rather than a recorded activity")
+            throw NotAnActivityFileException("route", "This GPX file has no times, so it's a planned route rather than a recorded activity")
         }
         // Only the sport: GPX has no totals, so the mapper computes them from the samples.
         val summary = sport?.let { DecodedSummary(it, null, null, null, null, null, null, null, null, null, null, null, null, null) }

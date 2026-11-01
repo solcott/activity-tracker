@@ -31,8 +31,11 @@ fun interface FitDecoder {
 /** The file isn't a readable activity: not FIT, corrupt, truncated, or a FIT file of another type (a course, settings, ...). */
 open class ActivityFileException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
-/** A FIT file of another type than an activity ([type]: a device's wellness monitoring, a course, settings, ...). */
-class NotAnActivityFileException(val type: String) : ActivityFileException("Not an activity file: $type")
+/**
+ * A file of another kind than an activity ([type]): a FIT file of a device's wellness monitoring, a course or settings, or a GPX file of
+ * routes or waypoints with no times.
+ */
+class NotAnActivityFileException(val type: String, message: String = "Not an activity file: $type") : ActivityFileException(message)
 
 /** The file is none of the formats we read (FIT, GPX, TCX, a dive log, or one of those gzipped). */
 class UnsupportedActivityFileException : ActivityFileException("Not a FIT, GPX, TCX, Shearwater, UDDF or Subsurface file")

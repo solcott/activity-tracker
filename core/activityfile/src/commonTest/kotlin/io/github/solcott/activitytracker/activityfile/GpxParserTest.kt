@@ -111,8 +111,14 @@ class GpxParserTest {
     fun aRouteWithoutTimesIsRejected() {
         val route =
             """<gpx version="1.1"><trk><trkseg><trkpt lat="47.6" lon="-122.3"/><trkpt lat="47.7" lon="-122.3"/></trkseg></trk></gpx>"""
-        val e = assertFailsWith<ActivityFileException> { GpxParser.parse(route) }
+        val e = assertFailsWith<NotAnActivityFileException> { GpxParser.parse(route) }
         assertTrue("route" in e.message.orEmpty())
+    }
+
+    @Test
+    fun waypointsAloneAreNotAnActivity() {
+        val waypoints = """<gpx version="1.1"><wpt lat="47.6" lon="-122.3"><name>Trailhead</name></wpt></gpx>"""
+        assertFailsWith<NotAnActivityFileException> { GpxParser.parse(waypoints) }
     }
 
     @Test
