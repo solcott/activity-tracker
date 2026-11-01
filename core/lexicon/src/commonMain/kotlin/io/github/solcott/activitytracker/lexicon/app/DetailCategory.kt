@@ -219,6 +219,7 @@ object DetailCategory {
             "avgStrokeDistance",
             "utcOffset",
             "createdAt",
+            "importBatch",
             "\$type",
         )
 

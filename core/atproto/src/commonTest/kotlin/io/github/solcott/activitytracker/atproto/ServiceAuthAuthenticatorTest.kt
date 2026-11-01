@@ -42,7 +42,7 @@ class ServiceAuthAuthenticatorTest {
             minted++
             respondJson("""{"token":"${mint()}"}""")
         }
-        network.on("appview.test/xrpc/${GetTimeline.method.nsid}") { respondJson("""{"activities":[]}""") }
+        network.on("appview.test/xrpc/${GetTimeline.method.nsid}") { respondJson("""{"feed":[]}""") }
     }
 
     @Test
@@ -100,7 +100,7 @@ class ServiceAuthAuthenticatorTest {
             if (refuse) {
                 refuse = false
                 respondJson("""{"error":"AuthRequired"}""", HttpStatusCode.Unauthorized)
-            } else respondJson("""{"activities":[]}""")
+            } else respondJson("""{"feed":[]}""")
         }
 
         appView.query(GetTimeline.method, GetTimeline.Params())

@@ -69,7 +69,7 @@ class RateLimitTest {
             calls++
             if (calls == 1) {
                 respond(
-                    """{"activities":[]}""",
+                    """{"feed":[]}""",
                     HttpStatusCode.OK,
                     headersOf(
                         HttpHeaders.ContentType to listOf("application/json"),

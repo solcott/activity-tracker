@@ -309,6 +309,43 @@
         "efforts": { "type": "integer", "minimum": 1, "description": "How many of the athlete's efforts the board counts." },
         "reachedOn": { "type": "string", "description": "The local date of their latest counted effort, which reached the count, as YYYY-MM-DD." }
       }
+    },
+    "importCardView": {
+      "type": "object",
+      "description": "One timeline item standing for an athlete's batch import (feed.activity#importBatch): the batch's activities posted more than 5 days after they ended, when the viewer may see at least 5. Everything on it comes from those activities as the viewer may see them. Open it with app.activitytracker.feed.getImportBatch.",
+      "required": ["author", "batch", "count", "earliestStartedAt", "latestStartedAt", "sports", "postedAt"],
+      "properties": {
+        "author": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
+        "batch": { "type": "string", "format": "tid", "description": "The batch's feed.activity#importBatch." },
+        "count": { "type": "integer", "minimum": 1, "description": "How many of the batch's activities the card stands for." },
+        "earliestStartedAt": { "type": "string", "format": "datetime" },
+        "latestStartedAt": { "type": "string", "format": "datetime" },
+        "sports": { "type": "array", "items": { "type": "ref", "ref": "#sportCount" }, "description": "How many of each sport, most first." },
+        "distance": { "type": "integer", "minimum": 0, "description": "Meters: the total of the distances the activities' own records give. Absent when none gives one." },
+        "routes": {
+          "type": "array",
+          "maxLength": 4,
+          "items": { "type": "ref", "ref": "#cardRoute" },
+          "description": "The routes of up to 4 of the activities, latest started first, from their own records."
+        },
+        "postedAt": { "type": "string", "format": "datetime", "description": "The latest post time among the activities, which places the card on the timeline." }
+      }
+    },
+    "sportCount": {
+      "type": "object",
+      "required": ["sport", "count"],
+      "properties": {
+        "sport": { "type": "string", "maxLength": 64, "description": "A feed.activity#sport value." },
+        "count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "cardRoute": {
+      "type": "object",
+      "required": ["polyline"],
+      "properties": {
+        "polyline": { "type": "string", "description": "As feed.activity#polyline." },
+        "polylineGaps": { "type": "array", "items": { "type": "integer", "minimum": 0 }, "description": "As feed.activity#polylineGaps." }
+      }
     }
   }
 }

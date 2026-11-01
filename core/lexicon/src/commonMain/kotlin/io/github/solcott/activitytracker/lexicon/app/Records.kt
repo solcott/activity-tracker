@@ -311,6 +311,11 @@ data class ActivityRecord(
      * anyone else's item is ignored. Null when the activity lists no gear. In [DetailCategory.GEAR].
      */
     val gear: List<AtUri>? = null,
+    /**
+     * A [Tid] shared by every activity saved from one batch import, new for each save; null for one saved on its own. Timelines collapse a
+     * batch's backfilled activities into one import card ([ImportCardView]). The AppView ignores a value that isn't a TID.
+     */
+    val importBatch: String? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_ACTIVITY,
 ) {
     companion object {

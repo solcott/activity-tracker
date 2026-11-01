@@ -92,6 +92,11 @@
             "ref": "#combined",
             "description": "Present when this activity combines several of the athlete's own recordings of what was one activity, at the same time on different devices or one after another. Its figures, streams and track are built from its members, which are never rewritten. Feeds show it in place of its members."
           },
+          "importBatch": {
+            "type": "string",
+            "format": "tid",
+            "description": "Shared by every activity saved from one batch import, new for each save. On a timeline, a batch's activities posted more than 5 days after they ended collapse into one import card (feed.defs#importCardView) for a viewer who may see at least 5 of them. A value that isn't a TID is ignored."
+          },
           "createdAt": { "type": "string", "format": "datetime" }
         }
       }

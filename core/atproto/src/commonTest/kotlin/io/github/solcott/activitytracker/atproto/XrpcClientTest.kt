@@ -27,7 +27,7 @@ class XrpcClientTest {
 
     @Test
     fun queryEncodesParamsAndDecodesOutput() = runTest {
-        network.on("appview.test/xrpc/app.activitytracker.feed.getTimeline") { respondJson("""{"activities":[],"cursor":"next"}""") }
+        network.on("appview.test/xrpc/app.activitytracker.feed.getTimeline") { respondJson("""{"feed":[],"cursor":"next"}""") }
         val output = client.query(GetTimeline.method, GetTimeline.Params(limit = 10))
         assertEquals("next", output.cursor)
         assertEquals(
@@ -44,7 +44,7 @@ class XrpcClientTest {
     fun queryWithHeadersSendsAndReturnsHeaders() = runTest {
         network.on("appview.test/xrpc/app.activitytracker.feed.getTimeline") {
             respond(
-                """{"activities":[],"cursor":"next"}""",
+                """{"feed":[],"cursor":"next"}""",
                 HttpStatusCode.OK,
                 headersOf(HttpHeaders.ContentType to listOf("application/json"), "Atproto-Space-Mac" to listOf("type=\"t\"")),
             )

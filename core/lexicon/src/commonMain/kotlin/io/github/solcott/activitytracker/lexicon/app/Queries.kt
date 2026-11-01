@@ -35,7 +35,23 @@ object GetTimeline {
         val until: Instant? = null,
     )
 
-    @Serializable data class Output(val activities: List<ActivityView>, val cursor: String? = null)
+    /** [feed] is activities and import cards ([TimelineItem]) by feed position, newest first. */
+    @Serializable
+    data class Output(val feed: List<TimelineItem>, val cursor: String? = null) {
+        /** [feed]'s activities, without its import cards. */
+        val activities: List<ActivityView>
+            get() = feed.mapNotNull { (it as? TimelineItem.Activity)?.view }
+
+        /** [feed]'s import cards. */
+        val importCards: List<ImportCardView>
+            get() = feed.mapNotNull { (it as? TimelineItem.ImportCard)?.card }
+
+        companion object {
+            /** A timeline of [activities] alone. */
+            fun ofActivities(activities: List<ActivityView>, cursor: String? = null) =
+                Output(activities.map(TimelineItem::Activity), cursor)
+        }
+    }
 
     val method = XrpcQuery(Nsid.FEED_GET_TIMELINE, Params.serializer(), Output.serializer())
 }
@@ -57,6 +73,22 @@ object GetAuthorActivities {
     @Serializable data class Output(val activities: List<ActivityView>, val cursor: String? = null)
 
     val method = XrpcQuery(Nsid.FEED_GET_AUTHOR_ACTIVITIES, Params.serializer(), Output.serializer())
+}
+
+/** An athlete's activities from one batch import ([ActivityRecord.importBatch]) the viewer may see, newest started first. */
+object GetImportBatch {
+    @Serializable
+    data class Params(
+        val actor: String,
+        /** A [io.github.solcott.activitytracker.lexicon.Tid]. */
+        val batch: String,
+        val limit: Int? = null,
+        val cursor: String? = null,
+    )
+
+    @Serializable data class Output(val activities: List<ActivityView>, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.FEED_GET_IMPORT_BATCH, Params.serializer(), Output.serializer())
 }
 
 /** An athlete's activities that started in [since, until), oldest first; finds what a file import would duplicate. */

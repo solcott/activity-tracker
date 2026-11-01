@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "query",
-      "description": "Activities from athletes the viewer follows, plus the viewer's own, newest first. Requires auth.",
+      "description": "Activities from athletes the viewer follows, plus the viewer's own, by feed position, newest first: the earliest of when each was posted, when it was indexed and 5 days after it ended. Unfiltered, a batch import's activities posted more than 5 days after they ended come as one import card when the viewer may see at least 5 of them. Requires auth.",
       "parameters": {
         "type": "params",
         "properties": {
@@ -24,10 +24,14 @@
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["activities"],
+          "required": ["feed"],
           "properties": {
             "cursor": { "type": "string" },
-            "activities": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#activityView" } }
+            "feed": {
+              "type": "array",
+              "items": { "type": "union", "refs": ["app.activitytracker.feed.defs#activityView", "app.activitytracker.feed.defs#importCardView"] },
+              "description": "An open union: later AppViews may add other kinds of item, which older clients skip."
+            }
           }
         }
       }

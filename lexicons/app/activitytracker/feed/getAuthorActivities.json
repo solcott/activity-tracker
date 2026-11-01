@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "query",
-      "description": "An athlete's activities, newest first.",
+      "description": "An athlete's activities, newest started first, never by when they were posted.",
       "parameters": {
         "type": "params",
         "required": ["actor"],

@@ -36,6 +36,10 @@ object Tid {
         }
     }
 
+    /** Whether [value] is a TID as the lexicon's `tid` format defines it: 13 base32-sortable chars, the first with its top bit clear. */
+    fun isValid(value: String): Boolean =
+        value.length == LENGTH && value.all { it in ALPHABET } && value[0] in ALPHABET.substring(0, ALPHABET.length / 2)
+
     internal fun encode(value: Long): String {
         val chars = CharArray(LENGTH)
         var v = value
