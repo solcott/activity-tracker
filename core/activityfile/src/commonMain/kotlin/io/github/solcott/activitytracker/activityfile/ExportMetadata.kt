@@ -137,7 +137,8 @@ internal class GarminExport(summaries: List<Summary>) : ExportMetadata {
     override val kind = ExportKind.Garmin
 
     private val byId = summaries.filter { it.id != null }.associateBy { it.id }
-    private val byStart = summaries.filter { it.start != null }.sortedBy { it.start }
+    /** Summaries with a start, oldest first, each with its start. */
+    private val byStart = summaries.mapNotNull { summary -> summary.start?.let { it to summary } }.sortedBy { it.first }
 
     class Summary(val id: Long?, val start: Instant?, val elapsedMillis: Double?, val activity: AccountExportActivity)
 
@@ -146,10 +147,15 @@ internal class GarminExport(summaries: List<Summary>) : ExportMetadata {
         id?.let(byId::get)?.let {
             return it.activity
         }
-        return byStart
-            .filter { summary ->
-                summary.start?.let { abs((it - activity.startedAt).inWholeSeconds) <= START_TOLERANCE.inWholeSeconds } == true
-            }
+        // The first summary that could start close enough, found by halving: an export holds thousands.
+        val earliest = activity.startedAt - START_TOLERANCE - 1.seconds
+        val from = -(byStart.binarySearch { (start, _) -> if (start < earliest) -1 else 1 } + 1)
+        return (from until byStart.size)
+            .asSequence()
+            .map { byStart[it] }
+            .takeWhile { (start, _) -> start <= activity.startedAt + START_TOLERANCE + 1.seconds }
+            .filter { (start, _) -> abs((start - activity.startedAt).inWholeSeconds) <= START_TOLERANCE.inWholeSeconds }
+            .map { it.second }
             .firstOrNull { summary ->
                 val millis = summary.elapsedMillis ?: return@firstOrNull true
                 val elapsed = activity.elapsed.inWholeMilliseconds.toDouble()
