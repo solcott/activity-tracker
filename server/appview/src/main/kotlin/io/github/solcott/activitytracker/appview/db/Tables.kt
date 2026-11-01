@@ -40,8 +40,15 @@ object Activities : Table("activities") {
     val sport = varchar("sport", 64)
     val subSport = varchar("sub_sport", 64).nullable()
     val startedAt = long("started_at")
+    /** The timeline's feed position (feed/timeline-order): the earlier of [postedAt] and 5 days after [endedAt] (`index/FeedPosition`). */
     val sortAt = long("sort_at")
+    /** When it was posted (`createdAt`), capped at when it was indexed. */
+    val postedAt = long("posted_at")
+    /** Its start plus its elapsed time, from this row's own record. */
+    val endedAt = long("ended_at")
     val indexedAt = long("indexed_at")
+    /** Its `importBatch`, kept only when it is a TID (feed/import-cards). */
+    val importBatch = varchar("import_batch", 13).nullable()
     /** The athlete's own activity this one is another recording of; null for an activity in its own right. */
     val recordingOf = varchar("recording_of", 512).nullable()
     /** The [io.github.solcott.activitytracker.lexicon.app.Visibility] it's served at: its tier space's key, or public for the repo. */

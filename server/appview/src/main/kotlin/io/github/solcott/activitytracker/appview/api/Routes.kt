@@ -31,6 +31,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetFollowers
 import io.github.solcott.activitytracker.lexicon.app.GetFollows
 import io.github.solcott.activitytracker.lexicon.app.GetGear
 import io.github.solcott.activitytracker.lexicon.app.GetGearActivities
+import io.github.solcott.activitytracker.lexicon.app.GetImportBatch
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetModerationRole
 import io.github.solcott.activitytracker.lexicon.app.GetMutes
@@ -81,6 +82,7 @@ fun Route.xrpcRoutes(
     xrpcQuery(GetTimeline.method, verifier) { params, viewer -> views.timeline(requireViewer(viewer), params) }
     xrpcQuery(GetAuthorActivities.method, verifier) { params, viewer -> views.authorActivities(viewer, params) }
     xrpcQuery(GetAuthorActivitiesByStart.method, verifier) { params, viewer -> views.authorActivitiesByStart(viewer, params) }
+    xrpcQuery(GetImportBatch.method, verifier) { params, viewer -> views.importBatch(viewer, params) }
     xrpcQuery(GetActivity.method, verifier) { params, viewer -> views.activity(viewer, params) }
     xrpcQuery(GetActivityStreams.method, verifier) { params, viewer -> streams.streams(viewer, params) }
     xrpcQuery(GetLikes.method, verifier) { params, viewer -> views.likes(viewer, params) }

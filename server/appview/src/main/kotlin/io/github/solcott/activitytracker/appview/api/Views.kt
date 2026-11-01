@@ -12,6 +12,7 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
+import io.github.solcott.activitytracker.lexicon.Tid
 import io.github.solcott.activitytracker.lexicon.app.ActivityMedia
 import io.github.solcott.activitytracker.lexicon.app.ActivityMediaView
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
@@ -27,14 +28,17 @@ import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
 import io.github.solcott.activitytracker.lexicon.app.GetComments
 import io.github.solcott.activitytracker.lexicon.app.GetGear
 import io.github.solcott.activitytracker.lexicon.app.GetGearActivities
+import io.github.solcott.activitytracker.lexicon.app.GetImportBatch
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.RecordingView
+import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.http.HttpStatusCode
 import kotlin.time.Instant
+import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.NotExists
 import org.jetbrains.exposed.v1.core.Op
@@ -68,8 +72,45 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val filter = feedFilter(params.type, params.since, params.until)
         // A muted athlete's activities leave only the muter's timeline; their profile still lists them.
         val shown = authors and filter and notMuted(viewer, Activities.authorDid)
-        val (views, cursor) = activityPage(shown, params.limit, params.cursor, viewer)
-        GetTimeline.Output(views, cursor)
+        if (params.type != null || params.since != null || params.until != null) {
+            // A filtered timeline lists matching activities on their own (feed/import-cards).
+            val (views, cursor) = activityPage(shown, params.limit, params.cursor, viewer)
+            return@tx GetTimeline.Output.ofActivities(views, cursor)
+        }
+        cardedTimeline(shown and feedRows(viewer), params.limit, params.cursor, viewer)
+    }
+
+    /**
+     * A page of the unfiltered timeline over [rows]: activities, with each batch whose backfilled activities [viewer] may see number at
+     * least [MIN_CARD_ACTIVITIES] collapsed into one import card at its latest post time (feed/import-cards). Activities and cards share
+     * one keyset on (feed position, key) descending, with cursor `"<position>::<key>"`; a card's key ([CardBatch.key]) is never a URI.
+     */
+    private fun JdbcTransaction.cardedTimeline(rows: Op<Boolean>, limit: Int?, cursor: String?, viewer: Did): GetTimeline.Output {
+        val pageSize = Paging.clamp(limit)
+        val batches = cardBatches(rows)
+        val after = cursor?.let(::parseCursor)
+        val activityRows =
+            Activities.selectAll()
+                .where { rows and notCollapsedInto(batches) and keysetBefore(Activities.sortAt, Activities.uri, cursor) }
+                .orderBy(Activities.sortAt to SortOrder.DESC, Activities.uri to SortOrder.DESC)
+                .limit(pageSize)
+                .toList()
+        val cards = batches.filter { after == null || it.postedAt < after.first || (it.postedAt == after.first && it.key < after.second) }
+        val entries =
+            (activityRows.map { Triple(it[Activities.sortAt], it[Activities.uri], it) } + cards.map { Triple(it.postedAt, it.key, it) })
+                .sortedWith(compareByDescending<Triple<Long, String, Any>> { it.first }.thenByDescending { it.second })
+        val page = entries.take(pageSize)
+        val views = hydrate(page.mapNotNull { it.third as? ResultRow }, viewer).associateBy { it.uri.value }
+        val pageCards = page.mapNotNull { it.third as? CardBatch }
+        val authors = basicProfiles(pageCards.map { it.author }, avatars)
+        val feed = page.mapNotNull { (_, key, entry) ->
+            when (entry) {
+                is CardBatch -> authors[entry.author]?.let { TimelineItem.ImportCard(importCardView(entry, rows, it)) }
+                else -> views[key]?.let(TimelineItem::Activity)
+            }
+        }
+        val next = page.takeIf { entries.size > pageSize || activityRows.size == pageSize }?.last()?.let { "${it.first}::${it.second}" }
+        return GetTimeline.Output(feed, next)
     }
 
     suspend fun authorActivities(
@@ -79,8 +120,19 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val did =
             resolveActor(params.actor) ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
         val filter = feedFilter(params.type, params.since, params.until)
-        val (views, cursor) = activityPage((Activities.authorDid eq did) and filter, params.limit, params.cursor, viewer)
+        val (views, cursor) =
+            activityPage((Activities.authorDid eq did) and filter, params.limit, params.cursor, viewer, Activities.startedAt)
         GetAuthorActivities.Output(views, cursor)
+    }
+
+    /** [GetImportBatch]: an athlete's activities from one batch the viewer may see, newest started first (feed/import-cards). */
+    suspend fun importBatch(viewer: Did?, params: GetImportBatch.Params): GetImportBatch.Output = db.tx {
+        val did =
+            resolveActor(params.actor) ?: throw XrpcError(HttpStatusCode.BadRequest.value, "ActorNotFound", "Unknown actor ${params.actor}")
+        if (!Tid.isValid(params.batch)) return@tx GetImportBatch.Output(emptyList())
+        val inBatch = (Activities.authorDid eq did) and (Activities.importBatch eq params.batch)
+        val (views, cursor) = activityPage(inBatch, params.limit, params.cursor, viewer, Activities.startedAt)
+        GetImportBatch.Output(views, cursor)
     }
 
     suspend fun authorActivitiesByStart(
@@ -268,29 +320,31 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         )
     }
 
-    /** Keyset pagination on (sort_at, uri) descending; cursor is `"<sortAt>::<uri>"`. */
+    /**
+     * Keyset pagination on ([sort], uri) descending: the feed position for the timeline, the start for an athlete's activities
+     * (feed/timeline-order). Cursor is `"<sort>::<uri>"`.
+     */
     private fun JdbcTransaction.activityPage(
         filter: Op<Boolean>,
         limit: Int?,
         cursor: String?,
         viewer: Did?,
+        sort: Column<Long> = Activities.sortAt,
     ): Pair<List<ActivityView>, String?> {
         val pageSize = Paging.clamp(limit)
         val rows =
             Activities.selectAll()
-                .where {
-                    filter and
-                        visibleTo(viewer) and
-                        unhidden(viewer, Activities.authorDid, Activities.uri) and
-                        shownInFeeds() and
-                        keysetBefore(Activities.sortAt, Activities.uri, cursor)
-                }
-                .orderBy(Activities.sortAt to SortOrder.DESC, Activities.uri to SortOrder.DESC)
+                .where { filter and feedRows(viewer) and keysetBefore(sort, Activities.uri, cursor) }
+                .orderBy(sort to SortOrder.DESC, Activities.uri to SortOrder.DESC)
                 .limit(pageSize)
                 .toList()
-        val next = rows.takeIf { it.size == pageSize }?.last()?.let { "${it[Activities.sortAt]}::${it[Activities.uri]}" }
+        val next = rows.takeIf { it.size == pageSize }?.last()?.let { "${it[sort]}::${it[Activities.uri]}" }
         return hydrate(rows, viewer) to next
     }
+
+    /** The activity rows feeds show [viewer]: those they may see, not hidden from them by a label, and not shown as another activity. */
+    private fun feedRows(viewer: Did?): Op<Boolean> =
+        visibleTo(viewer) and unhidden(viewer, Activities.authorDid, Activities.uri) and shownInFeeds()
 
     /** Views of activity [rows] as [viewer] sees them, photo links signed for [mediaViewer] (a moderator reading as the athlete). */
     internal fun JdbcTransaction.hydrate(rows: List<ResultRow>, viewer: Did?, mediaViewer: Did? = viewer): List<ActivityView> {

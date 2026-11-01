@@ -211,7 +211,7 @@ private fun JdbcTransaction.upsertActivity(
         it[sport] = record.sport.take(MAX_SPORT_LENGTH)
         it[subSport] = record.subSport?.take(MAX_SPORT_LENGTH)
         it[startedAt] = record.startedAt.toEpochMilliseconds()
-        it[sortAt] = minOf(record.createdAt.toEpochMilliseconds(), now)
+        it.setPosition(record, now)
         it[indexedAt] = now
         it[visibility] = placement.visibility
         it[origin] = placement.origin
