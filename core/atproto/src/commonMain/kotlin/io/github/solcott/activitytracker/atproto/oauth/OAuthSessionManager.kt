@@ -42,7 +42,11 @@ class OAuthSessionManager(
     private val proofs = DpopProofs(clock)
     private var cachedKey: Pair<DpopKey.Serialized, DpopKey>? = null
 
-    suspend fun restore(): OAuthSession? = store.loadSession().also { session.value = it }
+    /**
+     * The signed-in session: the one held already, else the stored one. Under the refresh lock, so a background job restoring while the app
+     * refreshes can't put back a session whose refresh token was just spent.
+     */
+    suspend fun restore(): OAuthSession? = mutex.withLock { session.value ?: store.loadSession().also { session.value = it } }
 
     /** Returns the URL to open in a browser. */
     suspend fun beginSignIn(identifier: String): String {

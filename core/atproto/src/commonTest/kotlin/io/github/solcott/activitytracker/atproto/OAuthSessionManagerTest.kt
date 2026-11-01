@@ -110,6 +110,18 @@ class OAuthSessionManagerTest {
     }
 
     @Test
+    fun restoringAgainKeepsTheSessionHeld() = runTest {
+        signedIn()
+        tokensIssued()
+        val refreshed = manager.freshSession(forceRefresh = true)
+        // A background job restoring from an older copy of the store must not put back the spent refresh token.
+        store.session = store.session!!.copy(accessToken = "at1", refreshToken = "rt1")
+
+        assertEquals(refreshed.refreshToken, manager.restore()?.refreshToken)
+        assertEquals(refreshed.refreshToken, manager.session.value?.refreshToken)
+    }
+
+    @Test
     fun rateLimitKeepsTheSession() = runTest {
         signedIn()
         tokenEndpointAnswers(HttpStatusCode.TooManyRequests, """{"error":"rate_limited"}""")
