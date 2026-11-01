@@ -777,6 +777,7 @@
     <string name="import_batch_originals_too_large">Over 10 MB even compressed, so their original files won't be kept: %1$s</string>
     <string name="import_batch_originals_size">Up to %1$s of original files stay on this device until they're uploaded.</string>
     <string name="import_batch_uploading">Large imports upload in the background while the app is open, and can take a while.</string>
+    <string name="import_batch_uploading_mobile">Large imports keep uploading in the background, even after you leave the app, and can take a while.</string>
     <string name="import_filter_all">All</string>
     <string name="import_filter_new">New</string>
     <string name="import_filter_duplicates">Duplicates</string>

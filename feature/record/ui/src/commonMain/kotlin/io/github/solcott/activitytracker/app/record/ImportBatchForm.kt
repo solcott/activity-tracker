@@ -40,6 +40,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppTextField
 import io.github.solcott.activitytracker.app.ui.adaptive.ReadableList
 import io.github.solcott.activitytracker.app.ui.adaptive.rememberAppSheetState
 import io.github.solcott.activitytracker.app.ui.errorText
+import io.github.solcott.activitytracker.app.ui.theme.LocalUiPlatform
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.action_saving
 import io.github.solcott.activitytracker.composeApp.resources.dive_number
@@ -58,6 +59,7 @@ import io.github.solcott.activitytracker.composeApp.resources.import_batch_skipp
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_strava
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_strava_no_privacy
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_uploading
+import io.github.solcott.activitytracker.composeApp.resources.import_batch_uploading_mobile
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_visibility_heading
 import io.github.solcott.activitytracker.composeApp.resources.import_bulk_duplicates
 import io.github.solcott.activitytracker.composeApp.resources.import_compare_exact
@@ -322,7 +324,7 @@ private fun BatchSettings(state: ImportActivityState, batch: ImportBatch, enable
                 stringResource(
                     Res.string.import_batch_originals_size,
                     stringResource(Res.string.import_megabytes, formatWhole((batch.originalsBytes + BYTES_PER_MB - 1) / BYTES_PER_MB)),
-                ) + " " + stringResource(Res.string.import_batch_uploading),
+                ) + " " + uploadingNote(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -431,3 +433,8 @@ private fun CompareColumn(heading: String, values: ImmutableList<String?>, modif
 }
 
 private const val BYTES_PER_MB = 1024L * 1024
+
+/** How a saved batch uploads: phones keep going in the background (data/outbox), desktop and web only while the app is open. */
+@Composable
+internal fun uploadingNote(): String =
+    stringResource(if (LocalUiPlatform.current.isMobile) Res.string.import_batch_uploading_mobile else Res.string.import_batch_uploading)

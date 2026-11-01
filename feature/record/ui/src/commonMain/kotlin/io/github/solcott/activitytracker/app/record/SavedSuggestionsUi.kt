@@ -27,7 +27,6 @@ import io.github.solcott.activitytracker.composeApp.resources.combine_suggestion
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_saved
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_saved_skipped
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_saved_title
-import io.github.solcott.activitytracker.composeApp.resources.import_batch_uploading
 import io.github.solcott.activitytracker.composeApp.resources.import_saved_suggestion_row
 import io.github.solcott.activitytracker.composeApp.resources.import_saved_suggestions_done
 import io.github.solcott.activitytracker.composeApp.resources.import_saved_suggestions_explained
@@ -84,7 +83,7 @@ internal fun SavedSuggestions(
     }
 }
 
-/** "40 activities saved.", and how many couldn't be read again, and that they upload while the app is open. */
+/** "40 activities saved.", and how many couldn't be read again, and how they upload. */
 @Composable
 private fun BatchSavedSummary(result: BatchSaved) {
     val lines =
@@ -93,7 +92,7 @@ private fun BatchSavedSummary(result: BatchSaved) {
             pluralStringResource(Res.plurals.import_batch_saved_skipped, result.skipped, formatWhole(result.skipped)).takeIf {
                 result.skipped > 0
             },
-            stringResource(Res.string.import_batch_uploading),
+            uploadingNote(),
         )
     Column(verticalArrangement = Arrangement.spacedBy(ITEM_GAP)) {
         Text(stringResource(Res.string.import_batch_saved_title), style = MaterialTheme.typography.titleMedium)
