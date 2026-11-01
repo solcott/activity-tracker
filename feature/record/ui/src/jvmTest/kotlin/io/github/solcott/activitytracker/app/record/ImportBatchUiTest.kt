@@ -6,10 +6,12 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
+import io.github.solcott.activitytracker.activityfile.ExportKind
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.collections.immutable.persistentListOf
 
 /** Several activities to import at once (feed/batch-import). */
 @OptIn(ExperimentalTestApi::class)
@@ -43,8 +45,23 @@ class ImportBatchUiTest {
     @Test
     fun anExportWithoutPrivacySaysEveryActivityTakesTheChosenVisibility() = runComposeUiTest {
         val state = ImportActivitySamples.all.getValue("batchExport")
-        setContent { AppPreview { ImportActivityUi(state.copy(batch = state.batch?.copy(exportPrivacy = false))) } }
+        setContent {
+            AppPreview {
+                ImportActivityUi(
+                    state.copy(batch = state.batch?.copy(exports = persistentListOf(BatchExport(ExportKind.Strava, privacy = false))))
+                )
+            }
+        }
         onNodeWithText("doesn't say who could see each activity", substring = true).assertExists()
+    }
+
+    @Test
+    fun twoExportsPickedTogetherEachGetANote() = runComposeUiTest {
+        val state = ImportActivitySamples.all.getValue("batchExport")
+        val exports = persistentListOf(BatchExport(ExportKind.Strava, privacy = true), BatchExport(ExportKind.Garmin, privacy = true))
+        setContent { AppPreview { ImportActivityUi(state.copy(batch = state.batch?.copy(exports = exports))) } }
+        onNodeWithText("From a Strava export", substring = true).assertExists()
+        onNodeWithText("From a Garmin Connect export", substring = true).assertExists()
     }
 
     @Test

@@ -69,7 +69,8 @@ internal class ScannedBatch(
     val items: List<BatchItem>,
     val skipped: ImmutableList<SkippedFile>,
     val ignored: Int,
-    val export: ExportKind?,
+    /** Each account export the files came in, in the order first read. */
+    val exports: List<BatchExport>,
 )
 
 /** Reads every activity file [reader]'s sources hold, keeping each activity's summary, reporting [onProgress] as it goes. */
@@ -78,14 +79,17 @@ internal suspend fun BatchReader.collect(onProgress: (ReadProgress) -> Unit): Sc
     val items = mutableListOf<BatchItem>()
     val skipped = mutableListOf<SkippedFile>()
     var ignored = 0
-    var export: ExportKind? = null
+    val exports = linkedMapOf<ExportKind, Boolean>()
     scan().collect { event ->
         when (event) {
             is ScanEvent.Read -> {
                 val file = files.size
                 val zoneless = event.read.activities.any { it.localStart != null }
                 files += BatchFile(event.ref, event.name, event.size, event.originalTooLarge, zoneless)
-                export = export ?: event.export?.kind
+                event.export?.kind?.let { kind ->
+                    val privacy = event.read.activities.indices.any { event.exportOf(it)?.visibility != null }
+                    exports[kind] = exports[kind] == true || privacy
+                }
                 event.read.activities.forEachIndexed { entry, activity ->
                     val draft = ActivityDraft.fromImport(activity, activity.type, null)
                     items +=
@@ -106,7 +110,13 @@ internal suspend fun BatchReader.collect(onProgress: (ReadProgress) -> Unit): Sc
             }
         }
     }
-    return ScannedBatch(files, items.sortedBy { it.summary.startedAt }, skipped.toImmutableList(), ignored, export)
+    return ScannedBatch(
+        files,
+        items.sortedBy { it.summary.startedAt },
+        skipped.toImmutableList(),
+        ignored,
+        exports.map { (kind, privacy) -> BatchExport(kind, privacy) },
+    )
 }
 
 /** The batch's items placed in their files' zones: [zoneOf] a file index, for a zone-less file. */

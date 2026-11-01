@@ -4,8 +4,10 @@ import androidx.compose.runtime.Composable
 import com.slack.circuit.test.FakeNavigator
 import io.github.solcott.activitytracker.activityfile.ActivityFileReader
 import io.github.solcott.activitytracker.activityfile.ByteArrayImportSource
+import io.github.solcott.activitytracker.activityfile.ExportKind
 import io.github.solcott.activitytracker.activityfile.ImportSource
 import io.github.solcott.activitytracker.app.record.ActivityTypeEvent
+import io.github.solcott.activitytracker.app.record.BatchExport
 import io.github.solcott.activitytracker.app.record.BatchFilter
 import io.github.solcott.activitytracker.app.record.DuplicateAction
 import io.github.solcott.activitytracker.app.record.DuplicateCheck
@@ -214,7 +216,7 @@ class ImportBatchPresenterTest {
             val read = awaitUntil { it.batch != null && it.duplicateCheck == DuplicateCheck.Done }
             assertEquals(listOf("Lunch loop", "Secret spot"), read.batch?.rows?.map { it.title })
             assertEquals(listOf(null, Visibility.SELF), read.batch?.rows?.map { it.narrowedTo })
-            assertEquals(true, read.batch?.exportPrivacy)
+            assertEquals<List<BatchExport>?>(listOf(BatchExport(ExportKind.Strava, privacy = true)), read.batch?.exports)
             read.eventSink(ImportActivityEvent.SaveBatch(persistentMapOf()))
             awaitUntil { it.batchSaved != null }
             cancelAndIgnoreRemainingEvents()

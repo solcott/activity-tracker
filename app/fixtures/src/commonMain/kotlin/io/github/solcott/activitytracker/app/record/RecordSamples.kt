@@ -237,8 +237,7 @@ object ImportActivitySamples {
                 ),
             skipped = persistentListOf(SkippedFile("4410.tcx.gz", SkipReason.Damaged), SkippedFile("notes.xml", SkipReason.Unsupported)),
             ignoredFiles = 214,
-            export = ExportKind.Strava,
-            exportPrivacy = true,
+            exports = persistentListOf(BatchExport(ExportKind.Strava, privacy = true)),
             originalsTooLarge = persistentListOf("9001.gpx"),
             originalsBytes = 812_000_000,
         )

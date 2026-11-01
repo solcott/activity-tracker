@@ -129,14 +129,15 @@ private fun BatchSummary(state: ImportActivityState, batch: ImportBatch, enabled
             pluralStringResource(Res.plurals.import_batch_found, batch.rows.size, formatWhole(batch.rows.size)),
             style = MaterialTheme.typography.titleMedium,
         )
-        batch.export?.let { export ->
+        // One note per export, so a Strava and a Garmin export picked together each say what they bring.
+        batch.exports.forEach { export ->
             Text(
                 stringResource(
-                    when {
-                        export == ExportKind.Strava && batch.exportPrivacy -> Res.string.import_batch_strava
-                        export == ExportKind.Strava -> Res.string.import_batch_strava_no_privacy
-                        batch.exportPrivacy -> Res.string.import_batch_garmin
-                        else -> Res.string.import_batch_garmin_no_privacy
+                    when (export.kind) {
+                        ExportKind.Strava if export.privacy -> Res.string.import_batch_strava
+                        ExportKind.Strava -> Res.string.import_batch_strava_no_privacy
+                        ExportKind.Garmin if export.privacy -> Res.string.import_batch_garmin
+                        ExportKind.Garmin -> Res.string.import_batch_garmin_no_privacy
                     }
                 ),
                 style = MaterialTheme.typography.bodyMedium,
