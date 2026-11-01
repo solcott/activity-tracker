@@ -19,7 +19,7 @@ internal actual fun PlatformFile.toImportSource(): ImportSource = PickedFileSour
 
 /**
  * A picked file read through one open stream while reads go forward, as an import's mostly do; a read elsewhere reopens it there. Closed
- * once a read reaches its end.
+ * once a read reaches its end, or when the pass over it is done ([release]).
  */
 private class PickedFileSource(private val file: PlatformFile, private val io: CoroutineDispatcher = Dispatchers.IO) : ImportSource {
     private val mutex = Mutex()
@@ -49,6 +49,8 @@ private class PickedFileSource(private val file: PlatformFile, private val io: C
             }
         }
     }
+
+    override suspend fun release() = mutex.withLock { withContext(io) { close() } }
 
     private fun reopenAt(offset: Long): Source {
         close()

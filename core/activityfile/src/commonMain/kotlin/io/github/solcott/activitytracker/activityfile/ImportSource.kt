@@ -16,6 +16,9 @@ interface ImportSource {
 
     /** [length] bytes from [offset], fewer only at the end of the file. Fails with [ActivityFileException] once the file can't be read. */
     suspend fun read(offset: Long, length: Int): ByteArray
+
+    /** Lets go of anything held open between reads, once a pass over the file is done; a later read opens it again. */
+    suspend fun release() {}
 }
 
 /** An [ImportSource] over bytes already in memory: a file read whole, an archive member, or a test's fixture. */

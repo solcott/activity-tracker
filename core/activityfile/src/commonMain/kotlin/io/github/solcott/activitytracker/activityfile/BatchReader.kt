@@ -1,10 +1,12 @@
 package io.github.solcott.activitytracker.activityfile
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
 
 /**
  * Where an activity file is among a batch's picked files: the [source] it was picked as, then the [path] of archive members leading to it
@@ -65,7 +67,14 @@ class BatchReader(private val sources: List<ImportSource>, private val reader: A
 
     /** Every activity file in the sources, in order, on [Dispatchers.Default]; cancelling the collection stops it. */
     @Suppress("InjectDispatcher") // CPU-bound reading, like ActivityFileReader.
-    fun scan(): Flow<ScanEvent> = flow { Scan(this).run() }.flowOn(Dispatchers.Default)
+    fun scan(): Flow<ScanEvent> = flow {
+        try {
+            Scan(this).run()
+        } finally {
+            releaseSources()
+        }
+    }
+        .flowOn(Dispatchers.Default)
 
     /**
      * Reads the files at [refs] again, handing each to [onRead] as found or as the error reading it, in the order the sources hold them:
@@ -73,11 +82,18 @@ class BatchReader(private val sources: List<ImportSource>, private val reader: A
      */
     suspend fun readEach(refs: Collection<EntryRef>, onRead: suspend (EntryRef, Result<FoundFile>) -> Unit) {
         val wanted = refs.toSet()
-        for ((source, inSource) in wanted.groupBy { it.source }.entries.sortedBy { it.key }) {
-            val outcome = runSuspendCatchingFile { readFrom(source, inSource, onRead) }
-            outcome.exceptionOrNull()?.let { error -> inSource.forEach { onRead(it, Result.failure(error)) } }
+        try {
+            for ((source, inSource) in wanted.groupBy { it.source }.entries.sortedBy { it.key }) {
+                val outcome = runSuspendCatchingFile { readFrom(source, inSource, onRead) }
+                outcome.exceptionOrNull()?.let { error -> inSource.forEach { onRead(it, Result.failure(error)) } }
+            }
+        } finally {
+            releaseSources()
         }
     }
+
+    /** Closes what the sources hold open between reads (a pass ends rarely at a file's last byte). */
+    private suspend fun releaseSources() = withContext(NonCancellable) { sources.forEach { it.release() } }
 
     /** The one file at [ref]. */
     suspend fun read(ref: EntryRef): FoundFile {
