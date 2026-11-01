@@ -1,7 +1,11 @@
 package io.github.solcott.activitytracker.app.background
 
 import io.github.solcott.activitytracker.app.di.AppGraph
+import io.github.solcott.activitytracker.app.di.SessionGraph
 import io.github.solcott.activitytracker.data.activity.PacerOutcome
+import io.github.solcott.activitytracker.lexicon.Did
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * One background upload pass for the signed-in account (data/outbox), as a phone's background job runs it: restores the session, sends what
@@ -10,5 +14,13 @@ import io.github.solcott.activitytracker.data.activity.PacerOutcome
  */
 suspend fun AppGraph.uploadQueuedWrites(): PacerOutcome? {
     val session = authRepository.restore() ?: return null
-    return createSessionGraph(session).outboxPacer.runUntilIdleOrPaused()
+    return backgroundGraph(session.did) { createSessionGraph(session) }.outboxPacer.runUntilIdleOrPaused()
+}
+
+private val backgroundLock = Mutex()
+private var background: Pair<Did, SessionGraph>? = null
+
+/** The background passes' one session graph for [did], so a process that outlives many passes doesn't build one per pass. */
+private suspend fun backgroundGraph(did: Did, create: () -> SessionGraph): SessionGraph = backgroundLock.withLock {
+    background?.takeIf { it.first == did }?.second ?: create().also { background = did to it }
 }
