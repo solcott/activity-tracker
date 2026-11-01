@@ -19,6 +19,7 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.Tid
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
@@ -31,6 +32,7 @@ import java.util.zip.ZipOutputStream
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -272,6 +274,71 @@ class ImportBatchPresenterTest {
         }
         val combined = saved().map { it.second }.single { it.combined != null }
         assertEquals(2, combined.combined?.members?.size)
+    }
+
+    @Test
+    fun everyActivityOfASaveSharesOneNewBatch() = runTest {
+        suspend fun save(vararg files: Pair<String, ByteArray>) =
+            presenterTestOf(presenter(fixture.repos(), FakeNavigator(ImportActivityScreen()))) {
+                awaitItem().eventSink(picked(*files))
+                awaitUntil { it.batch != null && it.duplicateCheck == DuplicateCheck.Done }
+                    .eventSink(ImportActivityEvent.SaveBatch(persistentMapOf()))
+                awaitUntil { it.batchSaved != null }
+                cancelAndIgnoreRemainingEvents()
+            }
+        save(
+            "watch.gpx" to gpx("2026-09-01T09:00:00Z", minutes = 120, type = "cycling"),
+            "edge.gpx" to gpx("2026-09-01T08:58:00Z", minutes = 123, type = "cycling"),
+            "run.gpx" to gpx("2026-09-03T07:00:00Z"),
+        )
+        val first = saved().map { it.second }
+        assertEquals(4, first.size, "two copies, their combined ride and the run")
+        val batch = assertNotNull(first.first().importBatch)
+        assertTrue(Tid.isValid(batch))
+        assertEquals(listOf(batch), first.map { it.importBatch }.distinct())
+        save("a.gpx" to gpx("2026-09-05T07:00:00Z"), "b.gpx" to gpx("2026-09-06T07:00:00Z"))
+        val second = saved().map { it.second }.drop(first.size).map { it.importBatch }.distinct()
+        assertEquals(1, second.size)
+        assertNotEquals(batch, second.single())
+    }
+
+    @Test
+    fun aLoggedActivityCombinedWithACopyNamesNoBatch() = runTest {
+        val logged =
+            ActivityView(
+                uri = AtUri.of(fixture.did, Nsid.FEED_ACTIVITY, "3kride"),
+                cid = Cid("bafy3kride"),
+                author = ProfileViewBasic(fixture.did, Handle("alice.test")),
+                record =
+                    ActivityRecord(Sport.RIDE, Instant.parse("2026-09-01T08:58:00Z"), 123 * 60L, Instant.parse("2026-09-02T00:00:00Z")),
+                likeCount = 0,
+                commentCount = 0,
+                indexedAt = Instant.parse("2026-09-02T00:00:00Z"),
+            )
+        fixture.ownActivities = listOf(logged)
+        fixture.activityRecord = AtJson.encodeToString(ActivityRecord.serializer(), logged.record)
+        presenterTestOf(presenter(fixture.repos(), FakeNavigator(ImportActivityScreen()))) {
+            awaitItem()
+                .eventSink(
+                    picked(
+                        "edge.gpx" to gpx("2026-09-01T09:00:00Z", minutes = 120, type = "cycling"),
+                        "run.gpx" to gpx("2026-09-03T07:00:00Z"),
+                    )
+                )
+            val read = awaitUntil { it.batch != null && it.duplicateCheck == DuplicateCheck.Done }
+            assertEquals(DuplicateAction.Combine, read.batch?.rows?.get(0)?.duplicate?.action)
+            read.eventSink(ImportActivityEvent.SaveBatch(persistentMapOf()))
+            awaitUntil { it.batchSaved != null }
+            cancelAndIgnoreRemainingEvents()
+        }
+        val records = saved().map { it.second }
+        val combined = records.single { it.combined != null }
+        assertNull(combined.importBatch, "the logged ride keeps having none")
+        assertEquals(
+            1,
+            records.filter { it.combined == null }.mapNotNull { it.importBatch }.distinct().size,
+            "the copy and the run share one",
+        )
     }
 
     @Test

@@ -61,7 +61,7 @@ class FeedOutcomesTest {
                     "/xrpc/${Nsid.FEED_GET_TIMELINE}" -> {
                         gate?.await()
                         val rkeys = served ?: return@MockEngine respondError(HttpStatusCode.InternalServerError)
-                        val output = GetTimeline.Output(rkeys.map(::view))
+                        val output = GetTimeline.Output.ofActivities(rkeys.map(::view))
                         respond(AtJson.encodeToString(GetTimeline.Output.serializer(), output), headers = json)
                     }
                     else -> respondError(HttpStatusCode.NotFound)

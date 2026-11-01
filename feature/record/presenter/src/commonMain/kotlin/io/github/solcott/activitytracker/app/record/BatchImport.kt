@@ -23,6 +23,7 @@ import io.github.solcott.activitytracker.data.activity.DuplicateOf
 import io.github.solcott.activitytracker.data.activity.OwnActivity
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.Tid
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.CombinedActivity
 import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
@@ -312,6 +313,8 @@ internal class BatchChoices(
     val visibility: VisibilityChoice,
     val gear: List<AtUri>,
     val zoneOf: (Int) -> TimeZone,
+    /** The save's [ActivityDraft.importBatch], new for each save and shared by every activity it publishes (feed/batch-import). */
+    val importBatch: String = Tid.next(),
 )
 
 /** How a batch's drafts are made: everything [draftsOf] needs beyond the items themselves. */
@@ -400,7 +403,7 @@ internal class BatchDrafting(
             )
             // A file's own notes (a logbook's) are personal and the batch never shows them; an account export's description is the
             // athlete's own words, which they wrote to share.
-            .copy(description = item.export?.description, gear = choices.gear)
+            .copy(description = item.export?.description, gear = choices.gear, importBatch = choices.importBatch)
             .withVisibility(visibility)
     }
 }

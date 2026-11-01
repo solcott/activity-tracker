@@ -71,6 +71,9 @@ class LocalBlocks {
         at.blocks[it.author.did]?.on == true || (timeline && at.mutes[it.author.did]?.on == true)
     }
 
+    /** Whether this session's blocks or mutes hide [did] from the timeline, as [filter] does its activities. */
+    fun hidesOnTimeline(did: Did, at: Entries = entries.value): Boolean = at.blocks[did]?.on == true || at.mutes[did]?.on == true
+
     /** [comments] without those by accounts blocked or muted this session. */
     fun filter(comments: List<CommentView>, at: Entries = entries.value): List<CommentView> = comments.filterNot {
         hidesCommentsBy(it.author.did, at)

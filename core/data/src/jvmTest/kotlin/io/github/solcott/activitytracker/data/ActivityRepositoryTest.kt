@@ -170,7 +170,10 @@ class ActivityRepositoryTest {
                     }
 
                     "/xrpc/${Nsid.FEED_GET_TIMELINE}" -> {
-                        respond(AtJson.encodeToString(GetTimeline.Output.serializer(), GetTimeline.Output(timeline)), headers = json)
+                        respond(
+                            AtJson.encodeToString(GetTimeline.Output.serializer(), GetTimeline.Output.ofActivities(timeline)),
+                            headers = json,
+                        )
                     }
 
                     "/xrpc/com.atproto.repo.deleteRecord" -> {

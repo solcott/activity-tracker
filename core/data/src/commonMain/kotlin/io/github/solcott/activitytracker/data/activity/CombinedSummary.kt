@@ -116,6 +116,8 @@ internal object CombinedSummary {
             avgStrokeDistance = firstBy(kept(rankings, CombinedChannel.LENGTHS)) { it.avgStrokeDistance },
             utcOffset = record.utcOffset ?: members.firstNotNullOfOrNull { it.record.utcOffset },
             gear = members.flatMap { it.record.gear.orEmpty() }.distinct().take(ActivityRecord.MAX_GEAR).ifEmpty { null },
+            // The batch of the activity it starts from: a logged activity combined with a batch's copy keeps its own, or none.
+            importBatch = record.importBatch,
         )
     }
 

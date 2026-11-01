@@ -27,12 +27,15 @@ import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
 import io.github.solcott.activitytracker.lexicon.app.GetComments
+import io.github.solcott.activitytracker.lexicon.app.GetImportBatch
 import io.github.solcott.activitytracker.lexicon.app.GetLikes
 import io.github.solcott.activitytracker.lexicon.app.GetProfile
 import io.github.solcott.activitytracker.lexicon.app.GetTimeline
+import io.github.solcott.activitytracker.lexicon.app.ImportCardView
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.ThreadView
+import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.github.solcott.dataresult.Outcome
 import io.github.solcott.uistate.Page
 import io.github.solcott.uistate.pageOf
@@ -75,8 +78,30 @@ class FeedRepository(
     /** Accounts the viewer blocked, muted or let back this session, laid over every read until the AppView catches up. */
     val localBlocks = LocalBlocks()
 
+    /** The cached timeline's activities, without its import cards ([timelineItems]). */
     fun timeline(filter: ActivityFilter = ActivityFilter.None): Flow<List<ActivityView>> =
-        observe(filter.cacheKey(TIMELINE), timeline = true)
+        timelineItems(filter).map { items -> items.mapNotNull { (it as? TimelineItem.Activity)?.view } }
+
+    /** The cached timeline: activities and, unfiltered, import cards (feed/import-cards), in the AppView's order. */
+    fun timelineItems(filter: ActivityFilter = ActivityFilter.None): Flow<List<TimelineItem>> =
+        combine(db.feed().observe(filter.cacheKey(TIMELINE)), localBlocks.entries) { items, blocks ->
+            val decoded = items.mapNotNull { item ->
+                runCatching {
+                    if (item.uri.startsWith(CARD_KEY))
+                        TimelineItem.ImportCard(AtJson.decodeFromString(ImportCardView.serializer(), item.json))
+                    else TimelineItem.Activity(AtJson.decodeFromString(ActivityView.serializer(), item.json))
+                }
+                    .onFailure { log.w(it) { "Skipping undecodable cached timeline item ${item.uri}" } }
+                    .getOrNull()
+            }
+            decoded.filter { item ->
+                when (item) {
+                    is TimelineItem.Activity -> localBlocks.filter(listOf(item.view), timeline = true, blocks).isNotEmpty()
+                    is TimelineItem.ImportCard -> !localBlocks.hidesOnTimeline(item.card.author.did, blocks)
+                    is TimelineItem.Unknown -> false
+                }
+            }
+        }
 
     fun authorActivities(did: String, filter: ActivityFilter = ActivityFilter.None): Flow<List<ActivityView>> =
         observe(filter.cacheKey(authorKey(did)), timeline = false)
@@ -94,6 +119,25 @@ class FeedRepository(
             refreshTimeline(filter)
         }
 
+    /** [timelineItems] and its refresh as one stream, as [timelineOutcomes]. */
+    fun timelineItemOutcomes(
+        filter: ActivityFilter = ActivityFilter.None,
+        beforeRefresh: suspend () -> Unit = {},
+    ): Flow<Outcome<List<TimelineItem>>> =
+        cachedOutcomes(timelineItems(filter), List<TimelineItem>::isEmpty) {
+            beforeRefresh()
+            refreshTimeline(filter)
+        }
+
+    /** [view] with this session's changes laid over it, as cached feeds show it: for a paged list after a like toggle, say. */
+    fun withLocalChanges(view: ActivityView): ActivityView = shownInFeed(view)
+
+    /** A page of [actor]'s activities from import [batch] after [cursor] (feed/import-cards), for a paged list. */
+    suspend fun importBatchPage(actor: String, batch: String, cursor: String?): Outcome<Page<ActivityView, Unit>> = outcomeOf {
+        val output = clients.appView.query(GetImportBatch.method, GetImportBatch.Params(actor, batch, cursor = cursor))
+        pageOf(deletes.filter(output.activities).map(shownInFeed), output.cursor)
+    }
+
     /** [authorActivities] and its refresh as one stream, as [timelineOutcomes]. */
     fun authorOutcomes(
         did: String,
@@ -109,7 +153,17 @@ class FeedRepository(
         val params = GetTimeline.Params(type = filter.typeTokens().ifEmpty { null }, since = filter.since, until = filter.until)
         val output = clients.appView.query(GetTimeline.method, params)
         val key = filter.cacheKey(TIMELINE)
-        db.feed().replace(key, deletes.filter(output.activities).toFeedItems(key, shownInFeed))
+        // Activities deleted or combined this session are left out, and recordings split off are dropped from the rest.
+        val kept = deletes.filter(output.activities).associateBy { it.uri }
+        val items =
+            output.feed.mapNotNull { item ->
+                when (item) {
+                    is TimelineItem.Activity -> kept[item.view.uri]?.let { TimelineItem.Activity(shownInFeed(it)) }
+                    is TimelineItem.ImportCard -> item
+                    is TimelineItem.Unknown -> null
+                }
+            }
+        db.feed().replace(key, items.toTimelineFeedItems(key))
         if (filter != ActivityFilter.None) db.trackFilteredFeed(key)
     }
 
@@ -336,6 +390,25 @@ private suspend fun AppDatabase.trackFilteredFeed(key: String) {
     val updated = listOf(key) + (recent - key)
     updated.drop(MAX_FILTERED_FEEDS).forEach { feed().clear(it) }
     keyValue().put(KeyValueEntity(FILTERED_FEEDS, AtJson.encodeToString(recentKeys, updated.take(MAX_FILTERED_FEEDS))))
+}
+
+/** Where a cached import card is kept in its feed: never an activity URI, so activity updates and deletes never touch it. */
+private const val CARD_KEY = "importCard:"
+
+/** [this] as the cached items of timeline [key], in order. */
+private fun List<TimelineItem>.toTimelineFeedItems(key: String) = mapIndexedNotNull { index, item ->
+    when (item) {
+        is TimelineItem.Activity ->
+            FeedItemEntity(key, item.view.uri.value, index, AtJson.encodeToString(ActivityView.serializer(), item.view))
+        is TimelineItem.ImportCard ->
+            FeedItemEntity(
+                key,
+                "$CARD_KEY${item.card.author.did.value}/${item.card.batch}",
+                index,
+                AtJson.encodeToString(ImportCardView.serializer(), item.card),
+            )
+        is TimelineItem.Unknown -> null
+    }
 }
 
 /** [this] as the cached items of feed [key], in order, each as [shown] makes it. */

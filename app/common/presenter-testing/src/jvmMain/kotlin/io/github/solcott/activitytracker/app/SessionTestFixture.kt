@@ -41,6 +41,7 @@ import io.github.solcott.activitytracker.lexicon.app.GetActorGear
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
 import io.github.solcott.activitytracker.lexicon.app.GetGear
 import io.github.solcott.activitytracker.lexicon.app.GetGearActivities
+import io.github.solcott.activitytracker.lexicon.app.GetImportBatch
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.location.ActivityRecorder
 import io.github.solcott.activitytracker.location.FakeLocationTracker
@@ -150,6 +151,9 @@ class SessionTestFixture {
 
     /** What the AppView's `getActorGear` serves, in one page; null to fail. */
     var actorGear: List<ActorGearItem>? = emptyList()
+
+    /** What the AppView's `getImportBatch` serves for any batch, in one page; null to fail. */
+    var importBatch: List<ActivityView>? = emptyList()
 
     /** What the AppView's `getGearActivities` serves for any item it has usage for, in one page. */
     var gearActivities: List<ActivityView> = emptyList()
@@ -266,6 +270,16 @@ class SessionTestFixture {
                         else
                             respond(
                                 AtJson.encodeToString(GetGearActivities.Output.serializer(), GetGearActivities.Output(gearActivities)),
+                                headers = json,
+                            )
+                    }
+
+                    "/xrpc/${Nsid.FEED_GET_IMPORT_BATCH}" -> {
+                        val activities = importBatch
+                        if (activities == null) respond("", HttpStatusCode.InternalServerError)
+                        else
+                            respond(
+                                AtJson.encodeToString(GetImportBatch.Output.serializer(), GetImportBatch.Output(activities)),
                                 headers = json,
                             )
                     }
