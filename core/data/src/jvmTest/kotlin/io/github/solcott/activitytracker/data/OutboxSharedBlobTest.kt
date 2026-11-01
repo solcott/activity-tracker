@@ -89,7 +89,9 @@ class OutboxSharedBlobTest {
         assertEquals(1, db.outbox().blobs().size)
         val rows = db.outbox().pending(pds.did.value)
         assertEquals(3, rows.size)
-        assertTrue(rows.all { it.blob == null && it.blobKey == "logbook" && it.blobField == ActivitySourceRecord.FILE_FIELD })
+        assertTrue(
+            rows.all { db.outbox().inlineBlob(it.id) == null && it.blobKey == "logbook" && it.blobField == ActivitySourceRecord.FILE_FIELD }
+        )
     }
 
     @Test

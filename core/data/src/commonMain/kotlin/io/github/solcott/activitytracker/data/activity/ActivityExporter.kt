@@ -116,7 +116,7 @@ class ActivityExporter(
 
     private suspend fun requireSent(view: ActivityView) {
         val rkey = requireNotNull(view.uri.rkey)
-        if (db.outbox().pending(clients.did.value).any { it.rkey == rkey && it.collection in EXPORTED_COLLECTIONS }) {
+        if (db.outbox().pending(clients.did.value, rkey).any { it.collection in EXPORTED_COLLECTIONS }) {
             throw NotSentYetException()
         }
     }

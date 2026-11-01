@@ -204,7 +204,7 @@ data class OutboxEntity(
     val collection: String,
     val rkey: String,
     val recordJson: String?,
-    /** Blob to upload first; its ref is written into the record's [blobField]. */
+    /** Blob to upload first; its ref is written into the record's [blobField]. [OutboxDao.pending] leaves it out. */
     val blob: ByteArray? = null,
     val blobMimeType: String? = null,
     val blobField: String? = null,
@@ -247,12 +247,28 @@ data class OutboxBlobEntity(
     val ref: String? = null,
 )
 
+/** Every [OutboxEntity] column, with a null `blob` ([OutboxDao.pending]). */
+private const val OUTBOX_WITHOUT_BLOB =
+    "id, did, operation, collection, rkey, recordJson, NULL AS blob, blobMimeType, blobField, attempts, lastError, createdAt, space, " +
+        "blobKey, rejectedAt, bulk"
+
 @Dao
 @Suppress("TooManyFunctions") // One query per use: the queue, its shared blobs, and the writes the PDS rejected (data/outbox).
 interface OutboxDao {
     @Insert suspend fun insert(entity: OutboxEntity): Long
 
-    @Query("SELECT * FROM outbox WHERE did = :did ORDER BY id") suspend fun pending(did: String): List<OutboxEntity>
+    /**
+     * The account's queued writes in order, without their inline blob bytes: [OutboxEntity.blob] is null here, and [inlineBlob] reads one
+     * write's. A batch import's queue holds hundreds of megabytes of them, and on the web every row read crosses to the SQLite worker.
+     */
+    @Query("SELECT $OUTBOX_WITHOUT_BLOB FROM outbox WHERE did = :did ORDER BY id") suspend fun pending(did: String): List<OutboxEntity>
+
+    /** [pending] for one [rkey]: an activity's queued writes, in order. */
+    @Query("SELECT $OUTBOX_WITHOUT_BLOB FROM outbox WHERE did = :did AND rkey = :rkey ORDER BY id")
+    suspend fun pending(did: String, rkey: String): List<OutboxEntity>
+
+    /** The bytes stored on write [id] to upload before its record ([OutboxEntity.blob]); null when it has none. */
+    @Query("SELECT blob FROM outbox WHERE id = :id") suspend fun inlineBlob(id: Long): ByteArray?
 
     @Query("SELECT COUNT(*) FROM outbox WHERE did = :did") fun count(did: String): Flow<Int>
 

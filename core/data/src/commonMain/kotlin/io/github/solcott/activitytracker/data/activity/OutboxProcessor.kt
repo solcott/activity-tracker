@@ -168,11 +168,16 @@ class OutboxProcessor(
                 val record = AtJson.parseToJsonElement(requireNotNull(item.recordJson)).jsonObject
                 when {
                     item.blobKey != null && item.blobField != null -> putSharingBlob(item, record, item.blobKey, item.blobField)
-                    item.blob != null && item.blobField != null -> {
-                        val ref = clients.pds.uploadBlob(item.blob, item.blobMimeType ?: "application/octet-stream")
-                        put(item, record.withBlob(item.blobField, ref))
+                    else -> {
+                        // Read one write at a time: the queue is listed without its bytes (OutboxDao.pending).
+                        val blob = item.blobField?.let { db.outbox().inlineBlob(item.id) }
+                        if (blob != null && item.blobField != null) {
+                            val ref = clients.pds.uploadBlob(blob, item.blobMimeType ?: "application/octet-stream")
+                            put(item, record.withBlob(item.blobField, ref))
+                        } else {
+                            put(item, record)
+                        }
                     }
-                    else -> put(item, record)
                 }
             }
 

@@ -43,6 +43,12 @@ class OutboxQueryPlanTest {
     }
 
     @Test
+    fun anRkeysWritesAreFoundByIndexInOrder() {
+        assertIndexed("SELECT id FROM outbox WHERE did = 'd' AND rkey = 'r' ORDER BY id")
+        assertNoSort("SELECT id FROM outbox WHERE did = 'd' AND rkey = 'r' ORDER BY id")
+    }
+
+    @Test
     fun sweepingSharedBlobsReadsAnIndexOfTheQueue() {
         assertIndexed("DELETE FROM outbox_blob WHERE `key` NOT IN (SELECT blobKey FROM outbox WHERE blobKey IS NOT NULL)", covering = true)
     }
@@ -53,6 +59,11 @@ class OutboxQueryPlanTest {
         val outbox = plan.filter { Regex("""\b(SCAN|SEARCH) (outbox|o|a)\b""").containsMatchIn(it) }
         assertTrue(outbox.isNotEmpty() && outbox.none { it.startsWith("SCAN") }, "scans the outbox: $plan")
         if (covering) assertTrue(outbox.all { "COVERING INDEX" in it }, "reads outbox rows: $plan")
+    }
+
+    private fun assertNoSort(sql: String) {
+        val plan = buildList { connection.prepare("EXPLAIN QUERY PLAN $sql").use { while (it.step()) add(it.getText(3)) } }
+        assertTrue(plan.none { "TEMP B-TREE" in it }, "sorts the rows: $plan")
     }
 
     /** Today's schema, from the committed export Room checks it against. */

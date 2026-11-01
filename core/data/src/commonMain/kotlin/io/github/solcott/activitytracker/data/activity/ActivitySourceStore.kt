@@ -78,7 +78,7 @@ class PdsActivitySourceStore(
     // The outbox's last write of it says what the PDS will hold once it's sent; with none queued, the PDS holds it now.
     override suspend fun info(activity: AtUri): SourceInfo? {
         val rkey = requireNotNull(activity.rkey)
-        val queued = db.outbox().pending(clients.did.value).lastOrNull { it.collection == Nsid.FEED_ACTIVITY_SOURCE && it.rkey == rkey }
+        val queued = db.outbox().pending(clients.did.value, rkey).lastOrNull { it.collection == Nsid.FEED_ACTIVITY_SOURCE }
         return when {
             queued == null -> stored(rkey)?.info(queued = false)
             queued.operation != OutboxProcessor.OP_PUT -> null

@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.data.db
 
 import io.github.solcott.activitytracker.lexicon.Nsid
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -53,6 +54,25 @@ class OutboxDaoTest {
         dao.deleteGroup(did, "3kact")
         assertEquals(listOf("3klike"), dao.pending(did).map { it.rkey })
         assertEquals(emptyList(), dao.blobs(), "the group's shared blob goes with it")
+    }
+
+    @Test
+    fun theQueueIsListedWithoutItsBlobBytes() = runTest {
+        val dao = inMemoryDatabase().outbox()
+        val track =
+            dao.insert(
+                row(Nsid.FEED_ACTIVITY_TRACK, "3kact")
+                    .copy(blob = byteArrayOf(1, 2, 3), blobMimeType = "application/gpx+xml", blobField = "track")
+            )
+        dao.insert(row(Nsid.FEED_ACTIVITY, "3kact"))
+        dao.insert(row(Nsid.FEED_LIKE, "3klike"))
+
+        val listed = dao.pending(did)
+        assertEquals(listOf(null, null, null), listed.map { it.blob }, "the bytes stay in the database")
+        assertEquals("track", listed.first().blobField)
+        assertContentEquals(byteArrayOf(1, 2, 3), dao.inlineBlob(track))
+        assertEquals(null, dao.inlineBlob(listed.last().id))
+        assertEquals(listOf(Nsid.FEED_ACTIVITY_TRACK, Nsid.FEED_ACTIVITY), dao.pending(did, "3kact").map { it.collection })
     }
 
     private fun row(collection: String, rkey: String, json: String = "{}", did: String = this.did) =

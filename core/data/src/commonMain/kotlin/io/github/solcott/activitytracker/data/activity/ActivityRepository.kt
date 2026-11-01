@@ -440,8 +440,8 @@ internal suspend fun SessionClients.ownActivityRecord(rkey: String, visibility: 
  */
 internal suspend fun AppDatabase.queuedActivityRecord(clients: SessionClients, rkey: String): ActivityRecord? =
     outbox()
-        .pending(clients.did.value)
-        .lastOrNull { it.collection == Nsid.FEED_ACTIVITY && it.rkey == rkey }
+        .pending(clients.did.value, rkey)
+        .lastOrNull { it.collection == Nsid.FEED_ACTIVITY }
         ?.takeIf { it.operation == OutboxProcessor.OP_PUT }
         ?.recordJson
         ?.let { AtJson.decodeFromString(ActivityRecord.serializer(), it) }

@@ -76,7 +76,7 @@ class PdsActivityDevicesStore(
     // The outbox's last write of it says what the PDS will hold once it's sent; with none queued, the PDS holds it now.
     override suspend fun has(activity: AtUri): Boolean {
         val rkey = requireNotNull(activity.rkey)
-        val queued = db.outbox().pending(clients.did.value).lastOrNull { it.collection == Nsid.FEED_ACTIVITY_DEVICES && it.rkey == rkey }
+        val queued = db.outbox().pending(clients.did.value, rkey).lastOrNull { it.collection == Nsid.FEED_ACTIVITY_DEVICES }
         return when {
             queued != null -> queued.operation == OutboxProcessor.OP_PUT
             !canWrite -> false

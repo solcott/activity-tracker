@@ -141,7 +141,7 @@ class RouteTrimmer(
         val pending = db.outbox().pending(clients.did.value).filter { it.operation == OutboxProcessor.OP_PUT }
         val activities = pending.filter { it.collection == Nsid.FEED_ACTIVITY }.associateBy { it.rkey }
         for (track in pending.filter { it.collection == Nsid.FEED_ACTIVITY_TRACK && it.rkey in activities }) {
-            val gpx = track.blob
+            val gpx = db.outbox().inlineBlob(track.id)
             val queued = activities.getValue(track.rkey)
             val at = queued.space?.substringAfterLast('/') ?: Visibility.PUBLIC
             val details =

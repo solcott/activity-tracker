@@ -119,7 +119,7 @@ class PdsSegmentTrackStore(
     /** [activity]'s segment track as stored, with its blob; null when there's none, or a write of it is still queued. */
     private suspend fun stored(activity: AtUri): SegmentTrackRecord? {
         val rkey = requireNotNull(activity.rkey)
-        if (db.outbox().pending(clients.did.value).any { it.collection == Nsid.FEED_SEGMENT_TRACK && it.rkey == rkey }) return null
+        if (db.outbox().pending(clients.did.value, rkey).any { it.collection == Nsid.FEED_SEGMENT_TRACK }) return null
         val read = clients.spaces.getRecord(self, clients.did, Nsid.FEED_SEGMENT_TRACK, rkey)
         return (read as? SpaceRead.Found)
             ?.let { runCatching { AtJson.decodeFromJsonElement(SegmentTrackRecord.serializer(), it.value.value) }.getOrNull() }
