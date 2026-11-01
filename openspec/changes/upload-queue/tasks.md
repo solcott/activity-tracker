@@ -6,8 +6,8 @@
 
 ## 1. Upload log (Room)
 
-- [ ] 1.1 Add `UploadBatchEntity` and `UploadItemEntity` with the `(did, rkey)` and `(did, batchId)` indexes, an `UploadDao`, and `MIGRATION_7_8` (`AppDatabase.version = 8`); verify the regenerated schema JSON in `core/data/schemas` and a migration test opening a version-7 database
-- [ ] 1.2 Add the derived-state query (Waiting, Uploading, Uploaded, Refused, Skipped and progress from `sentWrites` plus the remaining outbox rows per `rkey`) and `UploadLog.queued`/`finished`/`prune`; verify `UploadLogTest` covers each state, an edit refreshing a live item, an edit after upload adding a new item, and 7-day pruning with batches dropped when empty
+- [ ] 1.1 Add `UploadBatchEntity` and `UploadItemEntity` with the `(did, rkey)` and `(did, batchId)` indexes, an `UploadDao`, and `MIGRATION_8_9` (`AppDatabase.version = 9`); verify the regenerated schema JSON in `core/data/schemas` and a migration test opening a version-8 database
+- [ ] 1.2 Add the derived-state query (Waiting, Uploading, Uploaded, Refused, Skipped and progress from `sentWrites` plus the remaining outbox rows per `rkey`; it joins the outbox on its `(did, rkey)` index and never selects `blob`, like `OutboxDao.pending`, with a case in `OutboxQueryPlanTest`) and `UploadLog.queued`/`finished`/`prune`; verify `UploadLogTest` covers each state, an edit refreshing a live item, an edit after upload adding a new item, and 7-day pruning with batches dropped when empty
 - [ ] 1.3 Add a `UploadBatch` coroutine-context element and log new activities from `ActivityRepository.publish`/`publishBatch` and combines, edits from `ActivityManager.edit`/`ungroup`, skipped ones from `saveBatch`, and remove a live item on delete; verify with `UploadLogWritersTest` (publish, batch with skips, edit while waiting, delete while waiting)
 
 ## 2. Outbox: sending, claim and pause

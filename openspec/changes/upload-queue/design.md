@@ -36,7 +36,7 @@ Today's outbox (`core/data`, see the `data/outbox` spec and `data-and-auth.md`):
 
 ### 1. A log beside the outbox: `upload_item` and `upload_batch`
 
-New Room tables (`AppDatabase` version 7 to 8, with a plain `CREATE TABLE` migration):
+New Room tables (`AppDatabase` version 8 to 9, with a plain `CREATE TABLE` migration):
 
 ```
 upload_batch  id TEXT PK (importBatch TID), did, source TEXT, savedAt, saved INT, skipped INT
@@ -48,7 +48,7 @@ upload_item   id INTEGER PK auto, did, rkey TEXT?, batchId TEXT?, kind (New|Edit
 
 - **Live items.** An item is live while `finishedAt` is null. At most one live item exists per `(did, rkey)`; the DAO's upsert enforces it.
 - **Skipped imports.** These are rows with `rkey = null`, `skipped = 1` and `finishedAt` set at save, so they age out with the rest.
-- **State is derived** in one DAO query joining the outbox per `rkey`:
+- **State is derived** in one DAO query joining the outbox per `rkey`, on its `(did, rkey)` index and without selecting `blob` (Room re-runs observed queries after every outbox write, so reading blob bytes would stall a large drain):
   - Refused: a row with `rejectedAt`.
   - Uploading: `sentWrites > 0`, or the `rkey` is `AccountPacing.sending`.
   - Waiting: anything else that's live.

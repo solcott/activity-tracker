@@ -44,7 +44,7 @@ Out of scope, possibly later:
 ## Impact
 
 - **Room (`core/data`):**
-  - new `upload_item` and `upload_batch` tables (`AppDatabase` version 8, with a migration)
+  - new `upload_item` and `upload_batch` tables (`AppDatabase` version 9, with a migration)
   - the user pause stored in `key_value`
   - `OutboxProcessor`, `OutboxPacer`, `AccountPacing`, `OutboxWriter`, `ActivityRepository`, `ActivityManager` (edit, combine, delete) and `RejectedChanges`
 - **New feature module** `feature/uploads/{api,presenter,ui}` with `UploadsScreen`, samples, tests and screenshots. It replaces `UnsentChangesScreen` in `feature/feed`.
