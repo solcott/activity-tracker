@@ -98,14 +98,17 @@ class ActivityRepository(
     }
 
     /**
-     * Publishes [drafts] in order, like [publish] but draining the outbox once at the end: a dive logbook can hold hundreds. Every draft is
-     * queued before any is sent, so a failed upload leaves them all in the outbox to retry.
+     * Publishes [drafts] in order, like [publish] but draining the outbox once at the end: a dive logbook can hold hundreds. All are
+     * checked before any is queued, and every draft is queued before any is sent, so a failed upload leaves them all in the outbox to
+     * retry. They're the athlete's own writes, not bulk ones, unless the caller runs under [BulkWrites] (a batch import's combines).
      */
     suspend fun publishAll(drafts: List<ActivityDraft>): List<AtUri> {
         drafts.forEach { clients.requireSpacesFor(it.visibility) }
         clients.requireDetailsSpaceFor(drafts)
         requireSelfSpaceFor(drafts)
-        return publishBatch(drafts.asFlow())
+        val uris = queueEach(drafts.asFlow())
+        outbox.drain()
+        return uris
     }
 
     /**
@@ -120,28 +123,35 @@ class ActivityRepository(
         drain: Boolean = true,
         onQueued: suspend (ActivityDraft, AtUri) -> Unit = { _, _ -> },
     ): List<AtUri> {
+        val uris = BulkWrites.run { queueEach(drafts, onQueued) }
+        if (drain) outbox.drain()
+        return uris
+    }
+
+    /** Queues [drafts] as they arrive, checking each, with one read of the zones and training for them all. */
+    private suspend fun queueEach(
+        drafts: Flow<ActivityDraft>,
+        onQueued: suspend (ActivityDraft, AtUri) -> Unit = { _, _ -> },
+    ): List<AtUri> {
         val uris = mutableListOf<AtUri>()
         val types = mutableSetOf<ActivityType>()
         try {
-            BulkWrites.run {
-                privacy.withReadOnce {
-                    zones.withTrainingReadOnce {
-                        drafts.collect { draft ->
-                            clients.requireSpacesFor(draft.visibility)
-                            clients.requireDetailsSpaceFor(listOf(draft))
-                            requireSelfSpaceFor(listOf(draft))
-                            val uri = queue(draft, photos = emptyList(), trim = privacy.forPublish())
-                            uris += uri
-                            types += draft.type
-                            onQueued(draft, uri)
-                        }
+            privacy.withReadOnce {
+                zones.withTrainingReadOnce {
+                    drafts.collect { draft ->
+                        clients.requireSpacesFor(draft.visibility)
+                        clients.requireDetailsSpaceFor(listOf(draft))
+                        requireSelfSpaceFor(listOf(draft))
+                        val uri = queue(draft, photos = emptyList(), trim = privacy.forPublish())
+                        uris += uri
+                        types += draft.type
+                        onQueued(draft, uri)
                     }
                 }
             }
         } finally {
             types.forEach { recentTypes.remember(it) }
         }
-        if (drain) outbox.drain()
         return uris
     }
 

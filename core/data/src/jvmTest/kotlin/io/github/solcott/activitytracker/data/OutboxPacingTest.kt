@@ -68,6 +68,9 @@ class OutboxPacingTest {
         pds.offline = true
         val single = session.activities.publish(draft(120))
         assertTrue(session.rows().filter { it.rkey == single.rkey }.none { it.bulk })
+        // A logbook's dives, or a combine's drafts, are the athlete's own writes too.
+        val several = session.activities.publishAll(listOf(draft(180), draft(240))).map { it.rkey }.toSet()
+        assertTrue(session.rows().filter { it.rkey in several }.none { it.bulk })
     }
 
     @Test
