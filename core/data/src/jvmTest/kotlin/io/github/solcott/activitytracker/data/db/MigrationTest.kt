@@ -91,6 +91,17 @@ class MigrationTest {
         db.close()
     }
 
+    @Test
+    fun version7OutboxGainsItsIndexes() = runTest {
+        val file = File(createTempDirectory("migration").toFile(), DATABASE_NAME)
+        createVersion(file, 7)
+
+        val db = Room.databaseBuilder<AppDatabase>(file.path).addAppMigrations().setDriver(BundledSQLiteDriver()).build()
+        assertEquals(listOf("3kold"), db.outbox().pending("did:plc:alice").map { it.rkey })
+        assertEquals(1, db.outbox().pendingCount("did:plc:alice").first())
+        db.close()
+    }
+
     private fun createVersion1(file: File) = createVersion(file, 1)
 
     /** The [version] schema, from the committed schema export, with one queued write. */

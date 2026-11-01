@@ -5,6 +5,7 @@ import androidx.room3.ConstructedBy
 import androidx.room3.Dao
 import androidx.room3.Database
 import androidx.room3.Entity
+import androidx.room3.Index
 import androidx.room3.Insert
 import androidx.room3.OnConflictStrategy
 import androidx.room3.PrimaryKey
@@ -24,7 +25,7 @@ const val DATABASE_NAME = "activity-tracker.db"
  * crashes lowering the `AutoMigration` annotation.
  */
 fun <T : RoomDatabase> RoomDatabase.Builder<T>.addAppMigrations(): RoomDatabase.Builder<T> =
-    addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+    addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
 
 /** Runs one statement: `execSQL` blocks on most platforms and suspends on the web, so it has no common form. */
 internal expect suspend fun SQLiteConnection.runSql(sql: String)
@@ -71,6 +72,17 @@ private val MIGRATION_5_6 = Migration(5, 6) { it.runSql("ALTER TABLE outbox ADD 
 /** 6 → 7: a batch import's writes are bulk (data/outbox), sent after the athlete's own; a write queued before is not. */
 private val MIGRATION_6_7 = Migration(6, 7) { it.runSql("ALTER TABLE outbox ADD COLUMN bulk INTEGER NOT NULL DEFAULT 0") }
 
+/**
+ * 7 → 8: indexes for the outbox's observed counts and lists ([OutboxEntity]), which otherwise scan every queued row, blob bytes included,
+ * after each write.
+ */
+private val MIGRATION_7_8 =
+    Migration(7, 8) {
+        it.runSql("CREATE INDEX IF NOT EXISTS `index_outbox_did_rejectedAt_rkey` ON `outbox` (`did`, `rejectedAt`, `rkey`)")
+        it.runSql("CREATE INDEX IF NOT EXISTS `index_outbox_did_rkey` ON `outbox` (`did`, `rkey`)")
+        it.runSql("CREATE INDEX IF NOT EXISTS `index_outbox_blobKey` ON `outbox` (`blobKey`)")
+    }
+
 @Database(
     entities =
         [
@@ -83,7 +95,7 @@ private val MIGRATION_6_7 = Migration(6, 7) { it.runSql("ALTER TABLE outbox ADD 
             RecordingEntity::class,
             RecordingEventEntity::class,
         ],
-    version = 7,
+    version = 8,
 )
 @ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -174,8 +186,16 @@ interface FeedDao {
  * Pending writes for the signed-in account, applied in order by `OutboxProcessor`: to their repo, or to one of their tier spaces ([space]).
  * Keys are client-generated TIDs so retries are idempotent (`putRecord` overwrites). A write the PDS refused is kept with [rejectedAt] set
  * until the athlete retries or discards it, and holds back the later writes with its [rkey] (data/outbox).
+ *
+ * Room re-runs every observed query on the table after each write, so those read indexes, never the rows: a batch import queues thousands
+ * of writes with their blob bytes inline, and scanning them on every write idles the drain on the web, where one SQLite worker runs it all.
+ * The indexes cover the counts and the pending count ([OutboxDao.pendingCount]), find the rejected writes and an rkey's writes, and the
+ * shared blobs still named ([OutboxDao.deleteUnreferencedBlobs]).
  */
-@Entity(tableName = "outbox")
+@Entity(
+    tableName = "outbox",
+    indices = [Index("did", "rejectedAt", "rkey"), Index("did", "rkey"), Index("blobKey")],
+)
 data class OutboxEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val did: String,
