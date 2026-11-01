@@ -600,6 +600,9 @@ class FakeRateLimit(
 ) {
     var remaining = limit
 
+    /** Whether a 429 says `Retry-After`, as the real PDS does; without it, the client goes by `RateLimit-Reset`. */
+    var sendsRetryAfter = true
+
     fun costOf(path: String): Int =
         when (path) {
             "/xrpc/com.atproto.repo.putRecord",
@@ -625,7 +628,7 @@ class FakeRateLimit(
         append("RateLimit-Remaining", "$remaining")
         append("RateLimit-Reset", "${resetAt.epochSeconds}")
         append("RateLimit-Policy", "$limit;w=${window.inWholeSeconds}")
-        if (retryAfter) append("Retry-After", "${(resetAt - now()).inWholeSeconds.coerceAtLeast(1)}")
+        if (retryAfter && sendsRetryAfter) append("Retry-After", "${(resetAt - now()).inWholeSeconds.coerceAtLeast(1)}")
     }
 }
 

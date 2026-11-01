@@ -13,6 +13,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
@@ -134,6 +135,22 @@ class OutboxPacingTest {
         clock.now = reset + 1.minutes
         assertEquals(0, session.outbox.drain())
         assertEquals(4, pds.writes.size)
+    }
+
+    @Test
+    fun aRateLimitWhoseResetHasPassedStillPauses() = runTest {
+        // The server's clock is five minutes behind the device's, so its reset, a minute ahead for it, has passed for the device.
+        val serverNow = { clock.now() - 5.minutes }
+        pds.rateLimit = FakeRateLimit(limit = 2, resetAt = serverNow() + 1.minutes, now = serverNow).apply { sendsRetryAfter = false }
+        val session = pds.session(clock = clock)
+        val writer = OutboxWriter(session.db, session.clients, clock)
+        repeat(2) { writer.put(Nsid.FEED_LIKE, "3klike$it") }
+
+        assertEquals(1, session.outbox.drain())
+
+        val until = assertNotNull(session.clients.pacing.pausedUntil.value)
+        assertTrue(until > clock.now, "a pause that has already ended would leave the queue for idle")
+        assertTrue(session.clients.pacing.isPaused(clock.now))
     }
 
     @Test

@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.lexicon.atproto.SpaceUri
 import io.github.solcott.dataresult.DataError
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -117,7 +118,10 @@ class OutboxProcessor(
             }
             e is XrpcException && e.status == HTTP_TOO_MANY_REQUESTS -> {
                 // Not an attempt: the PDS said when to come back.
-                val until = e.retryAfter ?: e.rateLimit?.resetAt ?: (clock.now() + RATE_LIMIT_FALLBACK)
+                // A time already past (a device clock ahead of the server's, or `Retry-After: 0`) still pauses a little, so the pacer
+                // waits and tries again rather than taking the queue for idle.
+                val now = clock.now()
+                val until = maxOf(e.retryAfter ?: e.rateLimit?.resetAt ?: (now + RATE_LIMIT_FALLBACK), now + MIN_RATE_LIMIT_PAUSE)
                 log.i { "Outbox paused by the PDS until $until; $pending pending" }
                 pacing.pause(until)
                 Failure.Stop
@@ -263,6 +267,9 @@ class OutboxProcessor(
 
         /** How long to wait after a 429 that says nothing of when to come back. */
         private val RATE_LIMIT_FALLBACK = 1.minutes
+
+        /** The shortest pause a 429 sets, whatever it says. */
+        private val MIN_RATE_LIMIT_PAUSE = 10.seconds
 
         /** Bulk writes stop once less than 1 / this of the PDS's limit is left. */
         private const val RESERVE_FRACTION = 10
