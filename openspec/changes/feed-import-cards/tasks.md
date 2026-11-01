@@ -40,7 +40,7 @@
 ## 7. Integration
 
 - [x] 7.1 Run `./gradlew check` and `:server-appview:test` through the `gradle-runner` agent, and verify both pass.
-- [ ] 7.2 On the local stack (`scripts/dev.sh --seed alice`), import a Strava sample archive as alice and follow her from a second account. Verify that the follower's timeline shows one import card at the top, that a recent activity in the batch shows on its own, that the card opens the batch screen, and that alice's profile lists the imports by start.
+- [x] 7.2 On the local stack (`scripts/dev.sh --seed alice`), import a Strava sample archive as alice and follow her from a second account. Verify that the follower's timeline shows one import card at the top, that a recent activity in the batch shows on its own, that the card opens the batch screen, and that alice's profile lists the imports by start.
 
 ## Workflow follow-up
 
