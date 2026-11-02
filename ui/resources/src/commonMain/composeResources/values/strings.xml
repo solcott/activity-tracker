@@ -386,6 +386,7 @@
     <string name="feed_uploading_with_other">%1$s · %2$s</string>
     <string name="feed_imports_waiting">%1$s waiting</string>
     <string name="feed_imports_paused">Imports paused</string>
+    <string name="import_view_uploads">View uploads</string>
     <string name="feed_upload_paused">Paused by the server until %1$s</string>
     <string name="feed_upload_paused_tomorrow">Paused by the server until tomorrow at %1$s</string>
     <string name="feed_empty_can_record">No activities yet. Record one or follow other athletes.</string>

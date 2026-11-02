@@ -5,6 +5,8 @@ kotlin {
         commonMain.dependencies {
             // ActivityDetailScreen, which a saved activity opens.
             implementation(projects.featureDetailApi)
+            // UploadsScreen, which a saved batch opens.
+            implementation(projects.featureUploadsApi)
         }
     }
 }

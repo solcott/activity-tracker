@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.data.activity.BulkWrites
 import io.github.solcott.activitytracker.data.activity.DraftSource
 import io.github.solcott.activitytracker.data.activity.DuplicateOf
 import io.github.solcott.activitytracker.data.activity.OwnActivity
+import io.github.solcott.activitytracker.data.activity.UploadSource
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Tid
@@ -326,6 +327,24 @@ internal class BatchDrafting(
     val defaultTitles: Map<Int, String>,
     val choices: BatchChoices,
 ) {
+    /** What the upload queue names the import by (feed/batch-import): the exports recognized, else the files. */
+    val source: UploadSource
+        get() =
+            if (batch.exports.isNotEmpty()) UploadSource.Export(batch.exports.map { it.kind.name })
+            else UploadSource.Files(batch.files.firstOrNull()?.name.orEmpty(), batch.files.size)
+
+    /** Lists the item at [index], which couldn't be read again, as skipped in the upload queue. */
+    suspend fun logSkipped(activities: ActivityRepository, index: Int) {
+        val item = batch.items[index]
+        val override = selection.overrides[index]
+        activities.skippedImport(
+            choices.importBatch,
+            item.title(override) ?: defaultTitles[index],
+            item.type(override).sport,
+            item.summary.startedAt,
+        )
+    }
+
     /** Each file's original, kept until its last selected activity is drafted, so a file several share is stored once. */
     private val sources = mutableMapOf<Int, SourceFile?>()
     private val remaining = mutableMapOf<Int, Int>()
@@ -414,6 +433,7 @@ internal class BatchResult(val published: List<Pair<AtUri, ActivityDraft>>, val 
 /**
  * Saves [plan]: each combined group first, because combining sends the outbox and so would wait on the whole batch's upload, then the rest,
  * read again in one pass over their files and queued one at a time, [onProgress] counting them. Leaves sending the bulk to the next sync.
+ * The upload queue lists it as one import, with the files it skipped (feed/batch-import).
  */
 internal suspend fun saveBatch(
     activities: ActivityRepository,
@@ -426,10 +446,14 @@ internal suspend fun saveBatch(
     val total = plan.alone.size + plan.groups.sumOf { it.items.size }
     var queued = 0
     var skipped = 0
+    val batchId = drafting.choices.importBatch
+    activities.startImport(batchId, drafting.source)
     drafting.expect(plan.alone + plan.groups.flatMap { it.items })
     onProgress(SaveProgress(0, total))
     for (group in plan.groups) {
-        val drafts = drafting.draftsOf(group.items).mapNotNull { it.second }
+        val read = drafting.draftsOf(group.items)
+        val drafts = read.mapNotNull { it.second }
+        read.filter { it.second == null }.forEach { (index, _) -> drafting.logSkipped(activities, index) }
         skipped += group.items.size - drafts.size
         // Members share their combined activity's visibility, so none may join one wider than its own: copies within the batch combine
         // at their narrowest, and a copy narrower than the logged activity it repeats is saved on its own instead.
@@ -450,8 +474,9 @@ internal suspend fun saveBatch(
     val published = mutableListOf<Pair<AtUri, ActivityDraft>>()
     val bulk = flow {
         // One pass over the files: each draft is queued before the next file is read.
-        drafting.eachDraft(plan.alone) { _, draft ->
+        drafting.eachDraft(plan.alone) { index, draft ->
             if (draft == null) {
+                drafting.logSkipped(activities, index)
                 skipped++
                 onProgress(SaveProgress(queued + skipped, total))
             } else {
@@ -464,6 +489,7 @@ internal suspend fun saveBatch(
         queued++
         onProgress(SaveProgress(queued + skipped, total))
     }
+    activities.finishImport(batchId, saved = queued, skipped = skipped)
     BatchResult(published, saved = queued, skipped = skipped)
 }
 

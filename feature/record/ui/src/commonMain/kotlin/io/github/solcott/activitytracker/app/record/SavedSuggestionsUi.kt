@@ -31,6 +31,7 @@ import io.github.solcott.activitytracker.composeApp.resources.import_saved_sugge
 import io.github.solcott.activitytracker.composeApp.resources.import_saved_suggestions_done
 import io.github.solcott.activitytracker.composeApp.resources.import_saved_suggestions_explained
 import io.github.solcott.activitytracker.composeApp.resources.import_saved_suggestions_title
+import io.github.solcott.activitytracker.composeApp.resources.import_view_uploads
 import io.github.solcott.activitytracker.data.units.formatWhole
 import kotlinx.collections.immutable.ImmutableList
 import org.jetbrains.compose.resources.pluralStringResource
@@ -74,6 +75,11 @@ internal fun SavedSuggestions(
                             Text(stringResource(Res.string.combine_suggestion_combine))
                         }
                     }
+                }
+            }
+            if (result != null) {
+                AppSecondaryButton(onClick = { eventSink(ImportActivityEvent.Saved.ViewUploads) }, Modifier.fillMaxWidth()) {
+                    Text(stringResource(Res.string.import_view_uploads))
                 }
             }
             AppButton(onClick = { eventSink(ImportActivityEvent.Saved.Done) }, Modifier.fillMaxWidth()) {

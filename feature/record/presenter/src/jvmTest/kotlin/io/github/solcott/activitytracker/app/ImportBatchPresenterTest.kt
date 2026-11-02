@@ -14,6 +14,9 @@ import io.github.solcott.activitytracker.app.record.DuplicateCheck
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
+import io.github.solcott.activitytracker.app.uploads.UploadsScreen
+import io.github.solcott.activitytracker.data.activity.UploadSource
+import io.github.solcott.activitytracker.data.activity.UploadState
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -426,7 +429,9 @@ class ImportBatchPresenterTest {
                     return inner.read(offset, length)
                 }
             }
-        presenterTestOf(presenter(fixture.repos(), FakeNavigator(ImportActivityScreen()))) {
+        val repos = fixture.repos()
+        val navigator = FakeNavigator(ImportActivityScreen())
+        presenterTestOf(presenter(repos, navigator)) {
             awaitItem()
                 .eventSink(
                     ImportActivityEvent.FilesPicked(
@@ -439,6 +444,17 @@ class ImportBatchPresenterTest {
             val done = awaitUntil { it.batchSaved != null }
             assertEquals(1, done.batchSaved?.saved)
             assertEquals(1, done.batchSaved?.skipped)
+
+            // The upload queue lists the save as one import, its skipped file in it (feed/batch-import).
+            val import = repos.uploads.queue.first().imports.single()
+            assertEquals(UploadSource.Files("kept.gpx", 2), import.source)
+            assertEquals(1, import.saved)
+            assertEquals(1, import.skipped)
+            assertEquals(listOf(UploadState.Skipped), import.finished.filter { it.state == UploadState.Skipped }.map { it.state })
+
+            done.eventSink(ImportActivityEvent.Saved.ViewUploads)
+            navigator.awaitPop()
+            assertEquals(UploadsScreen, navigator.awaitNextScreen())
             cancelAndIgnoreRemainingEvents()
         }
         assertEquals(1, saved().size)

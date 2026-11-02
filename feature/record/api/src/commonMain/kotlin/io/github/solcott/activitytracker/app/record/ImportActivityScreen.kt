@@ -514,5 +514,8 @@ sealed interface ImportActivityEvent {
 
         /** Leaves the screen, combining nothing more. */
         data object Done : Saved
+
+        /** Leaves the screen for the upload queue, where the batch is listed as one import (feed/batch-import). */
+        data object ViewUploads : Saved
     }
 }

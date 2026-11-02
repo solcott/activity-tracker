@@ -2,6 +2,7 @@ package io.github.solcott.activitytracker.app.record
 
 import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.uploads.UploadsScreen
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.CombineSuggestions
@@ -34,10 +35,14 @@ internal suspend fun savedSuggestionsFor(
         }
         .toImmutableList()
 
-/** Back, or the athlete opens a just-saved activity's page to combine it, or leaves the batch's summary. */
+/** Back, or the athlete opens a just-saved activity's page to combine it or the upload queue, or leaves the batch's summary. */
 internal fun Navigator.leave(event: ImportActivityEvent) {
     when (event) {
         is ImportActivityEvent.Saved.Open -> goTo(ActivityDetailScreen(event.uri.value, suggestOnOpen = true))
+        ImportActivityEvent.Saved.ViewUploads -> {
+            pop()
+            goTo(UploadsScreen)
+        }
         else -> pop()
     }
 }
