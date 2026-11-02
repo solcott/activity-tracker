@@ -7,19 +7,21 @@ plugins {
 
 application { mainClass.set("io.github.solcott.activitytracker.appview.ApplicationKt") }
 
-// Local-stack defaults; real env vars win. APPVIEW_PUBLIC_URL defaults to the tunnel URL the native apps were built with, so the AppView
-// serves matching OAuth client metadata. That makes the tunnel host its DID, so the web app (which addresses the AppView as
-// did:web:localhost:<port>) is also accepted via APPVIEW_EXTRA_AUDIENCES. Resolved at execution so neither the env nor the property is
-// read during configuration.
+// Local-stack defaults; real env vars win. APPVIEW_PUBLIC_URL defaults to the URL the native apps were built with (the device host's
+// AppView
+// sibling in device mode, else the quick tunnel's), so the AppView serves matching OAuth client metadata and that host is its DID. In
+// device mode every client addresses it by that DID; otherwise the web and desktop apps address it as did:web:localhost:<port>, which is
+// also accepted via APPVIEW_EXTRA_AUDIENCES. Resolved at execution so neither the env nor the properties are read during configuration.
 tasks.named<JavaExec>(ApplicationPlugin.TASK_RUN_NAME) {
-    val configuredPublicUrl = nativeOAuth.configuredAppviewPublicUrl
+    val publicUrl = nativeOAuth.effectiveAppviewPublicUrl
+    val deviceMode = nativeOAuth.deviceMode
     val dockerEnv = rootDir.resolve("docker/.env")
     workingDir = rootDir
     doFirst {
         with(this as JavaExec) {
             if ("APPVIEW_PORT" !in environment) environment("APPVIEW_PORT", "8081")
-            if ("APPVIEW_PUBLIC_URL" !in environment) configuredPublicUrl.orNull?.let { environment("APPVIEW_PUBLIC_URL", it) }
-            if ("APPVIEW_PUBLIC_URL" in environment && "APPVIEW_EXTRA_AUDIENCES" !in environment) {
+            if ("APPVIEW_PUBLIC_URL" !in environment) publicUrl.orNull?.let { environment("APPVIEW_PUBLIC_URL", it) }
+            if ("APPVIEW_PUBLIC_URL" in environment && "APPVIEW_EXTRA_AUDIENCES" !in environment && !deviceMode.get()) {
                 environment("APPVIEW_EXTRA_AUDIENCES", "did:web:localhost%3A${environment["APPVIEW_PORT"]}")
             }
             // Every PDS and did:web on the local stack is localhost, which the AppView otherwise refuses (identity/outbound-requests).
