@@ -909,8 +909,8 @@
     </plurals>
     <string name="import_duplicates_unchecked">Exact copies are left out and other duplicates are combined with what they repeat, but one of another sport is imported on its own, unless you pick otherwise.</string>
     <string name="import_duplicate_copy_in_file">Exact copy of #%1$d in this import</string>
-    <string name="import_duplicate_copy_existing">Exact copy of what\'s in your log: %1$s</string>
-    <string name="import_copy_explained">The same recording as what it repeats, so it\'s left out: saving it again would add nothing.</string>
+    <string name="import_duplicate_copy_existing">Exact copy of what's in your log: %1$s</string>
+    <string name="import_copy_explained">The same recording as what it repeats, so it's left out: saving it again would add nothing.</string>
     <string name="import_bulk_duplicates">Set every duplicate shown to:</string>
     <string name="import_compare_this">This activity</string>
     <string name="import_compare_logged">Already in your log</string>
