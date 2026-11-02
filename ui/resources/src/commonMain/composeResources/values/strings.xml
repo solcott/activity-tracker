@@ -66,6 +66,10 @@
     <string name="error_original_not_sent">The original file can be downloaded once it's sent.</string>
     <string name="error_retry_change">Couldn't send the change again</string>
     <string name="error_discard_change">Couldn't discard the change</string>
+    <string name="error_load_uploads">Couldn't show your uploads</string>
+    <string name="error_cancel_upload">Couldn't cancel: it has started uploading</string>
+    <string name="error_pause_imports">Couldn't change whether imports upload</string>
+    <string name="error_clear_uploads">Couldn't clear finished uploads</string>
     <string name="error_spaces_unsupported">Your server doesn't support private activities and details yet, so only Public is available</string>
     <string name="error_sign_in_again">Sign in again to share activities or details with Followers, Mutuals or Only me, to like or comment on activities that aren't public, to decline follow requests, or to block or mute accounts</string>
     <string name="action_sign_in_again">Sign in again</string>
@@ -1931,4 +1935,70 @@
     <string name="gear_kind_device_bikeComputer">Bike computer</string>
     <string name="gear_kind_device_phone">Phone</string>
     <string name="gear_kind_device_diveComputer">Dive computer</string>
+
+    <!-- Upload queue (data/upload-queue) -->
+    <string name="uploads_title">Uploads</string>
+    <string name="uploads_clear">Clear</string>
+    <string name="uploads_clear_description">Clear finished uploads</string>
+    <string name="uploads_pause_imports">Pause imports</string>
+    <string name="uploads_resume_imports">Resume</string>
+    <string name="uploads_imports_paused">Imports paused by you</string>
+    <string name="uploads_server_paused">Uploads paused by the server until %1$s</string>
+    <string name="uploads_server_paused_tomorrow">Uploads paused by the server until tomorrow at %1$s</string>
+    <plurals name="uploads_time_left_minutes">
+        <item quantity="one">About %1$d min left</item>
+        <item quantity="other">About %1$d min left</item>
+    </plurals>
+    <plurals name="uploads_time_left_hours">
+        <item quantity="one">About %1$d h left</item>
+        <item quantity="other">About %1$d h left</item>
+    </plurals>
+    <plurals name="uploads_time_left_days">
+        <item quantity="one">About %1$d day left</item>
+        <item quantity="other">About %1$d days left</item>
+    </plurals>
+    <string name="uploads_open_only">Uploads continue only while the app is open.</string>
+    <string name="uploads_uploading_now">Uploading now</string>
+    <string name="uploads_yours">Your activities</string>
+    <string name="uploads_finished">Finished</string>
+    <string name="uploads_refused_other">Other changes refused</string>
+    <string name="uploads_updating">Updating %1$s</string>
+    <string name="uploads_state_waiting">Waiting</string>
+    <string name="uploads_state_uploading">Uploading, %1$s of %2$s</string>
+    <string name="uploads_state_uploaded">Uploaded</string>
+    <string name="uploads_state_refused">Refused by the server</string>
+    <string name="uploads_state_skipped">Skipped: the file couldn't be read again</string>
+    <string name="uploads_cancel">Cancel</string>
+    <string name="uploads_cancel_named">Cancel %1$s</string>
+    <string name="uploads_send_again">Send again</string>
+    <string name="uploads_send_again_named">Send %1$s again</string>
+    <string name="uploads_import_saved">Saved %1$s</string>
+    <string name="uploads_import_progress">%1$s of %2$s uploaded</string>
+    <plurals name="uploads_import_refused">
+        <item quantity="one">%1$d refused</item>
+        <item quantity="other">%1$d refused</item>
+    </plurals>
+    <plurals name="uploads_import_skipped">
+        <item quantity="one">%1$d skipped</item>
+        <item quantity="other">%1$d skipped</item>
+    </plurals>
+    <string name="uploads_cancel_rest">Cancel rest</string>
+    <string name="uploads_cancel_rest_named">Cancel the rest of %1$s</string>
+    <string name="uploads_show_all">Show all (%1$s)</string>
+    <string name="uploads_empty">Nothing to upload. Everything you saved has uploaded.</string>
+    <string name="uploads_cancel_title">Cancel this upload?</string>
+    <string name="uploads_cancel_message">None of it is sent, and it's removed from this device. A cancelled edit leaves the activity as last uploaded.</string>
+    <string name="uploads_cancel_confirm">Cancel upload</string>
+    <string name="uploads_cancel_rest_title">Cancel the rest of this import?</string>
+    <string name="uploads_cancel_rest_message">Activities waiting or refused are removed from this device and not sent. Those uploaded or uploading are kept.</string>
+    <string name="uploads_keep">Keep</string>
+    <string name="uploads_source_export">%1$s export</string>
+    <string name="uploads_source_exports">%1$s exports</string>
+    <string name="uploads_source_exports_unknown">Account export</string>
+    <string name="uploads_list_separator">, </string>
+    <string name="uploads_list_last">%1$s and %2$s</string>
+    <plurals name="uploads_source_files">
+        <item quantity="one">%1$s and %2$d more</item>
+        <item quantity="other">%1$s and %2$d more</item>
+    </plurals>
 </resources>

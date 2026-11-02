@@ -73,6 +73,8 @@ import io.github.solcott.activitytracker.app.settings.ZonesSamples
 import io.github.solcott.activitytracker.app.settings.ZonesUi
 import io.github.solcott.activitytracker.app.ui.TestTags
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
+import io.github.solcott.activitytracker.app.uploads.UploadsSamples
+import io.github.solcott.activitytracker.app.uploads.UploadsUi
 import io.github.solcott.uistate.ContentState
 import io.github.solcott.uistate.PagedState
 import java.io.File
@@ -137,6 +139,7 @@ class ContentLoadingConformanceTest {
             entry({ GearCollectionSamples.all }, "Cold water setup") { GearCollectionUi(it) },
             entry({ EditGearCollectionSamples.all }, null) { EditGearCollectionUi(it) },
             entry({ IgnoredSensorsSamples.all }, "Serial …2071") { IgnoredSensorsUi(it) },
+            entry({ UploadsSamples.all }, "Evening Run") { UploadsUi(it) },
         )
 
     @Test

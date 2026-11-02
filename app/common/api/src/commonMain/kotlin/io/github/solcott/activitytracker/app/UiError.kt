@@ -151,6 +151,18 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
 
         /** A change the server refused couldn't be discarded (data/outbox). */
         DiscardChange,
+
+        /** The upload queue couldn't be read (data/upload-queue). */
+        LoadUploads,
+
+        /** An upload couldn't be cancelled, or had started by then (data/upload-queue). */
+        CancelUpload,
+
+        /** Imports couldn't be paused or resumed (data/upload-queue). */
+        PauseImports,
+
+        /** Finished uploads couldn't be cleared (data/upload-queue). */
+        ClearUploads,
     }
 
     companion object {

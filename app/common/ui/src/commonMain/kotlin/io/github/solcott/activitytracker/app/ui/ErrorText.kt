@@ -5,8 +5,10 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.error_answer_follow_request
 import io.github.solcott.activitytracker.composeApp.resources.error_apply_gear_to_past
+import io.github.solcott.activitytracker.composeApp.resources.error_cancel_upload
 import io.github.solcott.activitytracker.composeApp.resources.error_change_group
 import io.github.solcott.activitytracker.composeApp.resources.error_check_segment
+import io.github.solcott.activitytracker.composeApp.resources.error_clear_uploads
 import io.github.solcott.activitytracker.composeApp.resources.error_combine_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_comment
@@ -46,6 +48,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_replies
 import io.github.solcott.activitytracker.composeApp.resources.error_load_route
 import io.github.solcott.activitytracker.composeApp.resources.error_load_segment
 import io.github.solcott.activitytracker.composeApp.resources.error_load_starred_segments
+import io.github.solcott.activitytracker.composeApp.resources.error_load_uploads
 import io.github.solcott.activitytracker.composeApp.resources.error_mount_ends_before_start
 import io.github.solcott.activitytracker.composeApp.resources.error_mount_loop
 import io.github.solcott.activitytracker.composeApp.resources.error_mount_overlap
@@ -53,6 +56,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_mount_too_de
 import io.github.solcott.activitytracker.composeApp.resources.error_no_location
 import io.github.solcott.activitytracker.composeApp.resources.error_open_subject
 import io.github.solcott.activitytracker.composeApp.resources.error_original_not_sent
+import io.github.solcott.activitytracker.composeApp.resources.error_pause_imports
 import io.github.solcott.activitytracker.composeApp.resources.error_propose_segment_name
 import io.github.solcott.activitytracker.composeApp.resources.error_publish_segment
 import io.github.solcott.activitytracker.composeApp.resources.error_read_activity_file
@@ -205,5 +209,9 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.OriginalNotSent -> Res.string.error_original_not_sent
             UiError.Kind.RetryChange -> Res.string.error_retry_change
             UiError.Kind.DiscardChange -> Res.string.error_discard_change
+            UiError.Kind.LoadUploads -> Res.string.error_load_uploads
+            UiError.Kind.CancelUpload -> Res.string.error_cancel_upload
+            UiError.Kind.PauseImports -> Res.string.error_pause_imports
+            UiError.Kind.ClearUploads -> Res.string.error_clear_uploads
         }
     )

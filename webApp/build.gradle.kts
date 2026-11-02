@@ -56,6 +56,8 @@ kotlin {
             implementation(projects.featureSegmentUi)
             implementation(projects.featureSettingsPresenter)
             implementation(projects.featureSettingsUi)
+            implementation(projects.featureUploadsPresenter)
+            implementation(projects.featureUploadsUi)
             implementation(projects.uiResources)
             implementation(libs.compose.components.resources)
             implementation(libs.compose.runtime)

@@ -26,6 +26,7 @@ kotlin {
             api(projects.featureSearchApi)
             api(projects.featureSegmentApi)
             api(projects.featureSettingsApi)
+            api(projects.featureUploadsApi)
             api(libs.dataresult.uistate)
 
             implementation(libs.compose.runtime)

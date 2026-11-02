@@ -46,6 +46,8 @@ dependencies {
     implementation(projects.featureSegmentUi)
     implementation(projects.featureSettingsPresenter)
     implementation(projects.featureSettingsUi)
+    implementation(projects.featureUploadsPresenter)
+    implementation(projects.featureUploadsUi)
     implementation(projects.uiResources)
     implementation(compose.desktop.currentOs)
     implementation(libs.compose.components.resources)
