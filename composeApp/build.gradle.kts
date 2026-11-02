@@ -5,16 +5,17 @@ plugins {
     id("activitytracker.native.oauth")
 }
 
-val generateNativeNetworkConfig =
-    tasks.register<GenerateNativeNetworkConfig>("generateNativeNetworkConfig") {
-        description = "Generate native network config for Kotlin/Native"
+val generateNetworkConfig =
+    tasks.register<GenerateNetworkConfig>("generateNetworkConfig") {
+        description = "Generate the local stack's network config for every client"
         packageName = "io.github.solcott.activitytracker.app"
+        appviewUrl = nativeOAuth.appviewUrl
         appviewPublicUrl = nativeOAuth.appviewPublicUrl
         redirectScheme = nativeOAuth.redirectScheme
         labelerDid = nativeOAuth.labelerDid
         plcUrl = nativeOAuth.plcUrl
         handleResolverUrl = nativeOAuth.handleResolverUrl
-        outputDir = layout.buildDirectory.dir("generated/nativeNetworkConfig/kotlin")
+        outputDir = layout.buildDirectory.dir("generated/networkConfig/kotlin")
     }
 
 // The strings and drawables live in :ui-resources, whose Res keeps this module's old package, so this module must not generate its own.
@@ -38,7 +39,7 @@ kotlin {
     }
 
     sourceSets {
-        commonMain { kotlin.srcDir(generateNativeNetworkConfig) }
+        commonMain { kotlin.srcDir(generateNetworkConfig) }
         commonMain.dependencies {
             // api so the framework can export it (see the framework block above).
             api(libs.calf.ui)

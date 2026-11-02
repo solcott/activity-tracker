@@ -17,8 +17,9 @@ class NativeOAuthConventionPluginTest {
                     """
                     plugins { id("activitytracker.native.oauth") }
 
-                    tasks.register<GenerateNativeNetworkConfig>("generate") {
+                    tasks.register<GenerateNetworkConfig>("generate") {
                         packageName.set("com.example")
+                        appviewUrl.set(nativeOAuth.appviewUrl)
                         appviewPublicUrl.set(nativeOAuth.appviewPublicUrl)
                         redirectScheme.set(nativeOAuth.redirectScheme)
                         labelerDid.set(nativeOAuth.labelerDid)
@@ -32,11 +33,15 @@ class NativeOAuthConventionPluginTest {
         }
 
     private val generated: String
-        get() = projectDir.resolve("build/generated/com/example/GeneratedNativeNetworkConfig.kt").readText()
+        get() = projectDir.resolve("build/generated/com/example/GeneratedNetworkConfig.kt").readText()
+
+    /** Stands in for the Gradle user home (`~/.gradle`), where a developer sets the device host once for every checkout. */
+    private val gradleUserHome: File = createTempDirectory("native-oauth-home").toFile()
 
     @AfterTest
     fun cleanUp() {
         projectDir.deleteRecursively()
+        gradleUserHome.deleteRecursively()
     }
 
     @Test
@@ -44,6 +49,7 @@ class NativeOAuthConventionPluginTest {
         generate()
 
         assertContains(generated, "package com.example")
+        assertContains(generated, """APPVIEW_URL = "http://localhost:8081"""")
         assertContains(generated, """APPVIEW_PUBLIC_URL = "http://localhost:8081"""")
         assertContains(generated, """REDIRECT_SCHEME = "localhost"""")
         assertContains(generated, """LABELER_DID = """"")
@@ -57,6 +63,41 @@ class NativeOAuthConventionPluginTest {
 
         generate()
 
+        assertContains(generated, """PLC_URL = "https://plc-dev.example.com"""")
+        assertContains(generated, """HANDLE_RESOLVER_URL = "https://dev.example.com"""")
+    }
+
+    @Test
+    fun `device host moves every client's AppView to its sibling`() {
+        projectDir.resolve("local.properties").writeText("$DEVICE_HOST_PROPERTY=dev.example.com\n")
+
+        generate()
+
+        assertContains(generated, """APPVIEW_URL = "https://appview-dev.example.com"""")
+        assertContains(generated, """APPVIEW_PUBLIC_URL = "https://appview-dev.example.com"""")
+        assertContains(generated, """REDIRECT_SCHEME = "com.example.appview-dev"""")
+    }
+
+    @Test
+    fun `device host wins over a stale configured AppView URL`() {
+        projectDir
+            .resolve("local.properties")
+            .writeText("$PROPERTY=https://stale-quick.trycloudflare.com\n$DEVICE_HOST_PROPERTY=dev.example.com\n")
+
+        generate()
+
+        assertContains(generated, """APPVIEW_PUBLIC_URL = "https://appview-dev.example.com"""")
+    }
+
+    @Test
+    fun `device host in the Gradle user home applies to a checkout without one`() {
+        gradleUserHome.resolve("gradle.properties").writeText("$DEVICE_HOST_PROPERTY=dev.example.com\n")
+        writeLocalProperties("https://stale-quick.trycloudflare.com")
+
+        generate()
+
+        assertContains(generated, """APPVIEW_URL = "https://appview-dev.example.com"""")
+        assertContains(generated, """APPVIEW_PUBLIC_URL = "https://appview-dev.example.com"""")
         assertContains(generated, """PLC_URL = "https://plc-dev.example.com"""")
         assertContains(generated, """HANDLE_RESOLVER_URL = "https://dev.example.com"""")
     }
@@ -86,6 +127,7 @@ class NativeOAuthConventionPluginTest {
 
         assertContains(generated, """APPVIEW_PUBLIC_URL = "https://fifty-club.trycloudflare.com"""")
         assertContains(generated, """REDIRECT_SCHEME = "com.trycloudflare.fifty-club"""")
+        assertContains(generated, """APPVIEW_URL = "http://localhost:8081"""")
     }
 
     @Test
@@ -131,6 +173,8 @@ class NativeOAuthConventionPluginTest {
         GradleRunner.create()
             .withProjectDir(projectDir)
             .withPluginClasspath()
+            // Only the test that writes a user-home gradle.properties pays for a fresh TestKit dir (and daemon).
+            .apply { if (gradleUserHome.resolve("gradle.properties").isFile) withTestKitDir(gradleUserHome) }
             .withArguments("generate", "--configuration-cache", *args)
             .build()
 

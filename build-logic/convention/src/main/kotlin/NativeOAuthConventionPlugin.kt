@@ -13,7 +13,8 @@ import org.gradle.api.tasks.TaskAction
 /**
  * Single source for the AppView's public URL, which native OAuth uses as its client-metadata host (it must be HTTPS, e.g. a cloudflared
  * tunnel in dev). Set `activitytracker.appviewPublicUrl` as a Gradle property or in the root `local.properties` (read so Xcode's build
- * phase sees it too). `activitytracker.deviceHost` (device mode, `scripts/dev.sh`) moves PLC and the handle resolver to public hosts too.
+ * phase sees it too). `activitytracker.deviceHost` (device mode, `scripts/dev.sh`) moves PLC, the handle resolver and the AppView to public
+ * hosts for every client. Set it once in the Gradle user home's `gradle.properties` and it applies to every checkout and worktree.
  */
 class NativeOAuthConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
@@ -58,9 +59,24 @@ open class NativeOAuthExtension(
     /** The labeler DID as configured; empty when unset, and then clients can't report. */
     val labelerDid: Provider<String> = configuredLabelerDid.orElse("")
 
-    val appviewPublicUrl: Provider<String> = configuredAppviewPublicUrl.orElse("http://localhost:8081")
-
     private val deviceHost: Provider<String> = configuredDeviceHost.map { it.removePrefix("https://") }
+
+    /** Whether device mode is on (an `activitytracker.deviceHost` is set). */
+    val deviceMode: Provider<Boolean> = deviceHost.map { true }.orElse(false)
+
+    /** The device host's AppView sibling (`dev.example.com` → `appview-dev.example.com`); absent in localhost mode. */
+    private val deviceAppviewUrl: Provider<String> = deviceHost.map { "https://${sibling("appview", it)}" }
+
+    /**
+     * The AppView's public URL, set or derived: the device host's AppView sibling in device mode (whatever `appviewPublicUrl` says, so a
+     * stale quick-tunnel URL can't win), else the configured URL; absent when neither is set.
+     */
+    val effectiveAppviewPublicUrl: Provider<String> = deviceAppviewUrl.orElse(configuredAppviewPublicUrl)
+
+    val appviewPublicUrl: Provider<String> = effectiveAppviewPublicUrl.orElse(LOCAL_APPVIEW_URL)
+
+    /** The AppView every client calls: the public one in device mode, else the local stack's. */
+    val appviewUrl: Provider<String> = deviceAppviewUrl.orElse(LOCAL_APPVIEW_URL)
 
     /** The PDS, which also resolves handles: the device host itself, else the local stack's. */
     val handleResolverUrl: Provider<String> = deviceHost.map { "https://$it" }.orElse("http://localhost:2583")
@@ -72,6 +88,10 @@ open class NativeOAuthExtension(
     val redirectScheme: Provider<String> = appviewPublicUrl.map { url ->
         url.substringAfter("://").substringBefore('/').substringBefore(':').split('.').reversed().joinToString(".")
     }
+
+    private companion object {
+        const val LOCAL_APPVIEW_URL = "http://localhost:8081"
+    }
 }
 
 /**
@@ -81,19 +101,22 @@ open class NativeOAuthExtension(
 internal fun sibling(service: String, deviceHost: String): String = "$service-$deviceHost"
 
 /**
- * Writes `GeneratedNativeNetworkConfig` with the native AppView URL, OAuth redirect scheme, labeler DID (empty when unset), and the PLC and
- * handle-resolver URLs.
+ * Writes `GeneratedNetworkConfig` with the AppView URL every client calls, the native AppView URL and OAuth redirect scheme, the labeler
+ * DID (empty when unset), and the PLC and handle-resolver URLs.
  */
-abstract class GenerateNativeNetworkConfig : DefaultTask() {
+abstract class GenerateNetworkConfig : DefaultTask() {
     init {
         group = "build"
-        description = "Generates GeneratedNativeNetworkConfig from activitytracker.appviewPublicUrl."
+        description = "Generates GeneratedNetworkConfig from activitytracker.deviceHost and activitytracker.appviewPublicUrl."
+        appviewUrl.convention("http://localhost:8081")
         labelerDid.convention("")
         plcUrl.convention("http://localhost:2582")
         handleResolverUrl.convention("http://localhost:2583")
     }
 
     @get:Input abstract val packageName: Property<String>
+
+    @get:Input abstract val appviewUrl: Property<String>
 
     @get:Input abstract val appviewPublicUrl: Property<String>
 
@@ -113,13 +136,14 @@ abstract class GenerateNativeNetworkConfig : DefaultTask() {
         val dir = outputDir.get().asFile.resolve(pkg.replace('.', '/'))
         dir.deleteRecursively()
         dir.mkdirs()
-        dir.resolve("GeneratedNativeNetworkConfig.kt")
+        dir.resolve("GeneratedNetworkConfig.kt")
             .writeText(
                 """
                 |package $pkg
                 |
                 |/** Generated from `local.properties`; see `NativeOAuthConventionPlugin`. */
-                |internal object GeneratedNativeNetworkConfig {
+                |internal object GeneratedNetworkConfig {
+                |    const val APPVIEW_URL = "${appviewUrl.get()}"
                 |    const val APPVIEW_PUBLIC_URL = "${appviewPublicUrl.get()}"
                 |    const val REDIRECT_SCHEME = "${redirectScheme.get()}"
                 |    const val LABELER_DID = "${labelerDid.get()}"
