@@ -107,7 +107,7 @@ class XrpcClient(
                 authenticator?.authenticate(this, nsid)
             }
             val now = clock.now()
-            if (onRateLimit != null) RateLimit.of(response.headers, now)?.let(onRateLimit)
+            if (onRateLimit != null) RateLimit.of(response.headers, now)?.copy(method = nsid)?.let(onRateLimit)
             if (response.status.isSuccess()) return response
             if (attempt++ < MAX_RETRIES && authenticator?.shouldRetry(response) == true) continue
             throw response.toXrpcException(now)

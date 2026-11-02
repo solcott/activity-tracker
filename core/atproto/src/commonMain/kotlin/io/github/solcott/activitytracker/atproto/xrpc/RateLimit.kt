@@ -9,7 +9,18 @@ import kotlin.time.Instant
  * A server's rate limit as its `RateLimit-*` headers state it (data/outbox): the tightest of the limits the call counted against, with
  * [remaining] of [limit] left until [resetAt]. The PDS sends them on every response from a limited route, a 429 included.
  */
-data class RateLimit(val limit: Int, val remaining: Int, val resetAt: Instant?, val policy: String? = null) {
+data class RateLimit(
+    val limit: Int,
+    val remaining: Int,
+    val resetAt: Instant?,
+    val policy: String? = null,
+    /** The XRPC method whose response stated it, when known: blob uploads and record writes count against different limits. */
+    val method: String? = null,
+) {
+    /** The policy's window (`w=` seconds), or null when it states none. */
+    val windowSeconds: Long?
+        get() = policy?.split(';')?.map { it.trim() }?.firstOrNull { it.startsWith("w=") }?.removePrefix("w=")?.toLongOrNull()
+
     companion object {
         /** The limit [headers] state, or null without `RateLimit-Limit` and `RateLimit-Remaining`. */
         fun of(headers: Headers, now: Instant): RateLimit? {
