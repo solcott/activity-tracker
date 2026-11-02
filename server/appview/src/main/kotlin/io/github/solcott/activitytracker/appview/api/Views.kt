@@ -358,19 +358,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val subjects = countedAs.keys
         // Every row is one the viewer may see, and members share their combined activity's visibility, so a like counts once its giver
         // may see the activity too. Distinct givers, not records, since repos may hold duplicates, and a giver may have liked a member too.
-        val likeCounts =
-            admittedLikes()
-                .select(Likes.subjectUri, Likes.authorDid)
-                .where {
-                    (Likes.subjectUri inList subjects) and
-                        visibleTo(Likes.authorDid) and
-                        notBlocked(viewer, Likes.authorDid) and
-                        listed(viewer, Likes.authorDid)
-                }
-                .withDistinct()
-                .toList()
-                .groupBy({ countedAs.getValue(it[Likes.subjectUri]) }) { it[Likes.authorDid] }
-                .mapValues { (_, givers) -> givers.toSet().size.toLong() }
+        val likeCounts = likeCountsOf(countedAs, viewer)
         val commentCount = Comments.uri.count()
         val commentCounts =
             admittedComments()
@@ -387,6 +375,7 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
         val details = detailsOf(uris, viewer)
         val gear = gearOf(uris, viewer, mediaUrls, mediaViewer)
         val labels = labelViews(rows.associate { it[Activities.uri] to it[Activities.cid] })
+        val partners = partnersOf(uris, viewer, avatars)
 
         return rows.mapNotNull { row ->
             val uri = row[Activities.uri]
@@ -408,10 +397,29 @@ class Views(private val db: Database, private val avatars: AvatarUrls, private v
                     media = mediaViews(mediaUrls, row[Activities.authorDid], record.media, visibility, mediaViewer),
                     details = details[uri],
                     labels = labels[uri],
+                    group = partners[uri],
                 )
                 .withGearOnly(gear[uri])
         }
     }
+
+    /**
+     * Distinct givers of the likes on each of [countedAs]' subjects, counted toward the activity each is shown as, among those the viewer
+     * may see: the giver may see the activity too, and neither blocks the viewer.
+     */
+    private fun JdbcTransaction.likeCountsOf(countedAs: Map<String, String>, viewer: Did?): Map<String, Long> =
+        admittedLikes()
+            .select(Likes.subjectUri, Likes.authorDid)
+            .where {
+                (Likes.subjectUri inList countedAs.keys) and
+                    visibleTo(Likes.authorDid) and
+                    notBlocked(viewer, Likes.authorDid) and
+                    listed(viewer, Likes.authorDid)
+            }
+            .withDistinct()
+            .toList()
+            .groupBy({ countedAs.getValue(it[Likes.subjectUri]) }) { it[Likes.authorDid] }
+            .mapValues { (_, givers) -> givers.toSet().size.toLong() }
 
     /**
      * Each of [primaries]' other recordings, oldest first, given each primary's visibility: a recording counts only at its primary's

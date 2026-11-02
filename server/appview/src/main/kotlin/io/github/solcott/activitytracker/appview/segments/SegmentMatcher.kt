@@ -14,9 +14,12 @@ import io.github.solcott.activitytracker.appview.db.SegmentMatchJobs
 import io.github.solcott.activitytracker.appview.db.SegmentTrackCells
 import io.github.solcott.activitytracker.appview.db.SegmentTracks
 import io.github.solcott.activitytracker.appview.db.Segments
+import io.github.solcott.activitytracker.appview.db.groupableTracks
+import io.github.solcott.activitytracker.appview.db.heldSegmentTracks
 import io.github.solcott.activitytracker.appview.db.tx
 import io.github.solcott.activitytracker.appview.db.usableSegmentTracks
 import io.github.solcott.activitytracker.appview.index.LIVE_STATUSES
+import io.github.solcott.activitytracker.appview.index.dropPairsOfActivities
 import io.github.solcott.activitytracker.appview.index.recheckDuplicatesOf
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
@@ -78,7 +81,8 @@ import org.slf4j.LoggerFactory
  *   passes over the segments of its sport group that share a cell with it;
  * - `segment`: queues a `track` job for each usable track sharing a cell with a new or changed segment;
  * - `candidate`: the same for a new or changed staged candidate (segments/segment-candidates);
- * - `tiers`: recomputes the visibility of an activity's efforts from its indexed record, details and streams.
+ * - `tiers`: recomputes the visibility of an activity's efforts and pairs from its indexed record, details and streams;
+ * - `group`: pairs a groupable track's activity with other athletes' done together with it (feed/group-activities, [GroupPairing]).
  *
  * Only proposed and active segments are matched (segments/segment-records). A proposed segment becomes active once efforts on it come from
  * [activeAthletes] distinct athletes, checked as each activity's efforts are written and again by the hourly status pass, which also
@@ -87,10 +91,11 @@ import org.slf4j.LoggerFactory
  * A `track` job also records which staged candidates of its group the track passes from start to end, by the same test as efforts, and a
  * candidate becomes ridden once [candidateRiders] distinct athletes pass it; ridden is never undone.
  *
- * Nothing is read from a track whose athlete's matching is off ([usableSegmentTracks]), and that is checked again before efforts are
- * written. An activity that isn't indexed yet, or is a valid member of a combined activity, has no efforts. A failed fetch is retried with
- * backoff, then given up. A blob that isn't a valid track ([piecesOf]) isn't retried: its activity's efforts, its cells and its candidate
- * riders are dropped.
+ * A track is read only while its athlete's matching ([usableSegmentTracks]) or grouping ([groupableTracks]) is on, and used for each
+ * purpose only under its own consent, checked again before anything is written: its cells are kept for either, efforts and candidate riders
+ * only while matching is on, and a `group` job is queued only while it's groupable. An activity that isn't indexed yet, or is a valid
+ * member of a combined activity, has no efforts. A failed fetch is retried with backoff, then given up. A blob that isn't a valid track
+ * ([piecesOf]) isn't retried: its activity's efforts, its cells and its candidate riders are dropped.
  */
 @Suppress("TooManyFunctions", "LongParameterList") // The loop, the four jobs, the status and naming passes, the reads they share; config.
 class SegmentMatcher(
@@ -104,6 +109,7 @@ class SegmentMatcher(
 ) {
     private val log = LoggerFactory.getLogger(SegmentMatcher::class.java)
     private val naming = SegmentNaming(db, clock, names)
+    private val pairing = GroupPairing(db, blobs, clock)
 
     /**
      * Runs until [scope] is cancelled: the one-off backfill, then the due jobs, waking on each enqueue or every [POLL_INTERVAL], and the
@@ -158,11 +164,11 @@ class SegmentMatcher(
         }
     }
 
-    /** Queues a `track` job for each usable track that was never matched (has no cells), such as those from before matching existed. */
+    /** Queues a `track` job for each held track that was never matched (has no cells), such as those from before matching existed. */
     suspend fun backfill() {
         val now = clock.now().toEpochMilliseconds()
         db.tx {
-            usableSegmentTracks()
+            heldSegmentTracks()
                 .andWhere {
                     notExists(SegmentTrackCells.select(SegmentTrackCells.cell).where { SegmentTrackCells.trackUri eq SegmentTracks.uri })
                 }
@@ -208,6 +214,7 @@ class SegmentMatcher(
                 SegmentJobs.SEGMENT -> matchSegment(job.subject)
                 SegmentJobs.CANDIDATE -> matchCandidate(job.subject)
                 SegmentJobs.TIERS -> db.tx { retier(job.subject) }
+                SegmentJobs.GROUP -> pairing.match(job.subject)
             }
             done(job)
         } catch (e: CancellationException) {
@@ -243,8 +250,18 @@ class SegmentMatcher(
         }
     }
 
-    /** What a `track` job needs before fetching: the usable track and the sport group its activity can match. */
-    private data class TrackToMatch(val author: Did, val activity: String, val dataCid: String, val group: SegmentSport.Grouped)
+    /**
+     * What a `track` job needs before fetching: the held track, the sport group its activity can match, and which purposes may use it now.
+     * Compared again before writing, so a consent change while the blob was fetched writes nothing.
+     */
+    private data class TrackToMatch(
+        val author: Did,
+        val activity: String,
+        val dataCid: String,
+        val group: SegmentSport.Grouped,
+        val segments: Boolean,
+        val grouping: Boolean,
+    )
 
     /** A pass over [segment], starting [offset] whole seconds into the activity. */
     private data class Pass(val segment: String, val offset: Long, val pass: SegmentPass)
@@ -255,15 +272,16 @@ class SegmentMatcher(
         val blob = checkNotNull(blobs.fetch(space, track.author, track.dataCid)) { "the space doesn't have blob ${track.dataCid}" }
         val pieces =
             try {
-                piecesOf(blob.bytes)
+                segmentTrackPieces(blob.bytes)
             } catch (e: IllegalArgumentException) {
                 // Never valid however often it's fetched, so it gives nothing, and nothing an earlier version gave stays.
-                log.info("Segment track {} isn't a valid track, so it gives no efforts: {}", trackUri, e.message)
+                log.info("Segment track {} isn't a valid track, so it gives no efforts or pairs: {}", trackUri, e.message)
                 db.tx {
                     if (trackToMatch(trackUri) != track) return@tx
                     SegmentEfforts.deleteWhere { activityUri eq track.activity }
                     SegmentTrackCells.deleteWhere { SegmentTrackCells.trackUri eq trackUri }
                     SegmentCandidateRiders.deleteWhere { SegmentCandidateRiders.trackUri eq trackUri }
+                    dropPairsOfActivities(listOf(track.activity))
                 }
                 return
             }
@@ -276,41 +294,53 @@ class SegmentMatcher(
                 this[SegmentTrackCells.cell] = it
                 this[SegmentTrackCells.trackUri] = trackUri
             }
-            replaceEfforts(trackUri, track, pieces, cells)
-            replaceCandidateRiders(trackUri, track, pieces, cells)
+            if (track.segments) {
+                replaceEfforts(trackUri, track, pieces, cells)
+                replaceCandidateRiders(trackUri, track, pieces, cells)
+            } else {
+                dropSegmentUse(trackUri, track.activity)
+            }
+            // Pairing fetches other athletes' tracks too, so it's a job of its own.
+            if (track.grouping) jobs.enqueueGroup(trackUri, clock.now().toEpochMilliseconds())
+            else dropPairsOfActivities(listOf(track.activity))
         }
     }
 
-    /**
-     * A segment track blob's pieces, or [IllegalArgumentException] when it isn't a valid track: it doesn't decode, a piece's arrays don't
-     * line up, or a piece's times are negative or go backwards. Times may repeat, since they're whole seconds.
-     */
-    private fun piecesOf(bytes: ByteArray): List<List<TimedPoint>> =
-        AtJson.decodeFromString(SegmentTrackData.serializer(), bytes.decodeToString()).pieces.map { piece ->
-            require(piece.lat.size == piece.t.size && piece.lng.size == piece.t.size) { "a piece's arrays don't line up" }
-            require(piece.t.all { it >= 0 }) { "a piece's times are negative" }
-            require(piece.t.zipWithNext().all { (a, b) -> b >= a }) { "a piece's times go backwards" }
-            piece.t.indices.map { TimedPoint(piece.lat[it] / E7, piece.lng[it] / E7, piece.t[it].toDouble()) }
-        }
+    /** What segments derived from the track at [trackUri] of [activity]: its efforts and candidate riders. */
+    private fun JdbcTransaction.dropSegmentUse(trackUri: String, activity: String) {
+        SegmentEfforts.deleteWhere { activityUri eq activity }
+        SegmentEfforts.deleteWhere { SegmentEfforts.trackUri eq trackUri }
+        SegmentCandidateRiders.deleteWhere { SegmentCandidateRiders.trackUri eq trackUri }
+    }
 
     /**
-     * The track at [trackUri] if it's usable and its activity can have efforts; otherwise null, after deleting the efforts and candidate
-     * riders it no longer gives.
+     * The track at [trackUri] if some purpose may read it now and its activity can have efforts or pairs; otherwise null, after deleting
+     * the efforts, candidate riders and pairs it no longer gives.
      */
-    @Suppress("ReturnCount") // Each reason a track gives no efforts.
+    @Suppress("ReturnCount") // Each reason a track gives nothing.
     private fun JdbcTransaction.trackToMatch(trackUri: String): TrackToMatch? {
-        fun none(): TrackToMatch? {
+        fun none(activity: String? = null): TrackToMatch? {
             SegmentEfforts.deleteWhere { SegmentEfforts.trackUri eq trackUri }
             SegmentCandidateRiders.deleteWhere { SegmentCandidateRiders.trackUri eq trackUri }
+            val pairsOf =
+                activity
+                    ?: SegmentTracks.select(SegmentTracks.activityUri)
+                        .where { SegmentTracks.uri eq trackUri }
+                        .firstOrNull()
+                        ?.get(SegmentTracks.activityUri)
+            if (pairsOf != null) dropPairsOfActivities(listOf(pairsOf))
             return null
         }
-        val track = usableSegmentTracks().andWhere { SegmentTracks.uri eq trackUri }.firstOrNull() ?: return none()
+        val track = heldSegmentTracks().andWhere { SegmentTracks.uri eq trackUri }.firstOrNull() ?: return none()
         val activity = track[SegmentTracks.activityUri]
         val row =
-            Activities.select(Activities.sport, Activities.subSport).where { Activities.uri eq activity }.firstOrNull() ?: return none()
-        if (combinedIntoOf(listOf(activity)).isNotEmpty()) return none()
-        val group = SegmentSport.of(row[Activities.sport], row[Activities.subSport]) ?: return none()
-        return TrackToMatch(Did(track[SegmentTracks.authorDid]), activity, track[SegmentTracks.dataCid], group)
+            Activities.select(Activities.sport, Activities.subSport).where { Activities.uri eq activity }.firstOrNull()
+                ?: return none(activity)
+        if (combinedIntoOf(listOf(activity)).isNotEmpty()) return none(activity)
+        val group = SegmentSport.of(row[Activities.sport], row[Activities.subSport]) ?: return none(activity)
+        val segments = !usableSegmentTracks().andWhere { SegmentTracks.uri eq trackUri }.empty()
+        val grouping = !groupableTracks().andWhere { SegmentTracks.uri eq trackUri }.empty()
+        return TrackToMatch(Did(track[SegmentTracks.authorDid]), activity, track[SegmentTracks.dataCid], group, segments, grouping)
     }
 
     /**
@@ -439,7 +469,7 @@ class SegmentMatcher(
             .forEach { jobs.enqueueTrack(it, now) }
     }
 
-    /** Re-tiers [activity]'s efforts; an activity gone or now a valid member loses them. */
+    /** Re-tiers [activity]'s efforts and pairs; an activity gone or now a valid member loses them. */
     private fun JdbcTransaction.retier(activity: String) {
         val row = Activities.selectAll().where { Activities.uri eq activity }.firstOrNull()
         if (row == null || combinedIntoOf(listOf(activity)).isNotEmpty()) {
@@ -447,36 +477,17 @@ class SegmentMatcher(
             SegmentCandidateRiders.deleteWhere {
                 trackUri inSubQuery SegmentTracks.select(SegmentTracks.uri).where { SegmentTracks.activityUri eq activity }
             }
+            dropPairsOfActivities(listOf(activity))
             return
         }
         val visibility = effortVisibility(row)
         SegmentEfforts.update({ SegmentEfforts.activityUri eq activity }) { it[SegmentEfforts.visibility] = visibility }
+        retierPairs(row)
     }
 
     /** The narrowest of the activity's visibility and its Map and Pace/Speed categories', from the indexed rows. */
-    private fun JdbcTransaction.effortVisibility(activity: ResultRow): String {
-        val uri = activity[Activities.uri]
-        val tier = activity[Activities.visibility]
-        val record = AtJson.decodeFromString(ActivityRecord.serializer(), activity[Activities.record])
-        val details =
-            ActivityDetails.select(ActivityDetails.visibility, ActivityDetails.record)
-                .where { ActivityDetails.activityUri eq uri }
-                .map {
-                    DetailsView(
-                        it[ActivityDetails.visibility],
-                        AtJson.decodeFromString(ActivityDetailsRecord.serializer(), it[ActivityDetails.record]),
-                    )
-                }
-        val parts =
-            ActivityStreams.select(ActivityStreams.visibility, ActivityStreams.channels)
-                .where { ActivityStreams.activityUri eq uri }
-                .map {
-                    it[ActivityStreams.visibility] to
-                        AtJson.decodeFromString(ListSerializer(String.serializer()), it[ActivityStreams.channels])
-                }
-        val categories = DetailCategory.currentTiersOfChannels(tier, record, details, parts)
-        return listOf(tier, categories[DetailCategory.MAP] ?: tier, categories[DetailCategory.SPEED] ?: tier).reduce(Visibility::narrower)
-    }
+    private fun JdbcTransaction.effortVisibility(activity: ResultRow): String =
+        narrowestOf(activity, DetailCategory.MAP, DetailCategory.SPEED)
 
     /** The activity's local date, from its start and UTC offset. */
     private fun startedOn(activity: ResultRow): String {
@@ -507,7 +518,6 @@ class SegmentMatcher(
 
         private val STATUS_INTERVAL = 1.hours
         private const val BATCH = 20
-        private const val E7 = 1e7
         private const val SECONDS_PER_MINUTE = 60
         private val POLL_INTERVAL = 2.seconds
         private val BACKOFF_BASE = 30.seconds
@@ -515,3 +525,44 @@ class SegmentMatcher(
         private const val BACKOFF_DOUBLINGS = 8
     }
 }
+
+/**
+ * The narrowest of [activity]'s visibility and those of its [categories], from the indexed record, details and streams rows: the tier its
+ * efforts (Map, Pace/Speed) or its pairs (Start time, Map) are served at.
+ */
+internal fun JdbcTransaction.narrowestOf(activity: ResultRow, vararg categories: String): String {
+    val uri = activity[Activities.uri]
+    val tier = activity[Activities.visibility]
+    val record = AtJson.decodeFromString(ActivityRecord.serializer(), activity[Activities.record])
+    val details =
+        ActivityDetails.select(ActivityDetails.visibility, ActivityDetails.record)
+            .where { ActivityDetails.activityUri eq uri }
+            .map {
+                DetailsView(
+                    it[ActivityDetails.visibility],
+                    AtJson.decodeFromString(ActivityDetailsRecord.serializer(), it[ActivityDetails.record]),
+                )
+            }
+    val parts =
+        ActivityStreams.select(ActivityStreams.visibility, ActivityStreams.channels)
+            .where { ActivityStreams.activityUri eq uri }
+            .map {
+                it[ActivityStreams.visibility] to AtJson.decodeFromString(ListSerializer(String.serializer()), it[ActivityStreams.channels])
+            }
+    val tiers = DetailCategory.currentTiersOfChannels(tier, record, details, parts)
+    return categories.map { tiers[it] ?: tier }.fold(tier, Visibility::narrower)
+}
+
+/**
+ * A segment track blob's pieces, or [IllegalArgumentException] when it isn't a valid track: it doesn't decode, a piece's arrays don't line
+ * up, or a piece's times are negative or go backwards. Times may repeat, since they're whole seconds.
+ */
+internal fun segmentTrackPieces(bytes: ByteArray): List<List<TimedPoint>> =
+    AtJson.decodeFromString(SegmentTrackData.serializer(), bytes.decodeToString()).pieces.map { piece ->
+        require(piece.lat.size == piece.t.size && piece.lng.size == piece.t.size) { "a piece's arrays don't line up" }
+        require(piece.t.all { it >= 0 }) { "a piece's times are negative" }
+        require(piece.t.zipWithNext().all { (a, b) -> b >= a }) { "a piece's times go backwards" }
+        piece.t.indices.map { TimedPoint(piece.lat[it] / E7, piece.lng[it] / E7, piece.t[it].toDouble()) }
+    }
+
+private const val E7 = 1e7

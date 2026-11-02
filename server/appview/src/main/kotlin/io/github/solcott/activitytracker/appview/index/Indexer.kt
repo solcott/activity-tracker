@@ -16,6 +16,7 @@ import io.github.solcott.activitytracker.appview.db.FollowApprovals
 import io.github.solcott.activitytracker.appview.db.Follows
 import io.github.solcott.activitytracker.appview.db.GearItems
 import io.github.solcott.activitytracker.appview.db.GearMountRows
+import io.github.solcott.activitytracker.appview.db.GroupPrefs
 import io.github.solcott.activitytracker.appview.db.LeaderboardBrackets
 import io.github.solcott.activitytracker.appview.db.Likes
 import io.github.solcott.activitytracker.appview.db.Mutes
@@ -194,6 +195,7 @@ class Indexer(
         if (space.skey == AthleteSpace.INTERACTIONS) SegmentNameVotes.deleteWhere { voterDid eq space.authority.value }
         if (space.skey == AthleteSpace.SELF) {
             SegmentPrefs.deleteWhere { did eq space.authority.value }
+            GroupPrefs.deleteWhere { did eq space.authority.value }
             LeaderboardBrackets.deleteWhere { did eq space.authority.value }
             dropSegmentTracks(space.authority)
         }
@@ -306,10 +308,13 @@ class Indexer(
                     it[createdAt] = record.createdAt.toEpochMilliseconds()
                     it[indexedAt] = now
                 }
+                regroupRecent(author, record.subject, segmentJobs, now)
             }
 
             Nsid.GRAPH_FOLLOW_APPROVAL -> {
-                upsertApproval(AtJson.decodeFromJsonElement(FollowApprovalRecord.serializer(), json), author, uri, now)
+                val record = AtJson.decodeFromJsonElement(FollowApprovalRecord.serializer(), json)
+                upsertApproval(record, author, uri, now)
+                regroupRecent(author, record.subject, segmentJobs, now)
             }
 
             in BLOCKS_AND_MUTES -> upsertBlockOrMute(collection, json, author, uri, placement, now)
@@ -515,6 +520,7 @@ class Indexer(
         Blocks.deleteWhere { authorDid eq did.value }
         Mutes.deleteWhere { authorDid eq did.value }
         SegmentPrefs.deleteWhere { SegmentPrefs.did eq did.value }
+        GroupPrefs.deleteWhere { GroupPrefs.did eq did.value }
         LeaderboardBrackets.deleteWhere { LeaderboardBrackets.did eq did.value }
         SegmentCreations.deleteWhere { authorDid eq did.value }
         dropSegmentTracks(did)
@@ -549,19 +555,20 @@ class Indexer(
         private val INTERACTION_COLLECTIONS =
             setOf(Nsid.FEED_LIKE, Nsid.FEED_COMMENT, Nsid.FEED_COMMENT_HIDE, Nsid.GRAPH_BLOCK, Nsid.GRAPH_MUTE, Nsid.FEED_SEGMENT_NAME_VOTE)
 
-        /** Segment tracks, the segment matching setting and the leaderboard brackets, indexed only from `self`. */
-        private val SEGMENT_COLLECTIONS = setOf(Nsid.FEED_SEGMENT_TRACK, Nsid.ACTOR_SEGMENT_PREFS, Nsid.ACTOR_LEADERBOARD_BRACKETS)
+        /** Segment tracks, the segment matching setting, the grouping choice and the leaderboard brackets, indexed only from `self`. */
+        private val SEGMENT_COLLECTIONS =
+            setOf(Nsid.FEED_SEGMENT_TRACK, Nsid.ACTOR_SEGMENT_PREFS, Nsid.ACTOR_GROUP_PREFS, Nsid.ACTOR_LEADERBOARD_BRACKETS)
         private val SELF_COLLECTIONS = TIER_COLLECTIONS + SEGMENT_COLLECTIONS
 
         /**
          * What the AppView indexes from the athlete space with key [skey]: likes, comments, comment hides, blocks, mutes and segment name
          * votes from the interactions space, and activities, their details, streams and zones and gear items from a tier (an unknown key is
-         * a tier only the athlete sees), plus from `self` the segment matching setting and segment tracks (zone-trimmed copies of tracks,
-         * used only while matching is on and never served) and the leaderboard brackets (used only to filter leaderboards, never served).
-         * Private details, follow declines, defaults, full tracks, imported files and their devices (`feed.activityTrack`,
-         * `feed.activitySource`, `feed.activityDevices`, in `self`), privacy zones and their trim marker (`actor.privacyZones`,
-         * `actor.routeTrim`, in `self`), stars on segments (`feed.segmentStar`, in `self`) and gear collections (`gear.collection`, in
-         * `self`) are never stored.
+         * a tier only the athlete sees), plus from `self` the segment matching setting, the grouping choice and segment tracks
+         * (zone-trimmed copies of tracks, used for each purpose only while it's on and never served) and the leaderboard brackets (used
+         * only to filter leaderboards, never served). Private details, follow declines, defaults, full tracks, imported files and their
+         * devices (`feed.activityTrack`, `feed.activitySource`, `feed.activityDevices`, in `self`), privacy zones and their trim marker
+         * (`actor.privacyZones`, `actor.routeTrim`, in `self`), stars on segments (`feed.segmentStar`, in `self`) and gear collections
+         * (`gear.collection`, in `self`) are never stored.
          */
         fun spaceCollections(skey: String): Set<String> =
             when (skey) {
@@ -662,6 +669,8 @@ private fun JdbcTransaction.deleteBlockOrMute(collection: String, uri: AtUri, pl
 @Suppress("LongParameterList") // The block, and where it's from.
 internal fun JdbcTransaction.upsertBlock(uri: AtUri, placement: Placement, author: Did, subject: Did, createdAt: Long, now: Long) {
     require(subject != author) { "block of self" }
+    // A block ends grouping between the two: an unblock pairs them again only once one of their tracks is matched again.
+    dropPairsBetween(author, subject)
     Blocks.upsert {
         it[Blocks.uri] = uri.value
         it[origin] = placement.origin

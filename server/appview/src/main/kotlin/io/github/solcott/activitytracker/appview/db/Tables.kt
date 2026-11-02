@@ -113,7 +113,8 @@ object LeaderboardBrackets : Table("leaderboard_brackets") {
 
 /**
  * An athlete's segment track (`feed.segmentTrack`): an activity's track trimmed by their privacy zones, from their `self` space. Its points
- * stay in the blob at [dataCid], read only while their [SegmentPrefs.matching] is on ([usableSegmentTracks]); never served.
+ * stay in the blob at [dataCid], read only while their [SegmentPrefs.matching] is on ([usableSegmentTracks]) or their [GroupPrefs.mode] is
+ * ([groupableTracks]), each purpose only under its own; never served.
  */
 object SegmentTracks : Table("segment_tracks") {
     val uri = varchar("uri", 512)
@@ -124,7 +125,37 @@ object SegmentTracks : Table("segment_tracks") {
     val indexedAt = long("indexed_at")
     /** The athlete excluded the activity from leaderboards; it keeps its efforts. Never served. */
     val leaderboardExcluded = bool("leaderboard_excluded").default(false)
+    /** The athlete left the group on the activity (feed/group-activities): it's paired with no one. Never served. */
+    val groupExcluded = bool("group_excluded").default(false)
     override val primaryKey = PrimaryKey(uri)
+}
+
+/**
+ * An athlete's grouping choice (`actor.groupPrefs`, feed/group-activities), from their `self` space: a `GroupMode` value, an unknown one
+ * stored as it came and counting as off. Never served.
+ */
+object GroupPrefs : Table("group_prefs") {
+    val did = varchar("did", 255)
+    val mode = varchar("mode", 16)
+    val updatedAt = long("updated_at")
+    override val primaryKey = PrimaryKey(did)
+}
+
+/**
+ * Two athletes' activities done together (feed/group-activities), matched from their groupable segment tracks ([groupableTracks]).
+ * [activityA] sorts before [activityB], so a pair has one row. Each side's visibility is its partner tier: the narrowest of its activity's
+ * tier and its Start time and Map categories', kept current by `tiers` jobs. Served only through `hydrate`, which checks the pair rule and
+ * the viewer's access again.
+ */
+object ActivityGroupPairs : Table("activity_group_pairs") {
+    val activityA = varchar("activity_a", 512)
+    val activityB = varchar("activity_b", 512)
+    val authorA = varchar("author_a", 255)
+    val authorB = varchar("author_b", 255)
+    val visibilityA = varchar("visibility_a", 16)
+    val visibilityB = varchar("visibility_b", 16)
+    val matchedAt = long("matched_at")
+    override val primaryKey = PrimaryKey(activityA, activityB)
 }
 
 /**
