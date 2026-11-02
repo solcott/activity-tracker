@@ -66,11 +66,11 @@ upload_item   id INTEGER PK auto, did, rkey TEXT?, batchId TEXT?, kind (New|Edit
   - `ActivityRepository.publish` and `publishBatch`.
   - Combines that create a new activity.
 - **Edits.** `ActivityManager.edit` and `ungroup` call it with `Kind.Edit`. If a live item exists for the `rkey`, only its title and type are refreshed (spec: an edit while waiting doesn't add an item).
-- **Batch identifier.** It comes from a coroutine-context element installed by `saveBatch`, next to `BulkWrites`. The batch row is written when the save starts and its counts at the end; skipped activities are logged as `saveBatch` reports them.
+- **Batch identifier.** It's the draft's own `ActivityDraft.importBatch`, which `feed-import-cards` already sets on every draft of a save, combines taking their drafts'. `saveBatch` writes the batch row as the save starts (`ActivityRepository.startImport`, with an `UploadSource`: the exports recognized, else the files), each file it can't read again (`skippedImport`) and the counts at the end (`finishImport`).
 - **Deletes.** Deleting an activity removes its live item. The delete write is counted with other changes.
 - **Sending.** `OutboxProcessor` increments `sentWrites` after each successful send of a row whose `rkey` has a live item. When no row for that `rkey` remains, it sets `finishedAt`. Both happen in the same Room transaction as the row's delete.
 
-A context element for the batch was preferred over threading a parameter through `publish`, for the same reason `BulkWrites` is one: combines and every store a batch publishes through would all need it.
+A coroutine-context element for the batch, beside `BulkWrites`, was planned; the draft's `importBatch` turned out to reach every place that logs (publish, `publishBatch`, combines), so none was needed.
 
 ### 3. Cancel = claim-checked discard
 
@@ -80,7 +80,7 @@ Spec: cancelled writes are never sent, and a started activity can't be cancelled
 
 **The fix: a short claim.**
 - **Processor.** Before sending a row, it takes `AccountPacing.claim` (a small `Mutex`), checks that the row still exists, sets `sending = rkey`, and releases the claim. If the row is gone, it skips it.
-- **Cancel.** Under the same claim, it refuses when `sending == rkey` or `sentWrites > 0`. Otherwise it runs `RejectedChanges`' discard path: `deleteGroup` plus the local overlays (`LocalDeletes` for a new activity, so it leaves lists; show the PDS's version for an edit). Then it deletes the live item.
+- **Cancel.** Under the same claim, it refuses when `sending == rkey`, or when `sentWrites > 0` unless one of its writes is refused (a refused write holds back the rest, so nothing more of it can go; this is today's discard). Otherwise it runs `RejectedChanges`' discard path: `deleteGroup` plus the local overlays (`LocalDeletes` for a new activity, so it leaves lists; show the PDS's version for an edit). Then it deletes the live item.
 
 `RejectedChanges.discard` becomes the shared implementation, `UploadQueue.cancel(rkey)`. Refused items are cancelled the same way, which is today's discard.
 
@@ -95,6 +95,7 @@ Spec: cancelled writes are never sent, and a started activity can't be cancelled
   - A pass that stops only because of the athlete's pause returns `Idle`. So `OutboxWorker` and the iOS task don't reschedule (spec: no background run for paused imports alone).
   - `OutboxPacer.run`'s wait also wakes when `userBulkPaused` changes, so Resume starts sending at once.
 - **What's shown.** The athlete's pause is shown separately from `shownPause`. Resuming doesn't clear the server's pauses.
+- **Outliving the screen.** Pausing, resuming, cancelling and clearing run under `NonCancellable` in `UploadQueue`, setting the pacing state before the write, so leaving the screen right after a tap can't drop it. The end-to-end run found a Resume lost this way on the web, where the database is slow while an import uploads. Retry stays cancellable, since it drains.
 
 The alternative was a third `Instant` pause. Rejected: the athlete's pause has no end time, and the background-job rule differs (a server pause schedules a run at its end; the athlete's never does).
 
@@ -122,8 +123,8 @@ This is computed only for imports, by `UploadQueue.estimate()`:
 
 - **Remaining writes.** Bulk rows not rejected or held by a refused write.
 - **Rate.**
-  - When the PDS stated an hourly write limit, 90% of it per window (the tenth kept back for the athlete).
-  - Bulk blob uploads are bounded by the PDS's blob limit when it states one.
+  - Each limit the PDS stated, at 90% per its policy's window (`w=`; the tenth kept back for the athlete), about 2 points a write.
+  - A limit stated on an `uploadBlob` response (`RateLimit.method`, which `XrpcClient` now fills in) bounds only the bulk writes that carry a blob (streams, track, source, segment track), counted through a new outbox index `(did, bulk, rejectedAt, rkey, collection)` so the count reads no rows.
 - **Pace.** The writes sent per minute over the last 15 minutes of sending, kept in memory in `AccountPacing`.
 - **Estimate.** The later of the limit bound and the pace bound, rounded to "about N min / N h / N days".
 - **When hidden.** When neither is known, or while the athlete's pause is on.
@@ -158,11 +159,13 @@ The PDS's limits count points rather than writes (a create costs more than a del
 
 - **Android.**
   - `OutboxWorker` posts a low-importance, ongoing notification on its own channel ("Uploads"), showing the imports' uploaded and saved counts. It updates as `finishedAt` changes and is cancelled when the pass ends with no import writes, or with them paused.
+  - An import's saved count is the larger of the total `finishImport` records and its activities logged so far, so the notification and the queue count right while a save runs, and after one stopped short (the emulator run found "0 of 0 uploaded").
   - It's posted only when `NotificationManagerCompat.areNotificationsEnabled()`. This change doesn't ask for `POST_NOTIFICATIONS`.
   - It isn't a foreground service, which avoids Android 15's six-hour cap on `dataSync` foreground services and the extra manifest permission. The cost is that WorkManager's normal limits still apply.
 - **iOS.** Nothing visible in the background. The queue catches up from Room on open. The pause rule follows from `PacerOutcome.Idle`.
-- **Web.** `webApp` `main.kt` sets `window.onbeforeunload` while `UploadQueue.importsActive` (live import items, imports not paused by the athlete) is true for the signed-in session.
-- **Desktop.** `main.kt`'s `onCloseRequest` shows a confirm dialog under the same condition.
+- **Web.** `webApp` `main.kt` sets `window.onbeforeunload` while `UploadQueue.importsActive` (live import items, imports not paused by the athlete) is true for the signed-in session, which `App` reports through `onImportsActive`.
+- **Desktop.** `main.kt`'s `onCloseRequest` asks with a confirm dialog (`JOptionPane`) under the same condition.
+- **Open only.** The screen says uploads go on only while open where GPS recording isn't supported (`LocationTracker.isSupported`), the same line between phones and the rest.
 
 ## Risks / Trade-offs
 
@@ -176,10 +179,10 @@ The PDS's limits count points rather than writes (a create costs more than a del
 
 ## Migration Plan
 
-- Room 7 to 8 creates the two tables. Writes queued before the upgrade have no items: they count as "other changes" until sent, and appear in the refused section if refused. No backfill is needed, since items exist only to describe new saves.
+- Room 8 to 9 creates the two tables. Writes queued before the upgrade have no items: they count as "other changes" until sent, and appear in the refused section if refused. No backfill is needed, since items exist only to describe new saves.
 - Rollback: the tables are additive. An older build with a destructive-migration fallback isn't configured, so a downgrade isn't supported, as for every Room bump.
 
 ## Open Questions
 
 - The exact notification copy and channel name on Android can be settled during implementation.
-- Whether "Show all" for a large import needs paging if Room's `Flow` of 1,000+ rows proves slow on the web worker. It's measured during the UI task, and doesn't change the specs.
+- Whether "Show all" for a large import needs paging if Room's `Flow` of 1,000+ rows proves slow on the web worker. For now the queue reads every item in one observed query and the screen shows the first 20 of an import until Show all; it's measured in the end-to-end test, and doesn't change the specs.
