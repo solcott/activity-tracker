@@ -18,6 +18,7 @@ import kotlinx.browser.window
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.getString
+import org.w3c.dom.events.Event
 
 @OptIn(ExperimentalComposeUiApi::class, ExperimentalWasmJsInterop::class)
 fun main() {
@@ -37,9 +38,19 @@ fun main() {
 
     // index.html's <title> only covers loading; the shared string takes over once the app starts.
     MainScope().launch { document.title = getString(Res.string.app_name) }
-    ComposeViewport(document.body!!) { App(graph) }
+    ComposeViewport(document.body!!) {
+        // Uploads go on only while the tab is open: closing it mid-import asks first, unless the athlete paused imports
+        // (data/upload-queue).
+        App(graph, onImportsActive = { active -> window.onbeforeunload = if (active) ::askBeforeUnload else null })
+    }
     // index.html's spinner covers the wasm download; the app draws from here.
     document.getElementById("loading")?.remove()
+}
+
+/** Asks the browser to confirm leaving: it shows its own message, whatever is returned. */
+private fun askBeforeUnload(event: Event): String {
+    event.preventDefault()
+    return ""
 }
 
 @DependencyGraph(AppScope::class)

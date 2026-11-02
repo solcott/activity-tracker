@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
@@ -33,13 +34,20 @@ import io.github.solcott.activitytracker.app.ui.LocalUnitSystem
 import io.github.solcott.activitytracker.app.ui.adaptive.LocalIsNavRoot
 import io.github.solcott.activitytracker.app.ui.onRouteImageSession
 import io.github.solcott.activitytracker.app.ui.theme.AppTheme
+import io.github.solcott.activitytracker.atproto.runSuspendCatching
 
 /**
  * Root: signed out → [LoginScreen] on the app-scoped Circuit; signed in → a fresh `SessionGraph` (keyed by DID) whose Circuit hosts the
  * navigable signed-in screens.
  */
 @Composable
-fun App(graph: AppGraph, modifier: Modifier = Modifier, onRootPop: () -> Unit = {}) {
+fun App(
+    graph: AppGraph,
+    modifier: Modifier = Modifier,
+    onRootPop: () -> Unit = {},
+    /** Hears whether the signed-in athlete has an import uploading and not paused, so desktop and web ask before closing. */
+    onImportsActive: (Boolean) -> Unit = {},
+) {
     var restored by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         graph.authRepository.restore()
@@ -75,6 +83,11 @@ fun App(graph: AppGraph, modifier: Modifier = Modifier, onRootPop: () -> Unit = 
                 LaunchedEffect(Unit) { sessionGraph.leaderboardBrackets.refreshOnSave() }
                 // Session-long: queued writes go on their own, waiting out the PDS's rate limits (data/outbox).
                 LaunchedEffect(Unit) { sessionGraph.outboxPacer.run() }
+                // Finished uploads a week old leave the queue; closing mid-import asks first on desktop and web (data/upload-queue).
+                LaunchedEffect(Unit) { runSuspendCatching { sessionGraph.uploadQueue.prune() } }
+                val importsActive by rememberUpdatedState(onImportsActive)
+                LaunchedEffect(Unit) { sessionGraph.uploadQueue.importsActive.collect { importsActive(it) } }
+                DisposableEffect(Unit) { onDispose { importsActive(false) } }
                 // Once per account: legacy `recordingOf` groups become combined activities (retried each sign-in until all succeed).
                 LaunchedEffect(Unit) { sessionGraph.legacyGroupMigration.runOncePerSession() }
                 // So the AppView knows this athlete (and others can find them) before they post anything.

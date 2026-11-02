@@ -10,6 +10,11 @@
     <string name="recording_text">%1$s · %2$s</string>
     <string name="recording_pause">Pause</string>
     <string name="recording_resume">Resume</string>
+    <!-- The quiet notification while imports upload in the background (data/upload-queue). -->
+    <string name="uploads_channel">Uploads</string>
+    <string name="uploads_title">Uploading imported activities</string>
+    <!-- Activities uploaded, then all the imports saved, e.g. "412 of 1362 uploaded". -->
+    <string name="uploads_text">%1$d of %2$d uploaded</string>
     <string name="unit_km">km</string>
     <string name="unit_mi">mi</string>
 </resources>
