@@ -27,8 +27,10 @@ import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
 import io.ktor.http.HttpStatusCode
 import kotlin.time.Instant
 import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.notExists
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.select
@@ -40,15 +42,19 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
  * an invite grants is read here and nowhere else, so `getActivity` and `getActivityStreams` keep serving by tier alone.
  */
 class InviteViews(private val db: Database, private val avatars: AvatarUrls, private val streams: ActivityStreamsViews) {
-    /** [viewer]'s invites that count and that they haven't accepted, newest first. Paged by offset, since an athlete's invites are few. */
+    /**
+     * [viewer]'s invites that count and that they haven't accepted, newest first. Paged by offset, since an athlete's invites are few;
+     * whether each counts ([inviteLive]) is checked only up to the page and one more, to tell whether there's another.
+     */
     suspend fun invites(viewer: Did, params: GetActivityInvites.Params): GetActivityInvites.Output = db.tx {
         val pageSize = Paging.clamp(params.limit)
         val offset = params.cursor?.toIntOrNull()?.coerceAtLeast(0) ?: 0
-        val pending =
+        val unaccepted =
             ActivityInvites.selectAll()
-                .where { ActivityInvites.inviteeDid eq viewer.value }
-                .filter { inviteLive(it) && !joined(it) }
-                .sortedWith(compareByDescending<ResultRow> { it[ActivityInvites.createdAt] }.thenBy { it[ActivityInvites.rkey] })
+                .where { (ActivityInvites.inviteeDid eq viewer.value) and notExists(pairOf()) }
+                .orderBy(ActivityInvites.createdAt to SortOrder.DESC, ActivityInvites.rkey to SortOrder.ASC)
+                .toList()
+        val pending = unaccepted.asSequence().filter { inviteLive(it) }.take(offset + pageSize + 1).toList()
         val page = pending.drop(offset).take(pageSize)
         val inviters = basicProfiles(page.map { it[ActivityInvites.inviterDid] }, avatars)
         GetActivityInvites.Output(
@@ -56,6 +62,12 @@ class InviteViews(private val db: Database, private val avatars: AvatarUrls, pri
             cursor = (offset + pageSize).takeIf { it < pending.size }?.toString(),
         )
     }
+
+    /** The pair of the outer query's invite, if its copy is paired. */
+    private fun pairOf() =
+        ActivityInvitePairs.select(ActivityInvitePairs.copyUri).where {
+            (ActivityInvitePairs.inviterDid eq ActivityInvites.inviterDid) and (ActivityInvitePairs.inviteRkey eq ActivityInvites.rkey)
+        }
 
     /**
      * The invite at [GetActivityInvite.Params.uri] with what it lets [viewer] copy: the activity's core fields and its Start time, Map and
