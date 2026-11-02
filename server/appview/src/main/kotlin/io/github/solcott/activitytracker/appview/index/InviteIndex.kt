@@ -19,6 +19,7 @@ import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
@@ -139,7 +140,8 @@ internal fun JdbcTransaction.copyIndexed(copy: AtUri, author: Did, copyOf: Strin
             .where { (ActivityInvitePairs.inviterDid eq original.authority) and (ActivityInvitePairs.inviteRkey eq rkey) }
             .empty()
     if (taken) return
-    ActivityInvitePairs.insert {
+    // Ignored when a copy indexed at the same time, under another URI's lock, took the invite first.
+    ActivityInvitePairs.insertIgnore {
         it[originalUri] = original.value
         it[copyUri] = copy.value
         it[inviterDid] = original.authority
