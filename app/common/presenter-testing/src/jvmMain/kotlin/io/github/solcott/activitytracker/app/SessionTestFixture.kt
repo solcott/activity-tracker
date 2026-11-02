@@ -15,12 +15,17 @@ import io.github.solcott.activitytracker.data.activity.RejectedChanges
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.activity.UploadQueue
 import io.github.solcott.activitytracker.data.auth.AuthRepository
+import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.gear.GearCollections
 import io.github.solcott.activitytracker.data.gear.GearDefaults
 import io.github.solcott.activitytracker.data.gear.GearRepository
+import io.github.solcott.activitytracker.data.importsave.ImportSaveStore
+import io.github.solcott.activitytracker.data.importsave.ImportSaves
+import io.github.solcott.activitytracker.data.importsave.KeepNothing
+import io.github.solcott.activitytracker.data.importsave.testImportSaves
 import io.github.solcott.activitytracker.data.invites.ActivityInvitesRepository
 import io.github.solcott.activitytracker.data.moderation.ModerationRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
@@ -574,6 +579,11 @@ class SessionTestFixture {
         val pacer: OutboxPacer,
         /** The upload queue over the session's outbox (data/upload-queue). */
         val uploads: UploadQueue,
+        /** Batch saves app-wide, as `AppScope` holds them: one per test's session (feed/batch-import). */
+        val saves: ImportSaves,
+        /** The session's persisted batch saves, keeping no picked files: a save runs from them in this process. */
+        val saveStore: ImportSaveStore,
+        val clients: SessionClients,
     ) {
         /** The gear picker's producer, as Metro injects it into the record, manual entry, import and edit presenters. */
         val gearChoices: GearChoices
@@ -588,6 +598,7 @@ class SessionTestFixture {
     suspend fun repos(defaultUnits: UnitSystem = UnitSystem.Metric, suggestionClock: Clock = Clock.System): Repos {
         val (db, manager, clients) = signedInTestSession(http, did = did, scope = scope)
         clients.resolveSpacesSupport()
+        val saves = testImportSaves(db)
         val localLikes = LocalLikes()
         val feed = FeedRepository(db, clients, localLikes, Logger)
         val recentTypes = RecentActivityTypes(db, clients, feed)
@@ -640,7 +651,7 @@ class SessionTestFixture {
             activities,
             profiles,
             units,
-            AuthRepository(manager, db, http, ActivityRecorder(FakeLocationTracker(), Clock.System)),
+            AuthRepository(manager, db, http, ActivityRecorder(FakeLocationTracker(), Clock.System), saves),
             recentTypes,
             feed,
             ActivityDefaults(clients),
@@ -658,7 +669,10 @@ class SessionTestFixture {
             zones.devices,
             places,
             OutboxPacer(db, clients, activities, Clock.System, Logger),
-            UploadQueue(db, clients, RejectedChanges(db, clients, zones.outbox, feed, localLikes), Clock.System),
+            UploadQueue(db, clients, RejectedChanges(db, clients, zones.outbox, feed, localLikes), Clock.System, saves),
+            saves,
+            ImportSaveStore(db, clients, KeepNothing, saves, Clock.System),
+            clients,
         )
     }
 }

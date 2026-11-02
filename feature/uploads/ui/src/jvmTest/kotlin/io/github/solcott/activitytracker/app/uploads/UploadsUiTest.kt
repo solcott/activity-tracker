@@ -132,6 +132,29 @@ class UploadsUiTest {
     }
 
     @Test
+    fun anImportStillSavingSaysHowFarAndCanBeCancelled() = runComposeUiTest {
+        val events = mutableListOf<UploadsEvent>()
+        setContent { AppPreview { UploadsUi(UploadsSamples.saving.copy(eventSink = { events += it })) } }
+        onNodeWithText("Saving 500 of 1,362").assertExists()
+        onNodeWithText("40 of 500 uploaded").assertExists()
+        onNodeWithContentDescription("Cancel the rest of Strava export").performClick()
+        assertEquals(UploadsEvent.CancelRest(UploadsSamples.IMPORT_ID), events.last())
+    }
+
+    @Test
+    fun cancellingTheRestOfAnImportStillSavingSaysItsUnsavedActivitiesGo() = runComposeUiTest {
+        setContent { AppPreview { UploadsUi(UploadsSamples.confirmingCancelRestSaving) } }
+        onNodeWithText("Activities not saved yet won't be saved", substring = true).assertExists()
+    }
+
+    @Test
+    fun aStoppedImportSaysToPickTheFilesAgain() = runComposeUiTest {
+        setContent { AppPreview { UploadsUi(UploadsSamples.stopped) } }
+        onNodeWithText("Stopped after 120 of 400 · pick the files again to import the rest").assertExists()
+        onNodeWithText("Cancel rest").assertDoesNotExist()
+    }
+
+    @Test
     fun aLateCancelSaysWhy() = runComposeUiTest {
         setContent { AppPreview { UploadsUi(UploadsSamples.cancelFailed) } }
         onNodeWithText("Couldn't cancel: it has started uploading", substring = true).assertExists()

@@ -4,6 +4,8 @@ import io.github.solcott.activitytracker.app.di.AppGraph
 import io.github.solcott.activitytracker.app.di.SessionGraph
 import io.github.solcott.activitytracker.data.activity.ImportProgress
 import io.github.solcott.activitytracker.data.activity.PacerOutcome
+import io.github.solcott.activitytracker.data.db.ImportSaveCounts
+import io.github.solcott.activitytracker.data.db.ImportSaveEntity
 import io.github.solcott.activitytracker.lexicon.Did
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -23,6 +25,29 @@ suspend fun AppGraph.uploadQueuedWrites(onImportProgress: (suspend (ImportProgre
         val watching = onImportProgress?.let { listen -> launch { graph.uploadQueue.importProgress.collect { listen(it) } } }
         try {
             graph.outboxPacer.runUntilIdleOrPaused()
+        } finally {
+            watching?.cancel()
+        }
+    }
+}
+
+/**
+ * One background run of the signed-in account's persisted batch saves (feed/batch-import), as a phone's background job runs it after the
+ * app was frozen or killed: restores the session and works through the saves in the background session graph. [onProgress] hears each
+ * save's progress as it goes. Returns whether saves are left to run (the job asks to run again), or null when no one is signed in.
+ */
+suspend fun AppGraph.runImportSaves(onProgress: (suspend (ImportSaveCounts?) -> Unit)? = null): Boolean? {
+    val session = authRepository.restore() ?: return null
+    val graph = backgroundGraph(session.did) { createSessionGraph(session) }
+    return coroutineScope {
+        val watching = onProgress?.let { listen ->
+            launch {
+                graph.importSaveStore.counts.collect { saves -> listen(saves.firstOrNull { it.state == ImportSaveEntity.STATE_RUNNING }) }
+            }
+        }
+        try {
+            graph.importSaveRunner.runAll()
+            graph.importSaveStore.runnable().isNotEmpty()
         } finally {
             watching?.cancel()
         }

@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.data.activity.UploadQueue
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.importsave.testImportSaves
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.segments.GroupChoice
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
@@ -173,7 +174,13 @@ class SegmentsPromptTest {
                     Clock.System,
                     segments.prefs,
                     segments.groups,
-                    UploadQueue(db, clients, RejectedChanges(db, clients, zones.outbox, feed, localLikes), Clock.System),
+                    UploadQueue(
+                        db,
+                        clients,
+                        RejectedChanges(db, clients, zones.outbox, feed, localLikes),
+                        Clock.System,
+                        testImportSaves(db),
+                    ),
                 )
             },
             timeout = 10.seconds,

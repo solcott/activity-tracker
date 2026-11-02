@@ -17,6 +17,7 @@ import io.github.solcott.activitytracker.app.profile.FollowRequestsState
 import io.github.solcott.activitytracker.app.profile.ProfileScreen
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.signedInTestSession
+import io.github.solcott.activitytracker.data.importsave.testImportSaves
 import io.github.solcott.activitytracker.data.profile.FollowRequestsRepository
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -122,7 +123,7 @@ class FollowRequestsPresenterTest {
     private suspend fun presenter(): @Composable () -> FollowRequestsState {
         val (db, manager, clients) = signedInTestSession(http, did = alice)
         val requests = FollowRequestsRepository(clients, Clock.System, Logger)
-        val auth = AuthRepository(manager, db, http, ActivityRecorder(FakeLocationTracker(), Clock.System))
+        val auth = AuthRepository(manager, db, http, ActivityRecorder(FakeLocationTracker(), Clock.System), testImportSaves(db))
         return { FollowRequestsPresenter(navigator, requests, auth) }
     }
 

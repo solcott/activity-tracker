@@ -31,6 +31,7 @@ import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.importsave.testImportSaves
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.segments.GroupPrefsRepository
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
@@ -142,7 +143,7 @@ class FeedPresenterTest {
         block: suspend ReceiveTurbine<FeedState>.() -> Unit,
     ) {
         val r = repos(http).apply { seed() }
-        val uploads = UploadQueue(r.db, r.clients, r.rejected, Clock.System)
+        val uploads = UploadQueue(r.db, r.clients, r.rejected, Clock.System, testImportSaves(r.db))
         presenterTestOf(
             { FeedPresenter(navigator, r.feed, r.activities, r.profiles, tracker, Clock.System, r.segmentPrefs, r.groupPrefs, uploads) },
             timeout = TURBINE_TIMEOUT,
@@ -275,7 +276,13 @@ class FeedPresenterTest {
                     Clock.System,
                     segmentsOf(clients).prefs,
                     segmentsOf(clients).groups,
-                    UploadQueue(db, clients, RejectedChanges(db, clients, zones.outbox, feed, localLikes), Clock.System),
+                    UploadQueue(
+                        db,
+                        clients,
+                        RejectedChanges(db, clients, zones.outbox, feed, localLikes),
+                        Clock.System,
+                        testImportSaves(db),
+                    ),
                 )
             },
             timeout = TURBINE_TIMEOUT,

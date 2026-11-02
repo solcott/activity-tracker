@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import com.slack.circuit.test.FakeNavigator
 import io.github.solcott.activitytracker.activityfile.ActivityFileReader
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.record.BatchSaveRunner
 import io.github.solcott.activitytracker.app.record.DuplicateAction
 import io.github.solcott.activitytracker.app.record.DuplicateCheck
 import io.github.solcott.activitytracker.app.record.ExistingActivityPreview
@@ -48,6 +49,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /** Importing a logbook (UDDF here) of several dives: picking them, and the duplicates among them. */
+@Suppress("LargeClass") // One test per logbook case, each composing the presenter with every dependency.
 class ImportLogbookPresenterTest {
     private val fixture = SessionTestFixture()
 
@@ -117,6 +119,16 @@ class ImportLogbookPresenterTest {
                 repos.defaults,
                 repos.units,
                 repos.suggestions,
+                repos.saveStore,
+                repos.saves,
+                BatchSaveRunner(
+                    repos.saveStore,
+                    repos.saves,
+                    repos.clients,
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader { error("not FIT") },
+                ),
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
@@ -165,6 +177,16 @@ class ImportLogbookPresenterTest {
                 repos.defaults,
                 repos.units,
                 repos.suggestions,
+                repos.saveStore,
+                repos.saves,
+                BatchSaveRunner(
+                    repos.saveStore,
+                    repos.saves,
+                    repos.clients,
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader { error("not FIT") },
+                ),
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", withHeartRate))
@@ -197,6 +219,16 @@ class ImportLogbookPresenterTest {
                 repos.defaults,
                 repos.units,
                 repos.suggestions,
+                repos.saveStore,
+                repos.saves,
+                BatchSaveRunner(
+                    repos.saveStore,
+                    repos.saves,
+                    repos.clients,
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader { error("not FIT") },
+                ),
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
@@ -237,6 +269,16 @@ class ImportLogbookPresenterTest {
                 repos.defaults,
                 repos.units,
                 repos.suggestions,
+                repos.saveStore,
+                repos.saves,
+                BatchSaveRunner(
+                    repos.saveStore,
+                    repos.saves,
+                    repos.clients,
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader { error("not FIT") },
+                ),
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
@@ -277,6 +319,16 @@ class ImportLogbookPresenterTest {
                 repos.defaults,
                 repos.units,
                 repos.suggestions,
+                repos.saveStore,
+                repos.saves,
+                BatchSaveRunner(
+                    repos.saveStore,
+                    repos.saves,
+                    repos.clients,
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader { error("not FIT") },
+                ),
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
@@ -316,6 +368,16 @@ class ImportLogbookPresenterTest {
                 repos.defaults,
                 repos.units,
                 repos.suggestions,
+                repos.saveStore,
+                repos.saves,
+                BatchSaveRunner(
+                    repos.saveStore,
+                    repos.saves,
+                    repos.clients,
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader { error("not FIT") },
+                ),
             )
         }
 
@@ -543,6 +605,16 @@ class ImportLogbookPresenterTest {
                 repos.defaults,
                 repos.units,
                 repos.suggestions,
+                repos.saveStore,
+                repos.saves,
+                BatchSaveRunner(
+                    repos.saveStore,
+                    repos.saves,
+                    repos.clients,
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader { error("not FIT") },
+                ),
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("logbook.uddf", logbook))
@@ -581,6 +653,16 @@ class ImportLogbookPresenterTest {
                 repos.defaults,
                 repos.units,
                 repos.suggestions,
+                repos.saveStore,
+                repos.saves,
+                BatchSaveRunner(
+                    repos.saveStore,
+                    repos.saves,
+                    repos.clients,
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader { error("not FIT") },
+                ),
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("two-computers.uddf", logbook("10:02", "10:03", "14:30")))
@@ -613,6 +695,16 @@ class ImportLogbookPresenterTest {
                 repos.defaults,
                 repos.units,
                 repos.suggestions,
+                repos.saveStore,
+                repos.saves,
+                BatchSaveRunner(
+                    repos.saveStore,
+                    repos.saves,
+                    repos.clients,
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader { error("not FIT") },
+                ),
             )
         }) {
             // Both computers' copies of the logged dive: one matches the log, the other the log too.

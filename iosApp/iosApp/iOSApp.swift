@@ -8,6 +8,8 @@ struct iOSApp: App {
     init() {
         // Before launch finishes, as BGTaskScheduler requires; queued writes upload in the background (data/outbox).
         IosBackgroundUploads.shared.register(fitDecoder: SwiftFitDecoder())
+        // Batch saves go on in the background and resume after the app is stopped (feed/batch-import).
+        IosImportSaves.shared.register(fitDecoder: SwiftFitDecoder())
     }
 
     var body: some Scene {
@@ -15,7 +17,10 @@ struct iOSApp: App {
             ContentView().ignoresSafeArea()
         }
         .onChange(of: scenePhase) { phase in
-            if phase == .background { IosBackgroundUploads.shared.schedule(after: nil) }
+            if phase == .background {
+                IosBackgroundUploads.shared.schedule(after: nil)
+                IosImportSaves.shared.schedule()
+            }
         }
     }
 }

@@ -1,10 +1,14 @@
 package io.github.solcott.activitytracker.app.record
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.v2.runComposeUiTest
 import io.github.solcott.activitytracker.activityfile.ExportKind
 import io.github.solcott.activitytracker.app.ui.preview.AppPreview
@@ -111,5 +115,43 @@ class ImportBatchUiTest {
         setContent { AppPreview { ImportActivityUi(ImportActivitySamples.all.getValue("batchSaved")) } }
         onNodeWithText("1,986 activities saved.", substring = true).assertExists()
         onNodeWithText("3 couldn't be read again", substring = true).assertExists()
+    }
+
+    @Test
+    fun aSaveThatStoppedShortSaysWhatWasSavedBySave() = runComposeUiTest {
+        setContent { AppPreview { ImportActivityUi(ImportActivitySamples.all.getValue("batchSaveFailed")) } }
+        // Save is the batch list's last item.
+        onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Saved 3 of 5. The rest weren't saved:", substring = true))
+        onNodeWithText("Saved 3 of 5. The rest weren't saved:", substring = true).assertExists()
+    }
+
+    @Test
+    fun importOpenedDuringASaveShowsItAndOpensTheQueue() = runComposeUiTest {
+        val events = mutableListOf<ImportActivityEvent>()
+        val state = ImportActivitySamples.all.getValue("savingImport").copy(eventSink = { events += it })
+        setContent { AppPreview { ImportActivityUi(state) } }
+        onNodeWithText("412 of 1,362 saved", substring = true).assertExists()
+        onNodeWithText("View uploads").performClick()
+        assertEquals(listOf<ImportActivityEvent>(ImportActivityEvent.Saved.ViewUploads), events)
+    }
+
+    @Test
+    fun aStoppedImportSaysToPickTheFilesAgainAndCanBeDismissed() = runComposeUiTest {
+        val events = mutableListOf<ImportActivityEvent>()
+        val state = ImportActivitySamples.all.getValue("stoppedImport").copy(eventSink = { events += it })
+        setContent { AppPreview { ImportActivityUi(state) } }
+        onNodeWithText("stopped after saving 120 of 400", substring = true).assertExists()
+        onNodeWithText("Dismiss").performClick()
+        assertEquals(listOf<ImportActivityEvent>(ImportActivityEvent.StoppedImportDismissed("3kbatch")), events)
+    }
+
+    @Test
+    fun aSingleFileSaysOnlyThisDevicesActivitiesWereCheckedAndRetries() = runComposeUiTest {
+        val events = mutableListOf<ImportActivityEvent>()
+        val state = ImportActivitySamples.all.getValue("duplicateCheckFailed").copy(eventSink = { events += it })
+        setContent { AppPreview { ImportActivityUi(state) } }
+        onNodeWithText("only activities on this device were checked", substring = true).performScrollTo().assertExists()
+        onNodeWithText("Retry").performScrollTo().performClick()
+        assertEquals(listOf<ImportActivityEvent>(ImportActivityEvent.RetryDuplicateCheck), events)
     }
 }

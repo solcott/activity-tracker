@@ -43,8 +43,12 @@ import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.CombineSuggestions
 import io.github.solcott.activitytracker.data.activity.matchSpan
+import io.github.solcott.activitytracker.data.db.ImportSaveEntity
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.importsave.ImportSaveRunner
+import io.github.solcott.activitytracker.data.importsave.ImportSaveStore
+import io.github.solcott.activitytracker.data.importsave.ImportSaves
 import io.github.solcott.activitytracker.data.profile.OwnProfile
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
 import io.github.solcott.activitytracker.data.profile.applyDeviceThresholds
@@ -52,6 +56,7 @@ import io.github.solcott.activitytracker.data.streams.StreamAnalytics
 import io.github.solcott.activitytracker.data.training.ThresholdChange
 import io.github.solcott.activitytracker.data.training.ThresholdUpdates
 import io.github.solcott.activitytracker.data.units.UnitsRepository
+import io.github.solcott.activitytracker.lexicon.Tid
 import io.github.solcott.activitytracker.lexicon.app.ActivityType
 import io.github.solcott.activitytracker.lexicon.app.FollowPolicy
 import io.github.solcott.activitytracker.lexicon.app.Sport
@@ -88,6 +93,9 @@ fun ImportActivityPresenter(
     defaults: ActivityDefaults,
     units: UnitsRepository,
     suggestions: CombineSuggestions,
+    saveStore: ImportSaveStore,
+    saves: ImportSaves,
+    saveRunner: ImportSaveRunner,
 ): ImportActivityState {
     // The parsed file isn't saveable; after process death the athlete picks it again. A single activity, or for adding a recording, a
     // logbook's several.
@@ -106,7 +114,11 @@ fun ImportActivityPresenter(
     var opened by remember { mutableStateOf<Int?>(null) }
     var openedActivity by remember { mutableStateOf<ImportedActivity?>(null) }
     var openedError by remember { mutableStateOf<UiError?>(null) }
-    var saveProgress by remember { mutableStateOf<SaveProgress?>(null) }
+    // The picked files a batch was read from, which its save keeps.
+    var pickedSources by remember { mutableStateOf<List<ImportSource>>(emptyList()) }
+    // The batch save this screen started, followed by id: it's persisted and runs app-wide, outliving the screen (feed/batch-import).
+    var savingBatch by rememberSaveable { mutableStateOf<String?>(null) }
+    var savingDevices by remember { mutableStateOf<NewDevicesSaved?>(null) }
     var batchSaved by remember { mutableStateOf<BatchSaved?>(null) }
     // Which of the activities import, what to do with duplicates, and the athlete's changes to a batch's activities.
     var selection by remember { mutableStateOf(BatchSelection()) }
@@ -126,7 +138,16 @@ fun ImportActivityPresenter(
     var error by remember { mutableStateOf<UiError?>(null) }
     var savedSuggestions by remember { mutableStateOf<ImmutableList<SavedSuggestion>?>(null) }
     val flights = rememberSingleFlight()
-    val saving = flights.isRunning(ImportActivityEvent.Save::class)
+    val saveCounts by saveStore.counts.collectAsState(null)
+    val savesRunning by saves.running.collectAsState()
+    val saveFailures by saves.failures.collectAsState()
+    val ownSave = savingBatch?.let { id -> saveCounts?.firstOrNull { it.batchId == id } }
+    val saveFailed = savingBatch?.takeIf { it !in savesRunning }?.let(saveFailures::get)
+    val saveProgress =
+        ownSave
+            ?.takeIf { saveFailed == null && it.state == ImportSaveEntity.STATE_RUNNING }
+            ?.let { SaveProgress(it.done + it.skipped, it.total) }
+    val saving = flights.isRunning(ImportActivityEvent.Save::class) || saveProgress != null
 
     val zone = remember(zoneId) { zoneId?.let(TimeZone::of) ?: TimeZones.device() }
     val zoneOf = remember(fileZones) { { file: Int -> fileZones[file]?.let(TimeZone::of) ?: TimeZones.device() } }
@@ -237,7 +258,45 @@ fun ImportActivityPresenter(
                     )
                 },
             progress = saveProgress,
+            saveFailure =
+                saveFailed?.let { e ->
+                    SaveFailure(uiErrorOf(UiError.Kind.SaveActivity, e), saved = ownSave?.done ?: 0, total = ownSave?.total ?: 0)
+                },
         )
+    }
+
+    // The save this screen started ended: show what it saved, then what's left to offer. A failed one stays to save again.
+    LaunchedEffect(savingBatch, savesRunning, saveCounts) {
+        val id = savingBatch ?: return@LaunchedEffect
+        if (id in savesRunning || saveCounts == null || saveStore.save(id) != null) return@LaunchedEffect
+        val devices = savingDevices
+        savingBatch = null
+        savingDevices = null
+        // Its own flight: clearing the save just restarts this effect.
+        flights.launch(ImportActivityEvent.Saved::class) {
+            val (saved, skipped) = saveStore.importCounts(id) ?: (0 to 0)
+            val small = saved <= MAX_SUGGESTED
+            val next: suspend () -> Unit = {
+                // A small batch is sent before it's summed up, as a single save is; a large one is the session's pacer's to send, waiting
+                // out the PDS's limits whatever screen is open (data/outbox).
+                if (small) runSuspendCatching { activities.sync() }
+                batchSaved = BatchSaved(saved, skipped)
+                // Suggestions ask the AppView about each saved activity: only for a batch small enough to look through.
+                if (small) savedSuggestions = savedSuggestionsFor(saveStore.savedRecords(id), suggestions).takeIf { it.isNotEmpty() }
+            }
+            val after = devices?.let { newDevices.afterSave(it, saveStore.savedUris(id).toSet()) }
+            if (after == null) next()
+            else {
+                leave = next
+                afterImport = after
+            }
+        }
+    }
+    // A save that failed partway: what it saved leaves the selection, so saving again continues with the rest (feed/batch-import).
+    LaunchedEffect(saveFailed) {
+        val id = savingBatch ?: return@LaunchedEffect
+        if (saveFailed == null) return@LaunchedEffect
+        selection = selection.without(saveStore.savedIndices(id), matches::getOrNull)
     }
 
     fun clear() {
@@ -245,6 +304,7 @@ fun ImportActivityPresenter(
         source = null
         originalTooLarge = false
         batchFiles = null
+        pickedSources = emptyList()
         scanned = null
         fileZones = emptyMap()
         filter = BatchFilter.All
@@ -302,6 +362,7 @@ fun ImportActivityPresenter(
                         }
                         else -> {
                             batchFiles = files
+                            pickedSources = sources
                             scanned = found
                             selection = BatchSelection(batch = true)
                         }
@@ -361,6 +422,17 @@ fun ImportActivityPresenter(
         gear = gear.field.takeIf { picked != null || scanned != null },
         newDevices = if (picked != null || scanned != null) newDevices.fields else NewDevicesFields(),
         afterImport = afterImport,
+        savingImport =
+            saveCounts
+                ?.takeIf { savingBatch == null && scanned == null && file == null }
+                ?.firstOrNull { it.state == ImportSaveEntity.STATE_RUNNING }
+                ?.let { SavingImport(SaveProgress(it.done + it.skipped, it.total)) },
+        stoppedImports =
+            saveCounts
+                .orEmpty()
+                .filter { it.state == ImportSaveEntity.STATE_STOPPED }
+                .map { StoppedImport(it.batchId, it.done, it.total) }
+                .toImmutableList(),
     ) { event ->
         when (event) {
             is ImportActivityEvent.FilePicked -> pick(listOf(ByteArrayImportSource(event.name, event.bytes.toByteArray())))
@@ -443,46 +515,34 @@ fun ImportActivityPresenter(
                 flights.launch(ImportActivityEvent.Save::class) {
                     closeOpened()
                     val scan = scanned ?: return@launch
-                    val files = batchFiles ?: return@launch
                     val start = gearSources.minOfOrNull { it.startedAt } ?: return@launch
-                    val linked = runSuspendCatching {
-                        newDevices.save(start)
-                    }
-                        .getOrElse { e ->
-                            error = uiErrorOf(UiError.Kind.SaveNewGear, e)
-                            return@launch
-                        }
-                    val drafting =
-                        BatchDrafting(
-                            scan,
-                            files,
-                            reader,
-                            selection,
-                            event.defaultTitles,
-                            BatchChoices(training, visibility.current, linked.gear, zoneOf),
-                        )
+                    val again = savingBatch
+                    val linked =
+                        savingDevices.takeIf { again != null }
+                            ?: runSuspendCatching { newDevices.save(start) }
+                                .getOrElse { e ->
+                                    error = uiErrorOf(UiError.Kind.SaveNewGear, e)
+                                    return@launch
+                                }
                     runSuspendCatching {
-                        val result =
-                            saveBatch(activities, manager, batchPlan(scan.items.size, matches, selection), drafting) { saveProgress = it }
-                        val small = result.published.size <= MAX_SUGGESTED
-                        val next: suspend () -> Unit = {
-                            // A small batch is sent before it's summed up, as a single save is; a large one is the session's pacer's
-                            // to send, waiting out the PDS's limits whatever screen is open (data/outbox).
-                            if (small) runSuspendCatching { activities.sync() }
-                            batchSaved = BatchSaved(result.saved, result.skipped)
-                            // Suggestions ask the AppView about each saved activity: only for a batch small enough to look through.
-                            if (small) savedSuggestions = savedSuggestionsFor(result.published, suggestions).takeIf { it.isNotEmpty() }
-                        }
-                        val after = newDevices.afterSave(linked, result.published.map { it.first }.toSet())
-                        if (after == null) next()
-                        else {
-                            leave = next
-                            afterImport = after
-                        }
+                        val choices = BatchChoices(training, visibility.current, linked.gear, zoneOf, importBatch = again ?: Tid.next())
+                        val plan = batchPlan(scan.items.size, matches, selection)
+                        val first = again?.let { saveStore.nextPosition(it) } ?: 0
+                        val save =
+                            newBatchSave(scan, pickedSources, plan, selection, event.defaultTitles, choices, scan.uploadSource, first)
+                        if (again == null) saveStore.start(save) else saveStore.replacePending(again, save.items)
+                        // Followed only once it's written: until then, no plan would read as a save already finished.
+                        savingDevices = linked
+                        savingBatch = save.batchId
+                        saves.launch(saveStore.account) { saveRunner.runAll() }
                     }
                         .onFailure { e -> error = uiErrorOf(UiError.Kind.SaveActivity, e) }
-                    saveProgress = null
                 }
+
+            ImportActivityEvent.RetryDuplicateCheck -> own.retry()
+
+            is ImportActivityEvent.StoppedImportDismissed ->
+                flights.launch(event) { runSuspendCatching { saveStore.dismiss(event.batchId) } }
 
             is ImportActivityEvent.Save -> {
                 val match = matches.firstOrNull()

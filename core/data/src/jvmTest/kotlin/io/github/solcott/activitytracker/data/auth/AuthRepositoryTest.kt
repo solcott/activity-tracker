@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.atproto.oauth.PendingAuthorization
 import io.github.solcott.activitytracker.atproto.oauth.SessionExpiredException
 import io.github.solcott.activitytracker.data.db.FeedItemEntity
 import io.github.solcott.activitytracker.data.db.inMemoryDatabase
+import io.github.solcott.activitytracker.data.importsave.testImportSaves
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.location.ActivityRecorder
@@ -114,7 +115,7 @@ class AuthRepositoryTest {
     fun anExpiredSessionIsClearedLikeASignOutButKeepsRecording() = runTest {
         signedIn()
         val recorder = recorder()
-        val auth = AuthRepository(manager, db, http, recorder)
+        val auth = AuthRepository(manager, db, http, recorder, testImportSaves(db))
         backgroundScope.launch { auth.endExpiredSessions() }
         recorder.start(did)
         advanceUntilIdle()
@@ -135,7 +136,7 @@ class AuthRepositoryTest {
     fun aChosenSignOutStopsTheRecordingAndRevokes() = runTest {
         signedIn()
         val recorder = recorder()
-        val auth = AuthRepository(manager, db, http, recorder)
+        val auth = AuthRepository(manager, db, http, recorder, testImportSaves(db))
         recorder.start(did)
         advanceUntilIdle()
 
@@ -151,7 +152,7 @@ class AuthRepositoryTest {
     @Test
     fun aCompletedSignInClearsTheExpiry() = runTest {
         signedIn()
-        val auth = AuthRepository(manager, db, http, recorder())
+        val auth = AuthRepository(manager, db, http, recorder(), testImportSaves(db))
         backgroundScope.launch { auth.endExpiredSessions() }
         assertFailsWith<SessionExpiredException> { manager.freshSession(forceRefresh = true) }
         auth.lastExpiry.first { it != null }

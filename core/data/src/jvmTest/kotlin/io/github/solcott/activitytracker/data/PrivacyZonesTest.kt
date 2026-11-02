@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.data.activity.PrivacySettings
 import io.github.solcott.activitytracker.data.activity.PublishTrim
 import io.github.solcott.activitytracker.data.activity.RouteTrim
 import io.github.solcott.activitytracker.data.activity.SegmentedPolyline
+import io.github.solcott.activitytracker.data.activity.StaleRoute
 import io.github.solcott.activitytracker.data.activity.TooManyZonesException
 import io.github.solcott.activitytracker.data.activity.VisibilityChoice
 import io.github.solcott.activitytracker.data.activity.ZonesRead
@@ -436,7 +437,43 @@ class PrivacyZonesTest {
         assertFalse(published.fresh)
         assertTrue(segments.tracks.takeStale(), "its segment track is swept to the saved zones")
         val latest = assertIs<ZonesRead.Known>(s.privacy.refresh()).trim
-        assertEquals(listOf(uri), s.privacy.takeStale(latest).map { it.uri })
+        assertEquals(
+            listOf(StaleRoute(uri, Visibility.PUBLIC, Visibility.PUBLIC, trim.trim)),
+            s.privacy.takeStale(latest),
+            "kept without its route's points",
+        )
+    }
+
+    @Test
+    fun aBatchPublishedWhileTheZonesCantBeReadIsReTrimmedOnceTheyAre() = runTest {
+        pds.session().privacy.save(PrivacySettings(listOf(home)))
+        val s = pds.session()
+        pds.offline = true
+
+        val uris = s.privacy.withReadOnce { (0 until 3).map { s.activities.publish(draft()) } }
+        assertTrue(s.privacy.hasStale())
+        pds.offline = false
+        // Re-trimmed before the outbox is sent, so each route comes from its still-queued track.
+        s.activities.sync()
+
+        for (uri in uris) assertTrue(startOf(stored(uri.rkey!!).polyline) >= 199, "$uri is trimmed by the zones read now")
+        assertFalse(s.privacy.hasStale())
+    }
+
+    @Test
+    fun aStaleRouteWhoseTrackWasSentIsReadBackFromThePds() = runTest {
+        pds.session().privacy.save(PrivacySettings(listOf(home)))
+        val s = pds.session()
+        pds.offline = true
+        val uri = s.activities.publish(draft())
+        pds.offline = false
+        s.outbox.drain()
+        assertNull(stored(uri.rkey!!).polyline, "sent without a polyline: the zones weren't read")
+
+        s.routes.trimStale()
+
+        assertTrue(startOf(stored(uri.rkey!!).polyline) >= 199)
+        assertFalse(s.privacy.hasStale())
     }
 
     @Test

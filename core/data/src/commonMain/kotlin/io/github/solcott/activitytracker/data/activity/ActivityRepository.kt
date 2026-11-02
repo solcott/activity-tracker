@@ -130,9 +130,12 @@ class ActivityRepository(
         return uris
     }
 
-    /** Lists the import [batchId] from [source] in the upload queue, as its save starts (feed/batch-import). */
-    suspend fun startImport(batchId: String, source: UploadSource) {
-        UploadLog.batch(db, clients.did.value, batchId, source.encode(), clock.now())
+    /**
+     * Lists the import [batchId] from [source], of [total] selected activities, in the upload queue, as its save starts
+     * (feed/batch-import).
+     */
+    suspend fun startImport(batchId: String, source: UploadSource, total: Int = 0) {
+        UploadLog.batch(db, clients.did.value, batchId, source.encode(), total, clock.now())
     }
 
     /** Lists a file of the import [batchId] that couldn't be read again at save, by its [title] and [sport] if known. */
@@ -183,7 +186,7 @@ class ActivityRepository(
      * ([ActivityLayout]): its details records are queued narrowest first, then the activity record, then its streams, narrowest first.
      */
     private suspend fun queue(draft: ActivityDraft, photos: List<ActivityMedia>, trim: PublishTrim): AtUri {
-        val rkey = Tid.next(clock)
+        val rkey = draft.rkey ?: Tid.next(clock)
         val uri = AtUri.of(clients.did, Nsid.FEED_ACTIVITY, rkey)
         val layout =
             ActivityLayout.split(

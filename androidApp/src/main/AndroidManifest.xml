@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -8,6 +9,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- A batch import is saved in a foreground job (feed/batch-import), so Android doesn't freeze it once the athlete leaves. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <!-- No backup or device transfer: the Room database caches other athletes' non-public activities and queues full tracks, and its
          OAuth state is sealed by a Keystore key that never leaves the device. Everything else lives in the athlete's PDS. -->
@@ -44,5 +47,10 @@
                 <action android:name="io.github.solcott.activitytracker.recording.START" />
             </intent-filter>
         </service>
+        <!-- WorkManager's foreground service, for ImportSaveWorker. -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
     </application>
 </manifest>

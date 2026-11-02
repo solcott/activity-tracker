@@ -2,6 +2,11 @@ package io.github.solcott.activitytracker.data
 
 import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.data.activity.MatchSpan
+import io.github.solcott.activitytracker.data.activity.OutboxWriter
+import io.github.solcott.activitytracker.data.db.AppDatabase
+import io.github.solcott.activitytracker.data.db.FeedItemEntity
+import io.github.solcott.activitytracker.data.db.UploadItemEntity
+import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
@@ -28,6 +33,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -48,7 +54,7 @@ class OwnActivitySearchTest {
             uri = AtUri.of(did, Nsid.FEED_ACTIVITY, rkey),
             cid = Cid("bafy$rkey"),
             author = ProfileViewBasic(did, Handle("alice.test")),
-            record = ActivityRecord(Sport.RUN, start, 3600, Instant.parse("2026-10-01T00:00:00Z")),
+            record = record(start),
             likeCount = 0,
             commentCount = 0,
             indexedAt = Instant.parse("2026-10-01T00:00:00Z"),
@@ -75,6 +81,35 @@ class OwnActivitySearchTest {
                 respond(AtJson.encodeToString(GetAuthorActivitiesByStart.Output.serializer(), output), headers = json)
             }
         )
+
+    private fun record(start: Instant) = ActivityRecord(Sport.RUN, start, 3600, Instant.parse("2026-10-01T00:00:00Z"))
+
+    private fun cached(view: ActivityView) =
+        FeedItemEntity("timeline", view.uri.value, 0, AtJson.encodeToString(ActivityView.serializer(), view))
+
+    private suspend fun session(): Pair<AppDatabase, SessionClients> {
+        val (db, _, clients) = signedInTestSession(http, did = did)
+        return db to clients
+    }
+
+    private suspend fun logUpload(db: AppDatabase, rkey: String, start: Instant) {
+        val json = AtJson.encodeToString(ActivityRecord.serializer(), record(start))
+        db.uploads()
+            .insert(
+                UploadItemEntity(
+                    did = did.value,
+                    rkey = rkey,
+                    batchId = null,
+                    kind = UploadItemEntity.KIND_NEW,
+                    title = null,
+                    sport = Sport.RUN,
+                    subSport = null,
+                    startedAt = start.toEpochMilliseconds(),
+                    queuedAt = 0,
+                    recordJson = json,
+                )
+            )
+    }
 
     private suspend fun feed(): FeedRepository {
         val (db, _, clients) = signedInTestSession(http, did = did)
@@ -111,16 +146,70 @@ class OwnActivitySearchTest {
     }
 
     @Test
-    fun aFailedWindowEndsTheSearchWithWhatWasFound() = runTest {
+    fun aFailedWindowSearchesTheRestOnTheDevice() = runTest {
         val early = Instant.parse("2020-05-01T07:00:00Z")
         val late = Instant.parse("2024-05-01T07:00:00Z")
-        log = listOf(view("3ka", early), view("3kb", late))
+        val later = Instant.parse("2025-05-01T07:00:00Z")
+        log = listOf(view("3ka", early), view("3kb", late), view("3kc", later))
         failFrom = Instant.parse("2022-01-01T00:00:00Z")
+        val (db, clients) = session()
+        // The cached feed holds one of the athlete's activities; the upload log, one saved here.
+        db.feed().upsert(listOf(cached(view("3kb", late))))
+        logUpload(db, "3kd", later + 5.minutes)
 
-        val search = feed().ownActivitiesAround(listOf(span(early), span(late)))
+        val search = FeedRepository(db, clients, LocalLikes(), Logger).ownActivitiesAround(listOf(span(early), span(late), span(later)))
 
         assertFalse(search.complete)
-        assertEquals(listOf("3ka"), search.activities.map { it.uri.rkey })
+        assertTrue(search.localOnly)
+        assertEquals(listOf("3ka", "3kb", "3kd"), search.activities.map { it.uri.rkey }, "the AppView's, then the device's")
+        assertEquals(null, search.activities.last().cid, "a logged activity counts as still uploading")
+        assertEquals(1, queried.size, "the AppView isn't asked again once it failed")
+    }
+
+    @Test
+    fun theOutboxCountsWithTheAppViewDown() = runTest {
+        val start = Instant.parse("2024-05-01T07:00:00Z")
+        failFrom = Instant.DISTANT_PAST
+        val (db, clients) = session()
+        OutboxWriter(db, clients, Clock.System).put(Nsid.FEED_ACTIVITY, "3ke", ActivityRecord.serializer(), record(start))
+        OutboxWriter(db, clients, Clock.System).put(Nsid.FEED_ACTIVITY, "3kf", ActivityRecord.serializer(), record(start + 30.days))
+
+        val search = FeedRepository(db, clients, LocalLikes(), Logger).ownActivitiesAround(listOf(span(start)))
+
+        assertFalse(search.complete)
+        assertTrue(search.localOnly)
+        assertEquals(listOf("3ke"), search.activities.map { it.uri.rkey }, "only in the batch's window")
+    }
+
+    @Test
+    fun anActivityTheAppViewAndTheLogBothHoldIsListedOnce() = runTest {
+        val start = Instant.parse("2024-05-01T07:00:00Z")
+        log = listOf(view("3ka", start))
+        val (db, clients) = session()
+        logUpload(db, "3ka", start)
+        db.feed().upsert(listOf(cached(view("3ka", start))))
+
+        val search = FeedRepository(db, clients, LocalLikes(), Logger).ownActivitiesAround(listOf(span(start)))
+
+        assertTrue(search.complete)
+        assertFalse(search.localOnly)
+        assertEquals(listOf(Cid("bafy3ka")), search.activities.map { it.cid }, "once, as the AppView serves it")
+    }
+
+    @Test
+    fun othersCachedActivitiesAreLeftOut() = runTest {
+        val start = Instant.parse("2024-05-01T07:00:00Z")
+        failFrom = Instant.DISTANT_PAST
+        val (db, clients) = session()
+        val bobDid = Did("did:plc:bob")
+        val bob =
+            view("3kg", start)
+                .copy(uri = AtUri.of(bobDid, Nsid.FEED_ACTIVITY, "3kg"), author = ProfileViewBasic(bobDid, Handle("bob.test")))
+        db.feed().upsert(listOf(cached(bob)))
+
+        val search = FeedRepository(db, clients, LocalLikes(), Logger).ownActivitiesAround(listOf(span(start)))
+
+        assertEquals(emptyList(), search.activities)
     }
 
     @Test

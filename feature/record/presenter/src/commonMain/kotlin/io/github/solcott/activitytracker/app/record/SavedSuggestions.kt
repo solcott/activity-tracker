@@ -4,9 +4,9 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
 import io.github.solcott.activitytracker.app.uploads.UploadsScreen
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
-import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.CombineSuggestions
 import io.github.solcott.activitytracker.lexicon.AtUri
+import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
@@ -20,18 +20,18 @@ internal fun Navigator.openSaved(saved: SavedSingle, adding: AddingRecording) {
 }
 
 /**
- * Which of a batch's [published] activities (those saved on their own) likely belong with another of the athlete's activities, to list. A
+ * Which of a batch's [saved] activities, with their records as queued, likely belong with another of the athlete's activities, to list. A
  * failed lookup suggests nothing.
  */
 internal suspend fun savedSuggestionsFor(
-    published: List<Pair<AtUri, ActivityDraft>>,
+    saved: List<Pair<AtUri, ActivityRecord>>,
     suggestions: CombineSuggestions,
 ): ImmutableList<SavedSuggestion> =
-    published
-        .mapNotNull { (uri, draft) ->
-            runSuspendCatching { suggestions.forSaved(uri, draft) }
+    saved
+        .mapNotNull { (uri, record) ->
+            runSuspendCatching { suggestions.forSaved(uri, record) }
                 .getOrNull()
-                ?.let { SavedSuggestion(uri, draft.title, draft.startedAt.epochSeconds, it.cue, it.shown) }
+                ?.let { SavedSuggestion(uri, record.title, record.startedAt.epochSeconds, it.cue, it.shown) }
         }
         .toImmutableList()
 

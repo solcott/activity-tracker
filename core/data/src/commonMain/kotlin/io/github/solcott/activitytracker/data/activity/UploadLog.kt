@@ -4,6 +4,7 @@ import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.UploadBatchEntity
 import io.github.solcott.activitytracker.data.db.UploadItemEntity
 import io.github.solcott.activitytracker.data.db.UploadItemRow
+import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
@@ -38,13 +39,20 @@ internal object UploadLog {
                     subSport = record.subSport,
                     startedAt = record.startedAt.toEpochMilliseconds(),
                     queuedAt = now.toEpochMilliseconds(),
+                    recordJson =
+                        if (kind == UploadItemEntity.KIND_NEW) AtJson.encodeToString(ActivityRecord.serializer(), record) else null,
                 )
             )
     }
 
-    /** Starts the import [batchId] from [source], saved at [now]; its counts come with [counted]. */
-    suspend fun batch(db: AppDatabase, did: String, batchId: String, source: String, now: Instant) {
-        db.uploads().putBatch(UploadBatchEntity(id = batchId, did = did, source = source, savedAt = now.toEpochMilliseconds()))
+    /**
+     * Starts the import [batchId] from [source], saved at [now], of [total] selected activities; its counts come with [counted]. Starting
+     * it again (saving again after a failure) keeps when it was first saved and its counts.
+     */
+    @Suppress("LongParameterList") // The batch's fields.
+    suspend fun batch(db: AppDatabase, did: String, batchId: String, source: String, total: Int, now: Instant) {
+        db.uploads().insertBatchIfAbsent(UploadBatchEntity(id = batchId, did = did, source = source, savedAt = now.toEpochMilliseconds()))
+        db.uploads().setBatchTotal(batchId, total)
     }
 
     /** The import [batchId] saved [saved] activities and skipped [skipped]. */

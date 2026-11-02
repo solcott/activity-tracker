@@ -211,10 +211,10 @@ class ActivityManager(
      * Saves [drafts], other recordings of what the athlete's own [into] recorded, each as an activity of its own at [into]'s visibility,
      * and combines them with it: added to its combined activity when [into] is one, or a member of one, and otherwise into a new combined
      * activity starting from [into]'s title, description, photos, sport and visibility. The drafts' part is built from their own data, so
-     * nothing waits for the AppView to index them; [into]'s is read as stored, so it must be sent ([OwnActivity.cid]). Returns the combined
-     * activity's URI.
+     * nothing waits for the AppView to index them; [into]'s is read as stored, so it must be sent ([OwnActivity.cid]). A new combined
+     * activity is saved under [rkey] when given, so saving again rewrites it (a batch save resumed). Returns the combined activity's URI.
      */
-    suspend fun combine(into: OwnActivity, drafts: List<ActivityDraft>): AtUri {
+    suspend fun combine(into: OwnActivity, drafts: List<ActivityDraft>, rkey: String? = null): AtUri {
         require(drafts.isNotEmpty()) { "Nothing to combine" }
         requireNotNull(into.cid) { "The activity is still uploading" }
         outbox.drain()
@@ -227,7 +227,7 @@ class ActivityManager(
             when {
                 target != null -> target.uri
                 existing != null -> into.uri
-                else -> AtUri.of(clients.did, Nsid.FEED_ACTIVITY, Tid.next(clock))
+                else -> AtUri.of(clients.did, Nsid.FEED_ACTIVITY, rkey ?: Tid.next(clock))
             }
         val placed = drafts.map { it.atVisibility(visibility) }
         val saved = publish(placed)
@@ -245,16 +245,17 @@ class ActivityManager(
     /**
      * Saves [drafts], one activity recorded more than once in a file (two dive computers, say), each as an activity of its own, and
      * combines them into a new combined activity starting from the first one's title, description, sport and visibility, which the rest
-     * take. Built from the drafts' own data, so nothing waits for the AppView. Returns the combined activity's URI.
+     * take. Built from the drafts' own data, so nothing waits for the AppView. Saved under [rkey] when given, so saving again rewrites it.
+     * Returns the combined activity's URI.
      */
-    suspend fun combine(drafts: List<ActivityDraft>): AtUri {
+    suspend fun combine(drafts: List<ActivityDraft>, rkey: String? = null): AtUri {
         require(drafts.size in CombinedActivity.MIN_MEMBERS..CombinedActivity.MAX_MEMBERS) {
             "A combined activity has ${CombinedActivity.MIN_MEMBERS} to ${CombinedActivity.MAX_MEMBERS} members"
         }
         val visibility = drafts.first().visibility
         val placed = drafts.map { it.atVisibility(visibility) }
         val saved = publish(placed)
-        val uri = AtUri.of(clients.did, Nsid.FEED_ACTIVITY, Tid.next(clock))
+        val uri = AtUri.of(clients.did, Nsid.FEED_ACTIVITY, rkey ?: Tid.next(clock))
         build(
             uri,
             base = saved.first(),

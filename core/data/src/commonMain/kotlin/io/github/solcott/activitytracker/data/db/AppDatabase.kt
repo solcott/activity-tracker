@@ -25,7 +25,17 @@ const val DATABASE_NAME = "activity-tracker.db"
  * crashes lowering the `AutoMigration` annotation.
  */
 fun <T : RoomDatabase> RoomDatabase.Builder<T>.addAppMigrations(): RoomDatabase.Builder<T> =
-    addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+    addMigrations(
+        MIGRATION_1_2,
+        MIGRATION_2_3,
+        MIGRATION_3_4,
+        MIGRATION_4_5,
+        MIGRATION_5_6,
+        MIGRATION_6_7,
+        MIGRATION_7_8,
+        MIGRATION_8_9,
+        MIGRATION_9_10,
+    )
 
 /** Runs one statement: `execSQL` blocks on most platforms and suspends on the web, so it has no common form. */
 internal expect suspend fun SQLiteConnection.runSql(sql: String)
@@ -106,6 +116,33 @@ private val MIGRATION_8_9 =
         )
     }
 
+/**
+ * 9 → 10: batch saves persisted as they're tapped (feed/batch-import), so one resumes after the app is killed; an import's selected count;
+ * the record of each logged activity, for checking imports against with the PDS unreachable (feed/import-duplicates).
+ */
+private val MIGRATION_9_10 =
+    Migration(9, 10) {
+        it.runSql(
+            "CREATE TABLE IF NOT EXISTS `import_save` (`batchId` TEXT NOT NULL, `did` TEXT NOT NULL, `total` INTEGER NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL, `choicesJson` TEXT NOT NULL, `state` TEXT NOT NULL, PRIMARY KEY(`batchId`))"
+        )
+        it.runSql(
+            "CREATE TABLE IF NOT EXISTS `import_save_source` (`batchId` TEXT NOT NULL, `idx` INTEGER NOT NULL, `name` TEXT NOT NULL, " +
+                "`size` INTEGER NOT NULL, `kind` TEXT, `handle` BLOB, PRIMARY KEY(`batchId`, `idx`))"
+        )
+        it.runSql(
+            "CREATE TABLE IF NOT EXISTS `import_save_item` (`batchId` TEXT NOT NULL, `position` INTEGER NOT NULL, " +
+                "`batchIndex` INTEGER NOT NULL, `sourceIdx` INTEGER NOT NULL, `pathJson` TEXT NOT NULL, `entry` INTEGER NOT NULL, " +
+                "`rkey` TEXT NOT NULL, `planJson` TEXT NOT NULL, `groupKey` INTEGER, `done` INTEGER NOT NULL, " +
+                "`skipped` INTEGER NOT NULL, PRIMARY KEY(`batchId`, `position`))"
+        )
+        it.runSql(
+            "CREATE INDEX IF NOT EXISTS `index_import_save_item_batchId_done_skipped` ON `import_save_item` (`batchId`, `done`, `skipped`)"
+        )
+        it.runSql("ALTER TABLE upload_batch ADD COLUMN total INTEGER NOT NULL DEFAULT 0")
+        it.runSql("ALTER TABLE upload_item ADD COLUMN recordJson TEXT")
+    }
+
 @Database(
     entities =
         [
@@ -119,8 +156,11 @@ private val MIGRATION_8_9 =
             RecordingEventEntity::class,
             UploadBatchEntity::class,
             UploadItemEntity::class,
+            ImportSaveEntity::class,
+            ImportSaveSourceEntity::class,
+            ImportSaveItemEntity::class,
         ],
-    version = 9,
+    version = 10,
 )
 @ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -137,6 +177,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun recordings(): RecordingDao
 
     abstract fun uploads(): UploadDao
+
+    abstract fun importSaves(): ImportSaveDao
 }
 
 @Suppress("KotlinNoActualForExpect")
@@ -193,6 +235,10 @@ interface FeedDao {
     @Query("SELECT * FROM feed_item WHERE feedKey = :feedKey ORDER BY position") fun observe(feedKey: String): Flow<List<FeedItemEntity>>
 
     @Query("SELECT * FROM feed_item WHERE uri = :uri") suspend fun byUri(uri: String): List<FeedItemEntity>
+
+    /** Every cached item whose URI starts with [prefix] (compared literally, not as a LIKE pattern): an author's activities. */
+    @Query("SELECT * FROM feed_item WHERE substr(uri, 1, length(:prefix)) = :prefix")
+    suspend fun byUriPrefix(prefix: String): List<FeedItemEntity>
 
     @Upsert suspend fun upsert(items: List<FeedItemEntity>)
 

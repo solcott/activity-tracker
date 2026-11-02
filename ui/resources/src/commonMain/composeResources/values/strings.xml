@@ -878,6 +878,14 @@
     </plurals>
     <string name="import_dives_none">Import</string>
     <string name="import_batch_saving">Saving %1$s of %2$s…</string>
+    <!-- A batch save that stopped partway (feed/batch-import): activities saved, then all selected, then why. -->
+    <string name="import_batch_save_failed">Saved %1$s of %2$s. The rest weren't saved: %3$s Save again to save them.</string>
+    <!-- Import opened again while an earlier batch save runs on its own (feed/batch-import). -->
+    <string name="import_saving_title">Saving imported activities</string>
+    <string name="import_saving_progress">%1$s of %2$s saved. This goes on even if you leave.</string>
+    <!-- An import whose save stopped before all of it was saved (feed/batch-import). -->
+    <string name="import_stopped">An import stopped after saving %1$s of %2$s activities. Pick the same files again to import the rest: the ones already saved show as duplicates.</string>
+    <string name="import_stopped_dismiss">Dismiss</string>
     <string name="import_item_title">Activity</string>
     <string name="import_megabytes">%1$s MB</string>
     <string name="import_item_title_label">Title</string>
@@ -917,7 +925,7 @@
     <string name="import_compare_in_import">Earlier in this import</string>
     <string name="import_compare_exact">Exact copy</string>
     <string name="import_duplicates_checking">Checking your log for duplicates…</string>
-    <string name="import_duplicates_failed">Couldn't check your log for duplicates. Activities repeated within this file are still flagged.</string>
+    <string name="import_duplicates_failed">Couldn't reach your log, so only activities on this device were checked for duplicates. Activities repeated within this file are still flagged.</string>
     <string name="duplicate_action_ignore">Ignore</string>
     <string name="duplicate_action_import_anyway">Import anyway</string>
     <string name="duplicate_action_combine">Combine</string>
@@ -2024,6 +2032,8 @@
     <string name="uploads_send_again_named">Send %1$s again</string>
     <string name="uploads_import_saved">Saved %1$s</string>
     <string name="uploads_import_progress">%1$s of %2$s uploaded</string>
+    <string name="uploads_import_saving">Saving %1$s of %2$s</string>
+    <string name="uploads_import_stopped">Stopped after %1$s of %2$s · pick the files again to import the rest</string>
     <plurals name="uploads_import_refused">
         <item quantity="one">%1$d refused</item>
         <item quantity="other">%1$d refused</item>
@@ -2041,6 +2051,7 @@
     <string name="uploads_cancel_confirm">Cancel upload</string>
     <string name="uploads_cancel_rest_title">Cancel the rest of this import?</string>
     <string name="uploads_cancel_rest_message">Activities waiting or refused are removed from this device and not sent. Those uploaded or uploading are kept.</string>
+    <string name="uploads_cancel_rest_message_saving">Activities not saved yet won't be saved, and those waiting or refused are removed from this device and not sent. Those uploaded or uploading are kept.</string>
     <string name="uploads_keep">Keep</string>
     <string name="uploads_source_export">%1$s export</string>
     <string name="uploads_source_exports">%1$s exports</string>

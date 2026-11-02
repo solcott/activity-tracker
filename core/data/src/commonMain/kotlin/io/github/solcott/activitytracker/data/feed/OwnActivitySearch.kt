@@ -12,14 +12,18 @@ import kotlin.time.Instant
 /** [FeedRepository.ownActivitiesInRange]'s [activities], and whether the AppView had more pages than it read ([truncated]). */
 class OwnActivityRange(val activities: List<OwnActivity>, val truncated: Boolean)
 
-/** The athlete's own activities near a batch's, oldest first, and whether every part of the batch's span was read ([complete]). */
-class OwnActivitySearch(val activities: List<OwnActivity>, val complete: Boolean)
+/**
+ * The athlete's own activities near a batch's, oldest first, whether every part of the batch's span was read in full ([complete]), and
+ * whether the AppView couldn't be read for some of it, so only what this device knows of was searched there ([localOnly]).
+ */
+class OwnActivitySearch(val activities: List<OwnActivity>, val complete: Boolean, val localOnly: Boolean = false)
 
 /**
  * The athlete's own activities that started from [margin] before each of [spans] to [margin] after its end, for a batch however many years
  * it spans. The spans are searched in windows of at most [maxWindow], only where the batch has activities; a window with more than
- * [maxPages] pages is halved and searched again, so a busy month is never cut off. A window that fails ends the search with what was found,
- * [OwnActivitySearch.complete] false. Never throws for a failed read.
+ * [maxPages] pages is halved and searched again, so a busy month is never cut off. Once the AppView fails to answer a window, that window
+ * and the rest are searched on the device only ([FeedRepository.localOwnActivitiesInRange]), [OwnActivitySearch.complete] false and
+ * [OwnActivitySearch.localOnly] true. Never throws for a failed read.
  */
 suspend fun FeedRepository.ownActivitiesAround(
     spans: List<MatchSpan>,
@@ -30,11 +34,19 @@ suspend fun FeedRepository.ownActivitiesAround(
     val found = LinkedHashMap<String, OwnActivity>()
     val pending = ArrayDeque(windows(spans, margin, maxWindow))
     var complete = true
-    while (complete && pending.isNotEmpty()) {
+    var localOnly = false
+    while (pending.isNotEmpty()) {
         val window = pending.removeFirst()
-        val read = runSuspendCatching { ownActivitiesInRange(window.start, window.endExclusive, maxPages = maxPages) }.getOrNull()
+        // Once the AppView has failed, the rest is searched on the device only rather than waiting on each window to fail too.
+        val read =
+            if (localOnly) null
+            else runSuspendCatching { ownActivitiesInRange(window.start, window.endExclusive, maxPages = maxPages) }.getOrNull()
         when {
-            read == null -> complete = false
+            read == null -> {
+                complete = false
+                localOnly = true
+                localOwnActivitiesInRange(window.start, window.endExclusive).forEach { found.getOrPut(it.uri.toString()) { it } }
+            }
             read.truncated && window.endExclusive - window.start > MIN_WINDOW -> {
                 val middle = window.start + (window.endExclusive - window.start) / 2
                 pending.addFirst(middle..<window.endExclusive)
@@ -47,7 +59,7 @@ suspend fun FeedRepository.ownActivitiesAround(
             }
         }
     }
-    return OwnActivitySearch(found.values.sortedBy { it.record.startedAt }, complete)
+    return OwnActivitySearch(found.values.sortedBy { it.record.startedAt }, complete, localOnly)
 }
 
 /** The padded [spans] merged into windows, oldest first, each at most [maxWindow] long unless one padded span is longer by itself. */

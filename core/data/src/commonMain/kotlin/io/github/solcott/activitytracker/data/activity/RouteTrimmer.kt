@@ -39,7 +39,7 @@ import kotlinx.serialization.json.JsonObject
  */
 @SingleIn(SessionScope::class)
 @Inject
-@Suppress("LongParameterList") // Injected collaborators.
+@Suppress("LongParameterList", "TooManyFunctions") // Injected collaborators; one function per step of a sweep or recheck.
 class RouteTrimmer(
     private val db: AppDatabase,
     private val clients: SessionClients,
@@ -155,17 +155,39 @@ class RouteTrimmer(
         }
     }
 
-    /** Re-trims [PrivacyZones.takeStale]'s activities by [zones]; true if any rewrite was queued. */
+    /**
+     * Re-trims [PrivacyZones.takeStale]'s activities by [zones], one at a time, each route read back from its track ([staleRoute]) so only
+     * one is held at once; true if any rewrite was queued. One whose track can't be read now is put back for the next run.
+     */
     private suspend fun trimStale(zones: RouteTrim.Known): Boolean {
         var queued = false
         for (stale in privacy.takeStale(zones)) {
             val rkey = requireNotNull(stale.uri.rkey)
             runSuspendCatching {
-                if (rewrite(rkey, stale.visibility, stale.mapTier, stale.route, zones, listed = null, listedDetails = null)) queued = true
+                val route = staleRoute(stale.uri)
+                if (route == null) log.i { "Not re-trimming ${stale.uri}: it has no track" }
+                else if (rewrite(rkey, stale.visibility, stale.mapTier, route, zones, listed = null, listedDetails = null)) queued = true
             }
-                .onFailure { e -> log.w(e) { "Couldn't re-trim ${stale.uri}" } }
+                .onFailure { e ->
+                    log.w(e) { "Couldn't re-trim ${stale.uri}" }
+                    privacy.restore(stale)
+                }
         }
         return queued
+    }
+
+    /**
+     * [activity]'s route as its track holds it: the GPX of the outbox's last queued put of the track while one waits, else the track sent
+     * to `self` ([ActivityTrackStore.readOrThrow]). Null when it has none (or a queued delete); throws when the sent one can't be read.
+     */
+    private suspend fun staleRoute(activity: AtUri): List<LocationSample>? {
+        val rkey = requireNotNull(activity.rkey)
+        val queued = db.outbox().pending(clients.did.value, rkey).lastOrNull { it.collection == Nsid.FEED_ACTIVITY_TRACK }
+        return when {
+            queued == null -> tracks.readOrThrow(activity)
+            queued.operation != OutboxProcessor.OP_PUT -> null
+            else -> db.outbox().inlineBlob(queued.id)?.let(::readGpxTrack) ?: tracks.readOrThrow(activity)
+        }
     }
 
     /**

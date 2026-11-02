@@ -1,24 +1,16 @@
 package io.github.solcott.activitytracker.app.record
 
 import io.github.solcott.activitytracker.activityfile.AccountExportActivity
-import io.github.solcott.activitytracker.activityfile.ActivityFileReader
 import io.github.solcott.activitytracker.activityfile.BatchReader
 import io.github.solcott.activitytracker.activityfile.EntryRef
 import io.github.solcott.activitytracker.activityfile.ExportKind
 import io.github.solcott.activitytracker.activityfile.ExportVisibility
-import io.github.solcott.activitytracker.activityfile.FoundFile
 import io.github.solcott.activitytracker.activityfile.ImportedActivity
-import io.github.solcott.activitytracker.activityfile.ImportedFile
 import io.github.solcott.activitytracker.activityfile.ScanEvent
-import io.github.solcott.activitytracker.activityfile.SourceFile
 import io.github.solcott.activitytracker.activityfile.localZone
 import io.github.solcott.activitytracker.activityfile.summary
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
-import io.github.solcott.activitytracker.data.activity.ActivityManager
 import io.github.solcott.activitytracker.data.activity.ActivityMatch
-import io.github.solcott.activitytracker.data.activity.ActivityRepository
-import io.github.solcott.activitytracker.data.activity.BulkWrites
-import io.github.solcott.activitytracker.data.activity.DraftSource
 import io.github.solcott.activitytracker.data.activity.DuplicateOf
 import io.github.solcott.activitytracker.data.activity.OwnActivity
 import io.github.solcott.activitytracker.data.activity.UploadSource
@@ -31,7 +23,6 @@ import io.github.solcott.activitytracker.lexicon.app.TrainingDetails
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.flow.flow
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.format
@@ -154,6 +145,13 @@ internal data class BatchSelection(
 
     fun isSelected(index: Int, match: ActivityMatch?): Boolean =
         if (match == null) index !in deselected else action(index, match) != DuplicateAction.Ignore
+
+    /** This selection without [indices] (each with its match from [matchOf]): an activity saved already leaves it. */
+    fun without(indices: Collection<Int>, matchOf: (Int) -> ActivityMatch?): BatchSelection =
+        indices.fold(this) { selection, index ->
+            if (matchOf(index) == null) selection.copy(deselected = selection.deselected + index)
+            else selection.withAction(index, DuplicateAction.Ignore)
+        }
 
     /** Ticking a duplicate combines it, or imports it anyway when it can't be combined yet; unticking ignores it. */
     fun toggled(index: Int, match: ActivityMatch?): BatchSelection =
@@ -318,188 +316,8 @@ internal class BatchChoices(
     val importBatch: String = Tid.next(),
 )
 
-/** How a batch's drafts are made: everything [draftsOf] needs beyond the items themselves. */
-internal class BatchDrafting(
-    val batch: ScannedBatch,
-    val reader: BatchReader,
-    val files: ActivityFileReader,
-    val selection: BatchSelection,
-    val defaultTitles: Map<Int, String>,
-    val choices: BatchChoices,
-) {
-    /** What the upload queue names the import by (feed/batch-import): the exports recognized, else the files. */
-    val source: UploadSource
-        get() =
-            if (batch.exports.isNotEmpty()) UploadSource.Export(batch.exports.map { it.kind.name })
-            else UploadSource.Files(batch.files.firstOrNull()?.name.orEmpty(), batch.files.size)
-
-    /** Lists the item at [index], which couldn't be read again, as skipped in the upload queue. */
-    suspend fun logSkipped(activities: ActivityRepository, index: Int) {
-        val item = batch.items[index]
-        val override = selection.overrides[index]
-        activities.skippedImport(
-            choices.importBatch,
-            item.title(override) ?: defaultTitles[index],
-            item.type(override).sport,
-            item.summary.startedAt,
-        )
-    }
-
-    /** Each file's original, kept until its last selected activity is drafted, so a file several share is stored once. */
-    private val sources = mutableMapOf<Int, SourceFile?>()
-    private val remaining = mutableMapOf<Int, Int>()
-    private val fileOf = batch.files.withIndex().associate { (index, file) -> file.ref to index }
-
-    /** Counts [indices] as the activities that will be drafted, for knowing when each file's original can go. */
-    fun expect(indices: Collection<Int>) {
-        remaining.clear()
-        indices.forEach { remaining[batch.items[it].file] = (remaining[batch.items[it].file] ?: 0) + 1 }
-    }
-
-    /**
-     * Drafts of the batch's items at [indices], in that order, read again from their files (one pass per nested archive); null for one
-     * whose file can't be read again.
-     */
-    suspend fun draftsOf(indices: List<Int>): List<Pair<Int, ActivityDraft?>> {
-        val drafts = mutableMapOf<Int, ActivityDraft?>()
-        eachDraft(indices) { index, draft -> drafts[index] = draft }
-        return indices.map { it to drafts[it] }
-    }
-
-    /**
-     * Drafts the items at [indices] in one pass over their files, so a nested archive is inflated once however many of its files are saved,
-     * handing each to [onDraft] as its file is read, in the order the sources hold them; null for one whose file can't be read again. Only
-     * one file is held at a time.
-     */
-    suspend fun eachDraft(indices: List<Int>, onDraft: suspend (Int, ActivityDraft?) -> Unit) {
-        val byFile = indices.groupBy { batch.items[it].file }
-        val done = mutableSetOf<Int>()
-        reader.readEach(byFile.keys.map { batch.files[it].ref }) { ref, result ->
-            val file = fileOf.getValue(ref)
-            // A file is reported again as failed when its archive fails after it: the first report stands.
-            if (!done.add(file)) return@readEach
-            val read = result.getOrNull()?.let { bytes -> runCatchingRead { bytes to files.readFile(bytes.bytes) } }
-            byFile.getValue(file).forEach { index ->
-                onDraft(index, read?.let { (bytes, imported) -> draft(index, bytes, imported) })
-                drafted(file)
-            }
-        }
-        byFile
-            .filterKeys { it !in done }
-            .forEach { (file, missed) ->
-                missed.forEach { index ->
-                    onDraft(index, null)
-                    drafted(file)
-                }
-            }
-    }
-
-    /** A file's original goes once its last activity is drafted. */
-    private fun drafted(file: Int) {
-        val left = (remaining[file] ?: 1) - 1
-        if (left <= 0) sources.remove(file) else remaining[file] = left
-    }
-
-    private suspend fun draft(index: Int, found: FoundFile, read: ImportedFile): ActivityDraft? {
-        val item = batch.items[index]
-        val full = read.activities.getOrNull(item.entry) ?: return null
-        val file = batch.files[item.file]
-        val placed = if (file.zoneless) full.inZone(choices.zoneOf(item.file)) else full
-        val override = selection.overrides[index]
-        val source =
-            if (file.originalTooLarge) null
-            else if (item.file in sources) sources[item.file]
-            else runCatchingRead { SourceFile.prepare(found.bytes, found.name, read) }.also { sources[item.file] = it }
-        val batchVisibility = choices.visibility
-        val visibility = item.narrowedTo(batchVisibility.activity)?.let(batchVisibility::withActivity) ?: batchVisibility
-        return importDraft(
-                placed,
-                item.type(override),
-                item.title(override) ?: defaultTitles[index]?.ifBlank { null },
-                choices.training,
-                emptyList(),
-                source?.let { DraftSource(it, entry = if (read.format.isLogbook) item.entry else null) },
-            )
-            // A file's own notes (a logbook's) are personal and the batch never shows them; an account export's description is the
-            // athlete's own words, which they wrote to share.
-            .copy(description = item.export?.description, gear = choices.gear, importBatch = choices.importBatch)
-            .withVisibility(visibility)
-    }
-}
-
-/** What saving a batch did: the activities [published] on their own (for combine suggestions), how many were saved and skipped. */
-internal class BatchResult(val published: List<Pair<AtUri, ActivityDraft>>, val saved: Int, val skipped: Int)
-
-/**
- * Saves [plan]: each combined group first, because combining sends the outbox and so would wait on the whole batch's upload, then the rest,
- * read again in one pass over their files and queued one at a time, [onProgress] counting them. Leaves sending the bulk to the next sync.
- * The upload queue lists it as one import, with the files it skipped (feed/batch-import).
- */
-internal suspend fun saveBatch(
-    activities: ActivityRepository,
-    manager: ActivityManager,
-    plan: BatchPlan,
-    drafting: BatchDrafting,
-    onProgress: (SaveProgress) -> Unit,
-): BatchResult = BulkWrites.run {
-    // Every write the batch queues, combines included, waits behind the athlete's own (data/outbox).
-    val total = plan.alone.size + plan.groups.sumOf { it.items.size }
-    var queued = 0
-    var skipped = 0
-    val batchId = drafting.choices.importBatch
-    activities.startImport(batchId, drafting.source)
-    drafting.expect(plan.alone + plan.groups.flatMap { it.items })
-    onProgress(SaveProgress(0, total))
-    for (group in plan.groups) {
-        val read = drafting.draftsOf(group.items)
-        val drafts = read.mapNotNull { it.second }
-        read.filter { it.second == null }.forEach { (index, _) -> drafting.logSkipped(activities, index) }
-        skipped += group.items.size - drafts.size
-        // Members share their combined activity's visibility, so none may join one wider than its own: copies within the batch combine
-        // at their narrowest, and a copy narrower than the logged activity it repeats is saved on its own instead.
-        val into = group.into
-        if (into != null) {
-            val (joining, alone) = drafts.partition { Visibility.narrower(it.visibility, into.visibility) == into.visibility }
-            if (joining.isNotEmpty()) manager.combine(into, joining)
-            if (alone.isNotEmpty()) activities.publishAll(alone)
-        } else if (drafts.size > 1) {
-            val narrowest = drafts.map { it.visibility }.reduce(Visibility::narrower)
-            manager.combine(drafts.map { if (it.visibility == narrowest) it else it.atVisibility(narrowest) })
-        } else if (drafts.size == 1) {
-            activities.publishAll(drafts)
-        }
-        queued += drafts.size
-        onProgress(SaveProgress(queued + skipped, total))
-    }
-    val published = mutableListOf<Pair<AtUri, ActivityDraft>>()
-    val bulk = flow {
-        // One pass over the files: each draft is queued before the next file is read.
-        drafting.eachDraft(plan.alone) { index, draft ->
-            if (draft == null) {
-                drafting.logSkipped(activities, index)
-                skipped++
-                onProgress(SaveProgress(queued + skipped, total))
-            } else {
-                emit(draft)
-            }
-        }
-    }
-    activities.publishBatch(bulk, drain = false) { draft, uri ->
-        published += uri to draft
-        queued++
-        onProgress(SaveProgress(queued + skipped, total))
-    }
-    activities.finishImport(batchId, saved = queued, skipped = skipped)
-    BatchResult(published, saved = queued, skipped = skipped)
-}
-
-/** [block]'s result, or null when reading a file failed: that file's activities are skipped. Cancellation still propagates. */
-@Suppress("TooGenericExceptionCaught") // Any failure reading one file is that file's.
-private inline fun <T> runCatchingRead(block: () -> T): T? =
-    try {
-        block()
-    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-        throw e
-    } catch (_: Exception) {
-        null
-    }
+/** What the upload queue names a batch's import by (feed/batch-import): the exports recognized, else the files. */
+internal val ScannedBatch.uploadSource: UploadSource
+    get() =
+        if (exports.isNotEmpty()) UploadSource.Export(exports.map { it.kind.name })
+        else UploadSource.Files(files.firstOrNull()?.name.orEmpty(), files.size)

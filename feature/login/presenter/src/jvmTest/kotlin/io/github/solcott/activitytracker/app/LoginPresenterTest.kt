@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.auth.InMemorySecretCipher
 import io.github.solcott.activitytracker.data.auth.RoomOAuthStore
 import io.github.solcott.activitytracker.data.db.inMemoryDatabase
+import io.github.solcott.activitytracker.data.importsave.testImportSaves
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.location.ActivityRecorder
@@ -77,7 +78,7 @@ class LoginPresenterTest {
                 oauth = OAuthClientConfig.loopback("http://127.0.0.1:8080/"),
             )
         manager = OAuthSessionManager(OAuthClient(http, IdentityResolver(http, config), config.oauth), store)
-        auth = AuthRepository(manager, db, http, recorder)
+        auth = AuthRepository(manager, db, http, recorder, testImportSaves(db))
         return LoginPresenter(AuthCoordinator(auth, AuthBrowser { opened += it }, Logger), auth, recorder)
     }
 

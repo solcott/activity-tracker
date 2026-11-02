@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app.record
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -23,8 +24,11 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.format
 import kotlinx.datetime.toLocalDateTime
 
-/** The athlete's own activities around a file's, to find duplicates among; null while they load. */
-internal class OwnActivities(val activities: List<OwnActivity>?, val check: DuplicateCheck)
+/**
+ * The athlete's own activities around a file's, to find duplicates among; null while they load. [retry] searches again after a search that
+ * couldn't finish.
+ */
+internal class OwnActivities(val activities: List<OwnActivity>?, val check: DuplicateCheck, val retry: () -> Unit = {})
 
 /**
  * Loads the athlete's activities of any sport from 14 hours either side of each of [spans] (wide enough for any zone the athlete might
@@ -33,20 +37,23 @@ internal class OwnActivities(val activities: List<OwnActivity>?, val check: Dupl
  */
 @Composable
 internal fun rememberOwnActivities(feed: FeedRepository, spans: ImmutableList<MatchSpan>?, search: Boolean = true): OwnActivities {
+    var attempt by remember(spans, search) { mutableIntStateOf(0) }
     var own by
         remember(spans, search) {
             mutableStateOf(if (search) OwnActivities(null, DuplicateCheck.Checking) else OwnActivities(emptyList(), DuplicateCheck.Done))
         }
-    LaunchedEffect(spans, search) {
+    LaunchedEffect(spans, search, attempt) {
         own =
             if (spans.isNullOrEmpty() || !search) {
                 OwnActivities(emptyList(), DuplicateCheck.Done)
             } else {
+                // A retry keeps what the last search found on screen until this one answers.
+                if (attempt > 0) own = OwnActivities(own.activities, DuplicateCheck.Checking)
                 val found = feed.ownActivitiesAround(spans)
                 OwnActivities(found.activities, if (found.complete) DuplicateCheck.Done else DuplicateCheck.Failed)
             }
     }
-    return own
+    return OwnActivities(own.activities, own.check) { attempt++ }
 }
 
 /**

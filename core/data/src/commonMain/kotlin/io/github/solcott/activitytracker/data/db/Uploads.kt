@@ -1,9 +1,11 @@
 package io.github.solcott.activitytracker.data.db
 
+import androidx.room3.ColumnInfo
 import androidx.room3.Dao
 import androidx.room3.Entity
 import androidx.room3.Index
 import androidx.room3.Insert
+import androidx.room3.OnConflictStrategy
 import androidx.room3.PrimaryKey
 import androidx.room3.Query
 import androidx.room3.Transaction
@@ -12,7 +14,8 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * One saved batch import in the upload queue (data/upload-queue), keyed by its `importBatch` TID: what was imported ([source], a recognized
- * export's name or the picked files'), when it was saved, and how many activities it [saved] and [skipped].
+ * export's name or the picked files'), when it was saved, how many activities it [saved] and [skipped], and how many were selected
+ * ([total]; 0 for one saved before it was counted).
  */
 @Entity(tableName = "upload_batch")
 data class UploadBatchEntity(
@@ -22,6 +25,7 @@ data class UploadBatchEntity(
     val savedAt: Long,
     val saved: Int = 0,
     val skipped: Int = 0,
+    @ColumnInfo(defaultValue = "0") val total: Int = 0,
 )
 
 /**
@@ -48,6 +52,11 @@ data class UploadItemEntity(
     val sentWrites: Int = 0,
     val finishedAt: Long? = null,
     val skipped: Boolean = false,
+    /**
+     * The activity record as queued, so an import is checked against it with the PDS unreachable (feed/import-duplicates). Never read by
+     * the queue's observed queries.
+     */
+    val recordJson: String? = null,
 ) {
     companion object {
         const val KIND_NEW = "new"
@@ -77,6 +86,9 @@ data class UploadItemRow(
     val firstWrite: Long?,
 )
 
+/** [UploadDao.loggedRecords]: an activity's [rkey] and its record as queued. */
+data class LoggedRecord(val rkey: String, val recordJson: String)
+
 /** [UploadDao.bulkLeft]: an import's writes still to send, and how many of them carry a blob. */
 data class BulkLeft(val writes: Int, val blobs: Int)
 
@@ -91,6 +103,10 @@ interface UploadDao {
 
     @Upsert suspend fun putBatch(batch: UploadBatchEntity)
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertBatchIfAbsent(batch: UploadBatchEntity)
+
+    @Query("UPDATE upload_batch SET total = :total WHERE id = :id") suspend fun setBatchTotal(id: String, total: Int)
+
     @Query("SELECT * FROM upload_batch WHERE id = :id") suspend fun batch(id: String): UploadBatchEntity?
 
     @Query("UPDATE upload_batch SET saved = :saved, skipped = :skipped WHERE id = :id")
@@ -99,17 +115,26 @@ interface UploadDao {
     @Query("SELECT * FROM upload_item WHERE did = :did AND rkey = :rkey AND finishedAt IS NULL LIMIT 1")
     suspend fun live(did: String, rkey: String): UploadItemEntity?
 
-    @Query("UPDATE upload_item SET title = :title, sport = :sport, subSport = :subSport WHERE id = :id")
-    suspend fun retitle(id: Long, title: String?, sport: String?, subSport: String?)
+    @Query("UPDATE upload_item SET title = :title, sport = :sport, subSport = :subSport, recordJson = :recordJson WHERE id = :id")
+    suspend fun retitle(id: Long, title: String?, sport: String?, subSport: String?, recordJson: String?)
+
+    @Query("SELECT * FROM upload_item WHERE did = :did AND batchId = :batchId AND rkey = :rkey ORDER BY id DESC LIMIT 1")
+    suspend fun ofBatch(did: String, batchId: String, rkey: String): UploadItemEntity?
+
+    @Query("UPDATE upload_item SET finishedAt = NULL, sentWrites = 0 WHERE id = :id") suspend fun reopen(id: Long)
 
     /**
-     * Logs [item], or for one already live for its rkey, refreshes that one's title and type (data/upload-queue: one item per activity).
+     * Logs [item], or for one already live for its rkey, refreshes that one's title and type (data/upload-queue: one item per activity). An
+     * import's activity queued again (a resumed save, after the process stopped between its writes and marking it saved) reopens its item,
+     * even once that item finished sending the writes queued before the stop.
      */
     @Transaction
     suspend fun queued(item: UploadItemEntity) {
         val rkey = item.rkey
-        val live = rkey?.let { live(item.did, it) }
-        if (live == null) insert(item) else retitle(live.id, item.title, item.sport, item.subSport)
+        val live =
+            rkey?.let { live(item.did, it) }
+                ?: rkey?.let { key -> item.batchId?.let { ofBatch(item.did, it, key) } }?.also { reopen(it.id) }
+        if (live == null) insert(item) else retitle(live.id, item.title, item.sport, item.subSport, item.recordJson ?: live.recordJson)
     }
 
     @Query("UPDATE upload_item SET sentWrites = sentWrites + 1 WHERE did = :did AND rkey = :rkey AND finishedAt IS NULL")
@@ -168,6 +193,23 @@ interface UploadDao {
 
     @Query("SELECT * FROM upload_batch WHERE did = :did ORDER BY savedAt DESC") fun batches(did: String): Flow<List<UploadBatchEntity>>
 
+    /** [did]'s activities logged as new, with their records, started in [since, until) (epoch millis): the duplicate check's local log. */
+    @Query(
+        "SELECT rkey, recordJson FROM upload_item WHERE did = :did AND kind = 'new' AND rkey IS NOT NULL AND recordJson IS NOT NULL " +
+            "AND startedAt >= :since AND startedAt < :until ORDER BY startedAt"
+    )
+    suspend fun loggedRecords(did: String, since: Long, until: Long): List<LoggedRecord>
+
+    /** The activities import [batchId] logged as new, with their records, in the order saved. */
+    @Query(
+        "SELECT rkey, recordJson FROM upload_item WHERE did = :did AND batchId = :batchId AND kind = 'new' AND rkey IS NOT NULL " +
+            "AND recordJson IS NOT NULL ORDER BY id"
+    )
+    suspend fun recordsOfBatch(did: String, batchId: String): List<LoggedRecord>
+
+    @Query("SELECT rkey FROM upload_item WHERE did = :did AND batchId = :batchId AND rkey IS NOT NULL ORDER BY id")
+    suspend fun rkeysOfBatch(did: String, batchId: String): List<String>
+
     /** Changes (rkeys) with writes still to send that aren't live items: likes, comments, deletes, and writes queued before the log. */
     @Query(
         "SELECT COUNT(DISTINCT o.rkey) FROM outbox o WHERE o.did = :did AND o.rejectedAt IS NULL " +
@@ -201,7 +243,11 @@ interface UploadDao {
     @Query("DELETE FROM upload_item WHERE did = :did AND finishedAt IS NOT NULL AND finishedAt < :before")
     suspend fun deleteFinishedBefore(did: String, before: Long)
 
-    @Query("DELETE FROM upload_batch WHERE did = :did AND id NOT IN (SELECT batchId FROM upload_item WHERE batchId IS NOT NULL)")
+    /** Drops [did]'s imports with no items left, keeping those whose save is still there (saving, or stopped before saving any). */
+    @Query(
+        "DELETE FROM upload_batch WHERE did = :did AND id NOT IN (SELECT batchId FROM upload_item WHERE batchId IS NOT NULL) " +
+            "AND id NOT IN (SELECT batchId FROM import_save)"
+    )
     suspend fun deleteEmptyBatches(did: String)
 
     /** Drops items finished before [before] and the imports left without items; first finishes those the outbox holds nothing of. */

@@ -98,8 +98,24 @@ data class ImportActivityState(
     val newDevices: NewDevicesFields = NewDevicesFields(),
     /** The import is saved; what's left to say or offer before leaving. */
     val afterImport: AfterImport? = null,
+    /**
+     * A batch save under way that this screen didn't start, opened again while it runs (feed/batch-import): it goes on whether or not the
+     * screen is open. Null when none is.
+     */
+    val savingImport: SavingImport? = null,
+    /** Imports whose save stopped before every activity was saved: picking the files again imports the rest. */
+    val stoppedImports: ImmutableList<StoppedImport> = persistentListOf(),
     val eventSink: (ImportActivityEvent) -> Unit,
 ) : CircuitUiState
+
+/** A batch save under way: [progress] of its activities saved or skipped so far. */
+@Immutable data class SavingImport(val progress: SaveProgress)
+
+/** An import whose save stopped after [saved] of [total] selected activities; [batchId] names it to dismiss. */
+@Immutable data class StoppedImport(val batchId: String, val saved: Int, val total: Int)
+
+/** Saving a batch failed after [saved] of [total] activities, for [error]; those not saved stay selected to save again. */
+@Immutable data class SaveFailure(val error: UiError, val saved: Int, val total: Int)
 
 /** A dive just saved from a logbook, and the activity it likely belongs with. */
 @Immutable
@@ -136,6 +152,8 @@ data class ImportBatch(
     val preview: ImportItemPreview? = null,
     /** Saving: how many are queued so far. Null when not saving. */
     val progress: SaveProgress? = null,
+    /** The last save stopped short, and why; shown next to Save. Null when it didn't. */
+    val saveFailure: SaveFailure? = null,
 ) {
     /** The rows [filter] shows. */
     val shown: ImmutableList<ImportRow>
@@ -460,6 +478,12 @@ sealed interface ImportActivityEvent {
 
     /** Stops reading the picked files, keeping nothing of them. */
     data object CancelReading : ImportActivityEvent
+
+    /** Search the athlete's log for duplicates again, after it couldn't all be read (feed/import-duplicates). */
+    data object RetryDuplicateCheck : ImportActivityEvent
+
+    /** The athlete read that an import stopped, and dismissed the notice; it stays in the upload queue with what it saved. */
+    data class StoppedImportDismissed(val batchId: String) : ImportActivityEvent
 
     /** Where a zone-less file's clock was ([ImportClock]); a [TimeZoneOption.id]. */
     data class TimeZoneChanged(val id: String) : ImportActivityEvent

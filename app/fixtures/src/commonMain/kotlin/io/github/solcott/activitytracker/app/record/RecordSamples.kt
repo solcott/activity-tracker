@@ -284,6 +284,12 @@ object ImportActivitySamples {
                 "batchDuplicates" to batchState(mixed.copy(filter = BatchFilter.Duplicates)),
                 "batchSaving" to batchState(mixed.copy(progress = SaveProgress(queued = 2, total = 4))).copy(saving = true),
                 "batchSaved" to state(false, null).copy(batchSaved = BatchSaved(saved = 1_986, skipped = 3)),
+                "batchSaveFailed" to
+                    batchState(mixed.copy(saveFailure = SaveFailure(UiError(UiError.Kind.SaveActivity), saved = 3, total = 5))),
+                "savingImport" to state(false, null).copy(savingImport = SavingImport(SaveProgress(queued = 412, total = 1_362))),
+                "stoppedImport" to
+                    state(false, null).copy(stoppedImports = persistentListOf(StoppedImport("3kbatch", saved = 120, total = 400))),
+                "duplicateCheckFailed" to state(false, preview).copy(duplicateCheck = DuplicateCheck.Failed),
                 "preview" to state(false, preview),
                 "newDevices" to state(false, preview).copy(gear = gear, newDevices = newDevices),
                 "afterImport" to

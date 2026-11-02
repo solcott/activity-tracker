@@ -6,6 +6,7 @@ import io.github.solcott.activitytracker.activityfile.ActivityFileReader
 import io.github.solcott.activitytracker.activityfile.FitDecoder
 import io.github.solcott.activitytracker.app.detail.FigureKey
 import io.github.solcott.activitytracker.app.detail.FigureValue
+import io.github.solcott.activitytracker.app.record.BatchSaveRunner
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
@@ -49,6 +50,16 @@ class ImportFileFormatTest {
                 repos.defaults,
                 repos.units,
                 repos.suggestions,
+                repos.saveStore,
+                repos.saves,
+                BatchSaveRunner(
+                    repos.saveStore,
+                    repos.saves,
+                    repos.clients,
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader { error("not FIT") },
+                ),
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("export.dat", ByteString(gpx.encodeToByteArray())))
@@ -79,6 +90,16 @@ class ImportFileFormatTest {
                 repos.defaults,
                 repos.units,
                 repos.suggestions,
+                repos.saveStore,
+                repos.saves,
+                BatchSaveRunner(
+                    repos.saveStore,
+                    repos.saves,
+                    repos.clients,
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader { error("not called") },
+                ),
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("notes.txt", ByteString("just some notes".encodeToByteArray())))
@@ -110,6 +131,9 @@ class ImportFileFormatTest {
                 repos.defaults,
                 repos.units,
                 repos.suggestions,
+                repos.saveStore,
+                repos.saves,
+                BatchSaveRunner(repos.saveStore, repos.saves, repos.clients, repos.activities, repos.manager, ActivityFileReader(decoder)),
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("broken.fit", fitHeader))

@@ -4,6 +4,9 @@ import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ActivityEdit
 import io.github.solcott.activitytracker.data.activity.UploadQueue
 import io.github.solcott.activitytracker.data.activity.UploadSource
+import io.github.solcott.activitytracker.data.db.ImportSaveEntity
+import io.github.solcott.activitytracker.data.db.ImportSaveItemEntity
+import io.github.solcott.activitytracker.data.importsave.testImportSaves
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
@@ -19,6 +22,7 @@ import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
@@ -46,7 +50,7 @@ class UploadCancelTest {
             importBatch = importBatch,
         )
 
-    private fun FakeAthletePds.Session.uploads() = UploadQueue(db, clients, rejected, Clock.System)
+    private fun FakeAthletePds.Session.uploads() = UploadQueue(db, clients, rejected, Clock.System, testImportSaves(db))
 
     private fun view(uri: AtUri, title: String = "Morning ride") =
         ActivityView(
@@ -189,5 +193,50 @@ class UploadCancelTest {
 
         assertTrue(s.uploads().queue.first().isEmpty)
         assertEquals(emptyList(), s.db.outbox().pending(pds.did.value, uri.rkey!!))
+    }
+
+    /** A save of [total] activities under [batchId], the first [done] of them saved, still running. */
+    private suspend fun FakeAthletePds.Session.plan(batchId: String, total: Int, done: Int) {
+        val items =
+            (0 until total).map { position ->
+                ImportSaveItemEntity(batchId, position, position, 0, "[]", position, "3krkey$position", "{}", done = position < done)
+            }
+        db.importSaves().plan(ImportSaveEntity(batchId, pds.did.value, total, createdAt = 0, choicesJson = "{}"), emptyList(), items)
+    }
+
+    @Test
+    fun cancellingTheRestOfAnImportStillSavingStopsItsSave() = runTest {
+        val s = pds.session()
+        val saves = testImportSaves(s.db)
+        val uploads = UploadQueue(s.db, s.clients, s.rejected, Clock.System, saves)
+        pds.pdsUnreachable = true
+        s.activities.startImport("3kbatch", UploadSource.Export(listOf("Strava")), total = 4)
+        s.plan("3kbatch", total = 4, done = 2)
+        val uris = s.activities.publishBatch(flowOf(draft("One", "3kbatch"), draft("Two", "3kbatch")), drain = false)
+        // A runner is on it: it stops before its next activity and drops the save itself.
+        saves.started("3kbatch")
+
+        assertEquals(2, uploads.cancelRest("3kbatch"))
+
+        assertEquals(ImportSaveEntity.STATE_CANCELLED, s.db.importSaves().save("3kbatch")?.state)
+        pds.pdsUnreachable = false
+        s.activities.sync()
+        uris.forEach { assertEquals(emptyList(), sentFor(it)) }
+        assertNull(uploads.queue.first().imports.singleOrNull()?.save, "neither saving nor stopped")
+    }
+
+    @Test
+    fun cancellingTheRestOfAnImportWhoseSaveIsntRunningEndsIt() = runTest {
+        val s = pds.session()
+        val uploads = s.uploads()
+        pds.pdsUnreachable = true
+        s.activities.startImport("3kbatch", UploadSource.Export(listOf("Strava")), total = 4)
+        s.plan("3kbatch", total = 4, done = 1)
+        s.activities.publishBatch(flowOf(draft("One", "3kbatch")), drain = false)
+
+        assertEquals(1, uploads.cancelRest("3kbatch"))
+
+        assertNull(s.db.importSaves().save("3kbatch"), "the save is dropped")
+        assertNull(uploads.queue.first().imports.singleOrNull()?.save, "and the import isn't shown stopped")
     }
 }

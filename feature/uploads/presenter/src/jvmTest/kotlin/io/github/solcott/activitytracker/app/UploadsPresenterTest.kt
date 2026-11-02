@@ -8,12 +8,15 @@ import io.github.solcott.activitytracker.app.uploads.UploadsEvent
 import io.github.solcott.activitytracker.app.uploads.UploadsPresenter
 import io.github.solcott.activitytracker.app.uploads.UploadsScreen
 import io.github.solcott.activitytracker.app.uploads.UploadsState
+import io.github.solcott.activitytracker.data.activity.ImportSaveStatus
 import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.RejectedChanges
 import io.github.solcott.activitytracker.data.activity.UploadQueue
 import io.github.solcott.activitytracker.data.activity.UploadQueueView
 import io.github.solcott.activitytracker.data.activity.UploadState
 import io.github.solcott.activitytracker.data.db.AppDatabase
+import io.github.solcott.activitytracker.data.db.ImportSaveEntity
+import io.github.solcott.activitytracker.data.db.ImportSaveItemEntity
 import io.github.solcott.activitytracker.data.db.OutboxEntity
 import io.github.solcott.activitytracker.data.db.UploadBatchEntity
 import io.github.solcott.activitytracker.data.db.UploadItemEntity
@@ -21,6 +24,7 @@ import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.importsave.testImportSaves
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.location.FakeLocationTracker
 import io.github.solcott.activitytracker.location.LocationTracker
@@ -115,7 +119,7 @@ class UploadsPresenterTest {
         db.seed()
         val likes = LocalLikes()
         val rejected = RejectedChanges(db, clients, OutboxProcessor(db, clients, Logger), FeedRepository(db, clients, likes, Logger), likes)
-        val uploads = UploadQueue(db, clients, rejected, Clock.System)
+        val uploads = UploadQueue(db, clients, rejected, Clock.System, testImportSaves(db))
         presenterTestOf({ UploadsPresenter(navigator, uploads, location) }, timeout = 10.seconds) { block(db, clients) }
     }
 
@@ -207,6 +211,26 @@ class UploadsPresenterTest {
             awaitUntil { it.content.data?.imports?.size == 1 }.eventSink(UploadsEvent.CancelRest("3kbatch"))
             awaitUntil { it.confirmingCancelRest == "3kbatch" }.eventSink(UploadsEvent.ConfirmCancelRest("3kbatch"))
             awaitUntil { it.content.data?.imports?.singleOrNull()?.live?.isEmpty() == true }
+            assertEquals(emptyList(), db.outbox().pending(did))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun cancellingTheRestOfAnImportStillSavingDropsItsUnsavedActivities() = runTest {
+        presenterTest(
+            seed = {
+                uploads().putBatch(UploadBatchEntity("3kbatch", did, "export:Strava", savedAt = 0, saved = 1, total = 3))
+                val items = (0 until 3).map { ImportSaveItemEntity("3kbatch", it, it, 0, "[]", it, "3krkey$it", "{}", done = it == 0) }
+                importSaves().plan(ImportSaveEntity("3kbatch", did, 3, createdAt = 0, choicesJson = "{}"), emptyList(), items)
+                waiting("3kone", "One", batchId = "3kbatch")
+            }
+        ) { db, _ ->
+            val saving = awaitUntil { it.content.data?.imports?.singleOrNull()?.save != null }
+            assertEquals(ImportSaveStatus.Saving(done = 1, total = 3), saving.content.data!!.imports.single().save)
+            saving.eventSink(UploadsEvent.ConfirmCancelRest("3kbatch"))
+            awaitUntil { state -> state.content.data?.imports?.singleOrNull()?.let { it.save == null && it.live.isEmpty() } == true }
+            assertNull(db.importSaves().save("3kbatch"), "with no runner on it, the save ends now")
             assertEquals(emptyList(), db.outbox().pending(did))
             cancelAndIgnoreRemainingEvents()
         }

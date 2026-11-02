@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.activityfile.ImportSource
 import io.github.solcott.activitytracker.app.record.ActivityTypeEvent
 import io.github.solcott.activitytracker.app.record.BatchExport
 import io.github.solcott.activitytracker.app.record.BatchFilter
+import io.github.solcott.activitytracker.app.record.BatchSaveRunner
 import io.github.solcott.activitytracker.app.record.DuplicateAction
 import io.github.solcott.activitytracker.app.record.DuplicateCheck
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
@@ -104,6 +105,16 @@ class ImportBatchPresenterTest {
                 repos.defaults,
                 repos.units,
                 repos.suggestions,
+                repos.saveStore,
+                repos.saves,
+                BatchSaveRunner(
+                    repos.saveStore,
+                    repos.saves,
+                    repos.clients,
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader { error("not FIT") },
+                ),
             )
         }
 

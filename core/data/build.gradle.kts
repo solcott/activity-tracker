@@ -15,6 +15,8 @@ kotlin {
             api(libs.dataresult)
             // Page, which paged reads return.
             api(libs.dataresult.uistate)
+            // PlatformFile, which picked files keep (importsave/) so a save can reopen them after process death.
+            api(libs.filekit.core)
             api(libs.room.runtime)
 
             implementation(libs.compose.runtime.annotation)

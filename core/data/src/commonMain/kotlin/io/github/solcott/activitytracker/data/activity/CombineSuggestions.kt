@@ -101,8 +101,7 @@ class CombineSuggestions(
     suspend fun forActivity(view: ActivityView): CombineSuggestion? = forActivity(CombineSubject(view))
 
     /** For [draft], just published as [uri]: the AppView may not serve it yet. */
-    suspend fun forSaved(uri: AtUri, draft: ActivityDraft): CombineSuggestion? =
-        forActivity(CombineSubject(uri, draft.toRecord(clock.now())))
+    suspend fun forSaved(uri: AtUri, record: ActivityRecord): CombineSuggestion? = forActivity(CombineSubject(uri, record))
 
     /**
      * What to pass `ActivityManager.combine` to accept [suggestion] for [subject]: the combined activity either one is part of, else the

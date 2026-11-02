@@ -4,6 +4,7 @@ import com.slack.circuit.test.FakeNavigator
 import io.github.solcott.activitytracker.activityfile.ActivityFileReader
 import io.github.solcott.activitytracker.activityfile.DecodedActivity
 import io.github.solcott.activitytracker.activityfile.DecodedSummary
+import io.github.solcott.activitytracker.app.record.BatchSaveRunner
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
@@ -74,6 +75,9 @@ class ImportSourceFileTest {
                 repos.defaults,
                 repos.units,
                 repos.suggestions,
+                repos.saveStore,
+                repos.saves,
+                BatchSaveRunner(repos.saveStore, repos.saves, repos.clients, repos.activities, repos.manager, ActivityFileReader { run }),
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Morning_Run.FIT", bytes))
@@ -119,6 +123,9 @@ class ImportSourceFileTest {
                 repos.defaults,
                 repos.units,
                 repos.suggestions,
+                repos.saveStore,
+                repos.saves,
+                BatchSaveRunner(repos.saveStore, repos.saves, repos.clients, repos.activities, repos.manager, ActivityFileReader { run }),
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Huge.fit", huge))

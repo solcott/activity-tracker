@@ -117,15 +117,10 @@ class PublishTrim(val trim: RouteTrim, internal val fresh: Boolean)
 
 /**
  * An activity published this session without a fresh read of the zones, kept so it can be trimmed again once they're read: at [visibility],
- * with its Map category at [mapTier], where its polyline goes.
+ * with its Map category at [mapTier], where its polyline goes. It holds no route points, so a batch import published while the zones can't
+ * be read keeps only a few fields per activity: [RouteTrimmer] reads each route back from its track, queued or sent.
  */
-data class StaleRoute(
-    val uri: AtUri,
-    val visibility: String,
-    val mapTier: String,
-    val route: List<LocationSample>,
-    val trimmedWith: RouteTrim,
-)
+data class StaleRoute(val uri: AtUri, val visibility: String, val mapTier: String, val trimmedWith: RouteTrim)
 
 /** An athlete already has [PrivacyZonesRecord.MAX_ZONES] zones. */
 class TooManyZonesException : IllegalStateException("At most ${PrivacyZonesRecord.MAX_ZONES} privacy zones")
@@ -207,8 +202,9 @@ class PrivacyZones(private val clients: SessionClients, private val clock: Clock
 
     /**
      * Remembers [uri], published at [visibility] with its map at [mapTier] and trimmed with [with], to trim again by the zones once they're
-     * read ([takeStale]), unless they were read fresh for it and are still the latest: a save or read since replaced them. Returns [with]
-     * as the rest of the publish should take it, not fresh when it was replaced.
+     * read ([takeStale]) when it has a [route], unless they were read fresh for it and are still the latest: a save or read since replaced
+     * them. Only the route's size is kept in mind: [RouteTrimmer] reads it back from its track. Returns [with] as the rest of the publish
+     * should take it, not fresh when it was replaced.
      */
     suspend fun published(
         uri: AtUri,
@@ -218,9 +214,15 @@ class PrivacyZones(private val clients: SessionClients, private val clock: Clock
         with: PublishTrim,
     ): PublishTrim = state.withLock {
         val current = if (with.fresh && with.trim == last) with else PublishTrim(with.trim, fresh = false)
-        if (route.size >= 2 && !current.fresh) stale[requireNotNull(uri.rkey)] = StaleRoute(uri, visibility, mapTier, route, with.trim)
+        if (route.size >= 2 && !current.fresh) stale[requireNotNull(uri.rkey)] = StaleRoute(uri, visibility, mapTier, with.trim)
         current
     }
+
+    /**
+     * Puts back [route], taken by [takeStale] but not trimmed again (its track couldn't be read just then), so a later
+     * [RouteTrimmer.trimStale] tries again; a publish of it since replaces it.
+     */
+    internal suspend fun restore(route: StaleRoute) = state.withLock { stale.getOrPut(requireNotNull(route.uri.rkey)) { route } }
 
     /**
      * The activities this session published by zones other than [latest], removed from the list: [RouteTrimmer] trims them again. Ones

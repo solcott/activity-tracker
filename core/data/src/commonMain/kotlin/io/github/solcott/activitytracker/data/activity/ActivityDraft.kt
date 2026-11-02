@@ -102,6 +102,11 @@ data class ActivityDraft(
     val importBatch: String? = null,
     /** Another athlete's activity this one copies, accepted from their invite ([ActivityRecord.copyOf], feed/activity-invites). */
     val copyOf: AtUri? = null,
+    /**
+     * The record key to save it under, chosen ahead so saving it again rewrites the same records (a batch save resumed, feed/batch-import);
+     * null for a new one.
+     */
+    val rkey: String? = null,
 ) {
     /**
      * This draft with what the athlete wrote about it: [description], [photos], and for a dive its [diveSite] (blank clears the logbook's;

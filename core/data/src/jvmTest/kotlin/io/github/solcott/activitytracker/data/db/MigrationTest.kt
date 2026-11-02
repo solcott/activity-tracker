@@ -114,6 +114,19 @@ class MigrationTest {
         db.close()
     }
 
+    @Test
+    fun version9GainsEmptySavesAndUncountedImports() = runTest {
+        val file = File(createTempDirectory("migration").toFile(), DATABASE_NAME)
+        createVersion(file, 9)
+
+        val db = Room.databaseBuilder<AppDatabase>(file.path).addAppMigrations().setDriver(BundledSQLiteDriver()).build()
+        assertEquals(listOf("3kold"), db.outbox().pending("did:plc:alice").map { it.rkey })
+        assertEquals(emptyList(), db.importSaves().counts("did:plc:alice").first())
+        db.uploads().putBatch(UploadBatchEntity("3kbatch", "did:plc:alice", "files", savedAt = 0))
+        assertEquals(0, db.uploads().batch("3kbatch")?.total, "an import from before counts no selection, so it's never stopped")
+        db.close()
+    }
+
     private fun createVersion1(file: File) = createVersion(file, 1)
 
     /** The [version] schema, from the committed schema export, with one queued write. */

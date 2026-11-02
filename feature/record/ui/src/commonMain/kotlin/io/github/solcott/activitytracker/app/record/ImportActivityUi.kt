@@ -2,7 +2,6 @@ package io.github.solcott.activitytracker.app.record
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -190,7 +189,14 @@ internal fun PickSection(state: ImportActivityState, onPick: () -> Unit, modifie
                 Text(stringResource(Res.string.action_cancel))
             }
         }
-        state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+        // Once a file is read, errors are saving's, shown by Save.
+        if (!picked) state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+        if (!picked) {
+            state.savingImport?.let { SavingImportCard(it) { state.eventSink(ImportActivityEvent.Saved.ViewUploads) } }
+            state.stoppedImports.forEach { stopped ->
+                StoppedImportNotice(stopped) { state.eventSink(ImportActivityEvent.StoppedImportDismissed(stopped.batchId)) }
+            }
+        }
         if (picked && state.originalTooLarge) {
             Text(stringResource(Res.string.import_original_too_large), style = MaterialTheme.typography.bodySmall)
         }
@@ -215,6 +221,7 @@ private fun SavePanel(state: ImportActivityState, save: (() -> Unit)?) {
         if (!state.addsRecording) ActivityVisibilityForm(state.visibility, enabled = !state.saving)
         val preview = state.preview
         if (save != null && preview != null) {
+            state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
             AppButton(onClick = save, Modifier.fillMaxWidth(), enabled = state.canSave(preview)) { Text(saveLabel(state)) }
         }
     }
@@ -225,7 +232,12 @@ private fun SavePanel(state: ImportActivityState, save: (() -> Unit)?) {
 private fun SaveBar(state: ImportActivityState, preview: ImportPreview, save: () -> Unit) {
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).navigationBarsPadding()) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            state.error?.let { Text(errorText(it), Modifier.readableWidth(), color = MaterialTheme.colorScheme.error) }
             AppButton(onClick = save, Modifier.readableWidth(), enabled = state.canSave(preview)) { Text(saveLabel(state)) }
         }
     }

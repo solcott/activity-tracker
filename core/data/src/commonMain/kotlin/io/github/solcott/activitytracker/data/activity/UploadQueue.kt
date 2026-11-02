@@ -6,12 +6,15 @@ import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.xrpc.RateLimit
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.BulkLeft
+import io.github.solcott.activitytracker.data.db.ImportSaveCounts
+import io.github.solcott.activitytracker.data.db.ImportSaveEntity
 import io.github.solcott.activitytracker.data.db.KeyValueEntity
 import io.github.solcott.activitytracker.data.db.UploadBatchEntity
 import io.github.solcott.activitytracker.data.db.UploadItemEntity
 import io.github.solcott.activitytracker.data.db.UploadItemRow
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.importsave.ImportSaves
 import io.github.solcott.activitytracker.data.toDataError
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -107,7 +110,19 @@ data class UploadImport(
     val refused: Int,
     val live: List<UploadItem>,
     val finished: List<UploadItem>,
+    /** Whether its save is still running or stopped short; null once every selected activity is saved or skipped, or it's cancelled. */
+    val save: ImportSaveStatus? = null,
 )
+
+/** How far an import's save got (data/upload-queue), beside its uploads. */
+@Immutable
+sealed interface ImportSaveStatus {
+    /** Still saving: [done] activities saved or skipped, of [total] selected. */
+    data class Saving(val done: Int, val total: Int) : ImportSaveStatus
+
+    /** Stopped after [saved] of [total] and can't resume: the athlete picks the files again to import the rest. */
+    data class Stopped(val saved: Int, val total: Int) : ImportSaveStatus
+}
 
 /**
  * The upload queue as listed (data/upload-queue): the item uploading now, the athlete's own live items in the order they'll be sent, each
@@ -162,6 +177,7 @@ class UploadQueue(
     private val clients: SessionClients,
     private val rejected: RejectedChanges,
     private val clock: Clock,
+    private val saves: ImportSaves,
 ) {
     private val did: String
         get() = clients.did.value
@@ -170,8 +186,13 @@ class UploadQueue(
         get() = clients.pacing
 
     val queue: Flow<UploadQueueView> =
-        combine(db.uploads().items(did), db.uploads().batches(did), rejected.changes, pacing.sending) { items, batches, refused, sending ->
-            view(items, batches, refused, sending)
+        combine(db.uploads().items(did), db.uploads().batches(did), db.importSaves().counts(did), rejected.changes, pacing.sending) {
+            items,
+            batches,
+            plans,
+            refused,
+            sending ->
+            view(items, batches, plans.associateBy { it.batchId }, refused, sending)
         }
 
     /** [queue] for a screen's content: loading, then each view read from the device, or why it couldn't be read. */
@@ -267,9 +288,21 @@ class UploadQueue(
             }
         }
 
-    /** Cancels each waiting and refused activity of the import [batchId], keeping those started; returns how many it cancelled. */
+    /**
+     * Cancels the rest of the import [batchId] (data/upload-queue): its activities not yet saved, which a running save stops before, and
+     * each waiting and refused activity, keeping those started; returns how many activities it cancelled from the queue. A cancelled import
+     * never reads as stopped.
+     */
     suspend fun cancelRest(batchId: String): Int =
-        withContext(NonCancellable) { db.uploads().liveOfBatch(did, batchId).mapNotNull { it.rkey }.count { cancel(it) } }
+        withContext(NonCancellable) {
+            if (db.importSaves().save(batchId) != null) {
+                db.importSaves().setState(batchId, ImportSaveEntity.STATE_CANCELLED)
+                // A runner on it drops the save itself between activities; otherwise nothing will, so it ends now.
+                if (batchId !in saves.running.value) saves.end(batchId)
+            }
+            db.uploads().setBatchTotal(batchId, 0)
+            db.uploads().liveOfBatch(did, batchId).mapNotNull { it.rkey }.count { cancel(it) }
+        }
 
     /** Sends the refused change at [rkey] again. */
     suspend fun retry(rkey: String) {
@@ -286,7 +319,13 @@ class UploadQueue(
         withContext(NonCancellable) { UploadLog.clearFinished(db, did, clock.now()) }
     }
 
-    private fun view(items: List<UploadItemRow>, batches: List<UploadBatchEntity>, refused: List<RejectedChange>, sending: String?) = run {
+    private fun view(
+        items: List<UploadItemRow>,
+        batches: List<UploadBatchEntity>,
+        plans: Map<String, ImportSaveCounts>,
+        refused: List<RejectedChange>,
+        sending: String?,
+    ) = run {
         val shown = items.map { it.toItem(sending) }
         val byId = items.zip(shown).toMap()
         val live = items.filter { it.finishedAt == null && !it.skipped }.sortedBy { it.firstWrite ?: Long.MAX_VALUE }
@@ -313,12 +352,26 @@ class UploadQueue(
                         refused = shownRows.count { it.state == UploadState.Refused },
                         live = live.filter { it.batchId == batch.id && it != current }.map(byId::getValue),
                         finished = finishedOf(rows),
+                        save = saveStatus(batch, plans[batch.id]),
                     )
                 },
             finished = finishedOf(items.filter { it.batchId == null }),
             refusedOther = refused.distinctBy { it.rkey }.filter { it.rkey !in logged },
         )
     }
+
+    /**
+     * [batch]'s save: saving while its [plan] runs, stopped when the plan stopped, or when no plan remains and it saved and skipped fewer
+     * than it selected (a total of 0, from before imports were counted, never is).
+     */
+    private fun saveStatus(batch: UploadBatchEntity, plan: ImportSaveCounts?): ImportSaveStatus? =
+        when {
+            plan == null ->
+                ImportSaveStatus.Stopped(batch.saved, batch.total).takeIf { batch.total > 0 && batch.saved + batch.skipped < batch.total }
+            plan.state == ImportSaveEntity.STATE_RUNNING -> ImportSaveStatus.Saving(plan.done + plan.skipped, plan.total)
+            plan.state == ImportSaveEntity.STATE_STOPPED -> ImportSaveStatus.Stopped(plan.done, plan.total)
+            else -> null
+        }
 
     private fun UploadItemRow.toItem(sending: String?) =
         UploadItem(

@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.activityfile.DecodedSample
 import io.github.solcott.activitytracker.activityfile.DecodedSource
 import io.github.solcott.activitytracker.activityfile.DecodedSummary
 import io.github.solcott.activitytracker.app.detail.ActivityDetailScreen
+import io.github.solcott.activitytracker.app.record.BatchSaveRunner
 import io.github.solcott.activitytracker.app.record.DuplicateAction
 import io.github.solcott.activitytracker.app.record.DuplicateCheck
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
@@ -136,6 +137,9 @@ class ImportCombinePresenterTest {
                 repos.defaults,
                 repos.units,
                 repos.suggestions,
+                repos.saveStore,
+                repos.saves,
+                BatchSaveRunner(repos.saveStore, repos.saves, repos.clients, repos.activities, repos.manager, ActivityFileReader { run }),
             )
         }
 

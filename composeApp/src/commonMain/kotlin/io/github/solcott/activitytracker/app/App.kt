@@ -85,6 +85,13 @@ fun App(
                 LaunchedEffect(Unit) { sessionGraph.outboxPacer.run() }
                 // Finished uploads a week old leave the queue; closing mid-import asks first on desktop and web (data/upload-queue).
                 LaunchedEffect(Unit) { runSuspendCatching { sessionGraph.uploadQueue.prune() } }
+                // A batch save left unfinished (the app was killed, or quit) resumes, and what no save names any more is let go
+                // (feed/batch-import).
+                LaunchedEffect(Unit) {
+                    runSuspendCatching {
+                        graph.importSaves.resume(current.did, sessionGraph.importSaveStore, sessionGraph.importSaveRunner)
+                    }
+                }
                 val importsActive by rememberUpdatedState(onImportsActive)
                 LaunchedEffect(Unit) { sessionGraph.uploadQueue.importsActive.collect { importsActive(it) } }
                 DisposableEffect(Unit) { onDispose { importsActive(false) } }

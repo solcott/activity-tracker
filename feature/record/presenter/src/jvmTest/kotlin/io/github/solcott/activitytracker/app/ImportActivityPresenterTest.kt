@@ -28,6 +28,7 @@ import io.github.solcott.activitytracker.app.detail.FigureValue
 import io.github.solcott.activitytracker.app.edit.DetailsEvent
 import io.github.solcott.activitytracker.app.edit.PickedPhoto
 import io.github.solcott.activitytracker.app.record.ActivityTypeEvent
+import io.github.solcott.activitytracker.app.record.BatchSaveRunner
 import io.github.solcott.activitytracker.app.record.CadencePreview
 import io.github.solcott.activitytracker.app.record.DefaultTitle
 import io.github.solcott.activitytracker.app.record.DepthPreviewPoint
@@ -546,6 +547,9 @@ class ImportActivityPresenterTest {
                 repos.defaults,
                 repos.units,
                 repos.suggestions,
+                repos.saveStore,
+                repos.saves,
+                BatchSaveRunner(repos.saveStore, repos.saves, repos.clients, repos.activities, repos.manager, ActivityFileReader(decoder)),
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("good.fit", bytes))
@@ -575,5 +579,8 @@ class ImportActivityPresenterTest {
             repos.defaults,
             repos.units,
             repos.suggestions,
+            repos.saveStore,
+            repos.saves,
+            BatchSaveRunner(repos.saveStore, repos.saves, repos.clients, repos.activities, repos.manager, reader),
         )
 }

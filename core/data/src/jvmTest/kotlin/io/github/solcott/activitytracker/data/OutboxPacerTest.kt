@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.data.activity.PacerOutcome
 import io.github.solcott.activitytracker.data.activity.UploadLog
 import io.github.solcott.activitytracker.data.activity.UploadQueue
 import io.github.solcott.activitytracker.data.db.KeyValueEntity
+import io.github.solcott.activitytracker.data.importsave.testImportSaves
 import io.github.solcott.activitytracker.lexicon.Nsid
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -111,7 +112,7 @@ class OutboxPacerTest {
         assertEquals(3, p.session.db.outbox().pending(p.pds.did.value).size)
     }
 
-    private fun Pacing.uploads() = UploadQueue(session.db, session.clients, session.rejected, Clock.System)
+    private fun Pacing.uploads() = UploadQueue(session.db, session.clients, session.rejected, Clock.System, testImportSaves(session.db))
 
     @Test
     fun theAthletesOwnWritesGoWhileImportsArePaused() = runTest {

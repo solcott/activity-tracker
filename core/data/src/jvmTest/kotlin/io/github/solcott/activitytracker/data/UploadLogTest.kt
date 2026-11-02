@@ -7,6 +7,8 @@ import io.github.solcott.activitytracker.data.activity.UploadQueue
 import io.github.solcott.activitytracker.data.activity.UploadQueueView
 import io.github.solcott.activitytracker.data.activity.UploadSource
 import io.github.solcott.activitytracker.data.activity.UploadState
+import io.github.solcott.activitytracker.data.importsave.testImportSaves
+import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
@@ -58,7 +60,7 @@ class UploadLogTest {
             importBatch = importBatch,
         )
 
-    private fun FakeAthletePds.Session.uploads(clock: Clock = Clock.System) = UploadQueue(db, clients, rejected, clock)
+    private fun FakeAthletePds.Session.uploads(clock: Clock = Clock.System) = UploadQueue(db, clients, rejected, clock, testImportSaves(db))
 
     private suspend fun UploadQueue.view(): UploadQueueView = queue.first()
 
@@ -196,6 +198,37 @@ class UploadLogTest {
         assertEquals(listOf(UploadState.Skipped), import.finished.map { it.state })
         assertEquals(2, uploads.summary.first().imported)
         assertEquals(0, uploads.summary.first().own)
+    }
+
+    @Test
+    fun anImportActivityQueuedAgainKeepsItsOneItem() = runTest {
+        val s = pds.session()
+        s.activities.startImport("3kbatch", UploadSource.Files("a.fit", 1), total = 1)
+        // The process stopped after the activity's writes were queued and sent, before it was marked saved: the resume queues it again.
+        s.activities.publishBatch(flowOf(draft("One", "3kbatch").copy(rkey = "3kone")))
+        s.activities.publishBatch(flowOf(draft("One", "3kbatch").copy(rkey = "3kone")))
+
+        val item = s.uploads().view().all().single()
+        assertEquals("One", item.title, "one item per activity, however often a resumed save queues it")
+        assertEquals(UploadState.Uploaded, item.state)
+        assertEquals(item.total, item.sent)
+    }
+
+    @Test
+    fun anImportCountsItsSelectionAndKeepsEachRecord() = runTest {
+        val s = pds.session()
+        pds.pdsUnreachable = true
+        s.activities.startImport("3kbatch", UploadSource.Files("a.fit", 3), total = 3)
+        s.activities.publishBatch(flowOf(draft("One", "3kbatch")), drain = false)
+        // Saving again after a failure starts the same import: it keeps its first save time.
+        val first = s.db.uploads().batch("3kbatch")
+        s.activities.startImport("3kbatch", UploadSource.Files("a.fit", 3), total = 3)
+
+        assertEquals(3, s.db.uploads().batch("3kbatch")?.total)
+        assertEquals(first?.savedAt, s.db.uploads().batch("3kbatch")?.savedAt)
+        val logged = s.db.uploads().loggedRecords(pds.did.value, Long.MIN_VALUE, Long.MAX_VALUE).single()
+        val record = AtJson.decodeFromString(ActivityRecord.serializer(), logged.recordJson)
+        assertEquals("One", record.title, "the log keeps the record as queued, for the duplicate check")
     }
 
     @Test

@@ -8,6 +8,7 @@ import io.github.solcott.activitytracker.activityfile.DecodedActivity
 import io.github.solcott.activitytracker.activityfile.DecodedSample
 import io.github.solcott.activitytracker.activityfile.DecodedSource
 import io.github.solcott.activitytracker.activityfile.DecodedSummary
+import io.github.solcott.activitytracker.app.record.BatchSaveRunner
 import io.github.solcott.activitytracker.app.record.ImportActivityEvent
 import io.github.solcott.activitytracker.app.record.ImportActivityPresenter
 import io.github.solcott.activitytracker.app.record.ImportActivityScreen
@@ -88,6 +89,16 @@ class ImportActivityNotesTest {
                 repos.defaults,
                 repos.units,
                 repos.suggestions,
+                repos.saveStore,
+                repos.saves,
+                BatchSaveRunner(
+                    repos.saveStore,
+                    repos.saves,
+                    repos.clients,
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader { run.copy(notes = "Turtle at the wall") },
+                ),
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Dive.fit", bytes))
@@ -122,6 +133,16 @@ class ImportActivityNotesTest {
                 repos.defaults,
                 repos.units,
                 repos.suggestions,
+                repos.saveStore,
+                repos.saves,
+                BatchSaveRunner(
+                    repos.saveStore,
+                    repos.saves,
+                    repos.clients,
+                    repos.activities,
+                    repos.manager,
+                    ActivityFileReader { run.copy(notes = "Turtle at the wall") },
+                ),
             )
         }) {
             awaitItem().eventSink(ImportActivityEvent.FilePicked("Dive.fit", bytes))

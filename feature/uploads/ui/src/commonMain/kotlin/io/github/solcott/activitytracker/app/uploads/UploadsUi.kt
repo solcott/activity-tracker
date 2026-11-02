@@ -41,6 +41,7 @@ import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel_con
 import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel_message
 import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel_rest
 import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel_rest_message
+import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel_rest_message_saving
 import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel_rest_named
 import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel_rest_title
 import io.github.solcott.activitytracker.composeApp.resources.uploads_cancel_title
@@ -51,7 +52,9 @@ import io.github.solcott.activitytracker.composeApp.resources.uploads_finished
 import io.github.solcott.activitytracker.composeApp.resources.uploads_import_progress
 import io.github.solcott.activitytracker.composeApp.resources.uploads_import_refused
 import io.github.solcott.activitytracker.composeApp.resources.uploads_import_saved
+import io.github.solcott.activitytracker.composeApp.resources.uploads_import_saving
 import io.github.solcott.activitytracker.composeApp.resources.uploads_import_skipped
+import io.github.solcott.activitytracker.composeApp.resources.uploads_import_stopped
 import io.github.solcott.activitytracker.composeApp.resources.uploads_imports_paused
 import io.github.solcott.activitytracker.composeApp.resources.uploads_keep
 import io.github.solcott.activitytracker.composeApp.resources.uploads_open_only
@@ -62,6 +65,7 @@ import io.github.solcott.activitytracker.composeApp.resources.uploads_show_all
 import io.github.solcott.activitytracker.composeApp.resources.uploads_title
 import io.github.solcott.activitytracker.composeApp.resources.uploads_uploading_now
 import io.github.solcott.activitytracker.composeApp.resources.uploads_yours
+import io.github.solcott.activitytracker.data.activity.ImportSaveStatus
 import io.github.solcott.activitytracker.data.activity.UploadImport
 import io.github.solcott.activitytracker.data.activity.UploadQueueView
 import io.github.solcott.activitytracker.data.di.SessionScope
@@ -209,7 +213,7 @@ private fun ImportHeader(group: UploadImport, state: UploadsState) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             val source = sourceName(group.source)
             Text(source, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-            if (group.live.any { it.cancellable }) {
+            if (group.save is ImportSaveStatus.Saving || group.live.any { it.cancellable }) {
                 val description = stringResource(Res.string.uploads_cancel_rest_named, source)
                 AppTextButton(
                     onClick = { state.eventSink(UploadsEvent.CancelRest(group.id)) },
@@ -221,6 +225,15 @@ private fun ImportHeader(group: UploadImport, state: UploadsState) {
             }
         }
         Detail(stringResource(Res.string.uploads_import_saved, startTime(FigureValue.StartTime(group.savedAt.epochSeconds, null, false))))
+        when (val save = group.save) {
+            is ImportSaveStatus.Saving -> Text(stringResource(Res.string.uploads_import_saving, grouped(save.done), grouped(save.total)))
+            is ImportSaveStatus.Stopped ->
+                Text(
+                    stringResource(Res.string.uploads_import_stopped, grouped(save.saved), grouped(save.total)),
+                    color = MaterialTheme.colorScheme.error,
+                )
+            null -> Unit
+        }
         Text(stringResource(Res.string.uploads_import_progress, grouped(group.uploaded), grouped(group.saved)))
         val counts =
             listOfNotNull(
@@ -248,9 +261,10 @@ private fun Confirmations(state: UploadsState) {
         )
     }
     state.confirmingCancelRest?.let { batchId ->
+        val saving = state.content.data?.imports?.find { it.id == batchId }?.save is ImportSaveStatus.Saving
         AppAlertDialog(
             title = stringResource(Res.string.uploads_cancel_rest_title),
-            message = stringResource(Res.string.uploads_cancel_rest_message),
+            message = stringResource(if (saving) Res.string.uploads_cancel_rest_message_saving else Res.string.uploads_cancel_rest_message),
             actions =
                 persistentListOf(
                     AppDialogAction(stringResource(Res.string.uploads_cancel_rest), destructive = true) {

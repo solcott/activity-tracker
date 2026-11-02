@@ -54,6 +54,7 @@ import io.github.solcott.activitytracker.composeApp.resources.import_batch_narro
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_originals_size
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_originals_too_large
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_save
+import io.github.solcott.activitytracker.composeApp.resources.import_batch_save_failed
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_saving
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_skipped
 import io.github.solcott.activitytracker.composeApp.resources.import_batch_strava
@@ -154,7 +155,13 @@ private fun BatchSummary(state: ImportActivityState, batch: ImportBatch, enabled
                 )
             }
         }
-        DuplicatesBanner(state.duplicateCheck, batch.existingDuplicates, batch.inBatchDuplicates, copies = batch.exactCopies)
+        DuplicatesBanner(
+            state.duplicateCheck,
+            batch.existingDuplicates,
+            batch.inBatchDuplicates,
+            copies = batch.exactCopies,
+            onRetry = { state.eventSink(ImportActivityEvent.RetryDuplicateCheck) },
+        )
         if (batch.skipped.isNotEmpty()) {
             val names = batch.skipped.map { skippedLabel(it) }
             Text(
@@ -335,6 +342,21 @@ private fun BatchSettings(state: ImportActivityState, batch: ImportBatch, enable
         val labels = untitled.map { it.defaultTitle }.distinct().associateWith { defaultTitleLabel(it) }
         val defaultTitles = untitled.associate { it.index to labels.getValue(it.defaultTitle) }.toImmutableMap()
         val progress = batch.progress
+        // A save that stopped short, and anything else saving refused, by Save where the athlete is looking (feed/batch-import).
+        val failure = batch.saveFailure
+        if (failure != null) {
+            Text(
+                stringResource(
+                    Res.string.import_batch_save_failed,
+                    formatWhole(failure.saved),
+                    formatWhole(failure.total),
+                    errorText(failure.error),
+                ),
+                color = MaterialTheme.colorScheme.error,
+            )
+        } else {
+            state.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+        }
         AppButton(
             onClick = { state.eventSink(ImportActivityEvent.SaveBatch(defaultTitles)) },
             Modifier.fillMaxWidth(),

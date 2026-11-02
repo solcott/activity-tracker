@@ -7,6 +7,7 @@ import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSession
 import io.github.solcott.activitytracker.atproto.oauth.OAuthSessionManager
 import io.github.solcott.activitytracker.data.db.AppDatabase
+import io.github.solcott.activitytracker.data.importsave.ImportSaves
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Handle
 import io.github.solcott.activitytracker.location.ActivityRecorder
@@ -29,6 +30,7 @@ class AuthRepository(
     private val db: AppDatabase,
     private val http: HttpClient,
     private val recorder: ActivityRecorder,
+    private val saves: ImportSaves,
 ) {
     val session: StateFlow<OAuthSession?>
         get() = sessionManager.session
@@ -67,6 +69,8 @@ class AuthRepository(
             // A recording in progress stops, kept on the device for this account's next sign-in. An expiry leaves it running, for the
             // athlete to sign back in to (record/gps-recording).
             recorder.suspendForSignOut()
+            // A batch save stops and its unsaved activities go (feed/batch-import); an expiry leaves it to resume after signing back in.
+            sessionManager.session.value?.did?.let { saves.signedOut(it) }
             lastExpiry.value = null
         } else {
             lastExpiry.value = ExpiredSession(expired.did, expired.handle)

@@ -11,7 +11,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
+import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.action_retry
 import io.github.solcott.activitytracker.composeApp.resources.duplicate_action_combine
 import io.github.solcott.activitytracker.composeApp.resources.duplicate_action_ignore
 import io.github.solcott.activitytracker.composeApp.resources.duplicate_action_import_anyway
@@ -73,7 +75,15 @@ internal fun DuplicateWarning(
 /** A single file's activity: the search of the athlete's log while it runs, then what to do if the activity is already there. */
 @Composable
 internal fun PreviewDuplicate(state: ImportActivityState, preview: ImportPreview, modifier: Modifier = Modifier) {
-    if (state.duplicateCheck == DuplicateCheck.Checking) DuplicatesBanner(state.duplicateCheck, existing = 0, inFile = 0, modifier)
+    if (state.duplicateCheck != DuplicateCheck.Done) {
+        DuplicatesBanner(
+            state.duplicateCheck,
+            existing = 0,
+            inFile = 0,
+            modifier,
+            onRetry = { state.eventSink(ImportActivityEvent.RetryDuplicateCheck) },
+        )
+    }
     preview.duplicate?.let { duplicate ->
         DuplicateWarning(duplicate, { state.eventSink(ImportActivityEvent.DuplicateActionChanged(0, it)) }, !state.saving, modifier)
     }
@@ -91,9 +101,19 @@ internal fun ImportActivityState.canSave(preview: ImportPreview): Boolean =
         !tooFarFromTarget &&
         (!addsRecording || addingTo != null)
 
-/** Above a logbook's dives: how many are duplicates, or that the search for them is running or failed. */
+/**
+ * Above a logbook's dives: how many are duplicates, or that the search for them is running or failed, with [onRetry] to search again after
+ * a failure (feed/import-duplicates).
+ */
 @Composable
-internal fun DuplicatesBanner(check: DuplicateCheck, existing: Int, inFile: Int, modifier: Modifier = Modifier, copies: Int = 0) {
+internal fun DuplicatesBanner(
+    check: DuplicateCheck,
+    existing: Int,
+    inFile: Int,
+    modifier: Modifier = Modifier,
+    copies: Int = 0,
+    onRetry: (() -> Unit)? = null,
+) {
     val lines =
         listOfNotNull(
             stringResource(Res.string.import_duplicates_checking).takeIf { check == DuplicateCheck.Checking },
@@ -104,12 +124,12 @@ internal fun DuplicatesBanner(check: DuplicateCheck, existing: Int, inFile: Int,
             stringResource(Res.string.import_duplicates_unchecked).takeIf { existing + inFile > 0 },
         )
     if (lines.isEmpty()) return
-    Text(
-        lines.joinToString(" "),
-        modifier.fillMaxWidth().background(MaterialTheme.colorScheme.errorContainer, MaterialTheme.shapes.medium).padding(12.dp),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onErrorContainer,
-    )
+    Column(modifier.fillMaxWidth().background(MaterialTheme.colorScheme.errorContainer, MaterialTheme.shapes.medium).padding(12.dp)) {
+        Text(lines.joinToString(" "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+        if (check == DuplicateCheck.Failed && onRetry != null) {
+            AppTextButton(onClick = onRetry) { Text(stringResource(Res.string.action_retry)) }
+        }
+    }
 }
 
 @Composable

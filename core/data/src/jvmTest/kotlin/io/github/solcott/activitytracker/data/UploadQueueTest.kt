@@ -3,11 +3,15 @@ package io.github.solcott.activitytracker.data
 import io.github.solcott.activitytracker.atproto.xrpc.RateLimit
 import io.github.solcott.activitytracker.data.activity.ActivityDraft
 import io.github.solcott.activitytracker.data.activity.ImportProgress
+import io.github.solcott.activitytracker.data.activity.ImportSaveStatus
 import io.github.solcott.activitytracker.data.activity.UploadLog
 import io.github.solcott.activitytracker.data.activity.UploadQueue
 import io.github.solcott.activitytracker.data.activity.UploadSource
 import io.github.solcott.activitytracker.data.activity.timeLeft
 import io.github.solcott.activitytracker.data.db.BulkLeft
+import io.github.solcott.activitytracker.data.db.ImportSaveEntity
+import io.github.solcott.activitytracker.data.db.ImportSaveItemEntity
+import io.github.solcott.activitytracker.data.importsave.testImportSaves
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Cid
 import io.github.solcott.activitytracker.lexicon.Did
@@ -54,7 +58,7 @@ class UploadQueueTest {
             importBatch = importBatch,
         )
 
-    private fun FakeAthletePds.Session.uploads() = UploadQueue(db, clients, rejected, Clock.System)
+    private fun FakeAthletePds.Session.uploads() = UploadQueue(db, clients, rejected, Clock.System, testImportSaves(db))
 
     private fun bobs(n: Int) =
         ActivityView(
@@ -200,5 +204,75 @@ class UploadQueueTest {
 
         assertEquals(ImportProgress(uploaded = 0, saved = 2), uploads.importProgress.first())
         assertEquals(2, uploads.queue.first().imports.single().saved)
+    }
+
+    /** A save of [total] activities under [batchId], [done] of them saved and [skipped] skipped, in [state]. */
+    private suspend fun FakeAthletePds.Session.plan(batchId: String, total: Int, done: Int, skipped: Int = 0, state: String) {
+        val items =
+            (0 until total).map { position ->
+                ImportSaveItemEntity(
+                    batchId = batchId,
+                    position = position,
+                    batchIndex = position,
+                    sourceIdx = 0,
+                    pathJson = "[]",
+                    entry = position,
+                    rkey = "3krkey$position",
+                    planJson = "{}",
+                    done = position < done,
+                    skipped = position >= done && position < done + skipped,
+                )
+            }
+        db.importSaves().plan(ImportSaveEntity(batchId, pds.did.value, total, createdAt = 0, choicesJson = "{}", state), emptyList(), items)
+    }
+
+    @Test
+    fun aSavingImportShowsHowFarItsSaveGot() = runTest {
+        val s = pds.session()
+        s.activities.startImport("3kbatch", UploadSource.Files("a.fit", 4), total = 4)
+        s.plan("3kbatch", total = 4, done = 2, skipped = 1, state = ImportSaveEntity.STATE_RUNNING)
+
+        assertEquals(ImportSaveStatus.Saving(done = 3, total = 4), s.uploads().queue.first().imports.single().save)
+    }
+
+    @Test
+    fun aSaveThatStoppedIsShownStopped() = runTest {
+        val s = pds.session()
+        s.activities.startImport("3kbatch", UploadSource.Files("a.fit", 400), total = 400)
+        s.plan("3kbatch", total = 400, done = 120, state = ImportSaveEntity.STATE_STOPPED)
+
+        assertEquals(ImportSaveStatus.Stopped(saved = 120, total = 400), s.uploads().queue.first().imports.single().save)
+    }
+
+    @Test
+    fun anImportWithNoSaveLeftThatSavedFewerThanItSelectedIsStopped() = runTest {
+        val s = pds.session()
+        s.activities.startImport("3kbatch", UploadSource.Files("a.fit", 3), total = 3)
+        s.activities.finishImport("3kbatch", saved = 1, skipped = 1)
+
+        assertEquals(ImportSaveStatus.Stopped(saved = 1, total = 3), s.uploads().queue.first().imports.single().save)
+    }
+
+    @Test
+    fun anImportSavedWholeOrFromBeforeItWasCountedIsNeitherSavingNorStopped() = runTest {
+        val s = pds.session()
+        s.activities.startImport("3kwhole", UploadSource.Files("a.fit", 3), total = 3)
+        s.activities.finishImport("3kwhole", saved = 2, skipped = 1)
+        s.activities.startImport("3kbefore", UploadSource.Files("b.fit", 3))
+        s.activities.finishImport("3kbefore", saved = 1, skipped = 0)
+
+        assertEquals(listOf(null, null), s.uploads().queue.first().imports.map { it.save })
+    }
+
+    @Test
+    fun pruningKeepsAnImportStillSavingWithNothingSavedYet() = runTest {
+        val s = pds.session()
+        val uploads = s.uploads()
+        s.activities.startImport("3kbatch", UploadSource.Files("a.fit", 2), total = 2)
+        s.plan("3kbatch", total = 2, done = 0, state = ImportSaveEntity.STATE_RUNNING)
+
+        uploads.prune()
+
+        assertEquals(ImportSaveStatus.Saving(done = 0, total = 2), uploads.queue.first().imports.single().save)
     }
 }

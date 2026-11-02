@@ -20,6 +20,8 @@ import io.github.solcott.activitytracker.data.ownBlobUrl
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
+import io.github.solcott.activitytracker.lexicon.Nsid
+import io.github.solcott.activitytracker.lexicon.app.ActivityRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
@@ -36,6 +38,7 @@ import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.activitytracker.lexicon.app.ThreadView
 import io.github.solcott.activitytracker.lexicon.app.TimelineItem
+import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.dataresult.Outcome
 import io.github.solcott.uistate.Page
 import io.github.solcott.uistate.pageOf
@@ -271,13 +274,16 @@ class FeedRepository(
 
     /**
      * The signed-in athlete's own activities that started in [since, until), oldest first, optionally of one [sport]: every page the
-     * AppView has, plus any still in the outbox (published moments ago, or offline), which it hasn't seen yet. An import compares its
-     * activities against these to find duplicates.
+     * AppView has, plus those only this device knows of yet ([localOwnActivitiesInRange]). An import compares its activities against these
+     * to find duplicates.
      */
     suspend fun ownActivitiesStartedBetween(since: Instant, until: Instant, sport: String? = null): List<OwnActivity> =
         ownActivitiesInRange(since, until, sport).activities
 
-    /** [ownActivitiesStartedBetween], reading at most [maxPages] pages, and whether the AppView had more ([OwnActivityRange.truncated]). */
+    /**
+     * [ownActivitiesStartedBetween], reading at most [maxPages] pages, and whether the AppView had more ([OwnActivityRange.truncated]).
+     * Throws when the AppView can't be read; [localOwnActivitiesInRange] still can.
+     */
     suspend fun ownActivitiesInRange(
         since: Instant,
         until: Instant,
@@ -293,19 +299,49 @@ class FeedRepository(
                     GetAuthorActivitiesByStart.method,
                     GetAuthorActivitiesByStart.Params(clients.did.value, since, until, sport, Paging.MAX_LIMIT, cursor),
                 )
-            indexed += page.activities.map { OwnActivity(it.uri, it.cid, it.record, it.visibilityOrPublic, it.combinedInto) }
+            indexed += page.activities.map { it.toOwnActivity() }
             cursor = page.cursor
         } while (cursor != null && ++pages < maxPages)
-        val known = indexed.mapTo(mutableSetOf()) { it.uri }
-        val pending =
-            db.outbox()
-                .pending(clients.did.value)
-                .mapNotNull { it.pendingActivity(clients.did) }
-                .filter { (uri, _, record) ->
-                    uri !in known && record.startedAt >= since && record.startedAt < until && (sport == null || record.sport == sport)
-                }
-        return OwnActivityRange((indexed + pending).sortedBy { it.record.startedAt }, truncated = cursor != null)
+        return OwnActivityRange(mergeOwn(indexed, localOwnActivitiesInRange(since, until, sport)), truncated = cursor != null)
     }
+
+    /**
+     * The signed-in athlete's own activities that started in [since, until), oldest first, optionally of one [sport], as this device knows
+     * them without the network: still in the outbox, in the cached feeds, or logged in the upload queue (kept 7 days), one per URI in that
+     * order of precedence. Never throws: a source that can't be read adds nothing.
+     */
+    suspend fun localOwnActivitiesInRange(since: Instant, until: Instant, sport: String? = null): List<OwnActivity> {
+        val did = clients.did
+        val pending = localRead("outbox") { db.outbox().pending(did.value).mapNotNull { it.pendingActivity(did) } }
+        val cached =
+            localRead("feed cache") {
+                val prefix = "at://${did.value}/${Nsid.FEED_ACTIVITY}/"
+                db.feed()
+                    .byUriPrefix(prefix)
+                    .mapNotNull { item -> runCatching { AtJson.decodeFromString(ActivityView.serializer(), item.json) }.getOrNull() }
+                    // Deleted this session: no longer in the log. A member combined meanwhile still is, so it stays.
+                    .filter { it.author.did == did && it.uri !in deletes }
+                    .map { it.toOwnActivity() }
+            }
+        val logged =
+            localRead("upload log") {
+                db.uploads().loggedRecords(did.value, since.toEpochMilliseconds(), until.toEpochMilliseconds()).mapNotNull { row ->
+                    runCatching { AtJson.decodeFromString(ActivityRecord.serializer(), row.recordJson) }
+                        .getOrNull()
+                        // Its visibility isn't logged, and with no CID it can't be combined into yet: Only me, the narrowest, if ever read.
+                        ?.let { OwnActivity(AtUri.of(did, Nsid.FEED_ACTIVITY, row.rkey), cid = null, it, Visibility.SELF) }
+                }
+            }
+        return mergeOwn(pending, cached, logged).filter { (_, _, record) ->
+            record.startedAt >= since && record.startedAt < until && (sport == null || record.sport == sport)
+        }
+    }
+
+    private suspend fun localRead(source: String, read: suspend () -> List<OwnActivity>): List<OwnActivity> = runSuspendCatching {
+        read()
+    }
+        .onFailure { e -> log.w(e) { "Couldn't read own activities from the $source" } }
+        .getOrDefault(emptyList())
 
     /**
      * The signed-in athlete's own activities as the AppView serves them, that started in [since, until), oldest first, every page it has,
@@ -380,6 +416,15 @@ class FeedRepository(
 private const val FILTERED_FEEDS = "feed.filteredKeys"
 private const val MAX_FILTERED_FEEDS = 10
 private val recentKeys = ListSerializer(String.serializer())
+
+private fun ActivityView.toOwnActivity() = OwnActivity(uri, cid, record, visibilityOrPublic, combinedInto)
+
+/** [sources]' activities oldest first, one per URI: the first source to list one wins. */
+internal fun mergeOwn(vararg sources: List<OwnActivity>): List<OwnActivity> {
+    val byUri = LinkedHashMap<AtUri, OwnActivity>()
+    sources.forEach { source -> source.forEach { byUri.getOrPut(it.uri) { it } } }
+    return byUri.values.sortedBy { it.record.startedAt }
+}
 
 /**
  * Makes [key] the most recently refreshed filtered feed and drops the cached pages of those beyond the [MAX_FILTERED_FEEDS] most recent, so

@@ -11,6 +11,8 @@ import io.github.solcott.activitytracker.data.activity.UploadQueue
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.importsave.ImportSaveRunner
+import io.github.solcott.activitytracker.data.importsave.ImportSaveStore
 import io.github.solcott.activitytracker.data.profile.ProfileSetup
 import io.github.solcott.activitytracker.data.segments.LeaderboardBracketsRepository
 import io.github.solcott.activitytracker.data.units.UnitsRepository
@@ -29,6 +31,8 @@ interface SessionGraph {
     val unitsRepository: UnitsRepository
     val profileSetup: ProfileSetup
     val leaderboardBrackets: LeaderboardBracketsRepository
+    val importSaveStore: ImportSaveStore
+    val importSaveRunner: ImportSaveRunner
 
     @GraphExtension.Factory
     interface Factory {

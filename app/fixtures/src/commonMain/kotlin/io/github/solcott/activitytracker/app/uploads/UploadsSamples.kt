@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
 import io.github.solcott.activitytracker.app.fixtures.contentSamples
+import io.github.solcott.activitytracker.data.activity.ImportSaveStatus
 import io.github.solcott.activitytracker.data.activity.RejectedChange
 import io.github.solcott.activitytracker.data.activity.UploadImport
 import io.github.solcott.activitytracker.data.activity.UploadItem
@@ -159,6 +160,51 @@ object UploadsSamples {
                 )
             )
 
+    /** An import of 1,362 activities still saving, 500 saved so far, 40 of them uploaded. */
+    val saving: UploadsState
+        get() =
+            loaded(
+                emptyView.copy(
+                    imports =
+                        listOf(
+                            partWay.copy(
+                                saved = 500,
+                                skipped = 0,
+                                uploaded = 40,
+                                refused = 0,
+                                live = partWay.live.drop(1),
+                                finished = partWay.finished.take(1),
+                                save = ImportSaveStatus.Saving(done = 500, total = 1362),
+                            )
+                        )
+                )
+            )
+
+    /** An import of 400 selected activities that stopped saving after 120, all of them uploaded. */
+    val stopped: UploadsState
+        get() =
+            loaded(
+                emptyView.copy(
+                    imports =
+                        listOf(
+                            partWay.copy(
+                                source = UploadSource.Files("Morning_Ride.fit", 400),
+                                saved = 120,
+                                skipped = 0,
+                                uploaded = 120,
+                                refused = 0,
+                                live = emptyList(),
+                                finished = partWay.finished.take(1),
+                                save = ImportSaveStatus.Stopped(saved = 120, total = 400),
+                            )
+                        )
+                )
+            )
+
+    /** Asking to confirm cancelling the rest of the import still saving. */
+    val confirmingCancelRestSaving: UploadsState
+        get() = saving.copy(confirmingCancelRest = IMPORT_ID)
+
     /** Asking to confirm cancelling the waiting Morning Ride. */
     val confirmingCancel: UploadsState
         get() = loaded.copy(confirmingCancel = "3k2")
@@ -186,6 +232,9 @@ object UploadsSamples {
                     "paused" to paused,
                     "refused" to refused,
                     "finished" to finished,
+                    "saving" to saving,
+                    "stopped" to stopped,
+                    "confirmingCancelRestSaving" to confirmingCancelRestSaving,
                     "confirmingCancel" to confirmingCancel,
                     "confirmingCancelRest" to confirmingCancelRest,
                     "cancelFailed" to cancelFailed,
