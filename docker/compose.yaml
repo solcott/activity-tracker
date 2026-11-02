@@ -6,9 +6,11 @@
 #   docker/scripts/create-account.sh alice
 #
 # Host ports: PLC 2582, PDS 2583, relay 2470, Jetstream 6008, Ozone 3010, AppView Postgres 5433.
-# Device mode instead gives the PDS a public hostname behind a Cloudflare tunnel (PDS_HOSTNAME, RELAY_CRAWL_HOST and
-# PDS_INVITE_REQUIRED in docker/.env, which scripts/dev.sh writes), so physical phones can sign in. Its URL is then
-# https://<host>, and the relay, Jetstream and the AppView reach it through the tunnel; the localhost patches go unused.
+# Device mode (the normal setup, once a developer sets activitytracker.deviceHost) instead gives the PDS a public hostname
+# behind a Cloudflare tunnel (PDS_HOSTNAME, RELAY_CRAWL_HOST and PDS_INVITE_REQUIRED in docker/.env, which scripts/dev.sh
+# writes), so physical phones and every other client use public hosts. Its URL is then https://<host>, and the relay,
+# Jetstream and the AppView reach it through the tunnel; the localhost patches go unused. Every checkout drives this one
+# compose project, and scripts/dev.sh reads the mode from the PDS container.
 # The PDS only serves plain HTTP when PDS_HOSTNAME=localhost, so its public URL is
 # http://localhost:2583. The relay and Jetstream share the PDS container's network namespace so
 # that "localhost:2583" (what DID documents say) reaches the PDS from inside Docker too.

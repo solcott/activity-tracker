@@ -23,8 +23,8 @@ so `gradle.properties` sets `compose.reload.jbr.autoProvisioningEnabled=true` an
 Compose modules also get `hotRunJvm`/`hotMcpServerJvm`. Don't use those. That's why `.mcp.json` names `:desktopApp:hotMcpServer`
 in full.
 
-**Sign-in.** The desktop app uses the ATProto loopback client against the local AppView (`NetworkConfigs.desktop`), so it needs
-the Docker stack and AppView but no tunnel. The browser redirects to `http://127.0.0.1:8091/callback` (`-PoauthPort=` changes it).
+**Sign-in.** The desktop app uses the ATProto loopback client (`NetworkConfigs.desktop`), so its OAuth needs no hosted client
+metadata. It calls the AppView on `localhost:8081`, or in device mode at its public host, so then the named tunnel must be up too. The browser redirects to `http://127.0.0.1:8091/callback` (`-PoauthPort=` changes it).
 The DB and the HTTP cache live in `DesktopAppDirs` (`~/Library/Application Support/ActivityTracker` on macOS). The secret key is in the
 Keychain (`io.github.solcott.activitytracker`/`oauth_store_key`), or in a `secret.key` there on Linux. Delete that directory to
 start signed out with an empty DB.

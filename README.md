@@ -78,8 +78,8 @@ specs and tasks. It is then implemented and verified, and archived into the livi
 
 ## Local development
 
-Requires JDK 25, Docker, Android SDK (for Android), Xcode (for iOS), and `cloudflared` for native sign-in
-(`brew install cloudflared`).
+Requires JDK 25, Docker, Android SDK (for Android), Xcode (for iOS), and `cloudflared` for device mode and
+native sign-in (`brew install cloudflared`).
 
 The build resolves [kmp-dataresult](https://github.com/solcott/kmp-dataresult) from Maven Central (its
 `-SNAPSHOT` versions from the Central snapshot repository). To build against a local checkout instead, name it
@@ -115,12 +115,61 @@ Bluesky's atproto Spaces alpha, pinned by digest. It is amd64-only, so Apple Sil
 Its schemas change without migrations, so bumping it means wiping the volumes
 (`docker compose -f docker/compose.yaml down -v`) and re-seeding. `docker/scripts/spaces-smoke.sh alice`
 checks that it serves Spaces. Spaces' managing-app callouts reach the AppView only through the tunnel below. The relay
-and Jetstream are pinned and carry one-line patches that let them reach a plain-HTTP `localhost` PDS
+and Jetstream are pinned and carry one-line patches that let them reach a plain-HTTP `localhost` PDS in localhost mode
 (see `docker/relay.Dockerfile` and `docker/jetstream.Dockerfile`). The AppView starts at Jetstream's
 live tip on first run, so records written before it first connects are not indexed.
 
-Sign in on the web or desktop app with `alice.test`. Both use the ATProto *loopback* OAuth client,
-so they need no hosted client metadata. The desktop app catches the redirect on `127.0.0.1:8091`.
+### Device mode (the normal setup)
+
+Device mode puts the PDS, PLC and the AppView on stable public HTTPS hostnames through a named Cloudflare
+tunnel. Every client uses them: a physical phone can sign in and upload from anywhere, on Wi-Fi or cellular, and
+web and desktop on the Mac talk to the same hosts. You need a domain whose nameservers are on Cloudflare (the
+free plan is enough). Use your own domain: nothing in the repo names one. Without one, everything runs in
+localhost mode (below).
+
+1. Pick a host one label below your zone and add it to `~/.gradle/gradle.properties`, so every checkout and
+   worktree uses it (`local.properties` works too, for one checkout; the Gradle user home wins when both set
+   it). PLC and the AppView get siblings, because Cloudflare's free certificate covers `*.example.com` but not
+   `*.dev.example.com`:
+
+   ```properties
+   activitytracker.deviceHost=dev.example.com   # PDS; PLC on plc-dev.example.com, AppView on appview-dev.example.com
+   ```
+
+2. Set it up once. This logs `cloudflared` in, creates the `activitytracker-dev` tunnel, adds the three DNS
+   records and writes `~/.cloudflared/activitytracker-dev.yml`:
+
+   ```bash
+   scripts/dev.sh device-setup
+   ```
+
+3. Switch the stack over. Accounts' DID documents name their PDS's hostname, so switching modes deletes the
+   local data (`--reset` asks first), and `scripts/dev.sh` refuses to start in the other mode without it:
+
+   ```bash
+   scripts/dev.sh --reset --seed alice
+   ```
+
+4. Rebuild the apps. They read the device host too, and derive the AppView's URL (and so the native
+   redirect scheme) from it: `appview-dev.example.com`. A free Personal Team signature is enough on iOS.
+
+The Docker stack is shared by every checkout, and `scripts/dev.sh` reads its mode from the running PDS, so a new
+worktree comes up against it without `--reset`. The PDS requires invite codes in device mode, since its hostname
+is public. The account scripts mint one through the admin API, so `--seed` and `create-account.sh` work as usual.
+Web and desktop now go through the tunnel too, so keep it up (`scripts/dev.sh` starts it). Run
+`scripts/dev.sh down` when you aren't using it. To go back, remove `activitytracker.deviceHost` and run
+`scripts/dev.sh --reset`.
+
+Already on device mode with the host in `local.properties`? Move the line to `~/.gradle/gradle.properties` (optional)
+and run `scripts/dev.sh`: it moves the ingress file from `.dev/` to `~/.cloudflared/` and restarts the tunnel once,
+with no `--reset`. Rebuild web and desktop to pick up the public hosts.
+
+### Localhost mode (no device host)
+
+With no `activitytracker.deviceHost` anywhere, the stack and the clients use the `localhost` ports.
+
+Sign in on the web or desktop app with `alice.test`. Both use the ATProto *loopback* OAuth client in either
+mode, so they need no hosted client metadata. The desktop app catches the redirect on `127.0.0.1:8091`.
 
 **Native (Android/iOS) sign-in** needs OAuth client metadata the PDS can fetch over HTTPS, so expose
 the AppView through a tunnel. The tunnel URL is set once and everything else (client ID, the redirect
@@ -137,7 +186,8 @@ Then rebuild the apps. Quick tunnels get a new hostname each run, so update the 
 (or pass `-Pactivitytracker.appviewPublicUrl=...`).
 
 With a tunnel set, the AppView's DID is the tunnel host. `:server-appview:run` also sets
-`APPVIEW_EXTRA_AUDIENCES=did:web:localhost%3A8081` so the web app keeps working against the same AppView.
+`APPVIEW_EXTRA_AUDIENCES=did:web:localhost%3A8081` so the web and desktop apps keep working against the same
+AppView. Device mode doesn't need it: every client addresses the AppView by its public DID.
 
 `:server-appview:run` also sets `APPVIEW_ALLOW_PRIVATE_ADDRESSES=true` unless the environment sets it. Outside local
 dev the AppView refuses to fetch from private, loopback or link-local addresses it learns from DID documents and handles,
@@ -146,44 +196,9 @@ and every PDS and `did:web` on the local stack is `localhost`. It logs a warning
 - **Android** (emulator, or a device over USB/wireless adb): run `adb reverse tcp:2582 tcp:2582` (and 2583,
   8081) so the device's `localhost` reaches the stack. Repeat after the emulator/device reconnects.
 - **iOS Simulator** shares the Mac's network, so it needs nothing extra.
-- **Physical iPhone or iPad** (or any device off your Mac) needs **device mode**, below: in localhost mode the
+- **Physical iPhone or iPad** (or any device off your Mac) needs **device mode**, above: in localhost mode the
   PDS identifies itself as `http://localhost:2583` (in DID docs and as the OAuth issuer), which a phone can't
   reach, and iOS has no `adb reverse`.
-
-### Device mode (physical phones)
-
-Device mode puts the PDS, PLC and the AppView on stable public HTTPS hostnames through a named Cloudflare
-tunnel, so a phone can sign in and upload from anywhere, on Wi-Fi or cellular. You need a domain whose
-nameservers are on Cloudflare (the free plan is enough). Use your own domain: nothing in the repo names one.
-
-1. Pick a host one label below your zone and add it to `local.properties`. PLC and the AppView get siblings,
-   because Cloudflare's free certificate covers `*.example.com` but not `*.dev.example.com`:
-
-   ```properties
-   activitytracker.deviceHost=dev.example.com   # PDS; PLC on plc-dev.example.com, AppView on appview-dev.example.com
-   ```
-
-2. Set it up once. This logs `cloudflared` in, creates the `activitytracker-dev` tunnel, adds the three DNS
-   records and writes `.dev/cloudflared-device.yml`:
-
-   ```bash
-   scripts/dev.sh device-setup
-   ```
-
-3. Switch the stack over. Accounts' DID documents name their PDS's hostname, so switching modes deletes the
-   local data (`--reset` asks first), and `scripts/dev.sh` refuses to start in the other mode without it:
-
-   ```bash
-   scripts/dev.sh --reset --seed alice
-   ```
-
-4. Rebuild the native apps. They read the device host from `local.properties` too, and the AppView's URL
-   (and so the redirect scheme) is now `appview-dev.example.com`. A free Personal Team signature is enough
-   on iOS.
-
-The PDS requires invite codes in device mode, since its hostname is public. The account scripts mint one
-through the admin API, so `--seed` and `create-account.sh` work as usual. Run `scripts/dev.sh down` when you
-aren't using it. To go back, remove `activitytracker.deviceHost` and run `scripts/dev.sh --reset`.
 
 ## Layout
 
