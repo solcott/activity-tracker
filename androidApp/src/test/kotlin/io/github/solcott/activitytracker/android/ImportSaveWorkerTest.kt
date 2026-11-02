@@ -17,7 +17,9 @@ import androidx.work.testing.TestListenableWorkerBuilder
 import androidx.work.testing.WorkManagerTestInitHelper
 import io.github.solcott.activitytracker.data.db.ImportSaveCounts
 import java.util.UUID
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -70,6 +72,11 @@ class ImportSaveWorkerTest {
     }
 
     @Test
+    fun aStoppedRunIsntTakenForAFailedOne() = runTest {
+        assertFailsWith<CancellationException> { worker { throw CancellationException("WorkManager stopped the job") }.doWork() }
+    }
+
+    @Test
     fun aSaveThatKeepsFailingStopsBeingRetriedAfterTheCap() = runTest {
         assertEquals(ListenableWorker.Result.retry(), worker(attempt = ImportSaveWorker.MAX_ATTEMPTS - 1) { true }.doWork())
         assertEquals(ListenableWorker.Result.success(), worker(attempt = ImportSaveWorker.MAX_ATTEMPTS) { true }.doWork())
@@ -93,6 +100,34 @@ class ImportSaveWorkerTest {
             .doWork()
 
         assertEquals(2, shown.posts, "the start, then the first count: the rest came within the second")
+    }
+
+    @Test
+    fun aJobWhoseRunThrowsWaitsToRunAgainAndEndsAtTheCap() {
+        var runs = 0
+        WorkManagerTestInitHelper.initializeTestWorkManager(
+            context,
+            Configuration.Builder()
+                .setExecutor(SynchronousExecutor())
+                .setWorkerFactory(
+                    factory {
+                        runs++
+                        throw IllegalStateException("the plan can't be opened")
+                    }
+                )
+                .build(),
+        )
+        val work = WorkManager.getInstance(context)
+        val driver = requireNotNull(WorkManagerTestInitHelper.getTestDriver(context))
+
+        ImportSaveWorker.schedule(context)
+        fun job() = work.getWorkInfosForUniqueWork("import-save").get().single()
+        assertEquals(WorkInfo.State.ENQUEUED, job().state, "a throw leaves saves, so it waits to run again")
+        // Each retry waits out its backoff; the driver lets it pass, a bounded number of times.
+        repeat(ImportSaveWorker.MAX_ATTEMPTS * 2) { if (job().state == WorkInfo.State.ENQUEUED) driver.setInitialDelayMet(job().id) }
+
+        assertEquals(WorkInfo.State.SUCCEEDED, job().state, "it stops asking once the attempts run out")
+        assertEquals(ImportSaveWorker.MAX_ATTEMPTS + 1, runs)
     }
 
     @Test
