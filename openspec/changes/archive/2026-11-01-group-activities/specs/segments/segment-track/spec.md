@@ -67,7 +67,7 @@ Turning segment matching off, or choosing grouping Off, SHALL save the setting f
 - **THEN** a later session deletes the rest
 
 ### Requirement: The AppView keeps segment tracks only while matching is on
-The AppView SHALL use segment track data only for purposes the athlete has turned on: matching segment efforts and counting riders on staged candidate segments while segment matching is on, and pairing activities while grouping isn't Off. It SHALL NOT read or use the track data of an athlete with both off. When a purpose goes off, the AppView SHALL drop what it derived for that purpose. When both are off, the `self` space is deleted or the account is deleted, it SHALL drop everything it holds from their tracks.
+The AppView SHALL use segment track data only for purposes turned on: efforts and candidate riders while segment matching is on, pairs while grouping isn't Off, nothing while both are off. When a purpose goes off, it SHALL drop what it derived for that purpose. When both are off, or the `self` space or account is deleted, it SHALL drop everything it holds from their tracks.
 
 #### Scenario: Matching turned off
 - **WHEN** an athlete whose grouping is Off turns matching off

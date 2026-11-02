@@ -1,10 +1,10 @@
-# Spec Delta
+# feed/group-activities Specification
 
 ## Purpose
 
 Links activities that athletes did together, the way Strava shows group activities. Only athletes who opt in are linked, each can leave the group on any one activity, and a partner is shown only to viewers who may see that partner's activity, its start time and its map.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Grouping is off until the athlete opts in
 The grouping setting SHALL be one `actor.groupPrefs` record in the athlete's `self` space, never in the repo or any other space. It SHALL hold one of Off, Connected or Anyone. An athlete with no such record, or one holding a value the reader doesn't know, SHALL be treated as Off.
@@ -158,6 +158,17 @@ A pair SHALL stop being served as soon as the AppView indexes any change that br
 #### Scenario: Visibility narrowed
 - **WHEN** Bob narrows a paired ride from Public to Only me
 - **THEN** no one but Bob sees him listed on Alice's activity
+
+### Requirement: A new follow pairs recent activities
+When an effective follow between two athletes who are both grouping begins, whether by a follow or by an approval, their activities that started in the last 30 days SHALL be matched again, so activities done together before the follow are paired once the pair rule holds. Older activities SHALL NOT be matched again for a follow.
+
+#### Scenario: Ride first, follow later
+- **WHEN** Alice, who chose Connected, rides with Bob yesterday and follows him today
+- **THEN** once the AppView indexes the follow, their rides are paired
+
+#### Scenario: An old ride
+- **WHEN** Alice follows Bob two months after a ride they did together
+- **THEN** that ride isn't paired
 
 ### Requirement: Turning grouping off drops pairs
 When an athlete's grouping choice becomes Off, their `self` space is deleted, or their account is deleted, the AppView SHALL drop every pair of that athlete's activities.
