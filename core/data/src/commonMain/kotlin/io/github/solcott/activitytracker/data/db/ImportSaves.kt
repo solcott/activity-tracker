@@ -123,6 +123,10 @@ interface ImportSaveDao {
     @Query("SELECT * FROM import_save_item WHERE batchId = :batchId AND done = 1 ORDER BY position")
     suspend fun done(batchId: String): List<ImportSaveItemEntity>
 
+    /** The batch indices of items saved or skipped. */
+    @Query("SELECT batchIndex FROM import_save_item WHERE batchId = :batchId AND (done = 1 OR skipped = 1)")
+    suspend fun settledIndices(batchId: String): List<Int>
+
     @Query("UPDATE import_save_item SET done = 1 WHERE batchId = :batchId AND position IN (:positions)")
     suspend fun markDone(batchId: String, positions: List<Int>)
 

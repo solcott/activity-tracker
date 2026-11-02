@@ -40,7 +40,9 @@ import kotlinx.datetime.TimeZone
 /**
  * The persisted save of [scan]'s selected activities (feed/batch-import), as the athlete reviewed them: each resolved to its title, type,
  * visibility, description and zone, in [plan]'s order (combine groups first, then the rest oldest first), under a record key chosen now so
- * resuming rewrites the same records. [sources] are the picked files, which the save keeps where the platform can.
+ * resuming rewrites the same records. [sources] are the picked files, which the save keeps where the platform can. Saving again after a
+ * failure passes the save's [pending] items: an activity among them keeps its record key, and a group its combined one, since the failed
+ * run may have queued them already.
  */
 @Suppress("LongParameterList") // What the screen reviewed.
 internal fun newBatchSave(
@@ -53,7 +55,11 @@ internal fun newBatchSave(
     source: UploadSource,
     /** Where the items start: after a save's earlier items, when saving again after a failure. */
     firstPosition: Int = 0,
+    pending: List<ImportSaveItemEntity> = emptyList(),
 ): NewImportSave {
+    val keptRkeys = pending.associate { it.batchIndex to it.rkey }
+    val keptCombined = pending.associate { it.batchIndex to PlannedActivity.decode(it.planJson).combinedRkey }
+    val combinedTaken = mutableSetOf<String>()
     val items = mutableListOf<ImportSaveItemEntity>()
     fun add(index: Int, groupKey: Int?, into: PlannedInto?, combinedRkey: String?) {
         val item = scan.items[index]
@@ -81,13 +87,13 @@ internal fun newBatchSave(
                 sourceIdx = file.ref.source,
                 pathJson = encodePath(file.ref.path),
                 entry = item.entry,
-                rkey = Tid.next(),
+                rkey = keptRkeys[index] ?: Tid.next(),
                 planJson = planned.encode(),
                 groupKey = groupKey,
             )
     }
     plan.groups.forEachIndexed { key, group ->
-        val combinedRkey = Tid.next()
+        val combinedRkey = group.items.firstNotNullOfOrNull { keptCombined[it]?.takeIf(combinedTaken::add) } ?: Tid.next()
         val into = group.into?.let(PlannedInto::of)
         group.items.forEach { add(it, key, into, combinedRkey) }
     }

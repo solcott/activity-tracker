@@ -292,11 +292,12 @@ fun ImportActivityPresenter(
             }
         }
     }
-    // A save that failed partway: what it saved leaves the selection, so saving again continues with the rest (feed/batch-import).
+    // A save that failed partway: what it saved or skipped leaves the selection, so saving again continues with the rest
+    // (feed/batch-import).
     LaunchedEffect(saveFailed) {
         val id = savingBatch ?: return@LaunchedEffect
         if (saveFailed == null) return@LaunchedEffect
-        selection = selection.without(saveStore.savedIndices(id), matches::getOrNull)
+        selection = selection.without(saveStore.settledIndices(id), matches::getOrNull)
     }
 
     fun clear() {
@@ -528,8 +529,10 @@ fun ImportActivityPresenter(
                         val choices = BatchChoices(training, visibility.current, linked.gear, zoneOf, importBatch = again ?: Tid.next())
                         val plan = batchPlan(scan.items.size, matches, selection)
                         val first = again?.let { saveStore.nextPosition(it) } ?: 0
+                        // An activity a failed run may have queued already keeps its record key, so it isn't queued twice.
+                        val kept = again?.let { saveStore.pending(it) }.orEmpty()
                         val save =
-                            newBatchSave(scan, pickedSources, plan, selection, event.defaultTitles, choices, scan.uploadSource, first)
+                            newBatchSave(scan, pickedSources, plan, selection, event.defaultTitles, choices, scan.uploadSource, first, kept)
                         if (again == null) saveStore.start(save) else saveStore.replacePending(again, save.items)
                         // Followed only once it's written: until then, no plan would read as a save already finished.
                         savingDevices = linked

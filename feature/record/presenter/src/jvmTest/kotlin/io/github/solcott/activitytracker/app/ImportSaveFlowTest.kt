@@ -136,9 +136,16 @@ class ImportSaveFlowTest {
 
     private suspend fun lastBatch(repos: SessionTestFixture.Repos): String = repos.uploads.queue.first().imports.single().id
 
-    /** Runs the real runner until [after] activities are saved, then stops it and reports [failure], as a run failing there would. */
-    private class FailAfter(private val repos: SessionTestFixture.Repos, private val real: ImportSaveRunner, private val after: Int) :
-        ImportSaveRunner {
+    /**
+     * Runs the real runner until [after] activities are saved, then stops it and reports [failure], as a run failing there would; with
+     * [queuedNext], having queued the next activity under its planned key but not marked it saved, as a combine whose read failed would.
+     */
+    private class FailAfter(
+        private val repos: SessionTestFixture.Repos,
+        private val real: ImportSaveRunner,
+        private val after: Int,
+        private val queuedNext: Boolean = false,
+    ) : ImportSaveRunner {
         var failed = false
 
         override suspend fun runAll() {
@@ -149,6 +156,19 @@ class ImportSaveFlowTest {
                 val run = launch(Dispatchers.Default) { real.runAll() }
                 repos.saveStore.counts.first { saves -> saves.single().done >= after }
                 run.cancelAndJoin()
+                if (queuedNext) {
+                    val next = repos.saveStore.pending(id).first()
+                    repos.activities.publish(
+                        ActivityDraft(
+                            ActivityType(Sport.RUN),
+                            "Queued",
+                            null,
+                            Instant.fromEpochMilliseconds(0),
+                            600.seconds,
+                            rkey = next.rkey,
+                        )
+                    )
+                }
                 repos.saves.ended(id, IllegalStateException("The PDS refused it"))
             }
         }
@@ -179,6 +199,31 @@ class ImportSaveFlowTest {
         assertEquals(5, savedTitles().size, "each activity saved once")
         val import = repos.uploads.queue.first().imports.single()
         assertEquals(5, import.saved, "one import of all five")
+    }
+
+    @Test
+    fun savingAgainKeepsTheKeyOfAnActivityTheFailedRunQueued() = runTest {
+        val repos = fixture.repos()
+        val gate = CompletableDeferred<Unit>()
+        val gated = Gated(runs(5)[3], gate)
+        val sources = runs(5).mapIndexed { i, source -> if (i == 3) gated else source }
+        val runner = FailAfter(repos, repos.realRunner(), after = 3, queuedNext = true)
+        presenterTestOf(presenter(repos, runner)) {
+            awaitItem().eventSink(ImportActivityEvent.FilesPicked(sources.toImmutableList()))
+            val read = awaitUntil { it.batch != null && it.duplicateCheck == DuplicateCheck.Done }
+            gated.armed = true
+            read.eventSink(ImportActivityEvent.SaveBatch(persistentMapOf()))
+            val failed = awaitUntil { it.batch?.saveFailure != null && it.batch?.selectedCount == 2 }
+            gate.complete(Unit)
+            failed.eventSink(ImportActivityEvent.SaveBatch(persistentMapOf()))
+            awaitUntil { it.batchSaved != null }
+            cancelAndIgnoreRemainingEvents()
+        }
+        val activityRkeys =
+            fixture.putRkeys.zip(fixture.putRecords).filter { (_, record) ->
+                record.getValue("\$type").jsonPrimitive.content == Nsid.FEED_ACTIVITY
+            }
+        assertEquals(5, activityRkeys.map { it.first }.toSet().size, "the queued activity is rewritten under its key, not queued again")
     }
 
     @Test

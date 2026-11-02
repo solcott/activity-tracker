@@ -107,8 +107,8 @@ class ImportSaveStore(
         db.importSaves().save(batchId)?.let { db.uploads().setBatchTotal(batchId, it.total) }
     }
 
-    /** The batch indices of save [batchId]'s activities saved so far. */
-    suspend fun savedIndices(batchId: String): Set<Int> = db.importSaves().done(batchId).mapTo(mutableSetOf()) { it.batchIndex }
+    /** The batch indices of save [batchId]'s activities saved or skipped so far, which saving again leaves out. */
+    suspend fun settledIndices(batchId: String): Set<Int> = db.importSaves().settledIndices(batchId).toSet()
 
     /** What import [batchId] saved and skipped, as its upload queue entry counts them. */
     suspend fun importCounts(batchId: String): Pair<Int, Int>? = db.uploads().batch(batchId)?.let { it.saved to it.skipped }
