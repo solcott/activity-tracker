@@ -197,6 +197,7 @@ private fun JdbcTransaction.upsertActivity(
             ?.takeIf { of -> of.authority != author.value && of.collection == Nsid.FEED_ACTIVITY && of.rkey != null }
             ?.value
             ?.takeIf { of -> of.length <= MAX_URI_LENGTH }
+    val firstIndexed = Activities.select(Activities.uri).where { Activities.uri eq uri.value }.empty()
     Activities.upsert {
         it[Activities.uri] = uri.value
         it[Activities.cid] = cid
@@ -257,6 +258,8 @@ private fun JdbcTransaction.upsertActivity(
     }
     replaceActivityGear(uri, author, placement, ActivityGear.SOURCE_RECORD, record.gear)
     copyIndexed(uri, author, copyOf, now)
+    // Copies of it indexed first, as a rebuild may index them, pair once it's here.
+    if (firstIndexed) pairWaitingCopies(uri.value, now = now)
 }
 
 /** Records are untrusted: hold the sensors to the lexicon's limits before serving them. */

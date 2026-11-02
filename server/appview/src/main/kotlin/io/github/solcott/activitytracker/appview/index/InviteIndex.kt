@@ -10,7 +10,9 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityInviteRecord
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.less
@@ -53,6 +55,8 @@ internal fun JdbcTransaction.upsertInvite(record: ActivityInviteRecord, author: 
             it[createdAt] = record.createdAt.toEpochMilliseconds()
             it[indexedAt] = now
         }
+        // A copy indexed first, as a rebuild or a late sync may index it, pairs now.
+        pairWaitingCopies(subject.value, inviteRkey = rkey, now = now)
     } else {
         ActivityInvites.update({ (ActivityInvites.inviterDid eq author.value) and (ActivityInvites.rkey eq rkey) }) {
             it[createdAt] = record.createdAt.toEpochMilliseconds()
@@ -115,7 +119,8 @@ internal fun JdbcTransaction.inviteLive(invite: ResultRow): Boolean {
 /**
  * After [copy] by [author] was indexed with [copyOf] (its untrusted `copyOf`, or null): a pair it was in with anything else goes; one it's
  * already in is re-tiered; and otherwise it's paired with the activity it names when an invite of [author] to that activity counts
- * ([inviteLive]) and no copy is paired for that invite yet, so only the first copy is.
+ * ([inviteLive]) and no copy is paired for that invite yet, so only the first copy is. One indexed before its invite or its original pairs
+ * when they are ([pairWaitingCopies]).
  */
 @Suppress("ReturnCount") // Each reason the copy pairs with nothing new.
 internal fun JdbcTransaction.copyIndexed(copy: AtUri, author: Did, copyOf: String?, now: Long) {
@@ -129,26 +134,53 @@ internal fun JdbcTransaction.copyIndexed(copy: AtUri, author: Did, copyOf: Strin
             .where { (ActivityInvitePairs.copyUri eq copy.value) and (ActivityInvitePairs.originalUri eq original.value) }
             .empty()
     if (paired) return retierInvitePairs(copyRow)
-    val rkey = ActivityInviteRecord.rkey(originalRkey, author)
     val invite =
         ActivityInvites.selectAll()
-            .where { (ActivityInvites.inviterDid eq original.authority) and (ActivityInvites.rkey eq rkey) }
+            .where {
+                (ActivityInvites.inviterDid eq original.authority) and
+                    (ActivityInvites.rkey eq ActivityInviteRecord.rkey(originalRkey, author))
+            }
             .firstOrNull() ?: return
+    pair(invite, originalRow, copyRow, now)
+}
+
+/**
+ * After the activity [original] was first indexed, or an invite to it ([inviteRkey], when given) was: each of its invites that counts and
+ * has no copy paired yet pairs with its invitee's earliest copy already indexed, so a pair doesn't depend on which was indexed first.
+ */
+internal fun JdbcTransaction.pairWaitingCopies(original: String, inviteRkey: String? = null, now: Long) {
+    val originalRow = Activities.selectAll().where { Activities.uri eq original }.firstOrNull() ?: return
+    ActivityInvites.selectAll()
+        .where { (ActivityInvites.activityUri eq original) and (inviteRkey?.let { ActivityInvites.rkey eq it } ?: Op.TRUE) }
+        .forEach { invite ->
+            val copy =
+                Activities.selectAll()
+                    .where { (Activities.copyOf eq original) and (Activities.authorDid eq invite[ActivityInvites.inviteeDid]) }
+                    .orderBy(Activities.indexedAt to SortOrder.ASC, Activities.uri to SortOrder.ASC)
+                    .firstOrNull()
+            if (copy != null) pair(invite, originalRow, copy, now)
+        }
+}
+
+/** Pairs [copy] with [original] for [invite] when the invite counts ([inviteLive]) and no copy is paired for it yet. */
+private fun JdbcTransaction.pair(invite: ResultRow, original: ResultRow, copy: ResultRow, now: Long) {
     if (!inviteLive(invite)) return
+    val inviter = invite[ActivityInvites.inviterDid]
+    val rkey = invite[ActivityInvites.rkey]
     val taken =
         !ActivityInvitePairs.select(ActivityInvitePairs.copyUri)
-            .where { (ActivityInvitePairs.inviterDid eq original.authority) and (ActivityInvitePairs.inviteRkey eq rkey) }
+            .where { (ActivityInvitePairs.inviterDid eq inviter) and (ActivityInvitePairs.inviteRkey eq rkey) }
             .empty()
     if (taken) return
     // Ignored when a copy indexed at the same time, under another URI's lock, took the invite first.
     ActivityInvitePairs.insertIgnore {
-        it[originalUri] = original.value
-        it[copyUri] = copy.value
-        it[inviterDid] = original.authority
-        it[inviteeDid] = author.value
+        it[originalUri] = original[Activities.uri]
+        it[copyUri] = copy[Activities.uri]
+        it[inviterDid] = inviter
+        it[inviteeDid] = invite[ActivityInvites.inviteeDid]
         it[inviteRkey] = rkey
-        it[originalVisibility] = pairVisibility(originalRow)
-        it[copyVisibility] = pairVisibility(copyRow)
+        it[originalVisibility] = pairVisibility(original)
+        it[copyVisibility] = pairVisibility(copy)
         it[pairedAt] = now
     }
 }

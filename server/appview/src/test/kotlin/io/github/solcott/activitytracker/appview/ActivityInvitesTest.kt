@@ -172,6 +172,31 @@ class ActivityInvitesTest : SegmentTestBase() {
     }
 
     @Test
+    fun aCopyIndexedBeforeItsInviteOrItsOriginalPairsOnceTheyAre() {
+        follow(bob, alice)
+        copy("3kb", bob, activityUri("3ka"))
+        activity("3ka", sport = "ride")
+        assertEquals(emptySet(), invitePairs(), "no invite yet")
+        invite("3ka", bob)
+        assertEquals(setOf(activityUri("3ka") to activityUri("3kb", bob)), invitePairs())
+
+        follow(carol, alice)
+        copy("3kc", carol, activityUri("3kd"))
+        invite("3kd", carol)
+        assertEquals(1, invitePairs().size, "no original yet")
+        activity("3kd", sport = "ride")
+        assertEquals(activityUri("3kc", carol), invitePairs().single { it.first == activityUri("3kd") }.second)
+    }
+
+    @Test
+    fun aCopyIndexedBeforeAnInviteThatDoesntCountStaysUnpaired() {
+        activity("3ka", sport = "ride")
+        copy("3kb", bob, activityUri("3ka"))
+        invite("3ka", bob)
+        assertEquals(emptySet(), invitePairs(), "bob doesn't follow alice")
+    }
+
+    @Test
     fun anInvitePastTheTwentiethDoesntCount() {
         activity("3ka", sport = "ride")
         for (i in 10 until 30) {
