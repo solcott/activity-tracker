@@ -126,7 +126,7 @@ The AppView SHALL accept `com.atproto.space.notifySpaceDeleted` callouts, authen
 - **THEN** the AppView joins it as a new space and indexes only what the new space holds
 
 ### Requirement: Only activity data is indexed from spaces
-From tier spaces (`followers`, `mutuals`, `self`), the AppView SHALL index only `feed.activity`, `feed.activityDetails`, `feed.activityStreams` and `feed.activityZones` records, and from the `self` space also `feed.segmentTrack` and `actor.segmentPrefs` records.
+From tier spaces (`followers`, `mutuals`, `self`), the AppView SHALL index only `feed.activity`, `feed.activityDetails`, `feed.activityStreams` and `feed.activityZones` records. From the `self` space it SHALL also index `feed.segmentTrack`, `actor.segmentPrefs`, `actor.groupPrefs`, `actor.leaderboardBrackets` and `feed.activityInvite` records.
 
 #### Scenario: Zones indexed from a tier space
 - **WHEN** a synced `mutuals` space's ops include a `feed.activityZones` write
@@ -154,6 +154,14 @@ From tier spaces (`followers`, `mutuals`, `self`), the AppView SHALL index only 
 
 #### Scenario: Segment track outside self ignored
 - **WHEN** a synced `followers` or `interactions` space's ops include a `feed.segmentTrack` or `actor.segmentPrefs` write
+- **THEN** the AppView indexes nothing from it
+
+#### Scenario: Invite indexed from self
+- **WHEN** a synced `self` space's ops include a `feed.activityInvite` write
+- **THEN** the AppView indexes it as that athlete's invite to the activity and invitee it names
+
+#### Scenario: Invite outside self ignored
+- **WHEN** a synced `followers` space's ops include a `feed.activityInvite` write
 - **THEN** the AppView indexes nothing from it
 
 ### Requirement: Only interactions are indexed from interactions spaces
@@ -279,7 +287,7 @@ A `feed.commentHide` written to an athlete's `interactions` space SHALL be index
 - **THEN** it indexes those hides along with the space's likes and comments
 
 ### Requirement: Non-public activities served by tier
-The AppView SHALL serve an activity held in a tier space only to the athlete and to viewers the tier admits: effective followers for `followers`, mutuals by effective follows for `mutuals`, and only the athlete for `self`. This SHALL hold for the timeline, an athlete's activities (both orders), `getActivity`, activity counts and recordings.
+The AppView SHALL serve an activity held in a tier space only to the athlete and to viewers the tier admits: effective followers for `followers`, mutuals by effective follows for `mutuals`, and only the athlete for `self`. This SHALL hold for the timeline, an athlete's activities (both orders), `getActivity`, activity counts and recordings. The one exception is the invite query, which serves a pending invitee the parts `feed/activity-invites` grants.
 
 #### Scenario: Effective follower's timeline
 - **WHEN** bob's follow of alice is effective and alice posts a Followers activity
@@ -304,6 +312,10 @@ The AppView SHALL serve an activity held in a tier space only to the athlete and
 #### Scenario: Filters and paging still hold
 - **WHEN** a follower pages through a filtered timeline that mixes Public and Followers activities
 - **THEN** each page contains only activities the follower may see that match the filter, and the cursor continues the same sequence
+
+#### Scenario: Invited to an Only-me activity
+- **WHEN** alice invites bob to an Only-me activity
+- **THEN** bob's invite shows its granted parts, and `getActivity` for it still answers not found for bob
 
 ### Requirement: Space-held media and charts served by tier
 Photos of a non-public activity, and charts stored in a tier space, SHALL be served only to viewers who may see them. The AppView SHALL fetch them from the space with its own credential rather than redirecting the viewer to the PDS.
@@ -402,3 +414,10 @@ When a pull's verified commit `data` doesn't match the stored set hash after fol
 #### Scenario: Account migrated
 - **WHEN** alice's account moves to another PDS and a pull returns a commit at a new revision with no ops and the same `data`
 - **THEN** the AppView records the new revision and removes nothing
+
+### Requirement: Invite declines are not stored
+The AppView SHALL NOT store `feed.activityInviteDecline` records from any space.
+
+#### Scenario: Decline in self
+- **WHEN** a synced `self` space's ops include a `feed.activityInviteDecline` write
+- **THEN** the AppView stores nothing from it
