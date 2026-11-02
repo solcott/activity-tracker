@@ -102,6 +102,18 @@ class MigrationTest {
         db.close()
     }
 
+    @Test
+    fun version8GainsAnEmptyUploadLog() = runTest {
+        val file = File(createTempDirectory("migration").toFile(), DATABASE_NAME)
+        createVersion(file, 8)
+
+        val db = Room.databaseBuilder<AppDatabase>(file.path).addAppMigrations().setDriver(BundledSQLiteDriver()).build()
+        assertEquals(listOf("3kold"), db.outbox().pending("did:plc:alice").map { it.rkey })
+        assertEquals(emptyList(), db.uploads().items("did:plc:alice").first())
+        assertEquals(1, db.uploads().otherChanges("did:plc:alice").first(), "a write queued before the log counts as another change")
+        db.close()
+    }
+
     private fun createVersion1(file: File) = createVersion(file, 1)
 
     /** The [version] schema, from the committed schema export, with one queued write. */
@@ -112,6 +124,9 @@ class MigrationTest {
         database.getValue("entities").jsonArray.forEach { entity ->
             val table = entity.jsonObject.getValue("tableName").jsonPrimitive.content
             connection.execSQL(entity.jsonObject.getValue("createSql").jsonPrimitive.content.replace("\${TABLE_NAME}", table))
+            entity.jsonObject["indices"]?.jsonArray?.forEach { index ->
+                connection.execSQL(index.jsonObject.getValue("createSql").jsonPrimitive.content.replace("\${TABLE_NAME}", table))
+            }
         }
         database.getValue("setupQueries").jsonArray.forEach { connection.execSQL(it.jsonPrimitive.content) }
         connection.execSQL(

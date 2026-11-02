@@ -5,6 +5,7 @@ import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.commentHideRkey
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.db.AppDatabase
+import io.github.solcott.activitytracker.data.db.UploadItemEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -37,6 +38,7 @@ import io.github.solcott.activitytracker.lexicon.atproto.StrongRef
 import io.github.solcott.activitytracker.location.LocationSample
 import io.github.solcott.dataresult.Outcome
 import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
@@ -59,7 +61,7 @@ import kotlinx.coroutines.sync.withLock
 @Inject
 @Suppress("LongParameterList", "TooManyFunctions") // Injected collaborators; every kind of write the athlete makes.
 class ActivityRepository(
-    db: AppDatabase,
+    private val db: AppDatabase,
     private val clients: SessionClients,
     private val outbox: OutboxProcessor,
     private val writer: OutboxWriter,
@@ -128,6 +130,21 @@ class ActivityRepository(
         return uris
     }
 
+    /** Lists the import [batchId] from [source] in the upload queue, as its save starts (feed/batch-import). */
+    suspend fun startImport(batchId: String, source: UploadSource) {
+        UploadLog.batch(db, clients.did.value, batchId, source.encode(), clock.now())
+    }
+
+    /** Lists a file of the import [batchId] that couldn't be read again at save, by its [title] and [sport] if known. */
+    suspend fun skippedImport(batchId: String, title: String?, sport: String?, startedAt: Instant?) {
+        UploadLog.skipped(db, clients.did.value, batchId, title, sport, startedAt, clock.now())
+    }
+
+    /** The import [batchId] saved [saved] activities and skipped [skipped]. */
+    suspend fun finishImport(batchId: String, saved: Int, skipped: Int) {
+        UploadLog.counted(db, batchId, saved, skipped)
+    }
+
     /** Queues [drafts] as they arrive, checking each, with one read of the zones and training for them all. */
     private suspend fun queueEach(
         drafts: Flow<ActivityDraft>,
@@ -176,6 +193,8 @@ class ActivityRepository(
                 draft.visibility,
                 draft.categories,
             )
+        // Logged before its first write, so the processor counts every write it sends (data/upload-queue).
+        UploadLog.queued(db, clients.did.value, rkey, UploadItemEntity.KIND_NEW, layout.record, draft.importBatch, clock.now())
         for (tier in layout.tiersNarrowestFirst) {
             val details = layout.details[tier] ?: continue
             writer.put(Nsid.FEED_ACTIVITY_DETAILS, rkey, ActivityDetailsRecord.serializer(), details, space = clients.placeOf(tier))
@@ -351,6 +370,15 @@ class ActivityRepository(
      * reading the zones ([RouteTrimmer.trimStale]).
      */
     suspend fun sync(): Int = syncRun().notApplied
+
+    /**
+     * [sync] for the athlete's own writes only: those that go before every bulk write ([OutboxProcessor.run] `ownOnly`), so the feed loads
+     * without waiting for an import to upload (data/outbox). The pacer sends the rest.
+     */
+    suspend fun syncOwn(): Int {
+        routes.trimStale()
+        return outbox.run(ownOnly = true).notApplied
+    }
 
     /** [sync], also saying whether the drain stopped at a failure that may pass ([DrainRun.failed]), for [OutboxPacer]. */
     suspend fun syncRun(): DrainRun {

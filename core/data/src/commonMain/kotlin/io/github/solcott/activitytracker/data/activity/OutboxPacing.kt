@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.atproto.xrpc.RateLimit
 import io.github.solcott.activitytracker.lexicon.Did
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,6 +44,39 @@ class AccountPacing internal constructor() {
     val lock = Mutex()
 
     /**
+     * Held briefly to start sending a write, or to cancel one (data/upload-queue): the drain re-checks the write is still queued and marks
+     * its rkey [sending] under it, so a cancel either drops all of an activity's writes before one goes, or is refused.
+     */
+    val claim = Mutex()
+
+    /** The rkey whose write is being sent now, if any. Set under [claim]. */
+    val sending: StateFlow<String?>
+        field = MutableStateFlow<String?>(null)
+
+    internal fun markSending(rkey: String?) {
+        sending.value = rkey
+    }
+
+    /**
+     * Whether the athlete paused imports (data/upload-queue): no bulk write goes until they resume, whatever the PDS's limit. Null until
+     * loaded from the device ([UploadQueue]); a drain loads it first.
+     */
+    val importsPaused: StateFlow<Boolean?>
+        field = MutableStateFlow<Boolean?>(null)
+
+    fun pauseImports(paused: Boolean) {
+        importsPaused.value = paused
+    }
+
+    /** When the latest bulk writes were sent, the last [PACE_WINDOW] of them, for the time left ([UploadQueue.estimate]). */
+    val bulkSent: StateFlow<List<Instant>>
+        field = MutableStateFlow(emptyList())
+
+    internal fun sentBulk(at: Instant) {
+        bulkSent.update { sent -> (sent + at).filter { it > at - PACE_WINDOW } }
+    }
+
+    /**
      * Each limit the account's PDS stated, last heard, by its policy: record writes and blob uploads count against different limits, and a
      * response states only the one it counted against.
      */
@@ -76,6 +110,11 @@ class AccountPacing internal constructor() {
     fun isPaused(now: Instant): Boolean = active(pausedUntil, now)
 
     fun isBulkPaused(now: Instant): Boolean = isPaused(now) || active(bulkPausedUntil, now)
+
+    companion object {
+        /** How far back the pace of bulk writes is measured. */
+        val PACE_WINDOW = 15.minutes
+    }
 
     private fun active(flow: MutableStateFlow<Instant?>, now: Instant): Boolean {
         val until = flow.value

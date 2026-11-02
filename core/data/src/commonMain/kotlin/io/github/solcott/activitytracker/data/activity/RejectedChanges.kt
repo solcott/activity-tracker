@@ -6,6 +6,7 @@ import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.OutboxEntity
 import io.github.solcott.activitytracker.data.db.RejectedOutboxWrite
+import io.github.solcott.activitytracker.data.db.UploadItemEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -19,6 +20,7 @@ import io.github.solcott.activitytracker.lexicon.app.LikeRecord
 import kotlin.time.Instant
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.KSerializer
 
 /**
@@ -49,7 +51,8 @@ data class RejectedChange(
 
 /**
  * The athlete's changes their PDS refused, one per rejected write ([OutboxProcessor] keeps them), and the two ways out: [retry] sends them
- * again, [discard] drops them and shows what the PDS holds instead.
+ * again, [discard] drops them and shows what the PDS holds instead. The upload queue lists them ([UploadQueue]) and cancels through
+ * [discard].
  */
 @SingleIn(SessionScope::class)
 @Inject
@@ -70,16 +73,43 @@ class RejectedChanges(
      * Sends [change]'s writes again, in their place in the outbox, and returns how many writes are left unsent. A write the PDS refuses
      * again is rejected again.
      */
-    suspend fun retry(change: RejectedChange): Int {
-        db.outbox().clearRejected(did, change.rkey)
+    suspend fun retry(change: RejectedChange): Int = retry(change.rkey)
+
+    /** [retry] for the change at [rkey]. */
+    suspend fun retry(rkey: String): Int {
+        db.outbox().clearRejected(did, rkey)
         return outbox.drain()
     }
 
     /** Drops [change]'s writes from the device, and the athlete's own changes laid over what the AppView serves for its record. */
     suspend fun discard(change: RejectedChange) {
-        val rows = db.outbox().group(did, change.rkey)
-        db.outbox().deleteGroup(did, change.rkey)
-        rows.flatMap { forget(it) }.distinct().forEach { feed.reloadCached(it) }
+        discard(change.rkey)
+    }
+
+    /**
+     * Drops [rkey]'s writes and its live upload item from the device (data/upload-queue), and the athlete's own changes laid over what the
+     * AppView serves for its record, unless one of its writes is being sent or [refuse] says no: both are asked under the claim
+     * ([AccountPacing.claim]), so no write of it can start meanwhile. A new activity leaves the athlete's lists, since none of it is
+     * published; an edit shows what the PDS holds again. Returns whether it dropped them.
+     */
+    internal suspend fun discard(rkey: String, refuse: suspend () -> Boolean = { false }): Boolean {
+        val pacing = clients.pacing
+        val (rows, item) =
+            pacing.claim.withLock {
+                if (pacing.sending.value == rkey || refuse()) return false
+                val rows = db.outbox().pending(did, rkey)
+                val item = db.uploads().live(did, rkey)
+                db.uploads().cancel(did, rkey)
+                rows to item
+            }
+        val changed = rows.flatMap { forget(it) }.distinct()
+        if (item?.kind == UploadItemEntity.KIND_NEW) {
+            val uri = AtUri.of(clients.did, Nsid.FEED_ACTIVITY, rkey)
+            feed.deletes.delete(uri)
+            db.feed().deleteByUri(uri.value)
+        }
+        changed.forEach { feed.reloadCached(it) }
+        return true
     }
 
     /** Forgets what [row] laid over the AppView's reads, and returns the activities whose cached views it changed. */

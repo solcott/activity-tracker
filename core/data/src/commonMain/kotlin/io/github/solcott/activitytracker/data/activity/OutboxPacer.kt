@@ -46,7 +46,7 @@ class OutboxPacer(
         var backoff = INITIAL_BACKOFF
         while (true) {
             // Taken before the pass, so a write queued during or after it wakes the next one.
-            val before = queue.first()
+            val before = queue.first() to pacing.importsPaused.value
             val outcome = runUntilIdleOrPaused()
             val now = clock.now()
             if (outcome == PacerOutcome.Failed) {
@@ -55,7 +55,8 @@ class OutboxPacer(
                 continue
             }
             backoff = INITIAL_BACKOFF
-            val changed = suspend { queue.first { it != before } }
+            // The athlete pausing or resuming imports wakes it too, so Resume sends at once.
+            val changed = suspend { combine(queue, pacing.importsPaused) { q, p -> q to p }.first { it != before } }
             when (outcome) {
                 is PacerOutcome.Paused -> withTimeoutOrNull((outcome.until - now).coerceAtLeast(Duration.ZERO)) { changed() }
                 else -> changed()
@@ -63,7 +64,10 @@ class OutboxPacer(
         }
     }
 
-    /** Sends what it can now: [PacerOutcome.Idle] when nothing more can go (all sent, or held by a rejected write), else why it stopped. */
+    /**
+     * Sends what it can now: [PacerOutcome.Idle] when nothing more can go (all sent, or held by a rejected write or the athlete's pause of
+     * imports), else why it stopped.
+     */
     suspend fun runUntilIdleOrPaused(): PacerOutcome {
         val run = runSuspendCatching {
             activities.syncRun()
@@ -77,6 +81,8 @@ class OutboxPacer(
             run.failed -> PacerOutcome.Failed
             run.notApplied == 0 -> PacerOutcome.Idle
             pacing.isPaused(now) -> PacerOutcome.Paused(pacing.pausedUntil.value ?: now)
+            // What's left waits on the athlete to resume imports: nothing to come back for (data/outbox).
+            pacing.importsPaused.value == true -> PacerOutcome.Idle
             pacing.isBulkPaused(now) -> PacerOutcome.Paused(pacing.bulkPausedUntil.value ?: now)
             else -> PacerOutcome.Idle
         }
@@ -90,7 +96,7 @@ class OutboxPacer(
 
 /** How a pass of [OutboxPacer] ended. */
 sealed interface PacerOutcome {
-    /** Nothing more can be sent now: everything went, or what's left waits on the athlete (rejected writes). */
+    /** Nothing more can be sent now: everything went, or what's left waits on the athlete (rejected writes, or imports they paused). */
     data object Idle : PacerOutcome
 
     /** The PDS asked to wait until [until]. */

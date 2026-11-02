@@ -4,6 +4,10 @@ import co.touchlab.kermit.Logger
 import io.github.solcott.activitytracker.data.activity.BulkWrites
 import io.github.solcott.activitytracker.data.activity.OutboxPacer
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
+import io.github.solcott.activitytracker.data.activity.PacerOutcome
+import io.github.solcott.activitytracker.data.activity.UploadLog
+import io.github.solcott.activitytracker.data.activity.UploadQueue
+import io.github.solcott.activitytracker.data.db.KeyValueEntity
 import io.github.solcott.activitytracker.lexicon.Nsid
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -105,5 +109,62 @@ class OutboxPacerTest {
 
         assertEquals(2, p.pds.writes.size)
         assertEquals(3, p.session.db.outbox().pending(p.pds.did.value).size)
+    }
+
+    private fun Pacing.uploads() = UploadQueue(session.db, session.clients, session.rejected, Clock.System)
+
+    @Test
+    fun theAthletesOwnWritesGoWhileImportsArePaused() = runTest {
+        val p = pacing()
+        p.uploads().pauseImports()
+        BulkWrites.run { repeat(3) { p.writer.put(Nsid.FEED_ACTIVITY, "3kimport$it") } }
+        p.writer.put(Nsid.FEED_LIKE, "3klike")
+
+        assertEquals(PacerOutcome.Idle, p.pacer.runUntilIdleOrPaused(), "paused imports alone ask for no background run")
+        assertEquals(listOf("put repo ${Nsid.FEED_LIKE}/3klike"), p.pds.writes)
+        assertEquals(3, p.session.db.outbox().pending(p.pds.did.value).size)
+    }
+
+    @Test
+    fun thePauseOutlastsTheSession() = runTest {
+        val p = pacing()
+        // As a paused session left it: the pause is on the device, and this session's pacing hasn't loaded it.
+        p.session.db.keyValue().put(KeyValueEntity(UploadLog.importsPausedKey(p.pds.did.value), "true"))
+        BulkWrites.run { p.writer.put(Nsid.FEED_ACTIVITY, "3kimport") }
+
+        p.pacer.runUntilIdleOrPaused()
+
+        assertEquals(emptyList(), p.pds.writes)
+        assertEquals(true, p.session.clients.pacing.importsPaused.value)
+    }
+
+    @Test
+    fun resumingSendsWithoutWaitingForTheQueueToChange() = runTest {
+        val p = pacing()
+        val uploads = p.uploads()
+        uploads.pauseImports()
+        BulkWrites.run { repeat(2) { p.writer.put(Nsid.FEED_ACTIVITY, "3kimport$it") } }
+        backgroundScope.launch { p.pacer.run() }
+        delay(1.seconds)
+        assertEquals(emptyList(), p.pds.writes)
+
+        uploads.resumeImports()
+        p.awaitQueued(0)
+
+        assertEquals(2, p.pds.writes.size)
+    }
+
+    @Test
+    fun syncingOwnWritesLeavesAnImportAndWhatsBehindIt() = runTest {
+        val p = pacing()
+        BulkWrites.run { p.writer.put(Nsid.FEED_ACTIVITY, "3kimport") }
+        // An edit of the imported activity, queued behind its import's write.
+        p.writer.put(Nsid.FEED_ACTIVITY, "3kimport")
+        p.writer.put(Nsid.FEED_LIKE, "3klike")
+
+        p.session.activities.syncOwn()
+
+        assertEquals(listOf("put repo ${Nsid.FEED_LIKE}/3klike"), p.pds.writes)
+        assertEquals(2, p.session.db.outbox().pending(p.pds.did.value, "3kimport").size)
     }
 }

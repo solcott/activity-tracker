@@ -53,6 +53,33 @@ class OutboxQueryPlanTest {
         assertIndexed("DELETE FROM outbox_blob WHERE `key` NOT IN (SELECT blobKey FROM outbox WHERE blobKey IS NOT NULL)", covering = true)
     }
 
+    @Test
+    fun theUploadQueueReadsTheOutboxByIndexOnly() {
+        // UploadDao.items: what the outbox holds for each logged rkey.
+        assertIndexed(
+            "SELECT i.id, " +
+                "(SELECT COUNT(*) FROM outbox o WHERE o.did = i.did AND o.rkey = i.rkey) AS remaining, " +
+                "(SELECT COUNT(*) FROM outbox o WHERE o.did = i.did AND o.rejectedAt IS NOT NULL AND o.rkey = i.rkey) AS rejected, " +
+                "(SELECT MIN(o.id) FROM outbox o WHERE o.did = i.did AND o.rkey = i.rkey) AS firstWrite " +
+                "FROM upload_item i WHERE i.did = 'd' ORDER BY i.id",
+            covering = true,
+        )
+        // UploadDao.otherChanges.
+        assertIndexed(
+            "SELECT COUNT(DISTINCT o.rkey) FROM outbox o WHERE o.did = 'd' AND o.rejectedAt IS NULL " +
+                "AND o.rkey NOT IN (SELECT rkey FROM outbox WHERE did = 'd' AND rejectedAt IS NOT NULL) " +
+                "AND o.rkey NOT IN (SELECT rkey FROM upload_item WHERE did = 'd' AND finishedAt IS NULL AND rkey IS NOT NULL)",
+            covering = true,
+        )
+        // UploadDao.bulkLeft.
+        assertIndexed(
+            "SELECT COUNT(*) AS writes, COALESCE(SUM(collection IN ('c')), 0) AS blobs FROM outbox " +
+                "WHERE did = 'd' AND bulk = 1 AND rejectedAt IS NULL " +
+                "AND rkey NOT IN (SELECT rkey FROM outbox WHERE did = 'd' AND rejectedAt IS NOT NULL)",
+            covering = true,
+        )
+    }
+
     /** [sql] never scans the outbox, and with [covering] reads none of its rows. */
     private fun assertIndexed(sql: String, covering: Boolean = false) {
         val plan = buildList { connection.prepare("EXPLAIN QUERY PLAN $sql").use { while (it.step()) add(it.getText(3)) } }
@@ -68,7 +95,7 @@ class OutboxQueryPlanTest {
 
     /** Today's schema, from the committed export Room checks it against. */
     private fun createSchema(connection: SQLiteConnection) {
-        val schema = File("schemas/io.github.solcott.activitytracker.data.db.AppDatabase/8.json").readText()
+        val schema = File("schemas/io.github.solcott.activitytracker.data.db.AppDatabase/9.json").readText()
         val database = Json.parseToJsonElement(schema).jsonObject.getValue("database").jsonObject
         database.getValue("entities").jsonArray.forEach { entity ->
             val table = entity.jsonObject.getValue("tableName").jsonPrimitive.content

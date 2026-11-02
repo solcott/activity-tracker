@@ -11,7 +11,9 @@ import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.activity.CombineSuggestions
 import io.github.solcott.activitytracker.data.activity.OutboxPacer
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
+import io.github.solcott.activitytracker.data.activity.RejectedChanges
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
+import io.github.solcott.activitytracker.data.activity.UploadQueue
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -535,6 +537,8 @@ class SessionTestFixture {
         val places: ActivityPlaces,
         /** The session's outbox loop, as `App` runs it; a test starts it ([OutboxPacer.run]) when writes should go on their own. */
         val pacer: OutboxPacer,
+        /** The upload queue over the session's outbox (data/upload-queue). */
+        val uploads: UploadQueue,
     ) {
         /** The gear picker's producer, as Metro injects it into the record, manual entry, import and edit presenters. */
         val gearChoices: GearChoices
@@ -618,6 +622,7 @@ class SessionTestFixture {
             zones.devices,
             places,
             OutboxPacer(db, clients, activities, Clock.System, Logger),
+            UploadQueue(db, clients, RejectedChanges(db, clients, zones.outbox, feed, localLikes), Clock.System),
         )
     }
 }

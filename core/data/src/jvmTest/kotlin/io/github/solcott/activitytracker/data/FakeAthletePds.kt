@@ -188,6 +188,9 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher
      */
     var rateLimit: FakeRateLimit? = null
 
+    /** Runs before each PDS request is answered, with its path, while set: a test acts mid-upload from it. */
+    var onRequest: (suspend (String) -> Unit)? = null
+
     /** How many writes the PDS answered 429. */
     var rateLimited = 0
 
@@ -210,6 +213,7 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher
                                 return@addHandler error("InternalServerError", HttpStatusCode.InternalServerError)
                             val path = request.url.encodedPath
                             requests += "$path ${request.url.parameters["collection"]}/${request.url.parameters["rkey"]}"
+                            onRequest?.invoke(path)
                             val limit = rateLimit
                             val cost = limit?.costOf(path) ?: 0
                             if (limit != null && cost > 0 && !limit.consume(cost)) {

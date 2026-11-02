@@ -25,7 +25,7 @@ const val DATABASE_NAME = "activity-tracker.db"
  * crashes lowering the `AutoMigration` annotation.
  */
 fun <T : RoomDatabase> RoomDatabase.Builder<T>.addAppMigrations(): RoomDatabase.Builder<T> =
-    addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+    addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
 
 /** Runs one statement: `execSQL` blocks on most platforms and suspends on the web, so it has no common form. */
 internal expect suspend fun SQLiteConnection.runSql(sql: String)
@@ -83,6 +83,29 @@ private val MIGRATION_7_8 =
         it.runSql("CREATE INDEX IF NOT EXISTS `index_outbox_blobKey` ON `outbox` (`blobKey`)")
     }
 
+/**
+ * 8 → 9: the upload queue's log beside the outbox (data/upload-queue), and an index for an import's writes left. Writes queued before have
+ * no item and count as other changes.
+ */
+private val MIGRATION_8_9 =
+    Migration(8, 9) {
+        it.runSql(
+            "CREATE TABLE IF NOT EXISTS `upload_batch` (`id` TEXT NOT NULL, `did` TEXT NOT NULL, `source` TEXT NOT NULL, " +
+                "`savedAt` INTEGER NOT NULL, `saved` INTEGER NOT NULL, `skipped` INTEGER NOT NULL, PRIMARY KEY(`id`))"
+        )
+        it.runSql(
+            "CREATE TABLE IF NOT EXISTS `upload_item` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `did` TEXT NOT NULL, " +
+                "`rkey` TEXT, `batchId` TEXT, `kind` TEXT NOT NULL, `title` TEXT, `sport` TEXT, `subSport` TEXT, `startedAt` INTEGER, " +
+                "`queuedAt` INTEGER NOT NULL, `sentWrites` INTEGER NOT NULL, `finishedAt` INTEGER, `skipped` INTEGER NOT NULL)"
+        )
+        it.runSql("CREATE INDEX IF NOT EXISTS `index_upload_item_did_rkey` ON `upload_item` (`did`, `rkey`)")
+        it.runSql("CREATE INDEX IF NOT EXISTS `index_upload_item_did_batchId` ON `upload_item` (`did`, `batchId`)")
+        it.runSql(
+            "CREATE INDEX IF NOT EXISTS `index_outbox_did_bulk_rejectedAt_rkey_collection` ON `outbox` " +
+                "(`did`, `bulk`, `rejectedAt`, `rkey`, `collection`)"
+        )
+    }
+
 @Database(
     entities =
         [
@@ -94,8 +117,10 @@ private val MIGRATION_7_8 =
             CombineDismissalEntity::class,
             RecordingEntity::class,
             RecordingEventEntity::class,
+            UploadBatchEntity::class,
+            UploadItemEntity::class,
         ],
-    version = 8,
+    version = 9,
 )
 @ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -110,6 +135,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun combineDismissals(): CombineDismissalDao
 
     abstract fun recordings(): RecordingDao
+
+    abstract fun uploads(): UploadDao
 }
 
 @Suppress("KotlinNoActualForExpect")
@@ -190,11 +217,17 @@ interface FeedDao {
  * Room re-runs every observed query on the table after each write, so those read indexes, never the rows: a batch import queues thousands
  * of writes with their blob bytes inline, and scanning them on every write idles the drain on the web, where one SQLite worker runs it all.
  * The indexes cover the counts and the pending count ([OutboxDao.pendingCount]), find the rejected writes and an rkey's writes, and the
- * shared blobs still named ([OutboxDao.deleteUnreferencedBlobs]).
+ * shared blobs still named ([OutboxDao.deleteUnreferencedBlobs]), and an import's writes left ([UploadDao.bulkLeft]).
  */
 @Entity(
     tableName = "outbox",
-    indices = [Index("did", "rejectedAt", "rkey"), Index("did", "rkey"), Index("blobKey")],
+    indices =
+        [
+            Index("did", "rejectedAt", "rkey"),
+            Index("did", "rkey"),
+            Index("blobKey"),
+            Index("did", "bulk", "rejectedAt", "rkey", "collection"),
+        ],
 )
 data class OutboxEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -266,6 +299,8 @@ interface OutboxDao {
     /** [pending] for one [rkey]: an activity's queued writes, in order. */
     @Query("SELECT $OUTBOX_WITHOUT_BLOB FROM outbox WHERE did = :did AND rkey = :rkey ORDER BY id")
     suspend fun pending(did: String, rkey: String): List<OutboxEntity>
+
+    @Query("SELECT EXISTS(SELECT 1 FROM outbox WHERE id = :id)") suspend fun exists(id: Long): Boolean
 
     /** The bytes stored on write [id] to upload before its record ([OutboxEntity.blob]); null when it has none. */
     @Query("SELECT blob FROM outbox WHERE id = :id") suspend fun inlineBlob(id: Long): ByteArray?

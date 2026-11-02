@@ -58,49 +58,72 @@ class OutboxProcessor(
 
     /**
      * [drain], also saying whether the run stopped at a failure that may pass ([DrainRun.failed]). Writes go non-bulk first, each in the
-     * order queued, except that a write for a record a bulk write is still queued for stays behind it ([sendOrder]). Nothing is sent while
-     * the PDS's pause lasts ([AccountPacing.isPaused]), and no bulk write while less than a tenth of its stated limit is left: the rest is
-     * kept for the athlete's own writes, and bulk writes wait for the limit to reset.
+     * order queued, except that a write for a record a bulk write is still queued for stays behind it ([sendOrder], over the whole queue).
+     * Nothing is sent while the PDS's pause lasts ([AccountPacing.isPaused]), and no bulk write while the athlete paused imports or less
+     * than a tenth of the PDS's stated limit is left: the rest is kept for the athlete's own writes, and bulk writes wait for the limit to
+     * reset. With [ownOnly], only the athlete's own writes that go before every bulk write are sent ([ActivityRepository.syncOwn]).
+     *
+     * Each write is claimed before it's sent ([AccountPacing.claim]): one cancelled meanwhile is skipped, and the upload queue sees its
+     * rkey as sending. A sent write's upload item counts it in the same transaction as it leaves the outbox (data/upload-queue).
      */
-    suspend fun run(only: (OutboxEntity) -> Boolean = { true }): DrainRun =
+    suspend fun run(only: (OutboxEntity) -> Boolean = { true }, ownOnly: Boolean = false): DrainRun =
         pacing.lock.withLock {
-            val all = db.outbox().pending(clients.did.value)
+            val did = clients.did.value
+            if (pacing.importsPaused.value == null) pacing.pauseImports(db.keyValue().get(UploadLog.importsPausedKey(did)) != null)
+            val all = db.outbox().pending(did)
             val held = all.filter { it.rejectedAt != null }.mapTo(mutableSetOf()) { it.rkey }
-            val selected = sendOrder(all.filter(only))
+            val bulkRkeys = all.filter { it.bulk }.mapTo(mutableSetOf()) { it.rkey }
+            val selected = sendOrder(all).filter { only(it) && (!ownOnly || (!it.bulk && it.rkey !in bulkRkeys)) }
             if (pacing.isPaused(clock.now())) return@withLock DrainRun(selected.size)
-            val bulkRkeys = selected.filter { it.bulk }.mapTo(mutableSetOf()) { it.rkey }
             var notApplied = 0
             for ((index, item) in selected.withIndex()) {
-                if (item.rkey in held) {
-                    notApplied++
-                    continue
-                }
-                if ((item.bulk || item.rkey in bulkRkeys) && !bulkMaySend()) {
-                    // Everything left waits behind a bulk write.
-                    return@withLock DrainRun(notApplied + selected.size - index)
-                }
-                val failure = runSuspendCatching {
-                    apply(item)
-                    db.outbox().delete(item.id)
-                }
-                    .exceptionOrNull()
-                when (failure?.let { failed(item, it, pending = selected.size - index) }) {
-                    null -> Unit
-                    Failure.Stop -> return@withLock DrainRun(notApplied + selected.size - index)
-                    Failure.StopFailed -> return@withLock DrainRun(notApplied + selected.size - index, failed = true)
+                val waits = item.rkey !in held && (item.bulk || item.rkey in bulkRkeys) && !bulkMaySend()
+                // Everything left waits behind a bulk write.
+                if (waits) return@withLock DrainRun(notApplied + selected.size - index)
+                val pending = selected.size - index
+                when (if (item.rkey in held) Failure.Held else send(item, did, pending)) {
+                    null,
+                    Failure.Dropped -> Unit
+                    Failure.Held -> notApplied++
+                    Failure.Stop -> return@withLock DrainRun(notApplied + pending)
+                    Failure.StopFailed -> return@withLock DrainRun(notApplied + pending, failed = true)
                     Failure.Rejected -> {
                         held += item.rkey
                         notApplied++
                     }
-                    Failure.Dropped -> Unit
                 }
                 if (item.blobKey != null) db.outbox().deleteUnreferencedBlobs()
             }
             DrainRun(notApplied)
         }
 
-    /** What a write's failure means for the run: [Failure.Stop] at a pause, [Failure.StopFailed] at a failure that may pass. */
+    /**
+     * Claims [item] and sends it: null once it's sent, or cancelled before it could be claimed, else what its failure means. While it's
+     * sent, the upload queue sees its rkey as sending, and can't cancel it.
+     */
+    private suspend fun send(item: OutboxEntity, did: String, pending: Int): Failure? {
+        val claimed = pacing.claim.withLock { db.outbox().exists(item.id).also { if (it) pacing.markSending(item.rkey) } }
+        if (!claimed) return null
+        val failure =
+            try {
+                runSuspendCatching {
+                    apply(item)
+                    db.uploads().sent(item.id, did, item.rkey, clock.now().toEpochMilliseconds())
+                }
+                    .exceptionOrNull()
+            } finally {
+                pacing.markSending(null)
+            }
+        if (failure == null && item.bulk) pacing.sentBulk(clock.now())
+        return failure?.let { failed(item, it, pending) }
+    }
+
+    /**
+     * Why a write wasn't sent, for the run: [Failure.Held] behind a rejected one, [Failure.Stop] at a pause, [Failure.StopFailed] at a
+     * failure that may pass.
+     */
     private enum class Failure {
+        Held,
         Dropped,
         Stop,
         StopFailed,
@@ -113,7 +136,7 @@ class OutboxProcessor(
             item.collection == Nsid.FEED_ACTIVITY_SOURCE && e.isBlobTooLarge() -> {
                 // Only the original is lost: the activity just offers no download.
                 log.w(e) { "Dropping outbox write ${item.id}: the PDS refused its original file as too large" }
-                db.outbox().delete(item.id)
+                db.uploads().dropped(item.id, item.did, item.rkey, clock.now().toEpochMilliseconds())
                 Failure.Dropped
             }
             e is XrpcException && e.status == HTTP_TOO_MANY_REQUESTS -> {
@@ -140,10 +163,11 @@ class OutboxProcessor(
     }
 
     /**
-     * Whether a bulk write may go now: no bulk pause, and each limit the PDS stated has a tenth left or has reset since. Otherwise bulk
-     * writes wait for the latest reset among the limits running low.
+     * Whether a bulk write may go now: imports not paused by the athlete, no bulk pause, and each limit the PDS stated has a tenth left or
+     * has reset since. Otherwise bulk writes wait for the latest reset among the limits running low.
      */
     private fun bulkMaySend(): Boolean {
+        if (pacing.importsPaused.value == true) return false
         val now = clock.now()
         if (!pacing.isBulkPaused(now)) {
             val low =

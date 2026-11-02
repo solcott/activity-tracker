@@ -4,6 +4,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.xrpc.XrpcException
 import io.github.solcott.activitytracker.data.db.AppDatabase
+import io.github.solcott.activitytracker.data.db.UploadItemEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
@@ -103,6 +104,7 @@ class ActivityManager(
                     } ?: current.dive,
                 media = (photos + unknown).take(ActivityMedia.MAX).ifEmpty { null },
             )
+        UploadLog.queued(db, clients.did.value, rkey, UploadItemEntity.KIND_EDIT, record, batchId = null, clock.now())
         writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), record, space = clients.placeOf(visibility))
         feed.rewrites.set(activity.uri, record)
         feed.updateCached(activity.uri) { feed.rewrites.rewritten(it, record) }
@@ -213,7 +215,13 @@ class ActivityManager(
             }
         val placed = drafts.map { it.atVisibility(visibility) }
         val saved = publish(placed)
-        build(uri, base = stored.first(), stored.map { read(it) } + placed.zip(saved) { draft, at -> draft.member(at) }, visibility)
+        build(
+            uri,
+            base = stored.first(),
+            stored.map { read(it) } + placed.zip(saved) { draft, at -> draft.member(at) },
+            visibility,
+            batchId = drafts.first().importBatch,
+        )
         hideMembers(stored + saved)
         return uri
     }
@@ -231,7 +239,13 @@ class ActivityManager(
         val placed = drafts.map { it.atVisibility(visibility) }
         val saved = publish(placed)
         val uri = AtUri.of(clients.did, Nsid.FEED_ACTIVITY, Tid.next(clock))
-        build(uri, base = saved.first(), placed.zip(saved) { draft, at -> draft.member(at) }, visibility)
+        build(
+            uri,
+            base = saved.first(),
+            placed.zip(saved) { draft, at -> draft.member(at) },
+            visibility,
+            batchId = drafts.first().importBatch,
+        )
         hideMembers(saved)
         return uri
     }
@@ -249,7 +263,8 @@ class ActivityManager(
         }
         outbox.drain()
         val uri = AtUri.of(clients.did, Nsid.FEED_ACTIVITY, Tid.next(clock))
-        build(uri, base = primary.uri, members.map { read(it) }, primary.visibilityOrPublic)
+        // A migration the athlete didn't ask for: not listed in the upload queue.
+        build(uri, base = primary.uri, members.map { read(it) }, primary.visibilityOrPublic, logged = false)
         hideMembers(members)
         return uri
     }
@@ -367,6 +382,8 @@ class ActivityManager(
         members: List<MemberData>,
         visibility: String,
         sources: List<ChannelSource>? = null,
+        batchId: String? = null,
+        logged: Boolean = true,
     ) {
         val current = places.read(uri).takeIf { it.full != null }
         val ranking = sources ?: current?.full?.combined?.sources.orEmpty()
@@ -377,6 +394,7 @@ class ActivityManager(
             current?.narrowestTiers()?.let { (summary, channels) -> DetailCategory.tiers(visibility, summary + channels) }
                 ?: ActivityCombiner.narrowestTiers(visibility, members.map { it.tiers })
         val layout = ActivityLayout.split(record, null, uri, visibility, categories)
+        if (logged) logBuilt(uri, rebuilt = current != null, layout.record, batchId)
         queueLayout(layout, uri, visibility)
         val mapTier = DetailCategory.tiers(visibility, categories).getValue(DetailCategory.MAP)
         val published = privacy.published(uri, visibility, mapTier, built.route, trim)
@@ -405,6 +423,12 @@ class ActivityManager(
         }
         feed.rewrites.set(uri, layout.record)
         feed.updateCached(uri) { feed.rewrites.rewritten(it, layout.record) }
+    }
+
+    /** Lists the combined activity at [uri] in the upload queue: a new one, or an edit when [rebuilt] (data/upload-queue). */
+    private suspend fun logBuilt(uri: AtUri, rebuilt: Boolean, record: ActivityRecord, batchId: String?) {
+        val kind = if (rebuilt) UploadItemEntity.KIND_EDIT else UploadItemEntity.KIND_NEW
+        UploadLog.queued(db, clients.did.value, requireNotNull(uri.rkey), kind, record, batchId, clock.now())
     }
 
     /** [layout]'s details records, narrowest first, then its activity record at [visibility]. */
@@ -463,6 +487,8 @@ class ActivityManager(
 
     private suspend fun queueDelete(uri: AtUri, visibility: String, recordingOf: AtUri? = null) {
         val rkey = requireNotNull(uri.rkey)
+        // Its delete counts with other changes (data/upload-queue).
+        UploadLog.removed(db, clients.did.value, rkey)
         writer.delete(Nsid.FEED_ACTIVITY, rkey, clients.placeOf(visibility))
         streams.delete(uri)
         tracks.delete(uri)
@@ -483,6 +509,7 @@ class ActivityManager(
 
     private suspend fun queueUngroup(recording: AtUri, from: AtUri, visibility: String) {
         val record = rewriteWithoutRecordingOf(recording, visibility, always = true)
+        UploadLog.queued(db, clients.did.value, requireNotNull(recording.rkey), UploadItemEntity.KIND_EDIT, record, null, clock.now())
         feed.rewrites.set(recording, record)
         feed.updateCached(recording) { it.copy(record = record) }
         feed.deletes.ungroup(recording)
