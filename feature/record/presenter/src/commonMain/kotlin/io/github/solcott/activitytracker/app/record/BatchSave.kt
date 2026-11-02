@@ -138,9 +138,14 @@ class BatchSaveRunner(
 ) : ImportSaveRunner {
     override suspend fun runAll() {
         saves.exclusive(clients.did) {
-            // A failed run leaves its save for the next launch: the screen offers saving again, a background job retries.
-            var next = store.runnable().firstOrNull()
-            while (next != null && run(next)) next = store.runnable().firstOrNull()
+            // A failed run leaves its save for the next launch: the screen offers saving again, a background job retries. The saves after
+            // it still run now, so one that keeps failing holds back no other.
+            val failed = mutableSetOf<String>()
+            var next = store.runnable().firstOrNull { it.batchId !in failed }
+            while (next != null) {
+                if (!run(next)) failed += next.batchId
+                next = store.runnable().firstOrNull { it.batchId !in failed }
+            }
         }
     }
 

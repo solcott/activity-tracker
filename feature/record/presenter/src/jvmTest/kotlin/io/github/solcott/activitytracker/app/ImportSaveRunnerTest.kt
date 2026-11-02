@@ -59,7 +59,7 @@ class ImportSaveRunnerTest {
     }
 
     /** A save of one run from each of [sources], in order. */
-    private fun saveOf(batchId: String, sources: List<ImportSource>) =
+    private fun saveOf(batchId: String, sources: List<ImportSource>, choicesJson: String = PlannedChoices().encode()) =
         NewImportSave(
             batchId,
             UploadSource.Files("day1.gpx", sources.size),
@@ -83,7 +83,7 @@ class ImportSaveRunnerTest {
                             .encode(),
                 )
             },
-            PlannedChoices().encode(),
+            choicesJson,
         )
 
     private fun runs(count: Int) = (1..count).map { ByteArrayImportSource("day$it.gpx", gpx(it)) }
@@ -172,6 +172,20 @@ class ImportSaveRunnerTest {
         val counts = repos.saveStore.counts.first().single()
         assertEquals(0 to 4, counts.done to counts.total)
         assertEquals(emptyList(), savedRkeys())
+    }
+
+    @Test
+    fun aSaveThatKeepsFailingHoldsBackNoLaterSave() = runTest {
+        val repos = fixture.repos()
+        // Its choices can't be read, however often it runs.
+        repos.saveStore.start(saveOf("3kafailing", runs(1), choicesJson = "{"))
+        val later = saveOf("3kblater", runs(2))
+        repos.saveStore.start(later)
+        withContext(Dispatchers.Default) { repos.runner().runAll() }
+
+        assertEquals(ImportSaveEntity.STATE_RUNNING, repos.saveStore.save("3kafailing")?.state, "the failing save stays to run again")
+        assertNull(repos.saveStore.save("3kblater"), "the later save ran to its end")
+        assertEquals(later.items.map { it.rkey }.toSet(), repos.saveStore.savedUris("3kblater").map { it.rkey }.toSet())
     }
 
     @Test
