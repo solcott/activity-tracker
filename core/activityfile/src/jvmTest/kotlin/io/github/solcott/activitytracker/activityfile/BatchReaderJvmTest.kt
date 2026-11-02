@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.activityfile
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
@@ -148,6 +149,26 @@ class BatchReaderJvmTest {
         var bytesRead = 0L
 
         override suspend fun read(offset: Long, length: Int): ByteArray = source.read(offset, length).also { bytesRead += it.size }
+    }
+
+    @Test
+    fun whatTheCallerThrowsIsntTakenForTheFiles() = runTest {
+        val inner = zipOf("1.fit" to run, "2.fit" to ride)
+        val outer = zipOf("part1.zip" to inner, "walk.gpx" to gpx)
+        val batch = BatchReader(listOf(ByteArrayImportSource("export.zip", outer), ByteArrayImportSource("ride.fit", ride)), reader)
+        val refs = batch.scan().toList().filterIsInstance<ScanEvent.Read>().map { it.ref }
+        val handed = mutableListOf<Pair<EntryRef, Boolean>>()
+
+        val thrown =
+            assertFailsWith<IllegalStateException> {
+                batch.readEach(refs) { ref, result ->
+                    handed += ref to result.isSuccess
+                    check(ref != refs[0]) { "the queue is full" }
+                }
+            }
+
+        assertEquals("the queue is full", thrown.message)
+        assertEquals(listOf(refs[0] to true), handed, "no file is reported failed, and nothing after it is read")
     }
 
     @Test

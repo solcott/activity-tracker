@@ -78,15 +78,19 @@ class BatchReader(private val sources: List<ImportSource>, private val reader: A
 
     /**
      * Reads the files at [refs] again, handing each to [onRead] as found or as the error reading it, in the order the sources hold them:
-     * one pass serves every file a nested archive holds.
+     * one pass serves every file a nested archive holds. What [onRead] throws is the caller's, never a file's: it ends the pass and is
+     * rethrown as is.
      */
     suspend fun readEach(refs: Collection<EntryRef>, onRead: suspend (EntryRef, Result<FoundFile>) -> Unit) {
         val wanted = refs.toSet()
+        val deliver = callersOwn(onRead)
         try {
             for ((source, inSource) in wanted.groupBy { it.source }.entries.sortedBy { it.key }) {
-                val outcome = runSuspendCatchingFile { readFrom(source, inSource, onRead) }
-                outcome.exceptionOrNull()?.let { error -> inSource.forEach { onRead(it, Result.failure(error)) } }
+                val outcome = runSuspendCatchingFile { readFrom(source, inSource, deliver) }
+                outcome.exceptionOrNull()?.let { error -> inSource.forEach { deliver(it, Result.failure(error)) } }
             }
+        } catch (e: CallerFailure) {
+            throw e.cause
         } finally {
             releaseSources()
         }
@@ -333,6 +337,24 @@ private suspend fun <T> runSuspendCatchingFile(block: suspend () -> T): Result<T
         Result.success(block())
     } catch (e: kotlin.coroutines.cancellation.CancellationException) {
         throw e
+    } catch (e: CallerFailure) {
+        throw e
     } catch (e: Exception) {
         Result.failure(e)
     }
+
+/** [onRead], whose failures are wrapped as [CallerFailure]s; cancellation still propagates. */
+@Suppress("TooGenericExceptionCaught") // Whatever the caller throws is theirs.
+private fun callersOwn(onRead: suspend (EntryRef, Result<FoundFile>) -> Unit): suspend (EntryRef, Result<FoundFile>) -> Unit =
+    { ref, result ->
+        try {
+            onRead(ref, result)
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            throw CallerFailure(e)
+        }
+    }
+
+/** What [BatchReader.readEach]'s caller threw handling a file, carried past [runSuspendCatchingFile] so it isn't taken for the file's. */
+private class CallerFailure(override val cause: Exception) : Exception(cause)
