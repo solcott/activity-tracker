@@ -1,0 +1,28 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.getActivityInvites",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Invites naming the requesting athlete that they haven't accepted (feed/activity-invites), newest first: only while they effectively follow the inviter, neither blocks the other and the activity exists, and only the first 20 invites to each activity. Includes invites the athlete declined: declines live in the athlete's self space, which the AppView never stores. Requires auth.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 30 },
+          "cursor": { "type": "string" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["invites"],
+          "properties": {
+            "cursor": { "type": "string" },
+            "invites": { "type": "array", "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#inviteView" } }
+          }
+        }
+      }
+    }
+  }
+}

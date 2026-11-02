@@ -87,6 +87,11 @@
             "format": "at-uri",
             "description": "Legacy: another recording of the activity at this URI, such as a backup dive computer's: the same athlete's, and not itself a recording. Feeds show the activity once, and its view lists the recordings. A link to anyone else's activity, or to a recording, is ignored. Clients no longer write it: other recordings are combined (#combined), and existing groups are turned into combined activities."
           },
+          "copyOf": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "Another athlete's activity this one was copied from when its author accepted an invite to it (feed/activity-invites): a snapshot taken once, never updated from the original. The AppView pairs the two as activities done together (activityView.group) only when an app.activitytracker.feed.activityInvite naming this activity's author existed for the original when this was indexed, and it is the first such copy; any other link is ignored. Removing it drops the pair."
+          },
           "combined": {
             "type": "ref",
             "ref": "#combined",

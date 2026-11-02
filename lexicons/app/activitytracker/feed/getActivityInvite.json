@@ -1,0 +1,34 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.getActivityInvite",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "One invite naming the requesting athlete that they haven't accepted, with what it lets them copy (feed/activity-invites): the activity's core fields and charts and its startTime, map and speed fields and charts, from every tier whatever the athlete may otherwise see. Never a full track. NotFound for anyone but the invitee, and once the invite lapsed, was cancelled or was accepted. Requires auth.",
+      "parameters": {
+        "type": "params",
+        "required": ["uri"],
+        "properties": {
+          "uri": { "type": "string", "format": "at-uri", "description": "The invite." }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["invite"],
+          "properties": {
+            "invite": { "type": "ref", "ref": "app.activitytracker.feed.defs#inviteView" },
+            "channels": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "The core and speed channels in data. Absent when the activity has no streams."
+            },
+            "data": { "type": "ref", "ref": "app.activitytracker.feed.activityStreams#streamData" }
+          }
+        }
+      },
+      "errors": [{ "name": "NotFound" }]
+    }
+  }
+}

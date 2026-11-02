@@ -207,6 +207,7 @@ object DetailCategory {
             "sensors",
             "dive",
             "recordingOf",
+            "copyOf",
             "combined",
             "media",
             "frontShifts",

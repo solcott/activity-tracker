@@ -125,6 +125,42 @@ data class ActivityView(
 /** `app.activitytracker.feed.defs#groupPartner`: another athlete's activity done together with this one. */
 @Immutable @Serializable data class GroupPartner(val author: ProfileViewBasic, val uri: AtUri)
 
+/**
+ * `app.activitytracker.feed.defs#inviteView`: an [ActivityInviteRecord] naming the viewer (feed/activity-invites). [record] holds only the
+ * activity's core fields and its [DetailCategory.START_TIME], [DetailCategory.MAP] and [DetailCategory.SPEED] fields, merged from every
+ * tier: what the invite lets the viewer copy.
+ */
+@Immutable
+@Serializable
+data class InviteView(
+    val uri: AtUri,
+    val activity: AtUri,
+    val inviter: ProfileViewBasic,
+    val record: ActivityRecord,
+    val createdAt: Instant,
+)
+
+/** `app.activitytracker.feed.defs#inviteeView`: one follower the athlete added to their own activity, as they see it. */
+@Immutable
+@Serializable
+data class InviteeView(
+    val uri: AtUri,
+    val invitee: ProfileViewBasic,
+    /** An [InviteStatus] value. */
+    val status: String,
+    val createdAt: Instant,
+    /** The invitee's copy, once [InviteStatus.JOINED]. */
+    val copy: AtUri? = null,
+)
+
+/** Known values of [InviteeView.status]. An open string: an unknown one reads as [PENDING]. */
+object InviteStatus {
+    /** Not accepted yet, including declined, which the AppView never learns. */
+    const val PENDING = "pending"
+    /** The invitee's copy is paired with the activity. */
+    const val JOINED = "joined"
+}
+
 /** `app.activitytracker.feed.defs#memberView`: one recording a combined activity is built from. */
 @Immutable
 @Serializable

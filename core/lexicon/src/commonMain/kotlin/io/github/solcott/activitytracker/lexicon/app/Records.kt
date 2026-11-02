@@ -267,6 +267,11 @@ data class ActivityRecord(
      * combined ([combined]), and `LegacyGroupMigration` turns existing groups into combined activities.
      */
     val recordingOf: AtUri? = null,
+    /**
+     * Another athlete's activity this one was copied from when its author accepted an [ActivityInviteRecord] to it (feed/activity-invites):
+     * a snapshot, never updated from the original. The AppView pairs the two only when that invite named this activity's author.
+     */
+    val copyOf: AtUri? = null,
     /** Photos, in the athlete's order. At most [ActivityMedia.MAX]. */
     val media: List<ActivityMedia>? = null,
     /** Set when this activity combines several of the athlete's own recordings of one activity, which feeds then show only as this. */
@@ -628,6 +633,38 @@ data class GroupPrefsRecord(
         const val RKEY = "self"
     }
 }
+
+/**
+ * `app.activitytracker.feed.activityInvite`: the athlete added [invitee], who follows them, to their own activity [subject]
+ * (feed/activity-invites). It lives only in their [AthleteSpace.SELF] space, and its rkey is [rkey] of the two, so adding is an idempotent
+ * put and cancelling a delete.
+ */
+@Serializable
+data class ActivityInviteRecord(
+    val subject: AtUri,
+    val invitee: Did,
+    val createdAt: Instant,
+    @SerialName($$"$type") val type: String = Nsid.FEED_ACTIVITY_INVITE,
+) {
+    companion object {
+        /** The most invitees an activity has; the AppView ignores invites past the first [MAX] by creation time. */
+        const val MAX = 20
+
+        /** The rkey of [invitee]'s invite to the activity with [activityRkey]. */
+        fun rkey(activityRkey: String, invitee: Did): String = "$activityRkey:${invitee.value}"
+    }
+}
+
+/**
+ * `app.activitytracker.feed.activityInviteDecline`: the athlete declined the [ActivityInviteRecord] at [subject]. It lives only in their
+ * [AthleteSpace.SELF] space and the AppView never stores it, so the inviter never learns of it.
+ */
+@Serializable
+data class ActivityInviteDeclineRecord(
+    val subject: AtUri,
+    val createdAt: Instant,
+    @SerialName($$"$type") val type: String = Nsid.FEED_ACTIVITY_INVITE_DECLINE,
+)
 
 /** Known values of [GroupPrefsRecord.mode]. An open string. */
 object GroupMode {

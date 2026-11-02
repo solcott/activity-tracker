@@ -101,6 +101,38 @@
         "uri": { "type": "string", "format": "at-uri", "description": "The partner's activity." }
       }
     },
+    "inviteView": {
+      "type": "object",
+      "description": "An app.activitytracker.feed.activityInvite naming the viewer (feed/activity-invites), with what it lets them copy.",
+      "required": ["uri", "activity", "inviter", "record", "createdAt"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri", "description": "The invite." },
+        "activity": { "type": "string", "format": "at-uri", "description": "The activity the viewer was added to." },
+        "inviter": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
+        "record": {
+          "type": "ref",
+          "ref": "app.activitytracker.feed.activity",
+          "description": "The activity's core fields and its startTime, map and speed fields, merged from every tier whatever the viewer may otherwise see. No other category's fields, no photos, description or gear."
+        },
+        "createdAt": { "type": "string", "format": "datetime" }
+      }
+    },
+    "inviteeView": {
+      "type": "object",
+      "description": "One follower an athlete added to their own activity, as the athlete sees it.",
+      "required": ["uri", "invitee", "status", "createdAt"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri", "description": "The invite." },
+        "invitee": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
+        "status": {
+          "type": "string",
+          "knownValues": ["pending", "joined"],
+          "description": "joined once the invitee's copy is paired with the activity; pending otherwise, including when they declined, which the AppView never learns."
+        },
+        "copy": { "type": "string", "format": "at-uri", "description": "The invitee's copy, when joined." },
+        "createdAt": { "type": "string", "format": "datetime" }
+      }
+    },
     "memberView": {
       "type": "object",
       "description": "One recording a combined activity is built from, which feeds don't show on its own.",

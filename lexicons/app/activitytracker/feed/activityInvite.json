@@ -1,0 +1,20 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.activityInvite",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "An athlete added a follower to one of their own activities (feed/activity-invites), so the follower may accept and get their own copy of it (feed.activity#copyOf). Lives only in the athlete's app.activitytracker.space.athlete space for the self tier, never in the public repo: the AppView indexes it from self only and serves it only to the athlete and the invitee. While the invitee effectively follows the athlete and neither blocks the other, it lets the invitee see the activity's core data and its startTime, map and speed categories through app.activitytracker.feed.getActivityInvite only. Its rkey is the activity's rkey and the invitee's DID joined by a colon; the AppView ignores a record under any other rkey.",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": ["subject", "invitee", "createdAt"],
+        "properties": {
+          "subject": { "type": "string", "format": "at-uri", "description": "The athlete's own app.activitytracker.feed.activity. An invite to anyone else's is ignored." },
+          "invitee": { "type": "string", "format": "did", "description": "The follower added." },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

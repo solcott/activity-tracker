@@ -1,0 +1,27 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.getActivityInvitees",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "The followers the requesting athlete added to one of their own activities (feed/activity-invites), oldest first: only while each effectively follows the athlete (or joined) and neither blocks the other, and only the first 20. Requires auth; empty for anyone but the activity's author.",
+      "parameters": {
+        "type": "params",
+        "required": ["activity"],
+        "properties": {
+          "activity": { "type": "string", "format": "at-uri" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["invitees"],
+          "properties": {
+            "invitees": { "type": "array", "maxLength": 20, "items": { "type": "ref", "ref": "app.activitytracker.feed.defs#inviteeView" } }
+          }
+        }
+      }
+    }
+  }
+}

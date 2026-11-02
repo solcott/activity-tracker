@@ -1,0 +1,19 @@
+{
+  "lexicon": 1,
+  "id": "app.activitytracker.feed.activityInviteDecline",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "An athlete's decline of one app.activitytracker.feed.activityInvite naming them. Lives only in the athlete's app.activitytracker.space.athlete space for the self tier, never in the public repo, so only the athlete knows of it: the AppView never stores it, and the inviter keeps seeing the invite as pending. Deleting it puts the invite back among the athlete's pending invites.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["subject", "createdAt"],
+        "properties": {
+          "subject": { "type": "string", "format": "at-uri", "description": "The declined app.activitytracker.feed.activityInvite." },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

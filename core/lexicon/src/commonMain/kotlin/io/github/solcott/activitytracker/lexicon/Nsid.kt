@@ -75,6 +75,19 @@ object Nsid {
      */
     const val FEED_SEGMENT_STAR = "$NAMESPACE.feed.segmentStar"
     /**
+     * The athlete added a follower to one of their activities (feed/activity-invites), kept only in their `self` tier space
+     * ([SPACE_ATHLETE]). Indexed from `self` only, through the space, never from the firehose.
+     */
+    const val FEED_ACTIVITY_INVITE = "$NAMESPACE.feed.activityInvite"
+    /** The athlete declined a [FEED_ACTIVITY_INVITE], kept only in their `self` tier space ([SPACE_ATHLETE]) and never indexed. */
+    const val FEED_ACTIVITY_INVITE_DECLINE = "$NAMESPACE.feed.activityInviteDecline"
+    /** Query: the caller's pending invites. */
+    const val FEED_GET_ACTIVITY_INVITES = "$NAMESPACE.feed.getActivityInvites"
+    /** Query: one invite naming the caller, with what it lets them copy. */
+    const val FEED_GET_ACTIVITY_INVITE = "$NAMESPACE.feed.getActivityInvite"
+    /** Query: the invitees of one of the caller's activities. */
+    const val FEED_GET_ACTIVITY_INVITEES = "$NAMESPACE.feed.getActivityInvitees"
+    /**
      * A proposed new name for a segment (segments/segment-names), kept only in the proposer's repo and indexed from the firehose; a copy in
      * a space is ignored.
      */

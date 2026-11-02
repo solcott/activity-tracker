@@ -220,6 +220,42 @@ object GetActivityStreams {
     val method = XrpcQuery(Nsid.FEED_GET_ACTIVITY_STREAMS, Params.serializer(), Output.serializer())
 }
 
+/** The caller's invites they haven't accepted (feed/activity-invites), newest first, declined ones included. Requires auth. */
+object GetActivityInvites {
+    @Serializable data class Params(val limit: Int? = null, val cursor: String? = null)
+
+    @Serializable data class Output(val invites: List<InviteView>, val cursor: String? = null)
+
+    val method = XrpcQuery(Nsid.FEED_GET_ACTIVITY_INVITES, Params.serializer(), Output.serializer())
+}
+
+/**
+ * One invite naming the caller, with what it lets them copy: [InviteView.record] and the core and speed channels in [data]. NotFound for
+ * anyone but the invitee, and once the invite lapsed, was cancelled or was accepted.
+ */
+object GetActivityInvite {
+    @Serializable data class Params(val uri: AtUri)
+
+    @Serializable
+    data class Output(
+        val invite: InviteView,
+        /** Null when the activity has no streams. */
+        val channels: List<String>? = null,
+        val data: ActivityStreamData? = null,
+    )
+
+    val method = XrpcQuery(Nsid.FEED_GET_ACTIVITY_INVITE, Params.serializer(), Output.serializer())
+}
+
+/** The followers the caller added to their own [Params.activity], oldest first; empty for anyone else's. */
+object GetActivityInvitees {
+    @Serializable data class Params(val activity: AtUri)
+
+    @Serializable data class Output(val invitees: List<InviteeView>)
+
+    val method = XrpcQuery(Nsid.FEED_GET_ACTIVITY_INVITEES, Params.serializer(), Output.serializer())
+}
+
 object GetLikes {
     @Serializable data class Params(val uri: AtUri, val limit: Int? = null, val cursor: String? = null)
 
