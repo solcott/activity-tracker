@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.gear.GearCollections
 import io.github.solcott.activitytracker.data.gear.GearDefaults
 import io.github.solcott.activitytracker.data.gear.GearRepository
+import io.github.solcott.activitytracker.data.invites.ActivityInvitesRepository
 import io.github.solcott.activitytracker.data.moderation.ModerationRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
@@ -39,12 +40,17 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActorGearItem
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
+import io.github.solcott.activitytracker.lexicon.app.GetActivityInvite
+import io.github.solcott.activitytracker.lexicon.app.GetActivityInvitees
+import io.github.solcott.activitytracker.lexicon.app.GetActivityInvites
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetActorGear
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivitiesByStart
 import io.github.solcott.activitytracker.lexicon.app.GetGear
 import io.github.solcott.activitytracker.lexicon.app.GetGearActivities
 import io.github.solcott.activitytracker.lexicon.app.GetImportBatch
+import io.github.solcott.activitytracker.lexicon.app.InviteView
+import io.github.solcott.activitytracker.lexicon.app.InviteeView
 import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.github.solcott.activitytracker.location.ActivityRecorder
 import io.github.solcott.activitytracker.location.FakeLocationTracker
@@ -70,6 +76,11 @@ import kotlinx.serialization.json.jsonPrimitive
 class SessionTestFixture {
     val did = Did("did:plc:alice")
     var failWrites = false
+
+    /** What the fake AppView's invite queries serve (feed/activity-invites): the inbox, one invite by URI, and an activity's invitees. */
+    var invitesServed: List<InviteView> = emptyList()
+    val inviteServed = mutableMapOf<String, GetActivityInvite.Output>()
+    var inviteesServed: List<InviteeView> = emptyList()
 
     /** Fail every space put of these collections, while set. */
     var failSpacePutsOf = setOf<String>()
@@ -443,6 +454,29 @@ class SessionTestFixture {
                         respond(fields.joinToString(",", "{", "}"), headers = json)
                     }
 
+                    "/xrpc/${Nsid.FEED_GET_ACTIVITY_INVITES}" -> {
+                        respond(
+                            AtJson.encodeToString(GetActivityInvites.Output.serializer(), GetActivityInvites.Output(invitesServed)),
+                            headers = json,
+                        )
+                    }
+
+                    "/xrpc/${Nsid.FEED_GET_ACTIVITY_INVITE}" -> {
+                        val output = inviteServed[request.url.parameters["uri"]]
+                        if (output == null) {
+                            respond("""{"error":"NotFound"}""", HttpStatusCode.BadRequest, json)
+                        } else {
+                            respond(AtJson.encodeToString(GetActivityInvite.Output.serializer(), output), headers = json)
+                        }
+                    }
+
+                    "/xrpc/${Nsid.FEED_GET_ACTIVITY_INVITEES}" -> {
+                        respond(
+                            AtJson.encodeToString(GetActivityInvitees.Output.serializer(), GetActivityInvitees.Output(inviteesServed)),
+                            headers = json,
+                        )
+                    }
+
                     "/xrpc/${Nsid.GRAPH_GET_FOLLOWERS}" -> {
                         val accounts = followers.joinToString(",") { """{"did":"$it","handle":"${it.substringAfterLast(':')}.test"}""" }
                         respond("""{"subject":{"did":"$did","handle":"alice.test"},"followers":[$accounts]}""", headers = json)
@@ -533,6 +567,7 @@ class SessionTestFixture {
         val gear: GearRepository,
         val gearDefaults: GearDefaults,
         val gearCollections: GearCollections,
+        val invites: ActivityInvitesRepository,
         val devices: ActivityDevicesStore,
         val places: ActivityPlaces,
         /** The session's outbox loop, as `App` runs it; a test starts it ([OutboxPacer.run]) when writes should go on their own. */
@@ -619,6 +654,7 @@ class SessionTestFixture {
             GearRepository(clients, Clock.System, feed, gearCollections, Logger),
             GearDefaults(clients, Clock.System),
             gearCollections,
+            ActivityInvitesRepository(clients, activities, feed, Clock.System, Logger),
             zones.devices,
             places,
             OutboxPacer(db, clients, activities, Clock.System, Logger),

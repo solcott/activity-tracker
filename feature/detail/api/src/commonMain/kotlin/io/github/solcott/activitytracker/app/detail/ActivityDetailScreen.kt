@@ -133,7 +133,19 @@ data class ActivityDetailPage(
     val partners: ImmutableList<GroupPartner> = persistentListOf(),
     /** On the owner's own activity, leaving or rejoining its group; null on anyone else's, or when it can't be offered now. */
     val ownGroup: OwnGroupState? = null,
-)
+    /** The owner may add people who follow them to this activity (feed/activity-invites). */
+    val canAddPeople: Boolean = false,
+    /** The owner's own copy of another athlete's activity, accepted from an invite: Leave group drops its link to the original. */
+    val isOwnCopy: Boolean = false,
+    /** Leaving the group on the owner's copy is being written. */
+    val leavingCopyGroup: Boolean = false,
+    /** Why leaving the group on the owner's copy failed. */
+    val copyGroupError: UiError? = null,
+) {
+    /** Whether the page has a Together with section: partners, or something for the owner to do about them. */
+    val showsGroup: Boolean
+        get() = partners.isNotEmpty() || ownGroup != null || canAddPeople || isOwnCopy
+}
 
 /**
  * Leaving or rejoining the group on the owner's own activity (feed/group-activities): offered while their grouping is on and its segment
@@ -308,6 +320,12 @@ sealed interface ActivityDetailEvent {
 
     /** On the owner's own activity, rejoins its group, so it can be paired again. */
     data object RejoinGroup : ActivityDetailEvent
+
+    /** On the owner's own activity, opens the followers they may add to it. */
+    data object AddPeople : ActivityDetailEvent
+
+    /** On the owner's own copy of another's activity, leaves its group for good: the copy no longer names the original. */
+    data object LeaveCopyGroup : ActivityDetailEvent
 
     /** Sends the draft: a reply to [ActivityDetailPage.replyingTo] when set, else a top-level comment. */
     data object SendComment : ActivityDetailEvent

@@ -32,6 +32,12 @@ import io.github.solcott.activitytracker.app.gear.GearSamples
 import io.github.solcott.activitytracker.app.gear.GearUi
 import io.github.solcott.activitytracker.app.gear.IgnoredSensorsSamples
 import io.github.solcott.activitytracker.app.gear.IgnoredSensorsUi
+import io.github.solcott.activitytracker.app.invites.AcceptInviteSamples
+import io.github.solcott.activitytracker.app.invites.AcceptInviteUi
+import io.github.solcott.activitytracker.app.invites.ActivityInvitesSamples
+import io.github.solcott.activitytracker.app.invites.ActivityInvitesUi
+import io.github.solcott.activitytracker.app.invites.AddPeopleSamples
+import io.github.solcott.activitytracker.app.invites.AddPeopleUi
 import io.github.solcott.activitytracker.app.map.RouteMapSamples
 import io.github.solcott.activitytracker.app.map.RouteMapUi
 import io.github.solcott.activitytracker.app.media.MediaGallerySamples
@@ -123,6 +129,9 @@ class ContentLoadingConformanceTest {
             entry({ MediaGallerySamples.all }, null) { MediaGalleryUi(it) },
             entry({ ProfileSamples.all }, "Trail runner and weekend rider.") { ProfileUi(it) },
             entry({ FollowRequestsSamples.all }, "Carol") { FollowRequestsUi(it) },
+            entry({ ActivityInvitesSamples.all }, "Gravel loop") { ActivityInvitesUi(it) },
+            entry({ AcceptInviteSamples.all }, "none of their heart rate") { AcceptInviteUi(it) },
+            entry({ AddPeopleSamples.all }, "Carol") { AddPeopleUi(it) },
             entry({ FollowListSamples.all }, "Carol") { FollowListUi(it) },
             entry({ BlockListSamples.all }, "Carol") { BlockListUi(it) },
             entry({ AthleteSearchSamples.all }, "Carol") { AthleteSearchUi(it) },

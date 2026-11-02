@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
 import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEventSink
 import io.github.solcott.activitytracker.app.edit.EditActivityScreen
 import io.github.solcott.activitytracker.app.gear.GearScreen
+import io.github.solcott.activitytracker.app.invites.AddPeopleScreen
 import io.github.solcott.activitytracker.app.map.RouteMapScreen
 import io.github.solcott.activitytracker.app.media.MediaGalleryScreen
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
@@ -144,6 +145,7 @@ fun ActivityDetailPresenter(
         rememberCombineSuggestion(activity.takeIf { isOwn }, extrasKey, screen.suggestOnOpen, suggestions, manager, navigator, flights)
     val ownRoute =
         rememberOwnRoute(activity?.uri?.takeIf { isOwn }, extrasKey, activities, flights, combined = activity?.record?.combined != null)
+    val ownCopy = rememberOwnCopy(activity?.takeIf { isOwn }, manager, flights) { loadKey++ }
     val ownGroup = rememberOwnGroup(activity?.uri?.takeIf { isOwn }, extrasKey, groups, flights)
     val hasStreams = charts.charts != null
     val isDive = shown?.record?.sport == Sport.DIVE
@@ -182,6 +184,7 @@ fun ActivityDetailPresenter(
             ActivityDetailEvent.AddRecording,
             ActivityDetailEvent.OpenMap,
             ActivityDetailEvent.CreateSegment,
+            ActivityDetailEvent.AddPeople,
             is ActivityDetailEvent.OpenMedia -> navigator.open(event, screen.uri, current)
 
             is ActivityDetailEvent.SegmentOpened -> navigator.goTo(SegmentScreen(event.uri.value, boardOf(event.eBike, shown)))
@@ -232,7 +235,8 @@ fun ActivityDetailPresenter(
             ActivityDetailEvent.ExportHandedOff -> export.handedOff()
 
             ActivityDetailEvent.LeaveGroup,
-            ActivityDetailEvent.RejoinGroup -> ownGroup.on(event)
+            ActivityDetailEvent.RejoinGroup,
+            ActivityDetailEvent.LeaveCopyGroup -> ownCopy.on(event, ownGroup)
         }
     }
 
@@ -274,6 +278,10 @@ fun ActivityDetailPresenter(
             segmentCreated = uri in segmentsCreated,
             partners = ownGroup.shown(it.group),
             ownGroup = ownGroup.state,
+            canAddPeople = isOwn,
+            isOwnCopy = ownCopy.isOwnCopy,
+            leavingCopyGroup = ownCopy.leaving,
+            copyGroupError = ownCopy.error,
         )
     }
     return ActivityDetailState(ContentState(page, content.origin, content.status), sink)
@@ -478,6 +486,7 @@ private fun Navigator.open(event: ActivityDetailEvent, uri: String, current: Act
         is ActivityDetailEvent.OpenMedia -> goTo(MediaGalleryScreen(uri, event.index))
         ActivityDetailEvent.OpenMap -> goTo(RouteMapScreen(uri))
         ActivityDetailEvent.CreateSegment -> goTo(CreateSegmentScreen(uri))
+        ActivityDetailEvent.AddPeople -> goTo(AddPeopleScreen(uri))
         ActivityDetailEvent.Combine -> goTo(CombinePickerScreen(uri))
         ActivityDetailEvent.AddRecording -> goTo(ImportActivityScreen(combineInto = uri))
         else -> Unit

@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app.ui
 import androidx.compose.runtime.Composable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.error_answer_activity_invite
 import io.github.solcott.activitytracker.composeApp.resources.error_answer_follow_request
 import io.github.solcott.activitytracker.composeApp.resources.error_apply_gear_to_past
 import io.github.solcott.activitytracker.composeApp.resources.error_cancel_upload
@@ -24,6 +25,8 @@ import io.github.solcott.activitytracker.composeApp.resources.error_hide_comment
 import io.github.solcott.activitytracker.composeApp.resources.error_invalid_subject_uri
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activities
 import io.github.solcott.activitytracker.composeApp.resources.error_load_activity
+import io.github.solcott.activitytracker.composeApp.resources.error_load_activity_invite
+import io.github.solcott.activitytracker.composeApp.resources.error_load_activity_invites
 import io.github.solcott.activitytracker.composeApp.resources.error_load_blocks
 import io.github.solcott.activitytracker.composeApp.resources.error_load_combine_candidates
 import io.github.solcott.activitytracker.composeApp.resources.error_load_comments
@@ -38,6 +41,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_load_gear_co
 import io.github.solcott.activitytracker.composeApp.resources.error_load_gear_item
 import io.github.solcott.activitytracker.composeApp.resources.error_load_ignored_sensors
 import io.github.solcott.activitytracker.composeApp.resources.error_load_import_batch
+import io.github.solcott.activitytracker.composeApp.resources.error_load_invitees
 import io.github.solcott.activitytracker.composeApp.resources.error_load_leaderboard
 import io.github.solcott.activitytracker.composeApp.resources.error_load_likes
 import io.github.solcott.activitytracker.composeApp.resources.error_load_mayors
@@ -87,6 +91,7 @@ import io.github.solcott.activitytracker.composeApp.resources.error_unhide_comme
 import io.github.solcott.activitytracker.composeApp.resources.error_unsupported_activity_file
 import io.github.solcott.activitytracker.composeApp.resources.error_update_block
 import io.github.solcott.activitytracker.composeApp.resources.error_update_follow
+import io.github.solcott.activitytracker.composeApp.resources.error_update_invitees
 import io.github.solcott.activitytracker.composeApp.resources.error_update_mute
 import io.github.solcott.activitytracker.composeApp.resources.error_update_star
 import io.github.solcott.activitytracker.composeApp.resources.error_vote_segment_name
@@ -159,6 +164,11 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.LoadFollowing -> Res.string.error_load_following
             UiError.Kind.LoadFollowRequests -> Res.string.error_load_follow_requests
             UiError.Kind.AnswerFollowRequest -> Res.string.error_answer_follow_request
+            UiError.Kind.LoadActivityInvites -> Res.string.error_load_activity_invites
+            UiError.Kind.LoadActivityInvite -> Res.string.error_load_activity_invite
+            UiError.Kind.AnswerActivityInvite -> Res.string.error_answer_activity_invite
+            UiError.Kind.LoadInvitees -> Res.string.error_load_invitees
+            UiError.Kind.UpdateInvitees -> Res.string.error_update_invitees
             UiError.Kind.RemoveFollower -> Res.string.error_remove_follower
             UiError.Kind.SearchAthletes -> Res.string.error_search_athletes
             UiError.Kind.SaveActivity -> Res.string.error_save_activity

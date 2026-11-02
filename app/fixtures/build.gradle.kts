@@ -16,6 +16,7 @@ kotlin {
             api(projects.featureFeedApi)
             api(projects.featureFeedfilterApi)
             api(projects.featureGearApi)
+            api(projects.featureInvitesApi)
             api(projects.featureLoginApi)
             api(projects.featureMapApi)
             api(projects.featureMediaApi)

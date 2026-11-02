@@ -36,6 +36,7 @@ android {
                 implementation(projects.featureFeedUi)
                 implementation(projects.featureFeedfilterUi)
                 implementation(projects.featureGearUi)
+                implementation(projects.featureInvitesUi)
                 implementation(projects.featureLoginUi)
                 implementation(projects.featureMapUi)
                 implementation(projects.featureMediaUi)

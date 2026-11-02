@@ -26,6 +26,7 @@ import io.github.solcott.activitytracker.data.activity.RouteTrimmer
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
+import io.github.solcott.activitytracker.data.invites.ActivityInvitesRepository
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.moderation.ReportTarget
 import io.github.solcott.activitytracker.data.profile.BlockRepository
@@ -206,7 +207,8 @@ class ProfilePresenterTest {
         val requests = FollowRequestsRepository(clients, Clock.System, Logger)
         val blocks = BlockRepository(clients, zones.writer, zones.outbox, feed, Clock.System)
         val reports = ReportRepository(clients)
-        return { ProfilePresenter(ProfileScreen(actor), navigator, profiles, feed, activities, requests, blocks, reports) }
+        val invites = ActivityInvitesRepository(clients, activities, feed, Clock.System, Logger)
+        return { ProfilePresenter(ProfileScreen(actor), navigator, profiles, feed, activities, requests, invites, blocks, reports) }
     }
 
     @Test

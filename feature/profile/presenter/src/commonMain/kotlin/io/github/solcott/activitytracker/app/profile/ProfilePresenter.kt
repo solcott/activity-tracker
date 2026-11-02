@@ -14,6 +14,7 @@ import com.slack.circuit.runtime.Navigator
 import io.github.solcott.activitytracker.app.SingleFlight
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.activitylist.rememberActivityListEventSink
+import io.github.solcott.activitytracker.app.invites.ActivityInvitesScreen
 import io.github.solcott.activitytracker.app.mapContent
 import io.github.solcott.activitytracker.app.moderation.rememberRevealed
 import io.github.solcott.activitytracker.app.rememberSingleFlight
@@ -25,6 +26,7 @@ import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
+import io.github.solcott.activitytracker.data.invites.ActivityInvitesRepository
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.FollowRequests
@@ -53,6 +55,7 @@ fun ProfilePresenter(
     feed: FeedRepository,
     activities: ActivityRepository,
     followRequests: FollowRequestsRepository,
+    invites: ActivityInvitesRepository,
     blocks: BlockRepository,
     reports: ReportRepository,
 ): ProfileState {
@@ -77,6 +80,7 @@ fun ProfilePresenter(
     // Why an action failed; never a loading failure, which is [header]'s or [items]'.
     var error by remember { mutableStateOf<UiError?>(null) }
     var requests by remember { mutableStateOf<FollowRequests?>(null) }
+    var inviteCount by remember { mutableIntStateOf(0) }
     val flights = rememberSingleFlight()
     val activityEvents = rememberActivityListEventSink(navigator, activities) { error = it }
 
@@ -102,6 +106,8 @@ fun ProfilePresenter(
     val approves = isSelf && profile?.followPolicy == FollowPolicy.APPROVE
     // Counted afresh each time the athlete's own profile shows, so answering requests and coming back updates it.
     LaunchedEffect(approves) { requests = if (approves) runSuspendCatching { followRequests.followRequests() }.getOrNull() else null }
+    // Counted afresh too, so answering invites and coming back updates it.
+    LaunchedEffect(isSelf) { inviteCount = if (isSelf) runSuspendCatching { invites.incoming().pending.size }.getOrDefault(0) else 0 }
     return ProfileState(
         content = header.mapContent { profile },
         activities = items,
@@ -113,6 +119,7 @@ fun ProfilePresenter(
         muting = profile.mutedBy(isSelf),
         followRequestCount = requests?.pending?.size,
         moreFollowRequests = requests?.truncated == true,
+        activityInviteCount = inviteCount,
         error = error,
         reporting = reporting,
         revealed = rememberRevealed(),
@@ -157,6 +164,10 @@ fun ProfilePresenter(
 
             ProfileEvent.OpenFollowRequests -> {
                 navigator.goTo(FollowRequestsScreen)
+            }
+
+            ProfileEvent.OpenActivityInvites -> {
+                navigator.goTo(ActivityInvitesScreen)
             }
 
             ProfileEvent.OpenSettings -> {

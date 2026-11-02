@@ -39,6 +39,8 @@ data class ProfileState(
     val followRequestCount: Int? = null,
     /** There are more requests than [followRequestCount] counts. */
     val moreFollowRequests: Boolean = false,
+    /** The athlete's own pending invites to other athletes' activities (feed/activity-invites), less those they declined; 0 shows none. */
+    val activityInviteCount: Int = 0,
     /** Why an action (a follow, block, mute or like) failed; loading failures are [content]'s and [activities]'. */
     val error: UiError? = null,
     /** Report on someone else's profile, kept when the viewer blocks them. */
@@ -68,6 +70,8 @@ sealed interface ProfileEvent {
     data object OpenFollowing : ProfileEvent
 
     data object OpenFollowRequests : ProfileEvent
+
+    data object OpenActivityInvites : ProfileEvent
 
     data object OpenSettings : ProfileEvent
 

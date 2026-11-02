@@ -36,6 +36,8 @@ kotlin {
             implementation(projects.featureFeedfilterUi)
             implementation(projects.featureGearPresenter)
             implementation(projects.featureGearUi)
+            implementation(projects.featureInvitesPresenter)
+            implementation(projects.featureInvitesUi)
             implementation(projects.featureLoginPresenter)
             implementation(projects.featureLoginUi)
             implementation(projects.featureMapPresenter)

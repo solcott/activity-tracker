@@ -63,6 +63,7 @@ import io.github.solcott.activitytracker.composeApp.resources.action_mute
 import io.github.solcott.activitytracker.composeApp.resources.action_report
 import io.github.solcott.activitytracker.composeApp.resources.action_unblock
 import io.github.solcott.activitytracker.composeApp.resources.action_unmute
+import io.github.solcott.activitytracker.composeApp.resources.activity_invites_entry
 import io.github.solcott.activitytracker.composeApp.resources.block_confirm_message
 import io.github.solcott.activitytracker.composeApp.resources.block_confirm_title
 import io.github.solcott.activitytracker.composeApp.resources.blocked_on_bluesky
@@ -238,6 +239,11 @@ private fun ProfileActions(state: ProfileState, following: Boolean, requested: B
             AppSecondaryButton(onClick = { state.eventSink(ProfileEvent.EditProfile) }) { Text(stringResource(Res.string.profile_edit)) }
             AppSecondaryButton(onClick = { state.eventSink(ProfileEvent.OpenStarredSegments) }) {
                 Text(stringResource(Res.string.starred_segments_title))
+            }
+            if (state.activityInviteCount > 0) {
+                AppSecondaryButton(onClick = { state.eventSink(ProfileEvent.OpenActivityInvites) }) {
+                    Text(pluralStringResource(Res.plurals.activity_invites_entry, state.activityInviteCount, state.activityInviteCount))
+                }
             }
             state.followRequestCount?.let { count ->
                 AppSecondaryButton(onClick = { state.eventSink(ProfileEvent.OpenFollowRequests) }) {

@@ -16,20 +16,23 @@ import io.github.solcott.activitytracker.app.ui.Avatar
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.errorText
 import io.github.solcott.activitytracker.composeApp.resources.Res
+import io.github.solcott.activitytracker.composeApp.resources.detail_add_people
 import io.github.solcott.activitytracker.composeApp.resources.detail_group_leave
 import io.github.solcott.activitytracker.composeApp.resources.detail_group_left
 import io.github.solcott.activitytracker.composeApp.resources.detail_group_rejoin
+import io.github.solcott.activitytracker.composeApp.resources.detail_leave_copy_group
 import io.github.solcott.activitytracker.composeApp.resources.detail_together_with
 import org.jetbrains.compose.resources.stringResource
 
 /**
  * The athletes this activity was done together with (feed/group-activities), each opening their activity, and on the owner's page Leave
- * group or Rejoin group. Nothing shows when there are no partners and nothing to offer.
+ * group or Rejoin group, Add people (feed/activity-invites) and, on their copy of another's activity, Leave group. Nothing shows when there
+ * are no partners and nothing to offer.
  */
 @Composable
 internal fun TogetherWith(state: ActivityDetailPage, modifier: Modifier = Modifier) {
     val own = state.ownGroup
-    if (state.partners.isEmpty() && own == null) return
+    if (!state.showsGroup) return
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (state.partners.isNotEmpty()) {
             Text(stringResource(Res.string.detail_together_with), style = MaterialTheme.typography.titleMedium)
@@ -56,6 +59,17 @@ internal fun TogetherWith(state: ActivityDetailPage, modifier: Modifier = Modifi
                 Text(stringResource(if (own.left) Res.string.detail_group_rejoin else Res.string.detail_group_leave))
             }
             own.error?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+        }
+        if (state.isOwnCopy) {
+            AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.LeaveCopyGroup) }, enabled = !state.leavingCopyGroup) {
+                Text(stringResource(Res.string.detail_leave_copy_group))
+            }
+            state.copyGroupError?.let { Text(errorText(it), color = MaterialTheme.colorScheme.error) }
+        }
+        if (state.canAddPeople) {
+            AppTextButton(onClick = { state.eventSink(ActivityDetailEvent.AddPeople) }) {
+                Text(stringResource(Res.string.detail_add_people))
+            }
         }
     }
 }
