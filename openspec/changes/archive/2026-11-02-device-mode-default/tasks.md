@@ -27,7 +27,7 @@
 - [x] 4.1 Run `./gradlew check` (via the gradle-runner agent) and verify it passes
 - [x] 4.2 In device mode, sign in to `alice.test` from the web app (`:webApp:wasmJsBrowserDevelopmentRun`) and confirm in the network log that AppView calls go to `https://appview-<host>`; sign in from the desktop app (`:desktopApp:hotRun`) likewise
 - [x] 4.3 Sign in on the iOS simulator and a physical device in device mode and verify both still work
-- [ ] 4.4 With the user-level host removed and `scripts/dev.sh --reset --yes --seed alice`, verify localhost mode behaves as before: PDS `http://localhost:2583`, web and desktop sign in on localhost, `APPVIEW_EXTRA_AUDIENCES` is set; then restore device mode with `--reset`
+- [x] 4.4 With the user-level host removed and `scripts/dev.sh --reset --yes --seed alice`, verify localhost mode behaves as before: PDS `http://localhost:2583`, web and desktop sign in on localhost, `APPVIEW_EXTRA_AUDIENCES` is set; then restore device mode with `--reset`
 
 ## Workflow follow-up
 
