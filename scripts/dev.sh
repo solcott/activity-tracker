@@ -16,9 +16,11 @@
 #   --restart-appview  restart the AppView even if it is healthy and current
 #   --reset [--yes]    delete the stack's volumes (every account and record) first; needed to switch modes
 #
-# Device mode, for physical phones: set activitytracker.deviceHost in local.properties to a subdomain of a zone you
-# have on Cloudflare (e.g. dev.example.com) and run device-setup once. The PDS then runs as https://dev.example.com, with
-# PLC on plc-dev.example.com and the AppView on appview-dev.example.com, through a named tunnel instead of a quick one.
+# Device mode, the normal setup: set activitytracker.deviceHost in ~/.gradle/gradle.properties (every checkout and worktree)
+# or in local.properties (this one) to a subdomain of a zone you have on Cloudflare (e.g. dev.example.com), and run
+# device-setup once. The PDS then runs as https://dev.example.com, with PLC on plc-dev.example.com and the AppView on
+# appview-dev.example.com, through a named tunnel instead of a quick one, and every client (web and desktop too) uses them.
+# Without a host anywhere the stack runs in localhost mode.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -32,7 +34,11 @@ LABELER_PROP_KEY="activitytracker.labelerDid"
 APPVIEW_PORT=8081
 DEVICE_HOST_KEY="activitytracker.deviceHost"
 DEVICE_TUNNEL="activitytracker-dev"
-DEVICE_CONFIG="$STATE_DIR/cloudflared-device.yml"
+# Next to the tunnel's credentials, so every checkout and worktree starts and stops the same tunnel.
+DEVICE_CONFIG="$HOME/.cloudflared/$DEVICE_TUNNEL.yml"
+LEGACY_DEVICE_CONFIG="$STATE_DIR/cloudflared-device.yml"
+# The Gradle user home's gradle.properties, which Gradle reads before local.properties (NativeOAuthConventionPlugin).
+USER_PROPS="${GRADLE_USER_HOME:-$HOME/.gradle}/gradle.properties"
 DEVICE_METRICS_PORT=20249
 ADB_PORTS=(2582 2583 "$APPVIEW_PORT")
 METRICS_PORTS=(20241 20242 20243 20244 20245)
@@ -65,14 +71,20 @@ wait_http() {
 
 # ---------------------------------------------------------------- mode
 
-# The device host from local.properties (bare, no scheme), or nothing in localhost mode. PLC and the AppView sit on siblings
+# The device host (bare, no scheme), or nothing in localhost mode. Looked up as Gradle does for the apps: the Gradle user
+# home's gradle.properties wins when it has the key (even empty), else local.properties. PLC and the AppView sit on siblings
 # one level below the same zone (Cloudflare's free certificate covers only *.zone): dev.example.com -> plc-dev.example.com.
 # NativeOAuthConventionPlugin derives the same names for the apps.
 device_host() {
   local h
-  h=$(property "$DEVICE_HOST_KEY")
+  if has_user_property "$DEVICE_HOST_KEY"; then h=$(user_property "$DEVICE_HOST_KEY"); else h=$(property "$DEVICE_HOST_KEY"); fi
   h=${h#https://}
   echo "${h%/}"
+}
+
+# Where the device host comes from, for messages.
+device_host_source() {
+  if has_user_property "$DEVICE_HOST_KEY"; then echo "${USER_PROPS/#$HOME/~}"; else echo "local.properties"; fi
 }
 sibling() { echo "$1-$2"; }
 
@@ -87,8 +99,23 @@ set_env() {
   fi
 }
 
+# The PDS hostname the shared stack runs under (empty for localhost). Every checkout drives the same compose project, so
+# the PDS container says which hostname its volumes were made under; this checkout's docker/.env may be a stale copy, and
+# is only the fallback when the container is gone.
+stack_hostname() {
+  local id h
+  id=$("${COMPOSE[@]}" ps -aq pds 2>/dev/null | head -1 || true)
+  if [[ -n $id ]]; then
+    h=$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$id" 2>/dev/null | sed -n 's/^PDS_HOSTNAME=//p' | tail -1)
+    [[ $h == localhost ]] && h=""
+    echo "$h"
+  else
+    env_value PDS_HOSTNAME
+  fi
+}
+
 # Accounts' DID documents, the relay's host table and Jetstream's cursor all embed the PDS hostname, so volumes made
-# under one hostname can't run under another. docker/.env's PDS_HOSTNAME records which one the volumes were made under.
+# under one hostname can't run under another. stack_hostname says which one the volumes were made under.
 # On a mismatch, refuse unless --reset, which deletes the volumes and the DIDs docker/.env remembers from them; the rest
 # of `up` then recreates the accounts.
 ensure_mode() {
@@ -99,7 +126,7 @@ ensure_mode() {
   fi
   local want current volumes answer key
   want=$(device_host)
-  current=$(env_value PDS_HOSTNAME)
+  current=$(stack_hostname)
   volumes=$(docker volume ls -q --filter "name=^activity-tracker_pds-data$" 2>/dev/null || true)
   if [[ ${WIPE:-0} == 1 ]]; then
     if [[ ${YES:-0} != 1 ]]; then
@@ -115,7 +142,7 @@ ensure_mode() {
     RESTART_APPVIEW=1
     ok "volumes deleted"
   elif [[ -n $volumes && $current != "$want" ]]; then
-    die "the stack's accounts were created for ${current:-localhost}, but local.properties asks for ${want:-localhost}
+    die "the stack's accounts were created for ${current:-localhost}, but $(device_host_source) asks for ${want:-localhost}
       ($DEVICE_HOST_KEY), and their DID documents would point at the wrong PDS. Rerun with --reset to delete the
       local data and recreate it (add --seed NAME for test accounts), or change $DEVICE_HOST_KEY back."
   fi
@@ -123,12 +150,13 @@ ensure_mode() {
     set_env PDS_HOSTNAME "$want"
     set_env RELAY_CRAWL_HOST "$want"
     set_env PDS_INVITE_REQUIRED true
-    ok "device mode: PDS https://$want, PLC https://$(sibling plc "$want"), AppView https://$(sibling appview "$want")"
+    ok "device mode: PDS https://$want, PLC https://$(sibling plc "$want"), AppView https://$(sibling appview "$want") (from $(device_host_source))"
   else
     set_env PDS_HOSTNAME ""
     set_env RELAY_CRAWL_HOST ""
     set_env PDS_INVITE_REQUIRED ""
     ok "localhost mode"
+    warn "physical phones need device mode: set $DEVICE_HOST_KEY in ${USER_PROPS/#$HOME/~} and run scripts/dev.sh device-setup (README)"
   fi
 }
 
@@ -330,9 +358,41 @@ ensure_tunnel() {
 # Device mode's named tunnel: three stable hostnames, from the ingress file device-setup writes.
 named_tunnel_pids() { pgrep -f "cloudflared tunnel --config $DEVICE_CONFIG" || true; }
 
+# Stops the cloudflared processes matching a pattern and waits until they exit. cloudflared drains its connections for up to
+# 30 s after a signal and keeps its metrics port meanwhile, so a replacement started sooner can't bind it, and the old one's
+# metrics would make the new one look registered.
+stop_cloudflared() {
+  local pattern=$1 waited=0
+  pkill -f "$pattern" || true
+  while pgrep -f "$pattern" >/dev/null; do
+    if ((waited >= 40)); then
+      pkill -9 -f "$pattern" || true
+      break
+    fi
+    sleep 1
+    waited=$((waited + 1))
+  done
+}
+
+# Moves an ingress file an older dev.sh wrote into a checkout's .dev/ to $DEVICE_CONFIG, and stops a tunnel still running
+# from an old path (ensure_named_tunnel restarts it from the new one).
+migrate_device_config() {
+  local host=$1
+  if [[ ! -f $DEVICE_CONFIG && -f $LEGACY_DEVICE_CONFIG ]] && grep -q "hostname: $host\$" "$LEGACY_DEVICE_CONFIG"; then
+    mkdir -p "$(dirname "$DEVICE_CONFIG")"
+    mv "$LEGACY_DEVICE_CONFIG" "$DEVICE_CONFIG"
+    ok "moved $LEGACY_DEVICE_CONFIG to $DEVICE_CONFIG"
+  fi
+  if pgrep -f "cloudflared tunnel --config .*/cloudflared-device\.yml" >/dev/null; then
+    stop_cloudflared "cloudflared tunnel --config .*/cloudflared-device\.yml"
+    ok "stopped the tunnel running from an old ingress file"
+  fi
+}
+
 ensure_named_tunnel() {
   step "cloudflared named tunnel"
   local host=$1 waited=0
+  migrate_device_config "$host"
   [[ -f $DEVICE_CONFIG ]] && grep -q "hostname: $host\$" "$DEVICE_CONFIG" \
     || die "no tunnel config for $host; run: scripts/dev.sh device-setup"
   if [[ -n $(tunnel_pids) ]]; then
@@ -342,7 +402,7 @@ ensure_named_tunnel() {
   if [[ -n $(named_tunnel_pids) ]] && tunnel_registered "$DEVICE_METRICS_PORT"; then
     ok "already running"
   else
-    pkill -f "cloudflared tunnel --config $DEVICE_CONFIG" || true
+    stop_cloudflared "cloudflared tunnel --config $DEVICE_CONFIG"
     mkdir -p "$STATE_DIR"
     nohup cloudflared tunnel --config "$DEVICE_CONFIG" run >"$STATE_DIR/cloudflared-device.log" 2>&1 &
     until tunnel_registered "$DEVICE_METRICS_PORT"; do
@@ -369,7 +429,7 @@ check_named_tunnel() {
 
 stop_named_tunnel() {
   [[ -n $(named_tunnel_pids) ]] || return 0
-  pkill -f "cloudflared tunnel --config $DEVICE_CONFIG" || true
+  stop_cloudflared "cloudflared tunnel --config $DEVICE_CONFIG"
   ok "stopped the named tunnel"
 }
 
@@ -381,7 +441,7 @@ cmd_device_setup() {
   command -v cloudflared >/dev/null || die "cloudflared not installed: brew install cloudflared"
   local host zone plc appview id creds name config
   host=$(device_host)
-  [[ -n $host ]] || die "set $DEVICE_HOST_KEY in local.properties to a subdomain of your Cloudflare zone, e.g. dev.example.com"
+  [[ -n $host ]] || die "set $DEVICE_HOST_KEY in ${USER_PROPS/#$HOME/~} (every checkout) or local.properties (this one) to a subdomain of your Cloudflare zone, e.g. dev.example.com"
   [[ $host =~ ^[a-z0-9-]+(\.[a-z0-9-]+){2,}$ ]] || die "$host should be one label below a zone, e.g. dev.example.com"
   zone=${host#*.}
   plc=$(sibling plc "$host")
@@ -414,8 +474,9 @@ cmd_device_setup() {
     cloudflared tunnel route dns --overwrite-dns "$DEVICE_TUNNEL" "$name" 2>&1 | grep -v '^$' | tail -1 | sed 's/^/    /'
   done
   step "Ingress"
-  mkdir -p "$STATE_DIR"
-  config="# Written by scripts/dev.sh device-setup from $DEVICE_HOST_KEY.
+  mkdir -p "$(dirname "$DEVICE_CONFIG")"
+  [[ -f $LEGACY_DEVICE_CONFIG ]] && rm "$LEGACY_DEVICE_CONFIG" && ok "removed the old $LEGACY_DEVICE_CONFIG"
+  config="# Written by the activity-tracker repo's scripts/dev.sh device-setup from $DEVICE_HOST_KEY.
 tunnel: $id
 credentials-file: $creds
 metrics: 127.0.0.1:$DEVICE_METRICS_PORT
@@ -440,6 +501,13 @@ ingress:
 # ---------------------------------------------------------------- local.properties
 
 property() { [[ -f $PROPS ]] && grep "^$1=" "$PROPS" | tail -1 | cut -d= -f2- || true; }
+
+# The Gradle user home's gradle.properties, which may space its separator ("key = value"), as Java properties allow.
+has_user_property() { [[ -f $USER_PROPS ]] && grep -qE "^[[:space:]]*${1//./\\.}[[:space:]]*[=:]" "$USER_PROPS"; }
+user_property() {
+  [[ -f $USER_PROPS ]] || return 0
+  sed -nE "s/^[[:space:]]*${1//./\\.}[[:space:]]*[=:][[:space:]]*//p" "$USER_PROPS" | tail -1 | sed -E 's/[[:space:]]+$//'
+}
 configured_url() { property "$PROP_KEY"; }
 
 # Sets KEY=VALUE in local.properties, dropping earlier lines for KEY.
@@ -465,6 +533,24 @@ ensure_local_properties() {
   set_property "$PROP_KEY" "$TUNNEL_URL"
   [[ $current != "$TUNNEL_URL" ]] && URL_CHANGED=1
   ok "$PROP_KEY=$TUNNEL_URL${current:+ (was $current)}"
+}
+
+# Device mode: the builds derive the AppView's public URL from the device host, so local.properties drops a URL left
+# from a quick tunnel. Sets URL_CHANGED when that line named another URL (the installed apps were built with it).
+ensure_device_properties() {
+  step "local.properties"
+  local current
+  current=$(configured_url)
+  if [[ -z $current ]] && ! grep -q "^$PROP_KEY=" "$PROPS" 2>/dev/null; then
+    ok "AppView URL derived from $DEVICE_HOST_KEY: $TUNNEL_URL"
+    return
+  fi
+  local tmp
+  tmp=$(mktemp)
+  { grep -v "^$PROP_KEY=" "$PROPS" || true; } >"$tmp"
+  mv "$tmp" "$PROPS"
+  [[ $current != "$TUNNEL_URL" ]] && URL_CHANGED=1
+  ok "dropped $PROP_KEY${current:+ ($current)}: the AppView URL is derived from $DEVICE_HOST_KEY ($TUNNEL_URL)"
 }
 
 # ---------------------------------------------------------------- AppView
@@ -626,7 +712,7 @@ cmd_up() {
   ensure_labeler
   if [[ -n $host ]]; then
     check_named_tunnel "$host"
-    ensure_local_properties
+    ensure_device_properties
   elif [[ ${NO_TUNNEL:-0} != 1 ]]; then
     stop_named_tunnel
     ensure_tunnel
@@ -682,7 +768,10 @@ cmd_status() {
   step "local.properties"
   local url
   url=$(configured_url)
-  if [[ -z $url ]]; then
+  if [[ -n $device ]]; then
+    ok "device mode, $DEVICE_HOST_KEY=$device from $(device_host_source); AppView URL https://$(sibling appview "$device")"
+    [[ -n $url ]] && warn "$PROP_KEY=$url is ignored in device mode (scripts/dev.sh drops it)"
+  elif [[ -z $url ]]; then
     warn "$PROP_KEY not set"
   elif [[ -n $host && $url != "https://$host" ]]; then
     warn "$url (doesn't match the running tunnel)"
