@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "A copy of an activity's track for segment matching, written only while the athlete's app.activitytracker.actor.segmentPrefs says matching is on. Its rkey is its activity's. It leaves out every point inside the athlete's privacy zones or within their hide-start/end distance, as separate pieces never joined across what was left out, and holds no wall-clock time. Stored only in the athlete's app.activitytracker.space.athlete self space, whatever the activity's visibility, never in the repo. Only the athlete and the AppView read it: the AppView indexes it from self, uses it only while matching is on, drops it when matching goes off, and never serves it.",
+      "description": "A copy of an activity's track for segment matching and grouping, written only while the athlete's app.activitytracker.actor.segmentPrefs says matching is on or their app.activitytracker.actor.groupPrefs isn't off. Its rkey is its activity's. It leaves out every point inside the athlete's privacy zones or within their hide-start/end distance, as separate pieces never joined across what was left out, and holds no wall-clock time. Stored only in the athlete's app.activitytracker.space.athlete self space, whatever the activity's visibility, never in the repo. Only the athlete and the AppView read it: the AppView indexes it from self, uses it for each purpose only while that purpose is on, drops it when both go off, and never serves it.",
       "key": "tid",
       "record": {
         "type": "object",
@@ -24,7 +24,11 @@
           },
           "excludeFromLeaderboards": {
             "type": "boolean",
-            "description": "The activity's efforts are ranked on no segment leaderboard; it keeps them. Absent means false. Kept when the track is rewritten for the same activity, and forgotten when matching goes off and the tracks are deleted."
+            "description": "The activity's efforts are ranked on no segment leaderboard; it keeps them. Absent means false. Kept when the track is rewritten for the same activity, and forgotten when the tracks are deleted."
+          },
+          "groupExcluded": {
+            "type": "boolean",
+            "description": "The athlete left the group on this activity (feed/group-activities): it's paired with no other athlete's. Absent means false. Kept when the track is rewritten for the same activity, and forgotten when the tracks are deleted. Never served."
           },
           "createdAt": { "type": "string", "format": "datetime" }
         }

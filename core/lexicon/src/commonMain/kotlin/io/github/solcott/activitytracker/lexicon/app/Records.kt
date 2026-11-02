@@ -464,8 +464,9 @@ data class ActivityTrackRecord(
 
 /**
  * `app.activitytracker.feed.segmentTrack`: an activity's track trimmed by the athlete's privacy zones, as a [SegmentTrackData] JSON blob
- * under its activity's rkey, for segment matching. Written only while [SegmentPrefsRecord.matching] is on, and stored only in the athlete's
- * [AthleteSpace.SELF] space; the AppView indexes it from there, uses it only while matching is on, and never serves it.
+ * under its activity's rkey, for segment matching and grouping. Written only while [SegmentPrefsRecord.matching] is on or
+ * [GroupPrefsRecord.mode] isn't [GroupMode.OFF], and stored only in the athlete's [AthleteSpace.SELF] space; the AppView indexes it from
+ * there, uses it for each purpose only while that one is on, and never serves it.
  */
 @Serializable
 data class SegmentTrackRecord(
@@ -478,6 +479,8 @@ data class SegmentTrackRecord(
     val data: BlobRef? = null,
     /** The activity's efforts are ranked on no leaderboard; null means false. Kept when the track is rewritten for the same activity. */
     val excludeFromLeaderboards: Boolean? = null,
+    /** The athlete left the group on this activity (feed/group-activities); null means false. Kept when the track is rewritten. */
+    val groupExcluded: Boolean? = null,
     @SerialName($$"$type") val type: String = Nsid.FEED_SEGMENT_TRACK,
 ) {
     companion object {
@@ -608,6 +611,34 @@ data class SegmentPrefsRecord(
     companion object {
         const val RKEY = "self"
     }
+}
+
+/**
+ * `app.activitytracker.actor.groupPrefs`: whether and with whom the athlete's activities may be grouped with other athletes'
+ * (feed/group-activities). It lives only in their [AthleteSpace.SELF] space; no record means they were never asked, and grouping is off.
+ */
+@Serializable
+data class GroupPrefsRecord(
+    /** A [GroupMode] value; an unknown one counts as [GroupMode.OFF]. */
+    val mode: String,
+    val updatedAt: Instant,
+    @SerialName($$"$type") val type: String = Nsid.ACTOR_GROUP_PREFS,
+) {
+    companion object {
+        const val RKEY = "self"
+    }
+}
+
+/** Known values of [GroupPrefsRecord.mode]. An open string. */
+object GroupMode {
+    const val OFF = "off"
+    /** Grouped only with opted-in athletes they follow or who follow them. */
+    const val CONNECTED = "connected"
+    /** Grouped with any opted-in athlete. */
+    const val ANYONE = "anyone"
+
+    /** Whether [mode] lets the athlete be grouped: [CONNECTED] or [ANYONE], never an unknown value. */
+    fun isOn(mode: String?): Boolean = mode == CONNECTED || mode == ANYONE
 }
 
 /**

@@ -52,6 +52,12 @@
           "items": { "type": "ref", "ref": "app.activitytracker.gear.defs#gearView" },
           "description": "The gear the activity lists that the viewer may see: in a tier of its gear category they're admitted to, and an item they may see that still exists, in the athlete's order. record and details carry only these items' URIs. Absent when there is none."
         },
+        "group": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "#groupPartner" },
+          "maxLength": 20,
+          "description": "Other athletes' activities this one was done together with (feed/group-activities) that the viewer may see: each partner's activity at the narrowest of its visibility and its Start time and Map categories, no block either way, and no mute by the viewer. Most recently paired first. Absent when there are none."
+        },
         "labels": {
           "type": "array",
           "items": { "type": "ref", "ref": "app.activitytracker.moderation.defs#label" },
@@ -84,6 +90,15 @@
         "uri": { "type": "string", "format": "at-uri" },
         "startedAt": { "type": "string", "format": "datetime" },
         "device": { "type": "string", "maxLength": 256 }
+      }
+    },
+    "groupPartner": {
+      "type": "object",
+      "description": "Another athlete's activity done together with this one.",
+      "required": ["author", "uri"],
+      "properties": {
+        "author": { "type": "ref", "ref": "app.activitytracker.actor.defs#profileViewBasic" },
+        "uri": { "type": "string", "format": "at-uri", "description": "The partner's activity." }
       }
     },
     "memberView": {

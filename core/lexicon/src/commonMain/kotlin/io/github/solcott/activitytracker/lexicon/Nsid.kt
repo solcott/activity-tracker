@@ -31,6 +31,11 @@ object Nsid {
      * leaderboards: their brackets. Indexed from `self` only, through the space, never from the firehose.
      */
     const val ACTOR_LEADERBOARD_BRACKETS = "$NAMESPACE.actor.leaderboardBrackets"
+    /**
+     * A record kept only in an athlete's `self` tier space ([SPACE_ATHLETE]): whether and with whom their activities may be grouped with
+     * other athletes'. Indexed from `self` only, through the space, never from the firehose.
+     */
+    const val ACTOR_GROUP_PREFS = "$NAMESPACE.actor.groupPrefs"
     const val ACTOR_GET_PROFILE = "$NAMESPACE.actor.getProfile"
     const val ACTOR_SEARCH_ACTORS = "$NAMESPACE.actor.searchActors"
 
@@ -58,8 +63,8 @@ object Nsid {
     const val FEED_ACTIVITY_TRACK = "$NAMESPACE.feed.activityTrack"
 
     /**
-     * An activity's track trimmed by the athlete's privacy zones, for segment matching, kept only in the athlete's `self` tier space
-     * ([SPACE_ATHLETE]) while matching is on. Indexed from `self` only, through the space, never from the firehose.
+     * An activity's track trimmed by the athlete's privacy zones, for segment matching and grouping, kept only in the athlete's `self` tier
+     * space ([SPACE_ATHLETE]) while either is on. Indexed from `self` only, through the space, never from the firehose.
      */
     const val FEED_SEGMENT_TRACK = "$NAMESPACE.feed.segmentTrack"
     /** A public segment, kept only in its creator's repo and indexed from the firehose; a copy in a space is ignored. */

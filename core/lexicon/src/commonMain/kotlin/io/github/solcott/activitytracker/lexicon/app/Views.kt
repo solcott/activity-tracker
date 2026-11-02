@@ -100,6 +100,11 @@ data class ActivityView(
      * that still exists), in the athlete's order; null when there is none. [record] and [details] carry only these items' URIs.
      */
     val gear: List<GearView>? = null,
+    /**
+     * Other athletes' activities this one was done together with (feed/group-activities) that the viewer may see, most recently paired
+     * first; null when there are none.
+     */
+    val group: List<GroupPartner>? = null,
 ) {
     /** [visibility] as a known value: [Visibility.PUBLIC] when absent, [Visibility.SELF] when unknown. */
     val visibilityOrPublic: String
@@ -116,6 +121,9 @@ data class ActivityView(
 
 /** `app.activitytracker.feed.defs#detailsView`: a details record and the tier ([Visibility] value) it's stored in. */
 @Immutable @Serializable data class DetailsView(val visibility: String, val record: ActivityDetailsRecord)
+
+/** `app.activitytracker.feed.defs#groupPartner`: another athlete's activity done together with this one. */
+@Immutable @Serializable data class GroupPartner(val author: ProfileViewBasic, val uri: AtUri)
 
 /** `app.activitytracker.feed.defs#memberView`: one recording a combined activity is built from. */
 @Immutable
