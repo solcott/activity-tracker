@@ -76,10 +76,22 @@ dependencies {
     implementation(libs.androidx.core)
     implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.work.runtime)
+    testImplementation(kotlin("test"))
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.work.testing)
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
 }
 
 // Layoutlib renders every screenshot in one JVM, which outgrows Test's default 512m heap.
 tasks.withType<Test>().matching { "ScreenshotTest" in it.name }.configureEach { maxHeapSize = "4g" }
+
+// Robolectric reaches into FileDescriptor (and the JDK's SharedSecrets for it), which JDK 17+ closes.
+tasks
+    .withType<Test>()
+    .matching { "UnitTest" in it.name }
+    .configureEach { jvmArgs("--add-opens=java.base/java.io=ALL-UNNAMED", "--add-exports=java.base/jdk.internal.access=ALL-UNNAMED") }
 
 // AGP doesn't add the suite to check.
 tasks.named("check") { dependsOn("testDebugScreenshotTestDefaultTestSuite") }
