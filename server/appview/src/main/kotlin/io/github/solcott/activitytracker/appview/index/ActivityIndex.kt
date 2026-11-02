@@ -181,7 +181,7 @@ private fun JdbcTransaction.shadow(
     }
 }
 
-@Suppress("LongParameterList") // The record, and where it's from.
+@Suppress("LongParameterList", "LongMethod") // The record, and where it's from; then each part it claims.
 private fun JdbcTransaction.upsertActivity(
     record: ActivityRecord,
     author: Did,
@@ -191,6 +191,12 @@ private fun JdbcTransaction.upsertActivity(
     now: Long,
 ) {
     val photos = boundedPhotos(record.media)
+    // Untrusted: a copy names another athlete's activity, which must fit the column; whether it pairs is up to an invite (copyIndexed).
+    val copyOf =
+        record.copyOf
+            ?.takeIf { of -> of.authority != author.value && of.collection == Nsid.FEED_ACTIVITY && of.rkey != null }
+            ?.value
+            ?.takeIf { of -> of.length <= MAX_URI_LENGTH }
     Activities.upsert {
         it[Activities.uri] = uri.value
         it[Activities.cid] = cid
@@ -222,6 +228,7 @@ private fun JdbcTransaction.upsertActivity(
                 ?.takeIf { of -> of.authority == author.value && of.collection == Nsid.FEED_ACTIVITY && of.rkey != null && of != uri }
                 ?.value
                 ?.takeIf { of -> of.length <= MAX_URI_LENGTH }
+        it[Activities.copyOf] = copyOf
     }
     ActivityMediaBlobs.deleteWhere { activityUri eq uri.value }
     ActivityMediaBlobs.batchInsert(photos.orEmpty().withIndex()) { (position, photo) ->
@@ -249,6 +256,7 @@ private fun JdbcTransaction.upsertActivity(
         this[ActivityMembers.authorDid] = author.value
     }
     replaceActivityGear(uri, author, placement, ActivityGear.SOURCE_RECORD, record.gear)
+    copyIndexed(uri, author, copyOf, now)
 }
 
 /** Records are untrusted: hold the sensors to the lexicon's limits before serving them. */
@@ -318,6 +326,6 @@ private val PHOTO_TYPES = setOf("image/webp", "image/jpeg")
 
 // Records are untrusted, so free text is clamped to the lexicon maxLength (or the column size) before it's stored.
 private const val MAX_SPORT_LENGTH = 64
-private const val MAX_URI_LENGTH = 512
+internal const val MAX_URI_LENGTH = 512
 private const val MAX_SENSOR_KIND_LENGTH = 64
 private const val MAX_SENSOR_NAME_LENGTH = 128

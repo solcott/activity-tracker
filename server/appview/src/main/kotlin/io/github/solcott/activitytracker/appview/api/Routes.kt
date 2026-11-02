@@ -19,6 +19,9 @@ import io.github.solcott.activitytracker.lexicon.app.CheckSegment
 import io.github.solcott.activitytracker.lexicon.app.CheckSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.FinishSegmentCandidates
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
+import io.github.solcott.activitytracker.lexicon.app.GetActivityInvite
+import io.github.solcott.activitytracker.lexicon.app.GetActivityInvitees
+import io.github.solcott.activitytracker.lexicon.app.GetActivityInvites
 import io.github.solcott.activitytracker.lexicon.app.GetActivitySegments
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetActorGear
@@ -75,6 +78,7 @@ fun Route.xrpcRoutes(
     graph: GraphViews,
     search: ActorSearch,
     streams: ActivityStreamsViews,
+    invites: InviteViews,
     spaceAccess: SpaceAccess,
     verifier: ServiceAuthVerifier,
     managingAppVerifier: ServiceAuthVerifier,
@@ -85,6 +89,9 @@ fun Route.xrpcRoutes(
     xrpcQuery(GetImportBatch.method, verifier) { params, viewer -> views.importBatch(viewer, params) }
     xrpcQuery(GetActivity.method, verifier) { params, viewer -> views.activity(viewer, params) }
     xrpcQuery(GetActivityStreams.method, verifier) { params, viewer -> streams.streams(viewer, params) }
+    xrpcQuery(GetActivityInvites.method, verifier) { params, viewer -> invites.invites(requireViewer(viewer), params) }
+    xrpcQuery(GetActivityInvite.method, verifier) { params, viewer -> invites.invite(requireViewer(viewer), params) }
+    xrpcQuery(GetActivityInvitees.method, verifier) { params, viewer -> invites.invitees(requireViewer(viewer), params) }
     xrpcQuery(GetLikes.method, verifier) { params, viewer -> views.likes(viewer, params) }
     xrpcQuery(GetComments.method, verifier) { params, viewer -> views.comments(viewer, params) }
     xrpcQuery(GetProfile.method, verifier) { params, viewer -> views.profile(viewer, params.actor) }

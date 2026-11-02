@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.appview.api.ActivityStreamsViews
 import io.github.solcott.activitytracker.appview.api.ActorSearch
 import io.github.solcott.activitytracker.appview.api.AvatarUrls
 import io.github.solcott.activitytracker.appview.api.GraphViews
+import io.github.solcott.activitytracker.appview.api.InviteViews
 import io.github.solcott.activitytracker.appview.api.LabelSources
 import io.github.solcott.activitytracker.appview.api.MediaUrls
 import io.github.solcott.activitytracker.appview.api.MemberSpaceBlobs
@@ -218,11 +219,13 @@ fun Application.appView(
         wellKnownRoutes(config, signingKey)
         val avatars = AvatarUrls(config.publicUrl)
         val views = Views(db, avatars, MediaUrls(config.publicUrl, mediaTokens))
+        val streams = ActivityStreamsViews(db, streamSource)
         xrpcRoutes(
             views,
             GraphViews(db, avatars),
             ActorSearch(db, avatars),
-            ActivityStreamsViews(db, streamSource),
+            streams,
+            InviteViews(db, avatars, streams),
             SpaceAccess(db, Did(config.serviceDid)),
             verifier,
             verifier.forAudiences(setOf(config.managingAppService)),

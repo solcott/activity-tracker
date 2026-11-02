@@ -36,6 +36,7 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.ActivityDetailsRecord
+import io.github.solcott.activitytracker.lexicon.app.ActivityInviteRecord
 import io.github.solcott.activitytracker.lexicon.app.ActivityStreamsRecord
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.BlockRecord
@@ -198,6 +199,7 @@ class Indexer(
             GroupPrefs.deleteWhere { did eq space.authority.value }
             LeaderboardBrackets.deleteWhere { did eq space.authority.value }
             dropSegmentTracks(space.authority)
+            dropInvitesOf(space.authority)
         }
     }
 
@@ -330,6 +332,12 @@ class Indexer(
                 if (placement.origin == Origins.REPO) upsertNameProposal(json, author, uri, cid, segmentNames, now)
             }
 
+            // Private, so from the self space only (spaceCollections); the firehose never delivers it (indexedCollections).
+            Nsid.FEED_ACTIVITY_INVITE -> {
+                if (placement.origin != Origins.REPO)
+                    upsertInvite(AtJson.decodeFromJsonElement(ActivityInviteRecord.serializer(), json), author, uri, now)
+            }
+
             // Private, so from the interactions space only (spaceCollections); the firehose never delivers it (indexedCollections).
             Nsid.FEED_SEGMENT_NAME_VOTE -> {
                 if (placement.origin != Origins.REPO) upsertNameVote(json, author, uri, now)
@@ -435,6 +443,10 @@ class Indexer(
                 if (placement.origin != Origins.REPO) deleteNameVote(uri)
             }
 
+            Nsid.FEED_ACTIVITY_INVITE -> {
+                if (placement.origin != Origins.REPO) deleteInvite(uri)
+            }
+
             Nsid.ACTOR_PROFILE -> {
                 Actors.update({ Actors.did eq uri.authority }) {
                     it[displayName] = null
@@ -524,6 +536,7 @@ class Indexer(
         LeaderboardBrackets.deleteWhere { LeaderboardBrackets.did eq did.value }
         SegmentCreations.deleteWhere { authorDid eq did.value }
         dropSegmentTracks(did)
+        dropInvitesOfAccount(did)
         deleteSegmentNamesBy(did)
         deleteSegmentsBy(did, segmentJobs, clock.now().toEpochMilliseconds())
         RecordShadows.deleteWhere { uri like "at://${did.value}/%" }
@@ -558,15 +571,16 @@ class Indexer(
         /** Segment tracks, the segment matching setting, the grouping choice and the leaderboard brackets, indexed only from `self`. */
         private val SEGMENT_COLLECTIONS =
             setOf(Nsid.FEED_SEGMENT_TRACK, Nsid.ACTOR_SEGMENT_PREFS, Nsid.ACTOR_GROUP_PREFS, Nsid.ACTOR_LEADERBOARD_BRACKETS)
-        private val SELF_COLLECTIONS = TIER_COLLECTIONS + SEGMENT_COLLECTIONS
+        private val SELF_COLLECTIONS = TIER_COLLECTIONS + SEGMENT_COLLECTIONS + Nsid.FEED_ACTIVITY_INVITE
 
         /**
          * What the AppView indexes from the athlete space with key [skey]: likes, comments, comment hides, blocks, mutes and segment name
          * votes from the interactions space, and activities, their details, streams and zones and gear items from a tier (an unknown key is
          * a tier only the athlete sees), plus from `self` the segment matching setting, the grouping choice and segment tracks
-         * (zone-trimmed copies of tracks, used for each purpose only while it's on and never served) and the leaderboard brackets (used
-         * only to filter leaderboards, never served). Private details, follow declines, defaults, full tracks, imported files and their
-         * devices (`feed.activityTrack`, `feed.activitySource`, `feed.activityDevices`, in `self`), privacy zones and their trim marker
+         * (zone-trimmed copies of tracks, used for each purpose only while it's on and never served), the leaderboard brackets (used only
+         * to filter leaderboards, never served) and activity invites (served only to the inviter and the invitee). Private details, follow
+         * declines, invite declines (`feed.activityInviteDecline`), defaults, full tracks, imported files and their devices
+         * (`feed.activityTrack`, `feed.activitySource`, `feed.activityDevices`, in `self`), privacy zones and their trim marker
          * (`actor.privacyZones`, `actor.routeTrim`, in `self`), stars on segments (`feed.segmentStar`, in `self`) and gear collections
          * (`gear.collection`, in `self`) are never stored.
          */
@@ -671,6 +685,7 @@ internal fun JdbcTransaction.upsertBlock(uri: AtUri, placement: Placement, autho
     require(subject != author) { "block of self" }
     // A block ends grouping between the two: an unblock pairs them again only once one of their tracks is matched again.
     dropPairsBetween(author, subject)
+    dropInvitePairsBetween(author, subject)
     Blocks.upsert {
         it[Blocks.uri] = uri.value
         it[origin] = placement.origin

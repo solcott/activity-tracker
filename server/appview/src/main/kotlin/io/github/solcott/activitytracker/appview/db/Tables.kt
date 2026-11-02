@@ -51,6 +51,8 @@ object Activities : Table("activities") {
     val importBatch = varchar("import_batch", 13).nullable()
     /** The athlete's own activity this one is another recording of; null for an activity in its own right. */
     val recordingOf = varchar("recording_of", 512).nullable()
+    /** Another athlete's activity this one claims to copy (`copyOf`, feed/activity-invites); paired only through an invite. */
+    val copyOf = varchar("copy_of", 512).nullable()
     /** The [io.github.solcott.activitytracker.lexicon.app.Visibility] it's served at: its tier space's key, or public for the repo. */
     val visibility = varchar("visibility", 16).default(Visibility.PUBLIC)
     /** Where the row came from: [Origins.REPO] or the tier space's URI. Only that origin's delete removes it. */
@@ -156,6 +158,38 @@ object ActivityGroupPairs : Table("activity_group_pairs") {
     val visibilityB = varchar("visibility_b", 16)
     val matchedAt = long("matched_at")
     override val primaryKey = PrimaryKey(activityA, activityB)
+}
+
+/**
+ * An athlete's invite of a follower to their own activity (`feed.activityInvite`, feed/activity-invites), from their `self` space only,
+ * keyed by its rkey ([io.github.solcott.activitytracker.lexicon.app.ActivityInviteRecord.rkey]). Whether it counts (a follow, no block,
+ * among the first 20) is checked when read (`inviteLive`). Served only to the inviter and the invitee.
+ */
+object ActivityInvites : Table("activity_invites") {
+    val inviterDid = varchar("inviter_did", 255)
+    val rkey = varchar("rkey", 512)
+    val activityUri = varchar("activity_uri", 512)
+    val inviteeDid = varchar("invitee_did", 255)
+    val createdAt = long("created_at")
+    val indexedAt = long("indexed_at")
+    override val primaryKey = PrimaryKey(inviterDid, rkey)
+}
+
+/**
+ * An invite's activity and the invitee's first copy of it (feed/activity-invites), apart from matched pairs ([ActivityGroupPairs]) so
+ * nothing that drops those touches these. Each side's visibility is its partner tier, as there. Served only through `partnersOf`, which
+ * checks the invite pair rule and the viewer's access again.
+ */
+object ActivityInvitePairs : Table("activity_invite_pairs") {
+    val originalUri = varchar("original_uri", 512)
+    val copyUri = varchar("copy_uri", 512)
+    val inviterDid = varchar("inviter_did", 255)
+    val inviteeDid = varchar("invitee_did", 255)
+    val inviteRkey = varchar("invite_rkey", 512)
+    val originalVisibility = varchar("original_visibility", 16)
+    val copyVisibility = varchar("copy_visibility", 16)
+    val pairedAt = long("paired_at")
+    override val primaryKey = PrimaryKey(originalUri, copyUri)
 }
 
 /**

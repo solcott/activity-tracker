@@ -46,8 +46,9 @@ internal fun JdbcTransaction.matchInputs(activity: String): MatchInputs? {
 /**
  * After [activity] or one of its details or streams records changed, given its [before] inputs: a deleted activity loses its efforts, its
  * track's candidate riders and its pairs at once; one with efforts, pairs or a held segment track is queued to be matched again when its
- * sport, sub-sport or exact start changed or it's new, and else to have its efforts and pairs re-tiered. Members it gained or lost as a
- * combined activity are matched again, to drop or regain theirs.
+ * sport, sub-sport or exact start changed or it's new, and else to have its efforts and pairs re-tiered. Its invite pairs
+ * (feed/activity-invites) are re-tiered at once, or dropped with it. Members it gained or lost as a combined activity are matched again, to
+ * drop or regain theirs.
  */
 internal fun JdbcTransaction.activityChanged(activity: String, before: MatchInputs?, jobs: SegmentJobs, now: Long) {
     val after = matchInputs(activity)
@@ -55,8 +56,10 @@ internal fun JdbcTransaction.activityChanged(activity: String, before: MatchInpu
         SegmentEfforts.deleteWhere { activityUri eq activity }
         SegmentCandidateRiders.deleteWhere { trackUri eq trackOf(activity) }
         dropPairsOfActivities(listOf(activity))
+        dropInvitePairsOf(activity)
         return
     }
+    Activities.selectAll().where { Activities.uri eq activity }.firstOrNull()?.let { retierInvitePairs(it) }
     if (matchable(activity)) {
         val moved = before == null || before.sport != after.sport || before.subSport != after.subSport || before.start != after.start
         if (moved) jobs.enqueueTrack(trackOf(activity), now) else jobs.enqueueTiers(activity, now)
