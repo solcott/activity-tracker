@@ -5,7 +5,8 @@ ALTER TABLE activities ADD COLUMN posted_at BIGINT;
 ALTER TABLE activities ADD COLUMN ended_at BIGINT;
 ALTER TABLE activities ADD COLUMN import_batch VARCHAR(13);
 
-UPDATE activities SET posted_at = sort_at, ended_at = started_at + COALESCE(elapsed_time, 0) * 1000;
+-- The elapsed time is held to 0..365 days, as FeedPosition.of holds it, so an untrusted record can't overflow the sum.
+UPDATE activities SET posted_at = sort_at, ended_at = started_at + LEAST(GREATEST(COALESCE(elapsed_time, 0), 0), 31536000) * 1000;
 UPDATE activities SET sort_at = LEAST(posted_at, ended_at + 432000000);
 
 ALTER TABLE activities ALTER COLUMN posted_at SET NOT NULL;

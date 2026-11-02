@@ -21,8 +21,7 @@ class FeedPositionMigrationTest {
 
     private fun execute(sql: String) = source.connection.use { it.createStatement().use { s -> s.execute(sql) } }
 
-    @Test
-    fun anEarlierImportSinksBelowARecentActivity() {
+    private fun migrateTo45() =
         Flyway.configure()
             .dataSource(source)
             .locations("classpath:db/migration")
@@ -30,6 +29,10 @@ class FeedPositionMigrationTest {
             .target("45")
             .load()
             .migrate()
+
+    @Test
+    fun anEarlierImportSinksBelowARecentActivity() {
+        migrateTo45()
         val day = 86_400_000L
         val posted = 1_000 * day
         // Both posted at the same time: one ended an hour before, one a year before, one has no elapsed time (from before V36).
@@ -56,6 +59,25 @@ class FeedPositionMigrationTest {
                 assertEquals(posted, rows.getValue("recent")[Activities.sortAt])
                 assertEquals(posted - 395 * day, rows.getValue("legacy")[Activities.sortAt], "no elapsed time ends at the start")
                 assertNull(old[Activities.importBatch])
+            }
+        }
+    }
+
+    @Test
+    fun anElapsedTimeTooLongToAddIsHeldToAYear() {
+        migrateTo45()
+        execute(
+            "INSERT INTO activities (uri, cid, author_did, record, sport, started_at, sort_at, indexed_at, elapsed_time) VALUES " +
+                "('at://did:plc:alice/endless', 'bafy', 'did:plc:alice', '{}', 'ride', 0, 0, 0, ${Long.MAX_VALUE}), " +
+                "('at://did:plc:alice/negative', 'bafy', 'did:plc:alice', '{}', 'ride', 0, 0, 0, -5)"
+        )
+
+        DatabaseFactory.migrate(source)
+
+        runBlocking {
+            Database.connect(source).tx {
+                val ended = Activities.selectAll().associate { it[Activities.uri].substringAfterLast('/') to it[Activities.endedAt] }
+                assertEquals(mapOf("endless" to 31_536_000_000L, "negative" to 0L), ended)
             }
         }
     }
