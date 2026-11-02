@@ -84,7 +84,7 @@ internal fun xmlRootElement(xml: String): String? =
 /** An ISO 8601 time as epoch millis. A time without a zone is read as UTC, which is what GPX requires anyway. Null if unparseable. */
 internal fun parseXmlTime(text: String?): Long? {
     val value = text?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-    val zoned = if (ZONE.containsMatchIn(value)) value else value + "Z"
+    val zoned = if (endsWithZone(value)) value else value + "Z"
     return try {
         Instant.parse(zoned).toEpochMilliseconds()
     } catch (_: IllegalArgumentException) {
@@ -92,7 +92,28 @@ internal fun parseXmlTime(text: String?): Long? {
     }
 }
 
-private val ZONE = Regex("(Z|[+-]\\d{2}:?\\d{2})$", RegexOption.IGNORE_CASE)
+/**
+ * Whether [value] ends with a zone: `Z`, or an offset `±hh:mm` or `±hhmm`. Checked by hand rather than with a regex: it runs for every
+ * track point, and on Android a regex match here took most of a GPX file's reading time.
+ */
+private fun endsWithZone(value: String): Boolean =
+    value.last().equals('Z', ignoreCase = true) || OFFSET_SHAPES.any { shape -> value.endsWithShape(shape) }
+
+/** A zone offset's shapes: `+` stands for either sign and `0` for any digit. */
+private val OFFSET_SHAPES = listOf("+00:00", "+0000")
+
+private fun String.endsWithShape(shape: String): Boolean {
+    val from = length - shape.length
+    return from >= 0 &&
+        shape.indices.all { i ->
+            val c = this[from + i]
+            when (shape[i]) {
+                '+' -> c == '+' || c == '-'
+                '0' -> c in '0'..'9'
+                else -> c == shape[i]
+            }
+        }
+}
 
 /**
  * A dive computer's zone-less wall clock as written: ISO 8601 ("2024-10-16T17:30:57", or a space for the T), or US slashed ("10/16/2024

@@ -139,4 +139,14 @@ class GpxParserTest {
         assertEquals(Instant.parse("2026-09-20T05:00:00Z").toEpochMilliseconds(), parseXmlTime("2026-09-20T07:00:00+02:00"))
         assertNull(parseXmlTime("yesterday"))
     }
+
+    @Test
+    fun aTimeKeepsItsZoneInEveryForm() {
+        val utc = Instant.parse("2026-09-20T05:00:00Z").toEpochMilliseconds()
+        assertEquals(utc, parseXmlTime("2026-09-20T05:00:00Z"))
+        assertEquals(utc, parseXmlTime("2026-09-20T05:00:00z"), "a lower-case Z")
+        assertEquals(utc, parseXmlTime("2026-09-20T02:30:00-02:30"), "a negative offset")
+        assertEquals(utc, parseXmlTime("2026-09-20T05:00:00.000Z"), "fractional seconds")
+        assertNull(parseXmlTime("2026-09-20"), "a date alone, whose day isn't taken for an offset")
+    }
 }
