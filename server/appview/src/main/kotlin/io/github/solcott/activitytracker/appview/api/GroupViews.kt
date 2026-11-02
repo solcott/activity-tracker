@@ -59,7 +59,8 @@ internal fun JdbcTransaction.partnersOf(
             .orderBy(ActivityGroupPairs.matchedAt to SortOrder.DESC)
             .map { Triple(it[mine], it[theirs] to it[theirAuthor], it[ActivityGroupPairs.matchedAt]) }
     val inviteRule = invitePairRuleHolds()
-    // The pair's two athletes always see each other: the inviter already sees who joined, and adding granted the invitee the original.
+    // The pair's two athletes always see each other, whatever its tiers, while the partner's activity is served: the inviter already sees
+    // who joined, and adding granted the invitee the original.
     val member = viewer?.let { (ActivityInvitePairs.inviterDid eq it.value) or (ActivityInvitePairs.inviteeDid eq it.value) } ?: Op.FALSE
     fun inviteSide(mine: Column<String>, theirs: Column<String>, theirAuthor: Column<String>, theirTier: Column<String>) =
         ActivityInvitePairs.join(Activities, JoinType.INNER, theirs, Activities.uri)
@@ -67,7 +68,7 @@ internal fun JdbcTransaction.partnersOf(
             .where {
                 (mine inList activities) and
                     inviteRule and
-                    (member or visibleTo(viewer, visibility = theirTier)) and
+                    ((member and served(viewer, theirAuthor, theirs, Activities.cid)) or visibleTo(viewer, visibility = theirTier)) and
                     notBlocked(viewer, theirAuthor) and
                     notMuted(viewer, theirAuthor)
             }

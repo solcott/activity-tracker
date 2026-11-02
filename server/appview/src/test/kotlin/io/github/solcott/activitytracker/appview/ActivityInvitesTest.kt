@@ -1,9 +1,11 @@
 package io.github.solcott.activitytracker.appview
 
+import io.github.solcott.activitytracker.appview.api.LabelSources
 import io.github.solcott.activitytracker.appview.db.Activities
 import io.github.solcott.activitytracker.appview.db.ActivityInvitePairs
 import io.github.solcott.activitytracker.appview.db.ActivityInvites
 import io.github.solcott.activitytracker.appview.db.tx
+import io.github.solcott.activitytracker.appview.labels.LabelStore
 import io.github.solcott.activitytracker.lexicon.Nsid
 import io.github.solcott.activitytracker.lexicon.app.AthleteSpace
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
@@ -16,6 +18,7 @@ import io.github.solcott.activitytracker.lexicon.app.Visibility
 import io.ktor.client.HttpClient
 import io.ktor.client.statement.bodyAsText
 import io.ktor.server.testing.testApplication
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -24,6 +27,17 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 
 /** Activity invites (feed/activity-invites) in the AppView: indexing invites from `self`, pairing copies, and the drops. */
 class ActivityInvitesTest : SegmentTestBase() {
+    private val labeler = "did:plc:labeler"
+    private var labelSeq = 0L
+
+    @AfterTest fun forgetLabelers() = run { LabelSources.trusted = emptyList() }
+
+    /** The labeler takes [uri] down. Set after the app starts, which sets the trusted labelers from its config. */
+    private fun takeDown(uri: String) = runBlocking {
+        LabelSources.trusted = listOf(labeler)
+        LabelStore(db, labeler, null).apply(labeler, ++labelSeq, listOf(testLabel(labeler, uri, "!takedown")))
+    }
+
     private fun inviteRkey(rkey: String, invitee: String) = "$rkey:$invitee"
 
     private fun inviteUri(rkey: String, invitee: String, inviter: String = alice) =
@@ -432,5 +446,26 @@ class ActivityInvitesTest : SegmentTestBase() {
         spaceWrite(self(alice), Nsid.ACTOR_GROUP_PREFS, "self", """{"mode":"${GroupMode.OFF}","updatedAt":"2026-11-02T12:00:00Z"}""")
         assertEquals(emptyList(), client.partners("3ka", alice, alice), "the track is gone, but the leave holds")
         assertEquals(emptyList(), client.partners("3kb", bob, bob))
+    }
+
+    @Test
+    fun aTakenDownActivityIsNeitherOfferedNorListedAsAPartner() = testApplication {
+        application { appView(config, db, verifier) }
+        follow(bob, alice)
+        follow(carol, alice)
+        activity("3ka", sport = "ride")
+        invite("3ka", bob)
+        invite("3ka", carol)
+        copy("3kb", bob, activityUri("3ka"))
+        assertEquals(listOf(inviteUri("3ka", carol)), client.inbox(carol))
+        assertEquals(listOf(activityUri("3kb", bob)), client.partners("3ka", alice, alice))
+
+        takeDown(activityUri("3ka"))
+        assertEquals(emptyList(), client.inbox(carol))
+        assertEquals("NotFound", client.xrpcError(GetActivityInvite.method, mapOf("uri" to inviteUri("3ka", carol)), carol))
+        assertEquals(emptyList(), client.partners("3kb", bob, bob), "not even to the pair's own invitee")
+
+        takeDown(activityUri("3kb", bob))
+        assertEquals(emptyList(), client.partners("3ka", alice, alice), "nor to the inviter")
     }
 }

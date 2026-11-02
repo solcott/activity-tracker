@@ -127,11 +127,16 @@ class InviteViews(private val db: Database, private val avatars: AvatarUrls, pri
 
     private fun JdbcTransaction.joined(invite: ResultRow): Boolean = copyOf(invite) != null
 
-    @Suppress("ReturnCount") // The inviter or the activity isn't indexed.
+    /** Null when the inviter or the activity isn't indexed, or the activity isn't served to the invitee ([served]: a takedown). */
+    @Suppress("ReturnCount") // The inviter or the activity isn't indexed or served.
     private fun JdbcTransaction.inviteView(invite: ResultRow, inviters: Map<String, ProfileViewBasic>): InviteView? {
         val inviter = inviters[invite[ActivityInvites.inviterDid]] ?: return null
         val activity = invite[ActivityInvites.activityUri]
-        val row = Activities.selectAll().where { Activities.uri eq activity }.firstOrNull() ?: return null
+        val invitee = Did(invite[ActivityInvites.inviteeDid])
+        val row =
+            Activities.selectAll()
+                .where { (Activities.uri eq activity) and served(invitee, Activities.authorDid, Activities.uri, Activities.cid) }
+                .firstOrNull() ?: return null
         return InviteView(
             uri = uriOf(invite),
             activity = AtUri(activity),
