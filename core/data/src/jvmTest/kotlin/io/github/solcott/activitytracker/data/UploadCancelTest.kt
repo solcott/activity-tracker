@@ -27,11 +27,14 @@ import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 
 /**
@@ -179,6 +182,7 @@ class UploadCancelTest {
     }
 
     @Test
+    @Suppress("InjectDispatcher") // A real-time wait for work off the test's dispatcher.
     fun aCancelWhileAnActivityIsQueuedDropsAllOfIt() = runTest {
         val s = pds.session()
         pds.pdsUnreachable = true
@@ -188,7 +192,7 @@ class UploadCancelTest {
         val save = launch { s.activities.publishBatch(flowOf(draft().copy(rkey = rkey)), drain = false) }
         while (s.db.outbox().pending(pds.did.value, rkey).isEmpty()) {
             yield()
-            Thread.sleep(1)
+            withContext(Dispatchers.Default) { delay(1) }
         }
         val cancelled = async { s.uploads().cancel(rkey) }
         save.join()
