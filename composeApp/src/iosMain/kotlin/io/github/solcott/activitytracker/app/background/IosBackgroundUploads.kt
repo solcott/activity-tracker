@@ -22,6 +22,7 @@ import platform.BackgroundTasks.BGTaskScheduler
 import platform.Foundation.NSDate
 import platform.Foundation.NSError
 import platform.Foundation.NSLog
+import platform.Foundation.NSString
 import platform.Foundation.dateWithTimeIntervalSince1970
 
 /**
@@ -54,7 +55,8 @@ object IosBackgroundUploads {
             // iOS refuses when Background App Refresh is off, too many requests are pending, or (the simulator) always; the writes then
             // wait for the app to open, so say why where Console shows it.
             if (!BGTaskScheduler.sharedScheduler.submitTaskRequest(request, error.ptr)) {
-                NSLog("Background uploads not scheduled: %@", error.value?.localizedDescription ?: "unknown error")
+                // A Kotlin String reaches a C variadic as a C string, so %@ needs an NSString.
+                NSLog("Background uploads not scheduled: %@", (error.value?.localizedDescription ?: "unknown error") as NSString)
             }
         }
     }
