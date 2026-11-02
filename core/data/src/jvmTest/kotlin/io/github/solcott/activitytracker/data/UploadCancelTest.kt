@@ -27,10 +27,12 @@ import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 
 /**
  * Cancelling in the upload queue (data/upload-queue): a waiting activity's writes are dropped before any is sent, or the cancel is refused.
@@ -174,6 +176,26 @@ class UploadCancelTest {
 
         assertEquals(listOf("One"), uploads.queue.first().imports.single().finished.map { it.title })
         uris.drop(1).forEach { assertEquals(emptyList(), sentFor(it)) }
+    }
+
+    @Test
+    fun aCancelWhileAnActivityIsQueuedDropsAllOfIt() = runTest {
+        val s = pds.session()
+        pds.pdsUnreachable = true
+        val rkey = "3kqueued22222"
+
+        // Cancelled as soon as its first write is queued, while the rest of it may still be on the way.
+        val save = launch { s.activities.publishBatch(flowOf(draft().copy(rkey = rkey)), drain = false) }
+        while (s.db.outbox().pending(pds.did.value, rkey).isEmpty()) {
+            yield()
+            Thread.sleep(1)
+        }
+        val cancelled = async { s.uploads().cancel(rkey) }
+        save.join()
+
+        assertTrue(cancelled.await())
+        assertEquals(emptyList(), s.db.outbox().pending(pds.did.value, rkey), "the cancel came after every write, details and streams too")
+        assertNull(s.db.uploads().live(pds.did.value, rkey))
     }
 
     @Test

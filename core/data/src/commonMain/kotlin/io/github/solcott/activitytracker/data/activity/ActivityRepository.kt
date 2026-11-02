@@ -196,33 +196,37 @@ class ActivityRepository(
                 draft.visibility,
                 draft.categories,
             )
-        // Logged before its first write, so the processor counts every write it sends (data/upload-queue).
-        UploadLog.queued(db, clients.did.value, rkey, UploadItemEntity.KIND_NEW, layout.record, draft.importBatch, clock.now())
-        for (tier in layout.tiersNarrowestFirst) {
-            val details = layout.details[tier] ?: continue
-            writer.put(Nsid.FEED_ACTIVITY_DETAILS, rkey, ActivityDetailsRecord.serializer(), details, space = clients.placeOf(tier))
-        }
-        writer.put(
-            collection = Nsid.FEED_ACTIVITY,
-            rkey = rkey,
-            serializer = ActivityRecord.serializer(),
-            record = layout.record,
-            space = clients.placeOf(draft.visibility),
-        )
-        val mapTier = DetailCategory.tiers(draft.visibility, draft.categories).getValue(DetailCategory.MAP)
-        val published = privacy.published(uri, draft.visibility, mapTier, draft.route, trim)
-        draft.gpx?.let {
-            tracks.put(uri, it)
-            segmentTracks.put(uri, draft.route, published)
-        }
-        draft.streams?.let {
-            streams.put(
-                uri,
-                ActivityStreams(it, draft.visibility, draft.categories, draft.heartRateZones, draft.powerZones, draft.trainingLoad),
+        // Queued under the claim (data/upload-queue): a cancel lands before the item or after its last write, never between, and no write
+        // of it is sent, so its item can't finish, before all are queued.
+        clients.pacing.claim.withLock {
+            // Logged before its first write, so the processor counts every write it sends (data/upload-queue).
+            UploadLog.queued(db, clients.did.value, rkey, UploadItemEntity.KIND_NEW, layout.record, draft.importBatch, clock.now())
+            for (tier in layout.tiersNarrowestFirst) {
+                val details = layout.details[tier] ?: continue
+                writer.put(Nsid.FEED_ACTIVITY_DETAILS, rkey, ActivityDetailsRecord.serializer(), details, space = clients.placeOf(tier))
+            }
+            writer.put(
+                collection = Nsid.FEED_ACTIVITY,
+                rkey = rkey,
+                serializer = ActivityRecord.serializer(),
+                record = layout.record,
+                space = clients.placeOf(draft.visibility),
             )
+            val mapTier = DetailCategory.tiers(draft.visibility, draft.categories).getValue(DetailCategory.MAP)
+            val published = privacy.published(uri, draft.visibility, mapTier, draft.route, trim)
+            draft.gpx?.let {
+                tracks.put(uri, it)
+                segmentTracks.put(uri, draft.route, published)
+            }
+            draft.streams?.let {
+                streams.put(
+                    uri,
+                    ActivityStreams(it, draft.visibility, draft.categories, draft.heartRateZones, draft.powerZones, draft.trainingLoad),
+                )
+            }
+            draft.source?.let { sources.put(uri, it) }
+            draft.devices?.let { devices.put(uri, it) }
         }
-        draft.source?.let { sources.put(uri, it) }
-        draft.devices?.let { devices.put(uri, it) }
         return uri
     }
 
