@@ -11,18 +11,20 @@ import io.github.solcott.activitytracker.app.feed.FeedScope
 import io.github.solcott.activitytracker.app.feed.FeedScreen
 import io.github.solcott.activitytracker.app.feed.FeedState
 import io.github.solcott.activitytracker.app.feed.ImportBatchScreen
-import io.github.solcott.activitytracker.app.feed.UnsentChangesScreen
 import io.github.solcott.activitytracker.app.feedfilter.DateRange
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
 import io.github.solcott.activitytracker.app.record.RecordScreen
+import io.github.solcott.activitytracker.app.uploads.UploadsScreen
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
-import io.github.solcott.activitytracker.data.activity.OutboxPacer
+import io.github.solcott.activitytracker.data.activity.BulkWrites
+import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.activity.RejectedChanges
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
+import io.github.solcott.activitytracker.data.activity.UploadQueue
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.db.OutboxEntity
 import io.github.solcott.activitytracker.data.di.SessionClients
@@ -72,9 +74,11 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.atStartOfDayIn
+import kotlinx.serialization.json.JsonObject
 
 class FeedPresenterTest {
     private val http = HttpClient(MockEngine { respond("", HttpStatusCode.NotFound) }) { expectSuccess = false }
@@ -89,12 +93,9 @@ class FeedPresenterTest {
         val rejected: RejectedChanges,
         val db: AppDatabase,
         val clients: SessionClients,
-    ) {
-        /** The session's outbox loop, as `App` runs it. */
-        val pacer = OutboxPacer(db, clients, activities, Clock.System, Logger)
-    }
+    )
 
-    private suspend fun repos(): Repos {
+    private suspend fun repos(http: HttpClient = this.http): Repos {
         val (db, _, clients) = signedInTestSession(http)
         val localLikes = LocalLikes()
         val feed = FeedRepository(db, clients, localLikes, Logger)
@@ -137,24 +138,13 @@ class FeedPresenterTest {
         navigator: FakeNavigator,
         tracker: LocationTracker,
         seed: suspend Repos.() -> Unit = {},
+        http: HttpClient = this.http,
         block: suspend ReceiveTurbine<FeedState>.() -> Unit,
     ) {
-        val r = repos().apply { seed() }
+        val r = repos(http).apply { seed() }
+        val uploads = UploadQueue(r.db, r.clients, r.rejected, Clock.System)
         presenterTestOf(
-            {
-                FeedPresenter(
-                    navigator,
-                    r.feed,
-                    r.activities,
-                    r.profiles,
-                    tracker,
-                    Clock.System,
-                    r.segmentPrefs,
-                    r.groupPrefs,
-                    r.rejected,
-                    r.pacer,
-                )
-            },
+            { FeedPresenter(navigator, r.feed, r.activities, r.profiles, tracker, Clock.System, r.segmentPrefs, r.groupPrefs, uploads) },
             timeout = TURBINE_TIMEOUT,
             block = block,
         )
@@ -285,8 +275,7 @@ class FeedPresenterTest {
                     Clock.System,
                     segmentsOf(clients).prefs,
                     segmentsOf(clients).groups,
-                    RejectedChanges(db, clients, zones.outbox, feed, localLikes),
-                    OutboxPacer(db, clients, activities, Clock.System, Logger),
+                    UploadQueue(db, clients, RejectedChanges(db, clients, zones.outbox, feed, localLikes), Clock.System),
                 )
             },
             timeout = TURBINE_TIMEOUT,
@@ -549,10 +538,10 @@ class FeedPresenterTest {
                 repos = this
             },
         ) {
-            val paused = awaitUntil { it.pendingWrites == 1 && it.uploadPausedUntil != null }
-            assertEquals(until, paused.uploadPausedUntil)
+            val paused = awaitUntil { it.uploads.other == 1 && it.uploads.serverPausedUntil != null }
+            assertEquals(until, paused.uploads.serverPausedUntil)
             repos!!.db.outbox().delete(queued)
-            awaitUntil { it.pendingWrites == 0 && it.uploadPausedUntil == null }
+            awaitUntil { it.uploads.other == 0 && it.uploads.serverPausedUntil == null }
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -570,10 +559,33 @@ class FeedPresenterTest {
             outbox.markRejected(outbox.insert(row(Nsid.FEED_LIKE, "3klike")), at = 1, error = "refused")
         }
         presenterTest(navigator, FakeLocationTracker(), seed) {
-            val state = awaitUntil { it.rejectedChanges == 2 }
-            assertEquals(0, state.pendingWrites, "refused changes and what they hold aren't uploading")
-            state.eventSink(FeedEvent.UnsentChanges)
-            assertEquals(UnsentChangesScreen, navigator.awaitNextScreen())
+            val state = awaitUntil { it.uploads.refused == 2 }
+            assertEquals(0, state.uploads.other, "refused changes and what they hold aren't uploading")
+            state.eventSink(FeedEvent.OpenUploads)
+            assertEquals(UploadsScreen, navigator.awaitNextScreen())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun theFeedLoadsWhileAnImportWaitsToUpload() = runTest {
+        // A PDS that never answers a write: an import's writes would hold the first load for as long as they wait.
+        val stalled =
+            HttpClient(
+                MockEngine { request ->
+                    if (request.url.encodedPath.endsWith("putRecord")) awaitCancellation()
+                    respond("", HttpStatusCode.NotFound)
+                }
+            ) {
+                expectSuccess = false
+            }
+        val seed: suspend Repos.() -> Unit = {
+            BulkWrites.run {
+                OutboxWriter(db, clients, Clock.System).put(Nsid.FEED_ACTIVITY, "3kimport", JsonObject.serializer(), JsonObject(emptyMap()))
+            }
+        }
+        presenterTest(FakeNavigator(FeedScreen), FakeLocationTracker(), seed, stalled) {
+            awaitUntil { !it.content.isLoading }
             cancelAndIgnoreRemainingEvents()
         }
     }

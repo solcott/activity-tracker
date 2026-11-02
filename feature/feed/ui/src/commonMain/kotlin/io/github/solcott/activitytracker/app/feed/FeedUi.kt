@@ -73,6 +73,9 @@ import io.github.solcott.activitytracker.composeApp.resources.feed_groups_body
 import io.github.solcott.activitytracker.composeApp.resources.feed_groups_connected
 import io.github.solcott.activitytracker.composeApp.resources.feed_groups_title
 import io.github.solcott.activitytracker.composeApp.resources.feed_import
+import io.github.solcott.activitytracker.composeApp.resources.feed_imports_paused
+import io.github.solcott.activitytracker.composeApp.resources.feed_imports_waiting
+import io.github.solcott.activitytracker.composeApp.resources.feed_other_changes
 import io.github.solcott.activitytracker.composeApp.resources.feed_pending_writes
 import io.github.solcott.activitytracker.composeApp.resources.feed_record
 import io.github.solcott.activitytracker.composeApp.resources.feed_refresh
@@ -83,6 +86,12 @@ import io.github.solcott.activitytracker.composeApp.resources.feed_segments_titl
 import io.github.solcott.activitytracker.composeApp.resources.feed_segments_turn_on
 import io.github.solcott.activitytracker.composeApp.resources.feed_upload_paused
 import io.github.solcott.activitytracker.composeApp.resources.feed_upload_paused_tomorrow
+import io.github.solcott.activitytracker.composeApp.resources.feed_uploading
+import io.github.solcott.activitytracker.composeApp.resources.feed_uploading_activities
+import io.github.solcott.activitytracker.composeApp.resources.feed_uploading_and_imported
+import io.github.solcott.activitytracker.composeApp.resources.feed_uploading_imported
+import io.github.solcott.activitytracker.composeApp.resources.feed_uploading_with_other
+import io.github.solcott.activitytracker.data.activity.UploadSummary
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.segments.GroupChoice
 import io.github.solcott.activitytracker.lexicon.app.TimelineItem
@@ -195,29 +204,36 @@ private fun Timeline(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            if (state.rejectedChanges > 0) {
+            val uploads = state.uploads
+            if (uploads.refused > 0) {
                 item(key = "rejected") {
-                    AppTextButton(onClick = { state.eventSink(FeedEvent.UnsentChanges) }) {
+                    AppTextButton(onClick = { state.eventSink(FeedEvent.OpenUploads) }) {
                         Text(
-                            pluralStringResource(Res.plurals.feed_rejected_changes, state.rejectedChanges, state.rejectedChanges),
+                            pluralStringResource(Res.plurals.feed_rejected_changes, uploads.refused, uploads.refused),
                             color = MaterialTheme.colorScheme.error,
                         )
                     }
                 }
             }
-            if (state.pendingWrites > 0) {
-                item {
-                    Column {
-                        Text(
-                            pluralStringResource(Res.plurals.feed_pending_writes, state.pendingWrites, state.pendingWrites),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        state.uploadPausedUntil?.let { until ->
-                            Text(
-                                pausedUntil(until),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+            if (uploads.uploading) {
+                item(key = "uploading") {
+                    AppTextButton(onClick = { state.eventSink(FeedEvent.OpenUploads) }) {
+                        Column {
+                            Text(uploadingText(uploads), style = MaterialTheme.typography.bodySmall)
+                            if (uploads.importsPaused && uploads.imported > 0) {
+                                Text(
+                                    stringResource(Res.string.feed_imports_paused),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            uploads.serverPausedUntil?.let { until ->
+                                Text(
+                                    pausedUntil(until),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }
@@ -366,5 +382,29 @@ private fun LazyListScope.timelineItems(state: FeedState) {
             is TimelineItem.ImportCard -> ImportCard(item.card, onClick = { state.eventSink(FeedEvent.OpenImportBatch(item.card)) })
             is TimelineItem.Unknown -> Unit
         }
+    }
+}
+
+/**
+ * What is uploading, by activity (data/outbox): "Uploading 1 activity and 950 imported · 3 other changes". Imports the athlete paused are
+ * waiting rather than uploading.
+ */
+@Composable
+private fun uploadingText(uploads: UploadSummary): String {
+    val own = pluralStringResource(Res.plurals.feed_uploading_activities, uploads.own, uploads.own)
+    val imported = pluralStringResource(Res.plurals.feed_uploading_imported, uploads.imported, uploads.imported)
+    val activities =
+        when {
+            uploads.own > 0 && uploads.imported > 0 -> stringResource(Res.string.feed_uploading_and_imported, own, uploads.imported)
+            uploads.own > 0 -> stringResource(Res.string.feed_uploading, own)
+            uploads.imported > 0 && uploads.importsPaused -> stringResource(Res.string.feed_imports_waiting, imported)
+            uploads.imported > 0 -> stringResource(Res.string.feed_uploading, imported)
+            else -> null
+        }
+    val other = pluralStringResource(Res.plurals.feed_other_changes, uploads.other, uploads.other)
+    return when {
+        activities != null && uploads.other > 0 -> stringResource(Res.string.feed_uploading_with_other, activities, other)
+        activities != null -> activities
+        else -> pluralStringResource(Res.plurals.feed_pending_writes, uploads.other, uploads.other)
     }
 }

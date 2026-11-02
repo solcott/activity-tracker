@@ -10,10 +10,10 @@ import io.github.solcott.activitytracker.app.feed.FeedState
 import io.github.solcott.activitytracker.atproto.OAuthClientConfig
 import io.github.solcott.activitytracker.data.activity.ActivityPlaces
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
-import io.github.solcott.activitytracker.data.activity.OutboxPacer
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.activity.RejectedChanges
 import io.github.solcott.activitytracker.data.activity.RouteTrimmer
+import io.github.solcott.activitytracker.data.activity.UploadQueue
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
@@ -173,8 +173,7 @@ class SegmentsPromptTest {
                     Clock.System,
                     segments.prefs,
                     segments.groups,
-                    RejectedChanges(db, clients, zones.outbox, feed, localLikes),
-                    OutboxPacer(db, clients, activities, Clock.System, Logger),
+                    UploadQueue(db, clients, RejectedChanges(db, clients, zones.outbox, feed, localLikes), Clock.System),
                 )
             },
             timeout = 10.seconds,

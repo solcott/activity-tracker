@@ -9,6 +9,7 @@ import io.github.solcott.activitytracker.app.fixtures.fakeActivity
 import io.github.solcott.activitytracker.app.fixtures.fakeActivityRecord
 import io.github.solcott.activitytracker.app.fixtures.fakeGroupPartner
 import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
+import io.github.solcott.activitytracker.data.activity.UploadSummary
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CardRoute
 import io.github.solcott.activitytracker.lexicon.app.ImportCardView
@@ -58,7 +59,6 @@ object FeedSamples {
         FeedState(
             content = content,
             error = null,
-            pendingWrites = 0,
             viewerDid = Fixed.ALICE.value,
             canRecord = true,
             scope = FeedScope.Following,
@@ -99,13 +99,17 @@ object FeedSamples {
                 )
             )
 
-    /** Loaded, with one change still uploading and two the server refused (data/outbox). */
+    /**
+     * Loaded, with a recording, 950 imported activities and 3 other changes uploading, and two changes the server refused (data/outbox).
+     */
     val unsent: FeedState
-        get() = state(ContentStates.loaded(items)).copy(pendingWrites = 1, rejectedChanges = 2)
+        get() = state(ContentStates.loaded(items)).copy(uploads = UploadSummary(own = 1, imported = 950, other = 3, refused = 2))
 
-    /** Loaded, with an import's 3,000 changes waiting out the server's rate limit until 3:40 PM (data/outbox). */
+    /** Loaded, with 3,000 imported activities waiting out the server's rate limit until 3:40 PM (data/outbox). */
     val paused: FeedState
-        get() = state(ContentStates.loaded(items)).copy(pendingWrites = 3000, uploadPausedUntil = Fixed.NOW + 3.hours + 40.minutes)
+        get() =
+            state(ContentStates.loaded(items))
+                .copy(uploads = UploadSummary(imported = 3000, serverPausedUntil = Fixed.NOW + 3.hours + 40.minutes))
 
     /** Loaded, asking once whose activities the athlete's may be grouped with (feed/group-activities). */
     val askingGroups: FeedState

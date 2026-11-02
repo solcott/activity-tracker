@@ -23,10 +23,11 @@ import io.github.solcott.activitytracker.app.record.ImportActivityScreen
 import io.github.solcott.activitytracker.app.record.ManualActivityScreen
 import io.github.solcott.activitytracker.app.record.RecordScreen
 import io.github.solcott.activitytracker.app.rememberSingleFlight
+import io.github.solcott.activitytracker.app.uploads.UploadsScreen
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.data.activity.ActivityRepository
-import io.github.solcott.activitytracker.data.activity.OutboxPacer
-import io.github.solcott.activitytracker.data.activity.RejectedChanges
+import io.github.solcott.activitytracker.data.activity.UploadQueue
+import io.github.solcott.activitytracker.data.activity.UploadSummary
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
@@ -57,8 +58,7 @@ fun FeedPresenter(
     clock: Clock,
     segmentPrefs: SegmentPrefsRepository,
     groupPrefs: GroupPrefsRepository,
-    rejected: RejectedChanges,
-    pacer: OutboxPacer,
+    uploads: UploadQueue,
 ): FeedState {
     val viewerDid = profiles.did.value
     // Retained, so the scope and filter survive opening an activity and coming back.
@@ -69,9 +69,7 @@ fun FeedPresenter(
     val zone = remember { TimeZones.device() }
     val query = remember(filter) { filter.toActivityFilter(clock.todayIn(zone), zone) }
     val mine = scope == FeedScope.Mine
-    val pending by activities.pendingWrites.collectAsState(0)
-    val pausedUntil by pacer.pausedUntil.collectAsState(null)
-    val rejectedChanges by remember { rejected.changes.map { it.size } }.collectAsState(0)
+    val uploadSummary by uploads.summary.collectAsState(UploadSummary())
     var error by remember { mutableStateOf<UiError?>(null) }
     var refreshKey by remember { mutableIntStateOf(0) }
     var syncedFor by remember { mutableIntStateOf(-1) }
@@ -82,9 +80,10 @@ fun FeedPresenter(
             produceRetainedContentState<ImmutableList<TimelineItem>>(persistentListOf(), refreshKey) {
                 feed
                     .feedOutcomes(mine, viewerDid, query) {
-                        // The outbox drains on the first load and on an explicit refresh, not on every filter change.
+                        // The athlete's own writes go on the first load and on an explicit refresh, not on every filter change; an
+                        // import's are left to the pacer, so the feed never waits for them (data/outbox).
                         if (syncedFor != refreshKey) {
-                            activities.sync()
+                            activities.syncOwn()
                             syncedFor = refreshKey
                         }
                     }
@@ -110,8 +109,7 @@ fun FeedPresenter(
     return FeedState(
         content,
         error,
-        pending,
-        pausedUntil,
+        uploadSummary,
         viewerDid,
         locationTracker.isSupported,
         scope,
@@ -120,7 +118,6 @@ fun FeedPresenter(
         filterScreen,
         revealed,
         askSegments,
-        rejectedChanges,
         askGroups = askGroups && !askSegments,
     ) { event ->
         when (event) {
@@ -165,8 +162,8 @@ fun FeedPresenter(
                 navigator.goTo(ImportActivityScreen())
             }
 
-            FeedEvent.UnsentChanges -> {
-                navigator.goTo(UnsentChangesScreen)
+            FeedEvent.OpenUploads -> {
+                navigator.goTo(UploadsScreen)
             }
 
             is FeedEvent.AnswerSegments -> {

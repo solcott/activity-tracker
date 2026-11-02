@@ -9,13 +9,13 @@ import io.github.solcott.activitytracker.app.activitylist.ActivityListEvent
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
 import io.github.solcott.activitytracker.app.moderation.Revealed
+import io.github.solcott.activitytracker.data.activity.UploadSummary
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.segments.GroupChoice
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ImportCardView
 import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.github.solcott.uistate.ContentState
-import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
@@ -39,10 +39,11 @@ data class FeedState(
     val content: ContentState<ImmutableList<TimelineItem>>,
     /** An action that failed (a like, the segments answer); load failures are [content]'s. */
     val error: UiError?,
-    /** Writes still uploading, apart from [rejectedChanges]. */
-    val pendingWrites: Int,
-    /** Until when the server paused [pendingWrites]' upload (data/outbox); null while it isn't paused. */
-    val uploadPausedUntil: Instant? = null,
+    /**
+     * What is uploading (data/outbox): the athlete's own activities apart from imported ones, other changes, refused ones, and the pauses.
+     * Its rows open the upload queue ([FeedEvent.OpenUploads]).
+     */
+    val uploads: UploadSummary = UploadSummary(),
     /** The signed-in athlete, so the UI can leave likes off their own activities. */
     val viewerDid: String,
     /** Whether GPS recording is available here (phones only); otherwise only manual entry is offered. */
@@ -58,8 +59,6 @@ data class FeedState(
     val revealed: Revealed = Revealed(),
     /** Whether to ask, once, whether to turn segment matching on ([FeedEvent.AnswerSegments]). */
     val askSegments: Boolean = false,
-    /** Changes the athlete's server refused, which wait for them in [UnsentChangesScreen] (data/outbox). */
-    val rejectedChanges: Int = 0,
     /**
      * Whether to ask, once, whose activities the athlete's may be grouped with ([FeedEvent.AnswerGroups]); never while [askSegments] is
      * asking.
@@ -99,8 +98,8 @@ sealed interface FeedEvent {
 
     data object Import : FeedEvent
 
-    /** Opens the changes the server refused ([FeedState.rejectedChanges]). */
-    data object UnsentChanges : FeedEvent
+    /** Opens the upload queue, from the uploading row or the refused one ([FeedState.uploads]). */
+    data object OpenUploads : FeedEvent
 
     /**
      * The athlete's answer to [FeedState.askSegments]: turn segment matching [on], or leave it off. Either way, they're not asked again.
