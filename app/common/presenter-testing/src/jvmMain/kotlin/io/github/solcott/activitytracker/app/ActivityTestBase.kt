@@ -24,6 +24,7 @@ import io.github.solcott.activitytracker.data.feed.fakeGetComments
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.segments.OwnGroups
 import io.github.solcott.activitytracker.data.segments.SegmentPublisher
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
@@ -83,6 +84,12 @@ open class ActivityTestBase {
 
     /** The activity's athlete, as JSON: Bob's unless a test makes it Alice's own. */
     protected var author = bob
+
+    /** Alice's `actor.groupPrefs` in her `self` space, as JSON; null for none. */
+    protected var groupPrefs: String? = null
+
+    /** The activity's `feed.segmentTrack` in Alice's `self` space, as JSON; null for none. A put replaces it. */
+    protected var segmentTrack: String? = null
 
     /** The activity's sport token. */
     protected var sport = "run"
@@ -290,6 +297,14 @@ open class ActivityTestBase {
                                             """"compressed":true,"createdAt":"2026-09-30T10:31:00Z","file":$blob}"""
                                     respond("""{"uri":"at://did:plc:alice/x/y","cid":"bafyrec","value":$value}""", headers = json)
                                 } ?: notFound
+                            Nsid.ACTOR_GROUP_PREFS ->
+                                groupPrefs?.let {
+                                    respond("""{"uri":"at://did:plc:alice/x/self","cid":"bafyrec","value":$it}""", headers = json)
+                                } ?: notFound
+                            Nsid.FEED_SEGMENT_TRACK ->
+                                segmentTrack?.let {
+                                    respond("""{"uri":"at://did:plc:alice/x/y","cid":"bafyrec","value":$it}""", headers = json)
+                                } ?: notFound
                             Nsid.ACTOR_PRIVACY_ZONES ->
                                 if (failZones) respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
                                 else
@@ -333,6 +348,7 @@ open class ActivityTestBase {
                         val record = input.jsonObject["record"]
                         when (input.jsonObject["collection"]?.jsonPrimitive?.content) {
                             Nsid.ACTOR_PRIVACY_ZONES -> privacyZones = record.toString()
+                            Nsid.FEED_SEGMENT_TRACK -> segmentTrack = record.toString()
                             // Refused, as repo writes are, so they stay queued for a test to read: an outbox drain that sent one would
                             // delete it from under the test.
                             Nsid.FEED_COMMENT,
@@ -376,6 +392,7 @@ open class ActivityTestBase {
         val segments: SegmentRepository,
         val publisher: SegmentPublisher,
         val privacy: PrivacyZones,
+        val groups: OwnGroups,
     )
 
     @Suppress("LongMethod") // Wires every store a test reaches for.
@@ -443,6 +460,7 @@ open class ActivityTestBase {
             segments,
             SegmentPublisher(clients, writer, outbox, segments, Clock.System),
             privacy,
+            segmentsOf(clients).let { OwnGroups(it.groups, it.store) },
         )
     }
 }

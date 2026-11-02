@@ -10,13 +10,13 @@ import io.github.solcott.activitytracker.location.LocationSample
 
 /**
  * Keeps each activity's segment track with its full track as it's published, combined and deleted. A segment track is queued only while
- * matching is on ([SegmentPrefsRepository]) and the zones were read this session, never untrimmed. One trimmed by the zones last read
- * rather than read fresh for the publish carries that revision, and is trimmed again by [SegmentTrackSweeper] once fresh zones differ
+ * segment matching or grouping is on ([TrackConsent]) and the zones were read this session, never untrimmed. One trimmed by the zones last
+ * read rather than read fresh for the publish carries that revision, and is trimmed again by [SegmentTrackSweeper] once fresh zones differ
  * ([takeStale]); when none can be written, the sweep writes it later. Callers queue the activity and its full track first.
  */
 @SingleIn(SessionScope::class)
 @Inject
-class SegmentTracks(private val prefs: SegmentPrefsRepository, private val store: SegmentTrackStore) {
+class SegmentTracks(private val consent: TrackConsent, private val store: SegmentTrackStore) {
     private var stale = false
 
     /** Whether a segment track was queued this session by zones not read fresh, cleared by asking: the caller sweeps once they're read. */
@@ -35,7 +35,7 @@ class SegmentTracks(private val prefs: SegmentPrefsRepository, private val store
         replacing: Boolean = false,
     ) {
         val known = trim.trim as? RouteTrim.Known
-        val pieces = if (known != null && route.size >= 2 && matchingOn()) known.settings.pieces(route, combined) else null
+        val pieces = if (known != null && route.size >= 2 && wanted()) known.settings.pieces(route, combined) else null
         when {
             !pieces.isNullOrEmpty() -> {
                 store.put(activity, segmentTrackData(pieces, route.first().time), known?.revision)
@@ -46,13 +46,13 @@ class SegmentTracks(private val prefs: SegmentPrefsRepository, private val store
         }
     }
 
-    private suspend fun matchingOn(): Boolean = prefs.canUse && prefs.load() == SegmentMatching.ON
+    private suspend fun wanted(): Boolean = consent.canUse && consent.load() == TrackConsent.Wanted.YES
 
     /**
-     * Queues deleting [activity]'s segment track whether matching is on or off, since one may be left from when it was on. An athlete who
-     * was never asked has none, so nothing is queued for them.
+     * Queues deleting [activity]'s segment track whether either setting is on or off, since one may be left from when one was on. An
+     * athlete who was never asked either has none, so nothing is queued for them.
      */
     suspend fun delete(activity: AtUri) {
-        if (prefs.canUse && prefs.load() != SegmentMatching.NEVER_ASKED) store.delete(activity)
+        if (consent.canUse && consent.load() != TrackConsent.Wanted.NEVER) store.delete(activity)
     }
 }

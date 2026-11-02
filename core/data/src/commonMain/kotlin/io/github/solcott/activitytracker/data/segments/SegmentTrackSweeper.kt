@@ -25,14 +25,16 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * Brings the athlete's segment tracks in line with their setting. While matching is on, [sweep] writes one for every activity with a full
- * track that has none, or one trimmed by zones other than those saved now, from that track; while it's off, it deletes every one. Nothing
- * marks a sweep done: whatever an interrupted one left still differs, so the next session, on any device, finishes it. Writes go through
- * the outbox; only segment-track writes are sent.
+ * Brings the athlete's segment tracks in line with their settings ([TrackConsent]). While segment matching or grouping is on, [sweep]
+ * writes one for every activity with a full track that has none, or one trimmed by zones other than those saved now, from that track,
+ * keeping its leaderboard and group exclusions; while both are off, it deletes every one. Nothing marks a sweep done: whatever an
+ * interrupted one left still differs, so the next session, on any device, finishes it. Writes go through the outbox; only segment-track
+ * writes are sent.
  */
 @SingleIn(SessionScope::class)
 @Inject
@@ -41,6 +43,8 @@ class SegmentTrackSweeper(
     private val db: AppDatabase,
     private val clients: SessionClients,
     private val prefs: SegmentPrefsRepository,
+    private val groups: GroupPrefsRepository,
+    private val consent: TrackConsent,
     private val store: SegmentTrackStore,
     private val tracks: ActivityTrackStore,
     private val privacy: PrivacyZones,
@@ -53,28 +57,28 @@ class SegmentTrackSweeper(
     private val self
         get() = clients.tiers.uri(AthleteSpace.SELF)
 
-    /** Writes or deletes segment tracks as the setting, read now, says. Best effort: a failure waits for the next run. */
+    /** Writes or deletes segment tracks as the settings, read now, say. Best effort: a failure waits for the next run. */
     suspend fun sweep() {
-        if (!prefs.canUse) return
+        if (!consent.canUse) return
         runSuspendCatching { mutex.withLock { sweepLocked() } }
             .onFailure { e -> log.w(e) { "Couldn't sweep the athlete's segment tracks" } }
     }
 
     /**
-     * Sweeps after every save of the setting this session ([SegmentPrefsRepository.saved]), a newer save replacing a sweep still running,
-     * for as long as it's collected.
+     * Sweeps after every save of either setting this session ([SegmentPrefsRepository.saved], [GroupPrefsRepository.saved]), a newer save
+     * replacing a sweep still running, for as long as it's collected.
      */
     suspend fun sweepOnSave() {
-        prefs.saved.filterNotNull().collectLatest { sweep() }
+        merge(prefs.saved.filterNotNull(), groups.saved.filterNotNull()).collectLatest { sweep() }
     }
 
     private suspend fun sweepLocked() {
-        when (prefs.refresh()) {
-            SegmentMatching.ON -> privacy.readFresh()?.let { write(it) }
-            SegmentMatching.OFF -> deleteAll()
+        when (consent.refresh()) {
+            TrackConsent.Wanted.YES -> privacy.readFresh()?.let { write(it) }
+            TrackConsent.Wanted.NO -> deleteAll()
             // Never asked: none was ever written. Unreadable: nothing is certain, so nothing changes.
-            SegmentMatching.NEVER_ASKED,
-            null -> return
+            TrackConsent.Wanted.NEVER,
+            TrackConsent.Wanted.UNKNOWN -> return
         }
         outbox.drain { it.collection == Nsid.FEED_SEGMENT_TRACK }
     }
@@ -91,10 +95,11 @@ class SegmentTrackSweeper(
             for ((rkey, route) in chunk.zip(routes)) {
                 if (route.isNullOrEmpty()) continue
                 val pieces = zones.settings.pieces(route, combined = rkey in combined)
-                // A re-trim keeps the athlete's leaderboard exclusion.
+                // A re-trim keeps the athlete's leaderboard and group exclusions.
                 val excluded = stored[rkey]?.excluded == true
+                val groupExcluded = stored[rkey]?.groupExcluded == true
                 if (pieces.isNotEmpty())
-                    store.put(activityUri(rkey), segmentTrackData(pieces, route.first().time), zones.revision, excluded)
+                    store.put(activityUri(rkey), segmentTrackData(pieces, route.first().time), zones.revision, excluded, groupExcluded)
                 else if (rkey in stored) store.delete(activityUri(rkey))
             }
         }

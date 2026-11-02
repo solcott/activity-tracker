@@ -7,15 +7,18 @@ import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.db.AppDatabase
 import io.github.solcott.activitytracker.data.di.SessionClients
+import io.github.solcott.activitytracker.data.segments.GroupPrefsRepository
 import io.github.solcott.activitytracker.data.segments.PdsSegmentTrackStore
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
 import io.github.solcott.activitytracker.data.segments.SegmentTrackSweeper
 import io.github.solcott.activitytracker.data.segments.SegmentTracks
+import io.github.solcott.activitytracker.data.segments.TrackConsent
 import kotlin.time.Clock
 
 /** A session's segment-track collaborators, built once per [SessionClients] so every store a test wires shares them. */
 class TestSegments(
     val prefs: SegmentPrefsRepository,
+    val groups: GroupPrefsRepository,
     val store: PdsSegmentTrackStore,
     val tracks: SegmentTracks,
     val sweeper: SegmentTrackSweeper,
@@ -36,12 +39,15 @@ fun testSegments(
     synchronized(built) {
         built.getOrPut(clients) {
             val prefs = SegmentPrefsRepository(clients, Clock.System)
+            val groups = GroupPrefsRepository(clients, Clock.System)
+            val consent = TrackConsent(prefs, groups)
             val store = PdsSegmentTrackStore(writer, clients, Clock.System, db)
             TestSegments(
                 prefs,
+                groups,
                 store,
-                SegmentTracks(prefs, store),
-                SegmentTrackSweeper(db, clients, prefs, store, tracks, privacy, outbox, Logger),
+                SegmentTracks(consent, store),
+                SegmentTrackSweeper(db, clients, prefs, groups, consent, store, tracks, privacy, outbox, Logger),
             )
         }
     }

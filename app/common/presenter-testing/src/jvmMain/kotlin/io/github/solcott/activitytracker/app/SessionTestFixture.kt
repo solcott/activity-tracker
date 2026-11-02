@@ -22,6 +22,7 @@ import io.github.solcott.activitytracker.data.gear.GearRepository
 import io.github.solcott.activitytracker.data.moderation.ModerationRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.segments.GroupPrefsRepository
 import io.github.solcott.activitytracker.data.segments.LeaderboardBracketsRepository
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
@@ -174,6 +175,9 @@ class SessionTestFixture {
 
     /** Alice's `actor.segmentPrefs` record in her `self` space, as JSON; null for none. Saving one replaces it. */
     var segmentPrefs: String? = null
+
+    /** Alice's `actor.groupPrefs` record in her `self` space, as JSON; null for none. Saving one replaces it. */
+    var groupPrefs: String? = null
 
     /** Alice's `actor.leaderboardBrackets` record in her `self` space, as JSON; null for none. Deleting it clears this. */
     var leaderboardBrackets: String? = null
@@ -336,6 +340,14 @@ class SessionTestFixture {
                                 headers = json,
                             )
                         }
+                        if (request.url.parameters["collection"] == Nsid.ACTOR_GROUP_PREFS) {
+                            val value =
+                                groupPrefs ?: return@MockEngine respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, json)
+                            return@MockEngine respond(
+                                """{"uri":"at://$did/${Nsid.ACTOR_GROUP_PREFS}/self","cid":"bafyrec","value":$value}""",
+                                headers = json,
+                            )
+                        }
                         if (request.url.parameters["collection"] == Nsid.ACTOR_LEADERBOARD_BRACKETS) {
                             val value =
                                 leaderboardBrackets
@@ -389,6 +401,7 @@ class SessionTestFixture {
                             if (collection == Nsid.ACTOR_ACTIVITY_DEFAULTS) activityDefaults = record?.toString()
                             if (collection == Nsid.ACTOR_PRIVACY_ZONES) privacyZones = record?.toString()
                             if (collection == Nsid.ACTOR_SEGMENT_PREFS) segmentPrefs = record?.toString()
+                            if (collection == Nsid.ACTOR_GROUP_PREFS) groupPrefs = record?.toString()
                             if (collection == Nsid.ACTOR_LEADERBOARD_BRACKETS) leaderboardBrackets = record?.toString()
                             if (collection == Nsid.GEAR_AUTO_ASSIGN) gearAutoAssign = record?.toString()
                             if (collection == Nsid.FEED_ACTIVITY_DEVICES) {
@@ -514,6 +527,7 @@ class SessionTestFixture {
         val blocks: BlockRepository,
         val segmentPrefs: SegmentPrefsRepository,
         val leaderboardBrackets: LeaderboardBracketsRepository,
+        val groupPrefs: GroupPrefsRepository,
         val gear: GearRepository,
         val gearDefaults: GearDefaults,
         val gearCollections: GearCollections,
@@ -597,6 +611,7 @@ class SessionTestFixture {
             BlockRepository(clients, zones.writer, zones.outbox, feed, Clock.System),
             segmentsOf(clients).prefs,
             LeaderboardBracketsRepository(clients, profiles, Clock.System, Logger),
+            segmentsOf(clients).groups,
             GearRepository(clients, Clock.System, feed, gearCollections, Logger),
             GearDefaults(clients, Clock.System),
             gearCollections,

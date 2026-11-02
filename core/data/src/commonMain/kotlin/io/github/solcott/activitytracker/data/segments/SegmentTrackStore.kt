@@ -5,6 +5,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.github.solcott.activitytracker.atproto.runSuspendCatching
 import io.github.solcott.activitytracker.atproto.space.SpaceRead
+import io.github.solcott.activitytracker.data.activity.OutboxProcessor
 import io.github.solcott.activitytracker.data.activity.OutboxWriter
 import io.github.solcott.activitytracker.data.activity.PendingBlob
 import io.github.solcott.activitytracker.data.activity.listOwn
@@ -27,9 +28,15 @@ import kotlin.time.Clock
 interface SegmentTrackStore {
     /**
      * Queues [data], trimmed by the zones saved at [zonesRevision], as the segment track of the activity at [activity], [excluded] from
-     * leaderboards or not. Doesn't drain.
+     * leaderboards or not and [groupExcluded] (left its group, feed/group-activities) or not. Doesn't drain.
      */
-    suspend fun put(activity: AtUri, data: SegmentTrackData, zonesRevision: String?, excluded: Boolean = false)
+    suspend fun put(
+        activity: AtUri,
+        data: SegmentTrackData,
+        zonesRevision: String?,
+        excluded: Boolean = false,
+        groupExcluded: Boolean = false,
+    )
 
     /** Queues removing [activity]'s segment track, if it has one. Doesn't drain. */
     suspend fun delete(activity: AtUri)
@@ -48,10 +55,25 @@ interface SegmentTrackStore {
      * the PDS). Throws when [excluded] would: there's no stored track to mark.
      */
     suspend fun setExcluded(activity: AtUri, excluded: Boolean)
+
+    /**
+     * Whether [activity] left its group (feed/group-activities), as its stored segment track says; null when it has none, it can't be read
+     * now, or a write of it is still queued, so the choice can't be offered.
+     */
+    suspend fun groupExcluded(activity: AtUri): Boolean?
+
+    /**
+     * Queues rewriting [activity]'s stored segment track as having left its group or not, keeping its points and leaderboard exclusion.
+     * Throws when [groupExcluded] would be null: there's no stored track to mark.
+     */
+    suspend fun setGroupExcluded(activity: AtUri, left: Boolean)
 }
 
-/** A stored segment track as [SegmentTrackStore.list] gives it: the zones revision it was trimmed by, and its leaderboard exclusion. */
-data class StoredSegmentTrack(val zonesRevision: String?, val excluded: Boolean = false)
+/**
+ * A stored segment track as [SegmentTrackStore.list] gives it: the zones revision it was trimmed by, its leaderboard exclusion and whether
+ * its activity left its group.
+ */
+data class StoredSegmentTrack(val zonesRevision: String?, val excluded: Boolean = false, val groupExcluded: Boolean = false)
 
 /** Writes segment tracks as `feed.segmentTrack` records with a [SegmentTrackData] JSON blob, in the athlete's `self` space. */
 @SingleIn(SessionScope::class)
@@ -66,7 +88,7 @@ class PdsSegmentTrackStore(
     private val self
         get() = clients.tiers.uri(AthleteSpace.SELF)
 
-    override suspend fun put(activity: AtUri, data: SegmentTrackData, zonesRevision: String?, excluded: Boolean) {
+    override suspend fun put(activity: AtUri, data: SegmentTrackData, zonesRevision: String?, excluded: Boolean, groupExcluded: Boolean) {
         writer.put(
             Nsid.FEED_SEGMENT_TRACK,
             requireNotNull(activity.rkey),
@@ -76,6 +98,7 @@ class PdsSegmentTrackStore(
                 createdAt = clock.now(),
                 zonesRevision = zonesRevision,
                 excludeFromLeaderboards = excluded.takeIf { it },
+                groupExcluded = groupExcluded.takeIf { it },
             ),
             PendingBlob(
                 AtJson.encodeToString(SegmentTrackData.serializer(), data).encodeToByteArray(),
@@ -96,7 +119,8 @@ class PdsSegmentTrackStore(
         clients.listOwn(Nsid.FEED_SEGMENT_TRACK, self).mapValues { (_, value) ->
             runCatching { AtJson.decodeFromJsonElement(SegmentTrackRecord.serializer(), value) }
                 .getOrNull()
-                ?.let { StoredSegmentTrack(it.zonesRevision, it.excludeFromLeaderboards == true) } ?: StoredSegmentTrack(null)
+                ?.let { StoredSegmentTrack(it.zonesRevision, it.excludeFromLeaderboards == true, it.groupExcluded == true) }
+                ?: StoredSegmentTrack(null)
         }
 
     override suspend fun excluded(activity: AtUri): Boolean? = runSuspendCatching {
@@ -114,6 +138,38 @@ class PdsSegmentTrackStore(
             record.copy(excludeFromLeaderboards = excluded.takeIf { it }),
             space = self,
         )
+    }
+
+    override suspend fun groupExcluded(activity: AtUri): Boolean? = runSuspendCatching {
+        latest(activity)
+    }
+        .getOrNull()
+        ?.let { it.groupExcluded == true }
+
+    override suspend fun setGroupExcluded(activity: AtUri, left: Boolean) {
+        val record = checkNotNull(latest(activity)) { "No stored segment track to mark" }
+        writer.put(
+            Nsid.FEED_SEGMENT_TRACK,
+            requireNotNull(activity.rkey),
+            SegmentTrackRecord.serializer(),
+            record.copy(groupExcluded = left.takeIf { it }),
+            space = self,
+        )
+    }
+
+    /**
+     * [activity]'s segment track as it will be once the outbox drains: the last queued rewrite of a stored one (a mark, which uploads
+     * nothing), else as stored; null when there's none, or a write that uploads its points is still queued.
+     */
+    private suspend fun latest(activity: AtUri): SegmentTrackRecord? {
+        val rkey = requireNotNull(activity.rkey)
+        val queued = db.outbox().pending(clients.did.value, rkey).filter { it.collection == Nsid.FEED_SEGMENT_TRACK }
+        val last = queued.lastOrNull() ?: return stored(activity)
+        val marksOnly = last.operation == OutboxProcessor.OP_PUT && queued.none { it.blobField != null || it.blobKey != null }
+        return last.recordJson
+            ?.takeIf { marksOnly }
+            ?.let { runCatching { AtJson.decodeFromString(SegmentTrackRecord.serializer(), it) }.getOrNull() }
+            ?.takeIf { it.data != null }
     }
 
     /** [activity]'s segment track as stored, with its blob; null when there's none, or a write of it is still queued. */
