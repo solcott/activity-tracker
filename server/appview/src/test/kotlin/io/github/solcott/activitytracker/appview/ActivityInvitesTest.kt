@@ -411,4 +411,26 @@ class ActivityInvitesTest : SegmentTestBase() {
         leave(false)
         assertEquals(listOf(activityUri("3kb", bob)), client.partners("3ka", alice, alice))
     }
+
+    @Test
+    fun aLeftInvitePairStaysLeftOnceGroupingOffDropsTheTrack() = testApplication {
+        application { appView(config, db, verifier) }
+        follow(bob, alice)
+        activity("3ka", sport = "ride")
+        invite("3ka", bob)
+        copy("3kb", bob, activityUri("3ka"))
+        spaceWrite(self(alice), Nsid.ACTOR_GROUP_PREFS, "self", """{"mode":"${GroupMode.ANYONE}","updatedAt":"2026-11-01T12:00:00Z"}""")
+        spaceWrite(
+            self(alice),
+            Nsid.FEED_SEGMENT_TRACK,
+            "3ka",
+            """{"activity":"${activityUri("3ka")}","data":{"${'$'}type":"blob","ref":{"${'$'}link":"bafkdata3ka"},""" +
+                """"mimeType":"application/json","size":10},"groupExcluded":true,"createdAt":"2026-10-15T12:00:00Z"}""",
+        )
+        assertEquals(emptyList(), client.partners("3ka", alice, alice))
+
+        spaceWrite(self(alice), Nsid.ACTOR_GROUP_PREFS, "self", """{"mode":"${GroupMode.OFF}","updatedAt":"2026-11-02T12:00:00Z"}""")
+        assertEquals(emptyList(), client.partners("3ka", alice, alice), "the track is gone, but the leave holds")
+        assertEquals(emptyList(), client.partners("3kb", bob, bob))
+    }
 }

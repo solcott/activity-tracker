@@ -1,5 +1,6 @@
 package io.github.solcott.activitytracker.appview.index
 
+import io.github.solcott.activitytracker.appview.db.ActivityInvitePairs
 import io.github.solcott.activitytracker.appview.db.LeaderboardBrackets
 import io.github.solcott.activitytracker.appview.db.SegmentCandidateRiders
 import io.github.solcott.activitytracker.appview.db.SegmentEfforts
@@ -158,12 +159,20 @@ internal fun JdbcTransaction.dropSegmentTracks(author: Did) {
     dropTracks(trackUrisOf(author))
 }
 
-/** The segment tracks at [uris], with everything derived from them: cells, efforts, candidate riders and their activities' pairs. */
+/**
+ * The segment tracks at [uris], with everything derived from them: cells, efforts, candidate riders and their activities' pairs. An invite
+ * pair outlives its original's track, but is read as left only while a `group_excluded` track says so, so a left one goes with the track.
+ */
 internal fun JdbcTransaction.dropTracks(uris: List<String>) {
     if (uris.isEmpty()) return
     dropPairsOfActivities(
         SegmentTracks.select(SegmentTracks.activityUri).where { SegmentTracks.uri inList uris }.map { it[SegmentTracks.activityUri] }
     )
+    SegmentTracks.select(SegmentTracks.activityUri)
+        .where { (SegmentTracks.uri inList uris) and (SegmentTracks.groupExcluded eq true) }
+        .map { it[SegmentTracks.activityUri] }
+        .takeIf { it.isNotEmpty() }
+        ?.let { left -> ActivityInvitePairs.deleteWhere { originalUri inList left } }
     SegmentEfforts.deleteWhere { trackUri inList uris }
     SegmentCandidateRiders.deleteWhere { trackUri inList uris }
     SegmentTrackCells.deleteWhere { trackUri inList uris }
