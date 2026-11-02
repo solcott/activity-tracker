@@ -14,6 +14,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import io.github.solcott.activitytracker.app.background.runImportSaves
 import io.github.solcott.activitytracker.data.db.ImportSaveCounts
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeMark
 import kotlin.time.TimeSource
@@ -41,14 +42,22 @@ internal constructor(
         foreground(null)
         // Each update re-posts the foreground notification, so the count moves at most once a second.
         var shown: TimeMark? = null
+        // A run that throws (restoring the session, opening the plan) leaves saves as surely as one that fails: both are retried, until
+        // [MAX_ATTEMPTS], after which the next session start resumes them.
         val left =
-            runSaves({ counts ->
-                if (counts != null && shown.let { it == null || it.elapsedNow() >= 1.seconds }) {
-                    shown = TimeSource.Monotonic.markNow()
-                    foreground(counts)
-                }
-            })
-        return if (left == true) Result.retry() else Result.success()
+            try {
+                runSaves({ counts ->
+                    if (counts != null && shown.let { it == null || it.elapsedNow() >= 1.seconds }) {
+                        shown = TimeSource.Monotonic.markNow()
+                        foreground(counts)
+                    }
+                })
+            } catch (e: CancellationException) {
+                throw e
+            } catch (@Suppress("TooGenericExceptionCaught") _: Exception) {
+                true
+            }
+        return if (left == true && runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.success()
     }
 
     override suspend fun getForegroundInfo(): ForegroundInfo = foregroundInfo(null)
@@ -94,6 +103,9 @@ internal constructor(
 
     companion object {
         private const val NAME = "import-save"
+
+        /** Runs of one request before a save that keeps failing waits for the app instead. */
+        internal const val MAX_ATTEMPTS = 10
 
         /** The Uploads channel, [OutboxWorker]'s. */
         private const val CHANNEL_ID = "uploads"

@@ -42,9 +42,14 @@ class ImportSaveWorkerTest {
 
     private fun worker(
         foreground: ForegroundUpdater = Shown(),
+        attempt: Int = 0,
         runSaves: suspend (suspend (ImportSaveCounts?) -> Unit) -> Boolean?,
     ): ImportSaveWorker =
-        TestListenableWorkerBuilder<ImportSaveWorker>(context).setWorkerFactory(factory(runSaves)).setForegroundUpdater(foreground).build()
+        TestListenableWorkerBuilder<ImportSaveWorker>(context)
+            .setWorkerFactory(factory(runSaves))
+            .setForegroundUpdater(foreground)
+            .setRunAttemptCount(attempt)
+            .build()
 
     /** Counts the foreground notifications the job posts. */
     private class Shown : ForegroundUpdater {
@@ -58,6 +63,17 @@ class ImportSaveWorkerTest {
     }
 
     @Test fun aRunWithSavesLeftAsksToRunAgain() = runTest { assertEquals(ListenableWorker.Result.retry(), worker { true }.doWork()) }
+
+    @Test
+    fun aRunThatThrowsAsksToRunAgain() = runTest {
+        assertEquals(ListenableWorker.Result.retry(), worker { throw IllegalStateException("no session graph") }.doWork())
+    }
+
+    @Test
+    fun aSaveThatKeepsFailingStopsBeingRetriedAfterTheCap() = runTest {
+        assertEquals(ListenableWorker.Result.retry(), worker(attempt = ImportSaveWorker.MAX_ATTEMPTS - 1) { true }.doWork())
+        assertEquals(ListenableWorker.Result.success(), worker(attempt = ImportSaveWorker.MAX_ATTEMPTS) { true }.doWork())
+    }
 
     @Test
     fun aRunThatFinishesOrFindsNoOneSignedInSucceeds() = runTest {
