@@ -15,6 +15,7 @@ import androidx.work.impl.utils.futures.SettableFuture
 import androidx.work.testing.SynchronousExecutor
 import androidx.work.testing.TestListenableWorkerBuilder
 import androidx.work.testing.WorkManagerTestInitHelper
+import com.google.common.util.concurrent.ListenableFuture
 import io.github.solcott.activitytracker.data.db.ImportSaveCounts
 import java.util.UUID
 import kotlin.coroutines.cancellation.CancellationException
@@ -57,7 +58,8 @@ class ImportSaveWorkerTest {
     private class Shown : ForegroundUpdater {
         var posts = 0
 
-        override fun setForegroundAsync(context: Context, id: UUID, foregroundInfo: ForegroundInfo) =
+        @Suppress("ForbiddenVoid") // WorkManager's Java interface.
+        override fun setForegroundAsync(context: Context, id: UUID, foregroundInfo: ForegroundInfo): ListenableFuture<Void> =
             SettableFuture.create<Void>().apply {
                 posts++
                 set(null)
@@ -68,7 +70,7 @@ class ImportSaveWorkerTest {
 
     @Test
     fun aRunThatThrowsAsksToRunAgain() = runTest {
-        assertEquals(ListenableWorker.Result.retry(), worker { throw IllegalStateException("no session graph") }.doWork())
+        assertEquals(ListenableWorker.Result.retry(), worker { error("no session graph") }.doWork())
     }
 
     @Test
@@ -112,7 +114,7 @@ class ImportSaveWorkerTest {
                 .setWorkerFactory(
                     factory {
                         runs++
-                        throw IllegalStateException("the plan can't be opened")
+                        error("the plan can't be opened")
                     }
                 )
                 .build(),
