@@ -100,6 +100,8 @@ data class ActivityDraft(
     val gear: List<AtUri> = emptyList(),
     /** The batch import it's saved from ([ActivityRecord.importBatch]), shared by the whole save; null for one saved on its own. */
     val importBatch: String? = null,
+    /** Another athlete's activity this one copies, accepted from their invite ([ActivityRecord.copyOf], feed/activity-invites). */
+    val copyOf: AtUri? = null,
 ) {
     /**
      * This draft with what the athlete wrote about it: [description], [photos], and for a dive its [diveSite] (blank clears the logbook's;
@@ -192,6 +194,7 @@ data class ActivityDraft(
             utcOffset = utcOffsetMinutes?.takeIf { it in ActivityRecord.MIN_UTC_OFFSET..ActivityRecord.MAX_UTC_OFFSET },
             gear = gear.distinct().take(ActivityRecord.MAX_GEAR).ifEmpty { null },
             importBatch = importBatch,
+            copyOf = copyOf,
         )
 
     // Generated equals/hashCode compare arrays by identity; compare gpx by content instead.
@@ -239,6 +242,7 @@ data class ActivityDraft(
             utcOffsetMinutes,
             gear,
             importBatch,
+            copyOf,
         )
 
     override fun equals(other: Any?): Boolean =

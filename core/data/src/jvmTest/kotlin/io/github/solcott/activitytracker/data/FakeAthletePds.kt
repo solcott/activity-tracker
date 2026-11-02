@@ -36,6 +36,9 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityStreamData
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ActorGearItem
 import io.github.solcott.activitytracker.lexicon.app.GetActivity
+import io.github.solcott.activitytracker.lexicon.app.GetActivityInvite
+import io.github.solcott.activitytracker.lexicon.app.GetActivityInvitees
+import io.github.solcott.activitytracker.lexicon.app.GetActivityInvites
 import io.github.solcott.activitytracker.lexicon.app.GetActivityStreams
 import io.github.solcott.activitytracker.lexicon.app.GetActorGear
 import io.github.solcott.activitytracker.lexicon.app.GetAuthorActivities
@@ -46,6 +49,8 @@ import io.github.solcott.activitytracker.lexicon.app.GetFollows
 import io.github.solcott.activitytracker.lexicon.app.GetGear
 import io.github.solcott.activitytracker.lexicon.app.GetGearActivities
 import io.github.solcott.activitytracker.lexicon.app.GetMutes
+import io.github.solcott.activitytracker.lexicon.app.InviteView
+import io.github.solcott.activitytracker.lexicon.app.InviteeView
 import io.github.solcott.activitytracker.lexicon.app.Paging
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
@@ -130,6 +135,11 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher
     var followers: List<ProfileViewBasic> = emptyList()
     var follows: List<ProfileViewBasic> = emptyList()
     var searched: List<ProfileViewBasic> = emptyList()
+
+    /** What the AppView's invite queries serve (feed/activity-invites): the caller's inbox, one invite by URI, and invitees. */
+    var invitesServed: List<InviteView> = emptyList()
+    val inviteServed = mutableMapOf<String, GetActivityInvite.Output>()
+    var inviteesServed: List<InviteeView> = emptyList()
 
     /** Every request to the AppView answers with a server error, while set. */
     var appViewFailing = false
@@ -381,6 +391,24 @@ class FakeAthletePds(val did: Did = Did("did:plc:alice"), private val dispatcher
                                     val subject = ProfileViewBasic(Did(request.url.parameters["actor"]!!), Handle("subject.test"))
                                     json(AtJson.encodeToString(GetFollows.Output.serializer(), GetFollows.Output(subject, follows)))
                                 }
+                                path == "/xrpc/${Nsid.FEED_GET_ACTIVITY_INVITES}" ->
+                                    json(
+                                        AtJson.encodeToString(
+                                            GetActivityInvites.Output.serializer(),
+                                            GetActivityInvites.Output(invitesServed),
+                                        )
+                                    )
+                                path == "/xrpc/${Nsid.FEED_GET_ACTIVITY_INVITE}" ->
+                                    inviteServed[request.url.parameters["uri"]]?.let {
+                                        json(AtJson.encodeToString(GetActivityInvite.Output.serializer(), it))
+                                    } ?: error("NotFound")
+                                path == "/xrpc/${Nsid.FEED_GET_ACTIVITY_INVITEES}" ->
+                                    json(
+                                        AtJson.encodeToString(
+                                            GetActivityInvitees.Output.serializer(),
+                                            GetActivityInvitees.Output(inviteesServed),
+                                        )
+                                    )
                                 path == "/xrpc/${Nsid.ACTOR_SEARCH_ACTORS}" ->
                                     json(AtJson.encodeToString(SearchActors.Output.serializer(), SearchActors.Output(searched)))
                                 path == "/xrpc/${Nsid.FEED_GET_ACTIVITY}" ->

@@ -112,6 +112,22 @@ class ActivityManager(
     }
 
     /**
+     * Leaves the group on [activity], the athlete's copy of another's activity accepted from an invite (feed/activity-invites): its record
+     * is rewritten without `copyOf`, so the AppView drops the pair. Queued like any edit; it can't be undone but by a new invite.
+     */
+    suspend fun leaveCopyGroup(activity: ActivityView) {
+        val rkey = requireNotNull(activity.uri.rkey)
+        val visibility = activity.visibilityOrPublic
+        val current = db.queuedActivityRecord(clients, rkey) ?: clients.ownActivityRecord(rkey, visibility)
+        if (current.copyOf == null) return
+        val record = current.copy(copyOf = null)
+        writer.put(Nsid.FEED_ACTIVITY, rkey, ActivityRecord.serializer(), record, space = clients.placeOf(visibility))
+        feed.rewrites.set(activity.uri, record)
+        feed.updateCached(activity.uri) { feed.rewrites.rewritten(it, record) }
+        outbox.drain()
+    }
+
+    /**
      * Shows [activity] and each of its detail categories to [choice]'s viewers, each category capped at the activity, now rather than
      * through the outbox, so a failure shows. Its other recordings, which share its visibility, move with it, each keeping its categories
      * where they are unless they're now wider than the activity. Each activity is read from every place it could be ([ActivityPlaces]) and
