@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.error_answer_follow_request
 import io.github.solcott.activitytracker.composeApp.resources.error_apply_gear_to_past
+import io.github.solcott.activitytracker.composeApp.resources.error_change_group
 import io.github.solcott.activitytracker.composeApp.resources.error_check_segment
 import io.github.solcott.activitytracker.composeApp.resources.error_combine_activity
 import io.github.solcott.activitytracker.composeApp.resources.error_delete_activity
@@ -170,6 +171,7 @@ private fun kindText(kind: UiError.Kind): String =
             UiError.Kind.ReadActivityFile -> Res.string.error_read_activity_file
             UiError.Kind.UnsupportedActivityFile -> Res.string.error_unsupported_activity_file
             UiError.Kind.SaveSettings -> Res.string.error_save_settings
+            UiError.Kind.ChangeGroup -> Res.string.error_change_group
             UiError.Kind.SaveProfile -> Res.string.error_save_profile
             UiError.Kind.SaveZones -> Res.string.error_save_zones
             UiError.Kind.LoadPrivacyZones -> Res.string.error_load_privacy_zones

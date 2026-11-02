@@ -30,6 +30,7 @@ import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.segments.GroupPrefsRepository
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtJson
@@ -84,6 +85,7 @@ class FeedPresenterTest {
         val activities: ActivityRepository,
         val profiles: ProfileRepository,
         val segmentPrefs: SegmentPrefsRepository,
+        val groupPrefs: GroupPrefsRepository,
         val rejected: RejectedChanges,
         val db: AppDatabase,
         val clients: SessionClients,
@@ -124,6 +126,7 @@ class FeedPresenterTest {
             activities,
             ProfileRepository(clients, Clock.System, Logger, zones.store),
             segmentsOf(clients).prefs,
+            segmentsOf(clients).groups,
             RejectedChanges(db, clients, zones.outbox, feed, localLikes),
             db,
             clients,
@@ -138,7 +141,20 @@ class FeedPresenterTest {
     ) {
         val r = repos().apply { seed() }
         presenterTestOf(
-            { FeedPresenter(navigator, r.feed, r.activities, r.profiles, tracker, Clock.System, r.segmentPrefs, r.rejected, r.pacer) },
+            {
+                FeedPresenter(
+                    navigator,
+                    r.feed,
+                    r.activities,
+                    r.profiles,
+                    tracker,
+                    Clock.System,
+                    r.segmentPrefs,
+                    r.groupPrefs,
+                    r.rejected,
+                    r.pacer,
+                )
+            },
             timeout = TURBINE_TIMEOUT,
             block = block,
         )
@@ -268,6 +284,7 @@ class FeedPresenterTest {
                     UnsupportedLocationTracker(),
                     Clock.System,
                     segmentsOf(clients).prefs,
+                    segmentsOf(clients).groups,
                     RejectedChanges(db, clients, zones.outbox, feed, localLikes),
                     OutboxPacer(db, clients, activities, Clock.System, Logger),
                 )

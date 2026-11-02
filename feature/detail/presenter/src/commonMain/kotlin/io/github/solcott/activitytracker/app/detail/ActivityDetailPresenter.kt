@@ -44,6 +44,7 @@ import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.outcomeFlow
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.segments.OwnGroups
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.data.units.UnitsRepository
@@ -85,6 +86,7 @@ fun ActivityDetailPresenter(
     blocks: BlockRepository,
     reports: ReportRepository,
     segmentEfforts: SegmentRepository,
+    groups: OwnGroups,
 ): ActivityDetailState {
     val uri = AtUri(screen.uri)
     var likeError by remember { mutableStateOf<UiError?>(null) }
@@ -142,6 +144,7 @@ fun ActivityDetailPresenter(
         rememberCombineSuggestion(activity.takeIf { isOwn }, extrasKey, screen.suggestOnOpen, suggestions, manager, navigator, flights)
     val ownRoute =
         rememberOwnRoute(activity?.uri?.takeIf { isOwn }, extrasKey, activities, flights, combined = activity?.record?.combined != null)
+    val ownGroup = rememberOwnGroup(activity?.uri?.takeIf { isOwn }, extrasKey, groups, flights)
     val hasStreams = charts.charts != null
     val isDive = shown?.record?.sport == Sport.DIVE
     val formats = remember(ownRoute.track, hasStreams, isDive) { exportFormats(ownRoute.track, hasStreams, isDive) }
@@ -227,6 +230,9 @@ fun ActivityDetailPresenter(
             ActivityDetailEvent.DownloadOriginal -> export.downloadOriginal()
 
             ActivityDetailEvent.ExportHandedOff -> export.handedOff()
+
+            ActivityDetailEvent.LeaveGroup,
+            ActivityDetailEvent.RejoinGroup -> ownGroup.on(event)
         }
     }
 
@@ -266,6 +272,8 @@ fun ActivityDetailPresenter(
             segments = segments,
             canCreateSegment = canCreateSegment(isOwn, ownRoute, it.record),
             segmentCreated = uri in segmentsCreated,
+            partners = ownGroup.shown(it.group),
+            ownGroup = ownGroup.state,
         )
     }
     return ActivityDetailState(ContentState(page, content.origin, content.status), sink)

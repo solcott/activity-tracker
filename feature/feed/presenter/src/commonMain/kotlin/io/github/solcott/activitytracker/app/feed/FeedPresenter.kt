@@ -30,6 +30,8 @@ import io.github.solcott.activitytracker.data.activity.RejectedChanges
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.segments.GroupChoice
+import io.github.solcott.activitytracker.data.segments.GroupPrefsRepository
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
 import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.github.solcott.activitytracker.location.LocationTracker
@@ -45,6 +47,7 @@ import kotlinx.datetime.todayIn
 
 @CircuitInject(FeedScreen::class, SessionScope::class)
 @Composable
+@Suppress("CyclomaticComplexMethod") // One branch per feed event.
 fun FeedPresenter(
     navigator: Navigator,
     feed: FeedRepository,
@@ -53,6 +56,7 @@ fun FeedPresenter(
     locationTracker: LocationTracker,
     clock: Clock,
     segmentPrefs: SegmentPrefsRepository,
+    groupPrefs: GroupPrefsRepository,
     rejected: RejectedChanges,
     pacer: OutboxPacer,
 ): FeedState {
@@ -90,6 +94,8 @@ fun FeedPresenter(
     val activityEvents = rememberActivityListEventSink(navigator, activities) { error = it }
     // Asked once: answering saves the setting, which hides the card here and on every device. A failed save leaves it to ask again.
     var askSegments by remember { mutableStateOf(false) }
+    // The same for grouping, shown only once the segments card is answered, so the two never ask at once.
+    var askGroups by remember { mutableStateOf(false) }
     val flights = rememberSingleFlight()
 
     // Apart from the feed load, which mustn't wait on them, and from each other: each is best effort and slow for a long history.
@@ -97,6 +103,7 @@ fun FeedPresenter(
         launch { activities.repairZones() }
         launch { activities.repairRoutes() }
         launch { askSegments = segmentPrefs.shouldAsk() }
+        launch { askGroups = groupPrefs.shouldAsk() }
     }
 
     val revealed = rememberRevealed()
@@ -114,6 +121,7 @@ fun FeedPresenter(
         revealed,
         askSegments,
         rejectedChanges,
+        askGroups = askGroups && !askSegments,
     ) { event ->
         when (event) {
             FeedEvent.Refresh -> {
@@ -166,6 +174,16 @@ fun FeedPresenter(
                     runSuspendCatching { segmentPrefs.save(event.on) }
                         .onSuccess { askSegments = false }
                         .onFailure { e -> error = UiError.of(UiError.Kind.SaveSettings, e) }
+                }
+            }
+
+            is FeedEvent.AnswerGroups -> {
+                if (event.choice != GroupChoice.NEVER_ASKED) {
+                    flights.launch(FeedEvent.AnswerGroups::class) {
+                        runSuspendCatching { groupPrefs.save(event.choice) }
+                            .onSuccess { askGroups = false }
+                            .onFailure { e -> error = UiError.of(UiError.Kind.SaveSettings, e) }
+                    }
                 }
             }
         }

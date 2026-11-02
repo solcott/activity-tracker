@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.app.feedfilter.FeedFilter
 import io.github.solcott.activitytracker.app.feedfilter.FeedFilterScreen
 import io.github.solcott.activitytracker.app.moderation.Revealed
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.segments.GroupChoice
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.ImportCardView
 import io.github.solcott.activitytracker.lexicon.app.TimelineItem
@@ -59,6 +60,11 @@ data class FeedState(
     val askSegments: Boolean = false,
     /** Changes the athlete's server refused, which wait for them in [UnsentChangesScreen] (data/outbox). */
     val rejectedChanges: Int = 0,
+    /**
+     * Whether to ask, once, whose activities the athlete's may be grouped with ([FeedEvent.AnswerGroups]); never while [askSegments] is
+     * asking.
+     */
+    val askGroups: Boolean = false,
     val eventSink: (FeedEvent) -> Unit,
 ) : CircuitUiState {
     /** [content]'s items: the last loaded, or none yet. */
@@ -100,4 +106,10 @@ sealed interface FeedEvent {
      * The athlete's answer to [FeedState.askSegments]: turn segment matching [on], or leave it off. Either way, they're not asked again.
      */
     data class AnswerSegments(val on: Boolean) : FeedEvent
+
+    /**
+     * The athlete's answer to [FeedState.askGroups] (feed/group-activities): [GroupChoice.OFF] to decline, or whom to be grouped with.
+     * Either way, they're not asked again.
+     */
+    data class AnswerGroups(val choice: GroupChoice) : FeedEvent
 }

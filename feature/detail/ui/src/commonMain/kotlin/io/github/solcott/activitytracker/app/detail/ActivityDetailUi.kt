@@ -207,6 +207,7 @@ private fun ColumnPage(state: ActivityDetailPage, content: ContentState<*>, cont
                 item(key = "media") { PageMedia(state) }
             }
             item(key = "likes") { Likes(state) }
+            if (state.partners.isNotEmpty() || state.ownGroup != null) item(key = "group") { TogetherWith(state) }
             item(key = "trainingLoad") { TrainingLoadCard(page.trainingLoad) }
             metricCards(state, columns = if (medium) 2 else 1)
             segments(state)
@@ -245,6 +246,7 @@ private fun PanedPage(state: ActivityDetailPage, content: ContentState<*>, conte
                 item(key = "header") { Header(state) }
                 item(key = "hero") { HeroRow(page.hero) }
                 item(key = "likes") { Likes(state) }
+                if (state.partners.isNotEmpty() || state.ownGroup != null) item(key = "group") { TogetherWith(state) }
                 item(key = "avgMax") { AvgMaxTable(page.avgMax) }
                 item(key = "trainingLoad") { TrainingLoadCard(page.trainingLoad) }
                 item(key = "stats") { StatsList(page.stats, onOpenGear = { state.eventSink(ActivityDetailEvent.OpenGear(it)) }) }

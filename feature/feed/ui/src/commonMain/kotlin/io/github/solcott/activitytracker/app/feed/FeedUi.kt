@@ -3,6 +3,7 @@ package io.github.solcott.activitytracker.app.feed
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.calculateEndPadding
@@ -48,6 +49,7 @@ import io.github.solcott.activitytracker.app.ui.adaptive.AppMenu
 import io.github.solcott.activitytracker.app.ui.adaptive.AppMenuItem
 import io.github.solcott.activitytracker.app.ui.adaptive.AppPullToRefresh
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
+import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTextButton
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
@@ -66,6 +68,10 @@ import io.github.solcott.activitytracker.composeApp.resources.feed_empty_manual_
 import io.github.solcott.activitytracker.composeApp.resources.feed_filter_clear
 import io.github.solcott.activitytracker.composeApp.resources.feed_filter_following
 import io.github.solcott.activitytracker.composeApp.resources.feed_filter_mine
+import io.github.solcott.activitytracker.composeApp.resources.feed_groups_anyone
+import io.github.solcott.activitytracker.composeApp.resources.feed_groups_body
+import io.github.solcott.activitytracker.composeApp.resources.feed_groups_connected
+import io.github.solcott.activitytracker.composeApp.resources.feed_groups_title
 import io.github.solcott.activitytracker.composeApp.resources.feed_import
 import io.github.solcott.activitytracker.composeApp.resources.feed_pending_writes
 import io.github.solcott.activitytracker.composeApp.resources.feed_record
@@ -78,6 +84,7 @@ import io.github.solcott.activitytracker.composeApp.resources.feed_segments_turn
 import io.github.solcott.activitytracker.composeApp.resources.feed_upload_paused
 import io.github.solcott.activitytracker.composeApp.resources.feed_upload_paused_tomorrow
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.segments.GroupChoice
 import io.github.solcott.activitytracker.lexicon.app.TimelineItem
 import io.github.solcott.uistate.isLoading
 import kotlin.time.Instant
@@ -225,6 +232,7 @@ private fun Timeline(
             }
             state.error?.let { item { Text(errorText(it), color = MaterialTheme.colorScheme.error) } }
             if (state.askSegments) item { SegmentsPrompt(state) }
+            if (state.askGroups) item { GroupsPrompt(state) }
             timelineItems(state)
             if (state.items.isEmpty() && !state.content.isLoading) {
                 item {
@@ -263,6 +271,32 @@ private fun SegmentsPrompt(state: FeedState, modifier: Modifier = Modifier) {
                 }
                 AppButton(onClick = { state.eventSink(FeedEvent.AnswerSegments(on = true)) }) {
                     Text(stringResource(Res.string.feed_segments_turn_on))
+                }
+            }
+        }
+    }
+}
+
+/** Asks once whose activities the athlete's may be grouped with; any answer is saved, so it isn't asked again. */
+@Composable
+private fun GroupsPrompt(state: FeedState, modifier: Modifier = Modifier) {
+    AppCard(modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(Res.string.feed_groups_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(Res.string.feed_groups_body), style = MaterialTheme.typography.bodyMedium)
+            FlowRow(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                AppTextButton(onClick = { state.eventSink(FeedEvent.AnswerGroups(GroupChoice.OFF)) }) {
+                    Text(stringResource(Res.string.feed_segments_not_now))
+                }
+                AppSecondaryButton(onClick = { state.eventSink(FeedEvent.AnswerGroups(GroupChoice.CONNECTED)) }) {
+                    Text(stringResource(Res.string.feed_groups_connected))
+                }
+                AppButton(onClick = { state.eventSink(FeedEvent.AnswerGroups(GroupChoice.ANYONE)) }) {
+                    Text(stringResource(Res.string.feed_groups_anyone))
                 }
             }
         }

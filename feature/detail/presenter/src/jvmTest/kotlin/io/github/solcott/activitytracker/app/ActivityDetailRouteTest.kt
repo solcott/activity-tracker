@@ -175,6 +175,7 @@ class ActivityDetailRouteTest : ActivityDetailTestBase() {
                 r.blocks,
                 r.reports,
                 r.segments,
+                r.groups,
             )
         }) {
             awaitLoaded().eventSink(ActivityDetailEvent.OpenMap)

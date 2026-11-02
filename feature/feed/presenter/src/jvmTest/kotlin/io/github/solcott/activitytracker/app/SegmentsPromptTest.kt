@@ -18,6 +18,7 @@ import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.feed.FeedRepository
 import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.segments.GroupChoice
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Nsid
@@ -41,7 +42,10 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-/** The feed's one-time question about segment matching (`segments/segment-track`: the athlete is asked once). */
+/**
+ * The feed's one-time questions about segment matching (`segments/segment-track`: the athlete is asked once) and grouping
+ * (feed/group-activities), asked one after the other.
+ */
 class SegmentsPromptTest {
     private val did = "did:plc:alice"
     private val json = headersOf("Content-Type", "application/json")
@@ -60,6 +64,11 @@ class SegmentsPromptTest {
 
     private val prefsPuts: MutableList<String> = Collections.synchronizedList(mutableListOf())
 
+    /** Alice's `actor.groupPrefs` as JSON; null for none. */
+    @Volatile private var groups: String? = null
+
+    private val groupPuts: MutableList<String> = Collections.synchronizedList(mutableListOf())
+
     private val http =
         HttpClient(
             MockEngine { request ->
@@ -76,9 +85,9 @@ class SegmentsPromptTest {
                     "/xrpc/com.atproto.space.createSpace" ->
                         respond("""{"uri":"at://$did/space/${Nsid.SPACE_ATHLETE}/self"}""", headers = json)
                     "/xrpc/com.atproto.space.getRecord" -> {
-                        val value = prefs
+                        val value = if (collection == Nsid.ACTOR_GROUP_PREFS) groups else prefs
                         when {
-                            collection != Nsid.ACTOR_SEGMENT_PREFS ->
+                            collection != Nsid.ACTOR_SEGMENT_PREFS && collection != Nsid.ACTOR_GROUP_PREFS ->
                                 respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, json)
                             failPrefsReads -> respond("""{"error":"InternalServerError"}""", HttpStatusCode.InternalServerError, json)
                             value == null -> respond("""{"error":"RecordNotFound"}""", HttpStatusCode.BadRequest, json)
@@ -104,6 +113,10 @@ class SegmentsPromptTest {
                             if (input.jsonObject.getValue("collection").jsonPrimitive.content == Nsid.ACTOR_SEGMENT_PREFS) {
                                 prefs = record.toString()
                                 prefsPuts += record.toString()
+                            }
+                            if (input.jsonObject.getValue("collection").jsonPrimitive.content == Nsid.ACTOR_GROUP_PREFS) {
+                                groups = record.toString()
+                                groupPuts += record.toString()
                             }
                             respond("""{"uri":"at://$did/x/self","cid":"bafyrec"}""", headers = json)
                         }
@@ -159,6 +172,7 @@ class SegmentsPromptTest {
                     UnsupportedLocationTracker(),
                     Clock.System,
                     segments.prefs,
+                    segments.groups,
                     RejectedChanges(db, clients, zones.outbox, feed, localLikes),
                     OutboxPacer(db, clients, activities, Clock.System, Logger),
                 )
@@ -172,6 +186,38 @@ class SegmentsPromptTest {
     private suspend fun ReceiveTurbine<FeedState>.settled(): FeedState {
         awaitUntil { it.content.isLoading }
         return awaitUntil { !it.content.isLoading }
+    }
+
+    @Test
+    fun groupingIsAskedOnlyOnceSegmentsAreAnsweredAndThenNeverAgain() = runTest {
+        feedTest {
+            val asked = awaitUntil { it.askSegments }
+            assertFalse(asked.askGroups, "never both at once")
+            asked.eventSink(FeedEvent.AnswerSegments(on = false))
+            val groupsAsked = awaitUntil { it.askGroups }
+            assertFalse(groupsAsked.askSegments)
+            groupsAsked.eventSink(FeedEvent.AnswerGroups(GroupChoice.CONNECTED))
+            awaitUntil { !it.askGroups }
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals("connected", AtJson.parseToJsonElement(groupPuts.single()).jsonObject.getValue("mode").jsonPrimitive.content)
+
+        feedTest {
+            val settled = settled()
+            assertFalse(settled.askSegments || settled.askGroups, "neither asked again")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun decliningGroupingStoresOff() = runTest {
+        prefs = """{"matching":false,"updatedAt":"2026-10-15T12:00:00Z"}"""
+        feedTest {
+            awaitUntil { it.askGroups }.eventSink(FeedEvent.AnswerGroups(GroupChoice.OFF))
+            awaitUntil { !it.askGroups }
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals("off", AtJson.parseToJsonElement(groupPuts.single()).jsonObject.getValue("mode").jsonPrimitive.content)
     }
 
     @Test

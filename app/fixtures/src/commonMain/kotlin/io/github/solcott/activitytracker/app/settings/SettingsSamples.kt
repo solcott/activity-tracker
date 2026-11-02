@@ -5,6 +5,7 @@ import io.github.solcott.activitytracker.app.fixtures.ContentStates
 import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
 import io.github.solcott.activitytracker.app.fixtures.contentSamples
+import io.github.solcott.activitytracker.data.segments.GroupChoice
 import io.github.solcott.activitytracker.data.training.EffectiveTraining
 import io.github.solcott.activitytracker.data.training.PaceUnit
 import io.github.solcott.activitytracker.data.training.ZoneKind
@@ -37,6 +38,7 @@ object SettingsSamples {
                 error = null,
                 privacyZoneCount = 1,
                 segmentMatching = true,
+                groupActivities = GroupChoice.CONNECTED,
                 eventSink = {},
             )
 

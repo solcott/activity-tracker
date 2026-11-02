@@ -26,6 +26,9 @@ import io.github.solcott.activitytracker.app.ui.adaptive.PlatformIcon
 import io.github.solcott.activitytracker.app.ui.adaptive.handCursor
 import io.github.solcott.activitytracker.composeApp.resources.Res
 import io.github.solcott.activitytracker.composeApp.resources.activity_card_counts
+import io.github.solcott.activitytracker.composeApp.resources.card_with_one
+import io.github.solcott.activitytracker.composeApp.resources.card_with_others
+import io.github.solcott.activitytracker.composeApp.resources.card_with_two
 import io.github.solcott.activitytracker.composeApp.resources.comments_count
 import io.github.solcott.activitytracker.composeApp.resources.like_content_description
 import io.github.solcott.activitytracker.composeApp.resources.like_count
@@ -33,6 +36,7 @@ import io.github.solcott.activitytracker.composeApp.resources.stat_time
 import io.github.solcott.activitytracker.data.moderation.ModerationDecision
 import io.github.solcott.activitytracker.data.units.formatWhole
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
+import io.github.solcott.activitytracker.lexicon.app.GroupPartner
 import io.github.solcott.activitytracker.lexicon.app.Sport
 import io.github.solcott.activitytracker.lexicon.app.activityType
 import io.github.solcott.activitytracker.lexicon.app.effectiveRecord
@@ -82,6 +86,7 @@ fun ActivityCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    TogetherWith(activity)
                 }
             }
             ModerationNotice(decision, isOwn, warn = ModerationDecision.warnOf(activity.labels, activity.author.labels))
@@ -166,5 +171,24 @@ fun DiveSite(name: String, modifier: Modifier = Modifier) {
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
         PlatformIcon(AppIcon.Location, contentDescription = null, size = 16.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** The card's line naming whom [activity] was done with; nothing when it lists no one. */
+@Composable
+private fun TogetherWith(activity: ActivityView) {
+    val partners = remember(activity) { activity.group.orEmpty().toImmutableList() }
+    if (partners.isEmpty()) return
+    Text(togetherWith(partners), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** Whom an activity was done with (feed/group-activities): "with Bob", "with Bob and Carol", or "with Bob and 2 others". */
+@Composable
+fun togetherWith(partners: ImmutableList<GroupPartner>): String {
+    fun name(partner: GroupPartner) = partner.author.displayName ?: partner.author.handle.value
+    return when (partners.size) {
+        1 -> stringResource(Res.string.card_with_one, name(partners[0]))
+        2 -> stringResource(Res.string.card_with_two, name(partners[0]), name(partners[1]))
+        else -> pluralStringResource(Res.plurals.card_with_others, partners.size - 1, name(partners[0]), partners.size - 1)
     }
 }

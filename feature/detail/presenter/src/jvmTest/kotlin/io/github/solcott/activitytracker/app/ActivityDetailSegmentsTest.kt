@@ -52,6 +52,7 @@ class ActivityDetailSegmentsTest : ActivityDetailTestBase() {
                 r.blocks,
                 r.reports,
                 r.segments,
+                r.groups,
             )
         }) {
             val state = awaitUntil { s -> s.loaded()?.let(ready) == true }.page()!!

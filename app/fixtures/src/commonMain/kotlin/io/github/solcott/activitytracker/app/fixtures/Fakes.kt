@@ -11,6 +11,7 @@ import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
 import io.github.solcott.activitytracker.lexicon.app.GearItemRecord
 import io.github.solcott.activitytracker.lexicon.app.GearType
+import io.github.solcott.activitytracker.lexicon.app.GroupPartner
 import io.github.solcott.activitytracker.lexicon.app.Location
 import io.github.solcott.activitytracker.lexicon.app.ProfileDetails
 import io.github.solcott.activitytracker.lexicon.app.ProfileView
@@ -96,6 +97,10 @@ fun fakeActivity(
         indexedAt = Fixed.CREATED_AT,
         visibility = visibility,
     )
+
+/** [author]'s activity [rkey], done together with another's (feed/group-activities). */
+fun fakeGroupPartner(author: ProfileViewBasic = fakeProfileBasic(Fixed.CAROL), rkey: String = "3kpartner1"): GroupPartner =
+    GroupPartner(author = author, uri = Fixed.uri(author.did, Nsid.FEED_ACTIVITY, rkey))
 
 fun fakeComment(
     rkey: String = "3kcomment1",

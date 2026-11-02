@@ -68,6 +68,8 @@ data class UiError(val kind: Kind, val reason: DataError? = null) {
         ReadActivityFile,
         UnsupportedActivityFile,
         SaveSettings,
+        /** Leaving or rejoining the group on an activity (feed/group-activities). */
+        ChangeGroup,
         SaveProfile,
         SaveZones,
         LoadPrivacyZones,

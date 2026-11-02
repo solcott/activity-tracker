@@ -7,6 +7,7 @@ import com.slack.circuit.serialization.CircuitSerializable
 import io.github.solcott.activitytracker.app.UiError
 import io.github.solcott.activitytracker.app.visibility.VisibilityFields
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.segments.GroupChoice
 import io.github.solcott.activitytracker.data.units.UnitSystem
 
 /** The signed-in athlete's preferences, and sign-out. */
@@ -42,6 +43,14 @@ data class SettingsState(
     /** Whether this session can use bracket boards: false for one signed in before its `space:` grant listed the brackets record. */
     val canUseBracketBoards: Boolean = true,
     val savingBracketBoards: Boolean = false,
+    /**
+     * Whose activities the athlete's may be grouped with (feed/group-activities); [GroupChoice.NEVER_ASKED] shows as off, and null while
+     * it's unknown (not read yet, or unreadable).
+     */
+    val groupActivities: GroupChoice? = null,
+    /** Whether this session can use grouping: false for one signed in before its `space:` grant listed it. */
+    val canUseGroups: Boolean = true,
+    val savingGroups: Boolean = false,
     val eventSink: (SettingsEvent) -> Unit,
 ) : CircuitUiState
 
@@ -73,6 +82,12 @@ sealed interface SettingsEvent {
      * (segments/leaderboard-brackets).
      */
     data class BracketBoardsChanged(val on: Boolean) : SegmentSettingEvent
+
+    /**
+     * Chooses whose activities the athlete's may be grouped with: a copy of each route without the privacy zones is shared with the AppView
+     * while it isn't off (feed/group-activities).
+     */
+    data class GroupActivitiesChanged(val choice: GroupChoice) : SettingsEvent
 
     /** The segment settings' events, which their holder handles. */
     sealed interface SegmentSettingEvent : SettingsEvent

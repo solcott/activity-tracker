@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.app.fixtures.contentSamples
 import io.github.solcott.activitytracker.app.fixtures.fakeActivity
 import io.github.solcott.activitytracker.app.fixtures.fakeComment
 import io.github.solcott.activitytracker.app.fixtures.fakeEffort
+import io.github.solcott.activitytracker.app.fixtures.fakeGroupPartner
 import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
 import io.github.solcott.activitytracker.app.fixtures.fakeSegment
 import io.github.solcott.activitytracker.app.fixtures.fakeSegmentBasic
@@ -22,7 +23,10 @@ import kotlinx.collections.immutable.persistentListOf
 object ActivityDetailSamples {
     val activity: ActivityView = fakeActivity()
 
-    /** A page of [activity] as someone else sees it, with one comment and one segment effort. A new draft each time. */
+    /**
+     * A page of [activity] as someone else sees it, with one comment, one segment effort and one athlete it was done with. A new draft each
+     * time.
+     */
     val page: ActivityDetailPage
         get() {
             val comment = fakeComment()
@@ -51,6 +55,7 @@ object ActivityDetailSamples {
                     ),
                 route = activity.record.polyline?.let { ShownRoute(it, gaps = null, ends = null) },
                 segments = groupEfforts(listOf(fakeEffort(activity = activity.uri))),
+                partners = persistentListOf(fakeGroupPartner()),
             )
         }
 
@@ -87,7 +92,11 @@ object ActivityDetailSamples {
 
     /** The owner's own page. */
     val own: ActivityDetailState
-        get() = ActivityDetailState(ContentStates.loaded(page.copy(viewerDid = Fixed.ALICE, isOwn = true)), eventSink = {})
+        get() =
+            ActivityDetailState(
+                ContentStates.loaded(page.copy(viewerDid = Fixed.ALICE, isOwn = true, ownGroup = OwnGroupState(left = false))),
+                eventSink = {},
+            )
 }
 
 object CombinePickerSamples {

@@ -7,6 +7,7 @@ import io.github.solcott.activitytracker.app.fixtures.Fixed
 import io.github.solcott.activitytracker.app.fixtures.SampleKind
 import io.github.solcott.activitytracker.app.fixtures.fakeActivity
 import io.github.solcott.activitytracker.app.fixtures.fakeActivityRecord
+import io.github.solcott.activitytracker.app.fixtures.fakeGroupPartner
 import io.github.solcott.activitytracker.app.fixtures.fakeProfileBasic
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CardRoute
@@ -25,7 +26,8 @@ import kotlinx.collections.immutable.toImmutableList
 object FeedSamples {
     val activities: ImmutableList<ActivityView> =
         persistentListOf(
-            fakeActivity(),
+            // Done with Carol (feed/group-activities).
+            fakeActivity().copy(group = listOf(fakeGroupPartner())),
             fakeActivity(
                 rkey = "3kactivity2",
                 author = fakeProfileBasic(Fixed.BOB),
@@ -105,6 +107,10 @@ object FeedSamples {
     val paused: FeedState
         get() = state(ContentStates.loaded(items)).copy(pendingWrites = 3000, uploadPausedUntil = Fixed.NOW + 3.hours + 40.minutes)
 
+    /** Loaded, asking once whose activities the athlete's may be grouped with (feed/group-activities). */
+    val askingGroups: FeedState
+        get() = state(ContentStates.loaded(items)).copy(askGroups = true)
+
     val all: Map<String, FeedState>
         get() =
             mapOf(
@@ -117,5 +123,6 @@ object FeedSamples {
                 "unsent" to unsent,
                 "paused" to paused,
                 "imported" to imported,
+                "askingGroups" to askingGroups,
             )
 }

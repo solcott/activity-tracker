@@ -41,6 +41,7 @@ class ActivityFileDataChartsTest : ActivityDetailTestBase() {
                 r.blocks,
                 r.reports,
                 r.segments,
+                r.groups,
             )
         }) {
             var state = awaitLoaded()

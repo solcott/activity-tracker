@@ -68,6 +68,7 @@ open class ActivityDetailTestBase : ActivityTestBase() {
             r.blocks,
             r.reports,
             r.segments,
+            r.groups,
         )
     }
 

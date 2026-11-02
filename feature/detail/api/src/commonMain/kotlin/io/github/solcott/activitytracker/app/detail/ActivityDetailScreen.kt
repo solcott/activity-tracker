@@ -20,6 +20,7 @@ import io.github.solcott.activitytracker.lexicon.AtUri
 import io.github.solcott.activitytracker.lexicon.Did
 import io.github.solcott.activitytracker.lexicon.app.ActivityView
 import io.github.solcott.activitytracker.lexicon.app.CommentView
+import io.github.solcott.activitytracker.lexicon.app.GroupPartner
 import io.github.solcott.activitytracker.lexicon.app.MemberView
 import io.github.solcott.activitytracker.lexicon.app.ProfileViewBasic
 import io.github.solcott.uistate.ContentState
@@ -125,7 +126,23 @@ data class ActivityDetailPage(
     val canCreateSegment: Boolean = false,
     /** A segment was just published from this activity; it shows once the AppView has processed it. */
     val segmentCreated: Boolean = false,
+    /**
+     * Other athletes' activities done together with this one that the viewer may see (feed/group-activities), most recently paired first;
+     * empty when there are none, or the owner just left the group here.
+     */
+    val partners: ImmutableList<GroupPartner> = persistentListOf(),
+    /** On the owner's own activity, leaving or rejoining its group; null on anyone else's, or when it can't be offered now. */
+    val ownGroup: OwnGroupState? = null,
 )
+
+/**
+ * Leaving or rejoining the group on the owner's own activity (feed/group-activities): offered while their grouping is on and its segment
+ * track is stored.
+ *
+ * @property left the activity left its group, as the owner last chose it here or as stored.
+ * @property busy queueing the change.
+ */
+@Immutable data class OwnGroupState(val left: Boolean, val busy: Boolean = false, val error: UiError? = null)
 
 /**
  * Another of the owner's activities this one likely belongs with (`feed/combine-suggestions`), until they combine them or say not to.
@@ -285,6 +302,12 @@ sealed interface ActivityDetailEvent {
 
     /** Opens another recording of this activity, or the activity this one is a recording of. */
     data class OpenActivity(val uri: AtUri) : ActivityDetailEvent
+
+    /** On the owner's own activity, leaves its group: no one is listed with it, and it isn't paired again until [RejoinGroup]. */
+    data object LeaveGroup : ActivityDetailEvent
+
+    /** On the owner's own activity, rejoins its group, so it can be paired again. */
+    data object RejoinGroup : ActivityDetailEvent
 
     /** Sends the draft: a reply to [ActivityDetailPage.replyingTo] when set, else a top-level comment. */
     data object SendComment : ActivityDetailEvent

@@ -23,6 +23,7 @@ import io.github.solcott.activitytracker.app.ui.UnitSystemPicker
 import io.github.solcott.activitytracker.app.ui.VisibilityPicker
 import io.github.solcott.activitytracker.app.ui.adaptive.AppScaffold
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSecondaryButton
+import io.github.solcott.activitytracker.app.ui.adaptive.AppSegmentedControl
 import io.github.solcott.activitytracker.app.ui.adaptive.AppSwitch
 import io.github.solcott.activitytracker.app.ui.adaptive.AppTopBar
 import io.github.solcott.activitytracker.app.ui.adaptive.readableWidth
@@ -38,6 +39,12 @@ import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_
 import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_heading
 import io.github.solcott.activitytracker.composeApp.resources.settings_defaults_help
 import io.github.solcott.activitytracker.composeApp.resources.settings_gear
+import io.github.solcott.activitytracker.composeApp.resources.settings_groups_anyone
+import io.github.solcott.activitytracker.composeApp.resources.settings_groups_connected
+import io.github.solcott.activitytracker.composeApp.resources.settings_groups_heading
+import io.github.solcott.activitytracker.composeApp.resources.settings_groups_help
+import io.github.solcott.activitytracker.composeApp.resources.settings_groups_off
+import io.github.solcott.activitytracker.composeApp.resources.settings_groups_sign_in_again
 import io.github.solcott.activitytracker.composeApp.resources.settings_moderation
 import io.github.solcott.activitytracker.composeApp.resources.settings_muted_accounts
 import io.github.solcott.activitytracker.composeApp.resources.settings_privacy_zones
@@ -58,7 +65,9 @@ import io.github.solcott.activitytracker.composeApp.resources.settings_units_imp
 import io.github.solcott.activitytracker.composeApp.resources.settings_units_metric_example
 import io.github.solcott.activitytracker.composeApp.resources.settings_zones
 import io.github.solcott.activitytracker.data.di.SessionScope
+import io.github.solcott.activitytracker.data.segments.GroupChoice
 import io.github.solcott.activitytracker.data.units.UnitSystem
+import kotlinx.collections.immutable.persistentListOf
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -113,6 +122,8 @@ fun SettingsUi(state: SettingsState, modifier: Modifier = Modifier) {
             }
             HorizontalDivider()
             SegmentMatching(state)
+            HorizontalDivider()
+            GroupActivities(state)
             HorizontalDivider()
             AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.OpenGear) }) { Text(stringResource(Res.string.settings_gear)) }
             AppSecondaryButton(onClick = { state.eventSink(SettingsEvent.OpenBlocked) }) {
@@ -238,3 +249,38 @@ private fun SegmentMatching(state: SettingsState, modifier: Modifier = Modifier)
         )
     }
 }
+
+/** Whose activities the athlete's may be grouped with (feed/group-activities): off, people they follow or who follow them, or anyone. */
+@Composable
+private fun GroupActivities(state: SettingsState, modifier: Modifier = Modifier) {
+    val choices = GROUP_CHOICES
+    val selected = choices.indexOf(state.groupActivities.takeUnless { it == GroupChoice.NEVER_ASKED } ?: GroupChoice.OFF)
+    val labels =
+        persistentListOf(
+            stringResource(Res.string.settings_groups_off),
+            stringResource(Res.string.settings_groups_connected),
+            stringResource(Res.string.settings_groups_anyone),
+        )
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(stringResource(Res.string.settings_groups_heading), style = MaterialTheme.typography.titleMedium)
+        AppSegmentedControl(
+            labels,
+            selected,
+            onSelect = { state.eventSink(SettingsEvent.GroupActivitiesChanged(choices[it])) },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = state.canUseGroups && state.groupActivities != null && !state.savingGroups,
+        )
+        Text(
+            stringResource(
+                when {
+                    !state.canUseGroups -> Res.string.settings_groups_sign_in_again
+                    state.savingGroups -> Res.string.settings_saving
+                    else -> Res.string.settings_groups_help
+                }
+            ),
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
+}
+
+private val GROUP_CHOICES = listOf(GroupChoice.OFF, GroupChoice.CONNECTED, GroupChoice.ANYONE)

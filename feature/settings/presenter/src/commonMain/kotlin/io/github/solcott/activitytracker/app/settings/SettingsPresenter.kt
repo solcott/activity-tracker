@@ -21,6 +21,7 @@ import io.github.solcott.activitytracker.data.activity.PrivacyZones
 import io.github.solcott.activitytracker.data.auth.AuthRepository
 import io.github.solcott.activitytracker.data.di.SessionScope
 import io.github.solcott.activitytracker.data.moderation.ModerationRepository
+import io.github.solcott.activitytracker.data.segments.GroupPrefsRepository
 import io.github.solcott.activitytracker.data.segments.LeaderboardBracketsRepository
 import io.github.solcott.activitytracker.data.segments.SegmentPrefsRepository
 import io.github.solcott.activitytracker.data.units.UnitsRepository
@@ -37,6 +38,7 @@ fun SettingsPresenter(
     moderation: ModerationRepository,
     segmentPrefs: SegmentPrefsRepository,
     leaderboardBrackets: LeaderboardBracketsRepository,
+    groupPrefs: GroupPrefsRepository,
 ): SettingsState {
     // UnitsRepository updates optimistically, so the choice shows at once and reverts if the save fails.
     val units by unitsRepository.units.collectAsState()
@@ -51,6 +53,7 @@ fun SettingsPresenter(
     var canModerate by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { canModerate = runSuspendCatching { moderation.canModerate() }.getOrDefault(false) }
     val segments = rememberSegmentMatchingSetting(segmentPrefs, leaderboardBrackets, flights) { error = it }
+    val groups = rememberGroupActivitiesSetting(groupPrefs, flights) { error = it }
 
     return SettingsState(
         units,
@@ -69,6 +72,9 @@ fun SettingsPresenter(
         bracketBoards = segments.bracketBoards,
         canUseBracketBoards = segments.canUseBracketBoards,
         savingBracketBoards = segments.savingBracketBoards,
+        groupActivities = groups.choice,
+        canUseGroups = groups.canUse,
+        savingGroups = groups.saving,
     ) { event ->
         when (event) {
             SettingsEvent.Back -> {
@@ -111,6 +117,10 @@ fun SettingsPresenter(
 
             is SettingsEvent.SegmentSettingEvent -> {
                 segments.onEvent(event)
+            }
+
+            is SettingsEvent.GroupActivitiesChanged -> {
+                groups.set(event.choice)
             }
 
             // Dropping the session tears down the SessionGraph and returns to LoginScreen.

@@ -10,6 +10,7 @@ import io.github.solcott.activitytracker.app.settings.TrainingZonesScreen
 import io.github.solcott.activitytracker.app.visibility.VisibilityEvent
 import io.github.solcott.activitytracker.data.di.signedInTestSession
 import io.github.solcott.activitytracker.data.moderation.ModerationRepository
+import io.github.solcott.activitytracker.data.segments.GroupChoice
 import io.github.solcott.activitytracker.data.units.UnitSystem
 import io.github.solcott.activitytracker.lexicon.AtJson
 import io.github.solcott.activitytracker.lexicon.Did
@@ -50,6 +51,7 @@ class SettingsPresenterTest {
                 moderation,
                 repos.segmentPrefs,
                 repos.leaderboardBrackets,
+                repos.groupPrefs,
             )
         }) {
             val initial = awaitItem()
@@ -79,6 +81,7 @@ class SettingsPresenterTest {
                 moderation,
                 repos.segmentPrefs,
                 repos.leaderboardBrackets,
+                repos.groupPrefs,
             )
         }) {
             awaitItem().eventSink(SettingsEvent.UnitsChanged(UnitSystem.Imperial))
@@ -104,6 +107,7 @@ class SettingsPresenterTest {
                 moderation,
                 repos.segmentPrefs,
                 repos.leaderboardBrackets,
+                repos.groupPrefs,
             )
         }) {
             awaitItem().eventSink(SettingsEvent.Back)
@@ -127,6 +131,7 @@ class SettingsPresenterTest {
                 moderation,
                 repos.segmentPrefs,
                 repos.leaderboardBrackets,
+                repos.groupPrefs,
             )
         }) {
             awaitItem().eventSink(SettingsEvent.OpenZones)
@@ -150,6 +155,7 @@ class SettingsPresenterTest {
                 moderation,
                 repos.segmentPrefs,
                 repos.leaderboardBrackets,
+                repos.groupPrefs,
             )
         }) {
             awaitItem().eventSink(SettingsEvent.OpenGear)
@@ -172,6 +178,7 @@ class SettingsPresenterTest {
                 moderation,
                 repos.segmentPrefs,
                 repos.leaderboardBrackets,
+                repos.groupPrefs,
             )
         }) {
             val loaded = awaitUntil { it.defaults != null }
@@ -210,6 +217,7 @@ class SettingsPresenterTest {
                 moderation,
                 again.segmentPrefs,
                 again.leaderboardBrackets,
+                again.groupPrefs,
             )
         }) {
             val reloaded = awaitUntil { it.defaults != null }.defaults
@@ -234,6 +242,7 @@ class SettingsPresenterTest {
                 moderation,
                 repos.segmentPrefs,
                 repos.leaderboardBrackets,
+                repos.groupPrefs,
             )
         }) {
             val defaults = awaitUntil { it.defaults != null }.defaults!!
@@ -262,6 +271,7 @@ class SettingsPresenterTest {
                 moderation,
                 repos.segmentPrefs,
                 repos.leaderboardBrackets,
+                repos.groupPrefs,
             )
         }) {
             val loaded = awaitUntil { it.segmentMatching != null }
@@ -292,6 +302,7 @@ class SettingsPresenterTest {
                 moderation,
                 repos.segmentPrefs,
                 repos.leaderboardBrackets,
+                repos.groupPrefs,
             )
         }) {
             val off = awaitUntil { it.segmentMatching != null && it.showOnLeaderboards != null }
@@ -334,6 +345,7 @@ class SettingsPresenterTest {
                 moderation,
                 repos.segmentPrefs,
                 repos.leaderboardBrackets,
+                repos.groupPrefs,
             )
         }) {
             val off = awaitUntil { it.segmentMatching == true && it.bracketBoards != null }
@@ -374,6 +386,7 @@ class SettingsPresenterTest {
                 moderation,
                 repos.segmentPrefs,
                 repos.leaderboardBrackets,
+                repos.groupPrefs,
             )
         }) {
             val loaded = awaitUntil { it.segmentMatching == false && it.bracketBoards != null }
@@ -404,6 +417,7 @@ class SettingsPresenterTest {
                 moderation,
                 repos.segmentPrefs,
                 repos.leaderboardBrackets,
+                repos.groupPrefs,
             )
         }) {
             val loaded = awaitUntil { it.segmentMatching == true }
@@ -427,6 +441,7 @@ class SettingsPresenterTest {
                 moderation,
                 repos.segmentPrefs,
                 repos.leaderboardBrackets,
+                repos.groupPrefs,
             )
         }) {
             val loaded = awaitUntil { it.segmentMatching != null }
@@ -456,6 +471,7 @@ class SettingsPresenterTest {
                 moderation,
                 repos.segmentPrefs,
                 repos.leaderboardBrackets,
+                repos.groupPrefs,
             )
         }) {
             val state = awaitItem()
@@ -481,6 +497,7 @@ class SettingsPresenterTest {
                 moderation,
                 repos.segmentPrefs,
                 repos.leaderboardBrackets,
+                repos.groupPrefs,
             )
         }) {
             val loaded = awaitUntil { it.segmentMatching != null }
@@ -507,6 +524,7 @@ class SettingsPresenterTest {
                 forModerator,
                 repos.segmentPrefs,
                 repos.leaderboardBrackets,
+                repos.groupPrefs,
             )
         }) {
             val offered = awaitUntil { it.canModerate }
@@ -525,6 +543,7 @@ class SettingsPresenterTest {
                 forTriage,
                 repos.segmentPrefs,
                 repos.leaderboardBrackets,
+                repos.groupPrefs,
             )
         }) {
             val state = awaitItem()
@@ -551,5 +570,73 @@ class SettingsPresenterTest {
                 expectSuccess = false
             }
         return ModerationRepository(signedInTestSession(http, labelerDid = Did("did:plc:labeler")).clients)
+    }
+
+    @Test
+    fun choosingGroupActivitiesSavesItInSelfAndAFailureKeepsTheEarlierChoice() = runTest {
+        val repos = fixture.repos()
+        val moderation = fixture.moderation()
+        presenterTestOf({
+            SettingsPresenter(
+                FakeNavigator(SettingsScreen),
+                repos.units,
+                repos.auth,
+                repos.defaults,
+                repos.privacy,
+                moderation,
+                repos.segmentPrefs,
+                repos.leaderboardBrackets,
+                repos.groupPrefs,
+            )
+        }) {
+            val loaded = awaitUntil { it.groupActivities != null }
+            assertEquals(GroupChoice.NEVER_ASKED, loaded.groupActivities)
+
+            loaded.eventSink(SettingsEvent.GroupActivitiesChanged(GroupChoice.CONNECTED))
+            loaded.eventSink(SettingsEvent.GroupActivitiesChanged(GroupChoice.CONNECTED))
+            val saved = awaitUntil { it.groupActivities == GroupChoice.CONNECTED && !it.savingGroups }
+            assertNull(saved.error)
+            assertEquals(
+                "connected",
+                AtJson.parseToJsonElement(assertNotNull(fixture.groupPrefs)).jsonObject["mode"]?.jsonPrimitive?.content,
+            )
+            assertNotNull(repos.groupPrefs.saved.value, "a save starts the sweep")
+
+            fixture.failWrites = true
+            saved.eventSink(SettingsEvent.GroupActivitiesChanged(GroupChoice.ANYONE))
+            val failed = awaitUntil { it.error != null && !it.savingGroups }
+            assertEquals(UiError.Kind.SaveSettings, failed.error?.kind)
+            assertEquals(GroupChoice.CONNECTED, failed.groupActivities)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun anOldGrantCantUseGroupActivities() = runTest {
+        fixture.scope =
+            "atproto transition:generic space:${Nsid.SPACE_ATHLETE}?collection=${Nsid.ACTOR_SEGMENT_PREFS}" +
+                "&collection=${Nsid.FEED_SEGMENT_TRACK}"
+        val repos = fixture.repos()
+        val moderation = fixture.moderation()
+        presenterTestOf({
+            SettingsPresenter(
+                FakeNavigator(SettingsScreen),
+                repos.units,
+                repos.auth,
+                repos.defaults,
+                repos.privacy,
+                moderation,
+                repos.segmentPrefs,
+                repos.leaderboardBrackets,
+                repos.groupPrefs,
+            )
+        }) {
+            val loaded = awaitUntil { it.segmentMatching != null }
+            assertFalse(loaded.canUseGroups)
+            loaded.eventSink(SettingsEvent.GroupActivitiesChanged(GroupChoice.ANYONE))
+            assertFalse(loaded.savingGroups)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertNull(fixture.groupPrefs)
     }
 }

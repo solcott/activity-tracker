@@ -52,6 +52,7 @@
     <string name="error_sign_in_complete">Sign-in failed</string>
     <string name="error_sign_in_find_account">No account found for that handle</string>
     <string name="error_save_settings">Couldn't save settings</string>
+    <string name="error_change_group">Couldn't change the group</string>
     <string name="error_save_profile">Couldn't save profile</string>
     <string name="error_save_zones">Couldn't save zones</string>
     <string name="error_load_privacy_zones">Couldn't load your privacy zones</string>
@@ -311,6 +312,12 @@
 
     <!-- Activity card -->
     <string name="like_content_description">Like</string>
+    <string name="card_with_one">with %1$s</string>
+    <string name="card_with_two">with %1$s and %2$s</string>
+    <plurals name="card_with_others">
+        <item quantity="one">with %1$s and %2$d other</item>
+        <item quantity="other">with %1$s and %2$d others</item>
+    </plurals>
     <plurals name="like_count">
         <item quantity="one">%1$d like</item>
         <item quantity="other">%1$d likes</item>
@@ -392,6 +399,10 @@
     <string name="feed_filter_clear">Clear filters</string>
 
     <!-- Activity detail -->
+    <string name="detail_together_with">Together with</string>
+    <string name="detail_group_leave">Leave group</string>
+    <string name="detail_group_rejoin">Rejoin group</string>
+    <string name="detail_group_left">You left the group on this activity. No one is listed with it.</string>
     <string name="detail_title">Activity</string>
     <string name="detail_show_likes">Show likes</string>
     <string name="detail_hide_likes">Hide likes</string>
@@ -449,10 +460,20 @@
     <string name="settings_segments_brackets_help">Shares only your age group, weight class and gender with the app's server, never your birth date or weight, even if they're Only me. Anyone who can see your times can see which of these boards you're on.</string>
     <string name="settings_segments_help">Shares a copy of your routes, with your privacy zones and hidden starts and ends removed, with the app's server so it can find the segments you've done. No one else sees it. Your times can appear on segment leaderboards to people who may see those activities. Turning this off deletes those copies.</string>
     <string name="settings_segments_sign_in_again">Sign in again to use segments.</string>
+    <string name="settings_groups_heading">Group activities</string>
+    <string name="settings_groups_off">Off</string>
+    <string name="settings_groups_connected">People I follow</string>
+    <string name="settings_groups_anyone">Anyone</string>
+    <string name="settings_groups_help">Links your activities with others' you did together, like a ride with friends. Shares a copy of your routes, with your privacy zones and hidden starts and ends removed, with the app's server so it can tell who you were with. No one else sees it. "People I follow" groups you only with people you follow or who follow you; "Anyone" with anyone who also chose to be grouped. A partner is shown only to people who may see their activity, its start time and its map. You can leave the group on any activity.</string>
+    <string name="settings_groups_sign_in_again">Sign in again to use group activities.</string>
     <string name="feed_segments_title">Find segments on your activities?</string>
     <string name="feed_segments_body">To find the segments you've done, a copy of your routes, with your privacy zones and hidden starts and ends removed, is shared with the app's server. No one else sees it. Your times can appear on segment leaderboards to people who may see those activities, unless you keep off them in Settings. You can change this in Settings.</string>
     <string name="feed_segments_turn_on">Turn on</string>
     <string name="feed_segments_not_now">Not now</string>
+    <string name="feed_groups_title">Link activities you do together?</string>
+    <string name="feed_groups_body">When you ride, run or paddle with others who also chose this, your activities can be linked, so each shows who you were with. To tell who you were with, a copy of your routes, with your privacy zones and hidden starts and ends removed, is shared with the app's server. No one else sees it. A partner is shown only to people who may see their activity, its start time and its map. You can leave the group on any activity, and change this in Settings.</string>
+    <string name="feed_groups_connected">People I follow</string>
+    <string name="feed_groups_anyone">Anyone</string>
     <string name="privacy_zones_help">Others never see the parts of your routes inside these zones, whoever you share an activity with. You still see your whole route.</string>
     <string name="privacy_zones_empty">No privacy zones yet.</string>
     <string name="privacy_zones_from_activity">To hide where an activity started or ended, open it and choose Hide this start or Hide this end.</string>

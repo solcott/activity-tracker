@@ -26,6 +26,7 @@ import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.segments.OwnGroups
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.data.units.UnitSystem
@@ -253,6 +254,7 @@ open class CombineTestBase {
         val blocks: BlockRepository,
         val reports: ReportRepository,
         val segments: SegmentRepository,
+        val groups: OwnGroups,
     )
 
     /** A session that can write to the repo only, so the PDS here is just Alice's repo. */
@@ -313,6 +315,7 @@ open class CombineTestBase {
             BlockRepository(clients, writer, outbox, feed, Clock.System),
             ReportRepository(clients),
             SegmentRepository(clients),
+            segmentsOf(clients).let { OwnGroups(it.groups, it.store) },
         )
     }
 
@@ -344,6 +347,7 @@ open class CombineTestBase {
                 g.blocks,
                 g.reports,
                 g.segments,
+                g.groups,
             )
         }
     }

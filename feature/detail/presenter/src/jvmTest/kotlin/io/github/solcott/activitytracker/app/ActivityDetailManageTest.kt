@@ -27,6 +27,7 @@ import io.github.solcott.activitytracker.data.feed.LocalLikes
 import io.github.solcott.activitytracker.data.moderation.ReportRepository
 import io.github.solcott.activitytracker.data.profile.BlockRepository
 import io.github.solcott.activitytracker.data.profile.ProfileRepository
+import io.github.solcott.activitytracker.data.segments.OwnGroups
 import io.github.solcott.activitytracker.data.segments.SegmentRepository
 import io.github.solcott.activitytracker.data.sport.RecentActivityTypes
 import io.github.solcott.activitytracker.data.units.UnitSystem
@@ -214,6 +215,7 @@ class ActivityDetailManageTest {
                 BlockRepository(clients, writer, outbox, feed, Clock.System),
                 ReportRepository(clients),
                 SegmentRepository(clients),
+                segmentsOf(clients).let { OwnGroups(it.groups, it.store) },
             )
         }
     }
