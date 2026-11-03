@@ -43,6 +43,10 @@ cryptography = "0.6.0"
 # Desktop OAuth key in the OS credential store (macOS Keychain, Windows Credential Manager, freedesktop Secret Service).
 javaKeyring = "1.0.4"
 material3 = "1.12.0-alpha03"
+# Material 3 adaptive, for Settings' ListDetailPaneScaffold. Its own version line: it doesn't track composeMultiplatform. The
+# androidx.compose.material3.adaptive coordinates are Android-only, so commonMain can't use them; JetBrains' repackage publishes android,
+# jvm, iOS and wasmJs. It needs compose 1.10.0 and depends on no material3, so it can't drag material3 backwards.
+material3Adaptive = "1.3.0"
 materialIcons = "1.7.3"
 kotlinxBrowser = "0.5.0"
 kermit = "2.2.0"
@@ -157,6 +161,10 @@ compose-ui-test = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "
 compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "composeMultiplatform" }
 #noinspection UnusedVersionCatalogEntry
 compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "material3" }
+# The two-pane list/detail layout. Deliberately without `adaptive-navigation`: its ThreePaneScaffoldNavigator would be a second
+# navigation state competing with Circuit's back stack.
+compose-material3-adaptive = { module = "org.jetbrains.compose.material3.adaptive:adaptive", version.ref = "material3Adaptive" }
+compose-material3-adaptive-layout = { module = "org.jetbrains.compose.material3.adaptive:adaptive-layout", version.ref = "material3Adaptive" }
 compose-material-icons-core = { module = "org.jetbrains.compose.material:material-icons-core", version.ref = "materialIcons" }
 maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version.ref = "maplibreCompose" }
 maplibre-compose-runtime-vulkan-android = { module = "org.maplibre.compose:maplibre-compose-runtime-vulkan-android", version.ref = "maplibreCompose" }

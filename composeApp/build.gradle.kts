@@ -110,6 +110,8 @@ kotlin {
             implementation(libs.coil.compose)
             implementation(libs.coil.network.ktor3)
             implementation(libs.compose.material.icons.core)
+            implementation(libs.compose.material3.adaptive)
+            implementation(libs.compose.material3.adaptive.layout)
             implementation(libs.filekit.dialogs.compose)
             implementation(libs.haze)
             implementation(libs.haze.blur)
